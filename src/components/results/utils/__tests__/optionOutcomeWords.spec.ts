@@ -23,19 +23,24 @@ describe('readOptionOutcomeWords', () => {
     expect(optionOutcomeReading(readOptionOutcomeWords([{ ...RECORD, options: [] }]))).toBe('Their likely ranges clearly separate.')
   })
 
+  it('a single ranged option (CEE message \'\', the adapter\'s undefined) still says its sentence', () => {
+    const w = readOptionOutcomeWords([{ code: 'OPTION_OUTCOME_WORDS', options: [RECORD.options[0]] }])!
+    expect(optionOutcomeReading(w)).toBe(RECORD.options[0].words)
+  })
+
   it.each([
     ['no record', [{ code: 'GOAL_CHANCE_LICENSED' }]],
     ['not an array', { code: 'OPTION_OUTCOME_WORDS' }],
     ['options not an array', [{ ...RECORD, options: 'x' }]],
     ['message not a string', [{ ...RECORD, message: 3 }]],
     ['nothing to say', [{ ...RECORD, options: [], message: '' }]],
+    // ⛔ MALFORMED READS AS NONE, WHOLE (Codex #2889 r1): one bad entry withholds every sentence, the separation included.
+    ['one entry with a numeric id', [{ ...RECORD, options: [RECORD.options[0], { option_id: 2, words: 'x' }] }]],
+    ['one entry with a blank id', [{ ...RECORD, options: [RECORD.options[0], { option_id: ' ', words: 'x' }] }]],
+    ['one entry with blank words', [{ ...RECORD, options: [RECORD.options[0], { option_id: 'c', words: ' ' }] }]],
+    ['every entry invalid', [{ ...RECORD, options: [null, 'x'] }]],
   ])('%s → none', (_, warnings) => {
     expect(readOptionOutcomeWords(warnings)).toBeNull()
     expect(optionOutcomeReading(readOptionOutcomeWords(warnings))).toBeNull()
-  })
-
-  it('a malformed option entry is dropped alone (contrast: the well-formed one stays)', () => {
-    const w = readOptionOutcomeWords([{ ...RECORD, options: [RECORD.options[0], { option_id: 2, words: 'x' }, { option_id: 'c', words: ' ' }] }])!
-    expect(w.options).toEqual([{ optionId: 'option_a', words: RECORD.options[0].words }])
   })
 })

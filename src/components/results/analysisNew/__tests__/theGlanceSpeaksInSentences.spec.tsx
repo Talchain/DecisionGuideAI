@@ -46,7 +46,10 @@ import {
   decisionWithLeaderWithheld,
   decisionWithLeaderWithheldAndReason,
   genuineDecision,
+  OUTCOME_READING,
+  withOutcomeWords,
 } from './analysisNewFixtures'
+import { useCanvasStore } from '../../../../canvas/store'
 import { openGroupsIfPresent } from './openNamedGroups'
 
 /**
@@ -103,8 +106,14 @@ describe('the glance renders no fragments', () => {
  */
 const PRODUCER_REASON = 'held up across the ranges we varied'
 
+// NO WIN SHARE (Paul 21 Oct): the reading the glance speaks is CEE's outcome words, said only for a Run known to be current
+// (`useAnalysisResultsAreCurrent` reads the store), so the census runs on a current Run carrying them.
+const markCurrent = () => useCanvasStore.setState({
+  analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false, importPendingServerRegistration: false,
+} as never)
 const run = (): ResultsSectionDataReturn => {
-  const data = genuineDecision()
+  markCurrent()
+  const data = withOutcomeWords(genuineDecision())
   return {
     ...data,
     recommendation: { ...data.recommendation, robustnessVerdictReason: PRODUCER_REASON },
@@ -137,6 +146,10 @@ const run = (): ResultsSectionDataReturn => {
     // PRECONDITION: the glance rendered its READING, not merely some text. An
     // empty — or withheld — census agrees with every rule ever written.
     expect(lines.length, 'the glance rendered no text — this census is vacuous').toBeGreaterThan(0)
+    expect(
+      lines.some((l) => l.includes(OUTCOME_READING)),
+      'the current Run no longer renders CEE\'s outcome words — the case this arm exists for is gone',
+    ).toBe(true)
     // PRECONDITION: the producer's clause is on screen. Without it this census
     // cannot observe the render-boundary case at all, and dropping
     // `sentenceCase` leaves it green — measured, not supposed.
@@ -156,7 +169,8 @@ const run = (): ResultsSectionDataReturn => {
   it('⛔ NO WIN SHARE (Paul 21 Oct): the glance says no share of runs, "highest score" or "simulated futures" figure', () => {
     renderGlance(run(), 'no_win_share')
     const lines = glanceLines()
-    expect(lines.length, 'the glance rendered no text — this check is vacuous').toBeGreaterThan(0)
+    // PRECONDITION: the replacement reading is on screen, said verbatim, so the absence below is not a blank glance's.
+    expect(lines.some((l) => l.includes(OUTCOME_READING)), 'CEE\'s outcome words did not render — this check is vacuous').toBe(true)
     for (const line of lines) expect(line).not.toMatch(/highest score in|simulated futures|of (model )?runs|on top|\bahead\b/i)
   })
 

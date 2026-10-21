@@ -307,6 +307,16 @@ describe('1b · the gate is A SET-DEPENDENT CLAIM, not the percentage', () => {
     expect(screen.getByTestId('comparison-scope-note-analysisNew')).toBeInTheDocument()
   })
 
+  it('⛔ CEE\'s outcome words never widen the licence: a withheld leader stays an ORDER claim (Codex #2889 r1)', () => {
+    // Row B's twin with the words on the Run. They are said, but they claim nothing about the option set beyond what the
+    // entitled comparison licenses, so the 'value' disclosure stays off.
+    const glance = glanceOf(withOutcomeWords(partialWith({ verdict: { hasLeadingOption: false }, leaderDesignationPermitted: false })))
+    expect(glance.headline).toBeNull()
+    expect(glance.winShare, 'precondition: the words ARE read').toBe(OUTCOME_READING)
+    expect(glance.verdict, 'precondition: an ordering verdict IS rendered').toBeTruthy()
+    expect(glance.comparativeClaim).toBe('order')
+  })
+
   it('an ORDER claim takes the sentence alone — no "comparative percentages" line', () => {
     // `ComparisonScopeNote`'s own rule. `detail` would describe a magnitude that
     // is not on screen — an untruth in the opposite direction.

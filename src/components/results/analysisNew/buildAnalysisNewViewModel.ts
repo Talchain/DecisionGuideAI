@@ -2773,7 +2773,9 @@ function buildAtAGlance(
   // and an ordering verdict with no percentage at all. Both are set-dependent
   // claims and both need the scope disclosure. Gating on the share alone
   // suppressed it on exactly those runs.
-  const shareOnScreen = Boolean(verdictBlock && (winShare || entitledComparison))
+  // The licence is the entitled comparison alone, as before: CEE's outcome words are said whenever they are on a current
+  // Run, but they never widen what the glance claims about the option set (Codex #2889 r1).
+  const shareOnScreen = Boolean(verdictBlock && entitledComparison)
 
   // ⚠⚠ HOISTED, AND THE HOIST IS THE FIX (ROADMAP 2.1340 row F).
   // `condition` used to be computed in the returned object literal BELOW this

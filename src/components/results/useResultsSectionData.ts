@@ -131,6 +131,7 @@ import { useCanonicalAnalysisViewStore } from '../../canvas/stores/canonicalAnal
 import { ceeLeaderPermits, runViewOf, type RunView } from '../../canvas/runView/runView'
 import { readGoalChanceInvite, type GoalChanceInvite } from './goal-chance-invite/readGoalChanceInvite'
 import type { GoalChanceRange } from './utils/goalChanceRange'
+import { OPTION_OUTCOME_WORDS_CODE } from './utils/optionOutcomeWords'
 
 // =============================================================================
 // Winner Selection Helper
@@ -4626,6 +4627,8 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
             ...(w.first_ask !== null && typeof w.first_ask === 'object' && !Array.isArray(w.first_ask) ? { first_ask: w.first_ask as Record<string, unknown> } : {}),
             ...(hasPerOptionMap ? { per_option: perOption } : {}),
             ...(Object.prototype.hasOwnProperty.call(w, 'option_ids') ? { option_ids: w.option_ids } : {}),
+            // NO WIN SHARE (Paul 21 Oct): CEE's per-option outcome sentences, VERBATIM; `readOptionOutcomeWords` validates them.
+            ...(w.code === OPTION_OUTCOME_WORDS_CODE && Array.isArray(w.options) ? { options: w.options as unknown[] } : {}),
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
             message: w.message ? String(w.message) : undefined,
             // Roadmap 1.12: producer severity carried verbatim (never
