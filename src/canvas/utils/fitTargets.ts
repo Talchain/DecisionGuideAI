@@ -1,3 +1,4 @@
+import { coreSwitchOptionOf } from '../domain/coreSwitch'
 /**
  * fitTargets — which nodes a whole-graph `fitView` is allowed to frame.
  *
@@ -56,11 +57,13 @@ export function isGhostNode(id: string): boolean {
  * Generic over the node shape so it serves both `Node[]` from the store and
  * ReactFlow's `getNodes()` without either caller casting.
  */
-export function excludeNonModelNodes<T extends { id: string }>(nodes: readonly T[]): T[] {
+export function excludeNonModelNodes<T extends { id: string; type?: string }>(nodes: readonly T[]): T[] {
   // ⚠ PREFIX, NOT ONE ID. The frontier affordance now exists on every tier,
   // and an exclusion keyed on a single id silently stops excluding the moment a
   // second one is added — the hand-maintained-mirror defect, in a filter.
-  return nodes.filter((n) => !isGhostNode(n.id))
+  // Core's option switch is not part of the model either (coreSwitch.ts): never framed or counted.
+  const switches = coreSwitchOptionOf(nodes)
+  return nodes.filter((n) => !isGhostNode(n.id) && !switches.has(n.id))
 }
 
 /**

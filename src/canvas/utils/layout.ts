@@ -67,6 +67,7 @@ export function loadLayoutEngine(): Promise<ElkModule> {
 }
 import { Node, Edge } from '@xyflow/react'
 import { NODE_REGISTRY } from '../domain/nodes'
+import { withoutCoreSwitches } from '../domain/coreSwitch'
 import {
   LAYOUT_PADDING_X,
   LAYOUT_PADDING_Y,
@@ -778,6 +779,17 @@ export function respreadSubFloorRows(
  *      (CANVAS_MARGIN, CANVAS_MARGIN).
  */
 export async function layoutGraph(
+  nodes: Node[],
+  edges: Edge[],
+  options: LayoutOptions = {}
+): ReturnType<typeof layoutModel> {
+  const drawn = withoutCoreSwitches(nodes, edges)
+  if (drawn.hidden.length === 0) return layoutModel(nodes, edges, options)
+  const laid = await layoutModel(drawn.nodes, drawn.edges, options)
+  return { ...laid, nodes: [...laid.nodes, ...drawn.hidden] }
+}
+
+async function layoutModel(
   nodes: Node[],
   edges: Edge[],
   options: LayoutOptions = {}

@@ -51,6 +51,7 @@ export function OtherAimRow({ aim }: { aim: OtherAim }) {
     <li data-testid={`other-aim-${aim.id}`} data-aim-id={aim.id} data-aim-status={aim.status} className={`${typography.edgeLabel} text-text-light`}>
       <span className="text-text-body">{aim.text}</span>
       {aim.status === 'withdrawn' && <span data-testid={`other-aim-${aim.id}-status`}> · {OTHER_AIM_COPY.withdrawn}</span>}
+      {aim.risk && <span data-testid={`other-aim-${aim.id}-risk`}> · {OTHER_AIM_COPY.risk}{aim.risk.chanceNeeded ? ` · ${OTHER_AIM_COPY.chanceNeeded}` : ''}</span>}
       <span data-testid={`other-aim-${aim.id}-source`} className="whitespace-nowrap"> · <SourceIcon aria-hidden="true" className={`${SOURCE_MARK_GLYPH_CLASSES} inline align-[-2px]`} /> {source}</span>
       {links !== null && <span data-testid={`other-aim-${aim.id}-links`}> · {links}</span>}
     </li>

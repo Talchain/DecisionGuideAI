@@ -104,6 +104,7 @@ import { useLayoutStore } from './layoutStore'
 import { restingCardWidthForKind } from './utils/nodeLayoutConstants'
 import { TierLanes } from './nodes/TierLanes'
 import { ProposalGhostLayer } from './nodes/ProposalGhostLayer'
+import { coreSwitchOptionOf, withoutCoreSwitches } from './domain/coreSwitch'
 import { fitBoundsFor, CANVAS_MOUNT_FIT_OPTIONS } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -1003,7 +1004,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // ratchet), and `TierLanes` and `<ReactFlow>` already read this one array.
   const memoizedNodes = useMemo(() => {
     const seen = new Set<string>()
+    // Core's option switch is the engine's working, not the model: never drawn (coreSwitch.ts).
+    const switches = coreSwitchOptionOf(nodesWithGhost)
     return sortNodesInReadingOrder(nodesWithGhost.filter((node) => {
+      if (switches.has(node.id)) return false
       if (seen.has(node.id)) {
         if (import.meta.env.DEV) {
           console.warn(`[ReactFlowGraph] Duplicate node ID filtered: ${node.id}`)
@@ -1045,7 +1049,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
    */
   const memoizedEdges = useMemo(() => {
     const seen = new Set<string>()
-    const unique = edges.filter((edge) => {
+    // A switch's own links start at its option; the option→switch edge is not drawn (coreSwitch.ts).
+    const unique = withoutCoreSwitches(nodes, edges).edges.filter((edge) => {
       if (seen.has(edge.id)) {
         if (import.meta.env.DEV) {
           console.warn(`[ReactFlowGraph] Duplicate edge ID filtered: ${edge.id}`)
