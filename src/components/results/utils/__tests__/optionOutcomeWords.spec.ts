@@ -23,8 +23,8 @@ describe('readOptionOutcomeWords', () => {
     expect(optionOutcomeReading(readOptionOutcomeWords([{ ...RECORD, options: [] }]))).toBe('Their likely ranges clearly separate.')
   })
 
-  it('a single ranged option (CEE message \'\', the adapter\'s undefined) still says its sentence', () => {
-    const w = readOptionOutcomeWords([{ code: 'OPTION_OUTCOME_WORDS', options: [RECORD.options[0]] }])!
+  it('a single ranged option (CEE message \'\') still says its sentence', () => {
+    const w = readOptionOutcomeWords([{ code: 'OPTION_OUTCOME_WORDS', message: '', options: [RECORD.options[0]] }])!
     expect(optionOutcomeReading(w)).toBe(RECORD.options[0].words)
   })
 
@@ -33,6 +33,7 @@ describe('readOptionOutcomeWords', () => {
     ['not an array', { code: 'OPTION_OUTCOME_WORDS' }],
     ['options not an array', [{ ...RECORD, options: 'x' }]],
     ['message not a string', [{ ...RECORD, message: 3 }]],
+    ['message missing', [{ code: 'OPTION_OUTCOME_WORDS', options: RECORD.options }]],
     ['nothing to say', [{ ...RECORD, options: [], message: '' }]],
     // ⛔ MALFORMED READS AS NONE, WHOLE (Codex #2889 r1): one bad entry withholds every sentence, the separation included.
     ['one entry with a numeric id', [{ ...RECORD, options: [RECORD.options[0], { option_id: 2, words: 'x' }] }]],

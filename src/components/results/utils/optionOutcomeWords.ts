@@ -20,8 +20,8 @@ const said = (v: unknown): v is string => typeof v === 'string' && v.trim() !== 
 export function readOptionOutcomeWords(inferenceWarnings: unknown): OptionOutcomeWords | null {
   if (!Array.isArray(inferenceWarnings)) return null
   const record = inferenceWarnings.find((w) => isRec(w) && w.code === OPTION_OUTCOME_WORDS_CODE)
-  // `message` is '' for a single ranged option; the adapter turns '' into undefined.
-  if (!isRec(record) || !Array.isArray(record.options) || !(record.message === undefined || typeof record.message === 'string')) return null
+  // `message` is always a string from CEE ('' for a single ranged option), and the adapter keeps it as sent.
+  if (!isRec(record) || !Array.isArray(record.options) || typeof record.message !== 'string') return null
   if (!record.options.every((o) => isRec(o) && said(o.option_id) && said(o.words))) return null
   const options = record.options.map((o) => ({ optionId: o.option_id as string, words: o.words as string }))
   const separation = said(record.message) ? record.message : null

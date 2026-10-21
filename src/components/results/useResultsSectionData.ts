@@ -4630,7 +4630,9 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
             // NO WIN SHARE (Paul 21 Oct): CEE's per-option outcome sentences, VERBATIM; `readOptionOutcomeWords` validates them.
             ...(w.code === OPTION_OUTCOME_WORDS_CODE && Array.isArray(w.options) ? { options: w.options as unknown[] } : {}),
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
-            message: w.message ? String(w.message) : undefined,
+            // OPTION_OUTCOME_WORDS keeps CEE's `message` as sent ('' included), so `readOptionOutcomeWords` can reject a
+            // malformed one; coercing it here turned 3 into "3" and null into "no separation sentence" (Codex #2889 r2).
+            message: w.code === OPTION_OUTCOME_WORDS_CODE ? w.message : w.message ? String(w.message) : undefined,
             // Roadmap 1.12: producer severity carried verbatim (never
             // defaulted). Warning-severity entries surface on the Analysis
             // tab; info-severity stays hidden there.

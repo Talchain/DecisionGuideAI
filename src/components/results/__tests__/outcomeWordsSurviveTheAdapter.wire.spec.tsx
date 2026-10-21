@@ -47,8 +47,16 @@ describe('OPTION_OUTCOME_WORDS survives the warning adapter', () => {
     expect(optionOutcomeReading(readOptionOutcomeWords(data.confidence.inferenceWarnings))).toBe(`${WORDS[0].words} ${WORDS[1].words} ${OVERLAP}`)
   })
 
-  it('a single ranged option (CEE message \'\', which the adapter makes undefined) still reads its sentence', () => {
+  it('a single ranged option (CEE message \'\', kept as sent) still reads its sentence', () => {
     const data = hydrate({ code: 'OPTION_OUTCOME_WORDS', severity: 'info', message: '', options: [WORDS[0]], separation: null })
     expect(optionOutcomeReading(readOptionOutcomeWords(data.confidence.inferenceWarnings))).toBe(WORDS[0].words)
+  })
+
+  // ⛔ MALFORMED READS AS NONE THROUGH THE ADAPTER TOO (Codex #2889 r2): it must not coerce a bad message into a good one.
+  it.each([['a number', 3], ['zero', 0], ['false', false], ['null', null], ['missing', undefined]])('message %s → none', (_, message) => {
+    const record: Rec = { code: 'OPTION_OUTCOME_WORDS', severity: 'info', options: WORDS, separation: 'overlap' }
+    if (message !== undefined) record.message = message
+    const data = hydrate(record)
+    expect(readOptionOutcomeWords(data.confidence.inferenceWarnings)).toBeNull()
   })
 })
