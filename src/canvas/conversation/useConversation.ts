@@ -5679,7 +5679,8 @@ export function useConversation(): UseConversationReturn {
         // An approval press answered by a 5xx reached CEE, so its write may have committed: the outcome is UNKNOWN, never a
         // "server" fault (VERIFIER REC-WRITE). The re-press is idempotent, so the retry stays offered.
         const pressOutcomeUnknown = httpServerFailure && chipMeta?.id?.startsWith(CONSENT_CHIP_PREFIX) === true
-        const coreTurn = v5Headers['x-olumi-ai-mode'] === 'core'
+        // The default `openai` mode is served by core too (CEE `laneModeFor`); a legacy turn never carries core's timeout body.
+        const coreTurn = v5Headers['x-olumi-ai-mode'] === 'core' || v5Headers['x-olumi-ai-mode'] === 'openai'
         const errorBody = target.kind === 'typed_error' ? target.rawBody ?? target.boundaryError : undefined
         const coreError = coreTurn && isRecord(errorBody) ? errorBody : undefined
         // A core turn past the stream budget is still running server-side: an UNKNOWN outcome, never a failure. Its one

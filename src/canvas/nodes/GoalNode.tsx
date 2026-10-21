@@ -67,9 +67,9 @@ import { NodeValueEditor } from './shared/NodeValueEditor'
 import { NeedsInputSlot, emptyValueUnit } from './shared/NeedsInputSlot'
 import { GoalOtherAims } from './shared/GoalOtherAims'
 import { suggestedMeasureWords, useSuggestedMeasure } from './shared/suggestedMeasure'
+import { useSavedModelIsCore } from './shared/savedModelIsCore'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 import { SOURCE_MARK_GLYPH_CLASSES } from './shared/EstimateMarker'
-import { resolveAiComparisonMode } from '../../v5/aiComparisonMode'
 import { GoalTargetPopover } from '../components/GoalTargetPopover'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
@@ -680,8 +680,10 @@ export const GoalNode = memo((props: NodeProps) => {
   // Olumi's suggested measure for a vague aim (CEE #3585): said as Olumi's, never a threshold (`suggestedMeasure.ts`).
   const suggestedMeasure = useSuggestedMeasure(props.id)
   const todayLevel = goalTodayLevel(props.data as Parameters<typeof goalTodayLevel>[0])
-  // Editable only where a write exists for it: the core lane, on a goal with a stated target and unit.
-  const todayLevelEditable = resolveAiComparisonMode() === 'core' && hasThreshold && typeof thresholdUnit === 'string' && thresholdUnit.trim() !== ''
+  // Editable only where a write exists for it: a core scenario (its saved model has a living model, whichever AI mode
+  // the URL names: the default `openai` mode serves core too), on a goal with a stated target and unit.
+  const savedModelIsCore = useSavedModelIsCore()
+  const todayLevelEditable = savedModelIsCore && hasThreshold && typeof thresholdUnit === 'string' && thresholdUnit.trim() !== ''
   const todayLevelUnit = emptyValueUnit(thresholdUnit)
 
   /**
