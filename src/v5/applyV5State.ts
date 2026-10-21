@@ -1522,21 +1522,26 @@ export function applyV5State(
          * which is the one thing this channel must not carry.
          */
         const rawNote = (block as { note?: unknown }).note
-        const attentionNote =
-          rawNote !== null && typeof rawNote === 'object'
+        // The contract's note is a plain string (`ui_directive.note`, ≤140 characters): the producer's own sentence,
+        // said beside what it points at. The object form below is kept for a producer that sends the richer note.
+        const attentionNote: OlumiAttentionNote | null =
+          typeof rawNote === 'string'
+            ? (rawNote.trim() ? { body: rawNote.trim() } : null)
+            : rawNote !== null && typeof rawNote === 'object'
             ? (() => {
                 const n = rawNote as Record<string, unknown>
                 const title = typeof n.title === 'string' ? n.title.trim() : ''
                 const body = typeof n.body === 'string' ? n.body.trim() : ''
                 if (title.length === 0 || body.length === 0) return null
                 const move = n.move
+                // A move outside the grammar is left unsaid, never relabelled as a challenge.
                 const safeMove: OlumiAttentionNote['move'] =
                   move === 'expand' || move === 'challenge' ||
                   move === 'calibrate' || move === 'reframe'
                     ? move
-                    : 'challenge'
+                    : undefined
                 return {
-                  move: safeMove,
+                  ...(safeMove ? { move: safeMove } : {}),
                   title,
                   body,
                   ...(typeof n.source_line === 'string' ? { sourceLine: n.source_line } : {}),

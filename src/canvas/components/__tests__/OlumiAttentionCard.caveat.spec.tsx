@@ -101,7 +101,7 @@ describe('OlumiAttentionCard — a caveat is visible', () => {
     // prevent, and it would look identical to a reader of the rendered text.
     expect(screen.getByTestId(CAVEAT_TESTID).textContent).toBe(caveat.text)
     expect(screen.getByText(note.body)).toBeTruthy()
-    expect(screen.getByText(note.title)).toBeTruthy()
+    expect(screen.getByText(note.title!)).toBeTruthy()
   })
 
   /*

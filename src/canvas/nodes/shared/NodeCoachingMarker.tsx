@@ -22,11 +22,10 @@ import { cardMark, coachingCardMarkId } from './cardMarks'
  *     on hover/focus — see "ONE CORNER-MARKER LANGUAGE" below.)
  *   - Caps at ONE marker per node (icon + a "+N" count when more than one item
  *     targets the node) — no badge soup on dense nodes.
- *   - On click, reuses the inspector's own open seam
- *     (InspectorGuidanceSection.tsx:266-268): select the node + open the
- *     inspector, then `setActiveGuidanceItem` — which scrolls the matching
- *     guidance card into view (its `isActive` effect) and pulses the node ring
- *     (useGuidancePulseHighlight). One route, the lightest existing one.
+ *   - On click, opens the top item as Olumi's note beside the card
+ *     (`OlumiAttentionCard`, via `requestOlumiAttention`), verbatim; the note's
+ *     "Open details" reaches the inspector. `setActiveGuidanceItem` pulses the
+ *     node ring (useGuidancePulseHighlight). (Was: straight to the inspector.)
  *
  * ⭐⭐ THIS IS NOW THE NODE COACHING **SLOT**, WITH TWO SOURCES AND A RANKING.
  * PRODUCER FIRST, LOCAL STRUCTURE SECOND.
@@ -106,7 +105,7 @@ import {
 } from '../../stores/guidanceStore'
 import { typography } from '../../../styles/typography'
 import Tooltip from '../../../components/Tooltip'
-import { openNodeInspector } from './openNodeInspector'
+import { attentionNoteFromGuidance, requestOlumiAttention } from '../../utils/olumiAttention'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from './nodeCardRailStyles'
 import { useCanvasStore } from '../../store'
@@ -163,11 +162,11 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
     (e: React.MouseEvent) => {
       e.stopPropagation()
       if (!top) return
-      // Reuse the inspector's own open seam (InspectorGuidanceSection.tsx open_inspector
-      // fallback): select the node + show the inspector, where the guidance card
-      // for this node renders; setActiveGuidanceItem then scrolls it into view and
-      // pulses the node ring (useGuidancePulseHighlight).
-      openNodeInspector(nodeId)
+      // ⭐ OLUMI SPEAKS BESIDE THE CARD (Paul, 20 Oct 2026; canvas vision step 2): the top item opens as Olumi's note
+      // on the model (`OlumiAttentionCard`), in the producer's own words, instead of sending the reader to a panel.
+      // The note's "Open details" reaches the inspector, where editing stays. `setActiveGuidanceItem` still pulses the
+      // node ring (useGuidancePulseHighlight).
+      requestOlumiAttention({ nodeIds: [nodeId], note: attentionNoteFromGuidance(top) })
       setActiveGuidanceItem(top.item_id)
     },
     [top, nodeId, setActiveGuidanceItem],

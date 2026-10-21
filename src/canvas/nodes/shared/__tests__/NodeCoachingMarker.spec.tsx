@@ -6,13 +6,13 @@
  *  - marker renders IFF a live guidance item names this node (target_object.id)
  *  - unresolvable / non-matching target id → no marker (fail-closed by construction)
  *  - empty store → no marker (no permanently-empty UI; the slot is live, not dead)
- *  - click reaches the inspector open seam (select node + open inspector + setActive)
+ *  - click opens the top item as Olumi's note beside the card (verbatim); the note's details action reaches the inspector
  *  - a resolved / dismissed item clears the marker
  *  - cap: one marker per node, "+N" count, never badge soup
  *  - colour = state: tone derived from the top item's producer category
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { NodeCoachingMarker } from '../NodeCoachingMarker'
 import { useGuidanceStore, guidanceCategoryIcon, type GuidanceItem } from '../../../stores/guidanceStore'
@@ -78,13 +78,13 @@ describe('NodeCoachingMarker — presence', () => {
 // ---------------------------------------------------------------------------
 
 describe('NodeCoachingMarker — click reaches the guidance surface', () => {
-  it('selects the node, opens the inspector, and activates the item', () => {
-    useGuidanceStore
-      .getState()
-      .setGuidanceItems([makeItem({ item_id: 'the-item', target_object: { type: 'node', id: 'node-a' } })])
-    const selectSpy = vi.spyOn(useCanvasStore.getState(), 'selectNodeWithoutHistory')
-    // `openNodeInspector` fail-closes on a node that is not on the graph.
-    useCanvasStore.setState({ nodes: [{ id: 'node-a', position: { x: 0, y: 0 }, data: {} }] } as never)
+  it('opens the top item as Olumi’s note beside the card, verbatim, and activates the item; the inspector stays closed', () => {
+    useGuidanceStore.getState().setGuidanceItems([makeItem({
+      item_id: 'the-item', title: 'Two developers lean on one untested link', detail: 'New hires usually cost senior time first.',
+      actionLabel: 'Test it with me', primary_action: { type: 'discuss', prompt: 'What would we see if this link were weaker?' },
+      target_object: { type: 'node', id: 'node-a' },
+    })])
+    useCanvasStore.setState({ nodes: [{ id: 'node-a', position: { x: 0, y: 0 }, data: {} }], edges: [], olumiAttention: null } as never)
     let inspectorOpened = false
     const onOpen = () => { inspectorOpened = true }
     window.addEventListener('olumi:open-full-inspector', onOpen)
@@ -92,15 +92,18 @@ describe('NodeCoachingMarker — click reaches the guidance surface', () => {
     render(<NodeCoachingMarker nodeId="node-a" />)
     fireEvent.click(screen.getByTestId('node-coaching-marker-node-a'))
 
-    expect(selectSpy).toHaveBeenCalledWith('node-a')
-    // Was `setShowInspectorPanel(true)` — a store field with zero render
-    // consumers, so the old assertion was green while the marker opened
-    // nothing. This asserts the event ReactFlowGraph actually listens for.
-    expect(inspectorOpened).toBe(true)
+    const held = useCanvasStore.getState().olumiAttention
+    expect(held?.nodeIds).toEqual(['node-a'])
+    expect(held?.note?.title).toBe('Two developers lean on one untested link')
+    expect(held?.note?.body).toBe('New hires usually cost senior time first.')
+    expect(held?.note?.move).toBeUndefined()
+    expect(held?.note?.actions?.map((x) => [x.label, x.kind, x.prompt])).toEqual([
+      ['Test it with me', 'ask', 'What would we see if this link were weaker?'],
+      ['Open details', 'details', undefined],
+    ])
+    expect(inspectorOpened).toBe(false)
     expect(useGuidanceStore.getState().activeGuidanceItemId).toBe('the-item')
-
     window.removeEventListener('olumi:open-full-inspector', onOpen)
-    selectSpy.mockRestore()
   })
 
   it('activates the highest-severity item when several target the node', () => {
