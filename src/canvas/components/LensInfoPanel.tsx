@@ -37,7 +37,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Activity, AlertTriangle, ChevronDown, ChevronUp, Layers, Scale, X, type LucideIcon } from 'lucide-react'
+import { Activity, AlertTriangle, ChevronDown, ChevronUp, FlaskConical, Layers, Scale, X, type LucideIcon } from 'lucide-react'
 import { OVERLAY_BAND_SELECTOR, useOverlayCell } from './CanvasOverlayBand'
 import { measureDockInset } from './FloatingOlumiPanel'
 import { ANALYSIS_STATE_CUE_COPY } from './AnalysisStateCue'
@@ -59,6 +59,7 @@ import { revealOlumiSurface } from '../conversation/revealOlumi'
 import { ACTION_BAR_COPY } from '../conversation/actionBar/ActionBar'
 import { RestsOnKey, usePickedKey } from '../artefacts/RestsOnKey'
 import { TradeOffsKey } from '../artefacts/TradeOffsKey'
+import { WhatIfKey } from '../artefacts/WhatIfKey'
 import { LENS_COPY, useCurrentPremortemWorksheet, type BarLens } from '../artefacts/lenses'
 import type { GraphChangeTarget } from '../graphChanges/graphChangesView'
 
@@ -85,6 +86,7 @@ const LENS_ICON: Readonly<Record<Exclude<BarLens, 'full'>, LucideIcon>> = {
   rests_on: Layers,
   premortem: AlertTriangle,
   what_changes: Activity,
+  what_if: FlaskConical,
 }
 
 /** Never a dead press: with no conversation to send it to, say so (the action bar's own words). */
@@ -374,6 +376,7 @@ export function LensInfoPanel() {
   useEffect(() => { if (picked !== null) setFolded(false) }, [picked])
 
   const wants = lensMode === 'tradeoffs' || lensMode === 'rests_on' || lensMode === 'premortem' || lensMode === 'what_changes'
+    || lensMode === 'what_if'
   // The stale cue's own predicate — never a restated rule (see the header).
   const modelChangedSinceRun = useModelChangedSinceRun()
   // ⚠ THIS PANEL'S OLD `bottom: 48; left: 12` SAT ON TOP OF THE VIEWPORT-CONTROLS
@@ -396,6 +399,7 @@ export function LensInfoPanel() {
   if (lensMode === 'tradeoffs') content = <TradeOffsKey folded={folded} />
   else if (lensMode === 'rests_on') content = <RestsOnKey folded={folded} />
   else if (lensMode === 'premortem') content = <PremortemKey folded={folded} />
+  else if (lensMode === 'what_if') content = <WhatIfKey folded={folded} />
   else content = hasRun ? <WhatChangesKey folded={folded} /> : <p className={`${typography.panelBody} text-text-body`}>{LENS_COPY.needsRun}</p>
 
   // The card holds the band's bottom-left cell (so the foot line yields to it, and its stale sentence moves in here),

@@ -212,14 +212,15 @@ describe('the lens bar: one press between lenses', () => {
   it('L and the arrow keys walk the bar, skipping a lens that cannot show yet', () => {
     assert.equal(nextBarLens('full', false), 'tradeoffs')
     assert.equal(nextBarLens('tradeoffs', false), 'rests_on', 'Trade-offs reads the model: no Run needed')
-    assert.equal(nextBarLens('premortem', false), 'full', 'no Run: "What would change" is skipped')
+    assert.equal(nextBarLens('premortem', false), 'what_if', 'no Run: "What would change" is skipped (What if needs none)')
     assert.equal(nextBarLens('premortem', true), 'what_changes')
-    assert.equal(nextBarLens('what_changes', true), 'full')
+    assert.equal(nextBarLens('what_changes', true), 'what_if')
+    assert.equal(nextBarLens('what_if', true), 'full')
     assert.equal(nextBarLens('option', true), 'tradeoffs', 'option isolation sits on the Model segment')
     seedModel(false)
     const view = render(<LensBar />)
     fireEvent.keyDown(view.getByRole('radiogroup'), { key: 'ArrowLeft' })
-    assert.equal(useCanvasStore.getState().lens.active, 'premortem')
+    assert.equal(useCanvasStore.getState().lens.active, 'what_if')
   })
 
   it('CONTRAST: no model, no bar', () => {

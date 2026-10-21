@@ -9,6 +9,7 @@
  *   - rests_on      numbers every figure the model rests on, from the ONE owner reader (`assumptionMapOf`).
  *   - premortem     dims everything Olumi's pre-mortem stories do not rest on.
  *   - what_changes  the selected Run's sensitivity widths and fragile links, dimming the rest. Needs a complete Run.
+ *   - what_if       the held change's card in front, the rest dimmed. No Run needed.
  */
 
 import { useMemo, useEffect, useRef } from 'react'
@@ -18,6 +19,7 @@ import type { FragileEdgeCandidate } from '../utils/fragileEdgeMatch'
 import { resolveActiveGoalNodeId } from './goalThresholdResolvers'
 import { assumptionMapOf, restsOnKey, restsOnNumbered, type RestsOnMark } from '../artefacts/assumptionMapModel'
 import { useCurrentPremortemWorksheet } from '../artefacts/lenses'
+import { useWhatIfStore } from '../stores/whatIfStore'
 import { tradeOffsForState, tradeOffsInFocus } from '../artefacts/tradeOffsModel'
 import type { PremortemWorksheetV1 } from '../../v5/readPremortemWorksheet'
 
@@ -191,6 +193,7 @@ export function useLensFilter(): void {
   const goalConstraints = useCanvasStore(s => s.goalConstraints)
   const setLensVisuals = useCanvasStore(s => s.setLensVisuals)
   const worksheet = useCurrentPremortemWorksheet()
+  const whatIfNodeId = useWhatIfStore(s => s.held?.nodeId ?? null)
 
   const visuals = useMemo((): LensVisuals => {
     const graphEdges = edges.map(e => ({ id: e.id, source: e.source, target: e.target }))
@@ -231,6 +234,12 @@ export function useLensFilter(): void {
       }
     }
 
+    // ── What if: the held change's card in front (no Run needed; nothing dims before a change is held) ──
+    if (lensActive === 'what_if') {
+      if (whatIfNodeId === null || !nodes.some(n => n.id === whatIfNodeId)) return EMPTY_VISUALS
+      return { ...EMPTY_VISUALS, dimmedNodeIds: allBut(nodes.map(n => n.id), new Set([whatIfNodeId])), dimmedEdgeIds: EMPTY_SET }
+    }
+
     if (resultsStatus !== 'complete' || !report) return EMPTY_VISUALS
     const reportAny = report as unknown as Record<string, unknown>
 
@@ -265,7 +274,7 @@ export function useLensFilter(): void {
     }
 
     return EMPTY_VISUALS
-  }, [lensActive, lensOptionId, resultsStatus, report, nodes, edges, ceeAnalysisReady, lastServerGraphHash, outcomeNodeId, goalConstraints, servedBaselineOptions, worksheet])
+  }, [lensActive, lensOptionId, resultsStatus, report, nodes, edges, ceeAnalysisReady, lastServerGraphHash, outcomeNodeId, goalConstraints, servedBaselineOptions, worksheet, whatIfNodeId])
 
   // Push computed visuals to store so BaseNode/StyledEdge can read with primitive selectors
   const prevVisualsRef = useRef(visuals)
