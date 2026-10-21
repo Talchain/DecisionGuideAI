@@ -203,6 +203,7 @@ import { readInferenceWarnings } from '../../components/results/utils/readInfere
 import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
 import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
 import { resolveOptionTargetDisplayFrame } from '../ui/inspector-v2/shared/optionTargetEntry'
+import { coreSwitchOptionOf } from '../domain/coreSwitch'
 
 /**
  * ⭐ THE ONE-LINE OPTION BODY IS RETIRED — Paul, 25 Sep 2026, from live
@@ -936,6 +937,7 @@ export const OptionNode = memo((props: NodeProps) => {
     return Math.max(1, Math.round(gap * 100))
   }, [isPostAnalysis, isRecommended, modelLicensesComparativeClaim, verdict, resultsReport, props.id, displayMetadata.winComputationFailed])
 
+  const switches = useMemo(() => coreSwitchOptionOf(nodes), [nodes])
   const allInterventionChips = useMemo<InterventionChip[]>(() => {
     // Primary: ceeAnalysisReady.options[optionId].interventions
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
@@ -992,7 +994,9 @@ export const OptionNode = memo((props: NodeProps) => {
         }]
       })
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
-  }, [ceeAnalysisReady, props.id, nodes, analysisViewStale])
+      // Core's option switch is the engine's working, not something the option sets (coreSwitch.ts).
+      .filter((chip) => !switches.has(chip.factorId))
+  }, [ceeAnalysisReady, props.id, nodes, analysisViewStale, switches])
 
   // Brief scope 7: Layer-1 pills cap visible chips at 4. The post-analysis
   // "What this option changes:" block needs the FULL built list so its
@@ -1243,7 +1247,9 @@ export const OptionNode = memo((props: NodeProps) => {
     // order, the non-changes skipped (`isConcreteChangeRow`), then the card's
     // row limit — so a target equal to the baseline's never spends a resting
     // row while a real change waits behind `+N more`.
+    // Core's option switch ("… in place · Not in use → In use") is the engine's working, not a change (coreSwitch.ts).
     return rowFactorIdsFor(me, order, Number.POSITIVE_INFINITY).flatMap(fid => {
+      if (switches.has(fid)) return []
       const factorNode = nodes.find(n => n.id === fid) as TargetNodeLike | undefined
       const target = me.targets.get(fid)
       const row = target
@@ -1251,7 +1257,7 @@ export const OptionNode = memo((props: NodeProps) => {
         : buildOptionNeedsInputTargetRow({ factorId: fid, factorNode, source: me.unsetSources.get(fid) ?? null })
       return isConcreteChangeRow(row, target, optionFactorContext(factorNode, fid)) ? [row] : []
     })
-  }, [optionSet, props.id, nodes, baselineOptionReference])
+  }, [optionSet, props.id, nodes, baselineOptionReference, switches])
   // Standard's resting rows also keep to the card's LINE budget (a two-line row
   // spends more of it — `fitRowsToLineBudget`); Detailed keeps its own layout.
   // A pure function of the model: a Run changes neither the rows nor their form.
