@@ -38,6 +38,7 @@ import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
+import { PANEL_LIST_BULLET } from '../panelLists'
 import { changeNotesOf, isHeldCardChipId, REVIEW_PROPOSAL_PREFIX, type ChangeNote } from '../proposalFields'
 
 /** The heading over a held card's other changes, read before its approve. */
@@ -607,7 +608,7 @@ export function SuggestedChips({
           <div key={`change-notes-${p.proposal_id}`} className={styles.reasoningPanel} style={{ marginTop: 12, marginBottom: -4 }}
             data-testid={`proposal-change-notes-${p.proposal_id}`}>
             <p className={styles.reasoningPanelHeading}>{ALSO_CHANGES}</p>
-            <ul className="list-disc pl-5">
+            <ul className={PANEL_LIST_BULLET}>
               {notes.map(n => (
                 <li key={n.field_id} data-source={n.source} className={`${styles.reasoningPanelBody} ${CHANGE_NOTE_SOURCE_CLASS[n.source]}`}
                   data-testid={`proposal-change-note-${n.field_id}`}>{n.text}</li>
