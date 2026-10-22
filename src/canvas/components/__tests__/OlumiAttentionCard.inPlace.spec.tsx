@@ -81,7 +81,12 @@ describe('where the note sits (Paul\'s pre-flight, 22 Oct: on the left it covere
   it('⭐ right runs under the dock and left covers O1 → below the anchor, where nothing is', () => {
     expect(attentionCardSpot(O2, { w: 268, h: 110 }, [O1, F2], 0, 1066)).toEqual({ left: 554, top: 432 })
   })
-  it('CONTRAST: a free spot on the right or left is exactly as before; unmeasured or nothing free → as before', () => {
+  it('⭐ nothing fully free (served café board, 22 Oct): the spot that covers least, never back over O1', () => {
+    const question = { x: 256, y: 115, w: 602, h: 85 } // bottom at 200: the spot above O2 touches it by 4px
+    const F3 = { x: 554, y: 510, w: 335, h: 100 }
+    expect(attentionCardSpot(O2, { w: 268, h: 110 }, [question, O1, F2, F3], 0, 1066)).toEqual({ left: 554, top: 196 })
+  })
+  it('CONTRAST: a free spot on the right or left is exactly as before; unmeasured, or all covered alike → as before', () => {
     expect(attentionCardSpot(O1, { w: 268, h: 110 }, [F2], 0, 1066), 'right of O1 is free').toEqual({ left: 527, top: 320 })
     expect(attentionCardSpot(O2, { w: 268, h: 110 }, [F2], 0, 1066), 'left of O2, nothing there').toEqual({ left: 272, top: 320 })
     expect(attentionCardSpot(O2, { w: 268, h: 0 }, [O1, F2], 0, 1066), 'unmeasured').toEqual({ left: 272, top: 320 })

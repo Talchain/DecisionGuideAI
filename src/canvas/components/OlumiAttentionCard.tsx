@@ -73,19 +73,24 @@ type Box = { readonly x: number; readonly y: number; readonly w: number; readonl
 /**
  * Where the note sits, in screen px: beside its card on the right, else on the left, else below, else above: the first
  * spot that fits between `roomLeft` and `roomRight` and covers no other card (Paul's pre-flight, 22 Oct: placed on the
- * left it covered the next option's title). Unmeasured, or none free: as before, right if it fits, else left.
+ * left it covered the next option's title). None free: the spot that covers the least (served café board, 22 Oct:
+ * above touched the question card by 2px while left covered O1). Unmeasured, or none fits: as before, right if it
+ * fits, else left.
  */
 export function attentionCardSpot(anchor: Box, card: { readonly w: number; readonly h: number }, others: readonly Box[],
   roomLeft: number, roomRight: number): { left: number; top: number } {
   const right = { left: anchor.x + anchor.w + CARD_GAP, top: anchor.y }
   const left = { left: anchor.x - card.w - CARD_GAP, top: anchor.y }
   const fits = (s: { left: number }) => s.left >= roomLeft && s.left + card.w <= roomRight
-  const free = (s: { left: number; top: number }) => !others.some((o) =>
-    s.left < o.x + o.w && s.left + card.w > o.x && s.top < o.y + o.h && s.top + card.h > o.y)
+  const covered = (s: { left: number; top: number }) => others.reduce((area, o) =>
+    area + Math.max(0, Math.min(s.left + card.w, o.x + o.w) - Math.max(s.left, o.x))
+      * Math.max(0, Math.min(s.top + card.h, o.y + o.h) - Math.max(s.top, o.y)), 0)
   const before = right.left + card.w <= roomRight ? right : left
   if (!(card.h > 0)) return before
   const spots = [right, left, { left: anchor.x, top: anchor.y + anchor.h + CARD_GAP }, { left: anchor.x, top: anchor.y - card.h - CARD_GAP }]
-  return spots.find((s) => fits(s) && free(s)) ?? before
+  // Strictly less, so the first spot in that order wins a tie, and the first that covers nothing wins outright.
+  return spots.filter(fits).reduce<{ left: number; top: number } | null>(
+    (best, s) => (best === null || covered(s) < covered(best) ? s : best), null) ?? before
 }
 
 export function OlumiAttentionCard() {
