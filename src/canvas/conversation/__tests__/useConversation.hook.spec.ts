@@ -3096,6 +3096,21 @@ describe('result-first: Explain is user-pressed and bound to the retained Run', 
     expect(result.current.explainingRun).toBe(false)
   })
 
+  it('⭐ a Run press answered whole in one reply (core: narration ready) shows that reply (served 22 Oct, UI b1134e99)', async () => {
+    // The served reply's own words and key (evidence held2-2906-2908-2909-3644-b1134e99-CAFE, last turn).
+    const words = 'This run doesn’t yet show each option’s chance of reaching £1,000 per day.'
+    mockCallV5Turn.mockReset().mockResolvedValueOnce({ kind: 'response' as const,
+      response: { ...makeV5SuccessResult(words).response, narration: { status: 'ready', run_key: '07b381d77a4ad439' } } })
+      .mockResolvedValueOnce(explanation('rk_other'))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('Run analysis', { turnType: 'run_analysis' }) })
+    expect(result.current.messages.filter(m => m.role === 'assistant').map(m => ({ content: m.content, narration: m.narration })))
+      .toEqual([{ content: words, narration: { status: 'ready', runKey: '07b381d77a4ad439' } }])
+    // CONTRAST: a ready explanation of another Run, on an ordinary turn, is still foreign and still dropped.
+    await act(async () => { await result.current.sendMessage('What drives it?') })
+    expect(result.current.messages.filter(m => m.role === 'assistant').map(m => m.content)).toEqual([words])
+  })
+
   it('T1ui newer Run: pressing the older bound chip cannot admit an old ready explanation', async () => {
     mockCallV5Turn.mockReset().mockResolvedValueOnce(boundRun('rk_old')).mockResolvedValueOnce(boundRun('rk_new')).mockResolvedValueOnce(explanation('rk_old'))
     const { result } = renderHook(() => useConversation())

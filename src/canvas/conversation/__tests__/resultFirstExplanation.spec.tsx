@@ -40,6 +40,8 @@ describe('readNarration: the contract, and nothing looser', () => {
   it('request 1 names the latest Run; only a READY explanation can be foreign', () => {
     expect(namesALatestRun({ status: 'pending', runKey: 'a' })).toBe(true)
     expect(namesALatestRun({ status: 'ready', runKey: 'a' })).toBe(false)
+    expect(namesALatestRun({ status: 'ready', runKey: 'a' }, true), 'a Run press answered whole in one reply').toBe(true)
+    expect(namesALatestRun({ status: 'stale', runKey: 'a' }, true)).toBe(false)
     expect(isForeignExplanation({ status: 'ready', runKey: 'old' }, 'new')).toBe(true)
     expect(isForeignExplanation({ status: 'ready', runKey: 'new' }, 'new')).toBe(false)
     expect(isForeignExplanation({ status: 'stale', runKey: 'old' }, 'new')).toBe(false)
