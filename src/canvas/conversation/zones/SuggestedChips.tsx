@@ -19,6 +19,7 @@
  */
 
 import { useState, useEffect, useId, useMemo, useRef } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import styles from '../Conversation.module.css'
 import { isV5Eligible } from '../../../v5/eligibility'
@@ -39,13 +40,40 @@ import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
 import { PANEL_LIST_BULLET } from '../panelLists'
-import { changeNotesOf, isHeldCardChipId, REVIEW_PROPOSAL_PREFIX, type ChangeNote } from '../proposalFields'
+import { changeNotesOf, changeNotesSummary, isHeldCardChipId, REVIEW_PROPOSAL_PREFIX, type ChangeNote } from '../proposalFields'
 
 /** The heading over a held card's other changes, read before its approve. */
-export const ALSO_CHANGES = 'Also changes'
+export { ALSO_CHANGES } from '../proposalFields'
 /** Each note in the colour of whose it is; CEE's sentence already says it in words. */
 const CHANGE_NOTE_SOURCE_CLASS: Readonly<Record<ChangeNote['source'], string>> = {
   estimate: 'text-info', yours: '', party: '', unverified: 'text-text-light',
+}
+
+/**
+ * ⭐ EVERYTHING ELSE THE APPROVAL WRITES: ONE PLAIN LINE, THE NOTES BEHIND "DETAILS" (DL 22 Oct, Paul's served test: the
+ * card printed CEE's notes in raw "(1/3)…(3/3)" fragments). The line counts the changes from the notes' own ids, read
+ * before the approve; "Details" opens CEE's sentences, each in the colour of whose it is.
+ */
+function ChangeNotesPanel({ proposalId, notes }: { proposalId: string; notes: readonly ChangeNote[] }) {
+  const [open, setOpen] = useState(false)
+  const listId = useId()
+  return (
+    <div className={styles.reasoningPanel} style={{ marginTop: 12, marginBottom: -4 }} data-testid={`proposal-change-notes-${proposalId}`}>
+      <p className={styles.reasoningPanelHeading} data-testid={`proposal-change-summary-${proposalId}`}>{changeNotesSummary(notes)}</p>
+      <button type="button" className={styles.inlineDisclosureToggle} onClick={() => setOpen((v) => !v)}
+        aria-expanded={open} aria-controls={open ? listId : undefined} data-testid={`proposal-change-details-${proposalId}`}>
+        {open ? <><ChevronUp size={12} aria-hidden="true" /> Hide details</> : <><ChevronDown size={12} aria-hidden="true" /> Details</>}
+      </button>
+      {open && (
+        <ul id={listId} className={PANEL_LIST_BULLET}>
+          {notes.map(n => (
+            <li key={n.field_id} data-source={n.source} className={`${styles.reasoningPanelBody} ${CHANGE_NOTE_SOURCE_CLASS[n.source]}`}
+              data-testid={`proposal-change-note-${n.field_id}`}>{n.text}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 import type { ActionChip } from '../types'
 import type { GuidedSizing } from '../../../v5/readGuidedSizing'
@@ -604,18 +632,7 @@ export function SuggestedChips({
       {(bindable?.proposals ?? []).filter(p => visible.some(c => c.id === p.approve_action.id)).map(p => {
         const notes = changeNotesOf(p)
         if (notes.length === 0) return null
-        return (
-          <div key={`change-notes-${p.proposal_id}`} className={styles.reasoningPanel} style={{ marginTop: 12, marginBottom: -4 }}
-            data-testid={`proposal-change-notes-${p.proposal_id}`}>
-            <p className={styles.reasoningPanelHeading}>{ALSO_CHANGES}</p>
-            <ul className={PANEL_LIST_BULLET}>
-              {notes.map(n => (
-                <li key={n.field_id} data-source={n.source} className={`${styles.reasoningPanelBody} ${CHANGE_NOTE_SOURCE_CLASS[n.source]}`}
-                  data-testid={`proposal-change-note-${n.field_id}`}>{n.text}</li>
-              ))}
-            </ul>
-          </div>
-        )
+        return <ChangeNotesPanel key={`change-notes-${p.proposal_id}`} proposalId={p.proposal_id} notes={notes} />
       })}
       <div
         className="flex flex-wrap gap-1.5 mt-3"

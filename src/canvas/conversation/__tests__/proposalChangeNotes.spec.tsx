@@ -4,10 +4,10 @@
  * "Also changes", read before the approve; the canvas ghost draws none of them; an unknown kind is still dropped.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { SuggestedChips, ALSO_CHANGES } from '../zones/SuggestedChips'
 import { buildSuggestedActionChips } from '../../../v5/blocks/suggestedActionChips'
-import { otherChangeCountOf, readProposalFields } from '../proposalFields'
+import { CHANGE_NOTE_MAX, changeNotesSummary, otherChangeCountOf, readProposalFields } from '../proposalFields'
 import { consentChipIdFor, previewFromFields, previewOfLatestReply, readProposalPreviewValue } from '../proposalPreview'
 import type { ConversationMessage } from '../types'
 import served from './fixtures/served-held-proposal-sdwire4.json'
@@ -30,25 +30,42 @@ const PID = String((served.read_R1.proposal_fields.proposals[0] as Json).proposa
 afterEach(cleanup)
 
 describe('the held card says everything else the approval writes', () => {
-  it('⭐ every note, in CEE\'s order, in its words and whose it is, above the approve', () => {
+  it('⭐ DL 22 Oct: one plain summary line above the approve; "Details" opens every note, in CEE\'s order, in its words and whose it is', () => {
     mount(withAdds([RENAME, SETTING]))
     const panel = screen.getByTestId(`proposal-change-notes-${PID}`)
-    expect(panel.querySelector('p')?.textContent).toBe(ALSO_CHANGES)
+    // The two fixture notes' ids name no kind this card counts by name, so each is one "other change".
+    expect(screen.getByTestId(`proposal-change-summary-${PID}`).textContent).toBe(`${ALSO_CHANGES} 2 other changes`)
+    // Read BEFORE the buttons: the panel precedes the chip row.
+    expect(panel.compareDocumentPosition(screen.getByTestId('suggested-chips')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Closed: no raw note text; the one control is the disclosure, never an input.
+    expect(panel.querySelectorAll('li')).toHaveLength(0)
+    expect(panel.querySelector('input, textarea')).toBeNull()
+    const toggle = screen.getByTestId(`proposal-change-details-${PID}`)
+    expect([toggle.textContent?.trim(), toggle.getAttribute('aria-expanded')]).toEqual(['Details', 'false'])
+    fireEvent.click(toggle)
     const items = [...panel.querySelectorAll('li')]
     expect(items.map((li) => li.textContent)).toEqual([RENAME.text, SETTING.text])
     expect(items.map((li) => li.getAttribute('data-source'))).toEqual(['estimate', 'yours'])
-    // Read BEFORE the buttons: the panel precedes the chip row.
-    expect(panel.compareDocumentPosition(screen.getByTestId('suggested-chips')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(panel.querySelector('input, button, textarea')).toBeNull()
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
   })
 
-  it('⛔ an unknown kind, an editable note or a note over 400 characters is dropped on its own; the card and its other notes stay', () => {
+  it('⛔ an unknown kind, an editable note or a note over the cap is dropped on its own; a note over 400 characters is now read WHOLE', () => {
+    const whole = { ...SETTING, field_id: 'change_note:factor:whole', text: 'z'.repeat(401) }
     const fields = withAdds([{ field_id: 'mystery:1', kind: 'mystery', text: 'x' }, { ...RENAME, editable: true },
-      { ...SETTING, field_id: 'change_note:long', text: 'y'.repeat(401) }, SETTING])
+      { ...SETTING, field_id: 'change_note:long', text: 'y'.repeat(CHANGE_NOTE_MAX + 1) }, whole, SETTING])
     const read = readProposalFields(fields)
-    expect(read?.proposals[0].adds.map((a) => a.field_id)).toEqual([SETTING.field_id])
+    expect(read?.proposals[0].adds.map((a) => a.field_id)).toEqual([whole.field_id, SETTING.field_id])
     mount(fields)
-    expect([...screen.getByTestId(`proposal-change-notes-${PID}`).querySelectorAll('li')].map((li) => li.textContent)).toEqual([SETTING.text])
+    fireEvent.click(screen.getByTestId(`proposal-change-details-${PID}`))
+    expect([...screen.getByTestId(`proposal-change-notes-${PID}`).querySelectorAll('li')].map((li) => li.textContent)).toEqual([whole.text, SETTING.text])
+  })
+
+  it('⭐ the summary counts CHANGES by kind from the note ids, never parts: the served "+9" card', () => {
+    const ids = ['change_note:option:increase_setting#1', 'change_note:option:increase_setting#2', 'change_note:option:increase_setting#3',
+      'change_note:factor:line_speed', 'change_note:factor:reject_rate', 'change_note:link:reject_output',
+      'change_note:condition:2', 'change_note:condition:3#1', 'change_note:condition:3#2']
+    expect(changeNotesSummary(ids.map((field_id) => ({ field_id })))).toBe('Also changes 1 option, 2 factors, 1 link and 2 conditions')
+    expect(changeNotesSummary([{ field_id: 'change_note:risk:strike' }])).toBe('Also changes 1 risk')
   })
 
   it('CONTRAST: a card with no notes renders exactly as before (no panel, same markup as a card whose adds were all dropped)', () => {
