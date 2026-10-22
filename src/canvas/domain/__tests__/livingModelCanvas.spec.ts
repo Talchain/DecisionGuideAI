@@ -9,6 +9,8 @@ import type { Edge, Node } from '@xyflow/react'
 import { drawLivingModel, CHANCE_NEEDED_REASON, LIVING_ONLY_KEY, livingOnlyOf, notInCalculationWords } from '../livingModelCanvas'
 import { livingOutcomeIdsOf, withLivingKinds } from '../livingKinds'
 import { layoutGraph } from '../../utils/layout'
+import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from '../../utils/applyDraftResult'
+import servedPair from './fixtures/served-living-model-80a77832.structure.json'
 
 const at = (x: number, y: number) => ({ x, y })
 /** The engine graph as the canvas holds it: kinds as CEE's mapper gave them, positions from a layout. */
@@ -144,5 +146,47 @@ describe('the layout lays the outcomes out as outcomes', () => {
   it('withLivingKinds returns its input when no outcome is on the canvas', () => {
     const nodes = engineNodes()
     expect(withLivingKinds(nodes, new Set(['not_here']))).toBe(nodes)
+  })
+})
+
+/**
+ * REGRESSION on the served pair this PR answers (scenario 80a77832, 22 Oct 2026): the engine graph kept both outcomes
+ * as factors and held all four risks back. Structure only (`fixtures/…structure.json`: labels are ids, no quotes).
+ */
+describe('the served pair: Paul\'s test board, structure only', () => {
+  const engine = () => ({
+    nodes: servedPair.nodes.map((n) => mapDraftNodeToCanvas(n)) as Node[],
+    edges: servedPair.edges.map((e, i) => mapDraftEdgeToCanvas(e, i)) as Edge[],
+  })
+
+  it('⭐ each outcome is drawn once, as an outcome, on the engine node itself (no second card)', () => {
+    const { nodes, edges } = engine()
+    const drawn = drawLivingModel(nodes, edges, servedPair).nodes
+    for (const id of ['meetings', 'commitments']) {
+      const cards = drawn.filter((n) => n.id === id)
+      expect(cards.map((n) => n.type)).toEqual(['outcome'])
+      expect(livingOnlyOf(cards[0]!.data)).toBeNull()
+      expect(cards[0]!.data).toBe(nodes.find((n) => n.id === id)!.data)
+      expect(nodes.find((n) => n.id === id)!.type).toBe('factor')
+    }
+    expect(drawn.filter((n) => livingOnlyOf(n.data) === null).map((n) => n.id)).toEqual(nodes.map((n) => n.id))
+  })
+
+  it('⭐ all four risks are drawn with "Not in the calculation yet" and their chance, with their links', () => {
+    const { nodes, edges } = engine()
+    const drawn = drawLivingModel(nodes, edges, servedPair)
+    const risks = ['closing_delay', 'introductions_fail', 'investor_withdraws', 'diligence_objection']
+    const added = drawn.nodes.filter((n) => livingOnlyOf(n.data) !== null)
+    expect(added.map((n) => [n.id, n.type])).toEqual(risks.map((id) => [id, 'risk']))
+    for (const n of added) {
+      expect(notInCalculationWords(livingOnlyOf(n.data)!)).toBe('Not in the calculation yet')
+      expect((n.data as Record<string, unknown>).event_risk).toMatchObject({ occurrence: { basis: 'olumi' }, horizon: { months: 1 } })
+    }
+    expect(drawn.edges.filter((e) => livingOnlyOf(e.data) !== null).map((e) => [e.source, e.target, (e.data as Record<string, unknown>).direction])).toEqual([
+      ['closing_delay', 'commitments', 'negative'],
+      ['introductions_fail', 'meetings', 'negative'],
+      ['investor_withdraws', 'commitments', 'negative'],
+      ['diligence_objection', 'commitments', 'negative'],
+    ])
   })
 })

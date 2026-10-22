@@ -11,6 +11,7 @@ import { ConstraintBadge } from './ConstraintBadge'
 import { goalConstraintText } from '../utils/goalConstraintText'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { NODE_REGISTRY, isUnquantifiedPrior, type ObservedState } from '../domain/nodes'
+import { livingOnlyOf } from '../domain/livingModelCanvas'
 import { resolveFactorStoredRangeLine } from './shared/factorStatedRange'
 import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
@@ -1201,6 +1202,12 @@ export const FactorNode = memo((props: NodeProps) => {
    * `null` in Detailed, where these stay inline on the card.
    */
   const needsInputSentenceMoved = !isDetailed && needsInput && valueDisplay === null
+  const emptyValueReadout = (
+    <span className="inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5" data-testid="factor-empty-value">
+      <StatusPill label="Needs input" title="Missing required input" />
+      <span className={`${typography.edgeLabel} font-normal text-text-light`}>Value not set yet</span>
+    </span>
+  )
   // Row 10: whole here when the card's one-line driver slot cuts it.
   // The Standard driver slot renders nothing visible (no ranked line, no pre-run
   // line) while a range line follows it: draw the range first (see the slot).
@@ -1539,26 +1546,25 @@ export const FactorNode = memo((props: NodeProps) => {
             className="flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5"
             data-testid={`factor-needs-input-row-${props.id}`}
           >
-            <NodeValueEditor
-              value={null}
-              readout={
-                <span className="inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5" data-testid="factor-empty-value">
-                  <StatusPill label="Needs input" title="Missing required input" />
-                  <span className={`${typography.edgeLabel} font-normal text-text-light`}>Value not set yet</span>
-                </span>
-              }
-              onCommit={(v, opts) => editAuthority.proposeFactorValue(v, opts)}
-              readCommittedValue={() =>
-                resolveValueInputSeed(useCanvasStore.getState().nodes.find(n => n.id === props.id)?.data).seed ?? null}
-              {...(emptyUnit.prefix ? { prefix: emptyUnit.prefix } : {})}
-              {...(valueFieldIsModelScale
-                ? { min: 0, max: 1, outOfRangeCopy: OPTION_TARGET_ENTRY_REFUSAL.outOfRangeModelScale, scaleHint: FACTOR_VALUE_MODEL_SCALE_HINT }
-                : emptyUnit.suffix ? { scaleHint: emptyUnit.suffix } : {})}
-              ariaLabel={`Value for ${props.data?.label ?? 'this factor'} (needs input)`}
-              testId={`node-value-editor-${props.id}`}
-              restingFlow="inline"
-              restingTypography={typography.edgeLabel}
-            />
+            {/* ⛔ The words without the field on a card drawn from the living model alone (`livingModelCanvas.ts`):
+                there is no store node for a value to be written to. */}
+            {livingOnlyOf(props.data) !== null ? emptyValueReadout : (
+              <NodeValueEditor
+                value={null}
+                readout={emptyValueReadout}
+                onCommit={(v, opts) => editAuthority.proposeFactorValue(v, opts)}
+                readCommittedValue={() =>
+                  resolveValueInputSeed(useCanvasStore.getState().nodes.find(n => n.id === props.id)?.data).seed ?? null}
+                {...(emptyUnit.prefix ? { prefix: emptyUnit.prefix } : {})}
+                {...(valueFieldIsModelScale
+                  ? { min: 0, max: 1, outOfRangeCopy: OPTION_TARGET_ENTRY_REFUSAL.outOfRangeModelScale, scaleHint: FACTOR_VALUE_MODEL_SCALE_HINT }
+                  : emptyUnit.suffix ? { scaleHint: emptyUnit.suffix } : {})}
+                ariaLabel={`Value for ${props.data?.label ?? 'this factor'} (needs input)`}
+                testId={`node-value-editor-${props.id}`}
+                restingFlow="inline"
+                restingTypography={typography.edgeLabel}
+              />
+            )}
           </div>
         )}
 

@@ -108,6 +108,7 @@ import { WhatIfMarkLayer } from './nodes/WhatIfMarkLayer'
 import { DirectionNeededLayer } from './nodes/DirectionNeededLayer'
 import { coreSwitchOptionOf, withoutCoreSwitches } from './domain/coreSwitch'
 import { useDrawnLivingModel } from './hooks/useDrawnLivingModel'
+import { livingOnlyOf } from './domain/livingModelCanvas'
 import { fitBoundsFor, CANVAS_MOUNT_FIT_OPTIONS } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -1529,6 +1530,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const handleNodeClick = useCallback((_: any, node: any) => {
     // Close Templates panel when interacting with canvas
     onCanvasInteraction?.()
+    // A card drawn from the living model alone has no store node to select, inspect or edit.
+    if (livingOnlyOf(node?.data) !== null) return
 
     if (reconnecting) {
       completeReconnect(node.id)
@@ -1584,8 +1587,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
    * `openNodeInspector` uses, for the same reason: opening an editor is not a
    * graph change and must not be undoable.
    */
-  const handleNodeDoubleClick = useCallback((_event: unknown, node: { id: string }) => {
-    if (!node?.id) return
+  const handleNodeDoubleClick = useCallback((_event: unknown, node: { id: string; data?: unknown }) => {
+    if (!node?.id || livingOnlyOf(node.data) !== null) return
     useCanvasStore.getState().selectNodeWithoutHistory(node.id)
     requestNodeRename(node.id)
     setShowFullInspector(true)
@@ -2465,6 +2468,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     event.preventDefault()
     // ACCOUNTS viewer mode: no edit menu for a viewer (CANVAS 5947752314).
     if (isViewerSession()) return
+    // Nor for a card drawn from the living model alone: there is no store node to edit.
+    if (livingOnlyOf(node?.data) !== null) return
     const screenPos = { x: event.clientX, y: event.clientY }
     if (node) {
       const { selection } = useCanvasStore.getState()

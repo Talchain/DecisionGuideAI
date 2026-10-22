@@ -2118,7 +2118,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           and the footer padding"; that was false at these bytes — the padding
           above is a disjunction that also fires on `factor` and `option` below
           the legibility floor, where this layer is unmounted. */}
-      {showQuickActions && (
+      {/* ⛔ No edit control on a card drawn from the living model alone: it has no store node (`livingModelCanvas.ts`). */}
+      {showQuickActions && livingOnly === null && (
         <NodeQuickActions
           nodeId={id}
           nodeType={nodeType}
@@ -2189,6 +2190,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         position={Position.Top}
         style={TARGET_HANDLE_STYLE}
         aria-label="Input connection"
+        isConnectable={livingOnly === null}
       />
       
       {/* Graph Editing Experience Task 5: Impact preview indicator (top-left to avoid rank badge collision) */}
@@ -2688,8 +2690,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             {...(typeOrdinal !== undefined && !lodBodyHidden
               ? { [NODE_TYPE_ORDINAL_ATTR]: `${NODE_NUMBER_PREFIX[nodeType as NumberedNodeKind]}${typeOrdinal}` }
               : {})}
-            onClick={lodBodyHidden ? undefined : onTitleClick}
-            onDoubleClick={lodBodyHidden ? undefined : (e) => { e.stopPropagation(); cancelTitleClick(); setRenamingOnCard(true) }}
+            onClick={lodBodyHidden || livingOnly !== null ? undefined : onTitleClick}
+            onDoubleClick={lodBodyHidden || livingOnly !== null ? undefined : (e) => { e.stopPropagation(); cancelTitleClick(); setRenamingOnCard(true) }}
             {...(lodBodyHidden ? { [LOD_FAR_TITLE_ATTR]: 'true' } : {})}
             className={'group/edit ' + (
               /* ⭐ v3.1 WS1 #2 (26 Sep 2026): NO CLAMP AT A READING RUNG. The
@@ -3117,9 +3119,11 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           3px dot, drawn by `.olumi-node-port` in index.css — a class rather than
           an inline background so the hover / selected rule there can re-light
           it as the drag-to-connect affordance. */}
+      {/* A handle ignores the node's own `connectable` (React Flow 12), so a drawn-only card says it here. */}
       <Handle
         type="source"
         position={Position.Bottom}
+        isConnectable={livingOnly === null}
         className="olumi-node-port"
         style={{
           width: 12,

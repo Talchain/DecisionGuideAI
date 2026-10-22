@@ -134,6 +134,21 @@ describe('deleteAction', () => {
     await deleteAction(target, showToast)
     expect(mockStore.deleteSelected).toHaveBeenCalled()
   })
+
+  // #2921: a card drawn from the living model alone (`domain/livingModelCanvas.ts`) has no store node.
+  it('Delete on a drawn-only id sends no mutation', async () => {
+    const { commitValidatedMutation } = await import('../../mutations/commitValidatedMutation')
+    await deleteAction({ kind: 'node', nodeId: 'drawn_only_risk' }, showToast)
+    await deleteAction({ kind: 'edge', edgeId: 'drawn_only_link' }, showToast)
+    await deleteAction({ kind: 'multi', nodeIds: ['f1', 'drawn_only_risk'], edgeIds: [] }, showToast)
+    expect(commitValidatedMutation).not.toHaveBeenCalled()
+    expect(mockStore.deleteNodeById).not.toHaveBeenCalled()
+    expect(mockStore.deleteEdge).not.toHaveBeenCalled()
+    expect(mockStore.deleteSelected).not.toHaveBeenCalled()
+    // Contrast: a store node is deleted through the same call.
+    await deleteAction({ kind: 'node', nodeId: 'f1' }, showToast)
+    expect(commitValidatedMutation).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('addConnectedFactorAction', () => {

@@ -1,0 +1,383 @@
+{
+ "_note": "Structure only, from the saved graph of scenario 80a77832 (Paul's served test, 22 Oct 2026; UI 8f7caba8, CEE 21ad02f5). Labels are replaced by ids; quotes, conditions, history, views, values and units are dropped. Diagnosis and regression only: never a prompt or a journey case.",
+ "nodes": [
+  {
+   "id": "decision_model",
+   "kind": "decision",
+   "label": "decision_model"
+  },
+  {
+   "id": "funding",
+   "kind": "goal",
+   "label": "funding"
+  },
+  {
+   "id": "warm_hours",
+   "kind": "factor",
+   "label": "warm_hours"
+  },
+  {
+   "id": "direct_hours",
+   "kind": "factor",
+   "label": "direct_hours"
+  },
+  {
+   "id": "closing_hours",
+   "kind": "factor",
+   "label": "closing_hours"
+  },
+  {
+   "id": "meetings",
+   "kind": "factor",
+   "label": "meetings"
+  },
+  {
+   "id": "commitments",
+   "kind": "factor",
+   "label": "commitments"
+  },
+  {
+   "id": "effective_capacity",
+   "kind": "factor",
+   "label": "effective_capacity"
+  },
+  {
+   "id": "fundraising_hours_total",
+   "kind": "factor",
+   "label": "fundraising_hours_total"
+  },
+  {
+   "id": "fundraising_time_share",
+   "kind": "factor",
+   "label": "fundraising_time_share"
+  },
+  {
+   "id": "normal_fundraising_budget",
+   "kind": "factor",
+   "label": "normal_fundraising_budget"
+  },
+  {
+   "id": "current",
+   "kind": "option",
+   "label": "current"
+  },
+  {
+   "id": "warm",
+   "kind": "option",
+   "label": "warm"
+  },
+  {
+   "id": "direct",
+   "kind": "option",
+   "label": "direct"
+  },
+  {
+   "id": "balanced",
+   "kind": "option",
+   "label": "balanced"
+  }
+ ],
+ "edges": [
+  {
+   "from": "decision_model",
+   "to": "current",
+   "effect_direction": "positive"
+  },
+  {
+   "from": "current",
+   "to": "warm_hours",
+   "effect_direction": "positive"
+  },
+  {
+   "from": "current",
+   "to": "direct_hours",
+   "effect_direction": "positive"
+  },
+  {
+   "from": "current",
+   "to": "closing_hours",
+   "effect_direction": "positive"
+  },
+  {
+   "from": "decision_model",
+   "to": "warm",
+   "effect_direction": "positive"
+  },
+  {
+   "from": "warm",
+   "to": "warm_hours",
+   "effect_direction": "positive"
+  },
+  {
+   "from": "warm",
+   "to": "direct_hours",
+   "effect_direction": "positive"
+  },
+  {
+   "from": "warm",
+   "to": "closing_hours",
+   "effect_direction": "positive"
+  },
+  {
+   "from": "decision_model",
+   "to": "direct",
+   "effect_direction": "positive"
+  },
+  {
+   "from": "direct",
+   "to": "warm_hours",
+   "effect_direction": "positive"
+  },
+  {
+   "from": "direct",
+   "to": "direct_hours",
+   "effect_direction": "positive"
+  },
+  {
+   "from": "direct",
+   "to": "closing_hours",
+   "effect_direction": "positive"
+  },
+  {
+   "from": "decision_model",
+   "to": "balanced",
+   "effect_direction": "positive"
+  },
+  {
+   "from": "balanced",
+   "to": "warm_hours",
+   "effect_direction": "positive"
+  },
+  {
+   "from": "balanced",
+   "to": "direct_hours",
+   "effect_direction": "positive"
+  },
+  {
+   "from": "balanced",
+   "to": "closing_hours",
+   "effect_direction": "positive"
+  },
+  {
+   "id": "warm_hours__fundraising_hours_total",
+   "from": "warm_hours",
+   "to": "fundraising_hours_total",
+   "effect_direction": "positive"
+  },
+  {
+   "id": "direct_hours__fundraising_hours_total",
+   "from": "direct_hours",
+   "to": "fundraising_hours_total",
+   "effect_direction": "positive"
+  },
+  {
+   "id": "closing_hours__fundraising_hours_total",
+   "from": "closing_hours",
+   "to": "fundraising_hours_total",
+   "effect_direction": "positive"
+  },
+  {
+   "id": "warm_meetings",
+   "from": "warm_hours",
+   "to": "meetings",
+   "effect_direction": "positive"
+  },
+  {
+   "id": "direct_meetings",
+   "from": "direct_hours",
+   "to": "meetings",
+   "effect_direction": "positive"
+  },
+  {
+   "id": "meetings_commitments",
+   "from": "meetings",
+   "to": "commitments",
+   "effect_direction": "positive"
+  },
+  {
+   "id": "closing_commitments",
+   "from": "closing_hours",
+   "to": "commitments",
+   "effect_direction": "positive"
+  },
+  {
+   "id": "commitments_funding",
+   "from": "commitments",
+   "to": "funding",
+   "effect_direction": "positive"
+  }
+ ],
+ "living_model": {
+  "factors": [
+   {
+    "id": "warm_hours",
+    "kind": "factor",
+    "label": "warm_hours"
+   },
+   {
+    "id": "direct_hours",
+    "kind": "factor",
+    "label": "direct_hours"
+   },
+   {
+    "id": "closing_hours",
+    "kind": "factor",
+    "label": "closing_hours"
+   },
+   {
+    "id": "meetings",
+    "kind": "outcome",
+    "label": "meetings"
+   },
+   {
+    "id": "commitments",
+    "kind": "outcome",
+    "label": "commitments"
+   },
+   {
+    "id": "effective_capacity",
+    "kind": "factor",
+    "label": "effective_capacity"
+   },
+   {
+    "id": "fundraising_hours_total",
+    "kind": "factor",
+    "label": "fundraising_hours_total"
+   },
+   {
+    "id": "fundraising_time_share",
+    "kind": "factor",
+    "label": "fundraising_time_share"
+   },
+   {
+    "id": "normal_fundraising_budget",
+    "kind": "factor",
+    "label": "normal_fundraising_budget"
+   }
+  ],
+  "risks": [
+   {
+    "id": "closing_delay",
+    "label": "closing_delay",
+    "occurrence": {
+     "low": 0.2,
+     "high": 0.9,
+     "estimate_by": null
+    },
+    "horizon_months": 1,
+    "horizon_by": null,
+    "source": "olumi"
+   },
+   {
+    "id": "introductions_fail",
+    "label": "introductions_fail",
+    "occurrence": {
+     "low": 0.1,
+     "high": 0.9,
+     "estimate_by": null
+    },
+    "horizon_months": 1,
+    "horizon_by": null,
+    "source": "olumi"
+   },
+   {
+    "id": "investor_withdraws",
+    "label": "investor_withdraws",
+    "occurrence": {
+     "low": 0.05,
+     "high": 0.8,
+     "estimate_by": null
+    },
+    "horizon_months": 1,
+    "horizon_by": null,
+    "source": "olumi"
+   },
+   {
+    "id": "diligence_objection",
+    "label": "diligence_objection",
+    "occurrence": {
+     "low": 0.05,
+     "high": 0.8,
+     "estimate_by": null
+    },
+    "horizon_months": 1,
+    "horizon_by": null,
+    "source": "olumi"
+   }
+  ],
+  "links": [
+   {
+    "id": "warm_meetings",
+    "from": "warm_hours",
+    "to": "meetings",
+    "effect": {
+     "sign": "+"
+    }
+   },
+   {
+    "id": "direct_meetings",
+    "from": "direct_hours",
+    "to": "meetings",
+    "effect": {
+     "sign": "+"
+    }
+   },
+   {
+    "id": "meetings_commitments",
+    "from": "meetings",
+    "to": "commitments",
+    "effect": {
+     "sign": "+"
+    }
+   },
+   {
+    "id": "closing_commitments",
+    "from": "closing_hours",
+    "to": "commitments",
+    "effect": {
+     "sign": "+"
+    }
+   },
+   {
+    "id": "commitments_funding",
+    "from": "commitments",
+    "to": "funding",
+    "effect": {
+     "sign": "+"
+    }
+   },
+   {
+    "id": "delay_commitments",
+    "from": "closing_delay",
+    "to": "commitments",
+    "effect": {
+     "sign": "-"
+    }
+   },
+   {
+    "id": "introductions_meetings",
+    "from": "introductions_fail",
+    "to": "meetings",
+    "effect": {
+     "sign": "-"
+    }
+   },
+   {
+    "id": "withdrawal_commitments",
+    "from": "investor_withdraws",
+    "to": "commitments",
+    "effect": {
+     "sign": "-"
+    }
+   },
+   {
+    "id": "diligence_commitments",
+    "from": "diligence_objection",
+    "to": "commitments",
+    "effect": {
+     "sign": "-"
+    }
+   }
+  ]
+ }
+}
