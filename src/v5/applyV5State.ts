@@ -1924,11 +1924,15 @@ export function applyV5State(
     // on the canvas are dropped, and a request whose targets have ALL gone
     // stale writes nothing rather than dimming the whole graph around an
     // element that is not there.
+    // Bound to THIS turn's saved model (its `graph_hash`), which is recorded only further down: reading the store here
+    // would bind a fresh draft's note to the model before it.
+    const turnGraphHash = (response as { graph_hash?: unknown }).graph_hash
     requestOlumiAttention({
       nodeIds: attentionNodeIds,
       edgeIds: attentionEdgeIds,
       note: pendingAttentionNote,
       caveat: pendingAttentionCaveat,
+      ...(typeof turnGraphHash === 'string' && turnGraphHash.length > 0 ? { modelVersion: turnGraphHash } : {}),
     })
   }
   // Flush any add_constraint patches in ONE setGoalConstraints write (see

@@ -728,3 +728,22 @@ describe('applyV5State — a ui_directive highlight the model may not designate 
     expect(deliveredCaveat()).toBeNull()
   })
 })
+
+/**
+ * ⭐ THE NOTE BINDS TO ITS OWN TURN'S SAVED MODEL (DL, 22 Oct 2026). The turn's `graph_hash` is recorded in the store only
+ * AFTER the block loop, so a binding read from the store would be the model BEFORE this turn (a fresh draft: none, or the
+ * previous one). The applicator passes the envelope's own hash; a turn without one leaves the default (the held model).
+ */
+describe('applyV5State: a ui_directive note is bound to its turn\'s graph_hash', () => {
+  const noted = directive('highlight', [{ id: RIVAL, label: DELL, kind: 'option' }], { note: 'What would make this option worth a test?' })
+  it('the attention request carries the envelope\'s graph_hash', () => {
+    applyV5State({ ...envelope(undefined, noted, { withAnalysisResult: false }), graph_hash: 'h_turn' } as OlumiResponse, makeStore())
+    expect(attentionMock).toHaveBeenCalledTimes(1)
+    expect((attentionMock.mock.calls[0][0] as { modelVersion?: unknown }).modelVersion).toBe('h_turn')
+  })
+  it('CONTRAST: a turn with no graph_hash names none (the request falls back to the held model)', () => {
+    applyV5State(envelope(undefined, noted, { withAnalysisResult: false }), makeStore())
+    expect(attentionMock).toHaveBeenCalledTimes(1)
+    expect('modelVersion' in (attentionMock.mock.calls[0][0] as object)).toBe(false)
+  })
+})

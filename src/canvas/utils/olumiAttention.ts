@@ -111,8 +111,18 @@ export interface OlumiAttention {
   caveat: OlumiAttentionCaveat | null
   /** The turn this attention belongs to — see the binding note above. */
   turnId: string | null
-  /** The model version it was computed against. */
-  modelVersion: number | null
+  /**
+   * The SAVED model it was said about: CEE's graph hash of the reply's turn (`graph_hash`, the same server value
+   * `lastServerGraphHash` carries), never the layout counter. A layout run is not a model change: binding to
+   * `layoutVersion` told every freshly drafted note "The model has changed since Olumi said this" (served 22 Oct,
+   * CEE 0bee826e). Null when the turn carried none and no saved model is held: the card then claims nothing.
+   */
+  modelVersion: string | null
+  /**
+   * The attended items' labels when the note was shown. The saved-model hash leaves labels out (CEE's `projectNode`), so
+   * a rename of the very item the note is about would otherwise never say the model changed (Codex on #2903).
+   */
+  labels?: Readonly<Record<string, string>>
 }
 
 export const OLUMI_ATTENTION_EVENT = 'olumi:attention'
@@ -128,6 +138,8 @@ export function requestOlumiAttention(next: {
   note?: OlumiAttentionNote | null
   caveat?: OlumiAttentionCaveat | null
   turnId?: string | null
+  /** The saved model the producer's words were written against (the turn's `graph_hash`); defaults to the held one. */
+  modelVersion?: string | null
 }): { applied: string[]; dropped: string[] } {
   const state = useCanvasStore.getState()
   const nodes = state.nodes ?? []
@@ -178,9 +190,16 @@ export function requestOlumiAttention(next: {
     note: next.note ?? null,
     caveat: next.caveat ?? null,
     turnId: next.turnId ?? null,
-    modelVersion: typeof state.layoutVersion === 'number' ? state.layoutVersion : null,
+    modelVersion: next.modelVersion !== undefined ? next.modelVersion : state.lastServerGraphHash ?? null,
+    labels: Object.fromEntries(liveNodes.map((id) => [id, nodeLabel(nodes.find((n) => n.id === id))])),
   })
   return { applied: [...liveNodes, ...liveEdges], dropped }
+}
+
+/** A node's label, as the canvas holds it ('' when it has none). */
+export function nodeLabel(node: { data?: unknown } | undefined): string {
+  const label = (node?.data as { label?: unknown } | undefined)?.label
+  return typeof label === 'string' ? label : ''
 }
 
 export function clearOlumiAttention(): void {
