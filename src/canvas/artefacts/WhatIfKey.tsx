@@ -37,7 +37,7 @@ export const WHAT_IF_COPY = {
   saved: 'Saved',
   whatIf: 'What if',
   provisional: 'Provisional',
-  notPaired: "Not like-for-like: this what-if changes the model's structure, so the two results come from different draws.",
+  notPaired: 'Not confirmed like-for-like: these two runs may not have drawn the same samples, so a small difference may be noise.',
   staleBase: 'Your model changed since this what-if was set up. Run it again.',
   refused: "Olumi couldn't run this what-if on this model.",
   signIn: 'Sign in to run a what-if on this model.',
@@ -52,13 +52,17 @@ const labelOf = (data: unknown): string => {
   return typeof l === 'string' ? l : ''
 }
 
-/** Factors whose card shows a value: the figure in the card's own terms (what its value editor would show). */
+/**
+ * Factors whose card shows a value IN ITS OWN UNIT: the figure the card's value editor would show. A factor whose only
+ * figure is on the model's internal 0–1 scale is not offered (Codex #2902: `0.6` would read "0.6%" beside its unit while
+ * meaning 60%); the card never shows that scale as a figure either.
+ */
 export function whatIfFactorChoices(nodes: readonly { id: string; type?: string; data: unknown }[]): FactorChoice[] {
   return nodes.flatMap((n) => {
     if (n.type !== 'factor') return []
-    const { seed } = resolveValueInputSeed(n.data)
+    const { seed, inUserUnits } = resolveValueInputSeed(n.data)
     const label = labelOf(n.data)
-    if (seed === undefined || label === '') return []
+    if (seed === undefined || !inUserUnits || label === '') return []
     const unit = getObservedState(n.data).unit
     return [{ id: n.id, label, saved: seed, unit: typeof unit === 'string' ? unit : '' }]
   })
@@ -115,6 +119,10 @@ export function WhatIfKey({ folded }: { folded: boolean }) {
   const [pickedId, setPickedId] = useState<string | null>(held?.nodeId ?? null)
   const picked = choices.find((c) => c.id === pickedId) ?? choices[0] ?? null
   const [typed, setTyped] = useState<string>(held ? String(held.whatIf) : '')
+  // A draft belongs to the model it was typed on: a scenario switch or a saved change starts it afresh.
+  useEffect(() => { setPickedId(null); setTyped('') }, [scenarioId, hash])
+  // Any edit makes the shown result no longer the answer to what is on screen: drop it (a late answer is dropped too).
+  const edit = (next: () => void) => { next(); if (useWhatIfStore.getState().held !== null || useWhatIfStore.getState().run.kind !== 'idle') useWhatIfStore.getState().clear() }
 
   if (folded) {
     return (
@@ -155,7 +163,7 @@ export function WhatIfKey({ folded }: { folded: boolean }) {
           <select
             data-testid="what-if-factor"
             value={picked.id}
-            onChange={(e) => { setPickedId(e.target.value); setTyped('') }}
+            onChange={(e) => { const id = e.target.value; edit(() => { setPickedId(id); setTyped('') }) }}
             className={`${typography.panelBody} rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body ${ACTION_FOCUS}`}
           >
             {choices.map((c) => <option key={c.id} value={c.id}>{`${c.label} (${figureText({ value: c.saved, unit: c.unit })})`}</option>)}
@@ -170,7 +178,7 @@ export function WhatIfKey({ folded }: { folded: boolean }) {
               inputMode="decimal"
               value={typed}
               placeholder={String(picked.saved)}
-              onChange={(e) => setTyped(e.target.value)}
+              onChange={(e) => { const v = e.target.value; edit(() => setTyped(v)) }}
               className={`${typography.panelBody} w-28 rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body ${ACTION_FOCUS}`}
             />
             {picked.unit !== '' && <span className={`${typography.panelBody} text-text-body`}>{picked.unit}</span>}

@@ -79,6 +79,11 @@ describe('runWhatIf', () => {
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok')
   })
 
+  it('⛔ the deadline covers the body: a response whose body stalls ends as unusable, never pending (Codex #2902)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: () => new Promise(() => {}) }) as unknown as Response))
+    expect(await runWhatIf(SID, { changes: [{}] }, { userId: null, accessToken: null, timeoutMs: 30 })).toEqual({ status: 'unusable' })
+  })
+
   it('a 401 sign-in refusal and a 503 are typed outcomes, never a result', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'x' }), { status: 503 })))
     expect(await runWhatIf(SID, { changes: [{}] }, { userId: null, accessToken: null })).toEqual({ status: 'unusable' })

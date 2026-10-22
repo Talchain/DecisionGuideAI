@@ -136,14 +136,24 @@ export async function runWhatIf(
       signal: controller.signal,
     })
   } catch (err) {
-    logger.warn('what_if.transport_failure', { error: (err as Error)?.message ?? 'unknown' })
-    return { status: 'unusable' }
-  } finally {
     if (timer !== null) clearTimeout(timer)
     opts.signal?.removeEventListener('abort', onCallerAbort)
+    logger.warn('what_if.transport_failure', { error: (err as Error)?.message ?? 'unknown' })
+    return { status: 'unusable' }
   }
-  let parsed: unknown = null
-  try { parsed = await response.json() } catch { parsed = null }
+  // The deadline and the caller's abort cover the BODY too (Codex #2902: a stalled body left the Run pending forever).
+  const ABORTED = Symbol('aborted')
+  const parsed = await new Promise<unknown>((resolve) => {
+    if (controller.signal.aborted) { resolve(ABORTED); return }
+    controller.signal.addEventListener('abort', () => resolve(ABORTED), { once: true })
+    response.json().then(resolve, () => resolve(null))
+  })
+  if (timer !== null) clearTimeout(timer)
+  opts.signal?.removeEventListener('abort', onCallerAbort)
+  if (parsed === ABORTED) {
+    logger.warn('what_if.body_aborted', {})
+    return { status: 'unusable' }
+  }
   if (!response.ok) {
     if (classifySignInRefusal(response.status, parsed) !== null) return { status: 'signInRequired' }
     logger.warn('what_if.http_failure', { status: response.status })

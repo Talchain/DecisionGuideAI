@@ -23,9 +23,11 @@ const SID = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
 const PRICE = { id: 'fac_price', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Price rise', observed_state: { value: 0.4, raw_value: 40, cap: 100, unit: '%' } } }
 const STAFF = { id: 'fac_staff', type: 'factor', position: { x: 0, y: 200 }, data: { label: 'Staff', observed_state: { value: 12, raw_value: 12, unit: 'people' } } }
 const UNSET = { id: 'fac_unset', type: 'factor', position: { x: 0, y: 400 }, data: { label: 'Unset', observed_state: {} } }
+/** Only a model-scale figure (no raw value): its `0.4` is 40% of the cap, never "0.4%" (Codex #2902). */
+const SCALE_ONLY = { id: 'fac_scale', type: 'factor', position: { x: 0, y: 600 }, data: { label: 'Share', observed_state: { value: 0.4, cap: 100, unit: '%' } } }
 const OPT_A = { id: 'opt_a', type: 'option', position: { x: 300, y: 0 }, data: { label: 'Open on Sundays' } }
 const OPT_B = { id: 'opt_b', type: 'option', position: { x: 300, y: 200 }, data: { label: 'Sell online' } }
-const NODES = [PRICE, STAFF, UNSET, OPT_A, OPT_B]
+const NODES = [PRICE, STAFF, UNSET, SCALE_ONLY, OPT_A, OPT_B]
 
 const RAN = {
   status: 'ran', paired: true, changesRefused: 0,
@@ -52,7 +54,7 @@ describe('the gesture: the saved path\'s own builder and wire adapter (one scale
     expect(whatIfChangeOf(held, PRICE.data)).toEqual({ kind: 'factor_value_edit', target_id: 'fac_price', value: 0.6, raw_value: 60, unit: '%', field: 'value' })
   })
 
-  it('choices are the factors whose card shows a value, in the card\'s own figure; a factor with none is not offered', () => {
+  it('choices are the factors whose card shows a value, in the card\'s own figure; a factor with none, or only a model-scale figure, is not offered', () => {
     expect(whatIfFactorChoices(NODES)).toEqual([
       { id: 'fac_price', label: 'Price rise', saved: 40, unit: '%' },
       { id: 'fac_staff', label: 'Staff', saved: 12, unit: 'people' },
@@ -122,6 +124,29 @@ describe('the key', () => {
     expect(useWhatIfStore.getState().held).toBeNull()
     await act(async () => { resolve(RAN) })
     expect(useWhatIfStore.getState().run.kind).toBe('idle')
+    expect(screen.queryByTestId('what-if-result')).toBeNull()
+  })
+
+  it('⛔ an edit after a result drops it: the result on screen always answers what is typed (Codex #2902)', async () => {
+    runWhatIfMock.mockResolvedValue(RAN)
+    render(<WhatIfKey folded={false} />)
+    fireEvent.change(screen.getByTestId('what-if-value'), { target: { value: '60' } })
+    fireEvent.click(screen.getByTestId('what-if-run'))
+    await waitFor(() => expect(screen.getByTestId('what-if-result')).toBeTruthy())
+    fireEvent.change(screen.getByTestId('what-if-value'), { target: { value: '70' } })
+    expect(screen.queryByTestId('what-if-result')).toBeNull()
+    expect(useWhatIfStore.getState().held).toBeNull()
+  })
+
+  it('⛔ a late answer for a value since changed is never shown under the new one', async () => {
+    let resolve: (v: unknown) => void = () => {}
+    runWhatIfMock.mockReturnValue(new Promise((r) => { resolve = r }))
+    render(<WhatIfKey folded={false} />)
+    fireEvent.change(screen.getByTestId('what-if-value'), { target: { value: '60' } })
+    fireEvent.click(screen.getByTestId('what-if-run'))
+    await waitFor(() => expect(useWhatIfStore.getState().run.kind).toBe('running'))
+    fireEvent.change(screen.getByTestId('what-if-factor'), { target: { value: 'fac_staff' } })
+    await act(async () => { resolve(RAN) })
     expect(screen.queryByTestId('what-if-result')).toBeNull()
   })
 
