@@ -61,6 +61,7 @@ import { RestsOnKey, usePickedKey } from '../artefacts/RestsOnKey'
 import { TradeOffsKey } from '../artefacts/TradeOffsKey'
 import { WhatIfKey } from '../artefacts/WhatIfKey'
 import { LENS_COPY, useCurrentPremortemWorksheet, type BarLens } from '../artefacts/lenses'
+import { resolveAiComparisonMode } from '../../v5/aiComparisonMode'
 import type { GraphChangeTarget } from '../graphChanges/graphChangesView'
 import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
 
@@ -72,6 +73,7 @@ export const LENS_KEY_COPY = {
   premortemWhat: 'It writes plausible ways each option could fail, each tied to what it rests on in the model, for you to challenge.',
   premortemAsk: 'Ask Olumi to imagine it failed',
   premortemNeedsRun: 'Olumi imagines failures from what a current Run shows. Run the analysis, then ask here.',
+  premortemInChat: 'Olumi’s failure stories arrive in the chat.',
   fragileHeading: 'Links that could change how the options compare',
   sensitiveHeading: 'Factors the result moves with most',
   focusOn: 'If you could strengthen one relationship, focus on:',
@@ -111,7 +113,11 @@ function PremortemKey({ folded }: { folded: boolean }) {
     : <PreMortemWorksheet />
   return (
     <div data-testid="premortem-not-yet" className="space-y-3">
-      <p className={`${typography.panelQuestion} text-text-header`}>{LENS_KEY_COPY.premortemEmpty}</p>
+      {/* The core route carries no worksheet (its turn contract has none), so Olumi's stories land in the chat: "has not
+          imagined" would contradict the reply beside it (served 22 Oct, CEE 381977c0). */}
+      {resolveAiComparisonMode() === 'core-route'
+        ? <p data-testid="premortem-in-chat" className={`${typography.panelQuestion} text-text-header`}>{LENS_KEY_COPY.premortemInChat}</p>
+        : <p className={`${typography.panelQuestion} text-text-header`}>{LENS_KEY_COPY.premortemEmpty}</p>}
       <p className={`${typography.panelBody} text-text-body`}>{LENS_KEY_COPY.premortemWhat}</p>
       {viewer ? null : !canAsk ? (
         <p data-testid="premortem-needs-run" className={`${typography.panelBody} text-text-light`}>{LENS_KEY_COPY.premortemNeedsRun}</p>
