@@ -15,26 +15,34 @@ const cardSchema = z.object({
   decline_action: actionSchema,
 }).passthrough()
 
+/**
+ * Field for field CEE's own `CoreTurnContract` (`orchestrator-v5/core-route/contract.ts`), so a body CEE may send is never
+ * read as a mismatch: the served journey of 22 Oct lost a valid chat-edit reply because a turn with no Run carries `run`
+ * with null fields (`{ run_id: null, run_key: null, computed_against: null, state: { kind, computed_at: null } }`), which
+ * an all-strings schema refused, and the person was told the server did not reply.
+ */
+const nullableId = z.string().min(1).nullable()
 export const CoreTurnSchema = z.object({
-  turn_id: z.string().min(1),
+  turn_id: nullableId,
   durability: z.string().optional(),
   assistant_text: z.string(),
   // `revision` is the CAS base a writer sends back; `scenario_revision` the full saved identity the read must serve (v1.5).
-  model: z.object({ graph: z.record(z.unknown()), revision: z.string().min(1), scenario_revision: z.string().min(1) }).nullable(),
+  // Both are null, and the graph absent, on a turn that saved nothing to show (a failure, a turn that never drafted).
+  model: z.object({ graph: z.record(z.unknown()).optional(), revision: nullableId, scenario_revision: nullableId }).passthrough().nullable(),
   cards: z.array(cardSchema).default([]),
   notes: z.array(z.object({ element_id: z.string().min(1), text: z.string().min(1) })).default([]),
   run: z.object({
-    run_key: z.string().min(1),
-    run_id: z.string().min(1),
-    computed_against: z.string().min(1),
-    state: z.object({ kind: z.string().min(1), computed_at: z.string().optional() }).passthrough(),
+    run_key: nullableId,
+    run_id: nullableId,
+    computed_against: nullableId,
+    state: z.object({ kind: z.string().min(1), computed_at: z.string().nullable().optional() }).passthrough(),
   }).passthrough().nullable(),
   // v1.4: the Run's own result block on a Run turn, and the FULL analysis verdict on every turn (their absence would run
   // the legacy fallbacks: absence audit, 22 Oct). Passed through as sent; never re-derived here.
   analysis_result: z.record(z.unknown()).nullable().optional(),
   analysis_state: z.record(z.unknown()).nullable().optional(),
   receipts: z.array(z.object({ authorised_by: z.enum(['person', 'olumi']) }).passthrough()).default([]),
-  paused: z.object({ proposal_id: z.string().min(1) }).nullable().optional(),
+  paused: z.object({ proposal_id: nullableId }).nullable().optional(),
   error: z.object({ code: z.string().min(1), message: z.string(), retry_safe: z.boolean(), nothing_saved: z.boolean() }).nullable(),
 })
 export type CoreTurn = z.infer<typeof CoreTurnSchema>
@@ -93,9 +101,10 @@ export function coreTurnToClientBody(turn: CoreTurn): Record<string, unknown> {
     ...(turn.cards.length > 0 && revision ? { _proposal_fields: { version: 1, graph_hash: revision, proposals: turn.cards } } : {}),
     ...(turn.analysis_state ? { analysis_state: turn.analysis_state } : {}),
     // What the scenario read must serve after this turn: the saved model and, after a Run, that Run (`readAfterWrite.ts`).
-    ...(turn.model ? { _read_after_write: { scenario_revision: turn.model.scenario_revision, ...(turn.run ? { run_id: turn.run.run_id } : {}) } } : {}),
+    // A turn with no saved identity, or no Run, asks nothing of the read (`readAfterWriteExpectation`).
+    ...(turn.model?.scenario_revision ? { _read_after_write: { scenario_revision: turn.model.scenario_revision, ...(turn.run?.run_id ? { run_id: turn.run.run_id } : {}) } } : {}),
     _agent: {
-      turn_id: turn.turn_id,
+      ...(turn.turn_id ? { turn_id: turn.turn_id } : {}),
       ...(turn.durability ? { durability: turn.durability } : {}),
       receipts: turn.receipts,
       // Who made each write, as the undo label reads it: the person's approval is `authorise_change`, else Olumi's.

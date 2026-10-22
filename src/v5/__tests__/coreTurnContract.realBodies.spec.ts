@@ -12,6 +12,7 @@ import { agentTurnUndoLabel, readAgentTurnReceipts } from '../../canvas/undo/cap
 import { readAfterWriteExpectation } from '../../canvas/conversation/readAfterWrite'
 import { previewFromFields } from '../../canvas/conversation/proposalPreview'
 import real from './fixtures/core-turn-r2-real.json'
+import servedChatEdit from './fixtures/core-turn-served-chat-edit.json'
 
 const parse = (body: unknown) =>
   parseV5Response(new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } }), { coreRoute: true })
@@ -62,5 +63,18 @@ describe('core route: real R2 bodies read through the one contract reader', () =
     const parsed = await parse(real.value_change_card_turn)
     const held = parsed.kind === 'response' ? readProposalFields(sidecar(parsed.response)._proposal_fields)?.proposals ?? [] : []
     expect(held.map((p) => previewFromFields(p)?.ops)).toEqual([[{ op: 'set_factor_value', nodeId: 'f', value: 0.6, unit: 'hours', source: 'yours' }]])
+  })
+})
+
+describe('⭐ the served journey (22 Oct 13:54Z, CEE 5b2b5441): a turn with no Run is read, not refused', () => {
+  const served = servedChatEdit.chat_edit_turn
+  it('the chat edit\'s reply and its card reach the client; its Run block of nulls asks nothing of the read', async () => {
+    expect(served.run).toEqual({ run_key: null, run_id: null, computed_against: null, state: { kind: 'blocked', computed_at: null } })
+    const parsed = await parse(served)
+    expect(parsed.kind).toBe('response')
+    if (parsed.kind !== 'response') return
+    expect(parsed.response.assistant_text).toBe(served.assistant_text)
+    expect(parsed.response.suggested_actions.map((a) => a.label)).toEqual(['Make this change', 'Change something first', 'Not now'])
+    expect(sidecar(parsed.response)._read_after_write).toEqual({ scenario_revision: served.model.scenario_revision })
   })
 })
