@@ -23,7 +23,7 @@ vi.mock('@xyflow/react', async () => {
 })
 
 import { CANVAS_BAND_WORD, ghostBandText, ghostStatusText, ProposalGhostLayer, PROPOSAL_GHOST_TESTID, otherChangesText, REVIEW_ON_THE_CARD } from '../ProposalGhostLayer'
-import { GHOST_CARD_WIDTH, GHOST_GAP_X, GHOST_CARD_HEIGHT, GHOST_GAP_Y, proposalGhostGeometry } from '../../utils/proposalGhostGeometry'
+import { GHOST_CARD_WIDTH, GHOST_GAP_X, GHOST_CARD_HEIGHT, GHOST_GAP_Y, clampGhostActionsX, proposalGhostGeometry } from '../../utils/proposalGhostGeometry'
 import { useProposalGhostStore } from '../../stores/proposalGhostStore'
 import { consentChipsFor, readProposalPreviewValue, type ProposalPreview } from '../../conversation/proposalPreview'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -45,6 +45,15 @@ afterEach(() => {
   const g = useProposalGhostStore.getState().ghost
   if (g) useProposalGhostStore.getState().clearGhost(g.proposalId)
   rfNodes = []
+})
+
+describe('the ghost\'s action row never runs under the panel on the canvas\'s right edge (DL 22 Oct, served at 1440 px)', () => {
+  it('a row that would cross the visible right edge is pulled left to end there; one that fits, or nothing covering, stays put', () => {
+    expect(clampGhostActionsX(900, 260, 1068)).toBe(808)
+    expect(clampGhostActionsX(700, 260, 1068)).toBe(700)
+    expect(clampGhostActionsX(900, 260, null)).toBe(900)
+    expect(clampGhostActionsX(900, 0, 1068), 'not measured yet → unchanged').toBe(900)
+  })
 })
 
 describe('proposalGhostGeometry: placed by identity, beside what it ties to', () => {
@@ -341,6 +350,16 @@ describe('the ghost\'s own Approve / Not now', () => {
     // Declining is still the person's: it writes nothing.
     expect(screen.getByTestId('proposal-ghost-actions-decline').textContent).toBe('Not now')
     expect(otherChangesText(1)).toBe('+1 other change')
+    act(() => { useGuidanceStore.setState({ _sendChip: null } as never) })
+  })
+
+  it('⛔ a count of 0 (every note is about what the ghost draws): still no approve, no "+0", only Review on the card and Not now', () => {
+    rfNodes = NODES
+    act(() => { useGuidanceStore.setState({ _sendChip: () => {} } as never) })
+    act(() => useProposalGhostStore.getState().showGhost({ ...preview([ADD, TIE]), otherChanges: 0 }, { approve: APPROVE, decline: DECLINE }))
+    render(<ProposalGhostLayer />)
+    expect([...screen.getByTestId('proposal-ghost-actions').children].map((c) => c.getAttribute('data-testid')))
+      .toEqual(['proposal-ghost-actions-review', 'proposal-ghost-actions-decline'])
     act(() => { useGuidanceStore.setState({ _sendChip: null } as never) })
   })
 

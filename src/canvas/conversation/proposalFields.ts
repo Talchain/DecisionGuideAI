@@ -39,6 +39,15 @@ const addSchema = z.discriminatedUnion('kind', [
 export type ChangeNote = Extract<z.infer<typeof addSchema>, { kind: 'change_note' }>
 /** The held card's change notes, in CEE's order. */
 export const changeNotesOf = (p: Proposal): ChangeNote[] => p.adds.filter((a): a is ChangeNote => a.kind === 'change_note')
+/**
+ * How many OTHER changes a ghost should say its card holds (DL 22 Oct, served witness: "+9" counted note parts): distinct
+ * changes (a long note's `#k` parts are one), less the items the ghost itself draws (a new factor or link, `adds`).
+ */
+export function otherChangeCountOf(p: Proposal): number {
+  const drawn = new Set(p.adds.flatMap((a) => a.kind === 'factor_add' ? [`factor:${a.node_id}`] : a.kind === 'link_add' ? [`link:${a.link_id}`] : []))
+  return new Set(changeNotesOf(p).map((n) => n.field_id.replace(/^change_note:/, '').replace(/#\d+$/, ''))
+    .filter((item) => !drawn.has(item))).size
+}
 const proposalSchema = z.object({
   proposal_id: z.string().regex(/^(?:gmh_[0-9a-f]{12}|prop_[0-9a-f]{32})$/),
   // CEE (EDIT-PANEL, 8 Oct): the turn whose reply first offered this proposal; null = CEE could not match it (= absent).
