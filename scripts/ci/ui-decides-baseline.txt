@@ -44,7 +44,10 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:8256
+src/canvas/store.ts:8259
+#    (`store.ts:8256` -> `8259`, a pure +3 line shift from the Living Model canvas (22 Oct 2026): the
+#    `livingOutcomeIdsFor` import and the `livingOutcomeIds` layout option, all above this site. Line text identical
+#    (`if (currentTotal + displayBytes > MAX_TOTAL_CHARS) {`).)
 src/canvas/utils/briefValidation.ts:43
 src/canvas/utils/ceeAnalysisReadyValidation.ts:159
 src/canvas/utils/ceeDataAdapter.ts:328
