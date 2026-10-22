@@ -7,6 +7,7 @@ import { STARTERS, applyStarter, loadStarterPayload } from '../starters/loadStar
 import { typography } from '../../styles/typography'
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { openExampleDecision } from '../example/exampleDecision'
+import { resolveAiComparisonMode } from '../../v5/aiComparisonMode'
 
 /**
  * The one user-facing failure string for a starter that will not open. Exported
@@ -157,6 +158,11 @@ export function StarterDecisions() {
 
   // A graph exists → the starters are not the user's way in any more.
   if (hasGraph) return null
+
+  // The core route (staging's default since #2914) refuses every Run on a scenario saved before the living model
+  // (`legacy_scenario`), and every example here is one: offered, it opens, then its first Run says "start a new
+  // scenario" (served 22 Oct, 3 of 3 checked). On that route the brief is the way in.
+  if (resolveAiComparisonMode() === 'core-route') return null
 
   // Fail closed rather than render a heading over an empty row. Unreachable
   // while the manifest is non-empty (loadStarter throws at import on
