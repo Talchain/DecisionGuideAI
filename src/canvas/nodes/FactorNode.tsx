@@ -551,10 +551,13 @@ export const FactorNode = memo((props: NodeProps) => {
     influenceRank,
     runCurrency,
     resultsFromLastRun,
-    driverLine,
+    driverLine: rankedDriverLine,
     driverNotRanked,
     turningPointState,
   } = useFactorRunCues(props.id, displayMetadata)
+  // A drawn-only factor has no driver line and so no resting turning point: both are buttons that open the inspector on
+  // a node the store does not hold.
+  const driverLine = drawnOnly ? null : rankedDriverLine
 
   /**
    * ⭐ THE FACTOR FACE — NODE-ANATOMY v3.2 (24 Sep; supersedes the locked face

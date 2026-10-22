@@ -10,23 +10,30 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { ReactFlowProvider, type Node } from '@xyflow/react'
 
+/** The graph lens switch, on only where a row asks for the "Rests on" lens. */
+let graphLensOn = false
+vi.mock('../../../flags', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, isGraphLensEnabled: () => graphLensOn }
+})
 /** An attention cue on every card while set (the cue's own producer is the analysis; this is its hook's answer). */
 let attentionOnEveryCard = false
 vi.mock('../shared/useNodeAttention', () => ({
-  useNodeAttention: vi.fn(() => attentionOnEveryCard
+  useNodeAttention: () => (attentionOnEveryCard
     ? { reasons: [{ kind: 'top_driver', order: 1, label: 'Driver 1 of 3 ranked in this run.' }], marked: true, markedCount: 1, candidateCount: 1 }
     : { reasons: [], marked: false, markedCount: 0, candidateCount: 0 }),
 }))
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
-  useNodeDisplayMetadata: vi.fn(() => ({
+  useNodeDisplayMetadata: () => ({
     sensitivityRank: null, influence: null, confidence: null,
     inSensitivityAnalysis: false, achievementProbability: null, stabilityPercentage: null,
-  })),
+  }),
 }))
 
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { ATTENTION_MARKER_TESTID_PREFIX } from '../shared/NodeAttentionMarker'
+import { RESTS_ON_MARKER_TESTID } from '../../artefacts/RestsOnMarker'
 import { FactorNode } from '../FactorNode'
 import { OutcomeNode } from '../OutcomeNode'
 import { RiskNode } from '../RiskNode'
@@ -71,7 +78,15 @@ afterEach(() => {
   useCanvasStore.setState({ nodes: [], edges: [] } as never)
   useGuidanceStore.getState().clearGuidanceItems()
   attentionOnEveryCard = false
+  graphLensOn = false
 })
+
+/** The "Rests on" lens showing a figure for `id` (the lens marks every node it numbers by `node:<id>`). */
+function restsOnLensFor(id: string) {
+  graphLensOn = true
+  const lens = useCanvasStore.getState().lens
+  useCanvasStore.setState({ lens: { ...lens, active: 'rests_on', _restsOn: new Map([[`node:${id}`, { n: 1, column: 'missing' }]]) } } as never)
+}
 
 /** A live guidance item naming `id` (CEE's guidance targets the living model's ids). */
 const guidanceFor = (id: string) => ({
@@ -135,6 +150,24 @@ describe('a live guidance item or an attention cue naming a drawn-only card', ()
     renderCard(node, [node])
     expect(screen.getByTestId(`node-coaching-marker-${id}`)).toBeTruthy()
     expect(screen.getByTestId(`${ATTENTION_MARKER_TESTID_PREFIX}${id}`)).toBeTruthy()
+  })
+})
+
+describe('the "Rests on" lens numbering a drawn-only card', () => {
+  it.each(['staff_hours', 'stock_level', 'supplier_fails'])('⛔ %s: no figure button (picking it would select a node the store does not hold)', (id) => {
+    restsOnLensFor(id)
+    const card = renderCard(drawn.find((n) => n.id === id)!, [])
+    expect(screen.queryByTestId(RESTS_ON_MARKER_TESTID)).toBeNull()
+    expect([...card.querySelectorAll(CONTROLS)].map((el) => el.outerHTML.slice(0, 120))).toEqual([])
+  })
+
+  it.each(['staff_hours', 'stock_level', 'supplier_fails'])('CONTRAST %s: on the same card held in the store, the figure button mounts', (id) => {
+    restsOnLensFor(id)
+    const { data, type } = drawn.find((n) => n.id === id)!
+    const { livingOnly: _drawnOnly, ...engineData } = data as Record<string, unknown>
+    const node = { id, type, position: { x: 0, y: 0 }, data: engineData } as Node
+    renderCard(node, [node])
+    expect(screen.getByTestId(RESTS_ON_MARKER_TESTID)).toBeTruthy()
   })
 })
 

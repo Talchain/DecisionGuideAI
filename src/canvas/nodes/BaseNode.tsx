@@ -2502,8 +2502,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       </span>
 
       {/* "Rests on": the figure's number, on the card's top edge at the left, clear of the kind glyph at the centre.
-          Out of flow, so the card's measured height is the same in every lens. */}
-      {restsOn !== null && (
+          Out of flow, so the card's measured height is the same in every lens. Not on a card drawn from the living model
+          alone: picking it selects the node, which the store does not hold (`livingModelCanvas.ts`). */}
+      {restsOn !== null && livingOnly === null && (
         <RestsOnMarker
           target={`node:${id}`}
           mark={restsOn}
