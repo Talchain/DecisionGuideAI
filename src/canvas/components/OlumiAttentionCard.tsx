@@ -30,9 +30,10 @@
  * one layer down.
  *
  * ⚠ AND IT SAYS WHEN IT HAS GONE STALE rather than quietly lying. Attention
- * carries the model version it was computed against (PR #747's objection: the
- * canvas is one global slot). If the model has moved since, the card says so
- * instead of continuing to present the note as current.
+ * carries the saved model it was computed against (PR #747's objection: the
+ * canvas is one global slot): CEE's graph hash, never the layout counter. If the
+ * saved model has moved since, the card says so instead of continuing to present
+ * the note as current.
  */
 
 import { useCallback, useEffect } from 'react'
@@ -71,7 +72,7 @@ export const OLUMI_ATTENTION_CARD_TESTID = 'olumi-attention-card'
 export function OlumiAttentionCard() {
   const attention = useCanvasStore((s) => s.olumiAttention)
   const nodes = useCanvasStore((s) => s.nodes)
-  const layoutVersion = useCanvasStore((s) => s.layoutVersion)
+  const savedModel = useCanvasStore((s) => s.lastServerGraphHash)
   // Re-render on camera moves so the card stays with its element.
   const transform = useStore((s) => s.transform)
 
@@ -119,10 +120,12 @@ export function OlumiAttentionCard() {
 
   const note = attention.note
   const caveat = attention.caveat
+  // Stale only when the SAVED model has moved since (a new server hash: a value set, an accepted change, a structural
+  // edit), never when the canvas merely laid itself out again.
   const isStale =
     attention.modelVersion !== null &&
-    typeof layoutVersion === 'number' &&
-    layoutVersion !== attention.modelVersion
+    savedModel !== null &&
+    savedModel !== attention.modelVersion
 
   return (
     <div

@@ -111,8 +111,13 @@ export interface OlumiAttention {
   caveat: OlumiAttentionCaveat | null
   /** The turn this attention belongs to — see the binding note above. */
   turnId: string | null
-  /** The model version it was computed against. */
-  modelVersion: number | null
+  /**
+   * The SAVED model it was said about: CEE's graph hash of the reply's turn (`graph_hash`, the same server value
+   * `lastServerGraphHash` carries), never the layout counter. A layout run is not a model change: binding to
+   * `layoutVersion` told every freshly drafted note "The model has changed since Olumi said this" (served 22 Oct,
+   * CEE 0bee826e). Null when the turn carried none and no saved model is held: the card then claims nothing.
+   */
+  modelVersion: string | null
 }
 
 export const OLUMI_ATTENTION_EVENT = 'olumi:attention'
@@ -128,6 +133,8 @@ export function requestOlumiAttention(next: {
   note?: OlumiAttentionNote | null
   caveat?: OlumiAttentionCaveat | null
   turnId?: string | null
+  /** The saved model the producer's words were written against (the turn's `graph_hash`); defaults to the held one. */
+  modelVersion?: string | null
 }): { applied: string[]; dropped: string[] } {
   const state = useCanvasStore.getState()
   const nodes = state.nodes ?? []
@@ -178,7 +185,7 @@ export function requestOlumiAttention(next: {
     note: next.note ?? null,
     caveat: next.caveat ?? null,
     turnId: next.turnId ?? null,
-    modelVersion: typeof state.layoutVersion === 'number' ? state.layoutVersion : null,
+    modelVersion: next.modelVersion !== undefined ? next.modelVersion : state.lastServerGraphHash ?? null,
   })
   return { applied: [...liveNodes, ...liveEdges], dropped }
 }
