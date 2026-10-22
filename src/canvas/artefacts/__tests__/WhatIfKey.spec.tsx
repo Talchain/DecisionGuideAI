@@ -91,7 +91,8 @@ describe('the key', () => {
     render(<WhatIfKey folded={false} />)
     fireEvent.change(screen.getByTestId('what-if-value'), { target: { value: '60' } })
     fireEvent.click(screen.getByTestId('what-if-run'))
-    await waitFor(() => expect(screen.getByTestId('what-if-not-paired').textContent).toBe(WHAT_IF_COPY.notPaired))
+    await waitFor(() => expect(screen.getByTestId('what-if-not-paired').textContent)
+      .toBe('Not confirmed like-for-like: these two runs may not have drawn the same samples, so a small difference may be noise.'))
   })
 
   it('a stale-base refusal says the model changed; the saved value itself cannot be run', async () => {
@@ -148,6 +149,14 @@ describe('the key', () => {
     fireEvent.change(screen.getByTestId('what-if-factor'), { target: { value: 'fac_staff' } })
     await act(async () => { resolve(RAN) })
     expect(screen.queryByTestId('what-if-result')).toBeNull()
+  })
+
+  it('a saved change to the model starts the draft afresh (the typed value was for the model before it)', () => {
+    render(<WhatIfKey folded={false} />)
+    fireEvent.change(screen.getByTestId('what-if-value'), { target: { value: '60' } })
+    expect((screen.getByTestId('what-if-value') as HTMLInputElement).value).toBe('60')
+    act(() => { useCanvasStore.setState({ lastServerGraphHash: 'h2' } as never) })
+    expect((screen.getByTestId('what-if-value') as HTMLInputElement).value).toBe('')
   })
 
   it('folded, the legend names the held change; leaving the lens discards it', () => {
