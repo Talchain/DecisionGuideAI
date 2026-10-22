@@ -44,6 +44,7 @@
  *   explicit allowlist + mapper + renderer + visibility tests before CEE
  *   relies on it being shown to the user.
  */
+import { parseCoreTurn, coreTurnErrorBody, coreTurnToClientBody } from './coreTurnContract';
 import type { z } from 'zod';
 import { ownershipRefusalReason, type OwnershipRefusalReason } from './ownershipRefusalCopy';
 
@@ -747,7 +748,7 @@ export type V5ParseResult =
 // Parser
 // ---------------------------------------------------------------------------
 
-export async function parseV5Response(res: Response): Promise<V5ParseResult> {
+export async function parseV5Response(res: Response, opts: { coreRoute?: boolean } = {}): Promise<V5ParseResult> {
   // Read as text first so we always have the raw body for diagnostics.
   // This is a change from the previous `res.json()` approach — it ensures
   // non-JSON responses (Netlify "edge function timed out", proxy HTML errors,
@@ -781,6 +782,25 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
       diagnosticHeaders: captureDiagnosticHeaders(res),
       parse_failure_kind: 'non_json',
     };
+  }
+
+  // The core route answers with its own fixed contract (`coreTurnContract.ts`, the one reader of it). A body that is
+  // not that contract is a schema mismatch; a valid one goes on as the client body built from its data alone, and its
+  // error as today's failure envelope, so every path below reads only what the contract carried.
+  if (opts.coreRoute) {
+    const turn = parseCoreTurn(raw);
+    if (turn === null) {
+      return {
+        kind: 'parse_error',
+        reason: 'core-route answer is not the core-turn contract',
+        http_status: res.status,
+        raw: truncateBody(text),
+        source: 'cee',
+        diagnosticHeaders: captureDiagnosticHeaders(res),
+        parse_failure_kind: 'schema_mismatch',
+      };
+    }
+    raw = turn.error !== null ? coreTurnErrorBody(turn.error) : coreTurnToClientBody(turn);
   }
 
   // A typed BoundaryError is returned with a non-2xx status (e.g. 422).

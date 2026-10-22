@@ -64,7 +64,7 @@ import {
 } from './scenarioResponseFence'
 import { consumeStreamedDraftTurn, reconcileTerminalPreview } from '../../v5/consumeStreamedDraftTurn'
 import { routeV5Response } from '../../v5/responseRouter'
-import { aiComparisonHeaders } from '../../v5/aiComparisonMode'
+import { aiComparisonHeaders, AI_MODE_HEADER, isOpenAiLane, type AiComparisonMode } from '../../v5/aiComparisonMode'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
 import { readTurnProposalFields, type ProposalEdits } from './HeldProposalPanel'
 import { readGuidedSizing } from '../../v5/readGuidedSizing'
@@ -131,6 +131,7 @@ import {
 // recordDroppedContent never throws and never changes composition output.
 import { recordDroppedContent } from '../../lib/droppedContentCounter'
 import { buildChipMeta, type ChipMeta } from './chipMeta'
+import { readAfterWriteExpectation, checkReadAfterWrite, readAfterWriteNotice } from './readAfterWrite'
 import { START_NEW_DRAFT_CHIP_ID, LOAD_SAVED_MODEL_CHIP_ID } from './chipDispatch'
 import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
@@ -1031,6 +1032,7 @@ async function runStreamedDraftTurn(args: {
   // so it goes back through the buffered path's own parser.
   const result = await parseV5Response(
     streamTransport.terminalPayloadToResponse(outcome.terminalPayload, outcome.statusCode),
+    { coreRoute: headers[AI_MODE_HEADER] === 'core-route' },
   )
 
   // Settle the turn in the diagnostic trace store.
@@ -5680,7 +5682,7 @@ export function useConversation(): UseConversationReturn {
         // "server" fault (VERIFIER REC-WRITE). The re-press is idempotent, so the retry stays offered.
         const pressOutcomeUnknown = httpServerFailure && chipMeta?.id?.startsWith(CONSENT_CHIP_PREFIX) === true
         // The default `openai` mode is served by core too (CEE `laneModeFor`); a legacy turn never carries core's timeout body.
-        const coreTurn = v5Headers['x-olumi-ai-mode'] === 'core' || v5Headers['x-olumi-ai-mode'] === 'openai'
+        const coreTurn = isOpenAiLane((v5Headers[AI_MODE_HEADER] ?? null) as AiComparisonMode | null)
         const errorBody = target.kind === 'typed_error' ? target.rawBody ?? target.boundaryError : undefined
         const coreError = coreTurn && isRecord(errorBody) ? errorBody : undefined
         // A core turn past the stream budget is still running server-side: an UNKNOWN outcome, never a failure. Its one
@@ -6498,6 +6500,19 @@ export function useConversation(): UseConversationReturn {
             ...(modelBuildingNotices ? { modelBuildingNotices } : {}),
             timestamp: new Date(),
           })
+          // Read-after-write (contract v1.5–v1.6): a turn that names what it saved is read back (one retry); a read that still
+          // serves another model, or not this turn's Run, says so rather than passing as the saved state.
+          const expectedRead = readAfterWriteExpectation(target.response)
+          if (expectedRead !== null && scenarioIdAtDispatch) {
+            void checkReadAfterWrite(scenarioIdAtDispatch, expectedRead, { userId: v5UserId, accessToken: v5Identity.accessToken })
+              .catch(() => 'unknown' as const)
+              .then((outcome) => {
+                const notice = readAfterWriteNotice(outcome)
+                if (notice !== null && useCanvasStore.getState().currentScenarioId === scenarioIdAtDispatch) {
+                  addMessage({ id: crypto.randomUUID(), role: 'assistant', synthetic: true, content: notice, timestamp: new Date() })
+                }
+              })
+          }
 
           // ROADMAP 2.122 — the streamed draft's one honest-failure state.
           //

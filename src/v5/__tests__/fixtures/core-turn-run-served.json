@@ -1,0 +1,204 @@
+{
+ "_source": "served core Run turn, UI b1134e99 / CEE 7256f3e3, 22 Oct (evidence held2-2906-2908-2909-3644-b1134e99-CAFE, last turn)",
+ "analysis_result": {
+  "type": "analysis_result",
+  "summary": "",
+  "leading_option_id": null,
+  "enrichment": {
+   "option_comparison": [
+    {
+     "id": "keep_current",
+     "label": "Keeping things as they are",
+     "status": "computed",
+     "outcome": {
+      "n_samples": 10000,
+      "validity_ratio": 1,
+      "n_valid_samples": 10000,
+      "percentiles_source": "samples"
+     },
+     "option_id": "keep_current",
+     "option_label": "Keeping things as they are"
+    },
+    {
+     "id": "second_barista",
+     "label": "Adding a second barista at the morning peak",
+     "status": "computed",
+     "outcome": {
+      "n_samples": 10000,
+      "validity_ratio": 1,
+      "n_valid_samples": 10000,
+      "percentiles_source": "samples"
+     },
+     "option_id": "second_barista",
+     "option_label": "Adding a second barista at the morning peak"
+    }
+   ],
+   "factor_sensitivity": [
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "coffee_volume",
+     "elasticity": 1,
+     "driver_label": "biggest",
+     "factor_label": "Coffees sold per day",
+     "value_source": "brief_extraction",
+     "evidence_hint": false,
+     "influence_rank": 1,
+     "importance_rank": 1,
+     "influence_basis": "isl_structural",
+     "influence_score": 1,
+     "importance_basis": "isl_structural",
+     "sensitivity_score": 1,
+     "value_extraction_type": "explicit"
+    },
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "coffee_price",
+     "elasticity": 1,
+     "driver_label": "strong",
+     "factor_label": "Price per coffee",
+     "value_source": "brief_extraction",
+     "evidence_hint": false,
+     "influence_rank": 2,
+     "importance_rank": 2,
+     "influence_basis": "isl_structural",
+     "influence_score": 1,
+     "importance_basis": "isl_structural",
+     "sensitivity_score": 1,
+     "value_extraction_type": "explicit"
+    },
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "second_barista__on",
+     "elasticity": 0,
+     "zero_reason": "intervention_override",
+     "driver_label": "minor",
+     "factor_label": "Adding a second barista at the morning peak in place",
+     "value_source": "cee_inference",
+     "influence_rank": 3,
+     "importance_rank": 3,
+     "influence_basis": "isl_structural",
+     "influence_score": 0.10666666666666666,
+     "importance_basis": "isl_structural",
+     "sensitivity_score": 0,
+     "range_derivation_source": "default"
+    }
+   ],
+   "robustness": {
+    "robust_edges": [],
+    "fragile_edges": [],
+    "display_verdict": "not_assessed",
+    "display_verdict_reason": "robustness was not assessed for this run",
+    "recommended_option_compliance": "not_applicable",
+    "recommended_option_compliance_reason": "no limits were set for this decision"
+   },
+   "option_comparison_status": "computed",
+   "edge_e_values": [],
+   "inference_warnings": [
+    {
+     "code": "GOAL_PROBABILITY_IDENTITY_NOT_EVALUATED",
+     "message": "Not shown. Olumi reads 'Daily coffee revenue of at least \u00a31,000 within three months' as 'Coffees sold per day' \u00d7 'Price per coffee', but that hasn't been confirmed, so this run gives no chance of reaching the target for 'Daily coffee revenue of at least \u00a31,000 within three months'.",
+     "node_ids": [
+      "daily_revenue"
+     ],
+     "severity": "warning"
+    },
+    {
+     "code": "GOAL_THRESHOLD_NOT_CONVERTIBLE",
+     "field": "nodes[daily_revenue].observed_state.baseline",
+     "detail": {
+      "reason": "missing_goal_baseline"
+     },
+     "message": "A 'level' frame requires goal node 'daily_revenue' to carry observed_state.baseline to convert the level into the samples' frame, but it carries no observed_state at all.",
+     "severity": "warning"
+    },
+    {
+     "code": "GOAL_FIGURES_MISSING_CURRENT_LEVEL",
+     "detail": {
+      "reason": "missing_goal_baseline"
+     },
+     "message": "Not shown. Daily coffee revenue of at least \u00a31,000 within three months's current level is missing.",
+     "node_ids": [
+      "daily_revenue"
+     ],
+     "severity": "warning",
+     "option_ids": [
+      "keep_current",
+      "second_barista"
+     ],
+     "withheld_claims": [
+      "goal_probability",
+      "joint_probability",
+      "outcome",
+      "downside"
+     ]
+    }
+   ],
+   "flip_thresholds": [],
+   "decision_brief": {
+    "options": [],
+    "version": "1",
+    "brief_id": "cc722c48-95f0-481f-88a7-676e7de61af0",
+    "warnings": [
+     {
+      "code": "M2_UNAVAILABLE",
+      "message": "Decision review was unavailable; brief uses deterministic coaching fallback",
+      "severity": "warning"
+     },
+     {
+      "code": "MISSING_RISK_PATHWAY",
+      "message": "No risk factors materially affect your goal. What could go wrong?",
+      "severity": "warning"
+     }
+    ],
+    "created_at": "2026-10-22T08:33:35.682Z",
+    "robustness": "not_assessed",
+    "top_drivers": [
+     {
+      "direction": "positive",
+      "sensitivity": 1,
+      "factor_label": "Coffees sold per day"
+     },
+     {
+      "direction": "positive",
+      "sensitivity": 1,
+      "factor_label": "Price per coffee"
+     }
+    ],
+    "warning_codes": [
+     "GOAL_PROBABILITY_IDENTITY_NOT_EVALUATED",
+     "GOAL_THRESHOLD_NOT_CONVERTIBLE"
+    ],
+    "key_assumptions": [],
+    "what_would_change": [],
+    "defaulted_assumptions": []
+   },
+   "conditional_winners": [],
+   "flip_thresholds_status": "unavailable"
+  },
+  "computed_against_hash": "c96c1102c2fb7cee"
+ },
+ "analysis_state": {
+  "run_state": {
+   "kind": "complete_current",
+   "computed_at": "2026-10-22T08:33:31.847Z"
+  },
+  "readiness": {
+   "status": "ready",
+   "blockers": []
+  },
+  "leader_claim": {
+   "permitted": false,
+   "withheld_reason": "analysis_leader_withheld"
+  },
+  "robustness": {},
+  "usable_for_prose": true,
+  "usable_for_chips": true,
+  "usable_for_followup": true,
+  "requires_rerun": false,
+  "blocked_unusable": false,
+  "contradictions": []
+ }
+}
