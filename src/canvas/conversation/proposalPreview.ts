@@ -172,7 +172,13 @@ export function previewOfLatestReply(messages: readonly ConversationMessage[]): 
     const m = messages[i]
     if (m.role !== 'assistant' || m.synthetic || typeof m.sessionDivider === 'string') continue
     const preview = m.proposalPreview ?? null
-    if (preview !== null) return (m.actionChips ?? []).some((c) => c.id === consentChipIdFor(preview.proposalId)) ? preview : null
+    if (preview !== null) {
+      if (!(m.actionChips ?? []).some((c) => c.id === consentChipIdFor(preview.proposalId))) return null
+      // ⛔ CONSENT (Codex r2 #2904): an explicit preview's card can list changes in words too; the ghost must know (no approve).
+      const held = readProposalFields(m.proposalFields)?.proposals.find((p) => p.proposal_id === preview.proposalId)
+      const otherChanges = held ? changeNotesOf(held).length : 0
+      return otherChanges > 0 ? { ...preview, otherChanges } : preview
+    }
     // ⭐ Core sends no `proposal_preview`: the held card's own fields (`_proposal_fields`) name what it changes or adds.
     // The latest reply's fields are CEE's CURRENT held set; the card itself sits on its ISSUING reply, which a reopen
     // puts it back on (`reconcileRestoredProposalFields`). So the ghost shows exactly while the chat shows the card: held

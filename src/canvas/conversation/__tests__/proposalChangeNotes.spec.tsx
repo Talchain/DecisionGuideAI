@@ -8,7 +8,8 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { SuggestedChips, ALSO_CHANGES } from '../zones/SuggestedChips'
 import { buildSuggestedActionChips } from '../../../v5/blocks/suggestedActionChips'
 import { readProposalFields } from '../proposalFields'
-import { previewFromFields } from '../proposalPreview'
+import { consentChipIdFor, previewFromFields, previewOfLatestReply, readProposalPreviewValue } from '../proposalPreview'
+import type { ConversationMessage } from '../types'
 import served from './fixtures/served-held-proposal-sdwire4.json'
 
 type Json = Record<string, unknown>
@@ -75,5 +76,15 @@ describe('the held card says everything else the approval writes', () => {
     const plain = readProposalFields(withAdds([add]))!.proposals[0]
     expect(previewFromFields({ ...plain, fields: [] })).toEqual({ proposalId: plain.proposal_id,
       ops: [{ op: 'add_node', id: 'fac_n', label: 'Night shifts', kind: 'factor', value: null, source: 'estimate' }] })
+  })
+
+  it('⛔ Codex r2: an EXPLICIT preview (proposal_preview) whose held card lists notes also carries the count; with none it is returned as is', () => {
+    const fields = withAdds([RENAME])
+    const pid = String(((fields.proposals as Json[])[0]).proposal_id)
+    const explicit = readProposalPreviewValue({ proposal_id: pid, ops: [{ op: 'add_node', id: 'fac_n', label: 'Night shifts', kind: 'factor' }] })!
+    const reply = (f: Json): ConversationMessage => ({ id: 'r1', role: 'assistant', content: 'reply', timestamp: new Date(), proposalPreview: explicit,
+      proposalFields: f, actionChips: [{ id: consentChipIdFor(pid), label: 'Make this change', intent: 'primary', message: 'Yes.' }] }) as ConversationMessage
+    expect(previewOfLatestReply([reply(fields)])?.otherChanges).toBe(1)
+    expect(previewOfLatestReply([reply(withAdds(undefined))])).toBe(explicit)
   })
 })
