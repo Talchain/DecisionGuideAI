@@ -65,6 +65,7 @@ import {
 import { consumeStreamedDraftTurn, reconcileTerminalPreview } from '../../v5/consumeStreamedDraftTurn'
 import { routeV5Response } from '../../v5/responseRouter'
 import { aiComparisonHeaders, AI_MODE_HEADER, isOpenAiLane, type AiComparisonMode } from '../../v5/aiComparisonMode'
+import { LEGACY_SCENARIO_COPY } from '../../v5/coreTurnContract'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
 import { readTurnProposalFields, type ProposalEdits } from './HeldProposalPanel'
 import { readGuidedSizing } from '../../v5/readGuidedSizing'
@@ -6604,6 +6605,7 @@ export function useConversation(): UseConversationReturn {
             : resolveV5Retryable(target.code, recovery.retryable))
             && (!coreTurn || coreError?.retry_safe === true)
             && coreError?.error !== 'PROVIDER_CAPACITY'
+            && coreError?.error !== 'legacy_scenario'
           // Transcript honesty (trust item #3): the rehearsal's 504s carry
           // NO CEE body — the proxy timeout JSON is not a server-processing
           // fault, and "Something went wrong on our side" was a false
@@ -6638,6 +6640,9 @@ export function useConversation(): UseConversationReturn {
             content = OWNERSHIP_REFUSAL_COPY[target.ownershipRefusal]
           } else if (coreError?.save_outcome === 'VERIFIED_SAVED') {
             content = 'Your model was saved, but the reply failed. Send a new message to continue.'
+          } else if (coreError?.error === 'legacy_scenario') {
+            // The core route refuses a scenario saved before the living model (CEE 409); no resend can change that (DL 22 Oct).
+            content = LEGACY_SCENARIO_COPY
           } else if (coreError?.error === 'PROVIDER_CAPACITY') {
             content = "Olumi's AI service is temporarily out of capacity. "
               + (coreError.nothing_saved === true ? 'Nothing was saved. ' : '')

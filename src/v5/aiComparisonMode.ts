@@ -1,8 +1,9 @@
 /**
- * `core` (PATH-B, Paul 19 Oct): the same OpenAI Agent route, where CEE runs the turn on the OpenAI Agents SDK and Olumi adds or
- * rewrites no reply prose (`#/canvas?ai=core`; CEE ignores it in production). A staging comparison surface, like `conventional`.
+ * `core-route` (contract v1.6, DL 22 Oct): CEE's thin core route, read only through `coreTurnContract.ts`. It is the staging
+ * default; `?ai=core` (PATH-B's old surface, which it replaces) reaches it too, so an old link never lands elsewhere.
+ * `openai` and `conventional` stay explicit comparison surfaces.
  */
-export type AiComparisonMode = 'conventional' | 'openai' | 'core' | 'core-route'
+export type AiComparisonMode = 'conventional' | 'openai' | 'core-route'
 
 export const AI_MODE_HEADER = 'x-olumi-ai-mode' as const
 
@@ -20,7 +21,8 @@ function explicitModeFromUrl(url: URL): AiComparisonMode | null {
   const hashParams =
     queryIndex >= 0 ? new URLSearchParams(hash.slice(queryIndex + 1)) : new URLSearchParams()
   const mode = normalisedMode(hashParams.get('ai') ?? pageMode)
-  return mode === 'openai' || mode === 'conventional' || mode === 'core' || mode === 'core-route' ? mode : null
+  if (mode === 'core') return 'core-route'
+  return mode === 'openai' || mode === 'conventional' || mode === 'core-route' ? mode : null
 }
 
 function isOlumiStagingHost(hostname: string): boolean {
@@ -32,9 +34,9 @@ function isOlumiStagingHost(hostname: string): boolean {
  *   #/canvas?ai=conventional  -> original/conventional CEE route
  *   #/canvas?ai=openai       -> OpenAI Agent route
  *
- * Staging defaults to OpenAI (25 Sep 2026, Paul's OpenAI-only constraint of
- * 24 Sep 18:15Z): a plain link, bookmark or shared URL must never reach the
- * conventional route, which calls Anthropic. The conventional control stays
+ * Staging defaults to the core route (DL 22 Oct; before, OpenAI, from Paul's
+ * OpenAI-only constraint of 24 Sep 18:15Z): a plain link, bookmark or shared URL
+ * must never reach the conventional route, which calls Anthropic. The conventional control stays
  * reachable, but only explicitly via ?ai=conventional. Production keeps its
  * deployment-configured behaviour unless a future product decision explicitly
  * introduces a selector there.
@@ -50,7 +52,7 @@ export function resolveAiComparisonMode(href?: string): AiComparisonMode | null 
   }
   const explicit = explicitModeFromUrl(url)
   if (explicit !== null) return explicit
-  return isOlumiStagingHost(url.hostname) ? 'openai' : null
+  return isOlumiStagingHost(url.hostname) ? 'core-route' : null
 }
 
 export function aiComparisonHeaders(href?: string): Record<string, string> {
@@ -69,15 +71,14 @@ export function aiComparisonBadge(href?: string): string | null {
   return resolveAiComparisonMode(href ?? window.location.href) === null ? null : aiComparisonLabel(href ?? window.location.href)
 }
 
-/** Both OpenAI surfaces reach the OpenAI Agent route; neither may make an Anthropic call from the browser. */
+/** Every OpenAI surface reaches the OpenAI Agent route; none may make an Anthropic call from the browser. */
 export function isOpenAiLane(mode: AiComparisonMode | null): boolean {
-  return mode === 'openai' || mode === 'core' || mode === 'core-route'
+  return mode === 'openai' || mode === 'core-route'
 }
 
 export function aiComparisonLabel(href?: string): string | null {
   const mode = resolveAiComparisonMode(href)
   if (mode === 'core-route') return 'OpenAI core route'
-  if (mode === 'core') return 'OpenAI core'
   if (mode === 'openai') return 'OpenAI'
   if (mode === 'conventional') return 'Conventional'
   return null

@@ -199,8 +199,8 @@ describe('L2-UI core save outcomes through the real fetch → parser → router 
     { row: 'capacity without no-write proof', body: { error: 'PROVIDER_CAPACITY', retryable: false, retry_safe: true }, words: "Olumi's AI service is temporarily out of capacity. Try again later.", retry: false },
     { row: 'saved before capacity refusal', body: { error: 'PROVIDER_CAPACITY', retryable: false, nothing_saved: false, save_outcome: 'VERIFIED_SAVED', retry_safe: false }, words: SAVED, retry: false },
     { row: 'unrelated diagnostic cannot authorise Retry or saved copy', body: { error: 'UPSTREAM_ERROR', provider_error: { retry_safe: true, save_outcome: 'VERIFIED_SAVED' }, detail: 'retry_safe: true; model saved' }, words: 'Something went wrong on our side.', retry: false },
-  ])('$row', async ({ body, words, retry }) => {
-    window.history.replaceState({}, '', '/#/canvas?ai=core')
+  ])('openai lane (flat bodies): $row', async ({ body, words, retry }) => {
+    window.history.replaceState({}, '', '/#/canvas?ai=openai')
     useFloatingPanelState.getState().reset()
     useFloatingPanelState.getState().open('system-first-use')
     const fetchStub = stubFetchWith(502, body)
@@ -216,7 +216,7 @@ describe('L2-UI core save outcomes through the real fetch → parser → router 
       expect(result.current.messages.filter(m => m.role === 'user').at(-1)?.deliveryState).toBe('sent')
     }
     expect(fetchStub).toHaveBeenCalledTimes(2)
-    expect(new Headers(fetchStub.mock.calls[0][1]?.headers).get('x-olumi-ai-mode')).toBe('core')
+    expect(new Headers(fetchStub.mock.calls[0][1]?.headers).get('x-olumi-ai-mode')).toBe('openai')
     const { container } = render(createElement(ChatThread, {
       messages: result.current.messages, isThinking: false, longRunningHint: null, nodeCount: 0,
       patchBlockStates: new Map(), patchRejections: new Map(), onChipClick: async () => {},
@@ -227,6 +227,33 @@ describe('L2-UI core save outcomes through the real fetch → parser → router 
     const assistant = container.querySelector('[data-testid="chat-message-assistant"]')!
     fireEvent.click(assistant.querySelector('[data-testid="message-menu-trigger"]')!)
     expect(assistant.querySelector('[data-testid="message-menu-retry"]') !== null).toBe(retry)
+  })
+
+  // The core route's failed turn is the whole contract with its `error` set (CEE #3650); nothing else is read.
+  const coreFailure = (code: string, retrySafe: boolean, nothingSaved: boolean, message = 'x') => ({
+    turn_id: 't-fail', durability: 'none', assistant_text: '', model: null, cards: [], notes: [], run: null, receipts: [],
+    paused: null, error: { code, message, retry_safe: retrySafe, nothing_saved: nothingSaved },
+  })
+  it.each([
+    { row: 'capacity, nothing saved: no resend', status: 503, body: coreFailure('PROVIDER_CAPACITY', true, true), words: CAPACITY, retry: false },
+    { row: 'safe no-write retry', status: 502, body: coreFailure('UPSTREAM_ERROR', true, true), words: 'Something went wrong on our side. Please retry.', retry: true },
+    { row: 'unsafe retry', status: 502, body: coreFailure('UPSTREAM_ERROR', false, false), words: 'Something went wrong on our side.', retry: false },
+    { row: '⭐ legacy scenario (409): one line, no resend, though CEE marks it retry-safe', status: 409,
+      body: coreFailure('legacy_scenario', true, true, 'This scenario was saved before the current Olumi model and cannot be opened on this route. Nothing was changed.'),
+      words: 'This scenario was built with an earlier version of Olumi. Start a new scenario to continue; this one stays here to read.', retry: false },
+  ])('core route (the staging default, contract bodies): $row', async ({ status, body, words, retry }) => {
+    window.history.replaceState({}, '', '/#/canvas?ai=core-route')
+    useFloatingPanelState.getState().reset()
+    useFloatingPanelState.getState().open('system-first-use')
+    const fetchStub = stubFetchWith(status, body)
+    const { result } = renderHook(() => useConversationContext(), { wrapper: Surface })
+    await act(async () => { await result.current.sendMessage('Explore staffing options') })
+    const last = result.current.messages.at(-1)!
+    expect(last.content).toBe(words)
+    expect(last.actionChips).toEqual(retry ? RETRY : [])
+    expect(result.current.lastSendFailure?.retryable).toBe(retry)
+    expect(document.querySelector('[data-testid="first-use-send-failure"] p')?.textContent).toBe(words)
+    expect(new Headers(fetchStub.mock.calls[0][1]?.headers).get('x-olumi-ai-mode')).toBe('core-route')
   })
 
   it.each(['openai', 'conventional'])('%s retains legacy copy and Retry even with core sidecars', async mode => {

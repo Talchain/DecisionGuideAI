@@ -5,7 +5,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 const fetchScenarioGraph = vi.fn()
 vi.mock('../../../../adapters/cee/scenarioGraph', () => ({ fetchScenarioGraph: (...a: unknown[]) => fetchScenarioGraph(...a) }))
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: vi.fn(async () => ({ userId: null, accessToken: null })) }))
-const aiMode = vi.hoisted(() => ({ value: 'core' as string | null }))
+const aiMode = vi.hoisted(() => ({ value: 'core-route' as string | null }))
 vi.mock('../../../../v5/aiComparisonMode', async (actual) => ({ ...(await actual<object>()), resolveAiComparisonMode: () => aiMode.value }))
 vi.mock('../../../hydrate/bootGraphRead', () => ({ isCeeAddressableScenarioId: (id: unknown) => typeof id === 'string' }))
 
@@ -18,7 +18,7 @@ const GRAPH = { nodes: [], living_model: { links: [] } }
 describe('useSavedGraph', () => {
   // ⭐ Served 21 Oct (CEE 9e113412): the staging default is `openai`, which CEE serves as the core lane (`laneModeFor`),
   // so a new scenario's living model (other aims, Olumi's suggested measure) was never read on the default path.
-  it.each([['openai', true], ['core', true], ['core-route', true], ['conventional', false], [null, false]] as const)('mode %s → read: %s', async (mode, reads) => {
+  it.each([['openai', true], ['core-route', true], ['conventional', false], [null, false]] as const)('mode %s → read: %s', async (mode, reads) => {
     aiMode.value = mode
     fetchScenarioGraph.mockClear()
     useCanvasStore.setState({ currentScenarioId: `s-${String(mode)}`, lastServerGraphHash: 'bbbbbbbbbbbbbbbb' } as never)
@@ -26,7 +26,7 @@ describe('useSavedGraph', () => {
     const { result } = renderHook(() => useSavedGraph())
     if (reads) await waitFor(() => expect(result.current).toBe(GRAPH))
     else { await act(async () => { await Promise.resolve() }); expect(fetchScenarioGraph).not.toHaveBeenCalled(); expect(result.current).toBeNull() }
-    aiMode.value = 'core'
+    aiMode.value = 'core-route'
     fetchScenarioGraph.mockReset()
   })
 
