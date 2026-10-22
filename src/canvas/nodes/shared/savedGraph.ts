@@ -7,7 +7,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { fetchScenarioGraph } from '../../../adapters/cee/scenarioGraph'
 import { getSessionIdentity } from '../../../lib/supabase'
-import { resolveAiComparisonMode } from '../../../v5/aiComparisonMode'
+import { isOpenAiLane, resolveAiComparisonMode } from '../../../v5/aiComparisonMode'
 import { isCeeAddressableScenarioId } from '../../hydrate/bootGraphRead'
 import { useCanvasStore } from '../../store'
 import { savedGraphEpoch, subscribeSavedGraphEpoch } from './savedGraphEpoch'
@@ -43,7 +43,7 @@ export function useSavedGraph(): unknown {
     // CEE serves the core lane under the default `openai` mode too (`laneModeFor`): reading only on `?ai=core` left every
     // living-model reader dark on the default path. A legacy graph carries no living model, so its readers show nothing.
     const mode = resolveAiComparisonMode()
-    if ((mode !== 'core' && mode !== 'openai') || !isCeeAddressableScenarioId(scenarioId) || graphHash === null) return
+    if (!isOpenAiLane(mode) || !isCeeAddressableScenarioId(scenarioId) || graphHash === null) return
     let live = true
     void readOnce(key, scenarioId, graphHash).then((graph) => { if (live) setRead({ key, graph }) })
     return () => { live = false }

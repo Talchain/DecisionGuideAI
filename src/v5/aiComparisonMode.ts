@@ -2,7 +2,7 @@
  * `core` (PATH-B, Paul 19 Oct): the same OpenAI Agent route, where CEE runs the turn on the OpenAI Agents SDK and Olumi adds or
  * rewrites no reply prose (`#/canvas?ai=core`; CEE ignores it in production). A staging comparison surface, like `conventional`.
  */
-export type AiComparisonMode = 'conventional' | 'openai' | 'core'
+export type AiComparisonMode = 'conventional' | 'openai' | 'core' | 'core-route'
 
 export const AI_MODE_HEADER = 'x-olumi-ai-mode' as const
 
@@ -20,7 +20,7 @@ function explicitModeFromUrl(url: URL): AiComparisonMode | null {
   const hashParams =
     queryIndex >= 0 ? new URLSearchParams(hash.slice(queryIndex + 1)) : new URLSearchParams()
   const mode = normalisedMode(hashParams.get('ai') ?? pageMode)
-  return mode === 'openai' || mode === 'conventional' || mode === 'core' ? mode : null
+  return mode === 'openai' || mode === 'conventional' || mode === 'core' || mode === 'core-route' ? mode : null
 }
 
 function isOlumiStagingHost(hostname: string): boolean {
@@ -71,11 +71,12 @@ export function aiComparisonBadge(href?: string): string | null {
 
 /** Both OpenAI surfaces reach the OpenAI Agent route; neither may make an Anthropic call from the browser. */
 export function isOpenAiLane(mode: AiComparisonMode | null): boolean {
-  return mode === 'openai' || mode === 'core'
+  return mode === 'openai' || mode === 'core' || mode === 'core-route'
 }
 
 export function aiComparisonLabel(href?: string): string | null {
   const mode = resolveAiComparisonMode(href)
+  if (mode === 'core-route') return 'OpenAI core route'
   if (mode === 'core') return 'OpenAI core'
   if (mode === 'openai') return 'OpenAI'
   if (mode === 'conventional') return 'Conventional'

@@ -6,7 +6,7 @@ const fetchScenarioGraph = vi.fn()
 vi.mock('../../../../adapters/cee/scenarioGraph', () => ({ fetchScenarioGraph: (...a: unknown[]) => fetchScenarioGraph(...a) }))
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: vi.fn(async () => ({ userId: null, accessToken: null })) }))
 const aiMode = vi.hoisted(() => ({ value: 'core' as string | null }))
-vi.mock('../../../../v5/aiComparisonMode', () => ({ resolveAiComparisonMode: () => aiMode.value }))
+vi.mock('../../../../v5/aiComparisonMode', async (actual) => ({ ...(await actual<object>()), resolveAiComparisonMode: () => aiMode.value }))
 vi.mock('../../../hydrate/bootGraphRead', () => ({ isCeeAddressableScenarioId: (id: unknown) => typeof id === 'string' }))
 
 import { useSavedGraph } from '../savedGraph'
@@ -18,7 +18,7 @@ const GRAPH = { nodes: [], living_model: { links: [] } }
 describe('useSavedGraph', () => {
   // ⭐ Served 21 Oct (CEE 9e113412): the staging default is `openai`, which CEE serves as the core lane (`laneModeFor`),
   // so a new scenario's living model (other aims, Olumi's suggested measure) was never read on the default path.
-  it.each([['openai', true], ['core', true], ['conventional', false], [null, false]] as const)('mode %s → read: %s', async (mode, reads) => {
+  it.each([['openai', true], ['core', true], ['core-route', true], ['conventional', false], [null, false]] as const)('mode %s → read: %s', async (mode, reads) => {
     aiMode.value = mode
     fetchScenarioGraph.mockClear()
     useCanvasStore.setState({ currentScenarioId: `s-${String(mode)}`, lastServerGraphHash: 'bbbbbbbbbbbbbbbb' } as never)

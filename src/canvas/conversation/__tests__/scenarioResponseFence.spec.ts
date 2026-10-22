@@ -143,9 +143,9 @@ describe('the seven sites all go through the ONE predicate — derived, not mirr
    * prove each call passes the live store value — that is
    * what the equivalence table plus the real-drive specs are for.
    */
-  it('calls the predicate at the five original sites plus canonical recovery plus the stream-close read-back plus the post-rename-readback guard', () => {
+  it('calls the predicate at the five original sites plus canonical recovery plus the stream-close read-back plus the post-rename-readback guard plus the read-after-write notice', () => {
     const calls = SOURCE.match(/responseBelongsToDispatchingScenario\s*\(/g) ?? []
-    expect(calls).toHaveLength(8)
+    expect(calls).toHaveLength(9)
   })
 
   function rawComparisonCount(source: string): number {

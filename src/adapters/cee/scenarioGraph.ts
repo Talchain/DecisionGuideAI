@@ -153,6 +153,8 @@ export type ScenarioGraphResult =
        * never a locally recomputed value.
        */
       graphHash: string | null
+      /** CEE's sha256 of the full saved graph, living model included (contract v1.6); null when CEE sent none. */
+      contentHash?: string | null
       /** MEASURED by CEE on the returned bytes. `false` for every real graph today. */
       layoutPresent: boolean
       /**
@@ -472,6 +474,8 @@ function parseOk(body: unknown): ScenarioGraphResult {
     // authority on what it means.
     graphHash:
       typeof b.graph_hash === 'string' && b.graph_hash.length > 0 ? b.graph_hash : null,
+    // The full saved content (living model included), compared only to a core-route turn's `scenario_revision`.
+    contentHash: typeof b.content_hash === 'string' && b.content_hash.length > 0 ? b.content_hash : null,
     layoutPresent: b.layout_present === true,
     // ROADMAP 2.1271 — PARSED, NOT TRUSTED, and by the SAME `.strict()`
     // discriminated-union schema `v5/applyV5State.ts` uses on the turn path. A

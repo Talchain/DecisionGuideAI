@@ -46,6 +46,7 @@
  * additionally fails the BUILD when the variable is absent, so the runtime throw
  * is the second line of defence, not the first.
  */
+import { AI_MODE_HEADER } from './aiComparisonMode';
 import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary';
 import { noteGuestTurn } from '../lib/guestWork';
 
@@ -216,7 +217,7 @@ export async function callV5Turn(
   }
 
   opts.onResponseReceived?.();
-  const parsed = await parseV5Response(res);
+  const parsed = await parseV5Response(res, { coreRoute: opts.headers?.[AI_MODE_HEADER] === 'core-route' });
 
   // Build a trace-safe diagnostic body.
   //
