@@ -464,6 +464,11 @@ function V5AnalysisResultBlockImpl({
       </p>
     </details>
   )
+  // ⭐ NOTHING TO SAY (Paul's pre-flight, 22 Oct): every chance withheld and an empty summary left a framed card holding
+  // only its heading. The reply above already says why; keep only the unframed anchor (`scrollAnalysisResultIntoView`).
+  const nothingToShow = !summaryBehindDisclosure && block.summary.trim() === '' && !showProse && shownGoalChanceLines === null
+    && goalChanceDetailLinesShown.length === 0 && !shownUncertaintyCopy && !sinceLastRunLine
+  if (nothingToShow) return <div data-testid="v5-analysis-result" data-presentation="empty" aria-hidden="true" />
   if (onlyFoldedSummaryOnCard) {
     return (
       <div
