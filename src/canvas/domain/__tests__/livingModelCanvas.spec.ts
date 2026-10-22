@@ -96,6 +96,18 @@ describe('drawLivingModel', () => {
     expect(drawn.get('staff_hours')!.type).toBe('factor')
   })
 
+  it('⛔ the chance\'s author comes from the chance alone: a window Olumi supplied never makes a chance Olumi\'s', () => {
+    const basisOf = (estimate_by: string | null, source: string, horizon_by: string | null) => {
+      const risk = { id: 'r', label: 'A risk', occurrence: { low: 0.1, high: 0.3, estimate_by }, horizon_months: 6, horizon_by, source }
+      const node = drawLivingModel([], [], { living_model: { factors: [], risks: [risk], links: [] } }).nodes[0]!
+      return ((node.data as Record<string, unknown>).event_risk as { occurrence: { basis: string } } | undefined)?.occurrence.basis ?? null
+    }
+    expect(basisOf(null, 'user', 'olumi')).toBeNull() // the person's chance over Olumi's window: no chance block
+    expect(basisOf('olumi', 'user', null)).toBe('olumi') // Olumi's chance over the person's window
+    expect(basisOf(null, 'user', null)).toBe('user') // the person's chance and window
+    expect(basisOf(null, 'party', 'olumi')).toBeNull() // a party's chance stays unshown, whoever gave the window
+  })
+
   it('⛔ a drawn-only item takes no pointer input and cannot be selected, dragged, connected or deleted (it is not in the store)', () => {
     const drawn = byId(drawLivingModel(engineNodes(), engineEdges(), graph()).nodes)
     expect(drawn.get('port_strike')).toMatchObject({ selectable: false, draggable: false, connectable: false, deletable: false, style: { pointerEvents: 'none' } })

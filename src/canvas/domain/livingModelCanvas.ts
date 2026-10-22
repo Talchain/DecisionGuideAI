@@ -57,8 +57,10 @@ const INERT = { selectable: false, draggable: false, connectable: false, deletab
 
 /**
  * A risk's chance, as the engine block the risk card already reads (`domain/eventRisk.ts`), only where whose it is cannot
- * be misread: Olumi's estimate (of the chance or its window) is Olumi's, the person's own words are theirs. Another
- * party's or an unverified risk shows no chance here, because the card's only words for a stated chance are "you said".
+ * be misread. ⛔ The chance's author comes from the chance alone, never from its window (DL, 22 Oct, #2921): Olumi's
+ * where Olumi estimated it, or where Olumi raised the risk and nobody gave the figure; the person's where they raised it.
+ * The person's chance over Olumi's window shows no chance, because the card names one author for both. Another party's
+ * or an unverified chance shows none either: the card's only words for a stated chance are "you said".
  */
 function eventRiskOf(risk: Rec): Rec | undefined {
   const occurrence = isRec(risk.occurrence) ? risk.occurrence : {}
@@ -66,9 +68,10 @@ function eventRiskOf(risk: Rec): Rec | undefined {
   const high = num(occurrence.high)
   const months = num(risk.horizon_months)
   if (low === null || high === null || months === null) return undefined
-  const basis = occurrence.estimate_by === 'olumi' || risk.horizon_by === 'olumi' || risk.source === 'olumi' ? 'olumi'
+  const estimateBy = occurrence.estimate_by ?? null
+  const basis = estimateBy === 'olumi' || (estimateBy === null && risk.source === 'olumi') ? 'olumi'
     : risk.source === 'user' ? 'user' : null
-  if (basis === null) return undefined
+  if (basis === null || (basis === 'user' && risk.horizon_by === 'olumi')) return undefined
   return { version: 1, occurrence: { p_low: low, p_high: high, basis }, horizon: { months } }
 }
 
