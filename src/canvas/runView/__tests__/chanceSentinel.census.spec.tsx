@@ -69,7 +69,7 @@ import { OptionNode } from '../../nodes/OptionNode'
 import { GoalNode } from '../../nodes/GoalNode'
 import { DecisionNode } from '../../nodes/DecisionNode'
 import { OutcomeNode } from '../../nodes/OutcomeNode'
-import { OptionChanceCellProvider, faceWithoutOwnLabel } from '../../nodes/shared/OptionChanceCellProvider'
+import { OptionChanceCellProvider } from '../../nodes/shared/OptionChanceCellProvider'
 import { CompareRunPairBody } from '../../compare-tab/CompareRunPairBody'
 import { RunChangesSummary } from '../../components/RunChangesSummary'
 import { ConditionalWinnerCards } from '../../../components/results/ConditionalWinnerCards'
@@ -283,9 +283,13 @@ const CARD_FACES_OF: Readonly<Record<Form, readonly string[]>> = {
   boundary: [BOUNDARY_FACE[A], BOUNDARY_FACE[B], BOUNDARY_FACE[SQ]],
 }
 
-/** #2931 (DL 22 Oct): the canvas card is already named, so it says each served face without the face's own ‘label’: prefix. */
+/**
+ * #2931 (DL 22 Oct): the canvas card is already named, so it says each served face without the face's own leading ‘label’:
+ * (spelt here, never with the provider's helper, so a regression there turns this RED). Each line is bound to the slot's own
+ * "Current model" caption, so the face with its label back ("Current model‘A’: …") does not contain it.
+ */
 const CANVAS_CARD_LINES_OF = Object.fromEntries(Object.entries(CARD_FACES_OF)
-  .map(([form, faces]) => [form, faces.map(faceWithoutOwnLabel)])) as unknown as Readonly<Record<Form, readonly string[]>>
+  .map(([form, faces]) => [form, faces.map(face => `Current model${face.replace(/^‘.+?’: /, '')}`)])) as unknown as Readonly<Record<Form, readonly string[]>>
 
 /**
  * Round 2 (DL, restoring what staging said): on the chat card, CEE's own notes on A's chance follow A's served face in A's

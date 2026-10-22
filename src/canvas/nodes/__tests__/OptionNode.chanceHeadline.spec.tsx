@@ -16,6 +16,12 @@ const TEST_RUN_AGAIN_COPY = 'Run the analysis again to see the chance.'
 import { GOAL_FIT_BASIS_CAVEAT_COPY, GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY } from '../../../components/results/utils/goalFitBasisCaveatCopy'
 import { fx, SCORED, seedPaulRun, resetPaulRun } from '../../../components/results/__tests__/helpers/paulRun4276f3f9'
 import { readGoalChanceRange } from '../../../components/results/utils/goalChanceRange'
+// #2931: the card's line is the served face less its own leading ‘label’: (spelt here, never the provider's helper, so a
+// regression in that helper turns this RED). The face must carry the prefix, or the expectation would be vacuous.
+const lineOf = (face: string) => {
+  expect(face, 'the served face starts with its own ‘label’:').toMatch(/^‘.+?’: ./)
+  return face.replace(/^‘.+?’: /, '')
+}
 
 vi.mock('@xyflow/react', async () => ({ ...await vi.importActual('@xyflow/react'), Handle: () => null }))
 const ID = 'angel_bridge'
@@ -102,14 +108,18 @@ describe('option card says CEE\'s served cell, verbatim, and nothing of its own'
       expect(screen.queryByTestId(`option-analysis-currency-${ID}`)).toBeNull()
       expect(readout).toBeNull()
     } else {
-      expect(readout?.textContent).toBe(served)
+      // #2931 (DL 22 Oct): a figure or range line drops the face's own ‘label’: prefix (the card is named); its
+      // description keeps the full face. A withheld face is said as served.
+      expect(readout?.textContent).toBe(kind === 'withheld' ? served : lineOf(served))
+      expect(readout?.closest('[aria-label]')?.getAttribute('aria-label')).toContain(served)
     }
     expect(container.querySelector(`[data-testid^="option-change-row-${ID}-"]`)).not.toBeNull()
     for (const said of [container.textContent ?? '', ...[...container.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label') ?? '')]) {
       // F UI check round 1 (DL 12 Oct, §7.5): "of runs" is checked on EVERYTHING the card says, CEE's served face
       // included — a share of runs is never the card's chance, whoever wrote it.
       expect(said).not.toContain('of runs')
-      const unserved = served === null ? said : said.split(served).join(' ')
+      // The card's line is the served face less its own ‘label’: prefix (#2931): still CEE's words, so it is removed too.
+      const unserved = served === null ? said : said.split(served).join(' ').split(lineOf(served)).join(' ')
       expect(unserved).not.toContain('chance of meeting your goal')
       expect(unserved).not.toContain('41%')
       expect(unserved).not.toContain(TEST_WITHHELD_FACE)

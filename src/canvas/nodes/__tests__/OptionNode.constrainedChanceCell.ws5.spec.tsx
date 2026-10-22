@@ -10,6 +10,12 @@ import { buildRunView } from '../../runView/runView'
 import * as resultsData from '../../../components/results/useResultsSectionData'
 import { makeHeroData, makeOption, OPTION_A, OPTION_B } from '../../../components/results/analysis-hero/__fixtures__/hero.fixtures'
 import { selectGoalProbability } from '../../../components/results/utils/selectGoalProbability'
+// #2931: the card's line is the served face less its own leading ‘label’: (spelt here, never the provider's helper, so a
+// regression in that helper turns this RED). The face must carry the prefix, or the expectation would be vacuous.
+const lineOf = (face: string) => {
+  expect(face, 'the served face starts with its own ‘label’:').toMatch(/^‘.+?’: ./)
+  return face.replace(/^‘.+?’: /, '')
+}
 
 vi.mock('@xyflow/react', async () => ({ ...await vi.importActual('@xyflow/react'), Handle: () => null }))
 
@@ -63,7 +69,9 @@ describe('WS5 constrained option card chance cell', () => {
     </OptionChanceCellProvider></ReactFlowProvider>)
     const face = screen.getByTestId(`option-win-readout-${a.id}`)
     const row = screen.getByTestId(`option-analysis-currency-${a.id}`)
-    expect(face.textContent).toBe(cellText)
+    // #2931 (DL 22 Oct): the named card drops the face's own ‘label’: prefix; its accessible name keeps the full face.
+    expect(face.textContent).toBe(lineOf(cellText))
+    expect(face.textContent).not.toContain(a.label)
     // Currentness is a separate, existing prefix in the row's name.
     expect(row).toHaveAccessibleName(`Current model · ${cellText}`)
     expect(card.container.textContent).not.toMatch(/and limits|limits together/i)

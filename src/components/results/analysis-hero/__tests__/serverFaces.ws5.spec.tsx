@@ -7,13 +7,19 @@ import { useCanonicalAnalysisViewStore } from '../../../../canvas/stores/canonic
 import { parseCanonicalAnalysisView } from '../../../../canvas/runView/canonicalAnalysisView'
 import { buildRunView } from '../../../../canvas/runView/runView'
 import { OptionNode } from '../../../../canvas/nodes/OptionNode'
-import { OptionChanceCellProvider, faceWithoutOwnLabel } from '../../../../canvas/nodes/shared/OptionChanceCellProvider'
+import { OptionChanceCellProvider } from '../../../../canvas/nodes/shared/OptionChanceCellProvider'
 import { useResultsSectionData } from '../../useResultsSectionData'
 import { buildHeroModel } from '../buildHeroModel'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { applyRealRead } from './helpers/realScenarioRead'
 import served from './fixtures/cee-1c-served-read-464abd0a.json'
 import figures from './fixtures/cee-94b2554d-served-read-b38d1c80.json'
+// #2931: the card's line is the served face less its own leading ‘label’: (spelt here, never the provider's helper, so a
+// regression in that helper turns this RED). The face must carry the prefix, or the expectation would be vacuous.
+const lineOf = (face: string) => {
+  expect(face, 'the served face starts with its own ‘label’:').toMatch(/^‘.+?’: ./)
+  return face.replace(/^‘.+?’: /, '')
+}
 
 vi.mock('@xyflow/react', async () => ({ ...await vi.importActual<Record<string, unknown>>('@xyflow/react'), Handle: () => null }))
 const ctx = { goalChanceHeroSays: true, labelOf: (id: string) => id }
@@ -77,7 +83,7 @@ describe('WS5 PR-C server faces', () => {
       else {
         // #2931 (DL 22 Oct): the card is already named, so its line drops the face's own ‘label’: prefix; the full face
         // stays in the readout's description.
-        expect(readout?.textContent).toBe(faceWithoutOwnLabel(face))
+        expect(readout?.textContent).toBe(cell?.kind === 'withheld' ? face : lineOf(face))
         expect(readout?.closest('[aria-label]')?.getAttribute('aria-label')).toContain(face)
       }
       expect(card.queryByRole('button', { name: 'Why?' })).toBeNull()

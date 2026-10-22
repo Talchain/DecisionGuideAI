@@ -15,7 +15,8 @@ export type CanvasOptionChanceCell = OptionChanceCell &
  * CEE's own words, less only the leading quoted label; the whole face stays in the tooltip.
  */
 export function faceWithoutOwnLabel(face: string): string {
-  const rest = face.replace(/^‘[^’]*’: /, '')
+  // Up to the first closing quote followed by ": ", so a label's own apostrophe (‘Increase team’s capacity’) stays in it.
+  const rest = face.replace(/^‘.+?’: /, '')
   return rest === '' ? face : rest
 }
 

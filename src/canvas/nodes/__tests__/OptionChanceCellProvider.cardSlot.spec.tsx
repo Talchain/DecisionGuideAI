@@ -39,6 +39,8 @@ describe('the card slot says the chance, not the option\'s own name', () => {
 
   it('only a LEADING quoted label is dropped; a face without one is left as it is', () => {
     expect(faceWithoutOwnLabel('‘Hire two developers’: about 41% chance of meeting your goal, in this model.')).toBe('about 41% chance of meeting your goal, in this model.')
+    // A label's own curly apostrophe is part of the label (Codex #2931 r1).
+    expect(faceWithoutOwnLabel('‘Increase team’s capacity’: about 39% chance of meeting your goal, in this model.')).toBe('about 39% chance of meeting your goal, in this model.')
     expect(faceWithoutOwnLabel('No change, by assumption')).toBe('No change, by assumption')
     expect(faceWithoutOwnLabel('about 12% chance of ‘X’: in this model')).toBe('about 12% chance of ‘X’: in this model')
   })
