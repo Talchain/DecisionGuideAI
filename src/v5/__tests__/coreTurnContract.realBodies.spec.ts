@@ -1,8 +1,8 @@
 /**
  * Contract v1.6 on REAL core-route bodies (R2 `POST /agent/v1/core-turn`, a card turn and its approval, 22 Oct): the
  * one reader parses them, the existing readers find the revision, the saved identity, the card and who authorised the
- * write. The two gaps against v1.4 are pinned as todos until core-route closes them (null analysis_state; null
- * issued_turn_id).
+ * write, the full analysis verdict on every turn, and the value a card proposes as its ghost. Regenerated bodies, 22 Oct (the
+ * first harness sent null analysis_state and issued_turn_id; core-route fixed its harness, not the route).
  */
 import { describe, expect, it } from 'vitest'
 import { parseV5Response, ADDITIVE_EXTENSIONS_KEY } from '../responseParser'
@@ -10,6 +10,7 @@ import { readProposalFields } from '../../canvas/conversation/proposalFields'
 import { readRecordedServerTurnId } from '../../canvas/conversation/serverTurnId'
 import { agentTurnUndoLabel, readAgentTurnReceipts } from '../../canvas/undo/captureAgentTurnForUndo'
 import { readAfterWriteExpectation } from '../../canvas/conversation/readAfterWrite'
+import { previewFromFields } from '../../canvas/conversation/proposalPreview'
 import real from './fixtures/core-turn-r2-real.json'
 
 const parse = (body: unknown) =>
@@ -41,6 +42,25 @@ describe('core route: real R2 bodies read through the one contract reader', () =
     expect(real.approval_turn.model.scenario_revision).not.toBe(real.card_turn.model.scenario_revision)
   })
 
-  it.todo('GAP v1.4: analysis_state is null on both real turns; v1.4 requires the FULL verdict on every turn (absence audit rows 5–7)')
-  it.todo('GAP v1: the card\'s issued_turn_id is null; it must be the issuing turn\'s turn_id so the card reattaches on reopen')
+  it('⭐ every turn carries the FULL analysis verdict, as sent (absence audit rows 5–7 cannot fire)', async () => {
+    for (const turn of [real.card_turn, real.approval_turn, real.value_change_card_turn]) {
+      const parsed = await parse(turn)
+      expect(parsed.kind).toBe('response')
+      if (parsed.kind !== 'response') return
+      const state = (parsed.response as unknown as { analysis_state?: unknown }).analysis_state ?? sidecar(parsed.response)?.analysis_state
+      expect(state).toEqual(turn.analysis_state)
+    }
+  })
+
+  it('⭐ a card is bound to the turn that issued it, so it reattaches to its reply on reopen', async () => {
+    const parsed = await parse(real.card_turn)
+    const held = parsed.kind === 'response' ? readProposalFields(sidecar(parsed.response)._proposal_fields)?.proposals : undefined
+    expect(held?.map((p) => p.issued_turn_id)).toEqual([real.card_turn.turn_id])
+  })
+
+  it('⭐ a value-change card proposes its figure on the canvas: 0.6 hours, the person\'s', async () => {
+    const parsed = await parse(real.value_change_card_turn)
+    const held = parsed.kind === 'response' ? readProposalFields(sidecar(parsed.response)._proposal_fields)?.proposals ?? [] : []
+    expect(held.map((p) => previewFromFields(p)?.ops)).toEqual([[{ op: 'set_factor_value', nodeId: 'f', value: 0.6, unit: 'hours', source: 'yours' }]])
+  })
 })
