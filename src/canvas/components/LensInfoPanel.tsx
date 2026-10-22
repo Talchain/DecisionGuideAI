@@ -62,6 +62,7 @@ import { TradeOffsKey } from '../artefacts/TradeOffsKey'
 import { WhatIfKey } from '../artefacts/WhatIfKey'
 import { LENS_COPY, useCurrentPremortemWorksheet, type BarLens } from '../artefacts/lenses'
 import type { GraphChangeTarget } from '../graphChanges/graphChangesView'
+import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
 
 export const LENS_KEY_COPY = {
   close: 'Back to the model',
@@ -327,30 +328,80 @@ function useKeyCardPlacement(card: HTMLElement | null, lens: string, folded: boo
   return place
 }
 
+
 /**
- * How far the model must rise so no card stands under the key: the overlap below the key's top edge, capped by the
- * room above the model (it never rises under the top bar). 0 when nothing is covered. Pure, for the spec.
+ * How the model moves so no card in front stands under the key: into the room above the key, or beside it, whichever
+ * keeps the model larger; shifted as little as it can be, and zoomed out only when it does not fit, never below
+ * `minScale` (where the cards would stop showing their labels: some cover is the lesser loss). `area` is where cards can
+ * be read (under the top bar, above the band, clear of the dock). Screen points map `p -> p * scale + (dx, dy)`. null
+ * when nothing is covered. Pure, for the spec.
  */
-export function keyCardLift(key: Rect, cards: readonly Rect[], topLimit: number): number {
-  const under = cards.filter((card) => overlapArea(key, card) > 0)
-  if (under.length === 0 || cards.length === 0) return 0
-  const need = Math.max(...under.map((card) => card.y + card.h)) - key.y + KEY_CARD_GAP
-  const room = Math.min(...cards.map((card) => card.y)) - topLimit
-  return Math.max(0, Math.min(need, room))
+export function keyCardMove(key: Rect, cards: readonly Rect[], area: Rect, minScale: number): { dx: number; dy: number; scale: number } | null {
+  if (cards.length === 0 || !cards.some((card) => overlapArea(key, card) > 0)) return null
+  const left = Math.min(...cards.map((c) => c.x))
+  const top = Math.min(...cards.map((c) => c.y))
+  const bounds = { x: left, y: top, w: Math.max(...cards.map((c) => c.x + c.w)) - left, h: Math.max(...cards.map((c) => c.y + c.h)) - top }
+  const keyOnRight = key.x + key.w / 2 > area.x + area.w / 2
+  const rooms: Rect[] = [
+    { x: area.x, y: area.y, w: area.w, h: key.y - KEY_CARD_GAP - area.y },
+    keyOnRight
+      ? { x: area.x, y: area.y, w: key.x - KEY_CARD_GAP - area.x, h: area.h }
+      : { x: key.x + key.w + KEY_CARD_GAP, y: area.y, w: area.x + area.w - (key.x + key.w + KEY_CARD_GAP), h: area.h },
+  ]
+  const into = (at: number, size: number, from: number, room: number) =>
+    at < from ? from - at : at + size > from + room ? from + room - (at + size) : 0
+  const placed = (c: Rect, m: { dx: number; dy: number; scale: number }) => ({ x: c.x * m.scale + m.dx, y: c.y * m.scale + m.dy, w: c.w * m.scale, h: c.h * m.scale })
+  const coverOf = (m: { dx: number; dy: number; scale: number }) => cards.reduce((sum, c) => sum + overlapArea(key, placed(c, m)), 0)
+  const onScreen = (m: { dx: number; dy: number; scale: number }) => cards.every((c) => {
+    const r = placed(c, m)
+    return r.x >= area.x - 1 && r.y >= area.y - 1 && r.x + r.w <= area.x + area.w + 1 && r.y + r.h <= area.y + area.h + 1
+  })
+  // The baseline is the plain lift: up, as far as the cards under the key, never past the room above the top card. Any
+  // other move must cover less AND keep every card on screen, so a move never leaves more under the key than the lift.
+  const under = cards.filter((c) => overlapArea(key, c) > 0)
+  const lift = Math.max(0, Math.min(Math.max(...under.map((c) => c.y + c.h)) - key.y + KEY_CARD_GAP, top - area.y))
+  let best = { dx: 0, dy: -lift, scale: 1 }
+  let bestCover = coverOf(best)
+  let moved = false
+  for (const room of rooms) {
+    if (room.w <= 0 || room.h <= 0) continue
+    const scale = Math.min(1, Math.max(minScale, Math.min(room.w / bounds.w, room.h / bounds.h)))
+    // Scaled about the model's own centre, then shifted the least distance into the room.
+    const cx = bounds.x + bounds.w / 2
+    const cy = bounds.y + bounds.h / 2
+    const move = {
+      dx: cx * (1 - scale) + into(cx + (bounds.x - cx) * scale, bounds.w * scale, room.x, room.w),
+      dy: cy * (1 - scale) + into(cy + (bounds.y - cy) * scale, bounds.h * scale, room.y, room.h),
+      scale,
+    }
+    const cover = coverOf(move)
+    // Fewer card pixels under the key; between two rooms that cover the same, the larger zoom.
+    if (onScreen(move) && (cover < bestCover || (moved && cover === bestCover && scale > best.scale))) { best = move; bestCover = cover; moved = true }
+  }
+  return best.dy === 0 && best.dx === 0 && best.scale === 1 ? null : best
 }
 
 /**
- * When the key opens over the model, the model glides up out from under it, once per lens, as far as the room above
- * allows. The user asked for the lens, so the move is theirs; panning after that is never undone or fought.
+ * When the key opens over the model, the model moves out from under it (`keyCardMove`), once per lens and per fold.
+ * The user asked for the lens, so the move is theirs; panning after that is never undone or fought.
  */
 function useMakeRoomForKey(card: HTMLElement | null, place: { left: number; bottom: number } | null, lens: string, folded: boolean): void {
   useEffect(() => {
     if (!card || !place) return
     const frame = requestAnimationFrame(() => {
+      const band = document.querySelector(OVERLAY_BAND_SELECTOR)
+      if (!band) return
       const r = card.getBoundingClientRect()
-      const cards = inFocusCardRects()
-      const dy = keyCardLift({ x: r.left, y: r.top, w: r.width, h: r.height }, cards, TOP_PILL_BOTTOM_PX + KEY_CARD_GAP)
-      if (dy > 0) panCanvasBy(0, -dy)
+      const box = band.getBoundingClientRect()
+      const cs = getComputedStyle(band)
+      const x = box.left + (parseFloat(cs.paddingLeft) || 0)
+      const y = TOP_PILL_BOTTOM_PX + KEY_CARD_GAP
+      const area = { x, y, w: window.innerWidth - measureDockInset() - KEY_CARD_GAP - x, h: box.top - KEY_CARD_GAP - y }
+      // The canvas zoom as drawn; the move never takes it under the zoom where cards drop their labels.
+      const viewport = document.querySelector('.react-flow__viewport')
+      const zoom = viewport ? new DOMMatrixReadOnly(getComputedStyle(viewport).transform).a || 1 : 1
+      const move = keyCardMove({ x: r.left, y: r.top, w: r.width, h: r.height }, inFocusCardRects(), area, LABEL_LEGIBLE_ZOOM / zoom)
+      if (move) panCanvasBy(move.dx, move.dy, move.scale)
     })
     return () => cancelAnimationFrame(frame)
     // Once per lens and per fold: never on a pan, which the user owns.
