@@ -790,7 +790,7 @@ function adaptDirectGraphEdit(
  * defaulted here: a `raw_value: 0` fallback would assert a magnitude the user
  * never typed, and CEE would persist it.
  */
-function adaptFactorValueEdit(
+export function adaptFactorValueEdit(
   eventPayload: Record<string, unknown> | undefined,
 ): FactorValueEditWireEvent | null {
   const target_id = stringField(eventPayload, 'target_id')

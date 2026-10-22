@@ -10,7 +10,9 @@
  *   - If it failed: Olumi's pre-mortem stories, with the elements they rest on in front.
  *   - What would change: what the selected Run is most sensitive to, from CEE's analysis only. Before a Run it says
  *     how to get one.
- * Lenses are view-only: every act goes through the model's own controls, and nothing here writes the model.
+ *   - What if: one different value held on its card and run beside the saved model (`WhatIfKey.tsx`). Nothing is saved.
+ * Lenses are view-only: every act goes through the model's own controls, and nothing here writes the model (a what-if
+ * runs a copy on CEE and writes nothing).
  */
 import { useEffect, useRef } from 'react'
 import { selectPremortemWorksheet, useCanvasStore, type LensMode } from '../store'
@@ -18,7 +20,7 @@ import type { PremortemWorksheetV1 } from '../../v5/readPremortemWorksheet'
 
 /** The bar's lenses, in the bar's order. `option` isolation is entered from an option card, never the bar. */
 export type BarLens = Exclude<LensMode, 'option'>
-export const LENS_ORDER: readonly BarLens[] = ['full', 'tradeoffs', 'rests_on', 'premortem', 'what_changes']
+export const LENS_ORDER: readonly BarLens[] = ['full', 'tradeoffs', 'rests_on', 'premortem', 'what_changes', 'what_if']
 
 /** "What would change" reads a Run, so before one it is shown but cannot be chosen. */
 export const lensNeedsRun = (lens: BarLens): boolean => lens === 'what_changes'
@@ -35,13 +37,14 @@ export function nextBarLens(current: LensMode, hasRun: boolean): BarLens {
 
 export const LENS_COPY = {
   bar: 'Lenses on the model',
-  label: { full: 'Model', tradeoffs: 'Trade-offs', rests_on: 'Rests on', premortem: 'If it failed', what_changes: 'What would change' },
+  label: { full: 'Model', tradeoffs: 'Trade-offs', rests_on: 'Rests on', premortem: 'If it failed', what_changes: 'What would change', what_if: 'What if' },
   hint: {
     full: 'The model as you built it',
     tradeoffs: 'What each option gains and gives up, along the links in your model',
     rests_on: 'Every figure the model rests on, and who it came from',
     premortem: 'Ways each option could fail, imagined by Olumi',
     what_changes: 'What the last Run is most sensitive to',
+    what_if: 'Try a different value and see each option beside the saved model. Nothing is saved.',
   },
   needsRun: 'Run the analysis to see what would change it.',
   /** What a segment's count means, said to a screen reader with its label. */

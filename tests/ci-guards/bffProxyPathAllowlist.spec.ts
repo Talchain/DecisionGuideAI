@@ -199,6 +199,28 @@ describe('cee-proxy path allowlist (/bff/cee/* → /assist/v1/*)', () => {
     expect(r.fetchCalled).toBe(false)
   })
 
+  it('ON-LIST /bff/cee/scenarios/{uuid}/what-if forwards on POST (canvas what-if, nothing saved)', async () => {
+    const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
+    const r = await invoke(ceeHandler as Handler, { path: `/bff/cee/scenarios/${uuid}/what-if` })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe(`https://cee-staging.onrender.com/assist/v1/scenarios/${uuid}/what-if`)
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
+  })
+
+  for (const method of ['GET', 'HEAD'] as const) {
+    it(`${method} /bff/cee/scenarios/{uuid}/what-if is refused 405 and NEVER forwarded`, async () => {
+      const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
+      const r = await invoke(ceeHandler as Handler, { path: `/bff/cee/scenarios/${uuid}/what-if`, method })
+      expect(r.fetchCalled).toBe(false)
+      expect(r.status).toBe(405)
+    })
+  }
+
+  it('OFF-LIST: a path that only ENDS in /what-if under another prefix stays refused', async () => {
+    const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/scenarios/a/b/what-if' })
+    expect(r.fetchCalled).toBe(false)
+  })
+
   it('ON-LIST /bff/cee/scenarios/{uuid}/versions/restore forwards (guarded restore)', async () => {
     const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
     const r = await invoke(ceeHandler as Handler, {

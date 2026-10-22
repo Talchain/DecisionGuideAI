@@ -161,6 +161,9 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
   // Guest → account copy (ACCOUNTS B3, CEE #2493): the signed-in user's own copy of a guest decision. The user's
   // `authorization` is forwarded as the user-token slot; CEE verifies it. ON-LIST case in the allowlist spec.
   /^\/assist\/v1\/scenarios\/[^/]+\/copy$/,
+  // What-if on the canvas (CEE #3591): the held value gestures run beside the saved model, NOTHING saved (no write, no
+  // LLM). POST-only below. ON-LIST case in the allowlist spec.
+  /^\/assist\/v1\/scenarios\/[^/]+\/what-if$/,
   /^\/assist\/v1\/decision-records\/commit$/,
   /^\/assist\/v1\/decision-records\/list$/,
   /^\/assist\/v1\/decision-records\/[^/]+\/outcome$/,
@@ -190,6 +193,8 @@ const POST_ONLY_TARGETS: readonly RegExp[] = [
   /^\/assist\/v1\/scenarios\/[^/]+\/copy$/,
   // CEE serves compare on POST only; any other method has nothing to reach, so it never carries the credentials.
   /^\/assist\/v1\/scenarios\/[^/]+\/versions\/compare$/,
+  // CEE serves what-if on POST only, like compare.
+  /^\/assist\/v1\/scenarios\/[^/]+\/what-if$/,
 ]
 
 function isPostOnlyTarget(pathname: string): boolean {

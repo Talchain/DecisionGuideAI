@@ -104,6 +104,7 @@ import { useLayoutStore } from './layoutStore'
 import { restingCardWidthForKind } from './utils/nodeLayoutConstants'
 import { TierLanes } from './nodes/TierLanes'
 import { ProposalGhostLayer } from './nodes/ProposalGhostLayer'
+import { WhatIfMarkLayer } from './nodes/WhatIfMarkLayer'
 import { DirectionNeededLayer } from './nodes/DirectionNeededLayer'
 import { coreSwitchOptionOf, withoutCoreSwitches } from './domain/coreSwitch'
 import { fitBoundsFor, CANVAS_MOUNT_FIT_OPTIONS } from './utils/zoomLegibility'
@@ -2877,6 +2878,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             <TierLanes nodes={memoizedNodes} />
             {/* Suggestion preview: the ghost of the proposal the latest reply offers (render-only; see the file). */}
             <ProposalGhostLayer />
+            <WhatIfMarkLayer />
             <DirectionNeededLayer />
             {/* MiniMap temporarily disabled for layout debugging */}
             {/* <MiniMap style={miniMapStyle} /> */}

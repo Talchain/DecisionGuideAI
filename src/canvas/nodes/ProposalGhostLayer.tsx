@@ -112,7 +112,7 @@ export function ghostValueText(v: { value: number; unit: string; source: keyof t
 }
 
 /** A figure as the held card says it. */
-const figureText = (v: { value: number; unit: string }): string =>
+export const figureText = (v: { value: number; unit: string }): string =>
   formatMoneyFigure(v.value, v.unit) ?? (v.unit === '%' ? `${v.value}%` : `${v.value} ${v.unit}`.trim())
 
 /** A new factor's second line (core): its level, when it has one, and whose item it is; null when there is nothing to say. */
