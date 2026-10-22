@@ -41,8 +41,12 @@ const graph = {
 }
 const drawn = drawLivingModel([], [], graph).nodes
 
-function renderCard(node: Pick<Node, 'id' | 'type' | 'data'>, storeNodes: Node[]) {
-  useCanvasStore.setState({ nodes: storeNodes, edges: [], lodRung: 'full', viewMode: 'standard', results: { status: 'idle', report: null } } as never)
+type View = 'standard' | 'expert'
+type Phase = 'pre' | 'post'
+
+function renderCard(node: Pick<Node, 'id' | 'type' | 'data'>, storeNodes: Node[], view: View = 'standard', phase: Phase = 'pre') {
+  useCanvasStore.setState({ nodes: storeNodes, edges: [], lodRung: 'full', viewMode: view,
+    results: phase === 'post' ? { status: 'complete', hash: 'run-1', report: {} } : { status: 'idle', report: null } } as never)
   const Card = COMPONENT[node.type as keyof typeof COMPONENT]
   render(
     <ReactFlowProvider>
@@ -55,14 +59,30 @@ function renderCard(node: Pick<Node, 'id' | 'type' | 'data'>, storeNodes: Node[]
 
 afterEach(() => { cleanup(); useCanvasStore.setState({ nodes: [], edges: [] } as never) })
 
+/** Every view a card has (Standard and Detailed, before and after a Run), hovered so its hover card opens too. */
+const MATRIX = ['staff_hours', 'stock_level', 'supplier_fails'].flatMap((id) =>
+  (['standard', 'expert'] as const).flatMap((view) => (['pre', 'post'] as const).map((phase) => [id, view, phase] as const)))
+
+/** Hover the card so its hover card opens, then list every control on the page (the hover card portals to the body). */
+async function controlsAfterHover(card: HTMLElement): Promise<string[]> {
+  fireEvent.mouseEnter(card)
+  fireEvent.mouseEnter(card.querySelector('[role="group"]')!)
+  await act(async () => { vi.advanceTimersByTime(HOVER_CARD_OPEN_DELAY_MS + 600) })
+  return [...document.body.querySelectorAll(CONTROLS)].map((el) => el.outerHTML.slice(0, 120))
+}
+
 describe('a drawn-only card', () => {
-  it.each(['staff_hours', 'stock_level', 'supplier_fails'])('⛔ %s: no button, field or focus stop, and no handle a link can start from', (id) => {
-    const node = drawn.find((n) => n.id === id)!
-    const card = renderCard(node, [])
-    expect(card.querySelector(`[data-testid="${NOT_IN_CALCULATION_TEST_ID}"]`)).not.toBeNull()
-    expect([...card.querySelectorAll(CONTROLS)].map((el) => el.outerHTML.slice(0, 120))).toEqual([])
-    expect(card.querySelectorAll('.react-flow__handle').length).toBe(2)
-    expect(card.querySelectorAll('.react-flow__handle.connectable').length).toBe(0)
+  it.each(MATRIX)('⛔ %s (%s view, %s-Run): no button, field or focus stop anywhere it opens, and no handle a link can start from', async (id, view, phase) => {
+    vi.useFakeTimers()
+    try {
+      const card = renderCard(drawn.find((n) => n.id === id)!, [], view, phase)
+      expect(card.querySelector(`[data-testid="${NOT_IN_CALCULATION_TEST_ID}"]`)).not.toBeNull()
+      expect(card.querySelectorAll('.react-flow__handle').length).toBe(2)
+      expect(card.querySelectorAll('.react-flow__handle.connectable').length).toBe(0)
+      expect(await controlsAfterHover(card)).toEqual([])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it.each(['staff_hours', 'stock_level', 'supplier_fails'])('CONTRAST %s: the same card held in the store mounts its controls', (id) => {
