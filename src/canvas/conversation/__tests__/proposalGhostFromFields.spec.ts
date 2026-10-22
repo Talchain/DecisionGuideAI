@@ -197,3 +197,38 @@ describe('core adds: a new factor or link drawn where it would land', () => {
     expect(ghostCardDetail({ value: null, source: 'estimate' })).toBeNull()
   })
 })
+
+describe('two held cards: the ghost is the card the person is looking at (served café, UI 4d237a73 / CEE 0ce7ae88, 22 Oct)', () => {
+  // Banked `_proposal_fields` of the correction turn (evidence diag-2906-2908-CAFE), trimmed to what the ghost reads:
+  // the Challenge's still-held card first (an edge from an option that exists only in its words), then the correction's.
+  const challenge = { proposal_id: 'prop_454dc290adeb51ac0bdc62ee6ed8dca7', revision: '7724d235-8f8b-426a-a4df-883806be42fb',
+    digest: '340352eaf5414fa2c0657881c6a0a958', issued_turn_id: '20f7b3d4-f488-4f15-bde3-b1e680875a25',
+    approve_action: { id: 'agent-approve-proposal:prop_454dc290adeb51ac0bdc62ee6ed8dca7', label: 'Make this change', message: 'Yes, make that change.' },
+    decline_action: { id: 'agent-decline-proposal:prop_454dc290adeb51ac0bdc62ee6ed8dca7', label: 'Not now', message: 'Not now.' },
+    fields: [], missing: [],
+    adds: [{ field_id: 'link_add:reallocate_volume', kind: 'link_add', link_id: 'reallocate_volume', from_id: 'reallocate_staff', to_id: 'coffee_volume',
+      from_label: 'Reallocate existing staff to the morning peak', to_label: 'Daily coffees sold', direction: 'positive', source: 'estimate', editable: false }] }
+  const correction = { proposal_id: 'prop_18b096b8dd6a719793bf357d9f1cc621', revision: '45929695-1d9c-4f00-b0f0-a38716f531e4',
+    digest: 'd3da0062cd8d9d149e228bfd137a5709', issued_turn_id: 'b0106a96-f123-4920-9f08-542eaaeadab3',
+    approve_action: { id: 'agent-approve-proposal:prop_18b096b8dd6a719793bf357d9f1cc621', label: 'Make this change', message: 'Yes, make that change.' },
+    decline_action: { id: 'agent-decline-proposal:prop_18b096b8dd6a719793bf357d9f1cc621', label: 'Not now', message: 'Not now.' },
+    adds: [], missing: [],
+    fields: [{ field_id: 'factor_value:coffee_volume', kind: 'factor_value', node_id: 'coffee_volume', label: 'Daily coffees sold', unit: 'coffees a day',
+      current: { value: 280, unit: 'coffees a day', source: 'yours' }, filled_missing: false, editable: false }] }
+  const turn = (proposals: Json[]): Json => ({ _proposal_fields: { version: 1, graph_hash: '48e2a1babc59ccfd', proposals } })
+  const CORRECTION_GHOST = { proposalId: correction.proposal_id,
+    ops: [{ op: 'set_factor_value', nodeId: 'coffee_volume', value: 280, unit: 'coffees a day', source: 'yours' }] }
+
+  it('⭐ the correction reply shows ITS card\'s ghost (280 coffees), not the older Challenge card listed first', () => {
+    expect(previewOfLatestReply([coreReply(turn([challenge, correction]), { id: correction.issued_turn_id })])).toEqual(CORRECTION_GHOST)
+  })
+  it('a reply that issued neither (a reopen, a plain answer): the newest held card', () => {
+    expect(previewOfLatestReply([coreReply(turn([challenge, correction]), { id: 'r-later' })])).toEqual(CORRECTION_GHOST)
+    expect(previewOfLatestReply([coreReply(turn([challenge, correction]), { id: `restored-assistant-${correction.issued_turn_id}` })]))
+      .toEqual(CORRECTION_GHOST)
+  })
+  it('CONTRAST: the card this reply issued wins even when it is the older one; one held card is as before', () => {
+    expect(previewOfLatestReply([coreReply(turn([challenge, correction]), { id: challenge.issued_turn_id })])?.proposalId).toBe(challenge.proposal_id)
+    expect(previewOfLatestReply([coreReply(turn([challenge]), { id: 'r-later' })])?.proposalId).toBe(challenge.proposal_id)
+  })
+})

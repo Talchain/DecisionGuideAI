@@ -184,7 +184,12 @@ export function previewOfLatestReply(messages: readonly ConversationMessage[]): 
     // now, and its approve offered on some reply (served 21 Oct: a later reply, then a reopen, lost the ghost, not the card).
     const offered = (id: string) => messages.some((r) => r.role === 'assistant' && !r.synthetic
       && (r.actionChips ?? []).some((c) => c.id === consentChipIdFor(id)))
-    for (const p of readProposalFields(m.proposalFields)?.proposals ?? []) {
+    // The card the person is looking at first: the one this reply issued, else the newest held (CEE lists them oldest
+    // first). Served 22 Oct: a still-held Challenge card came first and its undrawable ghost hid the correction's.
+    const held = readProposalFields(m.proposalFields)?.proposals ?? []
+    const turnOfReply = new Set([m.id, m.id.replace(/^restored-assistant-/, ''), m.clientTurnId, m.serverTurnId])
+    const issuedHere = held.filter((p) => p.issued_turn_id != null && turnOfReply.has(p.issued_turn_id))
+    for (const p of [...issuedHere, ...[...held].reverse()]) {
       const derived = previewFromFields(p)
       if (derived !== null && offered(derived.proposalId)) return derived
     }
