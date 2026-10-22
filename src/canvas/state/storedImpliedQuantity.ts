@@ -67,9 +67,9 @@ export function impliedQuantityHeading(q: Extract<ImpliedQuantity, { status: 'co
   return `What the model implies for ${q.quantity}${q.byWhen === null ? '' : ` ${sayTimeScope(q.byWhen)}`}, as the model stands`
 }
 
-/** A figure as CEE's facts give it: three significant figures. */
+/** A figure as CEE's facts give it: three significant figures, however small (never a fixed number of decimals). */
 export function impliedFigure(v: number): string {
-  return Number(v.toPrecision(3)).toLocaleString('en-GB')
+  return v.toLocaleString('en-GB', { maximumSignificantDigits: 3 })
 }
 
 export const IMPLIED_QUANTITY_COPY = {

@@ -7,6 +7,8 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 let runCurrent = true
@@ -17,7 +19,7 @@ vi.mock('../../../../canvas/state/analysisStateSelector', async (importOriginal)
 
 import { useCanvasStore } from '../../../../canvas/store'
 import { applyScenarioAnalysisRead, type ScenarioAnalysisApplyStore } from '../../../../canvas/hydrate/applyScenarioAnalysisRead'
-import { readImpliedQuantity, recordImpliedQuantity, useImpliedQuantityStore } from '../../../../canvas/state/storedImpliedQuantity'
+import { impliedFigure, readImpliedQuantity, recordImpliedQuantity, useImpliedQuantityStore } from '../../../../canvas/state/storedImpliedQuantity'
 import { ImpliedQuantity, IMPLIED_QUANTITY_TEST_ID } from '../ImpliedQuantity'
 
 /** Served, verbatim. */
@@ -79,6 +81,23 @@ describe('the read records it under the report it describes', () => {
     read(COMPUTED, hash)
     expect(held().responseHash).toBe(hash)
     expect(held().value).toMatchObject({ status: 'computed', quantity: 'Volunteers signed up' })
+  })
+
+  it('⛔ EVERY caller of the read applier passes it on (one that does not clears the record: the poll did, Codex r1)', () => {
+    const files: string[] = []
+    const walk = (dir: string) => { for (const f of readdirSync(dir)) { const p = join(dir, f); if (statSync(p).isDirectory()) { if (f !== '__tests__') walk(p) } else if (/\.tsx?$/.test(f)) files.push(p) } }
+    walk('src')
+    const calls = files.flatMap((f) => {
+      const s = readFileSync(f, 'utf8')
+      return [...s.matchAll(/applyScenarioAnalysisRead\(\{([\s\S]*?)\n\s*\}\)/g)].map((m) => ({ f, args: m[1]! }))
+    })
+    expect(calls.map((c) => c.f).sort()).toEqual(['src/canvas/hooks/useProvisionalAnalysisDelivery.ts', 'src/canvas/hydrate/serverGraphHydration.ts'])
+    for (const c of calls) expect(c.args, c.f).toMatch(/\bimpliedQuantity: result\.impliedQuantity\b/)
+  })
+
+  it('a figure keeps three significant figures, however small or large', () => {
+    expect(['0.0001234', '0.01234', '37.1567', '30', '1234.5'].map((v) => impliedFigure(Number(v))))
+      .toEqual(['0.000123', '0.0123', '37.2', '30', '1,230'])
   })
 
   it('⛔ a body outside CEE\'s shape is no record', () => {
