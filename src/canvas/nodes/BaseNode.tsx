@@ -494,24 +494,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    * already has two writers with a precedence rule between them.
    */
   const isAttended = useCanvasStore(s => s.olumiAttention?.nodeIds.includes(id) === true)
-  const isAttentionDimmed = useCanvasStore(
-    // ⚠ `!= null`, NOT `!== null`. Spec store doubles omit this slice entirely,
-    // so the value is `undefined` there — and `undefined !== null` is true,
-    // which dimmed every node in every test that mounts a partial store. Same
-    // fail-soft convention the rest of this file uses for optional slices.
-    // ⚠ AND `nodeIds.length > 0`, WITHOUT WHICH AN EDGE-ONLY ATTENTION GREYS
-    // OUT THE WHOLE CANVAS. Attention may hold edges and no nodes; then no node
-    // is attended, this predicate is true for EVERY node, and all of them dim to
-    // 30% — while `OlumiAttentionCard` returns null at `attention.nodeIds[0]`,
-    // so no card and therefore no Dismiss button renders. The dim is derived
-    // from attention and the exit was drawn from the card, so the two disagreed
-    // about whether anything was on screen. An attention that names no node
-    // dims no node.
-    s =>
-      s.olumiAttention != null &&
-      s.olumiAttention.nodeIds.length > 0 &&
-      s.olumiAttention.nodeIds.includes(id) === false,
-  )
+  // ⛔ Olumi's note no longer greys out the rest of the model (Paul 22 Oct: "Why am I seeing the graph greyed out most of
+  // the time?"). A note now stands on most turns and stays until dismissed, so every other card sat at 30% opacity for
+  // as long as it stood. The note's own card keeps its ring (`isAttended`); the model stays readable around it.
   // Assistant focus is a static, independently-owned marker. It does not use
   // React Flow's `selected` prop and does not enter the transient highlight
   // Set, so it can coexist with both without borrowing either lifetime.
@@ -1952,7 +1937,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         ${selected && !isHighlighted ? colors.selected : ''}
         ${isHighlighted && !isAttended ? 'ring-4 ring-info/60 ai-highlight-pulse' : ''}
         ${isAttended ? 'ring-4 ring-info olumi-attended' : ''}
-        ${isAttentionDimmed || isRunChangeSubdued ? 'opacity-30 saturate-50 transition-opacity duration-300' : ''}
+        ${isRunChangeSubdued ? 'opacity-30 saturate-50 transition-opacity duration-300' : ''}
         ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-25' : ''}
       `}
       style={{

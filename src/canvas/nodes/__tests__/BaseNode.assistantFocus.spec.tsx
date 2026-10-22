@@ -120,3 +120,26 @@ describe('BaseNode — assistant focus render', () => {
     expect(screen.getByTestId(`assistant-focus-node-halo-${props.id}`)).toBeInTheDocument()
   })
 })
+
+describe('⭐ Olumi\'s note does not grey out the model (Paul 22 Oct: "the graph greyed out most of the time")', () => {
+  const hold = (nodeIds: string[]) => useCanvasStore.setState({
+    olumiAttention: { nodeIds, edgeIds: [], note: { body: 'When could the new hire start contributing?' }, caveat: null, turnId: null, modelVersion: null },
+  } as never)
+  afterEach(() => useCanvasStore.setState({ olumiAttention: null } as never))
+  const card = () => screen.getByRole('group', { name: /factor: demand/i })
+  const tokens = () => card().className.split(/\s+/)
+
+  it('a card the note is not about keeps full strength while the note stands', () => {
+    hold(['factor-other'])
+    render(<ReactFlowProvider><BaseNode {...(props as any)} nodeType="factor" icon={Circle} /></ReactFlowProvider>)
+    expect(tokens()).not.toContain('opacity-30')
+    expect(tokens()).not.toContain('olumi-attended')
+  })
+
+  it('CONTRAST: the card the note is about carries the ring', () => {
+    hold([props.id])
+    render(<ReactFlowProvider><BaseNode {...(props as any)} nodeType="factor" icon={Circle} /></ReactFlowProvider>)
+    expect(tokens()).toContain('olumi-attended')
+  })
+})
+
