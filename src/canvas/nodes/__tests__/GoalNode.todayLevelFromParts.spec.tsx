@@ -57,10 +57,13 @@ describe('a goal defined by its parts says today\'s level as worked out from the
     expect(editor).toBeNull()
   })
 
-  it('a part with no label on the canvas, or another operation, says "its parts"', () => {
+  it('a sum is spelt with "+"; a part with no label on the canvas, or an operation the UI cannot spell, says "its parts"', () => {
+    expect(today({ ...SERVED_GOAL, nonlinear_identity: { operation: 'sum', factor_ids: ['customers', 'spend'] } }).text)
+      .toMatch(/ — worked out from Weekly customers \+ Average spend per customer$/)
+    cleanup()
     expect(today(SERVED_GOAL, PARTS.slice(0, 1)).text).toMatch(/ — worked out from its parts$/)
     cleanup()
-    expect(today({ ...SERVED_GOAL, nonlinear_identity: { operation: 'sum', factor_ids: ['customers', 'spend'] } }).text)
+    expect(today({ ...SERVED_GOAL, nonlinear_identity: { operation: 'ratio', factor_ids: ['customers', 'spend'] } }).text)
       .toMatch(/ — worked out from its parts$/)
   })
 

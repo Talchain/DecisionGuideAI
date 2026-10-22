@@ -81,6 +81,7 @@ import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { useScenarioActionBar } from '../conversation/actionBar/useScenarioActionBar'
 import { pressOffer } from '../conversation/actionBar/pressOffer'
 import { ACTION_BAR_COPY } from '../conversation/actionBar/ActionBar'
+import { nodeLabel } from '../utils/olumiAttention'
 
 /**
  * ⭐ Contract v3.1 `.node.wide .target-row{font-size:12px}` +
@@ -686,7 +687,7 @@ export const GoalNode = memo((props: NodeProps) => {
   // A level worked out from the goal's parts is not typed over: changing a part changes it (F3).
   const todayLevelEditable = savedModelIsCore && hasThreshold && typeof thresholdUnit === 'string' && thresholdUnit.trim() !== ''
     && todayLevel?.basis !== 'from_parts'
-  const partLabelOf = (id: string) => nodes.find(n => n.id === id)?.data?.label as string | undefined
+  const partLabelOf = (id: string) => nodeLabel(nodes.find(n => n.id === id))
   const todayLevelUnit = emptyValueUnit(thresholdUnit)
 
   /**
@@ -1180,7 +1181,7 @@ export const GoalNode = memo((props: NodeProps) => {
             <NodeValueEditor
               value={todayLevel?.level ?? null}
               readout={todayLevel !== null
-                ? <span className={`${typography.edgeLabel} text-text-light`}>{goalTodayLevelCopy(todayLevel)}</span>
+                ? <span className={`${typography.edgeLabel} text-text-light`}>{goalTodayLevelCopy(todayLevel, partLabelOf)}</span>
                 : <NeedsInputSlot words="Today's level needed" description="Type where it stands today" unit={todayLevelUnit} testId={`goal-today-level-empty-${props.id}`} />}
               onCommit={(v, opts) => goalEditAuthority.proposeFactorValue(v, { ...opts, unit: thresholdUnit!.trim() })}
               {...(todayLevelUnit.prefix ? { prefix: todayLevelUnit.prefix } : {})}

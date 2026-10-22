@@ -22,7 +22,7 @@ const SERVED_GOAL = (served as { graph: { nodes: WireNode[] } }).graph.nodes.fin
 
 const today = (wire: WireNode) => {
   const t = goalTodayLevel(mapDraftNodeToCanvas(wire as never).data as Parameters<typeof goalTodayLevel>[0])
-  return t === null ? null : goalTodayLevelCopy(t)
+  return t === null ? null : goalTodayLevelCopy(t, () => '')
 }
 const withObserved = (patch: Record<string, unknown>) =>
   ({ ...SERVED_GOAL, observed_state: { ...(SERVED_GOAL.observed_state as object), ...patch } })

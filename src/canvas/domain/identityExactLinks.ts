@@ -24,11 +24,10 @@ import { create } from 'zustand'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { useCanvasStore } from '../store'
 import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
+import { readIdentityParts } from './identityParts'
 
 type NodeLike = { id: string; data?: unknown }
 type EdgeLike = { id: string; source: string; target: string }
-
-const OPERATOR: Record<string, string> = { product: '×', sum: '+' }
 
 const labelOf = (n: NodeLike | undefined, id: string): string => {
   const label = (n?.data as { label?: unknown } | undefined)?.label
@@ -53,14 +52,10 @@ export function readIdentityEvaluated(raw: unknown): readonly string[] | null {
 }
 
 export function identityExactWords(identity: NodeLike, nodes: readonly NodeLike[]): string | null {
-  const id = (identity.data as { nonlinear_identity?: unknown } | undefined)?.nonlinear_identity as
-    { operation?: unknown; factor_ids?: unknown } | undefined
-  const op = typeof id?.operation === 'string' ? OPERATOR[id.operation] : undefined
-  if (op === undefined || !Array.isArray(id?.factor_ids) || id.factor_ids.length < 2) return null
+  const parts = readIdentityParts(identity.data)
+  if (parts?.operator == null) return null
   const byId = new Map(nodes.map((n) => [n.id, n]))
-  const parts = (id.factor_ids as unknown[]).map((f) => (typeof f === 'string' ? `‘${labelOf(byId.get(f), f)}’` : null))
-  if (parts.some((p) => p === null)) return null
-  return `Exact: ‘${labelOf(identity, identity.id)}’ = ${parts.join(` ${op} `)}`
+  return `Exact: ‘${labelOf(identity, identity.id)}’ = ${parts.factorIds.map((f) => `‘${labelOf(byId.get(f), f)}’`).join(` ${parts.operator} `)}`
 }
 
 /** Edge id → its exact words, for every operand link into an evaluated identity. */
