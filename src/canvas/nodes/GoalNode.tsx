@@ -683,7 +683,10 @@ export const GoalNode = memo((props: NodeProps) => {
   // Editable only where a write exists for it: a core scenario (its saved model has a living model, whichever AI mode
   // the URL names: the default `openai` mode serves core too), on a goal with a stated target and unit.
   const savedModelIsCore = useSavedModelIsCore()
+  // A level worked out from the goal's parts is not typed over: changing a part changes it (F3).
   const todayLevelEditable = savedModelIsCore && hasThreshold && typeof thresholdUnit === 'string' && thresholdUnit.trim() !== ''
+    && todayLevel?.basis !== 'from_parts'
+  const partLabelOf = (id: string) => nodes.find(n => n.id === id)?.data?.label as string | undefined
   const todayLevelUnit = emptyValueUnit(thresholdUnit)
 
   /**
@@ -1190,7 +1193,7 @@ export const GoalNode = memo((props: NodeProps) => {
           </div>
         ) : todayLevel !== null && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`} data-testid={`goal-today-level-${props.id}`}>
-            {goalTodayLevelCopy(todayLevel)}
+            {goalTodayLevelCopy(todayLevel, partLabelOf)}
           </p>
         )}
 

@@ -439,10 +439,12 @@ export function goalTargetInPlaceEdit(data: GoalTargetSource | null | undefined)
 export interface GoalTodayLevel {
   readonly level: number
   readonly unit: string
-  readonly basis: 'olumi_reading' | 'user_stated' | 'user_confirmed' | 'from_brief'
+  readonly basis: 'olumi_reading' | 'user_stated' | 'user_confirmed' | 'from_brief' | 'from_parts'
   readonly quote: string | null
+  /** `from_parts` only: the parts CEE worked the level out from (the goal's `nonlinear_identity`). */
+  readonly parts?: { readonly operation: string; readonly factorIds: readonly string[] }
 }
-export function goalTodayLevel(data: (GoalTargetSource & { goal_level_reading?: unknown; observedState?: unknown }) | null | undefined): GoalTodayLevel | null {
+export function goalTodayLevel(data: (GoalTargetSource & { goal_level_reading?: unknown; observedState?: unknown; nonlinear_identity?: unknown }) | null | undefined): GoalTodayLevel | null {
   if (!data || goalTargetMeaningUnread(data)) return null
   const isChangeGoal = goalTargetChangeFrameOf(data.goal_threshold_frame) !== null
   const goalUnit = typeof data.goal_threshold_unit === 'string' ? data.goal_threshold_unit.trim() : ''
@@ -464,6 +466,13 @@ export function goalTodayLevel(data: (GoalTargetSource & { goal_level_reading?: 
     // AIQ 5902964135 nit: a `confirmed` source is one the user CONFIRMED, not one they typed.
     const basis = kind === 'confirmed' ? 'user_confirmed' : kind === 'brief' ? 'from_brief' : 'user_stated'
     return { level: raw, unit, basis, quote: null }
+  }
+  // A goal defined by its parts (CEE's `nonlinear_identity`, e.g. takings = customers × spend) carries the level CEE
+  // worked out from them, with no source of its own: said as worked out, never as a level the person stated (F3, DL 22 Oct).
+  const identity = data.nonlinear_identity as { operation?: unknown; factor_ids?: unknown } | null | undefined
+  const factorIds = Array.isArray(identity?.factor_ids) ? identity.factor_ids.filter((id): id is string => typeof id === 'string') : []
+  if (observed?.source === undefined && factorIds.length > 1 && Number.isFinite(raw) && unit === goalUnit) {
+    return { level: raw, unit, basis: 'from_parts', quote: null, parts: { operation: String(identity?.operation ?? ''), factorIds } }
   }
   return null
 }
