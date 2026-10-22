@@ -33,6 +33,7 @@ import { ChatThread } from '../zones/ChatThread'
 import { ConversationProvider, useConversationContext } from '../ConversationContext'
 import { FirstUseComposer } from '../../components/FirstUseComposer'
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
+import r2Errors from '../../../v5/__tests__/fixtures/core-turn-r2-errors.json'
 
 // ---------------------------------------------------------------------------
 // Mocks — seams only; the V5 adapter/parser/router chain stays REAL.
@@ -229,10 +230,10 @@ describe('L2-UI core save outcomes through the real fetch → parser → router 
     expect(assistant.querySelector('[data-testid="message-menu-retry"]') !== null).toBe(retry)
   })
 
-  // The core route's failed turn is the whole contract with its `error` set (CEE #3650); nothing else is read.
+  // The core route's failed turn is the whole contract with its `error` set, in R2's served shape (an empty model with
+  // null revisions: `fixtures/core-turn-r2-errors.json`); only the error is read.
   const coreFailure = (code: string, retrySafe: boolean, nothingSaved: boolean, message = 'x') => ({
-    turn_id: 't-fail', durability: 'none', assistant_text: '', model: null, cards: [], notes: [], run: null, receipts: [],
-    paused: null, error: { code, message, retry_safe: retrySafe, nothing_saved: nothingSaved },
+    ...r2Errors.resend_after_claim_wait.body, error: { code, message, retry_safe: retrySafe, nothing_saved: nothingSaved },
   })
   it.each([
     { row: 'capacity, nothing saved: no resend', status: 503, body: coreFailure('PROVIDER_CAPACITY', true, true), words: CAPACITY, retry: false },

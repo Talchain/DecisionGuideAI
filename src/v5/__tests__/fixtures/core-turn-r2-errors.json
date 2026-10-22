@@ -1,0 +1,54 @@
+{
+  "_source": "core-route R2 head 43e7e5e8, captured from the route and its SSE wrapper (22 Oct); _provider_calls dropped",
+  "stream_timeout_complete_frame": {
+    "stage": "COMPLETE",
+    "seq": 1,
+    "status": "complete",
+    "status_code": 504,
+    "payload": {
+      "turn_id": "turn-core-1",
+      "durability": "unknown",
+      "assistant_text": "",
+      "model": {
+        "revision": null,
+        "scenario_revision": null
+      },
+      "cards": [],
+      "notes": [],
+      "run": null,
+      "analysis_state": null,
+      "receipts": [],
+      "paused": null,
+      "error": {
+        "code": "TURN_STILL_RUNNING",
+        "message": "The reply did not arrive in time. Olumi may still be finishing this turn; reload to see the current model before sending it again.",
+        "retry_safe": false,
+        "nothing_saved": false
+      }
+    }
+  },
+  "resend_after_claim_wait": {
+    "status": 409,
+    "body": {
+      "turn_id": "5b7d3f2e-1c4a-4e8b-9f60-2a1d7c3e9b14",
+      "durability": "unknown",
+      "assistant_text": "",
+      "model": {
+        "revision": null,
+        "scenario_revision": null
+      },
+      "cards": [],
+      "notes": [],
+      "run": null,
+      "analysis_state": null,
+      "receipts": [],
+      "paused": null,
+      "error": {
+        "code": "TURN_OUTCOME_UNKNOWN",
+        "message": "This message is already being handled, or an earlier attempt ran and its reply was not recorded. Nothing was run again; reload to see the current model.",
+        "retry_safe": false,
+        "nothing_saved": false
+      }
+    }
+  }
+}

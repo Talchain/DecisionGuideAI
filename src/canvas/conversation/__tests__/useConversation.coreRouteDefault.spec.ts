@@ -11,6 +11,8 @@ import { useConversation } from '../useConversation'
 import { useCanvasStore } from '../../store'
 import { useDraftStore } from '../../stores/draftStore'
 import real from '../../../v5/__tests__/fixtures/core-turn-r2-real.json'
+import r2Errors from '../../../v5/__tests__/fixtures/core-turn-r2-errors.json'
+import { CORE_STILL_FINISHING_NOTICE, CORE_FINISHED_RELOADED_NOTICE, STILL_FINISHING_REPLAY_DELAY_MS } from '../coreStillFinishing'
 
 const mockOpenStream = vi.fn()
 vi.mock('../../../v5/streamedTurnTransport', async (importOriginal) => {
@@ -32,12 +34,17 @@ vi.mock('../../../lib/supabase', () => ({
 }))
 vi.mock('../../../services/scenarioService', () => ({ loadScenario: async () => null, storeAnalysis: async () => undefined }))
 vi.mock('../../../lib/posthog', () => ({ trackEvent: () => undefined }))
+const mockRecover = vi.fn()
+vi.mock('../../hydrate/draftRecovery', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../hydrate/draftRecovery')>()
+  return { ...actual, recoverDraftFromServer: (...args: unknown[]) => mockRecover(...args) }
+})
 
 const SCENARIO = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
 const TURN = real.card_turn
 
-function stubFetch(body: unknown) {
-  const fetchStub = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } }))
+function stubFetch(body: unknown, status = 200) {
+  const fetchStub = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }))
   vi.stubGlobal('fetch', fetchStub)
   return fetchStub
 }
@@ -96,5 +103,47 @@ describe('⭐ staging default = core route, read only through the contract', () 
     expect(mockOpenStream).toHaveBeenCalledTimes(1)
     expect(new Headers((mockOpenStream.mock.calls[0][1] as { headers?: HeadersInit } | undefined)?.headers).get('x-olumi-ai-mode')).toBe('core-route')
     expect(reply(result)).toEqual(EXPECTED)
+  })
+
+  describe('R2\'s stream timeout (its exact bytes, head 43e7e5e8): still finishing, never a failure', () => {
+    const encoder = new TextEncoder()
+    const sse = (o: unknown) => `event: stage\ndata: ${JSON.stringify(o)}\n\n`
+    const turnIdOf = (init: unknown) => (JSON.parse(String((init as RequestInit | undefined)?.body ?? '{}')) as { turn_id?: string }).turn_id
+    async function timedOutTurn() {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      mockRecover.mockResolvedValue('recovered')
+      mockOpenStream.mockResolvedValue(new Response(new ReadableStream<Uint8Array>({
+        start(c) {
+          c.enqueue(encoder.encode(sse({ stage: 'DRAFTING', seq: 0, status: 'in_progress' }) + sse(r2Errors.stream_timeout_complete_frame)))
+          c.close()
+        },
+      }), { status: 200, headers: { 'content-type': 'text/event-stream' } }))
+      const fetchStub = stubFetch(r2Errors.resend_after_claim_wait.body, r2Errors.resend_after_claim_wait.status)
+      const { result } = renderHook(() => useConversation())
+      await act(async () => { await result.current.sendMessage('Explore staffing options', { turnType: 'explicit_generate' }) })
+      return { result, fetchStub }
+    }
+    afterEach(() => { vi.useRealTimers() })
+
+    it('⭐ TURN_STILL_RUNNING says Olumi is still finishing: no failure, no retry, the message reads as sent', async () => {
+      const { result } = await timedOutTurn()
+      expect(result.current.messages.map((m) => m.content)).toContain(CORE_STILL_FINISHING_NOTICE)
+      expect(result.current.messages.flatMap((m) => m.actionChips ?? []).map((c) => c.id)).not.toContain('retry')
+      expect(result.current.lastSendFailure).toBeNull()
+      expect(result.current.messages.find((m) => m.role === 'user')?.deliveryState).toBe('sent')
+    })
+
+    it('⭐ its one re-send (same turn_id) meets 409 TURN_OUTCOME_UNKNOWN, so the saved model is read and the notice says so', async () => {
+      const { result, fetchStub } = await timedOutTurn()
+      await act(async () => { await vi.advanceTimersByTimeAsync(STILL_FINISHING_REPLAY_DELAY_MS + 50) })
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+      const resends = fetchStub.mock.calls.filter(([, init]) => new Headers(init?.headers).get('x-olumi-ai-mode') === 'core-route')
+      expect(resends).toHaveLength(1)
+      expect(turnIdOf(resends[0][1])).toBe(turnIdOf({ body: JSON.stringify(mockOpenStream.mock.calls[0][0]) }))
+      expect(mockRecover).toHaveBeenCalledTimes(1)
+      const texts = result.current.messages.map((m) => m.content)
+      expect(texts).toContain(CORE_FINISHED_RELOADED_NOTICE)
+      expect(texts).not.toContain(CORE_STILL_FINISHING_NOTICE)
+    })
   })
 })
