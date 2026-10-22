@@ -21,9 +21,10 @@ import { askAi } from '../conversation/askAi'
 import { revealOlumiSurface } from '../conversation/revealOlumi'
 import { ACTION_BAR_COPY } from '../conversation/actionBar/ActionBar'
 import { canvasLinkOfTarget, useCanvasLight } from '../graphChanges/rowCanvasLink'
-import { ASSUMPTION_MAP_COPY, RESTS_ON_ORDER, type AssumptionColumn, type AssumptionItem } from './assumptionMapModel'
+import { ASSUMPTION_MAP_COPY, RESTS_ON_ORDER, type AssumptionColumn, type AssumptionItem, type RestsOnMark } from './assumptionMapModel'
+import { isUnsettled, restsOnMarkerLabel } from './RestsOnMarker'
 import { FigureCard } from './FigureCard'
-import { tradeOffsForState, type ModelRisk, type Move, type OptionTradeOffs, type RouteEffect, type RouteStep, type TradeOffRoute } from './tradeOffsModel'
+import { tradeOffLinkMarks, tradeOffsForState, type ModelRisk, type Move, type OptionTradeOffs, type RouteEffect, type RouteStep, type TradeOffRoute } from './tradeOffsModel'
 
 export const TRADE_OFFS_KEY_TESTID = 'trade-offs-key'
 
@@ -105,7 +106,36 @@ function restsOnLine(route: TradeOffRoute): string {
 }
 
 /** One link as its owner reads it: picking it finds it on the canvas; its figure card holds the link's own editor. */
-function LinkRow({ edgeId, label, item }: { edgeId: string; label: string; item: AssumptionItem | null }) {
+/** The link's numbered pill, as the canvas draws it on the link: filled where the reasoning is unexamined. */
+function LinkPill({ mark }: { mark: RestsOnMark }) {
+  return (
+    <span
+      data-testid={`${TRADE_OFFS_KEY_TESTID}-pill`}
+      data-n={mark.n}
+      data-column={mark.column}
+      title={restsOnMarkerLabel(mark)}
+      className={`inline-flex h-4 min-w-4 flex-none items-center justify-center rounded-full border px-1 text-[10px] leading-none tabular-nums ${
+        isUnsettled(mark.column) ? 'border-info/40 bg-info-light text-text-header' : 'border-panel-border bg-panel text-text-light'
+      }`}
+    >
+      {mark.n}
+    </span>
+  )
+}
+
+/** A route's links as their pills, in route order; the counts in words stay for hover and screen readers. */
+function RouteMarks({ route, marks }: { route: TradeOffRoute; marks: ReadonlyMap<string, RestsOnMark> }) {
+  const line = restsOnLine(route)
+  const pills = route.steps.flatMap((s) => (s.edgeId !== null && marks.has(s.edgeId) ? [marks.get(s.edgeId)!] : []))
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-1" title={line}>
+      {pills.map((mark) => <LinkPill key={mark.n} mark={mark} />)}
+      <span className="sr-only">{line}</span>
+    </span>
+  )
+}
+
+function LinkRow({ edgeId, label, item, mark = null }: { edgeId: string; label: string; item: AssumptionItem | null; mark?: RestsOnMark | null }) {
   const light = useCanvasLight()
   const link = canvasLinkOfTarget({ kind: 'edge', id: edgeId })
   return (
@@ -119,7 +149,7 @@ function LinkRow({ edgeId, label, item }: { edgeId: string; label: string; item:
         onFocus={() => { if (link) light.on(link) }}
         onBlur={light.off}
       >
-        <span className="block text-text-header">{label}</span>
+        <span className="flex items-center gap-1.5 text-text-header">{mark ? <LinkPill mark={mark} /> : null}{label}</span>
         {item ? <span className="block text-text-light">{ASSUMPTION_MAP_COPY.columns[item.column]}</span> : null}
       </button>
       {item ? <FigureCard item={item} /> : null}
@@ -127,11 +157,11 @@ function LinkRow({ edgeId, label, item }: { edgeId: string; label: string; item:
   )
 }
 
-function RouteLinks({ route }: { route: TradeOffRoute }) {
+function RouteLinks({ route, marks }: { route: TradeOffRoute; marks: ReadonlyMap<string, RestsOnMark> }) {
   return (
     <ul data-testid={`${TRADE_OFFS_KEY_TESTID}-links`} className="space-y-1.5 pb-1 pt-2">
       {route.steps.map((step, i) => step.edgeId === null ? null
-        : <LinkRow key={step.edgeId} edgeId={step.edgeId} label={`${route.steps[i - 1].label} → ${step.label}`} item={step.link} />)}
+        : <LinkRow key={step.edgeId} edgeId={step.edgeId} label={`${route.steps[i - 1].label} → ${step.label}`} item={step.link} mark={marks.get(step.edgeId) ?? null} />)}
     </ul>
   )
 }
@@ -157,8 +187,9 @@ function AlsoInModel({ risks, limits }: { risks: readonly ModelRisk[]; limits: r
   )
 }
 
-function RouteGroup({ heading, routes, picked, onPick, effect, flag = null }: {
+function RouteGroup({ heading, routes, picked, onPick, effect, flag = null, marks }: {
   heading: string
+  marks: ReadonlyMap<string, RestsOnMark>
   /** A mark beside the heading, its words on hover (Paul 22 Oct: icons over static text). */
   flag?: { testId: string; text: string } | null
   routes: readonly TradeOffRoute[]
@@ -192,9 +223,9 @@ function RouteGroup({ heading, routes, picked, onPick, effect, flag = null }: {
                 onClick={() => onPick(open ? null : route.key)}
               >
                 <Chain steps={route.steps} />
-                <span className={`${typography.panelMeta} mt-0.5 block text-text-light`}>{restsOnLine(route)}</span>
+                <RouteMarks route={route} marks={marks} />
               </button>
-              {open ? <div className="px-2"><RouteLinks route={route} /></div> : null}
+              {open ? <div className="px-2"><RouteLinks route={route} marks={marks} /></div> : null}
             </li>
           )
         })}
@@ -233,6 +264,7 @@ export function TradeOffsKey({ folded = false }: { folded?: boolean }) {
     useCanvasStore.getState().setLens('tradeoffs', next.optionId)
   }
   const of = (effect: RouteEffect) => option.routes.filter((r) => r.effect === effect)
+  const marks = tradeOffLinkMarks(option)
   const unsorted = read.goalWants === null
 
   const header = (
@@ -279,13 +311,13 @@ export function TradeOffsKey({ folded = false }: { folded?: boolean }) {
       {header}
 
       {empty !== null ? empty : unsorted ? (
-        <RouteGroup heading={TRADE_OFFS_COPY.unsorted(goal)} routes={option.routes} picked={pickedRoute} onPick={setPickedRoute} effect="unsorted" />
+        <RouteGroup marks={marks} heading={TRADE_OFFS_COPY.unsorted(goal)} routes={option.routes} picked={pickedRoute} onPick={setPickedRoute} effect="unsorted" />
       ) : (
         <div className="space-y-2.5">
-          <RouteGroup heading={TRADE_OFFS_COPY.group.gains(goal)} routes={of('gains')} picked={pickedRoute} onPick={setPickedRoute} effect="gains"
+          <RouteGroup marks={marks} heading={TRADE_OFFS_COPY.group.gains(goal)} routes={of('gains')} picked={pickedRoute} onPick={setPickedRoute} effect="gains"
             flag={of('gives_up').length === 0 ? { testId: `${TRADE_OFFS_KEY_TESTID}-nothing-given-up`, text: TRADE_OFFS_COPY.nothingGivenUp } : null} />
-          <RouteGroup heading={TRADE_OFFS_COPY.group.gives_up(goal)} routes={of('gives_up')} picked={pickedRoute} onPick={setPickedRoute} effect="gives_up" />
-          <RouteGroup heading={TRADE_OFFS_COPY.group.not_set} routes={of('not_set')} picked={pickedRoute} onPick={setPickedRoute} effect="not_set" />
+          <RouteGroup marks={marks} heading={TRADE_OFFS_COPY.group.gives_up(goal)} routes={of('gives_up')} picked={pickedRoute} onPick={setPickedRoute} effect="gives_up" />
+          <RouteGroup marks={marks} heading={TRADE_OFFS_COPY.group.not_set} routes={of('not_set')} picked={pickedRoute} onPick={setPickedRoute} effect="not_set" />
         </div>
       )}
 

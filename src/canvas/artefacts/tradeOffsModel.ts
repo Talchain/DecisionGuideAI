@@ -28,7 +28,7 @@ import { isInterventionNoChange } from '../utils/interventionDisplay'
 import { baselineGuessBarred, baselineOptionsOf, resolveOptionIsBaseline } from '../utils/baselineDetection'
 import { resolveActiveGoalNodeId } from '../hooks/goalThresholdResolvers'
 import { goalConstraintText } from '../utils/goalConstraintText'
-import { assumptionMapOf, type AssumptionItem } from './assumptionMapModel'
+import { assumptionMapOf, type AssumptionItem, type RestsOnMark } from './assumptionMapModel'
 
 export type GoalWants = 'higher' | 'lower'
 export type RouteEffect = 'gains' | 'gives_up' | 'not_set'
@@ -267,3 +267,20 @@ export function tradeOffsInFocus(option: OptionTradeOffs, edges: readonly Edge[]
   for (const e of edges) if (e.source === option.optionId && nodeIds.has(e.target)) edgeIds.add(e.id)
   return { nodeIds, edgeIds }
 }
+
+/**
+ * Each link on the option's routes, numbered from 1 in the order the key lists them (route by route), with its "Rests
+ * on" state: the same pill on the canvas and in the key, so a number in one is found in the other. Numbers are identity,
+ * not rank. A link that holds by definition carries no state and no number.
+ */
+export function tradeOffLinkMarks(option: OptionTradeOffs): Map<string, RestsOnMark> {
+  const marks = new Map<string, RestsOnMark>()
+  for (const route of option.routes) {
+    for (const step of route.steps) {
+      if (step.edgeId === null || step.link === null || marks.has(step.edgeId)) continue
+      marks.set(step.edgeId, { n: marks.size + 1, column: step.link.column })
+    }
+  }
+  return marks
+}
+

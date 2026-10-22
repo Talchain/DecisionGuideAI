@@ -20,7 +20,7 @@ import { resolveActiveGoalNodeId } from './goalThresholdResolvers'
 import { assumptionMapOf, restsOnKey, restsOnNumbered, type RestsOnMark } from '../artefacts/assumptionMapModel'
 import { useCurrentPremortemWorksheet } from '../artefacts/lenses'
 import { useWhatIfStore } from '../stores/whatIfStore'
-import { tradeOffsForState, tradeOffsInFocus } from '../artefacts/tradeOffsModel'
+import { tradeOffsForState, tradeOffsInFocus, tradeOffLinkMarks } from '../artefacts/tradeOffsModel'
 import type { PremortemWorksheetV1 } from '../../v5/readPremortemWorksheet'
 
 // ─── Sensitivity helpers ─────────────────────────────────────────────────────
@@ -216,10 +216,14 @@ export function useLensFilter(): void {
       const option = options.find(o => o.optionId === lensOptionId) ?? options[0]
       if (!option || option.routes.length === 0) return EMPTY_VISUALS
       const focus = tradeOffsInFocus(option, edges)
+      // Each route link carries its "Rests on" state as the key's numbered pill (Paul 22 Oct: marks over sentences).
+      const restsOn = new Map<string, RestsOnMark>()
+      tradeOffLinkMarks(option).forEach((mark, edgeId) => restsOn.set(restsOnKey({ kind: 'edge', id: edgeId }), mark))
       return {
         ...EMPTY_VISUALS,
         dimmedNodeIds: allBut(nodes.map(n => n.id), focus.nodeIds),
         dimmedEdgeIds: allBut(edges.map(e => e.id), focus.edgeIds),
+        restsOn,
       }
     }
 
