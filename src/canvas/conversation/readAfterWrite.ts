@@ -7,6 +7,8 @@
  */
 import { ADDITIVE_EXTENSIONS_KEY } from '../../v5/responseParser'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
+import { parseCanonicalAnalysisView } from '../runView/canonicalAnalysisView'
+import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewStore'
 
 export const STALE_MODEL_NOTICE =
   'Your change was saved, but this view is showing an older copy of your model. Refresh the page to see the saved version.'
@@ -59,7 +61,14 @@ export async function checkReadAfterWrite(
     const view = rec(result.canonicalAnalysisView)
     const runDelivered = expected.runId === null
       || (rec(view?.run)?.run_id === expected.runId && rec(view?.staleness)?.stale === false)
-    if (runDelivered) return 'confirmed'
+    if (runDelivered) {
+      // The core turn carries no canonical view, so the option cards' served chance cells (`OptionChanceCellProvider`) stayed
+      // empty until a reload hydrated it (served 22 Oct, CEE 4a4c338c). The read that confirms THIS Run carries it: adopt it,
+      // as hydration does, so the cards say CEE's words now.
+      const served = expected.runId === null ? null : parseCanonicalAnalysisView(view)
+      if (served !== null) useCanonicalAnalysisViewStore.getState().adopt(scenarioId, served)
+      return 'confirmed'
+    }
     last = 'run_not_delivered'
   }
   return last
