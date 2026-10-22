@@ -20,7 +20,7 @@
  */
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { CONSENT_CHIP_PREFIX } from './messageComposition'
-import { readProposalFields, type Band, type Proposal } from './proposalFields'
+import { readProposalFields, type Band, type Proposal, changeNotesOf } from './proposalFields'
 
 const DECLINE_CHIP_PREFIX = 'agent-decline-proposal:'
 import type { ActionChip, ConversationMessage } from './types'
@@ -80,6 +80,8 @@ export type ProposalPreviewOp =
 export interface ProposalPreview {
   readonly proposalId: string
   readonly ops: readonly ProposalPreviewOp[]
+  /** Core only: how many other changes the held card lists in words (`change_note`), which the canvas cannot draw. */
+  readonly otherChanges?: number
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null)
@@ -170,7 +172,13 @@ export function previewOfLatestReply(messages: readonly ConversationMessage[]): 
     const m = messages[i]
     if (m.role !== 'assistant' || m.synthetic || typeof m.sessionDivider === 'string') continue
     const preview = m.proposalPreview ?? null
-    if (preview !== null) return (m.actionChips ?? []).some((c) => c.id === consentChipIdFor(preview.proposalId)) ? preview : null
+    if (preview !== null) {
+      if (!(m.actionChips ?? []).some((c) => c.id === consentChipIdFor(preview.proposalId))) return null
+      // ⛔ CONSENT (Codex r2 #2904): an explicit preview's card can list changes in words too; the ghost must know (no approve).
+      const held = readProposalFields(m.proposalFields)?.proposals.find((p) => p.proposal_id === preview.proposalId)
+      const otherChanges = held ? changeNotesOf(held).length : 0
+      return otherChanges > 0 ? { ...preview, otherChanges } : preview
+    }
     // ⭐ Core sends no `proposal_preview`: the held card's own fields (`_proposal_fields`) name what it changes or adds.
     // The latest reply's fields are CEE's CURRENT held set; the card itself sits on its ISSUING reply, which a reopen
     // puts it back on (`reconcileRestoredProposalFields`). So the ghost shows exactly while the chat shows the card: held
@@ -203,9 +211,12 @@ export function previewFromFields(p: Proposal): ProposalPreview | null {
   })
   // A new factor is a ghost card (beside what its new link ties it to); a new link, a ghost line saying which way it moves.
   for (const add of p.adds) {
+    // A change note is words on the card, not a shape on the canvas.
+    if (add.kind === 'change_note') continue
     ops.push(add.kind === 'factor_add'
       ? { op: 'add_node', id: add.node_id, label: add.label, kind: 'factor', value: add.value, source: add.source }
       : { op: 'add_edge', fromId: add.from_id, toId: add.to_id, band: null, direction: add.direction, source: add.source })
   }
-  return ops.length > 0 ? { proposalId: p.proposal_id, ops } : null
+  const otherChanges = changeNotesOf(p).length
+  return ops.length > 0 ? { proposalId: p.proposal_id, ops, ...(otherChanges > 0 ? { otherChanges } : {}) } : null
 }

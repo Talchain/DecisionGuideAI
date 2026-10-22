@@ -38,7 +38,15 @@ import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
-import { isHeldCardChipId, REVIEW_PROPOSAL_PREFIX } from '../proposalFields'
+import { PANEL_LIST_BULLET } from '../panelLists'
+import { changeNotesOf, isHeldCardChipId, REVIEW_PROPOSAL_PREFIX, type ChangeNote } from '../proposalFields'
+
+/** The heading over a held card's other changes, read before its approve. */
+export const ALSO_CHANGES = 'Also changes'
+/** Each note in the colour of whose it is; CEE's sentence already says it in words. */
+const CHANGE_NOTE_SOURCE_CLASS: Readonly<Record<ChangeNote['source'], string>> = {
+  estimate: 'text-info', yours: '', party: '', unverified: 'text-text-light',
+}
 import type { ActionChip } from '../types'
 import type { GuidedSizing } from '../../../v5/readGuidedSizing'
 import { HeldProposalPanel, readProposalFields, useHeldProposalFields, type ProposalPanelAction } from '../HeldProposalPanel'
@@ -589,6 +597,23 @@ export function SuggestedChips({
             >
               {detailText}
             </p>
+          </div>
+        )
+      })}
+      {/* ⭐ CONSENT (DL 22 Oct): everything else the approval writes, in CEE's words, read before the approve. */}
+      {(bindable?.proposals ?? []).filter(p => visible.some(c => c.id === p.approve_action.id)).map(p => {
+        const notes = changeNotesOf(p)
+        if (notes.length === 0) return null
+        return (
+          <div key={`change-notes-${p.proposal_id}`} className={styles.reasoningPanel} style={{ marginTop: 12, marginBottom: -4 }}
+            data-testid={`proposal-change-notes-${p.proposal_id}`}>
+            <p className={styles.reasoningPanelHeading}>{ALSO_CHANGES}</p>
+            <ul className={PANEL_LIST_BULLET}>
+              {notes.map(n => (
+                <li key={n.field_id} data-source={n.source} className={`${styles.reasoningPanelBody} ${CHANGE_NOTE_SOURCE_CLASS[n.source]}`}
+                  data-testid={`proposal-change-note-${n.field_id}`}>{n.text}</li>
+              ))}
+            </ul>
           </div>
         )
       })}
