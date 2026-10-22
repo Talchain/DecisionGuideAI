@@ -36,7 +36,7 @@
  * the note as current.
  */
 
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useStore } from '@xyflow/react'
 import { X } from 'lucide-react'
 import { useCanvasStore } from '../store'
@@ -69,6 +69,30 @@ const CARD_GAP = 14
 
 export const OLUMI_ATTENTION_CARD_TESTID = 'olumi-attention-card'
 
+type Box = { readonly x: number; readonly y: number; readonly w: number; readonly h: number }
+/**
+ * Where the note sits, in screen px: beside its card on the right, else on the left, else below, else above: the first
+ * spot that fits between `roomLeft` and `roomRight` and covers no other card (Paul's pre-flight, 22 Oct: placed on the
+ * left it covered the next option's title). None free: the spot that covers the least (served café board, 22 Oct:
+ * above touched the question card by 2px while left covered O1). Unmeasured, or none fits: as before, right if it
+ * fits, else left.
+ */
+export function attentionCardSpot(anchor: Box, card: { readonly w: number; readonly h: number }, others: readonly Box[],
+  roomLeft: number, roomRight: number): { left: number; top: number } {
+  const right = { left: anchor.x + anchor.w + CARD_GAP, top: anchor.y }
+  const left = { left: anchor.x - card.w - CARD_GAP, top: anchor.y }
+  const fits = (s: { left: number }) => s.left >= roomLeft && s.left + card.w <= roomRight
+  const covered = (s: { left: number; top: number }) => others.reduce((area, o) =>
+    area + Math.max(0, Math.min(s.left + card.w, o.x + o.w) - Math.max(s.left, o.x))
+      * Math.max(0, Math.min(s.top + card.h, o.y + o.h) - Math.max(s.top, o.y)), 0)
+  const before = right.left + card.w <= roomRight ? right : left
+  if (!(card.h > 0)) return before
+  const spots = [right, left, { left: anchor.x, top: anchor.y + anchor.h + CARD_GAP }, { left: anchor.x, top: anchor.y - card.h - CARD_GAP }]
+  // Strictly less, so the first spot in that order wins a tie, and the first that covers nothing wins outright.
+  return spots.filter(fits).reduce<{ left: number; top: number } | null>(
+    (best, s) => (best === null || covered(s) < covered(best) ? s : best), null) ?? before
+}
+
 export function OlumiAttentionCard() {
   const attention = useCanvasStore((s) => s.olumiAttention)
   const nodes = useCanvasStore((s) => s.nodes)
@@ -77,6 +101,11 @@ export function OlumiAttentionCard() {
   const transform = useStore((s) => s.transform)
 
   const dismiss = useCallback(() => clearOlumiAttention(), [])
+  // The card's own height, for a spot that covers no other card (`attentionCardSpot`); 0 until measured.
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [cardHeight, setCardHeight] = useState(0)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal height bails out
+  useLayoutEffect(() => { const h = cardRef.current?.offsetHeight ?? 0; if (h !== cardHeight) setCardHeight(h) })
 
   /*
    * ⭐ ESCAPE RELEASES THE HOLD, AND IT IS DELIBERATELY ABOVE THE EARLY RETURN.
@@ -112,11 +141,12 @@ export function OlumiAttentionCard() {
   const measured = (anchor as { measured?: { width?: number; height?: number } }).measured
   const w = measured?.width ?? 240
   const [tx, ty, zoom] = transform
-  // Beside the card it is about: on the right, unless that would run under the dock, then on the left.
-  const rightOfAnchor = anchor.position.x * zoom + tx + w * zoom + CARD_GAP
+  // Beside the card it is about, never over another card: right, else left (the dock is the right edge), else below/above.
   const roomRight = typeof window === 'undefined' ? Infinity : window.innerWidth - measureDockInset() - CARD_GAP
-  const left = rightOfAnchor + CARD_WIDTH <= roomRight ? rightOfAnchor : anchor.position.x * zoom + tx - CARD_WIDTH - CARD_GAP
-  const top = anchor.position.y * zoom + ty
+  const screenBox = (n: { position: { x: number; y: number }; measured?: { width?: number; height?: number } }): Box => ({
+    x: n.position.x * zoom + tx, y: n.position.y * zoom + ty, w: (n.measured?.width ?? 240) * zoom, h: (n.measured?.height ?? 80) * zoom })
+  const others = cardHeight > 0 ? nodes.filter((n) => n.id !== anchorId).map((n) => screenBox(n as never)) : []
+  const { left, top } = attentionCardSpot({ ...screenBox(anchor as never), w: w * zoom }, { w: CARD_WIDTH, h: cardHeight }, others, 0, roomRight)
 
   const note = attention.note
   const caveat = attention.caveat
@@ -134,6 +164,7 @@ export function OlumiAttentionCard() {
 
   return (
     <div
+      ref={cardRef}
       data-testid={OLUMI_ATTENTION_CARD_TESTID}
       data-anchor-id={anchorId}
       {...(note ? { 'data-move': note.move } : {})}
