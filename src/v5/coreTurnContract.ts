@@ -48,10 +48,7 @@ export const CoreTurnSchema = z.object({
 export type CoreTurn = z.infer<typeof CoreTurnSchema>
 
 export function parseCoreTurn(raw: unknown): CoreTurn | null {
-  // A failed turn carries no saved model (R2 sends `model: { revision: null, scenario_revision: null }`); only its error
-  // is read, so its model is not held to a saved model's shape.
-  const failed = raw !== null && typeof raw === 'object' && (raw as { error?: unknown }).error != null
-  const parsed = CoreTurnSchema.safeParse(failed ? { ...(raw as object), model: null } : raw)
+  const parsed = CoreTurnSchema.safeParse(raw)
   return parsed.success ? parsed.data : null
 }
 

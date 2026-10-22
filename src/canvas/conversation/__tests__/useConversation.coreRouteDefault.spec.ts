@@ -12,6 +12,8 @@ import { useCanvasStore } from '../../store'
 import { useDraftStore } from '../../stores/draftStore'
 import real from '../../../v5/__tests__/fixtures/core-turn-r2-real.json'
 import r2Errors from '../../../v5/__tests__/fixtures/core-turn-r2-errors.json'
+import servedChatEdit from '../../../v5/__tests__/fixtures/core-turn-served-chat-edit.json'
+import { PROXY_TIMEOUT_UNKNOWN_COPY } from '../deliveryUnknown'
 import { CORE_STILL_FINISHING_NOTICE, CORE_FINISHED_RELOADED_NOTICE, STILL_FINISHING_REPLAY_DELAY_MS } from '../coreStillFinishing'
 
 const mockOpenStream = vi.fn()
@@ -103,6 +105,34 @@ describe('⭐ staging default = core route, read only through the contract', () 
     expect(mockOpenStream).toHaveBeenCalledTimes(1)
     expect(new Headers((mockOpenStream.mock.calls[0][1] as { headers?: HeadersInit } | undefined)?.headers).get('x-olumi-ai-mode')).toBe('core-route')
     expect(reply(result)).toEqual(EXPECTED)
+  })
+
+  describe('⭐ the served journey\'s chat edit (22 Oct 13:54Z): a turn with no Run shows its reply and card, never "did not reply"', () => {
+    const SERVED = servedChatEdit.chat_edit_turn
+    const shown = { role: 'assistant', content: SERVED.assistant_text, chips: ['Make this change', 'Change something first', 'Not now'] }
+    it('buffered', async () => {
+      mockOpenStream.mockRejectedValue(new TypeError('Failed to fetch'))
+      stubFetch(SERVED)
+      const { result } = renderHook(() => useConversation())
+      await act(async () => { await result.current.sendMessage('A correction: we sell about 950 loaves a week, not 900.') })
+      expect(reply(result)).toEqual(shown)
+      expect(result.current.messages.map((m) => m.content)).not.toContain(PROXY_TIMEOUT_UNKNOWN_COPY)
+    })
+    it('streamed COMPLETE', async () => {
+      const encoder = new TextEncoder()
+      const frame = (o: Record<string, unknown>) => `event: stage\ndata: ${JSON.stringify(o)}\n\n`
+      mockOpenStream.mockResolvedValue(new Response(new ReadableStream<Uint8Array>({
+        start(c) {
+          c.enqueue(encoder.encode(frame({ stage: 'DRAFTING', seq: 0, status: 'in_progress' })
+            + frame({ stage: 'COMPLETE', seq: 1, status: 'complete', status_code: 200, payload: SERVED })))
+          c.close()
+        },
+      }), { status: 200, headers: { 'content-type': 'text/event-stream' } }))
+      stubFetch({})
+      const { result } = renderHook(() => useConversation())
+      await act(async () => { await result.current.sendMessage('Explore staffing options', { turnType: 'explicit_generate' }) })
+      expect(reply(result)).toEqual(shown)
+    })
   })
 
   describe('R2\'s stream timeout (its exact bytes, head 43e7e5e8): still finishing, never a failure', () => {
