@@ -4,6 +4,8 @@
  * living model (`graph.living_model.aims`, with the links into it in `living_model.links`). This reader lists each aim whose
  * id is not a node of the graph, in the model's own words, with who it came from and what the model links into it.
  * Read-only: nothing here enters `nodes`/`edges`, a Run or the engine graph.
+ * A risk the engine graph leaves out is no longer listed here: the canvas draws it in its row, marked "Not in the
+ * calculation yet" (`domain/livingModelCanvas.ts`, Paul 22 Oct: draw the person's model, not the engine's projection).
  */
 
 export type OtherAimSource = 'user' | 'party' | 'olumi' | 'unverified'
@@ -23,8 +25,6 @@ export interface OtherAim {
   readonly allOptionsCount: number | null
   /** The model's own status: shown, never filtered out (a withdrawn aim says so). */
   readonly status: 'current' | 'later' | 'withdrawn'
-  /** A risk the analysis leaves out (Paul, 21 Oct: a risk with no chance vanished from the canvas); absent for an aim. */
-  readonly risk?: { readonly chanceNeeded: boolean }
 }
 
 type Rec = Record<string, unknown>
@@ -52,7 +52,7 @@ export function otherAimsOf(graph: unknown): OtherAim[] {
   const canvasOptionIds = new Set(nodes.filter((n) => n.kind === 'option' || n.type === 'option').map((n) => n.id).filter((id): id is string => typeof id === 'string'))
   const sameSet = (a: ReadonlySet<string>, b: ReadonlySet<string>): boolean => a.size === b.size && [...a].every((x) => b.has(x))
   const optionInventoriesAgree = optionIds.size >= 2 && sameSet(optionIds, canvasOptionIds)
-  const aims = recs(lm.aims).flatMap((aim): OtherAim[] => {
+  return recs(lm.aims).flatMap((aim): OtherAim[] => {
     const id = str(aim.id); const text = str(aim.text)
     if (!id || !text || onCanvas.has(id)) return []
     const source = typeof aim.source === 'string' && SOURCES.has(aim.source) ? aim.source as OtherAimSource : 'unverified'
@@ -62,17 +62,6 @@ export function otherAimsOf(graph: unknown): OtherAim[] {
     const allOptionsCount = optionInventoriesAgree && sameSet(incoming, optionIds) && linkedFrom.length === optionIds.size ? optionIds.size : null
     return [{ id, text, source, party: source === 'party' ? str(aim.party) : null, linkedFrom, allOptionsCount, status }]
   })
-  // A risk the engine graph leaves out (core mapper: no chance, or words it cannot use) is listed too, never dropped.
-  const risks = recs(lm.risks).flatMap((risk): OtherAim[] => {
-    const id = str(risk.id); const text = str(risk.label)
-    if (!id || !text || onCanvas.has(id)) return []
-    const source = typeof risk.source === 'string' && SOURCES.has(risk.source) ? risk.source as OtherAimSource : 'unverified'
-    const occurrence = isRec(risk.occurrence) ? risk.occurrence : {}
-    const linkedTo = [...new Set(links.filter((l) => l.from === id).map((l) => labelOf.get(String(l.to))).filter((l): l is string => !!l))]
-    return [{ id, text, source, party: source === 'party' ? str(risk.party) : null, linkedFrom: linkedTo, allOptionsCount: null, status: 'current',
-      risk: { chanceNeeded: typeof occurrence.low !== 'number' && typeof occurrence.high !== 'number' } }]
-  })
-  return [...aims, ...risks]
 }
 
 /** Who an aim came from, in the canvas's own provenance words. */
@@ -85,13 +74,11 @@ export function otherAimSourceWords(aim: Pick<OtherAim, 'source' | 'party'>): st
   }
 }
 
-export const OTHER_AIM_COPY = { header: 'Also in your model · not in this analysis yet', notInAnalysis: 'Not in this analysis yet', withdrawn: 'Withdrawn', linkedFrom: 'Linked from', risk: 'Risk', chanceNeeded: 'chance needed', affects: 'affects' } as const
+export const OTHER_AIM_COPY = { header: 'Also in your model · not in this analysis yet', notInAnalysis: 'Not in this analysis yet', withdrawn: 'Withdrawn', linkedFrom: 'Linked from' } as const
 
 /** What links into the aim, said once: "both options" / "all N options" when every option does, else the names. */
-export function otherAimLinkWords(aim: Pick<OtherAim, 'linkedFrom' | 'allOptionsCount' | 'risk'>): string | null {
+export function otherAimLinkWords(aim: Pick<OtherAim, 'linkedFrom' | 'allOptionsCount'>): string | null {
   if (aim.linkedFrom.length === 0) return null
-  // A risk's links run out of it: what it affects.
-  if (aim.risk) return `${OTHER_AIM_COPY.affects} ${aim.linkedFrom.join(', ')}`
   if (aim.allOptionsCount !== null) return `${OTHER_AIM_COPY.linkedFrom.toLowerCase()} ${aim.allOptionsCount === 2 ? 'both options' : `all ${aim.allOptionsCount} options`}`
   return `${OTHER_AIM_COPY.linkedFrom.toLowerCase()} ${aim.linkedFrom.join(', ')}`
 }

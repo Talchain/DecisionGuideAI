@@ -74,6 +74,7 @@ import {
   UNFINISHED_CONTRIBUTION_COPY,
   UNFINISHED_CONTRIBUTION_TEST_ID,
 } from './shared/analysisParticipation'
+import { livingOnlyOf, NOT_IN_CALCULATION_TEST_ID, notInCalculationWords } from '../domain/livingModelCanvas'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 import { openNodeInspector } from './shared/openNodeInspector'
@@ -947,6 +948,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    * be a second thing to remember to turn on — the producer's stamp IS the gate.
    */
   const isRetainedExcluded = isRetainedExcludedFromAnalysis(data)
+  // An item drawn from the person's model alone (`domain/livingModelCanvas.ts`): the engine graph has no node for it.
+  const livingOnly = livingOnlyOf(data)
 
   const isIncomplete = (() => {
     /* ⭐ GATED ON THE GAP, NOT THE PHASE — for the two node types whose predicate
@@ -2101,7 +2104,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           and the footer padding"; that was false at these bytes — the padding
           above is a disjunction that also fires on `factor` and `option` below
           the legibility floor, where this layer is unmounted. */}
-      {showQuickActions && (
+      {/* ⛔ No edit control on a card drawn from the living model alone: it has no store node (`livingModelCanvas.ts`). */}
+      {showQuickActions && livingOnly === null && (
         <NodeQuickActions
           nodeId={id}
           nodeType={nodeType}
@@ -2172,6 +2176,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         position={Position.Top}
         style={TARGET_HANDLE_STYLE}
         aria-label="Input connection"
+        isConnectable={livingOnly === null}
       />
       
       {/* Graph Editing Experience Task 5: Impact preview indicator (top-left to avoid rank badge collision) */}
@@ -2672,8 +2677,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             {...(typeOrdinal !== undefined && !lodBodyHidden
               ? { [NODE_TYPE_ORDINAL_ATTR]: `${NODE_NUMBER_PREFIX[nodeType as NumberedNodeKind]}${typeOrdinal}` }
               : {})}
-            onClick={lodBodyHidden ? undefined : onTitleClick}
-            onDoubleClick={lodBodyHidden ? undefined : (e) => { e.stopPropagation(); cancelTitleClick(); setRenamingOnCard(true) }}
+            onClick={lodBodyHidden || livingOnly !== null ? undefined : onTitleClick}
+            onDoubleClick={lodBodyHidden || livingOnly !== null ? undefined : (e) => { e.stopPropagation(); cancelTitleClick(); setRenamingOnCard(true) }}
             {...(lodBodyHidden ? { [LOD_FAR_TITLE_ATTR]: 'true' } : {})}
             className={'group/edit ' + (
               /* ⭐ v3.1 WS1 #2 (26 Sep 2026): NO CLAMP AT A READING RUNG. The
@@ -2948,7 +2953,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           finding anything and go back to reserving the short height, with every
           unit test still green. The rendered value stays `"true"`, which several
           specs assert. */}
-      {(children || lodBodyLine || showConstraintLines) ? (
+      {(children || lodBodyLine || showConstraintLines || livingOnly !== null) ? (
         <div
           /* ⭐ THE ANCHOR'S LAST ROW KEEPS ITS TEXT CLEAR OF THE RAIL BESIDE IT
              (contract v3.1 ANC-02 / RHY-02: `.node.wide .target-row,
@@ -2965,6 +2970,13 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           {...(anchorBodyBox ? { [NODE_BODY_BOUND_STYLE_ATTR]: JSON.stringify(anchorBodyBox) } : {})}
         >
           {children as ReactNode}
+          {/* The person's model holds this item; the calculation does not include it yet (`livingModelCanvas.ts`). One
+              quiet line, in the words the goal card's list used to carry. */}
+          {livingOnly !== null && (
+            <div data-testid={NOT_IN_CALCULATION_TEST_ID} className={`${typography.edgeLabel} text-text-light mt-1`}>
+              {notInCalculationWords(livingOnly)}
+            </div>
+          )}
           {/* ⭐ THE READER'S OWN LIMIT, ON THE CARD, IN BOTH PHASES.
               A constraint is a boundary the reader chose, so it is true before
               the analysis runs and after it — no phase gate, and no "detailed
@@ -3094,9 +3106,11 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           3px dot, drawn by `.olumi-node-port` in index.css — a class rather than
           an inline background so the hover / selected rule there can re-light
           it as the drag-to-connect affordance. */}
+      {/* A handle ignores the node's own `connectable` (React Flow 12), so a drawn-only card says it here. */}
       <Handle
         type="source"
         position={Position.Bottom}
+        isConnectable={livingOnly === null}
         className="olumi-node-port"
         style={{
           width: 12,

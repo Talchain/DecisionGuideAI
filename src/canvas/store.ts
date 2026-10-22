@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import type { EvidenceAssessment } from '../v5/evidenceAssessment'
 import { provenanceAfterHumanAuthoredLabel } from './domain/goalLabelProvenance'
 import { statedTargetNumber } from './domain/goalTarget'
+import { livingOutcomeIdsFor } from './domain/livingKinds'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
 import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
 import { setsEqual, mapsEqual } from './store/utils'
@@ -5052,6 +5053,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           layerSpacing: layoutOptions.layerSpacing,
           preserveLocked: layoutOptions.respectLocked,
           heightAtLabelBound,
+          // The living model's outcomes are laid out as the outcomes they are drawn as (`domain/livingKinds.ts`).
+          livingOutcomeIds: livingOutcomeIdsFor(get().currentScenarioId ?? null),
         }
       )
 

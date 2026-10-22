@@ -103,34 +103,17 @@ describe('OtherAimsList (on the goal card)', () => {
 })
 
 /**
- * ⭐ A RISK THE ANALYSIS LEAVES OUT IS LISTED, NEVER LOST (DL, Paul's brief 21 Oct). Core's mapper leaves a risk with no
- * chance out of the engine graph (mapper.ts:412), so it vanished from the canvas. It is now a row in the same section.
+ * ⭐ A RISK THE ANALYSIS LEAVES OUT IS DRAWN, NEVER LOST (Paul 22 Oct: draw the person's model). It used to be a row here;
+ * the canvas now draws it in its row, marked "Not in the calculation yet" (`livingModelCanvas.spec.ts` pins that), so the
+ * goal card lists aims only.
  */
 describe('risks the analysis leaves out', () => {
-  const withRisks = () => {
+  it('⛔ are not goal-card rows: the canvas draws them', () => {
     const g = graph() as ReturnType<typeof graph> & { living_model: Record<string, unknown> }
-    g.living_model.risks = [
-      { id: 'vendor_delay', label: 'Vendor delays the launch', occurrence: { low: null, high: null }, source: 'user', party: null, quote: 'the vendor might slip' },
-      { id: 'strike', label: 'Courier strike', occurrence: { low: 0.1, high: 0.2 }, source: 'party', party: 'Ops lead', quote: 'maybe 10-20%' },
-      { id: 'on_canvas_risk', label: 'Already drawn', occurrence: { low: 0.1, high: 0.1 }, source: 'olumi', party: null, quote: null },
-    ]
-    ;(g.living_model.links as unknown[]).push({ id: 'l_r', from: 'vendor_delay', to: 'on_time' })
-    g.nodes.push({ id: 'on_canvas_risk', kind: 'risk', label: 'Already drawn' })
-    return g
-  }
-  it('⭐ each risk not on the canvas is a row, by id: whose it is, what it affects, and "chance needed" when nobody gave one', () => {
-    const risks = otherAimsOf(withRisks()).filter((a) => a.risk)
-    expect(risks.map((r) => [r.id, r.source, r.risk?.chanceNeeded, otherAimLinkWords(r)])).toEqual([
-      ['vendor_delay', 'user', true, 'affects Deliveries on time'],
-      ['strike', 'party', false, null],
-    ])
-    render(<ul>{risks.map((a) => <OtherAimRow key={a.id} aim={a} />)}</ul>)
-    expect(screen.getByTestId('other-aim-vendor_delay-risk').textContent).toBe(' · Risk · chance needed')
-    expect(screen.getByTestId('other-aim-strike-risk').textContent).toBe(' · Risk')
-  })
-  it('⛔ an aim is never labelled a risk; a risk already on the canvas is not listed again', () => {
-    const all = otherAimsOf(withRisks())
-    expect(all.filter((a) => !a.risk).every((a) => a.risk === undefined)).toBe(true)
-    expect(all.map((a) => a.id)).not.toContain('on_canvas_risk')
+    g.living_model.risks = [{ id: 'vendor_delay', label: 'Vendor delays the launch', occurrence: { low: null, high: null }, source: 'user', party: null, quote: null }]
+    const ids = otherAimsOf(g).map((a) => a.id)
+    expect(ids).not.toContain('vendor_delay')
+    // Contrast: the same read still lists the aims the analysis leaves out.
+    expect(ids.length).toBeGreaterThan(0)
   })
 })

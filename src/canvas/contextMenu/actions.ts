@@ -112,6 +112,13 @@ export async function deleteAction(
   const { nodes, edges } = store
   const confirmStore = useConfirmDialogStore.getState()
 
+  // ⛔ ONLY WHAT THE STORE HOLDS IS DELETED. A card or link drawn from the person's living model alone
+  // (`domain/livingModelCanvas.ts`) has no store item, so a gesture naming one sends no mutation at all.
+  const namedNodeIds = target.kind === 'node' ? [target.nodeId] : target.kind === 'multi' ? target.nodeIds : []
+  const namedEdgeIds = target.kind === 'edge' ? [target.edgeId] : target.kind === 'multi' ? target.edgeIds : []
+  if (!namedNodeIds.every((id) => nodes.some((n) => n.id === id))
+    || !namedEdgeIds.every((id) => edges.some((e) => e.id === id))) return
+
   if (target.kind === 'edge') {
     const impact = assessEdgeDeletion(nodes, edges, target.edgeId)
     if (isSignificantImpact(impact)) {

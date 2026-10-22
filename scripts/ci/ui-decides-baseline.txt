@@ -38,13 +38,19 @@ src/canvas/components/ModelQualityScore.tsx:264
 #                                        outcome" at winProb > 0.6
 src/adapters/cee/client.ts:735
 src/adapters/plot/v2/responseMapper.ts:1576
-src/canvas/contextMenu/actions.ts:1151
+src/canvas/contextMenu/actions.ts:1158
+#    (`contextMenu/actions.ts:1151` -> `1158`, a pure +7 line shift from the Living Model canvas (22 Oct 2026): the
+#    delete guard for an item the store doesn't hold, at the top of `deleteAction`, above this site. Line text
+#    identical (`if (attempts < MAX_ATTEMPTS) {`).)
 src/canvas/hooks/useModelHealth.ts:148
 src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:8256
+src/canvas/store.ts:8259
+#    (`store.ts:8256` -> `8259`, a pure +3 line shift from the Living Model canvas (22 Oct 2026): the
+#    `livingOutcomeIdsFor` import and the `livingOutcomeIds` layout option, all above this site. Line text identical
+#    (`if (currentTotal + displayBytes > MAX_TOTAL_CHARS) {`).)
 src/canvas/utils/briefValidation.ts:43
 src/canvas/utils/ceeAnalysisReadyValidation.ts:159
 src/canvas/utils/ceeDataAdapter.ts:328
