@@ -1,0 +1,1231 @@
+{
+ "_source": "served 22 Oct 2026, staging UI b8a4fd79 / CEE 4a4c338c, synthetic caf\u00e9 brief, guest scenario; turn = the pressed Run, read = the read-after-write that delivered it",
+ "turn": {
+  "run": {
+   "run_key": "4daf659b22a57a12697f010e482311fda36f470a11da32e0e6ba347fdbbd9912",
+   "run_id": "4daf659b22a57a12697f010e482311fda36f470a11da32e0e6ba347fdbbd9912",
+   "computed_against": "fe61868e9e12f9f4",
+   "state": {
+    "kind": "complete_current",
+    "computed_at": "2026-10-22T20:13:02.493Z"
+   }
+  },
+  "model": {
+   "scenario_revision": "7c88ee09cd4b0a9ee7b925406c46fb4fcd06ae50149e80ded53a42f57c88f6f4"
+  },
+  "analysis_state": {
+   "run_state": {
+    "kind": "complete_current",
+    "computed_at": "2026-10-22T20:13:02.493Z"
+   }
+  },
+  "analysis_result": {
+   "type": "analysis_result",
+   "summary": "\u2018Start a loyalty card\u2019: about 39% chance of \u2018I want at least 480 customers a week within three months.\u2019 being at least 480 customers a week, in this model, using Olumi's estimates for 1 relationship (see Check estimates). Static model; not a forecast to a date. \u2018Open two hours later each evening\u2019: about 11% chance of \u2018I want at least 480 customers a week within three months.\u2019 being at least 480 customers a week, in this model, using Olumi's estimates for 1 relationship (see Check estimates). Static model; not a forecast to a date. \u2018Olumi suggestion: local workplace partnerships\u2019: less than 1% chance of \u2018I want at least 480 customers a week within three months.\u2019 being at least 480 customers a week, in this model, using Olumi's estimates for 1 option setting and 1 relationship (see Check estimates). Static model; not a forecast to a date. Treat this as provisional: it rests heavily on how much Start a loyalty card in place changes I want at least 480 customers a week within three months.. The result is not yet robust \u2014 small changes could flip it.",
+   "leading_option_id": "loyalty_card",
+   "win_probabilities": {
+    "Start a loyalty card": 0.6726,
+    "Keep things as they are": 0,
+    "Open two hours later each evening": 0.2915,
+    "Olumi suggestion: local workplace partnerships": 0.0359
+   },
+   "enrichment": {
+    "option_comparison": [
+     {
+      "id": "loyalty_card",
+      "label": "Start a loyalty card",
+      "status": "computed",
+      "outcome": {
+       "p10": 0.7100409614240485,
+       "p50": 0.7847795212669015,
+       "p90": 0.8574079797620853,
+       "std": 0.05773011838744282,
+       "mean": 0.7844469844544768,
+       "n_samples": 10000,
+       "validity_ratio": 1,
+       "n_valid_samples": 10000,
+       "percentiles_source": "samples"
+      },
+      "downside": {
+       "p05": 0.6899739469636766,
+       "cvar_10": 0.6831343057470748,
+       "expected_regret": 0.014947813790215812
+      },
+      "option_id": "loyalty_card",
+      "option_label": "Start a loyalty card",
+      "win_probability": 0.6726,
+      "probability_of_goal": 0.3929,
+      "probability_of_goal_drivers": {
+       "method": "tercile_conditional_v1",
+       "drivers": [
+        {
+         "to": "weekly_customers",
+         "from": "loyalty_card__on",
+         "kind": "link_strength",
+         "n_low": 3333,
+         "n_high": 3333,
+         "spread": 1,
+         "status": "resolved",
+         "quantity_id": "loyalty_card__on->weekly_customers",
+         "p_goal_if_low": 0,
+         "p_goal_if_high": 1,
+         "low_upper_value": 0.09315208677108332,
+         "high_lower_value": 0.14260058757167693,
+         "spread_noise_floor": 0.03059204934104153
+        },
+        {
+         "to": "weekly_customers",
+         "from": "workplace_partnerships__on",
+         "kind": "link_strength",
+         "n_low": 2640,
+         "n_high": 2640,
+         "spread": 0.010227272727272751,
+         "status": "below_resolution",
+         "quantity_id": "workplace_partnerships__on->weekly_customers",
+         "p_goal_if_low": 0.40075757575757576,
+         "p_goal_if_high": 0.390530303030303,
+         "low_upper_value": 0.03926517202986549,
+         "high_lower_value": 0.06054831557986314,
+         "spread_noise_floor": 0.03437354029107212
+        },
+        {
+         "to": "weekly_customers",
+         "from": "workplace_partnerships__on",
+         "kind": "link_existence",
+         "spread": 0.001312200403224273,
+         "status": "below_resolution",
+         "n_absent": 2079,
+         "n_present": 7921,
+         "quantity_id": "workplace_partnerships__on->weekly_customers",
+         "p_goal_if_absent": 0.3939393939393939,
+         "p_goal_if_present": 0.39262719353616965,
+         "spread_noise_floor": 0.03077471068164635
+        },
+        {
+         "to": "weekly_customers",
+         "from": "later_hours__on",
+         "kind": "link_strength",
+         "n_low": 3333,
+         "n_high": 3333,
+         "spread": 0.0003000300030003289,
+         "status": "below_resolution",
+         "quantity_id": "later_hours__on->weekly_customers",
+         "p_goal_if_low": 0.38973897389738976,
+         "p_goal_if_high": 0.38943894389438943,
+         "low_upper_value": 0.06578259902738477,
+         "high_lower_value": 0.10062229164138368,
+         "spread_noise_floor": 0.03059204934104153
+        }
+       ],
+       "n_dropped": 3,
+       "n_compared": 4,
+       "min_group_n": 30,
+       "n_candidates": 7,
+       "dropped_by_reason": {
+        "no_variance": 2,
+        "zero_spread": 0,
+        "set_by_option": 1,
+        "outcome_constant": 0,
+        "group_below_min_n": 0,
+        "non_finite_values": 0,
+        "set_by_option_upstream": 0,
+        "tied_at_tercile_boundary": 0
+       }
+      },
+      "probability_of_goal_precision": {
+       "basis": "simulation_precision",
+       "n_met": 3929,
+       "method": "wilson_score",
+       "n_informative": 10000,
+       "interval_lower": 0.38337051154907553,
+       "interval_upper": 0.4025117409019233,
+       "confidence_level": 0.95
+      }
+     },
+     {
+      "id": "later_hours",
+      "label": "Open two hours later each evening",
+      "status": "computed",
+      "outcome": {
+       "p10": 0.6967049715327468,
+       "p50": 0.7503931648543685,
+       "p90": 0.8021316047971311,
+       "std": 0.04104118498638507,
+       "mean": 0.7497306629263042,
+       "n_samples": 10000,
+       "validity_ratio": 1,
+       "n_valid_samples": 10000,
+       "percentiles_source": "samples"
+      },
+      "downside": {
+       "p05": 0.6811476361085912,
+       "cvar_10": 0.6768880716064863,
+       "expected_regret": 0.04966413531838841
+      },
+      "option_id": "later_hours",
+      "option_label": "Open two hours later each evening",
+      "win_probability": 0.2915,
+      "probability_of_goal": 0.1094,
+      "probability_of_goal_drivers": {
+       "method": "tercile_conditional_v1",
+       "drivers": [
+        {
+         "to": "weekly_customers",
+         "from": "later_hours__on",
+         "kind": "link_strength",
+         "n_low": 3333,
+         "n_high": 3333,
+         "spread": 0.3282328232823282,
+         "status": "resolved",
+         "quantity_id": "later_hours__on->weekly_customers",
+         "p_goal_if_low": 0,
+         "p_goal_if_high": 0.3282328232823282,
+         "low_upper_value": 0.06578259902738477,
+         "high_lower_value": 0.10062229164138368,
+         "spread_noise_floor": 0.03059204934104153
+        },
+        {
+         "to": "weekly_customers",
+         "from": "loyalty_card__on",
+         "kind": "link_strength",
+         "n_low": 3333,
+         "n_high": 3333,
+         "spread": 0.0147014701470147,
+         "status": "below_resolution",
+         "quantity_id": "loyalty_card__on->weekly_customers",
+         "p_goal_if_low": 0.10321032103210322,
+         "p_goal_if_high": 0.11791179117911792,
+         "low_upper_value": 0.09315208677108332,
+         "high_lower_value": 0.14260058757167693,
+         "spread_noise_floor": 0.03059204934104153
+        },
+        {
+         "to": "weekly_customers",
+         "from": "workplace_partnerships__on",
+         "kind": "link_strength",
+         "n_low": 2640,
+         "n_high": 2640,
+         "spread": 0.003030303030303036,
+         "status": "below_resolution",
+         "quantity_id": "workplace_partnerships__on->weekly_customers",
+         "p_goal_if_low": 0.10871212121212122,
+         "p_goal_if_high": 0.10568181818181818,
+         "low_upper_value": 0.03926517202986549,
+         "high_lower_value": 0.06054831557986314,
+         "spread_noise_floor": 0.03437354029107212
+        },
+        {
+         "to": "weekly_customers",
+         "from": "workplace_partnerships__on",
+         "kind": "link_existence",
+         "spread": 0.0020905090972001827,
+         "status": "below_resolution",
+         "n_absent": 2079,
+         "n_present": 7921,
+         "quantity_id": "workplace_partnerships__on->weekly_customers",
+         "p_goal_if_absent": 0.10774410774410774,
+         "p_goal_if_present": 0.10983461684130792,
+         "spread_noise_floor": 0.03077471068164635
+        }
+       ],
+       "n_dropped": 3,
+       "n_compared": 4,
+       "min_group_n": 30,
+       "n_candidates": 7,
+       "dropped_by_reason": {
+        "no_variance": 2,
+        "zero_spread": 0,
+        "set_by_option": 1,
+        "outcome_constant": 0,
+        "group_below_min_n": 0,
+        "non_finite_values": 0,
+        "set_by_option_upstream": 0,
+        "tied_at_tercile_boundary": 0
+       }
+      },
+      "probability_of_goal_precision": {
+       "basis": "simulation_precision",
+       "n_met": 1094,
+       "method": "wilson_score",
+       "n_informative": 10000,
+       "interval_lower": 0.10343148602970417,
+       "interval_upper": 0.11566849349746838,
+       "confidence_level": 0.95
+      }
+     },
+     {
+      "id": "status_quo",
+      "label": "Keep things as they are",
+      "status": "computed",
+      "outcome": {
+       "p50": 0.6666666666666666,
+       "mean": 0.6666666666666665,
+       "n_samples": 10000,
+       "validity_ratio": 1,
+       "n_valid_samples": 10000,
+       "percentiles_source": "samples"
+      },
+      "downside": {
+       "p05": 0.6666666666666666,
+       "cvar_10": 0.6666666666666665,
+       "expected_regret": 0.132728131578026
+      },
+      "option_id": "status_quo",
+      "option_label": "Keep things as they are",
+      "win_probability": 0
+     },
+     {
+      "id": "workplace_partnerships",
+      "label": "Olumi suggestion: local workplace partnerships",
+      "status": "computed",
+      "outcome": {
+       "p10": 0.6666666666666666,
+       "p50": 0.708456695980991,
+       "p90": 0.7446635075255036,
+       "std": 0.02995535408767651,
+       "mean": 0.7061864608178805,
+       "n_samples": 10000,
+       "validity_ratio": 1,
+       "n_valid_samples": 10000,
+       "percentiles_source": "samples"
+      },
+      "downside": {
+       "p05": 0.6666666666666666,
+       "cvar_10": 0.6649208764898112,
+       "expected_regret": 0.09320833742681209
+      },
+      "option_id": "workplace_partnerships",
+      "option_label": "Olumi suggestion: local workplace partnerships",
+      "win_probability": 0.0359,
+      "probability_of_goal": 0.0005,
+      "probability_of_goal_drivers": {
+       "method": "tercile_conditional_v1",
+       "drivers": [
+        {
+         "to": "weekly_customers",
+         "from": "workplace_partnerships__on",
+         "kind": "link_strength",
+         "n_low": 2640,
+         "n_high": 2640,
+         "spread": 0.001893939393939394,
+         "status": "below_resolution",
+         "quantity_id": "workplace_partnerships__on->weekly_customers",
+         "p_goal_if_low": 0,
+         "p_goal_if_high": 0.001893939393939394,
+         "low_upper_value": 0.03926517202986549,
+         "high_lower_value": 0.06054831557986314,
+         "spread_noise_floor": 0.03437354029107212
+        },
+        {
+         "to": "weekly_customers",
+         "from": "later_hours__on",
+         "kind": "link_strength",
+         "n_low": 3333,
+         "n_high": 3333,
+         "spread": 0.0012001200120012002,
+         "status": "below_resolution",
+         "quantity_id": "later_hours__on->weekly_customers",
+         "p_goal_if_low": 0,
+         "p_goal_if_high": 0.0012001200120012002,
+         "low_upper_value": 0.06578259902738477,
+         "high_lower_value": 0.10062229164138368,
+         "spread_noise_floor": 0.03059204934104153
+        },
+        {
+         "to": "weekly_customers",
+         "from": "workplace_partnerships__on",
+         "kind": "link_existence",
+         "spread": 0.0006312334301224593,
+         "status": "below_resolution",
+         "n_absent": 2079,
+         "n_present": 7921,
+         "quantity_id": "workplace_partnerships__on->weekly_customers",
+         "p_goal_if_absent": 0,
+         "p_goal_if_present": 0.0006312334301224593,
+         "spread_noise_floor": 0.03077471068164635
+        }
+       ],
+       "n_dropped": 4,
+       "n_compared": 4,
+       "min_group_n": 30,
+       "n_candidates": 7,
+       "dropped_by_reason": {
+        "no_variance": 2,
+        "zero_spread": 1,
+        "set_by_option": 1,
+        "outcome_constant": 0,
+        "group_below_min_n": 0,
+        "non_finite_values": 0,
+        "set_by_option_upstream": 0,
+        "tied_at_tercile_boundary": 0
+       }
+      },
+      "probability_of_goal_precision": {
+       "basis": "simulation_precision",
+       "n_met": 5,
+       "method": "wilson_score",
+       "n_informative": 10000,
+       "interval_lower": 0.00021358842616382576,
+       "interval_upper": 0.0011700259461420932,
+       "confidence_level": 0.95
+      }
+     }
+    ],
+    "factor_sensitivity": [
+     {
+      "source": "graph",
+      "direction": "positive",
+      "factor_id": "loyalty_card__on",
+      "confidence": 0.3,
+      "elasticity": 0,
+      "zero_reason": "intervention_override",
+      "driver_label": "biggest",
+      "factor_label": "Start a loyalty card in place",
+      "value_source": "cee_inference",
+      "influence_rank": 1,
+      "rank_flip_rate": 0,
+      "importance_rank": 1,
+      "influence_basis": "isl_structural",
+      "influence_score": 1,
+      "importance_basis": "isl_structural",
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "sensitivity_score": 0,
+      "flip_risk_category": "isolated",
+      "value_of_information": 0,
+      "attribution_stability": "negligible",
+      "confidence_components": {
+       "sampling_stability": 0,
+       "structural_certainty": 0.5
+      },
+      "confidence_provenance": {
+       "input_quality": "standard",
+       "is_provisional": true,
+       "formula_version": "plot_unified_v3",
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "computation_source": "plot_unified_from_isl_bootstrap"
+      },
+      "range_derivation_source": "default"
+     },
+     {
+      "source": "graph",
+      "direction": "positive",
+      "factor_id": "later_hours__on",
+      "confidence": 0.3,
+      "elasticity": 0,
+      "zero_reason": "intervention_override",
+      "driver_label": "strong",
+      "factor_label": "Open two hours later each evening in place",
+      "value_source": "cee_inference",
+      "influence_rank": 2,
+      "rank_flip_rate": 0,
+      "importance_rank": 2,
+      "influence_basis": "isl_structural",
+      "influence_score": 0.7142857142857143,
+      "importance_basis": "isl_structural",
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "sensitivity_score": 0,
+      "flip_risk_category": "negligible",
+      "value_of_information": 0,
+      "attribution_stability": "negligible",
+      "confidence_components": {
+       "sampling_stability": 0,
+       "structural_certainty": 0.5
+      },
+      "confidence_provenance": {
+       "input_quality": "standard",
+       "is_provisional": true,
+       "formula_version": "plot_unified_v3",
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "computation_source": "plot_unified_from_isl_bootstrap"
+      },
+      "range_derivation_source": "default"
+     },
+     {
+      "source": "graph",
+      "direction": "positive",
+      "factor_id": "workplace_partnerships__on",
+      "confidence": 0.3,
+      "elasticity": 0,
+      "zero_reason": "intervention_override",
+      "driver_label": "moderate",
+      "factor_label": "Olumi suggestion: local workplace partnerships in place",
+      "value_source": "cee_inference",
+      "influence_rank": 3,
+      "rank_flip_rate": 0,
+      "importance_rank": 3,
+      "influence_basis": "isl_structural",
+      "influence_score": 0.3428571428571429,
+      "importance_basis": "isl_structural",
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "sensitivity_score": 0,
+      "flip_risk_category": "negligible",
+      "value_of_information": 0,
+      "attribution_stability": "negligible",
+      "confidence_components": {
+       "sampling_stability": 0,
+       "structural_certainty": 0.5
+      },
+      "confidence_provenance": {
+       "input_quality": "standard",
+       "is_provisional": true,
+       "formula_version": "plot_unified_v3",
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "computation_source": "plot_unified_from_isl_bootstrap"
+      },
+      "range_derivation_source": "default"
+     }
+    ],
+    "robustness": {
+     "level": "low",
+     "near_tie": {
+      "gap": 0.3811,
+      "is_tie": false,
+      "threshold": 0.1,
+      "top_option_id": "loyalty_card",
+      "tied_option_ids": [
+       "loyalty_card"
+      ],
+      "second_option_id": "later_hours"
+     },
+     "is_robust": false,
+     "confidence": 0.6726,
+     "robust_edges": [
+      {
+       "to_id": "weekly_customers",
+       "edge_id": "later_hours__on->weekly_customers",
+       "from_id": "later_hours__on",
+       "to_label": "I want at least 480 customers a week within three months.",
+       "from_label": "Open two hours later each evening in place",
+       "alternative_winner_id": null,
+       "alternative_winner_label": null
+      },
+      {
+       "to_id": "weekly_customers",
+       "edge_id": "workplace_partnerships__on->weekly_customers",
+       "from_id": "workplace_partnerships__on",
+       "to_label": "I want at least 480 customers a week within three months.",
+       "from_label": "Olumi suggestion: local workplace partnerships in place",
+       "alternative_winner_id": null,
+       "alternative_winner_label": null
+      }
+     ],
+     "fragile_edges": [
+      {
+       "to_id": "weekly_customers",
+       "edge_id": "loyalty_card__on->weekly_customers",
+       "from_id": "loyalty_card__on",
+       "visible": true,
+       "severity": "critical",
+       "to_label": "I want at least 480 customers a week within three months.",
+       "from_label": "Start a loyalty card in place",
+       "switch_probability": 0.7144,
+       "alternative_winner_id": "later_hours",
+       "alternative_winner_label": "Open two hours later each evening",
+       "marginal_switch_probability": 0.29
+      }
+     ],
+     "display_verdict": "fragile",
+     "confidence_basis": "recommendation_stability_uncalibrated",
+     "recommended_option_id": "loyalty_card",
+     "display_verdict_reason": "small changes to your assumptions could change the most-supported option",
+     "recommended_option_label": "Start a loyalty card",
+     "recommended_option_compliance": "not_applicable",
+     "recommended_option_compliance_reason": "no limits were set for this decision"
+    },
+    "option_comparison_status": "computed",
+    "edge_e_values": [
+     {
+      "to_id": "weekly_customers",
+      "e_value": 1,
+      "edge_id": "loyalty_card__on::weekly_customers",
+      "from_id": "loyalty_card__on",
+      "to_label": "I want at least 480 customers a week within three months.",
+      "flip_mean": 0.083333,
+      "stability": {
+       "n_seeds": 10,
+       "band_max": 0.15039,
+       "band_min": 0.04268,
+       "band_width": 0.10771,
+       "band_median": 0.078211,
+       "n_seeds_flipped": 10,
+       "seed_flip_means": [
+        0.096226,
+        0.071528,
+        0.084895,
+        0.070678,
+        0.06005,
+        0.070206,
+        0.108693,
+        0.15039,
+        0.139767,
+        0.04268
+       ]
+      },
+      "from_label": "Start a loyalty card in place",
+      "current_mean": 0.11666666666666667,
+      "flip_direction": "decrease"
+     },
+     {
+      "to_id": "weekly_customers",
+      "e_value": 1.4,
+      "edge_id": "later_hours__on::weekly_customers",
+      "from_id": "later_hours__on",
+      "to_label": "I want at least 480 customers a week within three months.",
+      "flip_mean": 0.116668,
+      "stability": {
+       "n_seeds": 10,
+       "band_max": 0.189662,
+       "band_min": 0.070678,
+       "band_width": 0.118984,
+       "band_median": 0.102255,
+       "n_seeds_flipped": 10,
+       "seed_flip_means": [
+        0.138824,
+        0.071529,
+        0.094068,
+        0.070678,
+        0.110442,
+        0.136751,
+        0.088458,
+        0.189662,
+        0.091447,
+        0.139256
+       ]
+      },
+      "from_label": "Open two hours later each evening in place",
+      "current_mean": 0.08333333333333334,
+      "flip_direction": "increase"
+     },
+     {
+      "to_id": "weekly_customers",
+      "e_value": 2.9167,
+      "edge_id": "workplace_partnerships__on::weekly_customers",
+      "from_id": "workplace_partnerships__on",
+      "to_label": "I want at least 480 customers a week within three months.",
+      "flip_mean": 0.145834,
+      "stability": {
+       "n_seeds": 10,
+       "band_max": 0.237078,
+       "band_min": 0.084575,
+       "band_width": 0.152503,
+       "band_median": 0.154496,
+       "n_seeds_flipped": 10,
+       "seed_flip_means": [
+        0.17353,
+        0.084575,
+        0.117584,
+        0.085303,
+        0.138053,
+        0.170939,
+        0.135868,
+        0.237078,
+        0.17471,
+        0.17407
+       ]
+      },
+      "from_label": "Olumi suggestion: local workplace partnerships in place",
+      "current_mean": 0.05,
+      "flip_direction": "increase"
+     }
+    ],
+    "inference_warnings": [
+     {
+      "code": "FACTOR_EVPPI_NOT_COMPUTED",
+      "field": "factor_evppi",
+      "message": "Value-of-information ran but produced no rows. The reason is not known at this layer and has deliberately not been inferred.",
+      "severity": "info"
+     },
+     {
+      "code": "GOAL_CHANCE_LICENSED",
+      "form": "each",
+      "notes": [
+       "This assumes carrying on as now leaves \u2018I want at least 480 customers a week within three months.\u2019 unchanged; each option is measured against that.",
+       "Static model; not a forecast to a date.",
+       "Illustrative calculation \u2014 uses untested Olumi assumptions."
+      ],
+      "target": {
+       "unit": "customers a week",
+       "frame": "level",
+       "value": 480,
+       "comparator": "at_least"
+      },
+      "message": "Each option\u2019s chance of \u2018I want at least 480 customers a week within three months.\u2019 being at least 480 customers a week is licensed on this Run.",
+      "severity": "info",
+      "goal_label": "I want at least 480 customers a week within three months.",
+      "option_ids": [
+       "loyalty_card",
+       "later_hours",
+       "status_quo",
+       "workplace_partnerships"
+      ],
+      "status_quo": {
+       "line": "This Run can\u2019t give a chance for carrying on as now, because it treats \u2018I want at least 480 customers a week within three months.\u2019 as unchanged from today\u2019s 400 customers a week (your target is at least 480 customers a week).",
+       "option_id": "status_quo"
+      },
+      "provisional": true,
+      "chance_words": "chance of \u2018I want at least 480 customers a week within three months.\u2019 being at least 480 customers a week",
+      "goal_node_id": "weekly_customers",
+      "horizon_line": "These chances use the model's numbers as they are today; the model doesn't project how they change over time yet.",
+      "pct_by_option": {
+       "later_hours": 11,
+       "loyalty_card": 39,
+       "workplace_partnerships": 0
+      },
+      "sent_threshold": {
+       "field": "goal_threshold",
+       "frame": "level",
+       "value": 0.8,
+       "baseline": 0.6666666666666666,
+       "status_quo_option_id": "status_quo"
+      },
+      "driver_by_option": {
+       "later_hours": {
+        "to": "weekly_customers",
+        "from": "later_hours__on",
+        "kind": "link_strength",
+        "side": "low",
+        "strength": "weaker",
+        "authored_by": "user",
+        "quantity_id": "later_hours__on->weekly_customers",
+        "user_stated_link": true
+       },
+       "loyalty_card": {
+        "to": "weekly_customers",
+        "from": "loyalty_card__on",
+        "kind": "link_strength",
+        "side": "low",
+        "strength": "weaker",
+        "authored_by": "user",
+        "quantity_id": "loyalty_card__on->weekly_customers",
+        "user_stated_link": true
+       }
+      },
+      "horizon_untested": true,
+      "summary_withheld": {
+       "form": "highest_all_likely_to_miss",
+       "cause": "olumi_existence_assumption"
+      },
+      "default_assumptions": {
+       "links": [
+        {
+         "to": "weekly_customers",
+         "from": "loyalty_card__on",
+         "loss": [
+          {
+           "code": "CLAMP_STD_MINIMUM",
+           "after": 0.058333333333333334,
+           "layer": "cee",
+           "before": null,
+           "reason": "Nobody stated how uncertain this strength is. Applied Olumi's illustrative spread (half the stated effect). It is not a measurement of anyone's confidence.",
+           "severity": "info",
+           "field_path": "edges[loyalty_card__on::weekly_customers].strength.std"
+          }
+         ]
+        },
+        {
+         "to": "weekly_customers",
+         "from": "later_hours__on",
+         "loss": [
+          {
+           "code": "CLAMP_STD_MINIMUM",
+           "after": 0.04166666666666667,
+           "layer": "cee",
+           "before": null,
+           "reason": "Nobody stated how uncertain this strength is. Applied Olumi's illustrative spread (half the stated effect). It is not a measurement of anyone's confidence.",
+           "severity": "info",
+           "field_path": "edges[later_hours__on::weekly_customers].strength.std"
+          }
+         ]
+        },
+        {
+         "to": "weekly_customers",
+         "from": "workplace_partnerships__on",
+         "loss": [
+          {
+           "code": "CLAMP_STD_MINIMUM",
+           "after": 0.025,
+           "layer": "cee",
+           "before": null,
+           "reason": "The calculation uses Olumi's estimated 30 with Olumi's illustrative spread (half the estimated effect). Olumi's range, 0 to 80, is kept with the model but is not used as a spread.",
+           "severity": "info",
+           "field_path": "edges[workplace_partnerships__on::weekly_customers].strength.std"
+          },
+          {
+           "code": "DEFAULT_EXISTS_PROBABILITY",
+           "after": 0.8,
+           "layer": "cee",
+           "before": null,
+           "reason": "Nobody stated how likely this link is to exist. Applied Olumi's untested default.",
+           "severity": "info",
+           "field_path": "edges[workplace_partnerships__on::weekly_customers].exists_probability"
+          }
+         ]
+        }
+       ],
+       "origin": "olumi",
+       "status": "Illustrative calculation \u2014 uses untested Olumi assumptions.",
+       "stated_range_use": "recorded_not_sampled_or_tail_bounds",
+       "coefficient_distribution": "unbounded_normal"
+      },
+      "no_driver_by_option": {
+       "workplace_partnerships": "below_resolution"
+      },
+      "withheld_option_ids": [
+       "status_quo"
+      ],
+      "option_labels_by_option": {
+       "status_quo": "Keep things as they are",
+       "later_hours": "Open two hours later each evening",
+       "loyalty_card": "Start a loyalty card",
+       "workplace_partnerships": "Olumi suggestion: local workplace partnerships"
+      },
+      "olumi_estimate_link_count": 1,
+      "display_rounding_by_option": {
+       "later_hours": "whole",
+       "loyalty_card": "whole",
+       "workplace_partnerships": "whole"
+      },
+      "olumi_estimate_settings_by_option": {
+       "workplace_partnerships": 1
+      }
+     },
+     {
+      "code": "GOAL_HORIZON_NOT_TESTED",
+      "message": "These chances use the model's numbers as they are today; the model doesn't project how they change over time yet.",
+      "node_ids": [
+       "weekly_customers"
+      ],
+      "severity": "info"
+     }
+    ],
+    "confidence_tier": "fair",
+    "flip_thresholds": [],
+    "decision_brief": {
+     "options": [
+      {
+       "rank": 1,
+       "label": "Start a loyalty card",
+       "option_id": "loyalty_card",
+       "win_probability": 0.6726
+      },
+      {
+       "rank": 2,
+       "label": "Open two hours later each evening",
+       "option_id": "later_hours",
+       "win_probability": 0.2915
+      },
+      {
+       "rank": 3,
+       "label": "Olumi suggestion: local workplace partnerships",
+       "option_id": "workplace_partnerships",
+       "win_probability": 0.0359
+      },
+      {
+       "rank": 4,
+       "label": "Keep things as they are",
+       "option_id": "status_quo",
+       "win_probability": 0
+      }
+     ],
+     "version": "1",
+     "brief_id": "96871c09-6563-417c-bf8b-f583b13b88d4",
+     "headline": "Start a loyalty card currently leads by 38 points, but the model is not yet strong enough for an unqualified decision. Treat this as a provisional lead until the fragile assumptions are checked. Validate the fragile assumptions before treating this as a decision.",
+     "warnings": [
+      {
+       "code": "DEGENERATE_OPTION_ZERO_VARIANCE",
+       "message": "Option 'Keep things as they are' has zero variance \u2014 intervention may have no causal path to goal",
+       "severity": "warning"
+      },
+      {
+       "code": "M2_UNAVAILABLE",
+       "message": "Decision review was unavailable; brief uses deterministic coaching fallback",
+       "severity": "warning"
+      },
+      {
+       "code": "MISSING_RISK_PATHWAY",
+       "message": "No risk factors materially affect your goal. What could go wrong?",
+       "severity": "warning"
+      }
+     ],
+     "created_at": "2026-10-22T20:13:06.872Z",
+     "robustness": "fragile",
+     "top_drivers": [],
+     "warning_codes": [],
+     "headline_banded": {
+      "band": "slightly_ahead",
+      "text": "Start a loyalty card is slightly ahead.",
+      "doctrine": "provisional_doctrine_v0",
+      "leader_label": "Start a loyalty card",
+      "runner_up_label": "Open two hours later each evening",
+      "leader_option_id": "loyalty_card",
+      "robustness_gated": true,
+      "runner_up_option_id": "later_hours",
+      "win_probability_gap": 0.3811
+     },
+     "key_assumptions": [],
+     "analysis_summary": {
+      "goal_fit": 0.3929,
+      "leading_option": "Start a loyalty card",
+      "robustness_band": "fragile",
+      "win_probability": 0.6726
+     },
+     "robustness_caveat": {
+      "text": "This run was sensitive to the changes we tested. Small changes to your assumptions could change the most-supported option.",
+      "basis": "is_robust",
+      "doctrine": "provisional_doctrine_v0"
+     },
+     "what_would_change": [],
+     "defaulted_assumptions": []
+    },
+    "decision_evpi": 0.014947813790215812,
+    "p_win_sensitivity": [
+     {
+      "method": "p_win_delta_at_mean_v1",
+      "status": "below_resolution",
+      "clamped": true,
+      "factor_id": "loyalty_card__on",
+      "n_samples": 2000,
+      "metric_type": "p_win_recommended",
+      "noise_floor": 0.03099,
+      "p_win_delta": 0,
+      "current_metric": 0.689,
+      "perfect_metric": 0.66,
+      "labelling_doctrine": "provisional_doctrine_v0",
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "p_win_delta_percentage_points": 0
+     },
+     {
+      "method": "p_win_delta_at_mean_v1",
+      "status": "below_resolution",
+      "clamped": true,
+      "factor_id": "later_hours__on",
+      "n_samples": 2000,
+      "metric_type": "p_win_recommended",
+      "noise_floor": 0.03099,
+      "p_win_delta": 0,
+      "current_metric": 0.689,
+      "perfect_metric": 0.672,
+      "labelling_doctrine": "provisional_doctrine_v0",
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "p_win_delta_percentage_points": 0
+     },
+     {
+      "method": "p_win_delta_at_mean_v1",
+      "status": "below_resolution",
+      "clamped": true,
+      "factor_id": "workplace_partnerships__on",
+      "n_samples": 2000,
+      "metric_type": "p_win_recommended",
+      "noise_floor": 0.03099,
+      "p_win_delta": 0,
+      "current_metric": 0.689,
+      "perfect_metric": 0.657,
+      "labelling_doctrine": "provisional_doctrine_v0",
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "p_win_delta_percentage_points": 0
+     }
+    ],
+    "critiques": [
+     {
+      "id": "critique_a90c2f129c2b",
+      "code": "DEGENERATE_OPTION_ZERO_VARIANCE",
+      "severity": "warning",
+      "source": "isl",
+      "blocks_analysis": false,
+      "affected_option_ids": [
+       "status_quo"
+      ],
+      "user_message": "Option 'Keep things as they are' produces the same result in every simulation, so nothing in your model makes its outcome uncertain. If you expected it to move, review the factors it changes and the ranges set on them."
+     }
+    ],
+    "conditional_winners": [],
+    "flip_thresholds_status": "unavailable"
+   },
+   "computed_against_hash": "fe61868e9e12f9f4"
+  }
+ },
+ "read": {
+  "content_hash": "7c88ee09cd4b0a9ee7b925406c46fb4fcd06ae50149e80ded53a42f57c88f6f4",
+  "canonical_analysis_view": {
+   "schema": "canonical_analysis_view.v1",
+   "source": "stored_run_facts",
+   "question": {
+    "run_id": "4daf659b22a57a12697f010e482311fda36f470a11da32e0e6ba347fdbbd9912",
+    "fact_row_id": "9432c5dc-3aa7-42f3-b990-02a0f5a1e2c8",
+    "evaluated_scenario_revision": 2,
+    "asked": {
+     "quantity": {
+      "node_id": "weekly_customers",
+      "label": "I want at least 480 customers a week within three months."
+     },
+     "target": 480,
+     "comparator": ">=",
+     "unit": "customers a week",
+     "frame": "level",
+     "horizon": {
+      "as_stated": "within three months"
+     },
+     "reference": "today",
+     "option_ids": [
+      "loyalty_card",
+      "later_hours",
+      "status_quo",
+      "workplace_partnerships"
+     ],
+     "baseline": 400
+    },
+    "calculated": {
+     "quantity": {
+      "node_id": "weekly_customers",
+      "label": "I want at least 480 customers a week within three months."
+     },
+     "comparator": ">=",
+     "unit": "customers a week",
+     "frame": "level",
+     "option_ids": [
+      "loyalty_card",
+      "later_hours",
+      "status_quo",
+      "workplace_partnerships"
+     ],
+     "baseline": 400,
+     "encoded_target": 0.8,
+     "encoded_baseline": 0.6666666666666666,
+     "target": 480,
+     "scope": "static"
+    },
+    "omitted": [
+     {
+      "field": "horizon",
+      "reason": "not_calculated",
+      "asked": {
+       "as_stated": "within three months"
+      }
+     }
+    ],
+    "scope": {
+     "status": "supported_static",
+     "can_show_goal_chance": true,
+     "reasons": [],
+     "note": "Static model; not a forecast to a date.",
+     "capability": {
+      "declaration_version": 1,
+      "authority": "cee_source_contract",
+      "engine_attestation": "unverified",
+      "engine_support": {
+       "static_level": {
+        "request_frame": "level",
+        "method": "baseline_plus_paired_option_change"
+       },
+       "request_frames": [
+        "level",
+        "delta",
+        "change_abs",
+        "change_rel"
+       ],
+       "minimum_option_count": 1,
+       "temporal_evolution": "outside_this_declaration",
+       "source": "Inference-Service-Layer@a5725a158ce9431350eb1e805e9d9ff8db2dea64:src/services/robustness_analyzer_v2.py:_resolve_threshold_in_sample_frame",
+       "request_source": "Inference-Service-Layer@a5725a158ce9431350eb1e805e9d9ff8db2dea64:src/models/robustness_v2.py:TargetFrame,RobustnessRequestV2.options"
+      },
+      "transport_admission": {
+       "route": "/v2/run",
+       "minimum_option_count": 2,
+       "single_option_goal_chance": false,
+       "source": "plot-lite-service@58b3e3c4c6e8eb1df33cb66f4df129607962aaa9:src/routes/v2/run.ts:options.minItems"
+      },
+      "potential_claim_support": {
+       "goal_chance_requires": [
+        "admission",
+        "target_testability",
+        "currentness",
+        "goal_chance_licence"
+       ],
+       "goal_chance_and_ordering": "goalChanceLicenceForAgent",
+       "comparative_leadership": "leaderLicenceFromState",
+       "one_surviving_result_licenses_leader": false,
+       "static_calculation_answers_date": false
+      }
+     },
+     "dispatched_input_digest": "8ba3040e4fd3c77b50e06a5f546c64db1824f2c0383c7c4a7070b20eb1a17e88"
+    },
+    "evidence": {
+     "status": "verified",
+     "missing": [],
+     "dispatched_input_digest": "8ba3040e4fd3c77b50e06a5f546c64db1824f2c0383c7c4a7070b20eb1a17e88"
+    }
+   },
+   "run": {
+    "run_id": "4daf659b22a57a12697f010e482311fda36f470a11da32e0e6ba347fdbbd9912",
+    "graph_hash_at_run": "fe61868e9e12f9f4",
+    "computed_at": "2026-10-22T20:13:02.493Z"
+   },
+   "staleness": {
+    "stale": false,
+    "revision": 2,
+    "run_revision": 2,
+    "run_revision_source": "recorded",
+    "basis": "analysis_graph_hash_interim",
+    "reason": "graph_hash_match",
+    "limitation": "Hash equality cannot detect brief, framing or stage changes."
+   },
+   "leader_licence": "permitted",
+   "leader": {
+    "licence": "permitted",
+    "option_id": "loyalty_card",
+    "goal_chance_leader": null,
+    "similar_option_ids": [],
+    "near_tie": false,
+    "robustness": "low"
+   },
+   "options": [
+    {
+     "option_id": "loyalty_card",
+     "cell": {
+      "kind": "figure",
+      "display": "about 39%",
+      "face": "\u2018Start a loyalty card\u2019: about 39% chance of \u2018I want at least 480 customers a week within three months.\u2019 being at least 480 customers a week, in this model, using Olumi's estimates for 1 relationship (see Check estimates). Static model; not a forecast to a date."
+     },
+     "main_driver": {
+      "kind": "available",
+      "driver": {
+       "to": "weekly_customers",
+       "from": "loyalty_card__on",
+       "kind": "link_strength",
+       "side": "low",
+       "strength": "weaker",
+       "authored_by": "user",
+       "quantity_id": "loyalty_card__on->weekly_customers",
+       "user_stated_link": true
+      },
+      "detail": "It rests most on how strongly \u2018Start a loyalty card in place\u2019 affects \u2018I want at least 480 customers a week within three months.\u2019, at the size you set: if that effect is weaker than that, the chance falls. How sure are you of that size?"
+     }
+    },
+    {
+     "option_id": "later_hours",
+     "cell": {
+      "kind": "figure",
+      "display": "about 11%",
+      "face": "\u2018Open two hours later each evening\u2019: about 11% chance of \u2018I want at least 480 customers a week within three months.\u2019 being at least 480 customers a week, in this model, using Olumi's estimates for 1 relationship (see Check estimates). Static model; not a forecast to a date."
+     },
+     "main_driver": {
+      "kind": "available",
+      "driver": {
+       "to": "weekly_customers",
+       "from": "later_hours__on",
+       "kind": "link_strength",
+       "side": "low",
+       "strength": "weaker",
+       "authored_by": "user",
+       "quantity_id": "later_hours__on->weekly_customers",
+       "user_stated_link": true
+      },
+      "detail": "It rests most on how strongly \u2018Open two hours later each evening in place\u2019 affects \u2018I want at least 480 customers a week within three months.\u2019, at the size you set: if that effect is weaker than that, the chance falls. How sure are you of that size?"
+     }
+    },
+    {
+     "option_id": "status_quo",
+     "cell": {
+      "kind": "withheld",
+      "reasons": [
+       {
+        "code": "status_quo_by_assumption",
+        "message": "This Run can\u2019t give a chance for carrying on as now, because it treats \u2018I want at least 480 customers a week within three months.\u2019 as unchanged from today\u2019s 400 customers a week (your target is at least 480 customers a week)."
+       }
+      ],
+      "face": "No change, by assumption",
+      "why": "This Run can\u2019t give a chance for carrying on as now, because it treats \u2018I want at least 480 customers a week within three months.\u2019 as unchanged from today\u2019s 400 customers a week (your target is at least 480 customers a week)."
+     },
+     "main_driver": {
+      "kind": "not_recorded"
+     }
+    },
+    {
+     "option_id": "workplace_partnerships",
+     "cell": {
+      "kind": "figure",
+      "display": "less than 1%",
+      "face": "\u2018Olumi suggestion: local workplace partnerships\u2019: less than 1% chance of \u2018I want at least 480 customers a week within three months.\u2019 being at least 480 customers a week, in this model, using Olumi's estimates for 1 option setting and 1 relationship (see Check estimates). Static model; not a forecast to a date."
+     },
+     "main_driver": {
+      "kind": "none_licensed",
+      "reason": "below_resolution"
+     }
+    }
+   ],
+   "goal_chance": {
+    "default_assumptions": {
+     "status": "Illustrative calculation \u2014 uses untested Olumi assumptions.",
+     "origin": "olumi",
+     "coefficient_distribution": "unbounded_normal",
+     "stated_range_use": "recorded_not_sampled_or_tail_bounds",
+     "links": [
+      {
+       "to": "weekly_customers",
+       "from": "loyalty_card__on",
+       "loss": [
+        {
+         "code": "CLAMP_STD_MINIMUM",
+         "after": 0.058333333333333334,
+         "layer": "cee",
+         "before": null,
+         "reason": "Nobody stated how uncertain this strength is. Applied Olumi's illustrative spread (half the stated effect). It is not a measurement of anyone's confidence.",
+         "severity": "info",
+         "field_path": "edges[loyalty_card__on::weekly_customers].strength.std"
+        }
+       ]
+      },
+      {
+       "to": "weekly_customers",
+       "from": "later_hours__on",
+       "loss": [
+        {
+         "code": "CLAMP_STD_MINIMUM",
+         "after": 0.04166666666666667,
+         "layer": "cee",
+         "before": null,
+         "reason": "Nobody stated how uncertain this strength is. Applied Olumi's illustrative spread (half the stated effect). It is not a measurement of anyone's confidence.",
+         "severity": "info",
+         "field_path": "edges[later_hours__on::weekly_customers].strength.std"
+        }
+       ]
+      },
+      {
+       "to": "weekly_customers",
+       "from": "workplace_partnerships__on",
+       "loss": [
+        {
+         "code": "CLAMP_STD_MINIMUM",
+         "after": 0.025,
+         "layer": "cee",
+         "before": null,
+         "reason": "The calculation uses Olumi's estimated 30 with Olumi's illustrative spread (half the estimated effect). Olumi's range, 0 to 80, is kept with the model but is not used as a spread.",
+         "severity": "info",
+         "field_path": "edges[workplace_partnerships__on::weekly_customers].strength.std"
+        },
+        {
+         "code": "DEFAULT_EXISTS_PROBABILITY",
+         "after": 0.8,
+         "layer": "cee",
+         "before": null,
+         "reason": "Nobody stated how likely this link is to exist. Applied Olumi's untested default.",
+         "severity": "info",
+         "field_path": "edges[workplace_partnerships__on::weekly_customers].exists_probability"
+        }
+       ]
+      }
+     ]
+    },
+    "chance_words": "chance of \u2018I want at least 480 customers a week within three months.\u2019 being at least 480 customers a week",
+    "notes": [
+     "This assumes carrying on as now leaves \u2018I want at least 480 customers a week within three months.\u2019 unchanged; each option is measured against that.",
+     "Illustrative calculation \u2014 uses untested Olumi assumptions."
+    ],
+    "status_quo": {
+     "option_id": "status_quo",
+     "line": "This Run can\u2019t give a chance for carrying on as now, because it treats \u2018I want at least 480 customers a week within three months.\u2019 as unchanged from today\u2019s 400 customers a week (your target is at least 480 customers a week)."
+    }
+   }
+  }
+ }
+}
