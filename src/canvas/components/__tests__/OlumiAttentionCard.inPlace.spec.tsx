@@ -13,6 +13,9 @@ vi.mock('@xyflow/react', () => ({
   useStore: (selector: (s: { transform: [number, number, number] }) => unknown) => selector({ transform: [0, 0, 1] }),
 }))
 vi.mock('../../../components/results/coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
+const asked = vi.hoisted(() => ({ calls: [] as unknown[], result: 'sent' as string }))
+vi.mock('../../conversation/askAi', () => ({ askAi: (req: unknown) => { asked.calls.push(req); return asked.result } }))
+vi.mock('../../conversation/revealOlumi', () => ({ revealOlumiSurface: () => undefined }))
 const dock = { inset: 0 }
 vi.mock('../FloatingOlumiPanel', () => ({ measureDockInset: () => dock.inset }))
 
@@ -26,15 +29,44 @@ function hold(note: OlumiAttentionNote, x = 0) {
 }
 const card = () => screen.getByTestId(OLUMI_ATTENTION_CARD_TESTID)
 
-afterEach(() => { cleanup(); dock.inset = 0; useCanvasStore.setState({ olumiAttention: null }) })
+afterEach(() => { cleanup(); dock.inset = 0; asked.calls.length = 0; asked.result = 'sent'; useCanvasStore.setState({ olumiAttention: null }) })
 
 describe('Olumi’s note on the model', () => {
   it('a note with no move is labelled as Olumi’s, never given a move nobody chose', () => {
     hold({ title: 'Two developers lean on one untested link', body: 'New hires usually cost senior time first.' })
     render(<OlumiAttentionCard />)
+    expect(card().querySelector('[data-icon="olumi-brand-mark"]'), 'Olumi is the mark, not a coloured word').not.toBeNull()
     expect(card().textContent).toContain('Olumi')
     expect(card().textContent).not.toContain('Challenge')
     expect(card().hasAttribute('data-move')).toBe(false)
+  })
+
+  it('⭐ a question is answered where it is asked: the person\'s words go to Olumi about this item, and the note steps aside', () => {
+    hold({ body: 'How much angel funding do you need, and in which currency?' })
+    render(<OlumiAttentionCard />)
+    const box = screen.getByRole('textbox', { name: 'Your answer' })
+    const send = screen.getByRole('button', { name: 'Send your answer to Olumi' })
+    expect(send).toHaveProperty('disabled', true)
+    fireEvent.change(box, { target: { value: '£250,000, committed in writing' } })
+    fireEvent.click(send)
+    expect(asked.calls).toEqual([{ userWords: '£250,000, committed in writing', nodeIds: [ANCHOR] }])
+    expect(useCanvasStore.getState().olumiAttention).toBeNull()
+  })
+
+  it('a send that does not go (Olumi busy) keeps the answer and the note', () => {
+    asked.result = 'busy'
+    hold({ body: 'Which month does the deadline fall in?' })
+    render(<OlumiAttentionCard />)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your answer' }), { target: { value: 'March' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send your answer to Olumi' }))
+    expect(screen.getByRole('textbox', { name: 'Your answer' })).toHaveProperty('value', 'March')
+    expect(useCanvasStore.getState().olumiAttention).not.toBeNull()
+  })
+
+  it('CONTRAST: a note that asks nothing has no answer box', () => {
+    hold({ body: 'This link carries most of the result.' })
+    render(<OlumiAttentionCard />)
+    expect(screen.queryByRole('textbox')).toBeNull()
   })
 
   it('CONTRAST: a move the producer named is the label', () => {

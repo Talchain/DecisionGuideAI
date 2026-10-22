@@ -52,7 +52,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
-import { DecisionNode, DECISION_RESTING_COPY, composeOptionCountLine } from '../DecisionNode'
+import { DecisionNode, DECISION_RESTING_COPY, composeOptionCountLine, questionTitle } from '../DecisionNode'
 import { LOD_BLANKED_BODY_ATTR } from '../../utils/zoomLegibility'
 /**
  * ⚠ THE REPORT FIXTURES ARE THE REPO'S OWN, NOT MINE. A self-authored report
@@ -146,6 +146,19 @@ const linked = (n: number) => ({
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+
+describe('⭐ the card shows the question, never "Decision:" (Paul 22 Oct: a reasoning partner, not a decision tool)', () => {
+  it('CEE\'s served label "Decision: <question>" shows as the question alone; the saved label is untouched', () => {
+    renderDecision({}, 'Decision: Secure angel funding within three weeks')
+    expect(screen.queryByText(/Decision:/)).toBeNull()
+    expect(screen.getAllByText('Secure angel funding within three weeks').length).toBeGreaterThan(0)
+  })
+  it('CONTRAST: a question that merely starts with the word is left as written', () => {
+    expect(questionTitle('Decision rights: who signs off the budget?')).toBeUndefined()
+    expect(questionTitle('Which supplier do we pick?')).toBeUndefined()
+    expect(questionTitle('decision :  MRR')).toBe('MRR')
+  })
+})
 
 describe('composeOptionCountLine — the count, and the rules that make it honest', () => {
   it('states the number and the noun', () => {
