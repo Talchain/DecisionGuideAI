@@ -31,7 +31,14 @@ const addSchema = z.discriminatedUnion('kind', [
     value: z.object({ value: z.number().finite(), unit: z.string().min(1) }).nullable(), source: addSource }),
   z.object({ field_id: z.string().regex(/^link_add:.+$/), kind: z.literal('link_add'), link_id: z.string().min(1), from_id: z.string().min(1),
     to_id: z.string().min(1), from_label: z.string().min(1), to_label: z.string().min(1), direction: z.enum(['positive', 'negative']), source: addSource }),
+  // Every other change the approval writes, as CEE's one plain sentence (DL 22 Oct, consent: 12/12 served approvals wrote
+  // changes the card never showed). Shown before the approve, never edited.
+  z.object({ field_id: z.string().regex(/^change_note:.+$/), kind: z.literal('change_note'), text: z.string().min(1).max(400),
+    source: z.enum(['estimate', 'yours', 'party', 'unverified']), editable: z.literal(false) }),
 ])
+export type ChangeNote = Extract<z.infer<typeof addSchema>, { kind: 'change_note' }>
+/** The held card's change notes, in CEE's order. */
+export const changeNotesOf = (p: Proposal): ChangeNote[] => p.adds.filter((a): a is ChangeNote => a.kind === 'change_note')
 const proposalSchema = z.object({
   proposal_id: z.string().regex(/^(?:gmh_[0-9a-f]{12}|prop_[0-9a-f]{32})$/),
   // CEE (EDIT-PANEL, 8 Oct): the turn whose reply first offered this proposal; null = CEE could not match it (= absent).

@@ -203,6 +203,8 @@ export function previewFromFields(p: Proposal): ProposalPreview | null {
   })
   // A new factor is a ghost card (beside what its new link ties it to); a new link, a ghost line saying which way it moves.
   for (const add of p.adds) {
+    // A change note is words on the card, not a shape on the canvas.
+    if (add.kind === 'change_note') continue
     ops.push(add.kind === 'factor_add'
       ? { op: 'add_node', id: add.node_id, label: add.label, kind: 'factor', value: add.value, source: add.source }
       : { op: 'add_edge', fromId: add.from_id, toId: add.to_id, band: null, direction: add.direction, source: add.source })
