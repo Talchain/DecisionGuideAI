@@ -216,6 +216,8 @@ export type ScenarioGraphResult =
       optionParticipation?: unknown
       /** The identities the Run's engine evaluated (`analysis_identity_evaluated_node_ids`), raw; read by `identityExactLinks`. */
       identityEvaluated?: unknown
+      /** What the Run implies for the quantity nearest an aim with no target (`analysis_implied_quantity`, CEE #3660), raw. */
+      impliedQuantity?: unknown
       /**
        * SC-24: the displayed Run's comparison with the Run before it (`run_delta`), raw — the SAME producer block the
        * turn that ran it carried, served on the cold read so a reload shows the same pair. Parsed downstream by the
@@ -512,6 +514,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     goalCertainty: b.analysis_goal_certainty ?? null,
     optionParticipation: b.analysis_option_participation ?? null,
     identityEvaluated: b.analysis_identity_evaluated_node_ids ?? null,
+    impliedQuantity: b.analysis_implied_quantity ?? null,
     switchAnalysisReady: b.current_read && typeof b.current_read === 'object' ? (b.current_read as Record<string, unknown>).analysis_ready : null,
     runDelta: readCurrentReadRunDelta(b.current_read),
     delivered: readCurrentReadDelivered(b.current_read),

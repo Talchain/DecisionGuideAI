@@ -96,6 +96,7 @@ import { readLimitVerdicts, type LimitVerdictsWrite } from '../state/storedLimit
 import { readGoalCertainty } from '../state/storedGoalCertainty'
 import { readOptionParticipation } from '../state/storedOptionParticipation'
 import { recordIdentityEvaluated } from '../domain/identityExactLinks'
+import { recordImpliedQuantity } from '../state/storedImpliedQuantity'
 
 /**
  * Which producer fact withdrew the leading-option designation.
@@ -396,6 +397,8 @@ export interface ApplyScenarioAnalysisReadInput {
   readonly optionParticipation?: unknown
   /** The read's `analysis_identity_evaluated_node_ids`, raw: the identities this Run evaluated (`identityExactLinks`). */
   readonly identityEvaluated?: unknown
+  /** The read's `analysis_implied_quantity`, raw (CEE #3660): what the Run implies when the aim has no target. */
+  readonly impliedQuantity?: unknown
   /** The read's `analysis_limit_verdicts`, raw; parsed by the SAME reader the turn leg uses. */
   readonly limitVerdicts?: unknown
   /** The read's `run_delta`, raw (SC-24); parsed by the contract, as the turn leg's parser does. */
@@ -551,6 +554,7 @@ export function applyScenarioAnalysisRead(
     const hash = report.model_card.response_hash
     // Before the dedupe below: a re-read of the Run already shown is exactly the read that brings this set.
     recordIdentityEvaluated(hash, input.identityEvaluated)
+    recordImpliedQuantity(hash, input.impliedQuantity)
     // The SAME hash dedupe the turn applier uses: a re-read of an analysis we
     // already display must not re-write the slice (it would restart animations
     // and re-seed the Compare capture). `alreadyHeld` still SETTLES the caller —
