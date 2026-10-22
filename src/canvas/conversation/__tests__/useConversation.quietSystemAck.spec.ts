@@ -8,7 +8,7 @@
  * generate a response", so the edit's saved state never reached the canvas and the user was told it had failed.
  *
  * Driven through the REAL seam: stubbed global `fetch` → real `callV5Turn` → real `parseV5Response` → real
- * `routeV5Response` → `useConversation`'s V5 branch, on the core lane (`#/canvas?ai=core`).
+ * `routeV5Response` → `useConversation`'s V5 branch, on the legacy core lane (`#/canvas?ai=openai`; `?ai=core` is the core route since 22 Oct).
  *
  * Every assertion binds by identity: the exact hash string, the parsed verdict, the node id's committed label, the
  * exact failure sentence, and the `reportTurnFailure` kind.
@@ -224,7 +224,7 @@ function expectNothingApplied() {
 }
 
 beforeEach(() => {
-  window.history.replaceState(null, '', '/#/canvas?ai=core')
+  window.history.replaceState(null, '', '/#/canvas?ai=openai')
   seedCanvas()
 })
 
@@ -250,7 +250,7 @@ describe('preconditions', () => {
     await runSystemEvent()
     expect(fetchStub).toHaveBeenCalledTimes(1)
     const [, init] = fetchStub.mock.calls[0] as unknown as [string, RequestInit]
-    expect(new Headers(init.headers).get('x-olumi-ai-mode')).toBe('core')
+    expect(new Headers(init.headers).get('x-olumi-ai-mode')).toBe('openai')
     const sent = JSON.parse(String(init.body)) as { kind?: string; event?: { kind?: string; target_id?: string } }
     expect(sent.kind).toBe('system_event')
     expect(sent.event).toMatchObject({ kind: 'factor_value_edit', target_id: FACTOR_ID })

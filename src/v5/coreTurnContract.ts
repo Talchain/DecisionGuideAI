@@ -52,6 +52,10 @@ export function parseCoreTurn(raw: unknown): CoreTurn | null {
   return parsed.success ? parsed.data : null
 }
 
+/** CEE's typed refusal of a scenario saved before the living model (409 `legacy_scenario`): the one line the person sees. */
+export const LEGACY_SCENARIO_COPY =
+  'This scenario was built with an earlier version of Olumi. Start a new scenario to continue; this one stays here to read.'
+
 /** A failed core turn, in the envelope today's failure path reads (`error`, `detail`, `retry_safe`, `nothing_saved`). */
 export function coreTurnErrorBody(error: NonNullable<CoreTurn['error']>): Record<string, unknown> {
   return { error: error.code, detail: error.message, retry_safe: error.retry_safe, nothing_saved: error.nothing_saved }

@@ -7,7 +7,7 @@ vi.mock('../../../../adapters/cee/scenarioGraph', () => ({
   fetchScenarioGraph: vi.fn((scenarioId: string) => new Promise((resolve) => pending.set(scenarioId, resolve))),
 }))
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: vi.fn(async () => ({ userId: null, accessToken: null })) }))
-vi.mock('../../../../v5/aiComparisonMode', async (actual) => ({ ...(await actual<object>()), resolveAiComparisonMode: () => 'core' }))
+vi.mock('../../../../v5/aiComparisonMode', async (actual) => ({ ...(await actual<object>()), resolveAiComparisonMode: () => 'core-route' }))
 vi.mock('../../../hydrate/bootGraphRead', () => ({ isCeeAddressableScenarioId: (id: unknown) => typeof id === 'string' }))
 
 import { useOtherAims } from '../GoalOtherAims'

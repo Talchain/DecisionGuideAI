@@ -172,13 +172,13 @@ describe('scenarioGraph — base resolution (⚠ hazard: VITE_CEE_BFF_BASE point
     expect(init.headers['Content-Type']).toBe('application/json')
   })
 
-  it('DL-3 20 Oct: sends the engine this session runs (`#/canvas?ai=core`), as its turns do, so CEE reads the reopen in that lane', async () => {
+  it('DL-3 20 Oct: sends the engine this session runs (`#/canvas?ai=core`, now the core route), as its turns do, so CEE reads the reopen in that lane', async () => {
     fetchSpy.mockResolvedValue(jsonResponse(200, okBody()))
     const before = window.location.hash
     window.location.hash = '#/canvas?ai=core.'
     try {
       await fetchScenarioGraph(SCENARIO_ID)
-      expect(fetchSpy.mock.calls[0][1].headers['x-olumi-ai-mode']).toBe('core')
+      expect(fetchSpy.mock.calls[0][1].headers['x-olumi-ai-mode']).toBe('core-route')
     } finally {
       window.location.hash = before
     }

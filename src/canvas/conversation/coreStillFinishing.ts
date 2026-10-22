@@ -8,9 +8,15 @@
  * the turn twice (`agent-v1-turn.ts:2930-3042`).
  */
 
-/** The stream-budget timeout CEE sends on a turn it is still running. Body-keyed, never inferred from the status alone. */
+/**
+ * The stream-budget timeout CEE sends on a turn it is still running. Body-keyed, never inferred from the status alone:
+ * the legacy lane's `504 { code: 'UPSTREAM_TIMEOUT' }`, or the core route's contract error `TURN_STILL_RUNNING` (R2, as
+ * `coreTurnErrorBody` hands it on: `{ error: code }`).
+ */
 export function isCoreStreamBudgetTimeout(httpStatus: number | undefined, body: unknown): boolean {
-  return httpStatus === 504 && typeof body === 'object' && body !== null && (body as { code?: unknown }).code === 'UPSTREAM_TIMEOUT'
+  if (typeof body !== 'object' || body === null) return false
+  return (body as { error?: unknown }).error === 'TURN_STILL_RUNNING'
+    || (httpStatus === 504 && (body as { code?: unknown }).code === 'UPSTREAM_TIMEOUT')
 }
 
 /** How long to let the running turn get ahead before asking for its answer again. */

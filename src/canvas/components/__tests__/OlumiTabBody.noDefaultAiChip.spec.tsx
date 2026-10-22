@@ -32,18 +32,18 @@ describe('the Olumi tab names the engine serving this staging session', () => {
   })
 
   it('at the staging host with no ?ai, the panel names the default engine', () => {
-    // Precondition: this really is the staging default, OpenAI (not an unconfigured host).
+    // Precondition: this really is the staging default, the core route (DL 22 Oct), not an unconfigured host.
     expect(window.location.hostname).toBe('staging--olumi.netlify.app')
-    expect(resolveAiComparisonMode()).toBe('openai')
+    expect(resolveAiComparisonMode()).toBe('core-route')
     render(<ConversationProvider><OlumiTabBody /></ConversationProvider>)
-    expect(screen.getByTestId('olumi-ai-comparison-mode').textContent).toBe('AI: OpenAI')
+    expect(screen.getByTestId('olumi-ai-comparison-mode').textContent).toBe('AI: OpenAI core route')
   })
 
   it('the badge names the serving engine on staging; production names only an explicit mode', () => {
     const staging = 'https://staging--olumi.netlify.app/#/canvas'
-    expect(aiComparisonBadge(staging)).toBe('OpenAI')
+    expect(aiComparisonBadge(staging)).toBe('OpenAI core route')
     expect(aiComparisonBadge(`${staging}?ai=openai`)).toBe('OpenAI')
-    expect(aiComparisonBadge(`${staging}?ai=core.`)).toBe('OpenAI core')
+    expect(aiComparisonBadge(`${staging}?ai=core.`)).toBe('OpenAI core route')
     expect(aiComparisonBadge(`${staging}?ai=conventional`)).toBe('Conventional')
     expect(aiComparisonBadge('https://6ab7ebeab5d4da00088e9437--olumi.netlify.app/?ai=conventional#/canvas')).toBe('Conventional')
     // Production has no default engine label: an explicit mode there is non-default, so it is named.
@@ -52,6 +52,6 @@ describe('the Olumi tab names the engine serving this staging session', () => {
   })
 
   it('CONTRAST: the label itself is unchanged (headers and diagnostics still read it)', () => {
-    expect(aiComparisonLabel('https://staging--olumi.netlify.app/#/canvas')).toBe('OpenAI')
+    expect(aiComparisonLabel('https://staging--olumi.netlify.app/#/canvas')).toBe('OpenAI core route')
   })
 })

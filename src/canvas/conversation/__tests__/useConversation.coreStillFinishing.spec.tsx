@@ -176,7 +176,7 @@ afterEach(() => {
 afterEach(() => { window.history.replaceState(null, '', '/') })
 
 describe('core: a 504 UPSTREAM_TIMEOUT stream end is an UNKNOWN outcome, not a failure', () => {
-  async function runCore(payload: unknown, mode = 'core') {
+  async function runCore(payload: unknown, mode = 'openai') {
     window.history.replaceState(null, '', `/#/canvas?ai=${mode}`)
     vi.useFakeTimers({ shouldAdvanceTime: true })
     mockRecover.mockResolvedValue('recovered')
@@ -276,7 +276,7 @@ describe('core: a 504 UPSTREAM_TIMEOUT stream end is an UNKNOWN outcome, not a f
   })
 
   it('a retyped delivery-unknown core message, once answered, leaves NO bubble keyed for a second copy of the reply', async () => {
-    window.history.replaceState(null, '', '/#/canvas?ai=core')
+    window.history.replaceState(null, '', '/#/canvas?ai=openai')
     // A model is already on the canvas, so these are buffered turns.
     useCanvasStore.setState({ nodes: [{ id: 'n1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Team size' } }] as never })
     mockCallV5Turn
@@ -292,7 +292,7 @@ describe('core: a 504 UPSTREAM_TIMEOUT stream end is an UNKNOWN outcome, not a f
   })
 
   it('a timeout BEFORE the model reached the canvas re-sends exactly once, buffered — never a second stream', async () => {
-    window.history.replaceState(null, '', '/#/canvas?ai=core')
+    window.history.replaceState(null, '', '/#/canvas?ai=openai')
     vi.useFakeTimers({ shouldAdvanceTime: true })
     mockRecover.mockResolvedValue('notRecovered')
     mockCallV5Turn.mockResolvedValue({ kind: 'parse_error', reason: 'http_409', http_status: 409, raw: { error: 'TURN_OUTCOME_UNKNOWN' } })

@@ -1,7 +1,7 @@
 /**
  * #2875, end to end through the hook — a core canvas edit's quiet ACK, then the automatic Run.
  *
- * Driven through the REAL seam on the core lane (`#/canvas?ai=core`): stubbed global `fetch` → real `callV5Turn` →
+ * Driven through the REAL seam on the legacy core lane (`#/canvas?ai=openai`; `?ai=core` is the core route since 22 Oct): stubbed global `fetch` → real `callV5Turn` →
  * real `parseV5Response` → real `routeV5Response` → `useConversation`'s V5 branch → `applyV5State` → the
  * applied-receipt reconcile (`reconcileAppliedGraph`). Nothing in the conversation module is mocked.
  *
@@ -204,7 +204,7 @@ const factorValue = (id: string) =>
     | undefined)?.value
 
 beforeEach(() => {
-  window.history.replaceState(null, '', '/#/canvas?ai=core')
+  window.history.replaceState(null, '', '/#/canvas?ai=openai')
   seedCanvas()
 })
 
