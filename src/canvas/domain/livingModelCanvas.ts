@@ -11,9 +11,10 @@
  *  · a factor, outcome or risk the engine graph leaves out is drawn too, in its row (`placeAddedNodes`, the rule a node
  *    the AI added to a laid-out board already follows), with one line: "Not in the calculation yet";
  *  · a signed link between two drawn items that the engine graph lacks is drawn as a link.
- * ⛔ Display only. Nothing here enters the store, a save, a turn, a Run or a count: an item drawn this way cannot be
- * selected, dragged, connected or deleted. Aims stay on the goal card (`otherAims.ts`); options all reach the engine.
- * ⛔ An unsigned link is not drawn: a link line always shows a direction, and the person's model gives none.
+ * ⛔ Display only. Nothing here enters the store, a save, a turn, a Run or a count: an item drawn this way takes no
+ * pointer input and cannot be selected, dragged, connected or deleted. Aims stay on the goal card (`otherAims.ts`).
+ * ⛔ An unsigned link is not drawn as a link (a link line always shows a direction, and the person's model gives none):
+ * `DirectionNeededLayer` already draws it, "Direction needed · <whose>", once both its ends are drawn.
  */
 import type { Edge, Node } from '@xyflow/react'
 
@@ -51,7 +52,8 @@ export function notInCalculationWords(item: LivingOnly): string {
   return item.reason === null ? NOT_IN_CALCULATION_COPY : `${NOT_IN_CALCULATION_COPY}: ${item.reason}`
 }
 
-const INERT = { selectable: false, draggable: false, connectable: false, deletable: false, focusable: false } as const
+/** Display only: no selection, drag, link, delete or pointer route (an inline control would edit an item the engine lacks). */
+const INERT = { selectable: false, draggable: false, connectable: false, deletable: false, focusable: false, style: { pointerEvents: 'none' as const } }
 
 /**
  * A risk's chance, as the engine block the risk card already reads (`domain/eventRisk.ts`), only where whose it is cannot
@@ -109,7 +111,8 @@ export function drawLivingModel(nodes: Node[], edges: Edge[], graph: unknown): {
     if (!onCanvas.has(from) || !onCanvas.has(to) || pairs.has(edgePairKey(from, to)) || edgeIds.has(id)) continue
     pairs.add(edgePairKey(from, to))
     const edge = mapDraftEdgeToCanvas({ id, from, to, effect_direction: sign === '+' ? 'positive' : 'negative' }, addedEdges.length)
-    addedEdges.push({ ...edge, selectable: false, focusable: false, deletable: false, data: { ...edge.data, [LIVING_ONLY_KEY]: { reason: null } } })
+    addedEdges.push({ ...edge, selectable: false, focusable: false, deletable: false, interactionWidth: 0,
+      data: { ...edge.data, [LIVING_ONLY_KEY]: { reason: null } } })
   }
 
   if (placed.length === 0 && addedEdges.length === 0 && drawnNodes === nodes) return { nodes, edges }

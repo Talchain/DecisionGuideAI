@@ -1767,15 +1767,6 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         openNodeInspector(id)
       }}
     />
-  ) : livingOnly !== null ? (
-    /* The person's model holds it; the calculation does not include it yet. Same slot, so no fourth child; label and
-       title are one string for the reason given below. */
-    <StatusPill
-      testId={NOT_IN_CALCULATION_TEST_ID}
-      label={notInCalculationWords(livingOnly)}
-      title={notInCalculationWords(livingOnly)}
-      wrap
-    />
   ) : isRetainedExcluded ? (
     /* ⭐ A THIRD ARM OF THE SAME TERNARY — NOT A FOURTH CHILD OF THE STACK.
        `BaseNode.cornerStack.spec.tsx` pins this container at three
@@ -2973,7 +2964,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           finding anything and go back to reserving the short height, with every
           unit test still green. The rendered value stays `"true"`, which several
           specs assert. */}
-      {(children || lodBodyLine || showConstraintLines) ? (
+      {(children || lodBodyLine || showConstraintLines || livingOnly !== null) ? (
         <div
           /* ⭐ THE ANCHOR'S LAST ROW KEEPS ITS TEXT CLEAR OF THE RAIL BESIDE IT
              (contract v3.1 ANC-02 / RHY-02: `.node.wide .target-row,
@@ -2990,6 +2981,13 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           {...(anchorBodyBox ? { [NODE_BODY_BOUND_STYLE_ATTR]: JSON.stringify(anchorBodyBox) } : {})}
         >
           {children as ReactNode}
+          {/* The person's model holds this item; the calculation does not include it yet (`livingModelCanvas.ts`). One
+              quiet line, in the words the goal card's list used to carry. */}
+          {livingOnly !== null && (
+            <div data-testid={NOT_IN_CALCULATION_TEST_ID} className={`${typography.edgeLabel} text-text-light mt-1`}>
+              {notInCalculationWords(livingOnly)}
+            </div>
+          )}
           {/* ⭐ THE READER'S OWN LIMIT, ON THE CARD, IN BOTH PHASES.
               A constraint is a boundary the reader chose, so it is true before
               the analysis runs and after it — no phase gate, and no "detailed

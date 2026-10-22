@@ -94,9 +94,9 @@ describe('drawLivingModel', () => {
     expect(drawn.get('staff_hours')!.type).toBe('factor')
   })
 
-  it('⛔ a drawn-only item cannot be selected, dragged, connected or deleted (it is not in the store)', () => {
+  it('⛔ a drawn-only item takes no pointer input and cannot be selected, dragged, connected or deleted (it is not in the store)', () => {
     const drawn = byId(drawLivingModel(engineNodes(), engineEdges(), graph()).nodes)
-    expect(drawn.get('port_strike')).toMatchObject({ selectable: false, draggable: false, connectable: false, deletable: false })
+    expect(drawn.get('port_strike')).toMatchObject({ selectable: false, draggable: false, connectable: false, deletable: false, style: { pointerEvents: 'none' } })
     expect(drawn.get('orders')!.selectable).toBeUndefined()
   })
 
