@@ -6508,7 +6508,7 @@ export function useConversation(): UseConversationReturn {
               .catch(() => 'unknown' as const)
               .then((outcome) => {
                 const notice = readAfterWriteNotice(outcome)
-                if (notice !== null && useCanvasStore.getState().currentScenarioId === scenarioIdAtDispatch) {
+                if (notice !== null && responseBelongsToDispatchingScenario(useCanvasStore.getState().currentScenarioId, scenarioIdAtDispatch)) {
                   addMessage({ id: crypto.randomUUID(), role: 'assistant', synthetic: true, content: notice, timestamp: new Date() })
                 }
               })
