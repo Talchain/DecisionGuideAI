@@ -4,7 +4,20 @@ import type { OptionResult } from '../../../components/results/types'
 import { optionChanceCell, runViewOf, type OptionChanceCell } from '../../runView/runView'
 
 export type CanvasOptionChanceCell = OptionChanceCell &
-  Pick<OptionResult, 'goalFitBaseCaveat' | 'goalFitIsModelledBasis'>
+  Pick<OptionResult, 'goalFitBaseCaveat' | 'goalFitIsModelledBasis'> & {
+    /** CEE's whole face, for the card's tooltip and accessible name when `text` drops the option's own label. */
+    readonly detail?: string
+  }
+
+/**
+ * The card already names its option, and CEE's face opens with that name ("‘Start a loyalty card’: about 39% chance of …"),
+ * so in the card's one truncated line the figure never showed (served 22 Oct). The slot says the face from the figure on:
+ * CEE's own words, less only the leading quoted label; the whole face stays in the tooltip.
+ */
+export function faceWithoutOwnLabel(face: string): string {
+  const rest = face.replace(/^‘[^’]*’: /, '')
+  return rest === '' ? face : rest
+}
 
 // The context's empty value is RunView's no-source cell, resolved once at module load.
 const NONE = optionChanceCell(runViewOf(null), '', { goalChanceHeroSays: false, labelOf: () => null })
@@ -22,7 +35,9 @@ export function OptionChanceCellProvider({ children }: { children: ReactNode }) 
   const view = data.runView ?? null
   const servedCellOf = useMemo(() => (optionId: string): CanvasOptionChanceCell => {
     const cell = view?.servedCellOf(optionId) ?? null
-    if (cell?.kind === 'figure' || cell?.kind === 'range') return { kind: cell.kind, text: cell.face ?? cell.display }
+    if (cell?.kind === 'figure' || cell?.kind === 'range') {
+      return cell.face === undefined ? { kind: cell.kind, text: cell.display } : { kind: cell.kind, text: faceWithoutOwnLabel(cell.face), detail: cell.face }
+    }
     if (cell?.kind === 'withheld' && cell.face !== undefined) {
       return { kind: 'withheld', text: cell.face, ...(cell.why === undefined ? {} : { why: cell.why }) }
     }
