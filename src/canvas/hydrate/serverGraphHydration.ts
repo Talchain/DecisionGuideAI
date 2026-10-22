@@ -590,6 +590,7 @@ async function readAndMergeServerGraph(
         // result for this option" over an option the Run left out on purpose (Panel P2x, #75 5925282823).
         optionParticipation: result.optionParticipation,
         identityEvaluated: result.identityEvaluated,
+        impliedQuantity: result.impliedQuantity,
         // DL #2800 follow-up: the canonical view this READ delivered with the block, so the report carries its Run id.
         canonicalAnalysisView: parseCanonicalAnalysisView(result.canonicalAnalysisView),
         // The currency leg above is this read's ONE verdict writer (see `applyBootBlockedVerdict`: the legs never both

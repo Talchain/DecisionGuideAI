@@ -40,6 +40,7 @@ import { CritiqueWarningStrip } from './CritiqueWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer, KeyQuestionCard } from './analysis-hero'
 import { GoalChanceInvite } from './goal-chance-invite/GoalChanceInvite'
+import { ImpliedQuantity } from './goal-chance-invite/ImpliedQuantity'
 import { WhatIWasGivenSection } from './contextIntegrity/WhatIWasGivenSection'
 import { openDefineSuccess, HowComputedTrigger } from './modals'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '@/canvas/mutations/mutationAuthority'
@@ -545,6 +546,11 @@ export const ResultsBody = memo(function ResultsBody({
                 ? resultsSectionData.goalLabel
                 : null}
             />
+          </SectionErrorBoundary>
+          {/* CEE #3660: with no target there is no chance to show, so what the model implies for the quantity nearest the
+              aim, per option, in CEE's words (`storedImpliedQuantity.ts`). Nothing when CEE withheld it. */}
+          <SectionErrorBoundary section="What the model implies">
+            <ImpliedQuantity />
           </SectionErrorBoundary>
           {/* ── 2.466 (P1): decision-quality KEY QUESTION + DSK grounding ──
               Fed from the LIVE turn state (runMeta.decisionReview030's
