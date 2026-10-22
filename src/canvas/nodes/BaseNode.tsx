@@ -2416,7 +2416,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             ⭐ ITS SLOT NOW HOLDS THE ONE "WORTH REVIEWING" CUE (spec §2), an
             info-tinted ring — never the warning family (ED 02:31Z D1b) — with
             its reasons in a focusable tooltip and as its accessible name. */}
-        {attentionText !== null && <BottomCardMark><NodeAttentionMarker nodeId={id} sentence={attentionText} /></BottomCardMark>}
+        {attentionText !== null && livingOnly === null && <BottomCardMark><NodeAttentionMarker nodeId={id} sentence={attentionText} /></BottomCardMark>}
         <AnsweredMark nodeId={id} />
 
         {/* ⛔ GAP-11 (DESIGN-GAP-AUDIT-20260924.md row 11; Paul v3.1 pt14):
@@ -2435,8 +2435,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         {/* On-canvas coaching marker — renders ONLY when a live guidance item
             names this node (target_object.id). Replaces the permanently-empty
             CEE/ISL NodeBadge (23-Jul audit G3). Click opens the same guidance
-            surface the inspector uses. */}
-        <BottomCardMark><NodeCoachingMarker nodeId={id} /></BottomCardMark>
+            surface the inspector uses. ⛔ Neither marker on a card drawn from the living model alone: each is a button that
+            opens a note or the inspector for a node the store does not hold (`livingModelCanvas.ts`). */}
+        {livingOnly === null && <BottomCardMark><NodeCoachingMarker nodeId={id} /></BottomCardMark>}
       </div>
 
       {/* ⭐ THE TYPE GLYPH SITS ON THE TOP CONNECTOR, NOT IN THE TITLE ROW.

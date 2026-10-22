@@ -10,6 +10,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { ReactFlowProvider, type Node } from '@xyflow/react'
 
+/** An attention cue on every card while set (the cue's own producer is the analysis; this is its hook's answer). */
+let attentionOnEveryCard = false
+vi.mock('../shared/useNodeAttention', () => ({
+  useNodeAttention: vi.fn(() => attentionOnEveryCard
+    ? { reasons: [{ kind: 'top_driver', order: 1, label: 'Driver 1 of 3 ranked in this run.' }], marked: true, markedCount: 1, candidateCount: 1 }
+    : { reasons: [], marked: false, markedCount: 0, candidateCount: 0 }),
+}))
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => ({
     sensitivityRank: null, influence: null, confidence: null,
@@ -18,6 +25,8 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { useGuidanceStore } from '../../stores/guidanceStore'
+import { ATTENTION_MARKER_TESTID_PREFIX } from '../shared/NodeAttentionMarker'
 import { FactorNode } from '../FactorNode'
 import { OutcomeNode } from '../OutcomeNode'
 import { RiskNode } from '../RiskNode'
@@ -57,7 +66,18 @@ function renderCard(node: Pick<Node, 'id' | 'type' | 'data'>, storeNodes: Node[]
   return screen.getByTestId('node-title').closest('[role="group"]')!.parentElement!
 }
 
-afterEach(() => { cleanup(); useCanvasStore.setState({ nodes: [], edges: [] } as never) })
+afterEach(() => {
+  cleanup()
+  useCanvasStore.setState({ nodes: [], edges: [] } as never)
+  useGuidanceStore.getState().clearGuidanceItems()
+  attentionOnEveryCard = false
+})
+
+/** A live guidance item naming `id` (CEE's guidance targets the living model's ids). */
+const guidanceFor = (id: string) => ({
+  item_id: `item-${id}`, category: 'should_fix', source: 'structural', title: 'Review this item', priority: 50,
+  primary_action: { type: 'discuss', prompt: 'Let us discuss.' }, target_object: { type: 'node', id },
+})
 
 /** Every view a card has (Standard and Detailed, before and after a Run), hovered so its hover card opens too. */
 const MATRIX = ['staff_hours', 'stock_level', 'supplier_fails'].flatMap((id) =>
@@ -93,6 +113,28 @@ describe('a drawn-only card', () => {
     expect(card.querySelector(`[data-testid="${NOT_IN_CALCULATION_TEST_ID}"]`)).toBeNull()
     expect(card.querySelectorAll(CONTROLS).length).toBeGreaterThan(0)
     expect(card.querySelectorAll('.react-flow__handle.connectable').length).toBe(2)
+  })
+})
+
+describe('a live guidance item or an attention cue naming a drawn-only card', () => {
+  it.each(['staff_hours', 'stock_level', 'supplier_fails'])('⛔ %s: neither marker mounts, so the card holds no control', (id) => {
+    useGuidanceStore.setState({ guidanceItems: [guidanceFor(id)] } as never)
+    attentionOnEveryCard = true
+    const card = renderCard(drawn.find((n) => n.id === id)!, [])
+    expect(screen.queryByTestId(`node-coaching-marker-${id}`)).toBeNull()
+    expect(screen.queryByTestId(`${ATTENTION_MARKER_TESTID_PREFIX}${id}`)).toBeNull()
+    expect([...card.querySelectorAll(CONTROLS)].map((el) => el.outerHTML.slice(0, 120))).toEqual([])
+  })
+
+  it.each(['staff_hours', 'stock_level', 'supplier_fails'])('CONTRAST %s: on the same card held in the store, both markers mount', (id) => {
+    useGuidanceStore.setState({ guidanceItems: [guidanceFor(id)] } as never)
+    attentionOnEveryCard = true
+    const { data, type } = drawn.find((n) => n.id === id)!
+    const { livingOnly: _drawnOnly, ...engineData } = data as Record<string, unknown>
+    const node = { id, type, position: { x: 0, y: 0 }, data: engineData } as Node
+    renderCard(node, [node])
+    expect(screen.getByTestId(`node-coaching-marker-${id}`)).toBeTruthy()
+    expect(screen.getByTestId(`${ATTENTION_MARKER_TESTID_PREFIX}${id}`)).toBeTruthy()
   })
 })
 
