@@ -7,7 +7,7 @@ import { useCanonicalAnalysisViewStore } from '../../../../canvas/stores/canonic
 import { parseCanonicalAnalysisView } from '../../../../canvas/runView/canonicalAnalysisView'
 import { buildRunView } from '../../../../canvas/runView/runView'
 import { OptionNode } from '../../../../canvas/nodes/OptionNode'
-import { OptionChanceCellProvider } from '../../../../canvas/nodes/shared/OptionChanceCellProvider'
+import { OptionChanceCellProvider, faceWithoutOwnLabel } from '../../../../canvas/nodes/shared/OptionChanceCellProvider'
 import { useResultsSectionData } from '../../useResultsSectionData'
 import { buildHeroModel } from '../buildHeroModel'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
@@ -74,7 +74,12 @@ describe('WS5 PR-C server faces', () => {
         : cell?.kind === 'withheld' ? cell.face ?? null : null
       const readout = screen.queryByTestId(`option-win-readout-${node.id}`)
       if (face === null) expect(readout).toBeNull()
-      else expect(readout?.textContent).toBe(face)
+      else {
+        // #2931 (DL 22 Oct): the card is already named, so its line drops the face's own ‘label’: prefix; the full face
+        // stays in the readout's description.
+        expect(readout?.textContent).toBe(faceWithoutOwnLabel(face))
+        expect(readout?.closest('[aria-label]')?.getAttribute('aria-label')).toContain(face)
+      }
       expect(card.queryByRole('button', { name: 'Why?' })).toBeNull()
       if (typeof option.cell.why === 'string') expect(card.container.textContent).not.toContain(option.cell.why)
       card.unmount()
@@ -92,7 +97,9 @@ describe('WS5 PR-C server faces', () => {
       render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
         selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
       </OptionChanceCellProvider></ReactFlowProvider>)
-      expect(screen.getByTestId(`option-win-readout-${node.id}`).textContent).toBe(face)
+      const readout = screen.getByTestId(`option-win-readout-${node.id}`)
+      expect(readout.textContent).toBe('about 69% chance of meeting your goal, in this model.')
+      expect(readout.closest('[aria-label]')?.getAttribute('aria-label')).toContain(face)
     } else expect(mountHero(data)(option.option_id)).toHaveTextContent(face)
     expect(data.runView!.chanceCellOf(option.option_id, ctx).text).toBe(face)
   })

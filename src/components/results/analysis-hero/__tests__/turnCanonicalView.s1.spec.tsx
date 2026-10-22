@@ -16,7 +16,7 @@ import { useResultsSectionData } from '../../useResultsSectionData'
 import { buildHeroModel } from '../buildHeroModel'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { OptionNode } from '../../../../canvas/nodes/OptionNode'
-import { OptionChanceCellProvider } from '../../../../canvas/nodes/shared/OptionChanceCellProvider'
+import { OptionChanceCellProvider, faceWithoutOwnLabel } from '../../../../canvas/nodes/shared/OptionChanceCellProvider'
 
 vi.mock('@xyflow/react', async () => ({ ...await vi.importActual<Record<string, unknown>>('@xyflow/react'), Handle: () => null }))
 afterEach(() => {
@@ -60,7 +60,10 @@ it('T1: parsed Run TURN adopts its view and the mounted hero and (post-C item 1)
     const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
       selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
     </OptionChanceCellProvider></ReactFlowProvider>)
-    expect(screen.getByTestId(`option-win-readout-${node.id}`).textContent).toBe(text)
+    // #2931 (DL 22 Oct): the named card drops the face's own ‘label’: prefix; the full face stays in its description.
+    const readout = screen.getByTestId(`option-win-readout-${node.id}`)
+    expect(readout.textContent).toBe(faceWithoutOwnLabel(text))
+    expect(readout.closest('[aria-label]')?.getAttribute('aria-label')).toContain(text)
     card.unmount()
   }
 })
