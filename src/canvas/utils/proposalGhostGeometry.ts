@@ -172,6 +172,27 @@ export function clampGhostActionsX(x: number, rowWidth: number, visibleRight: nu
   return visibleRight === null || !(rowWidth > 0) || x + rowWidth <= visibleRight ? x : visibleRight - rowWidth
 }
 
+/**
+ * Where the ghost's action row sits: just under the first thing the ghost draws, unless the row would cover a card on the
+ * canvas; then just above it (Paul's pre-flight, 22 Oct: under a figure's mark the row covered the factor cards' titles).
+ * Each spot is first pulled clear of the dock. When neither is free, or the row is not measured yet: the spot under.
+ */
+export function ghostActionsPosition(
+  anchor: { readonly x: number; readonly top: number; readonly bottom: number },
+  row: { readonly w: number; readonly h: number },
+  nodes: readonly GhostNodeInput[],
+  visibleRight: number | null,
+): { x: number; y: number } {
+  const x = clampGhostActionsX(anchor.x, row.w, visibleRight)
+  const under = { x, y: anchor.bottom + 8 }
+  if (!(row.w > 0 && row.h > 0)) return under
+  const cards = nodes.map(rectOf)
+  const free = (y: number) => !cards.some((c) => x < c.x + c.w && x + row.w > c.x && y < c.y + c.h && y + row.h > c.y)
+  if (free(under.y)) return under
+  const above = anchor.top - 8 - row.h
+  return free(above) ? { x, y: above } : under
+}
+
 export function proposalGhostGeometry(
   preview: ProposalPreview,
   nodes: readonly GhostNodeInput[],

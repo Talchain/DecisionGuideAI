@@ -23,7 +23,7 @@ vi.mock('@xyflow/react', async () => {
 })
 
 import { CANVAS_BAND_WORD, ghostBandText, ghostStatusText, ProposalGhostLayer, PROPOSAL_GHOST_TESTID, otherChangesText, REVIEW_ON_THE_CARD } from '../ProposalGhostLayer'
-import { GHOST_CARD_WIDTH, GHOST_GAP_X, GHOST_CARD_HEIGHT, GHOST_GAP_Y, clampGhostActionsX, proposalGhostGeometry } from '../../utils/proposalGhostGeometry'
+import { GHOST_CARD_WIDTH, GHOST_GAP_X, GHOST_CARD_HEIGHT, GHOST_GAP_Y, clampGhostActionsX, ghostActionsPosition, proposalGhostGeometry } from '../../utils/proposalGhostGeometry'
 import { useProposalGhostStore } from '../../stores/proposalGhostStore'
 import { consentChipsFor, readProposalPreviewValue, type ProposalPreview } from '../../conversation/proposalPreview'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -53,6 +53,22 @@ describe('the ghost\'s action row never runs under the panel on the canvas\'s ri
     expect(clampGhostActionsX(700, 260, 1068)).toBe(700)
     expect(clampGhostActionsX(900, 260, null)).toBe(900)
     expect(clampGhostActionsX(900, 0, 1068), 'not measured yet → unchanged').toBe(900)
+  })
+
+  it('⭐ Paul\'s pre-flight (22 Oct): a row that would cover a card goes just above its anchor; a free spot under stays put', () => {
+    // Served shape: a figure's mark sits just above two factor cards; the row under it covered both titles.
+    const f2 = { id: 'f2', position: { x: 160, y: 510 }, measured: { width: 350, height: 100 } }
+    const f3 = { id: 'f3', position: { x: 553, y: 510 }, measured: { width: 350, height: 100 } }
+    const mark = { x: 345, top: 482, bottom: 500 }
+    expect(ghostActionsPosition(mark, { w: 290, h: 26 }, [f2, f3], null)).toEqual({ x: 345, y: 482 - 8 - 26 })
+    // CONTRAST: nothing under the anchor → exactly today's spot (under, +8).
+    expect(ghostActionsPosition(mark, { w: 290, h: 26 }, [], null)).toEqual({ x: 345, y: 508 })
+    // Not measured yet → today's spot; both spots covered → today's spot.
+    expect(ghostActionsPosition(mark, { w: 0, h: 0 }, [f2, f3], null)).toEqual({ x: 345, y: 508 })
+    const roof = { id: 'roof', position: { x: 160, y: 400 }, measured: { width: 800, height: 80 } }
+    expect(ghostActionsPosition(mark, { w: 290, h: 26 }, [f2, f3, roof], null)).toEqual({ x: 345, y: 508 })
+    // The dock clamp still applies first.
+    expect(ghostActionsPosition({ x: 900, top: 100, bottom: 200 }, { w: 260, h: 26 }, [], 1068)).toEqual({ x: 808, y: 208 })
   })
 })
 

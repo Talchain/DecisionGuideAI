@@ -23,7 +23,7 @@ import { useProposalGhostStore } from '../stores/proposalGhostStore'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { action, ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 import type { ActionChip } from '../conversation/types'
-import { GHOST_CARD_HEIGHT, clampGhostActionsX, proposalGhostGeometry, type GhostMeasures } from '../utils/proposalGhostGeometry'
+import { GHOST_CARD_HEIGHT, ghostActionsPosition, proposalGhostGeometry, type GhostMeasures } from '../utils/proposalGhostGeometry'
 import { DOCK_SELECTOR } from '../utils/computeFitPadding'
 import { OPTION_TAKEN_OUT_COPY } from '../domain/optionStatus'
 import type { PreviewBand, PreviewOptionStatus } from '../conversation/proposalPreview'
@@ -52,8 +52,8 @@ function reviewOnTheCard(proposalId: string) {
   requestAnimationFrame(() => document.querySelector(`[data-testid="proposal-change-notes-${proposalId}"]`)?.scrollIntoView({ block: 'center' }))
 }
 
-function GhostActions({ approve, decline, at, proposalId, otherChanges }: {
-  approve: ActionChip; decline: ActionChip | null; at: { x: number; y: number }; proposalId: string; otherChanges?: number
+function GhostActions({ approve, decline, anchor, proposalId, otherChanges }: {
+  approve: ActionChip; decline: ActionChip | null; anchor: { x: number; top: number; bottom: number }; proposalId: string; otherChanges?: number
 }) {
   const send = useGuidanceStore((s) => s._sendChip)
   const [pressed, setPressed] = useState(false)
@@ -61,12 +61,17 @@ function GhostActions({ approve, decline, at, proposalId, otherChanges }: {
   useStore((s) => s.transform)
   const { screenToFlowPosition } = useReactFlow()
   const rowRef = useRef<HTMLDivElement>(null)
-  const [rowWidth, setRowWidth] = useState(0)
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal width bails out
-  useLayoutEffect(() => { const w = rowRef.current?.offsetWidth ?? 0; if (w !== rowWidth) setRowWidth(w) })
+  const [row, setRow] = useState({ w: 0, h: 0 })
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal size bails out
+  useLayoutEffect(() => {
+    const w = rowRef.current?.offsetWidth ?? 0; const h = rowRef.current?.offsetHeight ?? 0
+    if (w !== row.w || h !== row.h) setRow({ w, h })
+  })
+  // Never over a card on the canvas either (Paul's pre-flight 22 Oct): the cards as React Flow has them.
+  const nodes = useNodes()
   const dock = typeof document === 'undefined' ? null : document.querySelector(DOCK_SELECTOR)?.getBoundingClientRect() ?? null
   const visibleRight = dock && dock.width > 0 ? screenToFlowPosition({ x: dock.left - GHOST_ACTIONS_DOCK_GAP, y: dock.top }).x : null
-  const x = clampGhostActionsX(at.x, rowWidth, visibleRight)
+  const { x, y } = ghostActionsPosition(anchor, row, nodes, visibleRight)
   useEffect(() => setPressed(false), [approve, decline])
   const press = (chip: ActionChip) => {
     if (!send || pressed) return
@@ -89,7 +94,7 @@ function GhostActions({ approve, decline, at, proposalId, otherChanges }: {
       ref={rowRef}
       data-testid={PROPOSAL_GHOST_ACTIONS_TESTID}
       className="nodrag nopan absolute flex items-center"
-      style={{ left: x, top: at.y, gap: 6, pointerEvents: 'auto' }}
+      style={{ left: x, top: y, gap: 6, pointerEvents: 'auto' }}
     >
       {/* ⛔ CONSENT (DL 22 Oct): a card that also changes things the canvas cannot draw is approved only on the card. */}
       {otherChanges === undefined ? button(approve, 'primary') : <>
@@ -217,9 +222,12 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
   // The buttons sit just under the first thing the ghost draws: its first new card, else its first mark.
   const firstCard = geo.cards[0]
   const firstMark = [...geo.bands, ...geo.statuses, ...geo.values][0]
-  const actionsAt = firstCard !== undefined
-    ? { x: firstCard.x, y: firstCard.y + (measures.heights?.get(firstCard.id) ?? GHOST_CARD_HEIGHT) + 8 }
-    : firstMark !== undefined ? { x: firstMark.x, y: firstMark.y + 16 } : null
+  // What the row sits under (and, when that spot covers a card, above): its top and bottom edges in flow units.
+  const actionsAnchor = firstCard !== undefined
+    ? { x: firstCard.x, top: firstCard.y, bottom: firstCard.y + (measures.heights?.get(firstCard.id) ?? GHOST_CARD_HEIGHT) }
+    : firstMark !== undefined
+      ? { x: firstMark.x, top: firstMark.y - (measures.markSizes?.get(firstMark.key)?.h ?? 18) / 2, bottom: firstMark.y + 8 }
+      : null
 
   return (
     <ViewportPortal>
@@ -304,8 +312,8 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
           </span>
         ))}
       </div>
-      {chips !== null && ghost !== null && actionsAt !== null && (
-        <GhostActions key={ghost.proposalId} approve={chips.approve} decline={chips.decline} at={actionsAt}
+      {chips !== null && ghost !== null && actionsAnchor !== null && (
+        <GhostActions key={ghost.proposalId} approve={chips.approve} decline={chips.decline} anchor={actionsAnchor}
           proposalId={ghost.proposalId} otherChanges={ghost.otherChanges} />
       )}
     </ViewportPortal>
