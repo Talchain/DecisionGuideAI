@@ -24,6 +24,12 @@ const factorValueFieldSchema = z.object({
   filled_missing: z.boolean(), editable: z.boolean(),
 })
 const fieldSchema = z.discriminatedUnion('kind', [linkStrengthFieldSchema, factorValueFieldSchema])
+/**
+ * The longest change note the card reads. A whole note, never parts: CEE split every note over 400 characters into
+ * "(1/3)…(3/3)" fragments because this reader dropped anything longer (CEE `proposal-object/record.ts` `push`). Reader
+ * first; CEE then sends each note whole.
+ */
+export const CHANGE_NOTE_MAX = 4000
 // A core proposal's NEW factors and signed links (CEE `adds`, 21 Oct): shown on the canvas, never edited.
 const addSource = z.enum(['estimate', 'yours'])
 const addSchema = z.discriminatedUnion('kind', [
@@ -33,10 +39,30 @@ const addSchema = z.discriminatedUnion('kind', [
     to_id: z.string().min(1), from_label: z.string().min(1), to_label: z.string().min(1), direction: z.enum(['positive', 'negative']), source: addSource }),
   // Every other change the approval writes, as CEE's one plain sentence (DL 22 Oct, consent: 12/12 served approvals wrote
   // changes the card never showed). Shown before the approve, never edited.
-  z.object({ field_id: z.string().regex(/^change_note:.+$/), kind: z.literal('change_note'), text: z.string().min(1).max(400),
+  z.object({ field_id: z.string().regex(/^change_note:.+$/), kind: z.literal('change_note'), text: z.string().min(1).max(CHANGE_NOTE_MAX),
     source: z.enum(['estimate', 'yours', 'party', 'unverified']), editable: z.literal(false) }),
 ])
 export type ChangeNote = Extract<z.infer<typeof addSchema>, { kind: 'change_note' }>
+/** The change a note is about (`<kind>:<id>`, plus CEE's own suffix when two changes share a path): a long note's `#k` parts are one. */
+const changeItemOf = (n: Pick<ChangeNote, 'field_id'>): string => n.field_id.replace(/^change_note:/, '').replace(/#\d+$/, '')
+/** The card's own words before the summary (`SuggestedChips`). */
+export const ALSO_CHANGES = 'Also changes'
+const CHANGE_NOUNS: Readonly<Record<string, string>> = { aim: 'aim', option: 'option', factor: 'factor', risk: 'risk', link: 'link', condition: 'condition', view: 'view' }
+/**
+ * The approval card's one summary line (DL 22 Oct: one plain line, the notes behind "Details"), from the notes' own ids:
+ * how many of each kind of item the approval also changes, in CEE's order. "Also changes 1 option, 2 factors and 1 link".
+ */
+export function changeNotesSummary(notes: readonly Pick<ChangeNote, 'field_id'>[]): string {
+  const counts = new Map<string, Set<string>>()
+  for (const n of notes) {
+    const item = changeItemOf(n)
+    const noun = CHANGE_NOUNS[item.split(':')[0] ?? ''] ?? 'other change'
+    counts.set(noun, (counts.get(noun) ?? new Set()).add(item))
+  }
+  const parts = [...counts].map(([noun, items]) => `${items.size} ${noun}${items.size === 1 ? '' : 's'}`)
+  const list = parts.length <= 1 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+  return `${ALSO_CHANGES} ${list}`
+}
 /** The held card's change notes, in CEE's order. */
 export const changeNotesOf = (p: Proposal): ChangeNote[] => p.adds.filter((a): a is ChangeNote => a.kind === 'change_note')
 /**
@@ -45,8 +71,7 @@ export const changeNotesOf = (p: Proposal): ChangeNote[] => p.adds.filter((a): a
  */
 export function otherChangeCountOf(p: Proposal): number {
   const drawn = new Set(p.adds.flatMap((a) => a.kind === 'factor_add' ? [`factor:${a.node_id}`] : a.kind === 'link_add' ? [`link:${a.link_id}`] : []))
-  return new Set(changeNotesOf(p).map((n) => n.field_id.replace(/^change_note:/, '').replace(/#\d+$/, ''))
-    .filter((item) => !drawn.has(item))).size
+  return new Set(changeNotesOf(p).map(changeItemOf).filter((item) => !drawn.has(item))).size
 }
 const proposalSchema = z.object({
   proposal_id: z.string().regex(/^(?:gmh_[0-9a-f]{12}|prop_[0-9a-f]{32})$/),
