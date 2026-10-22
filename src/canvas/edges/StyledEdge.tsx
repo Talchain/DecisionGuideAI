@@ -481,7 +481,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         lensQ25: changes ? (s.lens._sensitivityQuartiles?.q25 ?? null) : null,
         lensQ75: changes ? (s.lens._sensitivityQuartiles?.q75 ?? null) : null,
         isLensFragile: changes && s.lens._fragileEdgeIds.has(id),
-        restsOn: active === 'rests_on' ? (s.lens._restsOn.get(`edge:${id}`) ?? null) : null,
+        restsOn: active === 'rests_on' || active === 'tradeoffs' ? (s.lens._restsOn.get(`edge:${id}`) ?? null) : null,
       }
     }),
   )

@@ -91,7 +91,7 @@ describe('the Trade-offs key card', () => {
     assert.ok(within(view.getByTestId('trade-offs-key-group-gains')).getAllByTestId('trade-offs-key-route').includes(direct()))
     act(() => useCanvasStore.setState({ lastServerGraphHash: 'saved-after-edit' }))
     assert.ok(within(view.getByTestId('trade-offs-key-group-gives_up')).getAllByTestId('trade-offs-key-route').includes(direct()))
-    assert.equal(direct().textContent, 'Pro plan pricefalls→MRRfallsRests on 1 link: 1 with no figure yet')
+    assert.equal(direct().textContent, 'Pro plan pricefalls→MRRfalls1Rests on 1 link: 1 with no figure yet')
     act(() => useCanvasStore.setState({ lastServerGraphHash: 'view', nodes: useCanvasStore.getState().nodes.map((n) => n.id === 'p59'
       ? { ...n, data: { ...n.data, interventions: { pro_plan_price: { value: 0.3 } } } } : n) }))
     assert.equal(useCanvasStore.getState().lens._dimmedNodeIds.has('p54'), true)
@@ -176,6 +176,41 @@ describe('the Trade-offs key card', () => {
     const flag = within(view.getByTestId('trade-offs-key-group-gains')).getByTestId('trade-offs-key-nothing-given-up')
     assert.equal(flag.getAttribute('title'), 'Your model holds nothing this option gives up yet. That usually means a cost or risk is missing, not that there is none.')
     assert.ok(view.getByTestId('trade-offs-key-ask'))
+  })
+
+  it('⭐ each route shows its links as numbered pills, the same number and state the canvas draws on that link; words on hover', () => {
+    function Filter() { useLensFilter(); return null }
+    // The canvas mounts on the whole model; the person then opens the lens.
+    useCanvasStore.getState().setLens('full')
+    const view = render(<><TradeOffsKey /><Filter /></>)
+    act(() => useCanvasStore.getState().setLens('tradeoffs'))
+    const pills = view.getAllByTestId('trade-offs-key-pill').map((p) => ({ n: p.dataset.n, column: p.dataset.column, edge: null as string | null }))
+    assert.ok(pills.length > 0)
+    // Identity: every key pill is the mark the lens put on a route link, number and state alike.
+    const onCanvas = useCanvasStore.getState().lens._restsOn
+    for (const pill of view.getAllByTestId('trade-offs-key-pill')) {
+      const match = [...onCanvas.entries()].find(([, m]) => String(m.n) === pill.dataset.n)
+      assert.ok(match, `pill ${pill.dataset.n} is on a link`)
+      assert.equal(match![1].column, pill.dataset.column)
+      assert.match(match![0], /^edge:/)
+      assert.match(pill.getAttribute('title') ?? '', new RegExp(`^Figure ${pill.dataset.n}: `))
+    }
+    // The counts in words are for hover and screen readers only.
+    const words = within(view.getAllByTestId('trade-offs-key-route')[0]).getByText(/^Rests on \d+ links?/)
+    assert.ok(words.className.includes('sr-only'))
+    // Every mark names a link on the model, and each key pill's number appears once on the canvas.
+    assert.equal([...onCanvas.keys()].every((k) => useCanvasStore.getState().edges.some((e) => `edge:${e.id}` === k)), true)
+    assert.equal(new Set([...onCanvas.values()].map((m) => m.n)).size, onCanvas.size)
+  })
+
+  it('CONTRAST: the "Rests on" lens keeps its own numbering; Trade-offs marks leave with the lens', () => {
+    function Filter() { useLensFilter(); return null }
+    useCanvasStore.getState().setLens('full')
+    render(<Filter />)
+    act(() => useCanvasStore.getState().setLens('tradeoffs'))
+    assert.ok(useCanvasStore.getState().lens._restsOn.size > 0, 'precondition: Trade-offs marks its route links')
+    act(() => useCanvasStore.getState().setLens('full'))
+    assert.equal(useCanvasStore.getState().lens._restsOn.size, 0)
   })
 
   it('CONTRAST: a model with no goal says so and lists nothing', () => {
