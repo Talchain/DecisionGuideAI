@@ -108,7 +108,7 @@ export function inputRowContext(row: RunDeltaInputRow): string | null {
     case 'option_setting':
       return row.optionLabel ?? null
     case 'factor_value':
-      return 'Shared assumption'
+      return 'Applies to every option'
     case 'goal':
       return 'Goal definition'
     case 'constraint':

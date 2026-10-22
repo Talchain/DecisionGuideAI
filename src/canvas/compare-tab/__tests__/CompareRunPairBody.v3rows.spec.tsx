@@ -165,7 +165,7 @@ describe('Compare draws the rows (v3 anatomy)', () => {
     // The DRAWN parts, each on its own element (Codex r1 P2: the hidden sentence must not satisfy these).
     const drawn = (li: HTMLElement) => ['name', 'context', 'values'].map((k) => li.querySelector(`[data-testid="compare-input-row-${k}"]`)?.textContent ?? null)
     expect(drawn(setting)).toEqual(['Pro price', 'Raise to £60', '£59£60'])
-    expect(drawn(factor)).toEqual(['Demand', 'Shared assumption', '120150'])
+    expect(drawn(factor)).toEqual(['Demand', 'Applies to every option', '120150'])
     expect(setting.querySelector('[data-testid="compare-input-row-values"] svg[class*="lucide-arrow-right"]')).not.toBeNull()
     expect(setting.querySelector('.sr-only')?.textContent).toBe('Pro price, Raise to £60: £59 → £60')
     expect(factor.querySelector('.sr-only')?.textContent).toBe('Demand: 120 → 150')
