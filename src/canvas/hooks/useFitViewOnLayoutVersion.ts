@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { useReactFlow, getNodesBounds } from '@xyflow/react'
 import { viewportCentredInFreePane } from '../utils/fitIntoFreePane'
 import { useCanvasStore } from '../store'
@@ -13,6 +13,7 @@ import { LABEL_LEGIBLE_ZOOM, fitBoundsFor } from '../utils/zoomLegibility'
 import { releaseUserCameraClaim, userOwnsCamera, userOwnsCameraFor } from '../utils/userCameraClaim'
 import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 import { currentModelKey } from '../utils/currentModelKey'
+import { drawnOnlyKey, subscribeDrawnOnly } from '../domain/livingKinds'
 
 /** The slice of canvas state the camera's readiness questions are asked of. */
 type CameraReadinessState = Pick<
@@ -526,6 +527,31 @@ export function useFitViewOnLayoutVersion(): void {
     restoreLayoutInProgress,
     restoreScenarioId,
   ])
+
+  // ⭐ THE CARDS DRAWN FROM THE PERSON'S MODEL ALONE (`domain/livingModelCanvas.ts`) arrive with the saved-graph read,
+  // after the landing or restore fit framed the engine's cards: a reopened board left its risks off-screen. Framed once
+  // per set when it first appears, once React Flow has measured them, never over a camera the user has taken.
+  const drawnOnly = useSyncExternalStore(subscribeDrawnOnly, drawnOnlyKey)
+  const framedDrawnOnlyRef = useRef('')
+  useEffect(() => {
+    if (drawnOnly === '' || framedDrawnOnlyRef.current === drawnOnly) return
+    const ids = new Set(drawnOnly.slice(drawnOnly.indexOf('|') + 1).split(','))
+    let raf = 0
+    let frames = 0
+    const tryFit = () => {
+      if (userOwnsCamera()) return
+      const s = useCanvasStore.getState()
+      const ready = cameraHasATarget(s) && !s.pendingLayout && !s.layoutInProgress
+      const measured = (getNodesRef.current?.() ?? []).filter((n) => ids.has(n.id) && n.measured?.width && n.measured?.height).length
+      // About two seconds for a layout to land and the cards to be measured; past that the fit frames what it has.
+      if ((!ready || measured < ids.size) && ++frames < 120) { raf = requestAnimationFrame(tryFit); return }
+      if (!ready) return
+      framedDrawnOnlyRef.current = drawnOnly
+      fitNow.current()
+    }
+    raf = requestAnimationFrame(tryFit)
+    return () => cancelAnimationFrame(raf)
+  }, [drawnOnly])
 
   // Re-fit when the RESERVED BOX changes — including a window resize, which is
   // the half the UX gate measured directly. Gated on the camera having a target

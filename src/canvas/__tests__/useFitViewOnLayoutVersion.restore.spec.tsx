@@ -90,6 +90,9 @@ import { useFitViewOnLayoutVersion } from '../hooks/useFitViewOnLayoutVersion'
 import { LABEL_LEGIBLE_ZOOM, LANDING_BODY_FLOOR_PX, renderedGlyphPx, renderedLabelPx } from '../utils/zoomLegibility'
 import { GHOST_OPTION_NODE_ID } from '../utils/fitTargets'
 import { STACKED_SPREAD_PX, getGraphIdentityKey } from '../utils/graphNeedsInitialLayout'
+import { publishDrawnOnlyKey } from '../domain/livingKinds'
+import { claimCameraForUser, releaseUserCameraClaim } from '../utils/userCameraClaim'
+import { currentModelKey } from '../utils/currentModelKey'
 
 /**
  * The restore payload type, DERIVED from `hydrateGraphSlice` itself rather than
@@ -602,5 +605,73 @@ describe('useFitViewOnLayoutVersion — the restore trigger', () => {
     })
     flushFrames()
     expect(fitViewSpy, 'a fit landed mid-layout — the positions are about to move').not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * ⭐ THE CARDS DRAWN FROM THE PERSON'S MODEL ALONE ARRIVE AFTER THE RESTORE FIT (22 Oct 2026, A/B on a reopened core
+ * board: its risks stood off-screen). They come with the saved-graph read, so the camera frames them once when they
+ * first appear and React Flow has measured them, and never over a camera the user has taken.
+ */
+describe('useFitViewOnLayoutVersion — the cards drawn from the living model alone', () => {
+  let rafSpy: ReturnType<typeof spyOnRaf>
+  beforeEach(() => {
+    useCanvasStore.getState().resetCanvas()
+    useCanvasStore.setState({ layoutVersion: 0, pendingLayout: false, layoutInProgress: false } as never)
+    fitViewSpy.mockReset()
+    currentPadding = FIT_PADDING
+    currentNodes = []
+    releaseUserCameraClaim()
+    publishDrawnOnlyKey('')
+    rafSpy = spyOnRaf()
+  })
+  afterEach(() => {
+    publishDrawnOnlyKey('')
+    releaseUserCameraClaim()
+    rafSpy.restore()
+    vi.restoreAllMocks()
+  })
+  const flushFrames = () => act(() => {
+    for (let i = 0; i < 5 && frames.length > 0; i++) {
+      const due = frames
+      frames = []
+      due.forEach((f) => f.cb())
+    }
+  })
+  const arrive = (ids: string[]) => {
+    currentNodes = [...currentNodes, ...ids.map((id) => ({ id, measured: { width: 248, height: 96 } }))]
+    act(() => { publishDrawnOnlyKey(`scn|${ids.join(',')}`) })
+  }
+
+  it('⭐ frames the restored board again once the drawn-only cards arrive, and only once per set', () => {
+    renderHook(() => useFitViewOnLayoutVersion())
+    act(() => { restore(restoredGraph()) })
+    flushFrames()
+    expect(fitViewSpy, 'PRECONDITION: the restore fit ran').toHaveBeenCalledTimes(1)
+    arrive(['risk_a', 'risk_b'])
+    flushFrames()
+    expect(fitViewSpy).toHaveBeenCalledTimes(2)
+    act(() => { publishDrawnOnlyKey('scn|risk_a,risk_b') })
+    flushFrames()
+    expect(fitViewSpy, 'the same set is framed once').toHaveBeenCalledTimes(2)
+  })
+
+  it('⛔ never over a camera the user has taken', () => {
+    renderHook(() => useFitViewOnLayoutVersion())
+    act(() => { restore(restoredGraph()) })
+    flushFrames()
+    claimCameraForUser(currentModelKey())
+    arrive(['risk_a'])
+    flushFrames()
+    expect(fitViewSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('⛔ CONTRAST: with nothing drawn from the living model alone, the restore fit is the only fit', () => {
+    renderHook(() => useFitViewOnLayoutVersion())
+    act(() => { restore(restoredGraph()) })
+    flushFrames()
+    act(() => { publishDrawnOnlyKey('') })
+    flushFrames()
+    expect(fitViewSpy).toHaveBeenCalledTimes(1)
   })
 })

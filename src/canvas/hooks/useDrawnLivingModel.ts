@@ -6,13 +6,14 @@
  *    outcome moves to the outcome row. Once per scenario and outcome set: a card the person moves afterwards stays put;
  *  · it keeps each drawn-only card's object while nothing about it changed. React Flow rebuilds a card's measurement
  *    from the object it is given (`adoptUserNodes`), and these cards have no store row to carry one, so a fresh object on
- *    every store change (a selection, a measurement) would hide and re-measure them each time.
+ *    every store change (a selection, a measurement) would hide and re-measure them each time;
+ *  · it publishes which cards it draws from the living model alone, so the camera frames them when they first appear.
  */
 import { useEffect, useMemo, useRef } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 
 import { withoutCoreSwitches } from '../domain/coreSwitch'
-import { livingOutcomeIdsOf, publishLivingOutcomeIds } from '../domain/livingKinds'
+import { livingOutcomeIdsOf, publishDrawnOnlyKey, publishLivingOutcomeIds } from '../domain/livingKinds'
 import { drawLivingModel, LIVING_ONLY_KEY } from '../domain/livingModelCanvas'
 import { useSavedGraph } from '../nodes/shared/savedGraph'
 import { useCanvasStore } from '../store'
@@ -65,9 +66,15 @@ export function useDrawnLivingModel(nodes: Node[], edges: Edge[]): { nodes: Node
     useCanvasStore.getState().setPendingLayout(true)
   }, [nodes, outcomeIds, pendingLayout, layoutInProgress, scenarioId])
 
-  return useMemo(() => {
-    const drawn = drawLivingModel(nodes, edges, graph)
-    if (drawn.nodes === nodes && drawn.edges === edges) return drawn
-    return { nodes: stable(drawn.nodes, keptNodes.current), edges: stable(drawn.edges, keptEdges.current) }
+  const drawn = useMemo(() => {
+    const out = drawLivingModel(nodes, edges, graph)
+    if (out.nodes === nodes && out.edges === edges) return out
+    return { nodes: stable(out.nodes, keptNodes.current), edges: stable(out.edges, keptEdges.current) }
   }, [nodes, edges, graph])
+
+  // The camera frames the drawn-only cards when they first appear (`livingKinds.ts`).
+  const drawnOnly = drawn.nodes.filter(isDrawnOnly).map((n) => n.id).sort().join(',')
+  useEffect(() => { publishDrawnOnlyKey(drawnOnly === '' ? '' : `${scenarioId ?? ''}|${drawnOnly}`) }, [scenarioId, drawnOnly])
+
+  return drawn
 }

@@ -35,3 +35,21 @@ export function publishLivingOutcomeIds(scenarioId: string | null, ids: Readonly
 export function livingOutcomeIdsFor(scenarioId: string | null): ReadonlySet<string> {
   return scenarioId !== null && published.scenarioId === scenarioId ? published.ids : NONE
 }
+
+/**
+ * The items drawn from the living model alone, for the scenario on screen (`useDrawnLivingModel`). They arrive with the
+ * saved-graph read, after the landing or restore fit framed the engine's cards, so the camera frames them once more
+ * when they first appear (`useFitViewOnLayoutVersion`). '' while there are none.
+ */
+let drawnOnly = ''
+const drawnOnlyListeners = new Set<() => void>()
+export function publishDrawnOnlyKey(key: string): void {
+  if (key === drawnOnly) return
+  drawnOnly = key
+  for (const listener of drawnOnlyListeners) listener()
+}
+export const drawnOnlyKey = (): string => drawnOnly
+export function subscribeDrawnOnly(listener: () => void): () => void {
+  drawnOnlyListeners.add(listener)
+  return () => { drawnOnlyListeners.delete(listener) }
+}
