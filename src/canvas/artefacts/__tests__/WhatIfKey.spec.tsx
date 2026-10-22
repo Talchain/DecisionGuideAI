@@ -35,7 +35,9 @@ const NODES = [PRICE, STAFF, UNSET, SCALE_ONLY, DERIVED, OPT_A, OPT_B]
 /** The saved living model: its factors, and one goal whose today level is 600 pages per 1,000. */
 const SAVED = { living_model: {
   factors: [{ id: 'fac_price' }, { id: 'fac_staff' }, { id: 'fac_unset' }, { id: 'fac_scale' }],
-  aims: [{ id: 'goal_g', label: 'Accessible pages', target: { value: 850, unit: 'pages per 1,000', current: 600 } }],
+  aims: [{ id: 'goal_g', text: 'Accessible pages', target: { value: 850, unit: 'pages per 1,000', current: 600 } },
+    // An aim the canvas draws no card for still offers its today level, in the aim's own words (CEE LivingAim.text).
+    { id: 'goal_h', text: 'Pages checked', target: { value: 90, unit: '%', current: 70 } }],
 } }
 
 const RAN = {
@@ -69,6 +71,7 @@ describe('the gesture: the saved path\'s own builder and wire adapter (one scale
       { id: 'fac_price', label: 'Price rise', saved: 40, unit: '%' },
       { id: 'fac_staff', label: 'Staff', saved: 12, unit: 'people' },
       { id: 'goal_g', label: 'Accessible pages (today)', saved: 600, unit: 'pages per 1,000', level: true },
+      { id: 'goal_h', label: 'Pages checked (today)', saved: 70, unit: '%', level: true },
     ])
   })
 

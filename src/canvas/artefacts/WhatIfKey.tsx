@@ -75,7 +75,7 @@ export function whatIfFactorChoices(nodes: readonly { id: string; type?: string;
     const target = isRec(a.target) ? a.target : null
     const node = nodes.find((n) => n.id === a.id)
     const unit = target && (typeof target.current_unit === 'string' ? target.current_unit : typeof target.unit === 'string' ? target.unit : '')
-    const label = labelOf(node?.data) || (typeof a.label === 'string' ? a.label : '')
+    const label = labelOf(node?.data) || (typeof a.text === 'string' ? a.text : '')
     if (typeof a.id !== 'string' || target === null || typeof target.current !== 'number' || !unit || label === '') return []
     return [{ id: a.id, label: `${label} (today)`, saved: target.current, unit, level: true }]
   })
