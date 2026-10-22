@@ -352,6 +352,17 @@ export function composeReadinessSummary(readiness: ModelReadiness): string | nul
 }
 
 
+/**
+ * The card's title is the question itself. CEE labels the node "Decision: <question>" (`path-b/living-model/mapper.ts`),
+ * and saved models keep that label, but Olumi is a reasoning partner: the word "Decision" is only for the person's own
+ * act of choosing (CLAUDE.md §3 vocabulary, Paul 22 Oct). The saved label is unchanged.
+ */
+export function questionTitle(label: unknown): string | undefined {
+  if (typeof label !== 'string') return undefined
+  const title = label.replace(/^\s*decision\s*:\s*/i, '').trim()
+  return title.length > 0 && title !== label.trim() ? title : undefined
+}
+
 export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNodeData>) => {
   const edges = useCanvasStore(state => state.edges)
   const nodes = useCanvasStore(state => state.nodes)
@@ -1205,6 +1216,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         icon={Crosshair}
         id={id}
         data={data}
+        titleOverride={questionTitle((data as { label?: unknown } | undefined)?.label)}
         selected={selected}
         coaching={decisionCoaching}
         /* ⛔⛔ NO `railIcons` HERE ANY MORE — DESIGN-GAP-AUDIT row 5(b), 24 Sep

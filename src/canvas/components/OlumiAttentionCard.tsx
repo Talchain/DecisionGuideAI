@@ -38,13 +38,17 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useStore } from '@xyflow/react'
-import { X } from 'lucide-react'
+import { ArrowUp, History, X } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { clearOlumiAttention, nodeLabel } from '../utils/olumiAttention'
 import { openAskOlumi } from '../../components/results/coaching/askOlumiStore'
 import { openNodeInspector } from '../nodes/shared/openNodeInspector'
 import { measureDockInset } from './FloatingOlumiPanel'
 import { typography } from '../../styles/typography'
+import { COACHING_ICON_GLYPH } from '../nodes/shared/NodeCoachingIcon'
+import { askAi } from '../conversation/askAi'
+import { revealOlumiSurface } from '../conversation/revealOlumi'
+import { useIsViewer } from '../../lib/viewerMode'
 
 /** The closed grammar. Every intervention is one of these four moves. */
 const MOVE_LABEL: Record<string, string> = {
@@ -62,7 +66,16 @@ const MOVE_LABEL: Record<string, string> = {
 const CAVEAT_LABEL = 'About this highlight'
 
 /** A note whose producer named no move is labelled as Olumi's, never given a move nobody chose. */
-const NO_MOVE_LABEL = 'Olumi'
+/** Short words the card keeps; the rest is said by the Olumi mark and icons, with the words on hover (Paul, 22 Oct). */
+export const ATTENTION_CARD_COPY = {
+  olumi: 'Olumi',
+  stale: 'The model has changed since Olumi said this.',
+  answer: 'Your answer',
+  send: 'Send your answer to Olumi',
+} as const
+
+/** A note that asks the person something is answered where it is asked. */
+export const isQuestion = (text: string | undefined): boolean => typeof text === 'string' && text.trim().endsWith('?')
 
 const CARD_WIDTH = 268
 const CARD_GAP = 14
@@ -93,6 +106,8 @@ export function attentionCardSpot(anchor: Box, card: { readonly w: number; reado
     (best, s) => (best === null || covered(s) < covered(best) ? s : best), null) ?? before
 }
 
+const OlumiMark = COACHING_ICON_GLYPH.Icon
+
 export function OlumiAttentionCard() {
   const attention = useCanvasStore((s) => s.olumiAttention)
   const nodes = useCanvasStore((s) => s.nodes)
@@ -101,6 +116,8 @@ export function OlumiAttentionCard() {
   const transform = useStore((s) => s.transform)
 
   const dismiss = useCallback(() => clearOlumiAttention(), [])
+  const viewer = useIsViewer()
+  const [answer, setAnswer] = useState('')
   // The card's own height, for a spot that covers no other card (`attentionCardSpot`); 0 until measured.
   const cardRef = useRef<HTMLDivElement>(null)
   const [cardHeight, setCardHeight] = useState(0)
@@ -169,21 +186,37 @@ export function OlumiAttentionCard() {
       data-anchor-id={anchorId}
       {...(note ? { 'data-move': note.move } : {})}
       style={{ position: 'absolute', left, top, width: CARD_WIDTH, zIndex: 95 }}
-      className="pointer-events-auto rounded-lg border border-info/40 bg-panel shadow-panel p-3"
+      className="pointer-events-auto rounded-lg border border-panel-border bg-panel shadow-panel p-3"
       role="complementary"
       aria-label={`Olumi on ${anchorId}`}
     >
       <div className="flex items-start gap-2">
+        <span title={ATTENTION_CARD_COPY.olumi} className="mt-0.5 flex-none">
+          <OlumiMark size={16} aria-hidden="true" />
+          <span className="sr-only">{ATTENTION_CARD_COPY.olumi}</span>
+        </span>
         <span className="min-w-0 flex-1">
-          <span className={`${typography.panelMeta} text-info block`}>
-            {note ? (note.move ? MOVE_LABEL[note.move] : NO_MOVE_LABEL) : CAVEAT_LABEL}
-          </span>
+          {note?.move || !note ? (
+            <span className={`${typography.panelMeta} text-text-light block`}>
+              {note ? MOVE_LABEL[note.move!] : CAVEAT_LABEL}
+            </span>
+          ) : null}
           {note?.title ? (
             <span className={`${typography.panelHeader} text-text-header block mt-0.5`}>
               {note.title}
             </span>
           ) : null}
         </span>
+        {isStale ? (
+          <span
+            data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-stale`}
+            title={ATTENTION_CARD_COPY.stale}
+            className="mt-0.5 flex-none text-warning"
+          >
+            <History className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="sr-only">{ATTENTION_CARD_COPY.stale}</span>
+          </span>
+        ) : null}
         <button
           type="button"
           onClick={dismiss}
@@ -196,6 +229,39 @@ export function OlumiAttentionCard() {
 
       {note?.body ? (
         <p className={`${typography.panelBody} text-text-body mt-1.5 mb-0`}>{note.body}</p>
+      ) : null}
+
+      {note && !viewer && isQuestion(note.body ?? note.title) ? (
+        <form
+          data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-answer`}
+          className="mt-2 flex items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3 py-1 focus-within:ring-2 focus-within:ring-primary"
+          onSubmit={(e) => {
+            e.preventDefault()
+            // The person's own words, about this item: CEE reads them as theirs and answers in the conversation.
+            if (askAi({ userWords: answer, nodeIds: [anchorId] }) !== 'sent') return
+            setAnswer('')
+            clearOlumiAttention()
+            revealOlumiSurface()
+          }}
+        >
+          <input
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            onKeyDown={(e) => { if (e.key !== 'Escape') e.stopPropagation() }}
+            placeholder={ATTENTION_CARD_COPY.answer}
+            aria-label={ATTENTION_CARD_COPY.answer}
+            className={`${typography.panelBody} min-w-0 flex-1 bg-transparent text-text-body placeholder:text-text-light focus:outline-none`}
+          />
+          <button
+            type="submit"
+            disabled={answer.trim() === ''}
+            aria-label={ATTENTION_CARD_COPY.send}
+            title={ATTENTION_CARD_COPY.send}
+            className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full bg-primary text-text-on-color hover:bg-primary-hover disabled:bg-panel-hover disabled:text-text-light"
+          >
+            <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </form>
       ) : null}
 
       {caveat ? (
@@ -217,14 +283,6 @@ export function OlumiAttentionCard() {
         </>
       ) : null}
 
-      {isStale ? (
-        <p
-          className={`${typography.panelMeta} text-warning mt-1.5 mb-0`}
-          data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-stale`}
-        >
-          The model has changed since Olumi said this.
-        </p>
-      ) : null}
 
       {note && note.actions && note.actions.length > 0 ? (
         <div className="flex flex-wrap gap-1.5 mt-2">
