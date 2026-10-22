@@ -199,6 +199,12 @@ export function WhatIfKey({ folded }: { folded: boolean }) {
         </div>
       </div>
       {notice !== null && <p data-testid="what-if-notice" role="status" className={`${typography.panelBody} text-text-body`}>{notice}</p>}
+      {outcome?.status === 'refused' && (outcome.nextStep !== undefined || outcome.questions !== undefined) && (
+        <div data-testid="what-if-why" className={`${typography.panelBody} space-y-1 text-text-body`}>
+          {outcome.nextStep !== undefined && <p>{outcome.nextStep}</p>}
+          {outcome.questions !== undefined && <ul className="list-disc space-y-0.5 pl-4">{outcome.questions.map((q) => <li key={q}>{q}</li>)}</ul>}
+        </div>
+      )}
       {outcome?.status === 'ran' && (
         <div data-testid="what-if-result" className="space-y-2">
           {!outcome.paired && <p data-testid="what-if-not-paired" className={`${typography.panelMeta} text-text-light`}>{WHAT_IF_COPY.notPaired}</p>}

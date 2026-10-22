@@ -48,6 +48,13 @@ describe('readWhatIfResponse', () => {
     expect(readWhatIfResponse({ variants: RAN.variants })).toEqual({ status: 'unusable' })
   })
 
+  it('a not-runnable saved model: the refusal keeps the Run\'s own next step and questions (CEE #3624); absent stays absent', () => {
+    expect(readWhatIfResponse({ persisted: false, refusal: 'saved_unsupported', changes_refused: [],
+      next_step: 'A part of the model has no connections.', readiness_questions: ['How does Price per loaf affect revenue?', ''] }))
+      .toEqual({ status: 'refused', reason: 'saved_unsupported', nextStep: 'A part of the model has no connections.', questions: ['How does Price per loaf affect revenue?'] })
+    expect(readWhatIfResponse({ persisted: false, refusal: 'saved_timed_out', changes_refused: [] })).toEqual({ status: 'refused', reason: 'saved_timed_out' })
+  })
+
   it('a crux variant is not the result; a cell saying nothing drops its row, never shown half-empty', () => {
     const crux = { ...RAN, variants: [{ ...RAN.variants[0], change_index: 0 }] }
     expect(readWhatIfResponse(crux)).toEqual({ status: 'unusable' })

@@ -102,6 +102,15 @@ describe('the key', () => {
     await waitFor(() => expect(screen.getByTestId('what-if-notice').textContent).toBe(WHAT_IF_COPY.staleBase))
   })
 
+  it('a model the Run cannot analyse: CEE\'s own next step and questions are shown, verbatim', async () => {
+    runWhatIfMock.mockResolvedValue({ status: 'refused', reason: 'saved_unsupported', nextStep: 'CEE next step.', questions: ['CEE question one?'] })
+    render(<WhatIfKey folded={false} />)
+    fireEvent.change(screen.getByTestId('what-if-value'), { target: { value: '60' } })
+    fireEvent.click(screen.getByTestId('what-if-run'))
+    await waitFor(() => expect(screen.getByTestId('what-if-why').textContent).toBe('CEE next step.CEE question one?'))
+    expect(screen.getByTestId('what-if-notice').textContent).toBe(WHAT_IF_COPY.refused)
+  })
+
   it('⛔ the saved model moving drops the held change; a late answer for it is never shown', async () => {
     let resolve: (v: unknown) => void = () => {}
     runWhatIfMock.mockReturnValue(new Promise((r) => { resolve = r }))

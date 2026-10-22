@@ -50,7 +50,11 @@ export type WhatIfOutcome =
       readonly options: readonly WhatIfOptionRow[]
       readonly changesRefused: number
     }
-  | { readonly status: 'refused'; readonly reason: string }
+  | {
+      readonly status: 'refused'; readonly reason: string
+      /** A model the Run cannot analyse: the Run's own next step and questions (CEE #3624), shown as given. */
+      readonly nextStep?: string; readonly questions?: readonly string[]
+    }
   | { readonly status: 'signInRequired' }
   | { readonly status: 'unusable' }
 
@@ -73,7 +77,11 @@ function readCell(raw: unknown): WhatIfCell | null {
 export function readWhatIfResponse(body: unknown): WhatIfOutcome {
   if (!isRec(body) || body.persisted !== false) return { status: 'unusable' }
   const refusal = strOrNull(body.refusal)
-  if (refusal !== null) return { status: 'refused', reason: refusal }
+  if (refusal !== null) {
+    const nextStep = strOrNull(body.next_step)
+    const questions = Array.isArray(body.readiness_questions) ? body.readiness_questions.flatMap((q) => strOrNull(q) ?? []) : []
+    return { status: 'refused', reason: refusal, ...(nextStep !== null ? { nextStep } : {}), ...(questions.length > 0 ? { questions } : {}) }
+  }
   if (!Array.isArray(body.variants)) return { status: 'unusable' }
   const all = body.variants.find((v) => isRec(v) && v.change_index === 'all')
   if (!isRec(all) || typeof all.paired !== 'boolean' || !Array.isArray(all.options)) return { status: 'unusable' }
