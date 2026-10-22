@@ -38,7 +38,10 @@ src/canvas/components/ModelQualityScore.tsx:264
 #                                        outcome" at winProb > 0.6
 src/adapters/cee/client.ts:735
 src/adapters/plot/v2/responseMapper.ts:1576
-src/canvas/contextMenu/actions.ts:1151
+src/canvas/contextMenu/actions.ts:1158
+#    (`contextMenu/actions.ts:1151` -> `1158`, a pure +7 line shift from the Living Model canvas (22 Oct 2026): the
+#    delete guard for an item the store doesn't hold, at the top of `deleteAction`, above this site. Line text
+#    identical (`if (attempts < MAX_ATTEMPTS) {`).)
 src/canvas/hooks/useModelHealth.ts:148
 src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
