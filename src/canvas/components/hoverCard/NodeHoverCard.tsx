@@ -44,6 +44,7 @@ import {
   type HoverCardPlacement,
 } from './hoverCardPlacement'
 import { useLivingAuthorship } from '../../nodes/shared/livingAuthorship'
+import { livingOnlyOf, notInCalculationWords } from '../../domain/livingModelCanvas'
 
 export const NOT_ON_RECORD = 'Not on record'
 const MAX_LINKED_NAMES = 4
@@ -208,6 +209,8 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
 
   if (typeof document === 'undefined') return null
   const { title, kind, description, value, source, links } = facts
+  // A card drawn from the living model alone (`livingModelCanvas.ts`): its details say it is not in the calculation yet.
+  const livingOnly = livingOnlyOf(data)
 
   return createPortal(
     <div
@@ -249,7 +252,7 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
           {description}
         </p>
       )}
-      {(value !== null || source !== null) && (
+      {(value !== null || source !== null || livingOnly !== null) && (
         <dl className="m-0 mt-2.5 pt-2.5 space-y-1.5">
           {value !== null && (value.text !== null || value.missing) && (
             <Row label="Value" testId="node-hover-card-value">
@@ -263,6 +266,7 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
             <Row label="Source" testId="node-hover-card-source">{value.source}</Row>
           )}
           {source !== null && <Row label="Source" testId="node-hover-card-source">{source}</Row>}
+          {livingOnly !== null && <Row label="Status" testId="node-hover-card-status">{notInCalculationWords(livingOnly)}</Row>}
         </dl>
       )}
       {links.map(g => (

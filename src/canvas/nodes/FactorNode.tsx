@@ -102,7 +102,11 @@ export const FactorNode = memo((props: NodeProps) => {
   const resultsStatus = useCanvasStore(state => state.results.status)
   const viewMode = useCanvasStore(state => state.viewMode)
   const isPostAnalysis = resultsStatus === 'complete'
-  const isDetailed = viewMode === 'expert'
+  // ⛔ A card drawn from the living model alone (`livingModelCanvas.ts`) shows its Standard face: the Detailed rows hold
+  // chips and questions that act on the item, which the store does not hold. Its read-only details are the card's hover
+  // card (`BaseNode`).
+  const drawnOnly = livingOnlyOf(props.data) !== null
+  const isDetailed = viewMode === 'expert' && !drawnOnly
 
   const nodeCategory = props.data?.category as string | undefined
 
@@ -547,10 +551,13 @@ export const FactorNode = memo((props: NodeProps) => {
     influenceRank,
     runCurrency,
     resultsFromLastRun,
-    driverLine,
+    driverLine: rankedDriverLine,
     driverNotRanked,
     turningPointState,
   } = useFactorRunCues(props.id, displayMetadata)
+  // A drawn-only factor has no driver line and so no resting turning point: both are buttons that open the inspector on
+  // a node the store does not hold.
+  const driverLine = drawnOnly ? null : rankedDriverLine
 
   /**
    * ⭐ THE FACTOR FACE — NODE-ANATOMY v3.2 (24 Sep; supersedes the locked face
@@ -1548,7 +1555,7 @@ export const FactorNode = memo((props: NodeProps) => {
           >
             {/* ⛔ The words without the field on a card drawn from the living model alone (`livingModelCanvas.ts`):
                 there is no store node for a value to be written to. */}
-            {livingOnlyOf(props.data) !== null ? emptyValueReadout : (
+            {drawnOnly ? emptyValueReadout : (
               <NodeValueEditor
                 value={null}
                 readout={emptyValueReadout}

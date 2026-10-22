@@ -178,3 +178,27 @@ describe('placeHoverCard — clear of the neighbouring cards', () => {
     expect(p.top + size.height).toBeLessThanOrEqual(viewport.height - 8)
   })
 })
+
+/**
+ * ⭐ A CARD DRAWN FROM THE PERSON'S MODEL ALONE OPENS ITS DETAILS (DL 22 Oct: "a risk you can see but not open will read
+ * as broken"). It has no store node, so the details come from its own data, and they say it is not in the calculation.
+ */
+describe('card hover pop-up — an item the calculation leaves out', () => {
+  beforeEach(() => { vi.useFakeTimers(); seed() })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('⭐ shows its name and a Status row in the line its card carries; an engine card has no Status row', () => {
+    const risk = { label: 'Port strike', kind: 'risk', livingOnly: { reason: 'its time window differs from the goal’s' } }
+    const pop = hoverCard({ id: 'port_strike', nodeType: 'risk', data: risk })!
+    expect(pop.querySelector('[data-testid="node-hover-card-title"]')!.textContent).toBe('Port strike')
+    expect(pop.querySelector('[data-testid="node-hover-card-status"]')!.textContent)
+      .toBe('StatusNot in the calculation yet: its time window differs from the goal’s')
+    act(() => { vi.runOnlyPendingTimers() })
+  })
+
+  it('CONTRAST: an engine card shows no Status row', () => {
+    const pop = hoverCard({ id: 'fac_price', nodeType: 'factor', data: PRICE })!
+    expect(pop.querySelector('[data-testid="node-hover-card-status"]')).toBeNull()
+  })
+})
+

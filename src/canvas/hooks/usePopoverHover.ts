@@ -137,9 +137,11 @@ export function usePopoverHover(enterDelayMs: number = ENTER_DELAY) {
   useEffect(() => {
     const node = nodeElRef.current
     if (!node) return
+    // A mark in the card's bottom band has its own tooltip, which the card's hover card would cover (Lenses, 22 Oct):
+    // the whole band takes precedence, so no mark depends on carrying `data-node-tooltip` itself.
     const isAction = (target: EventTarget | null) =>
       target instanceof Element && node.contains(target) &&
-      !!target.closest('.node-quick-actions, [data-node-tooltip]')
+      !!target.closest('.node-quick-actions, [data-node-tooltip], [data-card-bottom-band]')
     const update = () => {
       if (actionHovered.current || actionFocused.current) {
         cancelEnter()

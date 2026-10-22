@@ -3,6 +3,7 @@ import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY, RiskNodeDataSchema } from '../domain/nodes'
+import { livingOnlyOf } from '../domain/livingModelCanvas'
 import { calculateRiskSeverity, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
@@ -276,7 +277,11 @@ export const RiskNode = memo((props: NodeProps) => {
   const resultsStatus = useCanvasStore(state => state.results.status)
   const viewMode = useCanvasStore(state => state.viewMode)
   const isPostAnalysis = resultsStatus === 'complete'
-  const isDetailed = viewMode === 'expert'
+  // ⛔ A card drawn from the living model alone (`livingModelCanvas.ts`) shows its Standard face: the Detailed rows hold
+  // chips and questions that act on the item, which the store does not hold. Its read-only details are the card's hover
+  // card (`BaseNode`).
+  const drawnOnly = livingOnlyOf(props.data) !== null
+  const isDetailed = viewMode === 'expert' && !drawnOnly
 
   // Popover hover
   const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()

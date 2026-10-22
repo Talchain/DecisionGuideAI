@@ -112,6 +112,19 @@ export interface ScenarioGraphIdentity {
   readonly projectionVersion: string
 }
 
+/** One item the calculation leaves out, and the mapper's code for why (`withheld` on the graph read). */
+export interface WithheldItem {
+  readonly id: string
+  readonly reason: string
+}
+
+/** The read's `withheld` list: each well-formed entry kept, anything else dropped; null when the read carries none. */
+export function readWithheld(raw: unknown): WithheldItem[] | null {
+  if (!Array.isArray(raw)) return null
+  return raw.flatMap((w) => (w !== null && typeof w === 'object' && typeof (w as WithheldItem).id === 'string' && typeof (w as WithheldItem).reason === 'string'
+    ? [{ id: (w as WithheldItem).id, reason: (w as WithheldItem).reason }] : []))
+}
+
 export type ScenarioGraphResult =
   /** 200 with a graph. `graph` is `scenarios.graph` verbatim; it carries no layout. */
   | {
@@ -119,6 +132,11 @@ export type ScenarioGraphResult =
       graph: unknown
       /** The response's own `scenario_id`: the read's identity binding (`canonicalOpenOutcome.ts`). */
       scenarioId?: string | null
+      /**
+       * Why each item of a core scenario's living model is not in the calculation: CEE's mapper holds, by item id, in
+       * its own codes (CEE #3657). Null for a legacy or absent graph, or a read from before that field existed.
+       */
+      withheld?: readonly WithheldItem[] | null
       switchAnalysisReady?: unknown
       briefText: string | null
       /**
@@ -463,6 +481,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     status: 'graph',
     graph,
     scenarioId,
+    withheld: readWithheld(b.withheld),
     briefText: typeof b.brief_text === 'string' ? b.brief_text : null,
     notModelled: parseNotModelled(b.not_modelled),
     identity: readIdentityEnvelope(b.graph_identity_hash),
