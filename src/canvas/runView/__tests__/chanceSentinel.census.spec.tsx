@@ -284,6 +284,14 @@ const CARD_FACES_OF: Readonly<Record<Form, readonly string[]>> = {
 }
 
 /**
+ * #2931 (DL 22 Oct): the canvas card is already named, so it says each served face without the face's own leading ‘label’:
+ * (spelt here, never with the provider's helper, so a regression there turns this RED). Each line is bound to the slot's own
+ * "Current model" caption, so the face with its label back ("Current model‘A’: …") does not contain it.
+ */
+const CANVAS_CARD_LINES_OF = Object.fromEntries(Object.entries(CARD_FACES_OF)
+  .map(([form, faces]) => [form, faces.map(face => `Current model${face.replace(/^‘.+?’: /, '')}`)])) as unknown as Readonly<Record<Form, readonly string[]>>
+
+/**
  * Round 2 (DL, restoring what staging said): on the chat card, CEE's own notes on A's chance follow A's served face in A's
  * own line — its spread sentence, then its shortfall sentence naming A — verbatim (bound by contiguity to A's face).
  */
@@ -352,7 +360,7 @@ const SURFACES: readonly Surface[] = [
     mount: () => render(<ReactFlowProvider><OptionChanceCellProvider>
       {[A, B, SQ].map(id => <OptionNode key={id} {...nodeProps<ComponentProps<typeof OptionNode>>(id, 'option')} />)}
     </OptionChanceCellProvider></ReactFlowProvider>).container,
-    says: CARD_FACES_OF,
+    says: CANVAS_CARD_LINES_OF,
   },
   {
     name: 'canvas goal card (GoalNode)', u0: false, minText: 10,
@@ -459,7 +467,7 @@ const SURFACES: readonly Surface[] = [
     // Post-C UI item 1: the option cards say CEE's served cells here too; the goal, decision and outcome cards still say no
     // chance (each comes back one surface at a time, with its own census row).
     name: 'canvas cards, Detailed view (OptionNode ×3, GoalNode, DecisionNode, OutcomeNode)', u0: true, minText: 10,
-    says: CARD_FACES_OF,
+    says: CANVAS_CARD_LINES_OF,
     mount: () => {
       detailed()
       return render(<ReactFlowProvider><OptionChanceCellProvider>

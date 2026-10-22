@@ -14,6 +14,12 @@ import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { applyRealRead } from './helpers/realScenarioRead'
 import served from './fixtures/cee-1c-served-read-464abd0a.json'
 import figures from './fixtures/cee-94b2554d-served-read-b38d1c80.json'
+// #2931: the card's line is the served face less its own leading ‘label’: (spelt here, never the provider's helper, so a
+// regression in that helper turns this RED). The face must carry the prefix, or the expectation would be vacuous.
+const lineOf = (face: string) => {
+  expect(face, 'the served face starts with its own ‘label’:').toMatch(/^‘.+?’: ./)
+  return face.replace(/^‘.+?’: /, '')
+}
 
 vi.mock('@xyflow/react', async () => ({ ...await vi.importActual<Record<string, unknown>>('@xyflow/react'), Handle: () => null }))
 const ctx = { goalChanceHeroSays: true, labelOf: (id: string) => id }
@@ -74,7 +80,12 @@ describe('WS5 PR-C server faces', () => {
         : cell?.kind === 'withheld' ? cell.face ?? null : null
       const readout = screen.queryByTestId(`option-win-readout-${node.id}`)
       if (face === null) expect(readout).toBeNull()
-      else expect(readout?.textContent).toBe(face)
+      else {
+        // #2931 (DL 22 Oct): the card is already named, so its line drops the face's own ‘label’: prefix; the full face
+        // stays in the readout's description.
+        expect(readout?.textContent).toBe(cell?.kind === 'withheld' ? face : lineOf(face))
+        expect(readout?.closest('[aria-label]')?.getAttribute('aria-label')).toContain(face)
+      }
       expect(card.queryByRole('button', { name: 'Why?' })).toBeNull()
       if (typeof option.cell.why === 'string') expect(card.container.textContent).not.toContain(option.cell.why)
       card.unmount()
@@ -92,7 +103,9 @@ describe('WS5 PR-C server faces', () => {
       render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
         selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
       </OptionChanceCellProvider></ReactFlowProvider>)
-      expect(screen.getByTestId(`option-win-readout-${node.id}`).textContent).toBe(face)
+      const readout = screen.getByTestId(`option-win-readout-${node.id}`)
+      expect(readout.textContent).toBe('about 69% chance of meeting your goal, in this model.')
+      expect(readout.closest('[aria-label]')?.getAttribute('aria-label')).toContain(face)
     } else expect(mountHero(data)(option.option_id)).toHaveTextContent(face)
     expect(data.runView!.chanceCellOf(option.option_id, ctx).text).toBe(face)
   })

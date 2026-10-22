@@ -1895,7 +1895,7 @@ export const OptionNode = memo((props: NodeProps) => {
   })
   const shareIsProvisional = !shareIsGoalOnly && shareProvisionalCause !== null
   const chanceReadoutDescription = chanceText === null ? ''
-    : [`${resultCaption} · ${chanceText}`, optionResultCurrencyNote(runCurrency), runCurrency === 'changed' ? OPTION_RESULT_COPY.noNewComparisonNote : null].filter(Boolean).join(' ')
+    : [`${resultCaption} · ${chanceCell.detail ?? chanceText}`, optionResultCurrencyNote(runCurrency), runCurrency === 'changed' ? OPTION_RESULT_COPY.noNewComparisonNote : null].filter(Boolean).join(' ')
 
   /**
    * ⭐ WHICH RUN-DERIVED LINE THE CARD CARRIES — ONE SPELLING, READ BY THE RENDER.

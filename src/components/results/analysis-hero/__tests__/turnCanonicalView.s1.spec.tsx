@@ -17,6 +17,12 @@ import { buildHeroModel } from '../buildHeroModel'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { OptionNode } from '../../../../canvas/nodes/OptionNode'
 import { OptionChanceCellProvider } from '../../../../canvas/nodes/shared/OptionChanceCellProvider'
+// #2931: the card's line is the served face less its own leading ‘label’: (spelt here, never the provider's helper, so a
+// regression in that helper turns this RED). The face must carry the prefix, or the expectation would be vacuous.
+const lineOf = (face: string) => {
+  expect(face, 'the served face starts with its own ‘label’:').toMatch(/^‘.+?’: ./)
+  return face.replace(/^‘.+?’: /, '')
+}
 
 vi.mock('@xyflow/react', async () => ({ ...await vi.importActual<Record<string, unknown>>('@xyflow/react'), Handle: () => null }))
 afterEach(() => {
@@ -60,7 +66,10 @@ it('T1: parsed Run TURN adopts its view and the mounted hero and (post-C item 1)
     const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
       selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
     </OptionChanceCellProvider></ReactFlowProvider>)
-    expect(screen.getByTestId(`option-win-readout-${node.id}`).textContent).toBe(text)
+    // #2931 (DL 22 Oct): the named card drops the face's own ‘label’: prefix; the full face stays in its description.
+    const readout = screen.getByTestId(`option-win-readout-${node.id}`)
+    expect(readout.textContent).toBe(option.cell.kind === 'withheld' ? text : lineOf(text))
+    expect(readout.closest('[aria-label]')?.getAttribute('aria-label')).toContain(text)
     card.unmount()
   }
 })
