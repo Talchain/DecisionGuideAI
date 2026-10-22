@@ -24,6 +24,7 @@ import { figureText } from '../nodes/ProposalGhostLayer'
 import { useCanvasStore } from '../store'
 import { getObservedState } from '../utils/observedStateHelpers'
 import { useWhatIfStore, type HeldWhatIf } from '../stores/whatIfStore'
+import { useSavedGraph } from '../nodes/shared/savedGraph'
 
 export const WHAT_IF_COPY = {
   nothingSaved: 'What-if, nothing saved',
@@ -45,7 +46,14 @@ export const WHAT_IF_COPY = {
   noFactors: 'This model has no factor with a value to try a different one for.',
 } as const
 
-interface FactorChoice { readonly id: string; readonly label: string; readonly saved: number; readonly unit: string }
+interface FactorChoice {
+  readonly id: string; readonly label: string; readonly saved: number; readonly unit: string
+  /** A goal's today level: sent on the goal's own id in its target's unit, as the goal card's editor sends it. */
+  readonly level?: true
+}
+type Rec = Record<string, unknown>
+const isRec = (v: unknown): v is Rec => v !== null && typeof v === 'object' && !Array.isArray(v)
+const recs = (v: unknown): Rec[] => (Array.isArray(v) ? v.filter(isRec) : [])
 
 const labelOf = (data: unknown): string => {
   const l = (data as { label?: unknown } | null)?.label
@@ -53,24 +61,37 @@ const labelOf = (data: unknown): string => {
 }
 
 /**
- * Factors whose card shows a value IN ITS OWN UNIT: the figure the card's value editor would show. A factor whose only
- * figure is on the model's internal 0–1 scale is not offered (Codex #2902: `0.6` would read "0.6%" beside its unit while
- * meaning 60%); the card never shows that scale as a figure either.
+ * What a what-if can hold: the SAVED living model's own items, which CEE applies (`living-model/edit.ts`), never a card the
+ * mapper derived (served 22 Oct, P03: "Change in …" and "… today" are mapper cards, refused `not_in_model`).
+ *  · a factor whose card shows a value IN ITS OWN UNIT (the figure its value editor would show). A factor whose only figure
+ *    is on the internal 0–1 scale is not offered (Codex #2902: `0.6` read "0.6%" while meaning 60%);
+ *  · a goal's today level, on the goal's id in its target's unit.
  */
-export function whatIfFactorChoices(nodes: readonly { id: string; type?: string; data: unknown }[]): FactorChoice[] {
-  return nodes.flatMap((n) => {
-    if (n.type !== 'factor') return []
+export function whatIfFactorChoices(nodes: readonly { id: string; type?: string; data: unknown }[], saved: unknown): FactorChoice[] {
+  const lm = isRec(saved) && isRec(saved.living_model) ? saved.living_model : null
+  if (lm === null) return []
+  const livingFactors = new Set(recs(lm.factors).map((f) => f.id))
+  const levels = recs(lm.aims).flatMap((a): FactorChoice[] => {
+    const target = isRec(a.target) ? a.target : null
+    const node = nodes.find((n) => n.id === a.id)
+    const unit = target && (typeof target.current_unit === 'string' ? target.current_unit : typeof target.unit === 'string' ? target.unit : '')
+    const label = labelOf(node?.data) || (typeof a.label === 'string' ? a.label : '')
+    if (typeof a.id !== 'string' || target === null || typeof target.current !== 'number' || !unit || label === '') return []
+    return [{ id: a.id, label: `${label} (today)`, saved: target.current, unit, level: true }]
+  })
+  return [...nodes.flatMap((n) => {
+    if (n.type !== 'factor' || !livingFactors.has(n.id)) return []
     const { seed, inUserUnits } = resolveValueInputSeed(n.data)
     const label = labelOf(n.data)
     if (seed === undefined || !inUserUnits || label === '') return []
     const unit = getObservedState(n.data).unit
     return [{ id: n.id, label, saved: seed, unit: typeof unit === 'string' ? unit : '' }]
-  })
+  }), ...levels]
 }
 
 /** The held change as CEE's what-if route takes it: the saved path's own gesture, held instead of sent. Null = unencodable. */
 export function whatIfChangeOf(held: HeldWhatIf, nodeData: unknown): Record<string, unknown> | null {
-  const event = buildFactorValueEditEvent({ nodeId: held.nodeId, typedValue: held.whatIf, nodeData })
+  const event = buildFactorValueEditEvent({ nodeId: held.nodeId, typedValue: held.whatIf, nodeData, ...(held.level ? { unit: held.unit } : {}) })
   if (event === null) return null
   const wire = adaptFactorValueEdit(event.payload as Record<string, unknown>)
   return wire === null ? null : { ...wire }
@@ -115,7 +136,8 @@ export function WhatIfKey({ folded }: { folded: boolean }) {
   const viewer = useIsViewer()
   const held = useWhatIfStore((s) => s.held)
   const run = useWhatIfStore((s) => s.run)
-  const choices = useMemo(() => whatIfFactorChoices(nodes), [nodes])
+  const savedGraph = useSavedGraph()
+  const choices = useMemo(() => whatIfFactorChoices(nodes, savedGraph), [nodes, savedGraph])
   const [pickedId, setPickedId] = useState<string | null>(held?.nodeId ?? null)
   const picked = choices.find((c) => c.id === pickedId) ?? choices[0] ?? null
   const [typed, setTyped] = useState<string>(held ? String(held.whatIf) : '')
@@ -139,7 +161,7 @@ export function WhatIfKey({ folded }: { folded: boolean }) {
 
   const press = async () => {
     if (!canRun || scenarioId === null) return
-    const next: HeldWhatIf = { scenarioId, baseGraphHash: hash, nodeId: picked.id, label: picked.label, saved: picked.saved, whatIf: value, unit: picked.unit }
+    const next: HeldWhatIf = { scenarioId, baseGraphHash: hash, nodeId: picked.id, label: picked.label, saved: picked.saved, whatIf: value, unit: picked.unit, ...(picked.level ? { level: true as const } : {}) }
     const store = useWhatIfStore.getState()
     store.hold(next)
     const change = whatIfChangeOf(next, nodes.find((n) => n.id === picked.id)?.data)

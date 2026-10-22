@@ -22,6 +22,8 @@ export interface HeldWhatIf {
   readonly saved: number
   readonly whatIf: number
   readonly unit: string
+  /** A goal's today level (sent on the goal's id in its target's unit), not a factor's value. */
+  readonly level?: true
 }
 
 export type WhatIfRun = { readonly kind: 'idle' } | { readonly kind: 'running' } | { readonly kind: 'done'; readonly outcome: WhatIfOutcome }

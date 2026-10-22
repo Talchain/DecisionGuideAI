@@ -14,6 +14,8 @@ vi.mock('../../../adapters/cee/whatIf', async (orig) => ({
   runWhatIf: (...a: unknown[]) => runWhatIfMock(...a),
 }))
 vi.mock('../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }) }))
+const savedHolder: { current: unknown } = { current: null }
+vi.mock('../../nodes/shared/savedGraph', () => ({ useSavedGraph: () => savedHolder.current }))
 
 import { useCanvasStore } from '../../store'
 import { useWhatIfStore } from '../../stores/whatIfStore'
@@ -27,7 +29,14 @@ const UNSET = { id: 'fac_unset', type: 'factor', position: { x: 0, y: 400 }, dat
 const SCALE_ONLY = { id: 'fac_scale', type: 'factor', position: { x: 0, y: 600 }, data: { label: 'Share', observed_state: { value: 0.4, cap: 100, unit: '%' } } }
 const OPT_A = { id: 'opt_a', type: 'option', position: { x: 300, y: 0 }, data: { label: 'Open on Sundays' } }
 const OPT_B = { id: 'opt_b', type: 'option', position: { x: 300, y: 200 }, data: { label: 'Sell online' } }
-const NODES = [PRICE, STAFF, UNSET, SCALE_ONLY, OPT_A, OPT_B]
+/** A card the mapper derives from the goal (served P03: "Change in …"): not a living-model item, so never offered. */
+const DERIVED = { id: 'goal_g__change', type: 'factor', position: { x: 0, y: 800 }, data: { label: 'Change in pages', observed_state: { value: 0, raw_value: 0, unit: 'pages per 1,000' } } }
+const NODES = [PRICE, STAFF, UNSET, SCALE_ONLY, DERIVED, OPT_A, OPT_B]
+/** The saved living model: its factors, and one goal whose today level is 600 pages per 1,000. */
+const SAVED = { living_model: {
+  factors: [{ id: 'fac_price' }, { id: 'fac_staff' }, { id: 'fac_unset' }, { id: 'fac_scale' }],
+  aims: [{ id: 'goal_g', label: 'Accessible pages', target: { value: 850, unit: 'pages per 1,000', current: 600 } }],
+} }
 
 const RAN = {
   status: 'ran', paired: true, changesRefused: 0,
@@ -41,6 +50,7 @@ const RAN = {
 
 beforeEach(() => {
   runWhatIfMock.mockReset()
+  savedHolder.current = SAVED
   act(() => {
     useCanvasStore.setState({ nodes: NODES as never, currentScenarioId: SID, lastServerGraphHash: 'h1' } as never)
     useWhatIfStore.getState().clear()
@@ -54,11 +64,22 @@ describe('the gesture: the saved path\'s own builder and wire adapter (one scale
     expect(whatIfChangeOf(held, PRICE.data)).toEqual({ kind: 'factor_value_edit', target_id: 'fac_price', value: 0.6, raw_value: 60, unit: '%', field: 'value' })
   })
 
-  it('choices are the factors whose card shows a value, in the card\'s own figure; a factor with none, or only a model-scale figure, is not offered', () => {
-    expect(whatIfFactorChoices(NODES)).toEqual([
+  it('choices are the saved living model\'s items: factors whose card shows a value in its own unit, and each goal\'s today level', () => {
+    expect(whatIfFactorChoices(NODES, SAVED)).toEqual([
       { id: 'fac_price', label: 'Price rise', saved: 40, unit: '%' },
       { id: 'fac_staff', label: 'Staff', saved: 12, unit: 'people' },
+      { id: 'goal_g', label: 'Accessible pages (today)', saved: 600, unit: 'pages per 1,000', level: true },
     ])
+  })
+
+  it('⛔ a card the mapper derived (not a living-model item) is never offered; no living model, no choices (served P03: refused not_in_model)', () => {
+    expect(whatIfFactorChoices(NODES, SAVED).map((c) => c.id)).not.toContain('goal_g__change')
+    expect(whatIfFactorChoices(NODES, null)).toEqual([])
+  })
+
+  it('a goal\'s today level goes out on the goal\'s own id in its target\'s unit, as the goal card\'s editor sends it', () => {
+    const held = { scenarioId: SID, baseGraphHash: 'h1', nodeId: 'goal_g', label: 'Accessible pages (today)', saved: 600, whatIf: 650, unit: 'pages per 1,000', level: true as const }
+    expect(whatIfChangeOf(held, undefined)).toEqual({ kind: 'factor_value_edit', target_id: 'goal_g', value: 650, raw_value: 650, unit: 'pages per 1,000', field: 'value' })
   })
 })
 
