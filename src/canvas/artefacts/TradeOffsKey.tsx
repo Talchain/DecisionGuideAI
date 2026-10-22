@@ -139,10 +139,12 @@ function LinkRow({ edgeId, label, item, mark = null }: { edgeId: string; label: 
   const light = useCanvasLight()
   const link = canvasLinkOfTarget({ kind: 'edge', id: edgeId })
   return (
-    <li data-testid={`${TRADE_OFFS_KEY_TESTID}-link`} data-edge={edgeId} data-column={item?.column ?? ''} className="flex items-start gap-2">
+    // The link, then its figure card UNDER it: side by side in the 320px key, the card's buttons squeezed the link's name
+    // to a few pixels and ran over it (served 22 Oct, "Also in your model").
+    <li data-testid={`${TRADE_OFFS_KEY_TESTID}-link`} data-edge={edgeId} data-column={item?.column ?? ''} className="flex flex-col gap-1">
       <button
         type="button"
-        className={`${typography.panelMeta} min-w-0 flex-1 rounded-lg px-1.5 py-1 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}
+        className={`${typography.panelMeta} w-full rounded-lg px-1.5 py-1 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}
         onClick={() => link?.focus()}
         onMouseEnter={() => { if (link) light.on(link) }}
         onMouseLeave={light.off}
@@ -150,9 +152,10 @@ function LinkRow({ edgeId, label, item, mark = null }: { edgeId: string; label: 
         onBlur={light.off}
       >
         <span className="flex items-center gap-1.5 text-text-header">{mark ? <LinkPill mark={mark} /> : null}{label}</span>
-        {item ? <span className="block text-text-light">{ASSUMPTION_MAP_COPY.columns[item.column]}</span> : null}
+        {/* With a pill, its state is the pill's (words on hover); without one, said once here. */}
+        {item && !mark ? <span className="block text-text-light">{ASSUMPTION_MAP_COPY.columns[item.column]}</span> : null}
       </button>
-      {item ? <FigureCard item={item} /> : null}
+      {item ? <div className="px-1.5"><FigureCard item={item} /></div> : null}
     </li>
   )
 }
