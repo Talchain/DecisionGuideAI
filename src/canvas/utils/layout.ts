@@ -68,6 +68,7 @@ export function loadLayoutEngine(): Promise<ElkModule> {
 import { Node, Edge } from '@xyflow/react'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { withoutCoreSwitches } from '../domain/coreSwitch'
+import { withLivingKinds } from '../domain/livingKinds'
 import {
   LAYOUT_PADDING_X,
   LAYOUT_PADDING_Y,
@@ -108,6 +109,11 @@ interface LayoutOptions {
    * is not mounted behave exactly as before.
    */
   heightAtLabelBound?: Map<string, number>
+  /**
+   * The living model's outcomes (`livingKinds.ts`): factors in the engine graph, laid out in the consequence row the
+   * canvas draws them in. The returned nodes keep the engine's kind, so the store never holds the drawing.
+   */
+  livingOutcomeIds?: ReadonlySet<string>
 }
 
 type LayoutDirection = NonNullable<LayoutOptions['direction']>
@@ -782,6 +788,18 @@ export async function layoutGraph(
   nodes: Node[],
   edges: Edge[],
   options: LayoutOptions = {}
+): ReturnType<typeof layoutModel> {
+  const asDrawn = withLivingKinds(nodes, options.livingOutcomeIds ?? new Set())
+  const laid = await layoutDrawn(asDrawn, edges, options)
+  if (asDrawn === nodes) return laid
+  const engineType = new Map(nodes.map((n) => [n.id, n.type]))
+  return { ...laid, nodes: laid.nodes.map((n) => (n.type === engineType.get(n.id) ? n : { ...n, type: engineType.get(n.id) })) }
+}
+
+async function layoutDrawn(
+  nodes: Node[],
+  edges: Edge[],
+  options: LayoutOptions,
 ): ReturnType<typeof layoutModel> {
   const drawn = withoutCoreSwitches(nodes, edges)
   if (drawn.hidden.length === 0) return layoutModel(nodes, edges, options)

@@ -107,6 +107,7 @@ import { ProposalGhostLayer } from './nodes/ProposalGhostLayer'
 import { WhatIfMarkLayer } from './nodes/WhatIfMarkLayer'
 import { DirectionNeededLayer } from './nodes/DirectionNeededLayer'
 import { coreSwitchOptionOf, withoutCoreSwitches } from './domain/coreSwitch'
+import { useDrawnLivingModel } from './hooks/useDrawnLivingModel'
 import { fitBoundsFor, CANVAS_MOUNT_FIT_OPTIONS } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -841,6 +842,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // width the card actually draws at even before it has been measured.
   const layoutCardWidths = useLayoutStore(s => s.layoutCardWidths)
 
+  // ⭐ THE PERSON'S MODEL, AS DRAWN (`domain/livingModelCanvas.ts`): the engine's cards, each living-model outcome drawn
+  // as one, and what the engine graph leaves out drawn beside them, marked "Not in the calculation yet". Display only.
+  const drawnModel = useDrawnLivingModel(nodes, edges)
+
   const nodesWithGhost = useMemo(() => {
     /*
      * ⚠ THERE IS NO VISIBILITY GATE HERE, AND THAT IS THE POINT.
@@ -881,7 +886,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
      * inferred over (the shared `__ghost-` prefix), and not selectable,
      * draggable or connectable. A tier with no members gets no prompt.
      */
-    return withGhostTiers(nodes, GHOST_TIERS, {
+    return withGhostTiers(drawnModel.nodes, GHOST_TIERS, {
       // ⭐ THE PUBLISHED LAYOUT WIDTH FIRST (30 Sep 2026). It is what `BaseNode` draws at. A card's `measured`
       // width can be its first render at the RESTING width (a tier's cap, 400) from before the layout
       // published the tier's share (e.g. 270), and it lags behind. While every repeated card rested and laid
@@ -892,7 +897,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         return layoutCardWidths?.[m.type ?? ''] ?? m.measured?.width ?? m.width ?? restingCardWidthForKind(m.type)
       },
     })
-  }, [nodes, layoutCardWidths])
+  }, [drawnModel.nodes, layoutCardWidths])
 
   // AI coaching is rendered by the guidanceStore consumers, not here — see
   // ./nodes/FactorNode.tsx (on-canvas CoachingCard) and ./conversation/GuidanceStrip.tsx.
@@ -1052,7 +1057,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const memoizedEdges = useMemo(() => {
     const seen = new Set<string>()
     // A switch's own links start at its option; the option→switch edge is not drawn (coreSwitch.ts).
-    const unique = withoutCoreSwitches(nodes, edges).edges.filter((edge) => {
+    const unique = withoutCoreSwitches(nodes, drawnModel.edges).edges.filter((edge) => {
       if (seen.has(edge.id)) {
         if (import.meta.env.DEV) {
           console.warn(`[ReactFlowGraph] Duplicate edge ID filtered: ${edge.id}`)
@@ -1079,7 +1084,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       (id) => nodeKindById.get(id),
       routeOnceHeldIds(nodes, edges),
     )
-  }, [edges, memoizedNodes, nodes])
+  }, [drawnModel.edges, edges, memoizedNodes, nodes])
 
   // Actions are stable references - don't need shallow comparison
   const createNodeId = useCanvasStore(s => s.createNodeId)

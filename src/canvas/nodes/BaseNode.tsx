@@ -73,6 +73,7 @@ import {
   UNFINISHED_CONTRIBUTION_COPY,
   UNFINISHED_CONTRIBUTION_TEST_ID,
 } from './shared/analysisParticipation'
+import { livingOnlyOf, NOT_IN_CALCULATION_TEST_ID, notInCalculationWords } from '../domain/livingModelCanvas'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 import { openNodeInspector } from './shared/openNodeInspector'
@@ -961,6 +962,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    * be a second thing to remember to turn on — the producer's stamp IS the gate.
    */
   const isRetainedExcluded = isRetainedExcludedFromAnalysis(data)
+  // An item drawn from the person's model alone (`domain/livingModelCanvas.ts`): the engine graph has no node for it.
+  const livingOnly = livingOnlyOf(data)
 
   const isIncomplete = (() => {
     /* ⭐ GATED ON THE GAP, NOT THE PHASE — for the two node types whose predicate
@@ -1763,6 +1766,15 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         }
         openNodeInspector(id)
       }}
+    />
+  ) : livingOnly !== null ? (
+    /* The person's model holds it; the calculation does not include it yet. Same slot, so no fourth child; label and
+       title are one string for the reason given below. */
+    <StatusPill
+      testId={NOT_IN_CALCULATION_TEST_ID}
+      label={notInCalculationWords(livingOnly)}
+      title={notInCalculationWords(livingOnly)}
+      wrap
     />
   ) : isRetainedExcluded ? (
     /* ⭐ A THIRD ARM OF THE SAME TERNARY — NOT A FOURTH CHILD OF THE STACK.

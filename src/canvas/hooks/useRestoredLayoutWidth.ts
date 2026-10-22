@@ -70,20 +70,25 @@
  * reload-then-switch, are both covered (nothing sets `layoutVersion` on a
  * restore path).
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
 import { applyRespreadX, planSubFloorRespread, solveLayoutNodeWidth, solveRestoredCardWidths } from '../utils/layout'
 import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 import { restoreIdentityKey } from './useFitViewOnLayoutVersion'
 import { withoutCoreSwitches } from '../domain/coreSwitch'
+import { livingOutcomeIdsOf, withLivingKinds } from '../domain/livingKinds'
+import { useSavedGraph } from '../nodes/shared/savedGraph'
 
 /**
  * ⛔ THE MODEL AS DRAWN, AS `layoutGraph` LAYS IT OUT (served 21 Oct 2026). Core's option switch (`<option>__on`) stays in
  * the store but is never drawn (`coreSwitch.ts`), so React Flow never measures it. Waiting for it held every reopened core
  * board at the 400 resting width on a 276 pitch: cards overlapped, the Question and the goal read narrow.
+ * A factor the living model calls an outcome is drawn and laid out in the outcome row (`livingKinds.ts`), so its width is
+ * that row's here too.
  */
-const drawnOf = <N extends { id: string; type?: string; data?: unknown }>(nodes: readonly N[]): N[] => withoutCoreSwitches(nodes, []).nodes
+const drawnOf = <N extends { id: string; type?: string; data?: unknown }>(nodes: readonly N[], outcomeIds: ReadonlySet<string>): N[] =>
+  withLivingKinds(withoutCoreSwitches(nodes, []).nodes, outcomeIds)
 
 export function useRestoredLayoutWidth(): void {
   // Selected individually and as stable references / primitives — a selector
@@ -102,6 +107,10 @@ export function useRestoredLayoutWidth(): void {
   // solver is a function of node spacing too. It persists with the rest of the
   // layout options, so it still survives a reload.
   const nodeSpacing = useLayoutStore((s) => s.nodeSpacing)
+  // The living model arrives after the restore: its outcomes re-derive the widths for the rows they are drawn in.
+  const savedGraph = useSavedGraph()
+  const outcomeIds = useMemo(() => livingOutcomeIdsOf(savedGraph), [savedGraph])
+  const outcomeKey = [...outcomeIds].sort().join(',')
 
   const derivedForRef = useRef<string | null>(null)
   /**
@@ -132,14 +141,14 @@ export function useRestoredLayoutWidth(): void {
     // same predicate `useInitialLayoutGuard` uses to claim it. Not our case.
     if (graphNeedsInitialLayout(nodes)) return
 
-    const key = restoreIdentityKey(scenarioId)
+    const key = `${restoreIdentityKey(scenarioId)}|${outcomeKey}`
 
     // The FULL node array, exactly as `applyLayout` passes it to `layoutGraph`
     // (`store.ts:3304`) — a filtered set here would answer about a different
     // graph than the one whose positions are on screen.
     if (derivedForRef.current !== key) {
       derivedForRef.current = key
-      const derived = solveLayoutNodeWidth(drawnOf(nodes), { direction, preserveLocked: respectLocked })
+      const derived = solveLayoutNodeWidth(drawnOf(nodes, outcomeIds), { direction, preserveLocked: respectLocked })
       if (derived !== useLayoutStore.getState().layoutNodeWidth) {
         useLayoutStore.getState().setLayoutNodeWidth(derived)
       }
@@ -221,7 +230,7 @@ export function useRestoredLayoutWidth(): void {
     // ⚠ Read from the store's CURRENT nodes, like the re-spread and the widths
     // below (Delivery Lead, #2235 r1): one snapshot for the whole block, so the
     // evidence it waits for is the evidence it then uses.
-    const live = drawnOf(useCanvasStore.getState().nodes)
+    const live = drawnOf(useCanvasStore.getState().nodes, outcomeIds)
     const everyCardMeasured = live.every((n) => {
       if ((n as { hidden?: boolean }).hidden === true) return true
       const h = (n as unknown as { measured?: { height?: number } }).measured?.height
@@ -272,7 +281,7 @@ export function useRestoredLayoutWidth(): void {
       }
     }
 
-    const derivedPerKind = solveRestoredCardWidths(drawnOf(useCanvasStore.getState().nodes), {
+    const derivedPerKind = solveRestoredCardWidths(drawnOf(useCanvasStore.getState().nodes, outcomeIds), {
       direction,
       preserveLocked: respectLocked,
       spacing: nodeSpacing,
@@ -285,5 +294,5 @@ export function useRestoredLayoutWidth(): void {
     if (changed) {
       useLayoutStore.getState().setLayoutCardWidths(derivedPerKind)
     }
-  }, [nodes, layoutVersion, pendingLayout, layoutInProgress, scenarioId, direction, respectLocked, nodeSpacing])
+  }, [nodes, layoutVersion, pendingLayout, layoutInProgress, scenarioId, direction, respectLocked, nodeSpacing, outcomeIds, outcomeKey])
 }
