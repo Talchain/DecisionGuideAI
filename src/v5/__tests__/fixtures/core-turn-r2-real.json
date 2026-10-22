@@ -1,0 +1,398 @@
+{
+ "_source": "core-route R2 POST /agent/v1/core-turn real bodies (card turn + its approval), 22 Oct; _agent/_provider_calls dropped (not contract)",
+ "card_turn": {
+  "turn_id": "24fe5e48-bcd1-4224-b831-001e7e96937e",
+  "durability": "recorded",
+  "assistant_text": "I prepared that change; press its card to save it.",
+  "model": {
+   "revision": "a3861f96264c798d",
+   "scenario_revision": "7efa94f4b76bd546e2bb08e5aec7d236186e07f47d535f147da3313e0c9edb63",
+   "graph": {
+    "nodes": [
+     {
+      "id": "decision_g",
+      "kind": "decision",
+      "label": "Decision: Reach 100 units"
+     },
+     {
+      "id": "g",
+      "kind": "goal",
+      "label": "Reach 100 units",
+      "source_quote": "we need at least 100 units; today we are at 70",
+      "goal_direction": ">=",
+      "goal_threshold_raw": 100,
+      "goal_threshold_unit": "units",
+      "goal_threshold_cap": 125,
+      "goal_threshold_cap_provenance": "target_derived_headroom",
+      "goal_threshold": 0.8,
+      "goal_threshold_frame": "level",
+      "observed_state": {
+       "value": 0.56,
+       "baseline": 0.56,
+       "raw_value": 70,
+       "cap": 125,
+       "unit": "units",
+       "source": "brief_extraction",
+       "extractionType": "explicit"
+      }
+     },
+     {
+      "id": "f",
+      "kind": "factor",
+      "label": "f",
+      "category": "controllable",
+      "observed_state": {
+       "value": 0.5,
+       "raw_value": 0.5,
+       "cap": 1,
+       "unit": "",
+       "source": "brief_extraction",
+       "extractionType": "explicit"
+      }
+     },
+     {
+      "id": "hold",
+      "kind": "option",
+      "label": "Hold",
+      "is_baseline": true,
+      "interventions": {
+       "f": {
+        "value": 0.5,
+        "raw_value": 0.5,
+        "unit": "",
+        "source": "cee_hypothesis",
+        "target_match": {
+         "node_id": "f",
+         "match_type": "exact_id",
+         "confidence": "high"
+        }
+       }
+      }
+     },
+     {
+      "id": "push",
+      "kind": "option",
+      "label": "Push",
+      "interventions": {
+       "f": {
+        "value": 1,
+        "raw_value": 1,
+        "unit": "",
+        "source": "brief_extraction",
+        "extractionType": "explicit",
+        "target_match": {
+         "node_id": "f",
+         "match_type": "exact_id",
+         "confidence": "high"
+        }
+       }
+      }
+     }
+    ],
+    "edges": [
+     {
+      "from": "decision_g",
+      "to": "hold",
+      "strength": {
+       "mean": 1,
+       "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+       "source": "cee_hypothesis"
+      }
+     },
+     {
+      "from": "hold",
+      "to": "f",
+      "strength": {
+       "mean": 1,
+       "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+       "source": "cee_hypothesis"
+      }
+     },
+     {
+      "from": "decision_g",
+      "to": "push",
+      "strength": {
+       "mean": 1,
+       "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+       "source": "cee_hypothesis"
+      }
+     },
+     {
+      "from": "push",
+      "to": "f",
+      "strength": {
+       "mean": 1,
+       "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+       "source": "cee_hypothesis"
+      }
+     },
+     {
+      "id": "f_g",
+      "from": "f",
+      "to": "g",
+      "effect_direction": "positive",
+      "strength": {
+       "mean": 0.4,
+       "std": 0.08
+      },
+      "exists_probability": 1,
+      "provenance": {
+       "source": "brief_extraction",
+       "magnitude": "user_stated",
+       "natural_effect": {
+        "amount": 50,
+        "amount_unit": "units",
+        "per_source_change": 1,
+        "per_source_change_unit": "",
+        "strength_mean": 0.4,
+        "strength_mean_frame": "edge_strength"
+       },
+       "uncertainty_defaults": []
+      }
+     }
+    ],
+    "node_count": 5,
+    "edge_count": 5
+   }
+  },
+  "cards": [
+   {
+    "proposal_id": "prop_410b8ec9c1fac5d06167f0eea540add7",
+    "revision": "f4a80b66-61ab-418b-9baa-481fcc31cba0",
+    "digest": "af44d31913ff34da36f58c8186c2a50d",
+    "approve_action": {
+     "id": "agent-approve-proposal:prop_410b8ec9c1fac5d06167f0eea540add7",
+     "label": "Make this change",
+     "message": "Yes, make that change.",
+     "detail": "Set f to 0.6, as you said"
+    },
+    "decline_action": {
+     "id": "agent-decline-proposal:prop_410b8ec9c1fac5d06167f0eea540add7",
+     "label": "Not now",
+     "message": "Not now."
+    },
+    "issued_turn_id": null,
+    "fields": [],
+    "adds": [
+     {
+      "field_id": "change_note:factor:f",
+      "kind": "change_note",
+      "text": "Changes \u2018f\u2019: figure was 0.5, now 0.6; quoting now \u201cActually f is at 0.6 now.\u201d (was \u201cf is at 0.5\u201d) (yours).",
+      "source": "yours",
+      "editable": false
+     }
+    ],
+    "missing": []
+   }
+  ],
+  "notes": [],
+  "run": null,
+  "analysis_state": null,
+  "receipts": [],
+  "paused": null,
+  "error": null
+ },
+ "approval_turn": {
+  "turn_id": "d9de6353-4753-4b83-9309-f54b4b7a8035",
+  "durability": "recorded",
+  "assistant_text": "Saved: f is 0.6 now.",
+  "model": {
+   "revision": "4091cc7f1b696c48",
+   "scenario_revision": "d07233199709ba0e1da85d6121e8ddf46971d88fef773f9fd7615af24bdd9617",
+   "graph": {
+    "nodes": [
+     {
+      "id": "decision_g",
+      "kind": "decision",
+      "label": "Decision: Reach 100 units"
+     },
+     {
+      "id": "g",
+      "kind": "goal",
+      "label": "Reach 100 units",
+      "source_quote": "we need at least 100 units; today we are at 70",
+      "goal_direction": ">=",
+      "goal_threshold_raw": 100,
+      "goal_threshold_unit": "units",
+      "goal_threshold_cap": 125,
+      "goal_threshold_cap_provenance": "target_derived_headroom",
+      "goal_threshold": 0.8,
+      "goal_threshold_frame": "level",
+      "observed_state": {
+       "value": 0.56,
+       "baseline": 0.56,
+       "raw_value": 70,
+       "cap": 125,
+       "unit": "units",
+       "source": "brief_extraction",
+       "extractionType": "explicit"
+      }
+     },
+     {
+      "id": "f",
+      "kind": "factor",
+      "label": "f",
+      "category": "controllable",
+      "observed_state": {
+       "value": 0.6,
+       "raw_value": 0.6,
+       "cap": 1,
+       "unit": "",
+       "source": "brief_extraction",
+       "extractionType": "explicit"
+      }
+     },
+     {
+      "id": "hold",
+      "kind": "option",
+      "label": "Hold",
+      "is_baseline": true,
+      "interventions": {
+       "f": {
+        "value": 0.6,
+        "raw_value": 0.6,
+        "unit": "",
+        "source": "cee_hypothesis",
+        "target_match": {
+         "node_id": "f",
+         "match_type": "exact_id",
+         "confidence": "high"
+        }
+       }
+      }
+     },
+     {
+      "id": "push",
+      "kind": "option",
+      "label": "Push",
+      "interventions": {
+       "f": {
+        "value": 1,
+        "raw_value": 1,
+        "unit": "",
+        "source": "brief_extraction",
+        "extractionType": "explicit",
+        "target_match": {
+         "node_id": "f",
+         "match_type": "exact_id",
+         "confidence": "high"
+        }
+       }
+      }
+     }
+    ],
+    "edges": [
+     {
+      "from": "decision_g",
+      "to": "hold",
+      "strength": {
+       "mean": 1,
+       "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+       "source": "cee_hypothesis"
+      }
+     },
+     {
+      "from": "hold",
+      "to": "f",
+      "strength": {
+       "mean": 1,
+       "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+       "source": "cee_hypothesis"
+      }
+     },
+     {
+      "from": "decision_g",
+      "to": "push",
+      "strength": {
+       "mean": 1,
+       "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+       "source": "cee_hypothesis"
+      }
+     },
+     {
+      "from": "push",
+      "to": "f",
+      "strength": {
+       "mean": 1,
+       "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+       "source": "cee_hypothesis"
+      }
+     },
+     {
+      "id": "f_g",
+      "from": "f",
+      "to": "g",
+      "effect_direction": "positive",
+      "strength": {
+       "mean": 0.4,
+       "std": 0.08
+      },
+      "exists_probability": 1,
+      "provenance": {
+       "source": "brief_extraction",
+       "magnitude": "user_stated",
+       "natural_effect": {
+        "amount": 50,
+        "amount_unit": "units",
+        "per_source_change": 1,
+        "per_source_change_unit": "",
+        "strength_mean": 0.4,
+        "strength_mean_frame": "edge_strength"
+       },
+       "uncertainty_defaults": []
+      }
+     }
+    ],
+    "node_count": 5,
+    "edge_count": 5
+   }
+  },
+  "cards": [],
+  "notes": [],
+  "run": null,
+  "analysis_state": null,
+  "receipts": [
+   {
+    "version": 1,
+    "version_id": "v_1",
+    "mutation_id": "m_1",
+    "source_turn_id": null,
+    "authorised_by": "person"
+   }
+  ],
+  "paused": null,
+  "error": null
+ }
+}
