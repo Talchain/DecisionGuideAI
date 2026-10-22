@@ -248,10 +248,14 @@ export function useFocusCamera(): FocusCameraHandlers {
   useEffect(() => {
     return registerFitNodes(handleFitNodes)
   }, [handleFitNodes])
-  useEffect(() => registerPanBy((dx, dy) => {
+  useEffect(() => registerPanBy((dx, dy, scale = 1) => {
     const viewport = getViewportRef.current()
+    // Screen point s = pane origin o + flow point * zoom + viewport offset; s -> s * scale + d keeps that form.
+    const pane = document.querySelector('.react-flow')?.getBoundingClientRect()
+    const ox = pane?.left ?? 0
+    const oy = pane?.top ?? 0
     void setViewportRef.current(
-      { x: viewport.x + dx, y: viewport.y + dy, zoom: viewport.zoom },
+      { x: (ox + viewport.x) * scale + dx - ox, y: (oy + viewport.y) * scale + dy - oy, zoom: viewport.zoom * scale },
       { duration: cameraDuration(300, reducedMotionRef.current) },
     )
   }), [])

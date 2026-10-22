@@ -12,7 +12,7 @@
  * Never a verdict: no count of pros against cons, no "best", nothing about how much a route matters (CLAUDE.md §4).
  */
 import { useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, AlertCircle, MessageCircle } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useIsViewer } from '../../lib/viewerMode'
 import { typography } from '../../styles/typography'
@@ -54,6 +54,8 @@ export const TRADE_OFFS_COPY = {
   next: 'Next option',
   alsoInModel: 'Also in your model, whichever option',
   limit: 'A limit on your goal',
+  /** An option with gains and nothing given up reads as a verdict: say what the gap usually is (anchoring, 20 Oct plan step 2b). */
+  nothingGivenUp: 'Your model holds nothing this option gives up yet. That usually means a cost or risk is missing, not that there is none.',
   ask: 'Ask Olumi what’s missing',
   legend: (goal: string) => `In front: this option’s routes to ${goal}. Open the key to read each one.`,
   note: (goal: string) => `Each route follows the links in your model: which way it pushes ${goal}, not how much, and not which option to choose.`,
@@ -155,8 +157,10 @@ function AlsoInModel({ risks, limits }: { risks: readonly ModelRisk[]; limits: r
   )
 }
 
-function RouteGroup({ heading, routes, picked, onPick, effect }: {
+function RouteGroup({ heading, routes, picked, onPick, effect, flag = null }: {
   heading: string
+  /** A mark beside the heading, its words on hover (Paul 22 Oct: icons over static text). */
+  flag?: { testId: string; text: string } | null
   routes: readonly TradeOffRoute[]
   picked: string | null
   onPick: (key: string | null) => void
@@ -165,7 +169,15 @@ function RouteGroup({ heading, routes, picked, onPick, effect }: {
   if (routes.length === 0) return null
   return (
     <section data-testid={`${TRADE_OFFS_KEY_TESTID}-group-${effect}`} className="space-y-1">
-      <h3 className={`${typography.panelMeta} text-text-light`}>{heading}</h3>
+      <h3 className={`${typography.panelMeta} flex items-center gap-1 text-text-light`}>
+        {heading}
+        {flag ? (
+          <span data-testid={flag.testId} title={flag.text} className="inline-flex text-warning">
+            <AlertCircle aria-hidden="true" className="h-3.5 w-3.5" />
+            <span className="sr-only">{flag.text}</span>
+          </span>
+        ) : null}
+      </h3>
       <ul className="space-y-1">
         {routes.map((route) => {
           const open = route.key === picked
@@ -270,7 +282,8 @@ export function TradeOffsKey({ folded = false }: { folded?: boolean }) {
         <RouteGroup heading={TRADE_OFFS_COPY.unsorted(goal)} routes={option.routes} picked={pickedRoute} onPick={setPickedRoute} effect="unsorted" />
       ) : (
         <div className="space-y-2.5">
-          <RouteGroup heading={TRADE_OFFS_COPY.group.gains(goal)} routes={of('gains')} picked={pickedRoute} onPick={setPickedRoute} effect="gains" />
+          <RouteGroup heading={TRADE_OFFS_COPY.group.gains(goal)} routes={of('gains')} picked={pickedRoute} onPick={setPickedRoute} effect="gains"
+            flag={of('gives_up').length === 0 ? { testId: `${TRADE_OFFS_KEY_TESTID}-nothing-given-up`, text: TRADE_OFFS_COPY.nothingGivenUp } : null} />
           <RouteGroup heading={TRADE_OFFS_COPY.group.gives_up(goal)} routes={of('gives_up')} picked={pickedRoute} onPick={setPickedRoute} effect="gives_up" />
           <RouteGroup heading={TRADE_OFFS_COPY.group.not_set} routes={of('not_set')} picked={pickedRoute} onPick={setPickedRoute} effect="not_set" />
         </div>

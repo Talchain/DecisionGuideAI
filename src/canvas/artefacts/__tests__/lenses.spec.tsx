@@ -9,7 +9,7 @@ import { ArtefactOffer } from '../../components/ArtefactOffer'
 import { LensBar, placeLensBar } from '../LensBar'
 import { nextBarLens, usePremortemArrival } from '../lenses'
 import { RestsOnKey, restsOnHeadline } from '../RestsOnKey'
-import { keyCardLift, keyCardSide } from '../../components/LensInfoPanel'
+import { keyCardMove, keyCardSide } from '../../components/LensInfoPanel'
 import { OVERLAY_BAND_LEFT_PAD } from '../../components/CanvasOverlayBand'
 import { useActionBarStore } from '../../conversation/actionBar/actionBarStore'
 import type { ActionBarV1, ActionOffer } from '../../conversation/actionBar/actionBarContract'
@@ -266,11 +266,45 @@ describe('the key card covers as little of the model as it can', () => {
     assert.equal(keyCardSide(left, right, [card(720, 520)]), 'left')
     assert.equal(keyCardSide(left, right, []), 'left')
   })
-  it('lifts the model only as far as the cards under it, and never past the room above it', () => {
-    const key = card(70, 500, 320, 120)
-    assert.equal(keyCardLift(key, [card(100, 450, 200, 100), card(500, 200)], 52), 58, 'the covered card clears the key by 8')
-    assert.equal(keyCardLift(key, [card(100, 450, 200, 100), card(500, 80)], 52), 28, 'capped by the room above the top card')
-    assert.equal(keyCardLift(key, [card(500, 100)], 52), 0, 'CONTRAST: nothing covered, no move')
+  type R = { x: number; y: number; w: number; h: number }
+  const moved = (c: R, m: { dx: number; dy: number; scale: number }): R => ({ x: c.x * m.scale + m.dx, y: c.y * m.scale + m.dy, w: c.w * m.scale, h: c.h * m.scale })
+  const overlaps = (a: R, b: R) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x) && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y)
+  const inside = (c: R, a: R) => c.x >= a.x - 1e-6 && c.y >= a.y - 1e-6 && c.x + c.w <= a.x + a.w + 1e-6 && c.y + c.h <= a.y + a.h + 1e-6
+  it('with room above, the model only rises, as far as the cards under the key, at its own size', () => {
+    const area = card(60, 60, 1100, 640)
+    assert.deepEqual(keyCardMove(card(70, 500, 320, 120), [card(100, 450, 200, 100), card(500, 200)], area, 0.6), { dx: 0, dy: -58, scale: 1 })
+    assert.equal(keyCardMove(card(70, 500, 320, 120), [card(500, 100)], area, 0.6), null, 'CONTRAST: nothing covered, no move')
+  })
+  it('⭐ 1280 (measured 22 Oct: the key sat over the goal, no room above): the model moves beside the key, zoomed out only as far as it must', () => {
+    const area = card(60, 60, 800, 640)
+    const key = card(540, 520, 320, 180)
+    const cards = [card(100, 60, 200, 80), card(300, 300, 200, 80), card(100, 600, 500, 80)]
+    const m = keyCardMove(key, cards, area, 0.6)!
+    assert.ok(m.scale < 1 && m.scale > 0.9, `zoomed out a little, not to fit the height (${m.scale})`)
+    for (const c of cards) {
+      assert.ok(!overlaps(moved(c, m), key), 'no card in front stands under the key')
+      assert.ok(inside(moved(c, m), area), 'every card stays where it can be read')
+    }
+  })
+  it('never zooms below the zoom where cards drop their labels, and never pushes a card off screen: then it only lifts', () => {
+    const area = card(60, 60, 800, 640)
+    // A model wider than the room even at the floor zoom: no side move keeps it on screen, so only the plain lift is left.
+    const m = keyCardMove(card(540, 460, 320, 240), [card(100, 400, 2000, 200)], area, 0.6)!
+    assert.deepEqual({ dx: m.dx, scale: m.scale }, { dx: 0, scale: 1 })
+    // A model that fits beside the key at a readable zoom moves there, and no further out than the floor allows.
+    const n = keyCardMove(card(540, 460, 320, 240), [card(100, 300, 600, 380)], area, 0.6)!
+    assert.ok(n.scale >= 0.6 && n.scale <= 1, `zoom ${n.scale}`)
+  })
+  it('⛔ a move never leaves more of the model under the key than staying put (measured 22 Oct: a clamped shift slid 3 cards under it)', () => {
+    const area = card(60, 60, 800, 640)
+    const key = card(540, 560, 320, 120)
+    const cards = [card(100, 60, 400, 80), card(600, 300, 250, 80), card(600, 600, 240, 80)]
+    const cover = (m: { dx: number; dy: number; scale: number } | null) => cards.reduce((sum, c) => {
+      const r = m ? moved(c, m) : c
+      return sum + Math.max(0, Math.min(r.x + r.w, key.x + key.w) - Math.max(r.x, key.x)) * Math.max(0, Math.min(r.y + r.h, key.y + key.h) - Math.max(r.y, key.y))
+    }, 0)
+    const m = keyCardMove(key, cards, area, 1)
+    assert.ok(cover(m) <= cover(null), `covered ${cover(m)} after the move, ${cover(null)} before`)
   })
 })
 

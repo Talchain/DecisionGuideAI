@@ -161,6 +161,23 @@ describe('the Trade-offs key card', () => {
     assert.ok(view.getByTestId('trade-offs-key-also'))
   })
 
+  it('⭐ an option that gains and gives nothing up says the model may be missing a cost; one with a give-up does not', () => {
+    const view0 = render(<TradeOffsKey />)
+    assert.ok(view0.getByTestId('trade-offs-key-group-gives_up'), 'precondition: this option gives something up')
+    assert.equal(view0.queryByTestId('trade-offs-key-nothing-given-up'), null)
+    cleanup()
+    // Only the routes that move MRR the way the user wants are left.
+    const givesUp = new Set(['pro_plan_price>monthly_new_pro_subscribers'])
+    useCanvasStore.setState({ edges: useCanvasStore.getState().edges.filter((e) => !givesUp.has(e.id)) } as never)
+    const view = render(<TradeOffsKey />)
+    assert.ok(view.getByTestId('trade-offs-key-group-gains'), 'precondition: gains are listed')
+    assert.equal(view.queryByTestId('trade-offs-key-group-gives_up'), null)
+    // A mark on the gains heading, its words on hover and for screen readers; the ask is the button below it.
+    const flag = within(view.getByTestId('trade-offs-key-group-gains')).getByTestId('trade-offs-key-nothing-given-up')
+    assert.equal(flag.getAttribute('title'), 'Your model holds nothing this option gives up yet. That usually means a cost or risk is missing, not that there is none.')
+    assert.ok(view.getByTestId('trade-offs-key-ask'))
+  })
+
   it('CONTRAST: a model with no goal says so and lists nothing', () => {
     useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.filter((n) => n.type !== 'goal') } as never)
     const view = render(<TradeOffsKey />)

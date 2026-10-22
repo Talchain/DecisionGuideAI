@@ -52,10 +52,10 @@ export function registerFitNodes(fitNodes: FitNodesFn): () => void {
   }
 }
 
-type PanByFn = (dx: number, dy: number) => void
+type PanByFn = (dx: number, dy: number, scale?: number) => void
 let panByImpl: PanByFn | null = null
 
-/** Register the screen-pixel pan (called by ReactFlowGraph on mount). Same ownership-guarded unregister rule. */
+/** Register the screen-pixel move (called by ReactFlowGraph on mount). Same ownership-guarded unregister rule. */
 export function registerPanBy(panBy: PanByFn): () => void {
   panByImpl = panBy
   return () => {
@@ -64,12 +64,13 @@ export function registerPanBy(panBy: PanByFn): () => void {
 }
 
 /**
- * Pan the canvas by screen pixels, keeping the zoom: the lens key card moves the model out from under itself once, when
- * the user opens a lens (`LensInfoPanel`). Fail-closed: false (no-op) when the canvas is not mounted.
+ * Move the canvas by screen pixels: every screen point `p` goes to `p * scale + (dx, dy)` (scale 1 keeps the zoom). The
+ * lens key card moves the model out from under itself once, when the user opens a lens (`LensInfoPanel`). Fail-closed:
+ * false (no-op) when the canvas is not mounted.
  */
-export function panCanvasBy(dx: number, dy: number): boolean {
+export function panCanvasBy(dx: number, dy: number, scale = 1): boolean {
   if (!panByImpl) return false
-  panByImpl(dx, dy)
+  panByImpl(dx, dy, scale)
   return true
 }
 
