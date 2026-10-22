@@ -302,7 +302,8 @@ describe('(d) the title is the data label, verbatim', () => {
   })
 
   // Superseded 22 Oct (Paul: "remove the 'Decision:' text"; DL ruling on #2915): saved boards keep CEE's "Decision: …"
-  // label and no migration rewrites it, so the card shows the question alone. CEE stops minting it at the source.
+  // label and no migration rewrites it, so the card shows the question alone. CEE keeps minting it: the label is part of
+  // the persisted identity hash (core-route on #3657), so this display strip is the fix.
   it('a "Decision:" prefix the DATA carries is not shown: the card is the question (saved label unchanged)', () => {
     renderDecision('Decision: Productivity increase')
     expect(restingCardText()).toContain('Productivity increase')
