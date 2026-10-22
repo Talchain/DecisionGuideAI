@@ -24,6 +24,7 @@ import { useEditPreviewStore } from '../stores/editPreviewStore'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
 import { BottomCardMark, BottomMarksBand, BottomMarksProvider, useBottomBandHasMarks } from './shared/CardMark'
+import { AnsweredMark } from './shared/AnsweredMark'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
@@ -2426,6 +2427,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             info-tinted ring — never the warning family (ED 02:31Z D1b) — with
             its reasons in a focusable tooltip and as its accessible name. */}
         {attentionText !== null && <BottomCardMark><NodeAttentionMarker nodeId={id} sentence={attentionText} /></BottomCardMark>}
+        <AnsweredMark nodeId={id} />
 
         {/* ⛔ GAP-11 (DESIGN-GAP-AUDIT-20260924.md row 11; Paul v3.1 pt14):
             the per-card amber "edited since run" dot is REMOVED. It duplicated
