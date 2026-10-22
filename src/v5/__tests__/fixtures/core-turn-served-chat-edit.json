@@ -1,0 +1,582 @@
+{
+ "_source": "core-route journey 22 Oct 13:54Z, UI bce4aa49, CEE 5b2b5441 (#3656): the chat edit, served bytes; _provider_calls and _agent dropped",
+ "chat_edit_turn": {
+  "turn_id": "d2811cb2-3dae-463a-8eea-8b3f15390f66",
+  "durability": "recorded",
+  "assistant_text": "**The correction to about 950 loaves a week is ready for approval.**\n\n- **Pending, not saved:** The proposal replaces 900 with your corrected figure. Approve it on the card to update the model.\n- **One inconsistency flagged:** Simple arithmetic using your corrected sales and unchanged figures gives approximately (950 loaves/week × £3/loaf) − £1,500/week = **£1,350/week**, rather than the £1,200 you originally stated. This is arithmetic, not a model result; I’ve left your stated profit unchanged pending clarification.",
+  "model": {
+   "revision": "2bc6e0dcd81609a3",
+   "scenario_revision": "92c84b36b09c0c33e970c00c275a7df3b6cb6cb4373db6edea29f94754ed0bf3",
+   "graph": {
+    "nodes": [
+     {
+      "id": "decision_profit",
+      "ref": "D1",
+      "kind": "decision",
+      "label": "Decision: Weekly profit above £1,380 within six months"
+     },
+     {
+      "id": "profit",
+      "ref": "G1",
+      "kind": "goal",
+      "label": "Weekly profit above £1,380 within six months",
+      "source_quote": "I want weekly profit above £1,380 within six months (it is £1,200 now).",
+      "observed_state": {
+       "cap": 1725,
+       "unit": "£ per week",
+       "value": 0.6956521739130435,
+       "source": "brief_extraction",
+       "baseline": 0.6956521739130435,
+       "raw_value": 1200,
+       "extractionType": "explicit"
+      },
+      "goal_target_basis": {
+       "source": "olumi_reading",
+       "reference": "today",
+       "target_raw": 1380,
+       "effect_unit": "£ per week",
+       "period_kind": "at_end",
+       "target_frame": "level",
+       "period_months": 6,
+       "quantity_frame": "level",
+       "effects_at_period_end": false
+      }
+     },
+     {
+      "id": "loaves",
+      "ref": "F1",
+      "kind": "factor",
+      "label": "Loaves sold per week",
+      "category": "observable",
+      "observed_state": {
+       "cap": 1125,
+       "unit": "loaves per week",
+       "value": 0.8,
+       "source": "brief_extraction",
+       "raw_value": 900,
+       "extractionType": "explicit"
+      }
+     },
+     {
+      "id": "price",
+      "ref": "F2",
+      "kind": "factor",
+      "label": "Price per loaf",
+      "category": "controllable",
+      "observed_state": {
+       "cap": 4.0625,
+       "unit": "£ per loaf",
+       "value": 0.7384615384615385,
+       "source": "brief_extraction",
+       "raw_value": 3,
+       "extractionType": "explicit"
+      }
+     },
+     {
+      "id": "revenue",
+      "ref": "OC1",
+      "kind": "outcome",
+      "label": "Weekly revenue",
+      "nonlinear_identity": {
+       "operation": "product",
+       "factor_ids": [
+        "loaves",
+        "price"
+       ],
+       "stated_in_brief": true
+      }
+     },
+     {
+      "id": "costs",
+      "ref": "F3",
+      "kind": "factor",
+      "label": "Weekly costs",
+      "category": "observable",
+      "observed_state": {
+       "cap": 1725,
+       "unit": "£ per week",
+       "value": 0.8695652173913043,
+       "source": "brief_extraction",
+       "raw_value": 1500,
+       "extractionType": "explicit"
+      }
+     },
+     {
+      "id": "sundays__on",
+      "ref": "F4",
+      "kind": "factor",
+      "label": "Open on Sundays in place",
+      "category": "controllable",
+      "observed_state": {
+       "cap": 1,
+       "unit": "",
+       "value": 0,
+       "source": "cee_inference",
+       "raw_value": 0
+      }
+     },
+     {
+      "id": "sundays",
+      "ref": "O1",
+      "kind": "option",
+      "label": "Open on Sundays",
+      "interventions": {
+       "sundays__on": {
+        "unit": "",
+        "value": 1,
+        "source": "brief_extraction",
+        "raw_value": 1,
+        "target_match": {
+         "node_id": "sundays__on",
+         "confidence": "high",
+         "match_type": "exact_id"
+        },
+        "extractionType": "explicit"
+       }
+      }
+     },
+     {
+      "id": "unchanged",
+      "ref": "O2",
+      "kind": "option",
+      "label": "Keep things as they are",
+      "is_baseline": true,
+      "interventions": {
+       "price": {
+        "unit": "£ per loaf",
+        "value": 0.7384615384615385,
+        "source": "cee_hypothesis",
+        "raw_value": 3,
+        "target_match": {
+         "node_id": "price",
+         "confidence": "high",
+         "match_type": "exact_id"
+        }
+       },
+       "sundays__on": {
+        "unit": "",
+        "value": 0,
+        "source": "cee_hypothesis",
+        "raw_value": 0,
+        "target_match": {
+         "node_id": "sundays__on",
+         "confidence": "high",
+         "match_type": "exact_id"
+        }
+       }
+      }
+     },
+     {
+      "id": "price_trial",
+      "ref": "O3",
+      "kind": "option",
+      "label": "Olumi's alternative: trial a higher price",
+      "interventions": {
+       "price": {
+        "unit": "£ per loaf",
+        "value": 0.8,
+        "source": "cee_hypothesis",
+        "raw_value": 3.25,
+        "target_match": {
+         "node_id": "price",
+         "confidence": "high",
+         "match_type": "exact_id"
+        }
+       }
+      }
+     }
+    ],
+    "edges": [
+     {
+      "to": "sundays",
+      "from": "decision_profit",
+      "strength": {
+       "std": 0.01,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "cee_hypothesis"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "to": "sundays__on",
+      "from": "sundays",
+      "strength": {
+       "std": 0.01,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "cee_hypothesis"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "to": "unchanged",
+      "from": "decision_profit",
+      "strength": {
+       "std": 0.01,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "cee_hypothesis"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "to": "sundays__on",
+      "from": "unchanged",
+      "strength": {
+       "std": 0.01,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "cee_hypothesis"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "to": "price",
+      "from": "unchanged",
+      "strength": {
+       "std": 0.01,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "cee_hypothesis"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "to": "price_trial",
+      "from": "decision_profit",
+      "strength": {
+       "std": 0.01,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "cee_hypothesis"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "to": "price",
+      "from": "price_trial",
+      "strength": {
+       "std": 0.01,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "cee_hypothesis"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "loaves__revenue",
+      "to": "revenue",
+      "from": "loaves",
+      "strength": {
+       "std": 0.001,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "brief_extraction",
+       "magnitude": "user_stated",
+       "definitional": true
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "price__revenue",
+      "to": "revenue",
+      "from": "price",
+      "strength": {
+       "std": 0.001,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "brief_extraction",
+       "magnitude": "user_stated",
+       "definitional": true
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "sunday_sales",
+      "to": "loaves",
+      "from": "sundays__on",
+      "strength": {
+       "std": 0.05333333333333334,
+       "mean": 0.10666666666666667
+      },
+      "provenance": {
+       "source": "brief_extraction",
+       "magnitude": "user_stated",
+       "natural_effect": {
+        "amount": 120,
+        "amount_unit": "loaves per week",
+        "strength_mean": 0.10666666666666667,
+        "per_source_change": 1,
+        "strength_mean_frame": "edge_strength",
+        "per_source_change_unit": "switch"
+       },
+       "uncertainty_defaults": [
+        {
+         "code": "CLAMP_STD_MINIMUM",
+         "after": 0.05333333333333334,
+         "layer": "cee",
+         "before": null,
+         "reason": "Nobody stated how uncertain this strength is. Applied Olumi's illustrative spread (half the stated effect). It is not a measurement of anyone's confidence.",
+         "severity": "info",
+         "field_path": "edges[sundays__on::loaves].strength.std"
+        }
+       ]
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "sunday_staff",
+      "to": "costs",
+      "from": "sundays__on",
+      "strength": {
+       "std": 0.057971014492753624,
+       "mean": 0.11594202898550725
+      },
+      "provenance": {
+       "source": "brief_extraction",
+       "magnitude": "user_stated",
+       "natural_effect": {
+        "amount": 200,
+        "amount_unit": "£ per week",
+        "strength_mean": 0.11594202898550725,
+        "per_source_change": 1,
+        "strength_mean_frame": "edge_strength",
+        "per_source_change_unit": "switch"
+       },
+       "uncertainty_defaults": [
+        {
+         "code": "CLAMP_STD_MINIMUM",
+         "after": 0.057971014492753624,
+         "layer": "cee",
+         "before": null,
+         "reason": "Nobody stated how uncertain this strength is. Applied Olumi's illustrative spread (half the stated effect). It is not a measurement of anyone's confidence.",
+         "severity": "info",
+         "field_path": "edges[sundays__on::costs].strength.std"
+        }
+       ]
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "revenue_profit",
+      "to": "profit",
+      "from": "revenue",
+      "strength": {
+       "std": 0.125,
+       "mean": 0.5
+      },
+      "defaulted": true,
+      "provenance": {
+       "source": "cee_hypothesis",
+       "magnitude": "olumi_placeholder"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 0.8
+     },
+     {
+      "id": "cost_profit",
+      "to": "profit",
+      "from": "costs",
+      "strength": {
+       "std": 0.001,
+       "mean": -1
+      },
+      "provenance": {
+       "source": "brief_extraction",
+       "magnitude": "user_stated",
+       "natural_effect": {
+        "amount": -1,
+        "amount_unit": "£ per week",
+        "strength_mean": -1,
+        "per_source_change": 1,
+        "strength_mean_frame": "edge_strength",
+        "per_source_change_unit": "£ per week"
+       },
+       "uncertainty_defaults": []
+      },
+      "effect_direction": "negative",
+      "exists_probability": 1
+     },
+     {
+      "id": "price_demand",
+      "to": "loaves",
+      "from": "price",
+      "strength": {
+       "std": 0.18055555555555555,
+       "mean": -0.3611111111111111
+      },
+      "provenance": {
+       "source": "cee_hypothesis",
+       "magnitude": "olumi_estimate",
+       "natural_effect": {
+        "amount": -100,
+        "amount_unit": "loaves per week",
+        "strength_mean": -0.3611111111111111,
+        "per_source_change": 1,
+        "strength_mean_frame": "edge_strength",
+        "per_source_change_unit": "£ per loaf"
+       },
+       "uncertainty_defaults": [
+        {
+         "code": "CLAMP_STD_MINIMUM",
+         "after": 0.18055555555555555,
+         "layer": "cee",
+         "before": null,
+         "reason": "The calculation uses Olumi's estimated 100 with Olumi's illustrative spread (half the estimated effect). Olumi's range, -400 to 0, is kept with the model but is not used as a spread.",
+         "severity": "info",
+         "field_path": "edges[price::loaves].strength.std"
+        },
+        {
+         "code": "DEFAULT_EXISTS_PROBABILITY",
+         "after": 0.8,
+         "layer": "cee",
+         "before": null,
+         "reason": "Nobody stated how likely this link is to exist. Applied Olumi's untested default.",
+         "severity": "info",
+         "field_path": "edges[price::loaves].exists_probability"
+        }
+       ]
+      },
+      "effect_direction": "negative",
+      "exists_probability": 0.8
+     }
+    ],
+    "node_count": 10,
+    "edge_count": 14
+   }
+  },
+  "cards": [
+   {
+    "proposal_id": "prop_7905c950205ac1935897365b156211ea",
+    "revision": "c0ff6d14-104b-4aa8-b00e-d1eae8238e7b",
+    "digest": "2feb78be52eb5e94dce27aab6d1671ab",
+    "approve_action": {
+     "id": "agent-approve-proposal:prop_7905c950205ac1935897365b156211ea",
+     "label": "Make this change",
+     "message": "Yes, make that change.",
+     "detail": "Correct weekly loaves sold to about 950"
+    },
+    "decline_action": {
+     "id": "agent-decline-proposal:prop_7905c950205ac1935897365b156211ea",
+     "label": "Not now",
+     "message": "Not now."
+    },
+    "issued_turn_id": "d2811cb2-3dae-463a-8eea-8b3f15390f66",
+    "fields": [
+     {
+      "field_id": "factor_value:loaves",
+      "kind": "factor_value",
+      "node_id": "loaves",
+      "label": "Loaves sold per week",
+      "unit": "loaves per week",
+      "current": {
+       "value": 950,
+       "unit": "loaves per week",
+       "source": "yours"
+      },
+      "filled_missing": false,
+      "editable": false
+     }
+    ],
+    "adds": [
+     {
+      "field_id": "change_note:factor:loaves",
+      "kind": "change_note",
+      "text": "Changes ‘Loaves sold per week’: quoting now “A correction: we actually sell about 950 loaves a week, not 900.” (was “we sell 900 loaves a week at £3 each.”) (yours).",
+      "source": "yours",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:condition:3#1",
+      "kind": "change_note",
+      "text": "Adds the condition “The corrected sales level does not reconcile with the previously stated current weekly profit under the supplied revenue and cost definitions. Retain the stated £1,200 current profit pending clarification; do not silently replace it.”: applies to ‘Loaves sold per week’ and ‘Price per loaf’ and ‘Weekly costs’ and ‘Weekly profit above £1,380 within six months’ (1/2)",
+      "source": "estimate",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:condition:3#2",
+      "kind": "change_note",
+      "text": "role a challenge (Olumi’s estimate). (2/2)",
+      "source": "estimate",
+      "editable": false
+     }
+    ],
+    "missing": []
+   }
+  ],
+  "notes": [],
+  "run": {
+   "run_key": null,
+   "run_id": null,
+   "computed_against": null,
+   "state": {
+    "kind": "blocked",
+    "computed_at": null
+   }
+  },
+  "analysis_state": {
+   "run_state": {
+    "kind": "blocked",
+    "reason_code": "IDENTITY_FRAME_MISSING",
+    "blockers": [
+     {
+      "code": "IDENTITY_FRAME_MISSING",
+      "category": "numeric_integrity",
+      "message": "What unit is \"Weekly revenue\" measured in? Olumi needs it to work out \"Weekly revenue\" from its parts.",
+      "repairability": "human_input_required",
+      "factor_id": "revenue",
+      "factor_label": "Weekly revenue"
+     }
+    ]
+   },
+   "readiness": {
+    "status": "blocked",
+    "blockers": [
+     {
+      "code": "IDENTITY_FRAME_MISSING",
+      "category": "numeric_integrity",
+      "message": "What unit is \"Weekly revenue\" measured in? Olumi needs it to work out \"Weekly revenue\" from its parts.",
+      "repairability": "human_input_required",
+      "factor_id": "revenue",
+      "factor_label": "Weekly revenue"
+     }
+    ]
+   },
+   "leader_claim": {
+    "permitted": false,
+    "withheld_reason": "analysis_no_result"
+   },
+   "robustness": {},
+   "usable_for_prose": false,
+   "usable_for_chips": false,
+   "usable_for_followup": false,
+   "requires_rerun": false,
+   "blocked_unusable": true,
+   "contradictions": []
+  },
+  "receipts": [],
+  "paused": null,
+  "error": null
+ }
+}
