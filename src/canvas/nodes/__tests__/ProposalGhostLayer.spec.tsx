@@ -22,7 +22,7 @@ vi.mock('@xyflow/react', async () => {
   }
 })
 
-import { CANVAS_BAND_WORD, ghostBandText, ghostStatusText, ProposalGhostLayer, PROPOSAL_GHOST_TESTID } from '../ProposalGhostLayer'
+import { CANVAS_BAND_WORD, ghostBandText, ghostStatusText, ProposalGhostLayer, PROPOSAL_GHOST_TESTID, otherChangesText, REVIEW_ON_THE_CARD } from '../ProposalGhostLayer'
 import { GHOST_CARD_WIDTH, GHOST_GAP_X, GHOST_CARD_HEIGHT, GHOST_GAP_Y, proposalGhostGeometry } from '../../utils/proposalGhostGeometry'
 import { useProposalGhostStore } from '../../stores/proposalGhostStore'
 import { consentChipsFor, readProposalPreviewValue, type ProposalPreview } from '../../conversation/proposalPreview'
@@ -323,6 +323,34 @@ describe('the ghost\'s own Approve / Not now', () => {
     render(<ProposalGhostLayer />)
     fireEvent.click(screen.getByTestId('proposal-ghost-actions-decline'))
     expect(sent).toEqual([['Not now', 'Not now.', { id: 'agent-decline-proposal:prop_1' }]])
+    act(() => { useGuidanceStore.setState({ _sendChip: null } as never) })
+  })
+
+  it('⛔ CONSENT (DL 22 Oct): a card that also lists changes in words offers NO approve on the ghost: "+N other changes" and "Review on the card"', () => {
+    rfNodes = NODES
+    const sent: unknown[][] = []
+    act(() => { useGuidanceStore.setState({ _sendChip: (...a: unknown[]) => { sent.push(a) } } as never) })
+    act(() => useProposalGhostStore.getState().showGhost({ ...preview([ADD, TIE]), otherChanges: 2 }, { approve: APPROVE, decline: DECLINE }))
+    render(<ProposalGhostLayer />)
+    expect(screen.queryByTestId('proposal-ghost-actions-approve')).toBeNull()
+    expect(screen.getByTestId('proposal-ghost-actions-other-changes').textContent).toBe('+2 other changes')
+    const review = screen.getByTestId('proposal-ghost-actions-review')
+    expect(review.textContent).toBe(REVIEW_ON_THE_CARD)
+    fireEvent.click(review)
+    expect(sent, 'reviewing sends nothing').toEqual([])
+    // Declining is still the person's: it writes nothing.
+    expect(screen.getByTestId('proposal-ghost-actions-decline').textContent).toBe('Not now')
+    expect(otherChangesText(1)).toBe('+1 other change')
+    act(() => { useGuidanceStore.setState({ _sendChip: null } as never) })
+  })
+
+  it('CONTRAST: with no other changes the ghost\'s actions are exactly as before (approve, then Not now, nothing else)', () => {
+    rfNodes = NODES
+    act(() => { useGuidanceStore.setState({ _sendChip: () => {} } as never) })
+    act(() => useProposalGhostStore.getState().showGhost(preview([ADD, TIE]), { approve: APPROVE, decline: DECLINE }))
+    render(<ProposalGhostLayer />)
+    expect([...screen.getByTestId('proposal-ghost-actions').children].map((c) => c.getAttribute('data-testid')))
+      .toEqual(['proposal-ghost-actions-approve', 'proposal-ghost-actions-decline'])
     act(() => { useGuidanceStore.setState({ _sendChip: null } as never) })
   })
 

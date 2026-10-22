@@ -20,7 +20,7 @@
  */
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { CONSENT_CHIP_PREFIX } from './messageComposition'
-import { readProposalFields, type Band, type Proposal } from './proposalFields'
+import { readProposalFields, type Band, type Proposal, changeNotesOf } from './proposalFields'
 
 const DECLINE_CHIP_PREFIX = 'agent-decline-proposal:'
 import type { ActionChip, ConversationMessage } from './types'
@@ -80,6 +80,8 @@ export type ProposalPreviewOp =
 export interface ProposalPreview {
   readonly proposalId: string
   readonly ops: readonly ProposalPreviewOp[]
+  /** Core only: how many other changes the held card lists in words (`change_note`), which the canvas cannot draw. */
+  readonly otherChanges?: number
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null)
@@ -209,5 +211,6 @@ export function previewFromFields(p: Proposal): ProposalPreview | null {
       ? { op: 'add_node', id: add.node_id, label: add.label, kind: 'factor', value: add.value, source: add.source }
       : { op: 'add_edge', fromId: add.from_id, toId: add.to_id, band: null, direction: add.direction, source: add.source })
   }
-  return ops.length > 0 ? { proposalId: p.proposal_id, ops } : null
+  const otherChanges = changeNotesOf(p).length
+  return ops.length > 0 ? { proposalId: p.proposal_id, ops, ...(otherChanges > 0 ? { otherChanges } : {}) } : null
 }

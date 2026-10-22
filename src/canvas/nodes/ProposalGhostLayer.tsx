@@ -28,6 +28,7 @@ import { OPTION_TAKEN_OUT_COPY } from '../domain/optionStatus'
 import type { PreviewBand, PreviewOptionStatus } from '../conversation/proposalPreview'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { NodeTypeEnum } from '../domain/nodes'
+import { revealOlumiSurface } from '../conversation/revealOlumi'
 import { formatMoneyFigure } from '../../utils/unitClassifier'
 
 export const PROPOSAL_GHOST_TESTID = 'proposal-ghost-layer'
@@ -38,7 +39,19 @@ export const PROPOSAL_GHOST_ACTIONS_TESTID = 'proposal-ghost-actions'
  * own id, words and type. Once pressed, both wait for the reply: it settles the proposal (the ghost goes) or offers the
  * chips again (new chip objects, so the buttons are live again).
  */
-function GhostActions({ approve, decline, at }: { approve: ActionChip; decline: ActionChip | null; at: { x: number; y: number } }) {
+/** The ghost's words when its card holds changes the canvas cannot draw: approval happens only where every one is listed. */
+export const otherChangesText = (n: number): string => `+${n} other change${n === 1 ? '' : 's'}`
+export const REVIEW_ON_THE_CARD = 'Review on the card'
+
+/** Front the chat and bring the held card's "Also changes" list into view. */
+function reviewOnTheCard(proposalId: string) {
+  revealOlumiSurface()
+  requestAnimationFrame(() => document.querySelector(`[data-testid="proposal-change-notes-${proposalId}"]`)?.scrollIntoView({ block: 'center' }))
+}
+
+function GhostActions({ approve, decline, at, proposalId, otherChanges }: {
+  approve: ActionChip; decline: ActionChip | null; at: { x: number; y: number }; proposalId: string; otherChanges?: number
+}) {
   const send = useGuidanceStore((s) => s._sendChip)
   const [pressed, setPressed] = useState(false)
   useEffect(() => setPressed(false), [approve, decline])
@@ -64,7 +77,12 @@ function GhostActions({ approve, decline, at }: { approve: ActionChip; decline: 
       className="nodrag nopan absolute flex items-center"
       style={{ left: at.x, top: at.y, gap: 6, pointerEvents: 'auto' }}
     >
-      {button(approve, 'primary')}
+      {/* ⛔ CONSENT (DL 22 Oct): a card that also changes things the canvas cannot draw is approved only on the card. */}
+      {otherChanges === undefined ? button(approve, 'primary') : <>
+        <span className={`${typography.edgeLabel} text-text-header`} data-testid={`${PROPOSAL_GHOST_ACTIONS_TESTID}-other-changes`}>{otherChangesText(otherChanges)}</span>
+        <button type="button" data-testid={`${PROPOSAL_GHOST_ACTIONS_TESTID}-review`} onClick={() => reviewOnTheCard(proposalId)}
+          className={`${typography.edgeLabel} ${action('primary')} rounded-full px-3 py-1 ${ACTION_FOCUS}`}>{REVIEW_ON_THE_CARD}</button>
+      </>}
       {decline !== null && button(decline, 'secondary')}
     </div>
   )
@@ -273,7 +291,8 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
         ))}
       </div>
       {chips !== null && ghost !== null && actionsAt !== null && (
-        <GhostActions key={ghost.proposalId} approve={chips.approve} decline={chips.decline} at={actionsAt} />
+        <GhostActions key={ghost.proposalId} approve={chips.approve} decline={chips.decline} at={actionsAt}
+          proposalId={ghost.proposalId} otherChanges={ghost.otherChanges} />
       )}
     </ViewportPortal>
   )

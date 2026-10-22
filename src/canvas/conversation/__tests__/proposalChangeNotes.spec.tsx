@@ -67,4 +67,13 @@ describe('the held card says everything else the approval writes', () => {
     const mixed = readProposalFields(withAdds([RENAME, add]))!.proposals[0]
     expect(previewFromFields({ ...mixed, fields: [] })?.ops).toEqual([{ op: 'add_node', id: 'fac_n', label: 'Night shifts', kind: 'factor', value: null, source: 'estimate' }])
   })
+
+  it('⭐ the ghost knows how many other changes its card lists (so it offers no approve); with none, the preview is exactly as before', () => {
+    const add = { field_id: 'factor_add:fac_n', kind: 'factor_add', node_id: 'fac_n', label: 'Night shifts', value: null, source: 'estimate' }
+    const mixed = readProposalFields(withAdds([RENAME, add, SETTING]))!.proposals[0]
+    expect(previewFromFields({ ...mixed, fields: [] })?.otherChanges).toBe(2)
+    const plain = readProposalFields(withAdds([add]))!.proposals[0]
+    expect(previewFromFields({ ...plain, fields: [] })).toEqual({ proposalId: plain.proposal_id,
+      ops: [{ op: 'add_node', id: 'fac_n', label: 'Night shifts', kind: 'factor', value: null, source: 'estimate' }] })
+  })
 })
