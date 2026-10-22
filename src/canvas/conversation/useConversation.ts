@@ -6464,7 +6464,7 @@ export function useConversation(): UseConversationReturn {
           // is drawn (the surfaces keep the controls they had).
           if (!quietSystemAck) useActionBarStore.getState().setBar(scenarioIdAtDispatch ?? null, readActionBar(target.response, reportActionBarIssue))
           const proposalPreview = readProposalPreview(target.response)
-          if (namesALatestRun(narration) && !isBoundExplain) {
+          if (namesALatestRun(narration, isRunAnalysisTurn) && !isBoundExplain) {
             latestRunKeyRef.current = narration.runKey
           }
           // Live held authority stays on this answer. Only transcriptStore writes heldProposalId and promotes the

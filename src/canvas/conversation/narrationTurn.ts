@@ -39,9 +39,12 @@ export function readNarration(response: unknown): TurnNarration | null {
   return { status: status as NarrationStatus, runKey }
 }
 
-/** Request 1 of a Run (`pending` / `unavailable`) names the Run whose explanation may follow. */
-export function namesALatestRun(n: TurnNarration | null): n is TurnNarration {
-  return n !== null && (n.status === 'pending' || n.status === 'unavailable')
+/**
+ * Request 1 of a Run (`pending` / `unavailable`) names the Run whose explanation may follow; so does a Run press answered
+ * whole in one reply (`ready` on the Run turn itself: core, served 22 Oct, whose reply was otherwise read as foreign).
+ */
+export function namesALatestRun(n: TurnNarration | null, isRunTurn = false): n is TurnNarration {
+  return n !== null && (n.status === 'pending' || n.status === 'unavailable' || (isRunTurn && n.status === 'ready'))
 }
 
 /** A ready explanation for a Run that is no longer the latest one: drop it rather than explain the wrong Run. */
