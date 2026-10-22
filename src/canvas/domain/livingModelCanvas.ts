@@ -11,8 +11,9 @@
  *  · a factor, outcome or risk the engine graph leaves out is drawn too, in its row (`placeAddedNodes`, the rule a node
  *    the AI added to a laid-out board already follows), with one line: "Not in the calculation yet";
  *  · a signed link between two drawn items that the engine graph lacks is drawn as a link.
- * ⛔ Display only. Nothing here enters the store, a save, a turn, a Run or a count: an item drawn this way takes no
- * pointer input and cannot be selected, dragged, connected or deleted. Aims stay on the goal card (`otherAims.ts`).
+ * ⛔ Display only. Nothing here enters the store, a save, a turn, a Run or a count: an item drawn this way cannot be
+ * selected, dragged, connected, deleted or edited; hovering it shows its read-only details. Aims stay on the goal card
+ * (`otherAims.ts`).
  * ⛔ An unsigned link is not drawn as a link (a link line always shows a direction, and the person's model gives none):
  * `DirectionNeededLayer` already draws it, "Direction needed · <whose>", once both its ends are drawn.
  */
@@ -43,6 +44,34 @@ export const NOT_IN_CALCULATION_TEST_ID = 'not-in-calculation-pill'
 /** A risk with no chance of happening given (the goal card's own reason, `otherAims.ts` before this module). */
 export const CHANCE_NEEDED_REASON = 'it needs a chance of happening'
 
+/**
+ * CEE's reason for leaving an item out (the graph read's `withheld`, CEE #3657: the mapper's own codes), in plain words.
+ * A code not listed here gives no reason rather than a guessed one; the status line still says the item is left out.
+ */
+export const WITHHELD_REASON_WORDS: Readonly<Record<string, string>> = {
+  risk_occurrence_unknown: 'its chance or its time window isn’t set yet',
+  risk_unattributed: 'it isn’t clear whose estimate its chance is',
+  risk_not_in_slice: 'a risk like this can’t be calculated yet',
+  risk_window_not_goal_window: 'its time window differs from the goal’s',
+  factor_level_unknown: 'its level today isn’t set yet',
+  level_range_not_in_slice: 'its range can’t be calculated yet',
+  limit_not_in_slice: 'its limit can’t be calculated yet',
+  identity_not_in_slice: 'how it is defined can’t be calculated yet',
+  identity_part_unknown: 'a part of how it is defined has no figure yet',
+  identity_unit_mismatch: 'the parts of how it is defined are in different units',
+  identity_inconsistent: 'how it is defined doesn’t add up',
+}
+
+/**
+ * Why the item is left out: CEE's own reason where the read carries the list; before CEE served one, the goal card's
+ * rule for a risk (no chance given). A list with no entry for the item gives no reason.
+ */
+function reasonFor(graph: Rec, id: string, fallback: string | null): string | null {
+  if (!Array.isArray(graph.withheld)) return fallback
+  const held = recs(graph.withheld).find((w) => w.id === id)
+  return held !== undefined && typeof held.reason === 'string' ? WITHHELD_REASON_WORDS[held.reason] ?? null : null
+}
+
 export function livingOnlyOf(data: unknown): LivingOnly | null {
   const v = isRec(data) ? data[LIVING_ONLY_KEY] : undefined
   return isRec(v) ? { reason: str(v.reason) } : null
@@ -52,8 +81,12 @@ export function notInCalculationWords(item: LivingOnly): string {
   return item.reason === null ? NOT_IN_CALCULATION_COPY : `${NOT_IN_CALCULATION_COPY}: ${item.reason}`
 }
 
-/** Display only: no selection, drag, link, delete or pointer route (an inline control would edit an item the engine lacks). */
-const INERT = { selectable: false, draggable: false, connectable: false, deletable: false, focusable: false, style: { pointerEvents: 'none' as const } }
+/**
+ * Display only: no selection, drag, link or delete. The card still answers a hover with its read-only details card. It
+ * mounts no edit control (`BaseNode`, `FactorNode`), and the canvas's click, double-click and menu routes skip it
+ * (`ReactFlowGraph`), because each one would edit an item the engine lacks.
+ */
+const INERT = { selectable: false, draggable: false, connectable: false, deletable: false, focusable: false }
 
 /**
  * A risk's chance, as the engine block the risk card already reads (`domain/eventRisk.ts`), only where whose it is cannot
@@ -86,7 +119,7 @@ export function drawLivingModel(nodes: Node[], edges: Edge[], graph: unknown): {
     const id = str(f.id); const label = str(f.label)
     if (!id || !label || onCanvas.has(id)) continue
     const node = mapDraftNodeToCanvas({ id, kind: f.kind === 'outcome' ? 'outcome' : 'factor', label })
-    added.push({ ...node, ...INERT, data: { ...node.data, [LIVING_ONLY_KEY]: { reason: null } } })
+    added.push({ ...node, ...INERT, data: { ...node.data, [LIVING_ONLY_KEY]: { reason: reasonFor(graph, id, null) } } })
   }
   for (const r of recs(lm.risks)) {
     const id = str(r.id); const label = str(r.label)
@@ -95,7 +128,8 @@ export function drawLivingModel(nodes: Node[], edges: Edge[], graph: unknown): {
     const occurrence = isRec(r.occurrence) ? r.occurrence : {}
     const chanceNeeded = num(occurrence.low) === null && num(occurrence.high) === null
     const node = mapDraftNodeToCanvas({ id, kind: 'risk', label, ...(eventRisk ? { event_risk: eventRisk } : {}) })
-    added.push({ ...node, ...INERT, data: { ...node.data, [LIVING_ONLY_KEY]: { reason: chanceNeeded ? CHANCE_NEEDED_REASON : null } } })
+    const reason = reasonFor(graph, id, chanceNeeded ? CHANCE_NEEDED_REASON : null)
+    added.push({ ...node, ...INERT, data: { ...node.data, [LIVING_ONLY_KEY]: { reason } } })
   }
 
   // Placed against the cards as drawn (an option's switch is not drawn, `coreSwitch.ts`).

@@ -21,7 +21,10 @@ function readOnce(key: string, scenarioId: string, graphHash: string): Promise<u
       const identity = await getSessionIdentity().catch(() => ({ userId: null, accessToken: null }))
       const result = await fetchScenarioGraph(scenarioId, { userId: identity.userId, accessToken: identity.accessToken })
       // Codex R1: another scenario's or another save's graph is never shown under this key.
-      return result.status === 'graph' && result.scenarioId === scenarioId && sameHash(result.graphHash, graphHash) ? result.graph : null
+      if (result.status !== 'graph' || result.scenarioId !== scenarioId || !sameHash(result.graphHash, graphHash)) return null
+      // The read's own `withheld` list rides on the graph it describes (`livingModelCanvas.ts` reads it); none, as read.
+      return result.withheld != null && result.graph !== null && typeof result.graph === 'object'
+        ? { ...(result.graph as Record<string, unknown>), withheld: result.withheld } : result.graph
     })().catch(() => null)
     const entry = { key, read }
     last = entry

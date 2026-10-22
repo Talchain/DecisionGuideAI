@@ -7,7 +7,7 @@
  * the same kind mounts its controls and connectable handles.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { ReactFlowProvider, type Node } from '@xyflow/react'
 
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
@@ -22,6 +22,7 @@ import { FactorNode } from '../FactorNode'
 import { OutcomeNode } from '../OutcomeNode'
 import { RiskNode } from '../RiskNode'
 import { drawLivingModel, NOT_IN_CALCULATION_TEST_ID } from '../../domain/livingModelCanvas'
+import { HOVER_CARD_OPEN_DELAY_MS } from '../../components/hoverCard/hoverCardPlacement'
 
 /** Everything that acts. A read-only mark (`CardMark`: `role="img"`, a tooltip and nothing else) may still take focus. */
 const CONTROLS = 'button, input, textarea, select, a[href], [role="button"], [contenteditable="true"], [tabindex]:not([tabindex="-1"]):not([role="img"])'
@@ -72,5 +73,23 @@ describe('a drawn-only card', () => {
     expect(card.querySelector(`[data-testid="${NOT_IN_CALCULATION_TEST_ID}"]`)).toBeNull()
     expect(card.querySelectorAll(CONTROLS).length).toBeGreaterThan(0)
     expect(card.querySelectorAll('.react-flow__handle.connectable').length).toBe(2)
+  })
+})
+
+describe('a drawn-only card answers a hover with its read-only details', () => {
+  it('⭐ its hover card opens and its Status row says CEE\'s reason in plain words', async () => {
+    vi.useFakeTimers()
+    try {
+      const node = drawLivingModel([], [], { ...graph, withheld: [{ id: 'supplier_fails', reason: 'risk_window_not_goal_window' }] }).nodes
+        .find((n) => n.id === 'supplier_fails')!
+      const card = renderCard(node, [])
+      fireEvent.mouseEnter(screen.getByTestId('node-title').closest('[role="group"]')!)
+      await act(async () => { vi.advanceTimersByTime(HOVER_CARD_OPEN_DELAY_MS + 50) })
+      expect(screen.getByTestId('node-hover-card-title').textContent).toBe('Supplier goes under')
+      expect(screen.getByTestId('node-hover-card-status').textContent).toContain('Not in the calculation yet: its time window differs from the goal’s')
+      expect(card.querySelectorAll(CONTROLS).length).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

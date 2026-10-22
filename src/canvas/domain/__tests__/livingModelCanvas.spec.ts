@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
 
 import { drawLivingModel, CHANCE_NEEDED_REASON, LIVING_ONLY_KEY, livingOnlyOf, notInCalculationWords } from '../livingModelCanvas'
+import { readWithheld } from '../../../adapters/cee/scenarioGraph'
 import { livingOutcomeIdsOf, withLivingKinds } from '../livingKinds'
 import { layoutGraph } from '../../utils/layout'
 import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from '../../utils/applyDraftResult'
@@ -108,9 +109,10 @@ describe('drawLivingModel', () => {
     expect(basisOf(null, 'party', 'olumi')).toBeNull() // a party's chance stays unshown, whoever gave the window
   })
 
-  it('⛔ a drawn-only item takes no pointer input and cannot be selected, dragged, connected or deleted (it is not in the store)', () => {
+  it('⛔ a drawn-only item cannot be selected, dragged, connected or deleted (it is not in the store); pointer input reaches it for its hover card', () => {
     const drawn = byId(drawLivingModel(engineNodes(), engineEdges(), graph()).nodes)
-    expect(drawn.get('port_strike')).toMatchObject({ selectable: false, draggable: false, connectable: false, deletable: false, style: { pointerEvents: 'none' } })
+    expect(drawn.get('port_strike')).toMatchObject({ selectable: false, draggable: false, connectable: false, deletable: false, focusable: false })
+    expect(drawn.get('port_strike')!.style).toBeUndefined()
     expect(drawn.get('orders')!.selectable).toBeUndefined()
   })
 
@@ -131,6 +133,27 @@ describe('drawLivingModel', () => {
     ])
     // `cost_orders` is the engine's e1 pair: drawn once, as the engine's edge.
     expect(edges.filter((e) => e.source === 'unit_cost' && e.target === 'orders').map((e) => e.id)).toEqual(['e1'])
+  })
+
+  it('⭐ CEE #3657: where the read carries the mapper\'s reasons, the line says them in plain words; an unknown code or no entry says none', () => {
+    const g = { ...graph(), withheld: [
+      { id: 'port_strike', reason: 'risk_window_not_goal_window' },
+      { id: 'staff_hours', reason: 'factor_level_unknown' },
+      { id: 'recall', reason: 'a_code_this_canvas_does_not_know' },
+    ] }
+    const drawn = byId(drawLivingModel(engineNodes(), engineEdges(), g).nodes)
+    const words = (id: string) => notInCalculationWords(livingOnlyOf(drawn.get(id)!.data)!)
+    expect(words('port_strike')).toBe('Not in the calculation yet: its time window differs from the goal\u2019s')
+    expect(words('staff_hours')).toBe('Not in the calculation yet: its level today isn\u2019t set yet')
+    // The read's list is CEE's answer: an unknown code is no reason, and the old "no chance given" rule does not stand in.
+    expect(words('recall')).toBe('Not in the calculation yet')
+    expect(words('rival')).toBe('Not in the calculation yet')
+  })
+
+  it('the read\'s withheld list keeps each well-formed entry and nothing else; no list is null', () => {
+    expect(readWithheld([{ id: 'a', reason: 'factor_level_unknown' }, { id: 1, reason: 'x' }, null, { id: 'b' }])).toEqual([{ id: 'a', reason: 'factor_level_unknown' }])
+    expect(readWithheld(null)).toBeNull()
+    expect(readWithheld(undefined)).toBeNull()
   })
 
   it('⛔ no living model: the canvas draws exactly the engine graph, the same arrays', () => {
