@@ -8,6 +8,7 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { OlumiAttentionCard, OLUMI_ATTENTION_CARD_TESTID, attentionCardSpot } from '../OlumiAttentionCard'
 import { useCanvasStore } from '../../store'
 import type { OlumiAttentionNote } from '../../utils/olumiAttention'
+import { useAnsweredQuestionsStore } from '../../stores/answeredQuestionsStore'
 
 vi.mock('@xyflow/react', () => ({
   useStore: (selector: (s: { transform: [number, number, number] }) => unknown) => selector({ transform: [0, 0, 1] }),
@@ -51,6 +52,23 @@ describe('Olumi’s note on the model', () => {
     fireEvent.click(send)
     expect(asked.calls).toEqual([{ userWords: '£250,000, committed in writing', nodeIds: [ANCHOR] }])
     expect(useCanvasStore.getState().olumiAttention).toBeNull()
+  })
+
+  it('⭐ the answered item keeps the question and the answer, for its tick (this scenario only); a send that did not go records nothing', () => {
+    useCanvasStore.setState({ currentScenarioId: 'scn-answered' } as never)
+    hold({ body: 'Which currency is the funding in?' })
+    render(<OlumiAttentionCard />)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your answer' }), { target: { value: ' Sterling ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send your answer to Olumi' }))
+    expect(useAnsweredQuestionsStore.getState().byScenario['scn-answered']?.[ANCHOR]).toMatchObject({ question: 'Which currency is the funding in?', answer: 'Sterling' })
+    cleanup()
+    asked.result = 'busy'
+    hold({ body: 'By which date?' }, 0)
+    useCanvasStore.setState({ currentScenarioId: 'scn-busy' } as never)
+    render(<OlumiAttentionCard />)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your answer' }), { target: { value: 'March' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send your answer to Olumi' }))
+    expect(useAnsweredQuestionsStore.getState().byScenario['scn-busy']).toBeUndefined()
   })
 
   it('a send that does not go (Olumi busy) keeps the answer and the note', () => {

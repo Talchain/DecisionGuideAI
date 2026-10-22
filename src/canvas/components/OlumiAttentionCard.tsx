@@ -49,6 +49,7 @@ import { COACHING_ICON_GLYPH } from '../nodes/shared/NodeCoachingIcon'
 import { askAi } from '../conversation/askAi'
 import { revealOlumiSurface } from '../conversation/revealOlumi'
 import { useIsViewer } from '../../lib/viewerMode'
+import { useAnsweredQuestionsStore } from '../stores/answeredQuestionsStore'
 
 /** The closed grammar. Every intervention is one of these four moves. */
 const MOVE_LABEL: Record<string, string> = {
@@ -239,6 +240,10 @@ export function OlumiAttentionCard() {
             e.preventDefault()
             // The person's own words, about this item: CEE reads them as theirs and answers in the conversation.
             if (askAi({ userWords: answer, nodeIds: [anchorId] }) !== 'sent') return
+            // The item keeps a tick with this question and answer (`AnsweredMark`).
+            const scenarioId = useCanvasStore.getState().currentScenarioId
+            const question = note.body ?? note.title ?? ''
+            if (scenarioId) useAnsweredQuestionsStore.getState().record(scenarioId, anchorId, { question, answer: answer.trim(), at: new Date().toISOString() })
             setAnswer('')
             clearOlumiAttention()
             revealOlumiSurface()
