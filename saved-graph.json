@@ -1,0 +1,52 @@
+{
+  "nodes": [
+    { "id": "decision_model", "kind": "decision", "label": "How should we source stock?" },
+    { "id": "local", "kind": "option", "label": "Local supplier" },
+    { "id": "overseas", "kind": "option", "label": "Overseas supplier" },
+    { "id": "mixed", "kind": "option", "label": "Mix of both" },
+    { "id": "unit_cost", "kind": "factor", "label": "Unit cost", "category": "controllable", "observed_state": { "value": 12, "unit": "£", "source": "brief_extraction" } },
+    { "id": "lead_time", "kind": "factor", "label": "Lead time", "category": "controllable", "observed_state": { "value": 3, "unit": "weeks", "source": "brief_extraction" } },
+    { "id": "stock_level", "kind": "factor", "label": "Stock on the shelf", "category": "external" },
+    { "id": "orders_filled", "kind": "factor", "label": "Orders filled", "category": "external" },
+    { "id": "margin", "kind": "goal", "label": "Monthly margin" }
+  ],
+  "edges": [
+    { "from": "decision_model", "to": "local" },
+    { "from": "decision_model", "to": "overseas" },
+    { "from": "decision_model", "to": "mixed" },
+    { "from": "local", "to": "unit_cost" }, { "from": "local", "to": "lead_time" },
+    { "from": "overseas", "to": "unit_cost" }, { "from": "overseas", "to": "lead_time" },
+    { "from": "mixed", "to": "unit_cost" }, { "from": "mixed", "to": "lead_time" },
+    { "id": "lead_stock", "from": "lead_time", "to": "stock_level", "strength": { "mean": -0.6, "std": 0.2 }, "effect_direction": "negative" },
+    { "id": "stock_orders", "from": "stock_level", "to": "orders_filled", "strength": { "mean": 0.7, "std": 0.2 }, "effect_direction": "positive" },
+    { "id": "cost_margin", "from": "unit_cost", "to": "margin", "strength": { "mean": -0.5, "std": 0.2 }, "effect_direction": "negative" },
+    { "id": "orders_margin", "from": "orders_filled", "to": "margin", "strength": { "mean": 0.6, "std": 0.2 }, "effect_direction": "positive" }
+  ],
+  "living_model": {
+    "aims": [{ "id": "margin", "text": "Monthly margin", "source": "user", "status": "current" }],
+    "options": [{ "id": "local", "label": "Local supplier", "source": "user" }, { "id": "overseas", "label": "Overseas supplier", "source": "user" }, { "id": "mixed", "label": "Mix of both", "source": "olumi" }],
+    "factors": [
+      { "id": "unit_cost", "kind": "factor", "label": "Unit cost", "source": "user" },
+      { "id": "lead_time", "kind": "factor", "label": "Lead time", "source": "user" },
+      { "id": "stock_level", "kind": "outcome", "label": "Stock on the shelf", "source": "olumi" },
+      { "id": "orders_filled", "kind": "outcome", "label": "Orders filled", "source": "olumi" },
+      { "id": "staff_hours", "kind": "factor", "label": "Staff hours", "source": "olumi" }
+    ],
+    "risks": [
+      { "id": "port_strike", "label": "Port strike", "occurrence": { "low": 0.1, "high": 0.4, "estimate_by": null }, "horizon_months": 1, "horizon_by": null, "source": "olumi", "party": null, "quote": null, "mitigations": [] },
+      { "id": "supplier_fails", "label": "Supplier goes under", "occurrence": { "low": null, "high": null, "estimate_by": null }, "horizon_months": null, "horizon_by": null, "source": "user", "party": null, "quote": null, "mitigations": [] },
+      { "id": "currency_swing", "label": "Currency swing", "occurrence": { "low": 0.2, "high": 0.5, "estimate_by": null }, "horizon_months": 3, "horizon_by": null, "source": "olumi", "party": null, "quote": null, "mitigations": [] }
+    ],
+    "links": [
+      { "id": "lead_stock", "from": "lead_time", "to": "stock_level", "effect": { "sign": "-" }, "source": "olumi" },
+      { "id": "stock_orders", "from": "stock_level", "to": "orders_filled", "effect": { "sign": "+" }, "source": "olumi" },
+      { "id": "cost_margin", "from": "unit_cost", "to": "margin", "effect": { "sign": "-" }, "source": "olumi" },
+      { "id": "orders_margin", "from": "orders_filled", "to": "margin", "effect": { "sign": "+" }, "source": "olumi" },
+      { "id": "strike_orders", "from": "port_strike", "to": "orders_filled", "effect": { "sign": "-" }, "source": "olumi" },
+      { "id": "fails_stock", "from": "supplier_fails", "to": "stock_level", "effect": { "sign": "-" }, "source": "olumi" },
+      { "id": "swing_cost", "from": "currency_swing", "to": "unit_cost", "effect": { "sign": "+" }, "source": "olumi" },
+      { "id": "staff_orders", "from": "staff_hours", "to": "orders_filled", "effect": { "sign": null }, "source": "olumi" }
+    ],
+    "conditions": [], "views": [], "history": []
+  }
+}

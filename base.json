@@ -1,0 +1,112 @@
+{
+  "label": "base",
+  "nodes": [
+    {
+      "id": "decision_model",
+      "type": "decision",
+      "visible": "visible",
+      "text": "How should we source stock? 3 alternatives Top gap: set a success target"
+    },
+    {
+      "id": "local",
+      "type": "option",
+      "visible": "visible",
+      "text": "Local supplier"
+    },
+    {
+      "id": "overseas",
+      "type": "option",
+      "visible": "visible",
+      "text": "Overseas supplier"
+    },
+    {
+      "id": "mixed",
+      "type": "option",
+      "visible": "visible",
+      "text": "Mix of both"
+    },
+    {
+      "id": "__ghost-option__",
+      "type": "ghost-option",
+      "visible": "visible",
+      "text": ""
+    },
+    {
+      "id": "unit_cost",
+      "type": "factor",
+      "visible": "visible",
+      "text": "Unit cost"
+    },
+    {
+      "id": "lead_time",
+      "type": "factor",
+      "visible": "visible",
+      "text": "Lead time"
+    },
+    {
+      "id": "orders_filled",
+      "type": "factor",
+      "visible": "visible",
+      "text": "Orders filled"
+    },
+    {
+      "id": "stock_level",
+      "type": "factor",
+      "visible": "visible",
+      "text": "Stock on the shelf"
+    },
+    {
+      "id": "__ghost-factor__",
+      "type": "ghost-tier",
+      "visible": "visible",
+      "text": ""
+    },
+    {
+      "id": "margin",
+      "type": "goal",
+      "visible": "visible",
+      "text": "Monthly margin Also in your model · not in this analysis yet Port strike · Risk · Olumi’s · affects Orders filled Suppli"
+    }
+  ],
+  "edges": [
+    "e-0",
+    "e-1",
+    "e-2",
+    "e-3",
+    "e-4",
+    "e-5",
+    "e-6",
+    "e-7",
+    "e-8",
+    "lead_stock",
+    "stock_orders",
+    "cost_margin",
+    "orders_margin"
+  ],
+  "goalList": [
+    "Also in your model · not in this analysis yet\nPort strike · Risk ·  Olumi’s · affects Orders filled\nSupplier goes under · Risk · chance needed ·  Yours · affects Stock on the shelf\nCurrency swing · Risk ·  Olumi’s · affects Unit cost"
+  ],
+  "log": [
+    "abort fonts.googleapis.com/css2",
+    "console.error Failed to load resource: net::ERR_FAILED",
+    "404 /engine/health",
+    "console.error Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "404 /bff/cee/prompts/warm",
+    "console.error Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "404 /bff/engine/v1/health",
+    "console.error Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "404 /bff/engine/health",
+    "console.error Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "graph POST /bff/cee/scenarios/0f4e2b9a-1c3d-4e5f-8a7b-6c5d4e3f2a1b/graph",
+    "graph POST /bff/cee/scenarios/0f4e2b9a-1c3d-4e5f-8a7b-6c5d4e3f2a1b/graph",
+    "abort fonts.googleapis.com/css2",
+    "console.error Failed to load resource: net::ERR_FAILED",
+    "404 /engine/health",
+    "console.error Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "404 /bff/cee/prompts/warm",
+    "console.error Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "graph POST /bff/cee/scenarios/0f4e2b9a-1c3d-4e5f-8a7b-6c5d4e3f2a1b/graph",
+    "graph POST /bff/cee/scenarios/0f4e2b9a-1c3d-4e5f-8a7b-6c5d4e3f2a1b/graph",
+    "reload: 11 nodes, overlaps []"
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "label": "head",
+  "nodes": [
+    {
+      "id": "decision_model",
+      "type": "decision",
+      "visible": "visible",
+      "text": "How should we source stock? 3 alternatives Top gap: set a success target"
+    },
+    {
+      "id": "local",
+      "type": "option",
+      "visible": "visible",
+      "text": "Local supplier"
+    },
+    {
+      "id": "overseas",
+      "type": "option",
+      "visible": "visible",
+      "text": "Overseas supplier"
+    },
+    {
+      "id": "mixed",
+      "type": "option",
+      "visible": "visible",
+      "text": "Mix of both"
+    },
+    {
+      "id": "__ghost-option__",
+      "type": "ghost-option",
+      "visible": "visible",
+      "text": ""
+    },
+    {
+      "id": "unit_cost",
+      "type": "factor",
+      "visible": "visible",
+      "text": "Unit cost"
+    },
+    {
+      "id": "lead_time",
+      "type": "factor",
+      "visible": "visible",
+      "text": "Lead time"
+    },
+    {
+      "id": "staff_hours",
+      "type": "factor",
+      "visible": "visible",
+      "text": "Staff hours Needs input Value not set yet Not in the calculation yet"
+    },
+    {
+      "id": "__ghost-factor__",
+      "type": "ghost-tier",
+      "visible": "visible",
+      "text": ""
+    },
+    {
+      "id": "orders_filled",
+      "type": "outcome",
+      "visible": "visible",
+      "text": "— Orders filled"
+    },
+    {
+      "id": "stock_level",
+      "type": "outcome",
+      "visible": "visible",
+      "text": "— Stock on the shelf"
+    },
+    {
+      "id": "port_strike",
+      "type": "risk",
+      "visible": "visible",
+      "text": "Port strike May happen · about 10–40% within a month · Olumi's estimate May happen · about 10–40% within a month · Olumi"
+    },
+    {
+      "id": "supplier_fails",
+      "type": "risk",
+      "visible": "visible",
+      "text": "Supplier goes under Not in the calculation yet: it needs a chance of happening"
+    },
+    {
+      "id": "currency_swing",
+      "type": "risk",
+      "visible": "visible",
+      "text": "Currency swing May happen · about 20–50% within 3 months · Olumi's estimate May happen · about 20–50% within 3 months · "
+    },
+    {
+      "id": "__ghost-consequence__",
+      "type": "ghost-tier",
+      "visible": "visible",
+      "text": ""
+    },
+    {
+      "id": "margin",
+      "type": "goal",
+      "visible": "visible",
+      "text": "Monthly margin"
+    }
+  ],
+  "edges": [
+    "e-0",
+    "e-1",
+    "e-2",
+    "e-3",
+    "e-4",
+    "e-5",
+    "e-6",
+    "e-7",
+    "e-8",
+    "lead_stock",
+    "stock_orders",
+    "cost_margin",
+    "orders_margin",
+    "strike_orders",
+    "fails_stock",
+    "swing_cost"
+  ],
+  "goalList": [],
+  "log": [
+    "abort fonts.googleapis.com/css2",
+    "console.error Failed to load resource: net::ERR_FAILED",
+    "404 /engine/health",
+    "console.error Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "404 /bff/cee/prompts/warm",
+    "console.error Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "404 /bff/engine/v1/health",
+    "console.error Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "404 /bff/engine/health",
+    "console.error Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "graph POST /bff/cee/scenarios/0f4e2b9a-1c3d-4e5f-8a7b-6c5d4e3f2a1b/graph",
+    "graph POST /bff/cee/scenarios/0f4e2b9a-1c3d-4e5f-8a7b-6c5d4e3f2a1b/graph",
+    "abort fonts.googleapis.com/css2",
+    "console.error Failed to load resource: net::ERR_FAILED",
+    "404 /engine/health",
+    "404 /bff/cee/prompts/warm",
+    "console.error Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "console.error Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "graph POST /bff/cee/scenarios/0f4e2b9a-1c3d-4e5f-8a7b-6c5d4e3f2a1b/graph",
+    "graph POST /bff/cee/scenarios/0f4e2b9a-1c3d-4e5f-8a7b-6c5d4e3f2a1b/graph",
+    "reload: 16 nodes, overlaps []"
+  ]
+}
