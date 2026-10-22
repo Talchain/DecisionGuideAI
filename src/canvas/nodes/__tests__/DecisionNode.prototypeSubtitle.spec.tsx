@@ -301,8 +301,11 @@ describe('(d) the title is the data label, verbatim', () => {
     expect(restingCardText()).not.toMatch(/Decision:/)
   })
 
-  it('CONTRAST — a prefix the DATA carries is shown as carried (a producer defect is not hidden by the UI)', () => {
+  // Superseded 22 Oct (Paul: "remove the 'Decision:' text"; DL ruling on #2915): saved boards keep CEE's "Decision: …"
+  // label and no migration rewrites it, so the card shows the question alone. CEE stops minting it at the source.
+  it('a "Decision:" prefix the DATA carries is not shown: the card is the question (saved label unchanged)', () => {
     renderDecision('Decision: Productivity increase')
-    expect(restingCardText()).toContain('Decision: Productivity increase')
+    expect(restingCardText()).toContain('Productivity increase')
+    expect(restingCardText()).not.toMatch(/Decision:/)
   })
 })
