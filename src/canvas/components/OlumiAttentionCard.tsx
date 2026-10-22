@@ -40,7 +40,7 @@ import { useCallback, useEffect } from 'react'
 import { useStore } from '@xyflow/react'
 import { X } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { clearOlumiAttention } from '../utils/olumiAttention'
+import { clearOlumiAttention, nodeLabel } from '../utils/olumiAttention'
 import { openAskOlumi } from '../../components/results/coaching/askOlumiStore'
 import { openNodeInspector } from '../nodes/shared/openNodeInspector'
 import { measureDockInset } from './FloatingOlumiPanel'
@@ -121,11 +121,16 @@ export function OlumiAttentionCard() {
   const note = attention.note
   const caveat = attention.caveat
   // Stale only when the SAVED model has moved since (a new server hash: a value set, an accepted change, a structural
-  // edit), never when the canvas merely laid itself out again.
-  const isStale =
+  // edit) or an item the note is about was renamed (the hash leaves labels out), never when the canvas merely laid
+  // itself out again.
+  const renamed = attention.nodeIds.some((id) => {
+    const then = attention.labels?.[id]
+    return then !== undefined && then !== nodeLabel(nodes.find((n) => n.id === id))
+  })
+  const isStale = renamed || (
     attention.modelVersion !== null &&
     savedModel !== null &&
-    savedModel !== attention.modelVersion
+    savedModel !== attention.modelVersion)
 
   return (
     <div

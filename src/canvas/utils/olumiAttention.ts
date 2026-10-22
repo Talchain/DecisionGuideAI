@@ -118,6 +118,11 @@ export interface OlumiAttention {
    * CEE 0bee826e). Null when the turn carried none and no saved model is held: the card then claims nothing.
    */
   modelVersion: string | null
+  /**
+   * The attended items' labels when the note was shown. The saved-model hash leaves labels out (CEE's `projectNode`), so
+   * a rename of the very item the note is about would otherwise never say the model changed (Codex on #2903).
+   */
+  labels?: Readonly<Record<string, string>>
 }
 
 export const OLUMI_ATTENTION_EVENT = 'olumi:attention'
@@ -186,8 +191,15 @@ export function requestOlumiAttention(next: {
     caveat: next.caveat ?? null,
     turnId: next.turnId ?? null,
     modelVersion: next.modelVersion !== undefined ? next.modelVersion : state.lastServerGraphHash ?? null,
+    labels: Object.fromEntries(liveNodes.map((id) => [id, nodeLabel(nodes.find((n) => n.id === id))])),
   })
   return { applied: [...liveNodes, ...liveEdges], dropped }
+}
+
+/** A node's label, as the canvas holds it ('' when it has none). */
+export function nodeLabel(node: { data?: unknown } | undefined): string {
+  const label = (node?.data as { label?: unknown } | undefined)?.label
+  return typeof label === 'string' ? label : ''
 }
 
 export function clearOlumiAttention(): void {

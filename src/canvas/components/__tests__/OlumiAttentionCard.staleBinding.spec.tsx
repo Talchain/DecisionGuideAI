@@ -21,7 +21,7 @@ const ANCHOR = 'goal_launch'
 const STALE = `${OLUMI_ATTENTION_CARD_TESTID}-stale`
 function seed(savedHash: string | null) {
   useCanvasStore.setState({
-    nodes: [{ id: ANCHOR, type: 'goal', position: { x: 0, y: 40 }, measured: { width: 200, height: 80 }, data: {} } as never],
+    nodes: [{ id: ANCHOR, type: 'goal', position: { x: 0, y: 40 }, measured: { width: 200, height: 80 }, data: { label: 'Launch within six months' } } as never],
     edges: [],
     olumiAttention: null,
     lastServerGraphHash: savedHash,
@@ -60,5 +60,16 @@ describe('a note says the model changed only when the saved model moved', () => 
     render(<OlumiAttentionCard />)
     act(() => { useCanvasStore.getState().setLastServerGraphHash('h_later') })
     expect(screen.queryByTestId(STALE)).toBeNull()
+  })
+
+  it('⛔ NEGATIVE KEPT: renaming the item the note is about says the model changed (the saved hash leaves labels out)', () => {
+    seed('h_draft')
+    act(() => { requestOlumiAttention({ nodeIds: [ANCHOR], note: { body: 'What must the first version include?' }, modelVersion: 'h_draft' }) })
+    render(<OlumiAttentionCard />)
+    expect(screen.queryByTestId(STALE)).toBeNull()
+    act(() => {
+      useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map((n) => ({ ...n, data: { ...(n.data as object), label: 'Launch a paid beta' } })) } as never)
+    })
+    expect(screen.getByTestId(STALE).textContent).toBe('The model has changed since Olumi said this.')
   })
 })
