@@ -23,7 +23,8 @@ import { useProposalGhostStore } from '../stores/proposalGhostStore'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { action, ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 import type { ActionChip } from '../conversation/types'
-import { GHOST_CARD_HEIGHT, proposalGhostGeometry, type GhostMeasures } from '../utils/proposalGhostGeometry'
+import { GHOST_CARD_HEIGHT, clampGhostActionsX, proposalGhostGeometry, type GhostMeasures } from '../utils/proposalGhostGeometry'
+import { DOCK_SELECTOR } from '../utils/computeFitPadding'
 import { OPTION_TAKEN_OUT_COPY } from '../domain/optionStatus'
 import type { PreviewBand, PreviewOptionStatus } from '../conversation/proposalPreview'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
@@ -42,6 +43,8 @@ export const PROPOSAL_GHOST_ACTIONS_TESTID = 'proposal-ghost-actions'
 /** The ghost's words when its card holds changes the canvas cannot draw: approval happens only where every one is listed. */
 export const otherChangesText = (n: number): string => `+${n} other change${n === 1 ? '' : 's'}`
 export const REVIEW_ON_THE_CARD = 'Review on the card'
+/** Breathing room between the ghost's action row and the panel covering the canvas's right edge (screen px). */
+const GHOST_ACTIONS_DOCK_GAP = 12
 
 /** Front the chat and bring the held card's "Also changes" list into view. */
 function reviewOnTheCard(proposalId: string) {
@@ -54,6 +57,16 @@ function GhostActions({ approve, decline, at, proposalId, otherChanges }: {
 }) {
   const send = useGuidanceStore((s) => s._sendChip)
   const [pressed, setPressed] = useState(false)
+  // Never under the outputs dock: the row's own width and the dock's left edge, in flow units, on every pan or zoom.
+  useStore((s) => s.transform)
+  const { screenToFlowPosition } = useReactFlow()
+  const rowRef = useRef<HTMLDivElement>(null)
+  const [rowWidth, setRowWidth] = useState(0)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal width bails out
+  useLayoutEffect(() => { const w = rowRef.current?.offsetWidth ?? 0; if (w !== rowWidth) setRowWidth(w) })
+  const dock = typeof document === 'undefined' ? null : document.querySelector(DOCK_SELECTOR)?.getBoundingClientRect() ?? null
+  const visibleRight = dock && dock.width > 0 ? screenToFlowPosition({ x: dock.left - GHOST_ACTIONS_DOCK_GAP, y: dock.top }).x : null
+  const x = clampGhostActionsX(at.x, rowWidth, visibleRight)
   useEffect(() => setPressed(false), [approve, decline])
   const press = (chip: ActionChip) => {
     if (!send || pressed) return
@@ -73,13 +86,14 @@ function GhostActions({ approve, decline, at, proposalId, otherChanges }: {
   )
   return (
     <div
+      ref={rowRef}
       data-testid={PROPOSAL_GHOST_ACTIONS_TESTID}
       className="nodrag nopan absolute flex items-center"
-      style={{ left: at.x, top: at.y, gap: 6, pointerEvents: 'auto' }}
+      style={{ left: x, top: at.y, gap: 6, pointerEvents: 'auto' }}
     >
       {/* ⛔ CONSENT (DL 22 Oct): a card that also changes things the canvas cannot draw is approved only on the card. */}
       {otherChanges === undefined ? button(approve, 'primary') : <>
-        <span className={`${typography.edgeLabel} text-text-header`} data-testid={`${PROPOSAL_GHOST_ACTIONS_TESTID}-other-changes`}>{otherChangesText(otherChanges)}</span>
+        {otherChanges > 0 && <span className={`${typography.edgeLabel} text-text-header whitespace-nowrap`} data-testid={`${PROPOSAL_GHOST_ACTIONS_TESTID}-other-changes`}>{otherChangesText(otherChanges)}</span>}
         <button type="button" data-testid={`${PROPOSAL_GHOST_ACTIONS_TESTID}-review`} onClick={() => reviewOnTheCard(proposalId)}
           className={`${typography.edgeLabel} ${action('primary')} rounded-full px-3 py-1 ${ACTION_FOCUS}`}>{REVIEW_ON_THE_CARD}</button>
       </>}

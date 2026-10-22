@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { SuggestedChips, ALSO_CHANGES } from '../zones/SuggestedChips'
 import { buildSuggestedActionChips } from '../../../v5/blocks/suggestedActionChips'
-import { readProposalFields } from '../proposalFields'
+import { otherChangeCountOf, readProposalFields } from '../proposalFields'
 import { consentChipIdFor, previewFromFields, previewOfLatestReply, readProposalPreviewValue } from '../proposalPreview'
 import type { ConversationMessage } from '../types'
 import served from './fixtures/served-held-proposal-sdwire4.json'
@@ -86,5 +86,27 @@ describe('the held card says everything else the approval writes', () => {
       proposalFields: f, actionChips: [{ id: consentChipIdFor(pid), label: 'Make this change', intent: 'primary', message: 'Yes.' }] }) as ConversationMessage
     expect(previewOfLatestReply([reply(fields)])?.otherChanges).toBe(1)
     expect(previewOfLatestReply([reply(withAdds(undefined))])).toBe(explicit)
+  })
+
+  it('⭐ DL 22 Oct (served "+9"): the ghost counts CHANGES, not parts, and not the items it draws itself; the served card is +4', () => {
+    // The served card on CEE 7b0af1a9 (evidence/joint-ghost-7b0af1a9-A5), its field ids exactly: 9 parts, 6 changes, 2 drawn.
+    const note = (field_id: string) => ({ ...RENAME, field_id })
+    const served = [note('change_note:option:increase_setting#1'), note('change_note:option:increase_setting#2'), note('change_note:option:increase_setting#3'),
+      note('change_note:factor:line_speed'), note('change_note:factor:reject_rate'), note('change_note:link:reject_output'),
+      note('change_note:condition:2'), note('change_note:condition:3#1'), note('change_note:condition:3#2'),
+      { field_id: 'factor_add:reject_rate', kind: 'factor_add', node_id: 'reject_rate', label: 'Reject rate', value: { value: 5, unit: '%' }, source: 'yours' },
+      { field_id: 'link_add:reject_output', kind: 'link_add', link_id: 'reject_output', from_id: 'reject_rate', to_id: 'output_goal',
+        from_label: 'Reject rate', to_label: 'Output', direction: 'negative', source: 'estimate' }]
+    const p = readProposalFields(withAdds(served))!.proposals[0]
+    expect(otherChangeCountOf(p)).toBe(4)
+    expect(previewFromFields({ ...p, fields: [] })?.otherChanges).toBe(4)
+    // CONTRAST: the same notes without the ghost's own adds count all 6 changes.
+    expect(otherChangeCountOf({ ...p, adds: p.adds.filter((a) => a.kind === 'change_note') })).toBe(6)
+  })
+
+  it('⛔ a card whose notes are ALL about what the ghost draws still keeps the approve off the ghost (count 0, present)', () => {
+    const add = { field_id: 'factor_add:fac_n', kind: 'factor_add', node_id: 'fac_n', label: 'Night shifts', value: null, source: 'estimate' }
+    const p = readProposalFields(withAdds([add, { ...RENAME, field_id: 'change_note:factor:fac_n' }]))!.proposals[0]
+    expect(previewFromFields({ ...p, fields: [] })?.otherChanges).toBe(0)
   })
 })

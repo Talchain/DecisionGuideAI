@@ -20,7 +20,7 @@
  */
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { CONSENT_CHIP_PREFIX } from './messageComposition'
-import { readProposalFields, type Band, type Proposal, changeNotesOf } from './proposalFields'
+import { readProposalFields, type Band, type Proposal, changeNotesOf, otherChangeCountOf } from './proposalFields'
 
 const DECLINE_CHIP_PREFIX = 'agent-decline-proposal:'
 import type { ActionChip, ConversationMessage } from './types'
@@ -80,7 +80,7 @@ export type ProposalPreviewOp =
 export interface ProposalPreview {
   readonly proposalId: string
   readonly ops: readonly ProposalPreviewOp[]
-  /** Core only: how many other changes the held card lists in words (`change_note`), which the canvas cannot draw. */
+  /** Core only, present when the held card lists changes in words (`change_note`): how many it does not draw (may be 0). */
   readonly otherChanges?: number
 }
 
@@ -176,8 +176,7 @@ export function previewOfLatestReply(messages: readonly ConversationMessage[]): 
       if (!(m.actionChips ?? []).some((c) => c.id === consentChipIdFor(preview.proposalId))) return null
       // ⛔ CONSENT (Codex r2 #2904): an explicit preview's card can list changes in words too; the ghost must know (no approve).
       const held = readProposalFields(m.proposalFields)?.proposals.find((p) => p.proposal_id === preview.proposalId)
-      const otherChanges = held ? changeNotesOf(held).length : 0
-      return otherChanges > 0 ? { ...preview, otherChanges } : preview
+      return held && changeNotesOf(held).length > 0 ? { ...preview, otherChanges: otherChangeCountOf(held) } : preview
     }
     // ⭐ Core sends no `proposal_preview`: the held card's own fields (`_proposal_fields`) name what it changes or adds.
     // The latest reply's fields are CEE's CURRENT held set; the card itself sits on its ISSUING reply, which a reopen
@@ -217,6 +216,6 @@ export function previewFromFields(p: Proposal): ProposalPreview | null {
       ? { op: 'add_node', id: add.node_id, label: add.label, kind: 'factor', value: add.value, source: add.source }
       : { op: 'add_edge', fromId: add.from_id, toId: add.to_id, band: null, direction: add.direction, source: add.source })
   }
-  const otherChanges = changeNotesOf(p).length
-  return ops.length > 0 ? { proposalId: p.proposal_id, ops, ...(otherChanges > 0 ? { otherChanges } : {}) } : null
+  // Any note at all keeps the approve off the ghost; the count says only the changes it does not draw.
+  return ops.length > 0 ? { proposalId: p.proposal_id, ops, ...(changeNotesOf(p).length > 0 ? { otherChanges: otherChangeCountOf(p) } : {}) } : null
 }

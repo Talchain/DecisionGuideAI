@@ -163,6 +163,15 @@ export interface GhostMeasures {
   readonly obstacles?: ReadonlyArray<{ readonly x: number; readonly y: number; readonly w: number; readonly h: number }>
 }
 
+/**
+ * The ghost's action row, pulled left so it never runs under a panel covering the canvas's right edge (DL 22 Oct, served
+ * at 1440 px: the outputs dock hid "Review on the card"). `visibleRight` is that edge in flow units; null = nothing covers
+ * it, and the row stays where it is.
+ */
+export function clampGhostActionsX(x: number, rowWidth: number, visibleRight: number | null): number {
+  return visibleRight === null || !(rowWidth > 0) || x + rowWidth <= visibleRight ? x : visibleRight - rowWidth
+}
+
 export function proposalGhostGeometry(
   preview: ProposalPreview,
   nodes: readonly GhostNodeInput[],
