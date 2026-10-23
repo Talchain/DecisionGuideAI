@@ -31,6 +31,7 @@ import { detectBaseline } from '../utils/baselineDetection'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { verboseWarn } from '../../utils/verboseLog'
 import { getEdgeKey } from '../domain/edgeUtils'
+import { useSavedModelIsProgram } from '../nodes/shared/savedModelProgram'
 import type { ValidationWarning, ValidationBlocker } from '@talchain/schemas'
 
 /**
@@ -476,7 +477,8 @@ function validateAnalysisReadyInvariants(
 function validateOptions(
   nodes: Node[],
   edges?: Edge[],
-  ceeAnalysisReady?: CEEAnalysisReady | null
+  ceeAnalysisReady?: CEEAnalysisReady | null,
+  programGraph = false,
 ): { options: UIOption[]; blockers: ValidationBlocker[]; warnings: ValidationWarning[] } {
   const blockers: ValidationBlocker[] = []
   const warnings: ValidationWarning[] = []
@@ -553,8 +555,10 @@ function validateOptions(
   // This fallback is a safety net. The canonical source is CEE's analysis_ready
   // in the orchestrator envelope. Remove this fallback once all paths reliably
   // provide analysis_ready.
+  // A program graph's (`model_program` "v1") options are its projected option nodes only: its `decision` node is the
+  // question, not an option (S3 #3709 item 6).
   const optionNodes = nodes.filter(
-    (n) => n.type === 'option' || n.type === 'decision'
+    (n) => n.type === 'option' || (!programGraph && n.type === 'decision')
   )
 
   if (optionNodes.length === 0) {
@@ -818,7 +822,9 @@ export function validateBeforeRun(
   goalNodeId: string | null,
   nodes: Node[],
   edges?: Edge[],
-  ceeAnalysisReady?: CEEAnalysisReady | null
+  ceeAnalysisReady?: CEEAnalysisReady | null,
+  /** The saved model is a program graph (`isProgramGraph`). */
+  programGraph = false,
 ): ValidationResult {
   const allBlockers: ValidationBlocker[] = []
   const allWarnings: ValidationWarning[] = []
@@ -842,7 +848,7 @@ export function validateBeforeRun(
   allFixes.push(...goalValidation.fixes)
 
   // 2. Validate options (ceeAnalysisReady takes priority when available)
-  const { options, blockers: optBlockers, warnings: optWarnings } = validateOptions(nodes, edges, ceeAnalysisReady)
+  const { options, blockers: optBlockers, warnings: optWarnings } = validateOptions(nodes, edges, ceeAnalysisReady, programGraph)
   allBlockers.push(...optBlockers)
   allWarnings.push(...optWarnings)
 
@@ -996,6 +1002,7 @@ export function usePreRunValidation(): ValidationResult {
   const edges = useCanvasStore((s) => s.edges)
   const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
   const setOutcomeNode = useCanvasStore((s) => s.setOutcomeNode)
+  const programGraph = useSavedModelIsProgram()
 
   // Track fingerprint to detect actual changes
   const lastLoggedResultRef = useRef<{ canRun: boolean; blockerCount: number } | null>(null)
@@ -1007,7 +1014,7 @@ export function usePreRunValidation(): ValidationResult {
   )
 
   const validation = useMemo(() => {
-    const result = validateBeforeRun(outcomeNodeId, nodes, edges, ceeAnalysisReady)
+    const result = validateBeforeRun(outcomeNodeId, nodes, edges, ceeAnalysisReady, programGraph)
 
     // Only log when validation result actually changes (DEV mode)
     if (import.meta.env.DEV) {
@@ -1030,7 +1037,7 @@ export function usePreRunValidation(): ValidationResult {
     }
 
     return result
-  }, [fingerprint, outcomeNodeId, nodes, edges, ceeAnalysisReady])
+  }, [fingerprint, outcomeNodeId, nodes, edges, ceeAnalysisReady, programGraph])
 
   // Apply recommended fixes (once, not on every render)
   useEffect(() => {

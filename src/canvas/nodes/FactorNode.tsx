@@ -378,6 +378,8 @@ export const FactorNode = memo((props: NodeProps) => {
   // rest-only; only the MARK now also shows in Detailed, where the full
   // "Moderate (0.5)" string otherwise read as unattributed).
   const valueSourceMark = factorValueSourceMark(cleanedData)
+  const servedBasisMark = valueSourceMark?.kind === 'basis' || valueSourceMark?.kind === 'asked' ? valueSourceMark : null
+  const ServedBasisGlyph = servedBasisMark ? cardMark(`source-${servedBasisMark.kind}`).Icon : null
   // v3.1 point 1 (DESIGN-GAP-v31 #21): the mark is focusable and opens this
   // factor's source detail — the inspector.
   const openSourceDetail = () => { openNodeInspector(props.id) }
@@ -898,11 +900,14 @@ export const FactorNode = memo((props: NodeProps) => {
             <span
               data-testid="factor-current-value-origin"
               className="inline-flex items-center gap-1 ml-1"
-              {...(currentValueOrigin ? {} : { role: 'img', 'aria-label': SOURCE_UNKNOWN_WORDS, title: SOURCE_UNKNOWN_WORDS })}
+              {...(currentValueOrigin ? {} : { role: 'img', 'aria-label': servedBasisMark?.label ?? SOURCE_UNKNOWN_WORDS, title: servedBasisMark?.label ?? SOURCE_UNKNOWN_WORDS })}
             >
               {CurrentValueOriginIcon && <CurrentValueOriginIcon aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />}
-              {/* Vision spec §3: an unknown source is the "?" author glyph; the words move to its name and hover. */}
-              {currentValueOrigin ? VALUE_PROVENANCE_LABEL[currentValueOrigin.kind] : (
+              {/* Vision spec §3: an unknown source is the "?" author glyph; the words move to its name and hover. A figure
+                  CEE says the model sets (`value_basis`) shows the card's own mark for it, with CEE's words. */}
+              {currentValueOrigin ? VALUE_PROVENANCE_LABEL[currentValueOrigin.kind] : ServedBasisGlyph ? (
+                <ServedBasisGlyph aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />
+              ) : (
                 <SourceUnknownGlyph aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />
               )}
             </span>

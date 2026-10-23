@@ -42,7 +42,7 @@ import { isStatedTargetValue, resolveGoalTarget, type GoalTargetSource } from '.
  * only orders them and collapses the seven kinds into the four words a card has
  * room for. The hover/assistive label keeps the precise kind.
  */
-export type ValueSourceMarkKind = 'olumi' | 'you' | 'brief' | 'panel' | 'unverified_brief' | 'unknown'
+export type ValueSourceMarkKind = 'olumi' | 'you' | 'brief' | 'panel' | 'unverified_brief' | 'unknown' | 'basis' | 'asked'
 
 /** The visible word per mark. `est.` is the existing token, not a new spelling. */
 export const VALUE_SOURCE_MARK_TOKEN: Readonly<Record<ValueSourceMarkKind, string>> = Object.freeze({
@@ -52,6 +52,8 @@ export const VALUE_SOURCE_MARK_TOKEN: Readonly<Record<ValueSourceMarkKind, strin
   panel: cardMark('source-panel').words,
   unknown: cardMark('source-unknown').words,
   unverified_brief: cardMark('source-unverified_brief').words,
+  basis: cardMark('source-basis').words,
+  asked: cardMark('source-asked').words,
 })
 
 /** The accessible name per mark (screen readers, and the hover title). */
@@ -62,6 +64,8 @@ export const VALUE_SOURCE_MARK_LABEL: Readonly<Record<ValueSourceMarkKind, strin
   panel: cardMark('source-panel').ariaWords,
   unknown: cardMark('source-unknown').ariaWords,
   unverified_brief: cardMark('source-unverified_brief').ariaWords,
+  basis: cardMark('source-basis').ariaWords,
+  asked: cardMark('source-asked').ariaWords,
 })
 
 function markForKind(kind: ValueProvenanceKind): ValueSourceMarkKind {
@@ -208,7 +212,20 @@ function resolveFactorValueSource(data: unknown): {
     // The ONE rule that answers `factorValueAwaitsReceipt`.
     return { mark: { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }, awaitingReceipt: true }
   }
+  // Rule 5a: no author stamp, but CEE says how the model sets this figure (`value_basis`, S3 23 Oct): worked out from
+  // other figures, fixed by how the model is built, or waiting for the person's answer. Its words, verbatim.
+  const basis = servedValueBasis(d)
+  if (basis) return { mark: basis, awaitingReceipt: false }
   return { mark: { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }, awaitingReceipt: false }
+}
+
+const VALUE_BASIS_KINDS: Readonly<Record<string, 'basis' | 'asked'>> = { worked_out: 'basis', structure: 'basis', waiting_for_answer: 'asked' }
+/** CEE's `value_basis` as a mark, or null when absent, of an unknown kind, or without words. */
+function servedValueBasis(d: Record<string, unknown> | undefined): FactorValueSourceMark | null {
+  const basis = d?.value_basis as { kind?: unknown; words?: unknown } | null | undefined
+  const kind = typeof basis?.kind === 'string' ? VALUE_BASIS_KINDS[basis.kind] : undefined
+  const words = typeof basis?.words === 'string' ? basis.words.trim() : ''
+  return kind && words !== '' ? { kind, label: words } : null
 }
 
 /**

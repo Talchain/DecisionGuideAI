@@ -555,6 +555,14 @@ describe('vision spec §3 (23 Oct): "Source not recorded" is the "?" author glyp
     expect(origin.querySelector('svg')).not.toBeNull()
   })
 
+  it('S3 value_basis (23 Oct): a figure fixed by how the model is built names itself with CEE’s words, never "Source not recorded"', () => {
+    // As served on the alpha3 hiring read's `developers_hired` (an option-set factor with no author stamp).
+    const origin = post({ ...stated, value_basis: { kind: 'structure', words: 'Fixed by how the model is built' } })
+    expect(origin.getAttribute('aria-label')).toBe('Fixed by how the model is built')
+    expect(origin.querySelector('.lucide-calculator')).not.toBeNull()
+    expect(origin.querySelector('.lucide-help-circle')).toBeNull()
+  })
+
   it('⛔ CONTROL: a recorded source keeps its words and is not turned into an image', () => {
     const origin = post({ ...stated, observedState: { ...stated.observedState, source: 'user' } })
     expect(origin.textContent).not.toBe('')

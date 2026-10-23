@@ -63,9 +63,16 @@ describe('D-1a — one classifier for a factor value\'s source', () => {
     ]
     for (const obs of shapes) {
       const data = factor(obs)
-      const kind = factorValueSourceMark(data)?.kind ?? 'unknown'
-      expect({ obs, label: factorValueSourceLabel(data) }).toEqual({ obs, label: WORDS[kind] })
+      const mark = factorValueSourceMark(data)
+      const kind = mark?.kind ?? 'unknown'
+      // A figure the model sets (`value_basis`) is named by CEE's words, the card's own label.
+      const expected = kind === 'basis' || kind === 'asked' ? mark?.label : WORDS[kind]
+      expect({ obs, label: factorValueSourceLabel(data) }).toEqual({ obs, label: expected })
     }
+    // S3 value_basis (23 Oct): the card's label is CEE's words, and the inspector says the same.
+    const basis = { ...factor({ value: 0.8 }), value_basis: { kind: 'worked_out', words: 'Worked out from A and B' } }
+    expect(factorValueSourceMark(basis)?.kind).toBe('basis')
+    expect(factorValueSourceLabel(basis)).toBe('Worked out from A and B')
   })
 
   it('"ai-suggested" is Olumi\'s suggestion, not "from your brief"', () => {

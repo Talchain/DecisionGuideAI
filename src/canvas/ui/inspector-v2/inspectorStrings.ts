@@ -240,7 +240,9 @@ export function factorValueSourceLabel(
   }
   const attributed = source ? attributedLabelFor(source, attributedTo, isAcceptedOlumiFigure(obs)) : null
   if (attributed) return attributed
-  const words: Readonly<Record<ValueSourceMarkKind, string>> = {
+  // CEE's own words for how the model sets this figure (`value_basis`).
+  if (mark?.kind === 'basis' || mark?.kind === 'asked') return mark.label
+  const words: Readonly<Record<Exclude<ValueSourceMarkKind, 'basis' | 'asked'>, string>> = {
     olumi: 'Estimated by Olumi',
     brief: 'From your brief',
     you: VALUE_SOURCE_MARK_LABEL.you,
