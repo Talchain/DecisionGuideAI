@@ -32,6 +32,7 @@ import type { UseConversationReturn } from '../useConversation'
 import { typography } from '../../../styles/typography'
 import type { ScenarioStage } from '../../../types/scenario'
 import { ICON_DENSE, ICON_STANDALONE, ICON_STROKE } from '../panelIcons'
+import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
 
 // ChatTopBar is removed (Tranche 1 item 30); GenerateState now lives here.
 export type GenerateState = 'disabled' | 'active' | 'loading'
@@ -109,7 +110,9 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
     const { sendMessage, isThinking, cancelTurn } = conversation
     const { stage } = useStagePill()
     const [thinkingMode, setThinkingMode] = useState<ThinkingMode>('normal')
-    const showRunAnalysis = stage === 'ideate' || stage === 'evaluate'
+    // A program graph's analysis is run by the host on every change: no Run button there.
+    const isProgram = useSavedModelIsProgram()
+    const showRunAnalysis = (stage === 'ideate' || stage === 'evaluate') && !isProgram
     const runDisabled = isThinking || canRunAnalysis === false
     // Disabled-state reason priority: panel-supplied reason (in-flight +
     // structural) → local isThinking → undefined (enabled). Keeps tooltip

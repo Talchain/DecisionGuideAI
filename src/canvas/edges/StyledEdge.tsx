@@ -84,6 +84,9 @@ import { isGraphLensEnabled } from '../../flags'
 import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdgeCopy'
 import type { RestsOnMark } from '../artefacts/assumptionMapModel'
 import { RestsOnMarker } from '../artefacts/RestsOnMarker'
+import { useProgramLinkFigure } from '../nodes/shared/savedModelProgram'
+import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
+import { VALUE_PROVENANCE_LABEL } from '../domain/valueProvenance'
 import { isEdgeFragile as isEdgeFragileFn, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate, type FragileEdgeMatchContext } from '../utils/fragileEdgeMatch'
 import { resolveExistenceDash, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
@@ -406,6 +409,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const edgeIdKey = String(id)
   // IDENTITY-EXACT (#2686 rebuild): an operand of an identity the current Run evaluated has no strength to set.
   const identityExact = useIdentityExactWords(edgeIdKey)
+  // A program link says its coefficient in natural units, at rest, in place of the strength words (read body only).
+  const programFigure = useProgramLinkFigure(edgeIdKey)
   const isAssistantFocused = useAssistantFocusStore(
     (state) => state.target?.kind === 'edge' && state.target.id === edgeIdKey,
   )
@@ -1204,10 +1209,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [edgeData],
   )
   const edgeDescription = useMemo(
-    () => identityExact !== null
+    () => programFigure !== null
+      ? { label: programFigure.words, tooltip: programFigure.words }
+      : identityExact !== null
       ? { label: identityExact, tooltip: identityExact }
       : getEdgeLabel(strengthForWords(edgeData as Record<string, unknown> | undefined, edgeSignedStrength), edgeLikelihood, directionDisplay, labelMode, edgeUncertainty),
-    [identityExact, edgeData, edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty],
+    [programFigure, identityExact, edgeData, edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty],
   )
   /**
    * ⛔⛔ AND THE DISCLOSURE TOO — `aria-label` REPLACES DESCENDANT TEXT, SO THE
@@ -2305,14 +2312,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // with no strength yet too: the lens exists to show those.
   const sourceGlyphPlacement = useMemo(() => {
     if (isStructuralEdge) return null
-    if (restsOn === null && (!strengthSourceMark || isLodBodyHidden || isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined))) return null
+    if (restsOn === null && (programFigure === null || isLodBodyHidden) && (!strengthSourceMark || isLodBodyHidden || isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined))) return null
     const poly = flattenSvgPath(edgePath)
     return poly ? resolveSourceGlyphOnPath(poly) : null
-  }, [restsOn, strengthSourceMark, isStructuralEdge, isLodBodyHidden, edgeData, edgePath])
+  }, [restsOn, programFigure, strengthSourceMark, isStructuralEdge, isLodBodyHidden, edgeData, edgePath])
   // The cards' boxes, for the "Rests on" number only (`nodeRectsSignature` is empty unless this edge pins a label, so
   // without its own subscription the number was placed once, before the cards were measured, and never again).
   const restsOnRectsSignature = useStore((st) => {
-    if (restsOn === null) return ''
+    if (restsOn === null && programFigure === null) return ''
     let sig = ''
     for (const n of st.nodes) {
       if (n.hidden) continue
@@ -2323,7 +2330,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // The "Rests on" number slides along its line off any card that covers the seat, so every number can be seen and
   // picked (`resolveRestsOnMarkerOnPath`). Its box is the marker's painted size at this zoom (20px tall, about 32 wide).
   const restsOnPlacement = useMemo(() => {
-    if (restsOn === null || !sourceGlyphPlacement) return null
+    if ((restsOn === null && programFigure === null) || !sourceGlyphPlacement) return null
     const poly = flattenSvgPath(edgePath)
     if (!poly) return sourceGlyphPlacement
     const scale = labelCounterScale(edgeTooltipZoom)
@@ -2343,9 +2350,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       const height = drawn ? Math.max(box.height, drawn.height / zoom) : box.height
       keepOuts.push({ x0: box.x, y0: box.y, x1: box.x + width, y1: box.y + height })
     }
-    return resolveRestsOnMarkerOnPath(poly, { w: 16 * scale, h: 10 * scale }, keepOuts)
+    // The program figure's pill: about 6px a character at the label size, plus its mark and padding (half-width).
+    const halfW = restsOn === null && programFigure !== null ? (programFigure.words.length * 6 + 28) / 2 : 16
+    return resolveRestsOnMarkerOnPath(poly, { w: halfW * scale, h: 10 * scale }, keepOuts)
     // restsOnRectsSignature: re-place when any card is measured or moves.
-  }, [restsOn, sourceGlyphPlacement, edgePath, edgeTooltipZoom, getNodes, restsOnRectsSignature])
+  }, [restsOn, programFigure, sourceGlyphPlacement, edgePath, edgeTooltipZoom, getNodes, restsOnRectsSignature])
 
   return (
     <>
@@ -2817,6 +2826,39 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               ...('clear' in restsOnPlacement && restsOnPlacement.clear === false ? { zIndex: 1001 } : {}),
             }}
           />
+        </EdgeLabelRenderer>
+      ) : programFigure !== null && !isStructuralEdge && restsOnPlacement ? (
+        <EdgeLabelRenderer>
+          {(() => {
+            const Mark = programFigure.mark ? VALUE_PROVENANCE_ICON[programFigure.mark] : null
+            const title = programFigure.mark ? `${programFigure.words}. ${VALUE_PROVENANCE_LABEL[programFigure.mark]}` : programFigure.words
+            return (
+              <button
+                type="button"
+                data-testid="edge-program-figure"
+                data-edge-id={edgeIdKey}
+                data-mark={programFigure.mark ?? undefined}
+                aria-label={title}
+                title={title}
+                className={`nodrag nopan inline-flex h-[calc(20px*var(--canvas-label-scale,1))] items-center gap-1 whitespace-nowrap rounded-full border border-panel-border bg-panel px-1.5 tabular-nums text-text-body shadow-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-info ${typography.edgeLabel}`}
+                style={{
+                  position: 'absolute',
+                  transform: `translate(-50%, -50%) translate(${restsOnPlacement.x}px,${restsOnPlacement.y}px)`,
+                  pointerEvents: 'all',
+                  opacity: isSelectionDimmed ? EDGE_SELECTION_DIM_OPACITY : undefined,
+                }}
+                onPointerDown={event => event.stopPropagation()}
+                onClick={event => {
+                  event.stopPropagation()
+                  useCanvasStore.getState().selectEdgeWithoutHistory(edgeIdKey)
+                  window.dispatchEvent(new Event(OPEN_FULL_INSPECTOR_EVENT))
+                }}
+              >
+                {Mark && <Mark aria-hidden="true" className="h-[calc(10px*var(--canvas-label-scale,1))] w-[calc(10px*var(--canvas-label-scale,1))] text-text-light" />}
+                {programFigure.words}
+              </button>
+            )
+          })()}
         </EdgeLabelRenderer>
       ) : strengthSourceMark && sourceGlyphPlacement && (
         <EdgeLabelRenderer>
