@@ -40,7 +40,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useStore } from '@xyflow/react'
 import { ArrowUp, History, X } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { clearOlumiAttention, nodeLabel } from '../utils/olumiAttention'
+import { clearOlumiAttention, nodeLabel, type OlumiAttention } from '../utils/olumiAttention'
 import { openAskOlumi } from '../../components/results/coaching/askOlumiStore'
 import { openNodeInspector } from '../nodes/shared/openNodeInspector'
 import { measureDockInset } from './FloatingOlumiPanel'
@@ -109,14 +109,42 @@ export function attentionCardSpot(anchor: Box, card: { readonly w: number; reado
 
 const OlumiMark = COACHING_ICON_GLYPH.Icon
 
-export function OlumiAttentionCard() {
-  const attention = useCanvasStore((s) => s.olumiAttention)
+/** A link's anchor, in flow units: the midpoint along its drawn path (where its label sits), else between its cards. */
+function linkMidpoint(edgeId: string): { x: number; y: number } | null {
+  if (typeof document === 'undefined') return null
+  const path = document.querySelector<SVGPathElement>(`.react-flow__edge[data-id="${CSS.escape(edgeId)}"] path.react-flow__edge-path`)
+  const length = path && typeof path.getTotalLength === 'function' ? path.getTotalLength() : 0
+  if (!path || !(length > 0)) return null
+  const p = path.getPointAtLength(length / 2)
+  return { x: Math.round(p.x), y: Math.round(p.y) }
+}
+
+/**
+ * `held`: a note that is not the assistant's slot (the canvas's one suggested move, pinned on its link by
+ * `ArtefactOffer`), with its own dismissal and press. Absent: the store's `olumiAttention`, as always.
+ */
+export function OlumiAttentionCard({ held, onDismiss, onPress }: {
+  held?: OlumiAttention | null
+  onDismiss?: () => void
+  onPress?: (actionId: string) => void
+} = {}) {
+  const fromStore = useCanvasStore((s) => s.olumiAttention)
+  const attention = held !== undefined ? held : fromStore
   const nodes = useCanvasStore((s) => s.nodes)
+  const edges = useCanvasStore((s) => s.edges)
   const savedModel = useCanvasStore((s) => s.lastServerGraphHash)
   // Re-render on camera moves so the card stays with its element.
   const transform = useStore((s) => s.transform)
 
-  const dismiss = useCallback(() => clearOlumiAttention(), [])
+  const dismiss = useCallback(() => (onDismiss ? onDismiss() : clearOlumiAttention()), [onDismiss])
+  // A note on a LINK (no card attended): anchored at the link's midpoint, measured from its drawn path after render.
+  const linkId = attention && attention.nodeIds.length === 0 ? (attention.edgeIds[0] ?? null) : null
+  const [linkPoint, setLinkPoint] = useState<{ x: number; y: number } | null>(null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal point bails out
+  useLayoutEffect(() => {
+    const p = linkId ? linkMidpoint(linkId) : null
+    if (p?.x !== linkPoint?.x || p?.y !== linkPoint?.y) setLinkPoint(p)
+  })
   const viewer = useIsViewer()
   const [answer, setAnswer] = useState('')
   // The card's own height, for a spot that covers no other card (`attentionCardSpot`); 0 until measured.
@@ -140,7 +168,8 @@ export function OlumiAttentionCard() {
    * attention is held, note or no note. Escape is also simply the key a user
    * reaches for first when the screen dims.
    */
-  const isHeld = attention != null
+  // A `held` note owns its own dismissal; Escape releases the assistant's slot only.
+  const isHeld = held === undefined && attention != null
   useEffect(() => {
     if (!isHeld) return
     const onKeyDown = (e: KeyboardEvent) => {
@@ -151,20 +180,33 @@ export function OlumiAttentionCard() {
   }, [isHeld])
 
   if (!attention || (!attention.note && !attention.caveat)) return null
-  const anchorId = attention.nodeIds[0]
+  const anchorId = attention.nodeIds[0] ?? linkId
   if (!anchorId) return null
   const anchor = nodes.find((n) => n.id === anchorId)
-  if (!anchor) return null
+  const link = anchor ? undefined : edges.find((e) => e.id === anchorId)
+  if (!anchor && !link) return null
+  // Before the path is measured (or with none drawn), the link's anchor is the midpoint between its two cards' centres.
+  const between = (): { x: number; y: number } | null => {
+    const ends = [link?.source, link?.target].map((id) => nodes.find((n) => n.id === id))
+    if (!ends[0] || !ends[1]) return null
+    const c = (n: (typeof nodes)[number]) => ({ x: n.position.x + (n.measured?.width ?? 240) / 2, y: n.position.y + (n.measured?.height ?? 80) / 2 })
+    return { x: (c(ends[0]).x + c(ends[1]).x) / 2, y: (c(ends[0]).y + c(ends[1]).y) / 2 }
+  }
+  const point = link ? (linkPoint ?? between()) : null
+  if (link && !point) return null
 
-  const measured = (anchor as { measured?: { width?: number; height?: number } }).measured
-  const w = measured?.width ?? 240
+  const measured = (anchor as { measured?: { width?: number; height?: number } } | undefined)?.measured
+  const w = anchor ? (measured?.width ?? 240) : 0
   const [tx, ty, zoom] = transform
   // Beside the card it is about, never over another card: right, else left (the dock is the right edge), else below/above.
   const roomRight = typeof window === 'undefined' ? Infinity : window.innerWidth - measureDockInset() - CARD_GAP
   const screenBox = (n: { position: { x: number; y: number }; measured?: { width?: number; height?: number } }): Box => ({
     x: n.position.x * zoom + tx, y: n.position.y * zoom + ty, w: (n.measured?.width ?? 240) * zoom, h: (n.measured?.height ?? 80) * zoom })
   const others = cardHeight > 0 ? nodes.filter((n) => n.id !== anchorId).map((n) => screenBox(n as never)) : []
-  const { left, top } = attentionCardSpot({ ...screenBox(anchor as never), w: w * zoom }, { w: CARD_WIDTH, h: cardHeight }, others, 0, roomRight)
+  const anchorBox: Box = anchor
+    ? { ...screenBox(anchor as never), w: w * zoom }
+    : { x: point!.x * zoom + tx, y: point!.y * zoom + ty, w: 0, h: 0 }
+  const { left, top } = attentionCardSpot(anchorBox, { w: CARD_WIDTH, h: cardHeight }, others, 0, roomRight)
 
   const note = attention.note
   const caveat = attention.caveat
@@ -185,6 +227,7 @@ export function OlumiAttentionCard() {
       ref={cardRef}
       data-testid={OLUMI_ATTENTION_CARD_TESTID}
       data-anchor-id={anchorId}
+      {...(link ? { 'data-anchor-kind': 'link' } : {})}
       {...(note ? { 'data-move': note.move } : {})}
       style={{ position: 'absolute', left, top, width: CARD_WIDTH, zIndex: 95 }}
       className="pointer-events-auto rounded-lg border border-panel-border bg-panel shadow-panel p-3"
@@ -232,7 +275,7 @@ export function OlumiAttentionCard() {
         <p className={`${typography.panelBody} text-text-body mt-1.5 mb-0`}>{note.body}</p>
       ) : null}
 
-      {note && !viewer && isQuestion(note.body ?? note.title) ? (
+      {note && !viewer && !link && isQuestion(note.body ?? note.title) ? (
         <form
           data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-answer`}
           className="mt-2 flex items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3 py-1 focus-within:ring-2 focus-within:ring-primary"
@@ -298,6 +341,9 @@ export function OlumiAttentionCard() {
               data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-action`}
               data-action-id={a.id}
               onClick={() => {
+                // A held note's own press and dismissal (the canvas's suggested move: its press, its "Not now").
+                if (a.kind === 'press') { onPress?.(a.id); return }
+                if (a.kind === 'dismiss') { dismiss(); return }
                 // "Open details": the inspector, where the item is edited. The note steps aside for it.
                 if (a.kind === 'details') {
                   clearOlumiAttention()

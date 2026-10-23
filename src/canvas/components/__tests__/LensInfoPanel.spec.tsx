@@ -256,7 +256,7 @@ describe('⭐ legend first (Reasoning Canvas plan, step 4): the key opens on wha
     render(<LensInfoPanel />)
     const key = screen.getByTestId('lens-info-robustness')
     expect(key.hasAttribute('data-folded')).toBe(true)
-    expect(key.textContent).toBe('In front: what this Run is most sensitive to, with the links it moves with most drawn wider.')
+    expect(key.textContent).toBe('Numbered 1 to 3: the links the result moves with most. The links this Run is most sensitive to are drawn wider.')
     expect(screen.getByTestId('lens-info-fold').getAttribute('aria-expanded')).toBe('false')
   })
   it('CONTRAST: opening the key shows the list it held before', () => {

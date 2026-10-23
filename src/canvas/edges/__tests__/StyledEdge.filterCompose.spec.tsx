@@ -29,7 +29,8 @@ const INFO_GLOW = EDGE_GLOW.sensitivity
 const WARNING_HALO = EDGE_GLOW.flipRisk
 
 // Mutable, per-test scenario knobs.
-let lensActive: 'full' | 'what_changes' = 'full'
+let lensActive: 'full' | 'what_changes' | 'option' = 'full'
+let emphasisEdgeIds = new Set<string>()
 let sensitivityWeights = new Map<string, number>()
 let sensitivityQuartiles: { q25: number; q75: number } | null = null
 let fragileEdgeIds = new Set<string>()
@@ -74,6 +75,7 @@ vi.mock('../../store', () => ({
         _sensitivityQuartiles: sensitivityQuartiles,
         _fragileEdgeIds: fragileEdgeIds,
         _restsOn: new Map(),
+        _emphasisEdgeIds: emphasisEdgeIds,
       },
     }),
   ),
@@ -232,20 +234,36 @@ describe('StyledEdge — filter composition', () => {
   })
 })
 
-describe('StyledEdge — "What would change" never fades a fragile link', () => {
+describe('StyledEdge — "What would change" never fades a link (vision spec §2e: a lens never fades)', () => {
   const opacityOf = (container: HTMLElement) =>
     (container.querySelector('[data-testid="base-edge"]') as unknown as HTMLElement).style.opacity
 
-  it('a fragile link with a low sensitivity keeps full opacity; the same link, not fragile, fades', () => {
+  it('a link with a low sensitivity keeps full opacity, fragile or not (it used to fade to 0.4)', () => {
     lensActive = 'what_changes'
     sensitivityWeights = new Map([['e1', 0.1]])
     sensitivityQuartiles = { q25: 0.2, q75: 0.5 }
-    // CONTRAST first: not fragile, low sensitivity → the quartile fade applies.
     const quiet = render(<StyledEdge {...(edgeProps as any)} />)
-    expect(opacityOf(quiet.container)).toBe('0.4')
+    expect(opacityOf(quiet.container)).toBe('')
     cleanup()
     fragileEdgeIds = new Set(['e1'])
     const fragile = render(<StyledEdge {...(edgeProps as any)} />)
-    expect(opacityOf(fragile.container)).not.toBe('0.4')
+    expect(opacityOf(fragile.container)).toBe('')
+    fragileEdgeIds = new Set()
+  })
+})
+
+describe('StyledEdge — a lens puts a link in front with the emphasis glow, never by fading the rest', () => {
+  it('an option route link takes the selected glow; a link off the route takes none', () => {
+    lensActive = 'option'
+    emphasisEdgeIds = new Set(['e1'])
+    analysisHighlight = { source: null, edgeIds: new Set(), nodeIds: new Set() }
+    const onRoute = render(<StyledEdge {...(edgeProps as any)} />)
+    expect(filterOf(onRoute.container)).toContain(EDGE_GLOW.selected)
+    cleanup()
+    // CONTRAST: the same edge, not on the route, is at rest.
+    emphasisEdgeIds = new Set(['other'])
+    const atRest = render(<StyledEdge {...(edgeProps as any)} />)
+    expect(filterOf(atRest.container) ?? '').not.toContain(EDGE_GLOW.selected)
+    emphasisEdgeIds = new Set()
   })
 })

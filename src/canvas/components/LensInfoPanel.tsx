@@ -81,7 +81,7 @@ export const LENS_KEY_COPY = {
   fragileNotChecked: "Fragile links weren't checked on this Run.",
   modelRelative: 'These describe this model as it stands, not what to choose.',
   premortemLegend: 'In front: what Olumi’s failure stories rest on. Open the key to read them.',
-  whatChangesLegend: 'In front: what this Run is most sensitive to, with the links it moves with most drawn wider.',
+  whatChangesLegend: 'Numbered 1 to 3: the links the result moves with most. The links this Run is most sensitive to are drawn wider.',
 } as const
 
 const LENS_ICON: Readonly<Record<Exclude<BarLens, 'full'>, LucideIcon>> = {

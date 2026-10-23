@@ -259,6 +259,7 @@ function createDefaultLensState() {
     _sensitivityQuartiles: null as { q25: number; q75: number } | null,
     _fragileEdgeIds: new Set<string>(),
     _restsOn: new Map<string, RestsOnMark>(),
+    _emphasisEdgeIds: new Set<string>(),
   }
 }
 
@@ -1314,6 +1315,8 @@ interface CanvasState {
     _fragileEdgeIds: Set<string>
     /** Rests on: each figure's marker (its number in the key card and its state), keyed `node:<id>` / `edge:<id>`. */
     _restsOn: Map<string, RestsOnMark>
+    /** Links a lens puts in front with the canvas's emphasis glow (option routes, "If it failed" links). Nothing dims. */
+    _emphasisEdgeIds: Set<string>
   }
   // M5: Grounding & Provenance
   documents: Document[]
@@ -2065,6 +2068,7 @@ interface CanvasState {
     sensitivityQuartiles: { q25: number; q75: number } | null
     fragileEdgeIds: Set<string>
     restsOn?: Map<string, RestsOnMark>
+    emphasisEdgeIds?: Set<string>
   }) => void
   // M5: Provenance actions
   addDocument: (document: Omit<Document, 'id' | 'uploadedAt'>) => string
@@ -8204,6 +8208,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   setLensVisuals: (visuals) => {
     const { lens } = get()
     const EMPTY_MARKS = new Map<string, RestsOnMark>()
+    const EMPTY_EDGES = new Set<string>()
     // Skip no-op updates to avoid re-renders (use setsEqual/mapsEqual for collection comparison)
     if (
       setsEqual(lens._dimmedNodeIds, visuals.dimmedNodeIds) &&
@@ -8212,7 +8217,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       mapsEqual(lens._sensitivityWeights, visuals.sensitivityWeights) &&
       lens._sensitivityQuartiles?.q25 === visuals.sensitivityQuartiles?.q25 &&
       lens._sensitivityQuartiles?.q75 === visuals.sensitivityQuartiles?.q75 &&
-      mapsEqual(lens._restsOn, visuals.restsOn ?? EMPTY_MARKS)
+      mapsEqual(lens._restsOn, visuals.restsOn ?? EMPTY_MARKS) &&
+      setsEqual(lens._emphasisEdgeIds, visuals.emphasisEdgeIds ?? EMPTY_EDGES)
     ) {
       return
     }
@@ -8225,6 +8231,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         _sensitivityQuartiles: visuals.sensitivityQuartiles,
         _fragileEdgeIds: visuals.fragileEdgeIds,
         _restsOn: visuals.restsOn ?? EMPTY_MARKS,
+        _emphasisEdgeIds: visuals.emphasisEdgeIds ?? EMPTY_EDGES,
       },
     })
   },
