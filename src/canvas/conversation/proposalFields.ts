@@ -99,7 +99,8 @@ export function programChangeNoteHeads(notes: readonly ChangeNote[]): ChangeNote
  */
 const proposalChangeSchema = z.object({
   id: z.string().min(1),
-  kind: z.enum(['quantity', 'relation', 'goal', 'option', 'risk', 'record']),
+  // `left_out`: something that matters but is not in the calculation, `after` saying why (DL 23 Oct, "Check what I understood").
+  kind: z.enum(['quantity', 'relation', 'goal', 'option', 'risk', 'record', 'left_out']),
   action: z.enum(['add', 'change', 'remove']),
   label: z.string().min(1),
   before: z.string().nullable(),
@@ -109,6 +110,8 @@ const proposalChangeSchema = z.object({
 export type ProposalChange = z.infer<typeof proposalChangeSchema>
 /** The card's words for one change, CEE's label and rendered values verbatim; nothing is shortened or reworded. */
 export function proposalChangeWords(c: ProposalChange): string {
+  // What the model leaves out is never "added": "Leaves out ‘label’ (why)".
+  if (c.kind === 'left_out' && c.action === 'add') return c.after === null ? `Leaves out ‘${c.label}’` : `Leaves out ‘${c.label}’ (${c.after})`
   const head = `${c.action === 'add' ? 'Adds' : c.action === 'remove' ? 'Removes' : 'Changes'} ‘${c.label}’`
   if (c.action === 'add') return c.after === null ? head : `${head}: ${c.after}`
   if (c.action === 'remove') return c.before === null ? head : `${head} (was: ${c.before})`
@@ -118,8 +121,10 @@ export function proposalChangeWords(c: ProposalChange): string {
 /** The mark beside an item that is Olumi's, never the person's (`author: 'olumi'`). */
 export const OLUMI_CHANGE_MARK = 'Olumi’s'
 const CHANGE_KIND_NOUNS: Readonly<Record<ProposalChange['kind'], string>> = {
-  goal: 'goal', quantity: 'figure', relation: 'calculation', option: 'option', risk: 'risk', record: 'other item',
+  goal: 'goal', quantity: 'figure', relation: 'calculation', option: 'option', risk: 'risk', record: 'other item', left_out: 'left-out item',
 }
+/** A reading card's heading (CEE's `reading: true`, the first draft's "Check what I understood"), in place of the summary. */
+export const READING_HEADING = 'Your situation as I understood it'
 /** The summary from `changes[]`, counted by kind in CEE's order: "Also changes 1 goal, 4 calculations and 8 figures". */
 export function proposalChangesSummary(changes: readonly ProposalChange[]): string {
   const counts = new Map<string, Set<string>>()
@@ -167,6 +172,8 @@ const proposalSchema = z.object({
     return r.success ? [r.data] : []
   })),
   changes: z.unknown().optional().transform(changes => (Array.isArray(changes) ? changes : null)),
+  // CEE's own flag for the first draft's reading card; only `true` is one, never inferred from what the card holds.
+  reading: z.unknown().optional().transform(reading => reading === true),
 }).refine(p => p.approve_action.id === `agent-approve-proposal:${p.proposal_id}`
   && p.decline_action.id === `agent-decline-proposal:${p.proposal_id}`
   && (p.review_action === undefined || p.review_action.id === `${REVIEW_PROPOSAL_PREFIX}${p.proposal_id}`))

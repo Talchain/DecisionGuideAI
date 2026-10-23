@@ -42,7 +42,7 @@ import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition
 import { PANEL_LIST_BULLET } from '../panelLists'
 import {
   changeNotesOf, changeNotesSummary, isHeldCardChipId, OLUMI_CHANGE_MARK, programChangeNoteHeads, proposalChangesSummary, proposalChangeWords,
-  REVIEW_PROPOSAL_PREFIX,
+  READING_HEADING, REVIEW_PROPOSAL_PREFIX,
   type ChangeNote, type ProposalChange,
 } from '../proposalFields'
 import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
@@ -65,8 +65,9 @@ const CHANGE_NOTE_SOURCE_CLASS: Readonly<Record<ChangeNote['source'], string>> =
  * card printed CEE's notes in raw "(1/3)…(3/3)" fragments). The line counts the changes from the notes' own ids, read
  * before the approve; "Details" opens CEE's sentences, each in the colour of whose it is.
  */
-function ChangeNotesPanel({ proposalId, notes, changes }: { proposalId: string; notes: readonly ChangeNote[]; changes: readonly ProposalChange[] | null }) {
-  const [open, setOpen] = useState(false)
+function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId: string; notes: readonly ChangeNote[]; changes: readonly ProposalChange[] | null; reading: boolean }) {
+  // A reading card (CEE's `reading: true`) is read before anything else, so its list starts open, under its own heading.
+  const [open, setOpen] = useState(reading)
   const listId = useId()
   const program = useSavedModelIsProgram()
   // CEE's `changes[]` (DL 23 Oct): every item, its substance in CEE's words, Olumi's marked. Absent: the notes as before,
@@ -77,7 +78,7 @@ function ChangeNotesPanel({ proposalId, notes, changes }: { proposalId: string; 
   return (
     <div className={styles.reasoningPanel} style={{ marginTop: 12, marginBottom: -4 }} data-testid={`proposal-change-notes-${proposalId}`}>
       <p className={styles.reasoningPanelHeading} data-testid={`proposal-change-summary-${proposalId}`}>
-        {listChanges ? proposalChangesSummary(changes) : changeNotesSummary(notes, { program })}
+        {reading ? READING_HEADING : listChanges ? proposalChangesSummary(changes) : changeNotesSummary(notes, { program })}
       </p>
       {(listChanges || listedNotes.length > 0) && <button type="button" className={styles.inlineDisclosureToggle} onClick={() => setOpen((v) => !v)}
         aria-expanded={open} aria-controls={open ? listId : undefined} data-testid={`proposal-change-details-${proposalId}`}>
@@ -662,7 +663,7 @@ export function SuggestedChips({
         const notes = changeNotesOf(p)
         // Present `changes[]` is the whole list: an empty one means no other changes, and the notes are not read.
         if (p.changes !== null ? p.changes.length === 0 : notes.length === 0) return null
-        return <ChangeNotesPanel key={`change-notes-${p.proposal_id}`} proposalId={p.proposal_id} notes={notes} changes={p.changes} />
+        return <ChangeNotesPanel key={`change-notes-${p.proposal_id}`} proposalId={p.proposal_id} notes={notes} changes={p.changes} reading={p.reading} />
       })}
       <div
         className="flex flex-wrap gap-1.5 mt-3"
