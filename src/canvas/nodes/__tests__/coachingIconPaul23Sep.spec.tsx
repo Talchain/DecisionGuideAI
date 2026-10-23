@@ -184,16 +184,17 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('Paul 23 Sep point 6 — ONE discreet coaching icon on EVERY card at Normal zoom', () => {
-  it.each(NODES.map(n => [n.type, n.id]))('%s card (%s) carries exactly one resting coaching icon, the one glyph', (_type, id) => {
+  it.each(NODES.map(n => [n.type, n.id]))('%s card (%s) carries exactly one coaching door (in its actions, not at rest), the one glyph', (_type, id) => {
     setState({ lodRung: 'full' })
     renderCard(id)
     const all = screen.queryAllByTestId(/^node-coaching-icon-/)
     expect(all).toHaveLength(1)
     const el = icon(id)!
     expect(el).toBeTruthy()
-    // At REST: it lives in the resting group, not the hover-only quick actions.
-    expect(el.closest(`[data-testid="node-card-rail-resting-${id}"]`)).toBeTruthy()
-    expect(el.closest(`[data-testid="node-quick-actions-${id}"]`)).toBeNull()
+    // ⛔ NO LONGER AT REST (vision spec §3, 23 Oct: one Olumi slot per card — the corner badge rests only where Olumi
+    // has something here). The icon is the card actions' ONE "Ask Olumi" door, never in a resting group.
+    expect(el.closest(`[data-testid="node-quick-actions-${id}"]`)).toBeTruthy()
+    expect(el.closest(`[data-testid="node-card-rail-resting-${id}"]`)).toBeNull()
     // ONE glyph on every card — v3.1 `coaching`, the bubble with "?" (DESIGN-GAP
     // #42; was MessageCircle under Panel R3 — conflict named in askOlumiOneGlyph).
     // Paul 1 Oct 2026: the REAL full-colour Olumi brand mark (was the §9.8 single-colour outline, Paul 30 Sep).

@@ -138,7 +138,7 @@ describe('StyledEdge — assistant focus render', () => {
     })
     const { container } = render(<StyledEdge {...(edgeProps as any)} />)
     expect(container.querySelector('g[data-assistant-focused="true"]')).not.toBeNull()
-    expect(screen.getByTestId('assistant-focus-edge-halo-e1')).toBeInTheDocument()
+    expect(screen.getByTestId('pointing-edge-halo-e1')).toBeInTheDocument()
   })
 
   it('discriminating identity: another edge receives no halo', () => {
@@ -147,7 +147,7 @@ describe('StyledEdge — assistant focus render', () => {
     })
     const { container } = render(<StyledEdge {...(edgeProps as any)} />)
     expect(container.querySelector('g[data-assistant-focused="true"]')).toBeNull()
-    expect(screen.queryByTestId('assistant-focus-edge-halo-e1')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('pointing-edge-halo-e1')).not.toBeInTheDocument()
   })
 })
 
@@ -161,15 +161,25 @@ describe('StyledEdge — the link the reply tested', () => {
   it('the tested link has the halo, marked with the method', () => {
     point('scn-pointing', 'n1->n2')
     render(<StyledEdge {...(edgeProps as any)} />)
-    expect(screen.getByTestId('method-pointed-edge-halo-e1')).toHaveAttribute('data-method-pointed', 'test_link')
+    expect(screen.getByTestId('pointing-edge-halo-e1')).toHaveAttribute('data-method-pointed', 'test_link')
+  })
+  it('⭐ ONE pointing halo (vision spec §3): assistant focus AND the reply\'s test on the same link draw one mark, method kept', () => {
+    point('scn-pointing', 'n1->n2')
+    act(() => { activateAssistantFocus({ id: 'e1', kind: 'edge', label: 'One → Two' }) })
+    const { container } = render(<StyledEdge {...(edgeProps as any)} />)
+    expect(screen.getAllByTestId('pointing-edge-halo-e1')).toHaveLength(1)
+    expect(screen.getByTestId('pointing-edge-halo-e1')).toHaveAttribute('data-method-pointed', 'test_link')
+    // The two old marks are gone: no second halo by either retired name.
+    expect(container.querySelector('[data-testid^="assistant-focus-edge-halo-"], [data-testid^="method-pointed-edge-halo-"]')).toBeNull()
+    act(() => { dismissAssistantFocus() })
   })
   it('CONTRAST: another link, or another scenario, has none', () => {
     point('scn-pointing', 'n2->n1')
     const a = render(<StyledEdge {...(edgeProps as any)} />)
-    expect(screen.queryByTestId('method-pointed-edge-halo-e1')).toBeNull()
+    expect(screen.queryByTestId('pointing-edge-halo-e1')).toBeNull()
     a.unmount()
     point('scn-other', 'n1->n2')
     render(<StyledEdge {...(edgeProps as any)} />)
-    expect(screen.queryByTestId('method-pointed-edge-halo-e1')).toBeNull()
+    expect(screen.queryByTestId('pointing-edge-halo-e1')).toBeNull()
   })
 })

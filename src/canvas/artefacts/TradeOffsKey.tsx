@@ -3,7 +3,7 @@
  * (`tradeOffsModel.ts`; Paul, 19 Oct 2026: a pros and cons list "that actually allows the user to edit it and change
  * the data model").
  *
- * One option at a time (‹ › step through them; the canvas dims everything off its routes). Each route is a chain of
+ * One option at a time (‹ › step through them; the canvas numbers the links on its routes and dims nothing). Each route is a chain of
  * the model's own elements, each marked with the way the option moves it, grouped by whether it moves the goal the way
  * the user wants, the other way, or cannot be sorted because a link on it has no direction. Picking a route opens its
  * links, each with its "Rests on" state and the link's own editor: the list is edited by editing the model, so the two
@@ -260,7 +260,7 @@ export function TradeOffsKey({ folded = false }: { folded?: boolean }) {
   const goal = read.goalLabel
   const at = Math.max(0, read.options.findIndex((o) => o.optionId === pickedOptionId))
   const option: OptionTradeOffs = read.options[at]
-  // The lens's own option pick (the canvas dims to it); the route pick is this card's.
+  // The lens's own option pick (the canvas numbers its route links); the route pick is this card's.
   const step = (by: 1 | -1) => {
     const next = read.options[(at + by + read.options.length) % read.options.length]
     setPickedRoute(null)

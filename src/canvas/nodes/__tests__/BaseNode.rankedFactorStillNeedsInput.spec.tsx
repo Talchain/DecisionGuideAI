@@ -306,7 +306,7 @@ describe('a ranked factor can still need input — the pair the contract called 
    * cue. `editedNodeIds.add` below is kept to prove the removal holds even
    * where the OLD three-member case used to reach it.
    */
-  it('CASE 2 — remaining members together: the pill in the body; attention marker · coaching in the corner, in that order (the edited dot is gone)', () => {
+  it('CASE 2 — remaining members together: the pill in the body; ONE Olumi badge in the band (the edited dot is gone)', () => {
     sensitivityRank = 2
     attentionMarked = true
     editedNodeIds.add(FACTOR_ID)
@@ -317,7 +317,8 @@ describe('a ranked factor can still need input — the pair the contract called 
     const pill = screen.getByTestId('needs-input-pill')
     // Locked Canvas design (23 Sep 2026): the "Worth reviewing" marker holds the
     // retired rank badge's slot (spec §2; ED 02:31Z D1a/D1b).
-    const marker = screen.getByTestId(`attention-marker-${FACTOR_ID}`)
+    // Vision spec §3 (one Olumi slot): with both sources the band draws ONE badge, the producer's.
+    expect(screen.queryByTestId(`attention-marker-${FACTOR_ID}`)).toBeNull()
     const coaching = screen.getByTestId(`node-coaching-marker-${FACTOR_ID}`)
     expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
     expect(screen.queryByTestId(`edited-since-run-${FACTOR_ID}`)).toBeNull()
@@ -328,9 +329,7 @@ describe('a ranked factor can still need input — the pair the contract called 
     // NODE-ANATOMY v3.2: the pill is line 2 of the card, not a corner member
     // (it was FOUR here while it sat on the border).
     expect(screen.getByTestId(`factor-needs-input-row-${FACTOR_ID}`)).toContainElement(pill)
-    expect(kids).toHaveLength(2)
-    expect(kids[0]).toBe(marker)
-    expect(kids[1]).toBe(coaching)
+    expect(kids).toEqual([coaching])
 
     // The rank itself is on the driver line, rank 2 by identity.
     expect(driverCaption().getAttribute('aria-label')).toBe(DRIVER_LINE_COPY.rank(2, RANKED_COUNT))

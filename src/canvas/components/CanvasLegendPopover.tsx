@@ -630,15 +630,17 @@ const LINK_SOURCE_ROWS: LegendRow[] = EDGE_STRENGTH_SOURCE_MARKS.map(({ source, 
  * mark no card can carry yet — the rule the fragility row already follows.
  */
 function CardIconSwatch({ Icon, inkClass, strokeWidth }: {
-  Icon: typeof ATTENTION_MARKER_GLYPH.Icon | typeof COACHING_ICON_GLYPH.Icon
+  Icon: typeof EVIDENCE_RAIL_GLYPH.Icon | typeof COACHING_ICON_GLYPH.Icon
   inkClass: string
   strokeWidth?: number
 }) {
   return <Icon size={NODE_RAIL_GLYPH_PX} strokeWidth={strokeWidth} className={`${inkClass} shrink-0`} aria-hidden="true" />
 }
 
+// ⭐ ONE OLUMI BADGE (vision spec §3, 23 Oct): "Worth reviewing", the coaching marker and the resting coaching icon are
+// one corner badge, the Olumi mark, so the key has one row for it. The "Ask Olumi" door is a card action, not a mark.
 const ATTENTION_ROW: LegendRow = {
-  label: 'Worth reviewing',
+  label: 'Olumi has something here',
   swatch: <CardIconSwatch Icon={ATTENTION_MARKER_GLYPH.Icon} inkClass={ATTENTION_MARKER_GLYPH.inkClass} strokeWidth={ATTENTION_MARKER_GLYPH.strokeWidth} />,
   testId: 'legend-icon-attention',
 }
@@ -652,13 +654,6 @@ const BEHAVIOUR_ROW: LegendRow = {
   swatch: <CardIconSwatch Icon={BEHAVIOUR_RAIL_GLYPH.Icon} inkClass={NODE_RAIL_TONE_CLASS[BEHAVIOUR_RAIL_GLYPH.tone]} />,
   testId: 'legend-icon-behaviour',
 }
-const COACHING_ROWS: LegendRow[] = [
-  {
-    label: 'Explore with Olumi',
-    swatch: <CardIconSwatch Icon={COACHING_ICON_GLYPH.Icon} inkClass={COACHING_ICON_GLYPH.inkClass} />,
-    testId: 'legend-icon-coaching',
-  },
-]
 
 /**
  * Marks a card draws only AFTER a Run (a ranked driver). The key describes only what a reader in
@@ -1355,9 +1350,6 @@ export function CanvasLegendPopover({ variant = 'icon', open: openProp, onOpenCh
             </div>
             <LegendGroup rows={PROVENANCE_ROWS} />
             <LegendGroup rows={LINK_SOURCE_ROWS} />
-            <div className="mt-1.5">
-              <LegendGroup rows={COACHING_ROWS} />
-            </div>
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
             <MetricGroup board={board} />
           </div>

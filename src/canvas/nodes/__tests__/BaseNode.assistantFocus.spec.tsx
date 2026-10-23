@@ -68,7 +68,7 @@ describe('BaseNode — assistant focus render', () => {
       activateAssistantFocus({ id: props.id, kind: 'node', label: 'Demand' })
     })
     expect(node).toHaveAttribute('data-assistant-focused', 'true')
-    expect(screen.getByTestId(`assistant-focus-node-halo-${props.id}`)).toBeInTheDocument()
+    expect(screen.getByTestId(`pointing-node-halo-${props.id}`)).toBeInTheDocument()
     // Selection styling still comes only from the selected prop — the one
     // neutral lift on every family (Paul 1 Oct: no blue on click; it was the
     // contract's Info ring, and before that the per-kind `ring-factor/50`).
@@ -117,7 +117,7 @@ describe('BaseNode — assistant focus render', () => {
     act(() => vi.advanceTimersByTime(PULSE_DURATION_MS))
     expect(node.className).not.toContain('ai-highlight-pulse')
     expect(node).toHaveAttribute('data-assistant-focused', 'true')
-    expect(screen.getByTestId(`assistant-focus-node-halo-${props.id}`)).toBeInTheDocument()
+    expect(screen.getByTestId(`pointing-node-halo-${props.id}`)).toBeInTheDocument()
   })
 })
 

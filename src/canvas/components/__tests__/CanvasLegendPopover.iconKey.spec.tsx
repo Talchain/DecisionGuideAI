@@ -10,7 +10,7 @@
  *   · Worth reviewing     — `NodeAttentionMarker` (BaseNode corner stack);
  *   · Worth checking — `NodeSignalRailIcons` evidence icon (rail);
  *   · Behavioural check   — `NodeSignalRailIcons` behaviour icon (rail);
- *   · Explore with Olumi  — `NodeCoachingIcon` (rail, every card at Normal zoom).
+ *   · (retired from the key, vision spec §3: the coaching icon is the card actions' "Ask Olumi" door, not a mark.)
  *
  * ⭐ BOUND TO THE CARD, NOT TO A LIST. Each pair below renders the REAL card
  * component and the key, and compares the glyph's lucide identity class and
@@ -28,7 +28,7 @@ import { render, screen, fireEvent, cleanup, within } from '@testing-library/rea
 import { CanvasLegendPopover } from '../CanvasLegendPopover'
 import { NodeAttentionMarker } from '../../nodes/shared/NodeAttentionMarker'
 import { NodeSignalRailIcons } from '../../nodes/shared/NodeRailIcons'
-import { NodeCoachingIcon } from '../../nodes/shared/NodeCoachingIcon'
+import { NodeCoachingMarker } from '../../nodes/shared/NodeCoachingMarker'
 import type { AttentionReason } from '../../nodes/shared/nodeAttention'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -109,10 +109,9 @@ describe('the icon rows, in the contract’s words', () => {
   })
 
   it.each([
-    ['legend-icon-attention', 'Worth reviewing'],
+    ['legend-icon-attention', 'Olumi has something here'],
     ['legend-icon-evidence', 'Worth checking'],
     ['legend-icon-behaviour', 'Behavioural check'],
-    ['legend-icon-coaching', 'Explore with Olumi'],
   ])('%s reads "%s"', (testId, words) => {
     const key = openKey()
     expect(within(key).getByTestId(testId).textContent).toBe(words)
@@ -130,7 +129,7 @@ describe('the icon rows, in the contract’s words', () => {
   it('the new rows keep the key’s vocabulary ban (no node / edge / graph)', () => {
     const key = openKey()
     const text = (key.textContent ?? '').toLowerCase()
-    expect(text).toContain('worth reviewing') // positive control: the rows are in the text read
+    expect(text).toContain('olumi has something here') // positive control: the rows are in the text read
     expect(text).not.toMatch(/\bnode\b/)
     expect(text).not.toMatch(/\bedge\b/)
     expect(text).not.toMatch(/\bgraph\b/)
@@ -138,15 +137,18 @@ describe('the icon rows, in the contract’s words', () => {
 })
 
 describe('⭐ each row draws the glyph the card draws, in the card’s resting ink', () => {
-  it('Worth reviewing ⇄ NodeAttentionMarker', () => {
+  it('Olumi has something here ⇄ the ONE Olumi badge (vision spec §3): the "Worth reviewing" cue and the coaching badge draw the Olumi mark', () => {
     render(<NodeAttentionMarker nodeId={NODE} sentence="Worth reviewing: a top driver." />)
     const card = cardGlyph(`attention-marker-${NODE}`)
     const key = keyRow(openKey(), 'legend-icon-attention')
-    expect(lucideName(card.svg)).not.toBeNull()
+    expect(lucideName(card.svg)).toBe('olumi-brand-mark')
     expect(lucideName(key.svg)).toBe(lucideName(card.svg))
     expect(ink(card.button)).not.toBeNull()
-    expect(ink(key.svg)).toBe(ink(card.button))
-    expect(key.svg.getAttribute('stroke-width')).toBe(card.svg.getAttribute('stroke-width'))
+    // The coaching badge (a producer item) draws the same mark: one slot, one glyph.
+    useGuidanceStore.setState({ guidanceItems: [{ item_id: 'g1', source: 'cee', title: 'Is this plausible?', category: 'must_fix', primary_action: { type: 'discuss', prompt: 'Why?' }, target_object: { id: NODE, type: 'factor' } }] } as never)
+    render(<NodeCoachingMarker nodeId={NODE} />)
+    expect(lucideName(cardGlyph(`node-coaching-marker-${NODE}`).svg)).toBe('olumi-brand-mark')
+    useGuidanceStore.setState({ guidanceItems: [] } as never)
   })
 
   it('Worth checking ⇄ the rail’s evidence icon', () => {
@@ -167,22 +169,19 @@ describe('⭐ each row draws the glyph the card draws, in the card’s resting i
     expect(ink(key.svg)).toBe(ink(card.button))
   })
 
-  it('Explore with Olumi ⇄ NodeCoachingIcon: both draw the full-colour Olumi brand mark (Paul, 1 Oct 2026)', () => {
-    render(<NodeCoachingIcon nodeId={NODE} chips={null} />)
-    const card = cardGlyph(`node-coaching-icon-${NODE}`)
-    const key = keyRow(openKey(), 'legend-icon-coaching')
-    expect(lucideName(card.svg)).toBe('olumi-brand-mark')
-    expect(lucideName(key.svg)).toBe(lucideName(card.svg))
-    // The brand mark carries its own colours, so there is no ink to compare; the button keeps its resting ink.
-    expect(ink(card.button)).not.toBeNull()
+  it('the resting coaching icon has no key row: it is the card actions\' "Ask Olumi" door now (vision spec §3)', () => {
+    const key = openKey()
+    expect(within(key).queryByTestId('legend-icon-coaching')).toBeNull()
+    expect(key.textContent).not.toContain('Explore with Olumi')
+    expect(within(key).getByTestId('legend-icon-attention')).toBeDefined() // positive control
   })
 
-  it('CONTRAST: the four glyphs are four different marks, so a pair cannot pass by sharing one', () => {
+  it('CONTRAST: the three glyphs are three different marks, so a pair cannot pass by sharing one', () => {
     const key = openKey()
-    const names = ['attention', 'evidence', 'behaviour', 'coaching'].map((k) =>
+    const names = ['attention', 'evidence', 'behaviour'].map((k) =>
       lucideName(keyRow(key, `legend-icon-${k}`).svg),
     )
-    expect(new Set(names).size).toBe(4)
+    expect(new Set(names).size).toBe(3)
   })
 })
 
@@ -191,7 +190,7 @@ describe('the evidence row follows its icon’s phase', () => {
     setPhase('idle')
     const key = openKey()
     expect(within(key).queryByTestId('legend-icon-evidence')).toBeNull()
-    for (const k of ['attention', 'behaviour', 'coaching']) {
+    for (const k of ['attention', 'behaviour']) {
       expect(within(key).getByTestId(`legend-icon-${k}`)).toBeDefined()
     }
   })

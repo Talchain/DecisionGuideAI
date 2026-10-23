@@ -211,6 +211,9 @@ export function edgeFocusRingGeometry(
 const edgeGlow = (px: number, pct: number): string =>
   `drop-shadow(0 0 ${px}px color-mix(in srgb, var(--semantic-info) ${pct}%, transparent))`
 
+/** The one pointing halo on a link: a reply or note is about it (assistant focus or a method result). */
+export const POINTING_EDGE_HALO_TESTID_PREFIX = 'pointing-edge-halo-'
+
 /**
  * ⭐ THE POLARITY GLYPH'S HALO (contract v3.1, E2/T09 — Paul 23 Sep point 12:
  * "Sign glyphs drawn in body text with a halo").
@@ -2552,8 +2555,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           data-uncertainty-half-width={uncertaintyBand}
         />
       )}
-      {methodPointed !== null && !isAssistantFocused && (
-        // The same halo as an assistant focus: one visual for "Olumi points here". It lasts until the next reply.
+      {(isAssistantFocused || methodPointed !== null) && (
+        // ⭐ ONE POINTING HALO (vision spec §3, 23 Oct: the method-result halo and the assistant-focus halo looked
+        // identical and meant nearly the same, so they are one mark): a reply or note is about this link right now.
+        // `data-method-pointed` still says which method's result pointed here; it lasts until the next reply.
         <path
           d={edgePath}
           fill="none"
@@ -2562,20 +2567,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           opacity={0.32}
           pointerEvents="none"
           vectorEffect="non-scaling-stroke"
-          data-testid={`method-pointed-edge-halo-${edgeIdKey}`}
-          data-method-pointed={methodPointed}
-        />
-      )}
-      {isAssistantFocused && (
-        <path
-          d={edgePath}
-          fill="none"
-          stroke="var(--semantic-info)"
-          strokeWidth={8}
-          opacity={0.32}
-          pointerEvents="none"
-          vectorEffect="non-scaling-stroke"
-          data-testid={`assistant-focus-edge-halo-${edgeIdKey}`}
+          data-testid={`${POINTING_EDGE_HALO_TESTID_PREFIX}${edgeIdKey}`}
+          {...(methodPointed !== null ? { 'data-method-pointed': methodPointed } : {})}
         />
       )}
       {/* Paul, 7 Oct 2026: no arrowheads on any link; polarity glyph clearance stays frozen. */}

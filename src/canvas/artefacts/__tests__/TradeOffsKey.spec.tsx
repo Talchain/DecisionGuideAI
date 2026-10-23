@@ -94,11 +94,16 @@ describe('the Trade-offs key card', () => {
     assert.equal(direct().textContent, 'Pro plan pricefalls→MRRfalls1Rests on 1 link: 1 with no figure yet')
     act(() => useCanvasStore.setState({ lastServerGraphHash: 'view', nodes: useCanvasStore.getState().nodes.map((n) => n.id === 'p59'
       ? { ...n, data: { ...n.data, interventions: { pro_plan_price: { value: 0.3 } } } } : n) }))
-    assert.equal(useCanvasStore.getState().lens._dimmedNodeIds.has('p54'), true)
+    // The lens numbers the picked option's route links on the canvas (the key's pills)…
+    assert.equal(useCanvasStore.getState().lens._restsOn.has('edge:pro_plan_price>mrr'), true)
+    // …and dims nothing: p54 sits off p59's routes and stays at full strength (vision spec §3: lenses never grey).
+    assert.equal(useCanvasStore.getState().lens._dimmedNodeIds.has('p54'), false)
+    assert.equal(useCanvasStore.getState().lens._dimmedNodeIds.size, 0)
+    assert.equal(useCanvasStore.getState().lens._dimmedEdgeIds.size, 0)
     // Only the hash changes: both memoised readers must discard the old view.
     act(() => useCanvasStore.setState({ lastServerGraphHash: 'saved-no-change' }))
     assert.equal(view.queryAllByTestId('trade-offs-key-route').length, 0)
-    assert.equal(useCanvasStore.getState().lens._dimmedNodeIds.size, 0)
+    assert.equal(useCanvasStore.getState().lens._restsOn.size, 0)
   })
 
   it('a viewer can inspect a route but cannot edit its figures or send questions', () => {

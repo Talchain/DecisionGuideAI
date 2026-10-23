@@ -253,21 +253,6 @@ export function tradeOffsForState(state: TradeOffsState): {
   return { goalId, goalLabel: goal ? labelOf(goal, goal.id) : null, goalWants, options, alsoInModel: alsoInModelOf(state, goalId) }
 }
 
-/** What the lens puts in front for one option: the option, every element on its routes, and the links between. */
-export function tradeOffsInFocus(option: OptionTradeOffs, edges: readonly Edge[]): { nodeIds: Set<string>; edgeIds: Set<string> } {
-  const nodeIds = new Set<string>([option.optionId])
-  const edgeIds = new Set<string>()
-  for (const route of option.routes) {
-    for (const step of route.steps) {
-      nodeIds.add(step.nodeId)
-      if (step.edgeId !== null) edgeIds.add(step.edgeId)
-    }
-  }
-  // The option's own wiring into the factors it changes.
-  for (const e of edges) if (e.source === option.optionId && nodeIds.has(e.target)) edgeIds.add(e.id)
-  return { nodeIds, edgeIds }
-}
-
 /**
  * Each link on the option's routes, numbered from 1 in the order the key lists them (route by route), with its "Rests
  * on" state: the same pill on the canvas and in the key, so a number in one is found in the other. Numbers are identity,

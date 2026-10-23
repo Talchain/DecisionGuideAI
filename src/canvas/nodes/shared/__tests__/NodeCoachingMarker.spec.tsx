@@ -202,7 +202,7 @@ describe('NodeCoachingMarker — cap (1 + count)', () => {
 // `text-text-light` — the design moved the value; the claim (neutral at rest,
 // Info on hover) is unchanged.
 
-describe('NodeCoachingMarker — category by shape, colour neutral on the canvas', () => {
+describe('NodeCoachingMarker — the one Olumi badge: category on data, colour neutral on the canvas', () => {
   const svgClass = (marker: HTMLElement) => marker.querySelector('svg')?.getAttribute('class') ?? ''
   const glyphOf = (cat: GuidanceItem['category']) => {
     const { Icon } = guidanceCategoryIcon(cat)
@@ -212,7 +212,7 @@ describe('NodeCoachingMarker — category by shape, colour neutral on the canvas
     return name
   }
 
-  it('must_fix: its category glyph, but no Danger paint — muted at rest, Info on hover', () => {
+  it('must_fix: the Olumi mark, no Danger paint — muted at rest, Info on hover', () => {
     useGuidanceStore
       .getState()
       .setGuidanceItems([makeItem({ category: 'must_fix', target_object: { type: 'node', id: 'node-a' } })])
@@ -223,10 +223,13 @@ describe('NodeCoachingMarker — category by shape, colour neutral on the canvas
     expect(svgClass(marker)).not.toContain('text-danger')
     expect(marker.className).toContain(NODE_RAIL_REST_TONE_CLASS)
     expect(marker.className).toContain('hover:text-info')
-    expect(svgClass(marker)).toContain(glyphOf('must_fix')!)
+    // Vision spec §3 (one Olumi slot): the badge draws the Olumi mark, never the category glyph; the category rides on
+    // `data-guidance-category`, and the note / inspector card keep its tone.
+    expect(marker.querySelector('img[data-icon="olumi-brand-mark"]')).not.toBeNull()
+    expect(marker.querySelector('svg')).toBeNull()
   })
 
-  it('could_fix: its own (different) category glyph, the same neutral colour', () => {
+  it('could_fix: the same Olumi mark, the same neutral colour', () => {
     useGuidanceStore
       .getState()
       .setGuidanceItems([makeItem({ category: 'could_fix', target_object: { type: 'node', id: 'node-a' } })])
@@ -235,20 +238,26 @@ describe('NodeCoachingMarker — category by shape, colour neutral on the canvas
     expect(marker.className).toContain(NODE_RAIL_REST_TONE_CLASS)
     expect(svgClass(marker)).not.toContain('text-info')
     expect(glyphOf('could_fix')).not.toBe(glyphOf('must_fix'))
-    expect(svgClass(marker)).toContain(glyphOf('could_fix')!)
+    // Vision spec §3 (one Olumi slot): the badge draws the Olumi mark, never the category glyph; the category rides on
+    // `data-guidance-category`, and the note / inspector card keep its tone.
+    expect(marker.querySelector('img[data-icon="olumi-brand-mark"]')).not.toBeNull()
+    expect(marker.querySelector('svg')).toBeNull()
   })
 
-  it('an uncategorised item keeps the honest-absence glyph (never an invented severity)', () => {
+  it('an uncategorised item says so on data (never an invented severity), with the same Olumi mark', () => {
     useGuidanceStore
       .getState()
       .setGuidanceItems([makeItem({ category: undefined, target_object: { type: 'node', id: 'node-a' } })])
     render(<NodeCoachingMarker nodeId="node-a" />)
     const marker = screen.getByTestId('node-coaching-marker-node-a')
     expect(marker).toHaveAttribute('data-guidance-category', 'uncategorised')
-    expect(svgClass(marker)).toContain(glyphOf(undefined)!)
+    // Vision spec §3 (one Olumi slot): the badge draws the Olumi mark, never the category glyph; the category rides on
+    // `data-guidance-category`, and the note / inspector card keep its tone.
+    expect(marker.querySelector('img[data-icon="olumi-brand-mark"]')).not.toBeNull()
+    expect(marker.querySelector('svg')).toBeNull()
   })
 
-  it('the glyph follows the highest-severity item among several', () => {
+  it('the category data follows the highest-severity item among several', () => {
     useGuidanceStore.getState().setGuidanceItems([
       makeItem({ item_id: 'low', category: 'could_fix', target_object: { type: 'node', id: 'node-a' } }),
       makeItem({ item_id: 'high', category: 'must_fix', target_object: { type: 'node', id: 'node-a' } }),
@@ -256,6 +265,9 @@ describe('NodeCoachingMarker — category by shape, colour neutral on the canvas
     render(<NodeCoachingMarker nodeId="node-a" />)
     const marker = screen.getByTestId('node-coaching-marker-node-a')
     expect(marker).toHaveAttribute('data-guidance-category', 'must_fix')
-    expect(svgClass(marker)).toContain(glyphOf('must_fix')!)
+    // Vision spec §3 (one Olumi slot): the badge draws the Olumi mark, never the category glyph; the category rides on
+    // `data-guidance-category`, and the note / inspector card keep its tone.
+    expect(marker.querySelector('img[data-icon="olumi-brand-mark"]')).not.toBeNull()
+    expect(marker.querySelector('svg')).toBeNull()
   })
 })

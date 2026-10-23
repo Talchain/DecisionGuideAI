@@ -100,21 +100,28 @@ it('the source button moves into the band with its existing value-specific inspe
   expect(screen.getByTestId(`option-change-row-${node.id}-factor`).contains(source)).toBe(false)
 })
 
-it('attention and coaching keep their exact words and move to the same band; absent signals are the contrast', () => {
+it('attention and coaching keep their exact words in ONE Olumi badge in the band (vision spec §3); each alone draws the same mark; absent signals are the contrast', () => {
+  const SENTENCE = 'Worth reviewing: The comparison depends on a link from here. How sure are you of it?'
   attentionFixture.active = true
   useGuidanceStore.setState({ guidanceItems: [{ item_id: 'mark-guidance', category: 'should_fix', source: 'structural', title: 'Review this node', priority: 50, primary_action: { type: 'discuss', prompt: 'Let us discuss.' }, target_object: { type: 'node', id: node.id } }] } as never)
   seed()
   const band = screen.getByTestId(`option-bottom-marks-${node.id}`)
-  const attention = screen.getByTestId(`attention-marker-${node.id}`)
   const coaching = screen.getByTestId(`node-coaching-marker-${node.id}`)
-  expect(attention).toHaveAttribute('aria-label', 'Worth reviewing: The comparison depends on a link from here. How sure are you of it?')
-  expect(coaching).toHaveAttribute('aria-label', 'Coaching suggestion: Review this node')
-  expect(attention.querySelector('.lucide-locate-fixed')).not.toBeNull()
-  expect(band.contains(attention)).toBe(true)
+  // Both sources → one badge: the producer's words, then the cue's, on the one accessible name.
+  expect(screen.queryByTestId(`attention-marker-${node.id}`)).toBeNull()
+  expect(coaching).toHaveAttribute('aria-label', `Coaching suggestion: Review this node · ${SENTENCE}`)
+  expect(coaching.querySelector('[data-icon="olumi-brand-mark"]')).not.toBeNull()
   expect(band.contains(coaching)).toBe(true)
-  expect(screen.getByTestId('node-header-row').contains(attention)).toBe(false)
+  expect(screen.getByTestId('node-header-row').contains(coaching)).toBe(false)
   expect(screen.queryByTestId('node-title-corner-spacer')).toBeNull()
-  cleanup(); attentionFixture.active = false; useGuidanceStore.setState({ guidanceItems: [] }); seed()
+  // The cue alone: the same Olumi mark, its exact words.
+  cleanup(); useGuidanceStore.setState({ guidanceItems: [] }); seed()
+  const attention = screen.getByTestId(`attention-marker-${node.id}`)
+  expect(attention).toHaveAttribute('aria-label', SENTENCE)
+  expect(attention.querySelector('[data-icon="olumi-brand-mark"]')).not.toBeNull()
+  expect(attention.querySelector('.lucide-locate-fixed')).toBeNull()
+  expect(screen.getByTestId(`option-bottom-marks-${node.id}`).contains(attention)).toBe(true)
+  cleanup(); attentionFixture.active = false; seed()
   expect(screen.queryByTestId(`attention-marker-${node.id}`)).toBeNull()
   expect(screen.queryByTestId(`node-coaching-marker-${node.id}`)).toBeNull()
 })

@@ -151,13 +151,15 @@ const renderAction = () => render(
 const expectRestingQuestion = (nodeId: string, label: string, chipId: string) => {
   // Absent as a face CHIP (no visible text on the card)…
   expect(screen.queryByText(label)).toBeNull()
-  // …present, at rest, as the card's ONE coaching icon.
-  const resting = screen.getByTestId(`node-card-rail-resting-${nodeId}`)
-  const icon = within(resting).getByTestId(`node-coaching-icon-${nodeId}`)
+  // …present as the card's ONE "Ask Olumi" door, in the card's actions (vision spec §3, 23 Oct: one Olumi slot per
+  // card — the coaching icon no longer rests on every card; its question is the actions' Olumi door).
+  const actions = screen.getByTestId(`node-quick-actions-${nodeId}`)
+  const icon = within(actions).getByTestId(`node-coaching-icon-${nodeId}`)
   expect(icon).toHaveAccessibleName(label)
   expect(icon).toHaveAttribute('data-coaching-chip-id', chipId)
-  // Not inside the hover-only quick-action row.
-  expect(within(screen.getByTestId(`node-quick-actions-${nodeId}`)).queryByTestId(`node-coaching-icon-${nodeId}`)).toBeNull()
+  // Drawn once: no resting copy, and the generic ask is withheld beside it.
+  expect(screen.getAllByTestId(`node-coaching-icon-${nodeId}`)).toHaveLength(1)
+  expect(screen.queryByTestId(`node-action-ask-${nodeId}`)).toBeNull()
 }
 
 beforeEach(() => {
