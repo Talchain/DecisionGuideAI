@@ -395,9 +395,24 @@ export function chatCardRunViewOf(
   return buildRunView({ ...block.enrichment, computed_against_hash: block.computed_against_hash, run_id: block.run_id }, canonical, 'card')
 }
 
-/** The Run's view, cached by report and scenario-bound canonical projection. Non-object reports get the empty view. */
+const viewOnlyCache = new WeakMap<CanonicalAnalysisView, RunView>()
+
+/**
+ * The Run's view, cached by report and scenario-bound canonical projection. With no report object, CEE's held view alone
+ * decides the cells (a board read with `canonical_analysis_view` but no `analysis_result`), bound by the chat card's
+ * identity rule to the view's OWN Run: run id AND graph hash, both stamped. A view with no Run, or a Run missing either,
+ * binds to nothing (never current); a bound Run is current only where CEE says `stale: false`. No view: the empty view.
+ */
 export function runViewOf(report: unknown, canonical: CanonicalAnalysisView | null = null): RunView {
-  if (!isRec(report)) return EMPTY
+  if (!isRec(report)) {
+    if (canonical === null) return EMPTY
+    const held = viewOnlyCache.get(canonical)
+    if (held !== undefined) return held
+    const run = canonical.run
+    const view = runViewFromParts({ run_id: run?.run_id, computed_against_hash: run?.graph_hash_at_run }, null, null, canonical, 'card')
+    viewOnlyCache.set(canonical, view)
+    return view
+  }
   const cached = cache.get(report)
   if (cached !== undefined && cached.canonical === canonical) return cached.view
   const view = buildRunView(report, canonical)

@@ -1,0 +1,47 @@
+{
+  "_source": "capacity board served READ (vision-ab/alpha-fit/capacity-read.json), trimmed to the view; analysis_result was null",
+  "scenario_id": "48abc2bf-a41c-4498-bdc5-ed3a4d427a5d",
+  "graph_hash": "c6ac3961827948fe3709357aea8349267291498087c07eedcb274f5c0053a93b",
+  "analysis_result": null,
+  "canonical_analysis_view": {
+    "schema": "canonical_analysis_view.v1",
+    "source": "stored_run_facts",
+    "run": null,
+    "staleness": {
+      "stale": null,
+      "revision": null,
+      "run_revision": null,
+      "basis": "analysis_graph_hash_interim",
+      "reason": null,
+      "limitation": "Currentness is unknown because an analysis hash is unavailable."
+    },
+    "leader_licence": "withheld",
+    "options": [
+      {
+        "option_id": "keep_current_staffing",
+        "cell": {
+          "kind": "figure",
+          "display": "less than 1%",
+          "face": "‘Keep current staffing’: less than 1% chance of ‘Total weekly support capacity’ being at least 100 ticket / week at 1 week from now, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread and ‘Additional capacity with no additional specialists’ follows Olumi’s assumed relationship."
+        },
+        "main_driver": {
+          "kind": "not_recorded"
+        }
+      },
+      {
+        "option_id": "add_one_specialist",
+        "cell": {
+          "kind": "figure",
+          "display": "about 50%",
+          "face": "‘Add one specialist’: about 50% chance of ‘Total weekly support capacity’ being at least 100 ticket / week at 1 week from now, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread and ‘Additional capacity with no additional specialists’ follows Olumi’s assumed relationship."
+        },
+        "main_driver": {
+          "kind": "not_recorded"
+        }
+      }
+    ],
+    "goal_chance": {
+      "chance_words": "chance of ‘Total weekly support capacity’ being at least 100 ticket / week at 1 week from now"
+    }
+  }
+}
