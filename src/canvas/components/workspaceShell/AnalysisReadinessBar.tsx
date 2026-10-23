@@ -69,6 +69,7 @@ import {
 } from '../pre-analysis-v3/footer/readinessDisplay'
 import type { GateBlockedListing } from '../../utils/canRunAnalysis'
 import { BlockerLine } from '../pre-analysis-v3/footer/BlockerLine'
+import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
 
 /** The shell's copy of the panel's dot palette, keyed off the shared type so a
  *  new dot cannot be added in one place and missed here. */
@@ -137,6 +138,8 @@ export function AnalysisReadinessBar({
   runOnRecord = false,
 }: AnalysisReadinessBarProps) {
   const analysisReadiness = useAnalysisReadinessAuthority()
+  // A program graph's analysis is run by the host on every change: no Run button there, never a disabled one.
+  const isProgram = useSavedModelIsProgram()
   // Outside the pre-run window the Analysis surface itself shows no readiness
   // panel, so there is nothing to carry and a bar here would be a claim no
   // other surface is making.
@@ -205,7 +208,7 @@ export function AnalysisReadinessBar({
           (`disabled:opacity-40 disabled:cursor-not-allowed`). Re-implementing it
           here would put a SECOND blocked appearance for the SAME state one tab
           away from the first. */}
-      <Button
+      {!isProgram && <Button
         size="sm"
         className="flex-none"
         onClick={onAnalyse}
@@ -214,7 +217,7 @@ export function AnalysisReadinessBar({
         data-testid="analysis-readiness-bar-analyse"
       >
         {isAnalysing ? FOOTER_COPY.analysing : runOnRecord ? FOOTER_COPY.reanalyse : FOOTER_COPY.analyse}
-      </Button>
+      </Button>}
     </>
   )
 

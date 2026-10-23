@@ -85,6 +85,9 @@ import { requestExamineLink } from '../examine/ExamineLink'
 import { canReceiveAsk, requestAsk } from '../askSemantic'
 import { resolveAskTemplate } from '../inspectorStrings'
 import { TestWithoutLinkButton } from '../../../../components/results/analysisNew/sections/TestWithoutLinkButton'
+import { useSavedGraph } from '../../../nodes/shared/savedGraph'
+import { isProgramGraph, programCoefficientOf } from '../../../nodes/shared/savedModelProgram'
+import { ProgramCoefficientField } from '../shared/ProgramCoefficientField'
 
 /**
  * The turn fence's own sentence for a `refused` edge edit (CEE #1868 `turn_fence_*`), else null.
@@ -247,6 +250,10 @@ export const EdgePanel = memo(function EdgePanel({
   const isResultsMode = resultsStatus === 'complete'
 
   const edge = edgeId ? edges.find(e => e.id === edgeId) : undefined
+  // A program link's value is its canonical coefficient in natural units; CEE refuses a β edit on a program.
+  const savedGraph = useSavedGraph()
+  const isProgram = isProgramGraph(savedGraph)
+  const programCoefficient = edgeId ? programCoefficientOf(savedGraph, edgeId) : null
   // The mapper retains the magnitude author on naturalEffect and an explicit placeholder marker,
   // rather than raw provenance.magnitude. Unknown authorship stays ineligible.
   const magnitudeProvenance = edge?.data?.naturalEffect?.author
@@ -1057,7 +1064,11 @@ export const EdgePanel = memo(function EdgePanel({
                 same mechanism `InspectorRouter` used to apply to the whole
                 panel — kept, but pointed at the question that actually decides
                 it: can THIS edge's strength be asserted? */}
-            {strengthIsDefinitional ? (
+            {programCoefficient ? (
+              <PrimaryControlCard>
+                <ProgramCoefficientField coefficient={programCoefficient} />
+              </PrimaryControlCard>
+            ) : isProgram && !strengthIsDefinitional ? null : strengthIsDefinitional ? (
               /* ⭐ A LINK THAT HOLDS BY DEFINITION HAS NO STRENGTH EDITOR (MG
                  ruling, 1 Oct 2026). CEE refuses every strength or direction
                  change on it, so the whole edit fieldset — direction, bands,
@@ -1540,7 +1551,7 @@ export const EdgePanel = memo(function EdgePanel({
                 <p className={`${typography.panelMeta} text-text-light`}>{EXAMINE_LINK_LIMIT}</p>
               </div>
             )}
-            {!strengthIsDefinitional && !awaitingStatedStrength && (
+            {!isProgram && !strengthIsDefinitional && !awaitingStatedStrength && (
               <fieldset
                 disabled={!strengthReachesTheModel || strengthEditIsSending}
                 data-testid="edge-strength-more-controls"

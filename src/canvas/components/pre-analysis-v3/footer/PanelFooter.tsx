@@ -24,6 +24,7 @@ import { typography, typo } from '../../../../styles/typography'
 import { FOOTER_COPY } from '../constants'
 import { deriveReadinessDisplay, describeReadinessCheck, gateBlockedSubline } from './readinessDisplay'
 import { BlockerLine } from './BlockerLine'
+import { useSavedModelIsProgram } from '../../../nodes/shared/savedModelProgram'
 import type { PreAnalysisModel } from '../hooks/usePreAnalysisModel'
 import type { GateBlockedListing } from '../../../utils/canRunAnalysis'
 
@@ -74,6 +75,8 @@ export const PanelFooter = memo(function PanelFooter({
   savedRunUnconfirmed = false,
 }: PanelFooterProps) {
   const analysisReadiness = useAnalysisReadinessAuthority()
+  // A program graph's analysis is run by the host on every change: no Run button there, never a disabled one.
+  const isProgram = useSavedModelIsProgram()
   const disabled = isAnalysing || !canRun
 
   // ⭐ ONE LADDER, TWO SURFACES. Everything this used to decide inline — the
@@ -179,7 +182,7 @@ export const PanelFooter = memo(function PanelFooter({
             Retry
           </Button>
         )}
-        <Button
+        {!isProgram && <Button
           size="sm"
           className="flex-none"
           onClick={onAnalyse}
@@ -188,7 +191,7 @@ export const PanelFooter = memo(function PanelFooter({
           data-testid="pre-analysis-v3-analyse"
         >
           {isAnalysing ? FOOTER_COPY.analysing : runOnRecord ? FOOTER_COPY.reanalyse : FOOTER_COPY.analyse}
-        </Button>
+        </Button>}
       </div>
     </div>
   )
