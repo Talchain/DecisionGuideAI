@@ -295,8 +295,9 @@ function driveDirective(envelope: OlumiResponse) {
  *  `button.textContent` would fold the badge count into the label ('Model1')
  *  and make this assertion depend on unrelated canvas state. */
 function tabLabels(strip: HTMLElement): (string | undefined)[] {
+  // The Olumi tab is its brand mark (vision spec §3, 23 Oct): its name is its `aria-label`.
   return Array.from(strip.querySelectorAll('button')).map((b) =>
-    b.querySelector('span')?.firstChild?.textContent?.trim(),
+    b.getAttribute('aria-label') ?? b.querySelector('span')?.firstChild?.textContent?.trim(),
   )
 }
 

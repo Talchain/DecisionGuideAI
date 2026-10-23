@@ -21,6 +21,7 @@ import { departedTabBodyCallbacks } from '../stores/tabBodyFallback'
 // whose specs mock ConversationContext/ConversationPanel and not useConversation.
 import type { DispatchActionOpts } from '../conversation/useConversation'
 import { aiComparisonBadge } from '../../v5/aiComparisonMode'
+import { shouldShowDebugPanel } from '../../components/debug/debugPanelVisibility'
 import { typo } from '../../styles/typography'
 
 /** Fallback ask callbacks follow the same ownership rule as the full host. */
@@ -260,9 +261,10 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
     // Attach evidence is handled by CogPopover, not here.
   }, [])
 
-  // The serving engine is always visible on staging, its default included, so a tester cannot unknowingly test one
-  // AI engine as another (DL-3, 20 Oct).
-  const comparisonLabel = aiComparisonBadge()
+  // The serving engine is named only in a debug view (`?diag`, or `window.__OLUMI_DEBUG`, on staging/dev): the vision
+  // spec (23 Oct) retires the route label for users ("internal; means nothing to a user"). A tester checks the engine
+  // with `?diag=1` (DL-3, 20 Oct, kept for testers).
+  const comparisonLabel = shouldShowDebugPanel() ? aiComparisonBadge() : null
   const topControls = comparisonLabel || onFloatOut ? (
     <div className="flex items-center justify-between gap-2 px-2 pt-1 pb-0.5">
       {comparisonLabel ? (

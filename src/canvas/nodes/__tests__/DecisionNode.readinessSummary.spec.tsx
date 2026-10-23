@@ -66,7 +66,6 @@ import {
   DECISION_RESTING_COPY,
   DECISION_READINESS_COPY,
   READINESS_SEPARATOR,
-  composeOptionCountLine,
   composeReadinessSummary,
   popoverLabel,
   type ModelReadiness,
@@ -117,6 +116,9 @@ const DECISION_ID = 'decision-1'
 const SUMMARY = 'decision-node-readiness-summary'
 const RESTING = 'decision-node-resting-state'
 const OPTION_COUNT = 'decision-node-option-count'
+/** The face's words: its text, plus each drawn mark's name (the option count is dots, "N options" on hover/AT; vision spec §3). */
+const faceWords = (el: HTMLElement): string =>
+  [el.textContent ?? '', ...Array.from(el.querySelectorAll('[role="img"][aria-label]')).map((m) => m.getAttribute('aria-label'))].join(' ')
 /**
  * Every static line the old resting fallback could render. The shallow face
  * may carry `unnamedLine` / `noOptionsLine` (the CTA arms) but never the two
@@ -419,7 +421,7 @@ describe('DecisionNode — the readiness summary on the card', () => {
     expect(container.textContent).not.toContain(expected as string)
     // …and the one row the face DOES carry is the graph's own option count.
     const resting = screen.getByTestId(RESTING)
-    expect(within(resting).getByTestId(OPTION_COUNT).textContent).toBe(composeOptionCountLine(optionNodes.length))
+    expect(within(resting).getByTestId(OPTION_COUNT).getAttribute('aria-label')).toBe('2 options')
   })
 
   it('the guarded resting row holds neither the summary nor the retired wayfinding line; the popover still holds the robustness detail', () => {
@@ -482,7 +484,7 @@ describe('DecisionNode — the readiness summary on the card', () => {
     // carries the option count; the "Hover for this node's detail" wayfinding
     // line it used to carry here is retired from the face.
     const resting = screen.getByTestId(RESTING)
-    expect(within(resting).getByTestId(OPTION_COUNT).textContent).toBe(composeOptionCountLine(optionNodes.length))
+    expect(within(resting).getByTestId(OPTION_COUNT).getAttribute('aria-label')).toBe('2 options')
     expect(screen.queryByText(DECISION_RESTING_COPY.completedRunLine)).toBeNull()
     expect(screen.queryByTestId(SUMMARY)).toBeNull()
     expect(resting.textContent).not.toMatch(new RegExp(`\\b0 ${DECISION_READINESS_COPY.factorPlural}`))
@@ -541,7 +543,7 @@ describe('DecisionNode — the readiness summary on the card', () => {
     expect(permittedRow.querySelector(`[data-testid="${SUMMARY}"]`)).toBeNull()
     const permittedText = permittedRow.textContent
     // Positive control: the row is not empty — it states the option count.
-    expect(within(permittedRow).getByTestId(OPTION_COUNT).textContent).toBe(composeOptionCountLine(optionNodes.length))
+    expect(within(permittedRow).getByTestId(OPTION_COUNT).getAttribute('aria-label')).toBe('2 options')
     cleanup()
 
     mountCompletedRun([explicitFactor('f1'), missingFactor('f2')])
@@ -635,8 +637,8 @@ describe('DecisionNode — the readiness summary on the card', () => {
   ])('`emptyLine` is never the line the fallback renders — %s', (_name, mount) => {
     ;(mount as () => void)()
     const resting = screen.getByTestId(RESTING)
-    expect(resting.textContent?.trim().length).toBeGreaterThan(0)
-    expect(resting.textContent).not.toContain(DECISION_RESTING_COPY.emptyLine)
+    expect(faceWords(resting).trim().length).toBeGreaterThan(0)
+    expect(faceWords(resting)).not.toContain(DECISION_RESTING_COPY.emptyLine)
   })
 
   // ── §4 THE LEADER-CLAIM CONSTRAINT ───────────────────────────────────────
@@ -647,9 +649,7 @@ describe('DecisionNode — the readiness summary on the card', () => {
     // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the summary is off
     // the face; the ONE face row renders in its place (positive control)…
     expect(screen.queryByTestId(SUMMARY)).toBeNull()
-    expect(within(screen.getByTestId(RESTING)).getByTestId(OPTION_COUNT).textContent).toBe(
-      composeOptionCountLine(optionNodes.length),
-    )
+    expect(within(screen.getByTestId(RESTING)).getByTestId(OPTION_COUNT).getAttribute('aria-label')).toBe('2 options')
     // ⚠ THESE TWO ASSERTIONS ARE NOW STRUCTURAL, NOT DISCRIMINATING, AND ARE
     // KEPT DELIBERATELY RATHER THAN DELETED OR PRETENDED TO BE GATES.
     //
@@ -673,9 +673,9 @@ describe('DecisionNode — the readiness summary on the card', () => {
     // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the summary is off
     // the face, so the constraint is re-pointed to the ONE row that replaced it.
     expect(screen.queryByTestId(SUMMARY)).toBeNull()
-    const text = screen.getByTestId(RESTING).textContent ?? ''
-    // Positive control: the row has text to scan.
-    expect(text).toContain(composeOptionCountLine(optionNodes.length) as string)
+    const text = faceWords(screen.getByTestId(RESTING))
+    // Positive control: the row has words to scan (the count is dots on the face, its words on hover and to AT).
+    expect(text).toContain('2 options')
     // The option labels are in the store on this fixture, so their absence here
     // is a property of the line and not of an empty graph.
     for (const option of optionNodes) {
@@ -741,7 +741,7 @@ describe('DecisionNode — the readiness summary on the card', () => {
     // "reads no report" is re-pointed to it, and the summary's absence is
     // asserted in both arms.
     const factors = [explicitFactor('f1'), inferredFactor('f2'), missingFactor('f3')]
-    const expected = composeOptionCountLine(optionNodes.length)
+    const expected = '2 options'
 
     /**
      * The SECOND run. Every analysis-owned field differs from `WITHHELD_REPORT`
@@ -786,7 +786,7 @@ describe('DecisionNode — the readiness summary on the card', () => {
     // ── ARM A ────────────────────────────────────────────────────────────────
     mountCompletedRun(factors)
     expect(screen.queryByTestId(SUMMARY)).toBeNull()
-    const armA = screen.getByTestId(OPTION_COUNT).textContent
+    const armA = screen.getByTestId(OPTION_COUNT).getAttribute('aria-label')
     expect(armA).toBe(expected)
     cleanup()
 
@@ -801,7 +801,7 @@ describe('DecisionNode — the readiness summary on the card', () => {
     // The count really did render in this arm too — without this the arms
     // could "agree" by both being absent.
     expect(screen.queryByTestId(SUMMARY)).toBeNull()
-    const armB = screen.getByTestId(OPTION_COUNT).textContent
+    const armB = screen.getByTestId(OPTION_COUNT).getAttribute('aria-label')
     expect(armB).toBe(expected)
 
     // The line is a function of the graph, which did not move.
@@ -857,7 +857,7 @@ describe('DecisionNode — the readiness summary on the card', () => {
     // absences are about the removal and not about a component that failed.
     // Locked Canvas design (23 Sep 2026): re-pointed from the summary (off the
     // face, ED 11:52Z point 1) to the face row's option count.
-    expect(screen.getByTestId(OPTION_COUNT).textContent).toBe(composeOptionCountLine(optionNodes.length))
+    expect(screen.getByTestId(OPTION_COUNT).getAttribute('aria-label')).toBe('2 options')
     expect(screen.queryByTestId('decision-node-brief')).toBeNull()
     expect(screen.queryByTestId('decision-node-brief-text')).toBeNull()
     expect(screen.queryByText('What you gave me')).toBeNull()

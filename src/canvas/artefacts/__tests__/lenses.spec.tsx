@@ -193,6 +193,25 @@ describe('the lens bar: one press between lenses', () => {
     assert.equal(view.getByTestId('lens-bar-rests_on').getAttribute('aria-label'), 'Rests on, 1 to check or set')
   })
 
+  it('each lens has its own icon before its name; the name and the count stay (vision spec §3, 23 Oct)', () => {
+    seedModel(true)
+    const view = render(<LensBar />)
+    const want: Array<[string, string, string]> = [
+      ['full', 'Model', 'lucide-layers2'], ['tradeoffs', 'Trade-offs', 'lucide-scale'], ['rests_on', 'Rests on', 'lucide-anchor'],
+      ['premortem', 'If it failed', 'lucide-alert-triangle'], ['what_changes', 'What would change', 'lucide-activity'],
+      ['what_if', 'What if', 'lucide-arrow-right-left'],
+    ]
+    for (const [lens, name, iconClass] of want) {
+      const segment = view.getByTestId(`lens-bar-${lens}`)
+      const icon = view.getByTestId(`lens-bar-${lens}-icon`)
+      assert.equal(segment.firstElementChild, icon, `${name}: the icon leads the segment`)
+      assert.equal(icon.getAttribute('aria-hidden'), 'true')
+      assert.ok(icon.getAttribute('class')?.split(' ').includes(iconClass), `${name}: ${icon.getAttribute('class')}`)
+      assert.match(segment.textContent ?? '', new RegExp(`^${name}`, 'u'))
+    }
+    assert.equal(view.getByTestId('lens-bar-rests_on-count').textContent, '1')
+  })
+
   it('"What would change" reads a Run: before one it is shown, says how to get one, and cannot be chosen', () => {
     seedModel(false)
     const view = render(<LensBar />)

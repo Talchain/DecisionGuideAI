@@ -34,7 +34,7 @@ const SHAPE_FILLS: Record<NodeType, string> = {
   factor:     'var(--factor)',
   option:     'var(--option)',
   goal:       'var(--goal)',
-  decision:   'var(--info)',
+  decision:   'var(--text-light)', // vision spec §3: blue (info) means Olumi only
   risk:       'var(--danger)',
   outcome:    'var(--success)',
   action:     'var(--success)',

@@ -34,6 +34,7 @@ import { AlertTriangle, ChevronLeft, ChevronRight, HelpCircle, Info, MoreHorizon
 import type { OutputTab } from '../../../stores/uiStore'
 import { typography } from '../../../styles/typography'
 import { VersionsTrigger } from '../../versions/VersionsTrigger'
+import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 import { usePanelWidth } from './usePanelWidth'
 import {
   SHELL_TAB_HEIGHT_PX,
@@ -475,6 +476,8 @@ export function WorkspaceShellTabStrip({
               // content-sized, growing to fill the row and shrinking
               // PROPORTIONALLY only when the content genuinely does not fit.
               title={surface.label}
+              // Vision spec §3 (23 Oct): the Olumi tab is the brand mark alone, so its name is the label.
+              aria-label={surface.id === 'olumi' ? surface.label : undefined}
               data-testid={`outputs-dock-tab-${surface.id}`}
               // ⚠ `px-2` (8px, the contract's `padding:10px 8px` horizontal),
               // and it must stay ON THE DESIGN-SYSTEM SPACING SCALE
@@ -525,7 +528,11 @@ export function WorkspaceShellTabStrip({
               >
                 {/* Only the LABEL truncates. The affordances after it are
                     protected content and carry `shrink-0`. */}
-                <span className="truncate">{surface.label}</span>
+                {surface.id === 'olumi' ? (
+                  <OlumiAiIcon size={16} className="shrink-0" data-testid="outputs-dock-tab-olumi-mark" />
+                ) : (
+                  <span className="truncate">{surface.label}</span>
+                )}
                 {surface.id === 'results' && showResultsFreshnessIcon && hasCompletedFirstRun && (
                   resultsStale ? (
                     <AlertTriangle

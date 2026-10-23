@@ -261,7 +261,8 @@ describe('OutputsDock DOM', () => {
     // The list stays EXACT and ORDERED; nothing is loosened. `compareDeTab
     // .contract.spec.tsx` is the pin that says why, and REDs if the row is
     // reverted.
-    expect(tabs.map(tab => tab.textContent)).toEqual([
+    // The Olumi tab is its brand mark (vision spec §3, 23 Oct), so a tab reads by its accessible name when it has one.
+    expect(tabs.map(tab => tab.getAttribute('aria-label') ?? tab.textContent)).toEqual([
       'Olumi',
       'Analysis',
       // TEMPORARY comparison surface (Paul, 27 Aug 2026) — a second Analysis
@@ -1369,7 +1370,8 @@ describe('I.2a: Secondary action button interaction', () => {
     const tabs = within(tabNav).getAllByRole('tab')
     // The FULL list, not just "Journey is absent" — an exact list also catches
     // a surface silently disappearing, which "not.toContain" never would.
-    expect(tabs.map(tab => tab.textContent)).toEqual([
+    // The Olumi tab is its brand mark (vision spec §3, 23 Oct), so a tab reads by its accessible name when it has one.
+    expect(tabs.map(tab => tab.getAttribute('aria-label') ?? tab.textContent)).toEqual([
       'Olumi',
       'Analysis',
       // TEMPORARY comparison surface (Paul, 27 Aug 2026) — a second Analysis

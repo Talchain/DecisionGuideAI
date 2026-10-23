@@ -56,6 +56,17 @@ describe('NodeShapeIndicator', () => {
     expect(container.querySelector('polygon')).not.toBeNull()
   })
 
+  // Vision spec §3 (23 Oct): blue (info) means Olumi and nothing else, so the question's hexagon is text-light grey.
+  it('the decision hexagon is filled text-light grey, never info blue', () => {
+    const { container } = render(<NodeShapeIndicator nodeKind="decision" />)
+    expect(container.querySelector('polygon')?.getAttribute('fill')).toBe('var(--text-light)')
+  })
+
+  it('CONTRAST: the option square keeps its own kind colour', () => {
+    const { container } = render(<NodeShapeIndicator nodeKind="option" />)
+    expect(container.querySelector('rect')?.getAttribute('fill')).toBe('var(--option)')
+  })
+
   it('renders a polygon for risk (inverted triangle)', () => {
     const { container } = render(<NodeShapeIndicator nodeKind="risk" />)
     expect(container.querySelector('polygon')).not.toBeNull()

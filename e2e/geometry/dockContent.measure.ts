@@ -46,7 +46,7 @@ test('DOCKCONTENT pricing-model @1600x1000', async ({ page }) => {
       dockLeft: dock ? Math.round(dock.left) : null,
       tabCount: tabs.length,
       tabRows: tabRows.size,
-      tabLabels: tabs.map(t => (t.textContent ?? '').trim()),
+      tabLabels: tabs.map(t => t.getAttribute('aria-label') ?? (t.textContent ?? '').trim()),
       overflowingCount: overflowing.length,
       overflowing: overflowing.slice(0, 8),
     }

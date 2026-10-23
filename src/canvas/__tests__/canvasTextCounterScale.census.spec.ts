@@ -300,7 +300,7 @@ const KNOWN_FIXED = [
  */
 // `ProposalGhostLayer` (suggestion preview, DL 5941839936): the ghost of a proposed node/link lives in graph space for
 // the same reason the tier bands do; its text goes through `typography.nodeTitle` / `nodeLabel` / `edgeLabel` only.
-const VIEWPORT_PORTALLED = ['src/canvas/nodes/DirectionNeededLayer.tsx', 'src/canvas/nodes/EditNoteAnchor.tsx', 'src/canvas/nodes/ProposalGhostLayer.tsx', 'src/canvas/nodes/TierLanes.tsx', 'src/canvas/nodes/WhatIfMarkLayer.tsx'] as const
+const VIEWPORT_PORTALLED = ['src/canvas/nodes/DirectionNeededLayer.tsx', 'src/canvas/nodes/EditNoteAnchor.tsx', 'src/canvas/nodes/ProposalGhostLayer.tsx', 'src/canvas/nodes/WhatIfMarkLayer.tsx'] as const
 
 const FOREIGN_RENDERED = [
   // 18 Oct 2026 (Lenses on the model): the "Rests on" number on a card and on a link's line. It is drawn inside the
@@ -695,7 +695,8 @@ describe('canvas text — counter-scale census (DS v5 §2.3/§2.4)', () => {
     // so the derivation above is blind to them.
     //
     // ⭐ ONE DOOR IS NOW OPEN, AND "CENSUS IT" IS WHAT THIS ASSERTION SAID TO DO.
-    // `TierLanes` draws the board's tier bands and must live in graph space, so
+    // (23 Oct 2026: `TierLanes`, the first door, is retired with the lane labels;
+    // the layers below still portal.) `TierLanes` drew the board's tier bands in graph space, so
     // `<ViewportPortal>` is the right carrier and closing the door again is not
     // available. The replacement obligation is stronger than the old `toBe(0)`,
     // because a waiver that only names a file is a waiver: each declared door

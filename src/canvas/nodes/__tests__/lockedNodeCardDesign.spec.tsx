@@ -740,7 +740,7 @@ describe('Question — wide and shallow: option count + at most one short segmen
     renderCard(DecisionNode as never, 'decision-1')
     const card = face('How should we price the new plan\\?')
     expect(within(card).queryByRole('button', { name: 'Explore more options' })?.getAttribute('data-testid')).toBe('node-coaching-icon-decision-1')
-    expect(within(card).getByTestId('decision-node-option-count').textContent).toBe('4 alternatives')
+    expect(within(card).getByTestId('decision-node-option-count').getAttribute('aria-label')).toBe('4 options')
   })
 
   // ⚠ SUPERSEDED BY THE PROTOTYPE (Paul, 25 Sep 2026): this pinned the top gap

@@ -10,6 +10,8 @@
  * with its label, the ghost-tier prompt fill matching the panel instead of
  * `transparent`, and the row-label token/tracking swap) had a spec pinning
  * its new value. This file is that pin, one `describe` per file touched.
+ * (23 Oct 2026, vision spec §3: the lane labels are retired with `TierLanes.tsx`,
+ * so its row-label `describe` went with it.)
  *
  * ⭐ 30 Sep 2026: both ghost doors render the icon-only `RowEndPromptIcon`, so
  * the two ghost pins move to the icon — its `Plus` counter-scales at the icon
@@ -23,8 +25,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
-import type { Node, NodeProps } from '@xyflow/react'
-import type { ReactNode } from 'react'
+import type { NodeProps } from '@xyflow/react'
 import type { LodRung } from '../../utils/zoomLegibility'
 
 vi.mock('@xyflow/react', async () => {
@@ -32,10 +33,6 @@ vi.mock('@xyflow/react', async () => {
   return {
     ...actual,
     Handle: () => null,
-    // TierLanes renders inside a ViewportPortal, which needs the React Flow
-    // zustand store; this file has no <ReactFlow> ancestor for it, so it is
-    // passed through exactly as `TierLanes.titleInsideFit.spec.tsx` does.
-    ViewportPortal: ({ children }: { children: ReactNode }) => children,
   }
 })
 vi.mock('../../../flags', async (importOriginal) => ({
@@ -72,8 +69,6 @@ import { useCanvasStore } from '../../store'
 import { ActionNode } from '../ActionNode'
 import { GhostOptionNode } from '../GhostOptionNode'
 import { GhostTierNode, GHOST_TIER_TESTID } from '../GhostTierNode'
-import { TierLanes } from '../TierLanes'
-import { deriveTierLanes } from '../../utils/tierLanes'
 import { CANVAS_GLYPH_SIZE_CLASSES } from '../shared/canvasGlyphScale'
 
 afterEach(cleanup)
@@ -190,48 +185,5 @@ describe('GhostTierNode — the prompt fill matches the panel, never `transparen
     expect(tokens).not.toContain('bg-transparent')
     // No inline background competing with the utility (the tile's old spelling).
     expect(door.style.background).toBe('')
-  })
-})
-
-describe('TierLanes — row labels are 10px (contract v3.1 `.layer-label`) at 0.5px tracking, not `nodeLabel`/`edgeLabel`/0.01em', () => {
-  // DESIGN-GAP-AUDIT row 4 (24 Sep 2026, gap-frame-footer lane): the contract
-  // fixture's `.layer-label` is 10px, one size below the `edgeLabel` token
-  // (11px) this test used to pin. `TierLanes.tsx` now spells the size as a
-  // LOCAL arbitrary-value class rather than through `typography.edgeLabel`
-  // (see that file's header for why: the contract colour/uppercase pair had
-  // to move to a `.module.css` file to stay outside `check-ds-compliance`'s
-  // `.tsx`-scoped ratchets, and the size class moved with it for one owner).
-  it("a lane title's font-size class is the contract's 10px, not `edgeLabel` (11px) or `nodeLabel` (12px)", () => {
-    const board: Node[] = [
-      {
-        id: 'dec',
-        type: 'decision',
-        position: { x: 1064, y: 150 },
-        data: { label: 'dec' },
-        width: 336,
-        height: 290,
-      } as unknown as Node,
-      {
-        id: 'o1',
-        type: 'option',
-        position: { x: 100, y: 500 },
-        data: { label: 'o1' },
-        width: 336,
-        height: 515,
-      } as unknown as Node,
-    ]
-    render(<TierLanes nodes={board} />)
-    const [lane] = deriveTierLanes(board)
-    const title = screen.getByTestId(`tier-lane-${lane.tier}-title`)
-    // contract v3.1 `.layer-label` = 10px; edgeLabel = 11px; nodeLabel (the
-    // old token) = 12px — three distinct class strings, so this cannot pass
-    // against any of the other two by accident.
-    expect(title.className).toContain('text-[length:calc(10px*var(--canvas-small-label-scale,1))]')
-    expect(title.className).not.toContain('text-[length:calc(11px*var(--canvas-label-scale,1))]')
-    expect(title.className).not.toContain('text-[length:calc(12px*var(--canvas-label-scale,1))]')
-    // v3.1 WS1 #26: 0.5px ON SCREEN — counter-scaled with the 10px beside it
-    // (a fixed 0.5px rendered 0.25px at the landing zoom).
-    expect((title as HTMLElement).style.letterSpacing).toBe('calc(0.5px * var(--canvas-label-scale, 1))')
-    expect((title as HTMLElement).style.letterSpacing).not.toBe('0.01em')
   })
 })

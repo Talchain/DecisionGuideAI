@@ -133,7 +133,9 @@ describe('served pricing Question card — one meta line; the separator binds to
   it('pre-run: "4 alternatives · Assumptions open for review" — the "·" is inside ONE non-breaking unit with the clause', () => {
     renderDecision()
     // One break opportunity (the space after the count); none between "·" and its clause.
-    expect(row().textContent?.trim()).toBe('4 alternatives')
+    // Vision spec §3 (23 Oct): the count is dots, so the row carries no visible words; "4 options" is its accessible name.
+    expect(row().textContent?.trim()).toBe('')
+    expect(screen.getByTestId('decision-node-option-count')).toHaveAttribute('aria-label', '4 options')
     expect(screen.getByTestId('decision-assumptions-open')).toHaveAttribute('aria-label', 'Assumptions open for review')
     expect(childIds(row())).toEqual(['decision-node-option-count'])
     const unit = screen.getByTestId('decision-assumptions-open')
