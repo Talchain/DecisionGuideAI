@@ -237,7 +237,7 @@ describe('arrowhead clearance — the sign sits on its own line, clear of its ow
     const l = labelCounterScale(zoom)
     const m = glyphMetricsAt(width, g, l)
     const tipY = 1000 - tipAbove
-    const placed = resolvePolarityGlyphOnPath(flattenSvgPath(`M500,500 L500,${tipY}`)!, 1000, m)
+    const placed = resolvePolarityGlyphOnPath(flattenSvgPath(`M500,500 L500,${tipY}`)!, m)
     return { gap: tipY - placed.y - m.halfBox - m.headLength, m }
   }
 
@@ -250,21 +250,19 @@ describe('arrowhead clearance — the sign sits on its own line, clear of its ow
     }
   })
 
-  it('STATED LIMIT, pinned: the widest head at the landing now clears its sign by the full 4-unit mark gap (it touched it at 4×)', () => {
+  it('the widest head at the landing clears its sign by at least the 4-unit mark gap (gap P0 #4: the sign is at its line\'s middle)', () => {
     const { gap, m } = clearance(EDGE_STROKE_WIDTH_BANDS.veryStrong, LABEL_LEGIBLE_ZOOM)
-    expect(gap).toBeCloseTo(m.gap, 1)
+    expect(gap).toBeGreaterThanOrEqual(m.gap)
     expect(m.gap).toBe(4)
   })
 
-  it('STATED LIMIT, pinned: an APEX arrival at the landing has 28.11 above its tip; the slight head clears its sign, the widest reaches 6.89 into it', () => {
-    // The rise bound above a kind apex at the label bound (22.64 with the 24-unit shape; 19.2 since Paul's 1 Oct −20%).
+  it('an APEX arrival at the landing: the slight AND the widest head now clear the sign (the widest reached 6.89 into it under the retired rise bound)', () => {
+    // The constant stays for the gap it measures (22.64 with the 24-unit shape; 19.2 since Paul's 1 Oct −20%).
     expect(GLYPH_ROW_RISE_MAX_FLOW).toBeCloseTo(28.112, 10)
     const slight = clearance(EDGE_STROKE_WIDTH_BANDS.slight, LABEL_LEGIBLE_ZOOM, 50 - GLYPH_ROW_RISE_MAX_FLOW)
-    expect(slight.gap).toBeCloseTo(slight.m.gap, 1)
-    // CONTRAST: the widest band still reaches into its head at an apex (it reached 3.36 into the SLIGHT head before).
+    expect(slight.gap).toBeGreaterThanOrEqual(slight.m.gap)
     const widest = clearance(EDGE_STROKE_WIDTH_BANDS.veryStrong, LABEL_LEGIBLE_ZOOM, 50 - GLYPH_ROW_RISE_MAX_FLOW)
-    expect(widest.gap).toBeCloseTo(-6.89, 1)
-    expect(widest.gap).toBeLessThan(0)
+    expect(widest.gap).toBeGreaterThanOrEqual(widest.m.gap)
   })
 })
 

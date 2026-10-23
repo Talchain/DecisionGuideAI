@@ -2138,22 +2138,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     !strengthLabelTruncated
 
   /**
-   * ⭐⭐ WHERE THE POLARITY GLYPH SITS — ON ITS OWN LINE, just above its own
-   * arrowhead (Paul's staging test, 28 Sep 2026; `edgeGlyphPlacement.ts` rule
-   * B). The row this replaces stood every sign of a card in one row above a
-   * shared arrival point, and a band-title keep-out could shift the whole row:
-   * on `pa_vs_ai` a `+` sat ~65px from its own arrowhead, on no line at all.
+   * ⭐⭐ WHERE THE POLARITY GLYPH SITS — AT THE MIDDLE OF ITS OWN LINE (vision spec, gap P0 #4, 23 Oct 2026;
+   * `edgeGlyphPlacement.ts` rule B). Just above its arrowhead, every sign of a card stood in a row over that card,
+   * which no reader could tie to its link.
    *
-   * Read off THIS edge's drawn path (so it follows the arrival slot above and
-   * any lead or detour), at the zoom it paints at: the head and the mark gap
-   * carry the glyph counter-scale, the sign's box the text scale. It slides
-   * along its own line — never off it — to clear every card and the target
-   * row's band title, and never rises past the tier gap's bound.
-   *
-   * ⭐ STILL P0-SAFE: two edges into one card end at distinct arrival slots
-   * (`resolveArrivalSlot`'s one total order), so two signs on their own paths
-   * cannot share a spot at that card — the stack this module once existed for
-   * (21 of 21 at `a1fd39cc`) needs two paths to share an end.
+   * Read off THIS edge's drawn path (so it follows the arrival slot above and any lead or detour), at the zoom it paints
+   * at. It slides along its own line — never off it — to clear every card, the target row's band title, the other heads
+   * at the card and this link's fragility disc.
    */
   const glyphPlacement = useMemo(() => {
     // Only where a sign can render (the render predicate below is a subset).
@@ -2193,9 +2184,22 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       }
     }
     const metrics = glyphMetricsAt(edgeStrokeWidth, glyphScale, labelCounterScale(edgeTooltipZoom))
-    return resolvePolarityGlyphOnPath(poly, cardTop, metrics, keepOuts)
+    // Gap P0 #4 (23 Oct): the sign now sits at its line's middle, where the fragility disc stands when it paints alone;
+    // the disc is a keep-out, so the sign slides along its line beside it rather than under it.
+    if (fragileCueOnly && fragileCuePoint) {
+      const r = (FRAGILE_CUE_DISC_PX / 2) * labelCounterScale(edgeTooltipZoom)
+      keepOuts.push({ x0: fragileCuePoint.x - r, y0: fragileCuePoint.y - r, x1: fragileCuePoint.x + r, y1: fragileCuePoint.y + r })
+    }
+    // Links leaving this card share their first stretch: each sign takes its own offset, in the order of their targets.
+    const carries = signCarrierOver(nodesNow)
+    const centreX = (n: string) => { const b = slotBoxes.get(n); return b ? b.x + b.width / 2 : 0 }
+    const siblings = getEdges().filter((e) => e.source === source && carries(e))
+      .sort((a, b) => centreX(a.target) - centreX(b.target) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    const at = siblings.findIndex((e) => e.id === id)
+    const stagger = siblings.length > 1 && at >= 0 ? at - (siblings.length - 1) / 2 : 0
+    return resolvePolarityGlyphOnPath(poly, metrics, keepOuts, stagger)
     // nodeRectsSignature: re-place when any card moves.
-  }, [statedDirection, isSignDisputed, isStructuralEdge, sameRowRoute, edgePath, endY, getNodes, getEdges, id, target, sourcePosition, targetPosition, sourceY, targetX, targetY, edgeStrokeWidth, edgeTooltipZoom, nodeRectsSignature])
+  }, [statedDirection, isSignDisputed, isStructuralEdge, sameRowRoute, edgePath, endY, getNodes, getEdges, id, source, target, sourcePosition, targetPosition, sourceY, targetX, targetY, edgeStrokeWidth, edgeTooltipZoom, nodeRectsSignature, fragileCueOnly, fragileCuePoint])
 
   // ── Stroke + dash, from the one authority ────────────────────────────────
   //

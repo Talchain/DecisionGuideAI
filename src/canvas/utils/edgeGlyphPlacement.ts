@@ -12,10 +12,11 @@
  *      apex, exactly as before; with several, an odd group's middle link keeps
  *      the apex and every other slot lands on the card's top border, one
  *      `ARRIVAL_PITCH_FLOW` apart, clear of the kind shape.
- *   B. A LINK'S SIGN SITS ON ITS OWN LINE, just above its own arrowhead
- *      (`resolvePolarityGlyphOnPath`): the point on the drawn path one head
- *      length, one mark gap and half a glyph box back from the tip. The halo
- *      (`StyledEdge` `POLARITY_GLYPH_HALO`) knocks the line out behind it.
+ *   B. A LINK'S SIGN SITS ON ITS OWN LINE, AT ITS MIDDLE
+ *      (`resolvePolarityGlyphOnPath`; vision spec, gap P0 #4, 23 Oct 2026). Until
+ *      then it stood just above its own arrowhead, so a card's signs read as one
+ *      row over it. The halo (`StyledEdge` `POLARITY_GLYPH_HALO`) knocks the line
+ *      out behind it.
  *
  * ── WHAT IT REPLACES, MEASURED ───────────────────────────────────────────────
  *
@@ -41,15 +42,14 @@
  *
  * ── THE RULES KEPT ───────────────────────────────────────────────────────────
  *
- *   · ARROWHEAD CLEARANCE — the sign's ideal spot is one head length plus the
- *     mark gap plus half its box back from the tip, at the live counter-scales.
+ *   · ARROWHEAD CLEARANCE — the sign never stands nearer the tip than one head
+ *     length plus half its box, at the live counter-scales.
  *   · NO SIGN UNDER A CARD — every candidate spot is tested against every card
  *     box and the target row's band title (the WS1 #28 keep-out); the sign
  *     slides along its OWN line to the nearest clear spot, never off it.
- *   · THE RISE BOUND — the sign's centre never stands more than
- *     `GLYPH_RISE_MAX_ABOVE_CARD_FLOW` above its target card's top (the tier
- *     gap, less half a box and the mark gap — code-review F1): it stays in the
- *     gap it belongs to. Above a kind apex that is `GLYPH_ROW_RISE_MAX_FLOW`.
+ *   · (RETIRED 23 Oct 2026, gap P0 #4) THE RISE BOUND held the sign within
+ *     `GLYPH_RISE_MAX_ABOVE_CARD_FLOW` of its target card, which is what stood a
+ *     card's signs in a row over it. The constants stay for the gap they measure.
  *
  * ⚠ STATED LIMITS (arithmetic, not paint):
  *   · An APEX arrival at the landing bound has 22.64 units above its tip for a
@@ -459,9 +459,9 @@ export interface GlyphOnPath {
 }
 
 /**
- * A source mark sits on the first quarter of its own path.  The polarity mark
- * owns the arrival quarter and midpoint cues (fragility and the driver disc)
- * own the centre, so this shared path placement keeps the three seats apart.
+ * A source mark sits on the first quarter of its own path. The polarity mark
+ * takes the middle (gap P0 #4) and slides off the fragility disc there, so the
+ * seats stay apart.
  */
 export function resolveSourceGlyphOnPath(poly: GlyphPath): { x: number; y: number } {
   const fromEnd = poly.length * 0.75
@@ -514,70 +514,52 @@ export function resolveRestsOnMarkerOnPath(
 }
 
 /**
- * ⭐ WHERE THE SIGN SITS — on its own drawn path, `metrics` read at the zoom it
- * is painted at. `cardTop` is the target card's top (the rise bound's floor);
- * `keepOuts` are every card box and the target row's band title.
+ * ⭐ WHERE THE SIGN SITS — at the MIDDLE of its own drawn path (vision spec, canvas-vs-vision gap P0 #4, 23 Oct 2026:
+ * "the sign glyph sits on each line at its midpoint"), `metrics` read at the zoom it is painted at; `keepOuts` are every
+ * card box, the target row's band title and the other heads at the target card.
  *
- * The ideal spot is one head, one gap and half a box back from the tip. If its
- * box (grown by the gap) meets a keep-out, the sign slides along its line — in
- * steps, nearest the ideal spot first, either way — to the first spot that is
- * clear, stays under the rise bound, is no nearer the tip than half its box
- * and never passes the path's midpoint. With none, it stands at the ideal
- * spot, lowered to the rise bound — on its line either way. The caller's
- * keep-outs are every card, the target row's band title and the OTHER
- * arrowheads at the same card (`arrivalHeadKeepOut`), so a sign never stands
- * against a neighbour's head.
+ * It used to stand one head, one gap and half a box back from the tip, under a rise bound above the target card. Where
+ * several links meet one card that put every sign in a row just above it, a line of "+ + − +" no reader could tie to
+ * its link (Paul's funding board, 23 Oct). At the middle, each sign reads as its own line's.
+ *
+ * If its box (grown by the gap) meets a keep-out, the sign slides along its line — in steps, towards the tip first and
+ * then towards the start — to the first clear spot that keeps half a box plus a head clear of the tip and half a box
+ * clear of the start. With none (a line that runs through a card row whose gaps are narrower than the sign), it stands at the middle
+ * and says so; the caller draws it with its halo as before.
+ *
+ * `stagger` (in sign pitches, + towards the source): links leaving one card share their first stretch of line, so two
+ * siblings can find the same first clear spot on that trunk (measured on the funding board, 23 Oct). The caller gives
+ * each its own offset, in the order of their targets; from the clear spot it stands that many pitches along, where that
+ * is clear too.
  */
 export function resolvePolarityGlyphOnPath(
   poly: GlyphPath,
-  cardTop: number,
   metrics: GlyphMetrics,
   keepOuts: readonly GlyphKeepOut[] = [],
+  stagger = 0,
 ): GlyphOnPath {
   const { headLength, halfBox, gap } = metrics
-  const riseMax = LAYOUT_LAYER_GAP + LAYOUT_PADDING_Y - halfBox - gap
-  const ideal = headLength + gap + halfBox
-  const far = poly.length / 2
-  const near = Math.min(halfBox, far)
+  const mid = poly.length / 2
+  const nearTip = Math.min(headLength + halfBox, mid)
+  const nearStart = Math.max(poly.length - halfBox, mid)
   const reach = halfBox + gap
-  const underBound = (p: { y: number }) => p.y >= cardTop - riseMax - 1e-9
   const clearAt = (p: { x: number; y: number }) =>
-    underBound(p) &&
     keepOuts.every((k) => p.x + reach <= k.x0 || p.x - reach >= k.x1 || p.y + reach <= k.y0 || p.y - reach >= k.y1)
-
-  const start = Math.min(ideal, far)
-  // Nearest the ideal spot first, alternating away from the tip and towards it
-  // (away first on a tie, keeping the head clear), so the sign moves no
-  // further along its line than a keep-out makes it.
-  const candidates: number[] = [start]
-  for (let k = 1; start + k * GLYPH_SLIDE_STEP <= far || start - k * GLYPH_SLIDE_STEP >= near; k++) {
-    if (start + k * GLYPH_SLIDE_STEP <= far) candidates.push(start + k * GLYPH_SLIDE_STEP)
-    if (start - k * GLYPH_SLIDE_STEP >= near) candidates.push(start - k * GLYPH_SLIDE_STEP)
-  }
+  // Towards the tip first, then towards the start: links leaving one card share their first stretch, while every link
+  // into a card has its own arrival slot, so the arrival half keeps signs apart and attributable.
+  const candidates: number[] = []
+  for (let s = mid; s >= nearTip; s -= GLYPH_SLIDE_STEP) candidates.push(s)
+  for (let s = mid + GLYPH_SLIDE_STEP; s <= nearStart; s += GLYPH_SLIDE_STEP) candidates.push(s)
   for (const s of candidates) {
     const p = pointBackFromEnd(poly, s)
     if (!clearAt(p)) continue
-    if (s === start) return { x: p.x, y: p.y, setback: s, clear: true }
-    // The step before this one, nearer the ideal, was not clear: close in on
-    // the boundary between them, so the sign stops exactly where it clears.
-    let good = s
-    let bad = s < start ? s + GLYPH_SLIDE_STEP : s - GLYPH_SLIDE_STEP
-    for (let i = 0; i < 16; i++) {
-      const mid = (good + bad) / 2
-      if (clearAt(pointBackFromEnd(poly, mid))) good = mid
-      else bad = mid
-    }
-    const q = pointBackFromEnd(poly, good)
-    return { x: q.x, y: q.y, setback: good, clear: true }
+    // A sibling on the same trunk found this same spot: stand `stagger` pitches along, where that is clear too.
+    const t = s + stagger * 2 * (2 * halfBox + gap)
+    const q = stagger !== 0 && t >= nearTip && t <= nearStart ? pointBackFromEnd(poly, t) : null
+    return q && clearAt(q) ? { x: q.x, y: q.y, setback: t, clear: true } : { x: p.x, y: p.y, setback: s, clear: true }
   }
-  // No clear spot: the ideal one, lowered along the line until it is under the bound.
-  let s = start
-  let p = pointBackFromEnd(poly, s)
-  while (!underBound(p) && s > near) {
-    s = Math.max(near, s - GLYPH_SLIDE_STEP)
-    p = pointBackFromEnd(poly, s)
-  }
-  return { x: p.x, y: p.y, setback: s, clear: false }
+  const p = pointBackFromEnd(poly, mid)
+  return { x: p.x, y: p.y, setback: mid, clear: false }
 }
 
 /**

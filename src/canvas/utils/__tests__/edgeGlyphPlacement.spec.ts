@@ -244,7 +244,7 @@ describe('A — the arrivals on a board are the TOP arrivals, by the boxes', () 
   })
 })
 
-describe('B — the sign sits on its own line, just behind its own head', () => {
+describe('B — the sign sits on its own line, at its middle (gap P0 #4, 23 Oct)', () => {
   const AT_BOUND = glyphMetricsAt(EDGE_STROKE_WIDTH_BANDS.moderate, MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE)
   /** A vertical link into a card whose top is y 1000, arriving on its border. */
   const VERTICAL = flattenSvgPath('M500,600 L500,1000')!
@@ -265,17 +265,17 @@ describe('B — the sign sits on its own line, just behind its own head', () => 
     expect(AT_BOUND).toEqual({ headLength: edgeArrowheadSize(3) * 2, halfBox: 10, gap: 4 })
   })
 
-  it('unobstructed: one head, one gap and half a box back from the tip, ON the line', () => {
-    const g = resolvePolarityGlyphOnPath(VERTICAL, 1000, AT_BOUND)
+  it('unobstructed: at the middle of its line, ON the line', () => {
+    const g = resolvePolarityGlyphOnPath(VERTICAL, AT_BOUND)
     expect(g.clear).toBe(true)
-    expect(g.setback).toBe(AT_BOUND.headLength + AT_BOUND.gap + AT_BOUND.halfBox)
-    expect(g).toMatchObject({ x: 500, y: 1000 - g.setback })
+    expect(g.setback).toBe(200)
+    expect(g).toMatchObject({ x: 500, y: 800 })
   })
 
   it('a keep-out on the ideal spot: it slides ALONG its line to the nearest clear spot, never off it', () => {
-    const ideal = resolvePolarityGlyphOnPath(VERTICAL, 1000, AT_BOUND)
+    const ideal = resolvePolarityGlyphOnPath(VERTICAL, AT_BOUND)
     const keep = { x0: 480, y0: ideal.y - 5, x1: 520, y1: ideal.y + 5 }
-    const g = resolvePolarityGlyphOnPath(VERTICAL, 1000, AT_BOUND, [keep])
+    const g = resolvePolarityGlyphOnPath(VERTICAL, AT_BOUND, [keep])
     expect(g.clear).toBe(true)
     expect(onLine(g)).toBeLessThan(1e-9)
     const reach = AT_BOUND.halfBox + AT_BOUND.gap
@@ -285,36 +285,43 @@ describe('B — the sign sits on its own line, just behind its own head', () => 
     expect(nearer.y + reach <= keep.y0 || nearer.y - reach >= keep.y1).toBe(false)
   })
 
-  it('THE RISE BOUND: never higher than the bound above its card, even where the line is clear', () => {
-    const tall = glyphMetricsAt(EDGE_STROKE_WIDTH_BANDS.veryStrong, MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE)
-    const g = resolvePolarityGlyphOnPath(VERTICAL, 1000, tall)
-    expect(1000 - g.y).toBeLessThanOrEqual(GLYPH_RISE_MAX_ABOVE_CARD_FLOW + 1e-9)
+  it('a keep-out over the middle: it slides towards the TIP first; with the arrival half covered, towards the start — never into its head', () => {
+    const middle = { x0: 480, y0: 795, x1: 520, y1: 805 }
+    const g = resolvePolarityGlyphOnPath(VERTICAL, AT_BOUND, [middle])
+    expect(g.clear).toBe(true)
+    expect(g.setback).toBeLessThan(200)
     expect(onLine(g)).toBeLessThan(1e-9)
-    // Since Paul's 1 Oct smaller heads the widest ideal (25 + 4 + 10 = 39) sits UNDER the bound (50), so the sign
-    // stands at its ideal (it was 54 at 4× and came down its line). CONTRAST: a line clamped by the bound —
-    // a head long enough to put the ideal above it — still comes down to exactly the bound.
-    expect(tall.headLength + tall.gap + tall.halfBox).toBeLessThan(GLYPH_RISE_MAX_ABOVE_CARD_FLOW)
-    expect(1000 - g.y).toBeCloseTo(tall.headLength + tall.gap + tall.halfBox, 6)
-    const huge = { ...tall, headLength: GLYPH_RISE_MAX_ABOVE_CARD_FLOW }
-    expect(1000 - resolvePolarityGlyphOnPath(VERTICAL, 1000, huge).y).toBeCloseTo(GLYPH_RISE_MAX_ABOVE_CARD_FLOW, 6)
+    const arrivalHalf = { x0: 480, y0: 790, x1: 520, y1: 1000 }
+    const up = resolvePolarityGlyphOnPath(VERTICAL, AT_BOUND, [arrivalHalf])
+    expect(up.clear).toBe(true)
+    expect(up.setback).toBeGreaterThan(200)
+    expect(up.setback).toBeGreaterThanOrEqual(AT_BOUND.headLength + AT_BOUND.halfBox)
   })
 
-  it('STATED LIMIT, pinned: an APEX arrival at the landing has 28.11 above its tip — the sign stays on its line, clear of the widest head', () => {
+  it('siblings on one trunk stand apart: a stagger moves the sign along its own line from the clear spot it found', () => {
+    const a = resolvePolarityGlyphOnPath(VERTICAL, AT_BOUND, [], -0.5)
+    const b = resolvePolarityGlyphOnPath(VERTICAL, AT_BOUND, [], 0.5)
+    expect(onLine(a) + onLine(b)).toBeLessThan(1e-9)
+    expect(Math.abs(a.y - b.y)).toBe(2 * (2 * AT_BOUND.halfBox + AT_BOUND.gap))
+    // CONTRAST: unstaggered, the two would stand on one spot.
+    expect(resolvePolarityGlyphOnPath(VERTICAL, AT_BOUND)).toEqual(resolvePolarityGlyphOnPath(VERTICAL, AT_BOUND))
+  })
+
+  it('an APEX arrival: the sign stays on its line, clear of the widest head', () => {
     const apexTop = 1000 - kindGlyphOverhangAt(MAX_LABEL_COUNTER_SCALE)
     const apexLine = flattenSvgPath(`M500,600 L500,${apexTop}`)!
-    const g = resolvePolarityGlyphOnPath(apexLine, 1000, AT_BOUND)
+    const g = resolvePolarityGlyphOnPath(apexLine, AT_BOUND)
     expect(onLine(g, apexLine)).toBeLessThan(1e-9)
-    expect(apexTop - g.y).toBeLessThanOrEqual(GLYPH_ROW_RISE_MAX_FLOW + 1e-6)
     // It reached INTO its head with the 24-unit shape and the 4× head (22.64 of room); with the 1 Oct sizes the
     // room above the tip less half the box holds the whole head.
     expect(apexTop - g.y - AT_BOUND.halfBox).toBeGreaterThanOrEqual(AT_BOUND.headLength - 1e-6)
   })
 
-  it('with no clear spot it stands at the ideal spot, under the bound, on its line — and says so', () => {
+  it('with no clear spot it stands at the middle, on its line — and says so', () => {
     const wall = { x0: 0, y0: 0, x1: 1000, y1: 2000 }
-    const g = resolvePolarityGlyphOnPath(VERTICAL, 1000, AT_BOUND, [wall])
+    const g = resolvePolarityGlyphOnPath(VERTICAL, AT_BOUND, [wall])
     expect(g.clear).toBe(false)
-    expect(g.setback).toBe(AT_BOUND.headLength + AT_BOUND.gap + AT_BOUND.halfBox)
+    expect(g.setback).toBe(200)
     expect(onLine(g)).toBeLessThan(1e-9)
   })
 
