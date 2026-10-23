@@ -1002,6 +1002,12 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     () => composeOptionCountLine(optionCount),
     [optionCount],
   )
+  // The face draws decorative dots only; the count itself lives whole in the element's `title` and `aria-label`, so
+  // the row's two-line clamp never cuts a figure (`valueNeverTruncates`).
+  const optionDotKeys = useMemo(
+    () => Array.from({ length: Math.min(optionCount, OPTION_DOTS_MAX) }, (_, i) => `dot-${i}`),
+    [optionCount],
+  )
 
   // Keep the Question node structural at every zoom. A completed analysis
   // must not replace this count with the option verdict removed from its body.
@@ -1286,9 +1292,9 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               title={optionCountLineText}
               className="inline-flex shrink-0 items-center gap-[calc(3px*var(--canvas-label-scale,1))] self-center"
             >
-              {Array.from({ length: Math.min(optionCount, OPTION_DOTS_MAX) }, (_, i) => (
+              {optionDotKeys.map((key) => (
                 <i
-                  key={i}
+                  key={key}
                   data-testid="decision-node-option-dot"
                   aria-hidden="true"
                   className="block h-[calc(7px*var(--canvas-label-scale,1))] w-[calc(7px*var(--canvas-label-scale,1))] rounded-full bg-option"
