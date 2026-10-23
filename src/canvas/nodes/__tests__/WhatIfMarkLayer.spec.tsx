@@ -54,10 +54,13 @@ describe('the held change on its card', () => {
     expect(screen.queryByTestId(`${WHAT_IF_MARK_TESTID}-fac_price`)).toBeNull()
   })
 
-  it('the lens puts the held card in front: every other card dims; before a change is held nothing dims', () => {
+  it('⛔ nothing dims, held or not (vision spec §2e: a lens never fades cards); the held card has its own mark', () => {
     renderHook(() => useLensFilter())
     expect([...useCanvasStore.getState().lens._dimmedNodeIds]).toEqual([])
     act(() => useWhatIfStore.getState().hold(HELD))
-    expect([...useCanvasStore.getState().lens._dimmedNodeIds]).toEqual(['opt_a'])
+    // It used to grey every other card ('opt_a' here).
+    expect([...useCanvasStore.getState().lens._dimmedNodeIds]).toEqual([])
+    render(<WhatIfMarkLayer />)
+    expect(screen.getByTestId(`${WHAT_IF_MARK_TESTID}-fac_price`)).toBeTruthy()
   })
 })

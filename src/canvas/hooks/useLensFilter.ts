@@ -4,13 +4,17 @@
  * Computes each lens's marks and pushes them into the store; BaseNode and StyledEdge read them via primitive
  * selectors. Called once from ReactFlowGraph — not from individual node/edge components.
  *
- *   - option        dims everything off the option's paths (entered from an option card, the context menu or a key).
- *   - tradeoffs     numbers the picked option's route links (`tradeOffsModel.ts`); nothing dims: links off the route stay
- *                   at rest (vision spec §3: lenses re-weight, never grey the model). No Run needed.
+ * ⛔ NOTHING DIMS, IN ANY LENS (vision spec §2e/§3, 23 Oct: "A lens re-weights marks that already exist … It never fades
+ * cards"). Every lens below emphasises; links and cards it does not mark stay at rest, at full strength.
+ *
+ *   - option        the option's routes take the canvas's one "look here" glow (entered from an option card, the context
+ *                   menu or a key).
+ *   - tradeoffs     numbers the picked option's route links (`tradeOffsModel.ts`). No Run needed.
  *   - rests_on      numbers every figure the model rests on, from the ONE owner reader (`assumptionMapOf`).
- *   - premortem     dims everything Olumi's pre-mortem stories do not rest on.
- *   - what_changes  the selected Run's sensitivity widths and fragile links, dimming the rest. Needs a complete Run.
- *   - what_if       the held change's card in front, the rest dimmed. No Run needed.
+ *   - premortem     the links Olumi's pre-mortem stories rest on take the same glow.
+ *   - what_changes  the selected Run's sensitivity widths and fragile links, and a rank chip 1–3 on the links leaving the
+ *                   three factors the result moves with most (the key's own list, in its order). Needs a complete Run.
+ *   - what_if       the held change's own mark on its card (`WhatIfMarkLayer`); nothing else changes. No Run needed.
  */
 
 import { useMemo, useEffect, useRef } from 'react'
@@ -18,9 +22,8 @@ import { useCanvasStore } from '../store'
 import { computeOptionPaths } from '../utils/computeOptionPaths'
 import type { FragileEdgeCandidate } from '../utils/fragileEdgeMatch'
 import { resolveActiveGoalNodeId } from './goalThresholdResolvers'
-import { assumptionMapOf, restsOnKey, restsOnNumbered, type RestsOnMark } from '../artefacts/assumptionMapModel'
+import { ASSUMPTION_MAP_COPY, assumptionMapOf, restsOnKey, restsOnNumbered, type AssumptionColumn, type RestsOnMark } from '../artefacts/assumptionMapModel'
 import { useCurrentPremortemWorksheet } from '../artefacts/lenses'
-import { useWhatIfStore } from '../stores/whatIfStore'
 import { tradeOffsForState, tradeOffLinkMarks } from '../artefacts/tradeOffsModel'
 import type { PremortemWorksheetV1 } from '../../v5/readPremortemWorksheet'
 
@@ -100,6 +103,8 @@ interface LensVisuals {
   sensitivityQuartiles: { q25: number; q75: number } | null
   fragileEdgeIds: Set<string>
   restsOn?: Map<string, RestsOnMark>
+  /** Links a lens puts in front with the canvas's one emphasis glow (option routes, the stories' links). */
+  emphasisEdgeIds?: Set<string>
 }
 
 const EMPTY_SET = new Set<string>()
@@ -112,38 +117,29 @@ const EMPTY_VISUALS: LensVisuals = {
   fragileEdgeIds: EMPTY_SET,
 }
 
-/** Every id NOT in `keep`. */
-function allBut(ids: Iterable<string>, keep: ReadonlySet<string>): Set<string> {
+/** The links Olumi's pre-mortem stories rest on (an id names a link or a card: `resolveModelTarget`, the worksheet's reader). */
+function premortemLinks(worksheet: PremortemWorksheetV1, edges: ReadonlyArray<{ id: string }>): Set<string> {
+  const edgeIds = new Set(edges.map((e) => e.id))
   const out = new Set<string>()
-  for (const id of ids) if (!keep.has(id)) out.add(id)
+  for (const row of worksheet.rows) {
+    if (row.grounding.kind === 'not_in_model') continue
+    for (const id of row.grounding.ids) if (edgeIds.has(id)) out.add(id)
+  }
   return out
 }
 
-/** The elements Olumi's pre-mortem stories rest on: their options, the factors and risks they name, and the links. */
-function premortemInFocus(
-  worksheet: PremortemWorksheetV1,
-  edges: ReadonlyArray<{ id: string; source: string; target: string }>,
-): { nodeIds: Set<string>; edgeIds: Set<string> } {
-  const nodeIds = new Set<string>()
-  const edgeIds = new Set<string>()
-  const byId = new Map(edges.map((e) => [e.id, e]))
-  for (const row of worksheet.rows) {
-    nodeIds.add(row.option_id)
-    if (row.on_map) nodeIds.add(row.on_map.node_id)
-    if (row.grounding.kind === 'not_in_model') continue
-    for (const id of row.grounding.ids) {
-      const edge = byId.get(id) // an id names a link or a card (`resolveModelTarget`, the worksheet's own reader)
-      if (edge) {
-        edgeIds.add(edge.id)
-        nodeIds.add(edge.source)
-        nodeIds.add(edge.target)
-      } else {
-        nodeIds.add(id)
-      }
-    }
-  }
-  return { nodeIds, edgeIds }
+/** The three factors the selected Run moves with most, in the key's order ("Factors the result moves with most"). */
+export function topSensitiveFactorIds(sensitivity: ReadonlyMap<string, number>, nodes: ReadonlyArray<{ id: string; type?: string }>): string[] {
+  return nodes
+    .filter(n => n.type === 'factor' && (sensitivity.get(n.id) ?? 0) > 0)
+    .sort((a, b) => (sensitivity.get(b.id) ?? 0) - (sensitivity.get(a.id) ?? 0))
+    .slice(0, 3)
+    .map(n => n.id)
 }
+
+/** The rank chip's words: its number, what it means, and the link's own figure state (never hidden). */
+export const whatChangesChipLabel = (n: number, column: AssumptionColumn): string =>
+  `${n}: what the result moves with most · ${ASSUMPTION_MAP_COPY.columns[column]}`
 
 /** The selected Run's per-factor sensitivity (absolute), keyed by factor id. One reader for the lens and its key card. */
 export function readFactorSensitivity(report: Record<string, unknown>): Map<string, number> {
@@ -194,7 +190,6 @@ export function useLensFilter(): void {
   const goalConstraints = useCanvasStore(s => s.goalConstraints)
   const setLensVisuals = useCanvasStore(s => s.setLensVisuals)
   const worksheet = useCurrentPremortemWorksheet()
-  const whatIfNodeId = useWhatIfStore(s => s.held?.nodeId ?? null)
 
   const visuals = useMemo((): LensVisuals => {
     const graphEdges = edges.map(e => ({ id: e.id, source: e.source, target: e.target }))
@@ -212,9 +207,6 @@ export function useLensFilter(): void {
     }
 
     // ── Trade-offs: the picked option's route links carry their numbered pills (no Run needed) ──
-    // ⛔ NOTHING DIMS (vision spec §3, 23 Oct: "Trade-offs dims everything off the option's routes → routes at full
-    // weight; other links at rest"). It used to grey every card and link off the routes to 20%; a lens re-weights the
-    // marks that already exist and never greys the model.
     if (lensActive === 'tradeoffs') {
       const { options } = tradeOffsForState({ nodes, edges, ceeAnalysisReady, lastServerGraphHash, outcomeNodeId, goalConstraints, servedBaselineOptions })
       const option = options.find(o => o.optionId === lensOptionId) ?? options[0]
@@ -225,58 +217,50 @@ export function useLensFilter(): void {
       return { ...EMPTY_VISUALS, restsOn }
     }
 
-    // ── If it failed: the stories' elements in front (no Run needed; nothing dims before a worksheet exists) ──
+    // ── If it failed: the links the stories rest on take the emphasis glow (no Run needed). It used to grey every card
+    // and link the stories did not name to 20%. ──
     if (lensActive === 'premortem') {
       if (!worksheet) return EMPTY_VISUALS
-      const focus = premortemInFocus(worksheet, graphEdges)
-      return {
-        ...EMPTY_VISUALS,
-        dimmedNodeIds: allBut(nodes.map(n => n.id), focus.nodeIds),
-        dimmedEdgeIds: allBut(edges.map(e => e.id), focus.edgeIds),
-      }
+      return { ...EMPTY_VISUALS, emphasisEdgeIds: premortemLinks(worksheet, graphEdges) }
     }
 
-    // ── What if: the held change's card in front (no Run needed; nothing dims before a change is held) ──
-    if (lensActive === 'what_if') {
-      if (whatIfNodeId === null || !nodes.some(n => n.id === whatIfNodeId)) return EMPTY_VISUALS
-      return { ...EMPTY_VISUALS, dimmedNodeIds: allBut(nodes.map(n => n.id), new Set([whatIfNodeId])), dimmedEdgeIds: EMPTY_SET }
-    }
+    // ── What if: the held change's own mark says it (`WhatIfMarkLayer`); it used to grey every other card. ──
+    if (lensActive === 'what_if') return EMPTY_VISUALS
 
     if (resultsStatus !== 'complete' || !report) return EMPTY_VISUALS
     const reportAny = report as unknown as Record<string, unknown>
 
-    // ── Option isolation ──
+    // ── Option isolation: the option's routes in front with the emphasis glow; it used to grey everything else ──
     if (lensActive === 'option' && lensOptionId) {
       const ceeOptions = ceeAnalysisReady?.options ?? []
       const paths = computeOptionPaths(nodes.map(n => ({ id: n.id, type: n.type })), graphEdges, lensOptionId, ceeOptions)
-      return {
-        ...EMPTY_VISUALS,
-        dimmedNodeIds: allBut(nodes.map(n => n.id), paths.activeNodeIds),
-        dimmedEdgeIds: allBut(edges.map(e => e.id), paths.activeEdgeKeys),
-      }
+      return { ...EMPTY_VISUALS, emphasisEdgeIds: new Set(paths.activeEdgeKeys) }
     }
 
     // ── What would change: the selected Run's sensitivity and its fragile links ──
-    // Width by sensitivity quartile; a fragile link (`robustness.fragile_edges`) is thickest. Every other link dims, so
-    // what the comparison rests on stands out. With nothing measured, nothing dims.
+    // Width by sensitivity quartile; a fragile link (`robustness.fragile_edges`) is thickest. The links leaving the three
+    // factors the result moves with most carry a rank chip 1–3 at their midpoint. Every other link stays at rest.
     if (lensActive === 'what_changes') {
       const robustness = reportAny.robustness as Record<string, unknown> | undefined
       const rawFragile = robustness?.fragile_edges
       const fragileEdgeIds = buildFragileEdgeSet(Array.isArray(rawFragile) ? rawFragile : [], graphEdges)
       const { weights, quartiles } = sensitivityOf(reportAny, graphEdges)
-      const inFocus = new Set(fragileEdgeIds)
-      if (quartiles) weights.forEach((w, id) => { if (w > 0 && w >= quartiles.q75) inFocus.add(id) })
-      return {
-        ...EMPTY_VISUALS,
-        dimmedEdgeIds: inFocus.size > 0 ? allBut(edges.map(e => e.id), inFocus) : EMPTY_SET,
-        sensitivityWeights: weights,
-        sensitivityQuartiles: quartiles,
-        fragileEdgeIds,
+      const top = topSensitiveFactorIds(readFactorSensitivity(reportAny), nodes)
+      const restsOn = new Map<string, RestsOnMark>()
+      if (top.length > 0) {
+        const goalId = resolveActiveGoalNodeId({ ceeAnalysisReady, outcomeNodeId, nodes })
+        const columnOf = new Map(assumptionMapOf(nodes, edges, goalId).items.map(item => [restsOnKey(item.target), item.column]))
+        for (const edge of edges) {
+          const n = top.indexOf(edge.source) + 1
+          const column = columnOf.get(restsOnKey({ kind: 'edge', id: edge.id }))
+          if (n > 0 && column) restsOn.set(restsOnKey({ kind: 'edge', id: edge.id }), { n, column, label: whatChangesChipLabel(n, column) })
+        }
       }
+      return { ...EMPTY_VISUALS, sensitivityWeights: weights, sensitivityQuartiles: quartiles, fragileEdgeIds, restsOn }
     }
 
     return EMPTY_VISUALS
-  }, [lensActive, lensOptionId, resultsStatus, report, nodes, edges, ceeAnalysisReady, lastServerGraphHash, outcomeNodeId, goalConstraints, servedBaselineOptions, worksheet, whatIfNodeId])
+  }, [lensActive, lensOptionId, resultsStatus, report, nodes, edges, ceeAnalysisReady, lastServerGraphHash, outcomeNodeId, goalConstraints, servedBaselineOptions, worksheet])
 
   // Push computed visuals to store so BaseNode/StyledEdge can read with primitive selectors
   const prevVisualsRef = useRef(visuals)

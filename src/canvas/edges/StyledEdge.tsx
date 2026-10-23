@@ -464,7 +464,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // and marks its fragile ones; "Rests on" numbers the link's strength.
   const lensEnabled = isGraphLensEnabled()
   const {
-    isLensDimmed, lensSensWeight, lensQ25, lensQ75, isLensFragile, restsOn,
+    isLensDimmed, lensSensWeight, lensQ25, lensQ75, isLensFragile, restsOn, isLensEmphasis,
   } = useCanvasStore(
     useShallow(s => {
       if (!lensEnabled) {
@@ -474,6 +474,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           lensQ25: null as number | null, lensQ75: null as number | null,
           isLensFragile: false,
           restsOn: null as RestsOnMark | null,
+          isLensEmphasis: false,
         }
       }
       const active = s.lens.active
@@ -484,7 +485,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         lensQ25: changes ? (s.lens._sensitivityQuartiles?.q25 ?? null) : null,
         lensQ75: changes ? (s.lens._sensitivityQuartiles?.q75 ?? null) : null,
         isLensFragile: changes && s.lens._fragileEdgeIds.has(id),
-        restsOn: active === 'rests_on' || active === 'tradeoffs' ? (s.lens._restsOn.get(`edge:${id}`) ?? null) : null,
+        // "What would change" draws its rank chip 1–3 with the same pill.
+        // Defensive ?.get: lens doubles in specs may carry no marks (BaseNode reads it the same way).
+        restsOn: active === 'rests_on' || active === 'tradeoffs' || changes ? (s.lens._restsOn?.get(`edge:${id}`) ?? null) : null,
+        // Option routes and "If it failed" links: the canvas's one emphasis glow; nothing else changes.
+        isLensEmphasis: s.lens._emphasisEdgeIds?.has(id) === true,
       }
     }),
   )
@@ -2650,9 +2655,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // compound to 0.04. Lens dimming keeps its line-level 0.2 otherwise.
           opacity: isSelectionDimmed ? undefined
             : isLensDimmed ? 0.2
-            : isStructuralEdge ? undefined
-            // A fragile link is never faded for a low sensitivity: in "What would change" it is the point.
-            : (lensSensWeight !== null && lensQ25 !== null && lensSensWeight <= lensQ25 && !isLensFragile) ? 0.4
+            // ⛔ "What would change" no longer fades its least sensitive links (vision spec §2e: a lens never fades).
             : undefined,
           // Graph Lens: subtle glow for high-sensitivity edges.
           // Analysis-graph projection: a viewed flip-risk edge gets a WARNING
@@ -2699,6 +2702,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             if (!isSelectionDimmed) {
               if (selected) shadows.push(EDGE_GLOW.selected)
               else if (isHighlightedEdge) shadows.push(isRunChangedEdge ? EDGE_GLOW.lit : EDGE_GLOW.selected)
+              else if (isLensEmphasis) shadows.push(EDGE_GLOW.selected)
               else if (isHovered) shadows.push(EDGE_GLOW.hover)
             }
             return shadows.length > 0 ? shadows.join(' ') : undefined

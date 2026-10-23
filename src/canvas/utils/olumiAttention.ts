@@ -49,7 +49,7 @@ export interface OlumiAttentionNote {
    * QUESTION — never an answer. A card that handed the user a conclusion would
    * fail the product test this whole surface exists to pass.
    */
-  actions?: Array<{ id: string; label: string; prompt?: string; kind?: 'ask' | 'details' }>
+  actions?: Array<{ id: string; label: string; prompt?: string; kind?: 'ask' | 'details' | 'press' | 'dismiss' }>
 }
 
 /** The note's own control words: what the buttons do, never coaching. */

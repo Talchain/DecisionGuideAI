@@ -146,6 +146,8 @@ export const RESTS_ON_ORDER: readonly AssumptionColumn[] = ['missing', 'unchecke
 export interface RestsOnMark {
   readonly n: number
   readonly column: AssumptionColumn
+  /** Another lens's words for the same pill ("What would change": its rank), in place of "Figure n: …". */
+  readonly label?: string
 }
 
 /** `node:<id>` or `edge:<id>`: the key the lens marks are stored under. */

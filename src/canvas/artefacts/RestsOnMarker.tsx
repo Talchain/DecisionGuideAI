@@ -20,7 +20,7 @@ const UNSETTLED: ReadonlySet<AssumptionColumn> = new Set(['missing', 'unchecked'
 export const isUnsettled = (column: AssumptionColumn): boolean => UNSETTLED.has(column)
 
 export const restsOnMarkerLabel = (mark: RestsOnMark): string =>
-  `Figure ${mark.n}: ${ASSUMPTION_MAP_COPY.columns[mark.column]}`
+  mark.label ?? `Figure ${mark.n}: ${ASSUMPTION_MAP_COPY.columns[mark.column]}`
 
 export function RestsOnMarker({ target, mark, onPick, Icon, className = '', style, picked = false }: {
   /** `node:<id>` or `edge:<id>`: the figure this number stands for (identity binding for every reader). */

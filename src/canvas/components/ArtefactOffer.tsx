@@ -7,6 +7,11 @@
  * nothing. The press is the bar's one press path (`pressOffer`). "Not now" is the bar's own dismissal (`offer_key` binds
  * the model and the Run), so the same suggestion never repeats without a new reason. It steps aside
  * while a lens is on (`artefacts/lenses.ts`), so there is one thing to look at.
+ *
+ * ⭐ AN OFFER ABOUT ONE LINK IS SAID ON THAT LINK (vision spec §3, 23 Oct: "'This result is most sensitive to one link'
+ * strip → a challenge note pinned on that link, with Test link"). It is Olumi's note (`OlumiAttentionCard`, anchored at
+ * the link's midpoint) with the same reason, the same press and the same "Not now", never a strip at the canvas foot.
+ * It steps aside while the assistant's own note is open, so Olumi speaks from one place.
  */
 import { createPortal } from 'react-dom'
 import { useOverlayCell } from './CanvasOverlayBand'
@@ -18,6 +23,8 @@ import { action, ACTION_FOCUS } from '../../components/results/analysisNew/panel
 import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { useIsViewer } from '../../lib/viewerMode'
+import { OlumiAttentionCard } from './OlumiAttentionCard'
+import type { OlumiAttention } from '../utils/olumiAttention'
 
 export const ARTEFACT_OFFER_TESTID = 'artefact-offer'
 export const ARTEFACT_OFFER_COPY = { notNow: 'Not now' } as const
@@ -32,8 +39,39 @@ export function ArtefactOffer() {
   // A viewer reads the model but cannot send a turn, so no move is suggested to them.
   const isViewer = useIsViewer()
   const wants = offer !== null && !isViewer && !artefactOpen && !dismissed.includes(offer.offer_key)
-  const { granted, target } = useOverlayCell('bottom-right', 'artefact-offer', wants)
-  if (!wants || !granted || offer === null || bar === null) return null
+  // The link the offer is about, when it is about one that is on the canvas.
+  const linkId = useCanvasStore((s) => {
+    const t = offer?.target
+    return t?.kind === 'link' ? (s.edges.find((e) => e.source === t.from_id && e.target === t.to_id)?.id ?? null) : null
+  })
+  const assistantNoteOpen = useCanvasStore((s) => s.olumiAttention?.note != null)
+  const { granted, target } = useOverlayCell('bottom-right', 'artefact-offer', wants && linkId === null)
+  if (!wants || offer === null || bar === null) return null
+  const press = () => {
+    // Never a dead press: with no conversation to send it to, say so (the bar's own words).
+    if (pressOffer(offer, bar.revision) === 'none') {
+      window.dispatchEvent(new CustomEvent('topbar:show-toast', { detail: { message: ACTION_BAR_COPY.noConversation, level: 'warning' } }))
+    }
+  }
+  if (linkId !== null) {
+    if (assistantNoteOpen) return null
+    const note: OlumiAttention = {
+      nodeIds: [],
+      edgeIds: [linkId],
+      note: {
+        body: offer.why_now ?? '',
+        actions: [
+          { id: offer.action_id, label: offer.label, kind: 'press' },
+          { id: 'not-now', label: ARTEFACT_OFFER_COPY.notNow, kind: 'dismiss' },
+        ],
+      },
+      caveat: null,
+      turnId: null,
+      modelVersion: null,
+    }
+    return <OlumiAttentionCard held={note} onPress={press} onDismiss={() => dismiss(offer.offer_key)} />
+  }
+  if (!granted) return null
 
   const body = (
     <div
@@ -47,12 +85,7 @@ export function ArtefactOffer() {
         type="button"
         data-testid={`${ARTEFACT_OFFER_TESTID}-press`}
         className={`${typography.panelBody} ${action('primary')} flex-none`}
-        onClick={() => {
-          // Never a dead press: with no conversation to send it to, say so (the bar's own words).
-          if (pressOffer(offer, bar.revision) === 'none') {
-            window.dispatchEvent(new CustomEvent('topbar:show-toast', { detail: { message: ACTION_BAR_COPY.noConversation, level: 'warning' } }))
-          }
-        }}
+        onClick={press}
       >
         {offer.label}
       </button>

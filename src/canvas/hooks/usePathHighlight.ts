@@ -185,11 +185,18 @@ export function usePathHighlight(): void {
 
     /**
      * PATH focus: the given path edges highlight (this owns the "paths to goal" chip), the anchors and every node on
-     * the path stay prominent, everything else dims.
+     * the path stay prominent, everything else dims — unless `dimRest` is false (a selected OPTION: vision spec §2a/§3,
+     * 23 Oct, "Only this card changes: no dimming of the rest"; its routes carry the highlight glow at full weight and
+     * the card its selection ring, every other card and link stays at rest).
      */
-    const applyPathFocus = (pathEdgeIds: string[], anchorIds: string[]) => {
+    const applyPathFocus = (pathEdgeIds: string[], anchorIds: string[], dimRest = true) => {
       drawnPath.current = pathEdgeIds
       setHighlightedEdges(pathEdgeIds)
+      if (!dimRest) {
+        if (!focusDimOwnsDimming) setDimmedNodes([])
+        setDimmedEdges([])
+        return
+      }
 
       // Calculate dimmed nodes (not on any highlighted path)
       // PERFORMANCE: Use Set for O(1) lookup instead of O(n) array.includes()
@@ -289,12 +296,17 @@ export function usePathHighlight(): void {
     // an empty path set, which dimmed EVERY other node — including the selected
     // node's own neighbours — and left the user with a blanked graph.
     if (pathEdgeIds.length === 0) {
+      // A selected option with no route yet: its ring is the whole focus, nothing dims (vision spec §3).
+      if (kind === 'option') {
+        applyPathFocus([], [selectedNode.id], false)
+        return
+      }
       const hood = neighbourhoodNodeIds(selectedNode.id, edges)
       applyNeighbourhoodFocus(hood, incidentEdgeIds(selectedNode.id), focusDimOwnsDimming)
       return
     }
 
-    applyPathFocus(pathEdgeIds, [selectedNode.id])
+    applyPathFocus(pathEdgeIds, [selectedNode.id], kind !== 'option')
 
     // No cleanup needed - we want highlights to persist until selection changes
     // The next effect run will update or clear highlights as appropriate
