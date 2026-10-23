@@ -247,18 +247,68 @@ describe('in-card value edit on the café board, through the real conversation',
     expect(valueEdits()[0]).toEqual({ kind: 'factor_value_edit', target_id: CUSTOMERS, field: 'value', value: 450 / 525, raw_value: 450, unit: 'customers per week' })
   })
 
-  it('NEGATIVE: a figure not in the factor\'s own unit is refused and nothing is sent', async () => {
+  it('NEGATIVE: a figure typed in another unit ("$6.80" on £ per customer) is refused with its reason, field kept open, nothing sent', async () => {
     await openBoard(reopenRead(clone(served.model.graph), BEFORE_REVISION, served.model.scenario_revision))
     stubWire()
     card(SPEND)
-    // The open field names its unit beside it and takes a number in it; "680p" is pence, not "£ per customer".
-    const input = await typeOnCard(SPEND, '680p')
+    const input = await typeOnCard(SPEND, '$6.80')
+    expect(input.getAttribute('type'), 'a text field: the typed unit reaches the unit check').toBe('text')
     expect(screen.getByTestId(`node-value-editor-${SPEND}-scale`)).toHaveTextContent('£ per customer')
     await act(async () => { fireEvent.keyDown(input, { key: 'Enter' }) })
     await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(screen.getByTestId(`node-value-editor-${SPEND}-refusal`))
+      .toHaveTextContent('Not saved · this row is in £ per customer. Enter the amount without another unit.')
+    expect(screen.getByTestId(`node-value-editor-${SPEND}-input`)).toHaveValue('$6.80')
     expect(sent, 'nothing reached the wire').toEqual([])
     const node = useCanvasStore.getState().nodes.find(n => n.id === SPEND)!
     expect((node.data as Json).observedState.raw_value, 'the model is unchanged').toBe(6.2)
+  })
+
+  it('CONTRAST: the factor\'s own marker ("£6.80") is admitted and saved as £6.80 through the same write', async () => {
+    await openBoard(reopenRead(clone(served.model.graph), BEFORE_REVISION, served.model.scenario_revision))
+    stubWire()
+    replies.push(editReply(graphWith(SPEND, 6.8, 8.125)))
+    card(SPEND)
+    const input = await typeOnCard(SPEND, '£6.80')
+    await act(async () => { fireEvent.keyDown(input, { key: 'Enter' }) })
+    await waitFor(() => expect(valueEdits()).toHaveLength(1))
+    expect(valueEdits()[0]).toEqual({ kind: 'factor_value_edit', target_id: SPEND, field: 'value', value: 6.8 / 8.125, raw_value: 6.8, unit: '£ per customer' })
+  })
+
+  it('⭐ a percent stored as a 0–1 ratio opens at the magnitude the card shows (25 for "25%"); unchanged saves nothing; 30 saves 0.3 (labelled synthetic: spend re-stamped a % factor)', async () => {
+    const graph = clone(served.model.graph) as Json
+    const spend = graph.nodes.find((n: Json) => n.id === SPEND)
+    spend.label = 'Repeat-visit rate'
+    spend.observed_state = { value: 0.25, raw_value: 0.25, unit: '%', source: 'user_override' }
+    await openBoard(reopenRead(graph, BEFORE_REVISION, served.model.scenario_revision))
+    stubWire()
+    const after = clone(graph) as Json
+    after.nodes.find((n: Json) => n.id === SPEND).observed_state = { value: 0.3, raw_value: 0.3, unit: '%', source: 'user_override' }
+    replies.push(editReply(after))
+    const view = card(SPEND)
+    expect(figureOf(SPEND), 'PRECONDITION: the card reads 25%').toContain('25%')
+
+    // Open: the field shows 25 with % beside it — the card's magnitude, never 0.25. Save unchanged: nothing is written.
+    fireEvent.click(screen.getByTestId(`node-value-editor-${SPEND}`))
+    let input = screen.getByTestId(`node-value-editor-${SPEND}-input`)
+    expect(input).toHaveValue('25')
+    expect(screen.getByTestId(`node-value-editor-${SPEND}-scale`)).toHaveTextContent('%')
+    await act(async () => { fireEvent.keyDown(input, { key: 'Enter' }) })
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(sent, 'the opened figure, saved unchanged, writes nothing').toEqual([])
+    expect(figureOf(SPEND)).toContain('25%')
+
+    // A new figure, typed in the card's percent: 30 → 0.3 on the stored scale.
+    fireEvent.click(screen.getByTestId(`node-value-editor-${SPEND}`))
+    input = screen.getByTestId(`node-value-editor-${SPEND}-input`)
+    fireEvent.change(input, { target: { value: '30' } })
+    await act(async () => { fireEvent.keyDown(input, { key: 'Enter' }) })
+    await waitFor(() => expect(valueEdits()).toHaveLength(1))
+    expect(valueEdits()[0]).toEqual({ kind: 'factor_value_edit', target_id: SPEND, field: 'value', value: 0.3, raw_value: 0.3, unit: '%' })
+    await waitFor(() => expect(useCanvasStore.getState().lastServerGraphHash).toBe(EDIT_REVISION))
+    view.unmount()
+    card(SPEND)
+    expect(figureOf(SPEND)).toContain('30%')
   })
 
   it('NEGATIVE: an external factor\'s card keeps its value read-only, as its inspector pane writes only the range (labelled synthetic: Weekly customers re-stamped external)', async () => {
