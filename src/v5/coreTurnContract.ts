@@ -43,6 +43,8 @@ export const CoreTurnSchema = z.object({
   analysis_state: z.record(z.unknown()).nullable().optional(),
   receipts: z.array(z.object({ authorised_by: z.enum(['person', 'olumi']) }).passthrough()).default([]),
   paused: z.object({ proposal_id: nullableId }).nullable().optional(),
+  // CEE's action bar (`action_bar` v1, null when it offers nothing), raw: its one reader is `readActionBar`, as on a reload.
+  action_bar: z.unknown().optional(),
   error: z.object({ code: z.string().min(1), message: z.string(), retry_safe: z.boolean(), nothing_saved: z.boolean() }).nullable(),
 })
 export type CoreTurn = z.infer<typeof CoreTurnSchema>
@@ -104,6 +106,7 @@ export function coreTurnToClientBody(turn: CoreTurn): Record<string, unknown> {
     ...(revision ? { graph_hash: revision } : {}),
     ...(turn.cards.length > 0 && revision ? { _proposal_fields: { version: 1, graph_hash: revision, proposals: turn.cards } } : {}),
     ...(turn.analysis_state ? { analysis_state: turn.analysis_state } : {}),
+    ...(turn.action_bar != null ? { action_bar: turn.action_bar } : {}),
     // What the scenario read must serve after this turn: the saved model and, after a Run, that Run (`readAfterWrite.ts`).
     // A turn with no saved identity, or no Run, asks nothing of the read (`readAfterWriteExpectation`).
     ...(turn.model?.scenario_revision ? { _read_after_write: { scenario_revision: turn.model.scenario_revision, ...(turn.run?.run_id ? { run_id: turn.run.run_id } : {}) } } : {}),
