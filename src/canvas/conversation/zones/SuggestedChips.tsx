@@ -47,6 +47,12 @@ import {
 } from '../proposalFields'
 import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
 
+/**
+ * Under an approve this card cannot offer: part of its change list could not be read, so approving would apply more than
+ * it shows. The remedy is the card's own "Change something first", which asks Olumi to offer the change again.
+ */
+export const CHANGE_LIST_UNREAD = 'Part of this change couldn’t be shown, so it can’t be approved here. Choose “Change something first” to have Olumi offer it again.'
+
 /** The heading over a held card's other changes, read before its approve. */
 export { ALSO_CHANGES } from '../proposalFields'
 /** Each note in the colour of whose it is; CEE's sentence already says it in words. */
@@ -561,6 +567,9 @@ export function SuggestedChips({
 
   const disabled = isThinking || isHistorical
   const showRunGateReason = runGateReason !== undefined && visible.some(isRunAnalysisAffordance)
+  /** An approve whose card's `changes[]` could not be read in full: shown, never pressable (buddy on #2957). */
+  const unreadApproveIds = new Set((bindable?.proposals ?? []).filter(p => p.changesUnread).map(p => p.approve_action.id))
+  const showUnreadReason = visible.some(c => typeof c.id === 'string' && unreadApproveIds.has(c.id))
 
   const proposal = bindable?.proposals.find(p => p.proposal_id === (controlledProposalId === undefined ? openedProposalId : controlledProposalId)
     && visible.some(c => c.id === p.approve_action.id))
@@ -695,7 +704,8 @@ export function SuggestedChips({
           const ariaLabel = detailAdds && !disclosed ? `${baseLabel}: ${detailText}` : baseLabel
           // Only Run chips answer to the run gate; every other chip stays live.
           const runGated = runGateClosed && isRunAnalysisAffordance(chip)
-          const chipDisabled = disabled || runGated
+          const unread = typeof chip.id === 'string' && unreadApproveIds.has(chip.id)
+          const chipDisabled = disabled || runGated || unread
 
           return (
             <button
@@ -709,7 +719,7 @@ export function SuggestedChips({
               aria-describedby={
                 runGated && showRunGateReason
                   ? runGateReasonId
-                  : disclosed ? `${disclosureIdBase}-${i}` : undefined
+                  : unread ? `${runGateReasonId}-unread` : disclosed ? `${disclosureIdBase}-${i}` : undefined
               }
               data-run-gated={runGated ? 'true' : undefined}
               // PX-B (Paul, 15 Aug: "oversized actions"). The chip grammar —
@@ -761,9 +771,20 @@ export function SuggestedChips({
         </p>
       )}
 
+      {showUnreadReason && (
+        <p
+          id={`${runGateReasonId}-unread`}
+          className={`${typography.chatMeta} text-text-light`}
+          style={{ margin: 0, paddingLeft: 2 }}
+          data-testid="suggested-chips-change-unread-reason"
+        >
+          {CHANGE_LIST_UNREAD}
+        </p>
+      )}
+
       {proposal && bindable && (
         <HeldProposalPanel key={`${replyId}:${proposal.proposal_id}:${proposal.digest}:${proposal.revision}:${bindable.graph_hash}`}
-          proposal={proposal} graphHash={bindable.graph_hash} disabled={disabled} onAction={handleClick} />
+          proposal={proposal} graphHash={bindable.graph_hash} disabled={disabled || unreadApproveIds.has(proposal.approve_action.id)} onAction={handleClick} />
       )}
 
       {chipError && (

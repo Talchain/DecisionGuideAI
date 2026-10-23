@@ -18,8 +18,8 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../../lib/supabase', () => ({ getUserId: async () => null, getSessionIdentity: async () => ({ userId: null, accessToken: null }) }))
 
-import { SuggestedChips } from '../zones/SuggestedChips'
-import { otherChangeCountOf, readProposalFields } from '../proposalFields'
+import { CHANGE_LIST_UNREAD, SuggestedChips } from '../zones/SuggestedChips'
+import { AMEND_PROPOSAL_ACTION, otherChangeCountOf, readProposalFields } from '../proposalFields'
 import { buildSuggestedActionChips } from '../../../v5/blocks/suggestedActionChips'
 import { useCanvasStore } from '../../store'
 import fixture from './fixtures/program-card-changes.json'
@@ -36,17 +36,22 @@ function board(program: boolean) {
     graph: program ? graph : { ...graph, living_model: { aims: [], links: [], factors: [], options: [] } } }
   useCanvasStore.setState({ currentScenarioId: funding.scenario_id, lastServerGraphHash: read.graph_hash } as never)
 }
+const onChipClick = vi.fn(async (_chip: { id?: string }) => {})
+/** The card as the core turn offers it: its approve, "Change something first" and "Not now". */
 async function mount(card: Json = fixture.card, open = true) {
   const fields = { version: 1, graph_hash: fixture.graph_hash, proposals: [card] }
-  render(<SuggestedChips chips={buildSuggestedActionChips([], [card.approve_action as never])} onChipClick={vi.fn(async () => {})} proposalFields={fields} />)
+  const actions = [card.approve_action, AMEND_PROPOSAL_ACTION, card.decline_action] as never[]
+  render(<SuggestedChips chips={buildSuggestedActionChips([], actions)} onChipClick={onChipClick} proposalFields={fields} />)
   await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
   if (open) fireEvent.click(screen.getByTestId(`proposal-change-details-${PID}`))
 }
 const summary = () => screen.getByTestId(`proposal-change-summary-${PID}`).textContent
 const item = (kindId: string) => screen.getByTestId(`proposal-change-${kindId}`)
 const listed = () => [...screen.getByTestId(`proposal-change-notes-${PID}`).querySelectorAll('li')]
+const approveChip = () => screen.getByTestId(`suggested-chip-${fixture.card.approve_action.id}`) as HTMLButtonElement
 
 beforeEach(() => {
+  onChipClick.mockClear()
   window.history.replaceState(null, '', '/?ai=core-route')
   vi.stubGlobal('fetch', vi.fn(async (url: string) => (
     /\/scenarios\/[^/]+\/graph$/.test(String(url))
@@ -115,11 +120,49 @@ describe('Codex r1 on #2957: the list is CEE’s, whole and exact', () => {
     expect(item(`relation:${relation.id}`).textContent).toBe(`Adds ‘${relation.label}’: ${after} · Olumi’s`)
   })
 
-  it('(b) a malformed entry between two valid ones drops only itself', async () => {
+  it('(b) a malformed entry between two valid ones: the 2 readable shown, and NO approve (buddy on #2957)', async () => {
     board(true)
     await mount(withChanges([goal, { ...figure, id: 'bad', kind: 'mystery' }, figure]))
     expect(listed().map((li) => li.getAttribute('data-testid'))).toEqual([`proposal-change-goal:${goal.id}`, `proposal-change-quantity:${figure.id}`])
     expect(summary()).toBe('Also changes 1 goal and 1 figure')
+    // Approve is shown disabled, described by why; a press sends nothing. "Change something first" stays the remedy.
+    const reason = screen.getByTestId('suggested-chips-change-unread-reason')
+    expect(reason.textContent).toBe(CHANGE_LIST_UNREAD)
+    expect(approveChip().disabled).toBe(true)
+    expect(approveChip().getAttribute('aria-describedby')).toBe(reason.id)
+    fireEvent.click(approveChip())
+    expect(onChipClick).not.toHaveBeenCalled()
+    const amend = screen.getByTestId(`suggested-chip-${AMEND_PROPOSAL_ACTION.id}`) as HTMLButtonElement
+    expect(amend.disabled).toBe(false)
+    fireEvent.click(amend)
+    expect(onChipClick).toHaveBeenCalledTimes(1)
+    expect(onChipClick.mock.calls[0][0]).toMatchObject({ id: AMEND_PROPOSAL_ACTION.id })
+  })
+
+  it('(b2) the same card opened for changes: the panel’s own approve is disabled too, and sends nothing', async () => {
+    const field = { field_id: 'factor_value:angel_raise_amount', kind: 'factor_value', node_id: 'angel_raise_amount', label: 'Amount sought from angels',
+      unit: 'GBP', current: { value: 150000, unit: 'GBP', source: 'yours' }, filled_missing: false, editable: true }
+    board(true)
+    await mount({ ...withChanges([goal, { ...figure, id: 'bad', kind: 'mystery' }, figure]), fields: [field] }, false)
+    fireEvent.click(screen.getByTestId(`suggested-chip-${AMEND_PROPOSAL_ACTION.id}`))
+    const apply = screen.getByRole('button', { name: 'Apply this reading' }) as HTMLButtonElement
+    expect(apply.disabled).toBe(true)
+    fireEvent.click(apply)
+    expect(onChipClick).not.toHaveBeenCalled()
+  })
+
+  it('CONTRAST: a list read in full, and an absent list, keep Approve live with no reason line', async () => {
+    board(true)
+    await mount(withChanges([goal, figure]))
+    expect(approveChip().disabled).toBe(false)
+    expect(screen.queryByTestId('suggested-chips-change-unread-reason')).toBeNull()
+    fireEvent.click(approveChip())
+    expect(onChipClick).toHaveBeenCalledTimes(1)
+    cleanup()
+    const { changes: _absent, ...legacy } = fixture.card
+    await mount(legacy)
+    expect(approveChip().disabled).toBe(false)
+    expect(screen.queryByTestId('suggested-chips-change-unread-reason')).toBeNull()
   })
 
   it('(c) two entries for one item count once, in the summary and the ghost’s "+N"', async () => {
