@@ -18,7 +18,7 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput, meaningfulUncertaintyDrivers } from '../utils/observedStateHelpers'
 import { NodeValueEditor } from './shared/NodeValueEditor'
-import { factorValueEntry } from './shared/factorValueEntry'
+import { factorValueFieldUnit } from './shared/factorValueFieldUnit'
 import { FactorValueFigure, readoutIsBareModelScale } from './shared/FactorValueFigure'
 import { usePendingFactorEditValue } from '../hooks/usePendingFactorEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
@@ -432,15 +432,11 @@ export const FactorNode = memo((props: NodeProps) => {
   const emptyUnit = useMemo(() => emptyValueUnit(observedState?.unit), [observedState])
   /** The field reads the typed number in the factor's own unit (`resolveValueInputSeed`, the commit's own rule). */
   const valueFieldInUserUnits = useMemo(() => resolveValueInputSeed(props.data).inUserUnits, [props.data])
-  /**
-   * §2d: the field for a figure read in the factor's own unit (`factorValueEntry`): it opens at the magnitude the card
-   * prints (a 0–1 percent opens at 25 for "25%"), admits the factor's own unit marker and refuses another one.
-   */
-  const valueEntry = useMemo(() => {
-    const seed = resolveValueInputSeed(props.data).seed
-    return valueFieldInUserUnits && !valueFieldIsModelScale && typeof seed === 'number'
-      ? factorValueEntry(observedState?.unit, seed) : null
-  }, [props.data, valueFieldInUserUnits, valueFieldIsModelScale, observedState])
+  /** §2d: the factor's own unit beside the open field (`factorValueFieldUnit`, display only); null keeps the field as it was. */
+  const valueFieldUnit = useMemo(
+    () => (valueFieldInUserUnits && !valueFieldIsModelScale ? factorValueFieldUnit(props.data as Record<string, unknown>) : null),
+    [props.data, valueFieldInUserUnits, valueFieldIsModelScale],
+  )
 
   // ⭐⭐ WHAT DOES THIS NODE SAY ABOUT ITS OWN NUMBER? ONE decision, ordered.
   //
@@ -1463,19 +1459,13 @@ export const FactorNode = memo((props: NodeProps) => {
                     magnitude-scaled factor reads user units and gets no bound
                     here (fails OPEN, as `resolveFactorValueAdmission` does). */}
                 <NodeValueEditor
-                  value={valueEntry ? valueEntry.fieldValue : resolveValueInputSeed(props.data).seed ?? observedState.value}
+                  value={resolveValueInputSeed(props.data).seed ?? observedState.value}
                   readout={<FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />}
-                  onCommit={(v, opts) => editAuthority.proposeFactorValue(valueEntry ? valueEntry.toWrite(v) : v, opts)}
-                  // A put-back carries the stored figure; the field shows it in its own scale (a 0–1 percent × 100).
-                  prefill={valuePrefill && valueEntry && Number.isFinite(Number(valuePrefill.text))
-                    ? { ...valuePrefill, text: String(valueEntry.toField(Number(valuePrefill.text))) }
-                    : valuePrefill}
+                  onCommit={(v, opts) => editAuthority.proposeFactorValue(v, opts)}
+                  prefill={valuePrefill}
                   onPrefillConsumed={consumeValuePrefill}
-                  readCommittedValue={() => {
-                    const seed = resolveValueInputSeed(useCanvasStore.getState().nodes.find(n => n.id === props.id)?.data).seed
-                    return seed == null ? null : valueEntry ? valueEntry.toField(seed) : seed
-                  }}
-                  {...(valueEntry ? { admit: valueEntry.admit, seedText: valueEntry.seedText } : {})}
+                  readCommittedValue={() =>
+                    resolveValueInputSeed(useCanvasStore.getState().nodes.find(n => n.id === props.id)?.data).seed ?? null}
                   {...(valueFieldIsModelScale
                     ? {
                         min: 0,
@@ -1483,10 +1473,10 @@ export const FactorNode = memo((props: NodeProps) => {
                         outOfRangeCopy: OPTION_TARGET_ENTRY_REFUSAL.outOfRangeModelScale,
                         scaleHint: FACTOR_VALUE_MODEL_SCALE_HINT,
                       }
-                    // §2d: the open field keeps the factor's own unit beside it, as the needs-input field and the
-                    // inspector do, wherever the typed number is read in that unit.
-                    : valueFieldInUserUnits
-                      ? { ...(emptyUnit.prefix ? { prefix: emptyUnit.prefix } : {}), ...(emptyUnit.suffix ? { scaleHint: emptyUnit.suffix } : {}) }
+                    // §2d: the open field keeps the factor's own unit beside it, as the inspector's option row does,
+                    // wherever the inspector's entry rule reads the figure in that unit.
+                    : valueFieldUnit
+                      ? { ...(valueFieldUnit.prefix ? { prefix: valueFieldUnit.prefix } : {}), ...(valueFieldUnit.suffix ? { scaleHint: valueFieldUnit.suffix } : {}) }
                       : {})}
                   onDraftChange={setDraftIsYours}
                   {...(baselineReplacedByEveryOption
