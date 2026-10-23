@@ -1,0 +1,119 @@
+{
+ "_source": "S3 smoke-alpha2 capacity-r1.read.json (CEE served read of a model_program v1 board, 23 Oct 2026), trimmed to nodes and the canonical view",
+ "scenario_id": "de719c71-d0d4-471d-b4a0-1b173d75fa0c",
+ "graph_hash": "811b509a0cfe1deb",
+ "graph": {
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "kind": "decision",
+    "label": "Which staffing option provides weekly support capacity of at least 100 tickets per week?"
+   },
+   {
+    "id": "support_capacity_goal",
+    "kind": "goal",
+    "label": "Weekly support capacity"
+   },
+   {
+    "id": "keep_current_staffing",
+    "kind": "option",
+    "label": "Keep current staffing"
+   },
+   {
+    "id": "add_one_specialist",
+    "kind": "option",
+    "label": "Add one specialist"
+   },
+   {
+    "id": "existing_capacity",
+    "kind": "factor",
+    "label": "Existing team capacity"
+   },
+   {
+    "id": "specialists_added",
+    "kind": "factor",
+    "label": "Additional specialists"
+   },
+   {
+    "id": "zero_additional_capacity",
+    "kind": "factor",
+    "label": "Additional capacity with no additional specialists"
+   },
+   {
+    "id": "additional_capacity",
+    "kind": "outcome",
+    "label": "Additional specialist capacity"
+   },
+   {
+    "id": "weekly_support_capacity",
+    "kind": "outcome",
+    "label": "Weekly support capacity"
+   }
+  ],
+  "edges": [],
+  "living_model": {
+   "model_program": "v1"
+  }
+ },
+ "canonical_analysis_view": {
+  "schema": "canonical_analysis_view.v1",
+  "source": "stored_run_facts",
+  "run": {
+   "run_id": "mp_run_1_8854be2b3478",
+   "graph_hash_at_run": "811b509a0cfe1deb",
+   "computed_at": "2026-10-23T13:15:31.633Z"
+  },
+  "staleness": {
+   "stale": false,
+   "revision": null,
+   "run_revision": null,
+   "basis": "analysis_graph_hash_interim",
+   "reason": "graph_hash_match",
+   "limitation": "Hash equality cannot detect brief, framing or stage changes."
+  },
+  "leader_licence": "withheld",
+  "options": [
+   {
+    "option_id": "keep_current_staffing",
+    "cell": {
+     "kind": "figure",
+     "display": "0%",
+     "face": "‘Keep current staffing’: 0% chance of ‘Weekly support capacity’ being at least 100 ticket / week at 1 week from now, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds.",
+     "detail": {
+      "precision_95": [
+       0,
+       0
+      ],
+      "draws": 10000,
+      "precision_words": "Simulation precision: exact. Every simulated draw gives the same result for this option, so no sampling is involved."
+     }
+    },
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "option_id": "add_one_specialist",
+    "cell": {
+     "kind": "figure",
+     "display": "about 50%",
+     "face": "‘Add one specialist’: about 50% chance of ‘Weekly support capacity’ being at least 100 ticket / week at 1 week from now, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds.",
+     "detail": {
+      "precision_95": [
+       0.4884028164789366,
+       0.5079985659151977
+      ],
+      "draws": 10000,
+      "precision_words": "Simulation precision: 48.8% to 50.8%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+     }
+    },
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   }
+  ],
+  "goal_chance": {
+   "chance_words": "chance of ‘Weekly support capacity’ being at least 100 ticket / week at 1 week from now"
+  }
+ }
+}

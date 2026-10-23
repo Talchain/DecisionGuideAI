@@ -1,0 +1,215 @@
+{
+ "_source": "S3 smoke-alpha2 hiring-r1.read.json (CEE served read of a model_program v1 board, 23 Oct 2026), trimmed to nodes and the canonical view",
+ "scenario_id": "57f19979-5a0b-4059-b558-bb6328cfbac7",
+ "graph_hash": "5c067af75fc8cd04",
+ "graph": {
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "kind": "decision",
+    "label": "Should we hire a Tech lead or two developers to increase productivity by at least 10% within three months, maintain code quality, and stay within £200,000?"
+   },
+   {
+    "id": "increase_productivity",
+    "kind": "goal",
+    "label": "increase productivity by at least 10%"
+   },
+   {
+    "id": "urgent_launch",
+    "kind": "goal",
+    "label": "We have an urgent launch date in the next three months."
+   },
+   {
+    "id": "hire_tech_lead",
+    "kind": "option",
+    "label": "Tech lead"
+   },
+   {
+    "id": "hire_two_developers",
+    "kind": "option",
+    "label": "two developers"
+   },
+   {
+    "id": "current_developers",
+    "kind": "factor",
+    "label": "Current mid-weight developers"
+   },
+   {
+    "id": "current_productivity",
+    "kind": "factor",
+    "label": "Productivity today, used as the reference"
+   },
+   {
+    "id": "leads_added",
+    "kind": "factor",
+    "label": "Tech leads hired"
+   },
+   {
+    "id": "developers_added",
+    "kind": "factor",
+    "label": "Developers hired"
+   },
+   {
+    "id": "developer_effectiveness",
+    "kind": "factor",
+    "label": "New developer output relative to an existing developer"
+   },
+   {
+    "id": "developer_productivity_effect",
+    "kind": "outcome",
+    "label": "Relative team output added per developer"
+   },
+   {
+    "id": "productivity",
+    "kind": "outcome",
+    "label": "Team output relative to today"
+   },
+   {
+    "id": "launch_window",
+    "kind": "factor",
+    "label": "Time available before launch"
+   },
+   {
+    "id": "hiring_delay",
+    "kind": "factor",
+    "label": "Time until the new hires can start"
+   },
+   {
+    "id": "paid_months",
+    "kind": "outcome",
+    "label": "Months employed before launch"
+   },
+   {
+    "id": "lead_monthly_cost",
+    "kind": "factor",
+    "label": "Fully loaded monthly cost per Tech lead"
+   },
+   {
+    "id": "developer_monthly_cost",
+    "kind": "factor",
+    "label": "Fully loaded monthly cost per new developer"
+   },
+   {
+    "id": "lead_spend",
+    "kind": "outcome",
+    "label": "Tech lead spending before launch"
+   },
+   {
+    "id": "developer_spend",
+    "kind": "outcome",
+    "label": "New developer spending before launch"
+   },
+   {
+    "id": "hiring_spend",
+    "kind": "outcome",
+    "label": "Total additional hiring spending before launch"
+   },
+   {
+    "id": "mp:limit:maintain_quality",
+    "kind": "action",
+    "label": "Limit: maintaining code quality"
+   },
+   {
+    "id": "prefer_lower_spend",
+    "kind": "action",
+    "label": "Preference: lower Total additional hiring spending before launch"
+   },
+   {
+    "id": "leadership_gap",
+    "kind": "action",
+    "label": "Claim: We're lacking leadership."
+   },
+   {
+    "id": "productivity_interpretation",
+    "kind": "action",
+    "label": "Assumption: Productivity is provisionally interpreted as total team delivery output per mon…"
+   },
+   {
+    "id": "deadline_interpretation",
+    "kind": "action",
+    "label": "Assumption: The productivity improvement is assessed at the end of the stated three-month l…"
+   },
+   {
+    "id": "unchanged_baseline",
+    "kind": "action",
+    "label": "Assumption: Without hiring, team output remains at today's level over the launch window."
+   },
+   {
+    "id": "budget_scope",
+    "kind": "action",
+    "label": "Assumption: The budget is provisionally treated as available for additional hiring costs th…"
+   },
+   {
+    "id": "shared_start",
+    "kind": "action",
+    "label": "Assumption: Both options use the same hiring delay, with hires starting before launch; diff…"
+   },
+   {
+    "id": "short_window_effects",
+    "kind": "action",
+    "label": "Assumption: Hiring coefficients represent net short-window contributions including onboardi…"
+   },
+   {
+    "id": "quality_not_quantified",
+    "kind": "action",
+    "label": "Left out: Maintaining code quality is not yet included in the calculation."
+   },
+   {
+    "id": "launch_readiness_not_quantified",
+    "kind": "action",
+    "label": "Left out: Meeting the urgent launch date is not established by the productivity calculati…"
+   }
+  ],
+  "edges": [],
+  "living_model": {
+   "model_program": "v1"
+  }
+ },
+ "canonical_analysis_view": {
+  "schema": "canonical_analysis_view.v1",
+  "source": "stored_run_facts",
+  "run": {
+   "run_id": "mp_run_1_bbfd58aed3f8",
+   "graph_hash_at_run": "5c067af75fc8cd04",
+   "computed_at": "2026-10-23T13:16:29.459Z"
+  },
+  "staleness": {
+   "stale": false,
+   "revision": null,
+   "run_revision": null,
+   "basis": "analysis_graph_hash_interim",
+   "reason": "graph_hash_match",
+   "limitation": "Hash equality cannot detect brief, framing or stage changes."
+  },
+  "leader_licence": "withheld",
+  "options": [
+   {
+    "option_id": "hire_tech_lead",
+    "cell": {
+     "kind": "withheld",
+     "face": "Chance not shown yet",
+     "why": "No aim has a measure yet.",
+     "reasons": []
+    },
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "option_id": "hire_two_developers",
+    "cell": {
+     "kind": "withheld",
+     "face": "Chance not shown yet",
+     "why": "No aim has a measure yet.",
+     "reasons": []
+    },
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   }
+  ],
+  "goal_chance": {
+   "notes": []
+  }
+ }
+}

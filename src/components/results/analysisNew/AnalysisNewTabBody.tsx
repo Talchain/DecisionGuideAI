@@ -2876,8 +2876,9 @@ export function AnalysisNewTabBody({
           <PreRunCommitment
             bullets={buildPreRunCommitmentBullets({
               optionCount: modelStrip.rows.find((r) => r.kind === 'option')?.nodes.length ?? 0,
-              // Run availability; the act itself yields when the footer owns rerun.
-              canRun: !isBusyNow && !runRefusedByGate && Boolean(onReanalyse),
+              // Run availability; the act itself yields when the footer owns rerun. A bound, current view-only Run's
+              // words are on screen (DL ruling A), so "then run the analysis" would say no result exists.
+              canRun: !isBusyNow && !runRefusedByGate && Boolean(onReanalyse) && !showViewOnlyChances,
             })}
             status={preRunStatus}
             onAsk={openAskOlumi}

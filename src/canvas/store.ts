@@ -2481,7 +2481,7 @@ const DECISION_CONTEXT_CLEAR = {
  * ids — resolveActiveGoalNodeId's existence check would then pass on the
  * wrong node). Returns null when the graph has no goal node.
  */
-function firstGoalNodeId(
+export function firstGoalNodeId(
   nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }> | undefined,
 ): string | null {
   const goal = nodes?.find(
