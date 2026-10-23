@@ -19,6 +19,7 @@ import { useBriefDocumentUpload } from './BriefDocumentUpload'
 import { useStageAwarePlaceholder } from '../hooks/useStageAwarePlaceholder'
 import { normalisePastedText } from '../conversation/normalisePastedText'
 import { AddOptionPanel } from '../conversation/AddOptionPanel'
+import { ComposerMoves } from '../conversation/actionBar/ComposerMoves'
 import {
   buildAddOptionDispatch,
   describeAddOptionRefusal,
@@ -819,7 +820,13 @@ export const AIInputBar = memo(
               className="flex items-center justify-end gap-1 px-2 pb-1"
               data-testid={`${base}-actions`}
             >
-              {showDocumentUpload && !isGenerating ? <span className="mr-auto flex">{documentUpload.trigger}</span> : null}
+              {showDocumentUpload && !isGenerating ? (
+                <span className="mr-auto flex items-center gap-2">
+                  {documentUpload.trigger}
+                  {/* The vision's composer toolbar: upload, then the reasoning moves, then send (`ComposerMoves`). */}
+                  <ComposerMoves busy={isThinking} testIdBase={base} />
+                </span>
+              ) : null}
               {analysisControl}
               {chevronControl}
               {sendControl}

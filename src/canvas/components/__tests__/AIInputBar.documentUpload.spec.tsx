@@ -79,4 +79,18 @@ describe('#2145 — a document mid-conversation, in the panel-footer composer', 
     render(<AIInputBar variant="welcome" testId="welcome" />, { wrapper: Wrapper })
     expect(screen.queryByTestId('brief-document-trigger')).toBeNull()
   })
+
+  it('23 Oct: the strip composer\'s row is the vision toolbar: paperclip, the four reasoning moves, then send', () => {
+    render(<AIInputBar variant="strip" testId="strip" onChevronClick={() => {}} />, { wrapper: Wrapper })
+    const actions = screen.getByTestId('strip-actions')
+    const order = Array.from(actions.querySelectorAll('[data-testid]')).map((el) =>
+      el.getAttribute('data-move') ?? el.getAttribute('data-testid'))
+    expect(order.filter((id) => id !== 'strip-composer-moves')).toEqual([
+      'brief-document-trigger', 'brief-document-input', 'challenge', 'opposite', 'evidence_against', 'outside_view', 'strip-chevron', 'strip-send',
+    ])
+    // CONTRAST: the welcome (first-brief) box has no model to reason about and draws no moves.
+    canvasMockState.nodes = []
+    render(<AIInputBar variant="welcome" testId="welcome" />, { wrapper: Wrapper })
+    expect(within(screen.getByTestId('welcome')).queryAllByTestId('welcome-composer-tool')).toHaveLength(0)
+  })
 })
