@@ -76,8 +76,8 @@ describe('WS5 PR-C server faces', () => {
       if (face === null) expect(readout).toBeNull()
       else {
         // Vision spec row 1 (23 Oct): the line is the headline, CEE's own display (read from the served cell); the full
-        // face stays in the readout's description. A withheld face is said as served.
-        expect(readout?.textContent).toBe(cell?.kind === 'figure' || cell?.kind === 'range' ? cell.display : face)
+        // face stays in the readout's description. Gap P0 #1 (#2961): a withheld cell is `—` on the line, its face there too.
+        expect(readout?.textContent).toBe(cell?.kind === 'figure' || cell?.kind === 'range' ? cell.display : '—')
         expect(readout?.closest('[aria-label]')?.getAttribute('aria-label')).toContain(face)
       }
       expect(card.queryByRole('button', { name: 'Why?' })).toBeNull()
