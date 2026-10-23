@@ -36,3 +36,24 @@ describe('an option value on a factor framed only by CEE’s scale_frame', () =>
     expect(optionEntryScaleOf(100000, 500000)).toBe(100000)
   })
 })
+
+describe('the card editor reads the whole entry, or refuses it (DL 23 Oct: café "£ per customer")', () => {
+  const cafe = () => optionValueInPlace({ value: 0.25, unit: '£ per customer', cap: 20, observedValue: 0.25, observedRawValue: 5 })!
+
+  it('".5" proposes £0.50 (0.025), never £5 — RED at fc60b62a (0.25)', () => {
+    const a = cafe().admit('.5')
+    expect(a).toMatchObject({ ok: true })
+    expect((a as { value: number }).value).toBeCloseTo(0.025, 12)
+  })
+
+  it('"-£6.80", "6.8junk" and "6.80 EUR" are refused with a sentence — RED at fc60b62a (all admitted)', () => {
+    expect(cafe().admit('-£6.80')).toEqual({ ok: false, reason: 'Not saved · must be between £0 / customer and £20 / customer for this factor.' })
+    expect(cafe().admit('6.8junk')).toEqual({ ok: false, reason: 'Not saved · not a number this row can read. Enter an amount such as £5 / customer.' })
+    expect(cafe().admit('6.80 EUR')).toEqual({ ok: false, reason: 'Not saved · this row is in £ per customer. Enter the amount without another unit.' })
+  })
+
+  it('CONTRAST — "£6.80" proposes 0.34', () => {
+    const a = cafe().admit('£6.80')
+    expect((a as { value: number }).value).toBeCloseTo(0.34, 12)
+  })
+})
