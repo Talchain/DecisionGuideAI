@@ -1417,7 +1417,10 @@ test.fixme('J1 positive · level-target chance is the named option’s probabili
   expect(ownWordsRemoved(rowText, [option.label])).not.toMatch(/\b(?:rank(?:ed|ing)?|leader|leading|wins?|winning|put forward)\b/i)
   await expect(results.getByTestId('hero-caption')).toHaveText('Each value is the chance that option meets every target this run scored.')
   // The status quo has no Monte Carlo chance: only its absence face is asserted.
-  await expect(page.getByTestId(`option-win-readout-${options[0].id}`)).toHaveText('Chance not shown yet')
+  // Gap P0 #1 (23 Oct): on the card a withheld cell is a dash and the `withheld` word; its face stays in the accessible name.
+  await expect(page.getByTestId(`option-win-readout-${options[0].id}`)).toHaveText('—')
+  await expect(page.getByTestId(`option-chance-withheld-${options[0].id}`)).toHaveText('withheld')
+  await expect(page.getByTestId(`option-analysis-currency-${options[0].id}`)).toHaveAttribute('aria-label', /Chance not shown yet/)
   await expect(heroRow(options[0].id).getByText('Chance not shown yet', { exact: true })).toBeVisible()
   const displayedPercent = (p: number, rounding: string) => rounding === 'whole' ? Math.round(p * 100)
     : p > 0 && p < 1 ? Math.max(5, Math.min(95, Math.round(p * 20) * 5)) : p * 100

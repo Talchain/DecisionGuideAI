@@ -1909,6 +1909,11 @@ export const OptionNode = memo((props: NodeProps) => {
    * the UI never draws one of its own.
    */
   const chanceHeadline = chanceText === null ? null : chanceCell.display ?? null
+  // Gap P0 #1 (23 Oct): five cards repeating "Not shown yet: …" is one fact said five times. A withheld cell shows a dash
+  // and the `withheld` state word; CEE's face and reason stay in the hover, focus tooltip and accessible name above. CEE's
+  // typed carry-on-as-now cell ("No change, by assumption") is a statement, not a withheld chance, so it keeps its words.
+  const chanceWithheldMark = chanceText !== null && chanceHeadline === null && chanceCell.kind === 'withheld'
+    && !(chanceCell.reasonCodes ?? []).includes('status_quo_by_assumption')
   // Vision spec row 2 (23 Oct): "Current model" says nothing the card does not show, so it is retired from the line; its
   // meaning stays in the description above. "Last run" and "Model result" say something the card does not, so they stay.
   const resultCaptionOnCard = resultCaption === OPTION_RESULT_COPY.current ? null : resultCaption
@@ -2676,8 +2681,14 @@ export const OptionNode = memo((props: NodeProps) => {
               )}
               <span data-testid={`option-win-readout-${props.id}`}
                 className={`${chanceHeadline === null ? `${typography.edgeLabel} text-text-body` : `${typography.nodeHeadline} text-text-header`} min-w-0 truncate`} aria-hidden="true">
-                {chanceHeadline ?? chanceText}
+                {chanceWithheldMark ? OPTION_RESULT_COPY.withheldDash : chanceHeadline ?? chanceText}
               </span>
+              {chanceWithheldMark && (
+                <span data-testid={`option-chance-withheld-${props.id}`} className={`${STATE_WORD_CLASSES} ml-1.5`}
+                  style={STATE_WORD_STYLE} aria-hidden="true">
+                  {OPTION_RESULT_COPY.withheld}
+                </span>
+              )}
             </div>
           </Tooltip>
         )}

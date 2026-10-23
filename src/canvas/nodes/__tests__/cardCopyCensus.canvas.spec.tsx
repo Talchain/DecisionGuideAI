@@ -585,7 +585,9 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
   ],
   'option · post · standard': [
-    CHANCE_NOT_SHOWN_YET,
+    // ⭐ RE-ADJUDICATED 23 Oct 2026 (canvas-vs-vision gap P0 #1): a withheld cell's face (`Chance not shown yet`) leaves
+    // the card's line; the line is the `—` figure and the `withheld` STATE word, and the face stays in the line's hover and
+    // accessible name. The zoomed-out line still says the face.
     // ⭐ RETIRED 23 Oct 2026 (vision spec row 2): the `Current model` CAPTION (`OPTION_RESULT_COPY.current`; was 'Ahead'
     // until 7 Sep, then 'Support' until 23 Sep) says nothing the card does not show. It stays in the line's hover and
     // accessible name; "Last run" and "Model result" still caption the line. Negative pinned below.
@@ -595,12 +597,16 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // below them. Same MARK and SEPARATOR as `option · pre · standard`.
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
+    'withheld', // STATE — gap P0 #1
+    '—', // FIGURE — gap P0 #1: no chance shown
   ],
   // Sorted, because `invariantRuns` sorts — the pinned set must be read as a
   // SET, and an order that depended on render order would RED on an unrelated
   // reshuffle and teach the next session to stop reading it.
   'option · post · expert': [
-    CHANCE_NOT_SHOWN_YET,
+    // ⭐ RE-ADJUDICATED 23 Oct 2026 (canvas-vs-vision gap P0 #1): a withheld cell's face (`Chance not shown yet`) leaves
+    // the card's line; the line is the `—` figure and the `withheld` STATE word, and the face stays in the line's hover and
+    // accessible name. The zoomed-out line still says the face.
     // `Current model` CAPTION retired 23 Oct (vision spec row 2), as in Standard.
     'View parameters', // CONTROL
     'What this option sets:', // HEADING
@@ -610,6 +616,8 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
     // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
+    'withheld', // STATE — gap P0 #1
+    '—', // FIGURE — gap P0 #1: no chance shown
   ],
   'factor · pre · standard': [],
   'factor · pre · expert': [
@@ -1078,7 +1086,9 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     expect(Object.values(measured).flat()).not.toContain('Influence')
     // Vision spec row 2 (23 Oct): the caption is retired from every option card (the share line, Detailed and the reduced
     // line); the chance cell it captioned is still found (positive control).
-    expect(measured['option · post · standard']).toContain(CHANCE_NOT_SHOWN_YET)
+    // Gap P0 #1 (23 Oct): on the full card that cell is now the `withheld` word; the zoomed-out line still says the face.
+    expect(measured['option · post · standard']).toContain('withheld')
+    expect(measured['option · post · lod-line']).toContain(CHANCE_NOT_SHOWN_YET)
     for (const [bucket, runs] of Object.entries(measured)) {
       if (bucket.startsWith('option')) expect(runs.join(' | '), bucket).not.toContain('Current model')
     }

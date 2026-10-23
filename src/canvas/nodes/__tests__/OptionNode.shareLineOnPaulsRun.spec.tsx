@@ -181,7 +181,9 @@ describe('DIFF item 1 — the run caption leads the Results chance; the runs-sha
     const slot = byId(`option-share-slot-${id}`)!
     expect(slot.getAttribute('class'), 'the Run neither grows nor shrinks the card').toBe(preClass)
     expect(slot.textContent).not.toMatch(/\d\s*%/)
-    expect(byId(`option-win-readout-${id}`)?.textContent ?? null).toBe(chanceText(id))
+    // Gap P0 #1 (23 Oct): these withheld cells are `—` on the card; CEE's face stays in the line's accessible name.
+    expect(byId(`option-win-readout-${id}`)?.textContent ?? null).toBe('—')
+    expect(byId(`option-analysis-currency-${id}`)?.getAttribute('aria-label')).toContain(chanceText(id))
     expect(byId(`option-share-goal-only-${id}`)).toBeNull()
     const marker = byId(`option-not-ranked-${id}`)!
     expect(marker, 'the `Not ranked` marker renders').not.toBeNull()

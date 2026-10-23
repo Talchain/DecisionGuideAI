@@ -393,7 +393,10 @@ describe('wording parity with the option card', () => {
     expect(screen.getByTestId('option-analysis-currency-opt_a').getAttribute('aria-label'))
       .toContain(chanceCells('opt_a').text)
     const face = screen.getByTestId('option-win-readout-opt_a')
-    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    // Gap P0 #1 (23 Oct): a withheld cell is a dash and the `withheld` word on the card; its face stays in the name (above).
+    expect(face.textContent).toBe('—')
+    expect(screen.getByTestId('option-analysis-currency-opt_a').getAttribute('aria-label')).toContain(CHANCE_NOT_SHOWN_YET)
+    expect(screen.getByTestId('option-chance-withheld-opt_a').textContent).toBe('withheld')
     expect(face.textContent).not.toMatch(/\d+%/)
     expect(face.textContent).not.toContain('Why?')
     expect(container.textContent).not.toContain('of runs')

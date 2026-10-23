@@ -272,14 +272,17 @@ function readCanvas(withView = false): { claims: boolean; rendered: boolean; tex
   const text = container.textContent ?? ''
   const rendered = OPTION_NODES.every(n =>
     text.includes(n.data.label) &&
-    container.querySelector(`[data-testid="option-win-readout-${n.id}"]`)?.textContent === cells(n.id).text,
+    // Gap P0 #1 (23 Oct): a withheld cell's face is in the line's accessible name; the card's line is `—` + `withheld`.
+    (container.querySelector(`[data-testid="option-analysis-currency-${n.id}"]`)?.getAttribute('aria-label') ?? '').includes(String(cells(n.id).text)),
   ) && !text.includes('of runs') // distinct from the run shares
   for (const node of OPTION_NODES) {
     const face = container.querySelector(`[data-testid="option-win-readout-${node.id}"]`)!
     expect(face).not.toBeNull()
     if (withView) expect(face.textContent).toBe(cells(node.id).text)
     else {
-      expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+      expect(face.textContent).toBe('—')
+      expect(container.querySelector(`[data-testid="option-chance-withheld-${node.id}"]`)?.textContent).toBe('withheld')
+      expect(container.querySelector(`[data-testid="option-analysis-currency-${node.id}"]`)?.getAttribute('aria-label')).toContain(CHANCE_NOT_SHOWN_YET)
       expect(face.textContent).not.toMatch(/\d+%/)
       expect(face.textContent).not.toContain('Why?')
     }

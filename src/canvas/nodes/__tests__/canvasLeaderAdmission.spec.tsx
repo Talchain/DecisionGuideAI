@@ -240,9 +240,11 @@ const crownFor = (id: string) => screen.queryByTestId(`leading-option-pill-${id}
  */
 function expectNoCrown(container: HTMLElement, id: string, label: string) {
   expect(screen.getByText(label)).toBeDefined()
-  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(chanceCells(id).text)
+  // Gap P0 #1 (23 Oct): a withheld cell is `—` + `withheld` on the card; CEE's face is in the line's accessible name.
+  expect(screen.getByTestId(`option-analysis-currency-${id}`).getAttribute('aria-label')).toContain(chanceCells(id).text)
   const face = screen.getByTestId(`option-win-readout-${id}`)
-  expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+  expect(face.textContent).toBe('—')
+  expect(chanceCells(id).text).toBe(CHANCE_NOT_SHOWN_YET)
   expect(face.textContent).not.toMatch(/\d+%/)
   expect(face.textContent).not.toContain('Why?')
   expect(container.textContent ?? '').not.toContain('of runs')

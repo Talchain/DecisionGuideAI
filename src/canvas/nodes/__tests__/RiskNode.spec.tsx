@@ -107,7 +107,18 @@ describe('RiskNode', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
     renderRisk({ event_risk: { version: 1, occurrence, horizon: { months } } })
     expect(screen.getByTestId('risk-event-line').textContent).toBe(line)
-    expect(screen.getByTestId('risk-event-basis').textContent).toBe(` · ${basis}`)
+    // Gap P0 #5 (23 Oct): you and Olumi are said by the author mark, not italic words; a reference figure keeps its words.
+    const mark = screen.queryByTestId('risk-event-source-risk-1')
+    if (occurrence.basis === 'reference') {
+      expect(mark).toBeNull()
+      expect(screen.getByTestId('risk-event-basis').textContent).toBe(` · ${basis}`)
+    } else {
+      expect(screen.queryByTestId('risk-event-basis')).toBeNull()
+      expect(mark?.getAttribute('data-value-source')).toBe(occurrence.basis === 'olumi' ? 'olumi' : 'you')
+    }
+    // Olumi's figure carries the canvas's dotted underline; yours and a reference figure do not.
+    expect(screen.getByTestId('risk-event-figure').className.includes('decoration-dotted')).toBe(occurrence.basis === 'olumi')
+    // The words are never lost: the accessible line still says whose chance it is.
     expect(screen.getByTestId('risk-primary-line-full').textContent).toBe(`${line} · ${basis}`)
     // Slice B (#2633): the pair is a mark whose words are its aria-label, so the absence binds by identity.
     expect(screen.queryByTestId('risk-exposure-unset')).toBeNull()

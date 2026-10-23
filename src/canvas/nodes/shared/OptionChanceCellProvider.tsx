@@ -12,6 +12,8 @@ export type CanvasOptionChanceCell = OptionChanceCell &
      * headline (vision spec row 1, 23 Oct), verbatim. Never re-rounded or re-worded; absent for a withheld or no-source cell.
      */
     readonly display?: string
+    /** CEE's typed reason codes on a withheld cell (`withheldReasonCodesOf`): read, never matched on its words. */
+    readonly reasonCodes?: readonly string[]
   }
 
 /**
@@ -46,7 +48,7 @@ export function OptionChanceCellProvider({ children }: { children: ReactNode }) 
         : { kind: cell.kind, text: faceWithoutOwnLabel(cell.face), detail: cell.face, display: cell.display }
     }
     if (cell?.kind === 'withheld' && cell.face !== undefined) {
-      return { kind: 'withheld', text: cell.face, ...(cell.why === undefined ? {} : { why: cell.why }) }
+      return { kind: 'withheld', text: cell.face, ...(cell.why === undefined ? {} : { why: cell.why }), reasonCodes: view?.withheldReasonCodesOf(optionId) ?? [] }
     }
     return NONE
   }, [view])
