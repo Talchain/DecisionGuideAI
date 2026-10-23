@@ -250,7 +250,9 @@ describe('NODE-ANATOMY v3.2 · Factor · pre-run with a value — title, value, 
     // RE-PINNED 27 Sep (side-by-side DIFF item 3): one breakable space is now the gap
     // between the value and its mark (inline flow, so the mark wraps WITH the value).
     expect(visibleText(row)).toBe('8%')
-    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
+    // Vision spec §2a (23 Oct): the author glyph leads the figure in the value line, never the card's marks band.
+    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).not.toBeNull()
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).toBeNull()
     // Principle 4 "no chips around values at rest": the editor rests as text.
     const editor = screen.getByTestId(`node-value-editor-${ID}`)
     const rest = tokens(editor)
@@ -540,7 +542,9 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     // The value is the factor's own state, not a finding: never prefixed.
     // RE-PINNED 27 Sep (DIFF item 3): the value and its mark are separated by one breakable space.
     expect(visibleText(screen.getByTestId('factor-recorded-value'))).toBe('8%')
-    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
+    // Vision spec §2a (23 Oct): the author glyph leads the figure in the value line, never the card's marks band.
+    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).not.toBeNull()
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).toBeNull()
     expectNothingItMustNeverSay()
   })
 

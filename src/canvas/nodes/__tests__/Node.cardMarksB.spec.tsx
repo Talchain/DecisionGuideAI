@@ -43,7 +43,11 @@ it.each((Object.keys(components) as (keyof typeof components)[]).flatMap(type =>
   expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3')
   const marks = document.querySelectorAll('[data-card-mark]')
   expect(marks.length).toBeGreaterThan(0)
-  for (const mark of marks) expect(band.contains(mark)).toBe(true)
+  // Vision spec §2a (23 Oct): a factor's value carries its author glyph BEFORE the figure, in the value line; every
+  // other information mark stays in the one bottom band.
+  const valueLine = type === 'factor' ? screen.getByTestId('factor-recorded-value') : null
+  if (valueLine) expect(valueLine.querySelector('[data-card-mark="source-brief"]')).not.toBeNull()
+  for (const mark of marks) expect(band.contains(mark) || (valueLine !== null && valueLine.contains(mark) && mark.getAttribute('data-card-mark') === 'source-brief')).toBe(true)
   for (const testId of ['node-provenance-mark', `node-coaching-marker-marks-${type}`]) expect(band.contains(screen.getByTestId(testId))).toBe(true)
   // Vision spec §3 (one Olumi slot): the producer's badge is the card's one Olumi mark; no second attention mark.
   expect(screen.queryByTestId(`attention-marker-marks-${type}`)).toBeNull()

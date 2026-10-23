@@ -8,7 +8,7 @@ import type { GoalTodayLevel } from '../../domain/goalTarget'
 export function goalTodayLevelCopy(t: GoalTodayLevel, labelOf: (id: string) => string | undefined = () => undefined): string {
   // #2747 r2: a level that is not a finite number is never printed (census B R2).
   // target-text: today's LEVEL of the goal's quantity, never its target (a change target is said apart from it)
-  const figure = formatGoalTarget(t.level, t.unit) ?? 'not recorded'
+  const figure = goalTodayLevelFigure(t)
   if (t.basis === 'olumi_reading' && t.quote !== null) return `Today: ${figure} — Olumi's reading of ‘${t.quote}’`
   if (t.basis === 'from_brief') return `Today: ${figure} — from your brief`
   if (t.basis === 'from_parts') {
@@ -20,3 +20,13 @@ export function goalTodayLevelCopy(t: GoalTodayLevel, labelOf: (id: string) => s
   }
   return t.basis === 'user_confirmed' ? `Today: ${figure} — you confirmed` : `Today: ${figure} — you said`
 }
+
+/**
+ * Vision spec §3 (23 Oct): the card shows "today <figure>"; whose it is moves to the author glyph before the figure,
+ * and the sentence above (`goalTodayLevelCopy`) becomes that line's hover and accessible text, never dropped.
+ */
+export const GOAL_TODAY_WORD = 'today'
+export function goalTodayLevelFigure(t: GoalTodayLevel): string {
+  return formatGoalTarget(t.level, t.unit) ?? 'not recorded'
+}
+

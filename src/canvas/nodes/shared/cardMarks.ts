@@ -4,6 +4,7 @@ import {
   Signal, BookOpen,
   type LucideIcon,
 } from 'lucide-react'
+import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 import { VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../../domain/valueProvenance'
 import { UNCONFIRMED_ESTIMATE_LABEL, UNCONFIRMED_ESTIMATE_TOKEN } from '../../domain/vocabulary'
 import { VALUE_PROVENANCE_ICON } from '../../domain/valueProvenanceIcon'
@@ -14,7 +15,7 @@ export interface CardMarkDefinition {
   readonly id: string
   /** Current card words, verbatim. N/M/… identify variable content, not new copy. */
   readonly words: string
-  readonly Icon: LucideIcon
+  readonly Icon: CardMarkIcon
   readonly nodeTypes: readonly string[]
   readonly keyWords?: readonly string[]
   readonly keyText: string
@@ -23,9 +24,11 @@ export interface CardMarkDefinition {
   /** Marks rendered on cards or in the board status area. */
   readonly rendered: boolean
 }
+/** A Lucide glyph, or the Olumi brand mark (which mirrors the Lucide props a card passes). */
+export type CardMarkIcon = LucideIcon | typeof OlumiAiIcon
 export type CardMarkVisual = 'level-meter' | 'rank-bar' | 'rank-bar-history' | 'empty-value' | 'risk-matrix' | 'target-dashed'
 const values = ['factor', 'option', 'outcome', 'risk', 'goal', 'decision'] as const
-function entry<Id extends string>(id: Id, words: string, Icon: LucideIcon, nodeTypes: readonly string[], rendered = false, keyText = words, ariaWords = keyText, visual?: CardMarkVisual): CardMarkDefinition & { readonly id: Id } {
+function entry<Id extends string>(id: Id, words: string, Icon: CardMarkIcon, nodeTypes: readonly string[], rendered = false, keyText = words, ariaWords = keyText, visual?: CardMarkVisual): CardMarkDefinition & { readonly id: Id } {
   return { id, words, Icon, nodeTypes, keyText, ariaWords, rendered, visual }
 }
 /** Whole UI-DESIGN §1a inventory at f01a4427. Content change rows stay content. */
@@ -41,7 +44,9 @@ export const CARD_MARKS = [
   entry('baseline-option', 'Baseline option', Bookmark, ['option'], true),
   entry('not-analysed', 'Not analysed', CircleSlash, ['option'], true),
   entry('needs-input', 'Needs input', CircleDashed, ['option']),
-  entry('source-olumi', UNCONFIRMED_ESTIMATE_TOKEN, VALUE_PROVENANCE_ICON.ai, values, true, UNCONFIRMED_ESTIMATE_TOKEN, `Olumi's estimate — ${UNCONFIRMED_ESTIMATE_LABEL.toLowerCase()}`),
+  // Vision spec §3 (23 Oct): Olumi's authorship and Olumi's estimate are drawn with the brand mark, never a sparkle. The
+  // ask control is the same mark; its place on the card (the rail, not the value or the marks band) says which it is.
+  entry('source-olumi', UNCONFIRMED_ESTIMATE_TOKEN, OlumiAiIcon, values, true, UNCONFIRMED_ESTIMATE_TOKEN, `Olumi's estimate — ${UNCONFIRMED_ESTIMATE_LABEL.toLowerCase()}`),
   entry('source-unverified_brief', VALUE_PROVENANCE_LABEL.unverified_brief, VALUE_PROVENANCE_ICON.unverified_brief, values, true),
   entry('source-brief', 'brief', VALUE_PROVENANCE_ICON.brief, values, true, 'From your brief'),
   { ...entry('source-you', 'you', VALUE_PROVENANCE_ICON.human, values, true, 'Set by you'), keyWords: ['Set by you', ' · entered'] },

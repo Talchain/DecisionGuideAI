@@ -64,7 +64,8 @@ function card(id = ID) {
   copy.querySelectorAll('.sr-only').forEach(n => n.remove())
   const band = screen.getByTestId(`factor-bottom-marks-${id}`)
   const tier = band.querySelector('[data-card-mark="factor-tier"]')?.getAttribute('aria-label')
-  const source = band.querySelector('[data-card-mark="source-olumi"]')
+  // Vision spec §2a (23 Oct): the author glyph leads its figure in the value line; a tier meter's stays in the band.
+  const source = el.querySelector('[data-card-mark="source-olumi"]') ?? band.querySelector('[data-card-mark="source-olumi"]')
   expect(source).not.toBeNull()
   const sourceWords = source!.querySelector('[aria-label="est."]')?.getAttribute('aria-label')
   expect(sourceWords).toBe('est.')

@@ -161,3 +161,32 @@ describe('a value the user typed is not labelled an Olumi estimate', () => {
     expect((container.textContent ?? '')).toContain('0.8')
   })
 })
+
+describe('vision spec §2a/§3 (23 Oct): Olumi\'s figure has the Olumi mark BEFORE it and a dotted info underline', () => {
+  const line = (c: HTMLElement) => c.querySelector('[data-testid="factor-recorded-value"]')!
+  const figure = (c: HTMLElement) => line(c).querySelector('strong')!
+
+  it('⭐ Olumi\'s estimate: the brand mark leads the figure in the value line, and the figure is dotted-underlined', () => {
+    const { container } = renderFactor({ ...CEE_ESTIMATE, raw_value: 62, unit: 'engineers' })
+    const mark = line(container).querySelector('[data-testid="estimate-marker"]')
+    expect(mark).not.toBeNull()
+    // Before the figure, in document order (never after it, never off in the card's marks band).
+    expect(mark!.compareDocumentPosition(figure(container)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // The Olumi brand mark, not a sparkle.
+    expect(mark!.querySelector('svg[data-icon="olumi-ai"]')).not.toBeNull()
+    expect(mark!.querySelector('svg.lucide-sparkles')).toBeNull()
+    // The phrase is on its name (and hover), not on view.
+    expect(mark!.getAttribute('aria-label')).toContain('Olumi’s estimate — not your figure')
+    expect(figure(container).className).toContain('decoration-dotted')
+    expect(figure(container).className).toContain('decoration-info')
+  })
+
+  it('⛔ CONTROL: a figure the person typed has its own glyph first and no dotted underline', () => {
+    const { container } = renderFactor({ value: 0.62, raw_value: 62, unit: 'engineers', source: 'user' })
+    const mark = line(container).querySelector('[data-testid="factor-value-source-factor-1"]')
+    expect(mark).not.toBeNull()
+    expect(mark!.compareDocumentPosition(figure(container)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(mark!.querySelector('svg[data-icon="olumi-ai"]')).toBeNull()
+    expect(figure(container).className).not.toContain('decoration-dotted')
+  })
+})

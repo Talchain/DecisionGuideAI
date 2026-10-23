@@ -227,7 +227,7 @@ describe('OR-06 — the risk’s own recorded size carries a visible source mark
     renderRisk({ observedState: TWELVE_MONTHS_OLUMI })
     const mark = screen.getByTestId('risk-value-source-risk-1')
     expect(mark.getAttribute('data-value-source')).toBe('olumi')
-    expect(mark.querySelector('.lucide-sparkles')).not.toBeNull()
+    expect(mark.querySelector('svg[data-icon="olumi-ai"]')).not.toBeNull()
     expect(mark.getAttribute('title') ?? '').not.toMatch(/Open the details/)
   })
 

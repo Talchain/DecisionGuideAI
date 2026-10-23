@@ -161,7 +161,8 @@ describe('the card shows a glyph, not the same three words on every card', () =>
     const seen = CANVAS_LITERALS.map((literal) => {
       const { unmount } = render(<NodeProvenanceMark nodeType="option" data={option(literal)} />)
       const svg = mark()!.querySelector('svg')!
-      const name = Array.from(svg.classList).find((c) => c.startsWith('lucide-'))
+      // A Lucide glyph's own class, or the Olumi brand mark's `data-icon` (vision spec §3: Olumi's mark, not a sparkle).
+      const name = Array.from(svg.classList).find((c) => c.startsWith('lucide-')) ?? svg.getAttribute('data-icon') ?? undefined
       unmount()
       return name
     })

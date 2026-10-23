@@ -229,7 +229,7 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
     expect(cluster!.contains(est!)).toBe(true)
     expect(row(container, 'opt-tools', 'fac-thru').contains(est!)).toBe(false)
     expect(est!.getAttribute('data-value-source')).toBe('olumi')
-    expect(est!.querySelector('.lucide-sparkles')).not.toBeNull()
+    expect(est!.querySelector('svg[data-icon="olumi-ai"]')).not.toBeNull()
     expect(est!.querySelector('.sr-only')!.textContent).toBe(VALUE_SOURCE_MARK_LABEL.olumi)
     // Contract v3.1 point 1 (DESIGN-GAP-v31 #21): the mark is a focusable
     // button whose NAME is its hover/focus label (v3.1 `prov()` aria-label) —
@@ -353,7 +353,7 @@ describe('one Olumi sparkle per card — authorship and estimated targets merge 
     withOption('opt-split', 'ai_inferred', { 'fac-thru': iv(0.85, '0.85 scale', 'cee_hypothesis'), 'fac-ratio': iv(0.6, '0.6 ratio', 'cee_hypothesis') })
     const marks = olumiMarks('opt-split')
     expect(marks).toHaveLength(1)
-    expect(marks[0].querySelectorAll('.lucide-sparkles')).toHaveLength(1)
+    expect(marks[0].querySelectorAll('svg[data-icon="olumi-ai"]')).toHaveLength(1)
     expect(marks[0].getAttribute('aria-label')).toBe('Olumi suggested this option · 2 target values are Olumi\'s estimates')
     // It is still the authorship mark by identity, so its claim is not lost in the merge.
     expect(marks[0].getAttribute('data-testid')).toBe('node-provenance-mark')

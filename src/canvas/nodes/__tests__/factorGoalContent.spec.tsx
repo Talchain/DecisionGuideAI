@@ -100,7 +100,12 @@ describe('factor and goal content reaches the actual node and inspector', () => 
     render(<ReactFlowProvider><FactorNode {...props} id={FACTOR} type="factor" data={current.data} /></ReactFlowProvider>)
     const preview = await hover('Monthly price')
     expect(preview.getByText('£59')).toBeDefined()
-    expect(preview.getByTestId('factor-current-value-origin')).toHaveTextContent(expected)
+    const origin = preview.getByTestId('factor-current-value-origin')
+    if (expected === 'Source not recorded') {
+      // Vision spec §3 (23 Oct): an unknown source is the "?" glyph; the words are its accessible name, not on view.
+      expect(origin).toHaveAttribute('aria-label', expected)
+      expect(origin.textContent).toBe('')
+    } else expect(origin).toHaveTextContent(expected)
     expect(preview.getByTestId('factor-current-value-origin').parentElement).toHaveTextContent('Current value: £59')
   })
 

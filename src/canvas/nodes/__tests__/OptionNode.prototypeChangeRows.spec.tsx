@@ -289,7 +289,7 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       const mark = onCard('option-change-row-estimate-option-1-f-conv')!
       expect(dd.contains(mark)).toBe(false)
       expect(onCard('option-bottom-marks-option-1')!.contains(mark)).toBe(true)
-      expect(mark.querySelector('.lucide-sparkles')).not.toBeNull()
+      expect(mark.querySelector('svg[data-icon="olumi-ai"]')).not.toBeNull()
       expect(dd.textContent!.startsWith('→ 7%')).toBe(true)
       let el: HTMLElement | null = dd
       while (el && el !== document.body) {
