@@ -12,7 +12,7 @@
  * ⭐ BOUND BY IDENTITY: the figure and unit are found by their own test ids ON
  * THIS NODE (`factor-value-figure-{id}` / `factor-value-unit-{id}`), inside the
  * exact affordance that renders them (the inline editor's button for a
- * controllable factor, the read-only span for an observable one), and the host's
+ * controllable factor, the read-only span for an external one), and the host's
  * visible text is asserted to equal `factorDisplayText` byte for byte.
  *
  * CONTRASTS that must stay unchanged: a producer `display_value` renders as one
@@ -129,10 +129,11 @@ describe('contract §02: the resting value is a figure, and its unit is a separa
     expect(button!.textContent).toBe(factorDisplayText(CUSTOMERS))
   })
 
-  it('⭐ read-only (observable) card: the same split in the plain span', () => {
-    const data = { ...CUSTOMERS, category: 'observable' }
+  // An observable factor's card is editable since vision §3 (its inspector writes the value); external stays read-only.
+  it('⭐ read-only (external) card: the same split in the plain span', () => {
+    const data = { ...CUSTOMERS, category: 'external' }
     const { container } = renderFactor(data)
-    expect(byId(container, `node-value-editor-${ID}`), 'precondition: an observable factor is read-only').toBeNull()
+    expect(byId(container, `node-value-editor-${ID}`), 'precondition: an external factor is read-only').toBeNull()
     const row = byId(container, 'factor-recorded-value')!
     const figure = byId(container, `factor-value-figure-${ID}`)
     const unit = byId(container, `factor-value-unit-${ID}`)

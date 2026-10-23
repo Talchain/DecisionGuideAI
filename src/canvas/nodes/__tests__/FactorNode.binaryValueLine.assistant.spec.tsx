@@ -24,7 +24,7 @@
  * rendered DOM (the runs the row cannot break) whose last run carries the
  * value's last word AND the mark; the editor is still a keyboard-operable
  * button. Both value paths: the served factor is controllable (the editor);
- * the contrast is the same data as an observable factor (plain text).
+ * the contrast is the same data as an external factor (plain text).
  *
  * ⚠ RE-PINNED 7 Oct 2026 (#2633, Paul: "all icons in the bottom row"): `est.` is the card's bottom-band icon, so it
  * can no longer sit alone on a line of the value row; the rows below pin that it is not in the row at all, that it
@@ -140,7 +140,7 @@ afterEach(() => {
 
 const CASES = [
   { name: 'served (controllable — the on-graph editor holds the value)', data: () => SERVED.data, editor: true },
-  { name: 'contrast (observable — the plain value text)', data: () => ({ ...SERVED.data, category: 'observable' }), editor: false },
+  { name: 'contrast (external — the plain value text; observable is editable since vision §3)', data: () => ({ ...SERVED.data, category: 'external' }), editor: false },
 ] as const
 
 describe(`served 64c5eccc — ${ID}: "No AI assistant use in place", est. on the value's line`, () => {
