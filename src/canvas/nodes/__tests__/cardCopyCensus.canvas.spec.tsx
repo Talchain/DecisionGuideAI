@@ -586,10 +586,9 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   ],
   'option · post · standard': [
     CHANCE_NOT_SHOWN_YET,
-    'Current model', // CAPTION — `OPTION_RESULT_COPY.current`, before the Results chance cell (WS5-1 #2704).
-    //            ⭐ WAS 'Ahead' until 7 Sep 2026, then 'Support' until the
-    //            locked Canvas design (23 Sep 2026; ED 11:52Z point 4). The
-    //            sentence is on the `title` and in `sr-only` text.
+    // ⭐ RETIRED 23 Oct 2026 (vision spec row 2): the `Current model` CAPTION (`OPTION_RESULT_COPY.current`; was 'Ahead'
+    // until 7 Sep, then 'Support' until 23 Sep) says nothing the card does not show. It stays in the line's hover and
+    // accessible name; "Last run" and "Model result" still caption the line. Negative pinned below.
     // ⭐ RE-ADJUDICATED 25 Sep 2026: `no source` and `·` are BACK. They left
     // with the bounded anatomy (ED #63 5809278282, rows in the popover); Paul's
     // prototype ruling puts the rows on the face in both phases, the chance cell
@@ -602,7 +601,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   // reshuffle and teach the next session to stop reading it.
   'option · post · expert': [
     CHANCE_NOT_SHOWN_YET,
-    'Current model', // CAPTION
+    // `Current model` CAPTION retired 23 Oct (vision spec row 2), as in Standard.
     'View parameters', // CONTROL
     'What this option sets:', // HEADING
     // ⭐ WAS `What would make this better supported?` (CONTROL). Run-4 judge (DL 12 Oct, the class): the
@@ -758,7 +757,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
   ],
   'option · pre · lod-line': [],
-  'option · post · lod-line': [`Current model · ${CHANCE_NOT_SHOWN_YET}`], // DL 87114: the analysed no-view option stays visible.
+  'option · post · lod-line': [CHANCE_NOT_SHOWN_YET], // DL 87114: the analysed no-view option stays visible. Caption retired 23 Oct (vision spec row 2).
   'factor · pre · lod-line': [],
   // ⭐ ADJUDICATED 24 Sep 2026 (contract v3.1 pt 5): the factors are ranked
   // now, so each has a reduced line — `Driver N of M ranked in this run`, which
@@ -849,9 +848,9 @@ const byTestId = (suffix: string) => (card: HTMLElement) =>
 
 const ADJUDICATED_POSITIONS: Position[] = [
   // ── decided BY THE CENSUS: these runs are (or are not) in EXPECTED_CENSUS
-  // Locked Canvas design (23 Sep 2026): the caption reads `Current model` (was
-  // `Ahead`, then `Support`; ED 11:52Z point 4). Same position, same testid.
-  { what: 'option · the model-relative result caption', by: 'census', present: byTestId('-win-anchor-option-1') },
+  // ⭐ RETIRED 23 Oct 2026 (vision spec row 2): the `Current model` caption position (`-win-anchor-`) is no longer
+  // mounted on a current Run's card, so it leaves this manifest; the census pins its absence ("Current model" is in no
+  // option bucket) and `lockedNodeCardDesign.spec.tsx` pins the "Last run" / "Model result" captions that remain.
   // Retired share headline/bar/badge positions are replaced by the Results chance cell.
   {
     what: 'option · the Results chance cell',
@@ -1077,7 +1076,12 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     // factor register caption that MUST still be found is `Confidence`.
     expect(measured['factor · post · expert']).toContain('Confidence')
     expect(Object.values(measured).flat()).not.toContain('Influence')
-    expect(measured['option · post · standard']).toContain('Current model')
+    // Vision spec row 2 (23 Oct): the caption is retired from every option card (the share line, Detailed and the reduced
+    // line); the chance cell it captioned is still found (positive control).
+    expect(measured['option · post · standard']).toContain(CHANCE_NOT_SHOWN_YET)
+    for (const [bucket, runs] of Object.entries(measured)) {
+      if (bucket.startsWith('option')) expect(runs.join(' | '), bucket).not.toContain('Current model')
+    }
     expect(Object.values(measured).flat()).not.toContain('Support')
     expect(Object.values(measured).flat()).not.toContain('Strength')
     expect(Object.values(measured).flat().length).toBeGreaterThan(15)

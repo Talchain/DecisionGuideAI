@@ -163,8 +163,9 @@ describe('the other three types, which rendered nothing at any zoom before', () 
       facts: { optionResultCaption: 'Current model', optionChanceCell: chanceCells('Build') },
     })
     // The exact chance words survive at far zoom; the share does not.
-    expect(line).toBe(`Current model · ${chanceCells('Build').text}`)
-    expect(line).toBe(`Current model · ${CHANCE_NOT_SHOWN_YET}`)
+    // Vision spec row 2 (23 Oct): a current Run's "Current model" caption is retired from the line.
+    expect(line).toBe(chanceCells('Build').text)
+    expect(line).toBe(CHANCE_NOT_SHOWN_YET)
     expect(line).not.toMatch(/\d+%/)
     expect(line).not.toContain('Why?')
     expect(line).not.toContain('of runs')
@@ -177,7 +178,7 @@ describe('the other three types, which rendered nothing at any zoom before', () 
     const line = resolveLodMetricLine({ nodeType: 'option', data: { label: 'Build' }, label: 'Build',
       displayMetadata: meta({ isResultsMode: true, winRate: 0.47 }),
       facts: { optionResultCaption: 'Current model', optionChanceCell: cell } })
-    expect(line).toBe(`Current model · ${cell.text}`)
+    expect(line).toBe(cell.text)
     expect(line).toContain('41%')
     expect(line).not.toContain('47%')
     expect(line).not.toContain('of runs')

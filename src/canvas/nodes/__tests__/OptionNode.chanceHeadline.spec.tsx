@@ -108,10 +108,14 @@ describe('option card says CEE\'s served cell, verbatim, and nothing of its own'
       expect(screen.queryByTestId(`option-analysis-currency-${ID}`)).toBeNull()
       expect(readout).toBeNull()
     } else {
-      // #2931 (DL 22 Oct): a figure or range line drops the face's own ‘label’: prefix (the card is named); its
-      // description keeps the full face. A withheld face is said as served.
-      expect(readout?.textContent).toBe(kind === 'withheld' ? served : lineOf(served))
+      // Vision spec row 1 (23 Oct): a figure or range line is the headline, CEE's own `display` verbatim (read from the
+      // served cell, never the provider); its hover and accessible name keep the full face. A withheld face is said as served.
+      const headline = cell?.kind === 'figure' || cell?.kind === 'range' ? cell.display : served
+      expect(readout?.textContent).toBe(headline)
       expect(readout?.closest('[aria-label]')?.getAttribute('aria-label')).toContain(served)
+      // Row 2: "Current model" is retired from the line, never from the hover (its currency meaning stays reachable).
+      expect(screen.getByTestId(`option-analysis-currency-${ID}`).textContent).not.toContain('Current model')
+      expect(readout?.closest('[aria-label]')?.getAttribute('aria-label')).toMatch(/^Current model · /)
     }
     expect(container.querySelector(`[data-testid^="option-change-row-${ID}-"]`)).not.toBeNull()
     for (const said of [container.textContent ?? '', ...[...container.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label') ?? '')]) {
@@ -119,7 +123,10 @@ describe('option card says CEE\'s served cell, verbatim, and nothing of its own'
       // included — a share of runs is never the card's chance, whoever wrote it.
       expect(said).not.toContain('of runs')
       // The card's line is the served face less its own ‘label’: prefix (#2931): still CEE's words, so it is removed too.
-      const unserved = served === null ? said : said.split(served).join(' ').split(lineOf(served)).join(' ')
+      // Vision spec row 1: the headline is CEE's own `display`, so it is removed too.
+      const display = cell?.kind === 'figure' || cell?.kind === 'range' ? cell.display : null
+      const unserved = served === null ? said : [served, lineOf(served), ...(display === null ? [] : [display])]
+        .reduce((left, words) => left.split(words).join(' '), said)
       expect(unserved).not.toContain('chance of meeting your goal')
       expect(unserved).not.toContain('41%')
       expect(unserved).not.toContain(TEST_WITHHELD_FACE)

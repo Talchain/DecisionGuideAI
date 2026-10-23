@@ -149,7 +149,7 @@ const NODE_TITLE_WEIGHT = 610
 interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
   /** Results chance cell, resolved by the option owner through RunView. */
-  optionChanceCell?: OptionChanceCell
+  optionChanceCell?: OptionChanceCell & { readonly display?: string }
   icon: LucideIcon
   children?: ReactNode
   /** D2: keep this node's title readable at level-of-detail zoom even though

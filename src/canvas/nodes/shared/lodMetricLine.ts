@@ -140,7 +140,7 @@ import type { NodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { resolveFactorPriorRangeOnCard } from './factorPriorRange'
 import { readoutIsBareModelScale } from './FactorValueFigure'
 import { factorValueSourceMark } from './valueSourceMark'
-import { DRIVER_LINE_COPY, LAST_RUN_PREFIX } from './metricVocabulary'
+import { DRIVER_LINE_COPY, LAST_RUN_PREFIX, OPTION_RESULT_COPY } from './metricVocabulary'
 import type { OptionChanceCell } from '../../runView/runView'
 import { restingUnvaluedDriverCaption } from './driverCaptionFit'
 
@@ -206,7 +206,8 @@ export interface LodMetricFacts {
    */
   optionResultCaption?: string | null
   /** The same RunView cell the full-zoom option owner consumed. */
-  optionChanceCell?: OptionChanceCell
+  /** `display`: CEE's own figure or range display, the card's headline (vision spec row 1, 23 Oct). */
+  optionChanceCell?: OptionChanceCell & { readonly display?: string }
   /**
    * CURRENT-READ row 9 (AIQ 5912710392): the producer withheld the leader, so no per-option win share is
    * shown at any zoom. The reduced line says `Not ranked` (`winShareGate.ts`), as the full-zoom card does.
@@ -421,7 +422,10 @@ function resolveText({
       const chanceText = facts?.optionChanceCell?.text
       const caption = facts?.optionResultCaption
       if (displayMetadata.isResultsMode && chanceText != null && caption) {
-        return `${caption} · ${chanceText}`
+        // Vision spec (23 Oct): the reduced line says the card's headline (CEE's display, verbatim) and drops the
+        // "Current model" caption (row 2); a "Last run" / "Model result" caption still says something, so it stays.
+        const headline = facts?.optionChanceCell?.display ?? chanceText
+        return caption === OPTION_RESULT_COPY.current ? headline : `${caption} · ${headline}`
       }
 
       // ⭐ THE PRE-ANALYSIS ARM. Before a run an option has no win share, and
