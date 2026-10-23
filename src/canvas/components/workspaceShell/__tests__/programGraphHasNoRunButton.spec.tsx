@@ -36,10 +36,10 @@ function seed(template: Rec) {
     lastServerGraphHash: body.graph_hash as string,
   } as never)
 }
-// The café read has answered (the graph route was fetched and the microtasks drained) before the CONTROL asserts.
-const settle = async () => {
+// The read has answered (its graph route was fetched and the microtasks drained) before a CONTROL asserts.
+const settle = async (scenarioId = '99088c3e-308e-4c56-a963-3ce47d048a7b') => {
   await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
-  expect(vi.mocked(fetch).mock.calls.some(([u]) => /\/scenarios\/99088c3e-308e-4c56-a963-3ce47d048a7b\/graph$/.test(String(u)))).toBe(true)
+  expect(vi.mocked(fetch).mock.calls.some(([u]) => String(u).endsWith(`/scenarios/${scenarioId}/graph`))).toBe(true)
 }
 
 const surfaces = (canRun: boolean) => (
@@ -90,5 +90,16 @@ describe('(e) CONTROL: the café board keeps the Run button as today', () => {
     await settle()
     expect((screen.getByTestId('analysis-readiness-bar-analyse') as HTMLButtonElement).disabled).toBe(true)
     expect((screen.getByTestId('pre-analysis-v3-analyse') as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('(e) CONTROL: an unknown program version keeps the Run button as today (Codex r1 on #2950)', () => {
+  it('the capacity read under model_program "v2", gate open: both surfaces keep their enabled button', async () => {
+    seed(read(CAPACITY.scenario_id as string, '811b509a0cfe1dee', { model_program: 'v2', canonical: { version: 'canonical.v1' } }))
+    render(surfaces(true))
+    await settle(CAPACITY.scenario_id as string)
+    expect((screen.getByTestId('analysis-readiness-bar-analyse') as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByTestId('pre-analysis-v3-analyse') as HTMLButtonElement).disabled).toBe(false)
+    expect(screen.getByTestId('analysis-readiness-bar-analyse').textContent).toBe('Analyse first pass')
   })
 })

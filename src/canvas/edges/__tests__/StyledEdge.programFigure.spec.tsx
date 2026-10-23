@@ -126,6 +126,16 @@ describe('a program link shows its coefficient at rest', () => {
   })
 })
 
+describe('CONTROL: an unknown program version keeps today\'s link (Codex r1 on #2950)', () => {
+  it('the same capacity link under model_program "v2": no figure, its source mark as today', () => {
+    const living = CAP_GRAPH.living_model as Rec
+    saved.graph = { ...CAP_GRAPH, living_model: { ...living, model_program: 'v2' } }
+    const { container } = render(<StyledEdge {...(edgeProps(CAP_EDGE) as any)} />)
+    expect(container.querySelector('[data-testid="edge-program-figure"]')).toBeNull()
+    expect(container.querySelector('[data-edge-source-icon]')?.getAttribute('aria-label')).toBe('From brief')
+  })
+})
+
 describe('CONTROL: a non-program link keeps its strength words and source mark', () => {
   it('the café β link: no figure, its source mark as today', () => {
     saved.graph = CAFE_GRAPH

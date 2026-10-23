@@ -46,7 +46,7 @@ const COEF_EDGE: Rec = {
   coefficient_id: 'capacity_per_specialist',
   id: 'specialists_added__additional_capacity',
 }
-const capacityRead = (coefficientValue: number, graphHash: string, edge: Rec = COEF_EDGE): Rec => ({
+const capacityRead = (coefficientValue: number, graphHash: string, edge: Rec = COEF_EDGE, modelProgram = 'v1'): Rec => ({
   schema: 'scenario_graph.v1',
   scenario_id: CAP_ID,
   graph_present: true,
@@ -58,7 +58,7 @@ const capacityRead = (coefficientValue: number, graphHash: string, edge: Rec = C
     ],
     edges: [edge],
     living_model: {
-      model_program: 'v1',
+      model_program: modelProgram,
       canonical: {
         version: 'canonical.v1',
         quantities: [{
@@ -190,5 +190,19 @@ describe('CONTROL: a non-program link keeps the β editor', () => {
     const event = sendSystemEvent.mock.calls[0][0]
     expect(event.type).toBe('edge_strength_edit')
     expect(event.payload).toMatchObject({ from: 'loyalty_card__on', to: 'weekly_customers', magnitude: 0.55 })
+  })
+})
+
+describe('CONTROL: an unknown program version keeps the β editor (Codex r1 on #2950)', () => {
+  it('(g) the capacity link under model_program "v2": no coefficient editor, the β presets send edge_strength_edit', async () => {
+    seed(capacityRead(20, '811b509a0cfe1def', COEF_EDGE, 'v2'))
+    render(panel('specialists_added__additional_capacity'))
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
+    expect(vi.mocked(fetch).mock.calls.some(([u]) => String(u).endsWith(`/scenarios/${CAP_ID}/graph`))).toBe(true)
+    expect(screen.queryByTestId('edge-program-coefficient-input')).toBeNull()
+    expect(screen.getByTestId('edge-strength-controls')).toBeTruthy()
+    await act(async () => { fireEvent.click(screen.getByTestId('strength-band-strong')) })
+    expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+    expect(sendSystemEvent.mock.calls[0][0].type).toBe('edge_strength_edit')
   })
 })

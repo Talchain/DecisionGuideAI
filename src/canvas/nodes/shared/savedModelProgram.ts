@@ -1,7 +1,8 @@
 /**
  * Whether the saved model is an executable model (a program graph), read from the field CEE sets on it:
- * `graph.living_model.model_program` (for example "v1"). Never guessed from shapes. A program's analysis is run by
- * the host on every change, and its effect links carry a `coefficient_id` naming the canonical quantity behind them.
+ * `graph.living_model.model_program`. Never guessed from shapes. A program's analysis is run by the host on every
+ * change, and its effect links carry a `coefficient_id` naming the canonical quantity behind them.
+ * Only the version this UI knows ("v1") counts: an unknown version keeps today's controls (Codex r1 on #2950).
  */
 import { useMemo } from 'react'
 
@@ -12,9 +13,11 @@ import type { ValueProvenanceKind } from '../../domain/valueProvenance'
 type Rec = Record<string, unknown>
 const rec = (v: unknown): Rec | null => (v !== null && typeof v === 'object' && !Array.isArray(v) ? (v as Rec) : null)
 
+const PROGRAM_VERSION = 'v1'
+
 export function isProgramGraph(graph: unknown): boolean {
   const program = rec(rec(graph)?.living_model)?.model_program
-  return typeof program === 'string' && program.length > 0
+  return program === PROGRAM_VERSION
 }
 
 export function useSavedModelIsProgram(): boolean {
