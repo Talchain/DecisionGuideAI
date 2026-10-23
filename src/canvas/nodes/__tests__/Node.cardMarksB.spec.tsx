@@ -47,11 +47,25 @@ it.each((Object.keys(components) as (keyof typeof components)[]).flatMap(type =>
   // other information mark stays in the one bottom band.
   const valueLine = type === 'factor' ? screen.getByTestId('factor-recorded-value') : null
   if (valueLine) expect(valueLine.querySelector('[data-card-mark="source-brief"]')).not.toBeNull()
-  for (const mark of marks) expect(band.contains(mark) || (valueLine !== null && valueLine.contains(mark) && mark.getAttribute('data-card-mark') === 'source-brief')).toBe(true)
-  for (const testId of ['node-provenance-mark', `node-coaching-marker-marks-${type}`]) expect(band.contains(screen.getByTestId(testId))).toBe(true)
+  const titleRow = screen.getByTestId('node-title')
+  for (const mark of marks) {
+    expect(
+      band.contains(mark)
+      || (valueLine !== null && valueLine.contains(mark) && mark.getAttribute('data-card-mark') === 'source-brief')
+      // Vision spec §2c: Olumi's authorship mark, right after the name.
+      || (titleRow.contains(mark) && mark.getAttribute('data-testid') === 'node-provenance-mark' && mark.getAttribute('data-provenance-claim') === 'structural'),
+    ).toBe(true)
+  }
+  // Vision spec §2c (23 Oct): Olumi's AUTHORSHIP mark (the factor here is `ai_inferred`) sits right after the name in
+  // the title; a person's provenance mark stays in the band.
+  const authorship = type === 'factor' ? screen.getByTestId('node-title').querySelector('[data-testid="node-provenance-mark"]') : null
+  if (type === 'factor') expect(authorship).not.toBeNull()
+  for (const testId of type === 'factor' ? [`node-coaching-marker-marks-${type}`] : ['node-provenance-mark', `node-coaching-marker-marks-${type}`]) expect(band.contains(screen.getByTestId(testId))).toBe(true)
   // Vision spec §3 (one Olumi slot): the producer's badge is the card's one Olumi mark; no second attention mark.
   expect(screen.queryByTestId(`attention-marker-marks-${type}`)).toBeNull()
-  expect(screen.getByTestId('node-header-row').querySelector('[data-card-mark], [data-testid="node-provenance-mark"]')).toBeNull()
+  // Nothing else in the header row: only the title's own authorship mark.
+  const headerMarks = [...screen.getByTestId('node-header-row').querySelectorAll('[data-card-mark], [data-testid="node-provenance-mark"]')]
+  expect(headerMarks).toEqual(authorship ? [authorship] : [])
   expect(screen.queryByTestId('node-title-corner-spacer')).toBeNull()
   const olumi = screen.getByTestId(`node-coaching-icon-marks-${type}`)
   expect(band.contains(olumi)).toBe(false)
@@ -138,4 +152,27 @@ it('decision assumptions become a band glyph, with the exact old sentence', () =
   exact('decision-assumptions-open', 'Assumptions open for review')
   cleanup(); seed('decision', {}, true)
   expect(screen.queryByTestId('decision-assumptions-open')).toBeNull()
+})
+
+// ⭐ Vision spec §2a/§2c (23 Oct 2026): ONE brand mark per meaning. Olumi's authorship ("Olumi suggested this") sits
+// right after the card's name; the band's brand mark means only "Olumi has something here" (the one Olumi badge).
+const BRAND = 'svg[data-icon="olumi-ai"], img[data-icon="olumi-brand-mark"]'
+it.each(['option', 'risk', 'outcome'] as const)('%s by Olumi: exactly one brand mark in the title row, at most one (the badge) in the band', (type) => {
+  seed(type, { provenance: 'ai_inferred' }, false, true)
+  const title = screen.getByTestId('node-title')
+  const inTitle = title.querySelectorAll(BRAND)
+  expect(inTitle).toHaveLength(1)
+  const mark = title.querySelector('[data-testid="node-provenance-mark"]')!
+  expect(mark.getAttribute('aria-label')).toBe('Olumi suggested this')
+  expect(mark.getAttribute('data-provenance-kind')).toBe('ai')
+  // The title's own words are unchanged: the mark is a glyph with a name, no text.
+  expect(title.textContent).toBe('Test reasoning')
+  const band = screen.getByTestId(`${type}-bottom-marks-marks-${type}`)
+  expect(band.querySelector('[data-testid="node-provenance-mark"]')).toBeNull()
+  expect(band.querySelectorAll(BRAND).length).toBeLessThanOrEqual(1)
+})
+it.each(['option', 'risk', 'outcome'] as const)('⛔ CONTROL: a %s the person added has no authorship mark in the title row', (type) => {
+  seed(type, { provenance: 'user_set' }, false, true)
+  expect(screen.queryByTestId('node-title-authorship')).toBeNull()
+  expect(screen.getByTestId('node-title').querySelectorAll(BRAND)).toHaveLength(0)
 })
