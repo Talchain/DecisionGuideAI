@@ -33,6 +33,7 @@ import { factorValueSourceMark } from '../../nodes/shared/valueSourceMark'
 import { resolveProvenanceMarks } from '../../nodes/shared/NodeProvenanceMark'
 import { provenanceClaimLabel } from '../../domain/nodeProvenanceClaim'
 import { isSuppressedUnit } from '../../utils/labelUtils'
+import { questionTitle } from '../../nodes/shared/questionTitle'
 import { CANVAS_LAYER_CLASS } from '../../layers'
 import { typography } from '../../../styles/typography'
 import {
@@ -103,7 +104,8 @@ export function nodeHoverFacts(
 ): NodeHoverFacts {
   const d = data ?? {}
   const facts: NodeHoverFacts = {
-    title: str(d.label),
+    // The question card's name is the question alone, never "Decision: …" (as the card's own title, `questionTitle`).
+    title: nodeType === 'decision' ? (questionTitle(d.label) ?? str(d.label)) : str(d.label),
     kind: NODE_REGISTRY[nodeType as keyof typeof NODE_REGISTRY]?.label ?? null,
     // A description that only repeats the name adds nothing.
     description: (() => { const t = str(d.description); return t !== null && t !== str(d.label) ? t : null })(),

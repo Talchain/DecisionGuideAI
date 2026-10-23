@@ -104,6 +104,7 @@ import { useLayoutStore } from './layoutStore'
 import { restingCardWidthForKind } from './utils/nodeLayoutConstants'
 import { ProposalGhostLayer } from './nodes/ProposalGhostLayer'
 import { WhatIfMarkLayer } from './nodes/WhatIfMarkLayer'
+import { RunChangePencilLayer } from './graphChanges/RunChangePencilLayer'
 import { DirectionNeededLayer } from './nodes/DirectionNeededLayer'
 import { coreSwitchOptionOf, withoutCoreSwitches } from './domain/coreSwitch'
 import { useDrawnLivingModel } from './hooks/useDrawnLivingModel'
@@ -2859,6 +2860,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             {/* Suggestion preview: the ghost of the proposal the latest reply offers (render-only; see the file). */}
             <ProposalGhostLayer />
             <WhatIfMarkLayer />
+            {/* Vision spec §3: what changed since the last run, as a pencil on each changed card (see the file). */}
+            <RunChangePencilLayer />
             <DirectionNeededLayer />
             {/* MiniMap temporarily disabled for layout debugging */}
             {/* <MiniMap style={miniMapStyle} /> */}

@@ -12,8 +12,12 @@
  * ⚠ A BAND OCCUPANT, NOT A POSITION. `CanvasOverlayBand` owns overlay space: this claims `bottom-centre` by its
  * test id and renders into the cell, after the live LOD notice and before the first-model notice (`OVERLAY_PRIORITY`).
  * The pill fits the band's fixed 64px; only the user-opened "Why?" detail rises above it, like the lens panel.
+ *
+ * ⭐ ON THE CARDS (vision spec §3, 23 Oct, PR G). While a pencil is drawn on any changed card (`RunChangePencilLayer`),
+ * there is no strip: the same words open as ONE popover beside the pressed pencil, every row with its focus and Put it
+ * back, then Moved, Why, Still uncertain and Open in Compare. With no pencil drawn, the strip below is unchanged.
  */
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { useOverlayCell } from './CanvasOverlayBand'
@@ -32,6 +36,8 @@ import {
 } from '../graphChanges/runChangesSummaryLines'
 import { typography } from '../../styles/typography'
 import { useIsViewer } from '../../lib/viewerMode'
+import { useRunChangePencilStore } from '../graphChanges/RunChangePencilLayer'
+import { Z_INDEX } from './LayerProvider'
 
 export const RUN_CHANGES_SUMMARY_TESTID = 'run-changes-summary'
 
@@ -76,12 +82,31 @@ export function RunChangesSummary(): JSX.Element | null {
     if (cut !== lineTruncated) setLineTruncated(cut)
   })
 
+  const onCards = useRunChangePencilStore((s) => s.drawn > 0)
+  const anchor = useRunChangePencilStore((s) => s.anchor)
+  const closePopover = useRunChangePencilStore((s) => s.close)
+  // The popover closes on Escape or a press outside it (a pencil press re-anchors it instead).
+  useEffect(() => {
+    if (anchor === null) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closePopover() }
+    const onDown = (e: PointerEvent) => {
+      const el = e.target instanceof Element ? e.target : null
+      if (el?.closest(`[data-testid="${RUN_CHANGES_SUMMARY_TESTID}"], [data-testid^="run-change-pencil-"]`)) return
+      closePopover()
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('pointerdown', onDown, true)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('pointerdown', onDown, true)
+    }
+  }, [anchor, closePopover])
   const wants = view !== null && responseHash !== null && closedFor !== responseHash && runChangesSummaryHasContent(view)
-  const { granted, target } = useOverlayCell('bottom-centre', RUN_CHANGES_SUMMARY_TESTID, wants)
-  if (!wants || !granted || view === null || responseHash === null) return null
+  const { granted, target } = useOverlayCell('bottom-centre', RUN_CHANGES_SUMMARY_TESTID, wants && !onCards)
+  if (!wants || view === null || responseHash === null || (onCards ? anchor === null : !granted)) return null
 
   const lines = runChangesSummaryLines(view, winSharesWithheld, winShareWithheldReason)
-  const open = openFor === responseHash
+  const open = onCards || openFor === responseHash
   const changedHead = lines.changed[0]?.text ?? lines.changedNote
   const changedExtra = lines.changed.length - 1 + lines.changedMore
   const movedHead = lines.moved[0] ?? lines.movedNote
@@ -94,8 +119,8 @@ export function RunChangesSummary(): JSX.Element | null {
   ].filter(Boolean).join(' · ')
   const detailId = `${RUN_CHANGES_SUMMARY_TESTID}-detail`
   // The detail says only what the pill cannot: more rows than its one line holds, or the line itself when it is cut.
-  const detailRepeatsChanged = changedExtra > 0 || lineTruncated
-  const detailRepeatsMoved = movedExtra > 0 || lineTruncated
+  const detailRepeatsChanged = onCards || changedExtra > 0 || lineTruncated
+  const detailRepeatsMoved = onCards || movedExtra > 0 || lineTruncated
   // ⭐ Each changed row lights its element on the canvas on hover / keyboard focus, and focuses it on click (DL 5939855664).
   const headLink = lines.changed[0] ? canvasLinkOfRow(lines.changed[0].row, { route }) : null
   // ⭐ What-if "Put it back": opens the card's OWN value editor pre-filled with the earlier value (the user commits with
@@ -119,24 +144,8 @@ export function RunChangesSummary(): JSX.Element | null {
   )
   const headPrefill = lines.changed[0] ? prefillOf(lines.changed[0].row) : null
 
-  const body = (
-    <div
-      data-testid={RUN_CHANGES_SUMMARY_TESTID}
-      data-response-hash={responseHash}
-      data-attributable={view.attributable ? 'true' : 'false'}
-      className="pointer-events-auto relative max-w-full"
-    >
-      {open && (
-        <div
-          id={detailId}
-          role="region"
-          aria-label={COPY.title}
-          data-testid={detailId}
-          // ⚠ OUT OF FLOW, ABOVE THE PILL. In flow it grew the band's fixed 64px row DOWNWARD, off the bottom of the
-          // canvas (preview 1280x800, 1 Oct). Only the pill takes band space; the detail rises over the canvas while
-          // the user has it open, as wide as the pill, capped in height.
-          className="absolute inset-x-0 bottom-full mb-2 max-h-[min(60vh,420px)] overflow-y-auto rounded-xl border border-panel-border bg-panel px-4 py-3 shadow-2"
-        >
+  const detailInner = (
+        <>
           <div className="m-0 flex flex-col gap-2">
             {detailRepeatsChanged && changedHead !== null && (
             <DetailLine label={changedLabel} id="changed">
@@ -201,6 +210,60 @@ export function RunChangesSummary(): JSX.Element | null {
               {COPY.openCompare}
             </button>
           </div>
+        </>
+  )
+  const rootProps = {
+    'data-testid': RUN_CHANGES_SUMMARY_TESTID,
+    'data-response-hash': responseHash,
+    'data-attributable': view.attributable ? 'true' : 'false',
+  }
+  if (onCards && anchor !== null) {
+    // Beside the pressed pencil, held inside the window; the pencil's own box is never covered.
+    const width = Math.min(420, window.innerWidth - 32)
+    const left = Math.max(16, Math.min(anchor.left, window.innerWidth - width - 16))
+    const below = anchor.bottom + 8 + 240 <= window.innerHeight
+    return createPortal(
+      <div
+        {...rootProps}
+        id={detailId}
+        role="dialog"
+        aria-label={COPY.title}
+        data-where="card"
+        className="pointer-events-auto fixed max-h-[min(60vh,420px)] overflow-y-auto rounded-xl border border-panel-border bg-panel px-4 py-3 shadow-2"
+        style={{ left, width, zIndex: Z_INDEX.PANEL, ...(below ? { top: anchor.bottom + 8 } : { bottom: window.innerHeight - anchor.top + 8 }) }}
+      >
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className={`${typography.panelMeta} font-medium text-text-header`}>{COPY.title}</span>
+          <button
+            type="button"
+            aria-label={COPY.closePopover}
+            data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-close`}
+            onClick={closePopover}
+            className="-m-1.5 flex-none rounded-md p-1.5 text-text-light transition-colors duration-fast hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          >
+            <X className="h-3 w-3" aria-hidden="true" />
+          </button>
+        </div>
+        {detailInner}
+      </div>,
+      document.body,
+    )
+  }
+
+  const body = (
+    <div {...rootProps} className="pointer-events-auto relative max-w-full">
+      {open && (
+        <div
+          id={detailId}
+          role="region"
+          aria-label={COPY.title}
+          data-testid={detailId}
+          // ⚠ OUT OF FLOW, ABOVE THE PILL. In flow it grew the band's fixed 64px row DOWNWARD, off the bottom of the
+          // canvas (preview 1280x800, 1 Oct). Only the pill takes band space; the detail rises over the canvas while
+          // the user has it open, as wide as the pill, capped in height.
+          className="absolute inset-x-0 bottom-full mb-2 max-h-[min(60vh,420px)] overflow-y-auto rounded-xl border border-panel-border bg-panel px-4 py-3 shadow-2"
+        >
+          {detailInner}
         </div>
       )}
       <div

@@ -32,6 +32,7 @@ export const RUN_CHANGES_SUMMARY_COPY = {
   showWhy: 'Why?',
   hideWhy: 'Hide',
   close: 'Close the run summary',
+  closePopover: 'Close what changed',
   more: (n: number) => `+${n} more in Compare`,
 } as const
 
