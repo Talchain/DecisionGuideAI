@@ -590,9 +590,11 @@ describe('Option — the result is model-relative, never "Support" (ED 11:52Z po
     expect(within(card).queryByTestId('option-win-anchor-opt-raise')).toBeNull()
     expect(within(card).getByTestId('option-analysis-currency-opt-raise').textContent).not.toContain('Current model')
     expect(within(card).getByTestId('option-analysis-currency-opt-raise').getAttribute('aria-label')).toBe(`Current model · ${CHANCE_NOT_SHOWN_YET}`)
-    expect(within(card).getByTestId('option-win-readout-opt-raise').textContent).toBe(chanceCells('opt-raise').text)
+    // Gap P0 #1 (#2961): a withheld cell is `—` + `withheld` on the card; its face is in the accessible name (above).
+    expect(chanceCells('opt-raise').text).toBe(CHANCE_NOT_SHOWN_YET)
     const chanceFace = within(card).getByTestId('option-win-readout-opt-raise')
-    expect(chanceFace.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(chanceFace.textContent).toBe('—')
+    expect(within(card).getByTestId('option-chance-withheld-opt-raise').textContent).toBe('withheld')
     expect(chanceFace.textContent).not.toMatch(/\d+%/)
     expect(chanceFace.textContent).not.toContain('Why?')
     expect(card.textContent).not.toContain('of runs')
