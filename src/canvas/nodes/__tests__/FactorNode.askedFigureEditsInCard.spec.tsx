@@ -2,8 +2,12 @@
  * AN ASKED FIGURE IS TYPED WHERE IT IS SHOWN (DL, 23 Oct). On a program graph (`model_program` "v1"), CEE marks a figure
  * only the person can give with `value_basis` "Waiting for your answer". The card showed those words with no field, while
  * the structure-fixed switches beside it were editable. The asked figure now opens the same in-card field as a missing
- * value (`NodeValueEditor` → `useModelEditAuthority.proposeFactorValue` → `factor_value_edit`, the existing write); the
- * switches keep theirs, and a board that is not a program graph is unchanged.
+ * value (`NodeValueEditor` → `useModelEditAuthority.proposeFactorValue` → `factor_value_edit`, the existing write), and
+ * a board that is not a program graph is unchanged.
+ *
+ * DL ruling (23 Oct, later): the structure-fixed switches ("Fixed by how the model is built") have NO field on a program
+ * graph. The card says the figure is fixed, and editing an option's switch count changes what the option means; a
+ * known figure on the same board keeps its field.
  *
  * ⛔ ONLY IN ITS OWN UNIT. The served asked node carries no unit (the quantity's "GBP/developer" is in
  * `living_model.canonical` only), and a unitless field reads the 0–1 model scale: it refused "45000" and would have saved
@@ -51,6 +55,8 @@ vi.mock('../../hooks/useScienceIcons', () => ({ useScienceIcons: vi.fn(() => [])
 type Json = Record<string, any>
 const ASKED = 'developer_hiring_cost'
 const SWITCH = 'developers_hired'
+/** A figure the brief states (`current_developers`, 6, from the brief): the person's to change. */
+const KNOWN = 'current_developers'
 
 let read: Json = {}
 let sent: Json[] = []
@@ -142,14 +148,29 @@ describe('an asked figure on a program graph', () => {
     expect(line.textContent).not.toMatch(/From your brief|Set by you|Source not recorded|Olumi/)
   })
 
-  it('CONTRAST: the structure-fixed switch keeps its own field', async () => {
+  it('DL ruling: the structure-fixed switch has no field on a program graph, and names itself as fixed', async () => {
     await openBoard(PROGRAM, 'GBP/developer')
     await card(SWITCH)
-    expect(screen.getByTestId(`node-value-editor-${SWITCH}`)).toHaveTextContent('0 developer')
+    expect(graphReads()).toBeGreaterThan(1)
+    expect(screen.getByTestId('factor-recorded-value')).toHaveTextContent('0 developer')
+    expect(screen.queryByTestId(`node-value-editor-${SWITCH}`)).toBeNull()
     // Its own mark, mounted: CEE's words for a figure the model's structure fixes.
     const mark = screen.getByTestId(`factor-value-source-${SWITCH}`)
     expect(mark).toHaveAttribute('aria-label', 'Additional developers hired: Fixed by how the model is built')
     expect(mark.querySelector('.lucide-calculator')).not.toBeNull()
+  })
+
+  it('CONTRAST: a known figure on the same program graph keeps its field', async () => {
+    await openBoard(PROGRAM, 'GBP/developer')
+    await card(KNOWN)
+    expect(screen.getByTestId(`node-value-editor-${KNOWN}`)).toHaveTextContent('6 developer')
+  })
+
+  it('CONTRAST: on a board that is not a program graph the switch keeps its field', async () => {
+    await openBoard(NOT_PROGRAM, 'GBP/developer')
+    await card(SWITCH)
+    expect(graphReads()).toBeGreaterThan(1)
+    expect(screen.getByTestId(`node-value-editor-${SWITCH}`)).toHaveTextContent('0 developer')
   })
 
   it('CONTRAST: a board that is not a program graph is unchanged: the words, and no field', async () => {
