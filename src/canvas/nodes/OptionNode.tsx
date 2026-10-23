@@ -1862,7 +1862,9 @@ export const OptionNode = memo((props: NodeProps) => {
   const winSharesAreWithheld = useCanvasStore(selectWinSharesWithheld)
   const comparedInRun = useCanvasStore((state) => selectOptionComparedInRun(state, props.id))
   const winShareWithheldReasonLine = useCanvasStore(selectWinShareWithheldReason)
-  const chanceText = displayMetadata.isResultsMode ? chanceCell.text : null
+  // A board read with only CEE's `canonical_analysis_view` (no report, so never Results mode) still says the cell the held
+  // view binds (`runViewOf`: only a Run bound by identity and current); with no current bound view the cell is empty.
+  const chanceText = displayMetadata.isResultsMode || resultsReport == null ? chanceCell.text : null
   const runCurrency = useRunCurrency()
   const resultCaption = optionResultCaption(runCurrency) ?? OPTION_RESULT_COPY.unconfirmed
   /**
