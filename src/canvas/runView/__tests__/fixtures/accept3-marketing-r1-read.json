@@ -1,0 +1,1543 @@
+{
+ "_source": "served staging read, S3 batch-3 accept3/spike/marketing-r1.read.json (23 Oct); trimmed to nodes, edges, model_program and canonical quantities",
+ "schema": "scenario_graph.v1",
+ "scenario_id": "7610ae1c-04d1-443c-b155-c508ac600848",
+ "graph_present": true,
+ "graph_hash": "aacd4a9b0329b64a",
+ "graph": {
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "kind": "decision",
+    "label": "Should you hire a marketing manager or use an AI campaign-planning tool and redirect the savings to advertising for the next product feature launch?"
+   },
+   {
+    "id": "feature_launch_goal",
+    "kind": "goal",
+    "label": "plan the campaign for the next product feature launch",
+    "provenance": "from_brief",
+    "source_quote": "plan the campaign for the next product feature launch",
+    "analysis_participation": "included",
+    "goal_direction": ">",
+    "goal_threshold_frame": "level",
+    "goal_threshold_unit": "%",
+    "display_value": "> 15 %",
+    "goal_threshold_raw": 15,
+    "goal_threshold": 0.15,
+    "goal_threshold_cap": 100,
+    "goal_threshold_cap_provenance": "metric_scale",
+    "threshold_source": "user",
+    "success_threshold": 15
+   },
+   {
+    "id": "hire_manager",
+    "kind": "option",
+    "label": "hire a marketing manager",
+    "provenance": "from_brief",
+    "source_quote": "hire a marketing manager",
+    "analysis_participation": "included",
+    "interventions": {
+     "manager_selected": {
+      "value": 1,
+      "unit": "1",
+      "display": "1",
+      "from_period": 0,
+      "source": "brief_extraction",
+      "source_words": "Set by ‘hire a marketing manager’, from your brief"
+     }
+    }
+   },
+   {
+    "id": "use_ai_and_more_ads",
+    "kind": "option",
+    "label": "use an AI tool to plan the campaign",
+    "provenance": "from_brief",
+    "source_quote": "use an AI tool to plan the campaign for the next product feature launch, and use the money I'd save to spend more on advertising",
+    "analysis_participation": "included",
+    "interventions": {
+     "ai_selected": {
+      "value": 1,
+      "unit": "1",
+      "display": "1",
+      "from_period": 0,
+      "source": "brief_extraction",
+      "source_words": "Set by ‘use an AI tool to plan the campaign’, from your brief"
+     }
+    }
+   },
+   {
+    "id": "manager_selected",
+    "kind": "factor",
+    "label": "Marketing manager option selected",
+    "analysis_participation": "included",
+    "category": "controllable",
+    "observed_state": {
+     "value": 0,
+     "raw_value": 0,
+     "unit": "1"
+    },
+    "display_value": "0",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "description": "Zero means the marketing manager option is switched off."
+   },
+   {
+    "id": "ai_selected",
+    "kind": "factor",
+    "label": "AI tool option selected",
+    "analysis_participation": "included",
+    "category": "controllable",
+    "observed_state": {
+     "value": 0,
+     "raw_value": 0,
+     "unit": "1"
+    },
+    "display_value": "0",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "description": "Zero means the AI tool option is switched off."
+   },
+   {
+    "id": "manager_cost",
+    "kind": "factor",
+    "label": "Marketing manager cost within this year's budget",
+    "provenance": "from_brief",
+    "source_quote": "About £58,000 for the year, including salary, employer costs, recruitment and equipment.",
+    "analysis_participation": "included",
+    "category": "observable",
+    "observed_state": {
+     "value": 58000,
+     "raw_value": 58000,
+     "unit": "GBP",
+     "source": "user_override"
+    },
+    "display_value": "58,000 GBP, for now — you said “About £58,000 for the year, including salary, employer costs, recruitment and equipment.”",
+    "description": "You gave this as an approximate figure; Olumi uses it for now, until you give a range."
+   },
+   {
+    "id": "ai_cost",
+    "kind": "factor",
+    "label": "AI tool cost within this year's budget",
+    "provenance": "from_brief",
+    "source_quote": "About £300 a month, or £3,600 for the year.",
+    "analysis_participation": "included",
+    "category": "observable",
+    "observed_state": {
+     "value": 3600,
+     "raw_value": 3600,
+     "unit": "GBP",
+     "source": "user_override"
+    },
+    "display_value": "3,600 GBP, for now — you said “About £300 a month, or £3,600 for the year.”",
+    "description": "You gave this as an approximate figure; Olumi uses it for now, until you give a range."
+   },
+   {
+    "id": "base_advertising",
+    "kind": "factor",
+    "label": "Advertising spend before redirecting savings",
+    "provenance": "from_brief",
+    "source_quote": "About £36,000 for the year with the manager, or £90,400 with the AI tool, after the other costs we've allowed for.",
+    "analysis_participation": "included",
+    "category": "observable",
+    "observed_state": {
+     "value": 36000,
+     "raw_value": 36000,
+     "unit": "GBP",
+     "source": "user_override"
+    },
+    "display_value": "36,000 GBP, for now — you said “About £36,000 for the year with the manager, or £90,400 with the AI tool, after the other costs we've allowed for.”",
+    "description": "You gave this as an approximate figure; Olumi uses it for now, until you give a range."
+   },
+   {
+    "id": "other_spending",
+    "kind": "factor",
+    "label": "Other spending from the year's budget",
+    "provenance": "from_brief",
+    "source_quote": "We would allow £6,000 for design, copy production and landing-page work under either option.",
+    "analysis_participation": "included",
+    "category": "observable",
+    "observed_state": {
+     "value": 6000,
+     "raw_value": 6000,
+     "unit": "GBP",
+     "source": "user_override"
+    },
+    "display_value": "6,000 GBP"
+   },
+   {
+    "id": "cost_saving",
+    "kind": "outcome",
+    "label": "Manager cost minus AI tool cost",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Marketing manager cost within this year's budget and AI tool cost within this year's budget",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "manager_cost",
+      "ai_cost"
+     ],
+     "words": "Worked out from Marketing manager cost within this year's budget and AI tool cost within this year's budget"
+    }
+   },
+   {
+    "id": "manager_spending",
+    "kind": "outcome",
+    "label": "Spending on the manager under the chosen option",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Marketing manager cost within this year's budget and Marketing manager option selected",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "manager_cost",
+      "manager_selected"
+     ],
+     "words": "Worked out from Marketing manager cost within this year's budget and Marketing manager option selected"
+    }
+   },
+   {
+    "id": "ai_spending",
+    "kind": "outcome",
+    "label": "Spending on the AI tool under the chosen option",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from AI tool cost within this year's budget and AI tool option selected",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "ai_cost",
+      "ai_selected"
+     ],
+     "words": "Worked out from AI tool cost within this year's budget and AI tool option selected"
+    }
+   },
+   {
+    "id": "redirected_savings",
+    "kind": "outcome",
+    "label": "Savings redirected to advertising",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Manager cost minus AI tool cost and AI tool option selected",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "cost_saving",
+      "ai_selected"
+     ],
+     "words": "Worked out from Manager cost minus AI tool cost and AI tool option selected"
+    }
+   },
+   {
+    "id": "advertising_spending",
+    "kind": "outcome",
+    "label": "Total launch advertising spend",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Advertising spend before redirecting savings and Savings redirected to advertising",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "base_advertising",
+      "redirected_savings"
+     ],
+     "words": "Worked out from Advertising spend before redirecting savings and Savings redirected to advertising"
+    }
+   },
+   {
+    "id": "total_spending",
+    "kind": "outcome",
+    "label": "Total spending from the year's budget",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Other spending from the year's budget, Spending on the manager under the chosen option, Spending on the AI tool under the chosen option and Total launch advertising spend",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "other_spending",
+      "manager_spending",
+      "ai_spending",
+      "advertising_spending"
+     ],
+     "words": "Worked out from Other spending from the year's budget, Spending on the manager under the chosen option, Spending on the AI tool under the chosen option and Total launch advertising spend"
+    }
+   },
+   {
+    "id": "zero_owner_time",
+    "kind": "factor",
+    "label": "Time attributed to neither option",
+    "analysis_participation": "included",
+    "category": "observable",
+    "observed_state": {
+     "value": 0,
+     "raw_value": 0,
+     "unit": "%"
+    },
+    "display_value": "0 %",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "description": "Zero is the additive baseline; each option's coefficient includes its full campaign time demand."
+   },
+   {
+    "id": "owner_time",
+    "kind": "outcome",
+    "label": "Share of your time needed for the launch campaign",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Time attributed to neither option, Marketing manager option selected and AI tool option selected",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "zero_owner_time",
+      "manager_selected",
+      "ai_selected"
+     ],
+     "words": "Worked out from Time attributed to neither option, Marketing manager option selected and AI tool option selected"
+    }
+   },
+   {
+    "id": "conversion_rate",
+    "kind": "outcome",
+    "label": "Conversion rate",
+    "provenance": "from_brief",
+    "source_quote": "I have two goals: For our new feature launch to be successful, we need to have a conversion rate of over 15% and secure 20 new customers within the first 3 months.",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Manager conversion rate when selected and AI conversion rate when selected",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "selected_manager_conversion",
+      "selected_ai_conversion"
+     ],
+     "words": "Worked out from Manager conversion rate when selected and AI conversion rate when selected"
+    }
+   },
+   {
+    "id": "baseline_conversion_rate",
+    "kind": "factor",
+    "label": "Current comparable conversion rate",
+    "provenance": "from_brief",
+    "source_quote": "Our most comparable previous campaign converted about 8–10% of qualified prospects into paying customers.",
+    "analysis_participation": "included",
+    "category": "observable",
+    "observed_state": {
+     "value": 9,
+     "raw_value": 9,
+     "unit": "%",
+     "source": "user_override",
+     "range": {
+      "low": 8,
+      "high": 10
+     }
+    },
+    "display_value": "8–10 %; Olumi reads it as a spread around 9 (sd 0.5774), provisionally"
+   },
+   {
+    "id": "manager_conversion_rate",
+    "kind": "outcome",
+    "label": "Conversion rate under manager planning",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Current comparable conversion rate and Conversion multiplier with a marketing manager",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "baseline_conversion_rate",
+      "manager_conversion_multiplier"
+     ],
+     "words": "Worked out from Current comparable conversion rate and Conversion multiplier with a marketing manager"
+    }
+   },
+   {
+    "id": "ai_conversion_rate",
+    "kind": "outcome",
+    "label": "Conversion rate under AI planning",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Current comparable conversion rate and Conversion multiplier with AI campaign planning",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "baseline_conversion_rate",
+      "ai_conversion_multiplier"
+     ],
+     "words": "Worked out from Current comparable conversion rate and Conversion multiplier with AI campaign planning"
+    }
+   },
+   {
+    "id": "selected_manager_conversion",
+    "kind": "outcome",
+    "label": "Manager conversion rate when selected",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Conversion rate under manager planning and Marketing manager option selected",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "manager_conversion_rate",
+      "manager_selected"
+     ],
+     "words": "Worked out from Conversion rate under manager planning and Marketing manager option selected"
+    }
+   },
+   {
+    "id": "selected_ai_conversion",
+    "kind": "outcome",
+    "label": "AI conversion rate when selected",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Conversion rate under AI planning and AI tool option selected",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "ai_conversion_rate",
+      "ai_selected"
+     ],
+     "words": "Worked out from Conversion rate under AI planning and AI tool option selected"
+    }
+   },
+   {
+    "id": "limited_marketing_experience",
+    "kind": "action",
+    "label": "Claim: I'm not that experienced with marketing.",
+    "description": "I'm not that experienced with marketing.",
+    "provenance": "from_brief",
+    "source_quote": "I'm not that experienced with marketing.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "annual_cost_scope",
+    "kind": "action",
+    "label": "Assumption: All spending inputs are totals falling within the stated budget year, not recur…",
+    "description": "All spending inputs are totals falling within the stated budget year, not recurring annual rates; other spending includes all remaining commitments.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "all_savings_redirected",
+    "kind": "action",
+    "label": "Assumption: The AI option keeps the manager option's original advertising allocation and re…",
+    "description": "The AI option keeps the manager option's original advertising allocation and redirects the entire difference between manager and tool costs to advertising.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "time_share_interpretation",
+    "kind": "action",
+    "label": "Assumption: The time estimates represent your working-time share while the campaign is acti…",
+    "description": "The time estimates represent your working-time share while the campaign is active, including planning, execution oversight and advertising management, rather than an average diluted across the whole year.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "verify_positive_savings",
+    "kind": "action",
+    "label": "Condition: The proposed increase in advertising depends on the AI tool costing less than t…",
+    "description": "The proposed increase in advertising depends on the AI tool costing less than the manager within the same budget year.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "campaign_effectiveness_not_modelled",
+    "kind": "action",
+    "label": "Left out: How either option affects the success of the next product feature launch, inclu…",
+    "description": "How either option affects the success of the next product feature launch, including campaign quality and the return from additional advertising. Why: No success measure, target, deadline or product and audience context was provided, so spending and time feasibility cannot establish which option produces the better launch.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "launch_readiness_timing",
+    "kind": "action",
+    "label": "Left out: Whether a manager can be recruited and onboarded, or the AI workflow made ready…",
+    "description": "Whether a manager can be recruited and onboarded, or the AI workflow made ready, before the launch. Why: The launch date and preparation lead times were not stated, so the static comparison does not test readiness or changing workload before launch.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   }
+  ],
+  "edges": [
+   {
+    "from": "conversion_rate",
+    "to": "feature_launch_goal",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "brief_extraction",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "conversion_rate__feature_launch_goal"
+   },
+   {
+    "from": "mp:decision",
+    "to": "hire_manager",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "origin": "model_program:calculation",
+    "id": "mp:decision__hire_manager"
+   },
+   {
+    "from": "hire_manager",
+    "to": "manager_selected",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "origin": "model_program:calculation",
+    "id": "hire_manager__manager_selected"
+   },
+   {
+    "from": "mp:decision",
+    "to": "use_ai_and_more_ads",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "origin": "model_program:calculation",
+    "id": "mp:decision__use_ai_and_more_ads"
+   },
+   {
+    "from": "use_ai_and_more_ads",
+    "to": "ai_selected",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "origin": "model_program:calculation",
+    "id": "use_ai_and_more_ads__ai_selected"
+   },
+   {
+    "from": "manager_cost",
+    "to": "cost_saving",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "manager_cost__cost_saving"
+   },
+   {
+    "from": "ai_cost",
+    "to": "cost_saving",
+    "strength": {
+     "mean": -1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "negative",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "subtracted",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "ai_cost__cost_saving"
+   },
+   {
+    "from": "manager_cost",
+    "to": "manager_spending",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "manager_cost__manager_spending"
+   },
+   {
+    "from": "manager_selected",
+    "to": "manager_spending",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "manager_selected__manager_spending"
+   },
+   {
+    "from": "ai_cost",
+    "to": "ai_spending",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "ai_cost__ai_spending"
+   },
+   {
+    "from": "ai_selected",
+    "to": "ai_spending",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "ai_selected__ai_spending"
+   },
+   {
+    "from": "cost_saving",
+    "to": "redirected_savings",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "brief_extraction",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "cost_saving__redirected_savings"
+   },
+   {
+    "from": "ai_selected",
+    "to": "redirected_savings",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "brief_extraction",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "ai_selected__redirected_savings"
+   },
+   {
+    "from": "base_advertising",
+    "to": "advertising_spending",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "brief_extraction",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "base_advertising__advertising_spending"
+   },
+   {
+    "from": "redirected_savings",
+    "to": "advertising_spending",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "brief_extraction",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "redirected_savings__advertising_spending"
+   },
+   {
+    "from": "other_spending",
+    "to": "total_spending",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "other_spending__total_spending"
+   },
+   {
+    "from": "manager_spending",
+    "to": "total_spending",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "manager_spending__total_spending"
+   },
+   {
+    "from": "ai_spending",
+    "to": "total_spending",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "ai_spending__total_spending"
+   },
+   {
+    "from": "advertising_spending",
+    "to": "total_spending",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "advertising_spending__total_spending"
+   },
+   {
+    "from": "zero_owner_time",
+    "to": "owner_time",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "base level",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "zero_owner_time__owner_time"
+   },
+   {
+    "from": "manager_selected",
+    "to": "owner_time",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "about 12, 3–35 %, Olumi's estimate; Olumi reads it as a spread around 12 (sd 9.238), provisionally per 1",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 12,
+      "amount_unit": "%",
+      "per_source_change": 1,
+      "per_source_change_unit": "1",
+      "strength_mean": 1,
+      "strength_mean_frame": "edge_strength",
+      "stated_range": {
+       "low": 3,
+       "high": 35,
+       "text": "3–35",
+       "end": "centre"
+      }
+     }
+    },
+    "origin": "model_program:calculation",
+    "coefficient_id": "manager_owner_time",
+    "id": "manager_selected__owner_time"
+   },
+   {
+    "from": "ai_selected",
+    "to": "owner_time",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "about 30, 10–65 %, Olumi's estimate; Olumi reads it as a spread around 30 (sd 15.88), provisionally per 1",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 30,
+      "amount_unit": "%",
+      "per_source_change": 1,
+      "per_source_change_unit": "1",
+      "strength_mean": 1,
+      "strength_mean_frame": "edge_strength",
+      "stated_range": {
+       "low": 10,
+       "high": 65,
+       "text": "10–65",
+       "end": "centre"
+      }
+     }
+    },
+    "origin": "model_program:calculation",
+    "coefficient_id": "ai_owner_time",
+    "id": "ai_selected__owner_time"
+   },
+   {
+    "from": "baseline_conversion_rate",
+    "to": "manager_conversion_rate",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "about 1.15, 0.5–2, Olumi's estimate; Olumi reads it as a spread around 1.15 (sd 0.433), provisionally per %",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 1.15,
+      "amount_unit": "%",
+      "per_source_change": 1,
+      "per_source_change_unit": "%",
+      "strength_mean": 1,
+      "strength_mean_frame": "edge_strength",
+      "stated_range": {
+       "low": 0.5,
+       "high": 2,
+       "text": "0.5–2",
+       "end": "centre"
+      }
+     }
+    },
+    "origin": "model_program:calculation",
+    "coefficient_id": "manager_conversion_multiplier",
+    "id": "baseline_conversion_rate__manager_conversion_rate"
+   },
+   {
+    "from": "baseline_conversion_rate",
+    "to": "ai_conversion_rate",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "about 1, 0.3–2, Olumi's estimate; Olumi reads it as a spread around 1 (sd 0.4907), provisionally per %",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 1,
+      "amount_unit": "%",
+      "per_source_change": 1,
+      "per_source_change_unit": "%",
+      "strength_mean": 1,
+      "strength_mean_frame": "edge_strength",
+      "stated_range": {
+       "low": 0.3,
+       "high": 2,
+       "text": "0.3–2",
+       "end": "centre"
+      }
+     }
+    },
+    "origin": "model_program:calculation",
+    "coefficient_id": "ai_conversion_multiplier",
+    "id": "baseline_conversion_rate__ai_conversion_rate"
+   },
+   {
+    "from": "manager_conversion_rate",
+    "to": "selected_manager_conversion",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "manager_conversion_rate__selected_manager_conversion"
+   },
+   {
+    "from": "manager_selected",
+    "to": "selected_manager_conversion",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "manager_selected__selected_manager_conversion"
+   },
+   {
+    "from": "ai_conversion_rate",
+    "to": "selected_ai_conversion",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "ai_conversion_rate__selected_ai_conversion"
+   },
+   {
+    "from": "ai_selected",
+    "to": "selected_ai_conversion",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "ai_selected__selected_ai_conversion"
+   },
+   {
+    "from": "selected_manager_conversion",
+    "to": "conversion_rate",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "selected_manager_conversion__conversion_rate"
+   },
+   {
+    "from": "selected_ai_conversion",
+    "to": "conversion_rate",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "selected_ai_conversion__conversion_rate"
+   }
+  ],
+  "goal_constraints": [
+   {
+    "constraint_id": "annual_budget_limit",
+    "node_id": "total_spending",
+    "operator": "<=",
+    "value": 100000,
+    "label": "Our budget for the year is £100,000.",
+    "unit": "GBP",
+    "source_quote": "Our budget for the year is £100,000.",
+    "provenance": "explicit"
+   },
+   {
+    "constraint_id": "owner_time_limit",
+    "node_id": "owner_time",
+    "operator": "<=",
+    "value": 25,
+    "label": "I can't spend more than 25% of my time on this",
+    "unit": "%",
+    "source_quote": "I can't spend more than 25% of my time on this",
+    "provenance": "explicit"
+   }
+  ],
+  "living_model": {
+   "model_program": "v1",
+   "canonical": {
+    "version": "canonical.v1",
+    "quantities": [
+     {
+      "id": "annual_budget",
+      "label": "Budget for the year",
+      "unit": "GBP",
+      "value": 100000,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": null,
+      "author": "person",
+      "party": null,
+      "quote": "Our budget for the year is £100,000.",
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "owner_time_cap",
+      "label": "Maximum share of your time",
+      "unit": "%",
+      "value": 25,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": null,
+      "author": "person",
+      "party": null,
+      "quote": "I can't spend more than 25% of my time on this",
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "manager_selected",
+      "label": "Marketing manager option selected",
+      "unit": "1",
+      "value": 0,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": "Zero means the marketing manager option is switched off.",
+      "author": "structure",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "ai_selected",
+      "label": "AI tool option selected",
+      "unit": "1",
+      "value": 0,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": "Zero means the AI tool option is switched off.",
+      "author": "structure",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "manager_cost",
+      "label": "Marketing manager cost within this year's budget",
+      "unit": "GBP",
+      "value": 58000,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": "You gave this as an approximate figure; Olumi uses it for now, until you give a range.",
+      "author": "person",
+      "party": null,
+      "quote": "About £58,000 for the year, including salary, employer costs, recruitment and equipment.",
+      "approval": "approved",
+      "author_id": null
+     },
+     {
+      "id": "ai_cost",
+      "label": "AI tool cost within this year's budget",
+      "unit": "GBP",
+      "value": 3600,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": "You gave this as an approximate figure; Olumi uses it for now, until you give a range.",
+      "author": "person",
+      "party": null,
+      "quote": "About £300 a month, or £3,600 for the year.",
+      "approval": "approved",
+      "author_id": null
+     },
+     {
+      "id": "base_advertising",
+      "label": "Advertising spend before redirecting savings",
+      "unit": "GBP",
+      "value": 36000,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": "You gave this as an approximate figure; Olumi uses it for now, until you give a range.",
+      "author": "person",
+      "party": null,
+      "quote": "About £36,000 for the year with the manager, or £90,400 with the AI tool, after the other costs we've allowed for.",
+      "approval": "approved",
+      "author_id": null
+     },
+     {
+      "id": "other_spending",
+      "label": "Other spending from the year's budget",
+      "unit": "GBP",
+      "value": 6000,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": null,
+      "author": "person",
+      "party": null,
+      "quote": "We would allow £6,000 for design, copy production and landing-page work under either option.",
+      "approval": "approved",
+      "author_id": null
+     },
+     {
+      "id": "cost_saving",
+      "label": "Manager cost minus AI tool cost",
+      "unit": "GBP",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "manager_spending",
+      "label": "Spending on the manager under the chosen option",
+      "unit": "GBP",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "ai_spending",
+      "label": "Spending on the AI tool under the chosen option",
+      "unit": "GBP",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "redirected_savings",
+      "label": "Savings redirected to advertising",
+      "unit": "GBP",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "advertising_spending",
+      "label": "Total launch advertising spend",
+      "unit": "GBP",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "total_spending",
+      "label": "Total spending from the year's budget",
+      "unit": "GBP",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "zero_owner_time",
+      "label": "Time attributed to neither option",
+      "unit": "%",
+      "value": 0,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": "Zero is the additive baseline; each option's coefficient includes its full campaign time demand.",
+      "author": "structure",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "manager_owner_time",
+      "label": "Your time share with a marketing manager",
+      "unit": "%",
+      "value": 12,
+      "low": 3,
+      "high": 35,
+      "range_kind": "plausible",
+      "kind": "coefficient",
+      "status": "estimated",
+      "question": null,
+      "basis": "A manager can take on execution, but briefing, onboarding and approvals still require your time; the wide range reflects unknown scope and your limited marketing experience.",
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "ai_owner_time",
+      "label": "Your time share with AI planning and more advertising",
+      "unit": "%",
+      "value": 30,
+      "low": 10,
+      "high": 65,
+      "range_kind": "plausible",
+      "kind": "coefficient",
+      "status": "estimated",
+      "question": null,
+      "basis": "An AI planning tool may leave execution, checking and advertising management to you; the wide range reflects unknown support, campaign scope and your limited marketing experience.",
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "owner_time",
+      "label": "Share of your time needed for the launch campaign",
+      "unit": "%",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "conversion_rate",
+      "label": "Conversion rate",
+      "unit": "%",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "person",
+      "party": null,
+      "quote": "I have two goals: For our new feature launch to be successful, we need to have a conversion rate of over 15% and secure 20 new customers within the first 3 months.",
+      "approval": "approved",
+      "author_id": null
+     },
+     {
+      "id": "feature_launch_goal_target",
+      "label": "Target for Conversion rate",
+      "unit": "%",
+      "value": 15,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": null,
+      "author": "person",
+      "party": null,
+      "quote": "I have two goals: For our new feature launch to be successful, we need to have a conversion rate of over 15% and secure 20 new customers within the first 3 months.",
+      "approval": "approved",
+      "author_id": null
+     },
+     {
+      "id": "baseline_conversion_rate",
+      "label": "Current comparable conversion rate",
+      "unit": "%",
+      "value": null,
+      "low": 8,
+      "high": 10,
+      "range_kind": "plausible",
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": null,
+      "author": "person",
+      "party": null,
+      "quote": "Our most comparable previous campaign converted about 8–10% of qualified prospects into paying customers.",
+      "approval": "approved",
+      "author_id": null
+     },
+     {
+      "id": "manager_conversion_multiplier",
+      "label": "Conversion multiplier with a marketing manager",
+      "unit": "1",
+      "value": 1.15,
+      "low": 0.5,
+      "high": 2,
+      "range_kind": "plausible",
+      "kind": "coefficient",
+      "status": "estimated",
+      "question": null,
+      "basis": "A manager may improve targeting, messaging and testing relative to your current approach, but this provisional range includes worse performance because the hire, product, audience and current campaign quality are unknown.",
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "ai_conversion_multiplier",
+      "label": "Conversion multiplier with AI campaign planning",
+      "unit": "1",
+      "value": 1,
+      "low": 0.3,
+      "high": 2,
+      "range_kind": "plausible",
+      "kind": "coefficient",
+      "status": "estimated",
+      "question": null,
+      "basis": "AI planning may improve messaging and structure, but execution depends on your limited marketing experience and available time, so this provisional range allows substantial deterioration or improvement without assuming that more advertising raises the conversion percentage.",
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "manager_conversion_rate",
+      "label": "Conversion rate under manager planning",
+      "unit": "%",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "ai_conversion_rate",
+      "label": "Conversion rate under AI planning",
+      "unit": "%",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "selected_manager_conversion",
+      "label": "Manager conversion rate when selected",
+      "unit": "%",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "selected_ai_conversion",
+      "label": "AI conversion rate when selected",
+      "unit": "%",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     }
+    ]
+   }
+  }
+ }
+}

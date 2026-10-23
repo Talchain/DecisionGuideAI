@@ -5,7 +5,7 @@
  * resting face of the field the user types into.
  */
 import Tooltip from '../../../components/Tooltip'
-import { classifyUnit, moneyFigureParts } from '../../../utils/unitClassifier'
+import { classifyUnit, moneyFigureParts, unitWords } from '../../../utils/unitClassifier'
 import { cardMark } from './cardMarks'
 import { SOURCE_MARK_GLYPH_CLASSES } from './EstimateMarker'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
@@ -38,7 +38,10 @@ export function NeedsInputSlot({ words, description, unit = {}, testId }: {
 export function emptyValueUnit(unit: string | null | undefined): { prefix?: string; suffix?: string } {
   const { kind, canonical } = classifyUnit(unit)
   if (kind === 'none' || kind === 'placeholder') return {}
-  if (kind !== 'symbol' && kind !== 'iso') return { suffix: canonical }
+  if (kind !== 'symbol' && kind !== 'iso') {
+    const words = unitWords(canonical)
+    return words === '' ? {} : { suffix: words }
+  }
   const glyph = moneyFigureParts(0, canonical)?.figure.replace(/[-\d.,\s]/g, '')
   return { prefix: glyph || canonical }
 }

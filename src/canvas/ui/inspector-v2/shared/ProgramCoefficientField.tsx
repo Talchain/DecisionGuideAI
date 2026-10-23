@@ -10,6 +10,7 @@ import { useOptionalConversationContext } from '../../../conversation/Conversati
 import { buildFactorValueEditEvent } from '../../../conversation/factorValueEdit'
 import { settleSystemEventSend, type SystemEventSendSettlement } from '../../../conversation/settleSystemEventSend'
 import type { ProgramCoefficient } from '../../../nodes/shared/savedModelProgram'
+import { unitWords } from '../../../../utils/unitClassifier'
 import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
 import { ACTION_LABELS } from '../inspectorStrings'
@@ -64,9 +65,9 @@ export function ProgramCoefficientField({ coefficient }: { coefficient: ProgramC
           data-testid="edge-program-coefficient-input"
           className={`${typography.panelBody} w-28 tabular-nums ${controls.editableField}`}
         />
-        {coefficient.unit && (
+        {unitWords(coefficient.unit) !== '' && (
           <span className={`${typography.panelMeta} text-text-light`} data-testid="edge-program-coefficient-unit">
-            {coefficient.unit}
+            {unitWords(coefficient.unit)}
           </span>
         )}
       </label>

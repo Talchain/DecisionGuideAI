@@ -8,6 +8,7 @@ import { useMemo } from 'react'
 
 import { useSavedGraph } from './savedGraph'
 import { formatNumber } from '../../utils/formatValueWithUnit'
+import { unitWords } from '../../../utils/unitClassifier'
 import type { ValueProvenanceKind } from '../../domain/valueProvenance'
 
 type Rec = Record<string, unknown>
@@ -34,6 +35,12 @@ export interface ProgramCoefficient {
   unit: string | null
   /** The figure's author mark, from the quantity's own `author`: the brief's words, the person's, or Olumi's. */
   mark: ValueProvenanceKind | null
+  /**
+   * Whether the inspector offers a field for it. DL ruling (23 Oct): a coefficient the model works out (its node's
+   * `value_basis` is worked_out) or that has no value is not the person's to type (as #2954 does for structure-fixed
+   * figures); the link still says any figure it has.
+   */
+  editable: boolean
 }
 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
@@ -51,6 +58,8 @@ export function programCoefficientOf(graph: unknown, edgeId: string): ProgramCoe
   const quantities = Array.isArray(canonical?.quantities) ? canonical.quantities : []
   const q = rec(quantities.find((x) => rec(x)?.id === coefficientId))
   if (!q) return null
+  const nodes = Array.isArray(g?.nodes) ? g.nodes : []
+  const workedOut = rec(rec(nodes.find((n) => rec(n)?.id === coefficientId))?.value_basis)?.kind === 'worked_out'
   return {
     id: coefficientId,
     label: typeof q.label === 'string' ? q.label : null,
@@ -59,6 +68,7 @@ export function programCoefficientOf(graph: unknown, edgeId: string): ProgramCoe
     high: num(q.high),
     unit: typeof q.unit === 'string' && q.unit.length > 0 ? q.unit : null,
     mark: markOf(q),
+    editable: num(q.value) !== null && !workedOut,
   }
 }
 
@@ -68,9 +78,13 @@ export function programCoefficientOf(graph: unknown, edgeId: string): ProgramCoe
  */
 export function programFigureWords(c: ProgramCoefficient): string | null {
   if (c.value === null) return null
-  const signed = `${c.value > 0 ? '+' : ''}${formatNumber(c.value)}`
+  // A positive dimensionless coefficient (unit "1") is a multiplier: "about ×1.15 (0.5–2)" (DL, 23 Oct). Every other
+  // unit keeps the signed form, in the unit's reading words ("+0.15 per tech lead").
+  const multiplier = (c.unit ?? '').trim() === '1' && c.value > 0
+  const signed = multiplier ? `×${formatNumber(c.value)}` : `${c.value > 0 ? '+' : ''}${formatNumber(c.value)}`
   const range = c.low !== null && c.high !== null ? ` (${formatNumber(c.low)}–${formatNumber(c.high)})` : ''
-  const unit = c.unit ? ` ${c.unit}` : ''
+  const words = unitWords(c.unit)
+  const unit = words ? ` ${words}` : ''
   return range ? `about ${signed}${range}${unit}` : `${signed}${unit}`
 }
 

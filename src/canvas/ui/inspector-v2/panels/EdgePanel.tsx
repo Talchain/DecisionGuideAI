@@ -1064,7 +1064,7 @@ export const EdgePanel = memo(function EdgePanel({
                 same mechanism `InspectorRouter` used to apply to the whole
                 panel — kept, but pointed at the question that actually decides
                 it: can THIS edge's strength be asserted? */}
-            {programCoefficient ? (
+            {programCoefficient?.editable ? (
               <PrimaryControlCard>
                 <ProgramCoefficientField coefficient={programCoefficient} />
               </PrimaryControlCard>
