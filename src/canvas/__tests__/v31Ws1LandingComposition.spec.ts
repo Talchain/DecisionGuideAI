@@ -415,10 +415,10 @@ describe('WS1 #28 — a polarity glyph keeps off the band title', () => {
   const LINE = flattenSvgPath('M300,940 C300,970 100,970 100,1000')!
 
   it('a sign whose natural spot is on the title slides along its own line off it', () => {
-    const free = resolvePolarityGlyphOnPath(LINE, 1000, AT_BOUND)
+    const free = resolvePolarityGlyphOnPath(LINE, AT_BOUND)
     const title = { x0: free.x - 40, y0: free.y - 15, x1: free.x + 40, y1: free.y + 15 }
     expect(clear(free, title)).toBe(false) // CONTRAST: without the keep-out it IS on the title
-    const moved = resolvePolarityGlyphOnPath(LINE, 1000, AT_BOUND, [title])
+    const moved = resolvePolarityGlyphOnPath(LINE, AT_BOUND, [title])
     expect(moved.clear).toBe(true)
     expect(clear(moved, title)).toBe(true)
     // ON its own line: within a unit of the flattened path's nearest segment.
@@ -435,10 +435,10 @@ describe('WS1 #28 — a polarity glyph keeps off the band title', () => {
   })
 
   it('a thin title strip over the sign\'s spot still moves it', () => {
-    const free = resolvePolarityGlyphOnPath(LINE, 1000, AT_BOUND)
+    const free = resolvePolarityGlyphOnPath(LINE, AT_BOUND)
     const title = { x0: free.x - 40, y0: free.y - 2, x1: free.x + 40, y1: free.y + 2 }
     expect(clear(free, title)).toBe(false)
-    expect(clear(resolvePolarityGlyphOnPath(LINE, 1000, AT_BOUND, [title]), title)).toBe(true)
+    expect(clear(resolvePolarityGlyphOnPath(LINE, AT_BOUND, [title]), title)).toBe(true)
   })
 
   it('two links from the same place into one card still get distinct arrivals, and distinct signs under a keep-out', () => {
@@ -452,8 +452,9 @@ describe('WS1 #28 — a polarity glyph keeps off the band title', () => {
     expect(a).not.toEqual(b)
     const lineOf = (dx: number) => flattenSvgPath(`M360,700 C360,850 ${360 + dx},850 ${360 + dx},1000`)!
     const title = { x0: 300, y0: 940, x1: 420, y1: 960 }
-    const ga = resolvePolarityGlyphOnPath(lineOf(a.dx), 1000, AT_BOUND, [title])
-    const gb = resolvePolarityGlyphOnPath(lineOf(b.dx), 1000, AT_BOUND, [title])
+    // Two links from one place share their first stretch: the caller staggers them in the order of their targets.
+    const ga = resolvePolarityGlyphOnPath(lineOf(a.dx), AT_BOUND, [title], a.dx < b.dx ? -0.5 : 0.5)
+    const gb = resolvePolarityGlyphOnPath(lineOf(b.dx), AT_BOUND, [title], a.dx < b.dx ? 0.5 : -0.5)
     expect(Math.hypot(ga.x - gb.x, ga.y - gb.y)).toBeGreaterThan(2 * AT_BOUND.halfBox)
     expect(clear(ga, title) && clear(gb, title)).toBe(true)
   })
