@@ -128,10 +128,28 @@ describe('an asked figure on a program graph', () => {
     expect(screen.queryByTestId(`node-value-editor-${ASKED}`)).toBeNull()
   })
 
+  it('⭐ the waiting card names its own mark: CEE’s words and the asked glyph, with no invented figure or author', async () => {
+    // Codex on #2952: the mounted card, not a supplied mark. The served node as it is today.
+    await openBoard(PROGRAM)
+    await card(ASKED)
+    const mark = screen.getByTestId(`factor-value-source-${ASKED}`)
+    expect(mark).toHaveAttribute('aria-label', 'Budget cost per additional developer: Waiting for your answer')
+    expect(mark.querySelector('.lucide-circle-dashed')).not.toBeNull()
+    expect(mark.querySelector('.lucide-help-circle, .lucide-file-text, .lucide-user-check')).toBeNull()
+    const line = screen.getByTestId('factor-recorded-value')
+    expect(line).toHaveTextContent('Waiting for your answer')
+    expect(line.textContent).not.toMatch(/\d/)
+    expect(line.textContent).not.toMatch(/From your brief|Set by you|Source not recorded|Olumi/)
+  })
+
   it('CONTRAST: the structure-fixed switch keeps its own field', async () => {
     await openBoard(PROGRAM, 'GBP/developer')
     await card(SWITCH)
     expect(screen.getByTestId(`node-value-editor-${SWITCH}`)).toHaveTextContent('0 developer')
+    // Its own mark, mounted: CEE's words for a figure the model's structure fixes.
+    const mark = screen.getByTestId(`factor-value-source-${SWITCH}`)
+    expect(mark).toHaveAttribute('aria-label', 'Additional developers hired: Fixed by how the model is built')
+    expect(mark.querySelector('.lucide-calculator')).not.toBeNull()
   })
 
   it('CONTRAST: a board that is not a program graph is unchanged: the words, and no field', async () => {
