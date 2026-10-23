@@ -166,13 +166,20 @@ const proposalSchema = z.object({
     const r = addSchema.safeParse(a)
     return r.success ? [r.data] : []
   })),
-  changes: z.unknown().optional().transform(changes => (Array.isArray(changes) ? changes.flatMap(c => {
-    const r = proposalChangeSchema.safeParse(c)
-    return r.success ? [r.data] : []
-  }) : null)),
+  changes: z.unknown().optional().transform(changes => (Array.isArray(changes) ? changes : null)),
 }).refine(p => p.approve_action.id === `agent-approve-proposal:${p.proposal_id}`
   && p.decline_action.id === `agent-decline-proposal:${p.proposal_id}`
   && (p.review_action === undefined || p.review_action.id === `${REVIEW_PROPOSAL_PREFIX}${p.proposal_id}`))
+  // Each `changes[]` entry is read on its own and the readable ones are kept on view; `changesUnread` says a PRESENT list
+  // could not be read in full, so the card cannot be approved as shown (buddy on #2957: never approve 3 while showing 2).
+  .transform(({ changes, ...p }) => {
+    if (changes === null) return { ...p, changes: null, changesUnread: false }
+    const read = changes.flatMap(c => {
+      const r = proposalChangeSchema.safeParse(c)
+      return r.success ? [r.data] : []
+    })
+    return { ...p, changes: read, changesUnread: read.length !== changes.length }
+  })
 // CEE pins `_proposal_fields` to its 16-hex freshness token (graph-hash.ts HASH_HEX_LENGTH; served 4f9f9e5); 64 hex is its durable form.
 const wireSchema = z.object({ version: z.literal(1), graph_hash: z.string().regex(/^(?:[0-9a-f]{16}|[0-9a-f]{64})$/), proposals: z.array(z.unknown()) })
 export type Proposal = z.infer<typeof proposalSchema>
