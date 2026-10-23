@@ -233,6 +233,20 @@ export const AMEND_PROPOSAL_ACTION = { id: 'agent-amend-proposal', label: 'Chang
 const APPROVE_PREFIX = 'agent-approve-proposal:'
 export interface DisplayedProposal { proposal_id: string; revision?: string }
 /**
+ * ⛔ WHETHER AN APPROVE WOULD APPLY MORE THAN ITS CARD SHOWS (Codex BLOCK on #2958): the card's id names a held proposal
+ * whose PRESENT `changes[]` could not be read in full (`changesUnread`). Read from the newest reply that holds that
+ * proposal (a later reply carries CEE's current held set), the same projection every approve surface renders from.
+ */
+export function approvesUnreadChanges(messages: readonly ConversationMessage[], chipId: string | undefined): boolean {
+  if (typeof chipId !== 'string' || !chipId.startsWith(APPROVE_PREFIX)) return false
+  const id = chipId.slice(APPROVE_PREFIX.length)
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const held = readProposalFields(messages[i].proposalFields)?.proposals.find(p => p.proposal_id === id)
+    if (held !== undefined) return held.changesUnread
+  }
+  return false
+}
+/**
  * ⭐ WHAT THE USER IS SHOWN (Codex BLOCK on CEE #3420 / DGAI #2819, 18 Oct, P1: a replacement whose reply was lost inherited
  * the typed consent given to the card still on screen). Every typed turn tells CEE the cards with a button on screen, at the
  * revision this client rendered, and CEE binds typed words ONLY to one of them. Mirrors ChatThread's rule: the latest reply
