@@ -36,3 +36,49 @@ describe('an option value on a factor framed only by CEE’s scale_frame', () =>
     expect(optionEntryScaleOf(100000, 500000)).toBe(100000)
   })
 })
+
+describe('the card editor reads the whole entry, or refuses it (DL 23 Oct: café "£ per customer")', () => {
+  const cafe = () => optionValueInPlace({ value: 0.25, unit: '£ per customer', cap: 20, observedValue: 0.25, observedRawValue: 5 })!
+
+  it('".5" proposes £0.50 (0.025), never £5 — RED at fc60b62a (0.25)', () => {
+    const a = cafe().admit('.5')
+    expect(a).toMatchObject({ ok: true })
+    expect((a as { value: number }).value).toBeCloseTo(0.025, 12)
+  })
+
+  it('"-£6.80", "6.8junk" and "6.80 EUR" are refused with a sentence — RED at fc60b62a (all admitted)', () => {
+    expect(cafe().admit('-£6.80')).toEqual({ ok: false, reason: 'Not saved · must be between £0 / customer and £20 / customer for this factor.' })
+    expect(cafe().admit('6.8junk')).toEqual({ ok: false, reason: 'Not saved · not a number this row can read. Enter an amount such as £5 / customer.' })
+    expect(cafe().admit('6.80 EUR')).toEqual({ ok: false, reason: 'Not saved · this row is in £ per customer. Enter the amount without another unit.' })
+  })
+
+  it('CONTRAST — "£6.80" proposes 0.34', () => {
+    const a = cafe().admit('£6.80')
+    expect((a as { value: number }).value).toBeCloseTo(0.34, 12)
+  })
+
+  const pounds2k = () => optionValueInPlace({ value: 0.5, unit: '£', cap: 2000, observedValue: 0.5, observedRawValue: 1000 })!
+
+  it('CONTRAST — the own currency after a multiplier, in any case: "1.2k GBP" and "1.2k gbp" propose 0.6 on a £ row with cap 2,000', () => {
+    for (const typed of ['1.2k GBP', '1.2k gbp', '£1.2k']) {
+      const a = pounds2k().admit(typed)
+      expect(a, typed).toMatchObject({ ok: true })
+      expect((a as { value: number }).value).toBeCloseTo(0.6, 12)
+    }
+  })
+
+  it('"1.2kGBP" (no space) proposes 0.6 too — RED at fc60b62a (0.0005, read as £1)', () => {
+    const a = pounds2k().admit('1.2kGBP')
+    expect((a as { value: number }).value).toBeCloseTo(0.6, 12)
+  })
+
+  it('"1.2k eur" on that £ row is refused — RED at fc60b62a (admitted)', () => {
+    expect(pounds2k().admit('1.2k eur')).toEqual({ ok: false, reason: 'Not saved · this row is in £. Enter the amount without another unit.' })
+  })
+
+  it('CONTRAST — an explicit "+" is the same value: "+6.80" proposes 0.34; "+0.5" on a model-scale row proposes 0.5', () => {
+    expect((cafe().admit('+6.80') as { value: number }).value).toBeCloseTo(0.34, 12)
+    const m = optionValueInPlace({ value: 0.2 })!
+    expect(m.admit('+0.5')).toEqual({ ok: true, value: 0.5 })
+  })
+})

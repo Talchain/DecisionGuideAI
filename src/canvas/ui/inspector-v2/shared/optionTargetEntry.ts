@@ -230,9 +230,29 @@ export function typedMarkerDenotesRowUnit(
   // A rate in that currency — '£/year', '£ per month' (served MRR `823bc028`): "£30k" was refused as "another unit".
   if (frame.unit.trim().startsWith(marker)) return true
   const iso = SYMBOL_ISO[marker]
-  const leadingCode = /^([A-Z]{3})(?![A-Za-z])/.exec(frame.unit.trim())?.[1]
-  return iso !== undefined && leadingCode === iso
+  return iso !== undefined && rowIsoCode(frame) === iso
 }
+
+/** The ISO code a row's unit is in, when it states one (`GBP`, `GBP/month`). */
+function rowIsoCode(frame: Extract<OptionTargetEntryFrame, { kind: 'user_units' }>): string | undefined {
+  return /^([A-Z]{3})(?![A-Za-z])/.exec(frame.unit.trim())?.[1]
+}
+
+/** A code typed with the amount denotes the row's unit by the same rule as a typed symbol. */
+function typedCodeDenotesRowUnit(code: string, frame: OptionTargetEntryFrame): boolean {
+  if (frame.kind !== 'user_units' || frame.unitKind === 'percent') return false
+  if (rowIsoCode(frame) === code) return true
+  const symbol = Object.keys(SYMBOL_ISO).find((s) => SYMBOL_ISO[s] === code)
+  return symbol !== undefined && typedMarkerDenotesRowUnit(symbol, frame)
+}
+
+/**
+ * ⛔ THE WHOLE ENTRY IS ONE AMOUNT, OR IT IS REFUSED (DL, 23 Oct: café "£ per customer" row read ".5" as 5,
+ * "-£6.80" as +6.8, "6.8junk" as 6 and accepted "6.80 EUR"). `parseSuccessTarget` reads PROSE — it picks the
+ * one amount out of a sentence and ignores the rest — so a field entry is held to this shape before it is read:
+ * an optional sign, an optional currency symbol, the number, an optional multiplier and an optional `%`.
+ */
+const WHOLE_ENTRY_SHAPE = /^[£$€]?\s*-?\d[\d,]*(?:\.\d+)?\s*(?:k|m|bn|b|thousand|million|billion)?\s*%?$/i
 
 /**
  * Parse a typed entry and return the MODEL-SCALE value to send, or the reason
@@ -258,7 +278,26 @@ export function admitOptionTargetEntry(
     const tail = frame.unit.toLowerCase()
     if (typed.toLowerCase().endsWith(tail)) typed = typed.slice(0, typed.length - tail.length).trim()
   }
-  const parsed = parseSuccessTarget(typed)
+  // A currency code typed with the amount ("6.80 EUR", "GBP 80") is read like a typed symbol: the row's own
+  // currency is dropped, any other is refused as another unit — never ignored.
+  const leading = /^([A-Za-z]{3})(?![A-Za-z])\s*(.*\d.*)$/.exec(typed)
+  const trailing = /^(.*\d[^A-Za-z]*(?:k|m|bn|b|thousand|million|billion)?[^A-Za-z]*)([A-Za-z]{3})$/i.exec(typed)
+  const coded = leading ? [leading[1], leading[2]] : trailing ? [trailing[2], trailing[1]] : null
+  if (coded) {
+    const [code, rest] = [coded[0].toUpperCase(), coded[1]]
+    if (!typedCodeDenotesRowUnit(code, frame)) {
+      return {
+        ok: false,
+        reason: frame.kind === 'user_units'
+          ? OPTION_TARGET_ENTRY_REFUSAL.unitConflict(frame.unit)
+          : OPTION_TARGET_ENTRY_REFUSAL.unitOnModelScale,
+      }
+    }
+    typed = rest.trim()
+  }
+  // The sign is the reader's: "-£6.80" is minus £6.80 ("£-6.80" to the parser), "+6.80" is 6.80, and ".5" is 0.5.
+  typed = typed.replace(/^\+\s*/, '').replace(/^([£$€])\s*\+/, '$1').replace(/^-\s*([£$€])\s*/, '$1-').replace(/^([£$€]?\s*-?)\./, (_m, lead: string) => `${lead}0.`)
+  const parsed = WHOLE_ENTRY_SHAPE.test(typed) ? parseSuccessTarget(typed) : null
   if (parsed === null) {
     return {
       ok: false,
