@@ -6,8 +6,8 @@
  *   · change: "Changes ‘label’: before → after"
  *   · remove: "Removes ‘label’ (was: before)"
  * Olumi's items are marked "Olumi’s"; the person's are not. The summary counts by kind, and so does the ghost's "+N".
- * With no `changes[]` the card keeps today's behaviour: a board that is not a program board shows CEE's notes (row below);
- * a program board shows their plain heads (#2956, interim until CEE ships `changes[]`: `proposalChangeNotes.program.spec.tsx`).
+ * With no `changes[]` the card shows CEE's notes, as before (row below); the interim plain heads for a program card
+ * without it (#2956) are retired now that CEE sends `changes[]` on every program proposal (#3715).
  *
  * Fixture: the served funding card (CEE b8afd1c2) with `changes[]` in the shape CEE is about to send (values written for
  * these rows; see the fixture's `_source`). Real path: the real `SuggestedChips`, the real saved-graph read for the

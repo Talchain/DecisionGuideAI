@@ -69,28 +69,6 @@ export function changeNotesSummary(notes: readonly Pick<ChangeNote, 'field_id'>[
  * calculations", never "Also changes 13 other changes" (DL, 23 Oct, served funding card). Any other kind is "other item".
  */
 const PROGRAM_CHANGE_NOUNS: Readonly<Record<string, string>> = { goal: 'goal', quantity: 'figure', relation: 'calculation' }
-/** CEE's own suffix for a second note on one path (`record.ts`: `<path>:<change>[:<n>]`), so the item's id is read exactly. */
-const NOTE_CHANGE_SUFFIX = /:(?:add|change|remove)(?::\d+)?$/
-const NOTE_HEAD = /^(Adds|Changes|Removes) ‘([^’]+)’/
-/**
- * ⚠ INTERIM, for a program card WITHOUT `changes[]` (DL 23 Oct: until CEE's S2 ships `changes[]` on every program
- * proposal; then this goes in a later commit). A PROGRAM card's Details in plain words only (DL, 23 Oct): each changed item once, as the head of CEE's own sentence
- * ("Adds ‘Amount sought from angels’"). The rest of a program note is the record's raw fields (`kind … define_goal_measure`,
- * `parts {…}`), so it is not shown, and a head that names only the item's id has no plain words, so that note is not
- * listed. Nothing is reworded: the head is CEE's text up to its closing quote.
- */
-export function programChangeNoteHeads(notes: readonly ChangeNote[]): ChangeNote[] {
-  const seen = new Set<string>()
-  const out: ChangeNote[] = []
-  for (const n of notes) {
-    const item = changeItemOf(n).replace(NOTE_CHANGE_SUFFIX, '')
-    const head = NOTE_HEAD.exec(n.text)
-    if (seen.has(item) || head === null || head[2] === item.slice(item.indexOf(':') + 1)) continue
-    seen.add(item)
-    out.push({ ...n, text: `${head[1]} ‘${head[2]}’` })
-  }
-  return out
-}
 /**
  * ⭐ THE SUBSTANCE OF EVERY CHANGE (DL 23 Oct, Paul: simplify): CEE's `changes[]` on a program proposal names each item the
  * approval writes, with its before and after in CEE's own rendered words and whose it is. Read whole, one entry at a time:

@@ -4,11 +4,10 @@
  * “define_goal_measure”; cmp was not stated, now “>=”…", "parts {"id":"firm_raise_amount","power":1}…", and four headed only
  * by an internal id ("Adds ‘firm_funding_inflow_definition’"). The summary read "Also changes 13 other changes".
  *
- * On a program board (`living_model.model_program` "v1", read through the real saved-graph read) the card now says:
- *   · the summary in plain nouns: "Also changes 1 goal, 4 calculations and 8 figures";
- *   · under "Details", each item once as the head of CEE's own sentence ("Adds ‘Amount sought from angels’"), with the raw
- *     fields not shown, and an item headed only by its id not listed (no plain words exist in the payload for it).
- * A board that is not a program board shows CEE's notes exactly as before.
+ * On a program board (`living_model.model_program` "v1", read through the real saved-graph read) the summary is in plain
+ * nouns: "Also changes 1 goal, 4 calculations and 8 figures". A board that is not a program board says "13 other changes".
+ * Details: CEE's `changes[]` on every program proposal since #3715 (`proposalChanges.spec.tsx`); the interim plain heads
+ * for a program card without it (#2956) are retired, so an absent list shows CEE's notes as on any other board.
  *
  * Fixture: the served card (CEE b8afd1c2 core turn reply, cards[0] verbatim) and the served funding read (trimmed).
  */
@@ -65,25 +64,10 @@ describe('the served funding card on a program board', () => {
     expect(summary()).toBe('Also changes 1 goal, 4 calculations and 8 figures')
   })
 
-  it('Details: each named item once, in CEE’s order, as the head of CEE’s sentence; no raw field, no JSON, no id-only item', async () => {
+  it('Details with no `changes[]`: CEE’s notes as sent, every one, as on any other board (interim heads retired)', async () => {
     board(null)
     await mount()
-    const items = details()
-    expect(items).toEqual([
-      'Changes ‘accelerate securing funding within the next 2 months’',
-      'Adds ‘Amount sought through the existing investment-firm outreach’',
-      'Adds ‘Share of the intended firm raise received per month’',
-      'Adds ‘Share of the intended angel raise received per month’',
-      'Adds ‘Monthly funding received through existing outreach’',
-      'Adds ‘Monthly angel funding added when the angel route is included’',
-      'Adds ‘Angel funding inflow with the route switched off’',
-      'Adds ‘Monthly funding received through the included angel route’',
-      'Adds ‘New funding received at the start of the measurement window’',
-    ])
-    const all = items.join(' ')
-    for (const raw of ['define_goal_measure', 'cmp ', '{', 'approval “proposed”', 'author “olumi”', 'firm_funding_inflow_definition']) {
-      expect(all).not.toContain(raw)
-    }
+    expect(details()).toEqual(served.card.adds.map((a) => a.text))
   })
 })
 

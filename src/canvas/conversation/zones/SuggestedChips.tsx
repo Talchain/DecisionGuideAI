@@ -41,7 +41,7 @@ import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
 import { PANEL_LIST_BULLET } from '../panelLists'
 import {
-  changeNotesOf, changeNotesSummary, isHeldCardChipId, OLUMI_CHANGE_MARK, programChangeNoteHeads, proposalChangesSummary, proposalChangeWords,
+  changeNotesOf, changeNotesSummary, isHeldCardChipId, OLUMI_CHANGE_MARK, proposalChangesSummary, proposalChangeWords,
   READING_HEADING, REVIEW_PROPOSAL_PREFIX,
   type ChangeNote, type ProposalChange,
 } from '../proposalFields'
@@ -70,21 +70,19 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
   const [open, setOpen] = useState(reading)
   const listId = useId()
   const program = useSavedModelIsProgram()
-  // CEE's `changes[]` (DL 23 Oct): every item, its substance in CEE's words, Olumi's marked. Absent: the notes as before,
-  // and on a program board their plain heads only (interim, `programChangeNoteHeads`, until CEE ships `changes[]`).
+  // CEE's `changes[]` (DL 23 Oct): every item, its substance in CEE's words, Olumi's marked. Absent: the notes as before.
   // Present is the whole list (Codex r1 on #2957): the notes are read only when `changes[]` is absent.
   const listChanges = changes !== null
-  const listedNotes = program ? programChangeNoteHeads(notes) : notes
   return (
     <div className={styles.reasoningPanel} style={{ marginTop: 12, marginBottom: -4 }} data-testid={`proposal-change-notes-${proposalId}`}>
       <p className={styles.reasoningPanelHeading} data-testid={`proposal-change-summary-${proposalId}`}>
         {reading ? READING_HEADING : listChanges ? proposalChangesSummary(changes) : changeNotesSummary(notes, { program })}
       </p>
-      {(listChanges || listedNotes.length > 0) && <button type="button" className={styles.inlineDisclosureToggle} onClick={() => setOpen((v) => !v)}
+      {(listChanges || notes.length > 0) && <button type="button" className={styles.inlineDisclosureToggle} onClick={() => setOpen((v) => !v)}
         aria-expanded={open} aria-controls={open ? listId : undefined} data-testid={`proposal-change-details-${proposalId}`}>
         {open ? <><ChevronUp size={12} aria-hidden="true" /> Hide details</> : <><ChevronDown size={12} aria-hidden="true" /> Details</>}
       </button>}
-      {open && (listChanges || listedNotes.length > 0) && (
+      {open && (listChanges || notes.length > 0) && (
         <ul id={listId} className={PANEL_LIST_BULLET}>
           {listChanges ? changes.map(c => (
             <li key={`${c.kind}:${c.id}:${c.action}`} data-author={c.author}
@@ -93,7 +91,7 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
               {proposalChangeWords(c)}
               {c.author === 'olumi' && <span data-testid={`proposal-change-olumi-${c.kind}:${c.id}`}>{` · ${OLUMI_CHANGE_MARK}`}</span>}
             </li>
-          )) : listedNotes.map(n => (
+          )) : notes.map(n => (
             <li key={n.field_id} data-source={n.source} className={`${styles.reasoningPanelBody} ${CHANGE_NOTE_SOURCE_CLASS[n.source]}`}
               data-testid={`proposal-change-note-${n.field_id}`}>{n.text}</li>
           ))}
