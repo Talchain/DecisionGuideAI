@@ -162,6 +162,7 @@ import { useCanvasResultsSync } from '../../components/results/useCanvasResultsS
 import { ResultsBody } from '../../components/results/ResultsBody'
 import { staleReasonFromTrustSemantic } from '../../components/results/analysisNew/staleReason'
 import { AnalysisNewTabBody } from '../../components/results/analysisNew/AnalysisNewTabBody'
+import { useViewOnlyRunChances, ViewOnlyRunChancesBlock } from '../../components/results/analysisNew/ViewOnlyRunChances'
 import { ViewComparisonPointer } from './model-tab/ViewComparisonPointer'
 import { SectionErrorBoundary } from './SectionErrorBoundary'
 import { useGuidanceStore, withOlumiReveal } from '../stores/guidanceStore'
@@ -814,6 +815,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   )
 
   const isPreRun = !hasCompletedFirstRun
+  const viewOnlyChances = useViewOnlyRunChances()
   // ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`): after the first Run, the footer's Re-analyse when the
   // model changed, otherwise the composer icon. Read once here for the composer; the bar reads the same predicate.
   const rerunInputs = useReanalyseBarInputs()
@@ -3695,7 +3697,12 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   </div>
                 )}
                 {/* Pre-run state: Show consolidated guidance and Run button */}
-                {isPreRun && nodes.length > 0 && (
+                {/* DL ruling A (23 Oct): a bound, current view-only Run says its served words here instead of the
+                    pre-analysis panel, whose lines ("No goal selected", "Analyse anyway") say no result exists. */}
+                {isPreRun && nodes.length > 0 && viewOnlyChances !== null && (
+                  <ViewOnlyRunChancesBlock chances={viewOnlyChances} />
+                )}
+                {isPreRun && nodes.length > 0 && viewOnlyChances === null && (
                   isPreAnalysisV3Enabled() ? (
                     /* Pre-analysis panel v3 (flag preAnalysisV3): outcome-centred
                        panel, lazy-loaded so flag-off users pay no bundle cost.
