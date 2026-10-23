@@ -109,9 +109,11 @@ describe('option card says CEE\'s served cell, verbatim, and nothing of its own'
       expect(readout).toBeNull()
     } else {
       // Vision spec row 1 (23 Oct): a figure or range line is the headline, CEE's own `display` verbatim (read from the
-      // served cell, never the provider); its hover and accessible name keep the full face. A withheld face is said as served.
-      const headline = cell?.kind === 'figure' || cell?.kind === 'range' ? cell.display : served
+      // served cell, never the provider); its hover and accessible name keep the full face. Gap P0 #1 (23 Oct): a withheld
+      // cell is a dash and the `withheld` state word on the card, its face in the hover and accessible name (checked below).
+      const headline = cell?.kind === 'figure' || cell?.kind === 'range' ? cell.display : '—'
       expect(readout?.textContent).toBe(headline)
+      expect(screen.queryByTestId(`option-chance-withheld-${ID}`)?.textContent ?? null).toBe(kind === 'withheld' ? 'withheld' : null)
       // Review of #2934: the goal-target glyph marks a figure or range headline, never a withheld face.
       expect(screen.queryByTestId(`option-chance-goal-glyph-${ID}`) !== null, `glyph for ${kind}`).toBe(kind === 'figure' || kind === 'range')
       expect(readout?.closest('[aria-label]')?.getAttribute('aria-label')).toContain(served)

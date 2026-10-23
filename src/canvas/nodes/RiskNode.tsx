@@ -20,7 +20,8 @@ import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { OLUMI_TEXT_CHIP_IDS } from '../conversation/chipMeta'
 import { nodeRecordedValue } from '../domain/nodeRecordedValue'
-import { factorValueSourceMark, ValueSourceMark } from './shared/valueSourceMark'
+import { factorValueSourceMark, ValueSourceMark, VALUE_SOURCE_MARK_LABEL, type FactorValueSourceMark } from './shared/valueSourceMark'
+import { OLUMI_ESTIMATE_FIGURE_CLASSES } from './shared/FactorValueFigure'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { readEventRisk } from '../domain/eventRisk'
 import { isRetainedExcludedFromAnalysis } from './shared/analysisParticipation'
@@ -201,6 +202,10 @@ export const RiskNode = memo((props: NodeProps) => {
   // Whose chance it is, in the canvas's one wording (DL ruling 21 Oct): a reference figure is never called Olumi's.
   const eventBasis = eventRisk ? EVENT_BASIS_WORDS[eventRisk.basis] : null
   const eventFull = eventLine ? `${eventLine} · ${eventBasis}` : null
+  // Gap P0 #5 (23 Oct): whose chance it is, as the canvas's author mark (and Olumi's dotted underline on its figure), not
+  // words in italics. The words stay in the accessible line and the mark's hover. A reference figure has no mark of its own.
+  const eventMark: FactorValueSourceMark | null = eventRisk?.basis === 'olumi' ? { kind: 'olumi', label: EVENT_BASIS_WORDS.olumi }
+    : eventRisk?.basis === 'user' ? { kind: 'you', label: VALUE_SOURCE_MARK_LABEL.you } : null
 
   // The defining probability × impact pair (P1.7). Honest absence: each half only
   // renders when its value exists — never a fabricated 0% or default impact. The
@@ -490,8 +495,12 @@ export const RiskNode = memo((props: NodeProps) => {
   // stays words in the body; the probability x impact pair above is the repeated one that moved to the band.
   const riskEventLine = eventLine ? (
     <div className={`${typography.edgeLabel} text-text-light break-words`} data-card-primary-line="risk">
-      <span aria-hidden="true" data-testid="risk-event-line">{eventLine}</span>
-      <span aria-hidden="true" className="italic" data-testid="risk-event-basis"> · {eventBasis}</span>
+      {eventMark && <><ValueSourceMark mark={eventMark} testId={`risk-event-source-${props.id}`} inline />{' '}</>}
+      <span aria-hidden="true" data-testid="risk-event-line">
+        May happen · about <span className={`whitespace-nowrap ${eventMark?.kind === 'olumi' ? OLUMI_ESTIMATE_FIGURE_CLASSES : ''}`}
+          data-testid="risk-event-figure">{eventPercent}</span> within {eventHorizon}
+      </span>
+      {!eventMark && <span aria-hidden="true" className="italic" data-testid="risk-event-basis"> · {eventBasis}</span>}
       <span className={typography.screenReaderOnly} data-testid="risk-primary-line-full">{eventFull}</span>
     </div>
   ) : null

@@ -62,7 +62,8 @@ it('T1: parsed Run TURN adopts its view and the mounted hero and (post-C item 1)
     </OptionChanceCellProvider></ReactFlowProvider>)
     // Vision spec row 1 (23 Oct): the card's line is the headline, CEE's own display; the full face stays in its description.
     const readout = screen.getByTestId(`option-win-readout-${node.id}`)
-    expect(readout.textContent).toBe(option.cell.kind === 'withheld' ? text : option.cell.display)
+    // Gap P0 #1 (23 Oct): this fixture's two withheld cells (GOAL_FIGURES_TARGET_NOT_TESTABLE) are a dash on the card.
+    expect(readout.textContent).toBe(option.cell.kind === 'withheld' ? '—' : option.cell.display)
     expect(readout.closest('[aria-label]')?.getAttribute('aria-label')).toContain(text)
     card.unmount()
   }

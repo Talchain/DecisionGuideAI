@@ -1045,6 +1045,12 @@ export const OPTION_RESULT_COPY = {
   sentence: (formatted: string): string => `In this model, ${formatted} of runs supported this option.`,
   unconfirmedNote: 'Olumi can’t confirm this run reflects the current model.',
   /**
+   * ⭐ A WITHHELD CHANCE, SAID ONCE (canvas-vs-vision gap P0 #1, 23 Oct): the card shows a dash and this state word, and
+   * CEE's face and reason stay in the hover, focus tooltip and accessible name. A state, never a reason of the UI's own.
+   */
+  withheld: 'withheld',
+  withheldDash: '—',
+  /**
    * ⭐ GOAL-ONLY, WHEN THE LIMIT VERDICT WITHHOLDS THE LEADER CLAIM (RC #63
    * 5803875794 P0 #3(c); Paul's 23 Sep staging test: "£20k MRR" + "churn < 4%",
    * `leader_claim: { permitted: false, withheld_reason:
