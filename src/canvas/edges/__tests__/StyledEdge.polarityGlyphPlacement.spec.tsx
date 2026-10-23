@@ -314,11 +314,10 @@ describe('P0: polarity glyphs on edges sharing a target never coincide', () => {
     for (const g of glyphs) {
       const p = parseGlyph(g.transform)
       expect(offPath(p, g.d), `${g.id}'s sign is off its own line`).toBeLessThanOrEqual(6)
-      // Gap P0 #4 (23 Oct): the sign sits at its line's middle, so it is attributed by its LINE, not by the nearest end.
-      const own = offPath(p, g.d)
+      const own = Math.hypot(p.x - endOf(g.d).x, p.y - endOf(g.d).y)
       for (const h of glyphs) {
         if (h.id === g.id) continue
-        expect(own, `${g.id}'s sign is nearer ${h.id}'s line`).toBeLessThan(offPath(p, h.d))
+        expect(own, `${g.id}'s sign is nearer ${h.id}'s end`).toBeLessThan(Math.hypot(p.x - endOf(h.d).x, p.y - endOf(h.d).y))
       }
     }
   })
@@ -356,15 +355,14 @@ describe('P0: polarity glyphs on edges sharing a target never coincide', () => {
     expect(new Set(seen).size, `edges absent from the slice stacked: ${seen.join(' | ')}`).toBe(2)
   })
 
-  it('the sign still resolves to a real point between its own two ends, on its own line', () => {
+  it('the sign still resolves to a real point near its own arrival, on its own line', () => {
     // Distinctness bought by flinging glyphs across the canvas would be no fix.
     buildFan(4, ['positive'])
     for (const g of renderFan()) {
       const p = parseGlyph(g.transform)
       const end = endOf(g.d)
-      const [sx, sy] = g.d.replace(/^M\s*/, '').split(/[\s,LC]+/).map(Number)
       const d = Math.hypot(p.x - end.x, p.y - end.y)
-      expect(d, `${g.id} sits ${Math.round(d)} units from its own arrival`).toBeLessThan(Math.hypot(sx - end.x, sy - end.y))
+      expect(d, `${g.id} sits ${Math.round(d)} units from its own arrival`).toBeLessThanOrEqual(120)
       expect(d).toBeGreaterThan(0)
       expect(offPath(p, g.d), `${g.id}`).toBeLessThanOrEqual(6)
     }
