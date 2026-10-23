@@ -1,12 +1,14 @@
 /**
- * DL ruling A (23 Oct), the Analysis tab's pre-run slot: on a program board read whose canonical view is bound and
- * current, the slot says CEE's served words and does not mount the pre-analysis panel, whose lines ("No goal
- * selected", "You can run a first pass now", "Analyse anyway") say no result exists. Stale or unbound views, and a
- * board with no view, keep today's panel. The panels are markers here (they need a toast provider); what is pinned is
- * which one the slot mounts. Fixture: CEE's served capacity read (S3 smoke-alpha2 r1, trimmed).
+ * DL ruling A (23 Oct), the Analysis tab's pre-run slot: on a PROGRAM board (`living_model.model_program === 'v1'`,
+ * whose Run is automatic) read with a bound, current canonical view, the slot says CEE's served words and does not
+ * mount the pre-analysis panel, whose lines ("No goal selected", "You can run a first pass now", "Analyse anyway") say
+ * no result exists. A non-program board keeps that panel unchanged, even with the same view; so do stale or unbound
+ * views. The panels are markers here (they need a toast provider); what is pinned is which one the slot mounts.
+ * Program recognised through the real saved-graph read (`useSavedGraph`), only `fetch` stubbed.
+ * Fixture: CEE's served capacity read (S3 smoke-alpha2 r1, trimmed).
  */
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../../lib/supabase', () => ({
@@ -14,6 +16,8 @@ vi.mock('../../../lib/supabase', () => ({
     from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }) }) }) }),
   },
   isSupabaseAvailable: () => false,
+  // The saved-graph read asks for the session first; a guest has none.
+  getSessionIdentity: async () => ({ userId: null, accessToken: null }),
 }))
 vi.mock('dompurify', () => ({ default: { sanitize: (s: string) => s } }))
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -55,11 +59,20 @@ function ensureMatchMedia() {
   }
 }
 
-/** The capacity board on the canvas, pre-run, with CEE's served view (as served, changed, or none). */
-function board(view: Record<string, unknown> | null) {
+type Rec = Record<string, unknown>
+let served: Rec = {}
+// The saved-graph read is cached per scenario and hash, so each test reads its own hash.
+let n = 0
+/** The capacity board on the canvas, pre-run, with its saved model's living_model and CEE's served view (as served, changed, or none). */
+function board(livingModel: Rec, view: Rec | null) {
+  n += 1
+  const graphHash = `${capacity.graph_hash}${n}`
+  served = { schema: 'scenario_graph.v1', scenario_id: capacity.scenario_id, graph_present: true, graph_hash: graphHash,
+    graph: { nodes: capacity.graph.nodes, edges: [], living_model: livingModel } }
   useCanvasStore.setState({
     currentScenarioId: capacity.scenario_id,
-    nodes: capacity.graph.nodes.map((n, i) => ({ id: n.id, type: n.kind, position: { x: 0, y: i * 100 }, data: { label: n.label } })) as never,
+    lastServerGraphHash: graphHash,
+    nodes: capacity.graph.nodes.map((node, i) => ({ id: node.id, type: node.kind, position: { x: 0, y: i * 100 }, data: { label: node.label } })) as never,
     edges: [] as never,
     results: { ...useCanvasStore.getState().results, report: null, status: 'idle' },
   } as never)
@@ -74,43 +87,67 @@ async function openAnalysisTab() {
   // A populated canvas ends first use, so the dock is already open.
   fireEvent.click(await screen.findByTestId('outputs-dock-tab-results'))
   await waitFor(() => expect(screen.getByTestId('outputs-dock-body')).toBeInTheDocument())
+  // The saved-graph read has answered (its route was fetched and the microtasks drained) before anything asserts.
+  await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
+  expect(vi.mocked(fetch).mock.calls.some(([u]) => String(u).endsWith(`/scenarios/${capacity.scenario_id}/graph`))).toBe(true)
 }
+const PROGRAM = { model_program: 'v1' }
+// The café board's living model: a core model with no `model_program` (option-card-probe-2011 reads[6]).
+const NOT_PROGRAM = { aims: [], links: [], factors: [], options: [] }
+const prePanel = () => screen.queryByTestId('stub-pre-run') ?? screen.queryByTestId('stub-pre-run-v3')
 
 beforeEach(() => {
   cleanup()
   ensureMatchMedia()
+  window.history.replaceState(null, '', '/?ai=core-route')
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => (
+    /\/scenarios\/[^/]+\/graph$/.test(String(url))
+      ? new Response(JSON.stringify(served), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      : new Response('{}', { status: 404 })
+  )))
   sessionStorage.clear()
   localStorage.clear()
   useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0, outputSurfaceOrigin: null, outputSurfaceOriginSeq: 0, outputSurfaceOriginAt: null })
   useFloatingPanelState.getState().close()
 })
-afterEach(() => { vi.clearAllMocks(); useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null }) })
+afterEach(() => {
+  vi.clearAllMocks()
+  vi.unstubAllGlobals()
+  window.history.replaceState(null, '', '/')
+  useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null })
+})
 
-describe('the Analysis tab pre-run slot on a program board read', () => {
-  it('bound and current as served: CEE’s words, and no pre-analysis panel', async () => {
-    board({})
+describe('the Analysis tab pre-run slot on a board read with a canonical view', () => {
+  it('a program board, bound and current as served: CEE’s words, and no pre-analysis panel', async () => {
+    board(PROGRAM, {})
     await openAnalysisTab()
     const slot = await screen.findByTestId('outputs-pre-run-view-only')
     expect(screen.getByTestId('analysis-view-only-chances-sentence').textContent).toBe(SENTENCE)
     expect(screen.getByTestId('analysis-view-only-chance-add_one_specialist').textContent).toBe(ADD_FACE)
     expect(slot).not.toHaveTextContent(/run a first pass|No goal selected|Analyse anyway/i)
-    expect(screen.queryByTestId('stub-pre-run')).toBeNull()
-    expect(screen.queryByTestId('stub-pre-run-v3')).toBeNull()
+    expect(prePanel()).toBeNull()
   })
 
-  it('CONTRAST: the bound Run is stale: today’s panel, no served words', async () => {
-    // With CEE's served stale face (hydrate/__tests__/fixtures/founder-blocked-reopen-247ae5b4.read.json).
-    board({ staleness: { ...capacity.canonical_analysis_view.staleness, stale: true, reason: 'graph_changed' },
-      face_when_stale: 'Run the analysis again to see the chance.' })
+  it('CONTRAST: a non-program board with the same bound, current view keeps the pre-analysis panel unchanged', async () => {
+    board(NOT_PROGRAM, {})
     await openAnalysisTab()
-    await waitFor(() => expect(screen.queryByTestId('stub-pre-run') ?? screen.queryByTestId('stub-pre-run-v3')).not.toBeNull())
+    expect(prePanel()).not.toBeNull()
     expect(screen.queryByTestId('outputs-pre-run-view-only')).toBeNull()
   })
 
-  it('CONTRAST: no canonical view (a non-program board): today’s panel', async () => {
-    board(null)
+  it('CONTRAST: a program board whose bound Run is stale (CEE’s stale face served): the panel, no served words', async () => {
+    // CEE's served stale face (hydrate/__tests__/fixtures/founder-blocked-reopen-247ae5b4.read.json).
+    board(PROGRAM, { staleness: { ...capacity.canonical_analysis_view.staleness, stale: true, reason: 'graph_changed' },
+      face_when_stale: 'Run the analysis again to see the chance.' })
     await openAnalysisTab()
-    await waitFor(() => expect(screen.queryByTestId('stub-pre-run') ?? screen.queryByTestId('stub-pre-run-v3')).not.toBeNull())
+    expect(prePanel()).not.toBeNull()
+    expect(screen.queryByTestId('outputs-pre-run-view-only')).toBeNull()
+  })
+
+  it('CONTRAST: a program board with no canonical view: the panel', async () => {
+    board(PROGRAM, null)
+    await openAnalysisTab()
+    expect(prePanel()).not.toBeNull()
     expect(screen.queryByTestId('outputs-pre-run-view-only')).toBeNull()
   })
 })

@@ -163,6 +163,7 @@ import { ResultsBody } from '../../components/results/ResultsBody'
 import { staleReasonFromTrustSemantic } from '../../components/results/analysisNew/staleReason'
 import { AnalysisNewTabBody } from '../../components/results/analysisNew/AnalysisNewTabBody'
 import { useViewOnlyRunChances, ViewOnlyRunChancesBlock } from '../../components/results/analysisNew/ViewOnlyRunChances'
+import { useSavedModelIsProgram } from '../nodes/shared/savedModelProgram'
 import { ViewComparisonPointer } from './model-tab/ViewComparisonPointer'
 import { SectionErrorBoundary } from './SectionErrorBoundary'
 import { useGuidanceStore, withOlumiReveal } from '../stores/guidanceStore'
@@ -815,7 +816,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   )
 
   const isPreRun = !hasCompletedFirstRun
-  const viewOnlyChances = useViewOnlyRunChances()
+  // DL ruling A (23 Oct): only on a program board, whose Run is automatic, do the served words take the pre-analysis
+  // panel's place (its "Analyse anyway" included). Every other board keeps that panel unchanged.
+  const viewOnlyChancesServed = useViewOnlyRunChances()
+  const viewOnlyChances = useSavedModelIsProgram() ? viewOnlyChancesServed : null
   // ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`): after the first Run, the footer's Re-analyse when the
   // model changed, otherwise the composer icon. Read once here for the composer; the bar reads the same predicate.
   const rerunInputs = useReanalyseBarInputs()
@@ -3697,8 +3701,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   </div>
                 )}
                 {/* Pre-run state: Show consolidated guidance and Run button */}
-                {/* DL ruling A (23 Oct): a bound, current view-only Run says its served words here instead of the
-                    pre-analysis panel, whose lines ("No goal selected", "Analyse anyway") say no result exists. */}
+                {/* DL ruling A (23 Oct): on a program board, a bound, current view-only Run says its served words here
+                    instead of the pre-analysis panel, whose lines ("No goal selected", "Analyse anyway") say no result
+                    exists. */}
                 {isPreRun && nodes.length > 0 && viewOnlyChances !== null && (
                   <div className="px-4 py-3" data-testid="outputs-pre-run-view-only">
                     <ViewOnlyRunChancesBlock chances={viewOnlyChances} />
