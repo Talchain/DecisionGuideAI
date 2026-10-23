@@ -52,16 +52,43 @@ const CHANGE_NOUNS: Readonly<Record<string, string>> = { aim: 'aim', option: 'op
  * The approval card's one summary line (DL 22 Oct: one plain line, the notes behind "Details"), from the notes' own ids:
  * how many of each kind of item the approval also changes, in CEE's order. "Also changes 1 option, 2 factors and 1 link".
  */
-export function changeNotesSummary(notes: readonly Pick<ChangeNote, 'field_id'>[]): string {
+export function changeNotesSummary(notes: readonly Pick<ChangeNote, 'field_id'>[], opts: { program?: boolean } = {}): string {
   const counts = new Map<string, Set<string>>()
   for (const n of notes) {
     const item = changeItemOf(n)
-    const noun = CHANGE_NOUNS[item.split(':')[0] ?? ''] ?? 'other change'
+    const kind = item.split(':')[0] ?? ''
+    const noun = opts.program ? PROGRAM_CHANGE_NOUNS[kind] ?? CHANGE_NOUNS[kind] ?? 'other item' : CHANGE_NOUNS[kind] ?? 'other change'
     counts.set(noun, (counts.get(noun) ?? new Set()).add(item))
   }
   const parts = [...counts].map(([noun, items]) => `${items.size} ${noun}${items.size === 1 ? '' : 's'}`)
   const list = parts.length <= 1 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
   return `${ALSO_CHANGES} ${list}`
+}
+/**
+ * A program board's record kinds (`living_model.canonical`), in plain nouns: "Also changes 1 goal, 8 figures and 4
+ * calculations", never "Also changes 13 other changes" (DL, 23 Oct, served funding card). Any other kind is "other item".
+ */
+const PROGRAM_CHANGE_NOUNS: Readonly<Record<string, string>> = { goal: 'goal', quantity: 'figure', relation: 'calculation' }
+/** CEE's own suffix for a second note on one path (`record.ts`: `<path>:<change>[:<n>]`), so the item's id is read exactly. */
+const NOTE_CHANGE_SUFFIX = /:(?:add|change|remove)(?::\d+)?$/
+const NOTE_HEAD = /^(Adds|Changes|Removes) ‘([^’]+)’/
+/**
+ * A PROGRAM card's Details in plain words only (DL, 23 Oct): each changed item once, as the head of CEE's own sentence
+ * ("Adds ‘Amount sought from angels’"). The rest of a program note is the record's raw fields (`kind … define_goal_measure`,
+ * `parts {…}`), so it is not shown, and a head that names only the item's id has no plain words, so that note is not
+ * listed. Nothing is reworded: the head is CEE's text up to its closing quote.
+ */
+export function programChangeNoteHeads(notes: readonly ChangeNote[]): ChangeNote[] {
+  const seen = new Set<string>()
+  const out: ChangeNote[] = []
+  for (const n of notes) {
+    const item = changeItemOf(n).replace(NOTE_CHANGE_SUFFIX, '')
+    const head = NOTE_HEAD.exec(n.text)
+    if (seen.has(item) || head === null || head[2] === item.slice(item.indexOf(':') + 1)) continue
+    seen.add(item)
+    out.push({ ...n, text: `${head[1]} ‘${head[2]}’` })
+  }
+  return out
 }
 /** The held card's change notes, in CEE's order. */
 export const changeNotesOf = (p: Proposal): ChangeNote[] => p.adds.filter((a): a is ChangeNote => a.kind === 'change_note')

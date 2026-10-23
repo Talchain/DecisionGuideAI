@@ -40,7 +40,8 @@ import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
 import { PANEL_LIST_BULLET } from '../panelLists'
-import { changeNotesOf, changeNotesSummary, isHeldCardChipId, REVIEW_PROPOSAL_PREFIX, type ChangeNote } from '../proposalFields'
+import { changeNotesOf, changeNotesSummary, isHeldCardChipId, programChangeNoteHeads, REVIEW_PROPOSAL_PREFIX, type ChangeNote } from '../proposalFields'
+import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
 
 /** The heading over a held card's other changes, read before its approve. */
 export { ALSO_CHANGES } from '../proposalFields'
@@ -57,16 +58,19 @@ const CHANGE_NOTE_SOURCE_CLASS: Readonly<Record<ChangeNote['source'], string>> =
 function ChangeNotesPanel({ proposalId, notes }: { proposalId: string; notes: readonly ChangeNote[] }) {
   const [open, setOpen] = useState(false)
   const listId = useId()
+  // A program board's notes carry raw record fields: plain words only (`programChangeNoteHeads`, DL 23 Oct).
+  const program = useSavedModelIsProgram()
+  const listed = program ? programChangeNoteHeads(notes) : notes
   return (
     <div className={styles.reasoningPanel} style={{ marginTop: 12, marginBottom: -4 }} data-testid={`proposal-change-notes-${proposalId}`}>
-      <p className={styles.reasoningPanelHeading} data-testid={`proposal-change-summary-${proposalId}`}>{changeNotesSummary(notes)}</p>
-      <button type="button" className={styles.inlineDisclosureToggle} onClick={() => setOpen((v) => !v)}
+      <p className={styles.reasoningPanelHeading} data-testid={`proposal-change-summary-${proposalId}`}>{changeNotesSummary(notes, { program })}</p>
+      {listed.length > 0 && <button type="button" className={styles.inlineDisclosureToggle} onClick={() => setOpen((v) => !v)}
         aria-expanded={open} aria-controls={open ? listId : undefined} data-testid={`proposal-change-details-${proposalId}`}>
         {open ? <><ChevronUp size={12} aria-hidden="true" /> Hide details</> : <><ChevronDown size={12} aria-hidden="true" /> Details</>}
-      </button>
-      {open && (
+      </button>}
+      {open && listed.length > 0 && (
         <ul id={listId} className={PANEL_LIST_BULLET}>
-          {notes.map(n => (
+          {listed.map(n => (
             <li key={n.field_id} data-source={n.source} className={`${styles.reasoningPanelBody} ${CHANGE_NOTE_SOURCE_CLASS[n.source]}`}
               data-testid={`proposal-change-note-${n.field_id}`}>{n.text}</li>
           ))}

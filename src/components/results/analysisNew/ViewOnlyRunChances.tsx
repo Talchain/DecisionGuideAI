@@ -7,6 +7,7 @@
  */
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
+import { useSavedModelIsProgram } from '../../../canvas/nodes/shared/savedModelProgram'
 import { useCanonicalAnalysisViewStore } from '../../../canvas/stores/canonicalAnalysisViewStore'
 import { optionChanceCell, runViewGoalChanceSentence, runViewOf } from '../../../canvas/runView/runView'
 import { typography } from '../../../styles/typography'
@@ -46,6 +47,17 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
     const sentence = runViewGoalChanceSentence(view)
     return lines.length === 0 && sentence === null ? null : { sentence, lines }
   }, [report, canonical])
+}
+
+/**
+ * Whether a PROGRAM board shows a bound, current Run's served result (DL, 23 Oct: on a program board the tabs never deny a
+ * result the board shows). A program's analysis is run by the host on every change, so no tab offers to run it first.
+ * Any other board answers false and keeps its lines.
+ */
+export function useProgramBoardShowsResult(): boolean {
+  const program = useSavedModelIsProgram()
+  const chances = useViewOnlyRunChances()
+  return program && chances !== null
 }
 
 export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChances }) {

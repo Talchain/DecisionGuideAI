@@ -50,7 +50,7 @@ import { buildReasoningSignals } from './reasoningSignals'
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import { AlertTriangle, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
-import { useViewOnlyRunChances, ViewOnlyRunChancesBlock } from './ViewOnlyRunChances'
+import { useProgramBoardShowsResult, useViewOnlyRunChances, ViewOnlyRunChancesBlock } from './ViewOnlyRunChances'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { openModelValueEditor } from '../../../canvas/nodes/shared/openModelValueEditor'
 import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
@@ -1518,6 +1518,8 @@ export function AnalysisNewTabBody({
   /** DL ruling A (23 Oct): a bound, current view-only Run's served words replace this slot's "no result" lines. */
   const viewOnlyChances = useViewOnlyRunChances()
   const showViewOnlyChances = viewOnlyChances !== null && !isBusyNow
+  /** DL (23 Oct): on a program board showing that Run's result, the slot offers no "Run the analysis" (the host runs it). */
+  const programShowsResult = useProgramBoardShowsResult()
   /** ⭐ V2 "Draft": the pre-run status block, mounted inside `PreRunCommitment`. */
   const preRunStatus = vm.status.isPreRun ? (
       <div className="space-y-1" data-testid="analysis-new-status-pre-run">
@@ -1627,7 +1629,7 @@ export function AnalysisNewTabBody({
             ⚠ AND ABSENT WITH NO HANDLER: a host with no run affordance
             renders nothing rather than a control that does nothing — the
             same fail-closed shape `onSendMessage` uses one section over. */}
-        {!isBusyNow && !runRefusedByGate && onReanalyse && !footerOwnsRerun ? (
+        {!isBusyNow && !runRefusedByGate && onReanalyse && !footerOwnsRerun && !programShowsResult ? (
           <button
             type="button"
             onClick={onReanalyse}

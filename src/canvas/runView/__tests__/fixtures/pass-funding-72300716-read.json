@@ -1,0 +1,1417 @@
+{
+ "_source": "served staging read (UI 45dc9f3e, CEE b8afd1c2), funding brief after the £100,000 measure was approved, on-screen pass 23 Oct; trimmed",
+ "schema": "scenario_graph.v1",
+ "scenario_id": "72300716-1cdc-4918-8959-d6cca1ee71ae",
+ "graph_present": true,
+ "graph_hash": "0678756857e26e68",
+ "graph": {
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "ref": "D1",
+    "kind": "decision",
+    "label": "Could seeking angel funding alongside the existing outreach buy enough time to justify the overhead while pursuing funding within the next two months?"
+   },
+   {
+    "id": "secure_funding_sooner",
+    "ref": "G1",
+    "kind": "goal",
+    "label": "accelerate securing funding within the next 2 months",
+    "provenance": "from_brief",
+    "source_quote": "I need to accelerate securing funding within the next 2 months.",
+    "display_value": ">= 100,000 GBP",
+    "goal_direction": ">=",
+    "goal_threshold": 0.8,
+    "threshold_source": "user",
+    "success_threshold": 100000,
+    "goal_threshold_cap": 125000,
+    "goal_threshold_raw": 100000,
+    "goal_threshold_unit": "GBP",
+    "goal_threshold_frame": "level",
+    "analysis_participation": "included",
+    "goal_threshold_cap_provenance": "target_derived_headroom"
+   },
+   {
+    "id": "existing_outreach",
+    "ref": "O1",
+    "kind": "option",
+    "label": "keep sending cold emails and trying to find warm connections",
+    "provenance": "from_brief",
+    "is_baseline": true,
+    "source_quote": "We'll keep sending cold emails and trying to find warm connections",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "angel_investors",
+    "ref": "O2",
+    "kind": "option",
+    "label": "angel investors",
+    "provenance": "from_brief",
+    "source_quote": "angel investors might be able to provide a small amount of funding quicker to buy us more time",
+    "interventions": {
+     "angel_route_on": {
+      "unit": "1",
+      "value": 1,
+      "source": "brief_extraction",
+      "display": "1",
+      "from_period": 0,
+      "source_words": "Set by ‘angel investors’, from your brief"
+     }
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "firm_deal_size",
+    "ref": "F2",
+    "kind": "factor",
+    "label": "Deal sizes of the investment firms being targeted",
+    "category": "observable",
+    "provenance": "from_brief",
+    "source_quote": "investment firms that do deals between £1-2 million",
+    "display_value": "1,000,000–2,000,000 GBP; Olumi reads it as a spread around 1,500,000 (sd 235200), kept between 1,000,000 and 2,000,000, provisionally",
+    "observed_state": {
+     "unit": "GBP",
+     "range": {
+      "low": 1000000,
+      "high": 2000000
+     },
+     "value": 1500000,
+     "source": "brief_extraction",
+     "raw_value": 1500000,
+     "extractionType": "explicit"
+    },
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "cash_available",
+    "ref": "F3",
+    "kind": "factor",
+    "label": "Cash available now",
+    "category": "observable",
+    "provenance": "from_brief",
+    "value_basis": {
+     "kind": "waiting_for_answer",
+     "words": "Waiting for your answer",
+     "question": "How much cash do you have available now?"
+    },
+    "display_value": "Waiting for your answer",
+    "observed_state": {
+     "unit": "GBP"
+    },
+    "user_questions": [
+     "How much cash do you have available now?"
+    ],
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "monthly_net_burn",
+    "ref": "F4",
+    "kind": "factor",
+    "label": "Monthly cash burn after operating income",
+    "category": "observable",
+    "provenance": "from_brief",
+    "value_basis": {
+     "kind": "waiting_for_answer",
+     "words": "Waiting for your answer",
+     "question": "How much cash are you using each month after allowing for operating income?"
+    },
+    "display_value": "Waiting for your answer",
+    "observed_state": {
+     "unit": "GBP/month"
+    },
+    "user_questions": [
+     "How much cash are you using each month after allowing for operating income?"
+    ],
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "angel_route_on",
+    "ref": "F5",
+    "kind": "factor",
+    "label": "Angel funding route included",
+    "category": "controllable",
+    "description": "Zero switches the additional angel funding route off; an option switches it on.",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "display_value": "0",
+    "observed_state": {
+     "unit": "1",
+     "value": 0,
+     "raw_value": 0
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "angel_raise_amount",
+    "ref": "F6",
+    "kind": "factor",
+    "label": "Amount sought from angels",
+    "category": "observable",
+    "provenance": "from_brief",
+    "value_basis": {
+     "kind": "waiting_for_answer",
+     "words": "Waiting for your answer",
+     "question": "What amount would you seek from angel investors to buy more time?"
+    },
+    "display_value": "Waiting for your answer",
+    "observed_state": {
+     "unit": "GBP"
+    },
+    "user_questions": [
+     "What amount would you seek from angel investors to buy more time?"
+    ],
+    "analysis_participation": "included"
+   },
+   {
+    "id": "angel_cash_overhead",
+    "ref": "F7",
+    "kind": "factor",
+    "label": "Additional cash costs of an angel raise",
+    "category": "observable",
+    "provenance": "from_brief",
+    "value_basis": {
+     "kind": "waiting_for_answer",
+     "words": "Waiting for your answer",
+     "question": "What additional cash costs would an angel raise involve, including legal and administrative fees?"
+    },
+    "display_value": "Waiting for your answer",
+    "observed_state": {
+     "unit": "GBP"
+    },
+    "user_questions": [
+     "What additional cash costs would an angel raise involve, including legal and administrative fees?"
+    ],
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "net_angel_proceeds",
+    "ref": "OC1",
+    "kind": "outcome",
+    "label": "Angel funding after cash overhead",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "angel_raise_amount",
+      "angel_cash_overhead"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Amount sought from angels and Additional cash costs of an angel raise"
+    },
+    "display_value": "Worked out from Amount sought from angels and Additional cash costs of an angel raise",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "included_bridge_cash",
+    "ref": "OC2",
+    "kind": "outcome",
+    "label": "Net bridge cash included in the option",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "net_angel_proceeds",
+      "angel_route_on"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Angel funding after cash overhead and Angel funding route included"
+    },
+    "display_value": "Worked out from Angel funding after cash overhead and Angel funding route included",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "cash_with_bridge",
+    "ref": "OC3",
+    "kind": "outcome",
+    "label": "Cash available including a successful bridge",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "cash_available",
+      "included_bridge_cash"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Cash available now and Net bridge cash included in the option"
+    },
+    "display_value": "Worked out from Cash available now and Net bridge cash included in the option",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "conditional_runway",
+    "ref": "OC4",
+    "kind": "outcome",
+    "label": "Runway if the included funding is received in time",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "cash_with_bridge",
+      "monthly_net_burn"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Cash available including a successful bridge and Monthly cash burn after operating income"
+    },
+    "display_value": "Worked out from Cash available including a successful bridge and Monthly cash burn after operating income",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "additional_runway",
+    "ref": "OC5",
+    "kind": "outcome",
+    "label": "Extra time bought by a successful angel bridge",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "included_bridge_cash",
+      "monthly_net_burn"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Net bridge cash included in the option and Monthly cash burn after operating income"
+    },
+    "display_value": "Worked out from Net bridge cash included in the option and Monthly cash burn after operating income",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "funding_received",
+    "ref": "OC6",
+    "kind": "outcome",
+    "label": "Funding received",
+    "provenance": "from_brief",
+    "value_basis": {
+     "from": [
+      "funding_received_start",
+      "firm_funding_inflow",
+      "angel_funding_inflow"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from New funding received at the start of the measurement window, Monthly funding received through existing outreach and Monthly funding received through the included angel route"
+    },
+    "source_quote": "£100,000",
+    "display_value": "Worked out from New funding received at the start of the measurement window, Monthly funding received through existing outreach and Monthly funding received through the included angel route",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "firm_raise_amount",
+    "ref": "F8",
+    "kind": "factor",
+    "label": "Amount sought through the existing investment-firm outreach",
+    "category": "observable",
+    "provenance": "from_brief",
+    "value_basis": {
+     "kind": "waiting_for_answer",
+     "words": "Waiting for your answer",
+     "question": "How much are you seeking to raise through your existing investment-firm outreach?"
+    },
+    "display_value": "Waiting for your answer",
+    "observed_state": {
+     "unit": "GBP"
+    },
+    "user_questions": [
+     "How much are you seeking to raise through your existing investment-firm outreach?"
+    ],
+    "analysis_participation": "included"
+   },
+   {
+    "id": "firm_funding_inflow",
+    "ref": "OC7",
+    "kind": "outcome",
+    "label": "Monthly funding received through existing outreach",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "firm_raise_amount",
+      "firm_receipt_rate"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Amount sought through the existing investment-firm outreach and Share of the intended firm raise received per month"
+    },
+    "display_value": "Worked out from Amount sought through the existing investment-firm outreach and Share of the intended firm raise received per month",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "angel_inflow_per_route",
+    "ref": "OC8",
+    "kind": "outcome",
+    "label": "Monthly angel funding added when the angel route is included",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "angel_raise_amount",
+      "angel_receipt_rate"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Amount sought from angels and Share of the intended angel raise received per month"
+    },
+    "display_value": "Worked out from Amount sought from angels and Share of the intended angel raise received per month",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "zero_angel_inflow",
+    "ref": "F9",
+    "kind": "factor",
+    "label": "Angel funding inflow with the route switched off",
+    "category": "observable",
+    "description": "No angel funding is included when the additional angel route is switched off.",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "display_value": "0 GBP/month",
+    "observed_state": {
+     "unit": "GBP/month",
+     "value": 0,
+     "raw_value": 0
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "angel_funding_inflow",
+    "ref": "OC9",
+    "kind": "outcome",
+    "label": "Monthly funding received through the included angel route",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "zero_angel_inflow",
+      "angel_route_on"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Angel funding inflow with the route switched off and Angel funding route included"
+    },
+    "display_value": "Worked out from Angel funding inflow with the route switched off and Angel funding route included",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "funding_received_start",
+    "ref": "F10",
+    "kind": "factor",
+    "label": "New funding received at the start of the measurement window",
+    "category": "observable",
+    "description": "The measure counts new funding received from now, so its cumulative total starts at zero rather than including existing cash.",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "display_value": "0 GBP",
+    "observed_state": {
+     "unit": "GBP",
+     "value": 0,
+     "raw_value": 0
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "funding_urgency",
+    "ref": "A1",
+    "kind": "action",
+    "label": "Claim: The business will run out of money soon.",
+    "provenance": "from_brief",
+    "description": "The business will run out of money soon.",
+    "source_quote": "we'll run out of money soon",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "current_firm_focus",
+    "ref": "A2",
+    "kind": "action",
+    "label": "Claim: The investment firms targeted so far mostly operate from the UK and do deals be…",
+    "provenance": "from_brief",
+    "description": "The investment firms targeted so far mostly operate from the UK and do deals between £1 million and £2 million.",
+    "source_quote": "We've been focused on investment firms that do deals between £1-2 million, mostly based in the UK.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "angel_speed_hypothesis",
+    "ref": "A3",
+    "kind": "action",
+    "label": "Claim: Angel investors might provide a smaller amount more quickly, buying more time.",
+    "provenance": "from_brief",
+    "description": "Angel investors might provide a smaller amount more quickly, buying more time.",
+    "source_quote": "angel investors might be able to provide a small amount of funding quicker to buy us more time",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "deadline_applies_to_funding",
+    "ref": "A4",
+    "kind": "action",
+    "label": "Claim: The funding objective has a two-month deadline; this is not a stated minimum ru…",
+    "provenance": "ai_inferred",
+    "description": "The funding objective has a two-month deadline; this is not a stated minimum runway requirement.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "constant_positive_burn",
+    "ref": "A5",
+    "kind": "action",
+    "label": "Assumption: Runway calculations assume positive monthly net cash burn that stays constant o…",
+    "provenance": "ai_inferred",
+    "description": "Runway calculations assume positive monthly net cash burn that stays constant over the period being considered.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "conditional_bridge_receipt",
+    "ref": "A6",
+    "kind": "action",
+    "label": "Assumption: The angel option calculates runway conditional on the intended angel amount bei…",
+    "provenance": "ai_inferred",
+    "description": "The angel option calculates runway conditional on the intended angel amount being received before cash runs out; switching the route on does not predict that funding will arrive.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "bridge_cost_treatment",
+    "ref": "A7",
+    "kind": "action",
+    "label": "Assumption: The conditional bridge calculation deducts the additional cash overhead once an…",
+    "provenance": "ai_inferred",
+    "description": "The conditional bridge calculation deducts the additional cash overhead once and assumes the remaining proceeds are available for operating expenses.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "parallel_outreach",
+    "ref": "A8",
+    "kind": "action",
+    "label": "Assumption: The angel route supplements rather than replaces cold emails and efforts to fin…",
+    "provenance": "ai_inferred",
+    "description": "The angel route supplements rather than replaces cold emails and efforts to find warm connections.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "bridge_must_arrive_in_time",
+    "ref": "A9",
+    "kind": "action",
+    "label": "Condition: Angel proceeds must become available before existing cash runs out for the calc…",
+    "provenance": "ai_inferred",
+    "description": "Angel proceeds must become available before existing cash runs out for the calculated extra runway to prevent a cash shortfall.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "funding_success_and_timing",
+    "ref": "A10",
+    "kind": "action",
+    "label": "Left out: The probability and timing of receiving funding through investment firms, cold …",
+    "provenance": "ai_inferred",
+    "description": "The probability and timing of receiving funding through investment firms, cold emails, warm connections or angels are not calculated. Why: The brief gives no pipeline stage, investor commitments or conversion evidence from which to estimate route-specific funding outcomes responsibly.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "firm_ticket_size_not_raise_target",
+    "ref": "A11",
+    "kind": "action",
+    "label": "Left out: The firms' £1–2 million deal range and mostly UK location are retained as targe…",
+    "provenance": "ai_inferred",
+    "description": "The firms' £1–2 million deal range and mostly UK location are retained as targeting context, not treated as a promised funding amount or a success-rate adjustment. Why: A firm's usual deal size does not establish the amount this business seeks or the likelihood of securing it.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "non_cash_angel_overhead",
+    "ref": "A12",
+    "kind": "action",
+    "label": "Left out: Founder time, distraction, dilution and future fundraising complications are no…",
+    "provenance": "ai_inferred",
+    "description": "Founder time, distraction, dilution and future fundraising complications are not included in the cash-overhead calculation. Why: The brief does not specify which kinds of overhead matter or how they should be weighed against extra runway.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "unsuccessful_raise_costs",
+    "ref": "A13",
+    "kind": "action",
+    "label": "Left out: Cash spent on an angel raise that fails, and the timing of fees before funding …",
+    "provenance": "ai_inferred",
+    "description": "Cash spent on an angel raise that fails, and the timing of fees before funding arrives, are not modelled. Why: The conditional runway calculation covers a successful bridge rather than a dated cash-flow forecast or a failed-raise scenario.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "funding_goal_not_yet_measured",
+    "ref": "A14",
+    "kind": "action",
+    "label": "Left out: Achievement of the funding objective within two months is not yet assessed.",
+    "provenance": "ai_inferred",
+    "description": "Achievement of the funding objective within two months is not yet assessed. Why: The amount that would count as successful funding has not been stated, and funding receipt timing is not yet modelled.",
+    "analysis_participation": "retained_excluded"
+   }
+  ],
+  "edges": [
+   {
+    "id": "funding_received__secure_funding_sooner",
+    "to": "secure_funding_sooner",
+    "from": "funding_received",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__existing_outreach",
+    "to": "existing_outreach",
+    "from": "mp:decision",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__angel_investors",
+    "to": "angel_investors",
+    "from": "mp:decision",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "angel_investors__angel_route_on",
+    "to": "angel_route_on",
+    "from": "angel_investors",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "angel_raise_amount__net_angel_proceeds",
+    "to": "net_angel_proceeds",
+    "from": "angel_raise_amount",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "angel_cash_overhead__net_angel_proceeds",
+    "to": "net_angel_proceeds",
+    "from": "angel_cash_overhead",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": -1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "subtracted",
+     "definitional": true
+    },
+    "effect_direction": "negative",
+    "exists_probability": 1
+   },
+   {
+    "id": "net_angel_proceeds__included_bridge_cash",
+    "to": "included_bridge_cash",
+    "from": "net_angel_proceeds",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "angel_route_on__included_bridge_cash",
+    "to": "included_bridge_cash",
+    "from": "angel_route_on",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "cash_available__cash_with_bridge",
+    "to": "cash_with_bridge",
+    "from": "cash_available",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "included_bridge_cash__cash_with_bridge",
+    "to": "cash_with_bridge",
+    "from": "included_bridge_cash",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "cash_with_bridge__conditional_runway",
+    "to": "conditional_runway",
+    "from": "cash_with_bridge",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "monthly_net_burn__conditional_runway",
+    "to": "conditional_runway",
+    "from": "monthly_net_burn",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": -1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "divided by",
+     "definitional": true
+    },
+    "effect_direction": "negative",
+    "exists_probability": 1
+   },
+   {
+    "id": "included_bridge_cash__additional_runway",
+    "to": "additional_runway",
+    "from": "included_bridge_cash",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "monthly_net_burn__additional_runway",
+    "to": "additional_runway",
+    "from": "monthly_net_burn",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": -1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "divided by",
+     "definitional": true
+    },
+    "effect_direction": "negative",
+    "exists_probability": 1
+   },
+   {
+    "id": "firm_raise_amount__firm_funding_inflow",
+    "to": "firm_funding_inflow",
+    "from": "firm_raise_amount",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "reasoning": "about 0.05, 0–0.5 /month, Olumi's estimate; Olumi reads it as a spread around 0.05 (sd 0.1443), provisionally per GBP",
+     "natural_effect": {
+      "amount": 0.05,
+      "amount_unit": "GBP/month",
+      "stated_range": {
+       "end": "centre",
+       "low": 0,
+       "high": 0.5,
+       "text": "0–0.5"
+      },
+      "strength_mean": 1,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "GBP"
+     }
+    },
+    "coefficient_id": "firm_receipt_rate",
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "angel_raise_amount__angel_inflow_per_route",
+    "to": "angel_inflow_per_route",
+    "from": "angel_raise_amount",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "reasoning": "about 0.15, 0–0.5 /month, Olumi's estimate; Olumi reads it as a spread around 0.15 (sd 0.1443), provisionally per GBP",
+     "natural_effect": {
+      "amount": 0.15,
+      "amount_unit": "GBP/month",
+      "stated_range": {
+       "end": "centre",
+       "low": 0,
+       "high": 0.5,
+       "text": "0–0.5"
+      },
+      "strength_mean": 1,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "GBP"
+     }
+    },
+    "coefficient_id": "angel_receipt_rate",
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "zero_angel_inflow__angel_funding_inflow",
+    "to": "angel_funding_inflow",
+    "from": "zero_angel_inflow",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "base level",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "angel_route_on__angel_funding_inflow",
+    "to": "angel_funding_inflow",
+    "from": "angel_route_on",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "reasoning": "Worked out from Amount sought from angels and Share of the intended angel raise received per month per 1; its size is not given yet"
+    },
+    "coefficient_id": "angel_inflow_per_route",
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "funding_received_start__funding_received",
+    "to": "funding_received",
+    "from": "funding_received_start",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "starting level",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "firm_funding_inflow__funding_received",
+    "to": "funding_received",
+    "from": "firm_funding_inflow",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "inflow per month",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "angel_funding_inflow__funding_received",
+    "to": "funding_received",
+    "from": "angel_funding_inflow",
+    "origin": "model_program:display",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "inflow per month",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   }
+  ],
+  "living_model": {
+   "model_program": "v1",
+   "canonical": {
+    "version": "canonical.v1",
+    "quantities": [
+     {
+      "id": "funding_window",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "month",
+      "basis": null,
+      "label": "Time available to secure funding",
+      "party": null,
+      "quote": "within the next 2 months",
+      "value": 2,
+      "author": "person",
+      "status": "known",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "firm_deal_size",
+      "low": 1000000,
+      "high": 2000000,
+      "kind": "fact",
+      "unit": "GBP",
+      "basis": null,
+      "label": "Deal sizes of the investment firms being targeted",
+      "party": null,
+      "quote": "investment firms that do deals between £1-2 million",
+      "value": null,
+      "author": "person",
+      "status": "known",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": "bounds"
+     },
+     {
+      "id": "cash_available",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP",
+      "basis": null,
+      "label": "Cash available now",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "person",
+      "status": "asked",
+      "approval": "proposed",
+      "question": "How much cash do you have available now?",
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "monthly_net_burn",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP/month",
+      "basis": null,
+      "label": "Monthly cash burn after operating income",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "person",
+      "status": "asked",
+      "approval": "proposed",
+      "question": "How much cash are you using each month after allowing for operating income?",
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "angel_route_on",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1",
+      "basis": "Zero switches the additional angel funding route off; an option switches it on.",
+      "label": "Angel funding route included",
+      "party": null,
+      "quote": null,
+      "value": 0,
+      "author": "structure",
+      "status": "known",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "angel_raise_amount",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP",
+      "basis": null,
+      "label": "Amount sought from angels",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "person",
+      "status": "asked",
+      "approval": "proposed",
+      "question": "What amount would you seek from angel investors to buy more time?",
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "angel_cash_overhead",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP",
+      "basis": null,
+      "label": "Additional cash costs of an angel raise",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "person",
+      "status": "asked",
+      "approval": "proposed",
+      "question": "What additional cash costs would an angel raise involve, including legal and administrative fees?",
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "net_angel_proceeds",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "GBP",
+      "basis": null,
+      "label": "Angel funding after cash overhead",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "included_bridge_cash",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "GBP",
+      "basis": null,
+      "label": "Net bridge cash included in the option",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "cash_with_bridge",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "GBP",
+      "basis": null,
+      "label": "Cash available including a successful bridge",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "conditional_runway",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "month",
+      "basis": null,
+      "label": "Runway if the included funding is received in time",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "additional_runway",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "month",
+      "basis": null,
+      "label": "Extra time bought by a successful angel bridge",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "angel_investors__angel_route_on",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1",
+      "basis": "\"angel investors\" switched on.",
+      "label": "angel investors: Angel funding route included",
+      "party": null,
+      "quote": null,
+      "value": 1,
+      "author": "structure",
+      "status": "known",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "funding_received",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "GBP",
+      "basis": null,
+      "label": "Funding received",
+      "party": null,
+      "quote": "£100,000",
+      "value": null,
+      "author": "person",
+      "status": "derived",
+      "approval": "approved",
+      "question": null,
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "secure_funding_sooner_target",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP",
+      "basis": null,
+      "label": "Target for Funding received",
+      "party": null,
+      "quote": "£100,000",
+      "value": 100000,
+      "author": "person",
+      "status": "known",
+      "approval": "approved",
+      "question": null,
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "firm_raise_amount",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP",
+      "basis": null,
+      "label": "Amount sought through the existing investment-firm outreach",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "person",
+      "status": "asked",
+      "approval": "proposed",
+      "question": "How much are you seeking to raise through your existing investment-firm outreach?",
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "firm_receipt_rate",
+      "low": 0,
+      "high": 0.5,
+      "kind": "coefficient",
+      "unit": "/month",
+      "basis": "A deliberately broad provisional receipt rate allows for no funding or substantial progress within two months because no pipeline maturity or commitments were given; it approximates receipts rather than the probability of closing a round.",
+      "label": "Share of the intended firm raise received per month",
+      "party": null,
+      "quote": null,
+      "value": 0.05,
+      "author": "olumi",
+      "status": "estimated",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": "plausible"
+     },
+     {
+      "id": "angel_receipt_rate",
+      "low": 0,
+      "high": 0.5,
+      "kind": "coefficient",
+      "unit": "/month",
+      "basis": "A broad provisional receipt rate gives the possible faster angel route a higher central pace while retaining zero as plausible because no angel pipeline or commitments were given; it approximates receipts rather than the probability of closing a round.",
+      "label": "Share of the intended angel raise received per month",
+      "party": null,
+      "quote": null,
+      "value": 0.15,
+      "author": "olumi",
+      "status": "estimated",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": "plausible"
+     },
+     {
+      "id": "firm_funding_inflow",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "GBP/month",
+      "basis": null,
+      "label": "Monthly funding received through existing outreach",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "angel_inflow_per_route",
+      "low": null,
+      "high": null,
+      "kind": "coefficient",
+      "unit": "GBP/month",
+      "basis": null,
+      "label": "Monthly angel funding added when the angel route is included",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "zero_angel_inflow",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP/month",
+      "basis": "No angel funding is included when the additional angel route is switched off.",
+      "label": "Angel funding inflow with the route switched off",
+      "party": null,
+      "quote": null,
+      "value": 0,
+      "author": "structure",
+      "status": "known",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "angel_funding_inflow",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "GBP/month",
+      "basis": null,
+      "label": "Monthly funding received through the included angel route",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": null
+     },
+     {
+      "id": "funding_received_start",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP",
+      "basis": "The measure counts new funding received from now, so its cumulative total starts at zero rather than including existing cash.",
+      "label": "New funding received at the start of the measurement window",
+      "party": null,
+      "quote": null,
+      "value": 0,
+      "author": "structure",
+      "status": "known",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "range_kind": null
+     }
+    ]
+   }
+  }
+ },
+ "canonical_analysis_view": {
+  "run": {
+   "run_id": "mp_run_2_f739e7b6a7df",
+   "computed_at": "2026-10-23T19:32:28.512Z",
+   "graph_hash_at_run": "0678756857e26e68"
+  },
+  "schema": "canonical_analysis_view.v1",
+  "source": "stored_run_facts",
+  "options": [
+   {
+    "cell": {
+     "why": "The chance waits for your answer: What amount would you seek from angel investors to buy more time? How much are you seeking to raise through your existing investment-firm outreach?",
+     "face": "Not shown yet: needs your answer",
+     "kind": "withheld",
+     "reasons": [
+      {
+       "code": "goal_asks",
+       "message": "needs \"Amount sought from angels\": What amount would you seek from angel investors to buy more time? needs \"Amount sought through the existing investment-firm outreach\": How much are you seeking to raise through your existing investment-firm outreach?"
+      }
+     ]
+    },
+    "option_id": "existing_outreach",
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "cell": {
+     "why": "The chance waits for your answer: What amount would you seek from angel investors to buy more time? How much are you seeking to raise through your existing investment-firm outreach?",
+     "face": "Not shown yet: needs your answer",
+     "kind": "withheld",
+     "reasons": [
+      {
+       "code": "goal_asks",
+       "message": "needs \"Amount sought from angels\": What amount would you seek from angel investors to buy more time? needs \"Amount sought through the existing investment-firm outreach\": How much are you seeking to raise through your existing investment-firm outreach?"
+      }
+     ]
+    },
+    "option_id": "angel_investors",
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   }
+  ],
+  "staleness": {
+   "basis": "analysis_graph_hash_interim",
+   "stale": false,
+   "reason": "graph_hash_match",
+   "revision": null,
+   "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+   "run_revision": null
+  },
+  "goal_chance": {
+   "notes": [
+    "‘accelerate securing funding within the next 2 months’ is not in the chance yet: needs \"Amount sought from angels\": What amount would you seek from angel investors to buy more time? needs \"Amount sought through the existing investment-firm outreach\": How much are you seeking to raise through your existing investment-firm outreach?"
+   ]
+  },
+  "leader_licence": "withheld"
+ },
+ "analysis_state": {
+  "run_state": {
+   "kind": "never_run"
+  },
+  "readiness": {
+   "status": "needs_user_input",
+   "blockers": []
+  },
+  "leader_claim": {
+   "permitted": false,
+   "withheld_reason": "analysis_no_result"
+  },
+  "robustness": {},
+  "usable_for_prose": false,
+  "usable_for_chips": false,
+  "usable_for_followup": false,
+  "requires_rerun": false,
+  "blocked_unusable": false,
+  "contradictions": []
+ }
+}

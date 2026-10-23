@@ -70,6 +70,7 @@ import { type ModelGroupId } from '../model-tab-v2/types'
 // because this file is the Model tab's only live-app seam; the v2 directory
 // stays free of fronting and store concerns.
 import { createOlumiHandOff, type OlumiSend } from '../conversation/olumiHandOff'
+import { useProgramBoardShowsResult } from '../../components/results/analysisNew/ViewOnlyRunChances'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -226,6 +227,7 @@ export const ModelTabBody = memo(function ModelTabBody({
   onToggleExpert,
   onSendMessage,
 }: ModelTabBodyProps) {
+  const programShowsResult = useProgramBoardShowsResult()
   // ⚠ THE SEARCH STATE IS GONE, NOT PARKED. It was declared here, threaded to
   // `ModelFooter`, and consumed by NOTHING — no filter read it anywhere in
   // `src/`, so the box was an enabled control that silently did nothing. Keeping
@@ -926,6 +928,7 @@ export const ModelTabBody = memo(function ModelTabBody({
             factorCount={grouped.factor.length}
             edgeCount={causalEdges.length}
             factorsToVerify={factorsToVerify}
+            runResultShown={programShowsResult}
             onHandOffToOlumi={olumiHandOff ?? undefined}
             {...makeSectionProps('modelcard')}
           />
