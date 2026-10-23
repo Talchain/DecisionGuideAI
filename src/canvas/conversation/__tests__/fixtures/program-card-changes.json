@@ -1,0 +1,244 @@
+{
+ "_source": "the served funding card (CEE b8afd1c2, 23 Oct 19:32Z, verbatim) plus `changes[]` in the shape CEE is about to send (DL brief, 23 Oct). The `changes[]` values are ILLUSTRATIVE, written for these rows (the risk removal is invented for the remove row); replace them with a served card once CEE sends them.",
+ "graph_hash": "f25007382485ea5c",
+ "card": {
+  "proposal_id": "prop_16101e78e8f665d7fa35f9ad52c3c51c",
+  "revision": "9293c61d-fe50-4ab1-a314-86a50c324744",
+  "digest": "0f76f715dac0931d1df97e258f4dbdaa",
+  "approve_action": {
+   "id": "agent-approve-proposal:prop_16101e78e8f665d7fa35f9ad52c3c51c",
+   "label": "Make this change",
+   "message": "Yes, make that change.",
+   "detail": "Define success as receiving at least £100,000 in funding within two months"
+  },
+  "decline_action": {
+   "id": "agent-decline-proposal:prop_16101e78e8f665d7fa35f9ad52c3c51c",
+   "label": "Not now",
+   "message": "Not now."
+  },
+  "issued_turn_id": "b497a160-fbd9-47ba-bf3d-d4049a1bedb8",
+  "fields": [],
+  "adds": [
+   {
+    "field_id": "change_note:goal:secure_funding_sooner",
+    "kind": "change_note",
+    "text": "Changes ‘accelerate securing funding within the next 2 months’: new measure name “Funding received”; new measure unit “GBP”; kind was not stated, now “define_goal_measure”; cmp was not stated, now “>=”; frame was not stated, now “level”; goal id was not stated, now “secure_funding_sooner”; leaves out was not stated, now not stated (a different item with the same name); new target figure 100,000; new window periods “funding_window”; new window start 0; quoting now “£100,000” (was not stated) (source not yet confirmed).",
+    "source": "unverified",
+    "editable": false
+   },
+   {
+    "field_id": "change_note:relation:firm_funding_inflow_definition",
+    "kind": "change_note",
+    "text": "Adds ‘firm_funding_inflow_definition’: kind the product; form “definition”; approval “proposed”; author “olumi”; defines “firm_funding_inflow”; parts {\"id\":\"firm_raise_amount\",\"power\":1} and {\"id\":\"firm_receipt_rate\",\"power\":1} (source not yet confirmed).",
+    "source": "unverified",
+    "editable": false
+   },
+   {
+    "field_id": "change_note:relation:angel_inflow_per_route_definition",
+    "kind": "change_note",
+    "text": "Adds ‘angel_inflow_per_route_definition’: kind the product; form “definition”; approval “proposed”; author “olumi”; defines “angel_inflow_per_route”; parts {\"id\":\"angel_raise_amount\",\"power\":1} and {\"id\":\"angel_receipt_rate\",\"power\":1} (source not yet confirmed).",
+    "source": "unverified",
+    "editable": false
+   },
+   {
+    "field_id": "change_note:relation:angel_route_funding_effect",
+    "kind": "change_note",
+    "text": "Adds ‘angel_route_funding_effect’: form “effect”; approval “proposed”; author “olumi”; base “zero_angel_inflow”; defines “angel_funding_inflow”; terms {\"approval\":\"proposed\",\"author\":\"olumi\",\"author_id\":null,\"coefficient\":\"angel_inflow_per_route\",\"driver\":\"angel_route_on\",\"party\":null,\"quote\":null} (source not yet confirmed).",
+    "source": "unverified",
+    "editable": false
+   },
+   {
+    "field_id": "change_note:relation:funding_received_stock",
+    "kind": "change_note",
+    "text": "Adds ‘funding_received_stock’: form “stock”; approval “proposed”; author “olumi”; defines “funding_received”; inflows “firm_funding_inflow” and “angel_funding_inflow”; start “funding_received_start” (source not yet confirmed).",
+    "source": "unverified",
+    "editable": false
+   },
+   {
+    "field_id": "change_note:quantity:firm_raise_amount",
+    "kind": "change_note",
+    "text": "Adds ‘Amount sought through the existing investment-firm outreach’: unit “GBP”; approval “proposed”; author “person”; type “fact”; question “How much are you seeking to raise through your existing investment-firm outreach?”; status “asked” (source not yet confirmed).",
+    "source": "unverified",
+    "editable": false
+   },
+   {
+    "field_id": "change_note:quantity:firm_receipt_rate",
+    "kind": "change_note",
+    "text": "Adds ‘Share of the intended firm raise received per month’: figure 0.05  / month (0  / month to 0.5  / month); approval “proposed”; author “olumi”; basis “A deliberately broad provisional receipt rate allows for no funding or substantial progress within two months because no pipeline maturity or commitments were given; it approximates receipts rather than the probability of closing a round.”; type “coefficient”; range kind “plausible”; status “estimated” (source not yet confirmed).",
+    "source": "unverified",
+    "editable": false
+   },
+   {
+    "field_id": "change_note:quantity:angel_receipt_rate",
+    "kind": "change_note",
+    "text": "Adds ‘Share of the intended angel raise received per month’: figure 0.15  / month (0  / month to 0.5  / month); approval “proposed”; author “olumi”; basis “A broad provisional receipt rate gives the possible faster angel route a higher central pace while retaining zero as plausible because no angel pipeline or commitments were given; it approximates receipts rather than the probability of closing a round.”; type “coefficient”; range kind “plausible”; status “estimated” (source not yet confirmed).",
+    "source": "unverified",
+    "editable": false
+   },
+   {
+    "field_id": "change_note:quantity:firm_funding_inflow",
+    "kind": "change_note",
+    "text": "Adds ‘Monthly funding received through existing outreach’: unit “GBP/month”; approval “proposed”; author “olumi”; type “derived”; status “derived” (source not yet confirmed).",
+    "source": "unverified",
+    "editable": false
+   },
+   {
+    "field_id": "change_note:quantity:angel_inflow_per_route",
+    "kind": "change_note",
+    "text": "Adds ‘Monthly angel funding added when the angel route is included’: unit “GBP/month”; approval “proposed”; author “olumi”; type “coefficient”; status “derived” (source not yet confirmed).",
+    "source": "unverified",
+    "editable": false
+   },
+   {
+    "field_id": "change_note:quantity:zero_angel_inflow",
+    "kind": "change_note",
+    "text": "Adds ‘Angel funding inflow with the route switched off’: figure £0 / month; approval “proposed”; author “structure”; basis “No angel funding is included when the additional angel route is switched off.”; type “fact”; status “known” (source not yet confirmed).",
+    "source": "unverified",
+    "editable": false
+   },
+   {
+    "field_id": "change_note:quantity:angel_funding_inflow",
+    "kind": "change_note",
+    "text": "Adds ‘Monthly funding received through the included angel route’: unit “GBP/month”; approval “proposed”; author “olumi”; type “derived”; status “derived” (source not yet confirmed).",
+    "source": "unverified",
+    "editable": false
+   },
+   {
+    "field_id": "change_note:quantity:funding_received_start",
+    "kind": "change_note",
+    "text": "Adds ‘New funding received at the start of the measurement window’: figure £0; approval “proposed”; author “structure”; basis “The measure counts new funding received from now, so its cumulative total starts at zero rather than including existing cash.”; type “fact”; status “known” (source not yet confirmed).",
+    "source": "unverified",
+    "editable": false
+   }
+  ],
+  "missing": [],
+  "changes": [
+   {
+    "id": "secure_funding_sooner",
+    "kind": "goal",
+    "action": "change",
+    "label": "accelerate securing funding within the next 2 months",
+    "before": "no measure yet",
+    "after": "Funding received at least £100,000 within two months",
+    "author": "person"
+   },
+   {
+    "id": "firm_funding_inflow_definition",
+    "kind": "relation",
+    "action": "add",
+    "label": "Monthly funding received through existing outreach",
+    "before": null,
+    "after": "Amount sought through the existing investment-firm outreach × Share of the intended firm raise received per month",
+    "author": "olumi"
+   },
+   {
+    "id": "angel_inflow_per_route_definition",
+    "kind": "relation",
+    "action": "add",
+    "label": "Monthly angel funding added when the angel route is included",
+    "before": null,
+    "after": "Amount sought from angels × Share of the intended angel raise received per month",
+    "author": "olumi"
+   },
+   {
+    "id": "angel_route_funding_effect",
+    "kind": "relation",
+    "action": "add",
+    "label": "Monthly funding received through the included angel route",
+    "before": null,
+    "after": "£0 / month, plus Monthly angel funding added when the angel route is included for each angel route included",
+    "author": "olumi"
+   },
+   {
+    "id": "funding_received_stock",
+    "kind": "relation",
+    "action": "add",
+    "label": "Funding received",
+    "before": null,
+    "after": "starts at New funding received at the start of the measurement window; adds both monthly inflows each month",
+    "author": "olumi"
+   },
+   {
+    "id": "firm_raise_amount",
+    "kind": "quantity",
+    "action": "add",
+    "label": "Amount sought through the existing investment-firm outreach",
+    "before": null,
+    "after": "waiting for your answer (GBP)",
+    "author": "person"
+   },
+   {
+    "id": "firm_receipt_rate",
+    "kind": "quantity",
+    "action": "add",
+    "label": "Share of the intended firm raise received per month",
+    "before": null,
+    "after": "0.05 / month (0 to 0.5 / month)",
+    "author": "olumi"
+   },
+   {
+    "id": "angel_receipt_rate",
+    "kind": "quantity",
+    "action": "add",
+    "label": "Share of the intended angel raise received per month",
+    "before": null,
+    "after": "0.15 / month (0 to 0.5 / month)",
+    "author": "olumi"
+   },
+   {
+    "id": "firm_funding_inflow",
+    "kind": "quantity",
+    "action": "add",
+    "label": "Monthly funding received through existing outreach",
+    "before": null,
+    "after": "worked out (GBP / month)",
+    "author": "olumi"
+   },
+   {
+    "id": "angel_inflow_per_route",
+    "kind": "quantity",
+    "action": "add",
+    "label": "Monthly angel funding added when the angel route is included",
+    "before": null,
+    "after": "worked out (GBP / month)",
+    "author": "olumi"
+   },
+   {
+    "id": "zero_angel_inflow",
+    "kind": "quantity",
+    "action": "add",
+    "label": "Angel funding inflow with the route switched off",
+    "before": null,
+    "after": "£0 / month",
+    "author": "olumi"
+   },
+   {
+    "id": "angel_funding_inflow",
+    "kind": "quantity",
+    "action": "add",
+    "label": "Monthly funding received through the included angel route",
+    "before": null,
+    "after": "worked out (GBP / month)",
+    "author": "olumi"
+   },
+   {
+    "id": "funding_received_start",
+    "kind": "quantity",
+    "action": "add",
+    "label": "New funding received at the start of the measurement window",
+    "before": null,
+    "after": "£0",
+    "author": "olumi"
+   },
+   {
+    "id": "founder_time_risk",
+    "kind": "risk",
+    "action": "remove",
+    "label": "Founder time diverted from the investment-firm outreach",
+    "before": "Olumi’s risk: the angel raise takes founder time from the main outreach",
+    "after": null,
+    "author": "olumi"
+   }
+  ]
+ }
+}

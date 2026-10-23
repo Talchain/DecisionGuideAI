@@ -40,7 +40,11 @@ import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
 import { PANEL_LIST_BULLET } from '../panelLists'
-import { changeNotesOf, changeNotesSummary, isHeldCardChipId, programChangeNoteHeads, REVIEW_PROPOSAL_PREFIX, type ChangeNote } from '../proposalFields'
+import {
+  changeNotesOf, changeNotesSummary, isHeldCardChipId, OLUMI_CHANGE_MARK, programChangeNoteHeads, proposalChangesSummary, proposalChangeWords,
+  REVIEW_PROPOSAL_PREFIX,
+  type ChangeNote, type ProposalChange,
+} from '../proposalFields'
 import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
 
 /** The heading over a held card's other changes, read before its approve. */
@@ -55,22 +59,34 @@ const CHANGE_NOTE_SOURCE_CLASS: Readonly<Record<ChangeNote['source'], string>> =
  * card printed CEE's notes in raw "(1/3)…(3/3)" fragments). The line counts the changes from the notes' own ids, read
  * before the approve; "Details" opens CEE's sentences, each in the colour of whose it is.
  */
-function ChangeNotesPanel({ proposalId, notes }: { proposalId: string; notes: readonly ChangeNote[] }) {
+function ChangeNotesPanel({ proposalId, notes, changes }: { proposalId: string; notes: readonly ChangeNote[]; changes: readonly ProposalChange[] | null }) {
   const [open, setOpen] = useState(false)
   const listId = useId()
-  // A program board's notes carry raw record fields: plain words only (`programChangeNoteHeads`, DL 23 Oct).
   const program = useSavedModelIsProgram()
-  const listed = program ? programChangeNoteHeads(notes) : notes
+  // CEE's `changes[]` (DL 23 Oct): every item, its substance in CEE's words, Olumi's marked. Absent: the notes as before,
+  // and on a program board their plain heads only (interim, `programChangeNoteHeads`, until CEE ships `changes[]`).
+  // Present is the whole list (Codex r1 on #2957): the notes are read only when `changes[]` is absent.
+  const listChanges = changes !== null
+  const listedNotes = program ? programChangeNoteHeads(notes) : notes
   return (
     <div className={styles.reasoningPanel} style={{ marginTop: 12, marginBottom: -4 }} data-testid={`proposal-change-notes-${proposalId}`}>
-      <p className={styles.reasoningPanelHeading} data-testid={`proposal-change-summary-${proposalId}`}>{changeNotesSummary(notes, { program })}</p>
-      {listed.length > 0 && <button type="button" className={styles.inlineDisclosureToggle} onClick={() => setOpen((v) => !v)}
+      <p className={styles.reasoningPanelHeading} data-testid={`proposal-change-summary-${proposalId}`}>
+        {listChanges ? proposalChangesSummary(changes) : changeNotesSummary(notes, { program })}
+      </p>
+      {(listChanges || listedNotes.length > 0) && <button type="button" className={styles.inlineDisclosureToggle} onClick={() => setOpen((v) => !v)}
         aria-expanded={open} aria-controls={open ? listId : undefined} data-testid={`proposal-change-details-${proposalId}`}>
         {open ? <><ChevronUp size={12} aria-hidden="true" /> Hide details</> : <><ChevronDown size={12} aria-hidden="true" /> Details</>}
       </button>}
-      {open && listed.length > 0 && (
+      {open && (listChanges || listedNotes.length > 0) && (
         <ul id={listId} className={PANEL_LIST_BULLET}>
-          {listed.map(n => (
+          {listChanges ? changes.map(c => (
+            <li key={`${c.kind}:${c.id}:${c.action}`} data-author={c.author}
+              className={`${styles.reasoningPanelBody} ${c.author === 'olumi' ? CHANGE_NOTE_SOURCE_CLASS.estimate : ''}`}
+              data-testid={`proposal-change-${c.kind}:${c.id}`}>
+              {proposalChangeWords(c)}
+              {c.author === 'olumi' && <span data-testid={`proposal-change-olumi-${c.kind}:${c.id}`}>{` · ${OLUMI_CHANGE_MARK}`}</span>}
+            </li>
+          )) : listedNotes.map(n => (
             <li key={n.field_id} data-source={n.source} className={`${styles.reasoningPanelBody} ${CHANGE_NOTE_SOURCE_CLASS[n.source]}`}
               data-testid={`proposal-change-note-${n.field_id}`}>{n.text}</li>
           ))}
@@ -635,8 +651,9 @@ export function SuggestedChips({
       {/* ⭐ CONSENT (DL 22 Oct): everything else the approval writes, in CEE's words, read before the approve. */}
       {(bindable?.proposals ?? []).filter(p => visible.some(c => c.id === p.approve_action.id)).map(p => {
         const notes = changeNotesOf(p)
-        if (notes.length === 0) return null
-        return <ChangeNotesPanel key={`change-notes-${p.proposal_id}`} proposalId={p.proposal_id} notes={notes} />
+        // Present `changes[]` is the whole list: an empty one means no other changes, and the notes are not read.
+        if (p.changes !== null ? p.changes.length === 0 : notes.length === 0) return null
+        return <ChangeNotesPanel key={`change-notes-${p.proposal_id}`} proposalId={p.proposal_id} notes={notes} changes={p.changes} />
       })}
       <div
         className="flex flex-wrap gap-1.5 mt-3"
