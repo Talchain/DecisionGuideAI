@@ -69,26 +69,45 @@ export function changeNotesSummary(notes: readonly Pick<ChangeNote, 'field_id'>[
  * calculations", never "Also changes 13 other changes" (DL, 23 Oct, served funding card). Any other kind is "other item".
  */
 const PROGRAM_CHANGE_NOUNS: Readonly<Record<string, string>> = { goal: 'goal', quantity: 'figure', relation: 'calculation' }
-/** CEE's own suffix for a second note on one path (`record.ts`: `<path>:<change>[:<n>]`), so the item's id is read exactly. */
-const NOTE_CHANGE_SUFFIX = /:(?:add|change|remove)(?::\d+)?$/
-const NOTE_HEAD = /^(Adds|Changes|Removes) ‘([^’]+)’/
 /**
- * A PROGRAM card's Details in plain words only (DL, 23 Oct): each changed item once, as the head of CEE's own sentence
- * ("Adds ‘Amount sought from angels’"). The rest of a program note is the record's raw fields (`kind … define_goal_measure`,
- * `parts {…}`), so it is not shown, and a head that names only the item's id has no plain words, so that note is not
- * listed. Nothing is reworded: the head is CEE's text up to its closing quote.
+ * ⭐ THE SUBSTANCE OF EVERY CHANGE (DL 23 Oct, Paul: simplify): CEE's `changes[]` on a program proposal names each item the
+ * approval writes, with its before and after in CEE's own rendered words and whose it is. Read whole, one entry at a time:
+ * a malformed entry is dropped on its own, never the card. Absent (an older CEE, a board that is not a program board):
+ * null, and the card keeps its change notes as before.
  */
-export function programChangeNoteHeads(notes: readonly ChangeNote[]): ChangeNote[] {
-  const seen = new Set<string>()
-  const out: ChangeNote[] = []
-  for (const n of notes) {
-    const item = changeItemOf(n).replace(NOTE_CHANGE_SUFFIX, '')
-    const head = NOTE_HEAD.exec(n.text)
-    if (seen.has(item) || head === null || head[2] === item.slice(item.indexOf(':') + 1)) continue
-    seen.add(item)
-    out.push({ ...n, text: `${head[1]} ‘${head[2]}’` })
+const proposalChangeSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(['quantity', 'relation', 'goal', 'option', 'risk', 'record']),
+  action: z.enum(['add', 'change', 'remove']),
+  label: z.string().min(1),
+  before: z.string().nullable(),
+  after: z.string().nullable(),
+  author: z.enum(['person', 'olumi']),
+})
+export type ProposalChange = z.infer<typeof proposalChangeSchema>
+/** The card's words for one change, CEE's label and rendered values verbatim; nothing is shortened or reworded. */
+export function proposalChangeWords(c: ProposalChange): string {
+  const head = `${c.action === 'add' ? 'Adds' : c.action === 'remove' ? 'Removes' : 'Changes'} ‘${c.label}’`
+  if (c.action === 'add') return c.after === null ? head : `${head}: ${c.after}`
+  if (c.action === 'remove') return c.before === null ? head : `${head} (was: ${c.before})`
+  if (c.before !== null && c.after !== null) return `${head}: ${c.before} → ${c.after}`
+  return c.after !== null ? `${head}: ${c.after}` : c.before !== null ? `${head} (was: ${c.before})` : head
+}
+/** The mark beside an item that is Olumi's, never the person's (`author: 'olumi'`). */
+export const OLUMI_CHANGE_MARK = 'Olumi’s'
+const CHANGE_KIND_NOUNS: Readonly<Record<ProposalChange['kind'], string>> = {
+  goal: 'goal', quantity: 'figure', relation: 'calculation', option: 'option', risk: 'risk', record: 'other item',
+}
+/** The summary from `changes[]`, counted by kind in CEE's order: "Also changes 1 goal, 4 calculations and 8 figures". */
+export function proposalChangesSummary(changes: readonly ProposalChange[]): string {
+  const counts = new Map<string, Set<string>>()
+  for (const c of changes) {
+    const noun = CHANGE_KIND_NOUNS[c.kind]
+    counts.set(noun, (counts.get(noun) ?? new Set()).add(c.id))
   }
-  return out
+  const parts = [...counts].map(([noun, ids]) => `${ids.size} ${noun}${ids.size === 1 ? '' : 's'}`)
+  const list = parts.length <= 1 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+  return `${ALSO_CHANGES} ${list}`
 }
 /** The held card's change notes, in CEE's order. */
 export const changeNotesOf = (p: Proposal): ChangeNote[] => p.adds.filter((a): a is ChangeNote => a.kind === 'change_note')
@@ -123,6 +142,10 @@ const proposalSchema = z.object({
     const r = addSchema.safeParse(a)
     return r.success ? [r.data] : []
   })),
+  changes: z.unknown().optional().transform(changes => (Array.isArray(changes) ? changes.flatMap(c => {
+    const r = proposalChangeSchema.safeParse(c)
+    return r.success ? [r.data] : []
+  }) : null)),
 }).refine(p => p.approve_action.id === `agent-approve-proposal:${p.proposal_id}`
   && p.decline_action.id === `agent-decline-proposal:${p.proposal_id}`
   && (p.review_action === undefined || p.review_action.id === `${REVIEW_PROPOSAL_PREFIX}${p.proposal_id}`))

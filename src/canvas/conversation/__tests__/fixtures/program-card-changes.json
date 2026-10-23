@@ -1,5 +1,5 @@
 {
- "_source": "served CEE core turn reply (b8afd1c2), funding brief, the turn that held the £100,000 measure card (23 Oct 19:32Z); cards[0] and model.revision verbatim",
+ "_source": "the served funding card (CEE b8afd1c2, 23 Oct 19:32Z, verbatim) plus `changes[]` in the shape CEE is about to send (DL brief, 23 Oct). The `changes[]` values are ILLUSTRATIVE, written for these rows (the risk removal is invented for the remove row); replace them with a served card once CEE sends them.",
  "graph_hash": "f25007382485ea5c",
  "card": {
   "proposal_id": "prop_16101e78e8f665d7fa35f9ad52c3c51c",
@@ -111,6 +111,134 @@
     "editable": false
    }
   ],
-  "missing": []
+  "missing": [],
+  "changes": [
+   {
+    "id": "secure_funding_sooner",
+    "kind": "goal",
+    "action": "change",
+    "label": "accelerate securing funding within the next 2 months",
+    "before": "no measure yet",
+    "after": "Funding received at least £100,000 within two months",
+    "author": "person"
+   },
+   {
+    "id": "firm_funding_inflow_definition",
+    "kind": "relation",
+    "action": "add",
+    "label": "Monthly funding received through existing outreach",
+    "before": null,
+    "after": "Amount sought through the existing investment-firm outreach × Share of the intended firm raise received per month",
+    "author": "olumi"
+   },
+   {
+    "id": "angel_inflow_per_route_definition",
+    "kind": "relation",
+    "action": "add",
+    "label": "Monthly angel funding added when the angel route is included",
+    "before": null,
+    "after": "Amount sought from angels × Share of the intended angel raise received per month",
+    "author": "olumi"
+   },
+   {
+    "id": "angel_route_funding_effect",
+    "kind": "relation",
+    "action": "add",
+    "label": "Monthly funding received through the included angel route",
+    "before": null,
+    "after": "£0 / month, plus Monthly angel funding added when the angel route is included for each angel route included",
+    "author": "olumi"
+   },
+   {
+    "id": "funding_received_stock",
+    "kind": "relation",
+    "action": "add",
+    "label": "Funding received",
+    "before": null,
+    "after": "starts at New funding received at the start of the measurement window; adds both monthly inflows each month",
+    "author": "olumi"
+   },
+   {
+    "id": "firm_raise_amount",
+    "kind": "quantity",
+    "action": "add",
+    "label": "Amount sought through the existing investment-firm outreach",
+    "before": null,
+    "after": "waiting for your answer (GBP)",
+    "author": "person"
+   },
+   {
+    "id": "firm_receipt_rate",
+    "kind": "quantity",
+    "action": "add",
+    "label": "Share of the intended firm raise received per month",
+    "before": null,
+    "after": "0.05 / month (0 to 0.5 / month)",
+    "author": "olumi"
+   },
+   {
+    "id": "angel_receipt_rate",
+    "kind": "quantity",
+    "action": "add",
+    "label": "Share of the intended angel raise received per month",
+    "before": null,
+    "after": "0.15 / month (0 to 0.5 / month)",
+    "author": "olumi"
+   },
+   {
+    "id": "firm_funding_inflow",
+    "kind": "quantity",
+    "action": "add",
+    "label": "Monthly funding received through existing outreach",
+    "before": null,
+    "after": "worked out (GBP / month)",
+    "author": "olumi"
+   },
+   {
+    "id": "angel_inflow_per_route",
+    "kind": "quantity",
+    "action": "add",
+    "label": "Monthly angel funding added when the angel route is included",
+    "before": null,
+    "after": "worked out (GBP / month)",
+    "author": "olumi"
+   },
+   {
+    "id": "zero_angel_inflow",
+    "kind": "quantity",
+    "action": "add",
+    "label": "Angel funding inflow with the route switched off",
+    "before": null,
+    "after": "£0 / month",
+    "author": "olumi"
+   },
+   {
+    "id": "angel_funding_inflow",
+    "kind": "quantity",
+    "action": "add",
+    "label": "Monthly funding received through the included angel route",
+    "before": null,
+    "after": "worked out (GBP / month)",
+    "author": "olumi"
+   },
+   {
+    "id": "funding_received_start",
+    "kind": "quantity",
+    "action": "add",
+    "label": "New funding received at the start of the measurement window",
+    "before": null,
+    "after": "£0",
+    "author": "olumi"
+   },
+   {
+    "id": "founder_time_risk",
+    "kind": "risk",
+    "action": "remove",
+    "label": "Founder time diverted from the investment-firm outreach",
+    "before": "Olumi’s risk: the angel raise takes founder time from the main outreach",
+    "after": null,
+    "author": "olumi"
+   }
+  ]
  }
 }
