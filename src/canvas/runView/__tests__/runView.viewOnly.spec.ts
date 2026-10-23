@@ -50,6 +50,14 @@ describe('runViewOf: a held canonical view with no report (view-only board read)
     expect(view.goalChanceDetail()).toBeNull()
   })
 
+  it('row 2d: a bound Run whose currentness CEE says is unknown (stale: null) is never current', () => {
+    const view = runViewOf(null, parsed({ ...served, run: boundRun }))
+    expect(view.boundToCurrentCanonical()).toBe(false)
+    expect(view.servedCellOf('add_one_specialist')).toBeNull()
+    expect(view.chanceCellOf('add_one_specialist', ctx)).toEqual({ kind: 'none', text: null })
+    expect(view.goalChanceDetail()).toBeNull()
+  })
+
   it('row 2c: a bound Run that no longer matches the selected graph (stale) says CEE’s stale face, never the figure', () => {
     const view = runViewOf(null, parsed({ ...served, run: boundRun,
       staleness: { ...currentStaleness, stale: true, reason: 'graph_changed' },
