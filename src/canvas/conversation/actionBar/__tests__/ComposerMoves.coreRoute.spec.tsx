@@ -51,7 +51,7 @@ const nodes = [
   { id: 'cap', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Capacity' } },
   { id: 'goal', type: 'goal', position: { x: 1, y: 1 }, data: { label: 'Delivery' } },
 ]
-type Call = { url: string; mode: string | null; chip: string | null }
+type Call = { url: string; method: string; mode: string | null; chip: string | null }
 let calls: Call[]
 let hold: boolean
 
@@ -62,7 +62,7 @@ function stubFetch() {
     const headers = new Headers(init?.headers)
     let chip: string | null = null
     try { chip = (JSON.parse(String(init?.body ?? 'null')) as { chip?: { id?: string } } | null)?.chip?.id ?? null } catch { /* not JSON */ }
-    calls.push({ url, mode: headers.get('x-olumi-ai-mode'), chip })
+    calls.push({ url, method: (init?.method ?? (typeof input === 'object' && 'method' in input ? input.method : 'GET')).toUpperCase(), mode: headers.get('x-olumi-ai-mode'), chip })
     if (hold && /\/proxy\/v5\/turn/.test(url)) return new Promise<Response>(() => {})
     return new Response(JSON.stringify(served.chat_edit_turn), { status: 200, headers: { 'content-type': 'application/json' } })
   }))
@@ -101,7 +101,7 @@ describe('the composer reasoning moves, on the core route', () => {
   ])('%s: one POST to /proxy/v5/turn on core-route with chip %s, none to /agent/v1', async (move, chipId) => {
     mount()
     await act(async () => { fireEvent.click(icon(move)); await new Promise((r) => setTimeout(r, 50)) })
-    expect(turns()).toEqual([{ url: expect.stringMatching(/\/proxy\/v5\/turn$/), mode: 'core-route', chip: chipId }])
+    expect(turns()).toEqual([{ url: expect.stringMatching(/\/proxy\/v5\/turn$/), method: 'POST', mode: 'core-route', chip: chipId }])
     expect(calls.filter((c) => /\/agent\/v1/.test(c.url))).toHaveLength(0)
   })
 
