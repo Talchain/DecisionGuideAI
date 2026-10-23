@@ -73,10 +73,9 @@ export interface StopTurnOptions {
   timeoutMs?: number
   /**
    * Extra headers, merged after Content-Type — the auth seam (R-9, fence rider
-   * on #534). Mirrors `V5CallOptions.headers` on `callV5Turn`. No production
-   * caller passes any today; when CEE's JWT half lands (LOGIN-CEE-HALF-SPEC),
-   * the stop call carries the same `buildTurnAuthHeaders(...)` output as the
-   * turn it stops.
+   * on #534). Mirrors `V5CallOptions.headers` on `callV5Turn`. `cancelTurn`
+   * passes the auth + `x-olumi-ai-mode` headers the turn it stops was sent
+   * with, so the stop reaches the same CEE route as that turn.
    */
   headers?: Record<string, string>
 }
