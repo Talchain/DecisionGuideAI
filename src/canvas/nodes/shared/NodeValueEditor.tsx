@@ -209,6 +209,12 @@ export interface NodeValueEditorProps {
    * "Not saved". Only read in the `'inline'` resting flow.
    */
   trailing?: React.ReactNode
+  /**
+   * Vision spec §2d (23 Oct 2026): "The author glyph turns to yours as you type." Told `true` while the open field holds
+   * a draft that differs from the figure it opened with, `false` otherwise (closed, or back to that figure). Display
+   * only: the caller's mark changes, nothing is written; whose the saved figure is still comes from the saved model.
+   */
+  onDraftChange?: (draftDiffers: boolean) => void
 }
 
 /**
@@ -239,7 +245,7 @@ function useModelInstance(): number {
 
 function NodeValueEditorInScenario({
   value, readout, onCommit, readCommittedValue, min, max, outOfRangeCopy, scaleHint, editNote, editNoteShort, ariaLabel, testId,
-  restingFlow = 'box', trailing, admit, seedText, prefix, restingTypography, prefill, onPrefillConsumed,
+  restingFlow = 'box', trailing, admit, seedText, prefix, restingTypography, prefill, onPrefillConsumed, onDraftChange,
 }: NodeValueEditorProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -257,6 +263,12 @@ function NodeValueEditorInScenario({
   /** The `turn_id`s of this field's sends whose reply was lost: a saved version only one of them wrote is this card's. */
   const unconfirmedTurnIdsRef = useRef(new Set<string>())
   const retireSavedRead = useCallback(() => { cancelSavedReadRef.current?.(); cancelSavedReadRef.current = null }, [])
+  /** The text the field opened with: a draft that differs from it is the person's own figure (`onDraftChange`). */
+  const openedDraftRef = useRef('')
+  const onDraftChangeRef = useRef(onDraftChange)
+  onDraftChangeRef.current = onDraftChange
+  const draftDiffers = isEditing && draft.trim().length > 0 && draft.trim() !== openedDraftRef.current.trim()
+  useEffect(() => { onDraftChangeRef.current?.(draftDiffers) }, [draftDiffers])
 
   useEffect(() => () => { mountedRef.current = false; retireSavedRead() }, [retireSavedRead])
 
@@ -275,7 +287,8 @@ function NodeValueEditorInScenario({
     commitSeqRef.current += 1
     retireSavedRead()
     setSettlement(null)
-    setDraft(seedText ?? (value != null ? String(value) : ''))
+    openedDraftRef.current = seedText ?? (value != null ? String(value) : '')
+    setDraft(openedDraftRef.current)
     setRefusal(null)
     setIsEditing(true)
   }, [value, seedText, retireSavedRead])
@@ -288,6 +301,8 @@ function NodeValueEditorInScenario({
     commitSeqRef.current += 1
     retireSavedRead()
     setSettlement(null)
+    // A put-back request opens with an earlier figure: it is already not the one on the card.
+    openedDraftRef.current = seedText ?? (value != null ? String(value) : '')
     setDraft(prefill.text)
     setRefusal(null)
     setIsEditing(true)

@@ -185,7 +185,11 @@ describe('F3 — the card\'s value field is bounded to the scale the model store
   it('CONTROL: a capped £ factor reads USER units — no 0–1 bound, no 0–1 hint', () => {
     const { container } = renderFactor({ value: 0.245, raw_value: 49, cap: 200, unit: '£/month', source: 'brief_extraction' })
     const input = openEditor(container)
-    expect(container.querySelector(`[data-testid="node-value-editor-${NODE_ID}-scale"]`)).toBeNull()
+    // Vision §2d: the open field names the factor's OWN unit beside it — never the 0–1 hint.
+    const hint = container.querySelector(`[data-testid="node-value-editor-${NODE_ID}-scale"]`)
+    expect(hint?.textContent).not.toBe(FACTOR_VALUE_MODEL_SCALE_HINT)
+    expect(hint?.textContent).toMatch(/month/)
+    expect(input.getAttribute('max')).toBeNull()
     commit(input, '55')
     expect(proposed).toEqual([55])
   })

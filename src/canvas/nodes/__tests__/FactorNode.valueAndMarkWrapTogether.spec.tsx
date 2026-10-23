@@ -117,7 +117,7 @@ afterEach(() => {
 
 const CASES = [
   { name: 'served (controllable — the on-graph editor holds the value)', data: () => served.data, editor: true },
-  { name: 'contrast (observable — the plain value text)', data: () => ({ ...served.data, category: 'observable' }), editor: false },
+  { name: 'contrast (external — the plain value text; observable is editable since vision §3)', data: () => ({ ...served.data, category: 'external' }), editor: false },
 ] as const
 
 describe('DIFF item 3 — the value and its mark wrap together (contract `.own-value`)', () => {

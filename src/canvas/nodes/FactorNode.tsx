@@ -18,6 +18,7 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput, meaningfulUncertaintyDrivers } from '../utils/observedStateHelpers'
 import { NodeValueEditor } from './shared/NodeValueEditor'
+import { factorValueFieldUnit } from './shared/factorValueFieldUnit'
 import { FactorValueFigure, readoutIsBareModelScale } from './shared/FactorValueFigure'
 import { usePendingFactorEditValue } from '../hooks/usePendingFactorEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
@@ -59,12 +60,14 @@ import { cardMark, sourceCardMarkId } from './shared/cardMarks'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
-import { factorValueSourceMark, PRIOR_RANGE_SOURCE_MARK, ValueSourceMark } from './shared/valueSourceMark'
+import { factorValueSourceMark, PRIOR_RANGE_SOURCE_MARK, ValueSourceMark, type FactorValueSourceMark } from './shared/valueSourceMark'
 import { useValuePrefillStore } from '../graphChanges/valuePrefill'
 
 /** Vision spec §3: "Source not recorded" is the "?" author glyph on the card; these words are its name and hover. */
 const SourceUnknownGlyph = cardMark('source-unknown').Icon
 const SOURCE_UNKNOWN_WORDS = cardMark('source-unknown').keyText
+/** §2d: the mark an open field shows while it holds the person's own figure. Not saved yet, and it says so. */
+const DRAFT_IS_YOURS_MARK: FactorValueSourceMark = { kind: 'you', label: 'Yours once you save it' }
 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
@@ -124,6 +127,17 @@ export const FactorNode = memo((props: NodeProps) => {
    * model — which is the trap-21 shape this estate keeps paying for.
    */
   const editAuthority = useModelEditAuthority(props.id)
+  /**
+   * ⭐ VISION SPEC §3, "Inspector as the one writer … adds in-card value edit" (23 Oct 2026). The card edits a value
+   * exactly where the inspector does, through the same `factor_value_edit` write: the inspector opens a controllable
+   * factor, an observable one and an uncategorised one (`resolvePanelType` reads that as controllable) on a pane that
+   * writes the value (`FactorObservablePanel` through `proposeFactorValue`, `FactorControllablePanel` through the same
+   * `buildFactorValueEditEvent` and send). An external factor's pane writes only its range, so its card stays read-only.
+   * A card drawn from the living model alone has no store node to write to.
+   */
+  const cardEditsValue = nodeCategory !== 'external' && !drawnOnly
+  /** §2d: "The author glyph turns to yours as you type" — true while the open field holds a figure of the person's own. */
+  const [draftIsYours, setDraftIsYours] = useState(false)
   // WHAT-IF "PUT IT BACK" (DL #85 5942153284): the "Since the last run" card may ask THIS card's editor to open with the
   // earlier value; the user commits it with Enter through `editAuthority`, like any edit (`graphChanges/valuePrefill.ts`).
   const valuePrefill = useValuePrefillStore((s) => (s.request?.nodeId === props.id ? s.request : null))
@@ -378,13 +392,15 @@ export const FactorNode = memo((props: NodeProps) => {
   // ⭐ Vision spec §2a (23 Oct 2026): "a glyph before each figure" — the author glyph LEADS the value, in its own line,
   // so the figure and whose it is read together. The join is the same one space inside the same `nowrap` row, now
   // after the mark, so the mark can only wrap WITH the value's first word.
-  const valueMarkLead = valueSourceMark === null ? null : (
+  const valueMarkLead = valueSourceMark === null && !draftIsYours ? null : (
     <>
       {/* Contract `.node .own-value{gap:6px}` between the value and its mark
           (29 Sep pixel-match): the join space is ≈3.5px of 13px type, so the
           slot adds 2.5px, counter-scaled with the type beside it. */}
       <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap mr-[calc(2.5px*var(--canvas-label-scale,1))]">
-        {renderValueSourceMark(true)}
+        {draftIsYours
+          ? <ValueSourceMark mark={DRAFT_IS_YOURS_MARK} testId={`factor-value-source-${props.id}`} subject={cleanedLabel} inline />
+          : renderValueSourceMark(true)}
       </span>
       {' '}
     </>
@@ -414,6 +430,13 @@ export const FactorNode = memo((props: NodeProps) => {
   const needsInput = isFactorNeedsInput(props.data)
   // The unit an EMPTY value is typed in: a currency sits before the field (`£`), any other unit after it.
   const emptyUnit = useMemo(() => emptyValueUnit(observedState?.unit), [observedState])
+  /** The field reads the typed number in the factor's own unit (`resolveValueInputSeed`, the commit's own rule). */
+  const valueFieldInUserUnits = useMemo(() => resolveValueInputSeed(props.data).inUserUnits, [props.data])
+  /** §2d: the factor's own unit beside the open field (`factorValueFieldUnit`, display only); null keeps the field as it was. */
+  const valueFieldUnit = useMemo(
+    () => (valueFieldInUserUnits && !valueFieldIsModelScale ? factorValueFieldUnit(props.data as Record<string, unknown>) : null),
+    [props.data, valueFieldInUserUnits, valueFieldIsModelScale],
+  )
 
   // ⭐⭐ WHAT DOES THIS NODE SAY ABOUT ITS OWN NUMBER? ONE decision, ordered.
   //
@@ -1397,39 +1420,13 @@ export const FactorNode = memo((props: NodeProps) => {
           >
             {valueMarkLead}
             {/* ⭐⭐ EDITABLE ON THE GRAPH — and ONLY where an edit reaches the
-                model. A controllable factor's value has a durable carrier
-                (`factor_value_edit`); an observable factor's and a risk's do
-                NOT, and the inspector fences them for exactly that reason. An
-                editable-looking control on a value that cannot be sent would be
-                the more convincing lie: the user would act on it. So the
-                affordance follows the CARRIER, per writer, never per surface.
-
-                ⚠⚠ AND THE SENTENCE ABOVE IS A BELIEF ABOUT CEE, NOT A
-                DERIVATION — recorded 22 Sep 2026 so the next reader does not
-                take it for one. Swept at this tip: `conversation/factorValueEdit.ts`
-                contains **zero** references to `category`, `controllable` or
-                `observable`, so the carrier this gate defers to does NOT
-                distinguish them; `useResultsSectionData.ts` says the same in
-                its own words — `proposeFactorValue` *"performs no kind check of
-                its own"*. The restriction lives HERE and in
-                `AUTHORITY_OWNING_PANELS`, and nothing in this repo derives it.
-
-                ⛔ THE GATE IS DELIBERATELY LEFT CLOSED ANYWAY, and that is the
-                point of writing this rather than opening it. "The carrier has
-                no category check" is a fact about the CLIENT; whether CEE
-                WRITES an observable factor's `observed_state.value` on a
-                `factor_value_edit` is a fact about the SERVER, and it is
-                unmeasured. Opening the gate on the client-side fact alone would
-                ship exactly the control this comment warns about — one whose
-                write may be silently dropped.
-
-                What would settle it, asked on `olumi-programme-docs#63`: does
-                CEE persist `observed_state.value` for a factor whose category
-                is `observable` or `external`? If it does, this gate and
-                `AUTHORITY_OWNING_PANELS`' omission of `factor-observable` can
-                both open, and two of five factors on the canonical pricing
-                board stop being read-only. If it does not, this sentence stops
-                being a belief and becomes a derivation with a citation.
+                model: `cardEditsValue`, the factors whose inspector pane writes
+                the value through `factor_value_edit` (vision spec §3, 23 Oct
+                2026). This gate was `category === 'controllable'` while the
+                observable pane had no carrier; that pane now commits through
+                `useModelEditAuthority.proposeFactorValue` (`InspectorRouter`,
+                "FOURTH PANEL"), the writer this card calls, so the card follows
+                it. An external factor's pane writes only its range.
 
                 ⚠ Seeded with an EXACT number — never from `valueDisplay`, which
                 is a formatted readout. Seeding from a rounded string once
@@ -1446,7 +1443,7 @@ export const FactorNode = memo((props: NodeProps) => {
                 (`WhatIWasGivenSection`, `CalibrateDrillIn`,
                 `FactorControllablePanel`), so the no-op compare in
                 `NodeValueEditor` is in that scale too. */}
-            {nodeCategory === 'controllable' && typeof observedState?.value === 'number' ? (
+            {cardEditsValue && typeof observedState?.value === 'number' ? (
               <span className="min-w-0">
                 {/* ⭐ BOUNDED WHERE THE TYPED NUMBER IS THE STORED ONE (canvas
                     audit edit-values F3). On a factor with no unit and no cap
@@ -1476,7 +1473,12 @@ export const FactorNode = memo((props: NodeProps) => {
                         outOfRangeCopy: OPTION_TARGET_ENTRY_REFUSAL.outOfRangeModelScale,
                         scaleHint: FACTOR_VALUE_MODEL_SCALE_HINT,
                       }
-                    : {})}
+                    // §2d: the open field keeps the factor's own unit beside it, as the inspector's option row does,
+                    // wherever the inspector's entry rule reads the figure in that unit.
+                    : valueFieldUnit
+                      ? { ...(valueFieldUnit.prefix ? { prefix: valueFieldUnit.prefix } : {}), ...(valueFieldUnit.suffix ? { scaleHint: valueFieldUnit.suffix } : {}) }
+                      : {})}
+                  onDraftChange={setDraftIsYours}
                   {...(baselineReplacedByEveryOption
                     ? {
                         editNote: FACTOR_BASELINE_REPLACED_BY_EVERY_OPTION,
