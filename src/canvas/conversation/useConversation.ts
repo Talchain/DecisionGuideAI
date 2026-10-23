@@ -213,6 +213,7 @@ import { logger } from '../../lib/logger'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 import { displayedProposals } from './proposalFields'
 import { buildRequestIdHeaders, generateRequestId } from '../../types/requestId'
+import { REQUEST_ID_HEADER } from '../../types/requestId'
 import {
   confirmOptimisticFactorEdit,
   describeRebaseDivergence,
@@ -2870,6 +2871,10 @@ export function useConversation(): UseConversationReturn {
   // sent for. A tombstone written against the wrong pair fences nothing and
   // reports success.
   const inFlightTurnIdentityRef = useRef<{ scenarioId: string; turnId: string } | null>(null)
+  // The route + auth headers that in-flight turn was SENT with, so its Stop reaches the same CEE route: a header-less
+  // stop is routed to the orchestrator, not the core turn it names. Reset with the identity at dispatch, written where
+  // the V5 headers are built; null until then.
+  const inFlightTurnRouteHeadersRef = useRef<Record<string, string> | null>(null)
   // The turn ids the user EXPLICITLY stopped. This is what distinguishes a user
   // Stop from an internal cancellation (timeout, preempt, scenario switch):
   // cancelTurn owns the terminal notice for these, and sendTurn's abort branch
@@ -4544,6 +4549,7 @@ export function useConversation(): UseConversationReturn {
         //          the only reader.
         //   No other reference. There is no delete: this write is the reset.
         const scenarioAtDispatch = useCanvasStore.getState().currentScenarioId
+        inFlightTurnRouteHeadersRef.current = null
         inFlightTurnIdentityRef.current = scenarioAtDispatch
           ? { scenarioId: scenarioAtDispatch, turnId: turnClientId }
           : null
@@ -5036,6 +5042,10 @@ export function useConversation(): UseConversationReturn {
           ...buildRequestIdHeaders(deliveryRequestId),
           ...aiComparisonHeaders(),
         }
+        // Its Stop reuses this turn's route + auth headers; the per-send request id stays this send's own.
+        inFlightTurnRouteHeadersRef.current = Object.fromEntries(
+          Object.entries(v5Headers).filter(([name]) => name !== REQUEST_ID_HEADER),
+        )
 
         // ═══════════════════════════════════════════════════════════════════
         // ROADMAP 2.122 / 1.204 M1 — THE STREAMED COLD DRAFT
@@ -8048,7 +8058,8 @@ export function useConversation(): UseConversationReturn {
     //   refresh in sendTurn (the F5b manifest's "WRITE here" site), by "stop A →
     //   send B → stop B: the second tombstone names B, never
     //   A", in which BOTH stops are asserted to have executed.
-    void stopV5Turn(identity).then((result) => {
+    // The stop carries the route + auth headers its turn was sent with (the mode alone if Stop beat header build).
+    void stopV5Turn(identity, { headers: inFlightTurnRouteHeadersRef.current ?? aiComparisonHeaders() }).then((result) => {
       // R-16: copy chosen by TABLE lookup — `EARLY_STOP_NOTICE_BY_OUTCOME`
       // (module scope) is `Record<TurnStopOutcomeKind, string>`, so a fourth
       // outcome kind is a compile error here, never a silent fallthrough.
