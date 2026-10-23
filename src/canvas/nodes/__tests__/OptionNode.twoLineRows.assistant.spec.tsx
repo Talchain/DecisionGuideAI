@@ -162,20 +162,22 @@ describe('served 64c5eccc — the factor name gets its own line when the amount 
     expect([dt.tagName, dd.tagName]).toEqual(['DT', 'DD'])
     expect(visibleText(dt)).toBe(name)
     expect(visibleText(dd)).toBe(amount)
-    // The value retains its line box; its source glyph is in the bottom band — and since this option carries two
-    // Olumi-chosen targets, they are ONE merged sparkle that counts them (Paul, 14 Oct 2026: one sparkle per card).
+    // RE-PINNED (vision I, 23 Oct: "a glyph before each figure"): each of this option's two Olumi-chosen targets
+    // carries its OWN brand mark, before its figure in the amount cell, glued to it by one no-break space; the band
+    // holds no row mark and no merged count.
     const mark = dd.querySelector(`[data-testid="option-change-row-mark-${optionId}-${factorId}"]`)
-    expect(mark, 'the reserved mark slot is in the amount cell').not.toBeNull()
-    expect(onCard(container, `[data-testid="option-change-row-estimate-${optionId}-${factorId}"]`)).toHaveLength(0)
-    const sparkles = onCard(container, '[data-card-mark="source-olumi"]')
-    expect(sparkles, 'one Olumi sparkle on the card').toHaveLength(1)
-    const source = sparkles[0]
-    expect(source.getAttribute('data-olumi-mark')).toBe('merged')
-    expect(source.getAttribute('aria-label')).toContain('2 target values are Olumi\'s estimates')
-    expect(source.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(mark, 'the mark slot is in the amount cell').not.toBeNull()
+    const source = dd.querySelector<HTMLElement>(`[data-testid="option-change-row-estimate-${optionId}-${factorId}"]`)!
+    expect(source.getAttribute('data-card-mark')).toBe('source-olumi')
+    expect(source.getAttribute('data-olumi-mark')).toBeNull()
     expect(source.querySelector('svg[data-icon="olumi-ai"]')).not.toBeNull()
-    expect(source.closest(`[data-testid="option-bottom-marks-${optionId}"]`)).not.toBeNull()
-    expect((mark!.previousSibling as Text | null)?.data).toBe('\u00a0')
+    expect(source.closest('[data-card-bottom-band]')).toBeNull()
+    const sparkles = onCard(container, '[data-card-mark="source-olumi"]')
+    expect(sparkles, 'one Olumi mark per estimated target, none merged').toHaveLength(2)
+    expect(sparkles.every(el => el.closest('[data-card-bottom-band]') === null)).toBe(true)
+    expect((mark!.nextSibling as Text | null)?.data).toBe('\u00a0')
+    const figure = dd.querySelector(`[data-testid="option-change-row-target-${optionId}-${factorId}"]`)!
+    expect(mark!.compareDocumentPosition(figure) & Node.DOCUMENT_POSITION_FOLLOWING, 'the mark leads its figure').toBeTruthy()
     expect(dt.querySelector('[data-testid^="option-change-row-mark-"]')).toBeNull()
   })
 

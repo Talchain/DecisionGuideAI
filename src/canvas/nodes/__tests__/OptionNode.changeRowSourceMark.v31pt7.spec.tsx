@@ -170,6 +170,14 @@ function visibleText(el: Element): string {
   return (clone.textContent ?? '').replace(/\s+/g, ' ').trim()
 }
 
+/** Vision I (23 Oct, spec §2a): the target's mark LEADS its figure inside the row — bound by identity. */
+function leadsTarget(mark: Element, opt: string, fid: string) {
+  const figure = screen.getByTestId(`option-change-row-target-${opt}-${fid}`)
+  expect(mark.compareDocumentPosition(figure) & Node.DOCUMENT_POSITION_FOLLOWING, `mark before ${opt}/${fid} target`).toBeTruthy()
+  return figure
+}
+const bandOf = (opt: string) => screen.queryByTestId(`option-bottom-marks-${opt}`)
+
 function row(_container: HTMLElement, opt: string, fid: string): HTMLElement {
   // The rows are ON THE CARD at rest (Paul 25 Sep, the prototype; supersedes the
   // bounded anatomy's popover placement) — read THERE, bound by identity.
@@ -202,13 +210,15 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
     expect(visibleText(dd)).not.toContain('in place')
     expect(visibleText(dd)).not.toContain('·')
 
-    const cluster = screen.getByTestId('option-bottom-marks-opt-hire')
-    expect(cluster).not.toBeNull()
-    // The cluster holds the mark and nothing else — no separator.
-    const mark = cluster!.querySelector('[data-testid="option-change-row-source-opt-hire-fac-lead"]')
+    // RE-PINNED (vision I, 23 Oct): the mark's cluster LEADS the target inside the row, never the band. The cluster
+    // holds the mark and nothing else — no separator.
+    const cluster = screen.getByTestId('option-change-row-mark-opt-hire-fac-lead')
+    const mark = cluster.querySelector('[data-testid="option-change-row-source-opt-hire-fac-lead"]')
     expect(mark).not.toBeNull()
-    expect(cluster!.contains(mark!)).toBe(true)
-    expect(dd.contains(mark!)).toBe(false)
+    expect(visibleText(cluster)).toBe('')
+    expect(dd.contains(mark!)).toBe(true)
+    expect(bandOf('opt-hire')?.contains(mark!) ?? false).toBe(false)
+    leadsTarget(mark!, 'opt-hire', 'fac-lead')
     // What sets "brief" apart from "1": the mark's own `.prov` type (10px, muted),
     // never the value's 11px ink.
     expect(mark!.className).toContain(typography.nodeMark)
@@ -221,13 +231,19 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
 
   it('an Olumi target keeps its served `est.` test id and token, and has an accessible name; nothing but the mark in its cluster', () => {
     const { container } = renderOption('opt-tools')
-    const cluster = screen.getByTestId('option-bottom-marks-opt-tools')
-    expect(cluster).not.toBeNull()
-    const est = cluster!.querySelector('[data-testid="option-change-row-estimate-opt-tools-fac-thru"]')
+    // RE-PINNED (vision I, 23 Oct): the estimate mark LEADS its own figure in the row (was: the band), and the figure
+    // wears the dotted info underline (#2936's factor treatment).
+    const cluster = screen.getByTestId('option-change-row-mark-opt-tools-fac-thru')
+    const est = cluster.querySelector('[data-testid="option-change-row-estimate-opt-tools-fac-thru"]')
     expect(est).not.toBeNull()
-    // RE-PINNED 27 Sep (DIFF item 1): was a decorative `·` first; the mark stands alone.
-    expect(cluster!.contains(est!)).toBe(true)
-    expect(row(container, 'opt-tools', 'fac-thru').contains(est!)).toBe(false)
+    expect(visibleText(cluster)).toBe('')
+    expect(row(container, 'opt-tools', 'fac-thru').contains(est!)).toBe(true)
+    expect(bandOf('opt-tools')?.contains(est!) ?? false).toBe(false)
+    const figure = leadsTarget(est!, 'opt-tools', 'fac-thru')
+    expect(figure.textContent).toBe('0.85')
+    expect(figure.getAttribute('data-olumi-estimate')).toBe('true')
+    expect(figure.className).toContain('decoration-dotted')
+    expect(figure.className).toContain('decoration-info')
     expect(est!.getAttribute('data-value-source')).toBe('olumi')
     expect(est!.querySelector('svg[data-icon="olumi-ai"]')).not.toBeNull()
     expect(est!.querySelector('.sr-only')!.textContent).toBe(VALUE_SOURCE_MARK_LABEL.olumi)
@@ -250,9 +266,10 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
     expect(visibleText(dd).endsWith('→ 1')).toBe(true)
     const mark = screen.getByTestId('option-change-row-source-opt-hire-fac-lead')
     expect(mark?.getAttribute('data-value-source')).toBe('brief')
-    // Nothing sits between the glue and the mark, and the mark is in its own type.
-    expect(screen.getByTestId('option-bottom-marks-opt-hire').contains(mark!)).toBe(true)
-    expect(dd.contains(mark!)).toBe(false)
+    // RE-PINNED (vision I): the mark leads the target in the row, in its own type.
+    expect(bandOf('opt-hire')?.contains(mark!) ?? false).toBe(false)
+    expect(dd.contains(mark!)).toBe(true)
+    leadsTarget(mark!, 'opt-hire', 'fac-lead')
     expect(mark!.className).toContain(typography.nodeMark)
     expect(dd.getAttribute('title')).toContain('Target: from your brief.')
   })
@@ -263,9 +280,14 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
     // Contract v3.1 `prov('user')` (#21): the person GLYPH, not the word "you".
     // RE-PINNED 27 Sep (DIFF item 1): no trailing `·` — the glyph has no text.
     expect(visibleText(dd)).toBe('£49 → £59')
-    expect(screen.getByTestId('option-bottom-marks-opt-price').querySelector('.lucide-user-check')).not.toBeNull()
-    expect(screen.getByTestId('option-bottom-marks-opt-price').querySelector('[data-testid="option-change-row-estimate-opt-price-fac-price"]')).toBeNull()
+    // RE-PINNED (vision I): the person glyph leads the figure in the row, as #2936 does for a factor's value.
+    expect(dd.querySelector('.lucide-user-check')).not.toBeNull()
+    expect(document.querySelector('[data-testid="option-change-row-estimate-opt-price-fac-price"]')).toBeNull()
     const mark = screen.getByTestId('option-change-row-source-opt-price-fac-price')
+    // CONTROL: a user-set figure carries no Olumi underline.
+    const figure = leadsTarget(mark, 'opt-price', 'fac-price')
+    expect(figure.getAttribute('data-olumi-estimate')).toBeNull()
+    expect(figure.className).not.toContain('decoration-dotted')
     expect(mark?.getAttribute('data-value-source')).toBe('you')
     expect(mark?.querySelector('.sr-only')?.textContent).toBe('Set by you')
   })
@@ -329,12 +351,13 @@ describe('v3.1 pt 7 (U12b) — no bare internal `scale` word after each number',
 })
 
 /**
- * ⭐ ONE OLUMI SPARKLE PER CARD (Paul, 14 Oct 2026). Measured on the local build: option "O3 Split Sprint Capacity"
- * (Olumi-suggested, two Olumi-chosen targets) painted THREE identical sparkles in its bottom band — the authorship
- * mark plus one `est.` per row. The card now paints ONE, whose name lists what Olumi did, counted. Bound by identity:
- * the band's test id, `data-card-mark="source-olumi"`, the exact accessible name.
+ * ⭐ ONE MARK PER ESTIMATED FIGURE, AT THE FIGURE (vision spec §2a, 23 Oct 2026; supersedes the 14 Oct "one Olumi
+ * sparkle per card" merge for change rows). The merged band mark ("2 target values are Olumi's estimates") said WHICH
+ * card, not WHICH figure, and beside PR D's Olumi badge it painted two brand marks in one band. Each estimated target
+ * now carries its own brand mark before the figure, with the dotted info underline; the band keeps no row mark. Bound
+ * by identity: row test ids, `data-card-mark="source-olumi"`, exact accessible names.
  */
-describe('one Olumi sparkle per card — authorship and estimated targets merge into one named mark', () => {
+describe('estimated targets carry their own mark before their figure; the band holds none of them', () => {
   const withOption = (id: string, provenance: string, interventions: Record<string, unknown>) => {
     state.nodes = [...FACTORS, ...OPTIONS, { id, type: 'option', position: { x: 0, y: 0 }, data: { type: 'option', label: 'Split the work', is_baseline: false, provenance } }]
     state.ceeAnalysisReady = { ...CEE, options: [...CEE.options, { id, interventions }] }
@@ -346,47 +369,49 @@ describe('one Olumi sparkle per card — authorship and estimated targets merge 
       </ReactFlowProvider>,
     )
   }
-  const olumiMarks = (id: string) =>
-    Array.from(screen.getByTestId(`option-bottom-marks-${id}`).querySelectorAll<HTMLElement>('[data-card-mark="source-olumi"]'))
+  const bandOlumiMarks = (id: string) =>
+    Array.from(bandOf(id)?.querySelectorAll<HTMLElement>('[data-card-mark="source-olumi"]') ?? [])
+  const ESTIMATE_NAME = 'Olumi chose this target; it is not yet confirmed. Open the details to set or confirm it.'
 
-  // Vision spec §2c (23 Oct): authorship left the band for the title row, so the band's ONE Olumi estimate mark merges
-  // the estimates alone, and the authorship mark stands beside the name with its own words.
-  it('Olumi authorship + two estimated targets → the authorship mark after the name; ONE band mark naming the estimates, counted 2', () => {
+  it('Olumi authorship + two estimated targets → two marks, one before each figure; none in the band; authorship after the name', () => {
     withOption('opt-split', 'ai_inferred', { 'fac-thru': iv(0.85, '0.85 scale', 'cee_hypothesis'), 'fac-ratio': iv(0.6, '0.6 ratio', 'cee_hypothesis') })
-    const marks = olumiMarks('opt-split')
-    expect(marks).toHaveLength(1)
-    expect(marks[0].querySelectorAll('svg[data-icon="olumi-ai"]')).toHaveLength(1)
-    expect(marks[0].getAttribute('aria-label')).toBe('2 target values are Olumi\'s estimates')
-    expect(marks[0].getAttribute('data-olumi-estimates')).toBe('2')
+    expect(bandOlumiMarks('opt-split')).toHaveLength(0)
+    expect(document.querySelector('[data-olumi-estimates]')).toBeNull()
+    for (const fid of ['fac-thru', 'fac-ratio']) {
+      const est = screen.getByTestId(`option-change-row-estimate-opt-split-${fid}`)
+      expect(row(document.body, 'opt-split', fid).contains(est)).toBe(true)
+      expect(est.getAttribute('data-card-mark')).toBe('source-olumi')
+      expect(est.querySelectorAll('svg[data-icon="olumi-ai"]')).toHaveLength(1)
+      expect(est.getAttribute('aria-label')).toBe(ESTIMATE_NAME)
+      const figure = leadsTarget(est, 'opt-split', fid)
+      expect(figure.getAttribute('data-olumi-estimate')).toBe('true')
+      expect(figure.className).toContain('decoration-dotted')
+    }
     // The authorship claim is not lost: it is its own mark, after the name.
     const authorship = screen.getByTestId('node-title').querySelector('[data-testid="node-provenance-mark"]')!
     expect(authorship.getAttribute('aria-label')).toBe('Olumi suggested this')
     expect(authorship.getAttribute('data-provenance-claim')).toBe('structural')
     expect(authorship.getAttribute('data-provenance-kind')).toBe('ai')
-    expect(screen.queryByTestId('option-change-row-estimate-opt-split-fac-thru')).toBeNull()
-    expect(screen.queryByTestId('option-change-row-estimate-opt-split-fac-ratio')).toBeNull()
-    // Each row keeps its reserved mark slot on the value (the glyph moved; the row did not).
-    expect(row(document.body, 'opt-split', 'fac-thru').querySelector('[data-testid="option-change-row-mark-opt-split-fac-thru"]')).not.toBeNull()
   })
 
-  it('contrast: a brief-authored option keeps "From your brief" as its OWN mark; the estimates merge without an authorship clause', () => {
+  it('contrast: a brief-authored option keeps "From your brief" as its OWN band mark; the two estimates stay at their figures', () => {
     withOption('opt-split', 'from_brief', { 'fac-thru': iv(0.85, '0.85 scale', 'cee_hypothesis'), 'fac-ratio': iv(0.6, '0.6 ratio', 'cee_hypothesis') })
     const band = screen.getByTestId('option-bottom-marks-opt-split')
     const brief = band.querySelector<HTMLElement>('[data-testid="node-provenance-mark"]')
     expect(brief?.getAttribute('data-provenance-kind')).toBe('brief')
     expect(brief?.getAttribute('aria-label')).toBe('From your brief')
-    const marks = olumiMarks('opt-split')
-    expect(marks).toHaveLength(1)
-    expect(marks[0].getAttribute('aria-label')).toBe('2 target values are Olumi\'s estimates')
-    expect(marks[0].getAttribute('aria-label')).not.toContain('suggested')
+    expect(bandOlumiMarks('opt-split')).toHaveLength(0)
+    expect(Array.from(document.querySelectorAll('[data-card-mark="source-olumi"]')).filter(el => (el.getAttribute('data-testid') ?? '').startsWith('option-change-row-estimate-opt-split-'))).toHaveLength(2)
   })
 
-  it('contrast: ONE Olumi sparkle on a card is left exactly as it was (its own row mark, words and route)', () => {
+  it('control: one estimated and one user-stated target → one Olumi mark (its figure underlined) and one person glyph (not underlined), both in their rows', () => {
     withOption('opt-split', 'from_brief', { 'fac-thru': iv(0.85, '0.85 scale', 'cee_hypothesis'), 'fac-price': iv(59, '£59', 'user_specified') })
-    const marks = olumiMarks('opt-split')
-    expect(marks).toHaveLength(1)
-    expect(marks[0].getAttribute('data-testid')).toBe('option-change-row-estimate-opt-split-fac-thru')
-    expect(marks[0].getAttribute('data-olumi-mark')).toBeNull()
-    expect(screen.getByTestId('option-change-row-source-opt-split-fac-price').getAttribute('data-value-source')).toBe('you')
+    expect(bandOlumiMarks('opt-split')).toHaveLength(0)
+    const est = screen.getByTestId('option-change-row-estimate-opt-split-fac-thru')
+    expect(leadsTarget(est, 'opt-split', 'fac-thru').getAttribute('data-olumi-estimate')).toBe('true')
+    const you = screen.getByTestId('option-change-row-source-opt-split-fac-price')
+    expect(you.getAttribute('data-value-source')).toBe('you')
+    expect(row(document.body, 'opt-split', 'fac-price').contains(you)).toBe(true)
+    expect(leadsTarget(you, 'opt-split', 'fac-price').getAttribute('data-olumi-estimate')).toBeNull()
   })
 })

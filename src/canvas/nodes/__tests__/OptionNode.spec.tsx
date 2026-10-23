@@ -423,7 +423,8 @@ describe('OptionNode', () => {
     // from → to format: label and value live in separate spans.
     expect(screen.getAllByText('Hiring').length).toBeGreaterThan(0)
     // from → to chip: baseline 0.2 → intervention 0.6, both formatted as '%'.
-    expect(screen.getByText((t: string) => t.includes('60%') && t.includes('→'))).toBeDefined()
+    // Vision I: the target's author mark now sits between the arrow and the target, so the row is read by identity.
+    expect(screen.getByText(changeRow(/→ 60%/))).toBeDefined()
   })
 
   // Float-cleanup: count-unit chip values denormalise to floats (0.804 × 20 =

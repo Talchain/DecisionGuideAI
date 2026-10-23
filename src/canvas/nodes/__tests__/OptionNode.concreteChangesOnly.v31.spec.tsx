@@ -38,6 +38,7 @@ import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { OptionNode } from '../OptionNode'
+import { changeRowValueText } from './__helpers__/optionChangeRowText'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -175,7 +176,7 @@ describe('v3.1 #9 — an option card lists CONCRETE changes only', () => {
 
   it('contrast: the change that differs from the baseline stays, with its from → to', () => {
     renderCard()
-    expect(screen.getByTestId('option-change-row-opt-germany-f-germany').textContent!.startsWith('Low → Very high')).toBe(true)
+    expect(changeRowValueText(screen.getByTestId('option-change-row-opt-germany-f-germany')).startsWith('Low → Very high')).toBe(true)
   })
 
   // ⚠ RE-PINNED 28 Sep 2026 (side-by-side DIFF N1, owner decision): `+N more`
@@ -236,16 +237,18 @@ describe('v3.1 #9 — full label, amount on one line', () => {
   it('the "from" half and the glued source mark are no-wrap segments; the mark never leaves the value (audit #9)', () => {
     renderCard()
     const value = screen.getByTestId('option-change-row-value-opt-germany-f-germany')
-    expect(value.textContent).toBe('Low → Very high')
+    expect(changeRowValueText(value)).toBe('Low → Very high')
     // 27 Sep 2026 (landing text ceiling): the row budget is 25 characters (was
     // 17), so this run and its mark now fit WHOLE — one no-wrap run, its halves
     // no-wrap segments inside it. The mark still never leaves the value.
     expect(tokens(value).has('whitespace-nowrap')).toBe(true)
-    expect([...value.querySelectorAll('.whitespace-nowrap')].map((n) => n.textContent)).toEqual(['Low', '→ Very high'])
+    // Vision I: the value's own top-level runs, read less the target's mark (which now leads the target inside "→ …").
+    expect([...value.children].filter((n) => n.classList.contains('whitespace-nowrap')).map((n) => changeRowValueText(n))).toEqual(['Low', '→ Very high'])
     const mark = screen.getByTestId('option-change-row-mark-opt-germany-f-germany')
     expect(tokens(mark).has('whitespace-nowrap')).toBe(true)
-    expect(mark.previousSibling?.textContent).toBe('\u00A0')
-    expect(mark.previousSibling?.previousSibling).toBe(value)
+    expect(mark.nextSibling?.textContent).toBe('\u00A0')
+    expect(value.contains(mark)).toBe(true)
+    expect(mark.compareDocumentPosition(screen.getByTestId('option-change-row-target-opt-germany-f-germany')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('the differentiator line is the contract\'s 10.5px muted line', () => {

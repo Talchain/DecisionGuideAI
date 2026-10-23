@@ -66,6 +66,7 @@ import { render } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { optionCardRows } from './__helpers__/optionPreview'
+import { changeRowValueText } from './__helpers__/optionChangeRowText'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -215,7 +216,7 @@ describe('OptionNode — CEE display_value is printed, never re-derived', () => 
     renderCard()
     const row = optionCardRows('option-1').querySelector('[data-testid="option-change-row-option-1-f-rel"]')
     expect(row, 'the f-rel change row must render').not.toBeNull()
-    expect(row!.textContent ?? '').toContain('0.2 → 0.8')
+    expect(changeRowValueText(row!)).toContain('0.2 → 0.8') // vision I: less the target's leading author mark
     expect(row!.textContent ?? '').not.toMatch(/scale/i)
   })
 

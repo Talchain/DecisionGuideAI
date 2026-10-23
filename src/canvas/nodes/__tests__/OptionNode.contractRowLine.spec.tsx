@@ -195,12 +195,16 @@ describe('DIFF item 1 — the mark follows the value with no separator (contract
       const { container } = renderOption(PRICING, HYBRID)
       const { dd, mark, source } = hybridRow(container, r.factorId)
       expect(changeRowValueText(dd)).toBe(r.value)
-      // The whole visible amount: the value, the U+00A0 glue, the mark's word.
-      expect(visibleText(dd)).toBe(r.value)
-      // The mark cluster holds the source mark and nothing else — no separator span.
+      // RE-PINNED (vision I, 23 Oct: "a glyph before each figure"): the whole visible amount is the from, the arrow,
+      // then the mark (a glyph, no visible text) glued to the target by one U+00A0 — no "·" anywhere.
+      expect(visibleText(dd)).toBe(r.value.replace('→ ', '→ \u00A0'))
+      expect(visibleText(dd)).not.toContain('·')
+      // The mark cluster holds the source mark and nothing else — no separator span — and it sits in the row.
       expect(source.getAttribute('aria-label')).toContain('From your brief')
-      expect(mark.children).toHaveLength(0)
-      expect(onCard(container, `option-bottom-marks-${HYBRID}`)?.contains(source)).toBe(true)
+      expect(mark.children).toHaveLength(1)
+      expect(mark.contains(source)).toBe(true)
+      expect(dd.contains(source)).toBe(true)
+      expect(onCard(container, `option-bottom-marks-${HYBRID}`)?.contains(source) ?? false).toBe(false)
       expect(source.getAttribute('data-value-source')).toBe('brief')
     })
   }

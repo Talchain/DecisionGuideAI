@@ -48,7 +48,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
-import { changeRow } from './__helpers__/optionChangeRowText'
+import { changeRow, changeRowValueText } from './__helpers__/optionChangeRowText'
 import { optionCardRows } from './__helpers__/optionPreview'
 
 vi.mock('@xyflow/react', async () => {
@@ -200,7 +200,10 @@ describe('OptionNode — the run must not delete the model content', () => {
     // Was an ordinary breakable space; every other byte is unchanged.
     // RE-PINNED 27 Sep (side-by-side DIFF item 1): the `·` is retired (contract
     // row `£49 → £59 brief`); the mark's own 10px muted type sets it apart.
-    expect(row.textContent).toBe(`${CHIP}\u00A0`)
+    // RE-PINNED (vision I, 23 Oct: "a glyph before each figure"): the mark now LEADS the target, glued to it by the
+    // U+00A0; its screen-reader name reads in place, before the figure it names.
+    expect(changeRowValueText(row)).toBe(CHIP)
+    expect(row.textContent).toBe('0 → Source not recorded\u00A03 engineers')
     expect(screen.getByTestId('option-change-row-source-option-1-f-head').getAttribute('aria-label')).toContain('Source not recorded')
     // The title also restates the full row ("<factor>: <from> → <to>."); the
     // reference clause is the claim this file owns.

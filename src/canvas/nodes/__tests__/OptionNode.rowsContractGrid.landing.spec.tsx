@@ -243,14 +243,18 @@ for (const [starter, raw] of STARTERS) {
           expect(tokens(dd).has('whitespace-nowrap'), 'the amount cell is nowrap').toBe(true)
           const mark = dd.querySelector<HTMLElement>(`[data-testid="option-change-row-mark-${optionId}-${factorId}"]`)
           const value = dd.querySelector<HTMLElement>(`[data-testid="option-change-row-value-${optionId}-${factorId}"]`)
+          // RE-PINNED (vision I, 23 Oct: "a glyph before each figure"): the mark LEADS its target inside the value,
+          // glued to it by one U+00A0, in one no-wrap run (was: after the value, its glyph in the bottom band).
           if (mark) {
-            expect(mark.parentElement).toBe(dd)
-            expect((mark.previousSibling as Text | null)?.data).toBe(NBSP)
-            expect(mark.previousSibling?.previousSibling).toBe(value)
+            expect(value?.contains(mark)).toBe(true)
+            expect((mark.nextSibling as Text | null)?.data).toBe(NBSP)
+            expect(tokens(mark.parentElement!).has('whitespace-nowrap'), 'mark, glue and figure are one no-wrap run').toBe(true)
+            const figure = dd.querySelector(`[data-testid="option-change-row-target-${optionId}-${factorId}"]`)!
+            expect(mark.compareDocumentPosition(figure) & Node.DOCUMENT_POSITION_FOLLOWING, 'the mark leads its figure').toBeTruthy()
             const source = onCard(container, `[data-testid="option-change-row-source-${optionId}-${factorId}"]`)[0] ?? onCard(container, `[data-testid="option-change-row-estimate-${optionId}-${factorId}"]`)[0]
             expect(source, 'the source retains its row identity').toBeDefined()
-            expect(mark.contains(source)).toBe(false)
-            expect(source.closest(`[data-testid="option-bottom-marks-${optionId}"]`)).not.toBeNull()
+            expect(mark.contains(source)).toBe(true)
+            expect(source.closest(`[data-testid="option-bottom-marks-${optionId}"]`)).toBeNull()
           }
           // A value that may break says so explicitly — it must not inherit the cell's nowrap.
           if (value) {
@@ -283,10 +287,15 @@ describe('the mark cannot stand alone — the served N5 rows, by identity', () =
       const source = onCard(container, `[data-testid="option-change-row-source-${optionId}-${factorId}"]`)[0]
       expect(source.getAttribute('aria-label')).toContain(VALUE_SOURCE_MARK_LABEL.brief)
       expect(source.querySelector('.lucide-file-text')).not.toBeNull()
-      expect(source.closest(`[data-testid="option-bottom-marks-${optionId}"]`)).not.toBeNull()
+      // Vision I: the mark leads the tail figure in the row (was: the bottom band); the run walker skips the mark.
+      expect(dd.contains(source)).toBe(true)
       const runs = unbreakableRuns(dd, null)
       expect(runs[runs.length - 1].endsWith(tail)).toBe(true)
-      expect(dd.textContent).not.toContain('brief')
+      // The word "brief" is never visible text in the amount (it is the mark's screen-reader name).
+      const visible = dd.cloneNode(true) as HTMLElement
+      visible.querySelectorAll('.sr-only').forEach(n => n.remove())
+      expect(visible.textContent).not.toContain('brief')
+      expect(dd.textContent, 'CONTRAST: the screen-reader name is there').toContain('brief')
     })
   }
 })

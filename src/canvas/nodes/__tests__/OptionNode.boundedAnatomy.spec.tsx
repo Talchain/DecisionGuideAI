@@ -36,6 +36,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { OptionNode } from '../OptionNode'
+import { changeRowValueText } from './__helpers__/optionChangeRowText'
 import { canonicalFixtureRunView } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 
 vi.mock('@xyflow/react', async () => {
@@ -239,7 +240,7 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
         'option-change-row-option-1-f-adopt',
         'option-change-row-option-1-f-head',
       ])
-      expect(onCard('option-change-row-option-1-f-price')!.textContent!.startsWith('£49 → £79')).toBe(true)
+      expect(changeRowValueText(onCard('option-change-row-option-1-f-price')!).startsWith('£49 → £79')).toBe(true)
       expect(onCard('option-primary-change-option-1')).toBeNull()
     })
 
@@ -265,8 +266,10 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       // Truth stays on the card: the mark is the row's own `you` (user_specified).
       expect(mark.getAttribute('data-value-source')).toBe('you')
       expect(dt.compareDocumentPosition(dd) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-      expect(dd.contains(mark)).toBe(false)
-      expect(onCard('option-bottom-marks-option-1')!.contains(mark)).toBe(true)
+      // Vision I (23 Oct): the mark LEADS its figure inside the amount cell (was: the card's bottom band).
+      expect(dd.contains(mark)).toBe(true)
+      expect(onCard('option-bottom-marks-option-1')?.contains(mark) ?? false).toBe(false)
+      expect(mark.compareDocumentPosition(onCard('option-change-row-target-option-1-f-price')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(mark.querySelector('.lucide-user-check')).not.toBeNull()
       // The label carries the factor's FULL name, and nothing shortens it.
       expect(dt.textContent).toBe('Pro plan monthly price')
@@ -326,7 +329,7 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
         },
       })
       const dd = onCard('option-change-row-option-3-f-adopt')!
-      expect(dd.textContent!.startsWith('Low → Very high')).toBe(true)
+      expect(changeRowValueText(dd).startsWith('Low → Very high')).toBe(true)
       expect(onCard('option-change-row-estimate-option-3-f-adopt')!.getAttribute('data-value-source')).toBe('olumi')
     })
 
