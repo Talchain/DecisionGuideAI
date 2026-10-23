@@ -522,3 +522,43 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     expect(rowLabels[2].textContent).toBe('No hire')
   })
 })
+
+describe('vision spec §3 (23 Oct): "Source not recorded" is the "?" author glyph; the words are its name and hover', () => {
+  const post = (data: Record<string, unknown>) => {
+    applyStore({
+      viewMode: 'standard',
+      phase: 'post',
+      nodes: [
+        { id: 'factor-1', type: 'factor', data },
+        { id: 'option-1', type: 'option', data: { type: 'option', label: 'Hire', interventions: { 'factor-1': 60000 } } },
+      ],
+      report: { robustness: { recommended_option_id: 'option-1' }, option_probabilities: { 'option-1': { win_probability: 0.7 } } },
+    })
+    renderFactor(data)
+    return screen.getByTestId('factor-current-value-origin')
+  }
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: 1, influence: 0.5, confidence: 0.5, inSensitivityAnalysis: true, achievementProbability: null,
+      stabilityPercentage: null, winRate: null, isResultsMode: true, predictedOutcome: null, valueOfInformation: null, voiRank: null,
+    } as never)
+  })
+
+  // A figure the card can state (a unit and its raw number), so the current-value line carries its source.
+  const stated = { ...baseFactorData, observedState: { value: 0.62, raw_value: 62, unit: 'engineers' } }
+  it('⭐ an unrecorded source: no sentence on view; a named "?" glyph says it', () => {
+    const origin = post(stated)
+    expect(origin.textContent).toBe('')
+    expect(origin.getAttribute('role')).toBe('img')
+    expect(origin.getAttribute('aria-label')).toBe('Source not recorded')
+    expect(origin.querySelector('svg')).not.toBeNull()
+  })
+
+  it('⛔ CONTROL: a recorded source keeps its words and is not turned into an image', () => {
+    const origin = post({ ...stated, observedState: { ...stated.observedState, source: 'user' } })
+    expect(origin.textContent).not.toBe('')
+    expect(origin.textContent).not.toContain('Source not recorded')
+    expect(origin.getAttribute('role')).toBeNull()
+  })
+})

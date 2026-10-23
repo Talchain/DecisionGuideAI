@@ -229,7 +229,7 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
     expect(cluster!.contains(est!)).toBe(true)
     expect(row(container, 'opt-tools', 'fac-thru').contains(est!)).toBe(false)
     expect(est!.getAttribute('data-value-source')).toBe('olumi')
-    expect(est!.querySelector('.lucide-sparkles')).not.toBeNull()
+    expect(est!.querySelector('svg[data-icon="olumi-ai"]')).not.toBeNull()
     expect(est!.querySelector('.sr-only')!.textContent).toBe(VALUE_SOURCE_MARK_LABEL.olumi)
     // Contract v3.1 point 1 (DESIGN-GAP-v31 #21): the mark is a focusable
     // button whose NAME is its hover/focus label (v3.1 `prov()` aria-label) —
@@ -349,16 +349,20 @@ describe('one Olumi sparkle per card — authorship and estimated targets merge 
   const olumiMarks = (id: string) =>
     Array.from(screen.getByTestId(`option-bottom-marks-${id}`).querySelectorAll<HTMLElement>('[data-card-mark="source-olumi"]'))
 
-  it('Olumi authorship + two estimated targets → exactly ONE sparkle naming both clauses, counted 2', () => {
+  // Vision spec §2c (23 Oct): authorship left the band for the title row, so the band's ONE Olumi estimate mark merges
+  // the estimates alone, and the authorship mark stands beside the name with its own words.
+  it('Olumi authorship + two estimated targets → the authorship mark after the name; ONE band mark naming the estimates, counted 2', () => {
     withOption('opt-split', 'ai_inferred', { 'fac-thru': iv(0.85, '0.85 scale', 'cee_hypothesis'), 'fac-ratio': iv(0.6, '0.6 ratio', 'cee_hypothesis') })
     const marks = olumiMarks('opt-split')
     expect(marks).toHaveLength(1)
-    expect(marks[0].querySelectorAll('.lucide-sparkles')).toHaveLength(1)
-    expect(marks[0].getAttribute('aria-label')).toBe('Olumi suggested this option · 2 target values are Olumi\'s estimates')
-    // It is still the authorship mark by identity, so its claim is not lost in the merge.
-    expect(marks[0].getAttribute('data-testid')).toBe('node-provenance-mark')
-    expect(marks[0].getAttribute('data-provenance-claim')).toBe('structural')
-    expect(marks[0].getAttribute('data-provenance-kind')).toBe('ai')
+    expect(marks[0].querySelectorAll('svg[data-icon="olumi-ai"]')).toHaveLength(1)
+    expect(marks[0].getAttribute('aria-label')).toBe('2 target values are Olumi\'s estimates')
+    expect(marks[0].getAttribute('data-olumi-estimates')).toBe('2')
+    // The authorship claim is not lost: it is its own mark, after the name.
+    const authorship = screen.getByTestId('node-title').querySelector('[data-testid="node-provenance-mark"]')!
+    expect(authorship.getAttribute('aria-label')).toBe('Olumi suggested this')
+    expect(authorship.getAttribute('data-provenance-claim')).toBe('structural')
+    expect(authorship.getAttribute('data-provenance-kind')).toBe('ai')
     expect(screen.queryByTestId('option-change-row-estimate-opt-split-fac-thru')).toBeNull()
     expect(screen.queryByTestId('option-change-row-estimate-opt-split-fac-ratio')).toBeNull()
     // Each row keeps its reserved mark slot on the value (the glyph moved; the row did not).

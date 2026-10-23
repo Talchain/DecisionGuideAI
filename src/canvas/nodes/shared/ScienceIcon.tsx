@@ -18,7 +18,7 @@
  * popover still explains, but shows no button that would do nothing.
  */
 import { useState, useRef, useEffect, useCallback, type ComponentType } from 'react'
-import { Sparkles } from 'lucide-react'
+import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { OLUMI_TEXT_CHIP_IDS } from '../../conversation/chipMeta'
 import { typography } from '../../../styles/typography'
@@ -151,7 +151,7 @@ export function ScienceIcon({ icon: Icon, tooltip, action, colour = 'text-text-l
               onPointerDown={(e) => e.stopPropagation()}
               data-testid="science-icon-discuss"
             >
-              <Sparkles size={11} aria-hidden="true" className={`flex-none ${CANVAS_GLYPH_SIZE_CLASSES[11]}`} />
+              <OlumiAiIcon size={11} aria-hidden="true" className={`flex-none ${CANVAS_GLYPH_SIZE_CLASSES[11]}`} />
               Discuss with AI
             </button>
           )}

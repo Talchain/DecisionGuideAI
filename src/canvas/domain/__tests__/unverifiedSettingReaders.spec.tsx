@@ -104,11 +104,14 @@ describe('T-UNVERIFIED-READERS — the stamp reaches every reader of an interven
     expect(flagged.getAttribute('aria-label')).toContain(UNVERIFIED)
     expect(screen.queryByTestId(`option-change-row-estimate-${OPT}-${F_FLAGGED}`)).toBeNull()
 
-    // CONTRAST: the same literal without the stamp is still Olumi's estimate — counted in the card's ONE Olumi
-    // sparkle beside the option's own authorship (Paul, 14 Oct 2026: one sparkle per card), while the flagged row is not.
-    const olumi = screen.getByTestId('node-provenance-mark')
-    expect(olumi).toHaveAttribute('data-card-mark', 'source-olumi')
-    expect(olumi.getAttribute('aria-label')).toBe('Olumi suggested this option · 1 target value is Olumi\'s estimate')
+    // CONTRAST: the same literal without the stamp is still Olumi's estimate — its own Olumi mark in the band, while
+    // the flagged row is not. Vision spec §2c (23 Oct): the option's authorship is its own mark, after the name.
+    const plain = screen.getByTestId(`option-change-row-estimate-${OPT}-${F_PLAIN}`)
+    expect(plain).toHaveAttribute('data-card-mark', 'source-olumi')
+    expect(plain).toHaveAttribute('data-value-source', 'olumi')
+    const authorship = screen.getByTestId('node-provenance-mark')
+    expect(screen.getByTestId('node-title').contains(authorship)).toBe(true)
+    expect(authorship.getAttribute('aria-label')).toBe('Olumi suggested this')
 
     // CONTRAST: a target the user set stays theirs, flag or no flag.
     cleanup()

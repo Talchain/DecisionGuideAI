@@ -80,7 +80,9 @@ function renderedReadout(data: Record<string, unknown>): string | null {
     <ReactFlowProvider><FactorNode {...baseProps} data={data} /></ReactFlowProvider>,
   )
   const line = container.querySelector('[data-testid="factor-recorded-value"]')
-  const text = line?.firstElementChild?.textContent ?? null
+  // The value's own element: the line opens with its author glyph (vision spec §2a), then the readout.
+  const slot = line?.querySelector('[data-testid^="factor-value-mark-slot-"]')
+  const text = (slot ? slot.nextElementSibling : line?.firstElementChild)?.textContent ?? null
   cleanup()
   return text === null ? null : text.replace(/\s+/g, ' ').trim()
 }

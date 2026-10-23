@@ -158,13 +158,15 @@ describe(`served 64c5eccc — ${ID}: "No AI assistant use in place", est. on the
   })
 
   for (const c of CASES) {
-    it(`${c.name}: the value line reads "No AI assistant use in place"; est. is the band's icon`, () => {
+    it(`${c.name}: the value line reads "No AI assistant use in place"; est. is the Olumi mark leading it`, () => {
       renderFactor(c.data())
       const row = within(card()).getByTestId('factor-recorded-value')
       expect(visibleText(row)).toBe('No AI assistant use in place')
       const mark = within(card()).getByTestId('estimate-marker')
-      expect(row.contains(mark)).toBe(false)
-      expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
+      // Vision spec §2a (23 Oct): the author glyph leads its figure in the value line, never the marks band.
+      expect(row.contains(mark)).toBe(true)
+      expect(row.firstElementChild?.contains(mark)).toBe(true)
+      expect(mark.closest('[data-card-bottom-band]')).toBeNull()
       expect(mark.querySelector('[aria-label="est."]')).not.toBeNull()
       expect(Boolean(within(row).queryByTestId(`node-value-editor-${ID}`))).toBe(c.editor)
     })

@@ -43,8 +43,10 @@ function today(data: Record<string, unknown>, nodes: unknown[] = PARTS) {
   store.nodes = nodes
   const { container } = render(<ReactFlowProvider><GoalNode id="takings" type="goal" data={data} selected={false}
     isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable /></ReactFlowProvider>)
+  // Vision spec §3: the sentence is the line's hover and screen-reader text; the visible part is "today <figure>".
   const line = container.querySelector('[data-testid="goal-today-level-takings"]')
-  return { text: line?.textContent ?? null, editor: container.querySelector('[data-testid="goal-today-level-editor-takings"]') }
+  const sentence = line?.querySelector('[data-testid="goal-today-level-takings-sentence"]')
+  return { text: line ? sentence?.textContent ?? '' : null, editor: container.querySelector('[data-testid="goal-today-level-editor-takings"]') }
 }
 
 afterEach(cleanup)
@@ -78,5 +80,44 @@ describe('a goal defined by its parts says today\'s level as worked out from the
       expect(today(data).text ?? '').not.toContain('worked out')
       cleanup()
     }
+  })
+})
+
+describe('vision spec §3 (23 Oct): the today line is "today <figure>" with its author as a glyph; the phrase is on hover', () => {
+  function visible(data: Record<string, unknown>) {
+    store.nodes = PARTS
+    const { container } = render(<ReactFlowProvider><GoalNode id="takings" type="goal" data={data} selected={false}
+      isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable /></ReactFlowProvider>)
+    const line = container.querySelector('[data-testid="goal-today-level-takings"]')!
+    const shown = line.querySelector('[data-testid="goal-today-level-takings-visible"]')
+    return {
+      shown: shown?.textContent ?? null,
+      hidden: shown?.getAttribute('aria-hidden') ?? null,
+      glyph: shown?.querySelector('[data-today-glyph]')?.getAttribute('data-today-glyph') ?? null,
+      // The sentence the hover (`Tooltip` content) and the screen reader both get.
+      title: line.querySelector('[data-testid="goal-today-level-takings-sentence"]')?.textContent ?? null,
+    }
+  }
+
+  it('⭐ worked out from its parts: "today £2,604 / week", the worked-out glyph, the parts on hover', () => {
+    const v = visible(SERVED_GOAL)
+    expect(v.shown).toBe('today £2,604 / week')
+    expect(v.glyph).toBe('from_parts')
+    expect(v.title).toBe('Today: £2,604 / week — worked out from Weekly customers × Average spend per customer')
+    // The visible part is decoration for sighted readers; the sentence is what a screen reader hears.
+    expect(v.hidden).toBe('true')
+  })
+
+  it('from your brief: the brief glyph; "from your brief" only on hover', () => {
+    const v = visible({ ...SERVED_GOAL, nonlinear_identity: undefined, observedState: { ...SERVED_GOAL.observedState, source: 'brief_extraction' } })
+    expect(v.shown).toBe('today £2,604 / week')
+    expect(v.glyph).toBe('from_brief')
+    expect(v.title).toBe('Today: £2,604 / week — from your brief')
+  })
+
+  it('⛔ CONTROL: a level the person stated gets the person glyph, never the brief or worked-out one', () => {
+    const v = visible({ ...SERVED_GOAL, observedState: { ...SERVED_GOAL.observedState, source: 'user' } })
+    expect(v.glyph).toBe('user_stated')
+    expect(v.title).toBe('Today: £2,604 / week — you said')
   })
 })

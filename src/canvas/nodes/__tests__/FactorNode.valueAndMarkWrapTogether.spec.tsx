@@ -125,15 +125,17 @@ describe('DIFF item 3 — the value and its mark wrap together (contract `.own-v
     expect(served, 'build-vs-buy carries fac_eng_capacity').toBeDefined()
     renderFactor(served.data)
     const row = within(card()).getByTestId('factor-recorded-value')
-    // Collapsed whitespace: the value alone; its mark is the band's icon, still named est.
+    // Collapsed whitespace: the value alone; its mark (the Olumi mark, still named est.) leads it in the row.
     expect(visibleText(row).replace(/\s+/g, '')).toBe('Moderateengineeringallocation(2of4engineers)')
     const mark = within(card()).getByTestId('estimate-marker')
-    expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(row.contains(mark)).toBe(true)
     expect(mark.querySelector('[aria-label="est."]')).not.toBeNull()
   })
 
   for (const c of CASES) {
-    it(`${c.name}: inline flow — the value, one breakable space, then the mark`, () => {
+    // Vision spec §2a (23 Oct): the author glyph now LEADS the figure ("a glyph before each figure"): the mark slot,
+    // the one joining space, then the value — the same inline flow and `nowrap` join, in the other order.
+    it(`${c.name}: inline flow — the mark, one space, then the value`, () => {
       renderFactor(c.data())
       const row = within(card()).getByTestId('factor-recorded-value')
       const rt = tokens(row)
@@ -142,21 +144,23 @@ describe('DIFF item 3 — the value and its mark wrap together (contract `.own-v
       }
       expect(rt.has('break-words'), 'a long value wraps inside the card').toBe(true)
 
-      // The value, the gap (one space — no break opportunity: the row is
-      // `nowrap`), the mark slot, as siblings in that order.
+      // The mark slot, the gap (one space — no break opportunity: the row is
+      // `nowrap`), the value, as siblings in that order.
       expect(rt.has('whitespace-nowrap'), 'the row\'s join cannot break').toBe(true)
       const slot = within(row).getByTestId(`factor-value-mark-slot-${ID}`)
-      const gap = slot.previousSibling as Text
-      const value = gap.previousSibling as HTMLElement
+      const kids = [...row.childNodes].filter(n => n.nodeType !== Node.COMMENT_NODE)
+      expect(kids).toHaveLength(3)
+      expect(kids[0]).toBe(slot)
+      const gap = slot.nextSibling as Text
       expect(gap.nodeType).toBe(Node.TEXT_NODE)
       expect(gap.data).toBe(' ')
+      const holder = gap.nextSibling as HTMLElement
+      const value = (c.editor ? holder.querySelector(`[data-testid="node-value-editor-${ID}"]`) : holder) as HTMLElement
       expect(value.nodeType).toBe(Node.ELEMENT_NODE)
       expect(tokens(value).has('whitespace-normal'), 'the value re-opens its own spaces').toBe(true)
-      const kids = [...row.childNodes].filter(n => n.nodeType !== Node.COMMENT_NODE)
-      expect(kids).toHaveLength(c.editor ? 1 : 3)
       const mark = within(card()).getByTestId('estimate-marker')
-      expect(row.contains(mark), 'the mark is the band\'s icon, not in the value row').toBe(false)
-      expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
+      expect(slot.contains(mark), 'the mark leads the value in its row').toBe(true)
+      expect(mark.closest('[data-card-bottom-band]')).toBeNull()
       expect(tokens(slot).has('whitespace-nowrap'), 'the mark never splits').toBe(true)
       for (const push of ['ml-auto', 'absolute', 'float-right']) expect(tokens(slot).has(push), push).toBe(false)
       // The value is never cut.

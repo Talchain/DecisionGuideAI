@@ -5,7 +5,7 @@ import { UNCONFIRMED_ESTIMATE_LABEL, UNCONFIRMED_ESTIMATE_TOKEN } from '../../do
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { BottomCardMark } from './CardMark'
-import { VALUE_PROVENANCE_ICON } from '../../domain/valueProvenanceIcon'
+import { cardMark } from './cardMarks'
 
 /**
  * EstimateMarker — R6 (Paul, 16 Aug 2026): "placeholder wall collapses to one
@@ -348,6 +348,7 @@ export function EstimateMarker({
   subject = 'value',
   title,
   onOpenSource,
+  inline = false,
 }: {
   /** Which unconfirmed thing this marker speaks for. Defaults to the card's own value. */
   subject?: EstimateSubject
@@ -355,17 +356,20 @@ export function EstimateMarker({
   title?: string
   /** The card's route to its source detail (v3.1 pt 1). Absent → a static mark. */
   onOpenSource?: () => void
+  /** Vision spec §2a: drawn before its figure in the value line, not in the card's marks band. */
+  inline?: boolean
 }) {
   const tip = title ?? ESTIMATE_SUBJECT_TITLE[subject]
   if (!onOpenSource) return <SourceMark testId="estimate-marker" tip={tip}>{UNCONFIRMED_ESTIMATE_TOKEN}</SourceMark>
-  const Icon = VALUE_PROVENANCE_ICON.ai
-  return (
-    <BottomCardMark><SourceMark cardMarkId="source-olumi" testId="estimate-marker" tip={`${UNCONFIRMED_ESTIMATE_TOKEN} · ${tip}`} ariaLabel={`${OLUMI_ESTIMATE_NAME}. ${tip}`} onOpen={onOpenSource}>
+  const Icon = cardMark('source-olumi').Icon
+  const body = (
+    <SourceMark cardMarkId="source-olumi" testId="estimate-marker" tip={`${UNCONFIRMED_ESTIMATE_TOKEN} · ${tip}`} ariaLabel={`${OLUMI_ESTIMATE_NAME}. ${tip}`} onOpen={onOpenSource}>
       {/* Upright, regular weight (contract v3.1 `.prov`): one visual for every
           mark kind. As a button its accessible name is the full `tip`
           (`aria-label`, as v3.1 `prov()` does); the styled tooltip keeps it. */}
       <Icon aria-hidden="true" className={SOURCE_MARK_GLYPH_CLASSES} />
       <span aria-label={UNCONFIRMED_ESTIMATE_TOKEN} className={typography.screenReaderOnly}>{UNCONFIRMED_ESTIMATE_TOKEN}</span>
-    </SourceMark></BottomCardMark>
+    </SourceMark>
   )
+  return inline ? body : <BottomCardMark>{body}</BottomCardMark>
 }

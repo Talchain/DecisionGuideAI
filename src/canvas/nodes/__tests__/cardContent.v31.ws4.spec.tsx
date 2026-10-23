@@ -223,7 +223,8 @@ describe('#20 — no bare internal model scale on the card (omit, never invent)'
       const c = card()
       const line = within(c).getByTestId('factor-recorded-value')
       expect(visibleText(line)).toMatch(/^0\.3/)
-      expect(within(screen.getByTestId(`factor-bottom-marks-${ID}`)).getByTestId(`factor-value-source-${ID}`).textContent).toContain('Set by you')
+      // Vision spec §2a (23 Oct): the author glyph leads the figure in its own value line.
+      expect(within(line).getByTestId(`factor-value-source-${ID}`).textContent).toContain('Set by you')
       expect(within(c).queryByTestId(`factor-value-mark-only-${ID}`)).toBeNull()
       expect(within(c).queryByTestId('estimate-marker')).toBeNull()
     })

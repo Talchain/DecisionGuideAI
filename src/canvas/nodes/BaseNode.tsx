@@ -2728,6 +2728,11 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             {/* The title's words are their OWN element, so the pencil beside them never makes the title a non-leaf:
                 `cardCopyCensus` reads leaf text runs, and #2322's pencil hid every card's own label from it. */}
             <span>{titleOverride ?? cardTitle}</span>
+            {/* Vision spec §2a/§2c (23 Oct): Olumi's authorship mark sits right after the name. A glyph with an
+                accessible name and no text, so the title's text and every reader of it are unchanged. */}
+            {!lodBodyHidden && (
+              <NodeProvenanceMark nodeType={nodeType} data={provenanceData} hideKind={isDetailedView ? null : provenanceDefault} place="title" />
+            )}
             {/* E1d: the pencil says the title renames in place (double-click). Zero-width; see `EditPencilCue`. */}
             {!lodBodyHidden && <EditPencilCue testId="node-title-pencil" />}
           </div>
@@ -2779,7 +2784,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           data-testid="node-provenance-mark-group"
           className="inline-flex items-center gap-1 shrink-0"
         >
-          <NodeProvenanceMark nodeType={nodeType} data={provenanceData} hideKind={isDetailedView ? null : provenanceDefault} />
+          <NodeProvenanceMark nodeType={nodeType} data={provenanceData} hideKind={isDetailedView ? null : provenanceDefault} place="band" />
         </span></BottomCardMark>
 
         {/* Graph v1.1 Task 5: header slot — science / state icons live top-right

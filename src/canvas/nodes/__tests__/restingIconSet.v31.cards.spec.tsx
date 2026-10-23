@@ -297,7 +297,7 @@ describe('U7 · characterisation guard (green at base) — local-rule science ic
     for (const id of ['decision-1', 'outcome-1', 'goal-1']) {
       setState({ lodRung: 'full' })
       const { container } = renderCard(id)
-      for (const g of container.querySelectorAll('svg.lucide-sparkles')) {
+      for (const g of container.querySelectorAll('svg[data-icon="olumi-ai"]')) {
         sparkles++
         const mark = g.closest('[data-testid="node-provenance-mark"]')
         expect(mark, id).not.toBeNull()

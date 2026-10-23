@@ -54,12 +54,17 @@ import { FactorRangeBand } from './shared/FactorRangeBand'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
 import { classifyObservedValueProvenance, classifyNodeProvenance, VALUE_PROVENANCE_LABEL, factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
-import { VALUE_PROVENANCE_ICON, PROVENANCE_ICON_SIZE_CLASSES } from '../domain/valueProvenanceIcon'
+import { PROVENANCE_ICON_SIZE_CLASSES } from '../domain/valueProvenanceIcon'
+import { cardMark, sourceCardMarkId } from './shared/cardMarks'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { factorValueSourceMark, PRIOR_RANGE_SOURCE_MARK, ValueSourceMark } from './shared/valueSourceMark'
 import { useValuePrefillStore } from '../graphChanges/valuePrefill'
+
+/** Vision spec §3: "Source not recorded" is the "?" author glyph on the card; these words are its name and hover. */
+const SourceUnknownGlyph = cardMark('source-unknown').Icon
+const SOURCE_UNKNOWN_WORDS = cardMark('source-unknown').keyText
 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
@@ -73,7 +78,8 @@ export const FactorNode = memo((props: NodeProps) => {
     // A native value edit withdraws its old extraction marker; its approximation
     // text is historical evidence, not a description of the newly typed value.
     .filter(driver => observedState?.extractionType !== null || !/^about\s+/i.test(driver))
-  const CurrentValueOriginIcon = currentValueOrigin ? VALUE_PROVENANCE_ICON[currentValueOrigin.kind] : null
+  // The card's own register (`cardMarks`), so Olumi's figure shows the brand mark here as on the face (vision spec §3).
+  const CurrentValueOriginIcon = currentValueOrigin ? cardMark(sourceCardMarkId(currentValueOrigin.kind)).Icon : null
 
   const cleanedLabel = cleanFactorLabel((props.data?.label as string | undefined) ?? '')
 
@@ -361,29 +367,26 @@ export const FactorNode = memo((props: NodeProps) => {
   // v3.1 point 1 (DESIGN-GAP-v31 #21): the mark is focusable and opens this
   // factor's source detail — the inspector.
   const openSourceDetail = () => { openNodeInspector(props.id) }
-  const renderValueSourceMark = () =>
+  const renderValueSourceMark = (inline: boolean) =>
     valueSourceMark === null ? null
       // ⛔ Olumi's figure the user ACCEPTED keeps Olumi's token but says so: `EstimateMarker`'s fixed copy ("not yet
       // confirmed — filled in for you") is false once accepted (served UI `cb25e5e2`, guest `9cec5206`; AIQ 5921018606).
-      : valueSourceMark.kind === 'olumi' && currentValueOrigin?.kind !== 'accepted' ? <EstimateMarker onOpenSource={openSourceDetail} />
-        : <ValueSourceMark mark={valueSourceMark} testId={`factor-value-source-${props.id}`} subject={cleanedLabel} onOpenSource={openSourceDetail} />
-  // The on-graph editor holds the value — the SAME predicate as the value
-  // line's editable branch below (kept inline there for its type narrowing).
-  const valueHeldByEditor = nodeCategory === 'controllable' && typeof observedState?.value === 'number'
-  // The value line's join + mark slot: ONE space, then the mark. In Standard
-  // that space belongs to a `nowrap` row, so it is NOT a break opportunity
-  // (CSS Text: a space's own box decides) and nor is the edge of the atomic
-  // mark (their common ancestor decides) — the mark can only wrap WITH the
-  // value's last word. In Detailed the flex row drops the space anyway.
-  const valueMarkJoin = valueSourceMark === null ? null : (
+      : valueSourceMark.kind === 'olumi' && currentValueOrigin?.kind !== 'accepted' ? <EstimateMarker onOpenSource={openSourceDetail} inline={inline} />
+        : <ValueSourceMark mark={valueSourceMark} testId={`factor-value-source-${props.id}`} subject={cleanedLabel} onOpenSource={openSourceDetail} inline={inline} />
+  // Vision spec §2a (23 Oct): Olumi's figure carries a dotted info underline as well as the brand mark before it.
+  const valueIsOlumiEstimate = valueSourceMark?.kind === 'olumi'
+  // ⭐ Vision spec §2a (23 Oct 2026): "a glyph before each figure" — the author glyph LEADS the value, in its own line,
+  // so the figure and whose it is read together. The join is the same one space inside the same `nowrap` row, now
+  // after the mark, so the mark can only wrap WITH the value's first word.
+  const valueMarkLead = valueSourceMark === null ? null : (
     <>
-      {' '}
       {/* Contract `.node .own-value{gap:6px}` between the value and its mark
           (29 Sep pixel-match): the join space is ≈3.5px of 13px type, so the
           slot adds 2.5px, counter-scaled with the type beside it. */}
-      <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap ml-[calc(2.5px*var(--canvas-label-scale,1))]">
-        {renderValueSourceMark()}
+      <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap mr-[calc(2.5px*var(--canvas-label-scale,1))]">
+        {renderValueSourceMark(true)}
       </span>
+      {' '}
     </>
   )
 
@@ -869,9 +872,16 @@ export const FactorNode = memo((props: NodeProps) => {
         <p className={`${typography.edgeLabel} text-text-light m-0 mb-1`}>
           Current value: <span className="text-text-body">{valueDisplay ?? 'Not recorded'}</span>
           {valueDisplay !== null && (
-            <span data-testid="factor-current-value-origin" className="inline-flex items-center gap-1 ml-1">
+            <span
+              data-testid="factor-current-value-origin"
+              className="inline-flex items-center gap-1 ml-1"
+              {...(currentValueOrigin ? {} : { role: 'img', 'aria-label': SOURCE_UNKNOWN_WORDS, title: SOURCE_UNKNOWN_WORDS })}
+            >
               {CurrentValueOriginIcon && <CurrentValueOriginIcon aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />}
-              {currentValueOrigin ? VALUE_PROVENANCE_LABEL[currentValueOrigin.kind] : 'Source not recorded'}
+              {/* Vision spec §3: an unknown source is the "?" author glyph; the words move to its name and hover. */}
+              {currentValueOrigin ? VALUE_PROVENANCE_LABEL[currentValueOrigin.kind] : (
+                <SourceUnknownGlyph aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />
+              )}
             </span>
           )}
         </p>
@@ -1385,6 +1395,7 @@ export const FactorNode = memo((props: NodeProps) => {
               : `${typography.nodeValue} text-text-body max-w-full min-w-0 break-words whitespace-nowrap`}
             data-testid="factor-recorded-value"
           >
+            {valueMarkLead}
             {/* ⭐⭐ EDITABLE ON THE GRAPH — and ONLY where an edit reaches the
                 model. A controllable factor's value has a durable carrier
                 (`factor_value_edit`); an observable factor's and a risk's do
@@ -1452,7 +1463,7 @@ export const FactorNode = memo((props: NodeProps) => {
                     here (fails OPEN, as `resolveFactorValueAdmission` does). */}
                 <NodeValueEditor
                   value={resolveValueInputSeed(props.data).seed ?? observedState.value}
-                  readout={<FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} />}
+                  readout={<FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />}
                   onCommit={(v, opts) => editAuthority.proposeFactorValue(v, opts)}
                   prefill={valuePrefill}
                   onPrefillConsumed={consumeValuePrefill}
@@ -1474,19 +1485,14 @@ export const FactorNode = memo((props: NodeProps) => {
                     : {})}
                   ariaLabel={`Value for ${props.data?.label ?? 'this factor'}`}
                   testId={`node-value-editor-${props.id}`}
-                  {...(isDetailed ? {} : { restingFlow: 'inline' as const, trailing: valueMarkJoin })}
+                  {...(isDetailed ? {} : { restingFlow: 'inline' as const })}
                 />
               </span>
             ) : (
               <span className={isDetailed ? 'min-w-0 break-words' : 'min-w-0 break-words whitespace-normal'}>
-                <FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} />
+                <FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />
               </span>
             )}
-            {/* The join, then the mark. Standard: ONE space inside a `nowrap`
-                row (see above) — unless the inline editor already carries it
-                as its `trailing`. Detailed: a flex row drops the whitespace
-                between its items and keeps its 6px `gap-x-1.5`. */}
-            {!(valueHeldByEditor && !isDetailed) && valueMarkJoin}
           </div>
         )}
         {storedRangeLine !== null && !priorRangeShown && (
@@ -1512,7 +1518,7 @@ export const FactorNode = memo((props: NodeProps) => {
             <CardMark id="factor-tier" testId={`factor-value-tier-${props.id}`} words={tierWords} level={tierLevel} />
             {' '}
             <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap ml-[calc(2.5px*var(--canvas-label-scale,1))]">
-              {renderValueSourceMark()}
+              {renderValueSourceMark(false)}
             </span>
           </div>
         )}

@@ -299,6 +299,7 @@ export function ValueSourceMark({
   subject,
   onOpenSource,
   olumiGroupNoun,
+  inline = false,
 }: {
   mark: FactorValueSourceMark
   testId?: string
@@ -313,19 +314,25 @@ export function ValueSourceMark({
    * as ("target value") when an Olumi mark joins the card's one merged sparkle. Absent → this mark never merges.
    */
   olumiGroupNoun?: string
+  /**
+   * Vision spec §2a (23 Oct): the author glyph sits BEFORE its figure, in the value's own line, rather than in the
+   * card's marks band. An inline mark never joins the merged Olumi mark: it belongs to one figure.
+   */
+  inline?: boolean
 }) {
   const tip = title ?? (subject ? `${subject}: ${mark.label}` : mark.label)
   const definition = cardMark(`source-${mark.kind}` as CardMarkId)
   const Icon = definition.Icon
-  const slot = useOlumiMarkSlot(mark.kind === 'olumi' && olumiGroupNoun
+  const slot = useOlumiMarkSlot(mark.kind === 'olumi' && olumiGroupNoun && !inline
     ? { role: 'estimate', text: olumiGroupNoun, accepted: mark.label === VALUE_PROVENANCE_LABEL.accepted, onOpen: onOpenSource }
     : null)
   if (slot.render === 'none') return null
   if (slot.render === 'merged') return <BottomCardMark><OlumiMergedMark label={slot.label} estimateCount={slot.estimateCount} onOpen={slot.onOpen} /></BottomCardMark>
-  return (
-    <BottomCardMark><SourceMark cardMarkId={definition.id} testId={testId} tip={`${definition.words} · ${title ? `${mark.label} · ${tip}` : tip}`} ariaLabel={tip} ariaDescription={mark.label} onOpen={onOpenSource} dataValueSource={mark.kind}>
+  const body = (
+    <SourceMark cardMarkId={definition.id} testId={testId} tip={`${definition.words} · ${title ? `${mark.label} · ${tip}` : tip}`} ariaLabel={tip} ariaDescription={mark.label} onOpen={onOpenSource} dataValueSource={mark.kind}>
       <span role="img" aria-label={definition.words}><Icon aria-hidden="true" strokeWidth={1.8} className={SOURCE_MARK_GLYPH_CLASSES} data-source-glyph={mark.kind === 'you' ? 'person' : undefined} /></span>
       <span className={typography.screenReaderOnly}>{mark.label}</span>
-    </SourceMark></BottomCardMark>
+    </SourceMark>
   )
+  return inline ? body : <BottomCardMark>{body}</BottomCardMark>
 }

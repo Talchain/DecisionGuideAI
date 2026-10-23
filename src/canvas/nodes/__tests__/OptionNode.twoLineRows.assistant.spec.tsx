@@ -173,7 +173,7 @@ describe('served 64c5eccc — the factor name gets its own line when the amount 
     expect(source.getAttribute('data-olumi-mark')).toBe('merged')
     expect(source.getAttribute('aria-label')).toContain('2 target values are Olumi\'s estimates')
     expect(source.closest('[data-card-bottom-band]')).not.toBeNull()
-    expect(source.querySelector('.lucide-sparkles')).not.toBeNull()
+    expect(source.querySelector('svg[data-icon="olumi-ai"]')).not.toBeNull()
     expect(source.closest(`[data-testid="option-bottom-marks-${optionId}"]`)).not.toBeNull()
     expect((mark!.previousSibling as Text | null)?.data).toBe('\u00a0')
     expect(dt.querySelector('[data-testid^="option-change-row-mark-"]')).toBeNull()

@@ -43,6 +43,7 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { formatGoalTarget, TARGET_NOT_CAPTURED } from '../../components/results/utils/formatGoalTarget'
 import { goalTodayLevelCopy } from './shared/goalTodayLevelCopy'
+import { GoalTodayLevelText } from './shared/GoalTodayLevelLine'
 import {
   canCaptureGoalTarget,
   goalTargetChangeFrameOf,
@@ -1180,7 +1181,7 @@ export const GoalNode = memo((props: NodeProps) => {
             <NodeValueEditor
               value={todayLevel?.level ?? null}
               readout={todayLevel !== null
-                ? <span className={`${typography.edgeLabel} text-text-light`}>{goalTodayLevelCopy(todayLevel)}</span>
+                ? <span className={`${typography.edgeLabel} text-text-light`}><GoalTodayLevelText level={todayLevel} sentence={goalTodayLevelCopy(todayLevel)} testId={`goal-today-level-${props.id}`} /></span>
                 : <NeedsInputSlot words="Today's level needed" description="Type where it stands today" unit={todayLevelUnit} testId={`goal-today-level-empty-${props.id}`} />}
               onCommit={(v, opts) => goalEditAuthority.proposeFactorValue(v, { ...opts, unit: thresholdUnit!.trim() })}
               {...(todayLevelUnit.prefix ? { prefix: todayLevelUnit.prefix } : {})}
@@ -1193,7 +1194,7 @@ export const GoalNode = memo((props: NodeProps) => {
           </div>
         ) : todayLevel !== null && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`} data-testid={`goal-today-level-${props.id}`}>
-            {goalTodayLevelCopy(todayLevel, partLabelOf)}
+            <GoalTodayLevelText level={todayLevel} sentence={goalTodayLevelCopy(todayLevel, partLabelOf)} testId={`goal-today-level-${props.id}`} />
           </p>
         )}
 

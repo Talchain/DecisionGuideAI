@@ -40,20 +40,23 @@ import { readoutIsBareModelFigure } from './bareModelFigure'
 // Moved to `bareModelFigure.ts` (a pure rule, kept out of this component's import closure); re-exported for callers.
 export { readoutIsBareModelFigure }
 
-export function FactorValueFigure({ readout, parts, nodeId }: {
+export function FactorValueFigure({ readout, parts, nodeId, estimated = false }: {
   /** The card's recorded readout — the one string every affordance shows. */
   readout: string | null
   /** The same value, split, or `null` where it must stay one string. */
   parts: FactorDisplayParts | null
   nodeId: string
+  /** Olumi's estimate: the figure takes a dotted info underline (vision spec §2a); the mark before it names whose. */
+  estimated?: boolean
 }) {
   if (readout === null) return null
+  const figureClass = estimated ? 'font-[610] underline decoration-dotted decoration-info underline-offset-2' : 'font-[610]'
   if (parts === null || factorCardVisibleText(readout, parts) !== joinFactorDisplayParts(parts)) {
-    return <strong data-testid={`factor-value-whole-${nodeId}`} className="font-[610]">{readout}</strong>
+    return <strong data-testid={`factor-value-whole-${nodeId}`} data-olumi-estimate={estimated ? 'true' : undefined} className={figureClass}>{readout}</strong>
   }
   return (
     <>
-      <strong data-testid={`factor-value-figure-${nodeId}`} className="font-[610]">{parts.figure}</strong>
+      <strong data-testid={`factor-value-figure-${nodeId}`} data-olumi-estimate={estimated ? 'true' : undefined} className={figureClass}>{parts.figure}</strong>
       {parts.unit !== null && (
         <>
           {parts.attached ? null : ' '}

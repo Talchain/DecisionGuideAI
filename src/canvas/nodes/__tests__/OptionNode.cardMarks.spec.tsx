@@ -67,10 +67,15 @@ it('all information marks are bottom-left, title has full width, Olumi stays in 
   const band = screen.getByTestId(`option-bottom-marks-${node.id}`)
   expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3')
   expect(band).toHaveAttribute('data-card-bottom-band', 'true')
-  expect(band.contains(screen.getByTestId('node-provenance-mark'))).toBe(true)
-  for (const el of document.querySelectorAll('[data-card-mark]')) expect(band.contains(el)).toBe(true)
+  // Vision spec §2c (23 Oct): Olumi's authorship mark ("Olumi suggested this") sits right after the name; every other
+  // information mark stays in the band.
   const title = screen.getByTestId('node-title')
-  expect(title.parentElement?.parentElement?.querySelector('[data-card-mark], [data-testid="node-provenance-mark"]')).toBeNull()
+  const authorship = screen.getByTestId('node-provenance-mark')
+  expect(title.contains(authorship)).toBe(true)
+  expect(authorship).toHaveAttribute('data-provenance-claim', 'structural')
+  expect(band.contains(authorship)).toBe(false)
+  for (const el of document.querySelectorAll('[data-card-mark]')) if (el !== authorship) expect(band.contains(el)).toBe(true)
+  expect([...title.parentElement!.parentElement!.querySelectorAll('[data-card-mark], [data-testid="node-provenance-mark"]')]).toEqual([authorship])
   expect(screen.queryByTestId('node-title-corner-spacer')).toBeNull()
   const olumi = screen.getByTestId(`node-coaching-icon-${node.id}`)
   expect(band.contains(olumi)).toBe(false)

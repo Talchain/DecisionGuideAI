@@ -157,10 +157,25 @@ export interface NodeProvenanceMarkProps {
    * all carry this kind renders none (spec §6: provenance EXCEPTIONS at rest).
    */
   hideKind?: ValueProvenanceKind | null
+  /**
+   * Vision spec §2a/§2c (23 Oct 2026): Olumi's AUTHORSHIP mark ("Olumi suggested this") sits right after the card's
+   * name (`'title'`); every other mark stays in the card's marks band (`'band'`), where the brand mark means only
+   * "Olumi has something here" (the one Olumi badge). Each card mounts both places; a mark renders in exactly one.
+   * `'all'` (the default, off-card surfaces) draws every mark in one place, as before.
+   */
+  place?: 'band' | 'title' | 'all'
 }
 
-export function NodeProvenanceMark({ nodeType, data, hideKind = null }: NodeProvenanceMarkProps) {
-  const marks = resolveProvenanceMarks(nodeType, data)
+/** The one mark that leaves the band for the title row: Olumi put this element on the board. */
+export function isOlumiAuthorshipMark(m: { claim: string; kind: ValueProvenanceKind }): boolean {
+  return m.claim === 'structural' && sourceCardMarkId(m.kind) === 'source-olumi'
+}
+
+export function NodeProvenanceMark({ nodeType, data, hideKind = null, place = 'all' }: NodeProvenanceMarkProps) {
+  const resolved = resolveProvenanceMarks(nodeType, data)
+  // The default-kind rule reads every mark the card has; `place` then picks which of them this slot draws.
+  const allDefault = hideKind !== null && resolved.every(m => m.kind === hideKind)
+  const marks = place === 'all' ? resolved : resolved.filter(m => isOlumiAuthorshipMark(m) === (place === 'title'))
   // ⭐ MODEL-LEVEL DEFAULT + LOCAL EXCEPTIONS (locked spec §6; ED 11:52Z point 8:
   // "do not repeat noisy provenance text everywhere; model-level default + local
   // exceptions is preferred"). At rest the caller passes the board's default
@@ -168,13 +183,21 @@ export function NodeProvenanceMark({ nodeType, data, hideKind = null }: NodeProv
   // same AI mark on every card conveys nothing. Any mark that differs (a user
   // value on an AI board, a disagreement pair) renders in full. Detailed and
   // the inspector always show every mark.
-  const hidden = marks.length === 0 || (hideKind !== null && marks.every(m => m.kind === hideKind))
+  const hidden = marks.length === 0 || allDefault
   // ⭐ ONE OLUMI SPARKLE PER CARD (Paul, 14 Oct 2026; `olumiMarkGroup.tsx`): the card's Olumi-authorship mark joins
   // the card's Olumi value marks; where there are two or more, it renders the ONE merged sparkle naming them all.
   // Only the Olumi glyph joins — "From your brief" and every other kind keep their own mark.
-  const olumiMark = hidden ? undefined : marks.find(m => sourceCardMarkId(m.kind) === 'source-olumi')
+  // The title-row authorship mark stands alone (it is never merged into the band's mark).
+  const olumiMark = hidden || place === 'title' ? undefined : marks.find(m => sourceCardMarkId(m.kind) === 'source-olumi')
   const slot = useOlumiMarkSlot(olumiMark ? { role: 'authorship', text: olumiAuthorshipClause(olumiMark, nodeType) } : null)
   if (hidden) return null
+  if (place === 'title') {
+    return (
+      <span data-testid="node-title-authorship" className="ml-1 inline-flex align-middle">
+        {marks.map(m => <Fragment key={`${m.claim}-${m.kind}`}>{renderMark(m.claim, m.kind)}</Fragment>)}
+      </span>
+    )
+  }
   return (
     <>
       {marks.map(m => (

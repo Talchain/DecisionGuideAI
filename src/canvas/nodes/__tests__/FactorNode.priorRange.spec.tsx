@@ -614,7 +614,11 @@ describe('FactorNode prior range: a normalised range beside a real-scale value',
     // pristine, and the string the journey witnessed):
     //   "Sales Payback Period18 monthRange: 0.08 to 0.28"
     // AFTER: the contradicting line is gone and the figure remains.
-    expect(container.textContent ?? '').toContain('Sales Payback Period18 month')
+    // Visible text only: the value line now opens with its author glyph, whose name ("Source not recorded") is sr-only.
+    const visible = container.cloneNode(true) as HTMLElement
+    visible.querySelectorAll('.sr-only').forEach(n => n.remove())
+    // …followed by the one joining space between the glyph and the figure.
+    expect(visible.textContent ?? '').toContain('Sales Payback Period 18 month')
   })
 
   it('OVER-SUPPRESSION PIN 1 of 3 — a PERCENT factor still renders its range', () => {
