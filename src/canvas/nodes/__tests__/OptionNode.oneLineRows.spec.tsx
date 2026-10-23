@@ -164,8 +164,8 @@ function rowParts(container: HTMLElement, factorId: string) {
   const dd = q('option-change-row')
   const value = q('option-change-row-value')
   const mark = q('option-change-row-mark')
-  const band = container.querySelector<HTMLElement>(`[data-testid="option-bottom-marks-${OPTION}"]`)!
-  const source = band.querySelector<HTMLElement>(`[data-testid="option-change-row-source-${OPTION}-${factorId}"]`) ?? band.querySelector<HTMLElement>(`[data-testid="option-change-row-estimate-${OPTION}-${factorId}"]`)
+  // Vision I (23 Oct): the source mark is in the row's own mark cluster, before its figure (was: the bottom band).
+  const source = mark?.querySelector<HTMLElement>(`[data-testid="option-change-row-source-${OPTION}-${factorId}"]`) ?? mark?.querySelector<HTMLElement>(`[data-testid="option-change-row-estimate-${OPTION}-${factorId}"]`) ?? null
   expect(line, `row line ${factorId}`).not.toBeNull()
   expect(dd, `row amount ${factorId}`).not.toBeNull()
   expect(value, `row value ${factorId}`).not.toBeNull()
@@ -203,25 +203,31 @@ describe('audit #9 — the fixture is the served opt_hybrid card', () => {
   })
 })
 
-describe('slice A — source marks move to the bottom band; value rows retain their geometry', () => {
+// RE-POINTED (vision I, 23 Oct 2026, spec §2a "a glyph before each figure"): slice A had moved the source marks to
+// the bottom band; each now LEADS its own target figure inside the row, glued to it by one U+00A0.
+describe('vision I — each source mark leads its target figure in the row; value rows retain their geometry', () => {
   for (const r of ON_CARD_ROWS) {
-    it(`${r.factorId}: the value row retains its no-break space and its source is in the bottom band`, () => {
+    it(`${r.factorId}: the mark leads its figure, glued by one no-break space, and is not in the bottom band`, () => {
       const { container } = renderHybrid()
       const { dd, value, mark, source } = rowParts(container, r.factorId)
-      expect(mark.contains(source)).toBe(false)
-      expect(source.closest(`[data-testid="option-bottom-marks-${OPTION}"]`)).not.toBeNull()
+      expect(mark.contains(source)).toBe(true)
+      expect(source.closest(`[data-testid="option-bottom-marks-${OPTION}"]`)).toBeNull()
       expect(source.querySelector(".lucide-file-text")).not.toBeNull()
-      // Same amount cell, value first, mark after.
+      // Same amount cell: the mark is inside the value, before the target.
       expect(value.parentElement).toBe(dd)
-      expect(mark.parentElement).toBe(dd)
+      expect(value.contains(mark)).toBe(true)
       // The glue: exactly one text node, exactly U+00A0 — no breakable space,
-      // no element, nothing else between the value and the mark cluster.
-      const glue = mark.previousSibling
-      expect(glue?.nodeType, 'a text node glues the mark to the value').toBe(Node.TEXT_NODE)
+      // no element, nothing else between the mark cluster and its figure.
+      const glue = mark.nextSibling
+      expect(glue?.nodeType, 'a text node glues the mark to the figure').toBe(Node.TEXT_NODE)
       expect((glue as Text).data).toBe(NBSP)
-      expect(glue?.previousSibling).toBe(value)
-      // Nothing inside the cluster can break either (separator and mark stay together).
+      // …and the next node holds the target figure (itself, or the editor control around it).
+      const next = glue!.nextSibling as Element
+      const targetId = `option-change-row-target-${OPTION}-${r.factorId}`
+      expect(next.getAttribute('data-testid') === targetId || next.querySelector(`[data-testid="${targetId}"]`) !== null).toBe(true)
+      // Nothing inside the cluster can break, and the mark-glue-figure run is held together.
       expect(tokens(mark).has('whitespace-nowrap')).toBe(true)
+      expect(tokens(mark.parentElement!).has('whitespace-nowrap')).toBe(true)
       // And no ordinary space anywhere in the amount cell outside the value and
       // the cluster: a stray ' ' child is a break opportunity that drops the mark.
       const strays = [...dd.childNodes].filter(n => n.nodeType === Node.TEXT_NODE && /[ \t\n]/.test((n as Text).data))
@@ -230,13 +236,13 @@ describe('slice A — source marks move to the bottom band; value rows retain th
 
     it(`${r.factorId}: moving the mark leaves value runs within the row budget`, () => {
       const { value } = rowParts(container_(), r.factorId)
-      const valueText = (value.textContent ?? '').replace(/\s+/g, ' ').trim()
+      const valueText = changeRowValueText(value)
       // The value retains its original row budget after the source moves below.
       const runs = [value, ...value.querySelectorAll<HTMLElement>('*')]
         .filter(el => tokens(el).has('whitespace-nowrap'))
-        .filter(el => valueText.endsWith((el.textContent ?? '').replace(/\s+/g, ' ').trim()))
+        .filter(el => valueText.endsWith(changeRowValueText(el)))
       for (const run of runs) {
-        const glued = `${(run.textContent ?? '').replace(/\s+/g, ' ').trim()}`
+        const glued = changeRowValueText(run)
         expect(optionAmountSegmentNoWrap(glued), `"${glued}" is held on one line but does not fit the row`).toBe(true)
       }
     })

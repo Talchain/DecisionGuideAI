@@ -21,6 +21,7 @@ import { OptionPanel } from '../../ui/inspector-v2/panels/OptionPanel'
 import { ModelTabV2Panel } from '../../model-tab-v2/ModelTabV2Panel'
 import { openOutlineGroups } from '../../model-tab-v2/__tests__/openOutlineGroups'
 import { OptionNode, computeAllDifferentiators } from '../../nodes/OptionNode'
+import { changeRowValueText } from '../../nodes/__tests__/__helpers__/optionChangeRowText'
 import { optionSetReadings } from '../../../components/results/useResultsSectionData'
 import { resolveFactorPriorRangeOnCard } from '../../nodes/shared/factorPriorRange'
 import persisted from '../../nodes/__tests__/fixtures/served-binary-factor-6582edbc-v3.json'
@@ -189,8 +190,9 @@ for (const mode of ['live', 'cold'] as const) {
         selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
         dragging={false} zIndex={0} deletable selectable draggable /></ReactFlowProvider>)
       const valueRow = r.container.querySelector(`[data-testid="option-change-row-value-launch_starter_tier-${ID}"]`)
-      expect(valueRow?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Not in use → In use')
-      expect(valueRow?.textContent).not.toMatch(/Very low|Very high|\bon\b|\boff\b/i)
+      // Vision I: the target's author mark now leads the target inside the value; read the value less that mark.
+      expect(changeRowValueText(valueRow!)).toBe('Not in use → In use')
+      expect(changeRowValueText(valueRow!)).not.toMatch(/Very low|Very high|\bon\b|\boff\b/i)
     })
     it('sweep: every rendered owner reading has no tier or bare on/off', () => {
       for (const [row, , read] of readingRows) {

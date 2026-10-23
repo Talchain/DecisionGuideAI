@@ -52,6 +52,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { OptionNode } from '../OptionNode'
+import { changeRowValueText } from './__helpers__/optionChangeRowText'
 import { canonicalFixtureRunView } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { factorCardVisibleText, factorDisplayParts, factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 
@@ -283,14 +284,16 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       expect(t.has('line-clamp-1')).toBe(false)
     })
 
-    it('`from → to` is never inside a truncating element, and the source mark is in the bottom band', () => {
+    // RE-PINNED (vision I, 23 Oct: "a glyph before each figure"): the source mark leads its target in the row (was: the band).
+    it('`from → to` is never inside a truncating element, and the source mark leads its target in the row', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-conv')!
       const mark = onCard('option-change-row-estimate-option-1-f-conv')!
-      expect(dd.contains(mark)).toBe(false)
-      expect(onCard('option-bottom-marks-option-1')!.contains(mark)).toBe(true)
+      expect(dd.contains(mark)).toBe(true)
+      expect(onCard('option-bottom-marks-option-1')?.contains(mark) ?? false).toBe(false)
+      expect(mark.compareDocumentPosition(onCard('option-change-row-target-option-1-f-conv')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(mark.querySelector('svg[data-icon="olumi-ai"]')).not.toBeNull()
-      expect(dd.textContent!.startsWith('→ 7%')).toBe(true)
+      expect(changeRowValueText(dd).startsWith('→ 7%')).toBe(true)
       let el: HTMLElement | null = dd
       while (el && el !== document.body) {
         const t = tokens(el)
@@ -314,19 +317,19 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       // IDENTITY: the muted "before" IS the factor card's VISIBLE figure, not a re-formatting. RE-PINNED 30 Sep (one
       // unit per row, contract `£49 → £59`): when the target reads in the SAME unit, the unit is said once, after it.
       expect(onCard('option-change-row-before-option-2-f-price')?.textContent).toBe('£49')
-      expect(onCard('option-change-row-value-option-2-f-price')?.textContent).toBe('£49 → £59 / month')
+      expect(changeRowValueText(onCard('option-change-row-value-option-2-f-price')!)).toBe('£49 → £59 / month')
       // The "to" is CEE's own display_value. Its FIGURE is never re-derived; the
       // one re-spelling is the notation of the carried unit when CEE's string is
       // exactly `<figure> <that unit>` ("59 GBP/month" on a `GBP/month` factor),
       // the same compact owner the factor card reads (`compactCarriedReading`,
       // served cd6a82e4). Producer ask D8 (#69) still stands: send "£59 / month".
-      expect(dd.textContent!.startsWith('£49 → £59 / month')).toBe(true) // RE-PINNED 30 Sep: one unit per row
+      expect(changeRowValueText(dd).startsWith('£49 → £59 / month')).toBe(true) // RE-PINNED 30 Sep: one unit per row
     })
 
     it('contrast: a factor with no value states the target alone — nothing is filled in', () => {
       renderCard({ id: 'option-2' })
       expect(onCard('option-change-row-before-option-2-f-conv')).toBeNull()
-      expect(onCard('option-change-row-option-2-f-conv')!.textContent!.startsWith('→ 7.5%')).toBe(true)
+      expect(changeRowValueText(onCard('option-change-row-option-2-f-conv')!).startsWith('→ 7.5%')).toBe(true)
     })
 
     it('the TARGET stays the string CEE authored, verbatim, beside the factor card\'s "from" (Paul 20 Sep: thin layer)', () => {
@@ -334,7 +337,7 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       const dd = onCard('option-change-row-option-1-f-price')!
       // "£59" is CEE's own string. Its raw 59 is NOT re-read through the factor
       // card's formatter into "59 GBP/month" — that would be a UI-substituted value.
-      expect(dd.textContent!.startsWith(`${factorCardVisibleText(factorDisplayText(PRICE_DATA), factorDisplayParts(PRICE_DATA))} → £59`)).toBe(true)
+      expect(changeRowValueText(dd).startsWith(`${factorCardVisibleText(factorDisplayText(PRICE_DATA), factorDisplayParts(PRICE_DATA))} → £59`)).toBe(true)
       expect(dd.textContent).not.toContain('59 GBP/month')
     })
   })
@@ -369,7 +372,7 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       expect(factorDisplayText({ label: 'Monthly price', ...data }), 'precondition: the formatter guesses').toBe('Monthly price active')
       const { dd, before } = priceRow(data)
       expect(before).toBeNull()
-      expect(dd.textContent!.startsWith('→ £59')).toBe(true)
+      expect(changeRowValueText(dd).startsWith('→ £59')).toBe(true)
       expect(dd.textContent).not.toContain('active')
     })
 
@@ -378,7 +381,7 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       expect(factorDisplayText({ label: 'Monthly price', ...data }), 'precondition: the formatter guesses').toBe('No monthly price in place')
       const { dd, before } = priceRow(data)
       expect(before).toBeNull()
-      expect(dd.textContent!.startsWith('→ £59')).toBe(true)
+      expect(changeRowValueText(dd).startsWith('→ £59')).toBe(true)
       expect(dd.textContent).not.toContain('in place')
     })
 
@@ -387,13 +390,13 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       expect(factorDisplayText({ label: 'Monthly price', ...data }), 'precondition: the formatter guesses').toBe('No monthly price in place')
       const { dd, before } = priceRow(data)
       expect(before).toBeNull()
-      expect(dd.textContent!.startsWith('→ £59')).toBe(true)
+      expect(changeRowValueText(dd).startsWith('→ £59')).toBe(true)
     })
 
     it('CONTRAST — the factor\'s OWN display_value is carried, phrase or not: it IS the "from"', () => {
       const { dd, before } = priceRow({ display_value: 'Free plan only', observedState: { value: 0 } })
       expect(before?.textContent).toBe('Free plan only')
-      expect(dd.textContent!.startsWith('Free plan only → £59')).toBe(true)
+      expect(changeRowValueText(dd).startsWith('Free plan only → £59')).toBe(true)
     })
 
     it('CONTRAST — the factor\'s encoding_map phrase for its value is carried: it IS the "from"', () => {

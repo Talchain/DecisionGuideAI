@@ -405,12 +405,15 @@ describe('contract v3.1 — option card polish', () => {
       // 23), so this pin holds unchanged.
       const value = inRows('option-change-row-value-option-1-f-head')!
       expect(tokens(value).has('whitespace-nowrap')).toBe(false)
-      const halves = [...value.querySelectorAll('.whitespace-nowrap')].map((n) => n.textContent)
+      // RE-PINNED (vision I, 23 Oct): the halves are the value's own top-level runs, read less the target's mark,
+      // which now LEADS the target inside the "to" half, glued to it by one U+00A0.
+      const halves = [...value.children].filter((n) => n.classList.contains('whitespace-nowrap')).map((n) => changeRowValueText(n))
       expect(halves).toEqual(['0', '→ 3 engineers']) // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
-      expect(value.textContent).toBe('0 → 3 engineers')
+      expect(changeRowValueText(value)).toBe('0 → 3 engineers')
       const mark = inRows('option-change-row-mark-option-1-f-head')!
-      expect(mark.previousSibling?.textContent).toBe('\u00A0')
-      expect(mark.previousSibling?.previousSibling).toBe(value)
+      expect(mark.nextSibling?.textContent).toBe('\u00A0')
+      expect(value.contains(mark)).toBe(true)
+      expect(mark.compareDocumentPosition(inRows('option-change-row-target-option-1-f-head')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
     it('label and amount are both the 11px label size at tight leading', () => {

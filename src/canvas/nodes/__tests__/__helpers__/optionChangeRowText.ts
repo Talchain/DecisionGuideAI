@@ -11,7 +11,7 @@
  *
  * This matcher binds by IDENTITY instead of by text-node shape: the element
  * must be the change row's own `<dd>` (`data-testid="option-change-row-<option>-<factor>"`),
- * and its value text — everything BEFORE the source-mark cluster
+ * and its value text — everything EXCEPT the source-mark cluster
  * (`option-change-row-mark-*`) — must equal `change` exactly. The value text of
  * the `<dd>` is byte-identical to `OptionChangeRow.change`, so a spec asserts
  * the same string it always did, however the halves are styled.
@@ -20,17 +20,16 @@
  * vitest include glob would collect it as a suite.
  */
 
-/** The value text of a change-row `<dd>`: its content before the source mark. */
+/** The value text of a change-row `<dd>`: its content less the target's source-mark cluster (vision I: the mark
+ * now LEADS the target, inside the value, so it is skipped wherever it sits rather than read up to). */
 export function changeRowValueText(dd: Element): string {
-  let out = ''
-  for (const child of Array.from(dd.childNodes)) {
-    if (
-      child.nodeType === 1 &&
-      ((child as Element).getAttribute('data-testid') ?? '').startsWith('option-change-row-mark-')
-    ) break
-    out += child.textContent ?? ''
+  const read = (node: Node): string => {
+    if (node.nodeType === 3) return node.textContent ?? ''
+    if (node.nodeType !== 1) return ''
+    if (((node as Element).getAttribute('data-testid') ?? '').startsWith('option-change-row-mark-')) return ''
+    return Array.from(node.childNodes).map(read).join('')
   }
-  return out.replace(/\s+/g, ' ').trim()
+  return Array.from(dd.childNodes).map(read).join('').replace(/\s+/g, ' ').trim()
 }
 
 function isChangeRowDd(el: Element | null): el is Element {

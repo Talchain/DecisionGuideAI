@@ -201,6 +201,7 @@ import { useRunCurrency, optionResultCaption, optionResultCurrencyNote } from '.
 import { olumiSuppliedFiguresDisclosure } from '../../components/results/analysisNew/analysisNewCopy'
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
+import { OLUMI_ESTIMATE_FIGURE_CLASSES } from './shared/FactorValueFigure'
 import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
 import { resolveOptionTargetDisplayFrame } from '../ui/inspector-v2/shared/optionTargetEntry'
 import { coreSwitchOptionOf } from '../domain/coreSwitch'
@@ -2075,6 +2076,45 @@ export const OptionNode = memo((props: NodeProps) => {
     )
   }
 
+  /**
+   * ⭐ Vision spec §2a (23 Oct 2026): "a glyph before each figure" — the target's author mark LEADS the target, in
+   * the row (the same inline mark #2936 gave a factor's value), never in the card's marks band, so an option with two
+   * estimated targets shows two marks, each at its own figure. Olumi's target also wears the dotted info underline
+   * (`OLUMI_ESTIMATE_FIGURE_CLASSES`). The mark sits OUTSIDE the editor control (a mark is its own button, opening the
+   * inspector), joined to it by MARK_GLUE inside one no-wrap run, so the mark never stands alone on a line. Every
+   * source carries its own mark (Paul 23 Sep point 7: you / brief / Olumi / no source), so an unmarked target is never
+   * left to be read as Olumi's; the mark's name and hover keep the words ("<factor> target: Olumi's estimate …").
+   */
+  const renderTargetFigure = (r: OptionChangeRow, figure: string, holdWhole: boolean) => (
+    <span className="whitespace-nowrap">
+      <span
+        className="whitespace-nowrap"
+        data-testid={`option-change-row-mark-${props.id}-${r.factorId}`}
+      >
+        <ValueSourceMark
+          mark={r.targetSource}
+          testId={r.estimated
+            ? `option-change-row-estimate-${props.id}-${r.factorId}`
+            : `option-change-row-source-${props.id}-${r.factorId}`}
+          title={r.estimated ? OPTION_ROW_ESTIMATE_TITLE : undefined}
+          subject={`${r.fullLabel} target`}
+          onOpenSource={() => openNodeInspector(props.id)}
+          inline
+        />
+      </span>
+      {MARK_GLUE}
+      {withValueEditor(r.factorId, (
+        <span
+          className={[holdWhole ? 'whitespace-nowrap' : 'whitespace-normal', r.estimated ? OLUMI_ESTIMATE_FIGURE_CLASSES : ''].filter(Boolean).join(' ')}
+          data-olumi-estimate={r.estimated ? 'true' : undefined}
+          data-testid={`option-change-row-target-${props.id}-${r.factorId}`}
+        >
+          {figure}
+        </span>
+      ))}
+    </span>
+  )
+
   const renderChangeAmount = (r: OptionChangeRow, align: 'left' | 'right', resting: boolean) => {
     // The mark is glued to the value's last run, so that run is held whole only
     // while it fits one line of the row budget WITH the mark (#2119's rule,
@@ -2113,7 +2153,10 @@ export const OptionNode = memo((props: NodeProps) => {
           `.before`), so the eye lands on what the option sets.
           Only a `from → to` row splits. A target-only row ("→ 80%")
           and a direction-only row render `r.change` whole. The dd's
-          value text is byte-identical to `r.change` either way. */}
+          value text, less the target's author mark
+          (`option-change-row-mark-*`), is byte-identical to `r.change`
+          either way. Only the TARGET is the editor control (vision I): the
+          mark before it is its own button. */}
       {r.needsInput ? (
         /* Row 22 (contract v3 §02): the amount cell of a target the
            option names with no value is the state word — no mark,
@@ -2143,7 +2186,7 @@ export const OptionNode = memo((props: NodeProps) => {
               fits (optionAmountSegmentNoWrap). ED 02:31Z D2: a wrapped from → to
               is accepted; a cut value is not. The text is byte-identical to
               r.change either way. */}
-          {withValueEditor(r.factorId, r.before !== undefined && r.after !== undefined ? (
+          {r.before !== undefined && r.after !== undefined ? (
             <>
               <span className={resting && optionAmountSegmentNoWrap(r.before, rowAmountMaxChars) ? 'whitespace-nowrap' : undefined}>
                 <span
@@ -2158,46 +2201,12 @@ export const OptionNode = memo((props: NodeProps) => {
               {' '}
               <span className={resting && amountRunNoWrap(`→ ${r.after}`) ? 'whitespace-nowrap' : undefined}>
                 {'→ '}
-                {r.after}
+                {renderTargetFigure(r, r.after, resting && amountRunNoWrap(`→ ${r.after}`))}
               </span>
             </>
-          ) : (
-            <span className={resting && amountRunNoWrap(r.change) ? 'whitespace-nowrap' : undefined}>
-              {r.change}
-            </span>
-          ))}
+          ) : renderTargetFigure(r, r.change, resting && amountRunNoWrap(r.change))}
         </span>
       )}
-      {/* ⭐ Paul 23 Sep contract feedback point 7: `8% → 7%` must say
-          whether 7% came from you / Olumi / brief. Olumi keeps the
-          served `est.` (and its test id); every OTHER source carries
-          its own mark instead of silence, so an unmarked target is
-          never left to be read as Olumi's.
-          Contract v3.1 pt 1: every mark — `est.` included — is the
-          contract's `.prov` mark: 10px, muted, focusable, named, and it
-          opens this option's source detail (the inspector). That type
-          change is what sets it apart from the value ("→ 1 brief" is not
-          read as a unit — gap U12), so there is NO separator: the
-          contract row reads `£49 → £59 brief` (side-by-side DIFF item 1,
-          27 Sep; the `·` of pt 7 is retired).
-          Audit #9: joined to the value by MARK_GLUE (U+00A0), never a
-          breakable space, so the mark stays on the value's line. */}
-      {!r.needsInput && (<>{MARK_GLUE}
-      <span
-        className="whitespace-nowrap"
-        data-testid={`option-change-row-mark-${props.id}-${r.factorId}`}
-      >
-        <ValueSourceMark
-          mark={r.targetSource}
-          testId={r.estimated
-            ? `option-change-row-estimate-${props.id}-${r.factorId}`
-            : `option-change-row-source-${props.id}-${r.factorId}`}
-          title={r.estimated ? OPTION_ROW_ESTIMATE_TITLE : undefined}
-          subject={`${r.fullLabel} target`}
-          onOpenSource={() => openNodeInspector(props.id)}
-          olumiGroupNoun="target value"
-        />
-      </span></>)}
     </dd>
     )
   }

@@ -94,15 +94,20 @@ it('baseline with a concrete target has its own shape and exact words', () => {
   mark(`option-baseline-meta-${node.id}`, 'baseline-option', 'Baseline option')
   expect(document.querySelector('[data-card-mark="baseline-no-changes"]')).toBeNull()
 })
-it('the source button moves into the band with its existing value-specific inspector route', () => {
+// Vision I (23 Oct, spec §2a "a glyph before each figure"): the target's source button LEADS its figure in the row,
+// keeping its value-specific words and inspector route; it is no longer in the band. (Was: "moves into the band".)
+it('the source button leads its figure in the row with its existing value-specific inspector route; the band does not hold it', () => {
   seed({ targets: true })
   const band = screen.getByTestId(`option-bottom-marks-${node.id}`)
   const source = screen.getByTestId(`option-change-row-source-${node.id}-factor`)
   expect(source).toHaveAttribute('data-card-mark', 'source-you')
   expect(source.getAttribute('aria-label')).toContain('Set by you')
   expect(source.querySelector('.lucide-user-check')).not.toBeNull()
-  expect(band.contains(source)).toBe(true)
-  expect(screen.getByTestId(`option-change-row-${node.id}-factor`).contains(source)).toBe(false)
+  expect(band.contains(source)).toBe(false)
+  const dd = screen.getByTestId(`option-change-row-${node.id}-factor`)
+  expect(dd.contains(source)).toBe(true)
+  const figure = screen.getByTestId(`option-change-row-target-${node.id}-factor`)
+  expect(source.compareDocumentPosition(figure) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 })
 
 it('attention and coaching keep their exact words in ONE Olumi badge in the band (vision spec §3); each alone draws the same mark; absent signals are the contrast', () => {

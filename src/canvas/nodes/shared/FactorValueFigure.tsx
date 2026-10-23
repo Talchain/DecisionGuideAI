@@ -40,6 +40,9 @@ import { readoutIsBareModelFigure } from './bareModelFigure'
 // Moved to `bareModelFigure.ts` (a pure rule, kept out of this component's import closure); re-exported for callers.
 export { readoutIsBareModelFigure }
 
+/** Vision spec §2a: Olumi's estimated figure wears a dotted info underline (the brand mark before it names whose). */
+export const OLUMI_ESTIMATE_FIGURE_CLASSES = 'underline decoration-dotted decoration-info underline-offset-2'
+
 export function FactorValueFigure({ readout, parts, nodeId, estimated = false }: {
   /** The card's recorded readout — the one string every affordance shows. */
   readout: string | null
@@ -50,7 +53,7 @@ export function FactorValueFigure({ readout, parts, nodeId, estimated = false }:
   estimated?: boolean
 }) {
   if (readout === null) return null
-  const figureClass = estimated ? 'font-[610] underline decoration-dotted decoration-info underline-offset-2' : 'font-[610]'
+  const figureClass = estimated ? `font-[610] ${OLUMI_ESTIMATE_FIGURE_CLASSES}` : 'font-[610]'
   if (parts === null || factorCardVisibleText(readout, parts) !== joinFactorDisplayParts(parts)) {
     return <strong data-testid={`factor-value-whole-${nodeId}`} data-olumi-estimate={estimated ? 'true' : undefined} className={figureClass}>{readout}</strong>
   }

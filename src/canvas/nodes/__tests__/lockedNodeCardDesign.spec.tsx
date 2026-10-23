@@ -20,6 +20,7 @@ import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixtu
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, fireEvent, cleanup } from '@testing-library/react'
 import { optionCardRows } from './__helpers__/optionPreview'
+import { changeRowValueText } from './__helpers__/optionChangeRowText'
 import { ReactFlowProvider } from '@xyflow/react'
 
 vi.mock('@xyflow/react', async () => {
@@ -530,23 +531,30 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
     const more = within(face('Raise the plan price')).getByTestId('option-change-more-opt-raise')
     expect(more.textContent).toBe('+1 more') // RE-PINNED 30 Sep: three rows now fit, so 4 − 3
     expect(cardRows('opt-raise').getByTestId('option-change-more-opt-raise')).toBe(more)
-    expect(cardRows('opt-raise').getByTestId('option-change-row-opt-raise-fac-price').textContent).toContain('£49 → £59')
+    expect(changeRowValueText(cardRows('opt-raise').getByTestId('option-change-row-opt-raise-fac-price'))).toContain('£49 → £59')
   })
 
-  it('Olumi-chosen targets stay marked (ONE sparkle counting them, Paul 14 Oct); a user-set one is not — the brief row keeps its own mark', () => {
+  // RE-PINNED (vision I, 23 Oct: "a glyph before each figure"; supersedes the 14 Oct one merged sparkle for rows).
+  it('Olumi-chosen targets stay marked (each its own mark before its figure, none merged in the band); a user-set one is not — the brief row keeps its own mark', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
-    // fac-conv and fac-seats are both Olumi's (`cee_hypothesis`): one merged sparkle names both, no per-row copies.
+    // fac-conv and fac-seats are both Olumi's (`cee_hypothesis`): each row carries its own estimate mark; no merged count.
     const raiseBand = within(screen.getByTestId('option-bottom-marks-opt-raise'))
-    expect(raiseBand.getByTestId('node-olumi-mark').getAttribute('aria-label')).toBe('2 target values are Olumi\'s estimates')
-    expect(raiseBand.queryByTestId('option-change-row-estimate-opt-raise-fac-seats')).toBeNull()
-    // Truth stays on the card: the price row carries its own `brief` mark.
-    expect(within(screen.getByTestId('option-bottom-marks-opt-raise')).getByTestId('option-change-row-source-opt-raise-fac-price').getAttribute('data-value-source')).toBe('brief')
+    expect(raiseBand.queryByTestId('node-olumi-mark')).toBeNull()
+    for (const fid of ['fac-conv', 'fac-seats']) {
+      const est = screen.getByTestId(`option-change-row-estimate-opt-raise-${fid}`)
+      expect(raiseBand.queryByTestId(`option-change-row-estimate-opt-raise-${fid}`)).toBeNull()
+      expect(screen.getByTestId(`option-change-row-opt-raise-${fid}`).contains(est)).toBe(true)
+    }
+    // Truth stays on the card: the price row carries its own `brief` mark, in the row.
+    const price = screen.getByTestId('option-change-row-source-opt-raise-fac-price')
+    expect(price.getAttribute('data-value-source')).toBe('brief')
+    expect(screen.getByTestId('option-change-row-opt-raise-fac-price').contains(price)).toBe(true)
     cleanup()
     renderCard(OptionNode as never, 'opt-bundle')
     // Positive control: the user-set row IS on the face, marked as the user's.
-    expect(within(screen.getByTestId('option-bottom-marks-opt-bundle')).getByTestId('option-change-row-source-opt-bundle-fac-seats').getAttribute('data-value-source')).toBe('you')
-    expect(within(screen.getByTestId('option-bottom-marks-opt-bundle')).queryByTestId('option-change-row-estimate-opt-bundle-fac-seats')).toBeNull()
+    expect(screen.getByTestId('option-change-row-opt-bundle-fac-seats').querySelector('[data-testid="option-change-row-source-opt-bundle-fac-seats"]')?.getAttribute('data-value-source')).toBe('you')
+    expect(screen.queryByTestId('option-change-row-estimate-opt-bundle-fac-seats')).toBeNull()
   })
 
   it('⛔ MT-18 → Paul 1 Oct: no BARE numeral at rest — the number shows prefixed ("O1"), at rest and in Detailed', () => {

@@ -44,6 +44,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 
 import { useCanvasStore } from '../../store'
 import { OptionNode } from '../OptionNode'
+import { changeRowValueText } from './__helpers__/optionChangeRowText'
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- ReactFlow's NodeProps needs fields no assertion reads. */
 const baseProps = {
@@ -165,9 +166,10 @@ describe('POM-2 · an internal 0–1 value never prints beside a real unit', () 
     const row = screen.getByTestId('option-change-row-add_99_premium_tier-fac_premium_monthly_price')
     // DL 87114 (#2722): the shared target frame reads CEE's scale_frame (200), so the row
     // shows the user-unit amount the option names (0.495 × 200 = £99), not "Increases".
-    expect(row.textContent).toContain('£0 → £99 / month')
-    expect(row.textContent ?? '').not.toMatch(/0\.495/)
-    expect(row.textContent ?? '').not.toMatch(/GBP/)
+    // Vision I: read the value less the target's author mark, which now leads the target inside the row.
+    expect(changeRowValueText(row)).toContain('£0 → £99 / month')
+    expect(changeRowValueText(row)).not.toMatch(/0\.495/)
+    expect(changeRowValueText(row)).not.toMatch(/GBP/)
     expect(container.textContent ?? '').not.toMatch(/0\.495/)
   })
 })
