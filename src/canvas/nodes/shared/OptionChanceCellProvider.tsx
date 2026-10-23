@@ -7,6 +7,11 @@ export type CanvasOptionChanceCell = OptionChanceCell &
   Pick<OptionResult, 'goalFitBaseCaveat' | 'goalFitIsModelledBasis'> & {
     /** CEE's whole face, for the card's tooltip and accessible name when `text` drops the option's own label. */
     readonly detail?: string
+    /**
+     * CEE's own `display` for a figure or range cell ("about 66%", "less than 1%", "between about 30% and 60%"): the card's
+     * headline (vision spec row 1, 23 Oct), verbatim. Never re-rounded or re-worded; absent for a withheld or no-source cell.
+     */
+    readonly display?: string
   }
 
 /**
@@ -37,7 +42,8 @@ export function OptionChanceCellProvider({ children }: { children: ReactNode }) 
   const servedCellOf = useMemo(() => (optionId: string): CanvasOptionChanceCell => {
     const cell = view?.servedCellOf(optionId) ?? null
     if (cell?.kind === 'figure' || cell?.kind === 'range') {
-      return cell.face === undefined ? { kind: cell.kind, text: cell.display } : { kind: cell.kind, text: faceWithoutOwnLabel(cell.face), detail: cell.face }
+      return cell.face === undefined ? { kind: cell.kind, text: cell.display, display: cell.display }
+        : { kind: cell.kind, text: faceWithoutOwnLabel(cell.face), detail: cell.face, display: cell.display }
     }
     if (cell?.kind === 'withheld' && cell.face !== undefined) {
       return { kind: 'withheld', text: cell.face, ...(cell.why === undefined ? {} : { why: cell.why }) }

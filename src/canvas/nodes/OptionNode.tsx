@@ -4,7 +4,7 @@ import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewSt
 import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 import { Fragment, memo, useMemo, useCallback, useState, type ReactNode } from 'react'
 import type { NodeProps } from '@xyflow/react'
-import { Pencil } from 'lucide-react'
+import { Pencil, Target } from 'lucide-react'
 import Tooltip from '../../components/Tooltip'
 import { CardMark } from './shared/CardMark'
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
@@ -1894,8 +1894,20 @@ export const OptionNode = memo((props: NodeProps) => {
     return cause === 'constraint_verdict_withheld' || cause === 'analysis_out_of_date' ? null : cause
   })
   const shareIsProvisional = !shareIsGoalOnly && shareProvisionalCause !== null
+  // Vision spec row 1 (23 Oct): CEE's whole served sentence, and a withheld cell's own reason, live here (hover and
+  // accessible name) now that the card's line is the headline figure. The caption's currency meaning stays here too.
   const chanceReadoutDescription = chanceText === null ? ''
-    : [`${resultCaption} · ${chanceCell.detail ?? chanceText}`, optionResultCurrencyNote(runCurrency), runCurrency === 'changed' ? OPTION_RESULT_COPY.noNewComparisonNote : null].filter(Boolean).join(' ')
+    : [`${resultCaption} · ${chanceCell.detail ?? chanceText}`, chanceCell.kind === 'withheld' ? chanceCell.why : null, optionResultCurrencyNote(runCurrency), runCurrency === 'changed' ? OPTION_RESULT_COPY.noNewComparisonNote : null].filter(Boolean).join(' ')
+  /**
+   * ⭐ THE CHANCE IS THE HEADLINE (vision spec row 1, 23 Oct): a figure or range cell's line is CEE's own `display`
+   * ("about 66%", "less than 1%", "between about 30% and 60%"), verbatim, at the headline size; the sentence is on hover.
+   * A withheld cell keeps CEE's withheld face at label size. No band: CEE serves no numeric bounds on the card's cell, and
+   * the UI never draws one of its own.
+   */
+  const chanceHeadline = chanceText === null ? null : chanceCell.display ?? null
+  // Vision spec row 2 (23 Oct): "Current model" says nothing the card does not show, so it is retired from the line; its
+  // meaning stays in the description above. "Last run" and "Model result" say something the card does not, so they stay.
+  const resultCaptionOnCard = resultCaption === OPTION_RESULT_COPY.current ? null : resultCaption
 
   /**
    * ⭐ WHICH RUN-DERIVED LINE THE CARD CARRIES — ONE SPELLING, READ BY THE RENDER.
@@ -2614,15 +2626,16 @@ export const OptionNode = memo((props: NodeProps) => {
             (`mt-1`, or `mt-0.5` on the Detailed-only lines), so each gap is
             that block's own top margin and the new adjacency can keep or
             shrink a gap, never widen one. */}
-        {/* The same slot is reserved before and after a Run. Its caption precedes the exact Results
-            chance cell; the full text stays available in the accessible name and focusable tooltip. */}
+        {/* The same slot is reserved before and after a Run, at the headline's line height (vision spec, 23 Oct), so a
+            Run never grows the card. It holds CEE's display as the headline (a "Last run" / "Model result" caption
+            before it); the full served sentence stays available in the accessible name and focusable tooltip. */}
         <div
           data-testid={`option-share-slot-${props.id}`}
-          className={`${typography.edgeLabel} mt-1 h-[1lh] min-w-0 overflow-hidden [container-type:inline-size]`}
+          className={`${typography.nodeHeadline} mt-1 h-[1lh] min-w-0 overflow-hidden [container-type:inline-size]`}
           aria-hidden={chanceText === null && !notAnalysedRenders && !notRankedRenders && takenOutLine === null ? true : undefined}
         >
         {takenOutLine !== null && (
-          <div className="flex h-full min-w-0 items-center whitespace-nowrap" data-testid={`option-taken-out-${props.id}`}>
+          <div className={`${typography.edgeLabel} flex h-full min-w-0 items-center whitespace-nowrap`} data-testid={`option-taken-out-${props.id}`}>
             <span className={`${typography.edgeLabel} text-text-light`}>{takenOutLine}</span>
           </div>
         )}
@@ -2636,14 +2649,22 @@ export const OptionNode = memo((props: NodeProps) => {
               tabIndex={0}
               aria-label={chanceReadoutDescription}
             >
-              <span data-testid={`option-win-anchor-${props.id}`}
-                className={`${typography.edgeLabel} text-text-light shrink-0`}
-                aria-label={resultCaption} aria-description={statusMark?.id === 'last-run' ? statusMark.description : undefined} aria-hidden="true">
-                {resultCaption}
-              </span>
+              {resultCaptionOnCard !== null && (
+                <span data-testid={`option-win-anchor-${props.id}`}
+                  className={`${typography.edgeLabel} text-text-light shrink-0 mr-1.5`}
+                  aria-label={resultCaptionOnCard} aria-description={statusMark?.id === 'last-run' ? statusMark.description : undefined} aria-hidden="true">
+                  {resultCaptionOnCard}
+                </span>
+              )}
+              {/* Review of #2934 (spec §2a `.hl`): a goal-target glyph in goal colour before the figure, so a bare
+                  "about 39%" reads as a chance of meeting the goal, never a win share. Not on a withheld face. */}
+              {chanceHeadline !== null && (
+                <Target data-testid={`option-chance-goal-glyph-${props.id}`} aria-hidden="true" focusable="false"
+                  className="mr-1 h-[1em] w-[1em] shrink-0 text-goal" strokeWidth={2.25} />
+              )}
               <span data-testid={`option-win-readout-${props.id}`}
-                className={`${typography.edgeLabel} text-text-body ml-1.5 min-w-0 truncate`} aria-hidden="true">
-                {chanceText}
+                className={`${chanceHeadline === null ? `${typography.edgeLabel} text-text-body` : `${typography.nodeHeadline} text-text-header`} min-w-0 truncate`} aria-hidden="true">
+                {chanceHeadline ?? chanceText}
               </span>
             </div>
           </Tooltip>
@@ -2666,7 +2687,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 names is in the hover and the screen-reader sentence. */}
         {notAnalysedRenders && (
           <div
-            className="flex h-full min-w-0 flex-nowrap items-center whitespace-nowrap"
+            className={`${typography.edgeLabel} flex h-full min-w-0 flex-nowrap items-center whitespace-nowrap`}
             title={notAnalysedSentence}
             data-testid={`option-not-analysed-${props.id}`}
           >

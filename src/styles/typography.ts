@@ -273,6 +273,9 @@ export const typography = {
   // the fixed-px margins around it did not, which is what made a zoomed-out card read cramped.
   nodeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-[1.5]',
   edgeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-[1.5]',
+  // ⭐ Vision spec (23 Oct, Paul): "chance headline 20 px semibold" — an option card's chance of meeting the goal, CEE's
+  // own display string. Counter-scaled like every canvas token. Not in CANVAS_TYPE_PX: no geometry reserves it by number.
+  nodeHeadline: 'text-[length:calc(20px*var(--canvas-label-scale,1))] font-semibold font-sans leading-[1.2] tabular-nums',
   // ⭐ v3.1 `.prov` — every card SOURCE MARK (`est.`, `brief`, a person's glyph,
   // "no source"): 10px, weight 400, line-height 1. The weight is part of the
   // token on purpose: a mark sits INSIDE a `nodeValue` line (weight 500) and

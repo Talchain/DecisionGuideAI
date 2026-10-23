@@ -69,8 +69,10 @@ describe('WS5 constrained option card chance cell', () => {
     </OptionChanceCellProvider></ReactFlowProvider>)
     const face = screen.getByTestId(`option-win-readout-${a.id}`)
     const row = screen.getByTestId(`option-analysis-currency-${a.id}`)
-    // #2931 (DL 22 Oct): the named card drops the face's own ‘label’: prefix; its accessible name keeps the full face.
-    expect(face.textContent).toBe(lineOf(cellText))
+    // Vision spec row 1 (23 Oct): the card's line is the headline, CEE's own display; its accessible name keeps the full
+    // face. The face must still carry its label prefix (the description is the full served sentence).
+    lineOf(cellText)
+    expect(face.textContent).toBe('about 73%')
     expect(face.textContent).not.toContain(a.label)
     // Currentness is a separate, existing prefix in the row's name.
     expect(row).toHaveAccessibleName(`Current model · ${cellText}`)

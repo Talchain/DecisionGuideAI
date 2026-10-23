@@ -124,8 +124,9 @@ describe('far-zoom card line — row 9', () => {
       facts: { optionResultCaption: 'Current model', winSharesWithheld, optionChanceCell, optionInterventionCount: 2 },
     }).text
   it('⭐ share withheld → the independent Results chance cell, never the share', () => {
-    expect(line(true)).toBe(`Current model · ${chance.text}`)
-    expect(line(true)).toBe(`Current model · ${CHANCE_NOT_SHOWN_YET}`)
+    // Vision spec row 2 (23 Oct): the "Current model" caption is retired from the line; the cell is said alone.
+    expect(line(true)).toBe(chance.text)
+    expect(line(true)).toBe(CHANCE_NOT_SHOWN_YET)
     expect(line(true)).not.toMatch(/\d+%/)
     expect(line(true)).not.toContain('Why?')
     expect(line(true)).not.toContain('of runs')
@@ -134,13 +135,13 @@ describe('far-zoom card line — row 9', () => {
   it('view-bearing control: row 9 preserves the caption and server figure when shares are withheld', () => {
     const cell = optionChanceFixture({ bridge: 41, angel: 29 }, true)('bridge')
     expect(cell.kind).toBe('figure')
-    expect(line(true, cell)).toBe(`Current model · ${cell.text}`)
+    expect(line(true, cell)).toBe(cell.text)
     expect(line(true, cell)).toContain('41%')
     expect(line(true, cell)).not.toContain('80%')
     expect(line(true, cell)).not.toContain('of runs')
   })
   it('CONTROL: share permitted → the same chance cell, still never the share', () => {
-    expect(line(false)).toBe(`Current model · ${chance.text}`)
+    expect(line(false)).toBe(chance.text)
     expect(line(false)).not.toContain('of runs')
     expect(line(false)).not.toContain('80%')
   })

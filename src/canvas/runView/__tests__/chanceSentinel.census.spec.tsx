@@ -106,7 +106,7 @@ import {
   A, B, DISPLAY_A, EDGES, FACE_A, FACE_B, LOW_FACE, SPREAD_NOTE, SHORTFALL_A, FACE_B_SAME, GENERIC_CHANCE_PHRASES, UI_CHANCE_LABELS, type SentinelForm, GRAPH_HASH, LABEL, NODES, RAW, RUN_ID, SENTINELS, SERVED_FIGURES, SQ,
   ONE_IN, SQ_LINE, WHY_A, WHY_B, resetSentinel, seedSentinel, seededForm, sentinelBlock, sentinelHits, sentinelPatterns, sentinelRunDelta,
   BOUNDARY_DISPLAY, BOUNDARY_FACE, BOUNDARY_VARIANTS, sentinelCanonical, sentinelFlipAnalysisBlock, sentinelReport,
-  DISPLAY_B_SAME, LOW_DISPLAY, seedServedRangeState, WITHHELD_FACE, SQ_FACE,
+  DISPLAY_B, DISPLAY_B_SAME, LOW_DISPLAY, seedServedRangeState, WITHHELD_FACE, SQ_FACE,
 } from './helpers/chanceSentinels'
 import { ARIA_ATTRS, exploreSurface, openEveryDisclosure, readSurface, renderedComponentNames, withoutServed } from './helpers/sentinelScan'
 import { readGoalChanceLicence } from '../../../components/results/utils/goalChanceLicence'
@@ -284,12 +284,19 @@ const CARD_FACES_OF: Readonly<Record<Form, readonly string[]>> = {
 }
 
 /**
- * #2931 (DL 22 Oct): the canvas card is already named, so it says each served face without the face's own leading ‘label’:
- * (spelt here, never with the provider's helper, so a regression there turns this RED). Each line is bound to the slot's own
- * "Current model" caption, so the face with its label back ("Current model‘A’: …") does not contain it.
+ * Vision spec rows 1–2 (23 Oct): the canvas card's line is the HEADLINE — CEE's own `display` for a figure or range cell
+ * ("about 64%", "between about 18% and 26%", "less than 1%"), verbatim; a withheld cell keeps CEE's withheld face. The
+ * "Current model" caption is retired from the line (CEE's whole face is the line's hover and accessible name). Spelt here
+ * from the served strings, never with the provider, and each line is bound to its own card's title, so a headline on the
+ * wrong card, or the face's label-prefixed sentence back on the line, does not satisfy it.
  */
-const CANVAS_CARD_LINES_OF = Object.fromEntries(Object.entries(CARD_FACES_OF)
-  .map(([form, faces]) => [form, faces.map(face => `Current model${face.replace(/^‘.+?’: /, '')}`)])) as unknown as Readonly<Record<Form, readonly string[]>>
+const CARD_HEADLINES_OF: Readonly<Record<Form, readonly [string, string, string]>> = {
+  withheld: [WITHHELD_FACE, WITHHELD_FACE, SQ_FACE], licensed: [DISPLAY_A, DISPLAY_B, SQ_FACE],
+  same_bounds: [DISPLAY_A, DISPLAY_B_SAME, SQ_FACE], agreeing_low: [LOW_DISPLAY[A], LOW_DISPLAY[B], LOW_DISPLAY[SQ]],
+  no_words: [DISPLAY_A, DISPLAY_B, SQ_FACE], boundary: [BOUNDARY_DISPLAY[A], BOUNDARY_DISPLAY[B], BOUNDARY_DISPLAY[SQ]],
+}
+const CANVAS_CARD_LINES_OF = Object.fromEntries(Object.entries(CARD_HEADLINES_OF)
+  .map(([form, lines]) => [form, ([A, B, SQ] as const).map((id, i) => `${LABEL[id]}${lines[i]}`)])) as unknown as Readonly<Record<Form, readonly string[]>>
 
 /**
  * Round 2 (DL, restoring what staging said): on the chat card, CEE's own notes on A's chance follow A's served face in A's

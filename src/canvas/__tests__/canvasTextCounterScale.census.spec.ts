@@ -677,7 +677,9 @@ describe('canvas text — counter-scale census (DS v5 §2.3/§2.4)', () => {
     // carries the same `calc(<px>*var(--canvas-label-scale,1))` machinery as its siblings.
     // 29 Sep 2026: + `typography.nodeTitleWide` (contract `.node.wide h3{font-size:14px}`,
     // the Question and Goal title) — the same machinery, one step up from `nodeTitle`'s 13px.
-    expect([...scaled].sort()).toEqual(['typography.edgeLabel', 'typography.nodeLabel', 'typography.nodeMark', 'typography.nodeTitle', 'typography.nodeTitleWide', 'typography.nodeValue'])
+    // 23 Oct 2026: + `typography.nodeHeadline` (vision spec: the option card's chance headline, 20px semibold) — the same
+    // machinery as its siblings.
+    expect([...scaled].sort()).toEqual(['typography.edgeLabel', 'typography.nodeHeadline', 'typography.nodeLabel', 'typography.nodeMark', 'typography.nodeTitle', 'typography.nodeTitleWide', 'typography.nodeValue'])
   })
 
   it('every font size inside the viewport transform is counter-scaled, except the pinned set', () => {

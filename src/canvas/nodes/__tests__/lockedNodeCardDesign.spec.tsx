@@ -573,12 +573,15 @@ describe('Option — the result is model-relative, never "Support" (ED 11:52Z po
     setState({ phase: 'post' })
     setMeta({ 'opt-raise': { winRate: 0.55, isResultsMode: true } })
   }
-  it('current → "Current model" · the Results chance cell, never the runs share', () => {
+  it('current → the Results chance cell, never the runs share; "Current model" only in its hover (vision spec row 2)', () => {
     post()
     setCurrency('current')
     renderCard(OptionNode as never, 'opt-raise')
     const card = face('Raise the plan price')
-    expect(within(card).getByTestId('option-win-anchor-opt-raise').textContent).toBe('Current model')
+    // Vision spec row 2 (23 Oct): the caption is retired from the line, and its meaning stays in the line's accessible name.
+    expect(within(card).queryByTestId('option-win-anchor-opt-raise')).toBeNull()
+    expect(within(card).getByTestId('option-analysis-currency-opt-raise').textContent).not.toContain('Current model')
+    expect(within(card).getByTestId('option-analysis-currency-opt-raise').getAttribute('aria-label')).toBe(`Current model · ${CHANCE_NOT_SHOWN_YET}`)
     expect(within(card).getByTestId('option-win-readout-opt-raise').textContent).toBe(chanceCells('opt-raise').text)
     const chanceFace = within(card).getByTestId('option-win-readout-opt-raise')
     expect(chanceFace.textContent).toBe(CHANCE_NOT_SHOWN_YET)

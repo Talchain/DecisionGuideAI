@@ -597,7 +597,9 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // 27 Sep 2026: 41 -> 42, `chatMeta` (12px) declared here: the AI panel's meta size (Paul: three sizes).
     // 29 Sep 2026: 41 -> 42, `nodeTitleWide` (contract `.node.wide h3{font-size:14px}`) declared
     // here — the Question/Goal title, one step above the 13px `nodeTitle`. Same rule.
-    'src/styles/typography.ts': 42,
+    // 23 Oct 2026: 42 -> 43, `nodeHeadline` (vision spec: "chance headline 20 px semibold") declared here, the option
+    // card's chance headline. Same rule: a token's own declaration is the one legitimate raw size/weight.
+    'src/styles/typography.ts': 43,
     'src/v5/blocks/V5AnalysisResultBlock.tsx': 3, // #2747 re-scope 2: the win-share pill row went (4 → 3)
     'src/v5/blocks/V5CoachingBlock.tsx': 2,
     'src/v5/blocks/V5ComparisonBlock.tsx': 1, // #2747 re-scope 2: the share column went (2 → 1)
@@ -709,7 +711,8 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // 4 Oct 2026: 93 -> 92, WhatChangedChip.tsx's one occurrence leaving with it (see `files` above).
     // 12 Oct 2026 (#2747 re-scope 2): 92 -> 90, a burn-down — the chat card's win-share pill row and the comparison
     // block's share column were deleted (no win share in C). File count unchanged at 23.
-    expect(total).toBe(90)
+    // 23 Oct 2026: 90 -> 91, paired with the `typography.ts` 42 -> 43 above (`nodeHeadline`). File count unchanged at 23.
+    expect(total).toBe(91)
   })
 })
 
