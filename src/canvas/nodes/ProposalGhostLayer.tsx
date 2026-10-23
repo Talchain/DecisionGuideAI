@@ -18,6 +18,7 @@
  */
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ViewportPortal, useEdges, useNodes, useReactFlow, useStore } from '@xyflow/react'
+import { X } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useProposalGhostStore } from '../stores/proposalGhostStore'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -43,6 +44,16 @@ export const PROPOSAL_GHOST_ACTIONS_TESTID = 'proposal-ghost-actions'
 /** The ghost's words when its card holds changes the canvas cannot draw: approval happens only where every one is listed. */
 export const otherChangesText = (n: number): string => `+${n} other change${n === 1 ? '' : 's'}`
 export const REVIEW_ON_THE_CARD = 'Review on the card'
+/**
+ * The ghost's words shrink (vision spec §2c/§3, 23 Oct): approve reads "Add" on a ghost that only adds, dismiss is an
+ * icon, and the other changes are "+N". The full words stay in the accessible name and the tooltip; what each press
+ * sends is unchanged (the reply's own chip).
+ */
+export const GHOST_ADD_WORD = 'Add'
+export const GHOST_DISMISS_WORD = 'Dismiss'
+/** The approve button's accessible name: its visible word first (label in name), then the chip's own words. */
+export const ghostAddName = (chipLabel: string): string =>
+  chipLabel.toLowerCase().startsWith(GHOST_ADD_WORD.toLowerCase()) ? chipLabel : `${GHOST_ADD_WORD}: ${chipLabel}`
 /** Breathing room between the ghost's action row and the panel covering the canvas's right edge (screen px). */
 const GHOST_ACTIONS_DOCK_GAP = 12
 
@@ -52,8 +63,9 @@ function reviewOnTheCard(proposalId: string) {
   requestAnimationFrame(() => document.querySelector(`[data-testid="proposal-change-notes-${proposalId}"]`)?.scrollIntoView({ block: 'center' }))
 }
 
-function GhostActions({ approve, decline, anchor, proposalId, otherChanges }: {
+function GhostActions({ approve, decline, anchor, proposalId, otherChanges, addsOnly }: {
   approve: ActionChip; decline: ActionChip | null; anchor: { x: number; top: number; bottom: number }; proposalId: string; otherChanges?: number
+  addsOnly: boolean
 }) {
   const send = useGuidanceStore((s) => s._sendChip)
   const [pressed, setPressed] = useState(false)
@@ -78,17 +90,24 @@ function GhostActions({ approve, decline, anchor, proposalId, otherChanges }: {
     setPressed(true)
     send(chip.label, chip.message ?? chip.label, { id: chip.id, ...(chip.action_type ? { action_type: chip.action_type } : {}) })
   }
-  const button = (chip: ActionChip, kind: 'primary' | 'secondary') => (
-    <button
-      type="button"
-      data-testid={`${PROPOSAL_GHOST_ACTIONS_TESTID}-${kind === 'primary' ? 'approve' : 'decline'}`}
-      disabled={!send || pressed}
-      onClick={() => press(chip)}
-      className={`${typography.edgeLabel} ${action(kind)} rounded-full px-3 py-1 disabled:opacity-50 ${ACTION_FOCUS}`}
-    >
-      {chip.label}
-    </button>
-  )
+  const button = (chip: ActionChip, kind: 'primary' | 'secondary') => {
+    // Approve on a ghost that only adds reads "Add"; any other change keeps the chip's own words. Dismiss is the X.
+    const short = kind === 'secondary' ? null : addsOnly ? GHOST_ADD_WORD : chip.label
+    const name = kind === 'secondary' ? GHOST_DISMISS_WORD : short === chip.label ? chip.label : ghostAddName(chip.label)
+    return (
+      <button
+        type="button"
+        data-testid={`${PROPOSAL_GHOST_ACTIONS_TESTID}-${kind === 'primary' ? 'approve' : 'decline'}`}
+        disabled={!send || pressed}
+        onClick={() => press(chip)}
+        aria-label={name}
+        title={chip.label}
+        className={`${typography.edgeLabel} ${action(kind)} inline-flex items-center rounded-full ${short === null ? 'p-1' : 'px-3 py-1'} disabled:opacity-50 ${ACTION_FOCUS}`}
+      >
+        {short ?? <X size={12} aria-hidden="true" />}
+      </button>
+    )
+  }
   return (
     <div
       ref={rowRef}
@@ -98,9 +117,15 @@ function GhostActions({ approve, decline, anchor, proposalId, otherChanges }: {
     >
       {/* ⛔ CONSENT (DL 22 Oct): a card that also changes things the canvas cannot draw is approved only on the card. */}
       {otherChanges === undefined ? button(approve, 'primary') : <>
-        {otherChanges > 0 && <span className={`${typography.edgeLabel} text-text-header whitespace-nowrap`} data-testid={`${PROPOSAL_GHOST_ACTIONS_TESTID}-other-changes`}>{otherChangesText(otherChanges)}</span>}
+        {/* "+N" opens the card that lists the other changes; its full words are the name and the tooltip. */}
         <button type="button" data-testid={`${PROPOSAL_GHOST_ACTIONS_TESTID}-review`} onClick={() => reviewOnTheCard(proposalId)}
-          className={`${typography.edgeLabel} ${action('primary')} rounded-full px-3 py-1 ${ACTION_FOCUS}`}>{REVIEW_ON_THE_CARD}</button>
+          aria-label={otherChanges > 0 ? `${otherChangesText(otherChanges)}: ${REVIEW_ON_THE_CARD}` : REVIEW_ON_THE_CARD}
+          title={otherChanges > 0 ? `${otherChangesText(otherChanges)}: ${REVIEW_ON_THE_CARD}` : REVIEW_ON_THE_CARD}
+          className={`${typography.edgeLabel} ${action('primary')} whitespace-nowrap rounded-full px-3 py-1 ${ACTION_FOCUS}`}>
+          {otherChanges > 0
+            ? <span data-testid={`${PROPOSAL_GHOST_ACTIONS_TESTID}-other-changes`}>+{otherChanges}</span>
+            : REVIEW_ON_THE_CARD}
+        </button>
       </>}
       {decline !== null && button(decline, 'secondary')}
     </div>
@@ -314,7 +339,8 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
       </div>
       {chips !== null && ghost !== null && actionsAnchor !== null && (
         <GhostActions key={ghost.proposalId} approve={chips.approve} decline={chips.decline} anchor={actionsAnchor}
-          proposalId={ghost.proposalId} otherChanges={ghost.otherChanges} />
+          proposalId={ghost.proposalId} otherChanges={ghost.otherChanges}
+          addsOnly={ghost.ops.every((o) => o.op === 'add_node' || o.op === 'add_edge')} />
       )}
     </ViewportPortal>
   )

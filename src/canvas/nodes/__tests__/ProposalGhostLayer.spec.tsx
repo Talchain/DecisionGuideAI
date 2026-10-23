@@ -316,8 +316,15 @@ describe('the ghost\'s own Approve / Not now', () => {
     act(() => useProposalGhostStore.getState().showGhost(preview([ADD, TIE]), { approve: APPROVE, decline: DECLINE }))
     render(<ProposalGhostLayer />)
     const approve = screen.getByTestId('proposal-ghost-actions-approve')
-    expect(approve.textContent).toBe('Make this change')
-    expect(screen.getByTestId('proposal-ghost-actions-decline').textContent).toBe('Not now')
+    // Vision §2c: the words shrink — "Add" on a ghost that only adds, dismiss is an icon; the chip's words stay in the name.
+    expect(approve.textContent).toBe('Add')
+    expect(approve.getAttribute('aria-label')).toBe('Add: Make this change')
+    expect(approve.getAttribute('title')).toBe('Make this change')
+    const decline = screen.getByTestId('proposal-ghost-actions-decline')
+    expect(decline.textContent).toBe('')
+    expect(decline.querySelector('svg')).not.toBeNull()
+    expect(decline.getAttribute('aria-label')).toBe('Dismiss')
+    expect(decline.getAttribute('title')).toBe('Not now')
     fireEvent.click(approve)
     fireEvent.click(approve)
     expect(sent).toEqual([['Make this change', 'Yes, make that change.', { id: 'agent-approve-proposal:prop_1' }]])
@@ -340,6 +347,17 @@ describe('the ghost\'s own Approve / Not now', () => {
     act(() => { useGuidanceStore.setState({ _sendChip: null } as never) })
   })
 
+  it('CONTRAST: a ghost that changes rather than adds keeps the chip\'s own words on approve (only an add reads "Add")', () => {
+    rfNodes = NODES
+    act(() => { useGuidanceStore.setState({ _sendChip: () => {} } as never) })
+    act(() => useProposalGhostStore.getState().showGhost(preview([{ op: 'set_link_strength', from_id: 'sprint_capacity_for_ai_reporting', to_id: 'ai_reporting_module_availability', band: 'moderate', keeps: false }]), { approve: APPROVE, decline: DECLINE }))
+    render(<ProposalGhostLayer />)
+    const approve = screen.getByTestId('proposal-ghost-actions-approve')
+    expect(approve.textContent).toBe('Make this change')
+    expect(approve.getAttribute('aria-label')).toBe('Make this change')
+    act(() => { useGuidanceStore.setState({ _sendChip: null } as never) })
+  })
+
   it('Not now sends the reply\'s decline chip', () => {
     rfNodes = NODES
     const sent: unknown[][] = []
@@ -358,13 +376,16 @@ describe('the ghost\'s own Approve / Not now', () => {
     act(() => useProposalGhostStore.getState().showGhost({ ...preview([ADD, TIE]), otherChanges: 2 }, { approve: APPROVE, decline: DECLINE }))
     render(<ProposalGhostLayer />)
     expect(screen.queryByTestId('proposal-ghost-actions-approve')).toBeNull()
-    expect(screen.getByTestId('proposal-ghost-actions-other-changes').textContent).toBe('+2 other changes')
+    // Vision §2c: "+N" is the one button that opens the card listing them; its full words are its name and tooltip.
     const review = screen.getByTestId('proposal-ghost-actions-review')
-    expect(review.textContent).toBe(REVIEW_ON_THE_CARD)
+    expect(review.textContent).toBe('+2')
+    expect(screen.getByTestId('proposal-ghost-actions-other-changes').textContent).toBe('+2')
+    expect(review.getAttribute('aria-label')).toBe('+2 other changes: Review on the card')
+    expect(review.getAttribute('title')).toBe('+2 other changes: Review on the card')
     fireEvent.click(review)
     expect(sent, 'reviewing sends nothing').toEqual([])
     // Declining is still the person's: it writes nothing.
-    expect(screen.getByTestId('proposal-ghost-actions-decline').textContent).toBe('Not now')
+    expect(screen.getByTestId('proposal-ghost-actions-decline').getAttribute('aria-label')).toBe('Dismiss')
     expect(otherChangesText(1)).toBe('+1 other change')
     act(() => { useGuidanceStore.setState({ _sendChip: null } as never) })
   })
@@ -376,6 +397,7 @@ describe('the ghost\'s own Approve / Not now', () => {
     render(<ProposalGhostLayer />)
     expect([...screen.getByTestId('proposal-ghost-actions').children].map((c) => c.getAttribute('data-testid')))
       .toEqual(['proposal-ghost-actions-review', 'proposal-ghost-actions-decline'])
+    expect(screen.getByTestId('proposal-ghost-actions-review').textContent).toBe(REVIEW_ON_THE_CARD)
     act(() => { useGuidanceStore.setState({ _sendChip: null } as never) })
   })
 

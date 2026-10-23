@@ -38,7 +38,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useStore } from '@xyflow/react'
-import { ArrowUp, History, X } from 'lucide-react'
+import { ArrowUp, HelpCircle, History, Info, Lightbulb, MessageCircleQuestion, RefreshCw, Scale, X, type LucideIcon } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { clearOlumiAttention, nodeLabel, type OlumiAttention } from '../utils/olumiAttention'
 import { openAskOlumi } from '../../components/results/coaching/askOlumiStore'
@@ -58,6 +58,19 @@ const MOVE_LABEL: Record<string, string> = {
   calibrate: 'Check',
   reframe: 'Reframe',
 }
+
+/**
+ * The note's header is the Olumi mark and the move's icon, never a word (vision spec §2c, 23 Oct): the move's word is the
+ * icon's name and tooltip. `HelpCircle` is DS v5 §9.7's Challenge icon (the rail's Challenge wears it too).
+ */
+const MOVE_ICON: Record<string, LucideIcon> = {
+  expand: Lightbulb,
+  challenge: HelpCircle,
+  calibrate: Scale,
+  reframe: RefreshCw,
+}
+/** A note with no move that asks the person something: the Question chip (its answer box is right below). */
+const QUESTION_LABEL = 'Question'
 
 /**
  * The label a caveat-only card wears. Deliberately NOT one of the four moves:
@@ -92,7 +105,7 @@ type Box = { readonly x: number; readonly y: number; readonly w: number; readonl
  * fits, else left.
  */
 export function attentionCardSpot(anchor: Box, card: { readonly w: number; readonly h: number }, others: readonly Box[],
-  roomLeft: number, roomRight: number): { left: number; top: number } {
+  roomLeft: number, roomRight: number, roomTop = -Infinity): { left: number; top: number } {
   const right = { left: anchor.x + anchor.w + CARD_GAP, top: anchor.y }
   const left = { left: anchor.x - card.w - CARD_GAP, top: anchor.y }
   const fits = (s: { left: number }) => s.left >= roomLeft && s.left + card.w <= roomRight
@@ -101,13 +114,46 @@ export function attentionCardSpot(anchor: Box, card: { readonly w: number; reado
       * Math.max(0, Math.min(s.top + card.h, o.y + o.h) - Math.max(s.top, o.y)), 0)
   const before = right.left + card.w <= roomRight ? right : left
   if (!(card.h > 0)) return before
-  const spots = [right, left, { left: anchor.x, top: anchor.y + anchor.h + CARD_GAP }, { left: anchor.x, top: anchor.y - card.h - CARD_GAP }]
-  // Strictly less, so the first spot in that order wins a tie, and the first that covers nothing wins outright.
-  return spots.filter(fits).reduce<{ left: number; top: number } | null>(
+  const below = { left: anchor.x, top: anchor.y + anchor.h + CARD_GAP }
+  const above = { left: anchor.x, top: anchor.y - card.h - CARD_GAP }
+  const spots = [right, left, below, above]
+  // ⛔ NEVER OVER A CARD (DL 23 Oct: the "most sensitive" link note covered F5's right edge on a cold reopen): when none
+  // of the four is free, slide each along its side, nearest first, and take the first spot that covers nothing.
+  for (let k = 1; k <= SLIDE_STEPS; k++) {
+    const d = k * SLIDE_PX
+    spots.push(
+      { ...right, top: right.top + d }, { ...right, top: right.top - d }, { ...left, top: left.top + d }, { ...left, top: left.top - d },
+      { ...below, left: below.left + d }, { ...below, left: below.left - d }, { ...above, left: above.left + d }, { ...above, left: above.left - d },
+    )
+  }
+  const room = spots.filter((s) => fits(s) && s.top >= roomTop)
+  const free = room.find((s) => covered(s) === 0)
+  if (free) return free
+  // Nothing free anywhere: the spot that covers least (strictly less, so the earlier, nearer spot wins a tie).
+  return room.reduce<{ left: number; top: number } | null>(
     (best, s) => (best === null || covered(s) < covered(best) ? s : best), null) ?? before
 }
 
+/** How far the note slides along a side looking for a free spot (screen px), and how many steps it tries. */
+const SLIDE_PX = 16
+const SLIDE_STEPS = 24
+
 const OlumiMark = COACHING_ICON_GLYPH.Icon
+
+/**
+ * Every card React Flow has drawn except the anchor, as boxes in the note's own frame (its offset parent). Measured, not
+ * guessed: the store's nodes can lack `measured`, and the 240 × 80 fallback is narrower and shorter than a real card.
+ */
+function drawnCardBoxes(note: HTMLElement | null, anchorId: string): Box[] {
+  const frame = note?.offsetParent?.getBoundingClientRect()
+  if (!note || !frame) return []
+  const flow = note.closest('.react-flow') ?? document
+  return Array.from(flow.querySelectorAll<HTMLElement>('.react-flow__node'))
+    .filter((el) => el.getAttribute('data-id') !== anchorId)
+    .map((el) => el.getBoundingClientRect())
+    .filter((r) => r.width > 0 && r.height > 0)
+    .map((r) => ({ x: r.left - frame.left, y: r.top - frame.top, w: r.width, h: r.height }))
+}
 
 /** A link's anchor, in flow units: the midpoint along its drawn path (where its label sits), else between its cards. */
 function linkMidpoint(edgeId: string): { x: number; y: number } | null {
@@ -202,11 +248,15 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   const roomRight = typeof window === 'undefined' ? Infinity : window.innerWidth - measureDockInset() - CARD_GAP
   const screenBox = (n: { position: { x: number; y: number }; measured?: { width?: number; height?: number } }): Box => ({
     x: n.position.x * zoom + tx, y: n.position.y * zoom + ty, w: (n.measured?.width ?? 240) * zoom, h: (n.measured?.height ?? 80) * zoom })
-  const others = cardHeight > 0 ? nodes.filter((n) => n.id !== anchorId).map((n) => screenBox(n as never)) : []
+  // The cards as drawn (their real rects, in this note's frame); the store's sizes only where the DOM has none (tests).
+  const drawn = cardHeight > 0 ? drawnCardBoxes(cardRef.current, anchorId) : []
+  const others = cardHeight > 0
+    ? (drawn.length > 0 ? drawn : nodes.filter((n) => n.id !== anchorId).map((n) => screenBox(n as never)))
+    : []
   const anchorBox: Box = anchor
     ? { ...screenBox(anchor as never), w: w * zoom }
     : { x: point!.x * zoom + tx, y: point!.y * zoom + ty, w: 0, h: 0 }
-  const { left, top } = attentionCardSpot(anchorBox, { w: CARD_WIDTH, h: cardHeight }, others, 0, roomRight)
+  const { left, top } = attentionCardSpot(anchorBox, { w: CARD_WIDTH, h: cardHeight }, others, 0, roomRight, 0)
 
   const note = attention.note
   const caveat = attention.caveat
@@ -221,6 +271,14 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
     attention.modelVersion !== null &&
     savedModel !== null &&
     savedModel !== attention.modelVersion)
+  // The header's chip: the producer's move, a caveat's disclosure, or a move-less question; else the mark alone.
+  const chip: { Icon: LucideIcon; label: string } | null = !note
+    ? { Icon: Info, label: CAVEAT_LABEL }
+    : note.move
+      ? { Icon: MOVE_ICON[note.move] ?? Info, label: MOVE_LABEL[note.move] ?? note.move }
+      : !viewer && !link && isQuestion(note.body ?? note.title)
+        ? { Icon: MessageCircleQuestion, label: QUESTION_LABEL }
+        : null
 
   return (
     <div
@@ -239,28 +297,34 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
           <OlumiMark size={16} aria-hidden="true" />
           <span className="sr-only">{ATTENTION_CARD_COPY.olumi}</span>
         </span>
+        {/* The move's chip; stale, it becomes the clock (the stale sentence is its name). */}
+        {isStale ? (
+          <span
+            data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-stale`}
+            title={ATTENTION_CARD_COPY.stale}
+            className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-panel-hover text-warning"
+          >
+            <History className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="sr-only">{ATTENTION_CARD_COPY.stale}</span>
+          </span>
+        ) : chip ? (
+          <span
+            data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-move`}
+            title={chip.label}
+            role="img"
+            aria-label={chip.label}
+            className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-info/10 text-info"
+          >
+            <chip.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+        ) : null}
         <span className="min-w-0 flex-1">
-          {note?.move || !note ? (
-            <span className={`${typography.panelMeta} text-text-light block`}>
-              {note ? MOVE_LABEL[note.move!] : CAVEAT_LABEL}
-            </span>
-          ) : null}
           {note?.title ? (
             <span className={`${typography.panelHeader} text-text-header block mt-0.5`}>
               {note.title}
             </span>
           ) : null}
         </span>
-        {isStale ? (
-          <span
-            data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-stale`}
-            title={ATTENTION_CARD_COPY.stale}
-            className="mt-0.5 flex-none text-warning"
-          >
-            <History className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className="sr-only">{ATTENTION_CARD_COPY.stale}</span>
-          </span>
-        ) : null}
         <button
           type="button"
           onClick={dismiss}

@@ -40,6 +40,7 @@ describe('Olumi’s note on the model', () => {
     expect(card().textContent).toContain('Olumi')
     expect(card().textContent).not.toContain('Challenge')
     expect(card().hasAttribute('data-move')).toBe(false)
+    expect(screen.queryByTestId('olumi-attention-card-move'), 'no move, not a question: the mark alone').toBeNull()
   })
 
   it('⭐ a question is answered where it is asked: the person\'s words go to Olumi about this item, and the note steps aside', () => {
@@ -87,10 +88,36 @@ describe('Olumi’s note on the model', () => {
     expect(screen.queryByRole('textbox')).toBeNull()
   })
 
-  it('CONTRAST: a move the producer named is the label', () => {
+  it('CONTRAST: a move the producer named is the header\'s icon chip, its word only in the name and tooltip (vision §2c)', () => {
     hold({ move: 'challenge', title: 'Look here', body: 'This link carries most of the result.' })
     render(<OlumiAttentionCard />)
-    expect(card().textContent).toContain('Challenge')
+    const chip = screen.getByTestId('olumi-attention-card-move')
+    expect(chip.getAttribute('aria-label')).toBe('Challenge')
+    expect(chip.getAttribute('title')).toBe('Challenge')
+    expect(chip.querySelector('svg')).not.toBeNull()
+    expect(card().textContent, 'no header word on the card').not.toContain('Challenge')
+    expect(screen.getByRole('img', { name: 'Challenge' })).toBe(chip)
+  })
+
+  it('⭐ the header never says a word: a move-less question wears the Question chip; a plain note only the mark', () => {
+    hold({ body: 'Which currency is the funding in?' })
+    render(<OlumiAttentionCard />)
+    expect(screen.getByTestId('olumi-attention-card-move').getAttribute('aria-label')).toBe('Question')
+    expect(card().textContent).not.toContain('Question')
+    cleanup()
+    hold({ body: 'New hires usually cost senior time first.' })
+    render(<OlumiAttentionCard />)
+    expect(screen.queryByTestId('olumi-attention-card-move')).toBeNull()
+  })
+
+  it('⭐ stale: the move chip becomes the clock (one chip, never both)', () => {
+    useCanvasStore.setState({ lastServerGraphHash: 'now' } as never)
+    hold({ move: 'calibrate', title: 't', body: 'b' })
+    useCanvasStore.setState({ olumiAttention: { ...useCanvasStore.getState().olumiAttention!, modelVersion: 'then' } })
+    render(<OlumiAttentionCard />)
+    expect(screen.getByTestId('olumi-attention-card-stale').getAttribute('title')).toBe('The model has changed since Olumi said this.')
+    expect(screen.queryByTestId('olumi-attention-card-move')).toBeNull()
+    useCanvasStore.setState({ lastServerGraphHash: null } as never)
   })
 
   it('a plain-string note (the contract’s form) shows just its sentence', () => {
@@ -131,16 +158,29 @@ describe('where the note sits (Paul\'s pre-flight, 22 Oct: on the left it covere
   it('⭐ right runs under the dock and left covers O1 → below the anchor, where nothing is', () => {
     expect(attentionCardSpot(O2, { w: 268, h: 110 }, [O1, F2], 0, 1066)).toEqual({ left: 554, top: 432 })
   })
-  it('⭐ nothing fully free (served café board, 22 Oct): the spot that covers least, never back over O1', () => {
+  it('⭐ none of the four free (served café board, 22 Oct): it slides along a side to a spot over NO card (DL 23 Oct)', () => {
     const question = { x: 256, y: 115, w: 602, h: 85 } // bottom at 200: the spot above O2 touches it by 4px
     const F3 = { x: 554, y: 510, w: 335, h: 100 }
-    expect(attentionCardSpot(O2, { w: 268, h: 110 }, [question, O1, F2, F3], 0, 1066)).toEqual({ left: 554, top: 196 })
+    // Left of O2, slid up 7 × 16px: 208–318 sits between the question (ends 200) and O1 (starts 320).
+    expect(attentionCardSpot(O2, { w: 268, h: 110 }, [question, O1, F2, F3], 0, 1066)).toEqual({ left: 272, top: 208 })
+  })
+  it('⭐ a link note (zero-size anchor) between cards never covers one (staging 276488e2: over F5\'s right edge)', () => {
+    const link = { x: 820, y: 600, w: 0, h: 0 }
+    const F5 = { x: 560, y: 560, w: 280, h: 100 } // left of the link: the left spot covers its right edge
+    const F6 = { x: 860, y: 470, w: 280, h: 100 } // up and right
+    const goal = { x: 400, y: 700, w: 700, h: 90 } // below: the right spot reaches into it
+    // Before: the least-covered of the four, right at (834, 600), over the goal. Now: left, slid up 10 × 16px, over nothing.
+    expect(attentionCardSpot(link, { w: 268, h: 110 }, [F5, F6, goal], 0, 1180)).toEqual({ left: 538, top: 440 })
+  })
+  it('a slid spot never rises above the canvas top (roomTop)', () => {
+    const wallBelow = { x: 0, y: 100, w: 2000, h: 2000 }
+    expect(attentionCardSpot({ x: 400, y: 120, w: 100, h: 50 }, { w: 268, h: 110 }, [wallBelow], 0, 1500, 0).top).toBeGreaterThanOrEqual(0)
   })
   it('CONTRAST: a free spot on the right or left is exactly as before; unmeasured, or all covered alike → as before', () => {
     expect(attentionCardSpot(O1, { w: 268, h: 110 }, [F2], 0, 1066), 'right of O1 is free').toEqual({ left: 527, top: 320 })
     expect(attentionCardSpot(O2, { w: 268, h: 110 }, [F2], 0, 1066), 'left of O2, nothing there').toEqual({ left: 272, top: 320 })
     expect(attentionCardSpot(O2, { w: 268, h: 0 }, [O1, F2], 0, 1066), 'unmeasured').toEqual({ left: 272, top: 320 })
     const wall = { x: 0, y: 0, w: 1100, h: 2000 }
-    expect(attentionCardSpot(O2, { w: 268, h: 110 }, [wall], 0, 1066), 'nothing free').toEqual({ left: 272, top: 320 })
+    expect(attentionCardSpot(O2, { w: 268, h: 110 }, [wall], 0, 1066, 0), 'nothing free').toEqual({ left: 272, top: 320 })
   })
 })
