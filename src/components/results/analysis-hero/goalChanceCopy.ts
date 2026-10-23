@@ -24,14 +24,19 @@ function estimateLinkAttribution(licence: GoalChanceLicence, optionId?: string):
   return `, using Olumi's estimates for ${words} (see Check estimates)`
 }
 
+/** The goal-chance sentence around CEE's own chance words; null with none. Shared by the hero and the view-only slot. */
+export function goalChanceSentence(chanceWords?: string | null): string | null {
+  return chanceWords ? `In this model, on current information, each option’s ${chanceWords}:` : null
+}
+
 export function goalChanceHeadline(licence: GoalChanceLicence, chanceWords?: string | null): string | null {
   // Recovery Batch C (rulings 18 to 22): the Run's licence carries its own words for what the chance is a chance OF (a level,
   // a change from today, several targets); every form is then said as each option's chance, and no summary is composed here.
   // #2747 re-scope 2 round 2 (DL rules C and D): with no served chance words the hero says no goal-chance headline. The c6
   // sentences it composed instead ("has the highest chance of meeting your goal (target): …") put the UI's own target words
   // (a frame read by the UI) around the cells' figures; each option's cell already says its chance in CEE's words.
-  if (!chanceWords) return null
-  const text = `In this model, on current information, each option’s ${chanceWords}:`
+  const text = goalChanceSentence(chanceWords)
+  if (text === null) return null
   const attribution = estimateLinkAttribution(licence)
   return attribution === '' ? text : `${text.slice(0, -1)}${attribution}:`
 }

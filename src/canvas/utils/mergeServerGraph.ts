@@ -109,7 +109,7 @@
  * Three questions, two predicates — deliberately. See the commit block below.
  */
 
-import { useCanvasStore } from '../store'
+import { firstGoalNodeId, useCanvasStore } from '../store'
 import { interventionNumericValue } from '../../utils/interventionValue'
 import { logger } from '../../lib/logger'
 import { canonicalJson } from '../../lib/canonical-hash'
@@ -902,6 +902,12 @@ export function mergeServerGraphOnHydrate(
         ? {
             pendingLayout: !thinLayoutRestored,
             layoutRequestId: useCanvasStore.getState().layoutRequestId + 1,
+            // The goal selection follows the hydrated graph's own goal node, as every full-graph load does
+            // (`deriveGoalContext`). A thin session fills the empty canvas only here, so without it the selection stayed
+            // null and the pre-run panel said "No goal selected" on a model with a goal (DL ruling A, 23 Oct).
+            outcomeNodeId: addedNodes.some((n: any) => n.id === store.outcomeNodeId)
+              ? store.outcomeNodeId
+              : firstGoalNodeId(addedNodes),
           }
         : {}),
     })

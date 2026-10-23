@@ -18,7 +18,7 @@ import { readGoalChanceLicence, goalChanceDriverOf, type GoalChanceDriver, type 
 import { readGoalChanceRange, type GoalChanceRange } from '../../components/results/utils/goalChanceRange'
 import { goalProbabilityWords } from '../../components/results/utils/goalAnchorCopy'
 import type { RunDeltaGoalChanceRow, RunDeltaView } from '../../components/results/analysisNew/runDeltaView'
-import { goalChanceDetailLines } from '../../components/results/analysis-hero/goalChanceCopy'
+import { goalChanceDetailLines, goalChanceSentence } from '../../components/results/analysis-hero/goalChanceCopy'
 import { optionParticipationOf, type OptionParticipationEntry } from '../state/storedOptionParticipation'
 
 /** CEE 1c's ACKed withheld face; DL 87114: static absence, never a derived reason. */
@@ -167,6 +167,10 @@ const EMPTY: RunView = {
  */
 export function licensedGoalChanceDetailLines(...args: Parameters<typeof goalChanceDetailLines>): ReturnType<typeof goalChanceDetailLines> {
   return goalChanceDetailLines(...args)
+}
+/** The goal-chance sentence around this Run's CEE chance words (current matched Run only); null without them. */
+export function runViewGoalChanceSentence(view: RunView): string | null {
+  return goalChanceSentence(view.goalChanceDetail()?.chance_words)
 }
 const cache = new WeakMap<object, { canonical: CanonicalAnalysisView | null; view: RunView }>()
 const canonicalByView = new WeakMap<RunView, CanonicalAnalysisView>()

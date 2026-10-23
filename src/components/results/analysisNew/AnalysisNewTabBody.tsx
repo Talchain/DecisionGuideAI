@@ -50,6 +50,7 @@ import { buildReasoningSignals } from './reasoningSignals'
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import { AlertTriangle, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
+import { useViewOnlyRunChances, ViewOnlyRunChancesBlock } from './ViewOnlyRunChances'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { openModelValueEditor } from '../../../canvas/nodes/shared/openModelValueEditor'
 import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
@@ -1514,10 +1515,15 @@ export function AnalysisNewTabBody({
     />
   )
 
+  /** DL ruling A (23 Oct): a bound, current view-only Run's served words replace this slot's "no result" lines. */
+  const viewOnlyChances = useViewOnlyRunChances()
+  const showViewOnlyChances = viewOnlyChances !== null && !isBusyNow
   /** ⭐ V2 "Draft": the pre-run status block, mounted inside `PreRunCommitment`. */
   const preRunStatus = vm.status.isPreRun ? (
       <div className="space-y-1" data-testid="analysis-new-status-pre-run">
-        {!isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'did_not_run' ? (
+        {showViewOnlyChances ? (
+          <ViewOnlyRunChancesBlock chances={viewOnlyChances} />
+        ) : !isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'did_not_run' ? (
           <p
             className={`${typography.panelBody} text-text-body`}
             data-testid="analysis-new-status-did-not-run"
@@ -1561,7 +1567,7 @@ export function AnalysisNewTabBody({
             stays in every state and describes what the panel is FOR; this
             describes what happened to one run, and only in the state where
             something did. */}
-        {runWaitExhausted ? (
+        {runWaitExhausted && !showViewOnlyChances ? (
           <p className={`${typography.panelMeta} text-text-light`}>
             {COPY.status.waitExhaustedWhy}
           </p>
@@ -1571,7 +1577,7 @@ export function AnalysisNewTabBody({
             says anything to the reader who TRIED and was refused, which on
             a saved model is the common case. Every line below is the run
             gate's own; see `WhyNoAnalysisYet`. */}
-        {isBusyNow ? null : (
+        {isBusyNow || showViewOnlyChances ? null : (
           <WhyNoAnalysisYet
             listing={blockedListing}
             /* ⭐⭐ THE GATE'S SINGLE-BLOCKER SENTENCE, so a refusal that
@@ -2870,8 +2876,9 @@ export function AnalysisNewTabBody({
           <PreRunCommitment
             bullets={buildPreRunCommitmentBullets({
               optionCount: modelStrip.rows.find((r) => r.kind === 'option')?.nodes.length ?? 0,
-              // Run availability; the act itself yields when the footer owns rerun.
-              canRun: !isBusyNow && !runRefusedByGate && Boolean(onReanalyse),
+              // Run availability; the act itself yields when the footer owns rerun. A bound, current view-only Run's
+              // words are on screen (DL ruling A), so "then run the analysis" would say no result exists.
+              canRun: !isBusyNow && !runRefusedByGate && Boolean(onReanalyse) && !showViewOnlyChances,
             })}
             status={preRunStatus}
             onAsk={openAskOlumi}
