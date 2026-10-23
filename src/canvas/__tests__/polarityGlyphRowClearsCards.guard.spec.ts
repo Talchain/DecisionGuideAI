@@ -127,7 +127,7 @@ async function glyphBoxesAtBound(starter: string, width: number) {
       const os = resolveArrivalSlotOnBoard(o.id, o.target, boxes, edges, title, carriesSign)
       keepOuts.push(arrivalHeadKeepOut({ x: handleX + os.dx, y: os.onKindShape ? tgt.y + ENDS.targetDy : tgt.y }, MAX_GLYPH_COUNTER_SCALE))
     }
-    const p = resolvePolarityGlyphOnPath(flattenSvgPath(d)!, metrics, keepOuts)
+    const p = resolvePolarityGlyphOnPath(flattenSvgPath(d)!, tgt.y, metrics, keepOuts)
     glyphs.push({ id: e.id, x0: p.x - half, y0: p.y - half, x1: p.x + half, y1: p.y + half })
   }
   return { glyphs, cards, paths }
