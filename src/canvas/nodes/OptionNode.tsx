@@ -4,7 +4,7 @@ import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewSt
 import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 import { Fragment, memo, useMemo, useCallback, useState, type ReactNode } from 'react'
 import type { NodeProps } from '@xyflow/react'
-import { Pencil } from 'lucide-react'
+import { Pencil, Target } from 'lucide-react'
 import Tooltip from '../../components/Tooltip'
 import { CardMark } from './shared/CardMark'
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
@@ -2655,6 +2655,12 @@ export const OptionNode = memo((props: NodeProps) => {
                   aria-label={resultCaptionOnCard} aria-description={statusMark?.id === 'last-run' ? statusMark.description : undefined} aria-hidden="true">
                   {resultCaptionOnCard}
                 </span>
+              )}
+              {/* Review of #2934 (spec §2a `.hl`): a goal-target glyph in goal colour before the figure, so a bare
+                  "about 39%" reads as a chance of meeting the goal, never a win share. Not on a withheld face. */}
+              {chanceHeadline !== null && (
+                <Target data-testid={`option-chance-goal-glyph-${props.id}`} aria-hidden="true" focusable="false"
+                  className="mr-1 h-[1em] w-[1em] shrink-0 text-goal" strokeWidth={2.25} />
               )}
               <span data-testid={`option-win-readout-${props.id}`}
                 className={`${chanceHeadline === null ? `${typography.edgeLabel} text-text-body` : `${typography.nodeHeadline} text-text-header`} min-w-0 truncate`} aria-hidden="true">

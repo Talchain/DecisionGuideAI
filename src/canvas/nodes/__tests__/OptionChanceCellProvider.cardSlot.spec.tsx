@@ -75,10 +75,18 @@ describe('the card slot says the chance, not the option\'s own name', () => {
     expect(screen.getByTestId('option-win-readout-loyalty_card').textContent).toBe('about 39%')
     const line = screen.getByTestId('option-analysis-currency-loyalty_card')
     expect(line.textContent).toBe('about 39%')
+    // Review of #2934 (spec §2a `.hl`): the goal-target glyph sits immediately before the figure, in goal colour, hidden from
+    // the accessible name (which already carries CEE's sentence).
+    const glyph = screen.getByTestId('option-chance-goal-glyph-loyalty_card')
+    expect(glyph.nextElementSibling).toBe(screen.getByTestId('option-win-readout-loyalty_card'))
+    expect(glyph.getAttribute('aria-hidden')).toBe('true')
+    expect(glyph.getAttribute('class')).toContain('text-goal')
     expect(line.getAttribute('aria-label')).toMatch(/^Current model · ‘Start a loyalty card’: about 39% chance of ‘I want at least 480 customers a week/)
     cleanup()
     card('status_quo')
     expect(screen.getByTestId('option-win-readout-status_quo').textContent).toBe('No change, by assumption')
+    // A withheld face is not a chance of meeting the goal: no glyph before it.
+    expect(screen.queryByTestId('option-chance-goal-glyph-status_quo')).toBeNull()
     expect(screen.getByTestId('option-analysis-currency-status_quo').getAttribute('aria-label'))
       .toContain('No change, by assumption This Run can’t give a chance for carrying on as now')
   })

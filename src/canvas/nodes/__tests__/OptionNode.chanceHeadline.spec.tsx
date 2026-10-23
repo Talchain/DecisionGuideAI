@@ -112,6 +112,8 @@ describe('option card says CEE\'s served cell, verbatim, and nothing of its own'
       // served cell, never the provider); its hover and accessible name keep the full face. A withheld face is said as served.
       const headline = cell?.kind === 'figure' || cell?.kind === 'range' ? cell.display : served
       expect(readout?.textContent).toBe(headline)
+      // Review of #2934: the goal-target glyph marks a figure or range headline, never a withheld face.
+      expect(screen.queryByTestId(`option-chance-goal-glyph-${ID}`) !== null, `glyph for ${kind}`).toBe(kind === 'figure' || kind === 'range')
       expect(readout?.closest('[aria-label]')?.getAttribute('aria-label')).toContain(served)
       // Row 2: "Current model" is retired from the line, never from the hover (its currency meaning stays reachable).
       expect(screen.getByTestId(`option-analysis-currency-${ID}`).textContent).not.toContain('Current model')
