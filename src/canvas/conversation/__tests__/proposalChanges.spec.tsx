@@ -5,8 +5,9 @@
  *   · add:    "Adds ‘label’: after"
  *   · change: "Changes ‘label’: before → after"
  *   · remove: "Removes ‘label’ (was: before)"
- * Olumi's items are marked "Olumi’s"; the person's are not. The summary counts by kind. With no `changes[]` (an older
- * CEE, or a board that is not a program board) the card keeps its change notes as before.
+ * Olumi's items are marked "Olumi’s"; the person's are not. The summary counts by kind, and so does the ghost's "+N".
+ * With no `changes[]` the card keeps today's behaviour: a board that is not a program board shows CEE's notes (row below);
+ * a program board shows their plain heads (#2956, interim until CEE ships `changes[]`: `proposalChangeNotes.program.spec.tsx`).
  *
  * Fixture: the served funding card (CEE b8afd1c2) with `changes[]` in the shape CEE is about to send (values written for
  * these rows; see the fixture's `_source`). Real path: the real `SuggestedChips`, the real saved-graph read for the
@@ -18,6 +19,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 vi.mock('../../../lib/supabase', () => ({ getUserId: async () => null, getSessionIdentity: async () => ({ userId: null, accessToken: null }) }))
 
 import { SuggestedChips } from '../zones/SuggestedChips'
+import { otherChangeCountOf, readProposalFields } from '../proposalFields'
 import { buildSuggestedActionChips } from '../../../v5/blocks/suggestedActionChips'
 import { useCanvasStore } from '../../store'
 import fixture from './fixtures/program-card-changes.json'
@@ -100,15 +102,17 @@ describe('a program card with changes[] lists the substance of every item', () =
   })
 })
 
+describe('the ghost’s "+N" counts the card’s other changes', () => {
+  it('from changes[] when present (14 items); from the notes when absent (13 items)', () => {
+    const { changes: _dropped, ...withoutChanges } = fixture.card
+    const of = (card: Json) => readProposalFields({ version: 1, graph_hash: fixture.graph_hash, proposals: [card] })!.proposals[0]
+    expect(otherChangeCountOf(of(fixture.card))).toBe(14)
+    expect(otherChangeCountOf(of(withoutChanges))).toBe(13)
+  })
+})
+
 describe('no changes[]: the card keeps its change notes as before', () => {
   const { changes: _dropped, ...withoutChanges } = fixture.card
-
-  it('a program board (older CEE): today’s summary, and every note in CEE’s words, whole', async () => {
-    board(true)
-    await mount(withoutChanges)
-    expect(summary()).toBe('Also changes 1 goal, 4 calculations and 8 figures')
-    expect(listed().map((li) => li.textContent)).toEqual(fixture.card.adds.map((a) => a.text))
-  })
 
   it('a board that is not a program board: unchanged', async () => {
     board(false)
