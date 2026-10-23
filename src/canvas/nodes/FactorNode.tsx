@@ -17,7 +17,8 @@ import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput, meaningfulUncertaintyDrivers } from '../utils/observedStateHelpers'
-import { NodeValueEditor } from './shared/NodeValueEditor'
+import { NodeValueEditor, type NodeValueEditorProps } from './shared/NodeValueEditor'
+import { useSavedModelIsProgram } from './shared/savedModelProgram'
 import { factorValueFieldUnit } from './shared/factorValueFieldUnit'
 import { FactorValueFigure, readoutIsBareModelScale } from './shared/FactorValueFigure'
 import { usePendingFactorEditValue } from '../hooks/usePendingFactorEdit'
@@ -380,6 +381,11 @@ export const FactorNode = memo((props: NodeProps) => {
   const valueSourceMark = factorValueSourceMark(cleanedData)
   const servedBasisMark = valueSourceMark?.kind === 'basis' || valueSourceMark?.kind === 'asked' ? valueSourceMark : null
   const ServedBasisGlyph = servedBasisMark ? cardMark(`source-${servedBasisMark.kind}`).Icon : null
+  // An ASKED figure on a program graph (CEE's `value_basis`: "Waiting for your answer") is typed where it is shown, in the
+  // same field and through the same writer as a missing value (DL, 23 Oct). The structure-fixed switches keep theirs.
+  // ⛔ Only where the field reads the figure in its own unit: a program figure is never on the 0–1 model scale, and a
+  // unitless field would refuse "45000" for a £ cost and accept "0.4" as one. The node must carry the quantity's unit.
+  const askedOnProgramGraph = useSavedModelIsProgram() && servedBasisMark?.kind === 'asked' && !valueFieldIsModelScale
   // v3.1 point 1 (DESIGN-GAP-v31 #21): the mark is focusable and opens this
   // factor's source detail — the inspector.
   const openSourceDetail = () => { openNodeInspector(props.id) }
@@ -1253,6 +1259,19 @@ export const FactorNode = memo((props: NodeProps) => {
       <span className={`${typography.edgeLabel} font-normal text-text-light`}>Value not set yet</span>
     </span>
   )
+  /** The field a figure with no value opens: the SAME writer as a value the card holds (`proposeFactorValue` needs none). */
+  const emptyValueField = {
+    value: null,
+    onCommit: ((v, opts) => editAuthority.proposeFactorValue(v, opts)) as NodeValueEditorProps['onCommit'],
+    readCommittedValue: () =>
+      resolveValueInputSeed(useCanvasStore.getState().nodes.find(n => n.id === props.id)?.data).seed ?? null,
+    ...(emptyUnit.prefix ? { prefix: emptyUnit.prefix } : {}),
+    ...(valueFieldIsModelScale
+      ? { min: 0, max: 1, outOfRangeCopy: OPTION_TARGET_ENTRY_REFUSAL.outOfRangeModelScale, scaleHint: FACTOR_VALUE_MODEL_SCALE_HINT }
+      : emptyUnit.suffix ? { scaleHint: emptyUnit.suffix } : {}),
+    testId: `node-value-editor-${props.id}`,
+    restingFlow: 'inline' as const,
+  }
   // Row 10: whole here when the card's one-line driver slot cuts it.
   // The Standard driver slot renders nothing visible (no ranked line, no pre-run
   // line) while a range line follows it: draw the range first (see the slot).
@@ -1495,6 +1514,15 @@ export const FactorNode = memo((props: NodeProps) => {
                   {...(isDetailed ? {} : { restingFlow: 'inline' as const })}
                 />
               </span>
+            ) : cardEditsValue && askedOnProgramGraph ? (
+              <span className="min-w-0">
+                <NodeValueEditor
+                  {...emptyValueField}
+                  readout={<FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />}
+                  ariaLabel={`Value for ${props.data?.label ?? 'this factor'} (waiting for your answer)`}
+                  {...(isDetailed ? { restingFlow: undefined } : {})}
+                />
+              </span>
             ) : (
               <span className={isDetailed ? 'min-w-0 break-words' : 'min-w-0 break-words whitespace-normal'}>
                 <FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />
@@ -1570,18 +1598,9 @@ export const FactorNode = memo((props: NodeProps) => {
                 there is no store node for a value to be written to. */}
             {drawnOnly ? emptyValueReadout : (
               <NodeValueEditor
-                value={null}
+                {...emptyValueField}
                 readout={emptyValueReadout}
-                onCommit={(v, opts) => editAuthority.proposeFactorValue(v, opts)}
-                readCommittedValue={() =>
-                  resolveValueInputSeed(useCanvasStore.getState().nodes.find(n => n.id === props.id)?.data).seed ?? null}
-                {...(emptyUnit.prefix ? { prefix: emptyUnit.prefix } : {})}
-                {...(valueFieldIsModelScale
-                  ? { min: 0, max: 1, outOfRangeCopy: OPTION_TARGET_ENTRY_REFUSAL.outOfRangeModelScale, scaleHint: FACTOR_VALUE_MODEL_SCALE_HINT }
-                  : emptyUnit.suffix ? { scaleHint: emptyUnit.suffix } : {})}
                 ariaLabel={`Value for ${props.data?.label ?? 'this factor'} (needs input)`}
-                testId={`node-value-editor-${props.id}`}
-                restingFlow="inline"
                 restingTypography={typography.edgeLabel}
               />
             )}
