@@ -213,6 +213,7 @@ import { logger } from '../../lib/logger'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 import { displayedProposals } from './proposalFields'
 import { buildRequestIdHeaders, generateRequestId } from '../../types/requestId'
+import { REQUEST_ID_HEADER } from '../../types/requestId'
 import {
   confirmOptimisticFactorEdit,
   describeRebaseDivergence,
@@ -5036,15 +5037,15 @@ export function useConversation(): UseConversationReturn {
         // (contrast control: a fabricated header name returned the IDENTICAL
         // list, proving a fixed server allowlist rather than a reflection).
         deliveryRequestId = generateRequestId()
-        const turnRouteHeaders: Record<string, string> = {
+        const v5Headers: Record<string, string> = {
           ...buildTurnAuthHeaders(v5Identity),
+          ...buildRequestIdHeaders(deliveryRequestId),
           ...aiComparisonHeaders(),
         }
-        inFlightTurnRouteHeadersRef.current = turnRouteHeaders
-        const v5Headers: Record<string, string> = {
-          ...turnRouteHeaders,
-          ...buildRequestIdHeaders(deliveryRequestId),
-        }
+        // Its Stop reuses this turn's route + auth headers; the per-send request id stays this send's own.
+        inFlightTurnRouteHeadersRef.current = Object.fromEntries(
+          Object.entries(v5Headers).filter(([name]) => name !== REQUEST_ID_HEADER),
+        )
 
         // ═══════════════════════════════════════════════════════════════════
         // ROADMAP 2.122 / 1.204 M1 — THE STREAMED COLD DRAFT

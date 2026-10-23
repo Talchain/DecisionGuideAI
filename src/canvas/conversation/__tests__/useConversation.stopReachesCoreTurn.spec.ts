@@ -64,6 +64,7 @@ describe('Stop on a core-route turn', () => {
     expect(stopHeaders['x-olumi-ai-mode'], 'a header-less stop is routed to the orchestrator, not this core turn').toBe('core-route')
     expect(stopHeaders.Authorization).toBe('Bearer access-token-stop-1')
     expect(stopHeaders['X-User-Id']).toBe('user-stop-1')
+    expect(stopHeaders['X-Request-Id'], 'the turn\'s per-send request id is not reused for the stop').toBeUndefined()
     expect(JSON.parse(String(stopInit.body))).toEqual({ scenario_id: SCENARIO, turn_id: turnBody.turn_id })
     expect(turnBody.scenario_id).toBe(SCENARIO)
     expect(result.current.isThinking, 'the panel left the thinking state').toBe(false)
