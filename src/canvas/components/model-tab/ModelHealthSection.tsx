@@ -100,6 +100,8 @@ interface ModelHealthSectionProps {
   edgeCount?: number
   /** Number of factors needing verification */
   factorsToVerify?: number
+  /** A program board showing its bound, current Run's result (DL, 23 Oct): the card makes no "Run analysis" promise. */
+  runResultShown?: boolean
   /** Controlled expansion state */
   isExpanded?: boolean
   /** Callback when expansion state changes */
@@ -189,6 +191,7 @@ function ModelHealthSectionInner({
   factorCount,
   edgeCount,
   factorsToVerify,
+  runResultShown = false,
   isExpanded,
   onExpandChange,
   onHandOffToOlumi,
@@ -472,9 +475,11 @@ function ModelHealthSectionInner({
               Reinstating "stability" here requires PLoT to start emitting an
               independent stability measure — not a relabelled win probability.
             */}
-            <p className={`${typography.panelMeta} text-text-light mt-1`}>
-              Run analysis to see confidence and reproducibility data
-            </p>
+            {!runResultShown && (
+              <p className={`${typography.panelMeta} text-text-light mt-1`}>
+                Run analysis to see confidence and reproducibility data
+              </p>
+            )}
           </div>
         )}
 
