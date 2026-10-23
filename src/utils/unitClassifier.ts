@@ -183,7 +183,8 @@ export interface CompactUnitParts {
 }
 
 /** `<head> per <period>` or `<head>/<period>` — a single-word period. */
-const COMPOUND_RATE_UNIT = /^(.+?)(\s*\/\s*|\s+per\s+)([A-Za-z]+)$/i
+// A per-word may join its words with underscores (`GBP/tech_lead`, a program unit); it reads with spaces (`unitWords`).
+const COMPOUND_RATE_UNIT = /^(.+?)(\s*\/\s*|\s+per\s+)([A-Za-z]+(?:_[A-Za-z]+)*)$/i
 /**
  * A rate's head that is money per ONE thing: `GBP per subscriber`, `£/subscriber`, and (R3 #72 5888087172, served on
  * a C-brief draft) a thing of up to three words: `£/Pro subscriber`. Words only — `GBP per 1000 users` stays unread.
@@ -257,7 +258,7 @@ export function compactUnitParts(figure: string, unit: string | null | undefined
   if (!rate) return null
   const head = rate[1].trim()
   const slashed = rate[2].includes('/')
-  const period = rate[3]
+  const period = unitWords(rate[3])
   const negative = figure.trim().startsWith('-')
   if (/\/|\bper\b/i.test(head)) {
     // Money per a thing: `GBP per subscriber` → `£49` + `per subscriber / month`.
@@ -326,7 +327,7 @@ function currencyHeadParts(figure: string, unit: string): CompactUnitParts | und
     const restHead = restRate[1].trim()
     if (/\/|\bper\b/i.test(restHead)) return undefined
     if (restRate[2].includes('/')) return { figure: `${glyph}${figure}`, unit: rest }
-    return { figure: `${glyph}${figure}`, unit: `${restHead} / ${restRate[3]}` }
+    return { figure: `${glyph}${figure}`, unit: `${restHead} / ${unitWords(restRate[3])}` }
   }
   if (/\/|\bper\b/i.test(rest)) return undefined
   return { figure: `${glyph}${figure}`, unit: rest }
@@ -354,7 +355,7 @@ function percentHeadParts(figure: string, unit: string): CompactUnitParts | unde
     const restHead = restRate[1].trim()
     if (/\/|\bper\b/i.test(restHead)) return undefined
     if (restRate[2].includes('/')) return { figure: sign, unit: rest }
-    return { figure: sign, unit: `${restHead} / ${restRate[3]}` }
+    return { figure: sign, unit: `${restHead} / ${unitWords(restRate[3])}` }
   }
   if (/\/|\bper\b/i.test(rest)) return undefined
   return { figure: sign, unit: rest }
@@ -539,6 +540,18 @@ export function classifyUnit(unit: string | null | undefined): { kind: UnitClass
  * set; it does not earn a new branch in a formatter.
  */
 export const BARE_MAGNITUDE_UNITS: ReadonlySet<string> = new Set(['count'])
+
+/**
+ * A unit as the reader sees it — DISPLAY ONLY, never compared or converted (DL, 23 Oct; program units): the
+ * dimensionless `1` says nothing (""), `1/<thing>` reads "per <thing>", and an underscore reads as a space
+ * (`tech_lead` → "tech lead"). Every other unit is returned as given.
+ */
+export function unitWords(unit: string | null | undefined): string {
+  const trimmed = (unit ?? '').trim()
+  if (trimmed === '1') return ''
+  const perOne = /^1\s*\/\s*(\S.*)$/.exec(trimmed)
+  return (perOne ? `per ${perOne[1]}` : trimmed).replace(/_/g, ' ')
+}
 
 /**
  * ⭐⭐ THE ONE ANSWER TO "DOES THIS UNIT CONTRIBUTE A WORD THE READER SHOULD SEE?"

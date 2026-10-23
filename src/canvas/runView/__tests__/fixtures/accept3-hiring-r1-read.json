@@ -1,0 +1,961 @@
+{
+ "_source": "served staging read, S3 batch-3 accept3/spike/hiring-r1.read.json (23 Oct); trimmed to nodes, edges, model_program and canonical quantities",
+ "schema": "scenario_graph.v1",
+ "scenario_id": "cd818dba-8712-4622-b4c8-459c9143b141",
+ "graph_present": true,
+ "graph_hash": "7c7774fb833d0677",
+ "graph": {
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "kind": "decision",
+    "label": "Should I hire a Tech lead or two developers to increase productivity by at least 10% by the launch in three months, while maintaining code quality and staying within £200,000?"
+   },
+   {
+    "id": "increase_productivity",
+    "kind": "goal",
+    "label": "increase productivity by at least 10%",
+    "provenance": "from_brief",
+    "source_quote": "Should I hire a Tech lead or two developers to increase productivity by at least 10%, while maintaining code quality?",
+    "analysis_participation": "included",
+    "goal_direction": ">=",
+    "goal_threshold_frame": "change_rel",
+    "quantity_frame": "level",
+    "goal_threshold_unit": "1",
+    "display_value": ">= 10 %",
+    "goal_threshold_raw": 0.1,
+    "threshold_source": "brief_extraction"
+   },
+   {
+    "id": "hire_tech_lead",
+    "kind": "option",
+    "label": "Tech lead",
+    "provenance": "from_brief",
+    "source_quote": "Should I hire a Tech lead or two developers to increase productivity by at least 10%, while maintaining code quality?",
+    "analysis_participation": "included",
+    "interventions": {
+     "tech_leads_added": {
+      "value": 1,
+      "unit": "tech_lead",
+      "display": "1 tech_lead",
+      "from_period": 0,
+      "source": "brief_extraction",
+      "source_words": "Set by ‘Tech lead’, from your brief"
+     }
+    }
+   },
+   {
+    "id": "hire_two_developers",
+    "kind": "option",
+    "label": "two developers",
+    "provenance": "from_brief",
+    "source_quote": "Should I hire a Tech lead or two developers to increase productivity by at least 10%, while maintaining code quality?",
+    "analysis_participation": "included",
+    "interventions": {
+     "developers_added": {
+      "value": 2,
+      "unit": "developer",
+      "display": "2 developer",
+      "from_period": 0,
+      "source": "brief_extraction",
+      "source_words": "Set by ‘two developers’, from your brief"
+     }
+    }
+   },
+   {
+    "id": "current_developers",
+    "kind": "factor",
+    "label": "Current mid-weight developers",
+    "provenance": "from_brief",
+    "source_quote": "We currently have six mid-weight developers, so we're lacking leadership.",
+    "analysis_participation": "included",
+    "category": "observable",
+    "observed_state": {
+     "value": 6,
+     "raw_value": 6,
+     "unit": "developer",
+     "source": "brief_extraction",
+     "extractionType": "explicit"
+    },
+    "display_value": "6 developer"
+   },
+   {
+    "id": "baseline_productivity",
+    "kind": "factor",
+    "label": "Current team productivity index",
+    "analysis_participation": "included",
+    "category": "observable",
+    "observed_state": {
+     "value": 1,
+     "raw_value": 1,
+     "unit": "1"
+    },
+    "display_value": "1",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "description": "Current team productivity is the reference index of one, not an estimate of its absolute output."
+   },
+   {
+    "id": "tech_leads_added",
+    "kind": "factor",
+    "label": "Tech leads hired",
+    "analysis_participation": "included",
+    "category": "controllable",
+    "observed_state": {
+     "value": 0,
+     "raw_value": 0,
+     "unit": "tech_lead"
+    },
+    "display_value": "0 tech_lead",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "description": "Zero switches the proposed Tech lead hire off before an option is applied."
+   },
+   {
+    "id": "developers_added",
+    "kind": "factor",
+    "label": "Additional developers hired",
+    "analysis_participation": "included",
+    "category": "controllable",
+    "observed_state": {
+     "value": 0,
+     "raw_value": 0,
+     "unit": "developer"
+    },
+    "display_value": "0 developer",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "description": "Zero switches the proposed developer hires off before an option is applied."
+   },
+   {
+    "id": "new_developer_relative_output",
+    "kind": "factor",
+    "label": "Net output of a new developer relative to a current developer by launch",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "category": "observable",
+    "observed_state": {
+     "value": 0.55,
+     "raw_value": 0.55,
+     "unit": "1",
+     "source": "cee_inference",
+     "extractionType": "inferred",
+     "range": {
+      "low": -0.2,
+      "high": 1
+     }
+    },
+    "display_value": "about 0.55, -0.2–1, Olumi's estimate; Olumi reads it as a spread around 0.55 (sd 0.3464), provisionally",
+    "description": "Over three months, a new developer may approach an existing developer's output or consume more onboarding time than they contribute, especially without leadership; this provisional range includes that net effect."
+   },
+   {
+    "id": "developer_productivity_gain",
+    "kind": "outcome",
+    "label": "Team productivity gain per additional developer by launch",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Net output of a new developer relative to a current developer by launch and Current mid-weight developers",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "new_developer_relative_output",
+      "current_developers"
+     ],
+     "words": "Worked out from Net output of a new developer relative to a current developer by launch and Current mid-weight developers"
+    }
+   },
+   {
+    "id": "productivity",
+    "kind": "outcome",
+    "label": "Team productivity index",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Current team productivity index, Tech leads hired and Additional developers hired",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "baseline_productivity",
+      "tech_leads_added",
+      "developers_added"
+     ],
+     "words": "Worked out from Current team productivity index, Tech leads hired and Additional developers hired"
+    }
+   },
+   {
+    "id": "tech_lead_cost_per_hire",
+    "kind": "factor",
+    "label": "Tech lead cost charged against the budget",
+    "provenance": "from_brief",
+    "source_quote": "About £135,000–£155,000 all-in for the first year.",
+    "analysis_participation": "included",
+    "category": "observable",
+    "observed_state": {
+     "value": 145000,
+     "raw_value": 145000,
+     "unit": "GBP/tech_lead",
+     "source": "user_override",
+     "range": {
+      "low": 135000,
+      "high": 155000
+     }
+    },
+    "display_value": "135,000–155,000 GBP/tech_lead; Olumi reads it as a spread around 145,000 (sd 5774), provisionally"
+   },
+   {
+    "id": "developer_cost_per_hire",
+    "kind": "factor",
+    "label": "Cost per additional developer charged against the budget",
+    "provenance": "from_brief",
+    "source_quote": "About £85,000–£95,000 each all-in for the first year, so £170,000–£190,000 together.",
+    "analysis_participation": "included",
+    "category": "observable",
+    "observed_state": {
+     "value": 90000,
+     "raw_value": 90000,
+     "unit": "GBP/developer",
+     "source": "user_override",
+     "range": {
+      "low": 85000,
+      "high": 95000
+     }
+    },
+    "display_value": "85,000–95,000 GBP/developer; Olumi reads it as a spread around 90,000 (sd 2887), provisionally"
+   },
+   {
+    "id": "tech_lead_spend",
+    "kind": "outcome",
+    "label": "Tech lead hiring spend",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Tech leads hired and Tech lead cost charged against the budget",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "tech_leads_added",
+      "tech_lead_cost_per_hire"
+     ],
+     "words": "Worked out from Tech leads hired and Tech lead cost charged against the budget"
+    }
+   },
+   {
+    "id": "developer_spend",
+    "kind": "outcome",
+    "label": "Additional developer hiring spend",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Additional developers hired and Cost per additional developer charged against the budget",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "developers_added",
+      "developer_cost_per_hire"
+     ],
+     "words": "Worked out from Additional developers hired and Cost per additional developer charged against the budget"
+    }
+   },
+   {
+    "id": "hiring_spend",
+    "kind": "outcome",
+    "label": "Total hiring spend against the budget",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Tech lead hiring spend and Additional developer hiring spend",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "tech_lead_spend",
+      "developer_spend"
+     ],
+     "words": "Worked out from Tech lead hiring spend and Additional developer hiring spend"
+    }
+   },
+   {
+    "id": "mp:limit:maintain_code_quality",
+    "kind": "action",
+    "label": "Limit: maintaining code quality",
+    "description": "maintaining code quality (no measure yet, so the result does not cover it).",
+    "provenance": "from_brief",
+    "source_quote": "while maintaining code quality",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "prefer_lower_spend",
+    "kind": "action",
+    "label": "Preference: lower Total hiring spend against the budget",
+    "description": "Would like Total hiring spend against the budget lower. Shown beside the result; not a goal or a limit.",
+    "provenance": "from_brief",
+    "source_quote": "we'd like to spend less.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "leadership_gap",
+    "kind": "action",
+    "label": "Claim: The current team lacks leadership.",
+    "description": "The current team lacks leadership.",
+    "provenance": "from_brief",
+    "source_quote": "We currently have six mid-weight developers, so we're lacking leadership.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "urgent_launch",
+    "kind": "action",
+    "label": "Claim: The launch date is urgent and within the next three months.",
+    "description": "The launch date is urgent and within the next three months.",
+    "provenance": "from_brief",
+    "source_quote": "We have an urgent launch date in the next three months.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "unchanged_baseline",
+    "kind": "action",
+    "label": "Assumption: Without either hire, team productivity stays at its current level through the l…",
+    "description": "Without either hire, team productivity stays at its current level through the launch window.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "launch_deadline_reading",
+    "kind": "action",
+    "label": "Assumption: The productivity improvement is assessed at the end of three months; an earlier…",
+    "description": "The productivity improvement is assessed at the end of three months; an earlier launch would require a shorter window.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "early_hiring",
+    "kind": "action",
+    "label": "Assumption: Both options assume hires can start promptly; the coefficients represent net pr…",
+    "description": "Both options assume hires can start promptly; the coefficients represent net productivity at launch after onboarding, not an immediate gain or cumulative output over three months.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "comparable_output",
+    "kind": "action",
+    "label": "Assumption: Productivity means total team output on comparable work; additional developers'…",
+    "description": "Productivity means total team output on comparable work; additional developers' net contributions are additive and scaled against the six current developers.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "quality_not_quantified",
+    "kind": "action",
+    "label": "Left out: Maintaining code quality is not covered by the productivity calculation.",
+    "description": "Maintaining code quality is not covered by the productivity calculation. Why: No code-quality measure or acceptable threshold was supplied.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "launch_delivery_not_modelled",
+    "kind": "action",
+    "label": "Left out: A productivity increase does not establish whether the urgent launch date will …",
+    "description": "A productivity increase does not establish whether the urgent launch date will be met. Why: Remaining launch work and delivery dependencies were not supplied.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "hiring_delays_not_modelled",
+    "kind": "action",
+    "label": "Left out: Different recruitment delays for a Tech lead and two developers are not modelle…",
+    "description": "Different recruitment delays for a Tech lead and two developers are not modelled. Why: The comparison assumes prompt starts rather than inventing recruitment dates.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   }
+  ],
+  "edges": [
+   {
+    "from": "productivity",
+    "to": "increase_productivity",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "brief_extraction",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "productivity__increase_productivity"
+   },
+   {
+    "from": "mp:decision",
+    "to": "hire_tech_lead",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "origin": "model_program:calculation",
+    "id": "mp:decision__hire_tech_lead"
+   },
+   {
+    "from": "hire_tech_lead",
+    "to": "tech_leads_added",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "origin": "model_program:calculation",
+    "id": "hire_tech_lead__tech_leads_added"
+   },
+   {
+    "from": "mp:decision",
+    "to": "hire_two_developers",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "origin": "model_program:calculation",
+    "id": "mp:decision__hire_two_developers"
+   },
+   {
+    "from": "hire_two_developers",
+    "to": "developers_added",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "origin": "model_program:calculation",
+    "id": "hire_two_developers__developers_added"
+   },
+   {
+    "from": "new_developer_relative_output",
+    "to": "developer_productivity_gain",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "new_developer_relative_output__developer_productivity_gain"
+   },
+   {
+    "from": "current_developers",
+    "to": "developer_productivity_gain",
+    "strength": {
+     "mean": -1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "negative",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "divided by",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "current_developers__developer_productivity_gain"
+   },
+   {
+    "from": "baseline_productivity",
+    "to": "productivity",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "base level",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "baseline_productivity__productivity"
+   },
+   {
+    "from": "tech_leads_added",
+    "to": "productivity",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "about 0.15, -0.1–0.35 1/tech_lead, Olumi's estimate; Olumi reads it as a spread around 0.15 (sd 0.1299), provisionally per tech_lead; its direction is not settled",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 0.15,
+      "amount_unit": "1",
+      "per_source_change": 1,
+      "per_source_change_unit": "tech_lead",
+      "strength_mean": 1,
+      "strength_mean_frame": "edge_strength",
+      "stated_range": {
+       "low": -0.1,
+       "high": 0.35,
+       "text": "-0.1–0.35",
+       "end": "centre"
+      }
+     }
+    },
+    "origin": "model_program:calculation",
+    "coefficient_id": "tech_lead_productivity_gain",
+    "id": "tech_leads_added__productivity"
+   },
+   {
+    "from": "developers_added",
+    "to": "productivity",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "Worked out from Net output of a new developer relative to a current developer by launch and Current mid-weight developers per developer; its size is not given yet",
+     "magnitude": "olumi_estimate"
+    },
+    "origin": "model_program:calculation",
+    "coefficient_id": "developer_productivity_gain",
+    "id": "developers_added__productivity"
+   },
+   {
+    "from": "tech_leads_added",
+    "to": "tech_lead_spend",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "tech_leads_added__tech_lead_spend"
+   },
+   {
+    "from": "tech_lead_cost_per_hire",
+    "to": "tech_lead_spend",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "tech_lead_cost_per_hire__tech_lead_spend"
+   },
+   {
+    "from": "developers_added",
+    "to": "developer_spend",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "developers_added__developer_spend"
+   },
+   {
+    "from": "developer_cost_per_hire",
+    "to": "developer_spend",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "developer_cost_per_hire__developer_spend"
+   },
+   {
+    "from": "tech_lead_spend",
+    "to": "hiring_spend",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "tech_lead_spend__hiring_spend"
+   },
+   {
+    "from": "developer_spend",
+    "to": "hiring_spend",
+    "strength": {
+     "mean": 1,
+     "std": 0.001
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "origin": "model_program:calculation",
+    "id": "developer_spend__hiring_spend"
+   }
+  ],
+  "goal_constraints": [
+   {
+    "constraint_id": "stay_within_budget",
+    "node_id": "hiring_spend",
+    "operator": "<=",
+    "value": 200000,
+    "label": "Our budget is £200,000",
+    "unit": "GBP",
+    "source_quote": "Our budget is £200,000, but we'd like to spend less.",
+    "provenance": "explicit"
+   }
+  ],
+  "living_model": {
+   "model_program": "v1",
+   "canonical": {
+    "version": "canonical.v1",
+    "quantities": [
+     {
+      "id": "current_developers",
+      "label": "Current mid-weight developers",
+      "unit": "developer",
+      "value": 6,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": null,
+      "author": "person",
+      "party": null,
+      "quote": "We currently have six mid-weight developers, so we're lacking leadership.",
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "launch_window",
+      "label": "Time available before launch",
+      "unit": "month",
+      "value": 3,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": null,
+      "author": "person",
+      "party": null,
+      "quote": "We have an urgent launch date in the next three months.",
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "budget",
+      "label": "Hiring budget",
+      "unit": "GBP",
+      "value": 200000,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": null,
+      "author": "person",
+      "party": null,
+      "quote": "Our budget is £200,000, but we'd like to spend less.",
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "productivity_target",
+      "label": "Minimum productivity increase",
+      "unit": "%",
+      "value": 10,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": null,
+      "author": "person",
+      "party": null,
+      "quote": "increase productivity by at least 10%",
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "baseline_productivity",
+      "label": "Current team productivity index",
+      "unit": "1",
+      "value": 1,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": "Current team productivity is the reference index of one, not an estimate of its absolute output.",
+      "author": "structure",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "tech_leads_added",
+      "label": "Tech leads hired",
+      "unit": "tech_lead",
+      "value": 0,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": "Zero switches the proposed Tech lead hire off before an option is applied.",
+      "author": "structure",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "developers_added",
+      "label": "Additional developers hired",
+      "unit": "developer",
+      "value": 0,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": "Zero switches the proposed developer hires off before an option is applied.",
+      "author": "structure",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "tech_lead_productivity_gain",
+      "label": "Team productivity gain per Tech lead by launch",
+      "unit": "1/tech_lead",
+      "value": 0.15,
+      "low": -0.1,
+      "high": 0.35,
+      "range_kind": "plausible",
+      "kind": "coefficient",
+      "status": "estimated",
+      "question": null,
+      "basis": "An early-starting lead could unblock a team lacking leadership, but onboarding and process changes could initially reduce output; this is a broad provisional estimate, not measured evidence.",
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "new_developer_relative_output",
+      "label": "Net output of a new developer relative to a current developer by launch",
+      "unit": "1",
+      "value": 0.55,
+      "low": -0.2,
+      "high": 1,
+      "range_kind": "plausible",
+      "kind": "coefficient",
+      "status": "estimated",
+      "question": null,
+      "basis": "Over three months, a new developer may approach an existing developer's output or consume more onboarding time than they contribute, especially without leadership; this provisional range includes that net effect.",
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "developer_productivity_gain",
+      "label": "Team productivity gain per additional developer by launch",
+      "unit": "1/developer",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "coefficient",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "productivity",
+      "label": "Team productivity index",
+      "unit": "1",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "tech_lead_cost_per_hire",
+      "label": "Tech lead cost charged against the budget",
+      "unit": "GBP/tech_lead",
+      "value": null,
+      "low": 135000,
+      "high": 155000,
+      "range_kind": "plausible",
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": null,
+      "author": "person",
+      "party": null,
+      "quote": "About £135,000–£155,000 all-in for the first year.",
+      "approval": "approved",
+      "author_id": null
+     },
+     {
+      "id": "developer_cost_per_hire",
+      "label": "Cost per additional developer charged against the budget",
+      "unit": "GBP/developer",
+      "value": null,
+      "low": 85000,
+      "high": 95000,
+      "range_kind": "plausible",
+      "kind": "fact",
+      "status": "known",
+      "question": null,
+      "basis": null,
+      "author": "person",
+      "party": null,
+      "quote": "About £85,000–£95,000 each all-in for the first year, so £170,000–£190,000 together.",
+      "approval": "approved",
+      "author_id": null
+     },
+     {
+      "id": "tech_lead_spend",
+      "label": "Tech lead hiring spend",
+      "unit": "GBP",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "developer_spend",
+      "label": "Additional developer hiring spend",
+      "unit": "GBP",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "hiring_spend",
+      "label": "Total hiring spend against the budget",
+      "unit": "GBP",
+      "value": null,
+      "low": null,
+      "high": null,
+      "range_kind": null,
+      "kind": "derived",
+      "status": "derived",
+      "question": null,
+      "basis": null,
+      "author": "olumi",
+      "party": null,
+      "quote": null,
+      "approval": "proposed",
+      "author_id": null
+     }
+    ]
+   }
+  }
+ }
+}
