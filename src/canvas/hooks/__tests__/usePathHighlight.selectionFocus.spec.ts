@@ -56,7 +56,7 @@ describe('usePathHighlight — 6A selection focus', () => {
 
   // ── The graph used by most cases ────────────────────────────────────────
   //
-  //   far_a ── far_e1 ──> far_b            (an unrelated pair, must dim)
+  //   far_a ── far_e1 ──> far_b            (an unrelated pair: stays at rest, nothing dims)
   //
   //   nbr_in ──e_in──> SUBJECT ──e_out──> nbr_out
   //
@@ -76,7 +76,7 @@ describe('usePathHighlight — 6A selection focus', () => {
   })
 
   describe('no goal node (drafts, imported graphs)', () => {
-    it('dims unrelated nodes while keeping the selection and its direct neighbours prominent', () => {
+    it('⛔ dims no card: the unrelated pair stays at rest (vision §3 PR H, "Nothing dims")', () => {
       const { nodes, edges } = neighbourhoodGraph()
       useCanvasStore.setState({
         nodes,
@@ -88,12 +88,12 @@ describe('usePathHighlight — 6A selection focus', () => {
 
       renderHook(() => usePathHighlight())
 
-      // The subject and BOTH direct neighbours stay prominent; only the
-      // unrelated pair dims.
-      expect(dimmedNodes()).toEqual(['far_a', 'far_b'])
+      // Before PR H the unrelated pair dimmed (['far_a', 'far_b']); now nothing does.
+      expect(dimmedNodes()).toEqual([])
+      expect(dimmedNodes()).not.toContain('far_a')
     })
 
-    it('dims unrelated edges but not the selection\'s own connections', () => {
+    it('⛔ dims no link: the unrelated link stays at rest', () => {
       const { nodes, edges } = neighbourhoodGraph()
       useCanvasStore.setState({
         nodes,
@@ -103,7 +103,8 @@ describe('usePathHighlight — 6A selection focus', () => {
 
       renderHook(() => usePathHighlight())
 
-      expect(dimmedEdges()).toEqual(['far_e1'])
+      expect(dimmedEdges()).toEqual([])
+      expect(dimmedEdges()).not.toContain('far_e1')
     })
 
     it('does NOT claim a path: highlightedEdges stays empty so the "paths to goal" chip cannot appear', () => {
@@ -124,7 +125,7 @@ describe('usePathHighlight — 6A selection focus', () => {
   })
 
   describe('a kind with no causal-path branch (decision / action)', () => {
-    it('keeps a selected decision node\'s direct neighbours prominent', () => {
+    it('a selected decision node dims nothing, its own options included', () => {
       // Pre-6A this was the worst case: `decision` matched no path branch, so
       // pathEdgeIds stayed empty, nodesOnPath was just the selected node, and
       // EVERY other node dimmed — including the decision's own options.
@@ -151,14 +152,16 @@ describe('usePathHighlight — 6A selection focus', () => {
 
       renderHook(() => usePathHighlight())
 
-      // Both options stay prominent. Only the genuinely unrelated pair dims.
-      expect(dimmedNodes()).toEqual(['goal', 'unrelated'])
-      expect(dimmedEdges()).toEqual(['u_g'])
+      // Nothing dims: neither its options nor the unrelated pair (before PR H: ['goal', 'unrelated'] / ['u_g']).
+      expect(dimmedNodes()).toEqual([])
+      expect(dimmedEdges()).toEqual([])
+      // And no path is claimed for a kind with no path branch.
+      expect(highlightedEdges()).toEqual([])
     })
   })
 
   describe('edge selection', () => {
-    it('keeps the selected connection and its two endpoints prominent, dimming everything else', () => {
+    it('⛔ a selected link dims nothing else, and claims no path', () => {
       const { nodes, edges } = neighbourhoodGraph()
       useCanvasStore.setState({
         nodes,
@@ -170,11 +173,12 @@ describe('usePathHighlight — 6A selection focus', () => {
 
       renderHook(() => usePathHighlight())
 
-      // e_in runs nbr_in -> subject, so those two stay; the rest dim.
-      expect(dimmedNodes()).toEqual(['far_a', 'far_b', 'nbr_out'])
-      // The selected edge itself must never be dimmed.
-      expect(dimmedEdges()).toEqual(['e_out', 'far_e1'])
+      // Before PR H: nodes ['far_a', 'far_b', 'nbr_out'] and links ['e_out', 'far_e1'] dimmed. Now none do.
+      expect(dimmedNodes()).toEqual([])
+      expect(dimmedEdges()).toEqual([])
       expect(dimmedEdges()).not.toContain('e_in')
+      // The link's own selected stroke is the focus; no route is claimed for it.
+      expect(highlightedEdges()).toEqual([])
     })
 
     it('gives no focus to a mixed node+edge selection (same rule as multi-select)', () => {
@@ -196,8 +200,8 @@ describe('usePathHighlight — 6A selection focus', () => {
     })
   })
 
-  describe('path mode still owns the chip, and now dims off-path edges', () => {
-    it('highlights the causal path AND dims the edges off it', () => {
+  describe('path mode still owns the chip, and dims nothing', () => {
+    it('highlights the causal path; the edge and card off it stay at rest', () => {
       const nodes = [
         createNode('factor_a', 'factor'),
         createNode('outcome', 'outcome'),
@@ -220,23 +224,29 @@ describe('usePathHighlight — 6A selection focus', () => {
 
       // Unchanged path behaviour — the chip's claim stays true.
       expect(highlightedEdges()).toEqual(['e1', 'e2'])
-      // New: the off-path edge dims so the route reads as a route.
-      expect(dimmedEdges()).toEqual(['e_side'])
+      // ⛔ Nothing dims (vision §3 PR H): before, e_side faded and 'side' greyed.
+      expect(dimmedEdges()).toEqual([])
+      expect(dimmedNodes()).toEqual([])
+      expect(dimmedNodes()).not.toContain('side')
     })
   })
 
   describe('deselect restores', () => {
     it('clears node dim, edge dim and highlights when the selection is emptied', () => {
-      const { nodes, edges } = neighbourhoodGraph()
+      const nodes = [createNode('factor_a', 'factor'), createNode('goal', 'goal'), createNode('side', 'factor')]
+      const edges = [createEdge('e1', 'factor_a', 'goal')]
       useCanvasStore.setState({
         nodes,
         edges,
-        selection: { nodeIds: new Set(['subject']), edgeIds: new Set(), anchorPosition: null },
+        selection: { nodeIds: new Set(['factor_a']), edgeIds: new Set(), anchorPosition: null },
+        ceeAnalysisReady: { goal_node_id: 'goal', options: [] } as never,
       })
       const { rerender } = renderHook(() => usePathHighlight())
-      // Precondition: the focus really did apply, so the clear below is
+      // Precondition: the focus really did apply (its path is lit), so the clear below is
       // evidence about clearing rather than about nothing having happened.
-      expect(dimmedNodes()).toEqual(['far_a', 'far_b'])
+      expect(highlightedEdges()).toEqual(['e1'])
+      // A stale dim from elsewhere must not outlive the deselect either.
+      useCanvasStore.setState({ dimmedNodeIds: new Set(['side']), dimmedEdgeIds: new Set(['e1']) })
 
       useCanvasStore.setState({
         selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
