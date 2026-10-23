@@ -6,8 +6,7 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { useCanonicalAnalysisViewStore } from '../../../canvas/stores/canonicalAnalysisViewStore'
-import { optionChanceCell, runViewOf } from '../../../canvas/runView/runView'
-import { goalChanceSentence } from '../analysis-hero/goalChanceCopy'
+import { optionChanceCell, runViewGoalChanceSentence, runViewOf } from '../../../canvas/runView/runView'
 import { typography } from '../../../styles/typography'
 
 export interface ViewOnlyRunChances {
@@ -19,7 +18,7 @@ const CTX = { goalChanceHeroSays: false, labelOf: () => null }
 
 /** The bound, current view-only Run's served words; null where a report is held, or the view is unbound or not current. */
 export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
-  const report = useCanvasStore(s => s.results.report)
+  const report = useCanvasStore(s => s.results?.report ?? null)
   const scenarioId = useCanvasStore(s => s.currentScenarioId)
   const canonical = useCanonicalAnalysisViewStore(s => (s.scenarioId === scenarioId ? s.view : null))
   return useMemo(() => {
@@ -30,7 +29,7 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
       const text = optionChanceCell(view, optionId, CTX).text
       return text === null ? [] : [{ optionId, text }]
     })
-    const sentence = goalChanceSentence(view.goalChanceDetail()?.chance_words)
+    const sentence = runViewGoalChanceSentence(view)
     return cells.length === 0 && sentence === null ? null : { sentence, cells }
   }, [report, canonical])
 }

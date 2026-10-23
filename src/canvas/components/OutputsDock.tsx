@@ -3700,7 +3700,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 {/* DL ruling A (23 Oct): a bound, current view-only Run says its served words here instead of the
                     pre-analysis panel, whose lines ("No goal selected", "Analyse anyway") say no result exists. */}
                 {isPreRun && nodes.length > 0 && viewOnlyChances !== null && (
-                  <ViewOnlyRunChancesBlock chances={viewOnlyChances} />
+                  <div className="px-4 py-3" data-testid="outputs-pre-run-view-only">
+                    <ViewOnlyRunChancesBlock chances={viewOnlyChances} />
+                  </div>
                 )}
                 {isPreRun && nodes.length > 0 && viewOnlyChances === null && (
                   isPreAnalysisV3Enabled() ? (
