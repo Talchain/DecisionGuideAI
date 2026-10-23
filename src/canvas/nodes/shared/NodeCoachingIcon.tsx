@@ -90,7 +90,7 @@ export const NODE_COACHING_ICON_TESTID_PREFIX = 'node-coaching-icon-'
  *   The panel's own asks keep `OlumiAiIcon` (Panel's surface).
  */
 export const OLUMI_CARD_MARK_SRC = '/olumi-mark-card.svg'
-function OlumiCardGlyph({ size = 15, className, 'aria-hidden': ariaHidden }: LucideProps) {
+function OlumiCardGlyph({ size = 15, className, 'aria-hidden': ariaHidden, 'data-testid': testId }: LucideProps & { 'data-testid'?: string }) {
   return (
     <img
       src={OLUMI_CARD_MARK_SRC}
@@ -99,6 +99,7 @@ function OlumiCardGlyph({ size = 15, className, 'aria-hidden': ariaHidden }: Luc
       height={typeof size === 'number' ? size : undefined}
       draggable={false}
       data-icon="olumi-brand-mark"
+      data-testid={testId}
       className={`olumi-glyph-ai select-none${className ? ` ${className}` : ''}`}
       aria-hidden={ariaHidden ?? true}
     />

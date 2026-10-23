@@ -119,7 +119,6 @@ import { OlumiMarkGroupProvider } from './shared/olumiMarkGroup'
 import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { useNodeAttention } from './shared/useNodeAttention'
 import { attentionCueSentence } from './shared/nodeAttention'
-import { NodeAttentionMarker } from './shared/NodeAttentionMarker'
 import { NodeSignalRailIcons } from './shared/NodeRailIcons'
 import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
 import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
@@ -2124,18 +2123,13 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         />
       )}
 
-      {methodPointed !== null && !isAssistantFocused && (
+      {/* ⭐ ONE POINTING HALO (vision spec §3, 23 Oct): assistant focus and a method result that names this option draw
+          the same mark, once. `data-method-pointed` still says which method's result pointed here. */}
+      {(isAssistantFocused || methodPointed !== null) && (
         <span
           aria-hidden="true"
-          data-testid={`method-pointed-node-halo-${id}`}
-          data-method-pointed={methodPointed}
-          className="pointer-events-none absolute -inset-1 z-[1] rounded-md border-2 border-info ring-2 ring-info/30 ring-offset-1"
-        />
-      )}
-      {isAssistantFocused && (
-        <span
-          aria-hidden="true"
-          data-testid={`assistant-focus-node-halo-${id}`}
+          data-testid={`pointing-node-halo-${id}`}
+          {...(methodPointed !== null ? { 'data-method-pointed': methodPointed } : {})}
           className="pointer-events-none absolute -inset-1 z-[1] rounded-md border-2 border-info ring-2 ring-info/30 ring-offset-1"
         />
       )}
@@ -2416,7 +2410,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             ⭐ ITS SLOT NOW HOLDS THE ONE "WORTH REVIEWING" CUE (spec §2), an
             info-tinted ring — never the warning family (ED 02:31Z D1b) — with
             its reasons in a focusable tooltip and as its accessible name. */}
-        {attentionText !== null && livingOnly === null && <BottomCardMark><NodeAttentionMarker nodeId={id} sentence={attentionText} /></BottomCardMark>}
+        {/* ⭐ ONE OLUMI SLOT (vision spec §3, 23 Oct): the "Worth reviewing" cue is drawn by the coaching slot below, as
+            the same Olumi badge, when no producer item names this card. */}
         <AnsweredMark nodeId={id} />
 
         {/* ⛔ GAP-11 (DESIGN-GAP-AUDIT-20260924.md row 11; Paul v3.1 pt14):
@@ -2437,7 +2432,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             CEE/ISL NodeBadge (23-Jul audit G3). Click opens the same guidance
             surface the inspector uses. ⛔ Neither marker on a card drawn from the living model alone: each is a button that
             opens a note or the inspector for a node the store does not hold (`livingModelCanvas.ts`). */}
-        {livingOnly === null && <BottomCardMark><NodeCoachingMarker nodeId={id} /></BottomCardMark>}
+        {livingOnly === null && <BottomCardMark><NodeCoachingMarker nodeId={id} attentionSentence={attentionText} /></BottomCardMark>}
       </div>
 
       {/* ⭐ THE TYPE GLYPH SITS ON THE TOP CONNECTOR, NOT IN THE TITLE ROW.

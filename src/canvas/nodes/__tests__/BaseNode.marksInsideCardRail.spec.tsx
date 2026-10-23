@@ -245,14 +245,15 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
 
   })
 
-  it('TWO marks (attention + coaching): both in the band, in order, with no title spacer', () => {
+  it('attention + coaching → ONE badge in the band (vision spec §3), with no title spacer', () => {
     attentionMarked = true
     useGuidanceStore.getState().setGuidanceItems([guidance('o1')])
     const root = renderCard('outcome', 'o1', 'Customer retention after a price rise')
 
     const band = screen.getByTestId('outcome-bottom-marks-o1')
     expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3', 'gap-1')
-    expect(band).toContainElement(screen.getByTestId('attention-marker-o1'))
+    // Vision spec §3 (one Olumi slot): with a producer item AND the cue, the band holds ONE badge, the producer's.
+    expect(screen.queryByTestId('attention-marker-o1')).toBeNull()
     expect(root).toContainElement(band)
     expect(within(root).queryByTestId('node-title-corner-spacer')).toBeNull()
     expect(screen.getByTestId('node-header-row').style.paddingRight).toBe('')
@@ -260,7 +261,7 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
     for (const g of [1, MAX_GLYPH_COUNTER_SCALE]) expect(measure).toBeGreaterThanOrEqual(NODE_TITLE_WIDEST_WORD_PX * scalesAt(g).text)
 
     expect(band).toContainElement(screen.getByTestId('node-coaching-marker-o1'))
-    expect(Array.from(band.querySelectorAll('[data-testid="attention-marker-o1"], [data-testid="node-coaching-marker-o1"]')).map(el => el.getAttribute('data-testid'))).toEqual(['attention-marker-o1', 'node-coaching-marker-o1'])
+    expect(Array.from(band.querySelectorAll('[data-testid="attention-marker-o1"], [data-testid="node-coaching-marker-o1"]')).map(el => el.getAttribute('data-testid'))).toEqual(['node-coaching-marker-o1'])
   })
 
   it('CONTRAST — no mark: no spacer, no header reserve, an empty stack, and the title keeps its measure', () => {
@@ -389,7 +390,7 @@ describe('GAP 11: the full-width title holds the widest word while marks occupy 
 
   })
 
-  it('a 260 repeated card, TWO marks (attention + coaching): the full title stays clear of the band', () => {
+  it('a 260 repeated card, attention + coaching (one badge): the full title stays clear of the band', () => {
     attentionMarked = true
     useGuidanceStore.getState().setGuidanceItems([guidance('o1')])
     const root = renderCard('outcome', 'o1', 'Cannibalization of the entry tier', { maxWidth: 260 })
@@ -397,7 +398,8 @@ describe('GAP 11: the full-width title holds the widest word while marks occupy 
 
     const band = screen.getByTestId('outcome-bottom-marks-o1')
     expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3', 'gap-1')
-    expect(band).toContainElement(screen.getByTestId('attention-marker-o1'))
+    // Vision spec §3 (one Olumi slot): with a producer item AND the cue, the band holds ONE badge, the producer's.
+    expect(screen.queryByTestId('attention-marker-o1')).toBeNull()
     expect(root).toContainElement(band)
     expect(within(root).queryByTestId('node-title-corner-spacer')).toBeNull()
     expect(screen.getByTestId('node-header-row').style.paddingRight).toBe('')
@@ -425,14 +427,15 @@ describe('GAP 11: the full-width title holds the widest word while marks occupy 
 
   })
 
-  it('CONTRAST: two marks and no marks both leave the title full width, with no spacer', () => {
+  it('CONTRAST: both sources (one badge) and no marks both leave the title full width, with no spacer', () => {
     attentionMarked = true
     useGuidanceStore.getState().setGuidanceItems([guidance('o1')])
     const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts')
 
     const band = screen.getByTestId('outcome-bottom-marks-o1')
     expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3', 'gap-1')
-    expect(band).toContainElement(screen.getByTestId('attention-marker-o1'))
+    // Vision spec §3 (one Olumi slot): with a producer item AND the cue, the band holds ONE badge, the producer's.
+    expect(screen.queryByTestId('attention-marker-o1')).toBeNull()
     expect(root).toContainElement(band)
     expect(within(root).queryByTestId('node-title-corner-spacer')).toBeNull()
     expect(screen.getByTestId('node-header-row').style.paddingRight).toBe('')

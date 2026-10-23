@@ -517,7 +517,7 @@ export const UNCERTAINTY_BAND_MAX_HALF_WIDTH = 14
  * the gate lives at the one call site, `StyledEdge`) and painted in a neutral
  * ink, never a polarity or attention hue. ⚠ NOT DS v5 §14.2's "info at 30%":
  * on this canvas info at ~0.3 is ALREADY the assistant-focus halo
- * (`assistant-focus-edge-halo-*`, info at 0.32) and the selection glow, so an
+ * (`pointing-edge-halo-*`, info at 0.32) and the selection glow, so an
  * info ribbon would be the same mark saying two things. The legend swatch
  * (`CanvasLegendPopover` `UncertaintySwatch`) reads these two constants, so
  * the key cannot teach a paint the canvas no longer uses (trap 12).

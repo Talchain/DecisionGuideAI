@@ -1,6 +1,19 @@
-import { cardMark, coachingCardMarkId } from './cardMarks'
+import { coachingCardMarkId } from './cardMarks'
 /**
- * NodeCoachingMarker — on-canvas coaching marker bound to a graph node.
+ * NodeCoachingMarker — THE ONE OLUMI BADGE on a card ("Olumi has something here").
+ *
+ * ⭐ ONE OLUMI SLOT PER CARD (vision spec §3, 23 Oct: "'Worth reviewing', coaching marker, coaching icon → one corner
+ * badge that opens Olumi's note"; coaching about one item appeared in up to five places). This slot now draws the Olumi
+ * mark, once, for both sources a card can have:
+ *   - a live producer guidance item naming this node → the badge opens that item as Olumi's note (below, unchanged);
+ *   - otherwise the board's "Worth reviewing" cue (`attentionSentence`) → the same mark, drawn by
+ *     `NodeAttentionMarker`, which keeps its sentence as tooltip + accessible name and opens the inspector, where the
+ *     reasons are listed.
+ * With both, the producer's badge wins and the cue's sentence joins its tooltip, so nothing is hidden. The resting
+ * coaching icon is no longer on the card: its question is the "Ask Olumi" door of the card's actions
+ * (`NodeQuickActions`). The category still rides on `data-guidance-category`; the note and the inspector keep its tone.
+ *
+ * (History) on-canvas coaching marker bound to a graph node.
  *
  * Replaces the permanently-empty CEE/ISL NodeBadge slot (23-Jul capability
  * audit G3): the old badge read per-node `useCEEInsights()` / `useISLValidation()`
@@ -110,11 +123,18 @@ import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from './nodeCardRailStyles'
 import { useCanvasStore } from '../../store'
 import { selectRestingGlyphsShown } from './restingGlyphRung'
+import { COACHING_ICON_GLYPH } from './NodeCoachingIcon'
+import { NodeAttentionMarker } from './NodeAttentionMarker'
 
 interface NodeCoachingMarkerProps {
   /** The canvas node id this marker sits on. */
   nodeId: string
+  /** The board's "Worth reviewing" sentence for this card, or null: the same slot draws it when no producer item does. */
+  attentionSentence?: string | null
 }
+
+/** The badge's one glyph: the Olumi brand mark, the same drawing as the "Ask Olumi" door and the note's header. */
+const OlumiBadgeGlyph = COACHING_ICON_GLYPH.Icon
 
 /**
  * ⭐ WHETHER THIS SLOT DRAWS A MARK — the two gates `NodeCoachingMarker` renders
@@ -135,7 +155,7 @@ export function useNodeCoachingMarkerShown(nodeId: string): boolean {
   return shownAtThisRung && producerNamesThisNode
 }
 
-export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
+export function NodeCoachingMarker({ nodeId, attentionSentence = null }: NodeCoachingMarkerProps) {
   // Subscribe to the raw array (stable Zustand reference) then derive locally —
   // an inline selector returning a filtered array trips the "getSnapshot should
   // be cached" loop (see InspectorGuidanceSection's identical note).
@@ -180,27 +200,28 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
   // ⭐ THE PRECEDENCE IS THIS `if`. It reads the producer's own filter, so the
   // producer wins per node by construction — the `oneVoicePerNode` ruling applied
   // once here rather than restated at every call site.
-  if (!shownAtThisRung) return null
+  // No producer item at this rung: the slot draws the "Worth reviewing" cue, if the board has one for this card.
+  const cue = attentionSentence !== null ? <NodeAttentionMarker nodeId={nodeId} sentence={attentionSentence} /> : null
+  if (!shownAtThisRung) return cue
   // ⛔ NO STRUCTURAL FALLBACK ON THE CARD — contract v3.1 (DESIGN-GAP-v31 #18):
   // the top-right corner is the attention mark only (`.node .attention`), and
   // the resting "branch" glyph (`NodeStructuralMarker`, GitMerge on 3 of 5
   // pricing factors, measured on served `eec722ab`) was not in the contract.
   // The finding keeps its panel row (`usePreAnalysisModel`), where its action
   // lives; `NodeStructuralMarker` stays exported for the inspector.
-  if (!top) return null
+  if (!top) return cue
 
-  // SHAPE from the shared source of truth (the same one the inspector card
-  // uses), so the marker's glyph matches the card it opens. Its tint is NOT
-  // taken on the canvas: the marker is muted at rest and Info on hover/focus
-  // (see the header — contract v3.1, Paul 23 Sep pts 6 and 9).
+  // The category is still recorded (`data-card-mark` names the category's mark; the note and the inspector card keep
+  // its tone), but the badge draws the ONE Olumi mark (vision spec §3), not a per-category glyph.
   const markId = coachingCardMarkId(top.category)
-  const Icon = cardMark(markId).Icon
   const count = items.length
 
-  const label =
+  const suggestion =
     count > 1
       ? `${count} coaching suggestions for this node. Top: ${top.title}`
       : `Coaching suggestion: ${top.title}`
+  // One slot: the "Worth reviewing" sentence, when the board has one here too, stays readable on the same badge.
+  const label = attentionSentence !== null ? `${suggestion} · ${attentionSentence}` : suggestion
 
   // Positioning is owned by BaseNode's top-right corner STACK — this marker
   // renders as a static flex child there (alongside the sensitivity-rank badge)
@@ -228,7 +249,7 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
         // improbable two-digit count grows the box rather than clipping.
         className={`nodrag nopan inline-flex items-center justify-center gap-0.5 h-[calc(24px*var(--canvas-glyph-scale,1))] min-w-[calc(24px*var(--canvas-glyph-scale,1))] rounded ${NODE_RAIL_REST_TONE_CLASS} cursor-pointer hover:bg-info/10 hover:text-info focus-visible:bg-info/10 focus-visible:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
       >
-        <Icon size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} aria-hidden="true" />
+        <OlumiBadgeGlyph size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} aria-hidden="true" />
         {count > 1 && (
           <span className={`${typography.edgeLabel} font-semibold text-text-body tabular-nums leading-none`}>
             {count}

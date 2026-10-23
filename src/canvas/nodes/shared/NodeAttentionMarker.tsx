@@ -2,6 +2,10 @@
  * The ONE "Worth reviewing" marker (locked spec §2 "Attention cue — add"; ED
  * 11:52Z point 7; ED 02:31Z D1b).
  *
+ * ⭐ NOW DRAWN AS THE OLUMI BADGE (vision spec §3, 23 Oct: one Olumi slot per card). It renders only through
+ * `NodeCoachingMarker`'s slot, when no producer item names the card, and draws the Olumi brand mark rather than the
+ * target glyph described below. Its sentence, accessible name and click are unchanged.
+ *
  * ── HOW IT LOOKS ────────────────────────────────────────────────────────────
  *
  * A small INFO-tinted ring in the card's top-right corner stack, INSIDE the
@@ -41,7 +45,7 @@
  * a new panel").
  */
 import type { MouseEvent } from 'react'
-import { cardMark } from './cardMarks'
+import { COACHING_ICON_GLYPH } from './NodeCoachingIcon'
 import Tooltip from '../../../components/Tooltip'
 import { openNodeInspector } from './openNodeInspector'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
@@ -55,7 +59,7 @@ export const ATTENTION_MARKER_TESTID_PREFIX = 'attention-marker-'
  * the canvas key (`CanvasLegendPopover`, contract v3.1 §03 "Worth reviewing"),
  * so the key imports this mark rather than redrawing one.
  */
-export const ATTENTION_MARKER_GLYPH = { Icon: cardMark('attention').Icon, strokeWidth: 1.6, inkClass: 'text-info' } as const
+export const ATTENTION_MARKER_GLYPH = { Icon: COACHING_ICON_GLYPH.Icon, strokeWidth: 1.6, inkClass: 'text-info' } as const
 
 export function NodeAttentionMarker({ nodeId, sentence }: { nodeId: string; sentence: string }) {
   return (

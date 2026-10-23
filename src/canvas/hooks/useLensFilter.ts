@@ -5,7 +5,8 @@
  * selectors. Called once from ReactFlowGraph — not from individual node/edge components.
  *
  *   - option        dims everything off the option's paths (entered from an option card, the context menu or a key).
- *   - tradeoffs     the picked option's routes to the goal in front, dimming the rest (`tradeOffsModel.ts`). No Run needed.
+ *   - tradeoffs     numbers the picked option's route links (`tradeOffsModel.ts`); nothing dims: links off the route stay
+ *                   at rest (vision spec §3: lenses re-weight, never grey the model). No Run needed.
  *   - rests_on      numbers every figure the model rests on, from the ONE owner reader (`assumptionMapOf`).
  *   - premortem     dims everything Olumi's pre-mortem stories do not rest on.
  *   - what_changes  the selected Run's sensitivity widths and fragile links, dimming the rest. Needs a complete Run.
@@ -20,7 +21,7 @@ import { resolveActiveGoalNodeId } from './goalThresholdResolvers'
 import { assumptionMapOf, restsOnKey, restsOnNumbered, type RestsOnMark } from '../artefacts/assumptionMapModel'
 import { useCurrentPremortemWorksheet } from '../artefacts/lenses'
 import { useWhatIfStore } from '../stores/whatIfStore'
-import { tradeOffsForState, tradeOffsInFocus, tradeOffLinkMarks } from '../artefacts/tradeOffsModel'
+import { tradeOffsForState, tradeOffLinkMarks } from '../artefacts/tradeOffsModel'
 import type { PremortemWorksheetV1 } from '../../v5/readPremortemWorksheet'
 
 // ─── Sensitivity helpers ─────────────────────────────────────────────────────
@@ -210,21 +211,18 @@ export function useLensFilter(): void {
       return { ...EMPTY_VISUALS, restsOn }
     }
 
-    // ── Trade-offs: the picked option's routes to the goal in front (no Run needed; nothing dims without a route) ──
+    // ── Trade-offs: the picked option's route links carry their numbered pills (no Run needed) ──
+    // ⛔ NOTHING DIMS (vision spec §3, 23 Oct: "Trade-offs dims everything off the option's routes → routes at full
+    // weight; other links at rest"). It used to grey every card and link off the routes to 20%; a lens re-weights the
+    // marks that already exist and never greys the model.
     if (lensActive === 'tradeoffs') {
       const { options } = tradeOffsForState({ nodes, edges, ceeAnalysisReady, lastServerGraphHash, outcomeNodeId, goalConstraints, servedBaselineOptions })
       const option = options.find(o => o.optionId === lensOptionId) ?? options[0]
       if (!option || option.routes.length === 0) return EMPTY_VISUALS
-      const focus = tradeOffsInFocus(option, edges)
       // Each route link carries its "Rests on" state as the key's numbered pill (Paul 22 Oct: marks over sentences).
       const restsOn = new Map<string, RestsOnMark>()
       tradeOffLinkMarks(option).forEach((mark, edgeId) => restsOn.set(restsOnKey({ kind: 'edge', id: edgeId }), mark))
-      return {
-        ...EMPTY_VISUALS,
-        dimmedNodeIds: allBut(nodes.map(n => n.id), focus.nodeIds),
-        dimmedEdgeIds: allBut(edges.map(e => e.id), focus.edgeIds),
-        restsOn,
-      }
+      return { ...EMPTY_VISUALS, restsOn }
     }
 
     // ── If it failed: the stories' elements in front (no Run needed; nothing dims before a worksheet exists) ──

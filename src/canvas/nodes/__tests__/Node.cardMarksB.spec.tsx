@@ -44,7 +44,9 @@ it.each((Object.keys(components) as (keyof typeof components)[]).flatMap(type =>
   const marks = document.querySelectorAll('[data-card-mark]')
   expect(marks.length).toBeGreaterThan(0)
   for (const mark of marks) expect(band.contains(mark)).toBe(true)
-  for (const testId of ['node-provenance-mark', `attention-marker-marks-${type}`, `node-coaching-marker-marks-${type}`]) expect(band.contains(screen.getByTestId(testId))).toBe(true)
+  for (const testId of ['node-provenance-mark', `node-coaching-marker-marks-${type}`]) expect(band.contains(screen.getByTestId(testId))).toBe(true)
+  // Vision spec §3 (one Olumi slot): the producer's badge is the card's one Olumi mark; no second attention mark.
+  expect(screen.queryByTestId(`attention-marker-marks-${type}`)).toBeNull()
   expect(screen.getByTestId('node-header-row').querySelector('[data-card-mark], [data-testid="node-provenance-mark"]')).toBeNull()
   expect(screen.queryByTestId('node-title-corner-spacer')).toBeNull()
   const olumi = screen.getByTestId(`node-coaching-icon-marks-${type}`)

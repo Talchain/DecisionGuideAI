@@ -165,7 +165,7 @@ beforeEach(() => {
 })
 
 describe('BaseNode — top-right corner stack (rank + coaching)', () => {
-  it('BOTH present: the attention marker (the rank badge\'s slot) and coaching render inside ONE stack, marker first, no overlapping offsets', () => {
+  it('BOTH present → ONE Olumi badge (vision spec §3, 23 Oct): the producer\'s badge, carrying the "Worth reviewing" sentence too', () => {
     // A rank IS present in the metadata — the retired badge must not come back.
     sensitivityRank = 1
     attentionMarked = true
@@ -173,7 +173,6 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     renderNode()
 
     const stack = screen.getByTestId('decision-bottom-marks-node-a')
-    const marker = screen.getByTestId('attention-marker-node-a')
     const coaching = screen.getByTestId('node-coaching-marker-node-a')
 
     // Locked Canvas design (23 Sep 2026), ED 02:31Z D1a: the Key-driver badge is
@@ -182,49 +181,20 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     expect(stack.textContent).not.toContain(sensitivityRankBadgeLabel(1))
     expect(stack.textContent).not.toContain('#')
 
-    // Both live inside the single positioned container.
-    expect(stack).toContainElement(marker)
+    // ONE slot: the badge is in the stack, and no second (attention) mark beside it.
     expect(stack).toContainElement(coaching)
+    expect(screen.queryByTestId('attention-marker-node-a')).toBeNull()
+    expect(stack.querySelectorAll('[data-testid="attention-marker-node-a"], [data-testid="node-coaching-marker-node-a"]')).toHaveLength(1)
+    // Nothing hidden: the "Worth reviewing" sentence is still read on the one badge (accessible name; no native title).
+    expect(coaching.getAttribute('aria-label')!.endsWith(` · ${MARKER_SENTENCE}`)).toBe(true)
+    expect(coaching.getAttribute('title') ?? '').toBe('')
+    // The badge draws the Olumi mark.
+    expect(coaching.querySelector('[data-icon="olumi-brand-mark"]')).not.toBeNull()
 
-    /**
-     * ⭐⭐ THE SLOT'S OCCUPANT MUST CARRY ITS OWN MEANING, AND NOT VIA `title`.
-     *
-     * The retired badge taught this: a `title` on a corner member read, in
-     * source and review, like an explanation already provided, while it could
-     * never fire. The marker explains itself through a focusable tooltip AND its
-     * accessible name (ED 02:31Z: native title is not full-text recovery), built
-     * ONCE by `attentionSentence` — so both are bound here by identity, and a
-     * re-added `title` REDs.
-     */
-    expect(marker).toHaveAccessibleName(MARKER_SENTENCE)
-    expect(marker.getAttribute('aria-label')!.startsWith('Worth reviewing:')).toBe(true)
-    // The shared Tooltip blanks any native title (`title=""`) — so assert there
-    // is no native-title TEXT, which is the explanation-by-title this rules out.
-    expect(marker.getAttribute('title') ?? '').toBe('')
-
-    // Deterministic order: the marker FIRST (the rank's old position), coaching beside it.
-    const kids = Array.from(stack.querySelectorAll('[data-testid="attention-marker-node-a"], [data-testid="node-coaching-marker-node-a"]'))
-    expect(kids[0]).toBe(marker)
-    expect(kids[1]).toBe(coaching)
-
-    // The STACK owns the corner + z; children carry NO absolute/offset of their
-    // own, so they cannot independently land on the same point. jsdom cannot
-    // prove pixels — this asserts the layout-relevant class contract that makes
-    // a same-corner overlap structurally impossible (true-pixel spacing is a
-    // browser concern, verified separately).
-    // ⚠ DERIVED FROM THE COMPONENT'S OWN CONSTANT, NOT A COPY OF IT. This read
-    // `toContain('-top-2')` / `toContain('-right-2')` — the measuring stick,
-    // not the property in this test's title. The `-top-2` half was an UNSCALED
-    // 8px anchor holding counter-scaled content, which put the `Needs input`
-    // pill in the card header at the settle zoom and nowhere at zoom >= 1.
-    // Asserting the exported constant keeps the invariant that matters (the
-    // stack owns the corner; its children carry no positioning) while letting
-    // the anchor move in one place.
+    // The STACK owns the corner + z; its child carries NO absolute/offset of its own.
     expect(stack.className).toContain('absolute')
     expect(stack).toHaveClass('absolute', 'bottom-1.5', 'left-3', 'gap-1')
-    expect(stack).toHaveClass('gap-1')
     expect(stack.className).toContain('flex')
-    expect(marker.className).not.toContain('absolute')
     expect(coaching.className).not.toContain('absolute')
     expect(coaching.className).not.toContain('-right-2')
   })
@@ -241,7 +211,7 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
    * anything in the corner), not merely that this particular test stopped
    * asking for it.
    */
-  it('marker and coaching are distinct siblings in order, none absolute — the edited-dot is gone even when the store says edited', () => {
+  it('one badge, not two siblings — the edited-dot is gone even when the store says edited', () => {
     sensitivityRank = 1
     attentionMarked = true
     editedNodeIds.add('node-a')
@@ -249,24 +219,16 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     renderNode()
 
     const stack = screen.getByTestId('decision-bottom-marks-node-a')
-    // Locked Canvas design (23 Sep 2026): the marker holds the retired rank badge's slot.
-    const marker = screen.getByTestId('attention-marker-node-a')
     const coaching = screen.getByTestId('node-coaching-marker-node-a')
     expect(screen.queryByTestId('sensitivity-rank-node-a')).toBeNull()
     // GAP-11: never rendered, even with `editedNodeIds` opted in above.
     expect(screen.queryByTestId('edited-since-run-node-a')).toBeNull()
 
-    // Two distinct children, both inside the single positioned stack.
-    expect(stack).toContainElement(marker)
+    // Vision spec §3: one Olumi slot — the producer's badge alone, inside the single positioned stack.
     expect(stack).toContainElement(coaching)
-
-    // Deterministic order: marker first, coaching beside it — unchanged by
-    // the dot's removal since it always sat BETWEEN them.
     const kids = Array.from(stack.querySelectorAll('[data-testid="attention-marker-node-a"], [data-testid="node-coaching-marker-node-a"]'))
-    expect(kids).toHaveLength(2)
-    expect(kids[0]).toBe(marker)
-    expect(kids[1]).toBe(coaching)
-    expect(marker.className).not.toContain('absolute')
+    expect(kids).toEqual([coaching])
+    expect(coaching.className).not.toContain('absolute')
   })
 
   /**
@@ -352,7 +314,8 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     // slot, and it is a BUTTON now (it opens the inspector itself) — so the
     // coaching button beside it must still receive its own click.
     expect(screen.queryByTestId('sensitivity-rank-node-a')).toBeNull()
-    expect(screen.getByTestId('attention-marker-node-a')).toBeInTheDocument()
+    // Vision spec §3: with both sources the slot draws ONE badge (the producer's), so no attention button beside it.
+    expect(screen.queryByTestId('attention-marker-node-a')).toBeNull()
     fireEvent.click(screen.getByTestId('node-coaching-marker-node-a'))
 
     // The marker used to write `showInspectorPanel`, a store field with zero

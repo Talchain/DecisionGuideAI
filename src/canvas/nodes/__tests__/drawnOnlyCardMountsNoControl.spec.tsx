@@ -148,7 +148,27 @@ describe('a live guidance item or an attention cue naming a drawn-only card', ()
     const { livingOnly: _drawnOnly, ...engineData } = data as Record<string, unknown>
     const node = { id, type, position: { x: 0, y: 0 }, data: engineData } as Node
     renderCard(node, [node])
+    // Vision spec §3 (one Olumi slot): both sources draw ONE badge, the producer's.
     expect(screen.getByTestId(`node-coaching-marker-${id}`)).toBeTruthy()
+    expect(screen.queryByTestId(`${ATTENTION_MARKER_TESTID_PREFIX}${id}`)).toBeNull()
+  })
+
+  // The attention cue ALONE (no producer item), so its own negative is not vacuous under the one-slot rule.
+  it.each(['staff_hours', 'stock_level', 'supplier_fails'])('⛔ %s, the cue alone: no attention marker on a drawn-only card', (id) => {
+    useGuidanceStore.setState({ guidanceItems: [] } as never)
+    attentionOnEveryCard = true
+    const card = renderCard(drawn.find((n) => n.id === id)!, [])
+    expect(screen.queryByTestId(`${ATTENTION_MARKER_TESTID_PREFIX}${id}`)).toBeNull()
+    expect([...card.querySelectorAll(CONTROLS)].map((el) => el.outerHTML.slice(0, 120))).toEqual([])
+  })
+
+  it.each(['staff_hours', 'stock_level', 'supplier_fails'])('CONTRAST %s, the cue alone: on the same card held in the store, the attention marker mounts', (id) => {
+    useGuidanceStore.setState({ guidanceItems: [] } as never)
+    attentionOnEveryCard = true
+    const { data, type } = drawn.find((n) => n.id === id)!
+    const { livingOnly: _drawnOnly, ...engineData } = data as Record<string, unknown>
+    const node = { id, type, position: { x: 0, y: 0 }, data: engineData } as Node
+    renderCard(node, [node])
     expect(screen.getByTestId(`${ATTENTION_MARKER_TESTID_PREFIX}${id}`)).toBeTruthy()
   })
 })

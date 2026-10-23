@@ -198,7 +198,7 @@ describe('ICON-04 (fallback) — the rail data icons leave with the coaching ico
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('PILL-03 / ICON-05 / F13 — the attention marker is the contract glyph, not a bordered donut', () => {
-  it('borderless, shadowless, counter-scaled 24px rail box (Paul 14 Oct 2026; 25 from gap 34, 20 before); a LocateFixed target glyph at the rail size', () => {
+  it('borderless, shadowless, counter-scaled 24px rail box (Paul 14 Oct 2026; 25 from gap 34, 20 before); the Olumi mark at the rail size', () => {
     render(<NodeAttentionMarker nodeId="n1" sentence="Worth reviewing: a top driver." />)
     const b = screen.getByTestId('attention-marker-n1')
     for (const t of tokens(b)) {
@@ -212,11 +212,11 @@ describe('PILL-03 / ICON-05 / F13 — the attention marker is the contract glyph
     expect(tokens(b).some((t) => t.startsWith('bg-'))).toBe(false)
     expect(has(b, 'hover:bg-info/10')).toBe(true)
     expect(b.getAttribute('style') ?? '').not.toMatch(/18px/)
+    // Vision spec §3 (23 Oct, one Olumi slot): the glyph is the Olumi brand mark at the rail size, not the target glyph.
     const ring = screen.getByTestId('attention-marker-ring')
-    expect(ring.tagName.toLowerCase()).toBe('svg')
-    expect(lucideName(ring)).toBe('lucide-locate-fixed')
+    expect(ring).toHaveAttribute('data-icon', 'olumi-brand-mark')
+    expect(lucideName(ring)).toBeNull()
     expect(ring.getAttribute('class')).toContain(NODE_RAIL_GLYPH_CLASSES)
-    expect(ring.getAttribute('stroke-width')).toBe('1.6')
   })
 })
 
@@ -251,19 +251,21 @@ describe('PILL-07 / PILL-08 (colour) / T14(b) / ICON-09 — the coaching marker 
     expect(has(m, 'hover:text-info')).toBe(true)
     expect(has(m, 'hover:bg-info/10')).toBe(true)
     expect(has(m, 'h-[calc(24px*var(--canvas-glyph-scale,1))]')).toBe(true)
-    const svg = m.querySelector('svg')
-    expect(tokens(svg).some((t) => /danger/.test(t))).toBe(false)
-    expect(svg?.getAttribute('class')).toContain(NODE_RAIL_GLYPH_CLASSES)
+    const glyph = m.querySelector('img[data-icon="olumi-brand-mark"]')
+    expect(tokens(glyph).some((t) => /danger/.test(t))).toBe(false)
+    expect(glyph?.getAttribute('class')).toContain(NODE_RAIL_GLYPH_CLASSES)
   })
 
-  it('the glyph SHAPE still names the category — identical to the inspector card glyph', () => {
+  it('vision spec §3 (one Olumi slot): the badge draws the Olumi mark, not the category glyph; the category stays on data', () => {
     useGuidanceStore.getState().setGuidanceItems([producerItem()])
     render(<NodeCoachingMarker nodeId="node-a" />)
-    const markerGlyph = lucideName(screen.getByTestId('node-coaching-marker-node-a').querySelector('svg'))
+    const m = screen.getByTestId('node-coaching-marker-node-a')
     const { Icon } = guidanceCategoryIcon('must_fix')
     const { container } = render(<Icon />)
-    expect(markerGlyph).not.toBeNull()
-    expect(markerGlyph).toBe(lucideName(container.querySelector('svg')))
+    expect(lucideName(container.querySelector('svg'))).not.toBeNull() // positive control: the category glyph exists
+    expect(m.querySelector('svg')).toBeNull()
+    expect(m.querySelector('img[data-icon="olumi-brand-mark"]')).not.toBeNull()
+    expect(m).toHaveAttribute('data-guidance-category', 'must_fix')
   })
 
   it('a "+N" count is counter-scaled canvas type, and the label is the shared Tooltip (no native title)', () => {

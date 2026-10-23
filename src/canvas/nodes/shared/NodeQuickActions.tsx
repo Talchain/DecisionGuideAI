@@ -160,10 +160,10 @@ export interface NodeQuickActionsProps {
    */
   placement?: 'inset' | 'below'
   /**
-   * The card's coaching resolution. When it yields a question, the ONE coaching
-   * icon is the rail's rightmost resting member and the hover-only "Ask Olumi"
-   * button is withheld — ED 02:31Z (D4): the quick actions "expand/replace
-   * around it, not duplicate 'Ask Olumi'".
+   * The card's coaching resolution. When it yields a question, the coaching
+   * icon IS the actions' "Ask Olumi" door (vision spec §3, 23 Oct: it no longer
+   * rests on the card) and the generic ask is withheld, so the door is never
+   * drawn twice — ED 02:31Z (D4): "not duplicate 'Ask Olumi'".
    */
   coaching?: ResolvedCoaching
 }
@@ -464,6 +464,10 @@ export const NodeQuickActions = memo(function NodeQuickActions({
       className={`node-quick-actions flex ${CANVAS_GAP_CLASSES[6]} transition-opacity duration-150 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 group-focus-within:pointer-events-auto [@media(pointer:coarse)]:pointer-events-auto motion-reduce:transition-none ${alwaysVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
       data-testid={`node-quick-actions-${nodeId}`}
     >
+      {/* ⭐ THE CARD'S ONE "ASK OLUMI" DOOR (vision spec §3, 23 Oct: one Olumi slot per card). The coaching icon no longer
+          rests on every card; where the card has a coaching question it IS this door (same mark, its own question),
+          otherwise the generic ask. At rest the card shows the Olumi badge only where Olumi has something here. */}
+      {coachingChip !== null && <NodeCoachingIcon nodeId={nodeId} chips={coaching} />}
       {canAsk && coachingChip === null && (
         <Tooltip asChild delay={300} content="Ask Olumi">
           <button
@@ -548,13 +552,12 @@ export const NodeQuickActions = memo(function NodeQuickActions({
         </button>
       </Tooltip>
     </div>
-    {(restingIcons || coachingChip !== null) && (
+    {restingIcons && (
       <div
         className={`flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-auto`}
         data-testid={`node-card-rail-resting-${nodeId}`}
       >
         {restingIcons}
-        <NodeCoachingIcon nodeId={nodeId} chips={coaching} />
       </div>
     )}
     </div>

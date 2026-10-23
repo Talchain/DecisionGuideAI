@@ -85,10 +85,10 @@ describe('the option card wears the halo (real store, real BaseNode)', () => {
 
   it('an option the reply\'s test names gets the halo; contrast: none before the reply, none in another scenario', () => {
     render(<ReactFlowProvider><BaseNode {...(optionProps('opt_raise', 'Raise prices 10%') as any)} nodeType="option" icon={Circle} /></ReactFlowProvider>)
-    expect(screen.queryByTestId('method-pointed-node-halo-opt_raise')).toBeNull()
+    expect(screen.queryByTestId('pointing-node-halo-opt_raise')).toBeNull()
     act(() => applyTurn(testLink.response))
-    expect(screen.getByTestId('method-pointed-node-halo-opt_raise')).toHaveAttribute('data-method-pointed', 'test_link')
+    expect(screen.getByTestId('pointing-node-halo-opt_raise')).toHaveAttribute('data-method-pointed', 'test_link')
     act(() => useCanvasStore.setState({ currentScenarioId: 'another-scenario' } as never))
-    expect(screen.queryByTestId('method-pointed-node-halo-opt_raise')).toBeNull()
+    expect(screen.queryByTestId('pointing-node-halo-opt_raise')).toBeNull()
   })
 })
