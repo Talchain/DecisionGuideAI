@@ -121,13 +121,15 @@ afterEach(() => {
 })
 
 describe('T04 / ANC-03 — the question row is one muted row-meta run', () => {
-  it('the option count is row-meta (edgeLabel, text-light), not the value token in body ink', () => {
+  // Vision spec §3 (23 Oct): the count is option-colour dots on the row; "2 options" is its hover and accessible name.
+  it('the option count is option-colour dots on the row, not the value token in body ink', () => {
     renderDecision()
     const count = screen.getByTestId('decision-node-option-count')
-    expect(count.textContent).toBe('2 alternatives')
+    expect(count.getAttribute('aria-label')).toBe('2 options')
+    const dots = count.querySelectorAll('[data-testid="decision-node-option-dot"]')
+    expect(dots).toHaveLength(2)
+    for (const dot of dots) expect(tokens(dot as HTMLElement)).toContain('bg-option')
     const t = tokens(count)
-    for (const cls of EDGE_LABEL) expect(t).toContain(cls)
-    expect(t).toContain('text-text-light')
     expect(t).not.toContain('text-text-body')
     // POSITIVE CONTROL for the discriminator: the value token has classes the
     // label token lacks, and none of them survive on the count.

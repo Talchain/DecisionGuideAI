@@ -160,15 +160,20 @@ afterEach(() => {
   useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null } as any)
 })
 
-describe('(a) the count speaks the contract noun — "N alternatives"', () => {
-  it('three linked options read "3 alternatives" on the card', () => {
+describe('(a) the count is option-colour dots, the words on hover — "N options" (vision spec §3, 23 Oct)', () => {
+  it('three linked options draw three dots, and say "3 options" on hover and to assistive technology', () => {
     renderDecision()
-    expect(screen.getByTestId('decision-node-option-count').textContent).toBe('3 alternatives')
+    const count = screen.getByTestId('decision-node-option-count')
+    expect(count.getAttribute('title')).toBe('3 options')
+    expect(count.getAttribute('aria-label')).toBe('3 options')
+    expect(count.querySelectorAll('[data-testid="decision-node-option-dot"]')).toHaveLength(3)
+    // The words are gone from the card face: no "alternatives", no "options" as visible text.
+    expect(count.textContent).toBe('')
   })
 
   it('CONTRAST — one option is singular, and zero is still not a count', () => {
-    expect(composeOptionCountLine(1)).toBe('1 alternative')
-    expect(composeOptionCountLine(2)).toBe('2 alternatives')
+    expect(composeOptionCountLine(1)).toBe('1 option')
+    expect(composeOptionCountLine(2)).toBe('2 options')
     expect(composeOptionCountLine(0)).toBeNull()
   })
 })

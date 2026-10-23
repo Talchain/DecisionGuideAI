@@ -5,9 +5,12 @@
  * tested it as core: the panel said nothing. A tester must never test one engine as another.
  *
  * This file runs jsdom at the STAGING host (the docblock above), so the render row measures the real default.
+ *
+ * ⭐ 23 Oct 2026 (vision spec §3): the label shows only in a debug view (`?diag`, the app's existing debug gate). A
+ * user's dock carries no route label; a tester opens `?diag=1` to see which engine is serving.
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
 import { OlumiTabBody } from '../OlumiTabBody'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { useCanvasStore } from '../../store'
@@ -31,9 +34,20 @@ describe('the Olumi tab names the engine serving this staging session', () => {
     vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {})
   })
 
-  it('at the staging host with no ?ai, the panel names the default engine', () => {
+  afterEach(() => { cleanup(); window.location.hash = '#/canvas' })
+
+  it('at the staging host without ?diag, the dock carries no route label, and the float-out button stays', () => {
     // Precondition: this really is the staging default, the core route (DL 22 Oct), not an unconfigured host.
     expect(window.location.hostname).toBe('staging--olumi.netlify.app')
+    expect(resolveAiComparisonMode()).toBe('core-route')
+    render(<ConversationProvider><OlumiTabBody onFloatOut={() => {}} /></ConversationProvider>)
+    expect(screen.queryByTestId('olumi-ai-comparison-mode')).toBeNull()
+    expect(screen.queryByText(/OpenAI core route/)).toBeNull()
+    expect(screen.getByTestId('olumi-tab-float-out')).toBeTruthy()
+  })
+
+  it('CONTRAST: in a debug view (?diag=1) the panel names the default engine', () => {
+    window.location.hash = '#/canvas?diag=1'
     expect(resolveAiComparisonMode()).toBe('core-route')
     render(<ConversationProvider><OlumiTabBody /></ConversationProvider>)
     expect(screen.getByTestId('olumi-ai-comparison-mode').textContent).toBe('AI: OpenAI core route')

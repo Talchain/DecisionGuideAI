@@ -102,7 +102,6 @@ import { withGhostTiers, GHOST_TIERS } from './utils/ghostTiers'
 import { sortNodesInReadingOrder } from './utils/readingOrder'
 import { useLayoutStore } from './layoutStore'
 import { restingCardWidthForKind } from './utils/nodeLayoutConstants'
-import { TierLanes } from './nodes/TierLanes'
 import { ProposalGhostLayer } from './nodes/ProposalGhostLayer'
 import { WhatIfMarkLayer } from './nodes/WhatIfMarkLayer'
 import { DirectionNeededLayer } from './nodes/DirectionNeededLayer'
@@ -1009,7 +1008,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // any option. `sortNodesInReadingOrder` is row (the layout's own
   // `TIER_BY_KIND`), then left to right, as the contract's prototype walks it.
   // Inside THIS memo on purpose: no new hook in this file (rules-of-hooks
-  // ratchet), and `TierLanes` and `<ReactFlow>` already read this one array.
+  // ratchet), and `<ReactFlow>` already reads this one array.
   const memoizedNodes = useMemo(() => {
     const seen = new Set<string>()
     // Core's option switch is the engine's working, not the model: never drawn (coreSwitch.ts).
@@ -2856,36 +2855,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             proOptions={{ hideAttribution: true }} /* contract v3.1 DESIGN-GAP #29: no "React Flow" link on the canvas (MIT; the option MiniCanvas already uses) */
           >
             <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} color={showGrid ? CANVAS_GRID_DOT_COLOUR : undefined} />
-            {/* ⭐⭐ THE BOARD'S GRAMMAR, DRAWN. Fed `memoizedNodes`, the same
-                array React Flow is rendering, so a lane cannot describe a board
-                the user is not looking at.
-
-                ⛔ THIS COMMENT USED TO SAY THE POSITION HERE PUT THE BANDS
-                BEHIND THE CARDS — "immediately after the ground and before every
-                node, so the bands sit BEHIND the cards they hold". THAT WAS
-                FALSE, and it is corrected in place rather than deleted because
-                the false version is why nobody looked (CLAUDE.md trap 14: an
-                honest label overwritten by a reassuring one).
-
-                `TierLanes` renders through `ViewportPortal` (angle brackets
-                omitted deliberately — see below), and portalled
-                content leaves this call site's position entirely — it lands in
-                `.react-flow__viewport-portal`, the LAST of the viewport's five
-                children. So the bands painted ON TOP of every card, washing body
-                text from ~10.4:1 to ~2.66:1 contrast. Where the element is
-                WRITTEN says nothing about where it PAINTS; the stacking is now
-                declared explicitly in `TierLanes` itself, which is the only file
-                that can see the portal.
-
-                ⚠ AND THE ANGLE BRACKETS ARE OMITTED ON PURPOSE, WHICH IS ITSELF
-                WORTH KNOWING. `canvasTextCounterScale.census.spec.ts` sweeps
-                `src/` for `/<ViewportPortal[\s/>]/` against RAW SOURCE TEXT and
-                asserts the declared set is exactly `['src/canvas/nodes/TierLanes
-                .tsx']`. Writing the JSX spelling in this COMMENT added a second
-                entry and failed a gate-required job — the census cannot tell code
-                from prose describing code. Same defect class as the stripper in
-                the guard this PR adds, one level up; rowed, not fixed here. */}
-            <TierLanes nodes={memoizedNodes} />
+            {/* Vision spec §3 (23 Oct): no lane labels. Card colour and glyph carry the type. */}
             {/* Suggestion preview: the ghost of the proposal the latest reply offers (render-only; see the file). */}
             <ProposalGhostLayer />
             <WhatIfMarkLayer />

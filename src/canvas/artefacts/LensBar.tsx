@@ -11,6 +11,7 @@
  * View only: it changes the lens and nothing else.
  */
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { Activity, AlertTriangle, Anchor, ArrowRightLeft, Layers2, Scale, type LucideIcon } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
 import { typography } from '../../styles/typography'
@@ -26,6 +27,16 @@ import { LENS_COPY, LENS_ORDER, lensNeedsRun, useCurrentPremortemWorksheet, useP
 export const LENS_BAR_TESTID = 'lens-bar'
 /** The space kept between the bar and the pill, the dock or the window edge. */
 const GAP_PX = 12
+
+/** Vision spec §3 (23 Oct): an icon before each lens name, to speed scanning. Decorative: the name stays the label. */
+export const LENS_ICON: Record<BarLens, LucideIcon> = {
+  full: Layers2,
+  tradeoffs: Scale,
+  rests_on: Anchor,
+  premortem: AlertTriangle,
+  what_changes: Activity,
+  what_if: ArrowRightLeft,
+}
 
 interface Placement { readonly left: number; readonly top: number }
 
@@ -148,6 +159,7 @@ export function LensBar() {
         const selected = lens === current
         const waiting = lensNeedsRun(lens) && !hasRun
         const count = counts[lens] ?? 0
+        const LensIcon = LENS_ICON[lens]
         return (
           <button
             key={lens}
@@ -171,6 +183,7 @@ export function LensBar() {
                   : 'border-transparent text-text-light hover:text-text-body'
             } ${ACTION_FOCUS}`}
           >
+            <LensIcon aria-hidden="true" data-testid={`${LENS_BAR_TESTID}-${lens}-icon`} className="h-3.5 w-3.5 shrink-0" />
             {LENS_COPY.label[lens]}
             {count > 0 ? (
               <span

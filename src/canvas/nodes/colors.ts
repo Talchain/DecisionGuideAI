@@ -43,11 +43,12 @@ export const nodeColors = {
     selected: NODE_SELECTED_CLASSES,
     text: 'text-goal',
   },
+  // Vision spec §3 (23 Oct): the question's frame is text-light grey. Blue (info) means Olumi and nothing else.
   decision: {
     bg: 'bg-info-light',
-    border: 'border-info',
-    frame: 'border-[color:color-mix(in_srgb,var(--info)_76%,var(--border-default))]',
-    hover: 'hover:border-info-hover',
+    border: 'border-text-light',
+    frame: 'border-[color:color-mix(in_srgb,var(--text-light)_76%,var(--border-default))]',
+    hover: 'hover:border-text-light',
     selected: NODE_SELECTED_CLASSES,
     text: 'text-info',
   },

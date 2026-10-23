@@ -4,7 +4,7 @@ import { CardMark } from './shared/CardMark'
  *
  * ⭐ PROTOTYPE ROW (Paul, 25 Sep 2026 — the canvas matches the prototype):
  *   Title (the question, the data label verbatim) → ONE line:
- *   "N alternatives", then " · Evidence priority: <factor>" ONLY when the
+ *   one option-colour dot per option ("N options" on hover; vision spec 23 Oct), then " · Evidence priority: <factor>" ONLY when the
  *   current run ranks a canvas factor first (unnamed / no options: the resting
  *   line and its one CTA). The reasoning sentences (top gap, withheld-leader
  *   disclosure, run-wide share absence) are OFF the row, whole, in the popover
@@ -207,8 +207,14 @@ export const DECISION_READINESS_COPY = {
  */
 export function composeOptionCountLine(optionCount: number): string | null {
   if (!Number.isFinite(optionCount) || optionCount <= 0) return null
-  return `${optionCount} alternative${optionCount === 1 ? '' : 's'}`
+  return `${optionCount} option${optionCount === 1 ? '' : 's'}`
 }
+
+/**
+ * Vision spec §3 (23 Oct): the card face shows one option-colour dot per option, not the words. The count stays in
+ * full on hover (`title`) and for assistive technology (`aria-label`). Past this cap the dots stop; the words do not.
+ */
+export const OPTION_DOTS_MAX = 8
 
 /**
  * The prototype's label for the second segment of the Question row
@@ -1273,8 +1279,21 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
           data-testid="decision-node-resting-state"
         >
           {optionCountLineText !== null && (
-            <span data-testid="decision-node-option-count" className={`${typography.edgeLabel} shrink-0 text-text-light`}>
-              {optionCountLineText}
+            <span
+              data-testid="decision-node-option-count"
+              role="img"
+              aria-label={optionCountLineText}
+              title={optionCountLineText}
+              className="inline-flex shrink-0 items-center gap-[calc(3px*var(--canvas-label-scale,1))] self-center"
+            >
+              {Array.from({ length: Math.min(optionCount, OPTION_DOTS_MAX) }, (_, i) => (
+                <i
+                  key={i}
+                  data-testid="decision-node-option-dot"
+                  aria-hidden="true"
+                  className="block h-[calc(7px*var(--canvas-label-scale,1))] w-[calc(7px*var(--canvas-label-scale,1))] rounded-full bg-option"
+                />
+              ))}
             </span>
           )}
           {/* Inline flow: the one break opportunity between the count and its

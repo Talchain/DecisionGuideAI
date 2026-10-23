@@ -129,7 +129,9 @@ const CARD_FACE = 'decision-node-option-count'
 const LOD_LINE = 'node-lod-line'
 
 const cardFace = () => screen.queryByTestId(CARD_FACE)
-const cardFaceText = () => cardFace()?.textContent ?? null
+/** The card face is dots (vision spec §3, 23 Oct); its words live on hover and in the accessible name. */
+const cardFaceText = () => cardFace()?.getAttribute('aria-label') ?? null
+const cardFaceDots = () => cardFace()?.querySelectorAll('[data-testid="decision-node-option-dot"]').length ?? 0
 const lodLine = () => screen.queryByTestId(LOD_LINE)
 const lodLineText = () => lodLine()?.textContent ?? null
 
@@ -162,7 +164,7 @@ describe('⭐ the card shows the question, never "Decision:" (Paul 22 Oct: a rea
 
 describe('composeOptionCountLine — the count, and the rules that make it honest', () => {
   it('states the number and the noun', () => {
-    expect(composeOptionCountLine(3)).toBe('3 alternatives')
+    expect(composeOptionCountLine(3)).toBe('3 options')
   })
 
   /**
@@ -170,9 +172,9 @@ describe('composeOptionCountLine — the count, and the rules that make it hones
    * rather than only through a render, because this is where the rule lives —
    * a render-only pin would go green against a caller that reimplemented it.
    */
-  it('one option is "1 alternative", never "1 alternatives"', () => {
-    expect(composeOptionCountLine(1)).toBe('1 alternative')
-    expect(composeOptionCountLine(1)).not.toContain('alternatives')
+  it('one option is "1 option", never "1 options"', () => {
+    expect(composeOptionCountLine(1)).toBe('1 option')
+    expect(composeOptionCountLine(1)).not.toContain('options')
   })
 
   /**
@@ -208,7 +210,7 @@ describe('composeOptionCountLine — the count, and the rules that make it hones
    */
   it('makes no claim the count cannot support', () => {
     const line = composeOptionCountLine(4)!
-    expect(line).toMatch(/^4 alternatives$/)
+    expect(line).toMatch(/^4 options$/)
     expect(line).not.toMatch(/\b(comparable|compared|comparing|viable|valid|complete)\b/i)
   })
 })
@@ -226,7 +228,16 @@ describe('the card states the alternatives AS CARD-FACE TEXT at reading zoom', (
    */
   it('pre-analysis: the count is on the card face, not only in the reduced line', () => {
     renderDecision(linked(3))
-    expect(cardFaceText()).toBe('3 alternatives')
+    expect(cardFaceText()).toBe('3 options')
+    expect(cardFace()!.getAttribute('title')).toBe('3 options')
+    expect(cardFaceDots()).toBe(3)
+    expect(cardFace()!.textContent).toBe('')
+  })
+
+  it('one dot per option up to eight; past that the dots stop and the words still say the whole count', () => {
+    renderDecision(linked(11))
+    expect(cardFaceDots()).toBe(8)
+    expect(cardFaceText()).toBe('11 options')
   })
 
   /**
@@ -248,12 +259,13 @@ describe('the card states the alternatives AS CARD-FACE TEXT at reading zoom', (
    */
   it('DISCRIMINATION — a different number of options produces a different line', () => {
     renderDecision(linked(2))
-    expect(cardFaceText()).toBe('2 alternatives')
+    expect(cardFaceText()).toBe('2 options')
+    expect(cardFaceDots()).toBe(2)
   })
 
   it('and the singular reaches the card face intact', () => {
     renderDecision(linked(1))
-    expect(cardFaceText()).toBe('1 alternative')
+    expect(cardFaceText()).toBe('1 option')
   })
 
   /**
@@ -267,7 +279,7 @@ describe('the card states the alternatives AS CARD-FACE TEXT at reading zoom', (
       ...linked(3),
       results: { status: 'complete', report: PERMITTED_REPORT },
     })
-    expect(cardFaceText()).toBe('3 alternatives')
+    expect(cardFaceText()).toBe('3 options')
   })
 
   /**
@@ -312,7 +324,7 @@ describe('de-duplication: two edges to one option are one option', () => {
       nodes: [optionNode(1), optionNode(2)],
       edges: [edgeTo(1), edgeTo(1, '-dup'), edgeTo(2)],
     })
-    expect(cardFaceText()).toBe('2 alternatives')
+    expect(cardFaceText()).toBe('2 options')
   })
 
   /**
@@ -327,7 +339,7 @@ describe('de-duplication: two edges to one option are one option', () => {
       nodes: [optionNode(1), optionNode(2), optionNode(3)],
       edges: [edgeTo(1), edgeTo(2), edgeTo(3)],
     })
-    expect(cardFaceText()).toBe('3 alternatives')
+    expect(cardFaceText()).toBe('3 options')
   })
 
   /**
@@ -349,7 +361,7 @@ describe('de-duplication: two edges to one option are one option', () => {
         { id: 'e-other', source: 'someone-else', target: 'opt-2' },
       ],
     })
-    expect(cardFaceText()).toBe('1 alternative')
+    expect(cardFaceText()).toBe('1 option')
   })
 })
 
@@ -454,8 +466,8 @@ describe('the count is painted exactly once at every rung', () => {
     expect(lod).not.toBeNull()
 
     // Same fact, same string — which is why the doubling would be visible.
-    expect(cardFaceText()).toBe('3 alternatives')
-    expect(lodLineText()).toBe('3 alternatives')
+    expect(cardFaceText()).toBe('3 options')
+    expect(lodLineText()).toBe('3 options')
 
     // The card-face line sits under the wrapper the LOD rung blanks...
     expect(face!.closest(`[${LOD_BLANKED_BODY_ATTR}]`)).not.toBeNull()
@@ -492,7 +504,7 @@ describe('the count is painted exactly once at every rung', () => {
   it('and the two surfaces state the SAME string, from the same composer', () => {
     renderDecision({ ...linked(4), lodRung: 'line' })
     expect(cardFaceText()).toBe(lodLineText())
-    expect(cardFaceText()).toBe(composeOptionCountLine(4))
+    expect(cardFaceText()).toBe('4 options')
   })
 
   /**
@@ -504,6 +516,6 @@ describe('the count is painted exactly once at every rung', () => {
   it('CONTRAST — an unnamed question spends its one reduced line on the prompt, and still shows the count at reading zoom', () => {
     renderDecision({ ...linked(3), lodRung: 'line' }, '')
     expect(lodLineText()).toBe(DECISION_RESTING_COPY.unnamedLine)
-    expect(cardFaceText()).toBe('3 alternatives')
+    expect(cardFaceText()).toBe('3 options')
   })
 })

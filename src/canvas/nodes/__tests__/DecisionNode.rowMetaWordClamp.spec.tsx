@@ -163,7 +163,7 @@ describe('Question card reasoning sentence — off the row, never cut (prototype
     renderDecision()
     const count = screen.getByTestId('decision-node-option-count')
     expect(count.closest('[data-testid="decision-node-resting-state"]')).not.toBeNull()
-    expect(count.textContent).toBe('3 alternatives')
+    expect(count.getAttribute('aria-label')).toBe('3 options')
     expect(tokens(count)).not.toContain('line-clamp-1')
     expect(tokens(count)).toContain('shrink-0')
   })

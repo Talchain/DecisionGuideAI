@@ -156,7 +156,14 @@ describe('contract v3.1 — the frame colour is the kind hue mixed toward the wa
 
   it.each(KINDS)('%s: the frame is a 76% color-mix of two EXISTING tokens — no new colour', (kind) => {
     const frame = nodeColors[kind].frame
-    expect(frame).toMatch(/^border-\[color:color-mix\(in_srgb,var\(--[a-z]+\)_76%,var\(--border-default\)\)\]$/)
+    expect(frame).toMatch(/^border-\[color:color-mix\(in_srgb,var\(--[a-z-]+\)_76%,var\(--border-default\)\)\]$/)
+  })
+
+  // Vision spec §3 (23 Oct): blue (info) means Olumi and nothing else, so the question card's frame is text-light grey.
+  it('the question card wears a text-light frame, never an info-blue one', () => {
+    const t = tokens(renderCard('decision').root)
+    expect(t).toContain('border-[color:color-mix(in_srgb,var(--text-light)_76%,var(--border-default))]')
+    expect(t.some((c) => c.includes('--info'))).toBe(false)
   })
 })
 

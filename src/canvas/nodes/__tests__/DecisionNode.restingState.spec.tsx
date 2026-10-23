@@ -261,11 +261,14 @@ const FALLBACK_LINES = [
  * `extractionIsNotLossy` below pins the separation itself.
  */
 function visibleText(el: HTMLElement): string {
-  const walker = el.ownerDocument.createTreeWalker(el, 4 /* NodeFilter.SHOW_TEXT */)
+  // Text nodes, plus the words of a drawn mark (`role="img"` + `aria-label`): the option count is dots on the face and
+  // "N options" on hover (vision spec §3, 23 Oct), and the honesty guard must still read those words.
+  const walker = el.ownerDocument.createTreeWalker(el, 1 | 4 /* NodeFilter.SHOW_ELEMENT | SHOW_TEXT */)
   const parts: string[] = []
   let node: Node | null = walker.nextNode()
   while (node) {
-    parts.push(node.textContent ?? '')
+    if (node.nodeType === 3) parts.push(node.textContent ?? '')
+    else if ((node as Element).getAttribute('role') === 'img') parts.push((node as Element).getAttribute('aria-label') ?? '')
     node = walker.nextNode()
   }
   return parts.join('\n')
@@ -482,7 +485,7 @@ describe('DecisionNode — honest resting state', () => {
       // and the row the guard scans carries the option count, so the corpus is
       // not certifying an empty subtree.
       expect(screen.queryByTestId('decision-node-readiness-summary')).toBeNull()
-      expect(within(screen.getByTestId(RESTING)).getByTestId('decision-node-option-count').textContent).toBe('2 alternatives')
+      expect(within(screen.getByTestId(RESTING)).getByTestId('decision-node-option-count').getAttribute('aria-label')).toBe('2 options')
     }],
   ]
 
@@ -587,7 +590,7 @@ describe('DecisionNode — honest resting state', () => {
     // Locked Canvas design (23 Sep 2026): the content-free wayfinding line is
     // off the face; the row states the option count instead.
     expect(within(resting).queryByText(DECISION_RESTING_COPY.completedRunLine)).toBeNull()
-    expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 alternatives')
+    expect(within(resting).getByTestId('decision-node-option-count').getAttribute('aria-label')).toBe('2 options')
     // "yet" would assert that nothing has happened. A run had.
     expect(visibleText(resting)).not.toMatch(/\byet\b/i)
     // No authoring CTA here: the absence is not something the user writes away,
@@ -615,7 +618,7 @@ describe('DecisionNode — honest resting state', () => {
     expect(within(resting).queryByTestId('decision-node-top-gap')).toBeNull()
     expect(within(screen.getByTestId('decision-node-popover')).getByTestId('decision-node-top-gap').textContent)
       .toMatch(/Top gap: estimate/i)
-    expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 alternatives')
+    expect(within(resting).getByTestId('decision-node-option-count').getAttribute('aria-label')).toBe('2 options')
     for (const line of FALLBACK_LINES) expect(resting.textContent).not.toContain(line)
     expect(within(resting).queryByTestId(RESTING_CTA)).toBeNull()
   })
@@ -656,7 +659,7 @@ describe('DecisionNode — honest resting state', () => {
       // line and the readiness summary are off the face. The row renders under
       // BOTH permissions and states the same structural fact (the option count),
       // which is the property: the verdict does not change what the row shows.
-      expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 alternatives')
+      expect(within(resting).getByTestId('decision-node-option-count').getAttribute('aria-label')).toBe('2 options')
       expect(within(resting).queryByText(DECISION_RESTING_COPY.completedRunLine)).toBeNull()
       expect(within(resting).queryByTestId('decision-node-readiness-summary')).toBeNull()
       // ⚠ NO CTA IS ASSERTED HERE, deliberately: the completed-run arm of
@@ -710,7 +713,7 @@ describe('DecisionNode — honest resting state', () => {
 
     // …and the resting row is NOT suppressed by it (Paul's 9 Sep ruling kept).
     const resting = screen.getByTestId(RESTING)
-    expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 alternatives')
+    expect(within(resting).getByTestId('decision-node-option-count').getAttribute('aria-label')).toBe('2 options')
     expect(within(resting).queryByTestId('decision-node-readiness-summary')).toBeNull()
 
     // The copy still may not explain the analysis, chips or no chips.
@@ -755,7 +758,7 @@ describe('DecisionNode — honest resting state', () => {
     // …and the resting row is present alongside, per the ruling; the summary is
     // off the face (ED 11:52Z point 1).
     const resting = screen.getByTestId(RESTING)
-    expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 alternatives')
+    expect(within(resting).getByTestId('decision-node-option-count').getAttribute('aria-label')).toBe('2 options')
     expect(within(resting).queryByTestId('decision-node-readiness-summary')).toBeNull()
   })
 
