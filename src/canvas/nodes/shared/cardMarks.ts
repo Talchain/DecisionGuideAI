@@ -1,6 +1,6 @@
 import {
   LocateFixed, AlertTriangle, AlertCircle, Wrench, GraduationCap, Lightbulb, Flag, Anchor, BadgeHelp, Bookmark, CircleDashed, CircleSlash, Clock, EyeOff, Target, NotebookPen, ListFilter, RotateCcw,
-  Gauge, History, HelpCircle, ListOrdered, Grid2x2, ScanLine,
+  Gauge, History, HelpCircle, ListOrdered, Grid2x2, ScanLine, Calculator,
   Signal, BookOpen,
   type LucideIcon,
 } from 'lucide-react'
@@ -54,6 +54,10 @@ export const CARD_MARKS = [
   entry('source-confirmed', VALUE_PROVENANCE_LABEL.confirmed, VALUE_PROVENANCE_ICON.confirmed, values, true),
   entry('source-panel', 'panel', VALUE_PROVENANCE_ICON.panel, values, true, VALUE_PROVENANCE_LABEL.panel),
   entry('source-unknown', 'no source', HelpCircle, values, true, 'Source not recorded'),
+  // S3 `value_basis` (23 Oct): a figure the model sets itself (worked out from other figures, or fixed by how it is
+  // built), or one waiting for the person's answer. The card's name and hover are CEE's own words for that figure.
+  entry('source-basis', 'model', Calculator, values, true, 'Set by the model: worked out from other figures, or fixed by how it is built'),
+  entry('source-asked', 'asked', CircleDashed, values, true, 'Waiting for your answer'),
   entry('factor-tier', 'Very low · Low · Medium · High · Very high', Signal, ['factor'], true, undefined, undefined, 'level-meter'),
   entry('driver', 'Driver N of M ranked in this run', ListOrdered, ['factor'], true, 'Driver N of M ranked in this run · Last run · Driver N of M ranked · Driver N of M ranked · no value yet', undefined, 'rank-bar'),
   entry('driver-last-run', 'Last run · Driver N of M ranked', History, ['factor'], true, undefined, undefined, 'rank-bar-history'),

@@ -1,0 +1,329 @@
+{
+ "_source": "S3 smoke-alpha3 spike hiring-r1.read.json (CEE served read via the real read route, model_program v1, 23 Oct 2026), trimmed to the nodes",
+ "schema": "scenario_graph.v1",
+ "scenario_id": "b80a5eaa-26de-4a34-86ac-9e9659ff9d24",
+ "graph_hash": "90b47723b0a2e4de",
+ "graph": {
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "kind": "decision",
+    "label": "Should you hire a Tech lead or two developers to increase productivity by at least 10% before the launch within three months, while maintaining code quality and staying within £200,000?"
+   },
+   {
+    "id": "increase_productivity",
+    "kind": "goal",
+    "label": "increase productivity by at least 10%",
+    "provenance": "from_brief",
+    "source_quote": "increase productivity by at least 10%",
+    "analysis_participation": "retained_excluded",
+    "user_questions": [
+     "How do you measure productivity: total team delivery, delivery per developer, or another measure?"
+    ]
+   },
+   {
+    "id": "meet_launch_date",
+    "kind": "goal",
+    "label": "an urgent launch date in the next three months",
+    "provenance": "from_brief",
+    "source_quote": "We have an urgent launch date in the next three months.",
+    "analysis_participation": "retained_excluded",
+    "user_questions": [
+     "What work must be completed for the launch to count as ready?"
+    ]
+   },
+   {
+    "id": "hire_tech_lead",
+    "kind": "option",
+    "label": "a Tech lead",
+    "provenance": "from_brief",
+    "source_quote": "Should I hire a Tech lead or two developers",
+    "analysis_participation": "included",
+    "interventions": {
+     "tech_leads_hired": {
+      "value": 1,
+      "unit": "tech_lead",
+      "display": "1 tech_lead",
+      "from_period": 0,
+      "source": "brief_extraction",
+      "source_words": "Set by ‘a Tech lead’, from your brief"
+     }
+    }
+   },
+   {
+    "id": "hire_two_developers",
+    "kind": "option",
+    "label": "two developers",
+    "provenance": "from_brief",
+    "source_quote": "Should I hire a Tech lead or two developers",
+    "analysis_participation": "included",
+    "interventions": {
+     "developers_hired": {
+      "value": 2,
+      "unit": "developer",
+      "display": "2 developer",
+      "from_period": 0,
+      "source": "brief_extraction",
+      "source_words": "Set by ‘two developers’, from your brief"
+     }
+    }
+   },
+   {
+    "id": "current_developers",
+    "kind": "factor",
+    "label": "Current mid-weight developers",
+    "provenance": "from_brief",
+    "source_quote": "We currently have six mid-weight developers",
+    "analysis_participation": "retained_excluded",
+    "category": "observable",
+    "observed_state": {
+     "value": 6,
+     "raw_value": 6,
+     "unit": "developer",
+     "source": "brief_extraction",
+     "extractionType": "explicit"
+    },
+    "display_value": "6 developer"
+   },
+   {
+    "id": "developers_hired",
+    "kind": "factor",
+    "label": "Additional developers hired",
+    "analysis_participation": "included",
+    "category": "controllable",
+    "observed_state": {
+     "value": 0,
+     "raw_value": 0,
+     "unit": "developer"
+    },
+    "display_value": "0 developer",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "description": "Zero additional developers represents the developer-hiring option switched off."
+   },
+   {
+    "id": "tech_leads_hired",
+    "kind": "factor",
+    "label": "Tech leads hired",
+    "analysis_participation": "included",
+    "category": "controllable",
+    "observed_state": {
+     "value": 0,
+     "raw_value": 0,
+     "unit": "tech_lead"
+    },
+    "display_value": "0 tech_lead",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "description": "Zero Tech leads represents the Tech lead hiring option switched off, not the number of existing leaders."
+   },
+   {
+    "id": "developer_hiring_cost",
+    "kind": "factor",
+    "label": "Budget cost per additional developer",
+    "provenance": "from_brief",
+    "analysis_participation": "included",
+    "category": "observable",
+    "display_value": "Waiting for your answer",
+    "value_basis": {
+     "kind": "waiting_for_answer",
+     "words": "Waiting for your answer",
+     "question": "What total cost per new developer would count against your £200,000 budget, including recruitment and employment costs for the period that budget covers?"
+    },
+    "user_questions": [
+     "What total cost per new developer would count against your £200,000 budget, including recruitment and employment costs for the period that budget covers?"
+    ]
+   },
+   {
+    "id": "tech_lead_hiring_cost",
+    "kind": "factor",
+    "label": "Budget cost per Tech lead",
+    "provenance": "from_brief",
+    "analysis_participation": "included",
+    "category": "observable",
+    "display_value": "Waiting for your answer",
+    "value_basis": {
+     "kind": "waiting_for_answer",
+     "words": "Waiting for your answer",
+     "question": "What total cost for a Tech lead would count against your £200,000 budget, including recruitment and employment costs for the period that budget covers?"
+    },
+    "user_questions": [
+     "What total cost for a Tech lead would count against your £200,000 budget, including recruitment and employment costs for the period that budget covers?"
+    ]
+   },
+   {
+    "id": "developer_spend",
+    "kind": "outcome",
+    "label": "Cost of hiring developers",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Additional developers hired and Budget cost per additional developer",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "developers_hired",
+      "developer_hiring_cost"
+     ],
+     "words": "Worked out from Additional developers hired and Budget cost per additional developer"
+    }
+   },
+   {
+    "id": "tech_lead_spend",
+    "kind": "outcome",
+    "label": "Cost of hiring a Tech lead",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Tech leads hired and Budget cost per Tech lead",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "tech_leads_hired",
+      "tech_lead_hiring_cost"
+     ],
+     "words": "Worked out from Tech leads hired and Budget cost per Tech lead"
+    }
+   },
+   {
+    "id": "total_hiring_spend",
+    "kind": "outcome",
+    "label": "Total hiring cost against the budget",
+    "provenance": "ai_inferred",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Cost of hiring developers and Cost of hiring a Tech lead",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "developer_spend",
+      "tech_lead_spend"
+     ],
+     "words": "Worked out from Cost of hiring developers and Cost of hiring a Tech lead"
+    }
+   },
+   {
+    "id": "productivity_increase_target",
+    "kind": "factor",
+    "label": "Minimum productivity increase",
+    "provenance": "from_brief",
+    "source_quote": "increase productivity by at least 10%",
+    "analysis_participation": "retained_excluded",
+    "category": "observable",
+    "observed_state": {
+     "value": 10,
+     "raw_value": 10,
+     "unit": "%",
+     "source": "brief_extraction",
+     "extractionType": "explicit"
+    },
+    "display_value": "10 %"
+   },
+   {
+    "id": "launch_horizon",
+    "kind": "factor",
+    "label": "Time available before launch",
+    "provenance": "from_brief",
+    "source_quote": "an urgent launch date in the next three months",
+    "analysis_participation": "retained_excluded",
+    "category": "observable",
+    "observed_state": {
+     "value": 3,
+     "raw_value": 3,
+     "unit": "month",
+     "source": "brief_extraction",
+     "extractionType": "explicit"
+    },
+    "display_value": "3 month"
+   },
+   {
+    "id": "mp:limit:maintain_code_quality",
+    "kind": "action",
+    "label": "Limit: maintaining code quality",
+    "description": "maintaining code quality (no measure yet, so the result does not cover it).",
+    "provenance": "from_brief",
+    "source_quote": "while maintaining code quality",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "prefer_lower_spend",
+    "kind": "action",
+    "label": "Preference: lower Total hiring cost against the budget",
+    "description": "Would like Total hiring cost against the budget lower. Shown beside the result; not a goal or a limit.",
+    "provenance": "from_brief",
+    "source_quote": "we'd like to spend less",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "leadership_gap",
+    "kind": "action",
+    "label": "Claim: We currently have six mid-weight developers, so we're lacking leadership.",
+    "description": "We currently have six mid-weight developers, so we're lacking leadership.",
+    "provenance": "from_brief",
+    "source_quote": "We currently have six mid-weight developers, so we're lacking leadership.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "budget_cost_scope",
+    "kind": "action",
+    "label": "Assumption: The comparison counts each hire's total cost over the period covered by the sta…",
+    "description": "The comparison counts each hire's total cost over the period covered by the stated budget; it does not assume the £200,000 is an annual or three-month budget.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "hiring_decision_not_start_date",
+    "kind": "action",
+    "label": "Assumption: The option counts represent hiring commitments selected now, not an assumption …",
+    "description": "The option counts represent hiring commitments selected now, not an assumption that new hires are available or productive immediately.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "productivity_mechanism_unresolved",
+    "kind": "action",
+    "label": "Left out: The 10% productivity target, the six-person mid-weight team, and the leadership…",
+    "description": "The 10% productivity target, the six-person mid-weight team, and the leadership gap are retained, but neither option's productivity gain is calculated. Why: Productivity needs a defined measure before additional delivery capacity and leadership support can be expressed in meaningful units without assuming that headcount equals output.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "launch_readiness_not_calculated",
+    "kind": "action",
+    "label": "Left out: Meeting the launch date within three months is not yet calculated.",
+    "description": "Meeting the launch date within three months is not yet calculated. Why: The required launch scope and remaining work are not specified.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "hiring_and_onboarding_timing",
+    "kind": "action",
+    "label": "Left out: Recruitment lead times and onboarding demands may materially reduce either opti…",
+    "description": "Recruitment lead times and onboarding demands may materially reduce either option's contribution before launch. Why: No availability dates or onboarding arrangements were given, and no delivery calculation is yet defined.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "code_quality_not_calculated",
+    "kind": "action",
+    "label": "Left out: Maintaining code quality is not covered by the cost calculation.",
+    "description": "Maintaining code quality is not covered by the cost calculation. Why: No code-quality measure or acceptable threshold has been specified.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "productivity_target_timing",
+    "kind": "action",
+    "label": "Left out: Whether the 10% improvement must be reached by launch or sustained throughout t…",
+    "description": "Whether the 10% improvement must be reached by launch or sustained throughout the next three months is not specified. Why: The launch deadline is stated, but the productivity target has no explicit measurement window.",
+    "provenance": "ai_inferred",
+    "analysis_participation": "retained_excluded"
+   }
+  ],
+  "edges": [],
+  "living_model": {
+   "model_program": "v1"
+  }
+ }
+}

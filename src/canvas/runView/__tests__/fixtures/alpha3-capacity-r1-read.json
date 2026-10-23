@@ -1,0 +1,161 @@
+{
+ "_source": "S3 smoke-alpha3 spike capacity-r1.read.json (CEE served read via the real read route, model_program v1, 23 Oct 2026), trimmed to the nodes",
+ "schema": "scenario_graph.v1",
+ "scenario_id": "4cb59b73-3851-422b-bd83-23770429fcc0",
+ "graph_hash": "156ec00ff79ad7ac",
+ "graph": {
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "kind": "decision",
+    "label": "Which staffing option provides weekly support capacity of at least 100 tickets per week?"
+   },
+   {
+    "id": "support_capacity_goal",
+    "kind": "goal",
+    "label": "Weekly support capacity",
+    "provenance": "from_brief",
+    "source_quote": "Goal: weekly support capacity of at least 100 tickets per week.",
+    "analysis_participation": "included",
+    "goal_direction": ">=",
+    "goal_threshold_frame": "level",
+    "goal_threshold_unit": "ticket/week",
+    "display_value": ">= 100 ticket/week",
+    "goal_threshold_raw": 100,
+    "goal_threshold": 0.8,
+    "goal_threshold_cap": 125,
+    "goal_threshold_cap_provenance": "target_derived_headroom",
+    "threshold_source": "brief_extraction"
+   },
+   {
+    "id": "keep_current_staffing",
+    "kind": "option",
+    "label": "Keep current staffing",
+    "provenance": "from_brief",
+    "source_quote": "Keep current staffing adds no specialist.",
+    "analysis_participation": "included",
+    "interventions": {
+     "additional_specialists": {
+      "value": 0,
+      "unit": "specialist",
+      "display": "0 specialist",
+      "from_period": 0,
+      "source": "brief_extraction",
+      "source_words": "Set by ‘Keep current staffing’, from your brief"
+     }
+    }
+   },
+   {
+    "id": "add_one_specialist",
+    "kind": "option",
+    "label": "Add one specialist",
+    "provenance": "from_brief",
+    "source_quote": "Add one specialist adds one specialist.",
+    "analysis_participation": "included",
+    "interventions": {
+     "additional_specialists": {
+      "value": 1,
+      "unit": "specialist",
+      "display": "1 specialist",
+      "from_period": 0,
+      "source": "brief_extraction",
+      "source_words": "Set by ‘Add one specialist’, from your brief"
+     }
+    }
+   },
+   {
+    "id": "existing_capacity",
+    "kind": "factor",
+    "label": "Existing weekly support capacity",
+    "provenance": "from_brief",
+    "source_quote": "Our existing team resolves 80 tickets per week.",
+    "analysis_participation": "included",
+    "category": "observable",
+    "observed_state": {
+     "value": 80,
+     "raw_value": 80,
+     "unit": "ticket/week",
+     "source": "brief_extraction",
+     "extractionType": "explicit"
+    },
+    "display_value": "80 ticket/week"
+   },
+   {
+    "id": "additional_specialists",
+    "kind": "factor",
+    "label": "Additional specialists",
+    "provenance": "from_brief",
+    "source_quote": "Keep current staffing adds no specialist.",
+    "analysis_participation": "included",
+    "category": "controllable",
+    "observed_state": {
+     "value": 0,
+     "raw_value": 0,
+     "unit": "specialist",
+     "source": "brief_extraction",
+     "extractionType": "explicit"
+    },
+    "display_value": "0 specialist"
+   },
+   {
+    "id": "capacity_per_specialist",
+    "kind": "factor",
+    "label": "Weekly capacity per additional specialist",
+    "provenance": "from_brief",
+    "source_quote": "Each additional specialist resolves about 20 tickets per week, between 10 and 30.",
+    "analysis_participation": "included",
+    "category": "observable",
+    "observed_state": {
+     "value": 20,
+     "raw_value": 20,
+     "unit": "ticket/week/specialist",
+     "source": "brief_extraction",
+     "extractionType": "explicit",
+     "range": {
+      "low": 10,
+      "high": 30
+     }
+    },
+    "display_value": "about 20, 10–30 ticket/week/specialist; Olumi reads it as a spread around 20 (sd 4.703), kept between 10 and 30, provisionally"
+   },
+   {
+    "id": "additional_capacity",
+    "kind": "outcome",
+    "label": "Additional specialist capacity",
+    "provenance": "from_brief",
+    "source_quote": "Each additional specialist resolves about 20 tickets per week, between 10 and 30.",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Additional specialists and Weekly capacity per additional specialist",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "additional_specialists",
+      "capacity_per_specialist"
+     ],
+     "words": "Worked out from Additional specialists and Weekly capacity per additional specialist"
+    }
+   },
+   {
+    "id": "weekly_support_capacity",
+    "kind": "outcome",
+    "label": "Weekly support capacity",
+    "provenance": "from_brief",
+    "source_quote": "Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity.",
+    "analysis_participation": "included",
+    "display_value": "Worked out from Existing weekly support capacity and Additional specialist capacity",
+    "value_basis": {
+     "kind": "worked_out",
+     "from": [
+      "existing_capacity",
+      "additional_capacity"
+     ],
+     "words": "Worked out from Existing weekly support capacity and Additional specialist capacity"
+    }
+   }
+  ],
+  "edges": [],
+  "living_model": {
+   "model_program": "v1"
+  }
+ }
+}
