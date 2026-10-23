@@ -109,7 +109,7 @@ describe('usePathHighlight', () => {
       expect(state.highlightedEdges.size).toBe(4)
     })
 
-    it('should dim nodes not on highlighted paths', () => {
+    it('⛔ never dims a card off the highlighted path (vision §3 PR H, "Nothing dims")', () => {
       // Setup: factor_a → goal, factor_b (disconnected from selection)
       const nodes = [
         createNode('factor_a', 'factor'),
@@ -128,9 +128,12 @@ describe('usePathHighlight', () => {
       renderHook(() => usePathHighlight())
 
       const state = useCanvasStore.getState()
-      expect(state.dimmedNodeIds.has('factor_b')).toBe(true)
-      expect(state.dimmedNodeIds.has('factor_a')).toBe(false)
-      expect(state.dimmedNodeIds.has('goal')).toBe(false)
+      // CONTRAST: the path itself is still traced.
+      expect([...state.highlightedEdges]).toEqual(['e1'])
+      // factor_b is off the path and stays at rest; so does everything else.
+      expect(state.dimmedNodeIds.has('factor_b')).toBe(false)
+      expect(state.dimmedNodeIds.size).toBe(0)
+      expect(state.dimmedEdgeIds.size).toBe(0)
     })
 
     it('should handle factor with no path to goal gracefully', () => {
@@ -332,7 +335,7 @@ describe('usePathHighlight', () => {
       // Verify single selection has highlights
       let state = useCanvasStore.getState()
       expect(state.highlightedEdges.size).toBeGreaterThan(0)
-      expect(state.dimmedNodeIds.size).toBeGreaterThan(0)
+      expect(state.dimmedNodeIds.size).toBe(0) // nothing dims, even with a path traced
 
       // Cmd+click to multi-select (2 selected)
       act(() => {
@@ -443,8 +446,8 @@ describe('usePathHighlight', () => {
  * While a focus dim is active FOR THE SELECTED NODE, this hook must not
  * overwrite dimmedNodeIds (the focus dim owns it; path edges still
  * highlight). The moment selection moves away — reselect, deselect, blur —
- * the hook clears the focus dim so it can NEVER survive after focus ends,
- * then resumes normal path dimming.
+ * the hook clears the focus dim so it can NEVER survive after focus ends.
+ * Path focus itself dims nothing (vision §3 PR H).
  */
 describe('usePathHighlight × focus dim (F3)', () => {
   beforeEach(() => {
@@ -515,7 +518,7 @@ describe('usePathHighlight × focus dim (F3)', () => {
     expect((state as any).focusDimSourceId).toBe('factor_a')
   })
 
-  it('clears the focus dim when selection moves to another node, then applies normal path dim', () => {
+  it('clears the focus dim when selection moves to another node, and the new path dims nothing', () => {
     const { nodes, edges } = graph()
     useCanvasStore.setState({
       nodes,
@@ -536,11 +539,12 @@ describe('usePathHighlight × focus dim (F3)', () => {
 
     const state = useCanvasStore.getState()
     expect((state as any).focusDimSourceId).toBeNull()
-    // Normal path dim for outcome→goal: factor_a and iso are off the path
-    expect([...state.dimmedNodeIds].sort()).toEqual(['factor_a', 'iso'])
+    // outcome→goal is traced; factor_a and iso are off the path and stay at rest (nothing dims).
+    expect([...state.highlightedEdges]).toEqual(['e2'])
+    expect([...state.dimmedNodeIds]).toEqual([])
   })
 
-  it('ending the lens from OUTSIDE restores the selected node’s path dim (finding 2)', () => {
+  it('ending the lens from OUTSIDE keeps the selected node’s path traced and dims nothing (finding 2)', () => {
     // The regression: clearFocusDim (a camera move, an edge focus, the focused
     // node being removed) wipes dimmedNodeIds, but the selection has NOT
     // changed — so nothing re-ran and the path dim was gone for good. The user
@@ -564,9 +568,9 @@ describe('usePathHighlight × focus dim (F3)', () => {
 
     const state = useCanvasStore.getState()
     expect((state as any).focusDimSourceId).toBeNull()
-    // factor_a is still selected, so its path dim must be back: the path is
-    // factor_a → outcome → goal, leaving only iso dimmed.
-    expect([...state.dimmedNodeIds]).toEqual(['iso'])
+    // factor_a is still selected: its path factor_a → outcome → goal stays traced, and iso (off the path) is
+    // NOT dimmed — nothing dims (vision §3 PR H).
+    expect([...state.dimmedNodeIds]).toEqual([])
     expect(state.highlightedEdges.has('e1')).toBe(true)
     expect(state.highlightedEdges.has('e2')).toBe(true)
   })

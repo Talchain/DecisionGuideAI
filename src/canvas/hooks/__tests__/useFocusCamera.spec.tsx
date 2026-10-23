@@ -135,13 +135,15 @@ afterEach(() => {
 })
 
 describe('useFocusCamera — F3 lens ends on any reframe (finding 1 + 5)', () => {
-  it('focusing a node dims the non-neighbours and records the focus source', () => {
+  it('⛔ focusing a node records the focus source and dims nothing (vision §3 PR H, "Nothing dims")', () => {
     stubCanvas()
     renderHook(() => useFocusCamera())
     act(() => focusNodeById('a'))
     expect(focusDim()).toBe('a')
-    // a's neighbourhood is {a, b}; only 'far' is outside it.
-    expect(dimmed()).toEqual(['far'])
+    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual(['a'])
+    // a's neighbourhood is {a, b}; 'far' is outside it, and before PR H it greyed (['far']). Now it stays at rest.
+    expect(dimmed()).not.toContain('far')
+    expect(dimmed()).toEqual([])
   })
 
   it('focus’s OWN fit does not clear the dim it just set', () => {

@@ -10,7 +10,9 @@
  * The page is the measured one (pricing-model, 1280x800): Net Revenue
  * Retention selected at 597..723 × 497..573, dock from 920, app bar 51, the
  * overlay band from 724, the left rails to 54, and the Goal (623..672) the one
- * card its focus leaves undimmed. The panel measures 330x537, as served.
+ * card its focus path lights (out_nrr → goal). The panel measures 330x537, as
+ * served. Selection no longer dims anything (vision §3 PR H), so the focused
+ * path is read from the lit links, never from a dim set.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
@@ -33,7 +35,7 @@ const PAD = 16
 type R = { left: number; top: number; right: number; bottom: number }
 const CARD: R = { left: 597, top: 497, right: 723, bottom: 573 } // out_nrr, selected
 const GOAL: R = { left: 298, top: 623, right: 664, bottom: 672 } // on the focused path
-const DIMMED: R = { left: 70, top: 372, right: 196, bottom: 460 } // off the path
+const OFF_PATH: R = { left: 70, top: 372, right: 196, bottom: 460 } // off the path
 const DOCK: R = { left: 920, top: 51, right: 1280, bottom: 800 }
 const BAND: R = { left: 0, top: 724, right: 1280, bottom: 788 }
 const TOOLS: R = { left: 13, top: 72, right: 54, bottom: 214 }
@@ -67,7 +69,7 @@ describe('SI-1/2/3 — the mounted inspector places itself against the page it o
     el('nav', { 'aria-label': 'Canvas tools' }, TOOLS)
     el('div', { class: 'react-flow__node', 'data-id': 'out_nrr' }, CARD)
     el('div', { class: 'react-flow__node', 'data-id': 'goal_pricing_transition' }, GOAL)
-    el('div', { class: 'react-flow__node', 'data-id': 'fac_adoption_friction' }, DIMMED)
+    el('div', { class: 'react-flow__node', 'data-id': 'fac_adoption_friction' }, OFF_PATH)
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       const own = (this as HTMLElement & { __rect?: R }).__rect
       return dom(own ?? { left: 0, top: 0, right: PANEL.width, bottom: PANEL.height })
@@ -76,7 +78,12 @@ describe('SI-1/2/3 — the mounted inspector places itself against the page it o
       // The anchor `computeAnchorPosition` writes: the card's right edge, at its
       // middle (the viewport is identity here, so canvas = screen).
       selection: { nodeIds: new Set(['out_nrr']), edgeIds: new Set<string>(), anchorPosition: { x: CARD.right, y: (CARD.top + CARD.bottom) / 2 } },
-      dimmedNodeIds: new Set(['fac_adoption_friction']),
+      edges: [
+        { id: 'e_nrr_goal', source: 'out_nrr', target: 'goal_pricing_transition' },
+        { id: 'e_friction_nrr', source: 'fac_adoption_friction', target: 'out_nrr' },
+      ],
+      highlightedEdges: new Set(['e_nrr_goal']),
+      dimmedNodeIds: new Set<string>(),
     } as never)
   })
 
@@ -86,7 +93,7 @@ describe('SI-1/2/3 — the mounted inspector places itself against the page it o
     document.documentElement.style.removeProperty('--topbar-h')
     vi.restoreAllMocks()
     window.requestAnimationFrame = rafOriginal
-    useCanvasStore.setState({ dimmedNodeIds: new Set<string>() } as never)
+    useCanvasStore.setState({ highlightedEdges: new Set<string>(), edges: [] } as never)
   })
 
   async function openPanel(): Promise<{ box: HTMLElement; placed: R }> {
@@ -115,7 +122,7 @@ describe('SI-1/2/3 — the mounted inspector places itself against the page it o
     expect(box.style.getPropertyValue('--inspector-room')).toBe('641px')
   })
 
-  it('⭐ SI-3: it keeps off the card the focus highlights (the Goal), read from the live dim', async () => {
+  it('⭐ SI-3: it keeps off the card the focus highlights (the Goal), read from the lit path', async () => {
     const { placed } = await openPanel()
     expect(overlap(placed, GOAL)).toBe(0)
   })

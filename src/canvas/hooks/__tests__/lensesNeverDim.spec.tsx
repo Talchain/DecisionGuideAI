@@ -112,9 +112,40 @@ describe('a selected option card changes only itself and its routes', () => {
     assert.equal(useCanvasStore.getState().dimmedEdgeIds.size, 0)
   })
 
-  it('CONTRAST: a selected factor keeps its path focus (outside this change)', () => {
-    select('reach')
+})
+
+// Vision §3 PR H ("Nothing dims"): the factor, goal and link selections now follow the option's rule.
+describe('selecting a factor, the goal or a link greys nothing; the traced path still lights', () => {
+  const select = (nodeIds: string[], edgeIds: string[] = []) =>
+    useCanvasStore.setState({ selection: { nodeIds: new Set(nodeIds), edgeIds: new Set(edgeIds), anchorPosition: null } } as never)
+  const assertNothingDims = () => {
+    const s = useCanvasStore.getState()
+    assert.equal(s.dimmedNodeIds.has('opt_a'), false, 'the option off the path stays at rest')
+    assert.equal(s.dimmedNodeIds.size, 0, 'no card greys')
+    assert.equal(s.dimmedEdgeIds.size, 0, 'no link greys')
+  }
+
+  it('a factor: its path to the goal lights, nothing else greys', () => {
+    select(['reach'])
     renderHook(() => usePathHighlight())
-    assert.equal(useCanvasStore.getState().dimmedNodeIds.has('opt_a'), true)
+    assert.equal(useCanvasStore.getState().highlightedEdges.size > 0, true, 'CONTRAST: the path is traced')
+    assertNothingDims()
+  })
+
+  it('the goal: its incoming paths light, nothing else greys', () => {
+    // A card with no route into the goal: the one a goal selection used to grey.
+    useCanvasStore.setState((s) => ({ nodes: [...s.nodes, node('iso', 'factor')] }) as never)
+    select(['goal'])
+    renderHook(() => usePathHighlight())
+    assert.equal(useCanvasStore.getState().highlightedEdges.has('price>goal'), true, 'CONTRAST: the path is traced')
+    assert.equal(useCanvasStore.getState().dimmedNodeIds.has('iso'), false, 'the card off every path stays at rest')
+    assertNothingDims()
+  })
+
+  it('a link: nothing greys, and no path is claimed for it', () => {
+    select([], ['price>goal'])
+    renderHook(() => usePathHighlight())
+    assert.equal(useCanvasStore.getState().highlightedEdges.size, 0)
+    assertNothingDims()
   })
 })

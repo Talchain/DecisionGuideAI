@@ -78,12 +78,12 @@ export function useFocusCamera(): FocusCameraHandlers {
     // Select node WITHOUT pushing to history (navigation-only, not structural change)
     store.selectNodeWithoutHistory(nodeId)
 
-    // F3: transient focus dim — every node OUTSIDE the neighbourhood dims via
-    // the same store field BaseNode's dim classes already consume. Cleared by
-    // usePathHighlight on deselect/reselect, by the store boundary when the
-    // focused node is removed, by an edge focus, and by onMoveStart on any
-    // other camera move.
-    store.setFocusDim(nodeId, plan.dimNodeIds)
+    // F3: the transient focus records its source (its lifetime still ends on
+    // deselect/reselect, on the focused node's removal, on an edge focus and on
+    // any other camera move) but ⛔ DIMS NOTHING (vision spec §3 PR H, "Nothing
+    // dims"): focusing a card from a panel no longer greys the rest of the
+    // model. The selection ring and the camera fit are the focus.
+    store.setFocusDim(nodeId, [])
 
     // F2: fit the node AND its direct neighbours to a readable zoom (capped
     // so it never disorients), rather than centring at the current zoom —

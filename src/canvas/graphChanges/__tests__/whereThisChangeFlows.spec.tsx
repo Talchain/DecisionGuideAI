@@ -67,29 +67,30 @@ afterEach(() => {
 })
 
 describe('R1 · a C1 route request on the selected link lights its route to the goal', () => {
-  it('the link + its downstream route highlight; the route stays, everything else dims', () => {
+  it('the link + its downstream route highlight; nothing else dims (vision §3 PR H)', () => {
     state().setRunChangesRouteFocus('e_ab')
     selectEdge('e_ab')
     renderHook(() => usePathHighlight())
     expect(sorted(state().highlightedEdges)).toEqual(['e_ab', 'e_bg'])
-    expect(sorted(state().dimmedEdgeIds)).toEqual(['e_ac', 'e_fg', 'e_opt'])
-    expect(sorted(state().dimmedNodeIds)).toEqual(['f_c', 'far', 'opt'])
+    // Before PR H: e_ac, e_fg, e_opt and f_c, far, opt faded. Nothing dims now.
+    expect(sorted(state().dimmedEdgeIds)).toEqual([])
+    expect(sorted(state().dimmedNodeIds)).toEqual([])
   })
 
-  it('CONTROL: no request → the endpoints-only focus, and no path is claimed', () => {
+  it('CONTROL: no request → no path is claimed, and nothing dims', () => {
     selectEdge('e_ab')
     renderHook(() => usePathHighlight())
     expect(sorted(state().highlightedEdges)).toEqual([])
-    expect(sorted(state().dimmedNodeIds)).toEqual(['f_c', 'far', 'goal', 'opt'])
-    expect(sorted(state().dimmedEdgeIds)).toEqual(['e_ac', 'e_bg', 'e_fg', 'e_opt'])
+    expect(sorted(state().dimmedNodeIds)).toEqual([])
+    expect(sorted(state().dimmedEdgeIds)).toEqual([])
   })
 
-  it('IDENTITY: a request for ANOTHER link leaves this selection endpoints-only', () => {
+  it('IDENTITY: a request for ANOTHER link lights no route for this selection', () => {
     state().setRunChangesRouteFocus('e_ac')
     selectEdge('e_ab')
     renderHook(() => usePathHighlight())
     expect(sorted(state().highlightedEdges)).toEqual([])
-    expect(sorted(state().dimmedNodeIds)).toEqual(['f_c', 'far', 'goal', 'opt'])
+    expect(sorted(state().dimmedNodeIds)).toEqual([])
   })
 
   it('a request that arrives while the link is ALREADY selected still lights the route', () => {

@@ -254,17 +254,27 @@ function nodeScreenRect(id: string): ScreenRect | null {
 }
 
 /**
- * The focused path's cards on screen (SI-3): every rendered card the selection
- * focus leaves undimmed, the inspected card and the frontier doors excluded.
- * Empty when no focus is active — the panel then only keeps off its own card.
+ * The focused path's cards on screen (SI-3): every rendered card at either end
+ * of a link the selection focus lights (`highlightedEdges`), the inspected card
+ * and the frontier doors excluded. Read from the lit path, not from a dim set:
+ * selection no longer dims anything (vision spec §3 PR H, "Nothing dims").
+ * Empty when no path is lit — the panel then only keeps off its own card.
  */
 function focusedPathRects(inspectedId: string | null): ScreenRect[] {
-  const dimmed = useCanvasStore.getState().dimmedNodeIds
-  if (!dimmed || dimmed.size === 0) return []
+  const { highlightedEdges, edges } = useCanvasStore.getState()
+  if (!highlightedEdges || highlightedEdges.size === 0) return []
+  const onPath = new Set<string>()
+  for (const e of edges ?? []) {
+    if (highlightedEdges.has(e.id)) {
+      onPath.add(e.source)
+      onPath.add(e.target)
+    }
+  }
+  if (onPath.size === 0) return []
   const rects: ScreenRect[] = []
   for (const el of document.querySelectorAll<HTMLElement>('.react-flow__node')) {
     const id = el.dataset.id
-    if (!id || id === inspectedId || isGhostNode(id) || dimmed.has(id)) continue
+    if (!id || id === inspectedId || isGhostNode(id) || !onPath.has(id)) continue
     const r = el.getBoundingClientRect()
     if (r.width > 0 && r.height > 0) rects.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom })
   }

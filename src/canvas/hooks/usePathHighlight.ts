@@ -11,17 +11,19 @@
  *     stayed empty, so `nodesOnPath` was just the selected node and EVERY other
  *     node dimmed, including its own direct neighbours.
  *
- * Both now fall back to the DIRECT NEIGHBOURHOOD (the selected element plus
- * whatever it is directly connected to), reusing neighbourhoodNodeIds — the
- * same primitive the F2/F3 focus lens uses. Selecting a single EDGE focuses
- * that edge and its two endpoints.
+ * Both now fall back to a NEIGHBOURHOOD focus: no path is claimed, and the
+ * selection's own ring is the focus. Selecting a single EDGE focuses that edge.
  *
  * ⚠ In neighbourhood mode we deliberately DO NOT write highlightedEdges.
  * FocusModeChip renders "Showing paths from X to goal" purely on
  * `highlightedEdges.size > 0`, so writing that set for a neighbourhood focus —
  * which involves no goal and no path — would make the chip state something
- * untrue. Prominence in neighbourhood mode comes from DIMMING THE REST, not
- * from claiming a path. Path mode is unchanged and still owns the chip.
+ * untrue. Path mode still owns the chip.
+ *
+ * ⛔ NOTHING DIMS (vision spec §3 PR H, 23 Oct; Paul, repeatedly, on greyed-out models). Selecting a factor, the
+ * goal, an option or a link never fades the rest of the model: the traced paths take the highlight glow, the selected
+ * card keeps its ring and the selected link its own selected stroke, and every other card and link stays at rest.
+ * This hook only ever CLEARS `dimmedNodeIds` / `dimmedEdgeIds` now (an older dim must not outlive the change).
  *
  * STABLE MODEL, ADAPTIVE ATTENTION: everything here is transient view state.
  * No node, edge, position or value is mutated, and deselect restores exactly.
@@ -33,7 +35,7 @@
  *
  * Features:
  * - Uses two-phase algorithm for correct reconverging graph handling
- * - Dims nodes AND edges outside the focus (nodes opacity-60, edges EDGE_SELECTION_DIM_OPACITY)
+ * - Dims nothing: re-weights the focus (highlight glow, selection ring), never fades the rest
  * - Clears highlights on selection change (no timer-based auto-clear)
  * - Multi-select clears all highlights to prevent stale state
  * - F3 (graph-visuals): defers to an active focus dim (store.focusDimSourceId)
@@ -55,7 +57,6 @@ import {
   findPathsFromRoots,
   getInterventionTargets,
 } from '../utils/pathFinding'
-import { neighbourhoodNodeIds } from '../utils/focusNeighbourhood'
 
 /**
  * Hook to manage path highlighting based on node selection.
@@ -100,13 +101,9 @@ export function usePathHighlight(): void {
   // Using primitive count to avoid reference-based re-renders
   const edgeCount = useCanvasStore((s) => s.edges.length)
 
-  // F3 (graph-visuals): the focus dim BORROWS dimmedNodeIds from the path dim,
-  // so this hook must re-run when that ownership changes — in particular when
-  // the focus lens is ended from OUTSIDE (a camera move, an edge focus, the
-  // focused node being removed) with the selection unchanged. Without this dep
-  // nothing below re-runs on that path, and clearFocusDim's wipe of
-  // dimmedNodeIds would leave the selected node's path dim gone for good.
-  // Primitive selector (React #185 rule above).
+  // F3 (graph-visuals): the focus lens records its source here, so this hook
+  // re-runs when that ownership changes (a camera move, an edge focus, the
+  // focused node being removed). Primitive selector (React #185 rule above).
   const focusDimSourceId = useCanvasStore((s) => s.focusDimSourceId)
 
   // WHERE THIS CHANGE FLOWS (`graphChanges/routeFocus`): the link a C1 Changes row asked to show the route of.
@@ -134,49 +131,10 @@ export function usePathHighlight(): void {
       clearFocusDim,
     } = useCanvasStore.getState()
 
-    /**
-     * 6A: apply a NEIGHBOURHOOD focus — the given ids stay fully prominent and
-     * everything else dims. Deliberately writes an EMPTY highlightedEdges (see
-     * the file header: the "paths to goal" chip must not appear for a focus
-     * that involves no path).
-     */
-    const applyNeighbourhoodFocus = (
-      prominentNodeIds: Set<string>,
-      prominentEdgeIds: Set<string>,
-      skipNodeDim: boolean,
-    ) => {
-      drawnPath.current = null
-      setHighlightedEdges([])
-      if (!skipNodeDim) {
-        setDimmedNodes(nodes.filter((n) => !prominentNodeIds.has(n.id)).map((n) => n.id))
-      }
-      setDimmedEdges(edges.filter((e) => !prominentEdgeIds.has(e.id)).map((e) => e.id))
-    }
-
-    /** Edges INCIDENT to the focused node — literally "its connections".
-     *  Deliberately not "both endpoints in the neighbourhood": an edge between
-     *  two of the selected node's neighbours is not one of ITS connections, and
-     *  leaving it dim keeps the focus about the selected element. */
-    const incidentEdgeIds = (nodeId: string) => {
-      const ids = new Set<string>()
-      for (const e of edges) {
-        if (e.source === nodeId || e.target === nodeId) ids.add(e.id)
-      }
-      return ids
-    }
-
-    // F3 (graph-visuals): while a TRANSIENT focus dim is active for the
-    // selected node, it owns dimmedNodeIds — the path dim must not clobber
-    // it (path edges still highlight below). The moment selection moves
-    // away — deselect, multi-select, reselect another node — the focus dim
-    // is cleared HERE, so it can never survive after focus ends, and normal
-    // path dimming resumes.
-    //
-    // When the lens is instead ended from OUTSIDE with the selection intact
-    // (camera move / edge focus / focused node removed), focusDimSourceId
-    // drops to null and re-runs this effect: ownership returns here and the
-    // path dim below is recomputed, so ending the lens RESTORES the selected
-    // node's path dim rather than leaving the graph permanently undimmed.
+    // F3 (graph-visuals): while a TRANSIENT focus is active for the selected
+    // node, it owns dimmedNodeIds — this hook must not clobber it. The moment
+    // selection moves away — deselect, multi-select, reselect another node —
+    // the focus is cleared HERE, so it can never survive after focus ends.
     const focusDimOwnsDimming =
       focusDimSourceId !== null && selectionSize === 1 && selectedId === focusDimSourceId
     if (focusDimSourceId !== null && !focusDimOwnsDimming) {
@@ -184,43 +142,16 @@ export function usePathHighlight(): void {
     }
 
     /**
-     * PATH focus: the given path edges highlight (this owns the "paths to goal" chip), the anchors and every node on
-     * the path stay prominent, everything else dims — unless `dimRest` is false (a selected OPTION: vision spec §2a/§3,
-     * 23 Oct, "Only this card changes: no dimming of the rest"; its routes carry the highlight glow at full weight and
-     * the card its selection ring, every other card and link stays at rest).
+     * Draw the focus: the given path edges highlight (a non-empty path owns the "paths to goal" chip; an empty one is
+     * a NEIGHBOURHOOD focus, where the selection's own ring / selected stroke is the whole focus and no path is
+     * claimed). ⛔ Nothing else changes: no card or link off the path fades (vision spec §3 PR H, "Nothing dims";
+     * #2939 did the same for a selected option). Any older dim is cleared so it cannot outlive the change.
      */
-    const applyPathFocus = (pathEdgeIds: string[], anchorIds: string[], dimRest = true) => {
-      drawnPath.current = pathEdgeIds
+    const applyFocus = (pathEdgeIds: string[]) => {
+      drawnPath.current = pathEdgeIds.length > 0 ? pathEdgeIds : null
       setHighlightedEdges(pathEdgeIds)
-      if (!dimRest) {
-        if (!focusDimOwnsDimming) setDimmedNodes([])
-        setDimmedEdges([])
-        return
-      }
-
-      // Calculate dimmed nodes (not on any highlighted path)
-      // PERFORMANCE: Use Set for O(1) lookup instead of O(n) array.includes()
-      const pathEdgeIdSet = new Set(pathEdgeIds)
-      const nodesOnPath = new Set<string>(anchorIds)
-
-      for (const edge of edges) {
-        if (pathEdgeIdSet.has(edge.id)) {
-          // O(1) lookup
-          nodesOnPath.add(edge.source)
-          nodesOnPath.add(edge.target)
-        }
-      }
-
-      const dimmedIds = nodes.filter((n) => !nodesOnPath.has(n.id)).map((n) => n.id)
-
-      // F3: the focus dim owns dimmedNodeIds while active (see above).
-      if (!focusDimOwnsDimming) setDimmedNodes(dimmedIds)
-
-      // 6A: dim the edges off the path so the highlighted route reads as a route
-      // rather than as a few thicker lines in an undimmed web. Edge dimming is
-      // never owned by the F3 focus dim (that lens only writes dimmedNodeIds),
-      // so there is no ownership guard here.
-      setDimmedEdges(edges.filter((e) => !pathEdgeIdSet.has(e.id)).map((e) => e.id))
+      if (!focusDimOwnsDimming) setDimmedNodes([])
+      setDimmedEdges([])
     }
 
     const options = ceeAnalysisReady?.options ?? []
@@ -237,14 +168,10 @@ export function usePathHighlight(): void {
         if (routeFocusId === selectedEdge.id && goalNodeId) {
           const downstream =
             selectedEdge.target === goalNodeId ? [] : findPathsToGoal(selectedEdge.target, goalNodeId, edges)
-          applyPathFocus([...new Set([selectedEdge.id, ...downstream])], [selectedEdge.source, selectedEdge.target])
+          applyFocus([...new Set([selectedEdge.id, ...downstream])])
           return
         }
-        applyNeighbourhoodFocus(
-          new Set([selectedEdge.source, selectedEdge.target]),
-          new Set([selectedEdge.id]),
-          false,
-        )
+        applyFocus([])
         return
       }
     }
@@ -256,10 +183,7 @@ export function usePathHighlight(): void {
         ? nodes.find((n) => n.id === selectedId)
         : undefined
     if (!selectedNode) {
-      drawnPath.current = null
-      setHighlightedEdges([])
-      if (!focusDimOwnsDimming) setDimmedNodes([])
-      setDimmedEdges([])
+      applyFocus([])
       return
     }
 
@@ -289,24 +213,10 @@ export function usePathHighlight(): void {
       pathEdgeIds = findPathsToGoal(selectedNode.id, goalNodeId, edges)
     }
 
-    // 6A: NO USABLE PATH → focus the direct neighbourhood instead.
-    // Reached when there is no goal node, when the selected kind has no path
-    // branch (decision / action / constraint), or when the node simply has no
-    // route to the goal. The old code fell through to the path-dim below with
-    // an empty path set, which dimmed EVERY other node — including the selected
-    // node's own neighbours — and left the user with a blanked graph.
-    if (pathEdgeIds.length === 0) {
-      // A selected option with no route yet: its ring is the whole focus, nothing dims (vision spec §3).
-      if (kind === 'option') {
-        applyPathFocus([], [selectedNode.id], false)
-        return
-      }
-      const hood = neighbourhoodNodeIds(selectedNode.id, edges)
-      applyNeighbourhoodFocus(hood, incidentEdgeIds(selectedNode.id), focusDimOwnsDimming)
-      return
-    }
-
-    applyPathFocus(pathEdgeIds, [selectedNode.id], kind !== 'option')
+    // 6A: NO USABLE PATH (no goal node, a kind with no path branch, or no route to the goal) → a neighbourhood
+    // focus: nothing is claimed and nothing dims; the selected card's ring is the focus. An empty path set reaches
+    // the same call, so the two branches can never disagree.
+    applyFocus(pathEdgeIds)
 
     // No cleanup needed - we want highlights to persist until selection changes
     // The next effect run will update or clear highlights as appropriate
