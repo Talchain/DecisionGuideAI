@@ -1722,6 +1722,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       ⚠ The title falls back only when CEE sent an EMPTY message. It is
       never used to manufacture a reason — the pill states the exclusion,
       which CEE stamped, and nothing about why beyond what CEE said. */
+  const statePillWraps = !isExcludedFromAnalysis && isRetainedExcluded
   const statePill: ReactNode = isExcludedFromAnalysis ? (
     <StatusPill
       testId="excluded-from-analysis-pill"
@@ -2881,7 +2882,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
               rightmost. See the `cornerSlot` prop. */}
           <BottomCardMark>{cornerSlot}</BottomCardMark>
 
-          <BottomCardMark>{statePill}</BottomCardMark>
+          {/* The retained-exclusion sentence stays IN this row, full card width: portalled into the bottom band
+              (absolute, shrink-to-fit, one row tall) it wrapped word by word and was drawn over the card's text. */}
+          {statePillWraps ? statePill : <BottomCardMark>{statePill}</BottomCardMark>}
         </div>
       )}
 
