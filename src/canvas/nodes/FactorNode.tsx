@@ -385,7 +385,13 @@ export const FactorNode = memo((props: NodeProps) => {
   // same field and through the same writer as a missing value (DL, 23 Oct). The structure-fixed switches keep theirs.
   // ⛔ Only where the field reads the figure in its own unit: a program figure is never on the 0–1 model scale, and a
   // unitless field would refuse "45000" for a £ cost and accept "0.4" as one. The node must carry the quantity's unit.
-  const askedOnProgramGraph = useSavedModelIsProgram() && servedBasisMark?.kind === 'asked' && !valueFieldIsModelScale
+  const savedIsProgram = useSavedModelIsProgram()
+  const askedOnProgramGraph = savedIsProgram && servedBasisMark?.kind === 'asked' && !valueFieldIsModelScale
+  // DL ruling (23 Oct): a figure CEE says is "Fixed by how the model is built" (`value_basis` structure, e.g. an option's
+  // switch count) has no in-card field on a program graph. The card says it is fixed, and editing it changes what an
+  // option means; an option is changed through the conversation.
+  const structureFixedOnProgramGraph = savedIsProgram && servedBasisMark?.kind === 'basis'
+    && (props.data as { value_basis?: { kind?: unknown } } | undefined)?.value_basis?.kind === 'structure'
   // v3.1 point 1 (DESIGN-GAP-v31 #21): the mark is focusable and opens this
   // factor's source detail — the inspector.
   const openSourceDetail = () => { openNodeInspector(props.id) }
@@ -1467,7 +1473,7 @@ export const FactorNode = memo((props: NodeProps) => {
                 (`WhatIWasGivenSection`, `CalibrateDrillIn`,
                 `FactorControllablePanel`), so the no-op compare in
                 `NodeValueEditor` is in that scale too. */}
-            {cardEditsValue && typeof observedState?.value === 'number' ? (
+            {cardEditsValue && typeof observedState?.value === 'number' && !structureFixedOnProgramGraph ? (
               <span className="min-w-0">
                 {/* ⭐ BOUNDED WHERE THE TYPED NUMBER IS THE STORED ONE (canvas
                     audit edit-values F3). On a factor with no unit and no cap
