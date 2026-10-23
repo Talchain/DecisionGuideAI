@@ -303,6 +303,10 @@ const KNOWN_FIXED = [
 const VIEWPORT_PORTALLED = ['src/canvas/nodes/DirectionNeededLayer.tsx', 'src/canvas/nodes/EditNoteAnchor.tsx', 'src/canvas/nodes/ProposalGhostLayer.tsx', 'src/canvas/nodes/WhatIfMarkLayer.tsx'] as const
 
 const FOREIGN_RENDERED = [
+  // 23 Oct 2026 (vision spec §3, one Olumi mark): the brand mark is a text-free SVG glyph. On the canvas it is sized
+  // only by the caller's counter-scaled class (`CANVAS_GLYPH_SIZE_CLASSES` in ScienceIcon's "Discuss with AI"), so it
+  // carries no size of its own to census.
+  'src/components/results/analysisNew/OlumiAiIcon.tsx',
   // 18 Oct 2026 (Lenses on the model): the "Rests on" number on a card and on a link's line. It is drawn inside the
   // transform and counter-scales with the text: `typography.edgeLabel` and box sizes in `--canvas-label-scale`.
   'src/canvas/artefacts/RestsOnMarker.tsx',
