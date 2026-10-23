@@ -46,6 +46,8 @@ const SCENARIO = 'c0c0c0c0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
 const OPTION_ID = 'opt_loyalty'
 /** The café spend factor: "£ per customer", cap 20, recorded at £5 (0.25). */
 const SPEND = 'fac_spend_per_customer'
+/** A plain 0–1 row: no unit, no cap — the model scale. */
+const READINESS = 'fac_staff_readiness'
 
 const sentBodies: Array<Record<string, unknown>> = []
 
@@ -88,7 +90,7 @@ function seed() {
           id: OPTION_ID,
           type: 'option',
           position: { x: 0, y: 0 },
-          data: { label: 'Loyalty card', kind: 'option', interventions: { [SPEND]: { value: 0.25 } } },
+          data: { label: 'Loyalty card', kind: 'option', interventions: { [SPEND]: { value: 0.25 }, [READINESS]: { value: 0.5 } } },
         } as unknown as Node,
         {
           id: SPEND,
@@ -101,8 +103,17 @@ function seed() {
             observedState: { value: 0.25, raw_value: 5, cap: 20, unit: '£ per customer' },
           },
         } as unknown as Node,
+        {
+          id: READINESS,
+          type: 'factor',
+          position: { x: 0, y: 0 },
+          data: { label: 'Staff readiness', kind: 'factor', category: 'controllable', observedState: { value: 0.5 } },
+        } as unknown as Node,
       ],
-      edges: [{ id: 'e1', source: OPTION_ID, target: SPEND, data: {} }],
+      edges: [
+        { id: 'e1', source: OPTION_ID, target: SPEND, data: {} },
+        { id: 'e2', source: OPTION_ID, target: READINESS, data: {} },
+      ],
       results: { status: 'idle', report: null },
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
     } as never,
@@ -117,16 +128,17 @@ const renderPanel = () =>
     </ConversationProvider>,
   )
 
-function spendInput(): HTMLInputElement {
-  const row = document.querySelector(`[data-testid="inspector-intervention-${SPEND}"]`)
-  expect(row, 'no spend row').toBeTruthy()
+function inputFor(factorId: string): HTMLInputElement {
+  const row = document.querySelector(`[data-testid="inspector-intervention-${factorId}"]`)
+  expect(row, `no row for ${factorId}`).toBeTruthy()
   const input = row!.querySelector('input')
-  expect(input, 'no editable input on the spend row').toBeTruthy()
+  expect(input, `no editable input on ${factorId}`).toBeTruthy()
   return input as HTMLInputElement
 }
+const spendInput = () => inputFor(SPEND)
 
-async function typeAndEnter(text: string) {
-  const input = spendInput()
+async function typeAndEnter(text: string, factorId: string = SPEND) {
+  const input = inputFor(factorId)
   await act(async () => {
     input.focus()
     fireEvent.change(input, { target: { value: text } })
@@ -193,11 +205,44 @@ describe('the café "£ per customer" row reads the whole entry, or says why not
     expect(sentOptionTargetEdits()).toHaveLength(0)
   })
 
-  it.each(['£6.80', '6.80', '6.80 GBP'])('CONTRAST — "%s" reaches the wire as £6.80 (0.34 of the cap of 20)', async (typed) => {
+  it('⭐ "6.80 eur" (another currency, any case) is refused and nothing is sent — RED at fc60b62a (sent £6.80)', async () => {
+    renderPanel()
+    await typeAndEnter('6.80 eur')
+    const refusal = await screen.findByTestId(`intervention-entry-refusal-${SPEND}`)
+    expect(refusal.textContent).toBe('Not saved · this row is in £ per customer. Enter the amount without another unit.')
+    expect(sentOptionTargetEdits()).toHaveLength(0)
+  })
+
+  it.each(['£6.80', '6.80', '6.80 GBP', '6.80 gbp', '+6.80', '+£6.80', '£+6.80'])('CONTRAST — "%s" reaches the wire as £6.80 (0.34 of the cap of 20)', async (typed) => {
     renderPanel()
     await typeAndEnter(typed)
     await waitFor(() => expect(sentOptionTargetEdits()).toHaveLength(1))
     expect(sentOptionTargetEdits()[0].value as number).toBeCloseTo(0.34, 12)
     expect(screen.queryByTestId(`intervention-entry-refusal-${SPEND}`)).toBeNull()
+  })
+})
+
+describe('a model-scale (0–1) row reads the whole entry too', () => {
+  it('⭐ "0.5junk" is refused with a sentence, nothing is sent and the model keeps 0.5 — RED at fc60b62a (sent 0)', async () => {
+    renderPanel()
+    expect(inputFor(READINESS).value).toBe('0.5')
+    await typeAndEnter('0.5junk', READINESS)
+    const refusal = await screen.findByTestId(`intervention-entry-refusal-${READINESS}`)
+    expect(refusal.textContent).toBe('Not saved · not a number this row can read. Enter a value between 0 and 1.')
+    expect(inputFor(READINESS).value).toBe('0.5junk')
+    expect(sentOptionTargetEdits()).toHaveLength(0)
+    const option = useCanvasStore.getState().nodes.find((n) => n.id === OPTION_ID)!
+    expect((option.data as { interventions: Record<string, unknown> }).interventions[READINESS]).toEqual({ value: 0.5 })
+  })
+
+  it('CONTRAST — "+0.5" saves 0.5, the same as "0.5"', async () => {
+    renderPanel()
+    await typeAndEnter('+0.5', READINESS)
+    // 0.5 is the saved value, so a re-entry sends nothing; "+0.7" proves the "+" is read.
+    await typeAndEnter('+0.7', READINESS)
+    await waitFor(() => expect(sentOptionTargetEdits()).toHaveLength(1))
+    expect(sentOptionTargetEdits()[0].factor_id).toBe(READINESS)
+    expect(sentOptionTargetEdits()[0].value).toBe(0.7)
+    expect(screen.queryByTestId(`intervention-entry-refusal-${READINESS}`)).toBeNull()
   })
 })

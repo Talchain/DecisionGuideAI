@@ -280,11 +280,11 @@ export function admitOptionTargetEntry(
   }
   // A currency code typed with the amount ("6.80 EUR", "GBP 80") is read like a typed symbol: the row's own
   // currency is dropped, any other is refused as another unit — never ignored.
-  const leading = /^([A-Z]{3})(?![A-Za-z])\s*(.*\d.*)$/.exec(typed)
-  const trailing = /^(.*\d[^A-Za-z]*)([A-Z]{3})$/.exec(typed)
+  const leading = /^([A-Za-z]{3})(?![A-Za-z])\s*(.*\d.*)$/.exec(typed)
+  const trailing = /^(.*\d[^A-Za-z]*(?:k|m|bn|b|thousand|million|billion)?[^A-Za-z]*)([A-Za-z]{3})$/i.exec(typed)
   const coded = leading ? [leading[1], leading[2]] : trailing ? [trailing[2], trailing[1]] : null
   if (coded) {
-    const [code, rest] = coded
+    const [code, rest] = [coded[0].toUpperCase(), coded[1]]
     if (!typedCodeDenotesRowUnit(code, frame)) {
       return {
         ok: false,
@@ -295,8 +295,8 @@ export function admitOptionTargetEntry(
     }
     typed = rest.trim()
   }
-  // The sign is the reader's: "-£6.80" is minus £6.80 ("£-6.80" to the parser), and ".5" is 0.5.
-  typed = typed.replace(/^-\s*([£$€])\s*/, '$1-').replace(/^([£$€]?\s*-?)\./, (_m, lead: string) => `${lead}0.`)
+  // The sign is the reader's: "-£6.80" is minus £6.80 ("£-6.80" to the parser), "+6.80" is 6.80, and ".5" is 0.5.
+  typed = typed.replace(/^\+\s*/, '').replace(/^([£$€])\s*\+/, '$1').replace(/^-\s*([£$€])\s*/, '$1-').replace(/^([£$€]?\s*-?)\./, (_m, lead: string) => `${lead}0.`)
   const parsed = WHOLE_ENTRY_SHAPE.test(typed) ? parseSuccessTarget(typed) : null
   if (parsed === null) {
     return {
