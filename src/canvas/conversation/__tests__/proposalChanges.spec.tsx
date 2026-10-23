@@ -36,11 +36,11 @@ function board(program: boolean) {
     graph: program ? graph : { ...graph, living_model: { aims: [], links: [], factors: [], options: [] } } }
   useCanvasStore.setState({ currentScenarioId: funding.scenario_id, lastServerGraphHash: read.graph_hash } as never)
 }
-async function mount(card: Json = fixture.card) {
+async function mount(card: Json = fixture.card, open = true) {
   const fields = { version: 1, graph_hash: fixture.graph_hash, proposals: [card] }
   render(<SuggestedChips chips={buildSuggestedActionChips([], [card.approve_action as never])} onChipClick={vi.fn(async () => {})} proposalFields={fields} />)
   await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
-  fireEvent.click(screen.getByTestId(`proposal-change-details-${PID}`))
+  if (open) fireEvent.click(screen.getByTestId(`proposal-change-details-${PID}`))
 }
 const summary = () => screen.getByTestId(`proposal-change-summary-${PID}`).textContent
 const item = (kindId: string) => screen.getByTestId(`proposal-change-${kindId}`)
@@ -99,6 +99,43 @@ describe('a program card with changes[] lists the substance of every item', () =
     board(true)
     await mount()
     expect(summary()).toBe('Also changes 1 goal, 4 calculations, 8 figures and 1 risk')
+  })
+})
+
+describe('Codex r1 on #2957: the list is CEE’s, whole and exact', () => {
+  const [goal, relation, figure] = [fixture.card.changes[0], fixture.card.changes[1], fixture.card.changes[6]]
+  const withChanges = (changes: unknown[]): Json => ({ ...fixture.card, changes })
+  const of = (card: Json) => readProposalFields({ version: 1, graph_hash: fixture.graph_hash, proposals: [card] })!.proposals[0]
+
+  it('(a) a long `after` is shown whole', async () => {
+    const after = Array.from({ length: 12 }, (_, i) => `part ${i + 1} of the worked-out funding received, in GBP per month`).join('; ')
+    expect(after.length).toBeGreaterThan(400)
+    board(true)
+    await mount(withChanges([{ ...relation, after }]))
+    expect(item(`relation:${relation.id}`).textContent).toBe(`Adds ‘${relation.label}’: ${after} · Olumi’s`)
+  })
+
+  it('(b) a malformed entry between two valid ones drops only itself', async () => {
+    board(true)
+    await mount(withChanges([goal, { ...figure, id: 'bad', kind: 'mystery' }, figure]))
+    expect(listed().map((li) => li.getAttribute('data-testid'))).toEqual([`proposal-change-goal:${goal.id}`, `proposal-change-quantity:${figure.id}`])
+    expect(summary()).toBe('Also changes 1 goal and 1 figure')
+  })
+
+  it('(c) two entries for one item count once, in the summary and the ghost’s "+N"', async () => {
+    const twice = [figure, { ...figure, action: 'change', before: '0.05 / month', after: '0.1 / month' }, goal]
+    expect(otherChangeCountOf(of(withChanges(twice)))).toBe(2)
+    board(true)
+    await mount(withChanges(twice))
+    expect(summary()).toBe('Also changes 1 figure and 1 goal')
+  })
+
+  it('(d) a present, empty `changes: []` is zero changes: no panel, no notes, "+N" 0', async () => {
+    expect(otherChangeCountOf(of(withChanges([])))).toBe(0)
+    board(true)
+    await mount(withChanges([]), false)
+    expect(screen.queryByTestId(`proposal-change-notes-${PID}`)).toBeNull()
+    expect(document.body.textContent).not.toContain(fixture.card.adds[0].text.slice(0, 40))
   })
 })
 

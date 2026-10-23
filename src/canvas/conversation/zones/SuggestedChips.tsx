@@ -65,7 +65,8 @@ function ChangeNotesPanel({ proposalId, notes, changes }: { proposalId: string; 
   const program = useSavedModelIsProgram()
   // CEE's `changes[]` (DL 23 Oct): every item, its substance in CEE's words, Olumi's marked. Absent: the notes as before,
   // and on a program board their plain heads only (interim, `programChangeNoteHeads`, until CEE ships `changes[]`).
-  const listChanges = changes !== null && changes.length > 0
+  // Present is the whole list (Codex r1 on #2957): the notes are read only when `changes[]` is absent.
+  const listChanges = changes !== null
   const listedNotes = program ? programChangeNoteHeads(notes) : notes
   return (
     <div className={styles.reasoningPanel} style={{ marginTop: 12, marginBottom: -4 }} data-testid={`proposal-change-notes-${proposalId}`}>
@@ -650,7 +651,8 @@ export function SuggestedChips({
       {/* ⭐ CONSENT (DL 22 Oct): everything else the approval writes, in CEE's words, read before the approve. */}
       {(bindable?.proposals ?? []).filter(p => visible.some(c => c.id === p.approve_action.id)).map(p => {
         const notes = changeNotesOf(p)
-        if (notes.length === 0 && !(p.changes !== null && p.changes.length > 0)) return null
+        // Present `changes[]` is the whole list: an empty one means no other changes, and the notes are not read.
+        if (p.changes !== null ? p.changes.length === 0 : notes.length === 0) return null
         return <ChangeNotesPanel key={`change-notes-${p.proposal_id}`} proposalId={p.proposal_id} notes={notes} changes={p.changes} />
       })}
       <div

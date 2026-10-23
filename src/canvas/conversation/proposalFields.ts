@@ -138,7 +138,8 @@ export const changeNotesOf = (p: Proposal): ChangeNote[] => p.adds.filter((a): a
  * changes (a long note's `#k` parts are one), less the items the ghost itself draws (a new factor or link, `adds`).
  */
 export function otherChangeCountOf(p: Proposal): number {
-  if (p.changes !== null && p.changes.length > 0) return new Set(p.changes.map((c) => `${c.kind}:${c.id}`)).size
+  // Present `changes[]` is the whole list, an empty one included (zero changes); the notes count only when it is absent.
+  if (p.changes !== null) return new Set(p.changes.map((c) => `${c.kind}:${c.id}`)).size
   const drawn = new Set(p.adds.flatMap((a) => a.kind === 'factor_add' ? [`factor:${a.node_id}`] : a.kind === 'link_add' ? [`link:${a.link_id}`] : []))
   return new Set(changeNotesOf(p).map(changeItemOf).filter((item) => !drawn.has(item))).size
 }
