@@ -38,6 +38,8 @@ export interface ViewOnlyRunChances {
   readonly waitsOn: readonly CanonicalWaitsOn[]
   /** The bound Run is not current: `lines` is CEE's not-current line alone, and the block offers "Run again". */
   readonly stale: boolean
+  /** CEE withheld EVERY option's chance (each option's cell, shown or not). */
+  readonly allWithheld: boolean
 }
 
 /** The block's one act on a Run that is not current (DL, row 19). */
@@ -61,11 +63,13 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
       // The chance gate stands: no figure from a Run that is not current. CEE's own line, said once for every option.
       const line = program ? view.notCurrentLine() : null
       return line === null ? null
-        : { sentence: null, lines: [{ optionIds: canonical.options.map(o => o.option_id), text: line, why: null, driver: null, withheld: false }], waitsOn: [], stale: true }
+        : { sentence: null, lines: [{ optionIds: canonical.options.map(o => o.option_id), text: line, why: null, driver: null, withheld: false }], waitsOn: [], stale: true, allWithheld: false }
     }
     const lines: { optionIds: string[]; text: string; why: string | null; driver: string | null; withheld: boolean }[] = []
+    let allWithheld = canonical.options.length > 0
     for (const { option_id: optionId, main_driver: mainDriver } of canonical.options) {
       const cell = optionChanceCell(view, optionId, CTX)
+      if (cell.kind !== 'withheld') allWithheld = false
       if (cell.text === null) continue
       const withheld = cell.kind === 'withheld'
       const why = withheld ? cell.why ?? null : null
@@ -76,7 +80,7 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
       else lines.push({ optionIds: [optionId], text: cell.text, why, driver, withheld })
     }
     const sentence = runViewGoalChanceSentence(view)
-    return lines.length === 0 && sentence === null ? null : { sentence, lines, waitsOn: view.goalChanceDetail()?.waits_on ?? [], stale: false }
+    return lines.length === 0 && sentence === null ? null : { sentence, lines, waitsOn: view.goalChanceDetail()?.waits_on ?? [], stale: false, allWithheld }
   }, [report, canonical, program])
 }
 
@@ -134,7 +138,7 @@ export function useProgramBoardShowsResult(): boolean {
 export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChances }) {
   // Every option withheld while CEE lists what the result waits on: one headline says the count and the list, not each
   // option's withheld face (Paul, 24 Oct); each option's own reason (`why`) still follows.
-  const waits = chances.waitsOn.length > 0 && chances.lines.length > 0 && chances.lines.every(l => l.withheld)
+  const waits = chances.allWithheld && chances.waitsOn.length > 0
   return (
     <div className="space-y-1" data-testid="analysis-view-only-chances">
       {chances.sentence === null ? null : (

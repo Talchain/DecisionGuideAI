@@ -27,7 +27,7 @@ type Read = { scenario_id: string; graph: { nodes: { id: string; kind: string | 
 afterEach(() => { cleanup(); useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null }) })
 beforeEach(() => { useStrengthenStore.setState({ records: {} }) })
 
-const board = (read: Read, goalChance: Record<string, unknown> | null = null) => {
+const board = (read: Read, goalChance: Record<string, unknown> | null = null, options: unknown[] | null = null) => {
   useCanvasStore.setState({
     currentScenarioId: read.scenario_id,
     nodes: read.graph.nodes.map(n => ({ id: n.id, type: n.kind, data: { label: n.label } })),
@@ -35,7 +35,8 @@ const board = (read: Read, goalChance: Record<string, unknown> | null = null) =>
     results: { ...useCanvasStore.getState().results, report: null, status: 'idle' },
   } as never)
   const view = read.canonical_analysis_view
-  const parsed = parseCanonicalAnalysisView(goalChance === null ? view : { ...view, goal_chance: { ...view.goal_chance, ...goalChance } })
+  const parsed = parseCanonicalAnalysisView({ ...view, ...(options === null ? {} : { options }),
+    goal_chance: goalChance === null ? view.goal_chance : { ...view.goal_chance, ...goalChance } })
   expect(parsed).not.toBeNull()
   useCanonicalAnalysisViewStore.getState().adopt(read.scenario_id, parsed)
 }
@@ -72,6 +73,14 @@ describe('a goal chance that waits says what it waits on', () => {
     expect(screen.getByTestId('analysis-view-only-waits-on').textContent)
       .toBe('Waits on: ‘Cash available now’, ‘Monthly cash burn after operating income’, ‘Additional cash costs of an angel raise’')
     expect(screen.getByTestId('analysis-view-only-chance-angel_investors').textContent).toContain('about 57% chance')
+  })
+
+  it('CONTRAST: one option with no cell at all is not "every option withheld": no headline', () => {
+    const [first, ...rest] = (grant as Read).canonical_analysis_view.options
+    board(grant as Read, null, [{ ...first, cell: { kind: 'none' } }, ...rest])
+    draw()
+    expect(screen.queryByTestId('analysis-view-only-waits-headline')).toBeNull()
+    expect(screen.getByTestId('analysis-view-only-waits-on').textContent?.startsWith('Waits on: ')).toBe(true)
   })
 
   it('CONTRAST: every option withheld but nothing listed: each option’s withheld face, as before', () => {
