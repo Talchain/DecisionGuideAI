@@ -9,7 +9,7 @@ import type { Edge, Node } from '@xyflow/react'
 import fixture from '../../../../e2e/geometry/fixtures/mrr-17d1cd3a.fixture.json'
 import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import { useCanvasStore } from '../../store'
-import { TradeOffsKey } from '../TradeOffsKey'
+import { TradeOffsKey, TRADE_OFFS_COPY } from '../TradeOffsKey'
 import { useLensFilter } from '../../hooks/useLensFilter'
 import { setViewerScenario, __resetViewerModeForTests } from '../../../lib/viewerMode'
 
@@ -115,6 +115,13 @@ describe('the Trade-offs key card', () => {
     assert.equal(view.queryByTestId('trade-offs-key-ask'), null)
     assert.equal(view.getAllByTestId('rests-on-figure-show').length, 3)
     assert.deepEqual(opened, [])
+  })
+
+  it('the legend never puts a second full stop after a goal that ends its own sentence (served café board, 24 Oct)', () => {
+    assert.equal(TRADE_OFFS_COPY.legend('I want at least 480 customers a week within three months.'),
+      'In front: this option’s routes to I want at least 480 customers a week within three months. Open the key to read each one.')
+    // Contrast: a goal with no closing stop reads as before.
+    assert.equal(TRADE_OFFS_COPY.legend('MRR'), 'In front: this option’s routes to MRR. Open the key to read each one.')
   })
 
   it('⭐ folded (step 4: legend first): the option, its stepper and one legend line; no route list until opened', () => {
