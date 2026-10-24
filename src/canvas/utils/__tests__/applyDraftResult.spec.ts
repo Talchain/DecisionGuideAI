@@ -540,7 +540,8 @@ describe('applyDraftResult', () => {
     expect(optionNode.data.interventionKeys).toEqual(['f1'])
   })
 
-  it('clamps weight to [0, 2] range', () => {
+  // DL, 24 Oct 2026: the magnitude CEE sends is kept, beyond 2 too (a saved −4 had landed as 2).
+  it('keeps the weight CEE sends, beyond 2 too', () => {
     const draftData = {
       nodes: [
         { id: 'f1', kind: 'factor', label: 'A' },
@@ -552,7 +553,7 @@ describe('applyDraftResult', () => {
     } as any
 
     applyDraftResult(draftData)
-    expect(storeEdges[0].data.weight).toBe(2)
+    expect(storeEdges[0].data.weight).toBe(5)
   })
 
   it('handles graph.nodes path (nested response)', () => {

@@ -178,7 +178,8 @@ export type EdgeFunctionParams = z.infer<typeof EdgeFunctionParamsSchema>
 export const EdgeDataSchema = z.object({
   // Visual properties
   // Issue 3 fix: Expanded weight range to allow strong effects (was max 1)
-  weight: z.number().min(0).max(2).default(0.5),
+  // A magnitude (the sign lives in `direction`), as CEE holds it: no ceiling (DL, 24 Oct: a saved −4 could not be re-imported).
+  weight: z.number().min(0).default(0.5),
   style: EdgeStyleEnum.default('solid'),
   // Note: curvature is currently only applied for smoothstep paths in StyledEdge.
   // Bezier paths use a fixed internal curvature value for now.

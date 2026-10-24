@@ -147,7 +147,9 @@ describe('buildRegistrationGraph — the captured canvas file', () => {
     expect(graph.edges.every((e) => !('source' in e) && !('target' in e))).toBe(true)
   })
 
-  it('signs the edge strength by direction and clamps it to [-1, +1]', () => {
+  // DL, 24 Oct 2026: never capped. The former [-1, +1] clamp registered a saved 1.28 as 1 and −4 as −1 (Paul's board
+  // 8120fd61; `hydrate/__tests__/strengthBeyondOneKeptAsSaved.spec.tsx` is the real-path row).
+  it('signs the edge strength by direction and sends the magnitude as the canvas holds it, beyond one too', () => {
     const nodes = [
       { id: 'a', type: 'factor', data: { kind: 'factor', label: 'A' } },
       { id: 'b', type: 'goal', data: { kind: 'goal', label: 'B' } },
@@ -160,11 +162,11 @@ describe('buildRegistrationGraph — the captured canvas file', () => {
     ] as unknown as Edge[]
 
     expect(okGraph(buildRegistrationGraph(nodes, negative)).edges[0]).toMatchObject({
-      strength: { mean: -1 },
+      strength: { mean: -1.5 },
       effect_direction: 'negative',
     })
     expect(okGraph(buildRegistrationGraph(nodes, overWeight)).edges[0]).toMatchObject({
-      strength: { mean: 1 },
+      strength: { mean: 9 },
     })
   })
 })

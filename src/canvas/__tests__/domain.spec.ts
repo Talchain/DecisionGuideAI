@@ -70,13 +70,10 @@ describe('Edge Schema Validation', () => {
     expect(result.success).toBe(true)
   })
   
-  it('rejects out-of-range weight', () => {
-    const invalid = {
-      weight: 2.5, // Max is 2.0
-    }
-
-    const result = EdgeDataSchema.safeParse(invalid)
-    expect(result.success).toBe(false)
+  // DL, 24 Oct 2026: the weight is a magnitude with no ceiling (a saved −4 is weight 4), and never negative.
+  it('accepts a magnitude beyond 2 and rejects a negative weight', () => {
+    expect(EdgeDataSchema.safeParse({ weight: 2.5 }).success).toBe(true)
+    expect(EdgeDataSchema.safeParse({ weight: -0.5 }).success).toBe(false)
   })
   
   it('rejects invalid style', () => {

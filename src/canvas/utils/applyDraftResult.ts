@@ -109,8 +109,9 @@ export function mapDraftEdgeToCanvas(
   const direction: EffectDirection =
     directionFromEdge ?? (rawWeight < 0 ? 'negative' : 'positive')
 
-  // UI-SEM-038: Duplicate of UI-SEM-023/024/025 on alternate ingestion path.
-  const weight = Math.max(0, Math.min(2, Math.abs(rawWeight)))
+  // The magnitude CEE holds, unchanged (DL, 24 Oct: a saved −4 landed as 2, and every projection of it then said −1).
+  // Display bands its own width (`weightToStrokeWidth`, `weightMagnitudeToStrokeWidth`); a stored value is never capped here.
+  const weight = Math.abs(rawWeight)
   const confidence =
     typeof e.belief === 'number'
       ? Math.max(0, Math.min(1, e.belief))

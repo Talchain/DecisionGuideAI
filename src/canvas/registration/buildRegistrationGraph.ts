@@ -245,11 +245,12 @@ export function buildRegistrationGraph(
     const weightValue = data.weight
     const directionValue = data.direction
     const strengthStdValue = data.strengthStd
-    // Canvas weight [0,2] + direction → the signed mean CEE expects, clamped
-    // to [-1,+1] (UI-SEM-035).
-    const weight = typeof weightValue === 'number' ? Math.max(0, Math.min(weightValue, 2)) : 0.5
+    // Canvas magnitude + direction → the signed mean, as the canvas holds it. Never capped (DL, 24 Oct): the former
+    // [0,2] weight and [-1,+1] mean clamps (UI-SEM-035) registered a saved 1.28 as 1 and −4 as −1, and this projection
+    // is also the reload's proof that the canvas equals the read, which then declined the Run.
+    const weight = typeof weightValue === 'number' ? Math.max(0, weightValue) : 0.5
     const direction = directionValue === 'negative' ? -1 : 1
-    const mean = Math.max(-1, Math.min(1, direction * weight))
+    const mean = direction * weight
     const std = typeof strengthStdValue === 'number' ? Math.max(0, strengthStdValue) : undefined
     const rawExistsProb = data.beliefExists ?? data.confidence ?? data.belief
     const existsProbability = typeof rawExistsProb === 'number' ? clamp01(rawExistsProb) : undefined
