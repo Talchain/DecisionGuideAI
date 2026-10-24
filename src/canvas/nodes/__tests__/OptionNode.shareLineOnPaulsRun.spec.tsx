@@ -185,12 +185,11 @@ describe('DIFF item 1 — the run caption leads the Results chance; the runs-sha
     expect(byId(`option-win-readout-${id}`)?.textContent ?? null).toBe('—')
     expect(byId(`option-analysis-currency-${id}`)?.getAttribute('aria-label')).toContain(chanceText(id))
     expect(byId(`option-share-goal-only-${id}`)).toBeNull()
-    const marker = byId(`option-not-ranked-${id}`)!
-    expect(marker, 'the `Not ranked` marker renders').not.toBeNull()
-    expect(marker!.closest('[data-testid^="option-bottom-marks-"]') !== null).toBe(true)
-    expect(marker.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
-    expect(marker.getAttribute('aria-description')).toBe(EXPLORATORY_REASON_LINE)
-    expect(tokens(marker).has('whitespace-nowrap')).toBe(true)
+    // Paul (24 Oct): one circle-slash per card. The headline is the withheld dash, so the band's `Not ranked` mark moves
+    // into it: its words and reason are in the headline's accessible name, and the card draws the glyph once.
+    expect(byId(`option-not-ranked-${id}`)).toBeNull()
+    expect(byId(`option-analysis-currency-${id}`)?.getAttribute('aria-label')).toContain(`${NOT_RANKED_MARKER}: ${EXPLORATORY_REASON_LINE}`)
+    expect(document.querySelectorAll('svg.lucide-circle-slash')).toHaveLength(1)
   })
 
   // MOVED TO A PERMITTED RUN (CURRENT-READ row 9, AIQ 5912710392): WAS stale on the withheld stamp, with
@@ -220,13 +219,13 @@ describe('DIFF item 1 — the run caption leads the Results chance; the runs-sha
       const slot = byId(`option-share-slot-${id}`)!
       expect(slot.textContent, `${id}: no share on a withheld run`).not.toMatch(/\d\s*%/)
       expect(byId(`option-share-goal-only-${id}`)).toBeNull()
-      const marker = byId(`option-not-ranked-${id}`)
-      expect(marker, `${id}: the \`Not ranked\` marker renders`).not.toBeNull()
-      expect(marker!.closest('[data-testid^="option-bottom-marks-"]') !== null).toBe(true)
-      expect(marker!.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
-      // ONE status mark (DL 8 Oct, workstream D): on this STALE run the withheld mark wins and names the stale line.
-      expect(marker!.getAttribute('aria-description')).toBe(`${EXPLORATORY_REASON_LINE} · Also: Last run · no new comparison yet`)
-      expect(byId(`option-stale-state-${id}`)).toBeNull()
+      // Paul (24 Oct): one circle-slash per card. The withheld headline takes the `Not ranked` mark's words and reason;
+      // the band shows the next mark, the stale line (ONE status mark, DL 8 Oct).
+      expect(byId(`option-not-ranked-${id}`), `${id}: no second circle-slash in the band`).toBeNull()
+      expect(byId(`option-analysis-currency-${id}`)?.getAttribute('aria-label')).toContain(`${NOT_RANKED_MARKER}: ${EXPLORATORY_REASON_LINE}`)
+      const stale = byId(`option-stale-state-${id}`)
+      expect(stale, `${id}: the stale mark renders`).not.toBeNull()
+      expect(stale!.closest('[data-testid^="option-bottom-marks-"]') !== null).toBe(true)
       expect(tokens(slot).has('h-[1lh]')).toBe(true)
       cleanup()
     }

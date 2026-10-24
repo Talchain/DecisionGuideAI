@@ -29,6 +29,9 @@ it('pre-run, the bottom-left Key lists the working-assumption mark the factor ca
   render(<CanvasLegendPopover />)
   fireEvent.click(screen.getByTestId('btn-canvas-legend'))
   expect(screen.getByTestId('legend-card-mark-working-assumption')).toHaveTextContent('Working assumption')
+  // Paul (24 Oct): marks that share the circle-slash by ruling are ONE key row naming both; never the same picture twice.
+  expect(screen.getByTestId('legend-card-mark-share-withheld')).toHaveTextContent('Compared · share not shown; Not analysed')
+  expect(screen.queryByTestId('legend-card-mark-not-analysed')).toBeNull()
   // Phase gate control: a run-only mark is not listed before a Run.
   expect(screen.queryByTestId('legend-card-mark-driver')).toBeNull()
 })
@@ -62,9 +65,11 @@ it('the Key draws every registered visual and glyph beside its existing words', 
   useCanvasStore.setState({ nodes: ['factor', 'option', 'outcome', 'risk', 'goal', 'decision'].map(type => ({ id: type, type, data: { type, label: type }, position: { x: 0, y: 0 } })), edges: [], results: { status: 'complete', report: null } } as never)
   render(<CanvasLegendPopover />)
   fireEvent.click(screen.getByTestId('btn-canvas-legend'))
+  // Every registered mark's words are in the key, in the row of the picture it draws (a shared glyph is one row).
   for (const mark of RENDERED_CARD_MARKS) {
-    const row = screen.getByTestId(`legend-card-mark-${mark.id}`)
-    expect(row).toHaveTextContent(mark.keyText.trim())
-    expect(row.querySelector('svg, [data-risk-cell], [data-level-step], [aria-hidden]')).not.toBeNull()
+    const rows = screen.getAllByTestId(/^legend-card-mark-/).filter(r => (r.textContent ?? '').includes(mark.keyText.trim()))
+    expect(rows.length, mark.id).toBeGreaterThan(0)
+    expect(rows[0].querySelector('svg, [data-risk-cell], [data-level-step], [aria-hidden]')).not.toBeNull()
   }
+  expect(screen.getAllByTestId(/^legend-card-mark-/)).toHaveLength(RENDERED_CARD_MARKS.length - 1)
 })

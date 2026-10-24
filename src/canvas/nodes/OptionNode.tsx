@@ -9,7 +9,7 @@ import Tooltip from '../../components/Tooltip'
 import { CardMark, CardMarkShape } from './shared/CardMark'
 import { cardMark } from './shared/cardMarks'
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
-import { pickOptionStatusMark } from './shared/optionStatusMark'
+import { pickOptionStatusMark, type OptionStatusMarkCandidate } from './shared/optionStatusMark'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
@@ -1916,8 +1916,7 @@ export const OptionNode = memo((props: NodeProps) => {
   const chanceWithheldMark = chanceText !== null && chanceHeadline === null && chanceCell.kind === 'withheld'
     && !(chanceCell.reasonCodes ?? []).includes('status_quo_by_assumption')
   const chanceWithheldReason = chanceWithheldMark
-    ? [chanceCell.detail ?? chanceText, chanceCell.kind === 'withheld' ? chanceCell.why : null, winShareWithheldReasonLine]
-      .filter((t, i, all): t is string => !!t && all.indexOf(t) === i).join(' ') : undefined
+    ? [chanceCell.detail ?? chanceText, chanceCell.kind === 'withheld' ? chanceCell.why : null].filter(Boolean).join(' ') : undefined
   // Vision spec row 2 (23 Oct): "Current model" says nothing the card does not show, so it is retired from the line; its
   // meaning stays in the description above. "Last run" and "Model result" say something the card does not, so they stay.
   const resultCaptionOnCard = resultCaption === OPTION_RESULT_COPY.current ? null : resultCaption
@@ -2384,16 +2383,23 @@ export const OptionNode = memo((props: NodeProps) => {
   const staleStateShown = isPostAnalysis && runCurrency === 'changed'
   // ⭐ AT MOST ONE status mark in the band (DL 8 Oct, workstream D): withheld > stale > not analysed > provisional;
   // the demoted marks are named in its tooltip. Each candidate keeps the gate and test id it had when it rendered alone.
-  const statusMark = pickOptionStatusMark([
-    // Paul (24 Oct): a withheld result is said once. When the headline is the dash, its circle-slash carries the
-    // withheld share's reason too (above), so the band does not draw the same glyph a second time.
-    notRankedRenders && !chanceWithheldMark && { id: 'share-withheld', testId: `option-not-ranked-${props.id}`, description: winShareWithheldReasonLine ?? '' },
+  const statusCandidates: ReadonlyArray<OptionStatusMarkCandidate | false> = [
+    notRankedRenders && { id: 'share-withheld', testId: `option-not-ranked-${props.id}`, description: winShareWithheldReasonLine ?? '' },
     notAnalysedRenders && runCurrency === 'changed' && { id: 'last-run', testId: `option-not-analysed-last-run-${props.id}` },
     chanceText !== null && !winSharesAreWithheld && takenOutLine === null && resultCaption === OPTION_RESULT_COPY.lastRun && { id: 'last-run', testId: `option-win-anchor-${props.id}` },
     staleStateShown && { id: 'no-new-comparison', testId: `option-stale-state-${props.id}` },
     notAnalysedRenders && { id: 'not-analysed', testId: `option-not-analysed-chip-${props.id}` },
     displayMetadata.isResultsMode && displayMetadata.winRate !== null && !winSharesAreWithheld && takenOutLine === null && shareIsProvisional && { id: 'provisional', testId: `option-share-provisional-${props.id}` },
-  ])
+  ]
+  // ⭐ ONE CIRCLE-SLASH PER CARD (Paul, 24 Oct: a withheld result is said once). When the headline is the withheld dash, it
+  // already draws the "not in the analysis" glyph, so the band never draws it again; that mark's words and reason move
+  // into the headline's hover and accessible name (`chanceLineDescription`), and the band shows the next mark, if any.
+  const slashInHeadline = (c: OptionStatusMarkCandidate | false): boolean =>
+    !!c && chanceWithheldMark && cardMark(c.id).Icon === cardMark('not-analysed').Icon
+  const statusMark = pickOptionStatusMark(statusCandidates.filter((c) => !slashInHeadline(c)))
+  const chanceLineDescription = [chanceReadoutDescription, ...statusCandidates.filter(slashInHeadline)
+    .map((c) => c && [cardMark(c.id).words, c.description].filter(Boolean).join(': '))]
+    .filter((t, i, all): t is string => !!t && all.indexOf(t) === i).join(' ')
   const staleStateLine = staleStateShown ? (
     <p
       className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
@@ -2663,14 +2669,14 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
         {chanceText !== null && takenOutLine === null && (
-          <Tooltip asChild content={chanceReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
+          <Tooltip asChild content={chanceLineDescription} delay={NODE_TOOLTIP_DELAY_MS}>
             <div
               data-testid={`option-analysis-currency-${props.id}`}
               className="relative flex h-full min-w-0 flex-nowrap items-center whitespace-nowrap"
               role="img"
               data-node-tooltip="true"
               tabIndex={0}
-              aria-label={chanceReadoutDescription}
+              aria-label={chanceLineDescription}
             >
               {resultCaptionOnCard !== null && (
                 <span data-testid={`option-win-anchor-${props.id}`}
