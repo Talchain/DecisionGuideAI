@@ -311,6 +311,19 @@ export const LAST_RUN_FOCUS_LEAD = 'Last run focus: these reasons refer to the p
  * the model is KNOWN to have changed since it), led by the contract's "Last run
  * focus" sentence. An absent `fromLastRun` (a stubbed hook) reads as none.
  */
+type CueAttention = { reasons: readonly AttentionReason[]; marked: boolean; markedCount: number; candidateCount: number }
+/**
+ * The cue without the grounded bias finding, for a card whose row already draws it (`NodeBiasMarks`): one mark per
+ * finding. The other reasons keep the cue; with none left there is no cue.
+ */
+export function withoutBehavioural<A extends CueAttention & { fromLastRun?: CueAttention | null }>(attention: A): A {
+  const drop = <C extends CueAttention>(c: C): C => {
+    const reasons = c.reasons.filter((r) => r.kind !== 'behavioural')
+    return { ...c, reasons, marked: c.marked && reasons.length > 0 }
+  }
+  return { ...drop(attention), fromLastRun: attention.fromLastRun ? drop(attention.fromLastRun) : attention.fromLastRun }
+}
+
 export function attentionCueSentence(
   attention: {
     reasons: readonly AttentionReason[]

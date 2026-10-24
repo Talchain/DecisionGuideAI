@@ -45,8 +45,8 @@ src/canvas/contextMenu/actions.ts:1158
 src/canvas/hooks/useModelHealth.ts:148
 src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
-src/canvas/hooks/useScienceIcons.ts:145
-src/canvas/hooks/useScienceIcons.ts:160
+src/canvas/hooks/useScienceIcons.ts:150
+src/canvas/hooks/useScienceIcons.ts:165
 src/canvas/store.ts:8266
 #    (`store.ts:8259` -> `8266`, a pure +7 line shift from vision PR-F (23 Oct 2026): the lens's `_emphasisEdgeIds`
 #    field, its default and its setter, all above this site. Line text identical.)

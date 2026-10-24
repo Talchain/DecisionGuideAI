@@ -837,23 +837,29 @@ describe('Goal — wide and shallow: target state + one Chance row; provenance c
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('"Worth reviewing" — one selective, grounded, NON-warning cue (spec §2; ED 11:52Z point 7; ED 02:31Z D1b)', () => {
-  it('a grounded finding marks its element with an info ring whose accessible name gives the reason; the rail carries the behaviour icon', () => {
+  it('a grounded finding is the bias’s own glyph in the card’s row, said once; at far zoom the info ring carries it', () => {
     setState({ phase: 'pre' })
     renderCard(FactorNode as never, 'fac-conv')
     const card = face('Trial conversion')
+    // Paul (24 Oct): the grounded anchoring finding is the anchoring glyph in the card's row, not a rail icon…
+    const bias = within(card).getByTestId('node-bias-fac-conv')
+    expect(bias.querySelector('svg.lucide-anchor')).not.toBeNull()
+    expect(bias.getAttribute('aria-label')).toMatch(/^Worth checking: anchoring\./)
+    expect(within(card).queryByTestId('node-rail-behaviour-fac-conv')).toBeNull()
+    // …and the Olumi badge does not say it a second time (it was this element's only reason).
+    expect(screen.queryByTestId('attention-marker-fac-conv')).toBeNull()
+    cleanup()
+    // At a rung that hides the row's marks, the badge is the cue and carries the finding (the signal is never lost).
+    setState({ phase: 'pre', over: { lodRung: 'quiet' } })
+    renderCard(FactorNode as never, 'fac-conv')
+    expect(screen.queryByTestId('node-bias-fac-conv')).toBeNull()
     const marker = screen.getByTestId('attention-marker-fac-conv')
     expect(marker.getAttribute('aria-label')).toMatch(/^Worth reviewing: Worth checking: anchoring\./)
     // It reads as "worth thinking about", never as a warning or error.
     expect(marker.outerHTML).not.toMatch(/warning|danger/)
-    // Contract v3.1 (PILL-03 / ICON-05): the ring is now the contract's target
-    // GLYPH (an svg), and the Info identity sits on the marker itself — the one
-    // Info-at-rest mark on the card. (Was: the CSS donut's `border-info`.)
-    // Vision spec §3 (23 Oct, one Olumi slot): the glyph is now the Olumi brand mark, the card's one Olumi badge.
+    // Vision spec §3 (23 Oct, one Olumi slot): the glyph is the Olumi brand mark, the card's one Olumi badge, Info at rest.
     expect(within(marker).getByTestId('attention-marker-ring')).toHaveAttribute('data-icon', 'olumi-brand-mark')
     expect(marker.className.split(/\s+/)).toContain('text-info')
-    // Paul (24 Oct): the grounded anchoring finding is the anchoring glyph in the card's row, not a rail icon.
-    expect(within(card).getByTestId('node-bias-fac-conv').querySelector('svg.lucide-anchor')).not.toBeNull()
-    expect(within(card).queryByTestId('node-rail-behaviour-fac-conv')).toBeNull()
   })
 
   it('⛔ an element with no grounded signal carries no marker — the Olumi estimate alone never qualifies', () => {

@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
 import { useCanvasStore } from '../../store'
 import { requestAsk } from '../../ui/inspector-v2/askSemantic'
@@ -20,16 +21,22 @@ export const BIAS_MARK_REFLECTIVE = 'A reflective prompt, not a diagnosis.'
  * (anchoring, framing, confidence, blind spots), read by code, never by its words. Hover or focus says what to check;
  * a click asks Olumi about it, with the element attached (prefill-and-confirm), as the rail icon did.
  */
+/** The finding this card's row draws, or null (none grounded here, an unknown code, or a zoom rung that hides it). */
+export function useBiasMark(reasons: readonly AttentionReason[]): { finding: AttentionReason; Icon: LucideIcon } | null {
+  const shownAtThisRung = useCanvasStore(selectRestingGlyphsShown)
+  const finding = reasons.find((r) => r.kind === 'behavioural') ?? null
+  const signal = finding ? resolveBiasSignal(finding.biasCode) : null
+  return shownAtThisRung === false || !finding || !signal ? null : { finding, Icon: signal.icon }
+}
+
 export const NodeBiasMarks = memo(function NodeBiasMarks({ nodeId, label, reasons }: {
   nodeId: string
   label: string
   reasons: readonly AttentionReason[]
 }) {
-  const shownAtThisRung = useCanvasStore(selectRestingGlyphsShown)
-  const finding = reasons.find((r) => r.kind === 'behavioural') ?? null
-  const signal = finding ? resolveBiasSignal(finding.biasCode) : null
-  if (shownAtThisRung === false || !finding || !signal) return null
-  const Icon = signal.icon
+  const mark = useBiasMark(reasons)
+  if (!mark) return null
+  const { finding, Icon } = mark
   const words = `${finding.label} ${BIAS_MARK_REFLECTIVE}`
   return (
     <BottomCardMark>

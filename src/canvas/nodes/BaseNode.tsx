@@ -118,9 +118,9 @@ import { RestsOnMarker } from '../artefacts/RestsOnMarker'
 import { OlumiMarkGroupProvider } from './shared/olumiMarkGroup'
 import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { useNodeAttention } from './shared/useNodeAttention'
-import { attentionCueSentence } from './shared/nodeAttention'
+import { attentionCueSentence, withoutBehavioural } from './shared/nodeAttention'
 import { NodeSignalRailIcons } from './shared/NodeRailIcons'
-import { NodeBiasMarks } from './shared/NodeBiasMarks'
+import { NodeBiasMarks, useBiasMark } from './shared/NodeBiasMarks'
 import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
 import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
@@ -666,7 +666,10 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // An item Olumi added on a core scenario says so (its living model's source; `livingAuthorship.ts`).
   const provenanceData = useLivingAuthorship(id, data)
   // Row 23: a known-changed model keeps the last run's cue, labelled (`attentionCueSentence`).
-  const attentionText = attentionCueSentence(attention, nodeType === 'factor' && factorValueIsUnconfirmedEstimate(data))
+  // A grounded bias finding the card's row draws is not said again by the cue (`NodeBiasMarks`); at a rung that hides
+  // the row mark, the cue keeps it.
+  const biasMark = useBiasMark(attention.reasons)
+  const attentionText = attentionCueSentence(biasMark ? withoutBehavioural(attention) : attention, nodeType === 'factor' && factorValueIsUnconfirmedEstimate(data))
   /**
    * ⭐ HOW MANY MARKS THE CORNER STACK DRAWS (gap 11) — the attention cue, and the
    * coaching slot when it draws (`useNodeCoachingMarkerShown`, the marker's own

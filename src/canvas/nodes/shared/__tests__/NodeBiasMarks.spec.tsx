@@ -4,10 +4,11 @@
  * from its words. A click asks Olumi about it, with the element attached.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, renderHook, screen } from '@testing-library/react'
 import { NodeBiasMarks, BIAS_MARK_REFLECTIVE } from '../NodeBiasMarks'
 import { useCanvasStore } from '../../../store'
 import type { AttentionReason } from '../nodeAttention'
+import { useScienceIcons } from '../../../hooks/useScienceIcons'
 
 const asks: unknown[] = []
 vi.mock('../../../ui/inspector-v2/askSemantic', async (importOriginal) => ({
@@ -64,5 +65,23 @@ describe('NodeBiasMarks', () => {
   it('NEGATIVE: a code the registry does not know draws no glyph (the UI never guesses a bias)', () => {
     render(<NodeBiasMarks nodeId="f1" label="Trial conversion" reasons={[finding('opt_raise_price')]} />)
     expect(screen.queryByTestId('node-bias-f1')).toBeNull()
+  })
+
+  it('a node CEE grounds a bias on gets no browser-derived hint in its header (one voice per node, the producer’s)', () => {
+    const board = (biasFindings: unknown[]) => useCanvasStore.setState({
+      nodes: [
+        { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Trial conversion', type: 'factor' } },
+        { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Revenue', type: 'goal' } },
+      ],
+      // An uncertain link: the header's weak-connection hint fires on f1.
+      edges: [{ id: 'e1', source: 'f1', target: 'g1', data: { exists_probability: 0.5 } }],
+      ceeAnalysisReady: { bias_findings: biasFindings },
+    } as never)
+    // Contrast: with no grounded finding, the hint is there.
+    board([])
+    expect(renderHook(() => useScienceIcons('f1', 'factor')).result.current.map((i) => i.id)).toContain('weak-connection')
+    // With CEE's grounded anchoring finding on f1, the row draws it and the header steps back.
+    board([{ code: 'anchoring', target_factor_id: 'f1' }])
+    expect(renderHook(() => useScienceIcons('f1', 'factor')).result.current).toEqual([])
   })
 })
