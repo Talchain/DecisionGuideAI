@@ -315,6 +315,10 @@ describe('the acts route to their existing owners', () => {
     const onInspect = vi.fn()
     const { unmount } = render(<ModelReviewTool interventions={[ABOUT_MINE]} onAsk={vi.fn()} onInspect={onInspect} />)
     openTool()
+    // One glyph, one meaning (canvas audit item 4): Inspect in Model wears Search, as ReasoningSignals' inspect act does;
+    // Crosshair is "Show on canvas".
+    expect(screen.getByTestId(`${TID}-inspect`).querySelector('svg.lucide-search')).not.toBeNull()
+    expect(screen.getByTestId(`${TID}-inspect`).querySelector('svg.lucide-crosshair')).toBeNull()
     fireEvent.click(screen.getByTestId(`${TID}-inspect`))
     expect(onInspect).toHaveBeenCalledWith('f_mine')
     unmount()

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
+import { Crosshair, Route, Waypoints } from 'lucide-react'
 import { LOCAL_SEMANTIC_CONTEXT_MENU_IDS, useMenuItems } from '../useMenuItems'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../mutations/mutationAuthority'
 import type { PaneTarget, NodeTarget, EdgeTarget, MultiTarget, MenuItemDef, MenuEntry } from '../types'
@@ -187,6 +188,20 @@ describe('factor node menu (full)', () => {
   const target: NodeTarget = {
     kind: 'node', nodeId: 'f1', nodeType: 'factor', node, screenPos: { x: 0, y: 0 },
   }
+
+  // One glyph, one meaning (canvas audit item 4, 24 Oct): Crosshair is "Show on canvas" everywhere, so "Explore" and
+  // "Trace to goal" wear their own glyphs.
+  it('Explore wears Waypoints and Trace to goal wears Route, never Crosshair', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const explore = result.current.find((e) => (e as MenuItemDef).id === 'explore') as MenuItemDef | undefined
+    expect(explore?.icon).toBe(Waypoints)
+    const trace = explore?.submenuItems?.find((e) => (e as MenuItemDef).id === 'trace-to-goal') as MenuItemDef | undefined
+    expect(trace?.label).toBe('Trace to goal')
+    expect(trace?.icon).toBe(Route)
+    expect([explore?.icon, trace?.icon]).not.toContain(Crosshair)
+  })
 
   it('keeps inquiry and conditional delete while hiding local semantic writes and Copy (A20)', () => {
     const { result } = renderHook(() =>

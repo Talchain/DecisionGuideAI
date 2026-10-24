@@ -67,4 +67,15 @@ describe('NodeInspector - Icon Rendering', () => {
     const region = screen.getByRole('region', { name: 'Node properties' })
     expect(region).toBeDefined()
   })
+
+  // One glyph, one meaning (canvas audit item 4, 24 Oct): the question node wears Signpost, the fork its options branch
+  // from. Crosshair is "Show on canvas" everywhere, so it is not the question's glyph.
+  it('a question node draws lucide-signpost, never lucide-crosshair', () => {
+    useCanvasStore.setState({
+      nodes: [{ id: 'q-1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Which plan?', kind: 'decision' } }],
+    } as never)
+    const { container } = render(<NodeInspector nodeId="q-1" onClose={() => {}} />)
+    expect(container.querySelector('svg.lucide-signpost')).not.toBeNull()
+    expect(container.querySelector('svg.lucide-crosshair')).toBeNull()
+  })
 })

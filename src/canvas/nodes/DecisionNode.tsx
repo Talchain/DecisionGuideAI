@@ -28,7 +28,7 @@ import { CardMark } from './shared/CardMark'
 import { memo, useMemo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
-import { Crosshair } from 'lucide-react'
+import { Signpost } from 'lucide-react'
 import type { DecisionNodeData } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { useModelReadiness } from '../hooks/useModelReadiness'
@@ -1218,7 +1218,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       <BaseNode
         nodeType="decision"
         lodMetric={lodMetric}
-        icon={Crosshair}
+        icon={Signpost}
         id={id}
         data={data}
         titleOverride={questionTitle((data as { label?: unknown } | undefined)?.label)}

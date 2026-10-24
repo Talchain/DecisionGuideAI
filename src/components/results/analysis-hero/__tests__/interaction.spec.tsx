@@ -163,6 +163,10 @@ describe('AnalysisHero — interaction', () => {
       render(<AnalysisHeroContainer data={makeHeroData()} />)
       const focusNext = screen.getByTestId('hero-focus-next')
       expect(focusNext.tagName).toBe('BUTTON')
+      // One glyph, one meaning (canvas audit item 4): it scrolls to the actions below, so it wears ArrowDownCircle;
+      // Crosshair is "Show on canvas".
+      expect(focusNext.querySelector('svg.lucide-arrow-down-circle')).not.toBeNull()
+      expect(focusNext.querySelector('svg.lucide-crosshair')).toBeNull()
       fireEvent.click(focusNext)
       expect(scrollSpy).toHaveBeenCalledTimes(1)
     } finally {

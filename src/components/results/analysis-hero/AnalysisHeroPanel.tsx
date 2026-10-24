@@ -33,7 +33,7 @@
  * derived. Raw 0-1 stability/confidence floats are never displayed.
  */
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { Check, Crosshair, FlaskConical, Info, Target } from 'lucide-react'
+import { ArrowDownCircle, Check, Crosshair, FlaskConical, Info, Target } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { HeroEvidenceDisclosure } from './HeroEvidenceDisclosure'
@@ -874,7 +874,8 @@ export function AnalysisHeroPanel({
             data-testid="hero-focus-next"
             className={`${typography.panelBody} inline-flex items-center gap-1.5 text-text-body hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
           >
-            <Crosshair aria-hidden="true" className="h-3.5 w-3.5 text-info" />
+            {/* Scrolls to the actions below; Crosshair is "Show on canvas" (one glyph, one meaning). */}
+            <ArrowDownCircle aria-hidden="true" className="h-3.5 w-3.5 text-info" />
             {HERO_COPY.footer.focusNext}
           </button>
         ) : (

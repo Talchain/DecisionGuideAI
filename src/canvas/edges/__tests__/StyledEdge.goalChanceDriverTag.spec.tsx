@@ -122,7 +122,9 @@ describe('StyledEdge — goal-chance driver tag bound to e_ab', () => {
     expect(button!.getAttribute('type')).toBe('button')
     expect(button!.textContent).toBe('')
     expect(button!.getAttribute('title')).toBe(GOAL_CHANCE_DRIVER_TAG)
-    expect(button!.querySelector('svg.lucide-crosshair')).not.toBeNull()
+    // One glyph, one meaning (canvas audit item 4): the load-bearing link wears Weight; Crosshair is "Show on canvas".
+    expect(button!.querySelector('svg.lucide-weight')).not.toBeNull()
+    expect(button!.querySelector('svg.lucide-crosshair')).toBeNull()
     expect(button!.style.borderRadius).toBe('9999px')
     expect(button!.style.width).toBe('calc(16px * var(--canvas-label-scale, 1))')
     expect(button!.style.height).toBe(button!.style.width)

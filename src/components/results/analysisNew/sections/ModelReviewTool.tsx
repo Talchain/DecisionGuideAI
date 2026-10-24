@@ -712,7 +712,8 @@ export function ModelReviewTool({
               ) : null}
               {current.targetId && onInspect ? (
                 <PanelIconButton
-                  Icon={Crosshair}
+                  // Search is "Inspect in the Model view" (ReasoningSignals' own inspect act); Crosshair is "Show on canvas".
+                  Icon={Search}
                   label={INSPECT_IN_MODEL_VIEW_LABEL}
                   onClick={() => onInspect(current.targetId as string)}
                   testId={`${testId}-inspect`}

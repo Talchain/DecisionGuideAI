@@ -37,7 +37,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Activity, AlertTriangle, ChevronDown, ChevronUp, FlaskConical, Layers, Scale, X, type LucideIcon } from 'lucide-react'
+import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { OVERLAY_BAND_SELECTOR, useOverlayCell } from './CanvasOverlayBand'
 import { measureDockInset } from './FloatingOlumiPanel'
 import { ANALYSIS_STATE_CUE_COPY } from './AnalysisStateCue'
@@ -60,7 +60,7 @@ import { ACTION_BAR_COPY } from '../conversation/actionBar/ActionBar'
 import { RestsOnKey, usePickedKey } from '../artefacts/RestsOnKey'
 import { TradeOffsKey } from '../artefacts/TradeOffsKey'
 import { WhatIfKey } from '../artefacts/WhatIfKey'
-import { LENS_COPY, useCurrentPremortemWorksheet, type BarLens } from '../artefacts/lenses'
+import { LENS_COPY, LENS_ICON, useCurrentPremortemWorksheet } from '../artefacts/lenses'
 import { resolveAiComparisonMode } from '../../v5/aiComparisonMode'
 import type { GraphChangeTarget } from '../graphChanges/graphChangesView'
 import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
@@ -83,14 +83,6 @@ export const LENS_KEY_COPY = {
   premortemLegend: 'In front: what Olumi’s failure stories rest on. Open the key to read them.',
   whatChangesLegend: 'Numbered 1 to 3: the links the result moves with most. The links this Run is most sensitive to are drawn wider.',
 } as const
-
-const LENS_ICON: Readonly<Record<Exclude<BarLens, 'full'>, LucideIcon>> = {
-  tradeoffs: Scale,
-  rests_on: Layers,
-  premortem: AlertTriangle,
-  what_changes: Activity,
-  what_if: FlaskConical,
-}
 
 /** Never a dead press: with no conversation to send it to, say so (the action bar's own words). */
 function askAndReveal(request: Parameters<typeof askAi>[0]): void {

@@ -259,7 +259,7 @@ const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string; name?
    * render path (`node-coaching-icon`). The instance is pinned by its name so
    * the row still drives DecisionNode's own control, not another card's icon.
    */
-  { kind: 'node-coaching-icon', name: 'Explore more options', starter: 'vendor-selection', why: "DecisionNode's own invitation — its rail coaching icon (was the chip)" },
+  { kind: 'node-coaching-icon', name: 'Ask Olumi: Explore more options', starter: 'vendor-selection', why: "DecisionNode's own invitation — its rail coaching icon (was the chip)" },
   /*
    * ⚠⚠ RE-POINTED TWICE, BY TWO PRs, FOR TWO DIFFERENT REASONS — AND BOTH
    * CHANGES ARE KEPT. Either side taken alone REDs this row, so this is a
@@ -292,7 +292,7 @@ const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string; name?
    */
   {
     kind: 'node-coaching-icon',
-    name: 'What’s the evidence?',
+    name: 'Ask Olumi: What’s the evidence?',
     starter: 'vendor-selection',
     why: 'the rail coaching icon on a FACTOR node (the ScienceIcon badges it replaced are Detailed-only)',
   },

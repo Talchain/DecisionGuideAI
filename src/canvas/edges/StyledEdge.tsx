@@ -22,7 +22,7 @@ import {
   EDGE_AFFORDANCE_EDITABLE,
 } from './edgeAffordance'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, Position, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
-import { Lightbulb, Activity, Flag, Crosshair } from 'lucide-react'
+import { Lightbulb, Activity, Flag, Weight } from 'lucide-react'
 import { LinkHoverCard } from '../components/hoverCard/LinkHoverCard'
 import { edgeSizePhrase } from './edgeSizePhrase'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../components/hoverCard/hoverCardPlacement'
@@ -3357,7 +3357,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 openEdgeStrengthEditor(edgeIdKey, { centre: false })
               }}
             >
-              <Crosshair size={10} className={CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES[10]} aria-hidden="true" />
+              {/* The load-bearing link: "Chance rests most on this". Not Crosshair, which is "Show on canvas". */}
+              <Weight size={10} className={CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES[10]} aria-hidden="true" />
             </button>
           )}
         </EdgeLabelRenderer>

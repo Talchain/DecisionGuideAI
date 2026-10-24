@@ -255,7 +255,7 @@ describe('7 Oct — a batch rail click sends one chip with its element in contex
   it('the outcome keeps its falsification question and sends once', () => {
     setState({ lodRung: 'full' }); renderCard('outcome-1')
     const el = icon('outcome-1')!
-    expect(el.getAttribute('aria-label')).toBe('What would falsify this?')
+    expect(el.getAttribute('aria-label')).toBe('Ask Olumi: What would falsify this?')
     fireEvent.click(el)
     expect(dispatch).toHaveBeenCalledTimes(1)
     expect(dispatch.mock.calls[0][0]).toMatchObject({ id: 'ask:falsify', source: 'chip', message: 'What evidence or result would show that ‘Revenue’ will not happen? What would have to be true for it to fail?' })
@@ -268,7 +268,7 @@ describe('7 Oct — a batch rail click sends one chip with its element in contex
     vi.mocked(useAnalysisResultsAreCurrent).mockReturnValue(true)
     renderCard('decision-1')
     const el = icon('decision-1')!
-    expect(el.getAttribute('aria-label')).toBe('Challenge this result')
+    expect(el.getAttribute('aria-label')).toBe('Ask Olumi: Challenge this result')
     expect(el.getAttribute('data-coaching-typed')).toBe('true')
     fireEvent.click(el)
     expect(revealOlumiSurface).toHaveBeenCalled()
