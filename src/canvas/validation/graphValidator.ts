@@ -7,6 +7,7 @@ import type { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from '../domain/edges'
 import { getEdgeKey } from '../domain/edgeUtils'
 import type { ValidationIssue, GraphHealth, IssueType } from './types'
+import { currentNoteIds } from '../domain/noteRecords'
 
 /**
  * Validate entire graph and return issues
@@ -137,8 +138,10 @@ function detectOrphanNodes(nodes: Node[], edges: Edge[]): ValidationIssue[] {
     connectedNodes.add(edge.target)
   }
 
+  // Olumi's notes have no links by design and are not drawn as cards (`noteRecords.ts`): never an isolated node.
+  const notes = currentNoteIds()
   for (const node of nodes) {
-    if (!connectedNodes.has(node.id)) {
+    if (!connectedNodes.has(node.id) && !notes.has(node.id)) {
       issues.push({
         id: `orphan-${node.id}`,
         type: 'orphan_node',

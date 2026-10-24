@@ -26,6 +26,7 @@ import { UnknownKindWarning } from '../components/UnknownKindWarning'
 import { BottomCardMark, BottomMarksBand, BottomMarksProvider, useBottomBandHasMarks } from './shared/CardMark'
 import { AnsweredMark } from './shared/AnsweredMark'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
+import { NodeNotesMark } from './shared/NodeNotesMark'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { EditPencilCue } from './shared/EditPencilCue'
@@ -2434,6 +2435,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             surface the inspector uses. ⛔ Neither marker on a card drawn from the living model alone: each is a button that
             opens a note or the inspector for a node the store does not hold (`livingModelCanvas.ts`). */}
         {livingOnly === null && <BottomCardMark><NodeCoachingMarker nodeId={id} attentionSentence={attentionText} /></BottomCardMark>}
+        {/* Olumi's notes on this card (the question card also holds the board's unanchored notes), `noteRecords.ts`. */}
+        {livingOnly === null && <NodeNotesMark nodeId={id} boardNotes={nodeType === 'decision'} />}
       </div>
 
       {/* ⭐ THE TYPE GLYPH SITS ON THE TOP CONNECTOR, NOT IN THE TITLE ROW.

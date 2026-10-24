@@ -77,6 +77,7 @@ import { applyRespreadX, planSubFloorRespread, solveLayoutNodeWidth, solveRestor
 import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 import { restoreIdentityKey } from './useFitViewOnLayoutVersion'
 import { withoutCoreSwitches } from '../domain/coreSwitch'
+import { withoutNotes } from '../domain/noteRecords'
 import { livingOutcomeIdsOf, withLivingKinds } from '../domain/livingKinds'
 import { useSavedGraph } from '../nodes/shared/savedGraph'
 
@@ -88,7 +89,7 @@ import { useSavedGraph } from '../nodes/shared/savedGraph'
  * that row's here too.
  */
 const drawnOf = <N extends { id: string; type?: string; data?: unknown }>(nodes: readonly N[], outcomeIds: ReadonlySet<string>): N[] =>
-  withLivingKinds(withoutCoreSwitches(nodes, []).nodes, outcomeIds)
+  withLivingKinds(withoutNotes(withoutCoreSwitches(nodes, []).nodes, []).nodes, outcomeIds)
 
 export function useRestoredLayoutWidth(): void {
   // Selected individually and as stable references / primitives — a selector

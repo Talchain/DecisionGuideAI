@@ -68,6 +68,7 @@ export function loadLayoutEngine(): Promise<ElkModule> {
 import { Node, Edge } from '@xyflow/react'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { withoutCoreSwitches } from '../domain/coreSwitch'
+import { withoutNotes } from '../domain/noteRecords'
 import { withLivingKinds } from '../domain/livingKinds'
 import {
   LAYOUT_PADDING_X,
@@ -801,10 +802,13 @@ async function layoutDrawn(
   edges: Edge[],
   options: LayoutOptions,
 ): ReturnType<typeof layoutModel> {
-  const drawn = withoutCoreSwitches(nodes, edges)
-  if (drawn.hidden.length === 0) return layoutModel(nodes, edges, options)
-  const laid = await layoutModel(drawn.nodes, drawn.edges, options)
-  return { ...laid, nodes: [...laid.nodes, ...drawn.hidden] }
+  const switched = withoutCoreSwitches(nodes, edges)
+  // Olumi's notes are not drawn either (`noteRecords.ts`): laid out without them, kept in the store where they were.
+  const noted = withoutNotes(switched.nodes, switched.edges)
+  const hidden = [...switched.hidden, ...noted.hidden]
+  if (hidden.length === 0) return layoutModel(nodes, edges, options)
+  const laid = await layoutModel(noted.nodes, noted.edges, options)
+  return { ...laid, nodes: [...laid.nodes, ...hidden] }
 }
 
 async function layoutModel(
