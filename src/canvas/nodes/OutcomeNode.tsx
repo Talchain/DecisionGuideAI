@@ -83,6 +83,8 @@ function recordsAnyNumber(data: Record<string, unknown> | undefined): boolean {
 
 /** An outcome's recorded number is its TODAY level (`observed_state`), never the outcome's result. */
 export const OUTCOME_TODAY_PREFIX = 'Today: '
+/** The figure an outcome shows while CEE has worked out how, but not what (the same dash a withheld chance shows). */
+export const OUTCOME_NO_FIGURE_YET = '—'
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
@@ -115,10 +117,16 @@ export const OutcomeNode = memo((props: NodeProps) => {
   // The outcome's own state (see `OUTCOME_UNQUANTIFIED_LINE`). The value branch
   // has no producer today, so it ships dark; it reads the same owners the factor
   // and risk cards read, so it cannot disagree with them when one arrives.
-  const recordedValue = useMemo(
-    () => nodeRecordedValue(props.data as Record<string, unknown> | undefined),
-    [props.data],
-  )
+  const recordedValue = useMemo(() => {
+    const data = props.data as Record<string, unknown> | undefined
+    const value = nodeRecordedValue(data)
+    // An outcome CEE works out but has no figure for yet serves its `value_basis` words as its display value ("Worked
+    // out from A and B"). That is a source, not a level: the line shows no figure, and the model mark carries the words
+    // (Paul, 24 Oct: visual indicators, not default text; it was a cut sentence on every such card).
+    const basis = data?.value_basis as { kind?: unknown; words?: unknown } | undefined
+    return value !== null && basis?.kind === 'worked_out' && typeof basis.words === 'string' && value === basis.words
+      ? OUTCOME_NO_FIGURE_YET : value
+  }, [props.data])
   const recordedValueMark = recordedValue ? factorValueSourceMark(props.data) : null
   const showUnquantified = !recordedValue && !recordsAnyNumber(props.data as Record<string, unknown> | undefined)
   const hasStateLine = recordedValue != null || showUnquantified
