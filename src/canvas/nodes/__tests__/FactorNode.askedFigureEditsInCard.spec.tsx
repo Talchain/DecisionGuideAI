@@ -26,6 +26,7 @@ import type { Node } from '@xyflow/react'
 import hiring from '../../runView/__tests__/fixtures/alpha3-hiring-r1-read.json'
 import { useCanvasStore } from '../../store'
 import { FactorNode } from '../FactorNode'
+import { OutcomeNode } from '../OutcomeNode'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { hydrateCanvasFromServer } from '../../hydrate/serverGraphHydration'
 import { useValuePrefillStore } from '../../graphChanges/valuePrefill'
@@ -64,10 +65,10 @@ let sent: Json[] = []
 // The saved-graph read is cached per scenario and hash, so each board reads its own hash.
 let n = 0
 /** The board as it opens: CEE's read, with the given living model, through the real read path; later reads serve it too. */
-async function openBoard(livingModel: Json, askedUnit: string | null = null) {
+async function openBoard(livingModel: Json, askedUnit: string | null = null, patch: (x: Json) => Json = x => x) {
   n += 1
   // The asked quantity's unit on its node (`living_model.canonical.quantities[developer_hiring_cost].unit` as served).
-  const nodes = (hiring.graph.nodes as Json[]).map(x => x.id === ASKED && askedUnit ? { ...x, observed_state: { unit: askedUnit } } : x)
+  const nodes = (hiring.graph.nodes as Json[]).map(x => x.id === ASKED && askedUnit ? { ...x, observed_state: { unit: askedUnit } } : x).map(patch)
   read = { ...hiring, graph_hash: `${hiring.graph_hash}${n}`, graph_present: true, graph: { ...hiring.graph, nodes, living_model: livingModel } }
   useCanvasStore.setState({
     nodes: [], edges: [], currentScenarioId: hiring.scenario_id, results: { status: 'idle' } as never,
@@ -84,12 +85,12 @@ async function openBoard(livingModel: Json, askedUnit: string | null = null) {
   await act(async () => { await hydrateCanvasFromServer(hiring.scenario_id) })
 }
 
-async function card(id: string) {
+async function card(id: string, Card: typeof FactorNode | typeof OutcomeNode = FactorNode) {
   const node = useCanvasStore.getState().nodes.find(n => n.id === id) as Node
   render(
     <ConversationProvider>
       <ReactFlowProvider>
-        <FactorNode
+        <Card
           id={id} type="factor" data={node.data as never} selected={false} isConnectable
           positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable
         />
@@ -174,6 +175,31 @@ describe('an asked figure on a program graph', () => {
     const mark = screen.getByTestId(`factor-value-source-${SWITCH}`)
     expect(mark).toHaveAttribute('aria-label', 'Additional developers hired: Fixed by how the model is built')
     expect(mark.querySelector('.lucide-calculator')).not.toBeNull()
+  })
+
+  it('an outcome CEE works out but has no figure for: "Today: —", and the LINE carries CEE’s words (hover, focus, name)', async () => {
+    await openBoard(PROGRAM, 'GBP/developer')
+    await card('developer_spend', OutcomeNode)
+    const line = screen.getByTestId('outcome-recorded-readout')
+    expect(line.textContent).toBe('Today: —')
+    expect(line).toHaveAttribute('tabindex', '0')
+    expect(line).toHaveAttribute('aria-label', 'Today: no figure yet. Worked out from Additional developers hired and Budget cost per additional developer')
+    expect(screen.getByTestId('outcome-recorded-value').textContent).not.toContain('Worked out from')
+  })
+
+  it('…even when another author mark would win the band (an inferred stamp): the words stay on the line', async () => {
+    await openBoard(PROGRAM, 'GBP/developer', (x: Json) => x.id === 'developer_spend' ? { ...x, observed_state: { ...(x.observed_state ?? {}), extractionType: 'inferred' } } : x)
+    await card('developer_spend', OutcomeNode)
+    expect(screen.getByTestId('outcome-recorded-readout').getAttribute('aria-label'))
+      .toContain('Worked out from Additional developers hired and Budget cost per additional developer')
+  })
+
+  it('CONTRAST: an outcome with a real figure keeps its figure and its plain readout', async () => {
+    await openBoard(PROGRAM, 'GBP/developer', (x: Json) => x.id === 'developer_spend' ? { ...x, display_value: '£25', observed_state: { value: 25, unit: 'GBP' } } : x)
+    await card('developer_spend', OutcomeNode)
+    const line = screen.getByTestId('outcome-recorded-readout')
+    expect(line.textContent).toContain('25')
+    expect(line).not.toHaveAttribute('tabindex')
   })
 
   it('CONTRAST: a known figure on the same program graph keeps its field', async () => {
