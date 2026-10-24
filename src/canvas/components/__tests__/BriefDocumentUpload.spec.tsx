@@ -28,7 +28,8 @@ describe('BriefDocumentUpload', () => {
     expect(input.type).toBe('file')
     expect(input.multiple).toBe(false)
     expect(input.accept).toBe('.xlsx,.csv,.pptx,.docx,.pdf')
-    expect(screen.getByText(BRIEF_UPLOAD_COPY.privacy)).toBeTruthy()
+    // Paul, 24 Oct: the framing page carries no standing privacy line.
+    expect(screen.queryByText(BRIEF_UPLOAD_COPY.privacy)).toBeNull()
   })
 
   it('is an icon inside the box, with its name for screen readers and a hover hint', () => {
