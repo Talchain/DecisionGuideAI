@@ -15,12 +15,12 @@ export function noteLine(n: NoteRecord): string {
 
 /**
  * The card's notes (Paul, 24 Oct 2026, the card icon row: notes are a counted glyph in the reasoning-flags slot). Every
- * note anchored on this card, plus — on the board's question card — every note that concerns no drawn card, so no
- * note's text is lost (`noteRecords.ts`). Hover or focus lists them; the accessible name carries every note in full.
+ * note anchored on this card; a note that concerns no visible card is anchored on the question card (`noteRecords.ts`),
+ * so no note's text is lost. Hover or focus lists them; the accessible name carries every note in full.
  */
-export const NodeNotesMark = memo(function NodeNotesMark({ nodeId, boardNotes = false }: { nodeId: string; boardNotes?: boolean }) {
+export const NodeNotesMark = memo(function NodeNotesMark({ nodeId }: { nodeId: string }) {
   const records = useNoteRecords()
-  const notes = [...records.values()].filter((n) => n.anchorId === nodeId || (boardNotes && n.anchorId === null))
+  const notes = [...records.values()].filter((n) => n.anchorId === nodeId)
   if (notes.length === 0) return null
   const lines = notes.map(noteLine)
   const label = `${notes.length} ${notes.length === 1 ? 'note' : 'notes'}. ${lines.join(' ')}`

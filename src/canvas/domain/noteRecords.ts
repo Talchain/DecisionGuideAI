@@ -5,7 +5,7 @@
  * The model's display-only records (claims, assumptions, conditions, left-out items, preferences, dissent and evidence) live in the
  * saved graph's `living_model.canonical`; the family is the array the record sits in, never its label. A record is a NOTE
  * when the canvas does not draw it: it is shown as a counted notes glyph on its first concern that is a visible card, or on
- * the question card when none is, so no note's text is lost.
+ * the question card when none is (the goal, else the first card, on a board without one), so no note's text is lost.
  *
  * Readers before writers: today CEE still projects these records as graph nodes (`model-program/project.ts`, #3709), and a
  * record the canvas draws is never also a note, so nothing is said twice. When CEE stops projecting them, they become notes
@@ -40,11 +40,12 @@ export interface NoteRecord {
   readonly text: string
   /** Whose words: the person's (from the brief or typed) or Olumi's. */
   readonly author: 'person' | 'olumi' | null
-  /** The visible card it is shown on, or null for the question card. */
+  /** The visible card it is shown on: its first concern on the canvas, else the question card (else the goal, else the
+   *  first card), so a note is always reachable. Null only on a board with no visible card. */
   readonly anchorId: string | null
 }
 
-type CanvasNode = { id: string; type?: string; data?: unknown }
+type CanvasNode = { id: string; type?: string; data?: unknown; hidden?: boolean }
 
 /**
  * Every note for the saved graph, anchored against the cards on the canvas. Empty when the saved graph carries no
@@ -53,13 +54,19 @@ type CanvasNode = { id: string; type?: string; data?: unknown }
 export function noteRecordsOf(savedGraph: unknown, canvasNodes: readonly CanvasNode[]): ReadonlyMap<string, NoteRecord> {
   const canonical = rec(rec(rec(savedGraph)?.living_model)?.canonical)
   if (!canonical) return new Map()
-  const onCanvas = new Set(canvasNodes.map((n) => n.id))
-  const labels = new Map(canvasNodes.map((n) => [n.id, str(rec(n.data)?.label)] as const))
-  const labelOf = (id: unknown): string | null => (typeof id === 'string' ? labels.get(id) ?? null : null)
+  // Only a card the canvas shows counts: a hidden node neither displays a record nor anchors a note.
+  const visible = canvasNodes.filter((n) => n.hidden !== true)
+  const onCanvas = new Set(visible.map((n) => n.id))
   // Core's option switch is kept in the store but never drawn: a note about it is shown on its option (`coreSwitch.ts`).
   const switchOption = coreSwitchOptionOf(canvasNodes)
-  const visibleCard = (c: unknown): string | null =>
-    typeof c === 'string' && onCanvas.has(c) ? switchOption.get(c) ?? c : null
+  const cards = visible.filter((n) => !switchOption.has(n.id))
+  const fallback = (cards.find((n) => n.type === 'decision') ?? cards.find((n) => n.type === 'goal') ?? cards[0])?.id ?? null
+  const labels = new Map(visible.map((n) => [n.id, str(rec(n.data)?.label)] as const))
+  const labelOf = (id: unknown): string | null => (typeof id === 'string' ? labels.get(id) ?? null : null)
+  const visibleCard = (c: unknown): string | null => {
+    const card = typeof c === 'string' && onCanvas.has(c) ? switchOption.get(c) ?? c : null
+    return card !== null && onCanvas.has(card) ? card : null
+  }
 
   const out = new Map<string, NoteRecord>()
   for (const family of NOTE_FAMILIES) {
@@ -75,7 +82,7 @@ export function noteRecordsOf(savedGraph: unknown, canvasNodes: readonly CanvasN
       // The same extra words CEE's projection carries: why it was left out, and where evidence comes from.
       const why = family === 'left_out' && str(r.why) ? ` Why: ${str(r.why)}` : family === 'evidence' && str(r.source) ? ` Source: ${str(r.source)}` : ''
       const concerns = Array.isArray(r.concerns) ? r.concerns : family === 'preferences' && str(r.quantity) ? [r.quantity] : []
-      const anchorId = concerns.map(visibleCard).find((c): c is string => c !== null) ?? null
+      const anchorId = concerns.map(visibleCard).find((c): c is string => c !== null) ?? fallback
       out.set(id, { id, family, text: `${own}${why}`, author: r.author === 'olumi' ? 'olumi' : r.author === 'person' ? 'person' : null, anchorId })
     }
   }

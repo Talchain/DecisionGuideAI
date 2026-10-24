@@ -4,12 +4,17 @@
  * 24 Oct: 20 nodes, 7 of them display-only records that CEE still projects as `action` nodes (#3709). "After CEE" is the
  * same saved graph without those 7 nodes, which is what the graph route serves once CEE stops projecting them.
  */
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import graph from './fixtures/strategic-3de98183-graph.json'
 import { noteRecordsOf, useNoteRecordsStore } from '../noteRecords'
 import { NodeNotesMark } from '../../nodes/shared/NodeNotesMark'
 import { useCanvasStore } from '../../store'
+import { NoteRecordsPublisher } from '../../components/NoteRecordsPublisher'
+
+// The publisher's saved-graph read, controlled per row (the real hook reads the graph route).
+let savedRead: unknown = null
+vi.mock('../../nodes/shared/savedGraph', () => ({ useSavedGraph: () => savedRead }))
 
 type N = { id: string; type?: string; kind?: string; label?: string; data?: unknown }
 type G = { nodes: N[]; living_model: { canonical: Record<string, Array<Record<string, unknown>>> } }
@@ -20,8 +25,10 @@ const NOTE_IDS = [
 const today = graph as unknown as G
 const afterCee: G = { ...today, nodes: today.nodes.filter((n) => !NOTE_IDS.includes(n.id)) }
 const canvasOf = (g: G): N[] => g.nodes.map((n) => ({ id: n.id, type: n.kind, data: { label: n.label } }))
+const storeNodesOf = (g: G) => canvasOf(g).map((n) => ({ ...n, position: { x: 0, y: 0 } }))
 
 beforeEach(() => {
+  savedRead = null
   useNoteRecordsStore.setState({ scenarioId: null, records: new Map() })
   useCanvasStore.setState({ currentScenarioId: '3de98183' } as never)
 })
@@ -68,14 +75,44 @@ describe('edges of the rule', () => {
     expect(screen.queryByTestId('node-notes-personal_assistant')).toBeNull()
   })
 
-  it('a note whose concerns resolve to no card is on the question card, text kept', () => {
+  it('a note whose concerns resolve to no card is on the question card; with no question card, the goal — text kept', () => {
     const lonely = structuredClone(afterCee)
     lonely.living_model.canonical.claims[0].concerns = ['not_on_the_canvas']
     const notes = noteRecordsOf(lonely, canvasOf(lonely))
-    expect(notes.get('expected_human_focus_benefit')!.anchorId).toBeNull()
+    expect(notes.get('expected_human_focus_benefit')!.anchorId).toBe('mp:decision')
     publish(notes)
-    render(<NodeNotesMark nodeId="mp:decision" boardNotes />)
+    render(<NodeNotesMark nodeId="mp:decision" />)
     expect(screen.getByTestId('node-notes-mp:decision').getAttribute('aria-label')).toContain(notes.get('expected_human_focus_benefit')!.text)
+    // No question card on the board: the goal carries it, never nobody.
+    const goal = canvasOf(lonely).find((n) => n.type === 'goal')!.id
+    const noQuestion = canvasOf(lonely).filter((n) => n.type !== 'decision')
+    expect(noteRecordsOf(lonely, noQuestion).get('expected_human_focus_benefit')!.anchorId).toBe(goal)
+  })
+
+  it('a hidden card neither anchors a note nor counts as showing its record', () => {
+    const g = structuredClone(afterCee)
+    g.living_model.canonical.claims[0].concerns = ['human_annual_cost', 'personal_assistant']
+    const canvas = canvasOf(g).map((n) => (n.id === 'human_annual_cost' ? { ...n, hidden: true } : n))
+    expect(noteRecordsOf(g, canvas).get('expected_human_focus_benefit')!.anchorId).toBe('personal_assistant')
+    // Today's projection with the record's own card hidden: nothing shows it, so it is a note.
+    const hiddenCard = canvasOf(today).map((n) => (n.id === 'expected_human_focus_benefit' ? { ...n, hidden: true } : n))
+    expect([...noteRecordsOf(today, hiddenCard).keys()]).toEqual(['expected_human_focus_benefit'])
+  })
+
+  it('PUBLISHER (mounted): a pending read keeps the notes, derived against the current cards — never a card and its note', () => {
+    useCanvasStore.setState({ nodes: storeNodesOf(afterCee) } as never)
+    savedRead = afterCee
+    render(<NoteRecordsPublisher />)
+    expect(useNoteRecordsStore.getState().records.size).toBe(7)
+    // A refresh: the read is pending. The notes stay…
+    savedRead = null
+    act(() => useCanvasStore.setState({ nodes: storeNodesOf(afterCee).map((n) => ({ ...n })) } as never))
+    expect(useNoteRecordsStore.getState().records.size).toBe(7)
+    // …and if a record's card comes back meanwhile, its note goes (no double), the other six stay.
+    const withCard = [...storeNodesOf(afterCee), { id: 'expected_human_focus_benefit', type: 'action', data: { label: 'Claim' }, position: { x: 0, y: 0 } }]
+    act(() => useCanvasStore.setState({ nodes: withCard } as never))
+    expect(useNoteRecordsStore.getState().records.has('expected_human_focus_benefit')).toBe(false)
+    expect(useNoteRecordsStore.getState().records.size).toBe(6)
   })
 
   it('a note about core’s hidden option switch is shown on its option, never on the switch nobody sees', () => {

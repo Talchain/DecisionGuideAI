@@ -1,25 +1,25 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { useSavedGraph } from '../nodes/shared/savedGraph'
 import { noteRecordsOf, sameNoteRecords, useNoteRecordsStore } from '../domain/noteRecords'
 
 /**
- * Publishes the notes for the scenario on screen once its saved-graph read answers (`noteRecords.ts`). While a read is
- * pending (`null`) the scenario's last notes stay, so a refresh never blinks them. Renders nothing; moves nothing.
+ * Publishes the notes for the scenario on screen (`noteRecords.ts`). While a new read is pending (`null`) the scenario's
+ * last saved graph stands in, and the notes are always derived against the CURRENT cards, so a refresh never blinks them
+ * and a record drawn as a card is never also a note. Renders nothing; moves nothing.
  */
 export function NoteRecordsPublisher(): null {
-  const savedGraph = useSavedGraph()
+  const read = useSavedGraph()
   const scenarioId = useCanvasStore((s) => s.currentScenarioId ?? null)
   const nodes = useCanvasStore((s) => s.nodes)
+  const last = useRef<{ scenarioId: string | null; graph: unknown }>({ scenarioId: null, graph: null })
   useEffect(() => {
-    const prev = useNoteRecordsStore.getState()
-    if (savedGraph === null) {
-      if (prev.scenarioId !== scenarioId) prev.publish(scenarioId, new Map())
-      return
-    }
+    if (read !== null) last.current = { scenarioId, graph: read }
+    const savedGraph = read ?? (last.current.scenarioId === scenarioId ? last.current.graph : null)
     const next = noteRecordsOf(savedGraph, nodes)
+    const prev = useNoteRecordsStore.getState()
     if (prev.scenarioId === scenarioId && sameNoteRecords(prev.records, next)) return
     prev.publish(scenarioId, next)
-  }, [savedGraph, scenarioId, nodes])
+  }, [read, scenarioId, nodes])
   return null
 }
