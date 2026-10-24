@@ -107,7 +107,6 @@ import { WhatIfMarkLayer } from './nodes/WhatIfMarkLayer'
 import { RunChangePencilLayer } from './graphChanges/RunChangePencilLayer'
 import { DirectionNeededLayer } from './nodes/DirectionNeededLayer'
 import { coreSwitchOptionOf, withoutCoreSwitches } from './domain/coreSwitch'
-import { currentNoteIds } from './domain/noteRecords'
 import { NoteRecordsPublisher } from './components/NoteRecordsPublisher'
 import { useDrawnLivingModel } from './hooks/useDrawnLivingModel'
 import { livingOnlyOf } from './domain/livingModelCanvas'
@@ -1016,11 +1015,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     const seen = new Set<string>()
     // Core's option switch is the engine's working, not the model: never drawn (coreSwitch.ts).
     const switches = coreSwitchOptionOf(nodesWithGhost)
-    // Olumi's notes are shown on the card they concern, never as cards (`noteRecords.ts`). Read, not subscribed: the
-    // publisher re-lays out the board when the notes arrive, which hands this memo a new node array.
-    const notes = currentNoteIds()
     return sortNodesInReadingOrder(nodesWithGhost.filter((node) => {
-      if (switches.has(node.id) || notes.has(node.id)) return false
+      if (switches.has(node.id)) return false
       if (seen.has(node.id)) {
         if (import.meta.env.DEV) {
           console.warn(`[ReactFlowGraph] Duplicate node ID filtered: ${node.id}`)

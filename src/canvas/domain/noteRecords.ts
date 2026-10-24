@@ -1,30 +1,32 @@
 /**
- * ⭐ OLUMI'S NOTES ARE NOT MODEL CARDS (Paul, 24 Oct 2026: the card icon row; DL: identity from the canonical model).
+ * ⭐ OLUMI'S NOTES ARE SHOWN ON THE CARD THEY CONCERN (Paul, 24 Oct 2026: the card icon row; DL: identity from the
+ * canonical model, source first).
  *
- * The model program saves its display-only records (claims, assumptions, left-out items, preferences, dissent and
- * evidence) as graph nodes of kind `action`, with no links (CEE #3709). The canvas drew each as a full card with the
- * legacy action shape. A node is a NOTE when its id equals a record id in one of those families of the saved graph's
- * `living_model.canonical`; the family is the array the record sits in, never its label. A note is kept in the store,
- * like core's option switch (`coreSwitch.ts`), but never drawn, laid out, measured or fitted. It is shown as a counted
- * notes glyph on the card it concerns: its first concern that is a drawn card. A note that concerns no drawn card is
- * shown in the board's notes place, so no note's text is lost.
+ * The model's display-only records (claims, assumptions, conditions, left-out items, preferences, dissent and evidence) live in the
+ * saved graph's `living_model.canonical`; the family is the array the record sits in, never its label. A record is a NOTE
+ * when the canvas does not draw it: it is shown as a counted notes glyph on its first concern that is a visible card, or on
+ * the question card when none is, so no note's text is lost.
  *
- * Limits without a figure are projected under a derived id (`mp:limit:<id>`); they stay as they render today (DL ruling:
- * the UI never rebuilds CEE's id convention).
+ * Readers before writers: today CEE still projects these records as graph nodes (`model-program/project.ts`, #3709), and a
+ * record the canvas draws is never also a note, so nothing is said twice. When CEE stops projecting them, they become notes
+ * here with no further UI change. The canvas never hides, lays out or measures anything on this account.
  */
 import { create } from 'zustand'
+import { useCanvasStore } from '../store'
+import { coreSwitchOptionOf } from './coreSwitch'
 
 type Rec = Record<string, unknown>
 const rec = (v: unknown): Rec | null => (v !== null && typeof v === 'object' && !Array.isArray(v) ? (v as Rec) : null)
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim().length > 0 ? v.trim() : null)
 
-export const NOTE_FAMILIES = ['assumptions', 'claims', 'left_out', 'preferences', 'dissent', 'evidence'] as const
+export const NOTE_FAMILIES = ['assumptions', 'claims', 'conditions', 'left_out', 'preferences', 'dissent', 'evidence'] as const
 export type NoteFamily = (typeof NOTE_FAMILIES)[number]
 
 /** The family's name as the hover reads it. */
 export const NOTE_FAMILY_WORDS: Readonly<Record<NoteFamily, string>> = {
   assumptions: 'Assumption',
   claims: 'Claim',
+  conditions: 'Condition',
   left_out: 'Left out',
   preferences: 'Preference',
   dissent: 'Disagreement',
@@ -34,50 +36,65 @@ export const NOTE_FAMILY_WORDS: Readonly<Record<NoteFamily, string>> = {
 export interface NoteRecord {
   readonly id: string
   readonly family: NoteFamily
-  /** The record's own words: its text (dissent: holder and position), else the saved node's description. */
+  /** The record's own words: its text (dissent: holder and position; left out: with why). */
   readonly text: string
   /** Whose words: the person's (from the brief or typed) or Olumi's. */
   readonly author: 'person' | 'olumi' | null
-  /** The drawn card it is shown on, or null for the board's notes place. */
+  /** The visible card it is shown on, or null for the question card. */
   readonly anchorId: string | null
 }
 
-/**
- * Every note on the saved graph, keyed by node id, anchored against the ids of the cards on the canvas.
- * Empty when the saved graph carries no canonical model (any board not drawn by the model program).
- */
-export function noteRecordsOf(savedGraph: unknown, canvasNodeIds: ReadonlySet<string>): ReadonlyMap<string, NoteRecord> {
-  const g = rec(savedGraph)
-  const canonical = rec(rec(g?.living_model)?.canonical)
-  if (!canonical) return new Map()
-  const savedNodes = Array.isArray(g?.nodes) ? (g.nodes as unknown[]).map(rec).filter((n): n is Rec => n !== null) : []
-  const savedNodeIds = new Set(savedNodes.map((n) => n.id).filter((id): id is string => typeof id === 'string'))
-  const descriptionOf = new Map(savedNodes.map((n) => [n.id, str(n.description)] as const))
+type CanvasNode = { id: string; type?: string; data?: unknown }
 
-  const found: Array<{ id: string; family: NoteFamily; rec: Rec }> = []
+/**
+ * Every note for the saved graph, anchored against the cards on the canvas. Empty when the saved graph carries no
+ * canonical model (any board not drawn by the model program). A record with no words of its own is not a note.
+ */
+export function noteRecordsOf(savedGraph: unknown, canvasNodes: readonly CanvasNode[]): ReadonlyMap<string, NoteRecord> {
+  const canonical = rec(rec(rec(savedGraph)?.living_model)?.canonical)
+  if (!canonical) return new Map()
+  const onCanvas = new Set(canvasNodes.map((n) => n.id))
+  const labels = new Map(canvasNodes.map((n) => [n.id, str(rec(n.data)?.label)] as const))
+  const labelOf = (id: unknown): string | null => (typeof id === 'string' ? labels.get(id) ?? null : null)
+  // Core's option switch is kept in the store but never drawn: a note about it is shown on its option (`coreSwitch.ts`).
+  const switchOption = coreSwitchOptionOf(canvasNodes)
+  const visibleCard = (c: unknown): string | null =>
+    typeof c === 'string' && onCanvas.has(c) ? switchOption.get(c) ?? c : null
+
+  const out = new Map<string, NoteRecord>()
   for (const family of NOTE_FAMILIES) {
     const list = Array.isArray(canonical[family]) ? (canonical[family] as unknown[]) : []
     for (const item of list) {
       const r = rec(item)
       const id = r ? str(r.id) : null
-      // A note is a saved graph node with exactly the record's id.
-      if (r && id && savedNodeIds.has(id)) found.push({ id, family, rec: r })
+      // Drawn as a card already (today's projection): never said twice.
+      if (!r || !id || onCanvas.has(id) || out.has(id)) continue
+      const own = family === 'dissent' && str(r.holder) && str(r.position) ? `${str(r.holder)}: ${str(r.position)}`
+        : family === 'preferences' && !str(r.text) ? preferenceWords(r, labelOf) : str(r.text)
+      if (!own) continue
+      // The same extra words CEE's projection carries: why it was left out, and where evidence comes from.
+      const why = family === 'left_out' && str(r.why) ? ` Why: ${str(r.why)}` : family === 'evidence' && str(r.source) ? ` Source: ${str(r.source)}` : ''
+      const concerns = Array.isArray(r.concerns) ? r.concerns : family === 'preferences' && str(r.quantity) ? [r.quantity] : []
+      const anchorId = concerns.map(visibleCard).find((c): c is string => c !== null) ?? null
+      out.set(id, { id, family, text: `${own}${why}`, author: r.author === 'olumi' ? 'olumi' : r.author === 'person' ? 'person' : null, anchorId })
     }
-  }
-  const noteIds = new Set(found.map((f) => f.id))
-  const out = new Map<string, NoteRecord>()
-  for (const { id, family, rec: r } of found) {
-    const concerns = Array.isArray(r.concerns) ? r.concerns : family === 'preferences' && str(r.quantity) ? [r.quantity] : []
-    const anchorId = concerns.find((c): c is string => typeof c === 'string' && canvasNodeIds.has(c) && !noteIds.has(c)) ?? null
-    const own = family === 'dissent' && str(r.holder) && str(r.position) ? `${str(r.holder)}: ${str(r.position)}` : str(r.text)
-    const extra = family === 'left_out' && str(r.why) ? ` Why: ${str(r.why)}` : ''
-    const text = own ? `${own}${extra}` : descriptionOf.get(id) ?? id
-    out.set(id, { id, family, text, author: r.author === 'olumi' ? 'olumi' : r.author === 'person' ? 'person' : null, anchorId })
   }
   return out
 }
 
-/** The notes for the scenario on screen, published once the saved-graph read answers (`NoteRecordsPublisher`). */
+/**
+ * A preference has no text of its own: a direction on a quantity, named by the quantity's card, with the person's words —
+ * "Lower Total annual spending (“to save money”)" (CEE's projection: `Preference: <direction> <quantity label>`).
+ */
+function preferenceWords(r: Rec, labelOf: (id: unknown) => string | null): string | null {
+  const quote = str(r.quote)
+  const label = labelOf(r.quantity) ?? str(r.quantity)
+  const way = str(r.direction)
+  const aim = way && label ? `${way.charAt(0).toUpperCase()}${way.slice(1)} ${label}` : null
+  return aim && quote ? `${aim} (“${quote}”)` : aim ?? (quote ? `“${quote}”` : null)
+}
+
+/** The notes, published per scenario once its saved-graph read answers (`NoteRecordsPublisher`). */
 interface NoteRecordsState {
   scenarioId: string | null
   records: ReadonlyMap<string, NoteRecord>
@@ -90,29 +107,14 @@ export const useNoteRecordsStore = create<NoteRecordsState>()((set) => ({
   publish: (scenarioId, records) => set({ scenarioId, records }),
 }))
 
-/**
- * The note ids on screen now, for non-hook readers (layout, measure gate, fit, the drawn-node filter). The publisher
- * replaces the set whenever the scenario or its saved graph changes, so it never holds another scenario's notes.
- * Deliberately store-free: `utils/layout.ts` is imported by the canvas store.
- */
-export function currentNoteIds(): ReadonlySet<string> {
-  return new Set(useNoteRecordsStore.getState().records.keys())
+/** The notes for the scenario on screen; another scenario's are never shown, even before its own read answers. */
+export function useNoteRecords(): ReadonlyMap<string, NoteRecord> {
+  const scenarioId = useCanvasStore((s) => s.currentScenarioId ?? null)
+  const { scenarioId: of, records } = useNoteRecordsStore()
+  return of === scenarioId ? records : EMPTY
 }
 
-/** The model as drawn: no note cards (they have no links; any link touching one is dropped with it). */
-export function withoutNotes<N extends { id: string }, E extends { source: string; target: string }>(
-  nodes: readonly N[], edges: readonly E[],
-): { nodes: N[]; edges: E[]; hidden: N[] } {
-  const notes = currentNoteIds()
-  if (notes.size === 0) return { nodes: [...nodes], edges: [...edges], hidden: [] }
-  return {
-    nodes: nodes.filter((n) => !notes.has(n.id)),
-    edges: edges.filter((e) => !notes.has(e.source) && !notes.has(e.target)),
-    hidden: nodes.filter((n) => notes.has(n.id)),
-  }
-}
-
-/** Same record set, ignoring order and anchors' identity: used to publish only on a real change. */
+/** Same record set: used to publish only on a real change. */
 export function sameNoteRecords(a: ReadonlyMap<string, NoteRecord>, b: ReadonlyMap<string, NoteRecord>): boolean {
   if (a.size !== b.size) return false
   for (const [id, r] of a) {

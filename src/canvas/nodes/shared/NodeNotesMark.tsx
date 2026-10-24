@@ -3,7 +3,7 @@ import { NotebookPen } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
 import { typography } from '../../../styles/typography'
 import { PROVENANCE_ICON_SIZE_CLASSES } from '../../domain/valueProvenanceIcon'
-import { NOTE_FAMILY_WORDS, useNoteRecordsStore, type NoteRecord } from '../../domain/noteRecords'
+import { NOTE_FAMILY_WORDS, useNoteRecords, type NoteRecord } from '../../domain/noteRecords'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { BottomCardMark } from './CardMark'
 
@@ -19,7 +19,7 @@ export function noteLine(n: NoteRecord): string {
  * note's text is lost (`noteRecords.ts`). Hover or focus lists them; the accessible name carries every note in full.
  */
 export const NodeNotesMark = memo(function NodeNotesMark({ nodeId, boardNotes = false }: { nodeId: string; boardNotes?: boolean }) {
-  const records = useNoteRecordsStore((s) => s.records)
+  const records = useNoteRecords()
   const notes = [...records.values()].filter((n) => n.anchorId === nodeId || (boardNotes && n.anchorId === null))
   if (notes.length === 0) return null
   const lines = notes.map(noteLine)

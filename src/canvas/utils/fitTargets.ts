@@ -1,5 +1,4 @@
 import { coreSwitchOptionOf } from '../domain/coreSwitch'
-import { currentNoteIds } from '../domain/noteRecords'
 /**
  * fitTargets — which nodes a whole-graph `fitView` is allowed to frame.
  *
@@ -64,9 +63,7 @@ export function excludeNonModelNodes<T extends { id: string; type?: string }>(no
   // second one is added — the hand-maintained-mirror defect, in a filter.
   // Core's option switch is not part of the model either (coreSwitch.ts): never framed or counted.
   const switches = coreSwitchOptionOf(nodes)
-  // Nor are Olumi's notes (`noteRecords.ts`): never framed or counted.
-  const notes = currentNoteIds()
-  return nodes.filter((n) => !isGhostNode(n.id) && !switches.has(n.id) && !notes.has(n.id))
+  return nodes.filter((n) => !isGhostNode(n.id) && !switches.has(n.id))
 }
 
 /**

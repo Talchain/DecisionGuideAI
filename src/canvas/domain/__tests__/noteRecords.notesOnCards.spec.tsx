@@ -1,58 +1,55 @@
 /**
- * OLUMI'S NOTES ARE SHOWN ON THE CARD THEY CONCERN, NEVER AS CARDS (Paul, 24 Oct 2026; identity from the canonical model).
+ * OLUMI'S NOTES ARE SHOWN ON THE CARD THEY CONCERN (Paul, 24 Oct 2026; identity from the canonical model, source first).
  * Fixture: the saved graph of Paul's "focus on more strategic tasks" board (scenario 3de98183), read from staging on
- * 24 Oct: 20 nodes, 7 of them display-only records projected as `action` nodes (CEE #3709).
+ * 24 Oct: 20 nodes, 7 of them display-only records that CEE still projects as `action` nodes (#3709). "After CEE" is the
+ * same saved graph without those 7 nodes, which is what the graph route serves once CEE stops projecting them.
  */
 import { beforeEach, describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import graph from './fixtures/strategic-3de98183-graph.json'
-import { currentNoteIds, noteRecordsOf, useNoteRecordsStore, withoutNotes } from '../noteRecords'
+import { noteRecordsOf, useNoteRecordsStore } from '../noteRecords'
 import { NodeNotesMark } from '../../nodes/shared/NodeNotesMark'
-import { excludeNonModelNodes } from '../../utils/fitTargets'
-import { allUnlockedNodesMeasured } from '../../utils/measureLayoutGate'
+import { useCanvasStore } from '../../store'
 
-type N = { id: string; kind?: string; label?: string }
-const savedNodes = (graph as { nodes: N[] }).nodes
-const canvasIds = new Set(savedNodes.map((n) => n.id))
+type N = { id: string; type?: string; kind?: string; label?: string; data?: unknown }
+type G = { nodes: N[]; living_model: { canonical: Record<string, Array<Record<string, unknown>>> } }
 const NOTE_IDS = [
   'prefer_lower_spending', 'expected_human_focus_benefit', 'cost_range_interpretation', 'combined_cost_additivity',
   'annual_cost_comparison', 'focus_benefit_not_quantified', 'cost_figures_need_reconciliation',
 ]
+const today = graph as unknown as G
+const afterCee: G = { ...today, nodes: today.nodes.filter((n) => !NOTE_IDS.includes(n.id)) }
+const canvasOf = (g: G): N[] => g.nodes.map((n) => ({ id: n.id, type: n.kind, data: { label: n.label } }))
 
-beforeEach(() => { useNoteRecordsStore.setState({ scenarioId: null, records: new Map() }) })
-const publish = (records: ReturnType<typeof noteRecordsOf>) => useNoteRecordsStore.getState().publish('3de98183', records)
+beforeEach(() => {
+  useNoteRecordsStore.setState({ scenarioId: null, records: new Map() })
+  useCanvasStore.setState({ currentScenarioId: '3de98183' } as never)
+})
+const publish = (records: ReturnType<typeof noteRecordsOf>, scenarioId = '3de98183') =>
+  act(() => useNoteRecordsStore.getState().publish(scenarioId, records))
 
-describe('3de98183: every display-only record is a note, keyed by canonical identity', () => {
-  it('all 7 are notes, in their families, each anchored on a drawn card', () => {
-    const notes = noteRecordsOf(graph, canvasIds)
+describe('3de98183 after CEE stops projecting the records: each is a note on the card it concerns', () => {
+  it('all 7 are notes, in their families, each anchored on a card the canvas draws', () => {
+    const canvas = canvasOf(afterCee)
+    const notes = noteRecordsOf(afterCee, canvas)
     expect([...notes.keys()].sort()).toEqual([...NOTE_IDS].sort())
-    const families = [...notes.values()].map((n) => n.family).sort()
-    expect(families).toEqual(['assumptions', 'assumptions', 'assumptions', 'claims', 'left_out', 'left_out', 'preferences'])
+    expect([...notes.values()].map((n) => n.family).sort())
+      .toEqual(['assumptions', 'assumptions', 'assumptions', 'claims', 'left_out', 'left_out', 'preferences'])
     expect(notes.get('cost_range_interpretation')!.anchorId).toBe('human_annual_cost')
     expect(notes.get('expected_human_focus_benefit')!.anchorId).toBe('personal_assistant')
     expect(notes.get('prefer_lower_spending')!.anchorId).toBe('annual_spend')
-    for (const n of notes.values()) expect(canvasIds.has(n.anchorId!)).toBe(true)
-  })
-
-  it('0 model cards for them: not drawn, not laid out, not measured, not fitted; every other node still is', () => {
-    publish(noteRecordsOf(graph, canvasIds))
-    const drawn = withoutNotes(savedNodes, [])
-    expect(drawn.hidden.map((n) => n.id).sort()).toEqual([...NOTE_IDS].sort())
-    expect(drawn.nodes).toHaveLength(13)
-    expect(excludeNonModelNodes(savedNodes as never).map((n: N) => n.id).filter((id: string) => NOTE_IDS.includes(id))).toEqual([])
-    // Only the 13 drawn cards are measured: the gate does not wait for a note React Flow never renders.
-    const measured = new Map(drawn.nodes.map((n) => [n.id, { measured: { width: 200, height: 80 } }]))
-    expect(allUnlockedNodesMeasured(savedNodes as never, measured as never)).toBe(true)
+    // A preference has no text of its own: its direction, the quantity's card name and the person's words.
+    const spend = canvas.find((n) => n.id === 'annual_spend')!.data as { label: string }
+    expect(notes.get('prefer_lower_spending')!.text).toBe(`Lower ${spend.label} (“to save money”)`)
+    const drawn = new Set(canvas.map((n) => n.id))
+    for (const n of notes.values()) expect(drawn.has(n.anchorId!)).toBe(true)
   })
 
   it('every note is reachable from its card glyph, its text in full', () => {
-    const notes = noteRecordsOf(graph, canvasIds)
+    const notes = noteRecordsOf(afterCee, canvasOf(afterCee))
     publish(notes)
     for (const anchor of new Set([...notes.values()].map((n) => n.anchorId!))) render(<NodeNotesMark nodeId={anchor} />)
-    for (const n of notes.values()) {
-      const mark = screen.getByTestId(`node-notes-${n.anchorId}`)
-      expect(mark.getAttribute('aria-label')).toContain(n.text)
-    }
+    for (const n of notes.values()) expect(screen.getByTestId(`node-notes-${n.anchorId}`).getAttribute('aria-label')).toContain(n.text)
     // The option the claim and the cost comparison both concern carries both.
     expect(screen.getByTestId('node-notes-personal_assistant')).toHaveAttribute('data-note-count', '2')
     expect(screen.getByTestId('node-notes-human_annual_cost').getAttribute('aria-label'))
@@ -61,30 +58,55 @@ describe('3de98183: every display-only record is a note, keyed by canonical iden
 })
 
 describe('edges of the rule', () => {
-  it('a note whose concerns resolve to no drawn card is on the question card (the board), text kept', () => {
-    const lonely = structuredClone(graph) as { living_model: { canonical: { claims: Array<Record<string, unknown>> } } }
+  it('NEGATIVE — today’s served data: a record the canvas draws as a card is never also a note (nothing said twice)', () => {
+    const notes = noteRecordsOf(today, canvasOf(today))
+    expect(notes.size).toBe(0)
+    // Contrast in the same fixture: the same records are notes once the canvas does not draw them.
+    expect(noteRecordsOf(afterCee, canvasOf(afterCee)).size).toBe(7)
+    publish(notes)
+    render(<NodeNotesMark nodeId="personal_assistant" />)
+    expect(screen.queryByTestId('node-notes-personal_assistant')).toBeNull()
+  })
+
+  it('a note whose concerns resolve to no card is on the question card, text kept', () => {
+    const lonely = structuredClone(afterCee)
     lonely.living_model.canonical.claims[0].concerns = ['not_on_the_canvas']
-    const notes = noteRecordsOf(lonely, canvasIds)
+    const notes = noteRecordsOf(lonely, canvasOf(lonely))
     expect(notes.get('expected_human_focus_benefit')!.anchorId).toBeNull()
     publish(notes)
     render(<NodeNotesMark nodeId="mp:decision" boardNotes />)
-    expect(screen.getByTestId('node-notes-mp:decision').getAttribute('aria-label'))
-      .toContain(notes.get('expected_human_focus_benefit')!.text)
+    expect(screen.getByTestId('node-notes-mp:decision').getAttribute('aria-label')).toContain(notes.get('expected_human_focus_benefit')!.text)
   })
 
-  it('NEGATIVE: an action node whose id is in no canonical family stays a card', () => {
-    const other = structuredClone(graph) as { nodes: N[] }
-    other.nodes.push({ id: 'an_ordinary_action', kind: 'action', label: 'Assumption: looks like a note, is not one' })
-    const ids = new Set(other.nodes.map((n) => n.id))
-    const notes = noteRecordsOf(other, ids)
-    expect(notes.has('an_ordinary_action')).toBe(false)
+  it('a note about core’s hidden option switch is shown on its option, never on the switch nobody sees', () => {
+    const g = structuredClone(afterCee)
+    g.living_model.canonical.claims[0].concerns = ['personal_assistant__on', 'annual_spend']
+    const canvas = [...canvasOf(g), { id: 'personal_assistant__on', type: 'factor', data: { label: 'hire a personal assistant in place' } }]
+    expect(noteRecordsOf(g, canvas).get('expected_human_focus_benefit')!.anchorId).toBe('personal_assistant')
+  })
+
+  it('another scenario’s notes are never shown, even before this scenario’s read answers', () => {
+    publish(noteRecordsOf(afterCee, canvasOf(afterCee)), 'another-scenario')
+    render(<NodeNotesMark nodeId="personal_assistant" />)
+    expect(screen.queryByTestId('node-notes-personal_assistant')).toBeNull()
+  })
+
+  it('evidence shows its source, a condition and a disagreement their own words — every family CEE projects', () => {
+    const g = structuredClone(afterCee)
+    const c = g.living_model.canonical
+    c.evidence = [{ id: 'ev1', text: 'Assistants cost about $40k a year here', source: 'the 2026 salary survey', author: 'person', concerns: ['human_annual_cost'] }]
+    c.conditions = [{ id: 'cd1', text: 'Only if the budget is approved', author: 'olumi', concerns: ['personal_assistant'] }]
+    c.dissent = [{ id: 'ds1', holder: 'Finance', position: 'The cost is understated', author: 'person', concerns: ['annual_spend'] }]
+    const notes = noteRecordsOf(g, canvasOf(g))
+    expect(notes.get('ev1')).toMatchObject({ family: 'evidence', text: 'Assistants cost about $40k a year here Source: the 2026 salary survey', anchorId: 'human_annual_cost' })
+    expect(notes.get('cd1')).toMatchObject({ family: 'conditions', text: 'Only if the budget is approved', author: 'olumi', anchorId: 'personal_assistant' })
+    expect(notes.get('ds1')).toMatchObject({ family: 'dissent', text: 'Finance: The cost is understated', anchorId: 'annual_spend' })
     publish(notes)
-    expect(currentNoteIds().has('an_ordinary_action')).toBe(false)
-    expect(withoutNotes(other.nodes, []).nodes.map((n) => n.id)).toContain('an_ordinary_action')
+    render(<NodeNotesMark nodeId="personal_assistant" />)
+    expect(screen.getByTestId('node-notes-personal_assistant').getAttribute('aria-label')).toContain('Condition (Olumi’s): Only if the budget is approved')
   })
 
   it('NEGATIVE: a board with no canonical model has no notes', () => {
-    const legacy = { nodes: savedNodes }
-    expect(noteRecordsOf(legacy, canvasIds).size).toBe(0)
+    expect(noteRecordsOf({ nodes: afterCee.nodes }, canvasOf(afterCee)).size).toBe(0)
   })
 })

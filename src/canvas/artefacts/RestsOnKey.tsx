@@ -25,7 +25,7 @@ import {
 } from './assumptionMapModel'
 import { isUnsettled } from './RestsOnMarker'
 import { FigureCard } from './FigureCard'
-import { useNoteRecordsStore } from '../domain/noteRecords'
+import { useNoteRecords } from '../domain/noteRecords'
 
 export const RESTS_ON_KEY_TESTID = 'rests-on-key'
 
@@ -108,7 +108,7 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
   const settledJustNow = useSettledJustNow(items)
   const light = useCanvasLight()
   // Paul, 24 Oct: the assumptions the model rests on are listed here too, in their own words (`noteRecords.ts`).
-  const noteRecords = useNoteRecordsStore((s) => s.records)
+  const noteRecords = useNoteRecords()
   const assumptions = useMemo(() => [...noteRecords.values()].filter((n) => n.family === 'assumptions'), [noteRecords])
   const assumptionList = assumptions.length === 0 ? null : (
     <section data-testid={`${RESTS_ON_KEY_TESTID}-assumptions`} className="space-y-1">
