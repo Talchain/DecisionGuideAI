@@ -72,6 +72,8 @@ export interface AttentionReason {
   readonly order: 1 | 2 | 3 | 4
   /** The sentence the reader sees: model-scoped, ending in its question. */
   readonly label: string
+  /** `behavioural` only: the finding's bias code as CEE served it, so the card draws that bias's own glyph. */
+  readonly biasCode?: string
 }
 
 export const ATTENTION_BUDGET = 3
@@ -222,7 +224,7 @@ export function deriveAttentionPlan(inputs: AttentionInputs, budget: number = AT
     const label = `Worth checking: ${title.toLowerCase()}. What would show whether it applies here?`
     for (const id of targets) {
       if (id === null || !byId.has(id)) continue
-      push(reasons, id, { kind: 'behavioural', order: 4, label })
+      push(reasons, id, { kind: 'behavioural', order: 4, label, biasCode: String(f.code ?? f.type) })
     }
   }
   for (const raw of inputs.ceeBiasFindings) {
@@ -309,6 +311,19 @@ export const LAST_RUN_FOCUS_LEAD = 'Last run focus: these reasons refer to the p
  * the model is KNOWN to have changed since it), led by the contract's "Last run
  * focus" sentence. An absent `fromLastRun` (a stubbed hook) reads as none.
  */
+type CueAttention = { reasons: readonly AttentionReason[]; marked: boolean; markedCount: number; candidateCount: number }
+/**
+ * The cue without the grounded bias finding, for a card whose row already draws it (`NodeBiasMarks`): one mark per
+ * finding. The other reasons keep the cue; with none left there is no cue.
+ */
+export function withoutBehavioural<A extends CueAttention & { fromLastRun?: CueAttention | null }>(attention: A): A {
+  const drop = <C extends CueAttention>(c: C): C => {
+    const reasons = c.reasons.filter((r) => r.kind !== 'behavioural')
+    return { ...c, reasons, marked: c.marked && reasons.length > 0 }
+  }
+  return { ...drop(attention), fromLastRun: attention.fromLastRun ? drop(attention.fromLastRun) : attention.fromLastRun }
+}
+
 export function attentionCueSentence(
   attention: {
     reasons: readonly AttentionReason[]

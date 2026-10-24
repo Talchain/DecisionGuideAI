@@ -56,7 +56,9 @@ import { EDGE_STRENGTH_SOURCE_MARKS } from '../domain/edgeStrengthSourceIcon'
 import { METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, TYPE_NUMBER_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
 import { ATTENTION_MARKER_GLYPH } from '../nodes/shared/NodeAttentionMarker'
-import { EVIDENCE_RAIL_GLYPH, BEHAVIOUR_RAIL_GLYPH, NODE_RAIL_TONE_CLASS } from '../nodes/shared/NodeRailIcons'
+import { EVIDENCE_RAIL_GLYPH, NODE_RAIL_TONE_CLASS } from '../nodes/shared/NodeRailIcons'
+import { NODE_RAIL_BEHAVIOUR_TONE_CLASS } from '../nodes/shared/nodeCardRailStyles'
+import { BIAS_SIGNAL_REGISTRY } from '../shared/biasSignalTitles'
 import { RENDERED_CARD_MARKS } from '../nodes/shared/cardMarks'
 import { CardMarkShape } from '../nodes/shared/CardMark'
 import { COACHING_ICON_GLYPH } from '../nodes/shared/NodeCoachingIcon'
@@ -649,11 +651,23 @@ const EVIDENCE_ROW: LegendRow = {
   swatch: <CardIconSwatch Icon={EVIDENCE_RAIL_GLYPH.Icon} inkClass={NODE_RAIL_TONE_CLASS[EVIDENCE_RAIL_GLYPH.tone]} />,
   testId: 'legend-icon-evidence',
 }
-const BEHAVIOUR_ROW: LegendRow = {
-  label: 'Behavioural check',
-  swatch: <CardIconSwatch Icon={BEHAVIOUR_RAIL_GLYPH.Icon} inkClass={NODE_RAIL_TONE_CLASS[BEHAVIOUR_RAIL_GLYPH.tone]} />,
-  testId: 'legend-icon-behaviour',
-}
+/**
+ * A bias risk is its own glyph in the card's row (Paul, 24 Oct 2026; `NodeBiasMarks`): one key row per design system §9.6
+ * glyph, naming every bias the registry draws with it, in the card hover's words. Derived from the registry, never listed.
+ */
+const BIAS_ROWS: LegendRow[] = (() => {
+  const byIcon = new Map<unknown, { Icon: typeof BIAS_SIGNAL_REGISTRY.anchoring.icon; key: string; titles: string[] }>()
+  for (const [key, { title, icon }] of Object.entries(BIAS_SIGNAL_REGISTRY)) {
+    const row = byIcon.get(icon) ?? { Icon: icon, key, titles: [] }
+    if (!row.titles.includes(title)) row.titles.push(title)
+    byIcon.set(icon, row)
+  }
+  return [...byIcon.values()].map(({ Icon, key, titles }) => ({
+    label: `Worth checking: ${titles.map(t => t.toLowerCase()).join(', ')}`,
+    swatch: <CardIconSwatch Icon={Icon} inkClass={NODE_RAIL_BEHAVIOUR_TONE_CLASS} />,
+    testId: `legend-icon-bias-${key}`,
+  }))
+})()
 
 /**
  * Marks a card draws only AFTER a Run (a ranked driver). The key describes only what a reader in
@@ -679,7 +693,7 @@ function cardIconRows(isPostAnalysis: boolean): LegendRow[] {
   // The SAME shape the card draws (glyph, level meter, risk matrix) beside the registry's key words.
   const marks: LegendRow[] = cardMarkKeyRows(isPostAnalysis)
     .map(({ mark, label }) => ({ label, swatch: <CardMarkShape mark={mark} />, testId: `legend-card-mark-${mark.id}` }))
-  return [...(isPostAnalysis ? [ATTENTION_ROW, EVIDENCE_ROW, BEHAVIOUR_ROW] : [ATTENTION_ROW, BEHAVIOUR_ROW]), ...marks]
+  return [...(isPostAnalysis ? [ATTENTION_ROW, EVIDENCE_ROW, ...BIAS_ROWS] : [ATTENTION_ROW, ...BIAS_ROWS]), ...marks]
 }
 
 /**

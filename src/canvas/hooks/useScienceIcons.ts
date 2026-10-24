@@ -28,6 +28,7 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import { useNodeDisplayMetadata } from './useNodeDisplayMetadata'
+import { useNodeAttention } from '../nodes/shared/useNodeAttention'
 import {
   FileQuestion, Unlink, Frame, ShieldAlert, Anchor, Gauge,
 } from 'lucide-react'
@@ -89,9 +90,13 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
    * both directions, which is why this does not depend on settling how often
    * the guidance channel actually fires.
    */
-  const producerNamesThisNode = useGuidanceStore((s) =>
+  const producerGuides = useGuidanceStore((s) =>
     s.guidanceItems.some((i) => i.target_object?.id === nodeId),
   )
+  // The same precedence for a GROUNDED bias finding CEE serves on this node: the card's row draws its own glyph
+  // (`NodeBiasMarks`, Paul 24 Oct), so a browser-derived hint here would say a second bias in the same voice.
+  const producerFindsBias = useNodeAttention(nodeId).reasons.some((r) => r.kind === 'behavioural')
+  const producerNamesThisNode = producerGuides || producerFindsBias
 
   return useMemo(() => {
     const icons: ScienceIconDef[] = []

@@ -313,7 +313,9 @@ describe('Paul 23 Sep point 9 — attention is Info blue, never warning; the bud
   })
 
   it('the "Worth reviewing" marker is info-toned with no warning or danger class anywhere in it', () => {
-    setState({ lodRung: 'full' })
+    // Paul (24 Oct): at full zoom fac-conv's only reason (its grounded anchoring finding) is the card row's own glyph, so
+    // the badge does not repeat it; at the quiet rung the badge is the cue and carries it.
+    setState({ lodRung: 'quiet' })
     renderCard('fac-conv')
     const marker = screen.getByTestId('attention-marker-fac-conv')
     const classes = [marker, ...Array.from(marker.querySelectorAll('*'))].map(e => e.getAttribute('class') ?? '').join(' ')

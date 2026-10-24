@@ -28,6 +28,7 @@ import { render, screen, fireEvent, cleanup, within } from '@testing-library/rea
 import { CanvasLegendPopover } from '../CanvasLegendPopover'
 import { NodeAttentionMarker } from '../../nodes/shared/NodeAttentionMarker'
 import { NodeSignalRailIcons } from '../../nodes/shared/NodeRailIcons'
+import { NodeBiasMarks } from '../../nodes/shared/NodeBiasMarks'
 import { NodeCoachingMarker } from '../../nodes/shared/NodeCoachingMarker'
 import type { AttentionReason } from '../../nodes/shared/nodeAttention'
 import { useCanvasStore } from '../../store'
@@ -111,7 +112,11 @@ describe('the icon rows, in the contract’s words', () => {
   it.each([
     ['legend-icon-attention', 'Olumi has something here'],
     ['legend-icon-evidence', 'Worth checking'],
-    ['legend-icon-behaviour', 'Behavioural check'],
+    // Paul (24 Oct): one row per bias glyph, naming every bias the registry draws with it, in the card hover's words.
+    ['legend-icon-bias-anchoring', 'Worth checking: anchoring, authority bias, sunk cost'],
+    ['legend-icon-bias-framing', 'Worth checking: narrow framing, confirmation bias, availability bias'],
+    ['legend-icon-bias-confidence', 'Worth checking: overconfidence, optimism bias'],
+    ['legend-icon-bias-blind_spots', 'Worth checking: blind spots, status quo bias'],
   ])('%s reads "%s"', (testId, words) => {
     const key = openKey()
     expect(within(key).getByTestId(testId).textContent).toBe(words)
@@ -152,7 +157,7 @@ describe('⭐ each row draws the glyph the card draws, in the card’s resting i
   })
 
   it('Worth checking ⇄ the rail’s evidence icon', () => {
-    render(<NodeSignalRailIcons nodeId={NODE} label="Hiring spend" reasons={[EVIDENCE]} />)
+    render(<NodeSignalRailIcons nodeId={NODE} reasons={[EVIDENCE]} />)
     const card = cardGlyph(`node-rail-evidence-${NODE}`)
     const key = keyRow(openKey(), 'legend-icon-evidence')
     expect(lucideName(key.svg)).toBe(lucideName(card.svg))
@@ -160,10 +165,10 @@ describe('⭐ each row draws the glyph the card draws, in the card’s resting i
     expect(ink(key.svg)).toBe(ink(card.button))
   })
 
-  it('Behavioural check ⇄ the rail’s behaviour icon', () => {
-    render(<NodeSignalRailIcons nodeId={NODE} label="Hiring spend" reasons={[BEHAVIOUR]} />)
-    const card = cardGlyph(`node-rail-behaviour-${NODE}`)
-    const key = keyRow(openKey(), 'legend-icon-behaviour')
+  it('a bias mark ⇄ its own key row: same glyph, same ink (Paul 24 Oct: the bias\'s own glyph in the card\'s row)', () => {
+    render(<NodeBiasMarks nodeId={NODE} label="Hiring spend" reasons={[{ ...BEHAVIOUR, biasCode: 'anchoring' }]} />)
+    const card = cardGlyph(`node-bias-${NODE}`)
+    const key = keyRow(openKey(), 'legend-icon-bias-anchoring')
     expect(lucideName(key.svg)).toBe(lucideName(card.svg))
     expect(ink(card.button)).not.toBeNull()
     expect(ink(key.svg)).toBe(ink(card.button))
@@ -176,12 +181,12 @@ describe('⭐ each row draws the glyph the card draws, in the card’s resting i
     expect(within(key).getByTestId('legend-icon-attention')).toBeDefined() // positive control
   })
 
-  it('CONTRAST: the three glyphs are three different marks, so a pair cannot pass by sharing one', () => {
+  it('CONTRAST: the six glyphs are six different marks, so a pair cannot pass by sharing one', () => {
     const key = openKey()
-    const names = ['attention', 'evidence', 'behaviour'].map((k) =>
+    const names = ['attention', 'evidence', 'bias-anchoring', 'bias-framing', 'bias-confidence', 'bias-blind_spots'].map((k) =>
       lucideName(keyRow(key, `legend-icon-${k}`).svg),
     )
-    expect(new Set(names).size).toBe(3)
+    expect(new Set(names).size).toBe(6)
   })
 })
 
@@ -190,7 +195,7 @@ describe('the evidence row follows its icon’s phase', () => {
     setPhase('idle')
     const key = openKey()
     expect(within(key).queryByTestId('legend-icon-evidence')).toBeNull()
-    for (const k of ['attention', 'behaviour']) {
+    for (const k of ['attention', 'bias-anchoring', 'bias-framing', 'bias-confidence', 'bias-blind_spots']) {
       expect(within(key).getByTestId(`legend-icon-${k}`)).toBeDefined()
     }
   })

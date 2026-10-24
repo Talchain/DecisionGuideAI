@@ -59,6 +59,7 @@ import {
 } from '../../utils/nodeLayoutConstants'
 import { MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
 import { NodeRailIcon, NodeSignalRailIcons } from '../shared/NodeRailIcons'
+import { NodeBiasMarks } from '../shared/NodeBiasMarks'
 import { NodeCoachingIcon } from '../shared/NodeCoachingIcon'
 import { NodeQuickActions } from '../shared/NodeQuickActions'
 
@@ -521,19 +522,20 @@ describe('GAP 34 — rail geometry and colours are the contract .icon-btn', () =
     expect(triple(behaviourVar!)).toBe(CONTRACT_BEHAVIOUR_HEX)
   })
 
-  it('the evidence icon rests in the icon grey and the behaviour icon in its own colour — not body ink', () => {
+  it('the evidence icon rests in the icon grey and the bias mark in the behaviour colour — not body ink', () => {
+    const reasons = [
+      { kind: 'evidence_gap', order: 3, label: 'Evidence here would narrow the comparison.' },
+      { kind: 'behavioural', order: 4, label: 'Worth checking: anchoring.', biasCode: 'anchoring' },
+    ] as const
     render(
-      <NodeSignalRailIcons
-        nodeId="f1"
-        label="Trial conversion"
-        reasons={[
-          { kind: 'evidence_gap', order: 3, label: 'Evidence here would narrow the comparison.' },
-          { kind: 'behavioural', order: 4, label: 'Worth checking: anchoring.' },
-        ]}
-      />,
+      <>
+        <NodeSignalRailIcons nodeId="f1" reasons={reasons} />
+        <NodeBiasMarks nodeId="f1" label="Trial conversion" reasons={reasons} />
+      </>,
     )
     const evidence = screen.getByTestId('node-rail-evidence-f1')
-    const behaviour = screen.getByTestId('node-rail-behaviour-f1')
+    // Paul (24 Oct): the bias finding is its own glyph in the card's row, in the behaviour colour.
+    const behaviour = screen.getByTestId('node-bias-f1')
     expect(tokens(evidence)).toContain(NODE_RAIL_REST_TONE_CLASS)
     expect(tokens(behaviour)).toContain(NODE_RAIL_BEHAVIOUR_TONE_CLASS)
     expect(tokens(behaviour)).not.toContain('text-text-body')

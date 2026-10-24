@@ -8,17 +8,15 @@
  *   · Evidence — this element is a TARGETED evidence gap: top 3 by the existing
  *     value-of-information ordering, while the analysis is current. No new UI
  *     threshold. Click → the element's existing inspector.
- *   · Behaviour — a GROUNDED finding maps to this element (see `nodeAttention`).
- *     Reflective copy only ("Worth checking: …", never a diagnosis). Click → AI,
- *     with the finding and the element attached (prefill-and-confirm).
+ *   · Behaviour — moved to the card's bottom row with the bias's own glyph
+ *     (`NodeBiasMarks`, Paul 24 Oct 2026).
  *
  * Both read the SAME reasons the "Worth reviewing" marker reads, so an icon and
  * the marker can never disagree about whether a signal exists.
  */
-import { SearchCheck, Brain, type LucideIcon } from 'lucide-react'
+import { SearchCheck, type LucideIcon } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
 import { useCanvasStore } from '../../store'
-import { requestAsk } from '../../ui/inspector-v2/askSemantic'
 import { openNodeInspector } from './openNodeInspector'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import {
@@ -66,12 +64,11 @@ export const NODE_RAIL_TONE_CLASS = {
 } as const
 
 /**
- * The evidence and behaviour marks as drawn, owned HERE and read by the canvas
- * key (`CanvasLegendPopover`, contract v3.1 §03 "Worth checking" (SCI-05 B21) /
- * "Behavioural check"), so the key imports these marks rather than redrawing them.
+ * The evidence mark as drawn, owned HERE and read by the canvas key
+ * (`CanvasLegendPopover`, contract v3.1 §03 "Worth checking" (SCI-05 B21)), so the
+ * key imports it rather than redrawing it. A bias finding's mark is `NodeBiasMarks`.
  */
 export const EVIDENCE_RAIL_GLYPH = { Icon: SearchCheck, tone: 'muted' } as const
-export const BEHAVIOUR_RAIL_GLYPH = { Icon: Brain, tone: 'behaviour' } as const
 
 export function NodeRailIcon({
   testId,
@@ -126,18 +123,15 @@ export const EVIDENCE_ICON_LABEL =
   // SCI-05 B21 (Science 393023 rulings.md:50-51, 7 Oct): keep the label, no value-of-information claim.
   'Worth checking. A quick check based on how the model is drawn, not a calculation of what new information is worth. Open its details.'
 
-/** The evidence and behaviour icons for one element, from its grounded reasons. */
+/** The evidence icon for one element, from its grounded reasons. */
 export function NodeSignalRailIcons({
   nodeId,
-  label,
   reasons,
 }: {
   nodeId: string
-  label: string
   reasons: readonly AttentionReason[]
 }) {
   const evidence = reasons.some((r) => r.kind === 'evidence_gap')
-  const behaviour = reasons.find((r) => r.kind === 'behavioural') ?? null
   /**
    * ⭐ ONE RESTING ICON SET — contract v3.1 pt 6 (delta ICON-04, its fallback:
    * the served `quiet` rung stays "quiet/far zoom"). At quiet/line the coaching
@@ -151,7 +145,7 @@ export function NodeSignalRailIcons({
    */
   const shownAtThisRung = useCanvasStore(selectRestingGlyphsShown)
   if (shownAtThisRung === false) return null
-  if (!evidence && !behaviour) return null
+  if (!evidence) return null
   return (
     <>
       {evidence && (
@@ -167,24 +161,7 @@ export function NodeSignalRailIcons({
           onActivate={() => openNodeInspector(nodeId)}
         />
       )}
-      {behaviour && (
-        <NodeRailIcon
-          testId={`node-rail-behaviour-${nodeId}`}
-          label={`${behaviour.label} A reflective prompt, not a diagnosis.`}
-          icon={BEHAVIOUR_RAIL_GLYPH.Icon}
-          tone={BEHAVIOUR_RAIL_GLYPH.tone}
-          onActivate={() => {
-            const store = useCanvasStore.getState() as { selectNodeWithoutHistory?: (id: string) => void }
-            store.selectNodeWithoutHistory?.(nodeId)
-            requestAsk({
-              text: `${behaviour.label} This is about ${label.trim() || 'this element'}.`,
-              label: 'Worth checking',
-              targetId: nodeId,
-              source: 'node-rail-behaviour',
-            })
-          }}
-        />
-      )}
+      {/* A grounded bias finding is the card's bottom row, with its own glyph (`NodeBiasMarks`), not a rail icon. */}
     </>
   )
 }
