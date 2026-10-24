@@ -23,6 +23,7 @@ import { WORKSPACE_SURFACES } from './shellContract'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useCanvasStore } from '../../store'
 import { selectHasRunOnRecord } from '../../state/hasRunOnRecord'
+import { useCanonicalRunStatus } from '../../state/canonicalRunStatus'
 import type { AnalysisRefusalNotice } from '../../store/analysisRefusalNotice'
 
 export interface ReanalyseBarInputs {
@@ -86,10 +87,11 @@ export function useReanalyseBarInputs(): ReanalyseBarInputs & { preRunWithModel:
   const { semantic } = useAnalysisTrust()
   const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
   // `?? true`: the same defensive default `composeAnalysisState` applies to this field (`analysisStateSelector.ts`).
+  const canonicalRun = useCanonicalRunStatus()
   const hasRunOnRecord = useCanvasStore((s) => selectHasRunOnRecord({
     hasCompletedFirstRun: s.hasCompletedFirstRun ?? true,
     analysisStateV1: s.analysisStateV1,
-  }))
+  }, canonicalRun))
   // `?.`: partial store mocks (the ReanalyseBar specs) carry no `nodes`; the real store always does.
   const nodeCount = useCanvasStore((s) => s.nodes?.length ?? 0)
   const refusedUnchanged = useCanvasStore((s) => refusalHoldsRerun(s.analysisRefusalNotice, s.lastServerGraphHash))

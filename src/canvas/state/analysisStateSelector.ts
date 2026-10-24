@@ -82,6 +82,7 @@ import {
   type ResultsTabFreshnessIndicator,
 } from '../components/resultsTabFreshness'
 import { ANALYSIS_READY_STATUS_UNSUPPLIED } from '../../adapters/cee/types'
+import { canonicalViewFreshness, useCanonicalRunStatus } from './canonicalRunStatus'
 
 /** The results-slice statuses that mean "an analysis is in flight right now". */
 const RUNNING_STATUSES: ReadonlySet<string> = new Set(['preparing', 'connecting', 'streaming'])
@@ -875,14 +876,21 @@ export function composeAnalysisState(
  * never a private re-derivation.
  */
 export function useAnalysisState(): ComposedAnalysisState {
-  const analysisState = useCanvasStore((s) => s.analysisStateV1)
-  const freshness = useCanvasStore((s) => s.analysisFreshness)
+  const storedAnalysisState = useCanvasStore((s) => s.analysisStateV1)
+  const storedFreshness = useCanvasStore((s) => s.analysisFreshness)
+  // Canvas audit P0 (24 Oct, DL ruling): CEE's held canonical view is the one authority on its own Run. It fills the
+  // freshness the UI could not establish, makes a bound Run a Run on record, and outranks a `never_run` wire verdict
+  // that contradicts it. A local edit still wins (the `dirty` overlay below is untouched), and `stale: null` stays
+  // `unknown`, never current (`canonicalRunStatus.ts`).
+  const viewRun = useCanonicalRunStatus()
+  const analysisState = viewRun !== null && storedAnalysisState?.run_state.kind === 'never_run' ? null : storedAnalysisState
+  const freshness = useMemo(() => canonicalViewFreshness(viewRun, storedFreshness), [viewRun, storedFreshness])
   const dirty = useCanvasStore((s) => s.analysisFreshnessDirty)
   const resultsStatus = useCanvasStore((s) => s.results?.status)
   const resultsStartedAt = useCanvasStore((s) => s.results?.startedAt)
   const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
   const hasReport = useCanvasStore((s) => s.results?.report != null)
-  const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun)
+  const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun) || viewRun !== null
   // The CONTENT check, not the envelope check — see `hasRenderableResult`.
   // Subscribed as a primitive boolean so this cannot re-render on every report
   // identity change.
