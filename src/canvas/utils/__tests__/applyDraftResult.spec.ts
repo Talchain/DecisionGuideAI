@@ -540,7 +540,8 @@ describe('applyDraftResult', () => {
     expect(optionNode.data.interventionKeys).toEqual(['f1'])
   })
 
-  it('clamps weight to [0, 2] range', () => {
+  // DL, 24 Oct 2026: the magnitude CEE sends is kept, beyond 2 too (a saved −4 had landed as 2).
+  it('keeps the weight CEE sends, beyond 2 too', () => {
     const draftData = {
       nodes: [
         { id: 'f1', kind: 'factor', label: 'A' },
@@ -552,7 +553,22 @@ describe('applyDraftResult', () => {
     } as any
 
     applyDraftResult(draftData)
-    expect(storeEdges[0].data.weight).toBe(2)
+    expect(storeEdges[0].data.weight).toBe(5)
+  })
+
+  it('never puts a non-finite weight on the canvas (Codex r1 on #2973)', () => {
+    const draftData = {
+      nodes: [
+        { id: 'f1', kind: 'factor', label: 'A' },
+        { id: 'g1', kind: 'goal', label: 'Goal' },
+      ],
+      edges: [
+        { from: 'f1', to: 'g1', strength: { mean: -Infinity } },
+      ],
+    } as any
+
+    applyDraftResult(draftData)
+    expect(Number.isFinite(storeEdges[0].data.weight)).toBe(true)
   })
 
   it('handles graph.nodes path (nested response)', () => {

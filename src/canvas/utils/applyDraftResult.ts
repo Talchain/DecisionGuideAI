@@ -88,16 +88,19 @@ export function mapDraftEdgeToCanvas(
   // chain uses (not a hand-kept copy of them), so it cannot drift from the
   // value it describes: true exactly when the last branch — the UI default —
   // was NOT taken.
+  // A strength counts only as a FINITE number: with no cap below, a non-finite one would reach the canvas and the
+  // registration as ±Infinity (serialised `null`), where the cap used to hide it (Codex r1 on #2973).
+  const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
   const wireSuppliedStrength =
-    typeof e.strength?.mean === 'number'
-    || typeof e.strength_mean === 'number'
-    || typeof e.weight === 'number'
+    finite(e.strength?.mean)
+    || finite(e.strength_mean)
+    || finite(e.weight)
   const rawWeight: number =
-    typeof e.strength?.mean === 'number'
+    finite(e.strength?.mean)
       ? e.strength.mean
-      : typeof e.strength_mean === 'number'
+      : finite(e.strength_mean)
         ? e.strength_mean
-        : typeof e.weight === 'number'
+        : finite(e.weight)
           ? e.weight
           : DEFAULT_EDGE_DATA.weight
 
@@ -109,8 +112,9 @@ export function mapDraftEdgeToCanvas(
   const direction: EffectDirection =
     directionFromEdge ?? (rawWeight < 0 ? 'negative' : 'positive')
 
-  // UI-SEM-038: Duplicate of UI-SEM-023/024/025 on alternate ingestion path.
-  const weight = Math.max(0, Math.min(2, Math.abs(rawWeight)))
+  // The magnitude CEE holds, unchanged (DL, 24 Oct: a saved −4 landed as 2, and every projection of it then said −1).
+  // Display bands its own width (`weightToStrokeWidth`, `weightMagnitudeToStrokeWidth`); a stored value is never capped here.
+  const weight = Math.abs(rawWeight)
   const confidence =
     typeof e.belief === 'number'
       ? Math.max(0, Math.min(1, e.belief))

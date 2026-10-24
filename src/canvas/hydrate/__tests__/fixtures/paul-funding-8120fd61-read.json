@@ -1,0 +1,3510 @@
+{
+ "_source": "CEE staging's served read of Paul's legacy funding board 8120fd61 (Lenses capture, 24 Oct 2026; vision-ab/s/paul/paul-funding-read.json), unedited apart from this key. Edges angel_overhead 1.28, customer_overhead 1.92 and cash_exhaustion_effect -4 hold strengths beyond one.",
+ "schema": "scenario_graph.v1",
+ "scenario_id": "8120fd61-9e3b-47d6-9aa6-f624bba435d7",
+ "graph": {
+  "edges": [
+   {
+    "to": "continue",
+    "from": "decision_funding",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "angels__on",
+    "from": "continue",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "shareholders__on",
+    "from": "continue",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "customers__on",
+    "from": "continue",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "deferral__on",
+    "from": "continue",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "angels",
+    "from": "decision_funding",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "angels__on",
+    "from": "angels",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "shareholders",
+    "from": "decision_funding",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "shareholders__on",
+    "from": "shareholders",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "customers",
+    "from": "decision_funding",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "customers__on",
+    "from": "customers",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "deferral",
+    "from": "decision_funding",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "deferral__on",
+    "from": "deferral",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "angel_cash",
+    "to": "funding",
+    "from": "angels__on",
+    "strength": {
+     "std": 0.39999999999999997,
+     "mean": 0.7999999999999999
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 100000,
+      "amount_unit": "£",
+      "strength_mean": 0.7999999999999999,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "switch"
+     },
+     "uncertainty_defaults": [
+      {
+       "code": "CLAMP_STD_MINIMUM",
+       "after": 0.39999999999999997,
+       "layer": "cee",
+       "before": null,
+       "reason": "The calculation uses Olumi's estimated 100000 with Olumi's illustrative spread (half the estimated effect). Olumi's range, 0 to 500000, is kept with the model but is not used as a spread.",
+       "severity": "info",
+       "field_path": "edges[angels__on::funding].strength.std"
+      }
+     ]
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "angel_runway",
+    "to": "runway",
+    "from": "angels__on",
+    "strength": {
+     "std": 0.4,
+     "mean": 0.8
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 4,
+      "amount_unit": "weeks",
+      "strength_mean": 0.8,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "switch"
+     },
+     "uncertainty_defaults": [
+      {
+       "code": "CLAMP_STD_MINIMUM",
+       "after": 0.4,
+       "layer": "cee",
+       "before": null,
+       "reason": "The calculation uses Olumi's estimated 4 with Olumi's illustrative spread (half the estimated effect). Olumi's range, 0 to 12, is kept with the model but is not used as a spread.",
+       "severity": "info",
+       "field_path": "edges[angels__on::runway].strength.std"
+      }
+     ]
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "angel_overhead",
+    "to": "overhead",
+    "from": "angels__on",
+    "strength": {
+     "std": 0.64,
+     "mean": 1.28
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 8,
+      "amount_unit": "hours per week",
+      "strength_mean": 1.28,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "switch"
+     },
+     "uncertainty_defaults": [
+      {
+       "code": "CLAMP_STD_MINIMUM",
+       "after": 0.64,
+       "layer": "cee",
+       "before": null,
+       "reason": "The calculation uses Olumi's estimated 8 with Olumi's illustrative spread (half the estimated effect). Olumi's range, 1 to 25, is kept with the model but is not used as a spread.",
+       "severity": "info",
+       "field_path": "edges[angels__on::overhead].strength.std"
+      },
+      {
+       "code": "DEFAULT_EXISTS_PROBABILITY",
+       "after": 0.8,
+       "layer": "cee",
+       "before": null,
+       "reason": "Nobody stated how likely this link is to exist. Applied Olumi's untested default.",
+       "severity": "info",
+       "field_path": "edges[angels__on::overhead].exists_probability"
+      }
+     ]
+    },
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+   },
+   {
+    "id": "shareholder_cash",
+    "to": "funding",
+    "from": "shareholders__on",
+    "strength": {
+     "std": 0.39999999999999997,
+     "mean": 0.7999999999999999
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 100000,
+      "amount_unit": "£",
+      "strength_mean": 0.7999999999999999,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "switch"
+     },
+     "uncertainty_defaults": [
+      {
+       "code": "CLAMP_STD_MINIMUM",
+       "after": 0.39999999999999997,
+       "layer": "cee",
+       "before": null,
+       "reason": "The calculation uses Olumi's estimated 100000 with Olumi's illustrative spread (half the estimated effect). Olumi's range, 0 to 500000, is kept with the model but is not used as a spread.",
+       "severity": "info",
+       "field_path": "edges[shareholders__on::funding].strength.std"
+      },
+      {
+       "code": "DEFAULT_EXISTS_PROBABILITY",
+       "after": 0.8,
+       "layer": "cee",
+       "before": null,
+       "reason": "Nobody stated how likely this link is to exist. Applied Olumi's untested default.",
+       "severity": "info",
+       "field_path": "edges[shareholders__on::funding].exists_probability"
+      }
+     ]
+    },
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+   },
+   {
+    "id": "shareholder_overhead",
+    "to": "overhead",
+    "from": "shareholders__on",
+    "strength": {
+     "std": 0.32,
+     "mean": 0.64
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 4,
+      "amount_unit": "hours per week",
+      "strength_mean": 0.64,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "switch"
+     },
+     "uncertainty_defaults": [
+      {
+       "code": "CLAMP_STD_MINIMUM",
+       "after": 0.32,
+       "layer": "cee",
+       "before": null,
+       "reason": "The calculation uses Olumi's estimated 4 with Olumi's illustrative spread (half the estimated effect). Olumi's range, 0 to 15, is kept with the model but is not used as a spread.",
+       "severity": "info",
+       "field_path": "edges[shareholders__on::overhead].strength.std"
+      },
+      {
+       "code": "DEFAULT_EXISTS_PROBABILITY",
+       "after": 0.8,
+       "layer": "cee",
+       "before": null,
+       "reason": "Nobody stated how likely this link is to exist. Applied Olumi's untested default.",
+       "severity": "info",
+       "field_path": "edges[shareholders__on::overhead].exists_probability"
+      }
+     ]
+    },
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+   },
+   {
+    "id": "customer_cash",
+    "to": "funding",
+    "from": "customers__on",
+    "strength": {
+     "std": 0.09999999999999999,
+     "mean": 0.19999999999999998
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 25000,
+      "amount_unit": "£",
+      "strength_mean": 0.19999999999999998,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "switch"
+     },
+     "uncertainty_defaults": [
+      {
+       "code": "CLAMP_STD_MINIMUM",
+       "after": 0.09999999999999999,
+       "layer": "cee",
+       "before": null,
+       "reason": "The calculation uses Olumi's estimated 25000 with Olumi's illustrative spread (half the estimated effect). Olumi's range, 0 to 150000, is kept with the model but is not used as a spread.",
+       "severity": "info",
+       "field_path": "edges[customers__on::funding].strength.std"
+      },
+      {
+       "code": "DEFAULT_EXISTS_PROBABILITY",
+       "after": 0.8,
+       "layer": "cee",
+       "before": null,
+       "reason": "Nobody stated how likely this link is to exist. Applied Olumi's untested default.",
+       "severity": "info",
+       "field_path": "edges[customers__on::funding].exists_probability"
+      }
+     ]
+    },
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+   },
+   {
+    "id": "customer_overhead",
+    "to": "overhead",
+    "from": "customers__on",
+    "strength": {
+     "std": 0.96,
+     "mean": 1.92
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 12,
+      "amount_unit": "hours per week",
+      "strength_mean": 1.92,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "switch"
+     },
+     "uncertainty_defaults": [
+      {
+       "code": "CLAMP_STD_MINIMUM",
+       "after": 0.96,
+       "layer": "cee",
+       "before": null,
+       "reason": "The calculation uses Olumi's estimated 12 with Olumi's illustrative spread (half the estimated effect). Olumi's range, 2 to 35, is kept with the model but is not used as a spread.",
+       "severity": "info",
+       "field_path": "edges[customers__on::overhead].strength.std"
+      },
+      {
+       "code": "DEFAULT_EXISTS_PROBABILITY",
+       "after": 0.8,
+       "layer": "cee",
+       "before": null,
+       "reason": "Nobody stated how likely this link is to exist. Applied Olumi's untested default.",
+       "severity": "info",
+       "field_path": "edges[customers__on::overhead].exists_probability"
+      }
+     ]
+    },
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+   },
+   {
+    "id": "deferral_runway",
+    "to": "runway",
+    "from": "deferral__on",
+    "strength": {
+     "std": 0.2,
+     "mean": 0.4
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 2,
+      "amount_unit": "weeks",
+      "strength_mean": 0.4,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "switch"
+     },
+     "uncertainty_defaults": [
+      {
+       "code": "CLAMP_STD_MINIMUM",
+       "after": 0.2,
+       "layer": "cee",
+       "before": null,
+       "reason": "The calculation uses Olumi's estimated 2 with Olumi's illustrative spread (half the estimated effect). Olumi's range, 0 to 6, is kept with the model but is not used as a spread.",
+       "severity": "info",
+       "field_path": "edges[deferral__on::runway].strength.std"
+      },
+      {
+       "code": "DEFAULT_EXISTS_PROBABILITY",
+       "after": 0.8,
+       "layer": "cee",
+       "before": null,
+       "reason": "Nobody stated how likely this link is to exist. Applied Olumi's untested default.",
+       "severity": "info",
+       "field_path": "edges[deferral__on::runway].exists_probability"
+      }
+     ]
+    },
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+   },
+   {
+    "id": "deferral_overhead",
+    "to": "overhead",
+    "from": "deferral__on",
+    "strength": {
+     "std": 0.24,
+     "mean": 0.48
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 3,
+      "amount_unit": "hours per week",
+      "strength_mean": 0.48,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "switch"
+     },
+     "uncertainty_defaults": [
+      {
+       "code": "CLAMP_STD_MINIMUM",
+       "after": 0.24,
+       "layer": "cee",
+       "before": null,
+       "reason": "The calculation uses Olumi's estimated 3 with Olumi's illustrative spread (half the estimated effect). Olumi's range, 1 to 10, is kept with the model but is not used as a spread.",
+       "severity": "info",
+       "field_path": "edges[deferral__on::overhead].strength.std"
+      },
+      {
+       "code": "DEFAULT_EXISTS_PROBABILITY",
+       "after": 0.8,
+       "layer": "cee",
+       "before": null,
+       "reason": "Nobody stated how likely this link is to exist. Applied Olumi's untested default.",
+       "severity": "info",
+       "field_path": "edges[deferral__on::overhead].exists_probability"
+      }
+     ]
+    },
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+   },
+   {
+    "id": "time_delay",
+    "to": "delay",
+    "from": "overhead",
+    "strength": {
+     "std": 0.25,
+     "mean": 0.5
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 0.1,
+      "amount_unit": "weeks",
+      "strength_mean": 0.5,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "hours per week"
+     },
+     "uncertainty_defaults": [
+      {
+       "code": "CLAMP_STD_MINIMUM",
+       "after": 0.25,
+       "layer": "cee",
+       "before": null,
+       "reason": "The calculation uses Olumi's estimated 0.1 with Olumi's illustrative spread (half the estimated effect). Olumi's range, 0 to 0.5, is kept with the model but is not used as a spread.",
+       "severity": "info",
+       "field_path": "edges[overhead::delay].strength.std"
+      },
+      {
+       "code": "DEFAULT_EXISTS_PROBABILITY",
+       "after": 0.8,
+       "layer": "cee",
+       "before": null,
+       "reason": "Nobody stated how likely this link is to exist. Applied Olumi's untested default.",
+       "severity": "info",
+       "field_path": "edges[overhead::delay].exists_probability"
+      }
+     ]
+    },
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+   },
+   {
+    "id": "delay_funding",
+    "to": "funding",
+    "from": "delay",
+    "strength": {
+     "std": 0.25,
+     "mean": -0.5
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": -50000,
+      "amount_unit": "£",
+      "strength_mean": -0.5,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "weeks"
+     },
+     "uncertainty_defaults": [
+      {
+       "code": "CLAMP_STD_MINIMUM",
+       "after": 0.25,
+       "layer": "cee",
+       "before": null,
+       "reason": "The calculation uses Olumi's estimated -50000 with Olumi's illustrative spread (half the estimated effect). Olumi's range, -300000 to 0, is kept with the model but is not used as a spread.",
+       "severity": "info",
+       "field_path": "edges[delay::funding].strength.std"
+      },
+      {
+       "code": "DEFAULT_EXISTS_PROBABILITY",
+       "after": 0.8,
+       "layer": "cee",
+       "before": null,
+       "reason": "Nobody stated how likely this link is to exist. Applied Olumi's untested default.",
+       "severity": "info",
+       "field_path": "edges[delay::funding].exists_probability"
+      }
+     ]
+    },
+    "effect_direction": "negative",
+    "exists_probability": 0.8
+   },
+   {
+    "id": "runway_funding",
+    "to": "funding",
+    "from": "runway",
+    "strength": {
+     "std": 0.5,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 25000,
+      "amount_unit": "£",
+      "strength_mean": 1,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "weeks"
+     },
+     "uncertainty_defaults": [
+      {
+       "code": "CLAMP_STD_MINIMUM",
+       "after": 0.5,
+       "layer": "cee",
+       "before": null,
+       "reason": "The calculation uses Olumi's estimated 25000 with Olumi's illustrative spread (half the estimated effect). Olumi's range, 0 to 150000, is kept with the model but is not used as a spread.",
+       "severity": "info",
+       "field_path": "edges[runway::funding].strength.std"
+      },
+      {
+       "code": "DEFAULT_EXISTS_PROBABILITY",
+       "after": 0.8,
+       "layer": "cee",
+       "before": null,
+       "reason": "Nobody stated how likely this link is to exist. Applied Olumi's untested default.",
+       "severity": "info",
+       "field_path": "edges[runway::funding].exists_probability"
+      }
+     ]
+    },
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+   },
+   {
+    "id": "cash_exhaustion_effect",
+    "to": "funding",
+    "from": "cash_exhaustion",
+    "strength": {
+     "std": 2,
+     "mean": -4
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": -500000,
+      "amount_unit": "£",
+      "strength_mean": -4,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": ""
+     },
+     "uncertainty_defaults": [
+      {
+       "code": "CLAMP_STD_MINIMUM",
+       "after": 2,
+       "layer": "cee",
+       "before": null,
+       "reason": "The calculation uses Olumi's estimated -500000 with Olumi's illustrative spread (half the estimated effect). Olumi's range, -2000000 to 0, is kept with the model but is not used as a spread.",
+       "severity": "info",
+       "field_path": "edges[cash_exhaustion::funding].strength.std"
+      },
+      {
+       "code": "DEFAULT_EXISTS_PROBABILITY",
+       "after": 0.8,
+       "layer": "cee",
+       "before": null,
+       "reason": "Nobody stated how likely this link is to exist. Applied Olumi's untested default.",
+       "severity": "info",
+       "field_path": "edges[cash_exhaustion::funding].exists_probability"
+      }
+     ]
+    },
+    "effect_direction": "negative",
+    "exists_probability": 0.8
+   }
+  ],
+  "nodes": [
+   {
+    "id": "decision_funding",
+    "ref": "D2",
+    "kind": "decision",
+    "label": "Decision: I need to accelerate securing funding within the next 2 months."
+   },
+   {
+    "id": "funding",
+    "ref": "G1",
+    "kind": "goal",
+    "label": "I need to accelerate securing funding within the next 2 months.",
+    "source_quote": "I need to accelerate securing funding within the next 2 months.",
+    "goal_target_basis": {
+     "source": "olumi_reading",
+     "reference": "today",
+     "target_raw": 100000,
+     "effect_unit": "£",
+     "period_kind": "over_period",
+     "target_frame": "level",
+     "period_months": 2,
+     "quantity_frame": "level",
+     "effects_at_period_end": false
+    },
+    "goal_deadline_as_stated": "within the next 2 months"
+   },
+   {
+    "id": "runway",
+    "ref": "F1",
+    "kind": "factor",
+    "label": "Cash runway remaining",
+    "category": "observable",
+    "observed_state": {
+     "cap": 5,
+     "unit": "weeks",
+     "value": 0.8,
+     "source": "cee_inference",
+     "raw_value": 4
+    }
+   },
+   {
+    "id": "overhead",
+    "ref": "F2",
+    "kind": "factor",
+    "label": "Weekly time diverted from the main fundraising process",
+    "category": "observable",
+    "observed_state": {
+     "cap": 6.25,
+     "unit": "hours per week",
+     "value": 0.8,
+     "source": "cee_inference",
+     "raw_value": 5
+    }
+   },
+   {
+    "id": "delay",
+    "ref": "F3",
+    "kind": "factor",
+    "label": "Delay caused by diverted fundraising time",
+    "category": "observable",
+    "observed_state": {
+     "cap": 1.25,
+     "unit": "weeks",
+     "value": 0.8,
+     "source": "cee_inference",
+     "raw_value": 1
+    }
+   },
+   {
+    "id": "angels__on",
+    "ref": "F4",
+    "kind": "factor",
+    "label": "Add angel bridge funding alongside the investment-firm search in place",
+    "category": "controllable",
+    "observed_state": {
+     "cap": 1,
+     "unit": "",
+     "value": 0,
+     "source": "cee_inference",
+     "raw_value": 0
+    }
+   },
+   {
+    "id": "shareholders__on",
+    "ref": "F5",
+    "kind": "factor",
+    "label": "Olumi suggestion: explore a bridge from existing shareholders, if any in place",
+    "category": "controllable",
+    "observed_state": {
+     "cap": 1,
+     "unit": "",
+     "value": 0,
+     "source": "cee_inference",
+     "raw_value": 0
+    }
+   },
+   {
+    "id": "customers__on",
+    "ref": "F6",
+    "kind": "factor",
+    "label": "Olumi suggestion: explore customer prepayments or paid pilots in place",
+    "category": "controllable",
+    "observed_state": {
+     "cap": 1,
+     "unit": "",
+     "value": 0,
+     "source": "cee_inference",
+     "raw_value": 0
+    }
+   },
+   {
+    "id": "deferral__on",
+    "ref": "F7",
+    "kind": "factor",
+    "label": "Olumi suggestion: negotiate payment deferrals to extend runway in place",
+    "category": "controllable",
+    "observed_state": {
+     "cap": 1,
+     "unit": "",
+     "value": 0,
+     "source": "cee_inference",
+     "raw_value": 0
+    }
+   },
+   {
+    "id": "continue",
+    "ref": "O1",
+    "kind": "option",
+    "label": "Continue cold emails and warm connections to investment firms",
+    "is_baseline": true,
+    "interventions": {
+     "angels__on": {
+      "unit": "",
+      "value": 0,
+      "source": "cee_hypothesis",
+      "raw_value": 0,
+      "target_match": {
+       "node_id": "angels__on",
+       "confidence": "high",
+       "match_type": "exact_id"
+      }
+     },
+     "deferral__on": {
+      "unit": "",
+      "value": 0,
+      "source": "cee_hypothesis",
+      "raw_value": 0,
+      "target_match": {
+       "node_id": "deferral__on",
+       "confidence": "high",
+       "match_type": "exact_id"
+      }
+     },
+     "customers__on": {
+      "unit": "",
+      "value": 0,
+      "source": "cee_hypothesis",
+      "raw_value": 0,
+      "target_match": {
+       "node_id": "customers__on",
+       "confidence": "high",
+       "match_type": "exact_id"
+      }
+     },
+     "shareholders__on": {
+      "unit": "",
+      "value": 0,
+      "source": "cee_hypothesis",
+      "raw_value": 0,
+      "target_match": {
+       "node_id": "shareholders__on",
+       "confidence": "high",
+       "match_type": "exact_id"
+      }
+     }
+    }
+   },
+   {
+    "id": "angels",
+    "ref": "O2",
+    "kind": "option",
+    "label": "Add angel bridge funding alongside the investment-firm search",
+    "interventions": {
+     "angels__on": {
+      "unit": "",
+      "value": 1,
+      "source": "brief_extraction",
+      "raw_value": 1,
+      "target_match": {
+       "node_id": "angels__on",
+       "confidence": "high",
+       "match_type": "exact_id"
+      },
+      "extractionType": "explicit"
+     }
+    }
+   },
+   {
+    "id": "shareholders",
+    "ref": "O3",
+    "kind": "option",
+    "label": "Olumi suggestion: explore a bridge from existing shareholders, if any",
+    "interventions": {
+     "shareholders__on": {
+      "unit": "",
+      "value": 1,
+      "source": "cee_hypothesis",
+      "raw_value": 1,
+      "target_match": {
+       "node_id": "shareholders__on",
+       "confidence": "high",
+       "match_type": "exact_id"
+      }
+     }
+    }
+   },
+   {
+    "id": "customers",
+    "ref": "O4",
+    "kind": "option",
+    "label": "Olumi suggestion: explore customer prepayments or paid pilots",
+    "interventions": {
+     "customers__on": {
+      "unit": "",
+      "value": 1,
+      "source": "cee_hypothesis",
+      "raw_value": 1,
+      "target_match": {
+       "node_id": "customers__on",
+       "confidence": "high",
+       "match_type": "exact_id"
+      }
+     }
+    }
+   },
+   {
+    "id": "deferral",
+    "ref": "O5",
+    "kind": "option",
+    "label": "Olumi suggestion: negotiate payment deferrals to extend runway",
+    "interventions": {
+     "deferral__on": {
+      "unit": "",
+      "value": 1,
+      "source": "cee_hypothesis",
+      "raw_value": 1,
+      "target_match": {
+       "node_id": "deferral__on",
+       "confidence": "high",
+       "match_type": "exact_id"
+      }
+     }
+    }
+   },
+   {
+    "id": "cash_exhaustion",
+    "ref": "R1",
+    "kind": "risk",
+    "label": "Cash runs out before funding closes",
+    "event_risk": {
+     "horizon": {
+      "months": 2
+     },
+     "version": 1,
+     "occurrence": {
+      "basis": "olumi",
+      "p_low": 0.2,
+      "p_high": 0.9
+     }
+    },
+    "source_quote": "as we'll run out of money soon."
+   }
+  ],
+  "living_model": {
+   "aims": [
+    {
+     "id": "funding",
+     "text": "I need to accelerate securing funding within the next 2 months.",
+     "party": null,
+     "quote": "I need to accelerate securing funding within the next 2 months.",
+     "source": "user",
+     "status": "current",
+     "target": {
+      "low": null,
+      "high": null,
+      "unit": "£",
+      "value": 100000,
+      "source": null,
+      "by_when": "within the next 2 months",
+      "current": null,
+      "baseline": null,
+      "quantity": "Funding secured",
+      "period_by": null,
+      "reference": "today",
+      "comparator": ">=",
+      "change_kind": null,
+      "period_kind": "over_period",
+      "current_unit": null,
+      "period_months": 2,
+      "current_source": null,
+      "period_read_on": null,
+      "period_deadline": null
+     },
+     "defined_as": null
+    }
+   ],
+   "links": [
+    {
+     "id": "angel_cash",
+     "to": "funding",
+     "from": "angels",
+     "party": null,
+     "quote": "angel investors might be able to provide a small amount of funding quicker to buy us more time",
+     "effect": {
+      "sd": null,
+      "low": 0,
+      "form": "range",
+      "high": 500000,
+      "sign": "+",
+      "unit": "£",
+      "value": 100000,
+      "estimate_by": "olumi"
+     },
+     "source": "user"
+    },
+    {
+     "id": "angel_runway",
+     "to": "runway",
+     "from": "angels",
+     "party": null,
+     "quote": "angel investors might be able to provide a small amount of funding quicker to buy us more time",
+     "effect": {
+      "sd": null,
+      "low": 0,
+      "form": "range",
+      "high": 12,
+      "sign": "+",
+      "unit": "weeks",
+      "value": 4,
+      "estimate_by": "olumi"
+     },
+     "source": "user"
+    },
+    {
+     "id": "angel_overhead",
+     "to": "overhead",
+     "from": "angels",
+     "party": null,
+     "quote": null,
+     "effect": {
+      "sd": null,
+      "low": 1,
+      "form": "range",
+      "high": 25,
+      "sign": "+",
+      "unit": "hours per week",
+      "value": 8,
+      "estimate_by": null
+     },
+     "source": "olumi"
+    },
+    {
+     "id": "shareholder_cash",
+     "to": "funding",
+     "from": "shareholders",
+     "party": null,
+     "quote": null,
+     "effect": {
+      "sd": null,
+      "low": 0,
+      "form": "range",
+      "high": 500000,
+      "sign": "+",
+      "unit": "£",
+      "value": 100000,
+      "estimate_by": null
+     },
+     "source": "olumi"
+    },
+    {
+     "id": "shareholder_overhead",
+     "to": "overhead",
+     "from": "shareholders",
+     "party": null,
+     "quote": null,
+     "effect": {
+      "sd": null,
+      "low": 0,
+      "form": "range",
+      "high": 15,
+      "sign": "+",
+      "unit": "hours per week",
+      "value": 4,
+      "estimate_by": null
+     },
+     "source": "olumi"
+    },
+    {
+     "id": "customer_cash",
+     "to": "funding",
+     "from": "customers",
+     "party": null,
+     "quote": null,
+     "effect": {
+      "sd": null,
+      "low": 0,
+      "form": "range",
+      "high": 150000,
+      "sign": "+",
+      "unit": "£",
+      "value": 25000,
+      "estimate_by": null
+     },
+     "source": "olumi"
+    },
+    {
+     "id": "customer_overhead",
+     "to": "overhead",
+     "from": "customers",
+     "party": null,
+     "quote": null,
+     "effect": {
+      "sd": null,
+      "low": 2,
+      "form": "range",
+      "high": 35,
+      "sign": "+",
+      "unit": "hours per week",
+      "value": 12,
+      "estimate_by": null
+     },
+     "source": "olumi"
+    },
+    {
+     "id": "deferral_runway",
+     "to": "runway",
+     "from": "deferral",
+     "party": null,
+     "quote": null,
+     "effect": {
+      "sd": null,
+      "low": 0,
+      "form": "range",
+      "high": 6,
+      "sign": "+",
+      "unit": "weeks",
+      "value": 2,
+      "estimate_by": null
+     },
+     "source": "olumi"
+    },
+    {
+     "id": "deferral_overhead",
+     "to": "overhead",
+     "from": "deferral",
+     "party": null,
+     "quote": null,
+     "effect": {
+      "sd": null,
+      "low": 1,
+      "form": "range",
+      "high": 10,
+      "sign": "+",
+      "unit": "hours per week",
+      "value": 3,
+      "estimate_by": null
+     },
+     "source": "olumi"
+    },
+    {
+     "id": "time_delay",
+     "to": "delay",
+     "from": "overhead",
+     "party": null,
+     "quote": null,
+     "effect": {
+      "sd": null,
+      "low": 0,
+      "form": "range",
+      "high": 0.5,
+      "sign": "+",
+      "unit": "weeks",
+      "value": 0.1,
+      "estimate_by": null
+     },
+     "source": "olumi"
+    },
+    {
+     "id": "delay_funding",
+     "to": "funding",
+     "from": "delay",
+     "party": null,
+     "quote": null,
+     "effect": {
+      "sd": null,
+      "low": -300000,
+      "form": "range",
+      "high": 0,
+      "sign": "-",
+      "unit": "£",
+      "value": -50000,
+      "estimate_by": null
+     },
+     "source": "olumi"
+    },
+    {
+     "id": "runway_funding",
+     "to": "funding",
+     "from": "runway",
+     "party": null,
+     "quote": null,
+     "effect": {
+      "sd": null,
+      "low": 0,
+      "form": "range",
+      "high": 150000,
+      "sign": "+",
+      "unit": "£",
+      "value": 25000,
+      "estimate_by": null
+     },
+     "source": "olumi"
+    },
+    {
+     "id": "cash_exhaustion_effect",
+     "to": "funding",
+     "from": "cash_exhaustion",
+     "party": null,
+     "quote": null,
+     "effect": {
+      "sd": null,
+      "low": -2000000,
+      "form": "range",
+      "high": 0,
+      "sign": "-",
+      "unit": "£",
+      "value": -500000,
+      "estimate_by": null
+     },
+     "source": "olumi"
+    }
+   ],
+   "risks": [
+    {
+     "id": "cash_exhaustion",
+     "label": "Cash runs out before funding closes",
+     "party": null,
+     "quote": "as we'll run out of money soon.",
+     "source": "user",
+     "horizon_by": "olumi",
+     "occurrence": {
+      "low": 0.2,
+      "high": 0.9,
+      "estimate_by": "olumi"
+     },
+     "mitigations": [],
+     "horizon_months": 2
+    }
+   ],
+   "views": [],
+   "factors": [
+    {
+     "id": "runway",
+     "low": 1,
+     "high": 8,
+     "kind": "factor",
+     "unit": "weeks",
+     "label": "Cash runway remaining",
+     "limit": null,
+     "party": null,
+     "quote": "as we'll run out of money soon.",
+     "value": 4,
+     "source": "user",
+     "defined_as": null,
+     "estimate_by": "olumi",
+     "accumulation": null
+    },
+    {
+     "id": "overhead",
+     "low": 0,
+     "high": 20,
+     "kind": "factor",
+     "unit": "hours per week",
+     "label": "Weekly time diverted from the main fundraising process",
+     "limit": null,
+     "party": null,
+     "quote": null,
+     "value": 5,
+     "source": "olumi",
+     "defined_as": null,
+     "estimate_by": null,
+     "accumulation": null
+    },
+    {
+     "id": "delay",
+     "low": 0,
+     "high": 4,
+     "kind": "outcome",
+     "unit": "weeks",
+     "label": "Delay caused by diverted fundraising time",
+     "limit": null,
+     "party": null,
+     "quote": null,
+     "value": 1,
+     "source": "olumi",
+     "defined_as": null,
+     "estimate_by": null,
+     "accumulation": null
+    }
+   ],
+   "history": [],
+   "options": [
+    {
+     "id": "continue",
+     "label": "Continue cold emails and warm connections to investment firms",
+     "party": null,
+     "quote": "We'll keep sending cold emails and trying to find warm connections",
+     "source": "user",
+     "status": "feasible",
+     "settings": [],
+     "developed_from": null
+    },
+    {
+     "id": "angels",
+     "label": "Add angel bridge funding alongside the investment-firm search",
+     "party": null,
+     "quote": "For example, angel investors might be able to provide a small amount of funding quicker to buy us more time, but we would need to decide whether the overhead would be worth it.",
+     "source": "user",
+     "status": "feasible",
+     "settings": [],
+     "developed_from": null
+    },
+    {
+     "id": "shareholders",
+     "label": "Olumi suggestion: explore a bridge from existing shareholders, if any",
+     "party": null,
+     "quote": null,
+     "source": "olumi",
+     "status": "feasible",
+     "settings": [],
+     "developed_from": null
+    },
+    {
+     "id": "customers",
+     "label": "Olumi suggestion: explore customer prepayments or paid pilots",
+     "party": null,
+     "quote": null,
+     "source": "olumi",
+     "status": "feasible",
+     "settings": [],
+     "developed_from": null
+    },
+    {
+     "id": "deferral",
+     "label": "Olumi suggestion: negotiate payment deferrals to extend runway",
+     "party": null,
+     "quote": null,
+     "source": "olumi",
+     "status": "feasible",
+     "settings": [],
+     "developed_from": null
+    }
+   ],
+   "conditions": [
+    {
+     "role": "challenge",
+     "text": "The current search focuses on investment firms doing £1–2 million deals, mostly UK-based; this is not a stated funding target.",
+     "party": null,
+     "quote": "We've been focused on investment firms that do deals between £1-2 million, mostly based in the UK.",
+     "source": "user",
+     "applies_to": [
+      "continue",
+      "funding"
+     ]
+    },
+    {
+     "role": "challenge",
+     "text": "Whether angel funding arrives quickly enough, and justifies its overhead, remains untested.",
+     "party": null,
+     "quote": "For example, angel investors might be able to provide a small amount of funding quicker to buy us more time, but we would need to decide whether the overhead would be worth it.",
+     "source": "user",
+     "applies_to": [
+      "angels",
+      "angel_cash",
+      "angel_runway",
+      "angel_overhead"
+     ]
+    },
+    {
+     "role": "prerequisite",
+     "text": "The shareholder bridge requires existing shareholders willing and able to provide further funds.",
+     "party": null,
+     "quote": null,
+     "source": "olumi",
+     "applies_to": [
+      "shareholders"
+     ]
+    },
+    {
+     "role": "prerequisite",
+     "text": "Customer prepayments require customers willing to commit and capacity to fulfil the associated delivery obligations.",
+     "party": null,
+     "quote": null,
+     "source": "olumi",
+     "applies_to": [
+      "customers"
+     ]
+    },
+    {
+     "role": "challenge",
+     "text": "More runway only helps funding if it gives the existing fundraising process usable time; these estimated effects are not evidence of a close.",
+     "party": null,
+     "quote": null,
+     "source": "olumi",
+     "applies_to": [
+      "runway_funding",
+      "deferral"
+     ]
+    }
+   ]
+  },
+  "ref_high_water": {
+   "D": 2,
+   "F": 7,
+   "G": 1,
+   "O": 5,
+   "R": 1
+  }
+ },
+ "content_hash": "d9fda7ee5026b147e458bbde20443230c34fae24726f4789936fbac5ad239537",
+ "withheld": [
+  {
+   "id": "funding",
+   "reason": "goal_level_unknown"
+  },
+  {
+   "id": "condition:The shareholder bridge requires existing shareholders willing and able to provide further funds.",
+   "reason": "condition_not_in_slice"
+  },
+  {
+   "id": "condition:Customer prepayments require customers willing to commit and capacity to fulfil the associated delivery obligations.",
+   "reason": "condition_not_in_slice"
+  },
+  {
+   "id": "funding",
+   "reason": "chance_rests_on_withheld"
+  }
+ ],
+ "graph_present": true,
+ "brief_text": "I need to accelerate securing funding within the next 2 months. We've been focused on investment firms that do deals between £1-2 million, mostly based in the UK. We'll keep sending cold emails and trying to find warm connections, but I want to explore alternatives to support the funding process, as we'll run out of money soon. For example, angel investors might be able to provide a small amount of funding quicker to buy us more time, but we would need to decide whether the overhead would be worth it.",
+ "scenario_created_at": "2026-10-23T15:34:51.206552+00:00",
+ "graph_identity_hash": {
+  "kind": "graph_identity_hash",
+  "value": "d9fda7ee5026b147e458bbde20443230c34fae24726f4789936fbac5ad239537",
+  "algorithm": "sha256",
+  "projection_version": "identity.v1",
+  "graph_schema_version": "graph_v3",
+  "normaliser_version": "1"
+ },
+ "graph_hash": "5ea1b0a2b25d7da6",
+ "layout_present": false,
+ "not_modelled": {
+  "schema": "not_modelled.v1",
+  "status": "derived",
+  "unavailable_reason": null,
+  "scope": {
+   "searched": "quantities stated in the brief that carry a unit: money, percentages, counts with a unit word, calendar dates and fiscal periods",
+   "model_surface": [
+    "node and option values, caps, units, labels and encoding maps"
+   ],
+   "prose_surface": [
+    "coaching cards",
+    "draft warnings",
+    "validation warnings"
+   ],
+   "excluded_from_search": [
+    "bare numbers carrying no unit, currency or percent sign",
+    "everything in not_tracked"
+   ]
+  },
+  "quantities": {
+   "total": 2,
+   "in_model": 2,
+   "in_model_anchored": 0,
+   "in_model_unanchored": 2,
+   "prose_only": 0,
+   "absent": 0,
+   "truncated": false,
+   "items": [
+    {
+     "literal": "2 months",
+     "kind": "count",
+     "char_offset": 54,
+     "verdict": "in_model",
+     "matched_node_id": null,
+     "stated_kind": "figure"
+    },
+    {
+     "literal": "£1",
+     "kind": "money",
+     "char_offset": 125,
+     "verdict": "in_model",
+     "matched_node_id": null,
+     "stated_kind": "figure"
+    }
+   ]
+  },
+  "stated_kinds": {
+   "status": "derived",
+   "tally": {
+    "goal": 0,
+    "option": 0,
+    "constraint": 0,
+    "figure": 2,
+    "evidence": 0,
+    "assumption": 0,
+    "disagreement": 0,
+    "correction": 0
+   },
+   "sourced": [
+    "constraint",
+    "figure"
+   ],
+   "unsourced": [
+    "goal",
+    "option",
+    "evidence",
+    "assumption",
+    "disagreement",
+    "correction"
+   ],
+   "producers": {
+    "figure": "extractStatedQuantities (this module) — quantities stated in the brief",
+    "constraint": "graph.goal_constraints[] with source_quote (draft/anthropic-graph-schema.ts:447-467)"
+   }
+  },
+  "declared_exclusions": {
+   "status": "not_recorded",
+   "items": []
+  },
+  "inferred_factors": {
+   "status": "derived",
+   "items": [
+    {
+     "node_id": "runway",
+     "label": "Cash runway remaining"
+    },
+    {
+     "node_id": "overhead",
+     "label": "Weekly time diverted from the main fundraising process"
+    }
+   ]
+  },
+  "not_tracked": [
+   "competing_or_dissenting_proposals",
+   "corrections_and_second_thoughts",
+   "named_evidence_sources_and_their_pedigree",
+   "qualitative_constraints_and_rules",
+   "stated_confidence_and_self_flagged_weakness",
+   "statements_the_drafting_model_did_not_report_discarding"
+  ]
+ },
+ "analysis_state": {
+  "run_state": {
+   "kind": "complete_current",
+   "computed_at": "2026-10-23T16:11:13.514Z"
+  },
+  "readiness": {
+   "status": "ready",
+   "blockers": []
+  },
+  "leader_claim": {
+   "permitted": true,
+   "separation": "separated"
+  },
+  "robustness": {
+   "aggregate_level": "moderate"
+  },
+  "usable_for_prose": true,
+  "usable_for_chips": true,
+  "usable_for_followup": true,
+  "requires_rerun": false,
+  "blocked_unusable": false,
+  "contradictions": []
+ },
+ "analysis_result": {
+  "type": "analysis_result",
+  "summary": "Ran analysis on your current scenario. In this model I’ve assumed a higher value is better for your goal, and the model could not test whether any option reaches your goal. If lower is better, set the goal’s target to ‘at most’ and re-run. 2 options are effectively eliminated (each supported by under 1% of runs). I supplied 27 of the values behind this, because your brief did not state them. They are mine rather than yours. Changing any of them changes what this model implies.",
+  "leading_option_id": "angels",
+  "win_probabilities": {
+   "Add angel bridge funding alongside the investment-firm search": 0.7415,
+   "Continue cold emails and warm connections to investment firms": 0.007474999999999999,
+   "Olumi suggestion: explore customer prepayments or paid pilots": 0.007675,
+   "Olumi suggestion: negotiate payment deferrals to extend runway": 0.019325000000000002,
+   "Olumi suggestion: explore a bridge from existing shareholders, if any": 0.22402500000000006
+  },
+  "enrichment": {
+   "option_comparison": [
+    {
+     "id": "continue",
+     "label": "Continue cold emails and warm connections to investment firms",
+     "status": "computed",
+     "outcome": {
+      "p10": -5.423040653339615,
+      "p50": -0.5773284473923415,
+      "p90": 0.6274979632328685,
+      "std": 2.449805848554668,
+      "mean": -1.6832612585616888,
+      "n_samples": 10000,
+      "validity_ratio": 1,
+      "n_valid_samples": 10000,
+      "percentiles_source": "samples"
+     },
+     "downside": {
+      "p05": -6.4292017272156,
+      "cvar_10": -6.698653043359776,
+      "expected_regret": 1.3107806258624466
+     },
+     "option_id": "continue",
+     "option_label": "Continue cold emails and warm connections to investment firms",
+     "win_probability": 0.007474999999999999
+    },
+    {
+     "id": "angels",
+     "label": "Add angel bridge funding alongside the investment-firm search",
+     "status": "computed",
+     "outcome": {
+      "p10": -4.5238318981932455,
+      "p50": 0.15769420709809923,
+      "p90": 2.4646521154824876,
+      "std": 2.6991991157424726,
+      "mean": -0.49799185625591363,
+      "n_samples": 10000,
+      "validity_ratio": 1,
+      "n_valid_samples": 10000,
+      "percentiles_source": "samples"
+     },
+     "downside": {
+      "p05": -5.612770587796317,
+      "cvar_10": -5.889626461425177,
+      "expected_regret": 0.12551122355667174
+     },
+     "option_id": "angels",
+     "option_label": "Add angel bridge funding alongside the investment-firm search",
+     "win_probability": 0.7415
+    },
+    {
+     "id": "shareholders",
+     "label": "Olumi suggestion: explore a bridge from existing shareholders, if any",
+     "status": "computed",
+     "outcome": {
+      "p10": -4.969888341304822,
+      "p50": -0.25745104402342345,
+      "p90": 1.3404084103271825,
+      "std": 2.5049127267179787,
+      "mean": -1.176430251068047,
+      "n_samples": 10000,
+      "validity_ratio": 1,
+      "n_valid_samples": 10000,
+      "percentiles_source": "samples"
+     },
+     "downside": {
+      "p05": -5.993344976852383,
+      "cvar_10": -6.27819660769963,
+      "expected_regret": 0.8039496183688052
+     },
+     "option_id": "shareholders",
+     "option_label": "Olumi suggestion: explore a bridge from existing shareholders, if any",
+     "win_probability": 0.22402500000000006
+    },
+    {
+     "id": "customers",
+     "label": "Olumi suggestion: explore customer prepayments or paid pilots",
+     "status": "computed",
+     "outcome": {
+      "p10": -5.7580838398700696,
+      "p50": -0.9441606336413935,
+      "p90": 0.6321559838107105,
+      "std": 2.5254124821746378,
+      "mean": -1.9070102956836068,
+      "n_samples": 10000,
+      "validity_ratio": 1,
+      "n_valid_samples": 10000,
+      "percentiles_source": "samples"
+     },
+     "downside": {
+      "p05": -6.758435062480887,
+      "cvar_10": -7.04159021372451,
+      "expected_regret": 1.534529662984365
+     },
+     "option_id": "customers",
+     "option_label": "Olumi suggestion: explore customer prepayments or paid pilots",
+     "win_probability": 0.007675
+    },
+    {
+     "id": "deferral",
+     "label": "Olumi suggestion: negotiate payment deferrals to extend runway",
+     "status": "computed",
+     "outcome": {
+      "p10": -5.370256359801371,
+      "p50": -0.6014404832917628,
+      "p90": 1.0347788724805413,
+      "std": 2.5241525545262062,
+      "mean": -1.523559026915807,
+      "n_samples": 10000,
+      "validity_ratio": 1,
+      "n_valid_samples": 10000,
+      "percentiles_source": "samples"
+     },
+     "downside": {
+      "p05": -6.357142612089491,
+      "cvar_10": -6.639972748174556,
+      "expected_regret": 1.1510783942165654
+     },
+     "option_id": "deferral",
+     "option_label": "Olumi suggestion: negotiate payment deferrals to extend runway",
+     "win_probability": 0.019325000000000002
+    }
+   ],
+   "factor_sensitivity": [
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "runway",
+     "confidence": 0.6424,
+     "elasticity": 0.78125,
+     "evpi_method": "heuristic",
+     "driver_label": "biggest",
+     "factor_label": "Cash runway remaining",
+     "value_source": "cee_inference",
+     "evidence_hint": false,
+     "influence_rank": 2,
+     "rank_flip_rate": 0.25,
+     "importance_rank": 1,
+     "influence_basis": "isl_structural",
+     "influence_score": 0.6756756756756757,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": 1,
+     "flip_risk_category": "correlated",
+     "value_of_information": 0.012890625000000001,
+     "attribution_stability": "low",
+     "confidence_components": {
+      "sampling_stability": 0.25,
+      "structural_certainty": 0.9
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "evpi_percentage_points": 0.7
+    },
+    {
+     "source": "graph",
+     "direction": "negative",
+     "factor_id": "delay",
+     "confidence": 0.7059,
+     "elasticity": 0.390625,
+     "evpi_method": "heuristic",
+     "driver_label": "moderate",
+     "factor_label": "Delay caused by diverted fundraising time",
+     "value_source": "cee_inference",
+     "evidence_hint": false,
+     "influence_rank": 4,
+     "rank_flip_rate": 0,
+     "importance_rank": 2,
+     "influence_basis": "isl_structural",
+     "influence_score": 0.42229729729729726,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": -0.5,
+     "flip_risk_category": "correlated",
+     "value_of_information": 0,
+     "attribution_stability": "low",
+     "confidence_components": {
+      "sampling_stability": 0.25,
+      "structural_certainty": 1
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "evpi_percentage_points": 0
+    },
+    {
+     "source": "graph",
+     "direction": "negative",
+     "factor_id": "overhead",
+     "confidence": 0.5854,
+     "elasticity": 0.1953125,
+     "evpi_method": "heuristic",
+     "driver_label": "moderate",
+     "factor_label": "Weekly time diverted from the main fundraising process",
+     "value_source": "cee_inference",
+     "evidence_hint": false,
+     "influence_rank": 5,
+     "rank_flip_rate": 0,
+     "importance_rank": 3,
+     "influence_basis": "isl_structural",
+     "influence_score": 0.21114864864864863,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": -0.25,
+     "flip_risk_category": "negligible",
+     "value_of_information": 0,
+     "attribution_stability": "low",
+     "confidence_components": {
+      "sampling_stability": 0.25,
+      "structural_certainty": 0.8
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "evpi_percentage_points": 0
+    },
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "angels__on",
+     "confidence": 0.3,
+     "elasticity": 0,
+     "zero_reason": "intervention_override",
+     "driver_label": "strong",
+     "factor_label": "Add angel bridge funding alongside the investment-firm search in place",
+     "value_source": "cee_inference",
+     "influence_rank": 1,
+     "rank_flip_rate": 0,
+     "importance_rank": 4,
+     "influence_basis": "isl_structural",
+     "influence_score": 1,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": 0,
+     "flip_risk_category": "correlated",
+     "value_of_information": 0,
+     "attribution_stability": "negligible",
+     "confidence_components": {
+      "sampling_stability": 0,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "range_derivation_source": "default"
+    },
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "shareholders__on",
+     "confidence": 0.3,
+     "elasticity": 0,
+     "zero_reason": "intervention_override",
+     "driver_label": "moderate",
+     "factor_label": "Olumi suggestion: explore a bridge from existing shareholders, if any in place",
+     "value_source": "cee_inference",
+     "influence_rank": 3,
+     "rank_flip_rate": 0,
+     "importance_rank": 5,
+     "influence_basis": "isl_structural",
+     "influence_score": 0.4324324324324324,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": 0,
+     "flip_risk_category": "negligible",
+     "value_of_information": 0,
+     "attribution_stability": "negligible",
+     "confidence_components": {
+      "sampling_stability": 0,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "range_derivation_source": "default"
+    },
+    {
+     "source": "graph",
+     "direction": "negative",
+     "factor_id": "customers__on",
+     "confidence": 0.3,
+     "elasticity": 0,
+     "zero_reason": "intervention_override",
+     "driver_label": "minor",
+     "factor_label": "Olumi suggestion: explore customer prepayments or paid pilots in place",
+     "value_source": "cee_inference",
+     "influence_rank": 6,
+     "rank_flip_rate": 0,
+     "importance_rank": 6,
+     "influence_basis": "isl_structural",
+     "influence_score": 0.18918918918918917,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": 0,
+     "flip_risk_category": "correlated",
+     "value_of_information": 0,
+     "attribution_stability": "negligible",
+     "confidence_components": {
+      "sampling_stability": 0,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "range_derivation_source": "default"
+    },
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "deferral__on",
+     "confidence": 0.3,
+     "elasticity": 0,
+     "zero_reason": "intervention_override",
+     "driver_label": "minor",
+     "factor_label": "Olumi suggestion: negotiate payment deferrals to extend runway in place",
+     "value_source": "cee_inference",
+     "influence_rank": 7,
+     "rank_flip_rate": 0,
+     "importance_rank": 7,
+     "influence_basis": "isl_structural",
+     "influence_score": 0.13513513513513517,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": 0,
+     "flip_risk_category": "negligible",
+     "value_of_information": 0,
+     "attribution_stability": "negligible",
+     "confidence_components": {
+      "sampling_stability": 0,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "range_derivation_source": "default"
+    }
+   ],
+   "robustness": {
+    "level": "moderate",
+    "near_tie": {
+     "gap": 0.517475,
+     "is_tie": false,
+     "threshold": 0.1,
+     "top_option_id": "angels",
+     "tied_option_ids": [
+      "angels"
+     ],
+     "second_option_id": "shareholders"
+    },
+    "is_robust": true,
+    "confidence": 0.7415,
+    "robust_edges": [
+     {
+      "to_id": "overhead",
+      "edge_id": "angels__on->overhead",
+      "from_id": "angels__on",
+      "to_label": "Weekly time diverted from the main fundraising process",
+      "from_label": "Add angel bridge funding alongside the investment-firm search in place",
+      "alternative_winner_id": null,
+      "alternative_winner_label": null
+     },
+     {
+      "to_id": "overhead",
+      "edge_id": "deferral__on->overhead",
+      "from_id": "deferral__on",
+      "to_label": "Weekly time diverted from the main fundraising process",
+      "from_label": "Olumi suggestion: negotiate payment deferrals to extend runway in place",
+      "alternative_winner_id": null,
+      "alternative_winner_label": null
+     },
+     {
+      "to_id": "delay",
+      "edge_id": "overhead->delay",
+      "from_id": "overhead",
+      "to_label": "Delay caused by diverted fundraising time",
+      "from_label": "Weekly time diverted from the main fundraising process",
+      "alternative_winner_id": null,
+      "alternative_winner_label": null
+     },
+     {
+      "to_id": "overhead",
+      "edge_id": "shareholders__on->overhead",
+      "from_id": "shareholders__on",
+      "to_label": "Weekly time diverted from the main fundraising process",
+      "from_label": "Olumi suggestion: explore a bridge from existing shareholders, if any in place",
+      "alternative_winner_id": null,
+      "alternative_winner_label": null
+     }
+    ],
+    "fragile_edges": [
+     {
+      "to_id": "funding",
+      "edge_id": "angels__on->funding",
+      "from_id": "angels__on",
+      "visible": true,
+      "severity": "warning",
+      "to_label": "I need to accelerate securing funding within the next 2 months.",
+      "from_label": "Add angel bridge funding alongside the investment-firm search in place",
+      "switch_probability": 0.3996,
+      "alternative_winner_id": "shareholders",
+      "alternative_winner_label": "Olumi suggestion: explore a bridge from existing shareholders, if any",
+      "marginal_switch_probability": 0.05
+     },
+     {
+      "to_id": "runway",
+      "edge_id": "angels__on->runway",
+      "from_id": "angels__on",
+      "visible": true,
+      "severity": "warning",
+      "to_label": "Cash runway remaining",
+      "from_label": "Add angel bridge funding alongside the investment-firm search in place",
+      "switch_probability": 0.3416,
+      "alternative_winner_id": "shareholders",
+      "alternative_winner_label": "Olumi suggestion: explore a bridge from existing shareholders, if any",
+      "marginal_switch_probability": 0.03
+     },
+     {
+      "to_id": "funding",
+      "edge_id": "delay->funding",
+      "from_id": "delay",
+      "visible": true,
+      "severity": "warning",
+      "to_label": "I need to accelerate securing funding within the next 2 months.",
+      "from_label": "Delay caused by diverted fundraising time",
+      "switch_probability": 0.2504,
+      "alternative_winner_id": "shareholders",
+      "alternative_winner_label": "Olumi suggestion: explore a bridge from existing shareholders, if any",
+      "marginal_switch_probability": 0
+     },
+     {
+      "to_id": "funding",
+      "edge_id": "customers__on->funding",
+      "from_id": "customers__on",
+      "visible": true,
+      "severity": "warning",
+      "to_label": "I need to accelerate securing funding within the next 2 months.",
+      "from_label": "Olumi suggestion: explore customer prepayments or paid pilots in place",
+      "switch_probability": 0.2328,
+      "alternative_winner_id": "shareholders",
+      "alternative_winner_label": "Olumi suggestion: explore a bridge from existing shareholders, if any",
+      "marginal_switch_probability": 0
+     },
+     {
+      "to_id": "funding",
+      "edge_id": "cash_exhaustion->funding",
+      "from_id": "cash_exhaustion",
+      "visible": true,
+      "severity": "warning",
+      "to_label": "I need to accelerate securing funding within the next 2 months.",
+      "from_label": "Cash runs out before funding closes",
+      "switch_probability": 0.2176,
+      "alternative_winner_id": "shareholders",
+      "alternative_winner_label": "Olumi suggestion: explore a bridge from existing shareholders, if any",
+      "marginal_switch_probability": 0
+     }
+    ],
+    "display_verdict": "moderate",
+    "confidence_basis": "recommendation_stability_uncalibrated",
+    "recommended_option_id": "angels",
+    "display_verdict_reason": "this run was only moderately stable under the changes we tested",
+    "recommended_option_label": "Add angel bridge funding alongside the investment-firm search",
+    "recommended_option_compliance": "not_applicable",
+    "recommended_option_compliance_reason": "no limits were set for this decision"
+   },
+   "option_comparison_status": "computed",
+   "edge_e_values": [],
+   "inference_warnings": [
+    {
+     "code": "GOAL_DIRECTION_UNATTESTED",
+     "field": "goal_direction",
+     "message": "No objective sense was stated for the goal node, so options were ranked by largest goal value. That is an assumption, not the team's stated aim: if the goal is a quantity to reduce, or the aim is to land near a target rather than as high as possible, this ranking answers a different question. Send goal_direction to rank against the stated objective.",
+     "severity": "warning"
+    },
+    {
+     "code": "E_VALUES_UNAVAILABLE",
+     "field": "robustness.edge_e_values",
+     "message": "Edge flip analysis was omitted: a coefficient is outside its supported search range. The stated effect and base analysis are unchanged.",
+     "severity": "warning",
+     "elapsed_ms": 4176.9
+    },
+    {
+     "code": "STABILITY_BANDS_UNAVAILABLE",
+     "field": "robustness.edge_e_values[].stability",
+     "message": "Edge flip analysis was omitted: a coefficient is outside its supported search range. The stated effect and base analysis are unchanged.",
+     "severity": "warning",
+     "elapsed_ms": 4176.9
+    },
+    {
+     "code": "GOAL_INDEX_WEIGHTS_ASSUMED",
+     "links": [
+      {
+       "to": "funding",
+       "from": "angels__on"
+      },
+      {
+       "to": "funding",
+       "from": "shareholders__on"
+      },
+      {
+       "to": "funding",
+       "from": "customers__on"
+      },
+      {
+       "to": "funding",
+       "from": "delay"
+      },
+      {
+       "to": "funding",
+       "from": "runway"
+      },
+      {
+       "to": "funding",
+       "from": "cash_exhaustion"
+      }
+     ],
+     "goal_id": "funding",
+     "message": "How much each of ‘Add angel bridge funding alongside the investment-firm search in place’, ‘Olumi suggestion: explore a bridge from existing shareholders, if any in place’, ‘Olumi suggestion: explore customer prepayments or paid pilots in place’, ‘Delay caused by diverted fundraising time’, ‘Cash runway remaining’ and ‘Cash runs out before funding closes’ counts towards ‘I need to accelerate securing funding within the next 2 months.’ is Olumi's assumption, not your stated priority. Set them to match what matters to you.",
+     "severity": "info"
+    }
+   ],
+   "confidence_tier": "strong",
+   "flip_thresholds": [],
+   "decision_brief": {
+    "options": [
+     {
+      "rank": 1,
+      "label": "Add angel bridge funding alongside the investment-firm search",
+      "option_id": "angels",
+      "win_probability": 0.7415
+     },
+     {
+      "rank": 2,
+      "label": "Olumi suggestion: explore a bridge from existing shareholders, if any",
+      "option_id": "shareholders",
+      "win_probability": 0.22402500000000006
+     },
+     {
+      "rank": 3,
+      "label": "Olumi suggestion: negotiate payment deferrals to extend runway",
+      "option_id": "deferral",
+      "win_probability": 0.019325000000000002
+     },
+     {
+      "rank": 4,
+      "label": "Olumi suggestion: explore customer prepayments or paid pilots",
+      "option_id": "customers",
+      "win_probability": 0.007675
+     },
+     {
+      "rank": 5,
+      "label": "Continue cold emails and warm connections to investment firms",
+      "option_id": "continue",
+      "win_probability": 0.007474999999999999
+     }
+    ],
+    "version": "1",
+    "brief_id": "fa8ce0f4-f098-4640-b090-39854a35a9ee",
+    "headline": "Add angel bridge funding alongside the investment-firm search currently leads by 52 points, but the model is not yet strong enough for an unqualified decision. Treat this as a provisional lead until the fragile assumptions are checked. Validate the fragile assumptions before treating this as a decision.",
+    "warnings": [
+     {
+      "code": "M2_UNAVAILABLE",
+      "message": "Decision review was unavailable; brief uses deterministic coaching fallback",
+      "severity": "warning"
+     }
+    ],
+    "created_at": "2026-10-23T16:11:24.715Z",
+    "robustness": "moderate",
+    "top_drivers": [
+     {
+      "direction": "positive",
+      "sensitivity": 0.78125,
+      "factor_label": "Cash runway remaining"
+     },
+     {
+      "direction": "negative",
+      "sensitivity": 0.390625,
+      "factor_label": "Delay caused by diverted fundraising time"
+     },
+     {
+      "direction": "negative",
+      "sensitivity": 0.1953125,
+      "factor_label": "Weekly time diverted from the main fundraising process"
+     }
+    ],
+    "warning_codes": [
+     "E_VALUES_UNAVAILABLE",
+     "GOAL_DIRECTION_UNATTESTED",
+     "STABILITY_BANDS_UNAVAILABLE"
+    ],
+    "headline_banded": {
+     "band": "clearly_ahead",
+     "text": "Add angel bridge funding alongside the investment-firm search is clearly ahead.",
+     "doctrine": "provisional_doctrine_v0",
+     "leader_label": "Add angel bridge funding alongside the investment-firm search",
+     "runner_up_label": "Olumi suggestion: explore a bridge from existing shareholders, if any",
+     "leader_option_id": "angels",
+     "robustness_gated": false,
+     "runner_up_option_id": "shareholders",
+     "win_probability_gap": 0.517475
+    },
+    "key_assumptions": [
+     "Cash runway remaining",
+     "Weekly time diverted from the main fundraising process"
+    ],
+    "analysis_summary": {
+     "leading_option": "Add angel bridge funding alongside the investment-firm search",
+     "robustness_band": "moderate",
+     "win_probability": 0.7415
+    },
+    "robustness_caveat": {
+     "text": "This run was only moderately stable under the changes we tested. Treat it as provisional.",
+     "basis": "is_robust",
+     "doctrine": "provisional_doctrine_v0"
+    },
+    "what_would_change": [
+     "Delay caused by diverted fundraising time → I need to accelerate securing funding within the next 2 months.",
+     "Cash runs out before funding closes → I need to accelerate securing funding within the next 2 months."
+    ],
+    "defaulted_assumptions": []
+   },
+   "factor_evppi": [
+    {
+     "evppi": 0,
+     "units": "outcome",
+     "method": "regression_evppi_v1",
+     "status": "below_resolution",
+     "evppi_raw": 0,
+     "factor_id": "runway",
+     "n_samples": 10000,
+     "clamped_low": true,
+     "noise_floor": 0,
+     "clamped_high": false,
+     "status_reason": "at_or_below_noise_floor",
+     "regression_degree": 4,
+     "correlation_active": false,
+     "baseline_max_expected_utility": -0.513114,
+     "conditional_max_expected_utility": -0.513114
+    },
+    {
+     "evppi": 0,
+     "units": "outcome",
+     "method": "regression_evppi_v1",
+     "status": "below_resolution",
+     "evppi_raw": 0,
+     "factor_id": "overhead",
+     "n_samples": 10000,
+     "clamped_low": true,
+     "noise_floor": 0,
+     "clamped_high": false,
+     "status_reason": "at_or_below_noise_floor",
+     "regression_degree": 4,
+     "correlation_active": false,
+     "baseline_max_expected_utility": -0.513114,
+     "conditional_max_expected_utility": -0.513114
+    },
+    {
+     "evppi": 0,
+     "units": "outcome",
+     "method": "regression_evppi_v1",
+     "status": "below_resolution",
+     "evppi_raw": 0,
+     "factor_id": "delay",
+     "n_samples": 10000,
+     "clamped_low": true,
+     "noise_floor": 0,
+     "clamped_high": false,
+     "status_reason": "at_or_below_noise_floor",
+     "regression_degree": 4,
+     "correlation_active": false,
+     "baseline_max_expected_utility": -0.513114,
+     "conditional_max_expected_utility": -0.513114
+    }
+   ],
+   "decision_evpi": 0.12551122355667174,
+   "p_win_sensitivity": [
+    {
+     "method": "p_win_delta_at_mean_v1",
+     "status": "below_resolution",
+     "clamped": false,
+     "factor_id": "overhead",
+     "n_samples": 2000,
+     "metric_type": "p_win_recommended",
+     "noise_floor": 0.03099,
+     "p_win_delta": 0.014,
+     "current_metric": 0.7535,
+     "perfect_metric": 0.7675,
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta_percentage_points": 1.4
+    },
+    {
+     "method": "p_win_delta_at_mean_v1",
+     "status": "below_resolution",
+     "clamped": true,
+     "factor_id": "runway",
+     "n_samples": 2000,
+     "metric_type": "p_win_recommended",
+     "noise_floor": 0.03099,
+     "p_win_delta": 0,
+     "current_metric": 0.7535,
+     "perfect_metric": 0.745,
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta_percentage_points": 0
+    },
+    {
+     "method": "p_win_delta_at_mean_v1",
+     "status": "below_resolution",
+     "clamped": true,
+     "factor_id": "delay",
+     "n_samples": 2000,
+     "metric_type": "p_win_recommended",
+     "noise_floor": 0.03099,
+     "p_win_delta": 0,
+     "current_metric": 0.7535,
+     "perfect_metric": 0.73,
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta_percentage_points": 0
+    },
+    {
+     "method": "p_win_delta_at_mean_v1",
+     "status": "below_resolution",
+     "clamped": true,
+     "factor_id": "angels__on",
+     "n_samples": 2000,
+     "metric_type": "p_win_recommended",
+     "noise_floor": 0.03099,
+     "p_win_delta": 0,
+     "current_metric": 0.7535,
+     "perfect_metric": 0.736,
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta_percentage_points": 0
+    },
+    {
+     "method": "p_win_delta_at_mean_v1",
+     "status": "below_resolution",
+     "clamped": true,
+     "factor_id": "shareholders__on",
+     "n_samples": 2000,
+     "metric_type": "p_win_recommended",
+     "noise_floor": 0.03099,
+     "p_win_delta": 0,
+     "current_metric": 0.7535,
+     "perfect_metric": 0.726,
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta_percentage_points": 0
+    },
+    {
+     "method": "p_win_delta_at_mean_v1",
+     "status": "below_resolution",
+     "clamped": true,
+     "factor_id": "customers__on",
+     "n_samples": 2000,
+     "metric_type": "p_win_recommended",
+     "noise_floor": 0.03099,
+     "p_win_delta": 0,
+     "current_metric": 0.7535,
+     "perfect_metric": 0.7345,
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta_percentage_points": 0
+    },
+    {
+     "method": "p_win_delta_at_mean_v1",
+     "status": "below_resolution",
+     "clamped": true,
+     "factor_id": "deferral__on",
+     "n_samples": 2000,
+     "metric_type": "p_win_recommended",
+     "noise_floor": 0.03099,
+     "p_win_delta": 0,
+     "current_metric": 0.7535,
+     "perfect_metric": 0.734,
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta_percentage_points": 0
+    }
+   ],
+   "conditional_winners": [],
+   "flip_thresholds_status": "unavailable"
+  },
+  "computed_against_hash": "5ea1b0a2b25d7da6"
+ },
+ "canonical_analysis_view": {
+  "schema": "canonical_analysis_view.v1",
+  "source": "stored_run_facts",
+  "question": {
+   "run_id": "370c4791f7ca3c7c1e862c81737b1fa4501b0f664b739559781de5d691fa7a87",
+   "fact_row_id": "927f5133-57b7-4ab4-9c29-799e7cd28524",
+   "evaluated_scenario_revision": 3,
+   "asked": {
+    "quantity": {
+     "node_id": "funding",
+     "label": "I need to accelerate securing funding within the next 2 months."
+    },
+    "horizon": {
+     "as_stated": "within the next 2 months"
+    },
+    "reference": "today",
+    "option_ids": [
+     "continue",
+     "angels",
+     "shareholders",
+     "customers",
+     "deferral"
+    ]
+   },
+   "calculated": {
+    "quantity": {
+     "node_id": "funding",
+     "label": "I need to accelerate securing funding within the next 2 months."
+    },
+    "comparator": ">=",
+    "option_ids": [
+     "continue",
+     "angels",
+     "shareholders",
+     "customers",
+     "deferral"
+    ]
+   },
+   "omitted": [
+    {
+     "field": "horizon",
+     "reason": "not_verified",
+     "asked": {
+      "as_stated": "within the next 2 months"
+     }
+    },
+    {
+     "field": "dispatched_goal_threshold",
+     "reason": "not_dispatched"
+    },
+    {
+     "field": "dispatched_goal_baseline",
+     "reason": "not_dispatched"
+    }
+   ],
+   "scope": {
+    "status": "unverified",
+    "can_show_goal_chance": false,
+    "reasons": [
+     "goal_chance_not_licensed"
+    ]
+   },
+   "evidence": {
+    "status": "partial",
+    "missing": [
+     "dispatched_goal_threshold",
+     "dispatched_goal_baseline"
+    ],
+    "dispatched_input_digest": "2b8ebf639e27e5c4e7aeffbdeb6f2526bb736882c6f900ce9eac719a6943aaf9"
+   }
+  },
+  "run": {
+   "run_id": "370c4791f7ca3c7c1e862c81737b1fa4501b0f664b739559781de5d691fa7a87",
+   "graph_hash_at_run": "5ea1b0a2b25d7da6",
+   "computed_at": "2026-10-23T16:11:13.514Z"
+  },
+  "staleness": {
+   "stale": false,
+   "revision": 3,
+   "run_revision": 3,
+   "run_revision_source": "recorded",
+   "basis": "analysis_graph_hash_interim",
+   "reason": "graph_hash_match",
+   "limitation": "Hash equality cannot detect brief, framing or stage changes."
+  },
+  "leader_licence": "permitted_with_caveat",
+  "leader": {
+   "licence": "permitted_with_caveat",
+   "option_id": "angels",
+   "goal_chance_leader": null,
+   "similar_option_ids": [],
+   "near_tie": false,
+   "robustness": "moderate"
+  },
+  "options": [
+   {
+    "option_id": "continue",
+    "cell": {
+     "kind": "withheld",
+     "reasons": [
+      {
+       "code": "goal_target_missing",
+       "message": "One gap: ‘I need to accelerate securing funding within the next 2 months.’ has no target yet. What would count as meeting it?"
+      }
+     ],
+     "face": "Not shown yet: needs a target",
+     "why": "One gap: ‘I need to accelerate securing funding within the next 2 months.’ has no target yet. What would count as meeting it?"
+    },
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "option_id": "angels",
+    "cell": {
+     "kind": "withheld",
+     "reasons": [
+      {
+       "code": "goal_target_missing",
+       "message": "One gap: ‘I need to accelerate securing funding within the next 2 months.’ has no target yet. What would count as meeting it?"
+      }
+     ],
+     "face": "Not shown yet: needs a target",
+     "why": "One gap: ‘I need to accelerate securing funding within the next 2 months.’ has no target yet. What would count as meeting it?"
+    },
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "option_id": "shareholders",
+    "cell": {
+     "kind": "withheld",
+     "reasons": [
+      {
+       "code": "goal_target_missing",
+       "message": "One gap: ‘I need to accelerate securing funding within the next 2 months.’ has no target yet. What would count as meeting it?"
+      }
+     ],
+     "face": "Not shown yet: needs a target",
+     "why": "One gap: ‘I need to accelerate securing funding within the next 2 months.’ has no target yet. What would count as meeting it?"
+    },
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "option_id": "customers",
+    "cell": {
+     "kind": "withheld",
+     "reasons": [
+      {
+       "code": "goal_target_missing",
+       "message": "One gap: ‘I need to accelerate securing funding within the next 2 months.’ has no target yet. What would count as meeting it?"
+      }
+     ],
+     "face": "Not shown yet: needs a target",
+     "why": "One gap: ‘I need to accelerate securing funding within the next 2 months.’ has no target yet. What would count as meeting it?"
+    },
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "option_id": "deferral",
+    "cell": {
+     "kind": "withheld",
+     "reasons": [
+      {
+       "code": "goal_target_missing",
+       "message": "One gap: ‘I need to accelerate securing funding within the next 2 months.’ has no target yet. What would count as meeting it?"
+      }
+     ],
+     "face": "Not shown yet: needs a target",
+     "why": "One gap: ‘I need to accelerate securing funding within the next 2 months.’ has no target yet. What would count as meeting it?"
+    },
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   }
+  ]
+ },
+ "current_read": {
+  "analysis_ready": {
+   "options": [
+    {
+     "option_id": "continue",
+     "label": "Continue cold emails and warm connections to investment firms",
+     "status": "ready",
+     "interventions": {
+      "angels__on": 0,
+      "deferral__on": 0,
+      "customers__on": 0,
+      "shareholders__on": 0
+     },
+     "is_baseline": true,
+     "intervention_details": {
+      "angels__on": {
+       "display_value": "off",
+       "normalised_value": 0,
+       "raw_value": 0,
+       "unit": ""
+      },
+      "deferral__on": {
+       "display_value": "off",
+       "normalised_value": 0,
+       "raw_value": 0,
+       "unit": ""
+      },
+      "customers__on": {
+       "display_value": "off",
+       "normalised_value": 0,
+       "raw_value": 0,
+       "unit": ""
+      },
+      "shareholders__on": {
+       "display_value": "off",
+       "normalised_value": 0,
+       "raw_value": 0,
+       "unit": ""
+      }
+     },
+     "raw_interventions": {
+      "angels__on": 0,
+      "deferral__on": 0,
+      "customers__on": 0,
+      "shareholders__on": 0
+     },
+     "status_reason": "4 intervention(s) ready for analysis"
+    },
+    {
+     "option_id": "angels",
+     "label": "Add angel bridge funding alongside the investment-firm search",
+     "status": "ready",
+     "interventions": {
+      "angels__on": 1
+     },
+     "is_baseline": false,
+     "intervention_details": {
+      "angels__on": {
+       "display_value": "on",
+       "normalised_value": 1,
+       "raw_value": 1,
+       "unit": ""
+      }
+     },
+     "raw_interventions": {
+      "angels__on": 1
+     },
+     "status_reason": "1 intervention(s) ready for analysis"
+    },
+    {
+     "option_id": "shareholders",
+     "label": "Olumi suggestion: explore a bridge from existing shareholders, if any",
+     "status": "ready",
+     "interventions": {
+      "shareholders__on": 1
+     },
+     "is_baseline": false,
+     "intervention_details": {
+      "shareholders__on": {
+       "display_value": "on",
+       "normalised_value": 1,
+       "raw_value": 1,
+       "unit": ""
+      }
+     },
+     "raw_interventions": {
+      "shareholders__on": 1
+     },
+     "status_reason": "1 intervention(s) ready for analysis"
+    },
+    {
+     "option_id": "customers",
+     "label": "Olumi suggestion: explore customer prepayments or paid pilots",
+     "status": "ready",
+     "interventions": {
+      "customers__on": 1
+     },
+     "is_baseline": false,
+     "intervention_details": {
+      "customers__on": {
+       "display_value": "on",
+       "normalised_value": 1,
+       "raw_value": 1,
+       "unit": ""
+      }
+     },
+     "raw_interventions": {
+      "customers__on": 1
+     },
+     "status_reason": "1 intervention(s) ready for analysis"
+    },
+    {
+     "option_id": "deferral",
+     "label": "Olumi suggestion: negotiate payment deferrals to extend runway",
+     "status": "ready",
+     "interventions": {
+      "deferral__on": 1
+     },
+     "is_baseline": false,
+     "intervention_details": {
+      "deferral__on": {
+       "display_value": "on",
+       "normalised_value": 1,
+       "raw_value": 1,
+       "unit": ""
+      }
+     },
+     "raw_interventions": {
+      "deferral__on": 1
+     },
+     "status_reason": "1 intervention(s) ready for analysis"
+    }
+   ],
+   "goal_node_id": "funding",
+   "status": "ready",
+   "bias_findings": [],
+   "may_run": true,
+   "analysis_admission": {
+    "structurally_analysable": true,
+    "missing_important_inputs": [],
+    "semantic_quality_sufficient": false,
+    "permitted_analysis_mode": "quantified_provisional",
+    "reasons": [
+     {
+      "field": "structurally_analysable",
+      "code": "READY_TO_COMPARE",
+      "message": "Analysis can run on this model as it stands."
+     },
+     {
+      "field": "semantic_quality_sufficient",
+      "code": "CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED",
+      "message": "Every estimate this comparison rests on is Olumi’s, not yours. Figures, and which option they favour, can be shown only as provisional, and no result can be called stable or robust until you have set at least one of them."
+     },
+     {
+      "field": "permitted_analysis_mode",
+      "code": "CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED",
+      "message": "Every estimate this comparison rests on is Olumi’s, not yours. Figures, and which option they favour, can be shown only as provisional, and no result can be called stable or robust until you have set at least one of them."
+     }
+    ],
+    "graph_hash": "5ea1b0a2b25d7da6e4a591abf834dbe7538a4b8e6dd5785dfd7f8702840c33f7",
+    "semantic_signals": {
+     "confidence_parameters_total": 22,
+     "confidence_parameters_user_stated": 0,
+     "confidence_parameters_machine_authored": 20,
+     "confidence_parameters_unattributed": 2,
+     "material_parameters_total": 19,
+     "material_parameters_user_stated": 0,
+     "intervened_factor_baselines_total": 4,
+     "intervened_factor_baselines_user_stated": 0,
+     "material_parameters_awaiting_user_node_ids": [
+      "runway",
+      "overhead",
+      "delay",
+      "angels__on",
+      "shareholders__on",
+      "customers__on",
+      "deferral__on"
+     ],
+     "goal_target_stated": false
+    }
+   },
+   "freshness": "fresh",
+   "freshness_reason": "agent_readback_run_state_current",
+   "graph_hash_at_run": "5ea1b0a2b25d7da6",
+   "current_graph_hash": "5ea1b0a2b25d7da6",
+   "computed_at": "2026-10-23T16:11:13.514Z"
+  },
+  "run_state": {
+   "kind": "complete_current",
+   "computed_at": "2026-10-23T16:11:13.514Z"
+  },
+  "computed_against_hash": "5ea1b0a2b25d7da6",
+  "current_analysis_hash": "5ea1b0a2b25d7da6",
+  "figures": [],
+  "run_delta": {
+   "attribution_case": "C0_identical",
+   "pair_provenance": {
+    "seed_equal": true,
+    "hash_equal": true,
+    "builds_equal": "equal",
+    "n_equal": true
+   },
+   "leader": {
+    "changed": false,
+    "prior_leading_option_id": "angels",
+    "current_leading_option_id": "angels",
+    "noise_verdict": "not_noise_qualified"
+   },
+   "win_probabilities": [
+    {
+     "option_id": "angels",
+     "prior": 0.7415,
+     "current": 0.7415,
+     "noise_verdict": "within_noise"
+    },
+    {
+     "option_id": "continue",
+     "prior": 0.007474999999999999,
+     "current": 0.007474999999999999,
+     "noise_verdict": "within_noise"
+    },
+    {
+     "option_id": "customers",
+     "prior": 0.007675,
+     "current": 0.007675,
+     "noise_verdict": "within_noise"
+    },
+    {
+     "option_id": "deferral",
+     "prior": 0.019325000000000002,
+     "current": 0.019325000000000002,
+     "noise_verdict": "within_noise"
+    },
+    {
+     "option_id": "shareholders",
+     "prior": 0.22402500000000006,
+     "current": 0.22402500000000006,
+     "noise_verdict": "within_noise"
+    }
+   ],
+   "goal_chances": [
+    {
+     "option_id": "continue",
+     "prior": {
+      "kind": "not_recorded"
+     },
+     "current": {
+      "kind": "not_recorded"
+     }
+    },
+    {
+     "option_id": "angels",
+     "prior": {
+      "kind": "not_recorded"
+     },
+     "current": {
+      "kind": "not_recorded"
+     }
+    },
+    {
+     "option_id": "shareholders",
+     "prior": {
+      "kind": "not_recorded"
+     },
+     "current": {
+      "kind": "not_recorded"
+     }
+    },
+    {
+     "option_id": "customers",
+     "prior": {
+      "kind": "not_recorded"
+     },
+     "current": {
+      "kind": "not_recorded"
+     }
+    },
+    {
+     "option_id": "deferral",
+     "prior": {
+      "kind": "not_recorded"
+     },
+     "current": {
+      "kind": "not_recorded"
+     }
+    }
+   ],
+   "flip_thresholds": [],
+   "endpoints": {
+    "prior": {
+     "run_id": "6c06a75b2d083c8be924028a6c59eae1a2fac7773961b3be333941e7e8255198",
+     "computed_at": "2026-10-23T16:01:34.143Z"
+    },
+    "current": {
+     "run_id": "370c4791f7ca3c7c1e862c81737b1fa4501b0f664b739559781de5d691fa7a87",
+     "computed_at": "2026-10-23T16:11:13.514Z"
+    }
+   },
+   "input_coverage": "complete",
+   "input_changes": []
+  },
+  "run_id": "370c4791f7ca3c7c1e862c81737b1fa4501b0f664b739559781de5d691fa7a87"
+ },
+ "analysis_constraint_verdict_state": "not_applicable",
+ "analysis_leader_limit_risks": [],
+ "analysis_goal_certainty": [],
+ "analysis_option_participation": [],
+ "analysis_run_option_set": {
+  "leftOut": [],
+  "sent": [
+   {
+    "option_id": "continue",
+    "label": "Continue cold emails and warm connections to investment firms"
+   },
+   {
+    "option_id": "angels",
+    "label": "Add angel bridge funding alongside the investment-firm search"
+   },
+   {
+    "option_id": "shareholders",
+    "label": "Olumi suggestion: explore a bridge from existing shareholders, if any"
+   },
+   {
+    "option_id": "customers",
+    "label": "Olumi suggestion: explore customer prepayments or paid pilots"
+   },
+   {
+    "option_id": "deferral",
+    "label": "Olumi suggestion: negotiate payment deferrals to extend runway"
+   }
+  ]
+ },
+ "analysis_run_evidence": {
+  "run_id": "370c4791f7ca3c7c1e862c81737b1fa4501b0f664b739559781de5d691fa7a87",
+  "input_snapshot": {
+   "snapshot_version": 1,
+   "sent_digest": "2b8ebf639e27e5c4e7aeffbdeb6f2526bb736882c6f900ce9eac719a6943aaf9",
+   "residual_digest": "95a68eca08402e62c11b93988f09005aad3368344ceab7af6295f4cc28902f94",
+   "goal": {
+    "node_id": "funding",
+    "label": "I need to accelerate securing funding within the next 2 months."
+   },
+   "options": [
+    {
+     "option_id": "continue",
+     "label": "Continue cold emails and warm connections to investment firms",
+     "is_baseline": true,
+     "settings": [
+      {
+       "factor_id": "angels__on",
+       "label": "Add angel bridge funding alongside the investment-firm search in place",
+       "raw": 0,
+       "encoded": 0
+      },
+      {
+       "factor_id": "customers__on",
+       "label": "Olumi suggestion: explore customer prepayments or paid pilots in place",
+       "raw": 0,
+       "encoded": 0
+      },
+      {
+       "factor_id": "deferral__on",
+       "label": "Olumi suggestion: negotiate payment deferrals to extend runway in place",
+       "raw": 0,
+       "encoded": 0
+      },
+      {
+       "factor_id": "shareholders__on",
+       "label": "Olumi suggestion: explore a bridge from existing shareholders, if any in place",
+       "raw": 0,
+       "encoded": 0
+      }
+     ]
+    },
+    {
+     "option_id": "angels",
+     "label": "Add angel bridge funding alongside the investment-firm search",
+     "settings": [
+      {
+       "factor_id": "angels__on",
+       "label": "Add angel bridge funding alongside the investment-firm search in place",
+       "raw": 1,
+       "encoded": 1
+      }
+     ]
+    },
+    {
+     "option_id": "shareholders",
+     "label": "Olumi suggestion: explore a bridge from existing shareholders, if any",
+     "settings": [
+      {
+       "factor_id": "shareholders__on",
+       "label": "Olumi suggestion: explore a bridge from existing shareholders, if any in place",
+       "raw": 1,
+       "encoded": 1
+      }
+     ]
+    },
+    {
+     "option_id": "customers",
+     "label": "Olumi suggestion: explore customer prepayments or paid pilots",
+     "settings": [
+      {
+       "factor_id": "customers__on",
+       "label": "Olumi suggestion: explore customer prepayments or paid pilots in place",
+       "raw": 1,
+       "encoded": 1
+      }
+     ]
+    },
+    {
+     "option_id": "deferral",
+     "label": "Olumi suggestion: negotiate payment deferrals to extend runway",
+     "settings": [
+      {
+       "factor_id": "deferral__on",
+       "label": "Olumi suggestion: negotiate payment deferrals to extend runway in place",
+       "raw": 1,
+       "encoded": 1
+      }
+     ]
+    }
+   ],
+   "options_not_sent": [],
+   "factors": [
+    {
+     "factor_id": "funding",
+     "label": "I need to accelerate securing funding within the next 2 months.",
+     "authorship_digest": "2db57d316aaa733dab3956468d9e514c69652bc0e6aa5f3565f6572bc846bad3"
+    },
+    {
+     "factor_id": "runway",
+     "label": "Cash runway remaining",
+     "raw": 4,
+     "unit": "weeks",
+     "encoded": 0.8,
+     "source": "cee_inference",
+     "authorship_digest": "d0ca748fe129094d60d5352a541397f355e8e4fc200b2b65004badd27922b099"
+    },
+    {
+     "factor_id": "overhead",
+     "label": "Weekly time diverted from the main fundraising process",
+     "raw": 5,
+     "unit": "hours per week",
+     "encoded": 0.8,
+     "source": "cee_inference",
+     "authorship_digest": "d0ca748fe129094d60d5352a541397f355e8e4fc200b2b65004badd27922b099"
+    },
+    {
+     "factor_id": "delay",
+     "label": "Delay caused by diverted fundraising time",
+     "raw": 1,
+     "unit": "weeks",
+     "encoded": 0.8,
+     "source": "cee_inference",
+     "authorship_digest": "d0ca748fe129094d60d5352a541397f355e8e4fc200b2b65004badd27922b099"
+    },
+    {
+     "factor_id": "angels__on",
+     "label": "Add angel bridge funding alongside the investment-firm search in place",
+     "raw": 0,
+     "encoded": 0,
+     "source": "cee_inference",
+     "authorship_digest": "d0ca748fe129094d60d5352a541397f355e8e4fc200b2b65004badd27922b099"
+    },
+    {
+     "factor_id": "shareholders__on",
+     "label": "Olumi suggestion: explore a bridge from existing shareholders, if any in place",
+     "raw": 0,
+     "encoded": 0,
+     "source": "cee_inference",
+     "authorship_digest": "d0ca748fe129094d60d5352a541397f355e8e4fc200b2b65004badd27922b099"
+    },
+    {
+     "factor_id": "customers__on",
+     "label": "Olumi suggestion: explore customer prepayments or paid pilots in place",
+     "raw": 0,
+     "encoded": 0,
+     "source": "cee_inference",
+     "authorship_digest": "d0ca748fe129094d60d5352a541397f355e8e4fc200b2b65004badd27922b099"
+    },
+    {
+     "factor_id": "deferral__on",
+     "label": "Olumi suggestion: negotiate payment deferrals to extend runway in place",
+     "raw": 0,
+     "encoded": 0,
+     "source": "cee_inference",
+     "authorship_digest": "d0ca748fe129094d60d5352a541397f355e8e4fc200b2b65004badd27922b099"
+    }
+   ],
+   "constraints": [],
+   "links": [
+    {
+     "from": "decision_funding",
+     "to": "continue",
+     "mean": 1,
+     "std": 0.01,
+     "exists_probability": 1,
+     "band": "very_strong",
+     "sizing": "unmarked",
+     "authorship_digest": "634ef8f9fa4fe63dd3f7329674c12cf6e56c8ef1cb1d72c9c2d26afc8677c4b1"
+    },
+    {
+     "from": "continue",
+     "to": "angels__on",
+     "mean": 1,
+     "std": 0.01,
+     "exists_probability": 1,
+     "band": "very_strong",
+     "sizing": "unmarked",
+     "authorship_digest": "634ef8f9fa4fe63dd3f7329674c12cf6e56c8ef1cb1d72c9c2d26afc8677c4b1"
+    },
+    {
+     "from": "continue",
+     "to": "shareholders__on",
+     "mean": 1,
+     "std": 0.01,
+     "exists_probability": 1,
+     "band": "very_strong",
+     "sizing": "unmarked",
+     "authorship_digest": "634ef8f9fa4fe63dd3f7329674c12cf6e56c8ef1cb1d72c9c2d26afc8677c4b1"
+    },
+    {
+     "from": "continue",
+     "to": "customers__on",
+     "mean": 1,
+     "std": 0.01,
+     "exists_probability": 1,
+     "band": "very_strong",
+     "sizing": "unmarked",
+     "authorship_digest": "634ef8f9fa4fe63dd3f7329674c12cf6e56c8ef1cb1d72c9c2d26afc8677c4b1"
+    },
+    {
+     "from": "continue",
+     "to": "deferral__on",
+     "mean": 1,
+     "std": 0.01,
+     "exists_probability": 1,
+     "band": "very_strong",
+     "sizing": "unmarked",
+     "authorship_digest": "634ef8f9fa4fe63dd3f7329674c12cf6e56c8ef1cb1d72c9c2d26afc8677c4b1"
+    },
+    {
+     "from": "decision_funding",
+     "to": "angels",
+     "mean": 1,
+     "std": 0.01,
+     "exists_probability": 1,
+     "band": "very_strong",
+     "sizing": "unmarked",
+     "authorship_digest": "634ef8f9fa4fe63dd3f7329674c12cf6e56c8ef1cb1d72c9c2d26afc8677c4b1"
+    },
+    {
+     "from": "angels",
+     "to": "angels__on",
+     "mean": 1,
+     "std": 0.01,
+     "exists_probability": 1,
+     "band": "very_strong",
+     "sizing": "unmarked",
+     "authorship_digest": "634ef8f9fa4fe63dd3f7329674c12cf6e56c8ef1cb1d72c9c2d26afc8677c4b1"
+    },
+    {
+     "from": "decision_funding",
+     "to": "shareholders",
+     "mean": 1,
+     "std": 0.01,
+     "exists_probability": 1,
+     "band": "very_strong",
+     "sizing": "unmarked",
+     "authorship_digest": "634ef8f9fa4fe63dd3f7329674c12cf6e56c8ef1cb1d72c9c2d26afc8677c4b1"
+    },
+    {
+     "from": "shareholders",
+     "to": "shareholders__on",
+     "mean": 1,
+     "std": 0.01,
+     "exists_probability": 1,
+     "band": "very_strong",
+     "sizing": "unmarked",
+     "authorship_digest": "634ef8f9fa4fe63dd3f7329674c12cf6e56c8ef1cb1d72c9c2d26afc8677c4b1"
+    },
+    {
+     "from": "decision_funding",
+     "to": "customers",
+     "mean": 1,
+     "std": 0.01,
+     "exists_probability": 1,
+     "band": "very_strong",
+     "sizing": "unmarked",
+     "authorship_digest": "634ef8f9fa4fe63dd3f7329674c12cf6e56c8ef1cb1d72c9c2d26afc8677c4b1"
+    },
+    {
+     "from": "customers",
+     "to": "customers__on",
+     "mean": 1,
+     "std": 0.01,
+     "exists_probability": 1,
+     "band": "very_strong",
+     "sizing": "unmarked",
+     "authorship_digest": "634ef8f9fa4fe63dd3f7329674c12cf6e56c8ef1cb1d72c9c2d26afc8677c4b1"
+    },
+    {
+     "from": "decision_funding",
+     "to": "deferral",
+     "mean": 1,
+     "std": 0.01,
+     "exists_probability": 1,
+     "band": "very_strong",
+     "sizing": "unmarked",
+     "authorship_digest": "634ef8f9fa4fe63dd3f7329674c12cf6e56c8ef1cb1d72c9c2d26afc8677c4b1"
+    },
+    {
+     "from": "deferral",
+     "to": "deferral__on",
+     "mean": 1,
+     "std": 0.01,
+     "exists_probability": 1,
+     "band": "very_strong",
+     "sizing": "unmarked",
+     "authorship_digest": "634ef8f9fa4fe63dd3f7329674c12cf6e56c8ef1cb1d72c9c2d26afc8677c4b1"
+    },
+    {
+     "from": "angels__on",
+     "to": "funding",
+     "mean": 0.7999999999999999,
+     "std": 0.39999999999999997,
+     "exists_probability": 1,
+     "band": "very_strong",
+     "sizing": "olumi_estimate",
+     "authorship_digest": "499d6bb6157abfc65d783f7a392aa59e6dec8b345954f155a087afa99d8745e1",
+     "natural_effect": {
+      "amount": 100000,
+      "amount_unit": "£",
+      "per_source_change": 1,
+      "per_source_change_unit": "switch"
+     }
+    },
+    {
+     "from": "angels__on",
+     "to": "runway",
+     "mean": 0.8,
+     "std": 0.4,
+     "exists_probability": 1,
+     "band": "very_strong",
+     "sizing": "olumi_estimate",
+     "authorship_digest": "f4ecbe9f085783a295f741ecf5a2570814498fbb37dc6abab0b729db7ba17b9f",
+     "natural_effect": {
+      "amount": 4,
+      "amount_unit": "weeks",
+      "per_source_change": 1,
+      "per_source_change_unit": "switch"
+     }
+    },
+    {
+     "from": "angels__on",
+     "to": "overhead",
+     "mean": 1.28,
+     "std": 0.64,
+     "exists_probability": 0.8,
+     "band": "very_strong",
+     "sizing": "olumi_estimate",
+     "authorship_digest": "f5155286294afd5c08708885c467e7818e074d07dc2a9f0574e15ec4fd234cb6",
+     "natural_effect": {
+      "amount": 8,
+      "amount_unit": "hours per week",
+      "per_source_change": 1,
+      "per_source_change_unit": "switch"
+     }
+    },
+    {
+     "from": "shareholders__on",
+     "to": "funding",
+     "mean": 0.7999999999999999,
+     "std": 0.39999999999999997,
+     "exists_probability": 0.8,
+     "band": "very_strong",
+     "sizing": "olumi_estimate",
+     "authorship_digest": "6d9f9832cecf3478b240175ab34ebf28f2e8c46f83ef890ece43e12d7be800e9",
+     "natural_effect": {
+      "amount": 100000,
+      "amount_unit": "£",
+      "per_source_change": 1,
+      "per_source_change_unit": "switch"
+     }
+    },
+    {
+     "from": "shareholders__on",
+     "to": "overhead",
+     "mean": 0.64,
+     "std": 0.32,
+     "exists_probability": 0.8,
+     "band": "strong",
+     "sizing": "olumi_estimate",
+     "authorship_digest": "25ef4a3dcdccc77850f332e1a4da80978954fff7764285a7e53384a8197f0628",
+     "natural_effect": {
+      "amount": 4,
+      "amount_unit": "hours per week",
+      "per_source_change": 1,
+      "per_source_change_unit": "switch"
+     }
+    },
+    {
+     "from": "customers__on",
+     "to": "funding",
+     "mean": 0.19999999999999998,
+     "std": 0.09999999999999999,
+     "exists_probability": 0.8,
+     "band": "slight",
+     "sizing": "olumi_estimate",
+     "authorship_digest": "078a2bea99116733a2fc9803530ecf5d2029d47ad21a2054efdc3eb99708d6d0",
+     "natural_effect": {
+      "amount": 25000,
+      "amount_unit": "£",
+      "per_source_change": 1,
+      "per_source_change_unit": "switch"
+     }
+    },
+    {
+     "from": "customers__on",
+     "to": "overhead",
+     "mean": 1.92,
+     "std": 0.96,
+     "exists_probability": 0.8,
+     "band": "very_strong",
+     "sizing": "olumi_estimate",
+     "authorship_digest": "88bb03f2ac0dcff1ce03d35e06623f3f0b7742432d60ddf7cbb2d222d42ffc2d",
+     "natural_effect": {
+      "amount": 12,
+      "amount_unit": "hours per week",
+      "per_source_change": 1,
+      "per_source_change_unit": "switch"
+     }
+    },
+    {
+     "from": "deferral__on",
+     "to": "runway",
+     "mean": 0.4,
+     "std": 0.2,
+     "exists_probability": 0.8,
+     "band": "strong",
+     "sizing": "olumi_estimate",
+     "authorship_digest": "dfde4a0486528a2cd2fd7d9efa3a464b5fc3e466726866a9f0352323d70188f9",
+     "natural_effect": {
+      "amount": 2,
+      "amount_unit": "weeks",
+      "per_source_change": 1,
+      "per_source_change_unit": "switch"
+     }
+    },
+    {
+     "from": "deferral__on",
+     "to": "overhead",
+     "mean": 0.48,
+     "std": 0.24,
+     "exists_probability": 0.8,
+     "band": "strong",
+     "sizing": "olumi_estimate",
+     "authorship_digest": "7beac84d20add77feabef63995f7a0014c633949be646d876e8d993e0945365f",
+     "natural_effect": {
+      "amount": 3,
+      "amount_unit": "hours per week",
+      "per_source_change": 1,
+      "per_source_change_unit": "switch"
+     }
+    },
+    {
+     "from": "overhead",
+     "to": "delay",
+     "mean": 0.5,
+     "std": 0.25,
+     "exists_probability": 1,
+     "band": "strong",
+     "sizing": "olumi_estimate",
+     "authorship_digest": "d70b2bc34050290702011313f44588888a00020f48f78e9b3ff27bdf60cf3c7b",
+     "natural_effect": {
+      "amount": 0.1,
+      "amount_unit": "weeks",
+      "per_source_change": 1,
+      "per_source_change_unit": "hours per week"
+     }
+    },
+    {
+     "from": "delay",
+     "to": "funding",
+     "mean": -0.5,
+     "std": 0.25,
+     "exists_probability": 1,
+     "band": "strong",
+     "sizing": "olumi_estimate",
+     "authorship_digest": "a5077e67bdb810d1f3a3e64d7f3f8b641c93fecb193c177f24217a13e965ac19",
+     "natural_effect": {
+      "amount": -50000,
+      "amount_unit": "£",
+      "per_source_change": 1,
+      "per_source_change_unit": "weeks"
+     }
+    },
+    {
+     "from": "runway",
+     "to": "funding",
+     "mean": 1,
+     "std": 0.5,
+     "exists_probability": 0.8,
+     "band": "very_strong",
+     "sizing": "olumi_estimate",
+     "authorship_digest": "a3290003c294da6aea757d0cf9661005e1b4eb2a7f840cef7cf7d81426b85703",
+     "natural_effect": {
+      "amount": 25000,
+      "amount_unit": "£",
+      "per_source_change": 1,
+      "per_source_change_unit": "weeks"
+     }
+    },
+    {
+     "from": "cash_exhaustion",
+     "to": "funding",
+     "mean": -4,
+     "std": 2,
+     "exists_probability": 0.8,
+     "band": "very_strong",
+     "sizing": "olumi_estimate",
+     "authorship_digest": "d78fb4764b7207ba09bc0379761dbe43bf82fc6eba7946f0847d62df653b90a3"
+    }
+   ]
+  },
+  "evaluated_question": {
+   "asked": {
+    "horizon": {
+     "as_stated": "within the next 2 months"
+    },
+    "quantity": {
+     "label": "I need to accelerate securing funding within the next 2 months.",
+     "node_id": "funding"
+    },
+    "reference": "today",
+    "option_ids": [
+     "continue",
+     "angels",
+     "shareholders",
+     "customers",
+     "deferral"
+    ]
+   },
+   "run_id": "370c4791f7ca3c7c1e862c81737b1fa4501b0f664b739559781de5d691fa7a87",
+   "calculated": {
+    "quantity": {
+     "label": "I need to accelerate securing funding within the next 2 months.",
+     "node_id": "funding"
+    },
+    "comparator": ">=",
+    "option_ids": [
+     "continue",
+     "angels",
+     "shareholders",
+     "customers",
+     "deferral"
+    ]
+   },
+   "sent_digest": "2b8ebf639e27e5c4e7aeffbdeb6f2526bb736882c6f900ce9eac719a6943aaf9",
+   "graph_hash_at_run": "5ea1b0a2b25d7da6",
+   "dispatched_goal_baseline": null,
+   "dispatched_goal_threshold": null,
+   "evaluated_scenario_revision": 3
+  },
+  "occurrence": {
+   "fact_row_id": "927f5133-57b7-4ab4-9c29-799e7cd28524",
+   "evaluated_scenario_revision": 3
+  }
+ },
+ "analysis_identity_run_use": {
+  "withdrawn_node_ids": []
+ },
+ "analysis_admission": {
+  "admitted": true,
+  "permitted_analysis_mode": "quantified_provisional",
+  "semantic_quality_sufficient": false,
+  "reason_codes": [
+   "READY_TO_COMPARE",
+   "CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED"
+  ],
+  "missing_input_codes": [],
+  "missing_input_count": 0,
+  "inputs_demanded_of_user": 0,
+  "inputs_waived_by_exclusion": 0,
+  "graph_hash": "5ea1b0a2b25d7da6e4a591abf834dbe7538a4b8e6dd5785dfd7f8702840c33f7",
+  "semantic_signals": {
+   "material_parameters_awaiting_user_node_ids": [
+    "runway",
+    "overhead",
+    "delay",
+    "angels__on",
+    "shareholders__on",
+    "customers__on",
+    "deferral__on"
+   ]
+  }
+ },
+ "request_id": "910852dc-0ed1-4725-a15e-23fd17973635"
+}
