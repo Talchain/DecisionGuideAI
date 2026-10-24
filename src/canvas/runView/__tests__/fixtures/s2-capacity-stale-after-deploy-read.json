@@ -1,0 +1,120 @@
+{
+ "_capture": "Served CEE c197dd60 read (POST /bff/cee/scenarios/:id/graph, verifier test account, 23 Oct 23:4xZ) of the capacity program board opened after the deploy: its stored Run mp_run_3 reads stale (graph_hash_diverged) with CEE's face_when_stale. Top-level read keys kept as served; graph nodes trimmed to id/kind/label; living_model trimmed to its model_program discriminator; canonical_analysis_view verbatim.",
+ "schema": "scenario_graph.v1",
+ "scenario_id": "35463f30-fcbc-4235-900a-64f03a9b2124",
+ "graph_hash": "6fa0109ba28710aa",
+ "graph_present": true,
+ "graph": {
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "kind": "decision",
+    "label": "Which staffing option provides weekly support capacity of at least 100 tickets per week?"
+   },
+   {
+    "id": "support_capacity_goal",
+    "kind": "goal",
+    "label": "Weekly support capacity"
+   },
+   {
+    "id": "keep_current_staffing",
+    "kind": "option",
+    "label": "Keep current staffing"
+   },
+   {
+    "id": "add_one_specialist",
+    "kind": "option",
+    "label": "Add one specialist"
+   },
+   {
+    "id": "existing_capacity",
+    "kind": "factor",
+    "label": "Existing team capacity"
+   },
+   {
+    "id": "additional_specialists",
+    "kind": "factor",
+    "label": "Additional specialists"
+   },
+   {
+    "id": "additional_capacity",
+    "kind": "outcome",
+    "label": "Additional specialist capacity"
+   },
+   {
+    "id": "weekly_support_capacity",
+    "kind": "outcome",
+    "label": "Weekly support capacity"
+   }
+  ],
+  "edges": [],
+  "living_model": {
+   "model_program": "v1"
+  }
+ },
+ "canonical_analysis_view": {
+  "run": {
+   "run_id": "mp_run_3_9cc1a3665031",
+   "computed_at": "2026-10-23T20:47:23.323Z",
+   "graph_hash_at_run": "6fa0109ba28710aa"
+  },
+  "schema": "canonical_analysis_view.v1",
+  "source": "stored_run_facts",
+  "options": [
+   {
+    "cell": {
+     "face": "‘Keep current staffing’: 0% chance of ‘Weekly support capacity’ being at least 100 ticket / week with no deadline recorded yet, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds: in every simulated draw ‘Weekly support capacity’ is 80 ticket / week, below 100 ticket / week.",
+     "kind": "figure",
+     "detail": {
+      "draws": 10000,
+      "precision_95": [
+       0,
+       0
+      ],
+      "precision_words": "Simulation precision: exact. Every simulated draw gives the same result for this option, so no sampling is involved."
+     },
+     "display": "0%"
+    },
+    "option_id": "keep_current_staffing",
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "cell": {
+     "face": "‘Add one specialist’: about 61% chance of ‘Weekly support capacity’ being at least 100 ticket / week with no deadline recorded yet, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds.",
+     "kind": "figure",
+     "detail": {
+      "draws": 10000,
+      "precision_95": [
+       0.5971870875433735,
+       0.61633089040465
+      ],
+      "precision_words": "Simulation precision: 59.7% to 61.6%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+     },
+     "display": "about 61%"
+    },
+    "option_id": "add_one_specialist",
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   }
+  ],
+  "staleness": {
+   "basis": "analysis_graph_hash_interim",
+   "stale": true,
+   "reason": "graph_hash_diverged",
+   "revision": null,
+   "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+   "run_revision": null
+  },
+  "goal_chance": {
+   "notes": [
+    "No deadline is recorded yet for ‘Weekly support capacity’: is there one?"
+   ],
+   "chance_words": "chance of ‘Weekly support capacity’ being at least 100 ticket / week with no deadline recorded yet"
+  },
+  "leader_licence": "withheld",
+  "face_when_stale": "Run the analysis again to see the chance."
+ }
+}

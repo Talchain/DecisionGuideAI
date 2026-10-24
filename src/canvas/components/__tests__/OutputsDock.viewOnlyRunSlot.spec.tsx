@@ -135,10 +135,22 @@ describe('the Analysis tab pre-run slot on a board read with a canonical view', 
     expect(screen.queryByTestId('outputs-pre-run-view-only')).toBeNull()
   })
 
-  it('CONTRAST: a program board whose bound Run is stale (CEE’s stale face served): the panel, no served words', async () => {
+  // ⛔ CHANGED CONTRACT (row 19, DL 24 Oct): this row pinned that a stale program Run mounted the panel, whose lines say no
+  // result exists, with no way to run. It now says CEE's own not-current line, once, and never the old figures.
+  it('a program board whose bound Run is stale (CEE’s stale face served): CEE’s line once, no figure, not the panel', async () => {
     // CEE's served stale face (hydrate/__tests__/fixtures/founder-blocked-reopen-247ae5b4.read.json).
     board(PROGRAM, { staleness: { ...capacity.canonical_analysis_view.staleness, stale: true, reason: 'graph_changed' },
       face_when_stale: 'Run the analysis again to see the chance.' })
+    await openAnalysisTab()
+    expect(prePanel()).toBeNull()
+    const slot = screen.getByTestId('outputs-pre-run-view-only')
+    expect(slot.querySelectorAll('[data-testid^="analysis-view-only-chance-"]')).toHaveLength(1)
+    expect(slot.querySelector('[data-testid^="analysis-view-only-chance-"]')?.textContent).toBe('Run the analysis again to see the chance.')
+    expect(slot.textContent).not.toMatch(/\d+%/)
+  })
+
+  it('CONTRAST: a program board whose bound Run is stale with no line of CEE’s: the panel, no served words', async () => {
+    board(PROGRAM, { staleness: { ...capacity.canonical_analysis_view.staleness, stale: true, reason: 'graph_changed' } })
     await openAnalysisTab()
     expect(prePanel()).not.toBeNull()
     expect(screen.queryByTestId('outputs-pre-run-view-only')).toBeNull()
