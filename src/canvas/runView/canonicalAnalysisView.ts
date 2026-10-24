@@ -67,6 +67,16 @@ export interface CanonicalGoalChanceDetail {
     readonly per_target: readonly { readonly constraint_id: string; readonly words: string;
       readonly options: readonly { readonly option_id: string; readonly display: string }[] }[]
   }
+  /**
+   * CEE S1 (#3716): everything the result waits on, in CEE's order, each by its own label; `answer.quantity_id` where the
+   * person can answer it with a figure. Listed with the result; the UI writes no question and ranks nothing.
+   */
+  readonly waits_on?: readonly CanonicalWaitsOn[]
+}
+export interface CanonicalWaitsOn {
+  readonly id: string
+  readonly label: string
+  readonly answer: { readonly quantity_id: string } | null
 }
 const rec = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v)
 const nullableString = (v: unknown): v is string | null => v === null || typeof v === 'string'
@@ -86,6 +96,13 @@ export function parseCanonicalGoalChance(v: unknown): CanonicalGoalChanceDetail 
       : joint.status !== 'withheld' || !sayable(joint.line) || (joint.frechet_line !== undefined && !sayable(joint.frechet_line))) return undefined
     if (!t.per_target.every(row => rec(row) && sayable(row.constraint_id) && sayable(row.words) && Array.isArray(row.options)
       && row.options.every(o => rec(o) && sayable(o.option_id) && sayable(o.display)))) return undefined
+  }
+  // `waits_on` is read whole or not at all, on its own: a malformed list is not said, and the chance's own words still are.
+  const waits = v.waits_on
+  if (waits !== undefined && !(Array.isArray(waits) && waits.every(w => rec(w) && sayable(w.id) && sayable(w.label)
+    && (w.answer === null || (rec(w.answer) && sayable(w.answer.quantity_id)))))) {
+    const { waits_on: _unsaid, ...rest } = v
+    return rest as unknown as CanonicalGoalChanceDetail
   }
   return v as unknown as CanonicalGoalChanceDetail
 }

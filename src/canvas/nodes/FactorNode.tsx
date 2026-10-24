@@ -1269,6 +1269,9 @@ export const FactorNode = memo((props: NodeProps) => {
   const emptyValueField = {
     value: null,
     onCommit: ((v, opts) => editAuthority.proposeFactorValue(v, opts)) as NodeValueEditorProps['onCommit'],
+    // The result's "Waits on" (CEE's `goal_chance.waits_on` answer) opens this field the same way (`graphChanges/valuePrefill.ts`).
+    prefill: valuePrefill,
+    onPrefillConsumed: consumeValuePrefill,
     readCommittedValue: () =>
       resolveValueInputSeed(useCanvasStore.getState().nodes.find(n => n.id === props.id)?.data).seed ?? null,
     ...(emptyUnit.prefix ? { prefix: emptyUnit.prefix } : {}),
