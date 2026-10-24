@@ -15,12 +15,29 @@
  * runs a copy on CEE and writes nothing).
  */
 import { useEffect, useRef } from 'react'
+import { Activity, ArrowRightLeft, CloudLightning, Landmark, Layers2, Scale, type LucideIcon } from 'lucide-react'
 import { selectPremortemWorksheet, useCanvasStore, type LensMode } from '../store'
 import type { PremortemWorksheetV1 } from '../../v5/readPremortemWorksheet'
 
 /** The bar's lenses, in the bar's order. `option` isolation is entered from an option card, never the bar. */
 export type BarLens = Exclude<LensMode, 'option'>
 export const LENS_ORDER: readonly BarLens[] = ['full', 'tradeoffs', 'rests_on', 'premortem', 'what_changes', 'what_if']
+
+/**
+ * Vision spec §3 (23 Oct): an icon before each lens name, to speed scanning. Decorative: the name stays the label.
+ * ⭐ ONE GLYPH, ONE MEANING (canvas audit item 4, 24 Oct): this is the ONLY lens icon map. The lens bar AND the lens key
+ * card read it, so a lens wears the same glyph everywhere, and no glyph here means anything else on the canvas.
+ */
+export const LENS_ICON: Readonly<Record<BarLens, LucideIcon>> = {
+  full: Layers2,
+  tradeoffs: Scale,
+  rests_on: Landmark, // what the model stands on; Anchor is the anchoring-bias icon (design system §9.6)
+  // A storm over the plan: imagine it failed. Not AlertTriangle, which is the design system's §9.5 warning state and
+  // the card's "Coaching: must fix" mark.
+  premortem: CloudLightning,
+  what_changes: Activity,
+  what_if: ArrowRightLeft,
+}
 
 /** "What would change" reads a Run, so before one it is shown but cannot be chosen. */
 export const lensNeedsRun = (lens: BarLens): boolean => lens === 'what_changes'

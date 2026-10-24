@@ -24,7 +24,7 @@ import {
   ChevronDown,
   ChevronRight,
   Target,
-  Crosshair,
+  Signpost,
   Lightbulb,
   Settings,
   AlertTriangle,
@@ -101,7 +101,7 @@ interface GroupedNodes {
 
 const NODE_TYPE_CONFIG: Record<NodeType, { icon: typeof Target; label: string; order: number; color: string }> = {
   goal: { icon: Target, label: 'Goals', order: 0, color: 'bg-warning' },
-  decision: { icon: Crosshair, label: 'Decisions', order: 1, color: 'bg-sky-500' },
+  decision: { icon: Signpost, label: 'Decisions', order: 1, color: 'bg-sky-500' },
   option: { icon: Lightbulb, label: 'Options', order: 2, color: 'bg-option' },
   factor: { icon: Settings, label: 'Factors', order: 3, color: 'bg-sand-400' },
   risk: { icon: AlertTriangle, label: 'Risks', order: 4, color: 'bg-danger' },

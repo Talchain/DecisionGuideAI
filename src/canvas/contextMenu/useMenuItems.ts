@@ -7,7 +7,7 @@
 
 import { useMemo } from 'react'
 import {
-  Sparkles, HelpCircle, Crosshair, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
+  Sparkles, HelpCircle, Waypoints, Route, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
   Pencil, Plus, Flag, Scissors, CopyPlus,
   Trash2, MessageSquare, Layers, TrendingUp, AlertTriangle, ArrowLeftRight, Eye,
   Undo2, Redo2, LayoutGrid, PanelRight, MousePointer2, Hand,
@@ -754,7 +754,7 @@ function buildNodeMenu(
     items.push({
       id: 'explore',
       label: 'Explore',
-      icon: Crosshair,
+      icon: Waypoints, // relationships between items; Crosshair is "Show on canvas" (one glyph, one meaning)
       tooltip: 'Explore relationships',
       enabled: true,
       hasSubmenu: true,
@@ -762,7 +762,7 @@ function buildNodeMenu(
         {
           id: 'trace-to-goal',
           label: 'Trace to goal',
-          icon: Crosshair,
+          icon: Route,
           tooltip: "Highlight how this element's influence reaches the goal",
           enabled: true,
           action: wrap(() => traceToGoal(target.nodeId, showToast)),

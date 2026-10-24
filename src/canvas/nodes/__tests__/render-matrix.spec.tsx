@@ -243,7 +243,7 @@ describe('Render matrix — FactorNode × view × phase', () => {
     // point 3). So "once" is counted over every control that asks it, across
     // the card AND the (inline-mocked) popover, and the face chip row is gone.
     const face = faceOf('Marketing Expertise Available')
-    const askers = screen.getAllByRole('button', { name: 'What’s the evidence?' })
+    const askers = screen.getAllByRole('button', { name: 'Ask Olumi: What’s the evidence?' })
     expect(askers).toHaveLength(1)
     expect(askers[0].getAttribute('data-testid')).toBe('node-coaching-icon-factor-1')
     expect(face.contains(askers[0])).toBe(true)
@@ -436,7 +436,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // Locked Canvas design (23 Sep 2026): the card's question is the rail's
     // coaching icon, not a face chip (spec §2; ED 02:31Z D4; design summary
     // "Option … Coaching icon: pre-analysis card chip ('What could go wrong?')").
-    expect(within(face).getByTestId('node-coaching-icon-option-1')).toHaveAccessibleName('What could go wrong?')
+    expect(within(face).getByTestId('node-coaching-icon-option-1')).toHaveAccessibleName('Ask Olumi: What could go wrong?')
     expect(within(face).queryByText('What could go wrong?')).toBeNull()
     expect(within(face).queryByTestId('option-card-question')).toBeNull()
     // Locked Canvas design (23 Sep 2026): the "Reference: …" line is gone with
@@ -527,7 +527,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // as the rail's coaching icon in BOTH views (the card question was never a
     // Detailed layer-2 chip; spec §2, ED 02:31Z D4), and no face chip copy.
     const face = faceOf('Aggressive plan')
-    expect(within(face).getByTestId('node-coaching-icon-option-1')).toHaveAccessibleName('What could go wrong?')
+    expect(within(face).getByTestId('node-coaching-icon-option-1')).toHaveAccessibleName('Ask Olumi: What could go wrong?')
     expect(within(face).queryByText('What could go wrong?')).toBeNull()
   })
 
@@ -940,7 +940,7 @@ describe('Render matrix — DecisionNode chip audit', () => {
     // is asserted here purely as a REGRESSION PIN — this fixture has no goal
     // either, so it was already 0 before the removal too.
     const face = faceOf('Hiring decision')
-    expect(within(face).getByTestId('node-coaching-icon-decision-1')).toHaveAccessibleName('Explore more options')
+    expect(within(face).getByTestId('node-coaching-icon-decision-1')).toHaveAccessibleName('Ask Olumi: Explore more options')
     expect(within(face).queryByText('What could go wrong?')).toBeNull()
     expect(screen.queryByText('Explore more options')).toBeNull()
     expect(screen.queryByText('Run analysis')).toBeNull()
@@ -975,7 +975,7 @@ describe('Render matrix — DecisionNode chip audit', () => {
     renderDecision()
     const face = faceOf('Hiring decision')
     expect(within(face).queryByTestId('decision-run-analysis-decision-1')).toBeNull()
-    expect(within(face).getByTestId('node-coaching-icon-decision-1')).toHaveAccessibleName('Explore more options')
+    expect(within(face).getByTestId('node-coaching-icon-decision-1')).toHaveAccessibleName('Ask Olumi: Explore more options')
     expect(screen.queryByText('Run analysis')).toBeNull()
     expect(screen.queryByText('Run the analysis now')).toBeNull()
     // …and the Standard popover withholds the other arm too.
@@ -1002,7 +1002,7 @@ describe('Render matrix — DecisionNode chip audit', () => {
     // question, and Detailed keeps both as chips.
     const face = faceOf('Hiring decision')
     const icon = within(face).getByTestId('node-coaching-icon-decision-1')
-    expect(icon).toHaveAccessibleName('Challenge this result')
+    expect(icon).toHaveAccessibleName('Ask Olumi: Challenge this result')
     expect(icon.getAttribute('data-coaching-typed')).toBe('true')
     expect(screen.queryByText('Challenge this result')).toBeNull()
     expect(within(face).queryByText('Compare options')).toBeNull()
@@ -1211,7 +1211,7 @@ describe('Render matrix — GoalNode chip audit', () => {
     // "'Is this the real goal?' chip (now the coaching icon)"; ED 11:52Z
     // point 2 "coaching behind icon").
     const face = faceOf('Reach revenue')
-    expect(within(face).getByTestId('node-coaching-icon-goal-1')).toHaveAccessibleName('Is this the real goal?')
+    expect(within(face).getByTestId('node-coaching-icon-goal-1')).toHaveAccessibleName('Ask Olumi: Is this the real goal?')
     expect(within(face).queryByText('Is this the real goal?')).toBeNull()
     // Sits beside the realism question rather than replacing it: "can we hit
     // this number" and "is this the right number" are different questions.
@@ -1269,7 +1269,7 @@ describe('Render matrix — OutcomeNode chip audit', () => {
       // summary, Outcome/Risk: "icon asks: outcome 'What would falsify
       // this?'"; spec §2, ED 02:31Z D4). Preserved — asked, not as face text.
       const face = faceOf('Revenue growth')
-      expect(within(face).getByTestId('node-coaching-icon-outcome-1')).toHaveAccessibleName('What would falsify this?')
+      expect(within(face).getByTestId('node-coaching-icon-outcome-1')).toHaveAccessibleName('Ask Olumi: What would falsify this?')
       expect(within(face).queryByText('What would falsify this?')).toBeNull()
     } else {
       expect(screen.getByText('What would falsify this?')).toBeDefined()
@@ -1352,7 +1352,7 @@ describe('Render matrix — RiskNode chip audit', () => {
     // the rail's coaching icon on the Standard face, not a face chip (design
     // summary, Outcome/Risk: "risk 'What would we see first?'"; ED 02:31Z D4).
     const face = faceOf('Key person dependency')
-    expect(within(face).getByTestId('node-coaching-icon-risk-1')).toHaveAccessibleName('What would we see first?')
+    expect(within(face).getByTestId('node-coaching-icon-risk-1')).toHaveAccessibleName('Ask Olumi: What would we see first?')
     expect(within(face).queryByText('What would we see first?')).toBeNull()
     // The reduce/mitigate pair is not displaced by the addition.
     expect(screen.getByText('What reduces this?')).toBeDefined()

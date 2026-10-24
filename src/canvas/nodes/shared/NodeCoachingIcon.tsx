@@ -138,6 +138,16 @@ export const ASK_OLUMI_CHIP: CoachingChip = {
 }
 
 /**
+ * The Olumi mark's labels: always an ask to Olumi about this card. The generic door names the element (a keyboard user
+ * has no spatial context); a resolver question keeps its own words after "Ask Olumi: ".
+ */
+export function coachingIconLabels(chip: CoachingChip, nodeLabel: string): { accessibleName: string; tooltip: string } {
+  if (chip.id === ASK_OLUMI_CHIP_ID) return { accessibleName: `Ask Olumi about ${nodeLabel}`, tooltip: chip.label }
+  const ask = `Ask Olumi: ${chip.label}`
+  return { accessibleName: ask, tooltip: ask }
+}
+
+/**
  * The chip the icon will ask, or `null` when the icon renders nothing. ONE gate,
  * read by the icon AND by the rail that decides whether "Ask Olumi" is a
  * duplicate — so the two can never disagree about whether coaching is showing.
@@ -206,12 +216,13 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
 
   if (!chip) return null
 
-  // The generic door's accessible name carries the element (a keyboard user has
-  // no spatial context); a resolver question keeps its own words, unchanged.
-  const accessibleName = chip.id === ASK_OLUMI_CHIP_ID ? `Ask Olumi about ${nodeLabel}` : chip.label
+  // ⭐ ONE GLYPH, ONE MEANING (canvas audit item 4, 24 Oct): this button wears the Olumi mark, and the Olumi mark means
+  // "talk to Olumi about this item". So every label it carries says so: the generic door "Ask Olumi about <item>", a
+  // resolver question (e.g. "What could go wrong?") "Ask Olumi: <the card's own question>", inside the card it is about.
+  const { accessibleName, tooltip } = coachingIconLabels(chip, nodeLabel)
 
   return (
-    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={chip.label}>
+    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={tooltip}>
       <button
         type="button"
         /* Discreet at rest (the rail's `.icon-btn` grey, #777B77 — gap 34; it

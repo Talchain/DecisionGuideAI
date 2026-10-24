@@ -198,7 +198,7 @@ describe('the lens bar: one press between lenses', () => {
     const view = render(<LensBar />)
     const want: Array<[string, string, string]> = [
       ['full', 'Model', 'lucide-layers2'], ['tradeoffs', 'Trade-offs', 'lucide-scale'], ['rests_on', 'Rests on', 'lucide-landmark'],
-      ['premortem', 'If it failed', 'lucide-alert-triangle'], ['what_changes', 'What would change', 'lucide-activity'],
+      ['premortem', 'If it failed', 'lucide-cloud-lightning'], ['what_changes', 'What would change', 'lucide-activity'],
       ['what_if', 'What if', 'lucide-arrow-right-left'],
     ]
     for (const [lens, name, iconClass] of want) {
@@ -209,6 +209,9 @@ describe('the lens bar: one press between lenses', () => {
       assert.ok(icon.getAttribute('class')?.split(' ').includes(iconClass), `${name}: ${icon.getAttribute('class')}`)
       assert.match(segment.textContent ?? '', new RegExp(`^${name}`, 'u'))
     }
+    // One glyph, one meaning (canvas audit item 4): the "If it failed" lens no longer borrows AlertTriangle, the design
+    // system's §9.5 warning and the card's "Coaching: must fix" mark.
+    assert.equal(view.getByTestId('lens-bar-premortem').querySelector('.lucide-alert-triangle'), null)
     assert.equal(view.getByTestId('lens-bar-rests_on-count').textContent, '1')
   })
 

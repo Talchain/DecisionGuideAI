@@ -123,7 +123,9 @@ describe('the option card asks its own question, like every other kind', () => {
     // Locked Canvas design (23 Sep 2026): the rail icon is the card's question
     // (ED 02:31Z D4) — still on the card, still no hover. The face chip row is gone.
     const icon = screen.getByTestId(ICON)
-    expect(icon).toHaveAccessibleName('What could go wrong?')
+    // One glyph, one meaning (canvas audit item 4): the Olumi mark's label says it asks Olumi, in the card's own words.
+    expect(icon).toHaveAccessibleName('Ask Olumi: What could go wrong?')
+    expect(icon.getAttribute('data-icon') ?? icon.querySelector('[data-icon]')?.getAttribute('data-icon')).toBe('olumi-brand-mark')
     expect(icon.getAttribute('data-coaching-chip-id')).toBe('option_what_could_go_wrong')
     expect(screen.queryByTestId('option-card-question')).toBeNull()
   })
@@ -135,7 +137,7 @@ describe('the option card asks its own question, like every other kind', () => {
     // Locked Canvas design (23 Sep 2026): the one carrier is the rail icon,
     // whose label is its accessible name (not text), so the count is taken by
     // role+name — which also counts any popover chip button with that label.
-    const asks = screen.getAllByRole('button', { name: 'What could go wrong?' })
+    const asks = screen.getAllByRole('button', { name: 'Ask Olumi: What could go wrong?' })
     expect(asks).toHaveLength(1)
     expect(asks[0].getAttribute('data-testid')).toBe(ICON)
     // …and no visible-text copy of the chip anywhere (face or inline popover).
@@ -195,7 +197,7 @@ describe('the option card asks its own question, like every other kind', () => {
     renderOption({}, 'complete')
     // Locked Canvas design (23 Sep 2026): after a run the icon asks the
     // CLUSTER's first chip, never this pre-analysis card question.
-    expect(screen.queryByRole('button', { name: 'What could go wrong?' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Ask Olumi: What could go wrong?' })).toBeNull()
     expect(screen.queryByTestId('option-card-question')).toBeNull()
   })
 })

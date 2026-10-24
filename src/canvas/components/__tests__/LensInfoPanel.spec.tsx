@@ -19,6 +19,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { LensInfoPanel } from '../LensInfoPanel'
+import { LensBar } from '../../artefacts/LensBar'
 import { useCanvasStore } from '../../store'
 
 // The Run stage the action registry reads; real elsewhere, set per row in the "If it failed" block.
@@ -264,4 +265,36 @@ describe('⭐ legend first (Reasoning Canvas plan, step 4): the key opens on wha
     expect(screen.getByTestId('lens-info-robustness').hasAttribute('data-folded')).toBe(false)
     expect(screen.getByTestId('lens-info-robustness').textContent).toContain('measured nothing')
   })
+})
+
+// ⭐ ONE GLYPH, ONE MEANING (canvas audit item 4, 24 Oct): the key card drew its own lens icons (Layers for "Rests on",
+// FlaskConical for "What if") while the bar drew Landmark and ArrowRightLeft. Both now read the ONE map in `lenses.ts`.
+describe('the lens key card wears the same glyph as its lens on the bar', () => {
+  beforeEach(() => localStorage.setItem('feature.graphLens', '1'))
+  afterEach(() => {
+    localStorage.removeItem('feature.graphLens')
+    useCanvasStore.setState({ results: { status: 'idle', progress: 0 } as never, nodes: [] as never, lens: { ...useCanvasStore.getState().lens, active: 'full' } } as never)
+  })
+
+  const want: Array<[string, string]> = [
+    ['tradeoffs', 'lucide-scale'],
+    ['rests_on', 'lucide-landmark'],
+    ['premortem', 'lucide-cloud-lightning'],
+    ['what_changes', 'lucide-activity'],
+    ['what_if', 'lucide-arrow-right-left'],
+  ]
+  for (const [lens, iconClass] of want) {
+    it(`${lens}: the key card's heading glyph is ${iconClass}, the bar's own glyph for that lens`, () => {
+      seedRobustnessLens([])
+      useCanvasStore.setState({ lens: { ...useCanvasStore.getState().lens, active: lens } } as never)
+      const key = render(<LensInfoPanel />)
+      const glyph = key.getByTestId('lens-info-heading').previousElementSibling
+      expect(glyph?.tagName.toLowerCase()).toBe('svg')
+      expect(glyph?.getAttribute('class')?.split(' ')).toContain(iconClass)
+      key.unmount()
+      const bar = render(<LensBar />)
+      expect(bar.getByTestId(`lens-bar-${lens}-icon`).getAttribute('class')?.split(' ')).toContain(iconClass)
+      bar.unmount()
+    })
+  }
 })

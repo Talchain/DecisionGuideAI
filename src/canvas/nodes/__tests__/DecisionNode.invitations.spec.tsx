@@ -179,7 +179,7 @@ describe('DecisionNode — invitations in Standard view', () => {
     const { container } = renderDecision()
     const icon = coachingIconIn(container)
     expect(icon, 'coaching icon missing').not.toBeNull()
-    expect(icon!.getAttribute('aria-label')).toBe('Explore more options')
+    expect(icon!.getAttribute('aria-label')).toBe('Ask Olumi: Explore more options')
     expect(icon!.closest('[data-testid="decision-node-popover"]')).toBeNull()
     expect(outsidePopover(container)).not.toContain('Explore more options')
   })
@@ -189,9 +189,9 @@ describe('DecisionNode — invitations in Standard view', () => {
     // per card; the secondary chip keeps its home in Detailed's chip row.
     const { container } = renderDecision()
     // Precondition: the fixture really resolves the second chip (no run CTA).
-    expect(coachingIconIn(container)?.getAttribute('aria-label')).toBe('Explore more options')
+    expect(coachingIconIn(container)?.getAttribute('aria-label')).toBe('Ask Olumi: Explore more options')
     expect(outsidePopover(container)).not.toContain('What could go wrong?')
-    expect(faceControlsNamed(container, 'What could go wrong?')).toHaveLength(0)
+    expect(faceControlsNamed(container, 'Ask Olumi: What could go wrong?')).toHaveLength(0)
     // …but REACHABLE in Standard: the popover (hover or tap) offers every
     // invitation EXCEPT the one the icon already asks — never the same question
     // twice on one surface.
@@ -222,7 +222,7 @@ describe('DecisionNode — invitations in Standard view', () => {
     const popover = screen.queryByTestId('decision-node-popover')
     expect(popover, 'popover fixture missing — this test would pass vacuously').not.toBeNull()
     expect(coachingIconIn(container)?.closest('[data-testid="decision-node-popover"]')).toBeNull()
-    expect(faceControlsNamed(container, 'Explore more options')).toHaveLength(1)
+    expect(faceControlsNamed(container, 'Ask Olumi: Explore more options')).toHaveLength(1)
     expect(within(popover as HTMLElement).queryByText('Explore more options')).toBeNull()
     expect(within(popover as HTMLElement).queryByRole('button', { name: 'Explore more options' })).toBeNull()
     // The popover keeps what it is uniquely good at.
@@ -249,7 +249,7 @@ describe('DecisionNode — invitations in Standard view', () => {
     const { container } = renderDecision()
     expect(screen.getByTestId('decision-node-resting-state').textContent).toContain('No options')
     expect(outsidePopover(container)).not.toContain('Explore more options')
-    expect(faceControlsNamed(container, 'Explore more options')).toHaveLength(0)
+    expect(faceControlsNamed(container, 'Ask Olumi: Explore more options')).toHaveLength(0)
   })
 
   it('the card never carries three chips at once', () => {
@@ -270,7 +270,7 @@ describe('DecisionNode — invitations in Standard view', () => {
     // untouched here), so `questions` stays 1 in both arms too — this test's
     // own point, "never three chips at once", is unaffected by which of the
     // two mechanisms is doing the withholding.
-    const QUESTIONS = ['Explore more options', 'What could go wrong?']
+    const QUESTIONS = ['Ask Olumi: Explore more options', 'Ask Olumi: What could go wrong?']
     const countOn = (container: HTMLElement) => ({
       questions: QUESTIONS.flatMap(q => faceControlsNamed(container, q)).length,
       run: container.querySelectorAll(`[data-testid="decision-run-analysis-${DECISION_ID}"]`).length,
@@ -310,7 +310,7 @@ describe('DecisionNode — invitations in Standard view', () => {
       useAskOlumiStore.setState({ isOpen: false, draft: '' })
       const { container } = renderDecision()
       const btn = coachingIconIn(container)
-      if (!btn || btn.getAttribute('aria-label') !== label) {
+      if (!btn || btn.getAttribute('aria-label') !== `Ask Olumi: ${label}`) {
         throw new Error(`refusing to assert: no "${label}" coaching icon rendered`)
       }
       fireEvent.click(btn)
@@ -364,7 +364,7 @@ describe('DecisionNode — invitations in Standard view', () => {
       setStore({ edges, nodes })
       const { container } = renderDecision()
       const btn = coachingIconIn(container)
-      if (!btn || btn.getAttribute('aria-label') !== 'Explore more options') {
+      if (!btn || btn.getAttribute('aria-label') !== 'Ask Olumi: Explore more options') {
         throw new Error('refusing to assert: no "Explore more options" coaching icon rendered')
       }
       fireEvent.click(btn)

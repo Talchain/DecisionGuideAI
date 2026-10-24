@@ -584,7 +584,7 @@ describe('DecisionNode — honest resting state', () => {
     // rail's ONE coaching icon, still reachable WITHOUT a hover, and still TYPED
     // (ED 02:31Z: `what_would_flip` is never demoted to a generic ask).
     const icon = screen.getByTestId(COACHING_ICON)
-    expect(icon.getAttribute('aria-label')).toBe('Challenge this result')
+    expect(icon.getAttribute('aria-label')).toBe('Ask Olumi: Challenge this result')
     expect(icon.getAttribute('data-coaching-typed')).toBe('true')
 
     // Locked Canvas design (23 Sep 2026): the content-free wayfinding line is
@@ -703,7 +703,7 @@ describe('DecisionNode — honest resting state', () => {
     // on the card; the chip ROW is off the Standard face. The popover offers
     // the REST of the post-run questions ("Compare options") beside its
     // robustness detail, never the icon's own question again.
-    const icons = screen.getAllByRole('button', { name: 'Challenge this result' })
+    const icons = screen.getAllByRole('button', { name: 'Ask Olumi: Challenge this result' })
     expect(icons).toHaveLength(1)
     expect(icons[0].getAttribute('data-testid')).toBe(COACHING_ICON)
     expect(screen.queryByText('Challenge this result')).toBeNull()
@@ -750,7 +750,7 @@ describe('DecisionNode — honest resting state', () => {
     // carries no chip ROW: outside the popover the question appears once, as
     // the icon.
     const faceControls = screen
-      .getAllByRole('button', { name: 'Challenge this result' })
+      .getAllByRole('button', { name: 'Ask Olumi: Challenge this result' })
       .filter(b => !b.closest('[data-testid="decision-node-popover"]'))
     expect(faceControls).toHaveLength(1)
     expect(faceControls[0].getAttribute('data-testid')).toBe(COACHING_ICON)

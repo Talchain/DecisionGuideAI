@@ -11,7 +11,6 @@
  * View only: it changes the lens and nothing else.
  */
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Activity, AlertTriangle, ArrowRightLeft, Landmark, Layers2, Scale, type LucideIcon } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
 import { typography } from '../../styles/typography'
@@ -22,21 +21,11 @@ import { TOP_PILL_BOTTOM_PX, TOP_PILL_HEIGHT_PX, TOP_PILL_TOP_PX } from '../../c
 import { resolveActiveGoalNodeId } from '../hooks/goalThresholdResolvers'
 import { assumptionMapOf } from './assumptionMapModel'
 import { isUnsettled } from './RestsOnMarker'
-import { LENS_COPY, LENS_ORDER, lensNeedsRun, useCurrentPremortemWorksheet, usePremortemArrival, type BarLens } from './lenses'
+import { LENS_COPY, LENS_ICON, LENS_ORDER, lensNeedsRun, useCurrentPremortemWorksheet, usePremortemArrival, type BarLens } from './lenses'
 
 export const LENS_BAR_TESTID = 'lens-bar'
 /** The space kept between the bar and the pill, the dock or the window edge. */
 const GAP_PX = 12
-
-/** Vision spec §3 (23 Oct): an icon before each lens name, to speed scanning. Decorative: the name stays the label. */
-export const LENS_ICON: Record<BarLens, LucideIcon> = {
-  full: Layers2,
-  tradeoffs: Scale,
-  rests_on: Landmark, // what the model stands on; Anchor is the anchoring-bias icon (design system §9.6)
-  premortem: AlertTriangle,
-  what_changes: Activity,
-  what_if: ArrowRightLeft,
-}
 
 interface Placement { readonly left: number; readonly top: number }
 

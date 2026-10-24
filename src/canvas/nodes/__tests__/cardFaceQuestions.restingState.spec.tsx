@@ -155,7 +155,8 @@ const expectRestingQuestion = (nodeId: string, label: string, chipId: string) =>
   // card — the coaching icon no longer rests on every card; its question is the actions' Olumi door).
   const actions = screen.getByTestId(`node-quick-actions-${nodeId}`)
   const icon = within(actions).getByTestId(`node-coaching-icon-${nodeId}`)
-  expect(icon).toHaveAccessibleName(label)
+  // One glyph, one meaning (canvas audit item 4): the Olumi mark's label says it asks Olumi.
+  expect(icon).toHaveAccessibleName(`Ask Olumi: ${label}`)
   expect(icon).toHaveAttribute('data-coaching-chip-id', chipId)
   // Drawn once: no resting copy, and the generic ask is withheld beside it.
   expect(screen.getAllByTestId(`node-coaching-icon-${nodeId}`)).toHaveLength(1)

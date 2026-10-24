@@ -468,7 +468,7 @@ describe('Factor — coaching is ONE rail icon, not a chip row (spec §2; ED 11:
     const card = face('Trial conversion')
     expect(within(card).queryByTestId('factor-card-question')).toBeNull()
     const icon = within(card).getByTestId('node-coaching-icon-fac-conv')
-    expect(icon).toHaveAccessibleName('What’s the evidence?')
+    expect(icon).toHaveAccessibleName('Ask Olumi: What’s the evidence?')
     // No duplicate "Ask Olumi" quick action beside it (ED 02:31Z D4).
     expect(within(card).queryByTestId('node-action-ask-fac-conv')).toBeNull()
   })
@@ -693,7 +693,7 @@ describe('Outcome/Risk — coaching behind the one icon; link strength off the c
     renderCard(OutcomeNode as never, 'outcome-1')
     const card = face('Revenue')
     expect(within(card).queryByText('What would falsify this?')).toBeNull()
-    expect(within(card).getByTestId('node-coaching-icon-outcome-1')).toHaveAccessibleName('What would falsify this?')
+    expect(within(card).getByTestId('node-coaching-icon-outcome-1')).toHaveAccessibleName('Ask Olumi: What would falsify this?')
   })
 
   // ⚠ SUPERSEDED BY CONTRACT v3.1 (gap U1): these two cases pinned the card's
@@ -727,7 +727,7 @@ describe('Outcome/Risk — coaching behind the one icon; link strength off the c
     renderCard(RiskNode as never, 'risk-1')
     const card = face('Churn spike')
     expect(within(card).queryByText('How likely is this?')).toBeNull()
-    expect(within(card).getByTestId('node-coaching-icon-risk-1')).toHaveAccessibleName('What would we see first?')
+    expect(within(card).getByTestId('node-coaching-icon-risk-1')).toHaveAccessibleName('Ask Olumi: What would we see first?')
     expect(within(screen.getByTestId('node-popover')).getByText('How likely is this?')).toBeTruthy()
   })
 
@@ -753,7 +753,7 @@ describe('Question — wide and shallow: option count + at most one short segmen
     setState({ phase: 'pre' })
     renderCard(DecisionNode as never, 'decision-1')
     const card = face('How should we price the new plan\\?')
-    expect(within(card).queryByRole('button', { name: 'Explore more options' })?.getAttribute('data-testid')).toBe('node-coaching-icon-decision-1')
+    expect(within(card).queryByRole('button', { name: 'Ask Olumi: Explore more options' })?.getAttribute('data-testid')).toBe('node-coaching-icon-decision-1')
     expect(within(card).getByTestId('decision-node-option-count').getAttribute('aria-label')).toBe('4 options')
   })
 
@@ -782,7 +782,7 @@ describe('Question — wide and shallow: option count + at most one short segmen
     setCurrency('current')
     renderCard(DecisionNode as never, 'decision-1')
     const icon = within(face('How should we price the new plan\\?')).getByTestId('node-coaching-icon-decision-1')
-    expect(icon).toHaveAccessibleName('Challenge this result')
+    expect(icon).toHaveAccessibleName('Ask Olumi: Challenge this result')
     expect(icon.getAttribute('data-coaching-typed')).toBe('true')
   })
 })
@@ -811,7 +811,7 @@ describe('Goal — wide and shallow: target state + one Chance row; provenance c
     renderCard(GoalNode as never, 'goal-1')
     const card = face('Grow net revenue')
     expect(within(card).queryByText('Run analysis')).toBeNull()
-    expect(within(card).getByTestId('node-coaching-icon-goal-1')).toHaveAccessibleName('Is this the real goal?')
+    expect(within(card).getByTestId('node-coaching-icon-goal-1')).toHaveAccessibleName('Ask Olumi: Is this the real goal?')
   })
 
   it('raw metadata without a licensed goal chance renders no Chance row in either currency state', () => {

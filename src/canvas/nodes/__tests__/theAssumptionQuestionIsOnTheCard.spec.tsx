@@ -98,7 +98,7 @@ describe('the factor card carries its own question, like every other kind', () =
     // Locked Canvas design (23 Sep 2026), spec §2: no chip row on the face…
     expect(screen.queryByTestId('factor-card-question')).toBeNull()
     // …the rail's one coaching icon asks it, at rest (no hover needed).
-    expect(screen.getByTestId(ICON)).toHaveAccessibleName('What’s the evidence?')
+    expect(screen.getByTestId(ICON)).toHaveAccessibleName('Ask Olumi: What’s the evidence?')
     // …and no duplicate generic "Ask Olumi" beside it (ED 02:31Z D4).
     expect(screen.queryByTestId(`node-action-ask-${ID}`)).toBeNull()
   })
@@ -111,7 +111,7 @@ describe('the factor card carries its own question, like every other kind', () =
   it('⭐ and it SURVIVES the run — the assumption does not stop being one', () => {
     renderFactor(INFERRED, 'complete')
     expect(screen.queryByTestId('factor-card-question')).toBeNull()
-    expect(screen.getByTestId(ICON)).toHaveAccessibleName('What’s the evidence?')
+    expect(screen.getByTestId(ICON)).toHaveAccessibleName('Ask Olumi: What’s the evidence?')
   })
 
   /**
@@ -122,8 +122,8 @@ describe('the factor card carries its own question, like every other kind', () =
     renderFactor({ observedState: { value: 0.4, extractionType: 'inferred' }, category: 'external' })
     expect(screen.queryByTestId('factor-card-question')).toBeNull()
     const q = screen.getByTestId(ICON)
-    expect(q).toHaveAccessibleName('What if this changes?')
-    expect(q).not.toHaveAccessibleName('What’s the evidence?')
+    expect(q).toHaveAccessibleName('Ask Olumi: What if this changes?')
+    expect(q).not.toHaveAccessibleName('Ask Olumi: What’s the evidence?')
   })
 
   /**
@@ -139,7 +139,7 @@ describe('the factor card carries its own question, like every other kind', () =
     // the icon is the generic "Ask Olumi" door and asks no assumption question.
     const icon = screen.getByTestId(ICON)
     expect(icon.getAttribute('data-coaching-chip-id')).toBe(ASK_OLUMI_CHIP_ID)
-    expect(icon).not.toHaveAccessibleName('What’s the evidence?')
+    expect(icon).not.toHaveAccessibleName('Ask Olumi: What’s the evidence?')
     // …and it REPLACES the hover-only "Ask Olumi" rather than duplicating it.
     expect(screen.queryByTestId(`node-action-ask-${ID}`)).toBeNull()
   })

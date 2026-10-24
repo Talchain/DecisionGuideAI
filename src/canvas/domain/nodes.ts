@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod'
-import { Target, Crosshair, Lightbulb, Settings, AlertTriangle, TrendingUp, Zap, Shield } from 'lucide-react'
+import { Target, Signpost, Lightbulb, Settings, AlertTriangle, TrendingUp, Zap, Shield } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { devWarn } from '../../utils/debugLog'
 import { DECISION_NODE_LABEL } from './vocabulary'
@@ -568,7 +568,8 @@ export const NODE_REGISTRY: Record<NodeType, NodeMetadata> = {
     defaultSize: { width: 240, height: 100 },
   },
   decision: {
-    icon: Crosshair,
+    // The fork the options branch from. Not Crosshair: that is "Show on canvas" everywhere (one glyph, one meaning).
+    icon: Signpost,
     label: DECISION_NODE_LABEL,
     ariaRole: 'group',
     defaultSize: { width: 240, height: 100 },

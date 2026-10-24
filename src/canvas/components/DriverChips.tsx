@@ -26,7 +26,7 @@ import {
   Minus,
   Zap,
   Target,
-  Crosshair,
+  Signpost,
   Lightbulb,
   Settings,
   Info,
@@ -41,7 +41,7 @@ import { typography } from '../../styles/typography'
 // Node icon mapping (matches canvas nodes exactly)
 const NODE_ICONS: Record<string, LucideIcon> = {
   goal: Target,
-  decision: Crosshair,
+  decision: Signpost,
   option: Lightbulb,
   factor: Settings,
   risk: AlertTriangle,

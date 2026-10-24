@@ -346,7 +346,7 @@ describe('FactorNode', () => {
     // Locked Canvas design (23 Sep 2026), spec §2 / ED 11:52Z point 3: the chip
     // row is off the face; the rail's coaching icon asks the same question.
     expect(screen.queryByTestId('factor-card-question')).toBeNull()
-    expect(screen.getByTestId(COACHING_ICON)).toHaveAccessibleName('Help me estimate this')
+    expect(screen.getByTestId(COACHING_ICON)).toHaveAccessibleName('Ask Olumi: Help me estimate this')
   })
 
   // T6: Influence/Confidence bars in results mode — only in Layer 2 (Detailed view)
@@ -463,7 +463,7 @@ describe('FactorNode', () => {
     expect(screen.queryByText('Missing value. Weakens analysis.')).toBeNull()
     // Locked Canvas design (23 Sep 2026): the question's home is the rail icon.
     expect(screen.queryByTestId('factor-card-question')).toBeNull()
-    expect(screen.getByTestId(COACHING_ICON)).toHaveAccessibleName('Help me estimate this')
+    expect(screen.getByTestId(COACHING_ICON)).toHaveAccessibleName('Ask Olumi: Help me estimate this')
   })
 
   it('does not show Influence/Confidence bars in results mode when both influence and confidence are null', () => {
@@ -2053,7 +2053,7 @@ describe('FactorNode — intervention mark (option lens; v3.1 row 6)', () => {
       // render site is the rail's coaching icon — the question is its
       // accessible name. EXACTLY ONCE across the whole card: one control asks
       // it, and no chip row (face or popover) prints it as text.
-      const asking = screen.getAllByRole('button', { name: 'What’s the evidence?' })
+      const asking = screen.getAllByRole('button', { name: 'Ask Olumi: What’s the evidence?' })
       expect(asking).toHaveLength(1)
       expect(asking[0].getAttribute('data-testid')).toBe(COACHING_ICON)
       expect(screen.queryAllByText('What’s the evidence?')).toHaveLength(0)
