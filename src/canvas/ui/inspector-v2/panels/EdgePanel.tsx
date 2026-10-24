@@ -70,7 +70,7 @@ import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
 import { EdgeReviewDisagreement } from '../shared/EdgeReviewDisagreement'
 import { EdgeRelationshipSummary } from '../shared/EdgeRelationshipSummary'
 import { inspectorButton, inspectorButtonPrimary, inspectorButtonRow, inspectorGroupLabel, inspectorSectionHighlight } from '../inspectorStyle'
-import { resolveElementLabel } from '../../../domain/elementLabel'
+import { resolveNodeDisplayLabel } from '../../../domain/elementLabel'
 import { LINK_MARGIN_LABEL, linkMarginSentence } from '../../../../components/results/utils/fragileEdgeCopy'
 import { edgeStrengthEditIsAssertable, edgeDirectionEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
@@ -275,8 +275,8 @@ export const EdgePanel = memo(function EdgePanel({
   // as the honest no-name fallback rather than as a graph key. These two feed
   // the shell title, the intervention notice sentence and the coaching label
   // context, so the id was reaching the user in three places at once.
-  const sourceLabel = resolveElementLabel(sourceNode?.data)
-  const targetLabel = resolveElementLabel(targetNode?.data)
+  const sourceLabel = resolveNodeDisplayLabel(sourceNode)
+  const targetLabel = resolveNodeDisplayLabel(targetNode)
   const sourceKind = (sourceNode?.type || sourceNode?.data?.kind || 'factor') as NodeType
   const targetKind = (targetNode?.type || targetNode?.data?.kind || 'factor') as NodeType
 

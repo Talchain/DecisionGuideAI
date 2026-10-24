@@ -218,6 +218,7 @@ import {
 } from '../buildModelStrip'
 import type { NodeInsight, NodeInsightIndex } from '../nodeInsights'
 import { action, icon } from '../panelSurfaces'
+import { displayLabelText } from '../../../../canvas/domain/elementLabel'
 import { BRIEF_EDIT_COPY, BriefEditForm, useCurrentBriefText } from './BriefEditForm'
 import { useBriefEditStore } from '../briefEditStore'
 import { REVIEW_TOOL_COPY, WHOLE_FRAMING_ASK } from '../buildReviewQueue'
@@ -280,19 +281,6 @@ export function oneSentence(text: string): string {
   const firstLine = text.trim().split('\n')[0].trim()
   const end = firstLine.search(/[.!?](?=\s*$|\s+[A-Z0-9£$€"'“‘(])/)
   return (end >= 0 ? firstLine.slice(0, end + 1) : firstLine).trim()
-}
-
-/**
- * ⭐ THE DATA GAP'S OWN WORDING, STRIPPED FOR DISPLAY ONLY. `buildModelStrip`
- * is not touched by this file's lane — the raw `decisionLabel` it returns
- * still carries CEE's literal `'Decision: <goal label>'`, and every OTHER
- * reader of that field (there are none outside this component; see the
- * source scan) is unaffected. This strips the producer's own label prefix so
- * the panel's title reads as the question, never as a field name.
- */
-function stripDecisionPrefix(label: string): string {
-  const stripped = label.replace(/^decision:\s*/i, '').trim()
-  return stripped.length > 0 ? stripped : label
 }
 
 /**
@@ -629,7 +617,7 @@ export function ModelStrip({
    * the deployed build. Stripped once here, so every reader below — the lead,
    * the equality check, the containment check — agrees on one string.
    */
-  const decisionLabel = strip.decisionLabel === null ? null : stripDecisionPrefix(strip.decisionLabel)
+  const decisionLabel = strip.decisionLabel === null ? null : displayLabelText(strip.decisionLabel, 'decision')
   /**
    * `buildModelStrip`'s own `goalLabel` falls back to `decisionLabel` on a
    * decision-only model (`goalLabel: goalLabel ?? decisionLabel`), so the SAME

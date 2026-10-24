@@ -29,6 +29,8 @@
  * is a spelling, and is left exactly as written.
  */
 
+import { displayLabelText } from '../../domain/elementLabel'
+
 const PRODUCER_CUT = /(?:…|\.\.\.)\s*$/
 
 /** The longest recovered title the card will show before cutting it at a word. */
@@ -62,6 +64,7 @@ export function titleCaseFirstWord(text: string): string {
 }
 
 /** The text a node card shows as its title: the cut recovered, then the first word raised. */
-export function nodeCardTitle(label: string, description: string | null | undefined): string {
-  return titleCaseFirstWord(recoverProducerCutTitle(label, description))
+export function nodeCardTitle(label: string, description: string | null | undefined, kind?: unknown): string {
+  // The question node's CEE prefix ("Decision:") comes off for display only — `domain/elementLabel`.
+  return titleCaseFirstWord(displayLabelText(recoverProducerCutTitle(label, description), kind))
 }

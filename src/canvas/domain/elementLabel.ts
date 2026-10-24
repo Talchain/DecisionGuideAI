@@ -28,6 +28,8 @@
  * something.
  */
 
+import { resolveNodeTypeLiteral } from './nodes'
+
 /**
  * The single fallback string. Exported so a guard can pin it and so no caller
  * has to retype it — a retyped literal is a mirror waiting to drift.
@@ -52,6 +54,28 @@ export function resolveElementLabel(data: unknown): string {
     if (typeof label === 'string' && label.trim() !== '') return label
   }
   return UNNAMED_ELEMENT_LABEL
+}
+
+/**
+ * ⭐ THE ONE DISPLAY STRIP FOR CEE'S QUESTION-NODE PREFIX (canvas audit item 3, "labels through one helper").
+ * CEE writes the question node's fallback label as `Decision: <metric>` (and saved models keep it). Olumi is a
+ * reasoning partner, and "Decision" is only the person's own act of choosing (CLAUDE.md §3), so a surface that names
+ * the QUESTION node shows the words after the prefix.
+ *
+ * ⛔ ONLY FOR THE QUESTION NODE (`kind === 'decision'`): an action, factor or option the person named
+ * "Decision: retain the platform" keeps its words. ⛔ DISPLAY ONLY: never a save, an export, a comparison or a key —
+ * those read the raw label (`resolveElementLabel`, `canvasLabels`). A label that is nothing but the prefix is
+ * returned as written rather than emptied.
+ */
+export function displayLabelText(label: string, kind: unknown): string {
+  if (kind !== 'decision') return label
+  const stripped = label.replace(/^\s*decision\s*:\s*/i, '').trim()
+  return stripped.length > 0 ? stripped : label
+}
+
+/** A node's on-screen name: `resolveElementLabel`, with the question node's producer prefix off. DISPLAY ONLY. */
+export function resolveNodeDisplayLabel(node: { type?: string; data?: unknown } | null | undefined): string {
+  return node ? displayLabelText(resolveElementLabel(node.data), resolveNodeTypeLiteral(node)) : UNNAMED_ELEMENT_LABEL
 }
 
 /**

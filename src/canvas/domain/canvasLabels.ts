@@ -22,6 +22,8 @@
  */
 
 import { RAW_ID_PATTERN } from '../conversation/friendlyOperation'
+import { displayLabelText } from './elementLabel'
+import { resolveNodeTypeLiteral } from './nodes'
 
 /**
  * What an element is called when the model gives it no honest name.
@@ -94,6 +96,22 @@ export function buildCanvasLabelMap(
   for (const n of nodes) {
     const label = (n.data as { label?: unknown } | undefined)?.label
     if (typeof label === 'string' && label.trim() !== '') map.set(n.id, label)
+  }
+  return map
+}
+
+/**
+ * `buildCanvasLabelMap` for a surface that SHOWS names: the question node's CEE prefix is off
+ * (`displayLabelText`). ⛔ Never for an export, a save or a comparison — those keep `buildCanvasLabelMap`'s raw labels.
+ */
+export function buildCanvasDisplayLabelMap(
+  nodes: readonly { id: string; type?: string; data?: unknown }[],
+): ReadonlyMap<string, string> {
+  const raw = buildCanvasLabelMap(nodes)
+  const map = new Map<string, string>()
+  for (const n of nodes) {
+    const label = raw.get(n.id)
+    if (label !== undefined) map.set(n.id, displayLabelText(label, resolveNodeTypeLiteral(n)))
   }
   return map
 }

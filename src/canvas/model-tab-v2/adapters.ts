@@ -169,6 +169,7 @@ import { getDisplayEdgeId } from '../utils/edgeIdentity'
 // `null` rather than the identifier, and rejects a stored label that is itself
 // id-shaped — which is why it is imported here rather than reimplemented.
 import {
+  buildCanvasDisplayLabelMap,
   buildCanvasLabelMap,
   honestLabel,
   resolveCanvasLabel,
@@ -562,7 +563,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
   const rows: ModelRow[] = []
   // ONE map per projection — built here, threaded down. Rebuilding it per edge
   // would be the same work N times and, worse, a second place to get it wrong.
-  const nodeLabels = buildCanvasLabelMap(input.nodes)
+  const nodeLabels = buildCanvasDisplayLabelMap(input.nodes)
 
   for (const node of input.nodes) {
     const kind = nodeKind(node)

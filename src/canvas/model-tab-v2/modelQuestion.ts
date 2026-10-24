@@ -34,7 +34,7 @@ import type { Node } from '@xyflow/react'
 
 import { nodeKind } from './adapters'
 import { labelIsTypeDefault } from './rowPresentation'
-import { buildCanvasLabelMap, resolveCanvasLabel } from '../domain/canvasLabels'
+import { buildCanvasDisplayLabelMap, resolveCanvasLabel } from '../domain/canvasLabels'
 
 /**
  * THREE STATES, AND THE THIRD IS THE ONE THE DESIGN MISSED.
@@ -69,7 +69,7 @@ export type ModelQuestion =
  * reads, so the line names the question that appears first in the Goal group.
  */
 export function projectModelQuestion(nodes: readonly Node[]): ModelQuestion {
-  const labels = buildCanvasLabelMap(nodes)
+  const labels = buildCanvasDisplayLabelMap(nodes)
   let sawQuestionNode = false
 
   for (const node of nodes) {

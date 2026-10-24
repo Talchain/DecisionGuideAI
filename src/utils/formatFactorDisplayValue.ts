@@ -18,7 +18,7 @@ import { servedSwitchReading } from '../canvas/domain/switchFactors'
  */
 
 import { classifyUnit, unwrapInterventionValue } from '../canvas/utils/labelUtils'
-import { compactUnitParts, formatMoneyFigure, joinCompactUnitParts, moneyFigureParts, unitWords } from './unitClassifier'
+import { compactUnitParts, formatMoneyFigure, joinCompactUnitParts, moneyFigureParts, unitWordsForCount } from './unitClassifier'
 
 /**
  * ⛔ A FACTOR'S PERCENT KEEPS ITS DECIMAL (WebMCP finding #75 5907516955, scenario `815ae68b`): the user's "3.7%" monthly
@@ -451,7 +451,7 @@ export function formatFactorDisplayParts(input: FactorDisplayInput): FactorDispl
     const scaled = raw_value > 0 && raw_value < 1 ? raw_value * 100 : raw_value
     parts = { figure: percentFigure(scaled), unit: null }
   } else if (kind === 'other') {
-    const words = unitWords(canonical || unit)
+    const words = unitWordsForCount(raw_value, canonical || unit)
     parts = words === '' ? { figure: amount, unit: null } : compoundUnitParts(amount, words, text) ?? { figure: amount, unit: words }
   } else return null
   return (parts.restates ?? joinFactorDisplayParts(parts)) === text ? parts : null
@@ -888,7 +888,7 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
         return percentFigure(scaled)
       }
       // 'other' | 'none' (unreachable here — unit is truthy)
-      const words = unitWords(unitCanonical || unit)
+      const words = unitWordsForCount(numericRaw, unitCanonical || unit)
       return words === '' ? formatNumber(numericRaw) : `${formatNumber(numericRaw)} ${words}`
     }
     // raw_value is a non-numeric string with unit
