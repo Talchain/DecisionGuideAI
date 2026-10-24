@@ -9,6 +9,6 @@ import { displayLabelText } from '../../domain/elementLabel'
  */
 export function questionTitle(label: unknown): string | undefined {
   if (typeof label !== 'string') return undefined
-  const title = displayLabelText(label)
+  const title = displayLabelText(label, 'decision')
   return title !== label.trim() ? title : undefined
 }

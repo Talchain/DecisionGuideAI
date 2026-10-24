@@ -28,6 +28,8 @@
  * something.
  */
 
+import { resolveNodeTypeLiteral } from './nodes'
+
 /**
  * The single fallback string. Exported so a guard can pin it and so no caller
  * has to retype it — a retyped literal is a mirror waiting to drift.
@@ -49,33 +51,31 @@ export const UNNAMED_ELEMENT_LABEL = 'Untitled'
 export function resolveElementLabel(data: unknown): string {
   if (data !== null && typeof data === 'object') {
     const label = (data as { label?: unknown }).label
-    if (typeof label === 'string' && label.trim() !== '') return displayLabelText(label)
+    if (typeof label === 'string' && label.trim() !== '') return label
   }
   return UNNAMED_ELEMENT_LABEL
 }
 
 /**
- * ⭐ THE ONE DISPLAY STRIP FOR A PRODUCER'S LABEL PREFIX (canvas audit item 3, "labels through one helper").
+ * ⭐ THE ONE DISPLAY STRIP FOR CEE'S QUESTION-NODE PREFIX (canvas audit item 3, "labels through one helper").
  * CEE writes the question node's fallback label as `Decision: <metric>` (and saved models keep it). Olumi is a
- * reasoning partner, and "Decision" is only the person's own act of choosing (CLAUDE.md §3), so every surface that
- * names an element on screen shows the words after the prefix. DISPLAY ONLY: the stored label is never rewritten,
- * and a label that is nothing but the prefix is returned as written rather than emptied.
+ * reasoning partner, and "Decision" is only the person's own act of choosing (CLAUDE.md §3), so a surface that names
+ * the QUESTION node shows the words after the prefix.
+ *
+ * ⛔ ONLY FOR THE QUESTION NODE (`kind === 'decision'`): an action, factor or option the person named
+ * "Decision: retain the platform" keeps its words. ⛔ DISPLAY ONLY: never a save, an export, a comparison or a key —
+ * those read the raw label (`resolveElementLabel`, `canvasLabels`). A label that is nothing but the prefix is
+ * returned as written rather than emptied.
  */
-export function displayLabelText(label: string): string {
+export function displayLabelText(label: string, kind: unknown): string {
+  if (kind !== 'decision') return label
   const stripped = label.replace(/^\s*decision\s*:\s*/i, '').trim()
   return stripped.length > 0 ? stripped : label
 }
 
-/**
- * The card title's extra strip: `Olumi suggestion: <option>` (the core route's label for an option Olumi added)
- * reads as the option alone, because the card marks Olumi's authorship with its own glyph
- * (`NodeProvenanceMark`, from the living model's source, never from these words). Used ONLY where that glyph sits —
- * every other surface keeps the words, which are then the only sign the option is Olumi's. DISPLAY ONLY.
- */
-export function cardLabelText(label: string): string {
-  const shown = displayLabelText(label)
-  const stripped = shown.replace(/^\s*olumi\s+suggestion\s*:\s*/i, '').trim()
-  return stripped.length > 0 ? stripped : shown
+/** A node's on-screen name: `resolveElementLabel`, with the question node's producer prefix off. DISPLAY ONLY. */
+export function resolveNodeDisplayLabel(node: { type?: string; data?: unknown } | null | undefined): string {
+  return node ? displayLabelText(resolveElementLabel(node.data), resolveNodeTypeLiteral(node)) : UNNAMED_ELEMENT_LABEL
 }
 
 /**

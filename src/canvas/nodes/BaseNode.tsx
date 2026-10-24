@@ -433,7 +433,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    * accessible name — so no channel keeps the cut. `titleOverride` still
    * replaces only the visible words.
    */
-  const cardTitle = nodeCardTitle(label, description)
+  const cardTitle = nodeCardTitle(label, description, nodeType)
 
   // Phase 3: Get node colours from new system
   const colors = nodeColors[nodeType as keyof typeof nodeColors] || nodeColors.factor

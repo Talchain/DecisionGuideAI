@@ -101,6 +101,23 @@ function copyJsonAndParse(edges: Edge[]) {
 
 beforeEach(() => { vi.clearAllMocks() })
 
+describe('the JSON export is data: it keeps the stored label', () => {
+  it('a factor the person named "Decision: …" is exported with its words (the display strip never reaches an export)', () => {
+    const named: Node[] = [
+      ...nodes,
+      { id: 'factor-named', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Decision: retain the platform', category: 'observable' } },
+    ]
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    mockGraph.nodes = named
+    mockGraph.edges = []
+    render(<ModelTabBody {...props} nodes={named} edges={[]} />)
+    fireEvent.click(screen.getByTestId('model-copy-json'))
+    const payload = JSON.parse(writeText.mock.calls[0][0] as string)
+    expect(payload.factors.find((f: { id: string }) => f.id === 'factor-named')?.label).toBe('Decision: retain the platform')
+  })
+})
+
 describe('connected Model surface', () => {
   it('shows each entity exactly once on the v2 outline', () => {
     renderTab()

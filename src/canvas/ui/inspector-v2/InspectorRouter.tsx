@@ -37,7 +37,7 @@ import { canReceiveAsk } from './askSemantic'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useNodeAttention } from '../../nodes/shared/useNodeAttention'
 import { revealOlumiSurface } from '../../conversation/revealOlumi'
-import { displayLabelText, resolveElementLabel } from '../../domain/elementLabel'
+import { displayLabelText, resolveNodeDisplayLabel } from '../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
 import { isStrengthDefinitional } from '../../domain/strengthDefinitional'
 import { isStructuralEdge } from '../../domain/edgeUtils'
@@ -248,8 +248,8 @@ export const InspectorRouter = memo(function InspectorRouter({
 
     const sourceNode = nodes.find(n => n.id === edge.source)
     const targetNode = nodes.find(n => n.id === edge.target)
-    const sourceLabel = resolveElementLabel(sourceNode?.data)
-    const targetLabel = resolveElementLabel(targetNode?.data)
+    const sourceLabel = resolveNodeDisplayLabel(sourceNode)
+    const targetLabel = resolveNodeDisplayLabel(targetNode)
     const edgeLabel = `${sourceLabel} \u2192 ${targetLabel}`
 
     // A14 — a structural link's canonical strength signature is
@@ -381,7 +381,7 @@ export const InspectorRouter = memo(function InspectorRouter({
   const category = node.data?.category as FactorCategory | undefined
   const rawLabel = String(node.data?.label ?? 'Untitled')
   // Truncate normalised range notation like "(0-1, share of £..." from display
-  const label = displayLabelText(/\(0[-–]1/.test(rawLabel) ? rawLabel.split(/\(0[-–]1/)[0].trim() : rawLabel)
+  const label = displayLabelText(/\(0[-–]1/.test(rawLabel) ? rawLabel.split(/\(0[-–]1/)[0].trim() : rawLabel, nodeType)
   const typePill = getTypeLabel(nodeType, category)
 
   // A8 — a "✓ N%" header badge used to render here for goal/outcome/risk

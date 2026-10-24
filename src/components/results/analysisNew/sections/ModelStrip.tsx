@@ -617,7 +617,7 @@ export function ModelStrip({
    * the deployed build. Stripped once here, so every reader below — the lead,
    * the equality check, the containment check — agrees on one string.
    */
-  const decisionLabel = strip.decisionLabel === null ? null : displayLabelText(strip.decisionLabel)
+  const decisionLabel = strip.decisionLabel === null ? null : displayLabelText(strip.decisionLabel, 'decision')
   /**
    * `buildModelStrip`'s own `goalLabel` falls back to `decisionLabel` on a
    * decision-only model (`goalLabel: goalLabel ?? decisionLabel`), so the SAME
