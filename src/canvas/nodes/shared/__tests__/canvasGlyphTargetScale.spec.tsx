@@ -337,7 +337,9 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
     // two EQUAL is what keeps one idea from acquiring two spellings free to
     // drift (CLAUDE.md trap 12/21) — the defect that gave this estate two
     // `generateGraphHash` twins.
-    expect(CANVAS_GLYPH_SIZE_CLASSES[14]).toBe(PROVENANCE_ICON_SIZE_CLASSES)
+    // Re-pointed 24 Oct (Paul: card marks 14px → 12px): the provenance register now equals the 12px entry.
+    expect(PROVENANCE_ICON_SIZE_CLASSES).toBe('w-[calc(12px*var(--canvas-glyph-scale,1))] h-[calc(12px*var(--canvas-glyph-scale,1))]')
+    expect(CANVAS_GLYPH_SIZE_CLASSES[12]).toBe(PROVENANCE_ICON_SIZE_CLASSES)
   })
 
   for (const surface of SURFACES) {

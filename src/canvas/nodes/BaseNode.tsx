@@ -23,7 +23,7 @@ import { ChevronDown, ChevronUp, Flag as FlagIcon, ArrowUp, ArrowDown, Minus, ty
 import { useEditPreviewStore } from '../stores/editPreviewStore'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
-import { BottomCardMark, BottomMarksBand, BottomMarksProvider, useBottomBandHasMarks } from './shared/CardMark'
+import { BottomCardMark, BottomMarksBand, BottomMarksProvider, CardMark, useBottomBandHasMarks } from './shared/CardMark'
 import { AnsweredMark } from './shared/AnsweredMark'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { useNodeConstraints } from './shared/useNodeConstraints'
@@ -1722,7 +1722,12 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       ⚠ The title falls back only when CEE sent an EMPTY message. It is
       never used to manufacture a reason — the pill states the exclusion,
       which CEE stamped, and nothing about why beyond what CEE said. */
-  const statePillWraps = !isExcludedFromAnalysis && isRetainedExcluded
+  /* Paul (24 Oct): "Unfinished" is an icon, not words. The retained exclusion draws the circle-slash card mark in the
+     bottom marks band, muted, with the founder's ruled sentence whole as its tooltip and accessible name. It still
+     outranks `isIncomplete` (its arm below stays in the ternary, as `null`), so "Needs input" never joins it. */
+  const unfinishedMark: ReactNode = !isExcludedFromAnalysis && isRetainedExcluded ? (
+    <CardMark id="not-analysed" testId={UNFINISHED_CONTRIBUTION_TEST_ID} words={UNFINISHED_CONTRIBUTION_COPY} className="text-text-light" />
+  ) : null
   const statePill: ReactNode = isExcludedFromAnalysis ? (
     <StatusPill
       testId="excluded-from-analysis-pill"
@@ -1774,18 +1779,10 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
          without the node. The stronger claim subsumes the weaker, and it
          carries the weaker inside it ("Unfinished").
 
-       ⚠ ONE STRING IN BOTH SLOTS, DELIBERATELY. `StatusPill` reuses
-       `title` as `aria-label`, so label and title identical means the
-       screen-reader user and the sighted user receive the SAME sentence —
-       the founder's ruled wording, whole. A shortened label with the full
-       sentence in the tooltip would give them different claims, and the
-       shorter of the two would be one the UI authored. */
-    <StatusPill
-      testId={UNFINISHED_CONTRIBUTION_TEST_ID}
-      label={UNFINISHED_CONTRIBUTION_COPY}
-      title={UNFINISHED_CONTRIBUTION_COPY}
-      wrap
-    />
+       ⚠ THE CLAIM ITSELF IS DRAWN BY `unfinishedMark` (an icon in the bottom band, 24 Oct). This arm is `null` so
+       the precedence above still holds. One string serves its tooltip and accessible name, so the hover and the
+       screen-reader user receive the same sentence: the founder's ruled wording, whole. */
+    null
   ) : isIncomplete && !incompleteStatedOnCard ? (
     /* ⭐⭐ NOT MODELLED IS NOT NOT ESTIMATED — ONE PILL WAS SAYING BOTH.
 
@@ -2882,11 +2879,10 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
               rightmost. See the `cornerSlot` prop. */}
           <BottomCardMark>{cornerSlot}</BottomCardMark>
 
-          {/* The retained-exclusion sentence stays IN this row, full card width: portalled into the bottom band
-              (absolute, shrink-to-fit, one row tall) it wrapped word by word and was drawn over the card's text. */}
-          {statePillWraps ? statePill : <BottomCardMark>{statePill}</BottomCardMark>}
+          <BottomCardMark>{statePill}</BottomCardMark>
         </div>
       )}
+      {unfinishedMark}
 
       {/* Expanded description (markdown) */}
       {isExpanded && description && (

@@ -47,12 +47,19 @@ describe('option card on a view-only board read (canonical_analysis_view, no ana
 
   // Gap P0 #1 (23 Oct): the funding board's served withheld cell, placed on this board's option id.
   const withheld = funding.canonical_analysis_view.options[0]
-  it('⭐ a withheld chance is a dash and the `withheld` word; CEE\'s face and reason stay on hover and in the name', () => {
+  it('⭐ a withheld chance is a dash and the circle-slash mark, no word; CEE\'s face and reason stay on hover and in the name', () => {
     seed({ run: boundRun, staleness: currentStaleness }, withheld)
     card()
     expect(screen.getByTestId(`option-win-readout-${ID}`).textContent).toBe('—')
-    const word = screen.getByTestId(`option-chance-withheld-${ID}`)
-    expect(word.textContent).toBe('withheld')
+    // Paul (24 Oct): no word after the dash. The circle-slash mark carries CEE's face and reason as its name.
+    const mark = screen.getByTestId(`option-chance-withheld-${ID}`)
+    expect(mark.textContent).toBe('')
+    expect(mark.getAttribute('data-card-mark')).toBe('not-analysed')
+    expect(mark.querySelector('svg.lucide-circle-slash')).not.toBeNull()
+    expect(mark.getAttribute('role')).toBe('img')
+    expect(mark.getAttribute('aria-label')).toContain('Not shown yet: needs your answer')
+    expect(mark.getAttribute('aria-label')).toContain('The chance waits for your answer: What amount would you seek from angel investors')
+    expect(screen.getByTestId(`option-analysis-currency-${ID}`).textContent).not.toContain('withheld')
     expect(document.body.textContent).not.toContain('Not shown yet: needs your answer')
     const line = screen.getByTestId(`option-analysis-currency-${ID}`)
     expect(line.getAttribute('aria-label')).toContain('Not shown yet: needs your answer')

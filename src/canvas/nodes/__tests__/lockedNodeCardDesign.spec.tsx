@@ -594,7 +594,11 @@ describe('Option — the result is model-relative, never "Support" (ED 11:52Z po
     expect(chanceCells('opt-raise').text).toBe(CHANCE_NOT_SHOWN_YET)
     const chanceFace = within(card).getByTestId('option-win-readout-opt-raise')
     expect(chanceFace.textContent).toBe('—')
-    expect(within(card).getByTestId('option-chance-withheld-opt-raise').textContent).toBe('withheld')
+    // Paul (24 Oct): the circle-slash mark, no word; its name carries the withheld face.
+    expect(within(card).getByTestId('option-chance-withheld-opt-raise').textContent).toBe('')
+    expect(within(card).getByTestId('option-chance-withheld-opt-raise').querySelector('svg.lucide-circle-slash')).not.toBeNull()
+    expect(within(card).getByTestId('option-chance-withheld-opt-raise').getAttribute('aria-label')).toContain(CHANCE_NOT_SHOWN_YET)
+    expect(within(card).getByTestId('option-analysis-currency-opt-raise').textContent).not.toContain('withheld')
     expect(chanceFace.textContent).not.toMatch(/\d+%/)
     expect(chanceFace.textContent).not.toContain('Why?')
     expect(card.textContent).not.toContain('of runs')

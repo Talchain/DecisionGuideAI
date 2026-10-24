@@ -6,7 +6,8 @@ import { Fragment, memo, useMemo, useCallback, useState, type ReactNode } from '
 import type { NodeProps } from '@xyflow/react'
 import { Pencil, Target } from 'lucide-react'
 import Tooltip from '../../components/Tooltip'
-import { CardMark } from './shared/CardMark'
+import { CardMark, CardMarkShape } from './shared/CardMark'
+import { cardMark } from './shared/cardMarks'
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { pickOptionStatusMark } from './shared/optionStatusMark'
 import { BaseNode } from './BaseNode'
@@ -1914,6 +1915,8 @@ export const OptionNode = memo((props: NodeProps) => {
   // typed carry-on-as-now cell ("No change, by assumption") is a statement, not a withheld chance, so it keeps its words.
   const chanceWithheldMark = chanceText !== null && chanceHeadline === null && chanceCell.kind === 'withheld'
     && !(chanceCell.reasonCodes ?? []).includes('status_quo_by_assumption')
+  const chanceWithheldReason = chanceWithheldMark
+    ? [chanceCell.detail ?? chanceText, chanceCell.kind === 'withheld' ? chanceCell.why : null].filter(Boolean).join(' ') : undefined
   // Vision spec row 2 (23 Oct): "Current model" says nothing the card does not show, so it is retired from the line; its
   // meaning stays in the description above. "Last run" and "Model result" say something the card does not, so they stay.
   const resultCaptionOnCard = resultCaption === OPTION_RESULT_COPY.current ? null : resultCaption
@@ -2683,10 +2686,12 @@ export const OptionNode = memo((props: NodeProps) => {
                 className={`${chanceHeadline === null ? `${typography.edgeLabel} text-text-body` : `${typography.nodeHeadline} text-text-header`} min-w-0 truncate`} aria-hidden="true">
                 {chanceWithheldMark ? OPTION_RESULT_COPY.withheldDash : chanceHeadline ?? chanceText}
               </span>
+              {/* Paul (24 Oct): no word after the dash. The circle-slash mark says "withheld"; CEE's face and reason are
+                  its accessible name and the line's hover (above), never card text. */}
               {chanceWithheldMark && (
-                <span data-testid={`option-chance-withheld-${props.id}`} className={`${STATE_WORD_CLASSES} ml-1.5`}
-                  style={STATE_WORD_STYLE} aria-hidden="true">
-                  {OPTION_RESULT_COPY.withheld}
+                <span data-testid={`option-chance-withheld-${props.id}`} data-card-mark="not-analysed" role="img"
+                  aria-label={chanceWithheldReason} className="ml-1 inline-flex shrink-0 items-center text-text-light">
+                  <CardMarkShape mark={cardMark('not-analysed')} />
                 </span>
               )}
             </div>

@@ -27,7 +27,6 @@ import { STRUCTURAL_PROVENANCE_LABEL } from '../../../domain/nodeProvenanceClaim
 import {
   VALUE_PROVENANCE_ICON,
   PROVENANCE_ICON_DECLARED_PX,
-  PROVENANCE_ICON_SIZE_CLASSES,
 } from '../../../domain/valueProvenanceIcon'
 import { LABEL_LEGIBLE_ZOOM } from '../../../utils/zoomLegibility'
 
@@ -291,11 +290,14 @@ describe('⛔ DESIGN_SYSTEM.md compliance — the pill anti-pattern does not com
    * a bare `w-3.5` would reach the user at 7px. The counter-scale is what makes
    * the DS's ratified 14px TRUE on the canvas rather than nominal.
    */
-  it('is the DS 14px, carried through the canvas counter-scale', () => {
+  // Re-pointed 24 Oct (Paul): card marks are 12px, so a 14px mark no longer outweighs 13px titles and 11px labels.
+  it('is 12px, carried through the canvas counter-scale', () => {
     render(<NodeProvenanceMark nodeType="option" data={option('ai_inferred')} />)
     const svgCls = mark()!.querySelector('svg')!.getAttribute('class') ?? ''
-    expect(svgCls).toContain(PROVENANCE_ICON_SIZE_CLASSES.split(' ')[0])
-    expect(PROVENANCE_ICON_DECLARED_PX).toBe(14)
+    expect(svgCls).toContain('w-[calc(12px*var(--canvas-glyph-scale,1))]')
+    expect(svgCls).toContain('h-[calc(12px*var(--canvas-glyph-scale,1))]')
+    expect(svgCls).not.toContain('calc(14px')
+    expect(PROVENANCE_ICON_DECLARED_PX).toBe(12)
     // At the parked zoom the counter-scale (1/zoom) restores the declared size.
     expect(PROVENANCE_ICON_DECLARED_PX * (1 / LABEL_LEGIBLE_ZOOM) * LABEL_LEGIBLE_ZOOM).toBe(
       PROVENANCE_ICON_DECLARED_PX,
