@@ -177,30 +177,29 @@ describe('an asked figure on a program graph', () => {
     expect(mark.querySelector('.lucide-calculator')).not.toBeNull()
   })
 
-  it('Paul (24 Oct): a structure-fixed on/off switch (unit "1") is a toggle glyph with CEE’s words, never a bare "0"', async () => {
-    const asSwitch = (x: Json) => x.id === SWITCH
-      ? { ...x, label: 'Personal assistant included', observed_state: { unit: '1', value: 0, raw_value: 0 }, display_value: '0', description: 'A structural switch: zero excludes a personal assistant and one includes one.' }
-      : x
-    await openBoard(PROGRAM, 'GBP/developer', asSwitch)
-    await card(SWITCH)
-    const state = screen.getByTestId(`factor-switch-state-${SWITCH}`)
-    expect(state).toHaveAttribute('data-switch-on', 'false')
-    expect(state.querySelector('.lucide-toggle-left')).not.toBeNull()
-    expect(state).toHaveAttribute('aria-label', 'Off today. A structural switch: zero excludes a personal assistant and one includes one.')
-    expect(screen.getByTestId('factor-recorded-value').textContent).not.toMatch(/\d/)
-    // Still fixed: no field, and its own "fixed by the model" mark.
-    expect(screen.queryByTestId(`node-value-editor-${SWITCH}`)).toBeNull()
-    expect(screen.getByTestId(`factor-value-source-${SWITCH}`).querySelector('.lucide-calculator')).not.toBeNull()
-  })
-
-  it('an outcome CEE works out but has no figure for: "Today: —" with the model mark carrying CEE’s words, not a cut sentence', async () => {
+  it('an outcome CEE works out but has no figure for: "Today: —", and the LINE carries CEE’s words (hover, focus, name)', async () => {
     await openBoard(PROGRAM, 'GBP/developer')
     await card('developer_spend', OutcomeNode)
     const line = screen.getByTestId('outcome-recorded-readout')
     expect(line.textContent).toBe('Today: —')
+    expect(line).toHaveAttribute('tabindex', '0')
+    expect(line).toHaveAttribute('aria-label', 'Today: no figure yet. Worked out from Additional developers hired and Budget cost per additional developer')
     expect(screen.getByTestId('outcome-recorded-value').textContent).not.toContain('Worked out from')
-    expect(screen.getByTestId('outcome-value-source-developer_spend').getAttribute('aria-label'))
+  })
+
+  it('…even when another author mark would win the band (an inferred stamp): the words stay on the line', async () => {
+    await openBoard(PROGRAM, 'GBP/developer', (x: Json) => x.id === 'developer_spend' ? { ...x, observed_state: { ...(x.observed_state ?? {}), extractionType: 'inferred' } } : x)
+    await card('developer_spend', OutcomeNode)
+    expect(screen.getByTestId('outcome-recorded-readout').getAttribute('aria-label'))
       .toContain('Worked out from Additional developers hired and Budget cost per additional developer')
+  })
+
+  it('CONTRAST: an outcome with a real figure keeps its figure and its plain readout', async () => {
+    await openBoard(PROGRAM, 'GBP/developer', (x: Json) => x.id === 'developer_spend' ? { ...x, display_value: '£25', observed_state: { value: 25, unit: 'GBP' } } : x)
+    await card('developer_spend', OutcomeNode)
+    const line = screen.getByTestId('outcome-recorded-readout')
+    expect(line.textContent).toContain('25')
+    expect(line).not.toHaveAttribute('tabindex')
   })
 
   it('CONTRAST: a known figure on the same program graph keeps its field', async () => {

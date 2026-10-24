@@ -5,6 +5,8 @@ import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { livingOnlyOf } from '../domain/livingModelCanvas'
 import { useCanvasStore } from '../store'
+import Tooltip from '../../components/Tooltip'
+import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { typography } from '../../styles/typography'
 
 import { useNodeConnections } from '../hooks/useNodeConnections'
@@ -117,15 +119,16 @@ export const OutcomeNode = memo((props: NodeProps) => {
   // The outcome's own state (see `OUTCOME_UNQUANTIFIED_LINE`). The value branch
   // has no producer today, so it ships dark; it reads the same owners the factor
   // and risk cards read, so it cannot disagree with them when one arrives.
-  const recordedValue = useMemo(() => {
+  // An outcome CEE works out but has no figure for yet serves its `value_basis` words as its display value ("Worked out
+  // from A and B"). That is a source, not a level: the line shows no figure, and the LINE ITSELF carries CEE's words on
+  // hover, focus and in its name, at every rung the line shows (Paul, 24 Oct: visual indicators, not default text; it was
+  // a cut sentence on every such card).
+  const { recordedValue, noFigureWords } = useMemo(() => {
     const data = props.data as Record<string, unknown> | undefined
     const value = nodeRecordedValue(data)
-    // An outcome CEE works out but has no figure for yet serves its `value_basis` words as its display value ("Worked
-    // out from A and B"). That is a source, not a level: the line shows no figure, and the model mark carries the words
-    // (Paul, 24 Oct: visual indicators, not default text; it was a cut sentence on every such card).
     const basis = data?.value_basis as { kind?: unknown; words?: unknown } | undefined
-    return value !== null && basis?.kind === 'worked_out' && typeof basis.words === 'string' && value === basis.words
-      ? OUTCOME_NO_FIGURE_YET : value
+    const noFigure = value !== null && basis?.kind === 'worked_out' && typeof basis.words === 'string' && value === basis.words
+    return noFigure ? { recordedValue: OUTCOME_NO_FIGURE_YET, noFigureWords: value } : { recordedValue: value, noFigureWords: null }
   }, [props.data])
   const recordedValueMark = recordedValue ? factorValueSourceMark(props.data) : null
   const showUnquantified = !recordedValue && !recordsAnyNumber(props.data as Record<string, unknown> | undefined)
@@ -415,7 +418,16 @@ export const OutcomeNode = memo((props: NodeProps) => {
           >
             {/* ⛔ AIQ 5908482524: `observed_state` is where the outcome stands TODAY (CEE #2351 writes the cause's today
                 level onto "…at 12 months"), so it is named as today's — a bare figure reads as the outcome's own result. */}
-            <span className="shrink-0" data-testid="outcome-recorded-readout"><span data-testid="outcome-recorded-today">{OUTCOME_TODAY_PREFIX}</span>{recordedValue}</span>
+            {noFigureWords === null ? (
+              <span className="shrink-0" data-testid="outcome-recorded-readout"><span data-testid="outcome-recorded-today">{OUTCOME_TODAY_PREFIX}</span>{recordedValue}</span>
+            ) : (
+              <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={noFigureWords}>
+                <span className="shrink-0 nodrag nopan rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-info" data-testid="outcome-recorded-readout"
+                  data-node-tooltip="true" tabIndex={0} aria-label={`${OUTCOME_TODAY_PREFIX}no figure yet. ${noFigureWords}`}>
+                  <span data-testid="outcome-recorded-today" aria-hidden="true">{OUTCOME_TODAY_PREFIX}</span><span aria-hidden="true">{recordedValue}</span>
+                </span>
+              </Tooltip>
+            )}
             {recordedValueMark && (
               <ValueSourceMark mark={recordedValueMark} testId={`outcome-value-source-${props.id}`} onOpenSource={() => { openNodeInspector(props.id) }} olumiGroupNoun="value" />
             )}

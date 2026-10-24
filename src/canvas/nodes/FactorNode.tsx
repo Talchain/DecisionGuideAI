@@ -61,7 +61,6 @@ import { cardMark, sourceCardMarkId } from './shared/cardMarks'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
-import { ToggleLeft, ToggleRight } from 'lucide-react'
 import { factorValueSourceMark, PRIOR_RANGE_SOURCE_MARK, ValueSourceMark, type FactorValueSourceMark } from './shared/valueSourceMark'
 import { useValuePrefillStore } from '../graphChanges/valuePrefill'
 
@@ -393,13 +392,6 @@ export const FactorNode = memo((props: NodeProps) => {
   // option means; an option is changed through the conversation.
   const structureFixedOnProgramGraph = savedIsProgram && servedBasisMark?.kind === 'basis'
     && (props.data as { value_basis?: { kind?: unknown } } | undefined)?.value_basis?.kind === 'structure'
-  // The switch's state: a structure-fixed, dimensionless (unit "1") figure of exactly 0 or 1, with CEE's own description
-  // as its words. A structure-fixed COUNT ("0 developer") is an amount and keeps its figure.
-  const switchState = structureFixedOnProgramGraph && observedState?.unit === '1'
-    && (observedState?.value === 0 || observedState?.value === 1) ? {
-    on: observedState.value === 1,
-    words: `${observedState.value === 1 ? 'On' : 'Off'} today.${typeof props.data?.description === 'string' && props.data.description.trim() ? ` ${props.data.description.trim()}` : ''}`,
-  } : null
   // v3.1 point 1 (DESIGN-GAP-v31 #21): the mark is focusable and opens this
   // factor's source detail — the inspector.
   const openSourceDetail = () => { openNodeInspector(props.id) }
@@ -1540,18 +1532,6 @@ export const FactorNode = memo((props: NodeProps) => {
                   {...(isDetailed ? { restingFlow: undefined } : {})}
                 />
               </span>
-            ) : switchState !== null ? (
-              // A structural switch (CEE's `value_basis` structure, 0 = excluded, 1 = included) is a state, not an amount:
-              // a toggle glyph, never a bare "0" (Paul, 24 Oct: visual indicators, not text). CEE's own words on hover.
-              <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={switchState.words}>
-                <span data-testid={`factor-switch-state-${props.id}`} data-switch-on={switchState.on} data-node-tooltip="true"
-                  role="img" tabIndex={0} aria-label={switchState.words}
-                  className="nodrag nopan inline-flex items-center text-text-light focus:outline-none focus-visible:ring-2 focus-visible:ring-info">
-                  {switchState.on
-                    ? <ToggleRight aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />
-                    : <ToggleLeft aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />}
-                </span>
-              </Tooltip>
             ) : (
               <span className={isDetailed ? 'min-w-0 break-words' : 'min-w-0 break-words whitespace-normal'}>
                 <FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />
