@@ -1916,7 +1916,8 @@ export const OptionNode = memo((props: NodeProps) => {
   const chanceWithheldMark = chanceText !== null && chanceHeadline === null && chanceCell.kind === 'withheld'
     && !(chanceCell.reasonCodes ?? []).includes('status_quo_by_assumption')
   const chanceWithheldReason = chanceWithheldMark
-    ? [chanceCell.detail ?? chanceText, chanceCell.kind === 'withheld' ? chanceCell.why : null].filter(Boolean).join(' ') : undefined
+    ? [chanceCell.detail ?? chanceText, chanceCell.kind === 'withheld' ? chanceCell.why : null, winShareWithheldReasonLine]
+      .filter((t, i, all): t is string => !!t && all.indexOf(t) === i).join(' ') : undefined
   // Vision spec row 2 (23 Oct): "Current model" says nothing the card does not show, so it is retired from the line; its
   // meaning stays in the description above. "Last run" and "Model result" say something the card does not, so they stay.
   const resultCaptionOnCard = resultCaption === OPTION_RESULT_COPY.current ? null : resultCaption
@@ -2384,7 +2385,9 @@ export const OptionNode = memo((props: NodeProps) => {
   // ⭐ AT MOST ONE status mark in the band (DL 8 Oct, workstream D): withheld > stale > not analysed > provisional;
   // the demoted marks are named in its tooltip. Each candidate keeps the gate and test id it had when it rendered alone.
   const statusMark = pickOptionStatusMark([
-    notRankedRenders && { id: 'share-withheld', testId: `option-not-ranked-${props.id}`, description: winShareWithheldReasonLine ?? '' },
+    // Paul (24 Oct): a withheld result is said once. When the headline is the dash, its circle-slash carries the
+    // withheld share's reason too (above), so the band does not draw the same glyph a second time.
+    notRankedRenders && !chanceWithheldMark && { id: 'share-withheld', testId: `option-not-ranked-${props.id}`, description: winShareWithheldReasonLine ?? '' },
     notAnalysedRenders && runCurrency === 'changed' && { id: 'last-run', testId: `option-not-analysed-last-run-${props.id}` },
     chanceText !== null && !winSharesAreWithheld && takenOutLine === null && resultCaption === OPTION_RESULT_COPY.lastRun && { id: 'last-run', testId: `option-win-anchor-${props.id}` },
     staleStateShown && { id: 'no-new-comparison', testId: `option-stale-state-${props.id}` },

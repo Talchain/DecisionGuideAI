@@ -70,7 +70,7 @@ describe('the marks on screen', () => {
   it('the asked mark draws its own glyph and names itself with CEE’s words', () => {
     render(<ValueSourceMark mark={{ kind: 'asked', label: 'Waiting for your answer' }} testId="source" />)
     expect(screen.getByTestId('source')).toHaveAttribute('aria-label', 'Waiting for your answer')
-    expect(screen.getByTestId('source').querySelector('.lucide-circle-dashed')).not.toBeNull()
+    expect(screen.getByTestId('source').querySelector('.lucide-hourglass')).not.toBeNull()
   })
   it('the worked-out outcome card: CEE’s words on its source mark, never "Source not recorded"', () => {
     const props: Record<string, unknown> = { id: 'additional_capacity', type: 'outcome', position: { x: 0, y: 0 }, selected: false,

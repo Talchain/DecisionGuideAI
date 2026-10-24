@@ -1,5 +1,5 @@
 import {
-  LocateFixed, AlertTriangle, AlertCircle, Wrench, GraduationCap, Lightbulb, Flag, Anchor, BadgeHelp, Bookmark, CircleDashed, CircleSlash, Clock, EyeOff, Target, NotebookPen, ListFilter, RotateCcw,
+  LocateFixed, AlertTriangle, AlertCircle, Wrench, GraduationCap, Lightbulb, Flag, BadgeHelp, Bookmark, CircleDashed, CircleSlash, Clock, Equal, Hourglass, Ruler, Target, NotebookPen, ListFilter, RotateCcw,
   Gauge, History, HelpCircle, ListOrdered, Grid2x2, ScanLine, Calculator,
   Signal, BookOpen,
   type LucideIcon,
@@ -33,14 +33,16 @@ function entry<Id extends string>(id: Id, words: string, Icon: CardMarkIcon, nod
 }
 /** Whole UI-DESIGN §1a inventory at f01a4427. Content change rows stay content. */
 export const CARD_MARKS = [
-  entry('share-withheld', NOT_RANKED_MARKER, EyeOff, ['option'], true),
+  // Design system §9.6 owns Anchor, Frame, Gauge and EyeOff for the bias flags (Paul, 24 Oct 2026: the card icon row).
+  // A card mark never borrows one: a withheld result is the "not in the analysis" glyph, with its reason on hover.
+  entry('share-withheld', NOT_RANKED_MARKER, CircleSlash, ['option'], true),
   entry('current-model', OPTION_RESULT_COPY.current, Gauge, ['option']),
   entry('model-result', OPTION_RESULT_COPY.unconfirmed, ScanLine, ['option']),
   entry('compact-model', OPTION_RESULT_COPY.compact, BookOpen, ['option']),
   entry('provisional', OPTION_RESULT_COPY.provisional, BadgeHelp, ['option'], true),
   entry('last-run', OPTION_RESULT_COPY.lastRun, Clock, ['option'], true),
   entry('no-new-comparison', OPTION_RESULT_COPY.lastRunNoNewComparison, RotateCcw, ['option'], true),
-  entry('baseline-no-changes', 'Baseline · no changes', Anchor, ['option'], true),
+  entry('baseline-no-changes', 'Baseline · no changes', Equal, ['option'], true),
   entry('baseline-option', 'Baseline option', Bookmark, ['option'], true),
   entry('not-analysed', 'Not analysed', CircleSlash, ['option'], true),
   entry('needs-input', 'Needs input', CircleDashed, ['option']),
@@ -57,13 +59,13 @@ export const CARD_MARKS = [
   // S3 `value_basis` (23 Oct): a figure the model sets itself (worked out from other figures, or fixed by how it is
   // built), or one waiting for the person's answer. The card's name and hover are CEE's own words for that figure.
   entry('source-basis', 'model', Calculator, values, true, 'Set by the model: worked out from other figures, or fixed by how it is built'),
-  entry('source-asked', 'asked', CircleDashed, values, true, 'Waiting for your answer'),
+  entry('source-asked', 'asked', Hourglass, values, true, 'Waiting for your answer'),
   entry('factor-tier', 'Very low · Low · Medium · High · Very high', Signal, ['factor'], true, undefined, undefined, 'level-meter'),
   entry('driver', 'Driver N of M ranked in this run', ListOrdered, ['factor'], true, 'Driver N of M ranked in this run · Last run · Driver N of M ranked · Driver N of M ranked · no value yet', undefined, 'rank-bar'),
   entry('driver-last-run', 'Last run · Driver N of M ranked', History, ['factor'], true, undefined, undefined, 'rank-bar-history'),
   entry('working-assumption', FACTOR_NO_ANALYSIS_YET_SHORT, BookOpen, ['factor'], true),
   entry('working-assumption-no-analysis', 'Working assumption · no analysis yet', CircleDashed, ['factor']),
-  entry('outcome-unquantified', 'Outcome not quantified', Gauge, ['outcome'], true, undefined, undefined, 'empty-value'),
+  entry('outcome-unquantified', 'Outcome not quantified', Ruler, ['outcome'], true, undefined, undefined, 'empty-value'),
   entry('risk-unset', 'Likelihood and impact not set yet', Grid2x2, ['risk'], true, undefined, undefined, 'risk-matrix'),
   entry('target-not-captured', 'Target not captured', Target, ['goal'], true, undefined, undefined, 'target-dashed'),
   entry('assumptions-open', 'Assumptions open for review', NotebookPen, ['decision'], true),

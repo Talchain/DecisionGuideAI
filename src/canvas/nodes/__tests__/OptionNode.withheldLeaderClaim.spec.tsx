@@ -47,7 +47,8 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
 import { OptionNode } from '../OptionNode'
-import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
+import { CanvasOptionChanceContext, OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
+import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
 import { NOT_RANKED_MARKER, WITHHELD_REASON_FALLBACK } from '../../state/winShareGate'
 
 vi.mock('@xyflow/react', async () => {
@@ -233,5 +234,24 @@ describe('OptionNode — a withheld leader claim removes the designation', () =>
     // survives rather than silently leaving the question open.
     renderOption(withPermission(permittedReport(), { permitted: false }))
     expect(screen.getByTestId('node-title').getAttribute('data-type-ordinal')).toMatch(/^O\d+$/) // Paul 1 Oct: the card's own "O<n>"
+  })
+
+  it('Paul (24 Oct): withheld is said once — a withheld headline and a withheld share draw ONE circle-slash, carrying both reasons', () => {
+    const state = installCanonicalFixtureState(makeStoreState(withPermission(permittedReport(), { permitted: false })))
+    vi.mocked(useCanvasStore).mockImplementation((selector) => (selector as (s: unknown) => unknown)(state))
+    const { container } = render(
+      <ReactFlowProvider><CanvasOptionChanceContext.Provider value={optionChanceFixture({ [NODE_ID]: 41, [SIBLING_ID]: 29 })}>
+        <OptionNode {...baseProps} data={{ label: 'Hire 3 engineers', type: 'option' }} />
+      </CanvasOptionChanceContext.Provider></ReactFlowProvider>,
+    )
+    const dash = screen.getByTestId(`option-chance-withheld-${NODE_ID}`)
+    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`).textContent).toBe('—')
+    expect(screen.queryByTestId(`option-not-ranked-${NODE_ID}`)).toBeNull()
+    expect(container.querySelectorAll('svg.lucide-circle-slash')).toHaveLength(1)
+    expect(dash.getAttribute('aria-label')).toContain(WITHHELD_REASON_FALLBACK)
+    cleanup()
+    // Contrast: the same withheld share with no chance line keeps its band mark and its reason.
+    renderOption(withPermission(permittedReport(), { permitted: false }))
+    expectNotRankedInSlot(WITHHELD_REASON_FALLBACK)
   })
 })

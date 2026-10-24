@@ -197,7 +197,7 @@ describe('the lens bar: one press between lenses', () => {
     seedModel(true)
     const view = render(<LensBar />)
     const want: Array<[string, string, string]> = [
-      ['full', 'Model', 'lucide-layers2'], ['tradeoffs', 'Trade-offs', 'lucide-scale'], ['rests_on', 'Rests on', 'lucide-anchor'],
+      ['full', 'Model', 'lucide-layers2'], ['tradeoffs', 'Trade-offs', 'lucide-scale'], ['rests_on', 'Rests on', 'lucide-landmark'],
       ['premortem', 'If it failed', 'lucide-alert-triangle'], ['what_changes', 'What would change', 'lucide-activity'],
       ['what_if', 'What if', 'lucide-arrow-right-left'],
     ]
