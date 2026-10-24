@@ -28,6 +28,7 @@ import { useCanvasStore } from '../../store'
 import { FactorNode } from '../FactorNode'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { hydrateCanvasFromServer } from '../../hydrate/serverGraphHydration'
+import { useValuePrefillStore } from '../../graphChanges/valuePrefill'
 
 vi.mock('../../../v5/streamedTurnTransport', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../v5/streamedTurnTransport')>()),
@@ -123,6 +124,21 @@ describe('an asked figure on a program graph', () => {
     await act(async () => { fireEvent.keyDown(input, { key: 'Enter' }) })
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]).toMatchObject({ kind: 'system_event', scenario_id: hiring.scenario_id })
+    expect(sent[0].event).toEqual({ kind: 'factor_value_edit', target_id: ASKED, field: 'value', value: 45000, raw_value: 45000, unit: 'GBP/developer' })
+  })
+
+  it('⭐ the result’s "Waits on" answer opens this card’s field, empty, through the existing open request (valuePrefill)', async () => {
+    await openBoard(PROGRAM, 'GBP/developer')
+    await card(ASKED)
+    expect(screen.queryByTestId(`node-value-editor-${ASKED}-input`)).toBeNull()
+    await act(async () => { useValuePrefillStore.getState().requestPrefill({ nodeId: ASKED, text: '' }) })
+    const input = screen.getByTestId(`node-value-editor-${ASKED}-input`) as HTMLInputElement
+    expect(input.value).toBe('')
+    // The request is retired once the field has opened, so a remount never re-opens it.
+    expect(useValuePrefillStore.getState().request).toBeNull()
+    fireEvent.change(input, { target: { value: '45000' } })
+    await act(async () => { fireEvent.keyDown(input, { key: 'Enter' }) })
+    await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0].event).toEqual({ kind: 'factor_value_edit', target_id: ASKED, field: 'value', value: 45000, raw_value: 45000, unit: 'GBP/developer' })
   })
 

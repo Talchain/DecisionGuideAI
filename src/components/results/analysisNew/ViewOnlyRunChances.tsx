@@ -10,6 +10,9 @@ import { useCanvasStore } from '../../../canvas/store'
 import { useSavedModelIsProgram } from '../../../canvas/nodes/shared/savedModelProgram'
 import { useCanonicalAnalysisViewStore } from '../../../canvas/stores/canonicalAnalysisViewStore'
 import { optionChanceCell, runViewGoalChanceSentence, runViewOf } from '../../../canvas/runView/runView'
+import type { CanonicalWaitsOn } from '../../../canvas/runView/canonicalAnalysisView'
+import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
+import { useValuePrefillStore } from '../../../canvas/graphChanges/valuePrefill'
 import { typography } from '../../../styles/typography'
 
 export interface ViewOnlyRunChanceLine {
@@ -21,6 +24,8 @@ export interface ViewOnlyRunChanceLine {
 export interface ViewOnlyRunChances {
   readonly sentence: string | null
   readonly lines: readonly ViewOnlyRunChanceLine[]
+  /** CEE's `goal_chance.waits_on`, in its order and words (S1 #3716): what the result waits on. */
+  readonly waitsOn: readonly CanonicalWaitsOn[]
 }
 
 const CTX = { goalChanceHeroSays: false, labelOf: () => null }
@@ -45,7 +50,7 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
       else lines.push({ optionIds: [optionId], text: cell.text, why, withheld })
     }
     const sentence = runViewGoalChanceSentence(view)
-    return lines.length === 0 && sentence === null ? null : { sentence, lines }
+    return lines.length === 0 && sentence === null ? null : { sentence, lines, waitsOn: view.goalChanceDetail()?.waits_on ?? [] }
   }, [report, canonical])
 }
 
@@ -74,6 +79,32 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
           {line.why === null ? null : <p className={`${typography.panelMeta} text-text-light`}>{line.why}</p>}
         </div>
       ))}
+      {chances.waitsOn.length === 0 ? null : (
+        <p className={`${typography.panelBody} text-text-body`} data-testid="analysis-view-only-waits-on">
+          {'Waits on: '}
+          {chances.waitsOn.map((w, i) => (
+            <span key={w.id}>{i > 0 ? ', ' : null}<WaitsOnItem item={w} /></span>
+          ))}
+        </p>
+      )}
     </div>
+  )
+}
+
+/**
+ * One thing the result waits on, by CEE's label. Where CEE says the person can answer it with a figure and that figure's
+ * card is on the canvas, the label opens the card's own answer box (the existing in-card field and writer) and brings the
+ * card into view; otherwise it is the label alone.
+ */
+function WaitsOnItem({ item }: { item: CanonicalWaitsOn }) {
+  const quantityId = item.answer?.quantity_id ?? null
+  const onCanvas = useCanvasStore(s => quantityId !== null && s.nodes.some(n => n.id === quantityId && n.type === 'factor'))
+  const requestPrefill = useValuePrefillStore(s => s.requestPrefill)
+  if (quantityId === null || !onCanvas) return <span data-testid={`analysis-view-only-waits-on-${item.id}`}>{`‘${item.label}’`}</span>
+  return (
+    <button type="button" className="underline hover:no-underline" data-testid={`analysis-view-only-waits-on-answer-${quantityId}`}
+      onClick={() => { focusModelTarget(quantityId); requestPrefill({ nodeId: quantityId, text: '' }) }}>
+      {`‘${item.label}’`}
+    </button>
   )
 }

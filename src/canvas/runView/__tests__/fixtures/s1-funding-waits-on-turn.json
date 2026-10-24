@@ -1,0 +1,281 @@
+{
+ "_capture": "Served CEE b225bbed (renderlive live=b225bbed), UI 1e23ded3: the core turn reply to ONE typed card edit (factor_value_edit firm_deal_size, 0 AI calls) on the verifier test account's funding board, 2026-10-24T00:58:37.030Z; graph nodes trimmed to id/kind/label, canonical_analysis_view verbatim.",
+ "scenario_id": "72300716-1cdc-4918-8959-d6cca1ee71ae",
+ "graph": {
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "kind": "decision",
+    "label": "Could seeking angel funding alongside the existing outreach buy enough time to justify the overhead while pursuing funding within the next two months?"
+   },
+   {
+    "id": "secure_funding_sooner",
+    "kind": "goal",
+    "label": "accelerate securing funding within the next 2 months"
+   },
+   {
+    "id": "existing_outreach",
+    "kind": "option",
+    "label": "keep sending cold emails and trying to find warm connections"
+   },
+   {
+    "id": "angel_investors",
+    "kind": "option",
+    "label": "angel investors"
+   },
+   {
+    "id": "firm_deal_size",
+    "kind": "factor",
+    "label": "Deal sizes of the investment firms being targeted"
+   },
+   {
+    "id": "cash_available",
+    "kind": "factor",
+    "label": "Cash available now"
+   },
+   {
+    "id": "monthly_net_burn",
+    "kind": "factor",
+    "label": "Monthly cash burn after operating income"
+   },
+   {
+    "id": "angel_route_on",
+    "kind": "factor",
+    "label": "Angel funding route included"
+   },
+   {
+    "id": "angel_raise_amount",
+    "kind": "factor",
+    "label": "Amount sought from angels"
+   },
+   {
+    "id": "angel_cash_overhead",
+    "kind": "factor",
+    "label": "Additional cash costs of an angel raise"
+   },
+   {
+    "id": "net_angel_proceeds",
+    "kind": "outcome",
+    "label": "Angel funding after cash overhead"
+   },
+   {
+    "id": "included_bridge_cash",
+    "kind": "outcome",
+    "label": "Net bridge cash included in the option"
+   },
+   {
+    "id": "cash_with_bridge",
+    "kind": "outcome",
+    "label": "Cash available including a successful bridge"
+   },
+   {
+    "id": "conditional_runway",
+    "kind": "outcome",
+    "label": "Runway if the included funding is received in time"
+   },
+   {
+    "id": "additional_runway",
+    "kind": "outcome",
+    "label": "Extra time bought by a successful angel bridge"
+   },
+   {
+    "id": "funding_received",
+    "kind": "outcome",
+    "label": "Funding received"
+   },
+   {
+    "id": "firm_raise_amount",
+    "kind": "factor",
+    "label": "Amount sought through the existing investment-firm outreach"
+   },
+   {
+    "id": "firm_funding_inflow",
+    "kind": "outcome",
+    "label": "Monthly funding received through existing outreach"
+   },
+   {
+    "id": "angel_inflow_per_route",
+    "kind": "outcome",
+    "label": "Monthly angel funding added when the angel route is included"
+   },
+   {
+    "id": "zero_angel_inflow",
+    "kind": "factor",
+    "label": "Angel funding inflow with the route switched off"
+   },
+   {
+    "id": "angel_funding_inflow",
+    "kind": "outcome",
+    "label": "Monthly funding received through the included angel route"
+   },
+   {
+    "id": "funding_received_start",
+    "kind": "factor",
+    "label": "New funding received at the start of the measurement window"
+   },
+   {
+    "id": "funding_urgency",
+    "kind": "action",
+    "label": "Claim: The business will run out of money soon."
+   },
+   {
+    "id": "current_firm_focus",
+    "kind": "action",
+    "label": "Claim: The investment firms targeted so far mostly operate from the UK and do deals be…"
+   },
+   {
+    "id": "angel_speed_hypothesis",
+    "kind": "action",
+    "label": "Claim: Angel investors might provide a smaller amount more quickly, buying more time."
+   },
+   {
+    "id": "deadline_applies_to_funding",
+    "kind": "action",
+    "label": "Claim: The funding objective has a two-month deadline; this is not a stated minimum ru…"
+   },
+   {
+    "id": "constant_positive_burn",
+    "kind": "action",
+    "label": "Assumption: Runway calculations assume positive monthly net cash burn that stays constant o…"
+   },
+   {
+    "id": "conditional_bridge_receipt",
+    "kind": "action",
+    "label": "Assumption: The angel option calculates runway conditional on the intended angel amount bei…"
+   },
+   {
+    "id": "bridge_cost_treatment",
+    "kind": "action",
+    "label": "Assumption: The conditional bridge calculation deducts the additional cash overhead once an…"
+   },
+   {
+    "id": "parallel_outreach",
+    "kind": "action",
+    "label": "Assumption: The angel route supplements rather than replaces cold emails and efforts to fin…"
+   },
+   {
+    "id": "bridge_must_arrive_in_time",
+    "kind": "action",
+    "label": "Condition: Angel proceeds must become available before existing cash runs out for the calc…"
+   },
+   {
+    "id": "funding_success_and_timing",
+    "kind": "action",
+    "label": "Left out: The probability and timing of receiving funding through investment firms, cold …"
+   },
+   {
+    "id": "firm_ticket_size_not_raise_target",
+    "kind": "action",
+    "label": "Left out: The firms' £1–2 million deal range and mostly UK location are retained as targe…"
+   },
+   {
+    "id": "non_cash_angel_overhead",
+    "kind": "action",
+    "label": "Left out: Founder time, distraction, dilution and future fundraising complications are no…"
+   },
+   {
+    "id": "unsuccessful_raise_costs",
+    "kind": "action",
+    "label": "Left out: Cash spent on an angel raise that fails, and the timing of fees before funding …"
+   },
+   {
+    "id": "funding_goal_not_yet_measured",
+    "kind": "action",
+    "label": "Left out: Achievement of the funding objective within two months is not yet assessed."
+   }
+  ]
+ },
+ "canonical_analysis_view": {
+  "run": {
+   "run_id": "mp_run_5_b9038c0e9a81",
+   "computed_at": "2026-10-24T00:58:32.972Z",
+   "graph_hash_at_run": "19601674a5a382fe"
+  },
+  "schema": "canonical_analysis_view.v1",
+  "source": "stored_run_facts",
+  "options": [
+   {
+    "cell": {
+     "face": "‘keep sending cold emails and trying to find warm connections’: about 52% chance of ‘Funding received’ being at least £100,000 at 2 months from now, in this model, if ‘Share of the intended firm raise received per month’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0  / month to 0.5  / month, into a bell-shaped spread, ‘Share of the intended angel raise received per month’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0  / month to 0.5  / month, into a bell-shaped spread and ‘Monthly funding received through the included angel route’ follows Olumi’s assumed relationship.",
+     "kind": "figure",
+     "detail": {
+      "draws": 10000,
+      "precision_95": [
+       0.5065010084540638,
+       0.5260864731990522
+      ],
+      "precision_words": "Simulation precision: 50.7% to 52.6%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+     },
+     "display": "about 52%"
+    },
+    "option_id": "existing_outreach",
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "cell": {
+     "face": "‘angel investors’: about 57% chance of ‘Funding received’ being at least £100,000 at 2 months from now, in this model, if ‘Share of the intended firm raise received per month’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0  / month to 0.5  / month, into a bell-shaped spread, ‘Share of the intended angel raise received per month’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0  / month to 0.5  / month, into a bell-shaped spread and ‘Monthly funding received through the included angel route’ follows Olumi’s assumed relationship.",
+     "kind": "figure",
+     "detail": {
+      "draws": 10000,
+      "precision_95": [
+       0.5564628652953323,
+       0.5758862933203901
+      ],
+      "precision_words": "Simulation precision: 55.6% to 57.6%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+     },
+     "display": "about 57%"
+    },
+    "option_id": "angel_investors",
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   }
+  ],
+  "staleness": {
+   "basis": "analysis_graph_hash_interim",
+   "stale": false,
+   "reason": "graph_hash_match",
+   "revision": null,
+   "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+   "run_revision": null
+  },
+  "goal_chance": {
+   "notes": [
+    "Covers: ‘Funding received’ being at least £100,000 at 2 months from now · Leaves out: ‘The probability and timing of receiving funding through investment firms, cold emails, warm connections or angels are not calculated.’, ‘The firms' £1–2 million deal range and mostly UK location are retained as targeting context, not treated as a promised funding amount or a success-rate adjustment.’, ‘Founder time, distraction, dilution and future fundraising complications are not included in the cash-overhead calculation.’, ‘Cash spent on an angel raise that fails, and the timing of fees before funding arrives, are not modelled.’ and ‘Achievement of the funding objective within two months is not yet assessed.’"
+   ],
+   "waits_on": [
+    {
+     "id": "cash_available",
+     "code": "asked",
+     "label": "Cash available now",
+     "scope": [],
+     "answer": {
+      "quantity_id": "cash_available"
+     }
+    },
+    {
+     "id": "monthly_net_burn",
+     "code": "asked",
+     "label": "Monthly cash burn after operating income",
+     "scope": [],
+     "answer": {
+      "quantity_id": "monthly_net_burn"
+     }
+    },
+    {
+     "id": "angel_cash_overhead",
+     "code": "asked",
+     "label": "Additional cash costs of an angel raise",
+     "scope": [],
+     "answer": {
+      "quantity_id": "angel_cash_overhead"
+     }
+    }
+   ],
+   "chance_words": "chance of ‘Funding received’ being at least £100,000 at 2 months from now"
+  },
+  "leader_licence": "withheld"
+ }
+}
