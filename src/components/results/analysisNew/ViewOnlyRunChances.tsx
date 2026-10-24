@@ -4,6 +4,8 @@
  * binding and currentness are `runViewOf`'s (run id AND graph hash, `stale === false`); no licence, chance or value logic.
  * A withheld cell says CEE's face and its `why`; options withheld with the same words are said once, since those words
  * name no option.
+ * Row 19 (DL, 24 Oct): on a PROGRAM board a Run that is no longer current says CEE's own not-current line once
+ * (`face_when_stale`), never its old figures, with one "Run again" that sends the existing Run press.
  */
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
@@ -13,6 +15,7 @@ import { optionChanceCell, runViewGoalChanceSentence, runViewOf } from '../../..
 import type { CanonicalWaitsOn } from '../../../canvas/runView/canonicalAnalysisView'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useValuePrefillStore } from '../../../canvas/graphChanges/valuePrefill'
+import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { typography } from '../../../styles/typography'
 import { action } from './panelSurfaces'
 
@@ -27,19 +30,33 @@ export interface ViewOnlyRunChances {
   readonly lines: readonly ViewOnlyRunChanceLine[]
   /** CEE's `goal_chance.waits_on`, in its order and words (S1 #3716): what the result waits on. */
   readonly waitsOn: readonly CanonicalWaitsOn[]
+  /** The bound Run is not current: `lines` is CEE's not-current line alone, and the block offers "Run again". */
+  readonly stale: boolean
 }
+
+/** The block's one act on a Run that is not current (DL, row 19). */
+export const RUN_AGAIN = 'Run again'
 
 const CTX = { goalChanceHeroSays: false, labelOf: () => null }
 
-/** The bound, current view-only Run's served words; null where a report is held, or the view is unbound or not current. */
+/**
+ * The bound, current view-only Run's served words; on a program board, a Run that is not current says CEE's not-current
+ * line instead. Null where a report is held, or the view is unbound, or not current with no line of CEE's to say.
+ */
 export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
   const report = useCanvasStore(s => s.results?.report ?? null)
   const scenarioId = useCanvasStore(s => s.currentScenarioId)
   const canonical = useCanonicalAnalysisViewStore(s => (s.scenarioId === scenarioId ? s.view : null))
+  const program = useSavedModelIsProgram()
   return useMemo(() => {
     if (report != null || canonical === null) return null
     const view = runViewOf(null, canonical)
-    if (!view.boundToCurrentCanonical()) return null
+    if (!view.boundToCurrentCanonical()) {
+      // The chance gate stands: no figure from a Run that is not current. CEE's own line, said once for every option.
+      const line = program ? view.notCurrentLine() : null
+      return line === null ? null
+        : { sentence: null, lines: [{ optionIds: canonical.options.map(o => o.option_id), text: line, why: null }], waitsOn: [], stale: true }
+    }
     const lines: { optionIds: string[]; text: string; why: string | null; withheld: boolean }[] = []
     for (const { option_id: optionId } of canonical.options) {
       const cell = optionChanceCell(view, optionId, CTX)
@@ -51,8 +68,8 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
       else lines.push({ optionIds: [optionId], text: cell.text, why, withheld })
     }
     const sentence = runViewGoalChanceSentence(view)
-    return lines.length === 0 && sentence === null ? null : { sentence, lines, waitsOn: view.goalChanceDetail()?.waits_on ?? [] }
-  }, [report, canonical])
+    return lines.length === 0 && sentence === null ? null : { sentence, lines, waitsOn: view.goalChanceDetail()?.waits_on ?? [], stale: false }
+  }, [report, canonical, program])
 }
 
 /**
@@ -63,7 +80,8 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
 export function useProgramBoardShowsResult(): boolean {
   const program = useSavedModelIsProgram()
   const chances = useViewOnlyRunChances()
-  return program && chances !== null
+  // A Run that is not current shows no result, only CEE's line and "Run again": it is never counted as one.
+  return program && chances !== null && !chances.stale
 }
 
 export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChances }) {
@@ -88,7 +106,22 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
           ))}
         </p>
       )}
+      {chances.stale ? <RunAgain /> : null}
     </div>
+  )
+}
+
+/**
+ * The existing Run press (the conversation's gated runner, `_runAnalysis`: `run_analysis`, which CEE serves for a program
+ * with the stored Run when current, else a new Run, and no AI call). Absent with no runner: never a control that does nothing.
+ */
+function RunAgain() {
+  const run = useGuidanceStore(s => s._runAnalysis)
+  if (run === null) return null
+  return (
+    <button type="button" className={`${typography.panelMeta} ${action('primary')} mt-1`} data-testid="analysis-view-only-run-again" onClick={() => run()}>
+      {RUN_AGAIN}
+    </button>
   )
 }
 

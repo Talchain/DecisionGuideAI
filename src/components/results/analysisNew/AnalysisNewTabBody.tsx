@@ -1629,7 +1629,9 @@ export function AnalysisNewTabBody({
             ⚠ AND ABSENT WITH NO HANDLER: a host with no run affordance
             renders nothing rather than a control that does nothing — the
             same fail-closed shape `onSendMessage` uses one section over. */}
-        {!isBusyNow && !runRefusedByGate && onReanalyse && !footerOwnsRerun && !programShowsResult ? (
+        {!isBusyNow && !runRefusedByGate && onReanalyse && !footerOwnsRerun && !programShowsResult
+          // A program Run that is not current carries its own "Run again" in the block above: one run act, not two.
+          && !(showViewOnlyChances && viewOnlyChances?.stale === true) ? (
           <button
             type="button"
             onClick={onReanalyse}
