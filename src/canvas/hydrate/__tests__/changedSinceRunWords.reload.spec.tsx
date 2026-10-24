@@ -57,7 +57,7 @@ async function namedReload() {
 function expectGeneric() {
   expect(screen.queryByText(/since your last Run/i)).not.toBeInTheDocument()
   expect(screen.getByText(GENERIC)).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Re-analyse' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Run analysis' })).toBeInTheDocument()
 }
 beforeEach(() => {
   vi.stubGlobal('fetch', fetchSpy)
@@ -88,7 +88,7 @@ describe('changed-since-Run words after reload', () => {
     mount()
     const bar = screen.getByTestId('reanalyse-bar')
     expect(within(bar).getAllByText(SUMMARY)).toHaveLength(1)
-    expect(within(bar).getByRole('button', { name: 'Re-analyse' })).toBeEnabled()
+    expect(within(bar).getByRole('button', { name: 'Run analysis' })).toBeEnabled()
     expect(bar).not.toHaveTextContent('This model has not been analysed yet.')
     expect(bar).not.toHaveTextContent('Model changed. Results may be out of date.')
     expect(bar.textContent).not.toMatch(/findings|results|analysis complete/i)
@@ -106,7 +106,7 @@ describe('changed-since-Run words after reload', () => {
     expect(useCanvasStore.getState().hasCompletedFirstRun).toBe(false)
     mount()
     expect(screen.getAllByText(SUMMARY)).toHaveLength(1)
-    expect(screen.getByRole('button', { name: 'Re-analyse' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Run analysis' })).toBeInTheDocument()
     expect(screen.getByTestId('reanalyse-bar').textContent).not.toMatch(/not been analysed|findings|results/i)
   })
 
@@ -133,7 +133,7 @@ describe('changed-since-Run words after reload', () => {
     expect(useCanvasStore.getState().analysisStateV1?.run_state).toEqual(adopted?.run_state)
     expect(useChangedSinceRunStore.getState().value).toBe(held)
     expect(screen.getAllByText(SUMMARY)).toHaveLength(1)
-    expect(screen.getByRole('button', { name: 'Re-analyse' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Run analysis' })).toBeInTheDocument()
   })
 
   it('a refused merge with a different Run cannot attach a new set to the previously adopted stale verdict', async () => {
@@ -241,7 +241,7 @@ describe('changed-since-Run words after reload', () => {
     expect(screen.queryByText(GENERIC)).not.toBeInTheDocument()
     const reason = BLOCKED_REASON_COPY.staleRecheck.split('. ').slice(1).join('. ')
     expect(screen.getByTestId('reanalyse-blocked-reason')).toHaveTextContent(reason)
-    expect(screen.getByRole('button', { name: 'Re-analyse' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Run analysis' })).toBeDisabled()
     expect(screen.getByTestId('reanalyse-bar')).not.toHaveTextContent(BLOCKED_REASON_COPY.staleRecheck.split('. ')[0])
   })
 })

@@ -68,7 +68,7 @@ describe('(d) a program graph: no Run button on either surface, enabled or disab
       render(surfaces(canRun))
       await vi.waitFor(() => expect(screen.queryByTestId('analysis-readiness-bar-analyse')).toBeNull())
       expect(screen.queryByTestId('pre-analysis-v3-analyse')).toBeNull()
-      expect(screen.queryByRole('button', { name: 'Analyse first pass' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Run analysis' })).toBeNull()
       // The bar's own words stay; only the button goes.
       expect(screen.getByTestId('analysis-readiness-bar')).toBeTruthy()
     })
@@ -82,7 +82,7 @@ describe('(e) CONTROL: the café board keeps the Run button as today', () => {
     await settle()
     expect((screen.getByTestId('analysis-readiness-bar-analyse') as HTMLButtonElement).disabled).toBe(false)
     expect((screen.getByTestId('pre-analysis-v3-analyse') as HTMLButtonElement).disabled).toBe(false)
-    expect(screen.getByTestId('analysis-readiness-bar-analyse').textContent).toBe('Analyse first pass')
+    expect(screen.getByTestId('analysis-readiness-bar-analyse').textContent).toBe('Run analysis')
   })
   it('disabled when the gate is shut', async () => {
     seed(CAFE)
@@ -100,6 +100,6 @@ describe('(e) CONTROL: an unknown program version keeps the Run button as today 
     await settle(CAPACITY.scenario_id as string)
     expect((screen.getByTestId('analysis-readiness-bar-analyse') as HTMLButtonElement).disabled).toBe(false)
     expect((screen.getByTestId('pre-analysis-v3-analyse') as HTMLButtonElement).disabled).toBe(false)
-    expect(screen.getByTestId('analysis-readiness-bar-analyse').textContent).toBe('Analyse first pass')
+    expect(screen.getByTestId('analysis-readiness-bar-analyse').textContent).toBe('Run analysis')
   })
 })

@@ -208,6 +208,7 @@ import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer
 import { AssistantOpenedNotice } from './AssistantOpenedNotice'
 import { DefineSuccessModal, DecisionRecordModal, HowComputedModal } from '../../components/results/modals'
 import { useIsViewer } from '../../lib/viewerMode'
+import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
 
 /**
  * Map API critique format (CritiqueItemV1) to ValidationPanel format
@@ -4489,7 +4490,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                       canRun: canRunAnalysis,
                       isRunning,
                       blockedReason: runBlockedTooltip,
-                      label: 'Re-run analysis',
+                      label: RUN_ANALYSIS_LABEL,
                     }
                   : undefined
               }

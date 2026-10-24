@@ -21,7 +21,7 @@ describe('FocusBanner', () => {
 
   it('stale: re-run button has an accessible name', () => {
     render(<FocusBanner state={{ kind: 'stale', canRerun: true }} onRerun={() => {}} />)
-    expect(screen.getByRole('button', { name: 'Re-run analysis' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Run analysis' })).toBeInTheDocument()
   })
 
   it('cannot_confirm: neutral note, no re-run even when onRerun is provided', () => {

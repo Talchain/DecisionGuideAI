@@ -161,7 +161,7 @@ describe('the Olumi tab after the first Run', () => {
     const bar = within(footer).getByTestId('reanalyse-bar')
     expect(bar).toHaveAttribute('data-reason', 'model-changed')
     expect(bar).toHaveTextContent('Model changed. Results may be out of date.')
-    expect(within(footer).getByTestId('reanalyse-button')).toHaveTextContent('Re-analyse')
+    expect(within(footer).getByTestId('reanalyse-button')).toHaveTextContent('Run analysis')
     // ONE control, not two: the pre-run readiness bar is not also drawn.
     expect(within(footer).queryByTestId('analysis-readiness-bar')).toBeNull()
 

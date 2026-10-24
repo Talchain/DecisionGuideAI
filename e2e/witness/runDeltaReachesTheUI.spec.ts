@@ -93,7 +93,7 @@ test('WITNESS run_delta after a deliberate change', async ({ page }) => {
   mark('drafted')
 
   // ── FIRST RUN ────────────────────────────────────────────────────────────
-  const run = page.getByRole('button', { name: /analyse/i })
+  const run = page.getByRole('button', { name: /run analysis|analyse/i })
   if ((await run.count()) === 0) {
     const names = await page.getByRole('button').evaluateAll((els) =>
       els.map((e) => (e as HTMLElement).innerText || e.getAttribute('aria-label') || '').filter(Boolean),

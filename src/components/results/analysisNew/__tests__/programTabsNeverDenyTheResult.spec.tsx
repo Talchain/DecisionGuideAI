@@ -96,7 +96,7 @@ describe('the Reasoning body on a program board showing its Run', () => {
   it('CONTROL: the same capacity read on a board that is not a program board keeps "Run the analysis"', async () => {
     board(capacity, false)
     await reasoning()
-    expect(screen.getByTestId(RUN_ACT)).toHaveTextContent('Run the analysis')
+    expect(screen.getByTestId(RUN_ACT)).toHaveTextContent('Run analysis')
   })
 })
 
