@@ -48,7 +48,7 @@ export const COMPOSER_MOVES: readonly ComposerMove[] = [
   {
     id: 'challenge',
     label: 'Challenge an assumption',
-    does: 'Olumi questions the card you selected and notes it beside the card.',
+    does: 'Olumi questions the assumption on the card you selected.',
     Icon: Zap,
     needsCard: 'Select one card on the canvas, then Olumi can challenge it.',
     press: (cardId) => { if (cardId) askAi({ intent: 'challenge', nodeIds: [cardId] }) },
