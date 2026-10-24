@@ -292,7 +292,7 @@ const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string; name?
    */
   {
     kind: 'node-coaching-icon',
-    name: 'What’s the evidence?',
+    name: 'Ask Olumi: What’s the evidence?',
     starter: 'vendor-selection',
     why: 'the rail coaching icon on a FACTOR node (the ScienceIcon badges it replaced are Detailed-only)',
   },
