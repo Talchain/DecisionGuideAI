@@ -14,6 +14,7 @@ import type { CanonicalWaitsOn } from '../../../canvas/runView/canonicalAnalysis
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useValuePrefillStore } from '../../../canvas/graphChanges/valuePrefill'
 import { typography } from '../../../styles/typography'
+import { action } from './panelSurfaces'
 
 export interface ViewOnlyRunChanceLine {
   readonly optionIds: readonly string[]
@@ -102,7 +103,7 @@ function WaitsOnItem({ item }: { item: CanonicalWaitsOn }) {
   const requestPrefill = useValuePrefillStore(s => s.requestPrefill)
   if (quantityId === null || !onCanvas) return <span data-testid={`analysis-view-only-waits-on-${item.id}`}>{`‘${item.label}’`}</span>
   return (
-    <button type="button" className="underline hover:no-underline" data-testid={`analysis-view-only-waits-on-answer-${quantityId}`}
+    <button type="button" className={action('inline')} data-testid={`analysis-view-only-waits-on-answer-${quantityId}`}
       onClick={() => { focusModelTarget(quantityId); requestPrefill({ nodeId: quantityId, text: '' }) }}>
       {`‘${item.label}’`}
     </button>
