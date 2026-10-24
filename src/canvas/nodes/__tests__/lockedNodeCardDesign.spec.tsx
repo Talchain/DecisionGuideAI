@@ -851,7 +851,9 @@ describe('"Worth reviewing" — one selective, grounded, NON-warning cue (spec �
     // Vision spec §3 (23 Oct, one Olumi slot): the glyph is now the Olumi brand mark, the card's one Olumi badge.
     expect(within(marker).getByTestId('attention-marker-ring')).toHaveAttribute('data-icon', 'olumi-brand-mark')
     expect(marker.className.split(/\s+/)).toContain('text-info')
-    expect(within(card).getByTestId('node-rail-behaviour-fac-conv')).toBeTruthy()
+    // Paul (24 Oct): the grounded anchoring finding is the anchoring glyph in the card's row, not a rail icon.
+    expect(within(card).getByTestId('node-bias-fac-conv').querySelector('svg.lucide-anchor')).not.toBeNull()
+    expect(within(card).queryByTestId('node-rail-behaviour-fac-conv')).toBeNull()
   })
 
   it('⛔ an element with no grounded signal carries no marker — the Olumi estimate alone never qualifies', () => {

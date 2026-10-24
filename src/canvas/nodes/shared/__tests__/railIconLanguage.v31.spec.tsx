@@ -30,6 +30,7 @@ import { SearchCheck } from 'lucide-react'
 import { NODE_RAIL_AI_GLYPH_CLASSES, NODE_RAIL_AI_GLYPH_PX, NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from '../nodeCardRailStyles'
 import { CANVAS_GLYPH_SIZE_CLASSES } from '../canvasGlyphScale'
 import { NodeRailIcon, NodeSignalRailIcons, NODE_RAIL_REVEAL_CLASSES } from '../NodeRailIcons'
+import { NodeBiasMarks } from '../NodeBiasMarks'
 import { NodeQuickActions } from '../NodeQuickActions'
 import { NodeAttentionMarker } from '../NodeAttentionMarker'
 import { NodeCoachingMarker } from '../NodeCoachingMarker'
@@ -51,7 +52,7 @@ const has = (el: Element | null | undefined, cls: string) => tokens(el).includes
 const lucideName = (svg: Element | null | undefined) => tokens(svg).find((t) => t.startsWith('lucide-')) ?? null
 
 const EVIDENCE: AttentionReason = { kind: 'evidence_gap', order: 3, label: 'Evidence here would narrow the comparison.' }
-const BEHAVIOUR: AttentionReason = { kind: 'behavioural', order: 4, label: 'Worth checking: anchoring.' }
+const BEHAVIOUR: AttentionReason = { kind: 'behavioural', order: 4, label: 'Worth checking: anchoring.', biasCode: 'anchoring' }
 
 const noop = () => {}
 /** `ScienceIcon` types its glyph as `size?: number`; a thin wrapper, as `canvasGlyphTargetScale.spec` does. */
@@ -165,7 +166,7 @@ describe('OPT-02 / ICON-03 — an edit route is revealed on hover/focus, never r
 // ─────────────────────────────────────────────────────────────────────────────
 describe('ICON-06 / F11 — the evidence rail icon is muted at rest; Info at rest is the attention cue alone', () => {
   it('evidence icon: the rail grey at rest (#777B77 since gap 34), Info only on hover/focus', () => {
-    render(<NodeSignalRailIcons nodeId="f1" label="Trial conversion" reasons={[EVIDENCE]} />)
+    render(<NodeSignalRailIcons nodeId="f1" reasons={[EVIDENCE]} />)
     const b = screen.getByTestId('node-rail-evidence-f1')
     expect(has(b, NODE_RAIL_REST_TONE_CLASS)).toBe(true)
     expect(has(b, 'text-info')).toBe(false)
@@ -180,18 +181,27 @@ describe('ICON-06 / F11 — the evidence rail icon is muted at rest; Info at res
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('ICON-04 (fallback) — the rail data icons leave with the coaching icon at quiet/far zoom', () => {
-  it('CONTRAST (full): evidence and behaviour icons render', () => {
+  // Paul (24 Oct): a bias finding is its own glyph in the card's row (`NodeBiasMarks`), not a rail icon; it leaves at the
+  // same rungs the rail's data icons do.
+  const both = () => (
+    <>
+      <NodeSignalRailIcons nodeId="f1" reasons={[EVIDENCE, BEHAVIOUR]} />
+      <NodeBiasMarks nodeId="f1" label="Trial conversion" reasons={[EVIDENCE, BEHAVIOUR]} />
+    </>
+  )
+  it('CONTRAST (full): the evidence icon and the bias mark render; no behaviour icon on the rail', () => {
     setRung('full')
-    render(<NodeSignalRailIcons nodeId="f1" label="Trial conversion" reasons={[EVIDENCE, BEHAVIOUR]} />)
+    render(both())
     expect(screen.getByTestId('node-rail-evidence-f1')).toBeInTheDocument()
-    expect(screen.getByTestId('node-rail-behaviour-f1')).toBeInTheDocument()
+    expect(screen.getByTestId('node-bias-f1').querySelector('svg.lucide-anchor')).not.toBeNull()
+    expect(screen.queryByTestId('node-rail-behaviour-f1')).toBeNull()
   })
 
   it.each(['quiet', 'line'] as const)('at %s neither renders', (rung) => {
     setRung(rung)
-    const { container } = render(<NodeSignalRailIcons nodeId="f1" label="Trial conversion" reasons={[EVIDENCE, BEHAVIOUR]} />)
+    const { container } = render(both())
     expect(screen.queryByTestId('node-rail-evidence-f1')).toBeNull()
-    expect(screen.queryByTestId('node-rail-behaviour-f1')).toBeNull()
+    expect(screen.queryByTestId('node-bias-f1')).toBeNull()
     expect(container.innerHTML).toBe('')
   })
 })

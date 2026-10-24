@@ -72,6 +72,8 @@ export interface AttentionReason {
   readonly order: 1 | 2 | 3 | 4
   /** The sentence the reader sees: model-scoped, ending in its question. */
   readonly label: string
+  /** `behavioural` only: the finding's bias code as CEE served it, so the card draws that bias's own glyph. */
+  readonly biasCode?: string
 }
 
 export const ATTENTION_BUDGET = 3
@@ -222,7 +224,7 @@ export function deriveAttentionPlan(inputs: AttentionInputs, budget: number = AT
     const label = `Worth checking: ${title.toLowerCase()}. What would show whether it applies here?`
     for (const id of targets) {
       if (id === null || !byId.has(id)) continue
-      push(reasons, id, { kind: 'behavioural', order: 4, label })
+      push(reasons, id, { kind: 'behavioural', order: 4, label, biasCode: String(f.code ?? f.type) })
     }
   }
   for (const raw of inputs.ceeBiasFindings) {

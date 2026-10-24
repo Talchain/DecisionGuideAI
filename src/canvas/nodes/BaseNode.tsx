@@ -120,6 +120,7 @@ import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { useNodeAttention } from './shared/useNodeAttention'
 import { attentionCueSentence } from './shared/nodeAttention'
 import { NodeSignalRailIcons } from './shared/NodeRailIcons'
+import { NodeBiasMarks } from './shared/NodeBiasMarks'
 import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
 import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
@@ -2114,7 +2115,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             railIcons || attention.reasons.length > 0 ? (
               <>
                 {railIcons}
-                <NodeSignalRailIcons nodeId={id} label={label} reasons={attention.reasons} />
+                <NodeSignalRailIcons nodeId={id} reasons={attention.reasons} />
               </>
             ) : undefined
           }
@@ -2431,6 +2432,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             surface the inspector uses. ⛔ Neither marker on a card drawn from the living model alone: each is a button that
             opens a note or the inspector for a node the store does not hold (`livingModelCanvas.ts`). */}
         {livingOnly === null && <BottomCardMark><NodeCoachingMarker nodeId={id} attentionSentence={attentionText} /></BottomCardMark>}
+        {livingOnly === null && <NodeBiasMarks nodeId={id} label={label} reasons={attention.reasons} />}
       </div>
 
       {/* ⭐ THE TYPE GLYPH SITS ON THE TOP CONNECTOR, NOT IN THE TITLE ROW.
