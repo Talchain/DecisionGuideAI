@@ -597,7 +597,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // below them. Same MARK and SEPARATOR as `option · pre · standard`.
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
-    'withheld', // STATE — gap P0 #1
+    // (24 Oct, #2981: the `withheld` STATE word is retired; Paul: no word after the dash, the circle-slash mark says it.)
     '—', // FIGURE — gap P0 #1: no chance shown
   ],
   // Sorted, because `invariantRuns` sorts — the pinned set must be read as a
@@ -616,7 +616,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
     // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
-    'withheld', // STATE — gap P0 #1
+    // (24 Oct, #2981: the `withheld` STATE word is retired; Paul: no word after the dash, the circle-slash mark says it.)
     '—', // FIGURE — gap P0 #1: no chance shown
   ],
   'factor · pre · standard': [],
@@ -1086,8 +1086,10 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     expect(Object.values(measured).flat()).not.toContain('Influence')
     // Vision spec row 2 (23 Oct): the caption is retired from every option card (the share line, Detailed and the reduced
     // line); the chance cell it captioned is still found (positive control).
-    // Gap P0 #1 (23 Oct): on the full card that cell is now the `withheld` word; the zoomed-out line still says the face.
-    expect(measured['option · post · standard']).toContain('withheld')
+    // Paul (24 Oct, #2981): on the full card that cell is now the `—` with the circle-slash mark, no word; the zoomed-out
+    // line still says the face.
+    expect(measured['option · post · standard']).toContain('—')
+    expect(measured['option · post · standard']).not.toContain('withheld')
     expect(measured['option · post · lod-line']).toContain(CHANCE_NOT_SHOWN_YET)
     for (const [bucket, runs] of Object.entries(measured)) {
       if (bucket.startsWith('option')) expect(runs.join(' | '), bucket).not.toContain('Current model')

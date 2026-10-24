@@ -134,8 +134,10 @@ describe('rule 2 — an option states what it sets before how it scored', () => 
      * guard agreeing with itself.
      */
     expect(support, 'the chance cell must render, or this test asserts nothing').not.toBeNull()
-    // Gap P0 #1 (#2961): this withheld cell is `—` + `withheld` on the card; CEE's face is in the line's accessible name.
-    expect(support!.textContent).toBe('—withheld')
+    // Paul (24 Oct, #2981): this withheld cell is the `—` and the circle-slash mark on the card, no word; CEE's face is in
+    // the line's accessible name.
+    expect(support!.textContent).toBe('—')
+    expect(support!.querySelector('svg.lucide-circle-slash')).not.toBeNull()
     expect(support!.getAttribute('aria-label')).toContain(String(chanceCells(candidate.id).text))
     expect(support!.textContent).not.toContain('of runs')
     const rel = delta.compareDocumentPosition(support as Element)

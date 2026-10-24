@@ -291,9 +291,10 @@ const CARD_FACES_OF: Readonly<Record<Form, readonly string[]>> = {
  * wrong card, or the face's label-prefixed sentence back on the line, does not satisfy it.
  */
 const CARD_HEADLINES_OF: Readonly<Record<Form, readonly [string, string, string]>> = {
-  // Gap P0 #1 (#2961): a withheld cell's line is `—` + the `withheld` word; CEE's face stays in the line's accessible name
-  // (pinned by identity in `OptionNode.viewOnlyRead.spec.tsx`). The carry-on-as-now statement keeps its words.
-  withheld: ['—withheld', '—withheld', SQ_FACE], licensed: [DISPLAY_A, DISPLAY_B, SQ_FACE],
+  // Paul (24 Oct, #2981): a withheld cell's line is the `—` and the circle-slash mark, no word; CEE's face stays in the
+  // mark's and the line's accessible name (pinned by identity in `OptionNode.viewOnlyRead.spec.tsx`). The carry-on-as-now
+  // statement keeps its words.
+  withheld: ['—', '—', SQ_FACE], licensed: [DISPLAY_A, DISPLAY_B, SQ_FACE],
   same_bounds: [DISPLAY_A, DISPLAY_B_SAME, SQ_FACE], agreeing_low: [LOW_DISPLAY[A], LOW_DISPLAY[B], LOW_DISPLAY[SQ]],
   no_words: [DISPLAY_A, DISPLAY_B, SQ_FACE], boundary: [BOUNDARY_DISPLAY[A], BOUNDARY_DISPLAY[B], BOUNDARY_DISPLAY[SQ]],
 }
