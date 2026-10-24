@@ -19,6 +19,7 @@ vi.mock('../../../lib/supabase', () => ({ getUserId: async () => null, getSessio
 import { EmptyConversationInvitation, INVITATION_TESTID_DOCKED } from '../../components/EmptyConversationInvitation'
 import { useConversationStage } from '../useConversationStage'
 import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
+import { useSavedGraph } from '../../nodes/shared/savedGraph'
 import { __resetStalenessVoicesForTest, claimStalenessVoice } from '../../conversation/stalenessVoice'
 import { useCanvasStore } from '../../store'
 import { useCanonicalAnalysisViewStore } from '../../stores/canonicalAnalysisViewStore'
@@ -49,13 +50,21 @@ async function board(source: Json, opts: { program?: boolean } = {}) {
   expect(view).not.toBeNull()
   useCanonicalAnalysisViewStore.getState().adopt(source.scenario_id, view)
 }
-function Stage() { return <><span data-testid="stage">{useConversationStage()}</span><span data-testid="program">{String(useSavedModelIsProgram())}</span></> }
-/** Drawn, and asserted only once the saved-graph read (the program flag) has answered as this board's read says. */
+function Stage() {
+  // The saved graph this board's read returned, by its own living model: proof the read ANSWERED and matched (`null`
+  // until then), so a "not a program board" answer is never the reader's initial value (Codex r2).
+  const saved = useSavedGraph() as { living_model?: unknown } | null
+  return <>
+    <span data-testid="stage">{useConversationStage()}</span>
+    <span data-testid="saved">{saved === null ? 'pending' : JSON.stringify(saved.living_model ?? null)}</span>
+    <span data-testid="program">{String(useSavedModelIsProgram())}</span>
+  </>
+}
+/** Drawn, and asserted only once the saved-graph read has answered with THIS board's graph and its program flag. */
 async function draw(program: boolean) {
   render(<><EmptyConversationInvitation testId={INVITATION_TESTID_DOCKED} /><Stage /></>)
-  await waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([u]) => /\/scenarios\/[^/]+\/graph$/.test(String(u)))).toBe(true))
-  await waitFor(() => expect(screen.getByTestId('program').textContent).toBe(String(program)))
-  await act(async () => { await new Promise((r) => setTimeout(r, 10)) })
+  await waitFor(() => expect(screen.getByTestId('saved').textContent).toBe(JSON.stringify(read.graph.living_model ?? null)))
+  expect(screen.getByTestId('program').textContent).toBe(String(program))
 }
 const said = () => screen.getByTestId(INVITATION_TESTID_DOCKED).textContent
 
