@@ -6,7 +6,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { fetchScenarioGraph } from '../../../adapters/cee/scenarioGraph'
-import { getSessionIdentity } from '../../../lib/supabase'
 import { isOpenAiLane, resolveAiComparisonMode } from '../../../v5/aiComparisonMode'
 import { isCeeAddressableScenarioId } from '../../hydrate/bootGraphRead'
 import { useCanvasStore } from '../../store'
@@ -18,7 +17,9 @@ const sameHash = (a: string | null, b: string): boolean => a !== null && (a === 
 function readOnce(key: string, scenarioId: string, graphHash: string): Promise<unknown> {
   if (last?.key !== key) {
     const read = (async () => {
-      const identity = await getSessionIdentity().catch(() => ({ userId: null, accessToken: null }))
+      // The auth client is loaded with the read, never with this module: a display reader (the stage ladder, every tab)
+      // must not initialise auth just by being imported (Codex r1 on #2979).
+      const identity = await import('../../../lib/supabase').then((m) => m.getSessionIdentity()).catch(() => ({ userId: null, accessToken: null }))
       const result = await fetchScenarioGraph(scenarioId, { userId: identity.userId, accessToken: identity.accessToken })
       // Codex R1: another scenario's or another save's graph is never shown under this key.
       if (result.status !== 'graph' || result.scenarioId !== scenarioId || !sameHash(result.graphHash, graphHash)) return null
