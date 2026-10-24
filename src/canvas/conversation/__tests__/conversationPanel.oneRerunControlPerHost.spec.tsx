@@ -96,7 +96,7 @@ describe('one rerun control per chat host, after a model change', () => {
     draw('floating')
     expect(screen.getByTestId('chat-thread').textContent, 'precondition: the reply carrying the run chip is on screen').toContain('Saved as version 2')
     expect(ownBar(), 'the floating panel had no rerun control but the pill').not.toBeNull()
-    expect(screen.getByTestId('reanalyse-button')).toHaveTextContent('Re-analyse')
+    expect(screen.getByTestId('reanalyse-button')).toHaveTextContent('Run analysis')
     expect(pill(), 'the forbidden in-chat pill').toBeNull()
   })
 
@@ -125,7 +125,7 @@ describe('one rerun control per chat host, after a model change', () => {
 
   it.each(['Re-analyse', 'Run again'])('prompt-only "%s" yields to the panel Re-analyse control', label => {
     draw('floating', promptOnlyReply(label))
-    expect(screen.getByTestId('reanalyse-button')).toHaveTextContent('Re-analyse')
+    expect(screen.getByTestId('reanalyse-button')).toHaveTextContent('Run analysis')
     expect(pill()).toBeNull()
   })
 

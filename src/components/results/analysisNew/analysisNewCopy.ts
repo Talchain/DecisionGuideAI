@@ -17,6 +17,7 @@ import { formatThresholdFigure } from './thresholdFigure'
 import type { UnsizedPathAsk } from '../strengthen/strengthenTypes'
 
 import { isSuppressedUnit } from '../../../canvas/utils/labelUtils'
+import { RUN_ANALYSIS_LABEL } from '../../../canvas/runAnalysisLabel'
 import { GOAL_ANCHOR_COPY, GOAL_CHANCE_LABEL } from '../utils/goalAnchorCopy'
 
 /**
@@ -2483,7 +2484,7 @@ export const ANALYSIS_NEW_COPY = {
      * person does; "Analyse" is a button label from the canvas toolbar and
      * repeating it here would imply this is that same control.
      */
-    preRunRunAction: 'Run the analysis',
+    preRunRunAction: RUN_ANALYSIS_LABEL,
     running: 'Analysis is running.',
     /**
      * ⭐⭐ THE SENTENCE FOR A RUN THE CLIENT HAS STOPPED WAITING FOR.

@@ -71,6 +71,7 @@
  */
 
 import { RefreshCw } from 'lucide-react'
+import { RUN_ANALYSIS_LABEL } from '../../runAnalysisLabel'
 import { typography } from '../../../styles/typography'
 import { gateBlockedSubline } from '../pre-analysis-v3/footer/readinessDisplay'
 import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
@@ -337,11 +338,9 @@ export function ReanalyseBar({
         {/* The sibling's ANALYSING arm, which the first cut left behind while
             taking its two expressions: a control disabled with no title, no
             subline and an unchanged label reads as broken rather than busy. */}
-        {/* ⚠ "Re-analyse" PRESUPPOSES A PRIOR RUN. On a model that has never
-            been analysed the prefix is a small, constant lie in the one control
-            the user needs, so the label follows the same fact the headline does
-            rather than being spelled from a second derivation. */}
-        {isAnalysing ? 'Analysing…' : neverRun ? 'Analyse' : 'Re-analyse'}
+        {/* ONE RUN LABEL (`runAnalysisLabel.ts`): the headline above says whether a Run exists, so the button never
+            presupposes one ("Re-analyse" was a small lie on a never-analysed model). */}
+        {isAnalysing ? 'Analysing…' : RUN_ANALYSIS_LABEL}
       </button>
     </div>
   )

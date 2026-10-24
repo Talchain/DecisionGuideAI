@@ -13,6 +13,7 @@
  * question, …) is server-owned and is NOT here.
  */
 import type { FocusRow } from './focusTypes'
+import { RUN_ANALYSIS_LABEL } from '../../../runAnalysisLabel'
 import { SUCCESS_TARGET_PROMPT } from '../../../../components/results/strengthen/successTargetPrompt'
 
 /** Rows shown before the "show all / fewer" reveal. Display chunking, not selection. */
@@ -55,7 +56,7 @@ export const FOCUS_COPY = {
    * own this wording) so freshness surfaces cannot drift.
    */
   staleText: 'These results may be out of date because the model has changed since the last analysis.',
-  rerunLabel: 'Re-run analysis',
+  rerunLabel: RUN_ANALYSIS_LABEL,
   cannotConfirmText: 'We cannot confirm these results are up to date.',
 } as const
 

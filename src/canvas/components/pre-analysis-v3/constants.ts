@@ -9,6 +9,7 @@
  */
 
 import type { BarKey, BarState, SparkPrompt } from './types'
+import { RUN_ANALYSIS_LABEL } from '../../runAnalysisLabel'
 import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
 // TYPE ONLY, and that is load-bearing: it is erased at build, so this pure copy
 // module gains no runtime dependency on the conversation seam. Importing the union
@@ -608,9 +609,9 @@ export const FOOTER_COPY = {
   scaffoldSubNoCount: 'Olumi will draft the remaining options',
   running: 'Analysis running',
   runningSub: 'Hold on while the first pass completes',
-  analyse: 'Analyse first pass',
+  analyse: RUN_ANALYSIS_LABEL,
   /** The same control once the scenario has a Run on record (`selectRunOnRecord`); the app's existing re-run words. */
-  reanalyse: 'Re-run analysis',
+  reanalyse: RUN_ANALYSIS_LABEL,
   /**
    * A saved Run exists but the boot could not confirm it matches the model as saved (`declinedSavedRunStore.ts`), so it
    * is not shown. Says the Run exists and why it is not shown; names no cause it cannot read (P0 #72 5893379882).

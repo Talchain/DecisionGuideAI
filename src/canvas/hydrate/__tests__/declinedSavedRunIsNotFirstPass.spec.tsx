@@ -87,7 +87,7 @@ describe('the Run control never says "first pass" over a saved Run', () => {
   it('the footer offers "Re-run analysis" and the sentence, never "Analyse first pass"', () => {
     render(<PanelFooter footer={resting} onAnalyse={() => {}} isAnalysing={false} canRun runOnRecord savedRunUnconfirmed />)
     expect(screen.getByRole('button', { name: FOOTER_COPY.reanalyse })).toBeDefined()
-    expect(screen.queryByText(FOOTER_COPY.analyse)).toBeNull()
+    expect(screen.queryByText(/first pass/i)).toBeNull()
     expect(screen.getByTestId('pre-analysis-v3-footer-subline').textContent).toBe(FOOTER_COPY.savedRunUnconfirmedSub)
   })
 })

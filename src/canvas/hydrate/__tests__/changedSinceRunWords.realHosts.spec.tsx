@@ -151,7 +151,7 @@ function expectGenericRerun(host: HTMLElement) {
   const bar = within(host).getByTestId('reanalyse-bar')
   expect(within(host).queryByText(/since your last Run/i)).toBeNull()
   expect(within(bar).getByText('Model changed. Results may be out of date.')).toBeInTheDocument()
-  expect(within(bar).getByRole('button', { name: 'Re-analyse' })).toBeInTheDocument()
+  expect(within(bar).getByRole('button', { name: 'Run analysis' })).toBeInTheDocument()
 }
 
 beforeEach(() => {
@@ -201,8 +201,8 @@ describe('Reasoning has one run owner', () => {
     expect(status).toHaveTextContent(COPY.status.savedRunStale)
     expect(status).not.toHaveTextContent(COPY.status.preRun)
     const bar = within(dock.getByTestId('reanalyse-bar'))
-    expect(dock.getAllByRole('button', { name: /^(Re-analyse|Run the analysis|Re-run|Rerun analysis|Analyse)$/ }))
-      .toEqual([bar.getByRole('button', { name: 'Re-analyse' })])
+    expect(dock.getAllByRole('button', { name: /^(Run analysis|Re-analyse|Run the analysis|Re-run|Rerun analysis|Analyse)$/ }))
+      .toEqual([bar.getByRole('button', { name: 'Run analysis' })])
     expect(dock.queryByTestId('analysis-new-status-pre-run-act')).toBeNull()
   }, 30_000)
 
@@ -215,9 +215,9 @@ describe('Reasoning has one run owner', () => {
     const dock = within(screen.getByTestId('outputs-dock'))
     expect(dock.getByTestId('analysis-new-status-pre-run')).toHaveTextContent(COPY.status.preRun)
     const action = dock.getByTestId('analysis-new-status-pre-run-act')
-    expect(action).toHaveTextContent('Run the analysis')
+    expect(action).toHaveTextContent('Run analysis')
     expect(action).toBeEnabled()
-    expect(dock.getAllByRole('button', { name: /^(Re-analyse|Run the analysis|Re-run|Rerun analysis|Analyse)$/ }))
+    expect(dock.getAllByRole('button', { name: /^(Run analysis|Re-analyse|Run the analysis|Re-run|Rerun analysis|Analyse)$/ }))
       .toEqual([action])
     expect(dock.queryByTestId('reanalyse-bar')).toBeNull()
   }, 30_000)
@@ -230,7 +230,7 @@ describe.each(RELOAD_MODES)('real hosts after %s stale hydration', mode => {
     const bar = within(hostElement).getByTestId('reanalyse-bar')
     expect(within(hostElement).getAllByTestId('reanalyse-bar')).toHaveLength(1)
     expect(within(bar).getAllByText(SUMMARY)).toHaveLength(1)
-    expect(within(bar).getByRole('button', { name: 'Re-analyse' })).toBeInTheDocument()
+    expect(within(bar).getByRole('button', { name: 'Run analysis' })).toBeInTheDocument()
     expect(bar).not.toHaveTextContent('This model has not been analysed yet.')
     expect(bar).not.toHaveTextContent('Model changed. Results may be out of date.')
     expect(bar.textContent).not.toMatch(/findings|results|analysis complete/i)
@@ -252,7 +252,7 @@ describe('Run binding through the real Olumi dock host', () => {
     expect(useChangedSinceRunStore.getState().value).toBe(held)
     const bar = within(host).getByTestId('reanalyse-bar')
     expect(within(bar).getAllByText(SUMMARY)).toHaveLength(1)
-    expect(within(bar).getByRole('button', { name: 'Re-analyse' })).toBeInTheDocument()
+    expect(within(bar).getByRole('button', { name: 'Run analysis' })).toBeInTheDocument()
   }, 30_000)
 
   it('a newer stale Run hides the old words while preserving generic copy and Re-analyse', async () => {
@@ -303,7 +303,7 @@ describe('true never-run contrast through real hosts', () => {
     const host = await mountHost('diagnostics')
     const bar = within(host).getByTestId('reanalyse-bar')
     expect(within(bar).getByText('This model has not been analysed yet.')).toBeInTheDocument()
-    expect(within(bar).getByRole('button', { name: /^Analyse$/ })).toBeInTheDocument()
+    expect(within(bar).getByRole('button', { name: /^Run analysis$/ })).toBeInTheDocument()
     expect(within(bar).queryByText(SUMMARY)).toBeNull()
   }, 30_000)
   it('Olumi uses readiness, not a rerun bar', async () => {
