@@ -1,8 +1,9 @@
 /**
- * The retained-exclusion sentence sits in the card's own state row, full card width, never in the bottom band.
- * The band is `absolute bottom-1.5 left-3` and shrink-to-fit, so a wrapping sentence there broke word by word and was
- * drawn over the card's value, "What has to be true?" and chance lines (hiring board, 23 Oct 2026). jsdom has no
- * layout, so this pins the DOM home; the pixel overlap is measured in the geometry A/B on the hiring board.
+ * Paul (24 Oct): "Unfinished" is an icon, not words. A retained exclusion draws the circle-slash card mark in the
+ * card's bottom marks band, muted, with the founder's ruled sentence whole as its tooltip and accessible name, and no
+ * visible words anywhere on the card. (Before: the sentence sat in the card's state row, full width, after it was
+ * drawn over the card's text in the bottom band on the hiring board, 23 Oct 2026. An icon is one row tall, so the band
+ * is its home again.)
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
@@ -63,18 +64,31 @@ const cases: Array<[string, ComponentType<NodeProps>, string, Record<string, unk
   ['action', ActionNode as ComponentType<NodeProps>, 'a1', { subtype: 'assumption' }],
 ]
 
-describe('retained-exclusion pill: its own full-width row, never the bottom band', () => {
+describe('retained-exclusion mark: the circle-slash icon in the bottom band, its sentence only on hover', () => {
   beforeEach(() => {
     cleanup()
     vi.mocked(useCanvasStore).mockImplementation(selector => selector(makeStoreState() as never))
   })
 
-  it.each(cases)('%s card: the whole sentence, in the state row, outside the band', (_type, Node, id, data) => {
-    draw(Node, id, _type, data)
-    const pill = screen.getByTestId('unfinished-contribution-pill')
-    expect(pill.textContent).toBe(SENTENCE)
-    expect(pill.getAttribute('title')).toBe(SENTENCE)
-    expect(pill.parentElement?.getAttribute('data-testid')).toBe(`node-state-row-${id}`)
-    expect(pill.closest('[data-card-bottom-band]')).toBeNull()
+  it.each(cases)('%s card: the icon in the band, the whole sentence as its name, no words on the card', (_type, Node, id, data) => {
+    const { container } = draw(Node, id, _type, data)
+    const mark = screen.getByTestId('unfinished-contribution-pill')
+    expect(mark.textContent).toBe('')
+    expect(mark.getAttribute('data-card-mark')).toBe('not-analysed')
+    expect(mark.querySelector('svg.lucide-circle-slash')).not.toBeNull()
+    expect(mark.getAttribute('aria-label')).toBe(SENTENCE)
+    expect(mark.getAttribute('role')).toBe('img')
+    expect(mark.getAttribute('tabindex')).toBe('0')
+    expect(mark.className).toContain('text-text-light')
+    expect(mark.className).not.toContain('text-text-body')
+    expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(container.textContent).not.toContain('Unfinished')
+    // The claim still outranks "Needs input": no state row is drawn for it.
+    expect(screen.queryByTestId(`node-state-row-${id}`)).toBeNull()
+  })
+
+  it('an included card draws no mark (contrast)', () => {
+    draw(FactorNode as ComponentType<NodeProps>, 'f2', 'factor', { value: 6, analysis_participation: 'included' })
+    expect(screen.queryByTestId('unfinished-contribution-pill')).toBeNull()
   })
 })

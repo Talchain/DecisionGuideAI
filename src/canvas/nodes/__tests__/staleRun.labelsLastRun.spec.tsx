@@ -396,7 +396,10 @@ describe('wording parity with the option card', () => {
     // Gap P0 #1 (23 Oct): a withheld cell is a dash and the `withheld` word on the card; its face stays in the name (above).
     expect(face.textContent).toBe('—')
     expect(screen.getByTestId('option-analysis-currency-opt_a').getAttribute('aria-label')).toContain(CHANCE_NOT_SHOWN_YET)
-    expect(screen.getByTestId('option-chance-withheld-opt_a').textContent).toBe('withheld')
+    // Paul (24 Oct): the circle-slash mark, no word; its name carries the withheld face.
+    expect(screen.getByTestId('option-chance-withheld-opt_a').textContent).toBe('')
+    expect(screen.getByTestId('option-chance-withheld-opt_a').querySelector('svg.lucide-circle-slash')).not.toBeNull()
+    expect(screen.getByTestId('option-chance-withheld-opt_a').getAttribute('aria-label')).toContain(CHANCE_NOT_SHOWN_YET)
     expect(face.textContent).not.toMatch(/\d+%/)
     expect(face.textContent).not.toContain('Why?')
     expect(container.textContent).not.toContain('of runs')

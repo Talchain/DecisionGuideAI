@@ -145,7 +145,7 @@ export const VALUE_PROVENANCE_ICON: Readonly<Record<ValueProvenanceKind, LucideI
  * can be ARITHMETIC rather than a DOM read — jsdom has no layout, and
  * `zoomLegibility.renderedLabelPx` exists for exactly this.
  */
-export const PROVENANCE_ICON_DECLARED_PX = 14
+export const PROVENANCE_ICON_DECLARED_PX = 12
 
 /**
  * ⭐⭐ THE RATIFIED 14px, CARRIED THROUGH THE CANVAS COUNTER-SCALE — WITHOUT
@@ -164,6 +164,9 @@ export const PROVENANCE_ICON_DECLARED_PX = 14
  * below the floor. The `var(…, 1)` fallback is load-bearing in the same way:
  * outside the React Flow subtree the property is unset and the icon is a plain
  * 14px, so any future off-canvas consumer of this register is unaffected.
+ *
+ * ⚠ NOW 12px (Paul, 24 Oct): card text is 13px titles, 11px labels and 10px marks, so a 14px mark outweighed the
+ * words beside it. The counter-scale reasoning above is unchanged; only the declared size moved.
  */
 export const PROVENANCE_ICON_SIZE_CLASSES =
-  'w-[calc(14px*var(--canvas-glyph-scale,1))] h-[calc(14px*var(--canvas-glyph-scale,1))]'
+  'w-[calc(12px*var(--canvas-glyph-scale,1))] h-[calc(12px*var(--canvas-glyph-scale,1))]'

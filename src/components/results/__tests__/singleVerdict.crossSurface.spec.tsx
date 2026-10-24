@@ -281,7 +281,10 @@ function readCanvas(withView = false): { claims: boolean; rendered: boolean; tex
     if (withView) expect(face.textContent).toBe(cells(node.id).text)
     else {
       expect(face.textContent).toBe('—')
-      expect(container.querySelector(`[data-testid="option-chance-withheld-${node.id}"]`)?.textContent).toBe('withheld')
+      // Paul (24 Oct): the circle-slash mark, no word; its name carries the withheld face.
+      expect(container.querySelector(`[data-testid="option-chance-withheld-${node.id}"]`)?.textContent).toBe('')
+      expect(container.querySelector(`[data-testid="option-chance-withheld-${node.id}"] svg.lucide-circle-slash`)).not.toBeNull()
+      expect(container.querySelector(`[data-testid="option-chance-withheld-${node.id}"]`)?.getAttribute('aria-label')).toContain(CHANCE_NOT_SHOWN_YET)
       expect(container.querySelector(`[data-testid="option-analysis-currency-${node.id}"]`)?.getAttribute('aria-label')).toContain(CHANCE_NOT_SHOWN_YET)
       expect(face.textContent).not.toMatch(/\d+%/)
       expect(face.textContent).not.toContain('Why?')

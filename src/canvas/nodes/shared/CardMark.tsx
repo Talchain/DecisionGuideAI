@@ -73,7 +73,7 @@ export function CardMark({ id, testId, words, description, className = '', level
   const mark = cardMark(id)
   const label = words ?? mark.words
   const tooltipWords = description && !description.includes(label) ? `${label} · ${description}` : description || label
-  return <BottomCardMark><Tooltip asChild content={tooltipWords}><span className="inline-flex"><span data-testid={testId} data-card-mark={mark.id} data-factor-id={factorId} aria-label={label} aria-description={description} role="img" tabIndex={0} className={`${typography.edgeLabel} inline-flex shrink-0 items-center whitespace-nowrap ${id === 'not-analysed' ? 'text-text-body' : 'text-text-light'} ${className}`}>
+  return <BottomCardMark><Tooltip asChild content={tooltipWords}><span className="inline-flex"><span data-testid={testId} data-card-mark={mark.id} data-factor-id={factorId} aria-label={label} aria-description={description} role="img" tabIndex={0} className={`${typography.edgeLabel} inline-flex shrink-0 items-center whitespace-nowrap ${/\btext-text-/.test(className) ? '' : id === 'not-analysed' ? 'text-text-body' : 'text-text-light'} ${className}`}>
     <CardMarkShape mark={mark} level={level} cell={cell} />
   </span></span></Tooltip></BottomCardMark>
 }

@@ -113,7 +113,11 @@ describe('option card says CEE\'s served cell, verbatim, and nothing of its own'
       // cell is a dash and the `withheld` state word on the card, its face in the hover and accessible name (checked below).
       const headline = cell?.kind === 'figure' || cell?.kind === 'range' ? cell.display : '—'
       expect(readout?.textContent).toBe(headline)
-      expect(screen.queryByTestId(`option-chance-withheld-${ID}`)?.textContent ?? null).toBe(kind === 'withheld' ? 'withheld' : null)
+      // Paul (24 Oct): the withheld mark is the circle-slash icon with no word, present only on a withheld cell.
+      const withheldMark = screen.queryByTestId(`option-chance-withheld-${ID}`)
+      expect(withheldMark?.textContent ?? null).toBe(kind === 'withheld' ? '' : null)
+      expect(withheldMark?.querySelector('svg.lucide-circle-slash') != null).toBe(kind === 'withheld')
+      expect(screen.getByTestId(`option-analysis-currency-${ID}`).textContent).not.toContain('withheld')
       // Review of #2934: the goal-target glyph marks a figure or range headline, never a withheld face.
       expect(screen.queryByTestId(`option-chance-goal-glyph-${ID}`) !== null, `glyph for ${kind}`).toBe(kind === 'figure' || kind === 'range')
       expect(readout?.closest('[aria-label]')?.getAttribute('aria-label')).toContain(served)
