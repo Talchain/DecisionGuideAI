@@ -1,5 +1,9 @@
 import { createContext, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useNodeId } from '@xyflow/react'
 import Tooltip from '../../../components/Tooltip'
+import { useCanvasStore } from '../../store'
+import { requestAsk } from '../../ui/inspector-v2/askSemantic'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { cardMark } from './cardMarks'
 import { PROVENANCE_ICON_SIZE_CLASSES } from '../../domain/valueProvenanceIcon'
@@ -119,8 +123,63 @@ export function useOlumiMarkSlot(entry: OlumiMarkEntry | null): OlumiMarkSlot {
 }
 
 /**
- * The one sparkle. Same glyph, size and colour as the authorship mark it replaces; a real button when any merged
- * estimate carried a route to its source detail (contract v3.1 pt 1: every mark opens it), else a named image.
+ * ⭐ THE OLUMI MARK IN THE CARD'S BAND IS A DOOR TO OLUMI (Paul, 24 Oct 2026: "if you click on it, you're interacting
+ * with Olumi's AI. It should provide a contextual prompt into the AI chat"). The band's Olumi glyph — single or merged —
+ * PREFILLS the chat composer with a question about this card and brings the conversation forward. It never sends: the
+ * user edits or sends it. Its hover keeps the provenance words; its accessible name is the prompt it will place.
+ * Source detail stays one step away in the inspector (the card's ⋯ / context menu "Inspect"), not behind this glyph.
+ * Off a card (no React Flow node) there is nothing to ask about, and the static mark renders as before.
+ */
+export function olumiMarkAskText(name: string): string {
+  const n = name.trim()
+  return n ? `What have you added or estimated on ‘${n}’, and how sure are you?` : 'What have you added or estimated on this card, and how sure are you?'
+}
+
+export function useOlumiMarkAsk(): { text: string; ask: () => void } | null {
+  const nodeId = useNodeId()
+  // Only where the chat composer can take the prompt: otherwise the mark keeps its own route (Codex #2976 R1).
+  const canPrefill = useGuidanceStore((s) => typeof s._prefillChat === 'function')
+  const name = useCanvasStore((s) => {
+    if (!nodeId) return ''
+    const label = (s.nodes?.find((n) => n.id === nodeId)?.data as { label?: unknown } | undefined)?.label
+    return typeof label === 'string' ? label : ''
+  })
+  return useMemo(() => {
+    if (!nodeId || !canPrefill) return null
+    const text = olumiMarkAskText(name)
+    return { text, ask: () => { requestAsk({ text, label: `Ask Olumi about ${name || 'this card'}`, targetId: nodeId, source: 'olumi-mark' }) } }
+  }, [nodeId, name, canPrefill])
+}
+
+const OLUMI_MARK_CLASSES = 'inline-flex shrink-0 items-center rounded-sm text-text-light hover:text-info focus-visible:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info'
+
+/** The band's Olumi glyph as the ask button. `attrs` carry each caller's identity attributes unchanged. */
+export function OlumiAskMark({ tip, ask, attrs }: { tip: string; ask: { text: string; ask: () => void }; attrs: Record<string, string | undefined> }) {
+  const Icon = cardMark('source-olumi').Icon
+  return (
+    <Tooltip asChild content={tip} delay={NODE_TOOLTIP_DELAY_MS}>
+      <button
+        type="button"
+        {...attrs}
+        data-node-tooltip="true"
+        data-olumi-ask="true"
+        aria-label={ask.text}
+        aria-description={tip}
+        className={`nodrag nopan border-0 bg-transparent p-0 cursor-pointer ${OLUMI_MARK_CLASSES}`}
+        onClick={(e) => { e.stopPropagation(); ask.ask() }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onDoubleClick={(e) => e.stopPropagation()}
+      >
+        <Icon aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />
+      </button>
+    </Tooltip>
+  )
+}
+
+/**
+ * The one sparkle. Same glyph, size and colour as the authorship mark it replaces. On a card it is the ask button
+ * (`OlumiAskMark`); off a card, a named image.
  */
 export function OlumiMergedMark({
   label,
@@ -136,17 +195,18 @@ export function OlumiMergedMark({
 }) {
   const definition = cardMark('source-olumi')
   const Icon = definition.Icon
-  const attrs = {
+  const ask = useOlumiMarkAsk()
+  const identity = {
     'data-testid': provenance ? 'node-provenance-mark' : 'node-olumi-mark',
-    'data-node-tooltip': 'true',
     'data-card-mark': definition.id,
     'data-olumi-mark': 'merged',
     'data-olumi-estimates': String(estimateCount),
     'data-provenance-kind': provenance?.kind,
     'data-provenance-claim': provenance?.claim,
-    'aria-label': label,
   }
-  const classes = 'inline-flex shrink-0 items-center rounded-sm text-text-light cursor-help hover:text-info focus-visible:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info'
+  if (ask) return <OlumiAskMark tip={label} ask={ask} attrs={identity} />
+  const attrs = { ...identity, 'data-node-tooltip': 'true', 'aria-label': label }
+  const classes = `${OLUMI_MARK_CLASSES} cursor-help`
   const glyph = <Icon aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />
   return (
     <Tooltip asChild content={label} delay={NODE_TOOLTIP_DELAY_MS}>

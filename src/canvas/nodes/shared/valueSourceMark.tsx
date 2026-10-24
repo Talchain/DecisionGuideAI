@@ -2,7 +2,7 @@ import { cardMark, type CardMarkId } from './cardMarks'
 import { BottomCardMark } from './CardMark'
 import { typography } from '../../../styles/typography'
 import { SOURCE_MARK_GLYPH_CLASSES, SourceMark } from './EstimateMarker'
-import { OlumiMergedMark, useOlumiMarkSlot } from './olumiMarkGroup'
+import { OlumiMergedMark, useOlumiMarkAsk, useOlumiMarkSlot } from './olumiMarkGroup'
 import {
   classifyInterventionProvenance,
   classifyNodeProvenance,
@@ -343,10 +343,15 @@ export function ValueSourceMark({
   const slot = useOlumiMarkSlot(mark.kind === 'olumi' && olumiGroupNoun && !inline
     ? { role: 'estimate', text: olumiGroupNoun, accepted: mark.label === VALUE_PROVENANCE_LABEL.accepted, onOpen: onOpenSource }
     : null)
+  // On a card the band's Olumi glyph asks Olumi about the card (`OlumiAskMark`, Paul 24 Oct). An INLINE mark belongs to
+  // one figure and keeps its route to that figure's source detail.
+  const ask = useOlumiMarkAsk()
   if (slot.render === 'none') return null
   if (slot.render === 'merged') return <BottomCardMark><OlumiMergedMark label={slot.label} estimateCount={slot.estimateCount} onOpen={slot.onOpen} /></BottomCardMark>
+  const hoverTip = `${definition.words} · ${title ? `${mark.label} · ${tip}` : tip}`
+  const asks = mark.kind === 'olumi' && !inline && ask !== null
   const body = (
-    <SourceMark cardMarkId={definition.id} testId={testId} tip={`${definition.words} · ${title ? `${mark.label} · ${tip}` : tip}`} ariaLabel={tip} ariaDescription={mark.label} onOpen={onOpenSource} dataValueSource={mark.kind}>
+    <SourceMark cardMarkId={definition.id} testId={testId} tip={hoverTip} ariaLabel={asks ? ask.text : tip} ariaDescription={asks ? hoverTip : mark.label} onOpen={asks ? ask.ask : onOpenSource} dataValueSource={mark.kind}>
       <span role="img" aria-label={definition.words}><Icon aria-hidden="true" strokeWidth={1.8} className={SOURCE_MARK_GLYPH_CLASSES} data-source-glyph={mark.kind === 'you' ? 'person' : undefined} /></span>
       <span className={typography.screenReaderOnly}>{mark.label}</span>
     </SourceMark>

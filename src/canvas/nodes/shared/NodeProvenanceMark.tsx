@@ -14,7 +14,7 @@ import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { useCanvasStore } from '../../store'
 import { resolveNodeTypeLiteral } from '../../domain/nodes'
 import { factorValueSourceMark } from './valueSourceMark'
-import { OlumiMergedMark, useOlumiMarkSlot } from './olumiMarkGroup'
+import { OlumiAskMark, OlumiMergedMark, useOlumiMarkAsk, useOlumiMarkSlot } from './olumiMarkGroup'
 
 /**
  * ⭐⭐ WHO PUT THIS ELEMENT HERE — on the card, at a fixed position, on every
@@ -190,6 +190,8 @@ export function NodeProvenanceMark({ nodeType, data, hideKind = null, place = 'a
   // The title-row authorship mark stands alone (it is never merged into the band's mark).
   const olumiMark = hidden || place === 'title' ? undefined : marks.find(m => sourceCardMarkId(m.kind) === 'source-olumi')
   const slot = useOlumiMarkSlot(olumiMark ? { role: 'authorship', text: olumiAuthorshipClause(olumiMark, nodeType) } : null)
+  // On a card the band's Olumi glyph asks Olumi about the card (`OlumiAskMark`, Paul 24 Oct); null off a card.
+  const ask = useOlumiMarkAsk()
   if (hidden) return null
   if (place === 'title') {
     return (
@@ -202,7 +204,9 @@ export function NodeProvenanceMark({ nodeType, data, hideKind = null, place = 'a
     <>
       {marks.map(m => (
         <Fragment key={`${m.claim}-${m.kind}`}>
-          {m !== olumiMark || slot.render === 'self'
+          {m === olumiMark && slot.render === 'self' && ask
+            ? <OlumiAskMark tip={provenanceClaimLabel(m.claim, m.kind)} ask={ask} attrs={{ 'data-testid': 'node-provenance-mark', 'data-card-mark': sourceCardMarkId(m.kind), 'data-provenance-kind': m.kind, 'data-provenance-claim': m.claim }} />
+            : m !== olumiMark || slot.render === 'self'
             ? renderMark(m.claim, m.kind)
             : slot.render === 'merged'
               ? <OlumiMergedMark label={slot.label} estimateCount={slot.estimateCount} onOpen={slot.onOpen} provenance={{ kind: m.kind, claim: m.claim }} />
