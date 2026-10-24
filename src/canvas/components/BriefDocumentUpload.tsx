@@ -145,7 +145,8 @@ export function useBriefDocumentUpload({ draft, setDraft, onAdded, inChat = fals
           {error}
         </p>
       ) : null}
-      <p className={typo('chatBody', 'text-text-light m-0')}>{BRIEF_UPLOAD_COPY.privacy}</p>
+      {/* Paul, 24 Oct: no standing privacy line on the framing page; the chat composer says it once a file is read. */}
+      {inChat ? <p className={typo('chatBody', 'text-text-light m-0')}>{BRIEF_UPLOAD_COPY.privacy}</p> : null}
     </div>
   )
 
