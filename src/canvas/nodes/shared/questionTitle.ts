@@ -1,3 +1,5 @@
+import { displayLabelText } from '../../domain/elementLabel'
+
 /**
  * The card's title is the question itself. CEE labels the node "Decision: <question>" (`path-b/living-model/mapper.ts`),
  * and saved models keep that label, but Olumi is a reasoning partner: the word "Decision" is only for the person's own
@@ -7,6 +9,6 @@
  */
 export function questionTitle(label: unknown): string | undefined {
   if (typeof label !== 'string') return undefined
-  const title = label.replace(/^\s*decision\s*:\s*/i, '').trim()
-  return title.length > 0 && title !== label.trim() ? title : undefined
+  const title = displayLabelText(label)
+  return title !== label.trim() ? title : undefined
 }

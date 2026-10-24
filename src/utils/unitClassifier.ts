@@ -554,6 +554,22 @@ export function unitWords(unit: string | null | undefined): string {
 }
 
 /**
+ * `unitWords`, said for a figure of exactly 1: a plural time word reads singular ("1 week", never "1 weeks"; canvas
+ * audit). Only the whole-word time units (seconds … years) change — any other unit is returned exactly as
+ * `unitWords` gives it, because guessing the singular of an arbitrary noun would invent words. DISPLAY ONLY.
+ */
+export function unitWordsForCount(count: number, unit: string | null | undefined): string {
+  return timeUnitForCount(count, unitWords(unit))
+}
+
+/** The singular step alone, for a composer that already holds its unit words. */
+export function timeUnitForCount(count: number, words: string): string {
+  return count === 1 && /^(?:second|minute|hour|day|week|fortnight|month|quarter|year)s$/i.test(words)
+    ? words.slice(0, -1)
+    : words
+}
+
+/**
  * ⭐⭐ THE ONE ANSWER TO "DOES THIS UNIT CONTRIBUTE A WORD THE READER SHOULD SEE?"
  *
  * False when the unit names no real-world scale, so the magnitude renders bare:

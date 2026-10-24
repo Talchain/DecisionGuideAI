@@ -163,8 +163,9 @@ describe('formatInterventionChange — display units', () => {
 })
 
 describe('formatInterventionTargetText', () => {
-  it('does not singularise non-count units', () => {
-    expect(formatInterventionTargetText({ label: 'Runway', value: 0.1, unit: 'months', cap: 10 })).toBe('1 months')
+  it('does not singularise non-count units (a time unit reads singular at 1; any other noun is left as written)', () => {
+    expect(formatInterventionTargetText({ label: 'Runway', value: 0.1, unit: 'months', cap: 10 })).toBe('1 month')
+    expect(formatInterventionTargetText({ label: 'Storage', value: 0.1, unit: 'litres', cap: 10 })).toBe('1 litres')
   })
 
   // ⚠ This test previously asserted `'60%'` under the name "converts
@@ -239,7 +240,7 @@ describe('formatInterventionTargetText', () => {
   it('still formats genuinely united factors through the scale path', () => {
     expect(
       formatInterventionTargetText({ label: 'Runway', value: 0.1, unit: 'months', cap: 10 }),
-    ).toBe('1 months')
+    ).toBe('1 month')
   })
 })
 

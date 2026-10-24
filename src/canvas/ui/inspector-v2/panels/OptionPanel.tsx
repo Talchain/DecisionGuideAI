@@ -81,7 +81,7 @@ import {
  * model-scale one.
  */
 export const OPTION_TARGET_EDIT_ROUTE_NOTE =
-  "Targets shown without a box are changed under Show technical detail (</>), where they are entered on the model's internal 0–1 scale."
+  "Targets shown without a box are changed under Show technical detail (</>), where they are entered as a share, from 0 to 1."
 
 export const OptionPanel = memo(function OptionPanel({
   nodeId,

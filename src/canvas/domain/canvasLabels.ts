@@ -22,6 +22,7 @@
  */
 
 import { RAW_ID_PATTERN } from '../conversation/friendlyOperation'
+import { displayLabelText } from './elementLabel'
 
 /**
  * What an element is called when the model gives it no honest name.
@@ -77,7 +78,7 @@ export function honestLabel(label: unknown): string | null {
   // Producers sometimes seed a label from an id; without this the leak just
   // moves one hop upstream and still reaches the user.
   if (RAW_ID_PATTERN.test(trimmed)) return null
-  return trimmed
+  return displayLabelText(trimmed)
 }
 
 /**

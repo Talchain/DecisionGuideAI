@@ -29,6 +29,8 @@
  * is a spelling, and is left exactly as written.
  */
 
+import { cardLabelText } from '../../domain/elementLabel'
+
 const PRODUCER_CUT = /(?:…|\.\.\.)\s*$/
 
 /** The longest recovered title the card will show before cutting it at a word. */
@@ -63,5 +65,6 @@ export function titleCaseFirstWord(text: string): string {
 
 /** The text a node card shows as its title: the cut recovered, then the first word raised. */
 export function nodeCardTitle(label: string, description: string | null | undefined): string {
-  return titleCaseFirstWord(recoverProducerCutTitle(label, description))
+  // The producer's prefixes ("Decision:", "Olumi suggestion:") come off for display — `domain/elementLabel`.
+  return titleCaseFirstWord(cardLabelText(recoverProducerCutTitle(label, description)))
 }

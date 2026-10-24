@@ -49,9 +49,33 @@ export const UNNAMED_ELEMENT_LABEL = 'Untitled'
 export function resolveElementLabel(data: unknown): string {
   if (data !== null && typeof data === 'object') {
     const label = (data as { label?: unknown }).label
-    if (typeof label === 'string' && label.trim() !== '') return label
+    if (typeof label === 'string' && label.trim() !== '') return displayLabelText(label)
   }
   return UNNAMED_ELEMENT_LABEL
+}
+
+/**
+ * ⭐ THE ONE DISPLAY STRIP FOR A PRODUCER'S LABEL PREFIX (canvas audit item 3, "labels through one helper").
+ * CEE writes the question node's fallback label as `Decision: <metric>` (and saved models keep it). Olumi is a
+ * reasoning partner, and "Decision" is only the person's own act of choosing (CLAUDE.md §3), so every surface that
+ * names an element on screen shows the words after the prefix. DISPLAY ONLY: the stored label is never rewritten,
+ * and a label that is nothing but the prefix is returned as written rather than emptied.
+ */
+export function displayLabelText(label: string): string {
+  const stripped = label.replace(/^\s*decision\s*:\s*/i, '').trim()
+  return stripped.length > 0 ? stripped : label
+}
+
+/**
+ * The card title's extra strip: `Olumi suggestion: <option>` (the core route's label for an option Olumi added)
+ * reads as the option alone, because the card marks Olumi's authorship with its own glyph
+ * (`NodeProvenanceMark`, from the living model's source, never from these words). Used ONLY where that glyph sits —
+ * every other surface keeps the words, which are then the only sign the option is Olumi's. DISPLAY ONLY.
+ */
+export function cardLabelText(label: string): string {
+  const shown = displayLabelText(label)
+  const stripped = shown.replace(/^\s*olumi\s+suggestion\s*:\s*/i, '').trim()
+  return stripped.length > 0 ? stripped : shown
 }
 
 /**
