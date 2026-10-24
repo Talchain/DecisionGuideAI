@@ -50,6 +50,9 @@ import { askAi } from '../conversation/askAi'
 import { revealOlumiSurface } from '../conversation/revealOlumi'
 import { useIsViewer } from '../../lib/viewerMode'
 import { useAnsweredQuestionsStore } from '../stores/answeredQuestionsStore'
+import { useCurrentGoalWaitsOn, WaitsOnList } from '../../components/results/analysisNew/ViewOnlyRunChances'
+import { goalTargetLine } from '../domain/goalTargetLine'
+import type { GoalTargetSource } from '../domain/goalTarget'
 
 /** The closed grammar. Every intervention is one of these four moves. */
 const MOVE_LABEL: Record<string, string> = {
@@ -192,6 +195,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
     if (p?.x !== linkPoint?.x || p?.y !== linkPoint?.y) setLinkPoint(p)
   })
   const viewer = useIsViewer()
+  const waitsOn = useCurrentGoalWaitsOn()
   const [answer, setAnswer] = useState('')
   // The card's own height, for a spot that covers no other card (`attentionCardSpot`); 0 until measured.
   const cardRef = useRef<HTMLDivElement>(null)
@@ -260,6 +264,11 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
 
   const note = attention.note
   const caveat = attention.caveat
+  // ⭐ A NOTE ON A GOAL WHOSE CHANCE WAITS says the target as the goal card says it and what CEE says the result waits on,
+  // each answerable label opening its card's answer box (Paul, 24 Oct: the threshold and notes go "In Olumi's note").
+  // Read, never composed: the card's own target line and CEE's `goal_chance.waits_on`, in its order and words.
+  const goalWaits = Boolean(note) && anchor?.type === 'goal' && waitsOn.length > 0
+  const goalTarget = goalWaits ? goalTargetLine(anchor?.data as GoalTargetSource) : null
   // Stale only when the SAVED model has moved since (a new server hash: a value set, an accepted change, a structural
   // edit) or an item the note is about was renamed (the hash leaves labels out), never when the canvas merely laid
   // itself out again.
@@ -334,6 +343,13 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
           <X className="w-3.5 h-3.5" aria-hidden="true" />
         </button>
       </div>
+
+      {goalWaits ? (
+        <div data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-waits`} className="mt-1.5 space-y-0.5">
+          {goalTarget ? <p className={`${typography.panelBody} text-text-body mb-0`}>{goalTarget}</p> : null}
+          <p className={`${typography.panelBody} text-text-body mb-0`}>{'Waits on: '}<WaitsOnList items={waitsOn} testIdPrefix={`${OLUMI_ATTENTION_CARD_TESTID}-waits-on`} /></p>
+        </div>
+      ) : null}
 
       {note?.body ? (
         <p className={`${typography.panelBody} text-text-body mt-1.5 mb-0`}>{note.body}</p>

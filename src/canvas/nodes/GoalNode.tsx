@@ -41,7 +41,8 @@ import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { formatGoalTarget, TARGET_NOT_CAPTURED } from '../../components/results/utils/formatGoalTarget'
+import { TARGET_NOT_CAPTURED } from '../../components/results/utils/formatGoalTarget'
+import { GOAL_TARGET_PREFIX, goalTargetDisplay } from '../domain/goalTargetLine'
 import { goalTodayLevelCopy } from './shared/goalTodayLevelCopy'
 import { GoalTodayLevelText } from './shared/GoalTodayLevelLine'
 import {
@@ -76,7 +77,7 @@ import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { goalConstraintShortText, goalConstraintText } from '../utils/goalConstraintText'
-import { goalCardShownLimits, goalOwnLimitRow, goalStatedLimits, goalStatedTargets, heldTargetBoundWords } from '../domain/goalOwnTargetRow'
+import { goalCardShownLimits, goalOwnLimitRow, goalStatedLimits, goalStatedTargets } from '../domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { useScenarioActionBar } from '../conversation/actionBar/useScenarioActionBar'
@@ -102,7 +103,6 @@ const GOAL_TARGET_ROW_TYPE = 'text-[length:calc(12px*var(--canvas-label-scale,1)
  * read `Target: 15%` and `Target 15%` one zoom step apart, with the
  * contradicting body hidden.
  */
-const GOAL_TARGET_PREFIX = 'Target:'
 
 /**
  * ⭐⭐⭐ THE NO-TARGET CHIP ANSWERS A QUESTION ABOUT THE MODEL, AND MUST NOT
@@ -631,16 +631,7 @@ export const GoalNode = memo((props: NodeProps) => {
   // `'%' | 'percent' | 'percentage'` copy.
   // SD-1 (DL 0df0e1, 6 Oct): a goal that HOLDS a ceiling says "at most" before its figure, from the node's own
   // `goal_direction` (`heldTargetBoundWords`, the one source) — at every zoom and in the in-place readout alike.
-  const heldBound = heldTargetBoundWords(props.data as GoalTargetSource)
-  const quantityFrame = (props.data as GoalTargetSource | undefined)?.quantity_frame
-  const thresholdDisplay = useMemo(() => {
-    if (!hasThreshold) return null
-    const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
-    // target-text: a non-numeric stored target is the user's own words, said verbatim
-    const figure = Number.isNaN(raw) ? String(thresholdRaw) : formatGoalTarget(raw, thresholdUnit, thresholdFrame, quantityFrame)
-    if (figure === null) return TARGET_NOT_CAPTURED
-    return heldBound === null ? figure : `${heldBound} ${figure}`
-  }, [hasThreshold, thresholdRaw, thresholdUnit, thresholdFrame, quantityFrame, heldBound])
+  const thresholdDisplay = useMemo(() => goalTargetDisplay(props.data as GoalTargetSource), [props.data])
 
   /**
    * ⭐⭐ ONE OWNER FOR WHAT THIS CARD SAYS ABOUT ITS TARGET — AT EVERY ZOOM.
