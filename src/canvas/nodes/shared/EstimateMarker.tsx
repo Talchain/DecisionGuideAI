@@ -6,6 +6,7 @@ import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { BottomCardMark } from './CardMark'
 import { cardMark } from './cardMarks'
+import { useOlumiMarkAsk } from './olumiMarkGroup'
 
 /**
  * EstimateMarker — R6 (Paul, 16 Aug 2026): "placeholder wall collapses to one
@@ -360,10 +361,15 @@ export function EstimateMarker({
   inline?: boolean
 }) {
   const tip = title ?? ESTIMATE_SUBJECT_TITLE[subject]
+  // On a card the band's Olumi glyph asks Olumi about the card (`OlumiAskMark`, Paul 24 Oct); an inline mark keeps
+  // its route to its figure's source detail.
+  const ask = useOlumiMarkAsk()
   if (!onOpenSource) return <SourceMark testId="estimate-marker" tip={tip}>{UNCONFIRMED_ESTIMATE_TOKEN}</SourceMark>
   const Icon = cardMark('source-olumi').Icon
+  const hoverTip = `${UNCONFIRMED_ESTIMATE_TOKEN} · ${tip}`
+  const asks = !inline && ask !== null
   const body = (
-    <SourceMark cardMarkId="source-olumi" testId="estimate-marker" tip={`${UNCONFIRMED_ESTIMATE_TOKEN} · ${tip}`} ariaLabel={`${OLUMI_ESTIMATE_NAME}. ${tip}`} onOpen={onOpenSource}>
+    <SourceMark cardMarkId="source-olumi" testId="estimate-marker" tip={hoverTip} ariaLabel={asks ? ask.text : `${OLUMI_ESTIMATE_NAME}. ${tip}`} ariaDescription={asks ? `${OLUMI_ESTIMATE_NAME}. ${tip}` : undefined} onOpen={asks ? ask.ask : onOpenSource}>
       {/* Upright, regular weight (contract v3.1 `.prov`): one visual for every
           mark kind. As a button its accessible name is the full `tip`
           (`aria-label`, as v3.1 `prov()` does); the styled tooltip keeps it. */}

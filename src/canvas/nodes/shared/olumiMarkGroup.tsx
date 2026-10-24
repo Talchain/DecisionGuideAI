@@ -3,6 +3,7 @@ import { useNodeId } from '@xyflow/react'
 import Tooltip from '../../../components/Tooltip'
 import { useCanvasStore } from '../../store'
 import { requestAsk } from '../../ui/inspector-v2/askSemantic'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { cardMark } from './cardMarks'
 import { PROVENANCE_ICON_SIZE_CLASSES } from '../../domain/valueProvenanceIcon'
@@ -136,16 +137,18 @@ export function olumiMarkAskText(name: string): string {
 
 export function useOlumiMarkAsk(): { text: string; ask: () => void } | null {
   const nodeId = useNodeId()
+  // Only where the chat composer can take the prompt: otherwise the mark keeps its own route (Codex #2976 R1).
+  const canPrefill = useGuidanceStore((s) => typeof s._prefillChat === 'function')
   const name = useCanvasStore((s) => {
     if (!nodeId) return ''
     const label = (s.nodes?.find((n) => n.id === nodeId)?.data as { label?: unknown } | undefined)?.label
     return typeof label === 'string' ? label : ''
   })
   return useMemo(() => {
-    if (!nodeId) return null
+    if (!nodeId || !canPrefill) return null
     const text = olumiMarkAskText(name)
     return { text, ask: () => { requestAsk({ text, label: `Ask Olumi about ${name || 'this card'}`, targetId: nodeId, source: 'olumi-mark' }) } }
-  }, [nodeId, name])
+  }, [nodeId, name, canPrefill])
 }
 
 const OLUMI_MARK_CLASSES = 'inline-flex shrink-0 items-center rounded-sm text-text-light hover:text-info focus-visible:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info'

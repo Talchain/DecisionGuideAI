@@ -15,6 +15,7 @@ import { isMenuItem } from '../../../contextMenu/types'
 import { NodeProvenanceMark } from '../NodeProvenanceMark'
 import { ValueSourceMark } from '../valueSourceMark'
 import { OlumiMergedMark } from '../olumiMarkGroup'
+import { EstimateMarker } from '../EstimateMarker'
 
 const NAME = 'Hire a contractor'
 const PREFILL = `What have you added or estimated on ‘${NAME}’, and how sure are you?`
@@ -100,6 +101,22 @@ describe('contrast: the harness sees a card click', () => {
   })
 })
 
+describe('the factor band estimate glyph (EstimateMarker) asks too', () => {
+  it('band: prefills, never opens source detail', () => {
+    const openSource = vi.fn()
+    mountOnCard({ children: <EstimateMarker onOpenSource={openSource} /> })
+    pressAndCheck(screen.getByTestId('estimate-marker'))
+    expect(openSource).not.toHaveBeenCalled()
+  })
+  it('inline: keeps its route to source detail', () => {
+    const openSource = vi.fn()
+    mountOnCard({ children: <EstimateMarker onOpenSource={openSource} inline /> })
+    fireEvent.click(screen.getByTestId('estimate-marker'))
+    expect(openSource).toHaveBeenCalledOnce()
+    expect(prefill).not.toHaveBeenCalled()
+  })
+})
+
 describe('unchanged: title mark, inline figure mark, other kinds, off a card', () => {
   it('the title authorship mark stays a static image', () => {
     mountOnCard({ children: <NodeProvenanceMark nodeType="option" data={{ ...option.data, provenance: 'ai_inferred' }} place="title" /> })
@@ -123,6 +140,17 @@ describe('unchanged: title mark, inline figure mark, other kinds, off a card', (
     const mark = screen.getByTestId('node-provenance-mark')
     expect(mark).toHaveAttribute('role', 'img')
     expect(mark).not.toHaveAttribute('aria-label', PREFILL)
+  })
+
+  it('with no chat composer to take the prompt, the band value mark keeps its route to source detail', () => {
+    useGuidanceStore.setState({ _prefillChat: null } as never)
+    const openSource = vi.fn()
+    mountOnCard({ children: <ValueSourceMark mark={{ kind: 'olumi', label: 'Olumi’s estimate' }} testId="value-mark" onOpenSource={openSource} /> })
+    const mark = screen.getByTestId('value-mark')
+    expect(mark).not.toHaveAttribute('aria-label', PREFILL)
+    fireEvent.click(mark)
+    expect(openSource).toHaveBeenCalledOnce()
+    expect(send).not.toHaveBeenCalled()
   })
 
   it('off a card (no node) the band Olumi mark stays a static image', () => {
