@@ -1,0 +1,336 @@
+{
+  "_capture": "CEE 2de696a9 witness (DL, 24 Oct), grant/sail board: the read after the Run press (reads/03-press.json body, graph nodes trimmed to id/kind/label and the goal target fields) and that turn's core `notes` entry on the goal (steps/03-press.json). 0 AI calls to build.",
+  "scenario_id": "6f6fe842-a67a-44dd-b3f9-bc3ccd75eb07",
+  "graph": {
+    "nodes": [
+      {
+        "id": "mp:decision",
+        "kind": "decision",
+        "label": "How should you divide your weekly time between the grant application and the recycled-fibre sail prototype while meeting the sea-trial deadline and admin cap?"
+      },
+      {
+        "id": "credible_application",
+        "kind": "goal",
+        "label": "come across as credible to the grant panel",
+        "goal_threshold_raw": 70,
+        "goal_threshold_unit": "point",
+        "goal_direction": ">=",
+        "threshold_source": "user",
+        "success_threshold": 70,
+        "goal_threshold_frame": "level",
+        "quantity_frame": null
+      },
+      {
+        "id": "prototype_on_water",
+        "kind": "goal",
+        "label": "a working prototype of a recycled-fibre racing sail, which has to be on the water for sea trials by 20 February",
+        "goal_threshold_raw": 120,
+        "goal_threshold_unit": "hour",
+        "goal_direction": ">=",
+        "threshold_source": "user",
+        "success_threshold": 120,
+        "goal_threshold_frame": "level",
+        "quantity_frame": null
+      },
+      {
+        "id": "prototype_led",
+        "kind": "option",
+        "label": "Prototype-led"
+      },
+      {
+        "id": "protected_grant_block",
+        "kind": "option",
+        "label": "Protected grant block"
+      },
+      {
+        "id": "learn_then_rebalance",
+        "kind": "option",
+        "label": "Prototype-first week, then rebalance"
+      },
+      {
+        "id": "available_hours",
+        "kind": "factor",
+        "label": "Weekly time available for the two projects"
+      },
+      {
+        "id": "weeks_to_trials",
+        "kind": "factor",
+        "label": "Time until the 20 February sea-trial deadline"
+      },
+      {
+        "id": "routine_admin",
+        "kind": "factor",
+        "label": "Weekly admin unrelated to these two projects"
+      },
+      {
+        "id": "grant_share",
+        "kind": "factor",
+        "label": "Share of project time allocated to the grant"
+      },
+      {
+        "id": "whole_share",
+        "kind": "factor",
+        "label": "All available project time"
+      },
+      {
+        "id": "prototype_share",
+        "kind": "outcome",
+        "label": "Share of project time allocated to the prototype"
+      },
+      {
+        "id": "grant_hours",
+        "kind": "outcome",
+        "label": "Weekly time on the grant application"
+      },
+      {
+        "id": "prototype_hours",
+        "kind": "outcome",
+        "label": "Weekly time on the prototype"
+      },
+      {
+        "id": "prototype_admin_fraction",
+        "kind": "factor",
+        "label": "Admin hours per prototype-project hour"
+      },
+      {
+        "id": "prototype_hands_on_fraction",
+        "kind": "outcome",
+        "label": "Prototype time left after admin"
+      },
+      {
+        "id": "productive_fraction",
+        "kind": "factor",
+        "label": "Useful progress per hands-on prototype hour"
+      },
+      {
+        "id": "grant_admin",
+        "kind": "outcome",
+        "label": "Weekly grant admin"
+      },
+      {
+        "id": "prototype_admin",
+        "kind": "outcome",
+        "label": "Weekly prototype admin"
+      },
+      {
+        "id": "total_admin",
+        "kind": "outcome",
+        "label": "Total weekly admin"
+      },
+      {
+        "id": "prototype_progress_rate",
+        "kind": "outcome",
+        "label": "Weekly productive prototype progress"
+      },
+      {
+        "id": "initial_progress",
+        "kind": "factor",
+        "label": "Progress counted from now"
+      },
+      {
+        "id": "prototype_progress",
+        "kind": "outcome",
+        "label": "Productive prototype work completed from now"
+      },
+      {
+        "id": "panel_score",
+        "kind": "factor",
+        "label": "Score on the panel's published scoring sheet"
+      },
+      {
+        "id": "panel_score_maximum",
+        "kind": "factor",
+        "label": "Maximum score on the panel's scoring sheet"
+      },
+      {
+        "id": "loft_context",
+        "kind": "action",
+        "label": "Claim: I run a two-person sail loft: we repair and make sails for the local dinghy clu…"
+      },
+      {
+        "id": "grant_time_tradeoff",
+        "kind": "action",
+        "label": "Claim: Protected application time could strengthen the evidence and presentation, but …"
+      },
+      {
+        "id": "prototype_evidence_hypothesis",
+        "kind": "action",
+        "label": "Claim: Prototype progress could supply tangible evidence for the application, so the t…"
+      },
+      {
+        "id": "project_time_scope",
+        "kind": "action",
+        "label": "Assumption: The stated weekly time is available for these two projects after ordinary repai…"
+      },
+      {
+        "id": "work_completion_proxy",
+        "kind": "action",
+        "label": "Assumption: Completing the remaining productive work is used as a provisional proxy for get…"
+      },
+      {
+        "id": "stable_weekly_capacity",
+        "kind": "action",
+        "label": "Assumption: Available project time and unrelated admin remain at their stated weekly levels…"
+      },
+      {
+        "id": "allocation_feasibility",
+        "kind": "action",
+        "label": "Condition: These are candidate splits, not confirmed feasible plans: each must satisfy the…"
+      },
+      {
+        "id": "learning_review",
+        "kind": "action",
+        "label": "Condition: The staged option provides an early build-and-rework check; its later allocatio…"
+      },
+      {
+        "id": "panel_judgement",
+        "kind": "action",
+        "label": "Left out: Whether each time allocation achieves the required score on the panel's publish…"
+      },
+      {
+        "id": "physical_trial_readiness",
+        "kind": "action",
+        "label": "Left out: Actual sail performance, safe readiness and access to suitable on-water trial c…"
+      }
+    ]
+  },
+  "canonical_analysis_view": {
+    "run": {
+      "run_id": "mp_run_2_e1b539899471",
+      "computed_at": "2026-10-24T17:59:09.910Z",
+      "graph_hash_at_run": "a9508c7027705b48"
+    },
+    "schema": "canonical_analysis_view.v1",
+    "source": "stored_run_facts",
+    "options": [
+      {
+        "cell": {
+          "why": "‘come across as credible to the grant panel’ waits on ‘Score on the panel's published scoring sheet’, which no one can size yet (The scoring sheet defines the measure, but no assessment or evidence connecting either time allocation or prototype progress to panel scores is available; rubric-based assessment would be needed to size it).",
+          "face": "Chance not shown yet",
+          "kind": "withheld",
+          "reasons": [
+            {
+              "code": "goal_withheld",
+              "message": "rests on \"Score on the panel's published scoring sheet\", which is unknown: The scoring sheet defines the measure, but no assessment or evidence connecting either time allocation or prototype progress to panel scores is available; rubric-based assessment would be needed to size it."
+            }
+          ]
+        },
+        "option_id": "prototype_led",
+        "main_driver": {
+          "kind": "not_recorded"
+        }
+      },
+      {
+        "cell": {
+          "why": "‘come across as credible to the grant panel’ waits on ‘Score on the panel's published scoring sheet’, which no one can size yet (The scoring sheet defines the measure, but no assessment or evidence connecting either time allocation or prototype progress to panel scores is available; rubric-based assessment would be needed to size it).",
+          "face": "Chance not shown yet",
+          "kind": "withheld",
+          "reasons": [
+            {
+              "code": "goal_withheld",
+              "message": "rests on \"Score on the panel's published scoring sheet\", which is unknown: The scoring sheet defines the measure, but no assessment or evidence connecting either time allocation or prototype progress to panel scores is available; rubric-based assessment would be needed to size it."
+            }
+          ]
+        },
+        "option_id": "protected_grant_block",
+        "main_driver": {
+          "kind": "not_recorded"
+        }
+      },
+      {
+        "cell": {
+          "why": "‘come across as credible to the grant panel’ waits on ‘Score on the panel's published scoring sheet’, which no one can size yet (The scoring sheet defines the measure, but no assessment or evidence connecting either time allocation or prototype progress to panel scores is available; rubric-based assessment would be needed to size it).",
+          "face": "Chance not shown yet",
+          "kind": "withheld",
+          "reasons": [
+            {
+              "code": "goal_withheld",
+              "message": "rests on \"Score on the panel's published scoring sheet\", which is unknown: The scoring sheet defines the measure, but no assessment or evidence connecting either time allocation or prototype progress to panel scores is available; rubric-based assessment would be needed to size it."
+            }
+          ]
+        },
+        "option_id": "learn_then_rebalance",
+        "main_driver": {
+          "kind": "not_recorded"
+        }
+      }
+    ],
+    "staleness": {
+      "basis": "analysis_graph_hash_interim",
+      "stale": false,
+      "reason": "graph_hash_match",
+      "revision": null,
+      "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+      "run_revision": null
+    },
+    "goal_chance": {
+      "notes": [
+        "‘come across as credible to the grant panel’ waits on ‘Score on the panel's published scoring sheet’, which no one can size yet (The scoring sheet defines the measure, but no assessment or evidence connecting either time allocation or prototype progress to panel scores is available; rubric-based assessment would be needed to size it).",
+        "Covers: ‘Productive prototype work completed from now’ being at least 120 hour at 17 weeks from now · Leaves out: ‘Whether each time allocation achieves the required score on the panel's published scoring sheet.’ and ‘Actual sail performance, safe readiness and access to suitable on-water trial conditions.’",
+        "Not yet checked: ‘can't spend more than 15 hours a week on admin’ — needs \"Weekly admin unrelated to these two projects\"."
+      ],
+      "targets": {
+        "joint": {
+          "line": "The chance of meeting all 2 goals together waits for ‘come across as credible to the grant panel’; each goal that can be worked out is shown on its own.",
+          "status": "withheld"
+        },
+        "per_target": [
+          {
+            "words": "‘Productive prototype work completed from now’ being at least 120 hour at 17 weeks from now, in this model, if ‘Admin hours per prototype-project hour’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0.02 to 0.2, into a bell-shaped spread and ‘Useful progress per hands-on prototype hour’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0.4 to 0.95, into a bell-shaped spread; with ‘Prototype-led’, also if ‘Prototype-led: Share of project time allocated to the grant’ is 0.125, Olumi’s figure; with ‘Protected grant block’, also if ‘Protected grant block: Share of project time allocated to the grant’ is 0.25, Olumi’s figure; with ‘Prototype-first week, then rebalance’, also if ‘Proposed grant share in the first week of the staged option’ is 0.125, Olumi’s figure and ‘Proposed grant share after the first week of the staged option’ is 0.25, Olumi’s figure",
+            "options": [
+              {
+                "display": "more than 99%",
+                "option_id": "prototype_led"
+              },
+              {
+                "display": "more than 99%",
+                "option_id": "protected_grant_block"
+              },
+              {
+                "display": "more than 99%",
+                "option_id": "learn_then_rebalance"
+              }
+            ],
+            "constraint_id": "prototype_on_water"
+          }
+        ]
+      },
+      "waits_on": [
+        {
+          "id": "routine_admin",
+          "code": "asked",
+          "label": "Weekly admin unrelated to these two projects",
+          "scope": [
+            "weekly_admin_limit"
+          ],
+          "answer": {
+            "quantity_id": "routine_admin"
+          }
+        },
+        {
+          "id": "panel_score",
+          "code": "unknown",
+          "basis": "The scoring sheet defines the measure, but no assessment or evidence connecting either time allocation or prototype progress to panel scores is available; rubric-based assessment would be needed to size it.",
+          "label": "Score on the panel's published scoring sheet",
+          "scope": [
+            "credible_application"
+          ],
+          "answer": null
+        }
+      ],
+      "unchecked_limits": [
+        {
+          "words": "‘can't spend more than 15 hours a week on admin’ — needs \"Weekly admin unrelated to these two projects\".",
+          "limit_id": "weekly_admin_limit"
+        }
+      ]
+    },
+    "leader_licence": "withheld"
+  },
+  "turn_notes": [
+    {
+      "element_id": "credible_application",
+      "text": "rests on \"Score on the panel's published scoring sheet\", which is unknown: The scoring sheet defines the measure, but no assessment or evidence connecting either time allocation or prototype progress to panel scores is available; rubric-based assessment would be needed to size it."
+    }
+  ]
+}

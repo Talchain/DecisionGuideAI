@@ -27,6 +27,8 @@ export interface ViewOnlyRunChanceLine {
   readonly why: string | null
   /** CEE's `main_driver` words for this line's option, verbatim: its `detail`, or its `none_licensed` reason; else null. */
   readonly driver: string | null
+  /** CEE withheld this line's chance (its `text` is CEE's withheld face). */
+  readonly withheld: boolean
 }
 
 export interface ViewOnlyRunChances {
@@ -36,6 +38,8 @@ export interface ViewOnlyRunChances {
   readonly waitsOn: readonly CanonicalWaitsOn[]
   /** The bound Run is not current: `lines` is CEE's not-current line alone, and the block offers "Run again". */
   readonly stale: boolean
+  /** CEE withheld EVERY option's chance (each option's cell, shown or not). */
+  readonly allWithheld: boolean
 }
 
 /** The block's one act on a Run that is not current (DL, row 19). */
@@ -59,11 +63,13 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
       // The chance gate stands: no figure from a Run that is not current. CEE's own line, said once for every option.
       const line = program ? view.notCurrentLine() : null
       return line === null ? null
-        : { sentence: null, lines: [{ optionIds: canonical.options.map(o => o.option_id), text: line, why: null, driver: null }], waitsOn: [], stale: true }
+        : { sentence: null, lines: [{ optionIds: canonical.options.map(o => o.option_id), text: line, why: null, driver: null, withheld: false }], waitsOn: [], stale: true, allWithheld: false }
     }
     const lines: { optionIds: string[]; text: string; why: string | null; driver: string | null; withheld: boolean }[] = []
+    let allWithheld = canonical.options.length > 0
     for (const { option_id: optionId, main_driver: mainDriver } of canonical.options) {
       const cell = optionChanceCell(view, optionId, CTX)
+      if (cell.kind !== 'withheld') allWithheld = false
       if (cell.text === null) continue
       const withheld = cell.kind === 'withheld'
       const why = withheld ? cell.why ?? null : null
@@ -74,8 +80,47 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
       else lines.push({ optionIds: [optionId], text: cell.text, why, driver, withheld })
     }
     const sentence = runViewGoalChanceSentence(view)
-    return lines.length === 0 && sentence === null ? null : { sentence, lines, waitsOn: view.goalChanceDetail()?.waits_on ?? [], stale: false }
+    return lines.length === 0 && sentence === null ? null : { sentence, lines, waitsOn: view.goalChanceDetail()?.waits_on ?? [], stale: false, allWithheld }
   }, [report, canonical, program])
+}
+
+/**
+ * CEE's `goal_chance.waits_on` for the bound, current Run, in its order and words; empty with none, or with no current Run.
+ * Olumi's note beside the goal lists it under the target (Paul, 24 Oct: "In Olumi's note").
+ */
+export function useCurrentGoalWaitsOn(): readonly CanonicalWaitsOn[] {
+  const scenarioId = useCanvasStore(s => s.currentScenarioId)
+  const canonical = useCanonicalAnalysisViewStore(s => (s.scenarioId === scenarioId ? s.view : null))
+  return useMemo(() => {
+    if (canonical === null) return NO_WAITS
+    const view = runViewOf(null, canonical)
+    return view.boundToCurrentCanonical() ? view.goalChanceDetail()?.waits_on ?? NO_WAITS : NO_WAITS
+  }, [canonical])
+}
+const NO_WAITS: readonly CanonicalWaitsOn[] = []
+const WAITS_ON_TESTID = 'analysis-view-only-waits-on'
+
+/**
+ * Paul's headline for a goal chance that waits (24 Oct, "Waits on N figures"), in place of each option's withheld face:
+ * the count of what CEE says the result waits on, then its labels. "figure" only where CEE says every item is answered
+ * with a figure; otherwise "thing".
+ */
+export const WAITS_ON_HEADLINE = 'Chance of meeting the goal'
+export function waitsOnCountWords(items: readonly CanonicalWaitsOn[]): string {
+  const figures = items.every(w => w.answer?.quantity_id != null)
+  const n = items.length
+  return `waits on ${n} ${figures ? (n === 1 ? 'figure' : 'figures') : (n === 1 ? 'thing' : 'things')}`
+}
+
+/** The labels CEE says the result waits on, each opening its card's answer box where it has one. */
+export function WaitsOnList({ items, testIdPrefix = WAITS_ON_TESTID }: { items: readonly CanonicalWaitsOn[]; testIdPrefix?: string }) {
+  return (
+    <>
+      {items.map((w, i) => (
+        <span key={w.id}>{i > 0 ? ', ' : null}<WaitsOnItem item={w} testIdPrefix={testIdPrefix} /></span>
+      ))}
+    </>
+  )
 }
 
 /**
@@ -91,6 +136,9 @@ export function useProgramBoardShowsResult(): boolean {
 }
 
 export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChances }) {
+  // Every option withheld while CEE lists what the result waits on: one headline says the count and the list, not each
+  // option's withheld face (Paul, 24 Oct); each option's own reason (`why`) still follows.
+  const waits = chances.allWithheld && chances.waitsOn.length > 0
   return (
     <div className="space-y-1" data-testid="analysis-view-only-chances">
       {chances.sentence === null ? null : (
@@ -98,21 +146,28 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
           {chances.sentence}
         </p>
       )}
+      {waits ? (
+        <div data-testid="analysis-view-only-waits-headline">
+          <p className={`${typography.panelMeta} text-text-light`}>{WAITS_ON_HEADLINE}</p>
+          <p className={`${typography.panelBody} text-text-body`} data-testid="analysis-view-only-waits-on">
+            {`${waitsOnCountWords(chances.waitsOn)}: `}
+            <WaitsOnList items={chances.waitsOn} />
+          </p>
+        </div>
+      ) : null}
       {chances.lines.map(line => (
         <div key={line.optionIds.join('+')} data-testid={`analysis-view-only-chance-${line.optionIds.join('+')}`}>
-          <p className={`${typography.panelBody} text-text-body`}>{line.text}</p>
+          {waits ? null : <p className={`${typography.panelBody} text-text-body`}>{line.text}</p>}
           {line.why === null ? null : <p className={`${typography.panelMeta} text-text-light`}>{line.why}</p>}
           {line.driver === null ? null : (
             <p className={`${typography.panelMeta} text-text-light`} data-testid={`analysis-view-only-driver-${line.optionIds.join('+')}`}>{line.driver}</p>
           )}
         </div>
       ))}
-      {chances.waitsOn.length === 0 ? null : (
+      {waits || chances.waitsOn.length === 0 ? null : (
         <p className={`${typography.panelBody} text-text-body`} data-testid="analysis-view-only-waits-on">
           {'Waits on: '}
-          {chances.waitsOn.map((w, i) => (
-            <span key={w.id}>{i > 0 ? ', ' : null}<WaitsOnItem item={w} /></span>
-          ))}
+          <WaitsOnList items={chances.waitsOn} />
         </p>
       )}
       {chances.stale ? <RunAgain /> : null}
@@ -139,13 +194,13 @@ function RunAgain() {
  * card is on the canvas, the label opens the card's own answer box (the existing in-card field and writer) and brings the
  * card into view; otherwise it is the label alone.
  */
-function WaitsOnItem({ item }: { item: CanonicalWaitsOn }) {
+function WaitsOnItem({ item, testIdPrefix }: { item: CanonicalWaitsOn; testIdPrefix: string }) {
   const quantityId = item.answer?.quantity_id ?? null
   const onCanvas = useCanvasStore(s => quantityId !== null && s.nodes.some(n => n.id === quantityId && n.type === 'factor'))
   const requestPrefill = useValuePrefillStore(s => s.requestPrefill)
-  if (quantityId === null || !onCanvas) return <span data-testid={`analysis-view-only-waits-on-${item.id}`}>{`‘${item.label}’`}</span>
+  if (quantityId === null || !onCanvas) return <span data-testid={`${testIdPrefix}-${item.id}`}>{`‘${item.label}’`}</span>
   return (
-    <button type="button" className={action('inline')} data-testid={`analysis-view-only-waits-on-answer-${quantityId}`}
+    <button type="button" className={action('inline')} data-testid={`${testIdPrefix}-answer-${quantityId}`}
       onClick={() => { focusModelTarget(quantityId); requestPrefill({ nodeId: quantityId, text: '' }) }}>
       {`‘${item.label}’`}
     </button>
