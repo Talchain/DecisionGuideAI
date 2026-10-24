@@ -6,6 +6,8 @@
  * name no option.
  * Row 19 (DL, 24 Oct): on a PROGRAM board a Run that is no longer current says CEE's own not-current line once
  * (`face_when_stale`), never its old figures, with one "Run again" that sends the existing Run press.
+ * Under each option's chance line, CEE's own words on what that chance rests on most (`main_driver.detail`, through
+ * `mainDriverDetailOf`), or CEE's reason none is shown (`none_licensed`); nothing when not recorded, or for a stale Run.
  */
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
@@ -23,6 +25,8 @@ export interface ViewOnlyRunChanceLine {
   readonly optionIds: readonly string[]
   readonly text: string
   readonly why: string | null
+  /** CEE's `main_driver` words for this line's option, verbatim: its `detail`, or its `none_licensed` reason; else null. */
+  readonly driver: string | null
 }
 
 export interface ViewOnlyRunChances {
@@ -55,17 +59,19 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
       // The chance gate stands: no figure from a Run that is not current. CEE's own line, said once for every option.
       const line = program ? view.notCurrentLine() : null
       return line === null ? null
-        : { sentence: null, lines: [{ optionIds: canonical.options.map(o => o.option_id), text: line, why: null }], waitsOn: [], stale: true }
+        : { sentence: null, lines: [{ optionIds: canonical.options.map(o => o.option_id), text: line, why: null, driver: null }], waitsOn: [], stale: true }
     }
-    const lines: { optionIds: string[]; text: string; why: string | null; withheld: boolean }[] = []
-    for (const { option_id: optionId } of canonical.options) {
+    const lines: { optionIds: string[]; text: string; why: string | null; driver: string | null; withheld: boolean }[] = []
+    for (const { option_id: optionId, main_driver: mainDriver } of canonical.options) {
       const cell = optionChanceCell(view, optionId, CTX)
       if (cell.text === null) continue
       const withheld = cell.kind === 'withheld'
       const why = withheld ? cell.why ?? null : null
-      const same = withheld ? lines.find(l => l.withheld && l.text === cell.text && l.why === why) : undefined
+      const driver = view.mainDriverDetailOf(optionId)
+        ?? (mainDriver.kind === 'none_licensed' && mainDriver.reason.trim() !== '' ? mainDriver.reason : null)
+      const same = withheld ? lines.find(l => l.withheld && l.text === cell.text && l.why === why && l.driver === driver) : undefined
       if (same) same.optionIds.push(optionId)
-      else lines.push({ optionIds: [optionId], text: cell.text, why, withheld })
+      else lines.push({ optionIds: [optionId], text: cell.text, why, driver, withheld })
     }
     const sentence = runViewGoalChanceSentence(view)
     return lines.length === 0 && sentence === null ? null : { sentence, lines, waitsOn: view.goalChanceDetail()?.waits_on ?? [], stale: false }
@@ -96,6 +102,9 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
         <div key={line.optionIds.join('+')} data-testid={`analysis-view-only-chance-${line.optionIds.join('+')}`}>
           <p className={`${typography.panelBody} text-text-body`}>{line.text}</p>
           {line.why === null ? null : <p className={`${typography.panelMeta} text-text-light`}>{line.why}</p>}
+          {line.driver === null ? null : (
+            <p className={`${typography.panelMeta} text-text-light`} data-testid={`analysis-view-only-driver-${line.optionIds.join('+')}`}>{line.driver}</p>
+          )}
         </div>
       ))}
       {chances.waitsOn.length === 0 ? null : (
