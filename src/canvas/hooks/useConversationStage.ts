@@ -31,6 +31,7 @@ import { useAnalysisTrust } from './useAnalysisTrust'
 // graph across the dock's import boundary — see its header for the
 // 54-violation measurement that put it there.
 import { FIRST_USE_PLACEHOLDER } from '../components/firstUsePlaceholder'
+import { useProgramBoardShowsResult } from '../../components/results/analysisNew/ViewOnlyRunChances'
 
 /**
  * The five states the ladder below distinguishes, named so more than one voice
@@ -75,9 +76,12 @@ export function useConversationStage(): ConversationStage {
   const resultsStatus = useCanvasStore(selectResultsStatus)
   const freshness = useAnalysisTrust().semantic
   const mayNagAboutStaleness = useMayStalenessVoiceSpeak('placeholder')
+  // A program board's result is CEE's served view, bound and current (the authority the Analysis and Model tabs read);
+  // CEE's legacy read says `never_run` for it, so without this the ladder said "Run a first pass" beside its result.
+  const programShowsResult = useProgramBoardShowsResult()
 
   if (freshness === 'changed' && mayNagAboutStaleness) return 'changed'
-  if (freshness === 'current') return 'current'
+  if (freshness === 'current' || programShowsResult) return 'current'
   if (resultsStatus === 'complete') return 'analysed'
   if (nodeCount > 0) return 'modelled'
   return 'empty'
