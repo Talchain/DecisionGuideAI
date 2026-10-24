@@ -6,10 +6,11 @@
  * the real `mapDraftNodeToCanvas`; the hook rows read the program flag through the real saved-graph read.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, renderHook } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import { usePreRunValidation, validateBeforeRun } from '../usePreRunValidation'
 import { mapDraftNodeToCanvas } from '../../utils/applyDraftResult'
 import { useCanvasStore } from '../../store'
+import { useSavedGraph } from '../../nodes/shared/savedGraph'
 import capacity from '../../runView/__tests__/fixtures/alpha3-capacity-r1-read.json'
 
 const nodes = capacity.graph.nodes.map((n) => mapDraftNodeToCanvas(n))
@@ -37,8 +38,12 @@ function board(livingModel: Rec) {
   useCanvasStore.setState({ currentScenarioId: capacity.scenario_id, lastServerGraphHash: graphHash, nodes, edges: [],
     outcomeNodeId: 'support_capacity_goal', ceeAnalysisReady: null } as never)
 }
-const settle = async () => {
-  await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
+/** The gate hook beside the saved-graph reader it reads the program flag through. */
+const gate = () => renderHook(() => ({ v: usePreRunValidation(), saved: useSavedGraph() as { living_model?: unknown } | null }))
+/** Until the saved-graph read has ANSWERED with this board's graph (its own living model), never a fixed sleep: the read
+ *  loads the auth client first (#2979), so a 30 ms wait could assert before it began. */
+const settle = async (result: { current: { saved: { living_model?: unknown } | null } }) => {
+  await waitFor(() => expect(result.current.saved?.living_model).toEqual((served.graph as Rec).living_model))
   expect(vi.mocked(fetch).mock.calls.some(([u]) => String(u).endsWith(`/scenarios/${capacity.scenario_id}/graph`))).toBe(true)
 }
 
@@ -56,14 +61,14 @@ describe('the run gate hook reads the program flag from the saved model', () => 
 
   it('model_program "v1": the question node is never listed', async () => {
     board({ model_program: 'v1' })
-    const { result } = renderHook(() => usePreRunValidation())
-    await settle()
-    expect(listed(result.current.blockers)).toEqual(['add_one_specialist'])
+    const { result } = gate()
+    await settle(result)
+    expect(listed(result.current.v.blockers)).toEqual(['add_one_specialist'])
   })
   it('CONTRAST: a core model with no model_program keeps today’s list', async () => {
     board({ aims: [], links: [], factors: [], options: [] })
-    const { result } = renderHook(() => usePreRunValidation())
-    await settle()
-    expect(listed(result.current.blockers)).toEqual(['mp:decision', 'add_one_specialist'])
+    const { result } = gate()
+    await settle(result)
+    expect(listed(result.current.v.blockers)).toEqual(['mp:decision', 'add_one_specialist'])
   })
 })
