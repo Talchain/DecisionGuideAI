@@ -88,16 +88,19 @@ export function mapDraftEdgeToCanvas(
   // chain uses (not a hand-kept copy of them), so it cannot drift from the
   // value it describes: true exactly when the last branch — the UI default —
   // was NOT taken.
+  // A strength counts only as a FINITE number: with no cap below, a non-finite one would reach the canvas and the
+  // registration as ±Infinity (serialised `null`), where the cap used to hide it (Codex r1 on #2973).
+  const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
   const wireSuppliedStrength =
-    typeof e.strength?.mean === 'number'
-    || typeof e.strength_mean === 'number'
-    || typeof e.weight === 'number'
+    finite(e.strength?.mean)
+    || finite(e.strength_mean)
+    || finite(e.weight)
   const rawWeight: number =
-    typeof e.strength?.mean === 'number'
+    finite(e.strength?.mean)
       ? e.strength.mean
-      : typeof e.strength_mean === 'number'
+      : finite(e.strength_mean)
         ? e.strength_mean
-        : typeof e.weight === 'number'
+        : finite(e.weight)
           ? e.weight
           : DEFAULT_EDGE_DATA.weight
 

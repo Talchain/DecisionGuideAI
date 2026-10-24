@@ -248,7 +248,8 @@ export function buildRegistrationGraph(
     // Canvas magnitude + direction → the signed mean, as the canvas holds it. Never capped (DL, 24 Oct): the former
     // [0,2] weight and [-1,+1] mean clamps (UI-SEM-035) registered a saved 1.28 as 1 and −4 as −1, and this projection
     // is also the reload's proof that the canvas equals the read, which then declined the Run.
-    const weight = typeof weightValue === 'number' ? Math.max(0, weightValue) : 0.5
+    // Only a finite number is a magnitude (a non-finite one would serialise as `null`; Codex r1 on #2973).
+    const weight = typeof weightValue === 'number' && Number.isFinite(weightValue) ? Math.max(0, weightValue) : 0.5
     const direction = directionValue === 'negative' ? -1 : 1
     const mean = direction * weight
     const std = typeof strengthStdValue === 'number' ? Math.max(0, strengthStdValue) : undefined

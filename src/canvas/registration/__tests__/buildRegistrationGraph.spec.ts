@@ -168,6 +168,12 @@ describe('buildRegistrationGraph — the captured canvas file', () => {
     expect(okGraph(buildRegistrationGraph(nodes, overWeight)).edges[0]).toMatchObject({
       strength: { mean: 9 },
     })
+    // Never a non-finite mean: ±Infinity would serialise as `null` (Codex r1 on #2973).
+    const infinite = [
+      { id: 'e1', source: 'a', target: 'b', data: { weight: Infinity, direction: 'negative' } },
+    ] as unknown as Edge[]
+    const sent = JSON.parse(JSON.stringify(okGraph(buildRegistrationGraph(nodes, infinite)).edges[0]))
+    expect(Number.isFinite(sent.strength.mean)).toBe(true)
   })
 })
 
