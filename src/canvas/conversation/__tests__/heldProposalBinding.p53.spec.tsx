@@ -267,6 +267,28 @@ describe('P53: an approval is bound to the message that issued it, from render t
     expect(restored[0].heldProposalId).toBeUndefined()
   })
 
+  // ── DL 24 Oct (served reading-card run, CEE 1fd6f8cb): the card a live reply issued sat under "An earlier suggestion" ──
+  // The first draft's live reply carries CEE's recorded turn id (`pendingServerTurnId`, from `_agent.turn_id`) and the
+  // read's card names that turn (`issued_turn_id`); the read that follows the draft reconciles the LIVE thread.
+  const LIVE_TURN = 'd25b7e22-74bb-405d-8488-68cf938dce37'
+  const EARLIER_TURN = '0b9c3f6e-2a71-4c55-9d8e-5f1a2b3c4d5e'
+  it('L1: the card the live reply issued is its own: no "earlier" heading on the turn that issued it', () => {
+    const raw = wire(proposal(PID_A, 'A', DIGEST_A, LIVE_TURN))
+    const restored = reconcileRestoredProposalFields([reply('live-1', 'I’ve drafted a first model', { pendingServerTurnId: LIVE_TURN, actionChips: chips(A), proposalFields: raw })], raw)
+    expect(restored[0]).toMatchObject({ heldProposalId: PID_A, heldProposalEarlier: false })
+    renderThread(restored)
+    expect(screen.getByTestId(`suggested-chip-${A.approve_action.id}`)).toBeTruthy()
+    expect(screen.queryByTestId('held-proposal-earlier-label')).toBeNull()
+  })
+
+  it('L2 (contrast): a card carried over from an EARLIER turn keeps the heading on the live thread', () => {
+    const raw = wire(proposal(PID_A, 'A', DIGEST_A, EARLIER_TURN))
+    const restored = reconcileRestoredProposalFields([reply('live-1', 'The latest answer', { pendingServerTurnId: LIVE_TURN })], raw)
+    expect(restored[0]).toMatchObject({ heldProposalId: PID_A, heldProposalEarlier: true })
+    renderThread(restored)
+    expect(screen.getByTestId('held-proposal-earlier-label').textContent).toBe(EARLIER_LABEL)
+  })
+
   // ── buddy r1 (5bdaa5a1) ────────────────────────────────────────────────────────────────────────────────────────
   async function pressWithReloadFallback(issuedTurnId: string | null) {
     const newerA = { ...proposal(PID_A, 'A', 'f'.repeat(32)), revision: 'revision-A-reoffer', issued_turn_id: issuedTurnId }

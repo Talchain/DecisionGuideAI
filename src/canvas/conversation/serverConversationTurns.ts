@@ -151,7 +151,9 @@ export function reconcileRestoredProposalFields(
   for (const held of proposals) {
     const matches = held.issued_turn_id == null ? [] : out.flatMap((message, index) =>
       isReply(message) && (message.id === `restored-assistant-${held.issued_turn_id}`
-        || message.clientTurnId === held.issued_turn_id || message.serverTurnId === held.issued_turn_id) ? [index] : [])
+        || message.clientTurnId === held.issued_turn_id || message.serverTurnId === held.issued_turn_id
+        // A live reply carries CEE's recorded turn id as `pendingServerTurnId`: the card it issued is its own, not "earlier".
+        || message.pendingServerTurnId === held.issued_turn_id) ? [index] : [])
     if (matches.length === 1) matchedAt.set(held.proposal_id, matches[0]); else unmatched.push(held)
   }
 
