@@ -59,7 +59,7 @@ export const TRADE_OFFS_COPY = {
   nothingGivenUp: 'Your model holds nothing this option gives up yet. That usually means a cost or risk is missing, not that there is none.',
   ask: 'Ask Olumi what’s missing',
   // The goal's own words may end a sentence ("within three months."): never a second full stop after them.
-  legend: (goal: string) => `In front: this option’s routes to ${goal.trim().replace(/[.!?…]+$/, '')}. Open the key to read each one.`,
+  legend: (goal: string) => `In front: this option’s routes to ${String(goal).trim().replace(/[.!?…]+$/, '')}. Open the key to read each one.`,
   note: (goal: string) => `Each route follows the links in your model: which way it pushes ${goal}, not how much, and not which option to choose.`,
 } as const
 
