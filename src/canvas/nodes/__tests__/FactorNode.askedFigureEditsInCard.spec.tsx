@@ -156,7 +156,7 @@ describe('an asked figure on a program graph', () => {
     await card(ASKED)
     const mark = screen.getByTestId(`factor-value-source-${ASKED}`)
     expect(mark).toHaveAttribute('aria-label', 'Budget cost per additional developer: Waiting for your answer')
-    expect(mark.querySelector('.lucide-circle-dashed')).not.toBeNull()
+    expect(mark.querySelector('.lucide-hourglass')).not.toBeNull()
     expect(mark.querySelector('.lucide-help-circle, .lucide-file-text, .lucide-user-check')).toBeNull()
     const line = screen.getByTestId('factor-recorded-value')
     expect(line).toHaveTextContent('Waiting for your answer')

@@ -47,8 +47,10 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
 import { OptionNode } from '../OptionNode'
-import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
+import { CanvasOptionChanceContext, OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
+import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
 import { NOT_RANKED_MARKER, WITHHELD_REASON_FALLBACK } from '../../state/winShareGate'
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -233,5 +235,44 @@ describe('OptionNode — a withheld leader claim removes the designation', () =>
     // survives rather than silently leaving the question open.
     renderOption(withPermission(permittedReport(), { permitted: false }))
     expect(screen.getByTestId('node-title').getAttribute('data-type-ordinal')).toMatch(/^O\d+$/) // Paul 1 Oct: the card's own "O<n>"
+  })
+
+  function renderWithWithheldHeadline(report: unknown) {
+    const state = installCanonicalFixtureState(makeStoreState(report))
+    vi.mocked(useCanvasStore).mockImplementation((selector) => (selector as (s: unknown) => unknown)(state))
+    return render(
+      <ReactFlowProvider><CanvasOptionChanceContext.Provider value={optionChanceFixture({ [NODE_ID]: 41, [SIBLING_ID]: 29 })}>
+        <OptionNode {...baseProps} data={{ label: 'Hire 3 engineers', type: 'option' }} />
+      </CanvasOptionChanceContext.Provider></ReactFlowProvider>,
+    )
+  }
+
+  it('Paul (24 Oct): one circle-slash per card — a withheld headline takes the withheld share’s mark, words and reason', () => {
+    const { container } = renderWithWithheldHeadline(withPermission(permittedReport(), { permitted: false }))
+    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`).textContent).toBe('—')
+    expect(screen.queryByTestId(`option-not-ranked-${NODE_ID}`)).toBeNull()
+    expect(container.querySelectorAll('svg.lucide-circle-slash')).toHaveLength(1)
+    // The headline's own hover and accessible name (the focusable line, not the nested image) carry the chance cell's
+    // face AND the share mark's words and reason, so nothing the band said is lost.
+    const line = screen.getByTestId(`option-analysis-currency-${NODE_ID}`).getAttribute('aria-label') ?? ''
+    expect(line).toContain(CHANCE_NOT_SHOWN_YET)
+    expect(line).toContain(`${NOT_RANKED_MARKER}: ${WITHHELD_REASON_FALLBACK}`)
+    cleanup()
+    // Contrast: the same withheld share with no chance line keeps its band mark and its reason.
+    renderOption(withPermission(permittedReport(), { permitted: false }))
+    expectNotRankedInSlot(WITHHELD_REASON_FALLBACK)
+  })
+
+  it('one circle-slash per card — an option left out of the run with a withheld headline draws no second "Not analysed" mark', () => {
+    const report = { ...permittedReport(), option_probabilities: { [SIBLING_ID]: { win_probability: 0.23 } } }
+    const { container } = renderWithWithheldHeadline(report)
+    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`).textContent).toBe('—')
+    expect(screen.queryByTestId(`option-not-analysed-chip-${NODE_ID}`)).toBeNull()
+    expect(container.querySelectorAll('svg.lucide-circle-slash')).toHaveLength(1)
+    expect(screen.getByTestId(`option-analysis-currency-${NODE_ID}`).getAttribute('aria-label')).toContain('Not analysed')
+    cleanup()
+    // Contrast: the same left-out option with no chance line keeps its band mark.
+    renderOption(report)
+    expect(screen.getByTestId(`option-not-analysed-chip-${NODE_ID}`)).toBeInTheDocument()
   })
 })

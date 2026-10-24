@@ -3,18 +3,24 @@ import { useCanvasStore } from '../../../store'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { FactorDriverLine } from '../FactorDriverLine'
 import { afterEach, expect, it } from 'vitest'
+import { Anchor, EyeOff, Frame, Gauge } from 'lucide-react'
 import { CARD_MARKS, RENDERED_CARD_MARKS } from '../cardMarks'
 afterEach(cleanup)
 it('every rendered registry entry has a distinct glyph or visual', () => {
   const seen = new Map<unknown, string>()
   const glyphs = new Map<unknown, string>()
-  for (const mark of RENDERED_CARD_MARKS) {
+  // Paul (24 Oct 2026): one glyph for "not in the analysis", which also marks a withheld result. The two never share a card.
+  const sharedNotInAnalysis = new Set(['share-withheld'])
+  for (const mark of RENDERED_CARD_MARKS.filter(m => !sharedNotInAnalysis.has(m.id))) {
     expect(glyphs.get(mark.Icon), `${mark.id} duplicates glyph ${glyphs.get(mark.Icon)}`).toBeUndefined()
     glyphs.set(mark.Icon, mark.id)
     const shape = 'visual' in mark && mark.visual ? mark.visual : mark.Icon
     expect(seen.get(shape), `${mark.id} duplicates ${seen.get(shape)}`).toBeUndefined()
     seen.set(shape, mark.id)
   }
+  expect(CARD_MARKS.find(m => m.id === 'share-withheld')!.Icon).toBe(CARD_MARKS.find(m => m.id === 'not-analysed')!.Icon)
+  // Design system §9.6: no rendered card mark borrows a bias glyph.
+  for (const mark of RENDERED_CARD_MARKS) expect([Anchor, Frame, Gauge, EyeOff], mark.id).not.toContain(mark.Icon)
   for (const id of ['factor-tier', 'driver', 'outcome-unquantified', 'risk-unset', 'target-not-captured', 'assumptions-open', 'evidence-priority']) expect(RENDERED_CARD_MARKS.some(m => m.id === id)).toBe(true)
 })
 it('pre-run, the bottom-left Key lists the working-assumption mark the factor card draws (G1/G2 slice; the Key-pill fold is the next slice)', () => {
@@ -23,6 +29,9 @@ it('pre-run, the bottom-left Key lists the working-assumption mark the factor ca
   render(<CanvasLegendPopover />)
   fireEvent.click(screen.getByTestId('btn-canvas-legend'))
   expect(screen.getByTestId('legend-card-mark-working-assumption')).toHaveTextContent('Working assumption')
+  // Paul (24 Oct): marks that share the circle-slash by ruling are ONE key row naming both; never the same picture twice.
+  expect(screen.getByTestId('legend-card-mark-share-withheld')).toHaveTextContent('Compared · share not shown; Not analysed')
+  expect(screen.queryByTestId('legend-card-mark-not-analysed')).toBeNull()
   // Phase gate control: a run-only mark is not listed before a Run.
   expect(screen.queryByTestId('legend-card-mark-driver')).toBeNull()
 })
@@ -56,9 +65,11 @@ it('the Key draws every registered visual and glyph beside its existing words', 
   useCanvasStore.setState({ nodes: ['factor', 'option', 'outcome', 'risk', 'goal', 'decision'].map(type => ({ id: type, type, data: { type, label: type }, position: { x: 0, y: 0 } })), edges: [], results: { status: 'complete', report: null } } as never)
   render(<CanvasLegendPopover />)
   fireEvent.click(screen.getByTestId('btn-canvas-legend'))
+  // Every registered mark's words are in the key, in the row of the picture it draws (a shared glyph is one row).
   for (const mark of RENDERED_CARD_MARKS) {
-    const row = screen.getByTestId(`legend-card-mark-${mark.id}`)
-    expect(row).toHaveTextContent(mark.keyText.trim())
-    expect(row.querySelector('svg, [data-risk-cell], [data-level-step], [aria-hidden]')).not.toBeNull()
+    const rows = screen.getAllByTestId(/^legend-card-mark-/).filter(r => (r.textContent ?? '').includes(mark.keyText.trim()))
+    expect(rows.length, mark.id).toBeGreaterThan(0)
+    expect(rows[0].querySelector('svg, [data-risk-cell], [data-level-step], [aria-hidden]')).not.toBeNull()
   }
+  expect(screen.getAllByTestId(/^legend-card-mark-/)).toHaveLength(RENDERED_CARD_MARKS.length - 1)
 })

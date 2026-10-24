@@ -661,12 +661,24 @@ const BEHAVIOUR_ROW: LegendRow = {
  */
 export const POST_RUN_CARD_MARKS: ReadonlySet<string> = new Set(['driver', 'driver-last-run'])
 
+/**
+ * The card marks a reader in this phase can meet, one key row per picture. Marks that share a glyph by ruling (Paul,
+ * 24 Oct: "not in the analysis" also marks a withheld result) are ONE row naming each, so the key never shows the same
+ * picture twice.
+ */
+export function cardMarkKeyRows(isPostAnalysis: boolean): { mark: typeof RENDERED_CARD_MARKS[number]; label: string }[] {
+  const shown = RENDERED_CARD_MARKS.filter(m => isPostAnalysis || !POST_RUN_CARD_MARKS.has(m.id))
+  const shapeOf = (m: typeof shown[number]) => ('visual' in m && m.visual ? m.visual : m.Icon)
+  return shown
+    .filter((m, i) => shown.findIndex(o => shapeOf(o) === shapeOf(m)) === i)
+    .map(m => ({ mark: m, label: shown.filter(o => shapeOf(o) === shapeOf(m)).map(o => o.keyText).join('; ') }))
+}
+
 /** The card-icon rows a reader in this phase can meet on a card. */
 function cardIconRows(isPostAnalysis: boolean): LegendRow[] {
   // The SAME shape the card draws (glyph, level meter, risk matrix) beside the registry's key words.
-  const marks: LegendRow[] = RENDERED_CARD_MARKS
-    .filter(m => isPostAnalysis || !POST_RUN_CARD_MARKS.has(m.id))
-    .map(m => ({ label: m.keyText, swatch: <CardMarkShape mark={m} />, testId: `legend-card-mark-${m.id}` }))
+  const marks: LegendRow[] = cardMarkKeyRows(isPostAnalysis)
+    .map(({ mark, label }) => ({ label, swatch: <CardMarkShape mark={mark} />, testId: `legend-card-mark-${mark.id}` }))
   return [...(isPostAnalysis ? [ATTENTION_ROW, EVIDENCE_ROW, BEHAVIOUR_ROW] : [ATTENTION_ROW, BEHAVIOUR_ROW]), ...marks]
 }
 

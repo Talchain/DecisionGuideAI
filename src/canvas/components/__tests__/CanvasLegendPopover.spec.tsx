@@ -8,7 +8,6 @@
  * typecheck and no install were executed — the cost constraints for that lane
  * forbade all three. CI at this head is the authority for whether it is green.
  */
-import { RENDERED_CARD_MARKS } from '../../nodes/shared/cardMarks'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -18,7 +17,7 @@ import {
   CanvasLegendPopover,
   CLASSIFIED_METRIC_NOUNS,
   visibleMetricRows,
-  POST_RUN_CARD_MARKS,
+  cardMarkKeyRows,
 } from '../CanvasLegendPopover'
 import { STRENGTH_NOT_SET_DASH } from '../../edges/edgePresentation'
 import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../../domain/vocabulary'
@@ -146,7 +145,8 @@ const APPROVED = [
   ...THICKNESS_LABELS,
   // Pre-run (this spec's phase): the run-only marks are not listed (Defect B); their post-run rows are bound in
   // `cardMarks.registryB.spec.tsx`. Derived from the legend's own set, never a second list.
-  ...RENDERED_CARD_MARKS.filter(m => !POST_RUN_CARD_MARKS.has(m.id)).map(m => m.keyText),
+  // One row per picture: marks sharing a glyph by ruling are one row naming each (`cardMarkKeyRows`).
+  ...cardMarkKeyRows(false).map(r => r.label),
 ]
 
 /**
