@@ -83,6 +83,8 @@ describe('the composer reasoning moves', () => {
     select(['cap'])
     render(<ComposerMoves busy={false} testIdBase="composer" />)
     expect(move('challenge').getAttribute('aria-disabled')).toBeNull()
+    // Only what happens on every board: a program board's Challenge replies in words and saves no note (CEE #3724).
+    expect(move('challenge').getAttribute('aria-label')).toBe('Challenge an assumption: Olumi questions the assumption on the card you selected.')
     fireEvent.click(move('challenge'))
     expect(dispatch).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'ask:challenge', source: 'chip' }))
     const challenge = dispatch.mock.calls[0][0].message as string
