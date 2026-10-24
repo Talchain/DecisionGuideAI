@@ -12,6 +12,8 @@ import { edgeProvenance, type EdgeProvenanceKind } from '../../domain/edgeProven
 import { assumptionMapOf, restsOnKey, restsOnNumbered, type AssumptionColumn } from '../assumptionMapModel'
 import { showLensForAction } from '../lenses'
 import { useCanvasStore } from '../../store'
+import funding from '../../runView/__tests__/fixtures/pass-funding-72300716-read.json'
+import { mapDraftNodeToCanvas } from '../../utils/applyDraftResult'
 
 type Data = Record<string, unknown>
 type WireEdge = Record<string, unknown> & { from: string; to: string }
@@ -48,6 +50,8 @@ const FACTORS: ReadonlyArray<[string, Data, AssumptionColumn]> = [
   // An origin nobody can attest is never shown as the user's (DL, 18 Oct 2026; BaseNode.evidenceLensSaysIt's intent).
   ['unverified', { provenance: 'unverified_brief', observedState: { value: 12, source: 'brief_extraction' } }, 'unknown'],
   ['unknown provenance', { provenance: 'something_new', observedState: { value: 3 } }, 'unknown'],
+  // CEE says the figure waits for the person's answer (`value_basis`, S3): no figure yet, never "origin not known" (F02).
+  ['waiting for your answer', { value_basis: { kind: 'waiting_for_answer', words: 'Waiting for your answer' } }, 'missing'],
 ]
 
 const node = (id: string, type: string, data: Data = {}): Node => ({ id, type, position: { x: 0, y: 0 }, data: { label: id, ...data } })
@@ -69,6 +73,31 @@ describe('what the model rests on', () => {
     for (const [name, data, column] of FACTORS) {
       const map = assumptionMapOf([node('f', 'factor', data), node('g', 'goal')], [], 'g')
       assert.deepEqual(map.items.map((i) => i.column), [column], name)
+    }
+  })
+
+  it('a figure CEE says is worked out from others, or fixed by how the model is built, is not an assumption: not on the map', () => {
+    for (const kind of ['worked_out', 'structure']) {
+      const map = assumptionMapOf([node('f', 'factor', { value_basis: { kind, words: 'Fixed by how the model is built' } }), node('g', 'goal')], [], 'g')
+      assert.deepEqual(map.items, [], kind)
+    }
+  })
+
+  it('⭐ real path (served funding read, F02): the figures waiting for an answer are "No figure yet"; the built-in ones are off the map; none is "origin not known"', () => {
+    const nodes = (funding as { graph: { nodes: unknown[] } }).graph.nodes.map((n) => mapDraftNodeToCanvas(n as never)) as Node[]
+    const factors = assumptionMapOf(nodes, [], 'secure_funding_sooner').items.filter((i) => i.target.kind === 'node')
+    assert.deepEqual(factors.map((i) => [i.target.id, i.column, i.source]), [
+      ['firm_deal_size', 'yours', 'From your brief'],
+      ['cash_available', 'missing', 'Waiting for your answer'],
+      ['monthly_net_burn', 'missing', 'Waiting for your answer'],
+      ['angel_raise_amount', 'missing', 'Waiting for your answer'],
+      ['angel_cash_overhead', 'missing', 'Waiting for your answer'],
+      ['firm_raise_amount', 'missing', 'Waiting for your answer'],
+    ])
+    // CONTRAST: the three built-in factors are on the board, and CEE says so.
+    for (const id of ['angel_route_on', 'zero_angel_inflow', 'funding_received_start']) {
+      const n = nodes.find((x) => x.id === id)
+      assert.equal((n?.data as { value_basis?: { kind?: string } }).value_basis?.kind, 'structure', `POSITIVE CONTROL: ${id} is built in`)
     }
   })
 

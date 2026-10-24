@@ -16,7 +16,8 @@
  *       missing    no figure yet (a placeholder, or no strength at all).
  *     Each item keeps its owner's own words, so the map can never say something the card does not.
  *
- * Not on the map: links that hold by definition or by an exact identity (not assumptions), and structural wiring
+ * Not on the map: links that hold by definition or by an exact identity (not assumptions), figures CEE says are worked
+ * out from others or fixed by how the model is built (`value_basis`), and structural wiring
  * (`linkIsStructural`: question → option, option → factor), whose figures are the option's own changes, shown on the
  * option card.
  */
@@ -81,12 +82,16 @@ function reachesGoal(goalId: string, edges: readonly Edge[]): ReadonlySet<string
 
 function factorItem(node: Node, row: AssumptionRow): AssumptionItem | null {
   const mark = factorValueSourceMark(node.data)
-  if (mark === null) return null
+  // CEE's own basis (`value_basis`, S3): a figure worked out from others, or fixed by how the model is built, is not an
+  // assumption (its inputs are on the map; an option's settings are on its card), so it is left off, as a definitional
+  // link is. A figure waiting for the person's answer has no figure yet (audit F02, 24 Oct: both read "origin unknown").
+  if (mark === null || mark.kind === 'basis') return null
   const column: AssumptionColumn = mark.kind === 'you' || mark.kind === 'brief' || mark.kind === 'panel' ? 'yours'
     // An Olumi value is the user's ACCEPTED figure only when the owner says so (`isAcceptedOlumiFigure`): a drafted value
     // with no marker is still Olumi's and unchecked, never assumed accepted.
     : mark.kind === 'olumi' ? (isAcceptedOlumiFigure(node.data) ? 'accepted' : 'unchecked')
-      : 'unknown'
+      : mark.kind === 'asked' ? 'missing'
+        : 'unknown'
   return { target: { kind: 'node', id: node.id }, label: String(node.data?.label ?? node.id), source: mark.label, row, column }
 }
 
