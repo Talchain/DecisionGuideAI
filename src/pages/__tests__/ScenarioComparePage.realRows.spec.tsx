@@ -70,9 +70,12 @@ describe('ScenarioComparePage on real saved rows', () => {
   it('names the picker entry and both columns as the canvas does, never "Untitled scenario"', async () => {
     renderPage()
     const select = await screen.findByLabelText('Scenario to compare')
-    expect(within(select).getByRole('option', { name: 'monthly recurring revenue' })).toHaveValue(current.id)
-    const sides = await chooseOther()
-    sides.forEach(side => expect(within(side).getByRole('heading', { level: 2 })).toHaveTextContent('monthly recurring revenue'))
+    // The current row is named by its question card (Paul, 25 Oct); the stale row's question is its goal's words.
+    const question = 'Should we raise prices by 10%, launch a cheaper starter tier at £49 a month…'
+    expect(within(select).getByRole('option', { name: question })).toHaveValue(current.id)
+    const [left, right] = await chooseOther()
+    expect(within(left).getByRole('heading', { level: 2 })).toHaveTextContent('monthly recurring revenue')
+    expect(within(right).getByRole('heading', { level: 2 })).toHaveTextContent(question)
     expect(screen.queryByText('Untitled scenario')).not.toBeInTheDocument()
   })
 

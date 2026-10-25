@@ -243,6 +243,14 @@ function CanvasMVPBody() {
     return typeof label === 'string' && label.trim().length > 0 ? label : null
   })
 
+  // The question card's words, as the card shows them: the model's name before its goal (Paul, 25 Oct 2026: the title
+  // shows the reframed question, never the raw brief a goal can carry). A primitive selector.
+  const questionNodeLabel = useCanvasStore(state => {
+    const question = (state.nodes ?? []).find(n => resolveNodeTypeLiteral(n) === 'decision')
+    const label = (question?.data as { label?: unknown } | undefined)?.label
+    return typeof label === 'string' ? label : null
+  })
+
   // A saved example's own name — the manifest title the starter card shows —
   // read through the one "is this a starter" predicate. A primitive selector.
   const exampleTitle = useCanvasStore(state => {
@@ -264,7 +272,7 @@ function CanvasMVPBody() {
     // one), else the goal it is about — see `canvas/domain/modelDisplayName`.
     // Display only; nothing is written here.
     const framingGoal = (framing as Record<string, unknown> | null)?.goal
-    return resolveModelDisplayName(framing?.title, framingGoal ?? goalNodeLabel, exampleTitle)
+    return resolveModelDisplayName(framing?.title, framingGoal ?? goalNodeLabel, exampleTitle, questionNodeLabel)
   })()
 
   const lastSaved = lastSavedAt ? new Date(lastSavedAt) : null

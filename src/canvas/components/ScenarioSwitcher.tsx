@@ -158,11 +158,14 @@ export function ScenarioSwitcher({
     if (renameSettledRef.current) return
     renameSettledRef.current = true
 
-    const next = renameValue.trim().slice(0, MAX_NAME_LENGTH)
+    // An unchanged name commits nothing: compared whole, before the length cap, so leaving a long shown name (the
+    // question card's words, said whole) never saves a cut copy of it (Codex r1 on #2994).
+    const typed = renameValue.trim()
+    const next = typed.slice(0, MAX_NAME_LENGTH)
     // An empty name is REFUSED — the previous name stands. A model with no name
     // is worse than one called "Untitled model": the fallback at least tells the
     // truth about being unnamed.
-    if (next && next !== resolvedName) {
+    if (next && typed !== resolvedName) {
       if (onRename) {
         onRename(next)
       } else {

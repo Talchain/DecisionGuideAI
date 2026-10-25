@@ -1290,6 +1290,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // Canvas v3.1 DESIGN-GAP #5: a saved example is named by its own manifest
   // title — the same rung the top bar reads (`CanvasMVP`), so the two surfaces
   // give one answer. Primitive selector, same reason as above.
+  const overviewQuestionLabel = useCanvasStore((s) => {
+    const question = (s.nodes ?? []).find((n) => resolveNodeTypeLiteral(n) === 'decision')
+    const label = (question?.data as { label?: unknown } | undefined)?.label
+    return typeof label === 'string' ? label : null
+  })
   const overviewExampleTitle = useCanvasStore((s) => {
     const starterId = resolveStarterId(s.nodes ?? [])
     return starterId ? (getStarter(starterId)?.title ?? null) : null
@@ -1329,9 +1334,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     if (!isDecisionOverviewEnabled()) return null
     const stored = overviewScenarioId ? getScenario(overviewScenarioId)?.name : null
     if (typeof stored === 'string' && stored.trim().length > 0) return stored
-    const derived = resolveModelDisplayName(null, overviewGoalLabel, overviewExampleTitle)
+    const derived = resolveModelDisplayName(null, overviewGoalLabel, overviewExampleTitle, overviewQuestionLabel)
     return derived === UNNAMED_MODEL_FALLBACK ? null : derived
-  }, [overviewScenarioId, overviewGoalLabel, overviewExampleTitle])
+  }, [overviewScenarioId, overviewGoalLabel, overviewExampleTitle, overviewQuestionLabel])
 
   // Tornado chart: Derive per-factor outcome bounds from driver influence and recommended option range.
   // Each factor's contribution to the outcome swing is proportional to its normalised influence.

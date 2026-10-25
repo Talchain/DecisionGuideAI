@@ -324,6 +324,26 @@ describe('ScenarioSwitcher (A3)', () => {
     expect(mockRenameCurrentScenario).not.toHaveBeenCalled()
   })
 
+  it('⭐ leaving a long shown name unchanged commits nothing (no cut copy saved; Codex r1 on #2994)', () => {
+    const onRename = vi.fn()
+    const question = 'Should we expand into the European market over the next 6–12 months, given the customer target?'
+    expect(question.length).toBeGreaterThan(60)
+    render(
+      <ToastProvider>
+        <ScenarioSwitcher displayName={question} onRename={onRename} />
+      </ToastProvider>
+    )
+    fireEvent.click(screen.getByTestId('scenario-name-button'))
+    fireEvent.blur(screen.getByTestId('scenario-name-input'))
+    expect(onRename).not.toHaveBeenCalled()
+    // CONTRAST: a real change to a long name still commits, capped as before.
+    fireEvent.click(screen.getByTestId('scenario-name-button'))
+    const input = screen.getByTestId('scenario-name-input')
+    fireEvent.change(input, { target: { value: `${question} Renamed` } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onRename).toHaveBeenCalledWith('Should we expand into the European market over the next 6–12')
+  })
+
   it('displays "Untitled scenario" when no current scenario', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) => {
       const state = {

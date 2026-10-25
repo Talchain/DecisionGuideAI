@@ -13,9 +13,10 @@
  * derivation (`deriveModelNameFromGoal`) so the two cannot drift:
  *   1. the `title` column (a name someone chose; the canvas syncs renames here);
  *   2. `framing.title`;
- *   3. `framing.goal`, derived;
- *   4. the stored graph's goal node label, derived;
- *   5. `framing.decision_question` / `framing.question` (older rows).
+ *   3. the stored graph's question node label (the question card's words, whole; Paul, 25 Oct 2026);
+ *   4. `framing.goal`, derived;
+ *   5. the stored graph's goal node label, derived;
+ *   6. `framing.decision_question` / `framing.question` (older rows).
  *
  * Returns `null` when nothing names the row, so each surface keeps its own
  * honest "Untitled …" wording. Display only: nothing is written.
@@ -25,7 +26,7 @@
  * `{ type, data: { label } }`. Both are read, because local/guest-saved graphs
  * carry the canvas shape.
  */
-import { deriveModelNameFromGoal } from './modelDisplayName'
+import { deriveModelNameFromGoal, questionDisplayName } from './modelDisplayName'
 
 type Loose = Record<string, unknown>
 
@@ -35,8 +36,8 @@ const asObject = (value: unknown): Loose | null =>
 const text = (value: unknown): string | null =>
   typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
 
-/** The label of the first goal node in a stored graph, or null. */
-export function storedGoalNodeLabel(graph: unknown): string | null {
+/** The label of the first node of `kind` in a stored graph, or null. */
+function storedNodeLabel(graph: unknown, wanted: 'goal' | 'decision'): string | null {
   const nodes = asObject(graph)?.nodes
   if (!Array.isArray(nodes)) return null
   for (const raw of nodes) {
@@ -44,11 +45,21 @@ export function storedGoalNodeLabel(graph: unknown): string | null {
     if (!node) continue
     const data = asObject(node.data)
     const kind = node.kind ?? data?.kind ?? data?.type ?? node.type
-    if (kind !== 'goal') continue
+    if (kind !== wanted) continue
     const label = text(node.label) ?? text(data?.label)
     if (label) return label
   }
   return null
+}
+
+/** The label of the first goal node in a stored graph, or null. */
+export function storedGoalNodeLabel(graph: unknown): string | null {
+  return storedNodeLabel(graph, 'goal')
+}
+
+/** The question card's words in a stored graph as a name (`questionDisplayName`: prefix off, placeholder refused), or null. */
+export function storedQuestionNodeLabel(graph: unknown): string | null {
+  return questionDisplayName(storedNodeLabel(graph, 'decision'))
 }
 
 /**
@@ -80,6 +91,7 @@ export function scenarioDisplayTitle(row: {
   return (
     text(row.title) ??
     text(framing?.title) ??
+    storedQuestionNodeLabel(row.graph) ??
     deriveModelNameFromGoal(framing?.goal) ??
     deriveModelNameFromGoal(storedGoalNodeLabel(row.graph)) ??
     text(framing?.decision_question) ??

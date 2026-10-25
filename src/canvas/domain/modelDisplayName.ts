@@ -33,6 +33,8 @@
  * drift apart. A second copy would be this estate's hand-maintained mirror.
  */
 
+import { decisionLabelIsUnwritten } from './vocabulary'
+
 /** Shown when a model has neither a name nor a goal to be named after. */
 export const UNNAMED_MODEL_FALLBACK = 'Untitled scenario'
 
@@ -62,17 +64,31 @@ export function deriveModelNameFromGoal(goal: unknown): string | null {
  *      the name the starter card already shows for it (Canvas v3.1 DESIGN-GAP
  *      #5, 26 Sep 2026: every starter's top bar read its GOAL sentence as the
  *      model's name, because this ladder never consulted the name it had);
- *   3. the goal, derived — truthful about what the model is about;
- *   4. the generic fallback — truthful about being unnamed.
+ *   3. the question the model reasons about (the question card's words, whole): Paul, 25 Oct 2026, "the
+ *      reframed question" over the raw brief a goal can carry;
+ *   4. the goal, derived — truthful about what the model is about;
+ *   5. the generic fallback — truthful about being unnamed.
  *
  * `exampleTitle` is optional so a caller that has no example to name is
  * unchanged; it is never invented here — callers pass the manifest's own string
  * or nothing.
  */
+/**
+ * A question card's words as a name: the producer's "Decision: " prefix off, and null when it is unwritten (the default
+ * "Question", or a bare prefix), so a placeholder never names a model over its goal (Codex r1 on #2994).
+ */
+export function questionDisplayName(label: unknown): string | null {
+  if (typeof label !== 'string') return null
+  const words = label.replace(/^\s*decision\s*:\s*/i, '').trim()
+  return words.length === 0 || decisionLabelIsUnwritten(words) ? null : words
+}
+
 export function resolveModelDisplayName(
   storedTitle: unknown,
   goal: unknown,
   exampleTitle?: unknown,
+  /** The question the model reasons about (the question card's words), named before the goal (Paul, 25 Oct). */
+  question?: unknown,
 ): string {
   if (typeof storedTitle === 'string' && storedTitle.trim().length > 0) {
     return storedTitle.trim()
@@ -80,5 +96,8 @@ export function resolveModelDisplayName(
   if (typeof exampleTitle === 'string' && exampleTitle.trim().length > 0) {
     return exampleTitle.trim()
   }
+  // The question is said whole: each surface truncates it as it fits (a word is never cut to the goal's 60-character cap).
+  const asked = questionDisplayName(question)
+  if (asked !== null) return asked
   return deriveModelNameFromGoal(goal) ?? UNNAMED_MODEL_FALLBACK
 }

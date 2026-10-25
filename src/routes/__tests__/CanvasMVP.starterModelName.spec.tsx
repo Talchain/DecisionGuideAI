@@ -107,8 +107,15 @@ describe('the top bar names a saved example by its own title (v3.1 DESIGN-GAP #5
     expect(lastTitle()).toBe('Our pricing question')
   })
 
-  it('CONTRAST: the same graph WITHOUT the starter stamp is still named after its goal (#1502 unchanged)', () => {
+  it('CONTRAST: the same graph WITHOUT the starter stamp is named by its question card (Paul, 25 Oct), not the manifest', () => {
     useCanvasStore.setState({ nodes: starterNodes(false) as never })
+    render(<CanvasMVP />)
+
+    expect(lastTitle()).toBe('Pricing Model Transition Strategy')
+  })
+
+  it('CONTRAST: with no question card and no stamp, it is still named after its goal (#1502 unchanged)', () => {
+    useCanvasStore.setState({ nodes: starterNodes(false).filter((n) => n.type !== 'decision') as never })
     render(<CanvasMVP />)
 
     expect(lastTitle()).toBe(deriveModelNameFromGoal(PRICING.summary))
