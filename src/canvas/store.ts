@@ -5831,6 +5831,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         reportEpoch: s.results.runEpoch,
       },
       graphHealth: (() => {
+        if (s.legacyValidationOff) return null // core board: CEE's admission decides, no legacy health
         if (!healthFromQuality) return s.graphHealth ?? null
         if (!s.graphHealth) return healthFromQuality
         // Preserve structural validation output when issues are present,
@@ -6499,6 +6500,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         ceeError: run.ceeError ?? null
       },
       graphHealth: (() => {
+        if (s.legacyValidationOff) return null // core board: CEE's admission decides, no legacy health
         if (!healthFromQuality) return s.graphHealth ?? null
         if (!s.graphHealth) return healthFromQuality
         if (s.graphHealth.issues.length > 0) return s.graphHealth
@@ -6571,6 +6573,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         ...hydratedRunMeta,
       },
       graphHealth: (() => {
+        if (s.legacyValidationOff) return null // core board: CEE's admission decides, no legacy health
         if (!healthFromQuality) return s.graphHealth ?? null
         if (!s.graphHealth) return healthFromQuality
         if (s.graphHealth.issues.length > 0) return s.graphHealth
@@ -7984,6 +7987,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     pushToHistory(get, set)
 
     const { applyRepair: apply } = await import('./validation/graphRepair')
+    if (get().legacyValidationOff) return // switched to a core board while loading: no legacy repair runs
     const { nodes: repairedNodes, edges: repairedEdges } = apply(nodes, edges, issue.suggestedFix)
 
     const typedEdges: Edge<EdgeData>[] = repairedEdges.map(edge => ({
@@ -8012,6 +8016,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     pushToHistory(get, set)
 
     const { quickFixAll } = await import('./validation/graphRepair')
+    if (get().legacyValidationOff) return // switched to a core board while loading: no legacy repair runs
     const { nodes: repairedNodes, edges: repairedEdges } = quickFixAll(nodes, edges, graphHealth.issues)
 
     const typedEdges: Edge<EdgeData>[] = repairedEdges.map(edge => ({

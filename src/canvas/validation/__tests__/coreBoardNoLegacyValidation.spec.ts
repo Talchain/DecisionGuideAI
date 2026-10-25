@@ -45,6 +45,24 @@ describe('a core board takes its readiness from CEE alone', () => {
     expect((result.blockingReasons ?? []).some((r) => r.startsWith('Cycle detected: '))).toBe(true)
   })
 
+  it('⭐ a repair started before the board is known to be core deletes no link (Codex r1 on #2995)', async () => {
+    const { graphHealth } = await gate(false)
+    const cycle = graphHealth!.issues.find((i) => i.type === 'cycle')!
+    const before = useCanvasStore.getState().edges.length
+    const repairing = useCanvasStore.getState().applyRepair(cycle.id)
+    const repairingAll = useCanvasStore.getState().applyAllRepairs()
+    useCanvasStore.getState().setLegacyValidationOff(true)
+    await Promise.all([repairing, repairingAll])
+    expect(useCanvasStore.getState().edges.length).toBe(before)
+    expect(useCanvasStore.getState().edges.some((e) => e.id === 'monthly_customer_losses__customers' || (e.source === 'monthly_customer_losses' && e.target === 'customers'))).toBe(true)
+  })
+
+  it('⭐ a Run report on a core board writes no legacy health (no "Resolve 0 graph errors")', async () => {
+    await gate(true)
+    useCanvasStore.getState().resultsComplete({ report: { graph_quality: { score: 0.2, issues: [] } } as never, hash: 'h' } as never)
+    expect(useCanvasStore.getState().graphHealth).toBeNull()
+  })
+
   it('switching back to a board that is not core runs the validator again', async () => {
     await gate(true)
     useCanvasStore.getState().setLegacyValidationOff(false)

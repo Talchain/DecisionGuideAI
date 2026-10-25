@@ -1,5 +1,5 @@
 /**
- * The route sets the core-board switch from the one core predicate (`useSavedModelIsCore`): a core board switches the
+ * The route sets the core-board switch from `useLegacyValidationOff` (its own rows: `legacyValidationOff.spec.tsx`): a core board switches the
  * legacy client validator off (CEE's admission decides readiness), a board that is not core keeps it (Paul's test,
  * 25 Oct 2026). Same harness as `CanvasMVP.starterModelName.spec.tsx`: the real route, heavy children stubbed.
  */
@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 
 const core = vi.hoisted(() => ({ value: false }))
-vi.mock('../../canvas/nodes/shared/savedModelIsCore', () => ({ useSavedModelIsCore: () => core.value }))
+vi.mock('../../canvas/nodes/shared/savedModelIsCore', () => ({ useSavedModelIsCore: () => core.value, useLegacyValidationOff: () => core.value }))
 vi.mock('../../components/layout/TopBar', () => ({ TopBar: () => <div data-testid="topbar-stub" /> }))
 vi.mock('../../canvas/ReactFlowGraph', () => ({ default: () => <div data-testid="rfg-stub" /> }))
 vi.mock('../../components/DebugTray', () => ({ DebugTray: () => <div /> }))
