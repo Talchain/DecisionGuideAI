@@ -1,0 +1,72 @@
+{
+ "_source": "Served core-route turn body, a card kept for review (one goal change, `review_action`): /Users/paulslee/olumi-work/recovery/live/runs-core/2026-10-25T094004Z/qualitative/turns/05-edit.json (`.body`), served UI 748f20a1 · CEE 1e74dbf9 · PLoT cf2c48dd · ISL 0d3ef918 (that run's SUMMARY.md). Kept: the contract envelope the card is read from (turn_id, durability, assistant_text, model.revision and model.scenario_revision, cards, notes, run, receipts, paused, error), verbatim. Dropped: model.graph, analysis_state, canonical_analysis_view, action_bar, diagnostics (_agent, _provider_calls, model_program), headers and request_body.",
+ "body": {
+  "turn_id": "66dc1e2e-5a2d-44ef-a140-3e6d91bf77f6",
+  "durability": "recorded",
+  "assistant_text": "Saved the risk: “the Q4 ads go live before the database sync bug is fixed.”\n\nIts likelihood and impact remain unknown, so no numerical effect has been assumed. The options’ chances are still unavailable while the goal and timing questions remain open.\n\nNext step: compare marketing’s confirmed advertising start date with Sarah’s estimated repair-and-testing completion window.",
+  "model": {
+   "revision": "3e5315a829598d97",
+   "scenario_revision": "42d18c4c7cbaa98756291c7b4d22460f107174aa46997a9f78c0e3998f26adda"
+  },
+  "cards": [
+   {
+    "proposal_id": "prop_b7af0d628906f558907125a0b5627333",
+    "revision": "b9f15f16-94ed-48a9-970d-bf9befc5def5",
+    "digest": "3d43067f922b4c5b78aa837c58d4e764",
+    "approve_action": {
+     "id": "agent-approve-proposal:prop_b7af0d628906f558907125a0b5627333",
+     "label": "Make this change",
+     "message": "Yes, make that change.",
+     "detail": "Keep the fair-treatment goal open"
+    },
+    "decline_action": {
+     "id": "agent-decline-proposal:prop_b7af0d628906f558907125a0b5627333",
+     "label": "Not now",
+     "message": "Not now."
+    },
+    "issued_turn_id": "997a597f-35a5-4267-9c1d-3d1bc181c46f",
+    "review_action": {
+     "id": "agent-review-proposal:prop_b7af0d628906f558907125a0b5627333",
+     "label": "Review this change",
+     "message": "Show me this change again on the model as it is now: \"Keep the fair-treatment goal open\".",
+     "detail": "Keep the fair-treatment goal open"
+    },
+    "fields": [],
+    "adds": [
+     {
+      "field_id": "change_note:goal:avoid_unfair_team_blame",
+      "kind": "change_note",
+      "text": "Changes ‘so he doesnt just blame my team’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     }
+    ],
+    "changes": [
+     {
+      "id": "avoid_unfair_team_blame",
+      "kind": "goal",
+      "after": "Olumi asks \"What concrete action or agreement from your boss would show that your team is being treated fairly?\", in your words \"I'm not sure yet. Keep that open for now, and tell me what you would need from me to pin it down.\"",
+      "label": "so he doesnt just blame my team",
+      "action": "change",
+      "author": "person",
+      "before": "Olumi asks \"What would a fair outcome from the discussion with your boss look like?\", in your words \"so he doesnt just blame my team\""
+     }
+    ],
+    "missing": []
+   }
+  ],
+  "notes": [],
+  "run": {
+   "run_key": "mp_run_3_701df83e4b3c",
+   "run_id": "mp_run_3_701df83e4b3c",
+   "computed_against": "3e5315a829598d97",
+   "state": {
+    "kind": "complete_current",
+    "computed_at": "2026-10-25T09:43:32.397Z"
+   }
+  },
+  "receipts": [],
+  "paused": null,
+  "error": null
+ }
+}

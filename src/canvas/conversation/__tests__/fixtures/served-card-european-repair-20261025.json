@@ -1,0 +1,538 @@
+{
+ "_source": "Served core-route turn body, a repair card (31 entries: add, change and remove): /Users/paulslee/olumi-work/recovery/live/runs-core/european-20261025T113429Z/european/turns/05-edit.json (`.body`), served UI bed9c21a · CEE 49ffe36c · PLoT cf2c48dd · ISL 0d3ef918 (that run's SUMMARY.md). Kept: the contract envelope the card is read from (turn_id, durability, assistant_text, model.revision and model.scenario_revision, cards, notes, run, receipts, paused, error), verbatim. Dropped: model.graph, analysis_state, canonical_analysis_view, action_bar, diagnostics (_agent, _provider_calls, model_program), headers and request_body.",
+ "body": {
+  "turn_id": "b2e7ef87-8598-4418-931f-cbb196c6c1be",
+  "durability": "recorded",
+  "assistant_text": "I’ve prepared structural fixes for your approval, but I cannot justify numerical estimates from the brief alone.\n\n- **Separate spending from results:** the proposal replaces automatic spending-driven growth and churn with independent effects and launch timings for each expansion design, and counts committed costs before launch.\n- **Clarify what is assumed:** it separates the customer-target deadline from expansion timing. The pilot allocation remains Olumi’s unsupported planning assumption—not your figure or a cost estimate.\n- **Keep gaps visible:** acquisition and retention effects remain unknown; profitability remains excluded without revenue, margins, costs and spending timing.\n\nNothing has been saved; the changes await approval on the card. They do not yet make success chances available.\n\nFor evidence-based estimates, the next step is to compare country-specific launch plans with similar actual launches.",
+  "model": {
+   "revision": "bf7f6065d69174f8",
+   "scenario_revision": "6f3333778dfb1274e36bfcc742671c02094e652579230a16957ac47924ab7c39"
+  },
+  "cards": [
+   {
+    "proposal_id": "prop_85118300d3773a8032fdfb41dbd78230",
+    "revision": "b781d9eb-036c-43de-bc22-ddba64e0f539",
+    "digest": "8487fd0222078898bf552d1f19b2dc8a",
+    "approve_action": {
+     "id": "agent-approve-proposal:prop_85118300d3773a8032fdfb41dbd78230",
+     "label": "Make this change",
+     "message": "Yes, make that change.",
+     "detail": "Separate expansion assumptions from spending and make missing evidence explicit"
+    },
+    "decline_action": {
+     "id": "agent-decline-proposal:prop_85118300d3773a8032fdfb41dbd78230",
+     "label": "Not now",
+     "message": "Not now."
+    },
+    "issued_turn_id": "b2e7ef87-8598-4418-931f-cbb196c6c1be",
+    "fields": [],
+    "adds": [
+     {
+      "field_id": "change_note:quantity:launch_delay",
+      "kind": "change_note",
+      "text": "Changes ‘Months until European launch readiness’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:acquisition_per_investment",
+      "kind": "change_note",
+      "text": "Changes ‘acquisition_per_investment’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:churn_strain_per_investment",
+      "kind": "change_note",
+      "text": "Changes ‘churn_strain_per_investment’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:limited_european_pilot__expansion_investment",
+      "kind": "change_note",
+      "text": "Changes ‘limited_european_pilot__expansion_investment’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:target_deadline",
+      "kind": "change_note",
+      "text": "Adds ‘target_deadline’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:larger_launch_delay",
+      "kind": "change_note",
+      "text": "Adds ‘larger_launch_delay’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:pilot_active",
+      "kind": "change_note",
+      "text": "Adds ‘pilot_active’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:larger_launch_active",
+      "kind": "change_note",
+      "text": "Adds ‘larger_launch_active’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:pilot_additional_acquisition",
+      "kind": "change_note",
+      "text": "Adds ‘pilot_additional_acquisition’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:larger_launch_additional_acquisition",
+      "kind": "change_note",
+      "text": "Adds ‘larger_launch_additional_acquisition’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:pilot_monthly_churn_change",
+      "kind": "change_note",
+      "text": "Adds ‘pilot_monthly_churn_change’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:larger_launch_monthly_churn_change",
+      "kind": "change_note",
+      "text": "Adds ‘larger_launch_monthly_churn_change’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:limited_european_pilot__pilot_active",
+      "kind": "change_note",
+      "text": "Adds ‘limited_european_pilot__pilot_active’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:larger_european_launch__larger_launch_active",
+      "kind": "change_note",
+      "text": "Adds ‘larger_european_launch__larger_launch_active’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:relation:option_acquisition_effects",
+      "kind": "change_note",
+      "text": "Adds ‘option_acquisition_effects’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:relation:option_churn_effects",
+      "kind": "change_note",
+      "text": "Adds ‘option_churn_effects’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:relation:acquisition_effect",
+      "kind": "change_note",
+      "text": "Removes ‘acquisition_effect’.",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:relation:retention_strain_effect",
+      "kind": "change_note",
+      "text": "Removes ‘retention_strain_effect’.",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:goal:reach_customer_target",
+      "kind": "change_note",
+      "text": "Changes ‘The target is 800.’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:option:limited_european_pilot",
+      "kind": "change_note",
+      "text": "Changes ‘Limited European pilot’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:option:larger_european_launch",
+      "kind": "change_note",
+      "text": "Changes ‘Larger European launch’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:investment_scope",
+      "kind": "change_note",
+      "text": "Changes ‘Assumption: Each proposed investment is an all-in commitment covering launch, acquisition, …’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:provisional_option_allocations",
+      "kind": "change_note",
+      "text": "Adds ‘provisional_option_allocations’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:independent_option_effects",
+      "kind": "change_note",
+      "text": "Adds ‘independent_option_effects’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:target_timing_reading",
+      "kind": "change_note",
+      "text": "Removes ‘Assumption: The expansion timeframe is provisionally also the window for reaching the total…’.",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:provisional_scaling",
+      "kind": "change_note",
+      "text": "Removes ‘Assumption: The draft uses proportional investment effects on monthly acquisition and reten…’.",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:shared_readiness",
+      "kind": "change_note",
+      "text": "Removes ‘Assumption: Both expansion designs provisionally use the same launch-readiness date, with n…’.",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:legal_readiness",
+      "kind": "change_note",
+      "text": "Changes ‘Condition: An expansion option requires confirmation that the selected countries can legal…’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:effects_not_sized",
+      "kind": "change_note",
+      "text": "Changes ‘Condition: The brief does not support a numerical expansion-effect range, so the draft can…’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:country_launch_evidence_activity",
+      "kind": "change_note",
+      "text": "Adds ‘country_launch_evidence_activity’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:left_out:profitability_not_modelled",
+      "kind": "change_note",
+      "text": "Changes ‘Left out: Actual profitability and investment payback are not calculated.’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     }
+    ],
+    "changes": [
+     {
+      "id": "launch_delay",
+      "kind": "quantity",
+      "action": "change",
+      "label": "Months until pilot launch readiness",
+      "before": "named \"Months until European launch readiness\"",
+      "after": "named \"Months until pilot launch readiness\"",
+      "author": "person"
+     },
+     {
+      "id": "acquisition_per_investment",
+      "kind": "quantity",
+      "action": "change",
+      "label": "Additional monthly customers per pound invested",
+      "before": "no figure yet (in customer/month/GBP), ↑ raises New customers per month, not known yet, based on \"Investment could bring new European customers, but the business sector, target countries, acquisition channels and competing offers are needed to establish any defensible acquisition scale.\"",
+      "after": "no figure yet (in customer/month/GBP), does not apply, based on \"The unsupported proportional investment-to-acquisition mechanism has been replaced by independent, initially unknown acquisition effects for the pilot and larger launch; nothing uses this coefficient.\"",
+      "author": "olumi"
+     },
+     {
+      "id": "churn_strain_per_investment",
+      "kind": "quantity",
+      "action": "change",
+      "label": "Possible monthly churn increase from expansion strain",
+      "before": "no figure yet (in %/month/GBP), ↑ raises Monthly churn after expansion effects, not known yet, based on \"Serving additional jurisdictions could strain customer service and retention, but staffing capacity, compliance demands and retention evidence are needed to size this hypothesised downside.\"",
+      "after": "no figure yet (in %/month/GBP), does not apply, based on \"The unsupported proportional investment-to-churn mechanism has been replaced by independent, initially unknown retention-strain effects for the pilot and larger launch; nothing uses this coefficient.\"",
+      "author": "olumi"
+     },
+     {
+      "id": "limited_european_pilot__expansion_investment",
+      "kind": "quantity",
+      "action": "change",
+      "label": "Limited European pilot: Total committed European expansion investment",
+      "before": "based on \"Olumi's proposed setting for its option \"Limited European pilot\".\"",
+      "after": "based on \"Olumi's provisional option design sets a £150,000 planning allocation; this amount is an unsupported planning assumption, not a market cost estimate, evidence of feasibility or a figure supplied by the person.\"",
+      "author": "olumi"
+     },
+     {
+      "id": "target_deadline",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Time allowed to reach the customer target",
+      "before": null,
+      "after": "no figure yet (in month), a fact, still to be given, Olumi asks \"By when do you want to reach 800 customers?\"",
+      "author": "person"
+     },
+     {
+      "id": "larger_launch_delay",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Months until larger-launch readiness",
+      "before": null,
+      "after": "no figure yet (in month), a fact, still to be given, Olumi asks \"How many whole months from now would the larger launch need to complete its country-specific legal and operational checks?\"",
+      "author": "person"
+     },
+     {
+      "id": "pilot_active",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Pilot operating",
+      "before": null,
+      "after": "0, a fact, known, based on \"The pilot operating switch is off before its option launches.\", a fixed part of the model’s structure",
+      "author": "olumi"
+     },
+     {
+      "id": "larger_launch_active",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Larger launch operating",
+      "before": null,
+      "after": "0, a fact, known, based on \"The larger-launch operating switch is off before its option launches.\", a fixed part of the model’s structure",
+      "author": "olumi"
+     },
+     {
+      "id": "pilot_additional_acquisition",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Pilot additional new customers per month",
+      "before": null,
+      "after": "no figure yet (in customer/month), ↑ raises New customers per month, a rate, not known yet, based on \"No defensible scale is available without a pilot country plan, evidence of country demand and competing offers, acquisition-channel performance and sufficient support capacity, compared with similar actual launches.\"",
+      "author": "olumi"
+     },
+     {
+      "id": "larger_launch_additional_acquisition",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Larger-launch additional new customers per month",
+      "before": null,
+      "after": "no figure yet (in customer/month), ↑ raises New customers per month, a rate, not known yet, based on \"No defensible scale is available without the larger launch's country plans, evidence of country demand and competing offers, acquisition-channel performance and sufficient support capacity, compared with similar actual launches; its effect is not scaled from pilot spending.\"",
+      "author": "olumi"
+     },
+     {
+      "id": "pilot_monthly_churn_change",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Pilot monthly churn increase from retention strain",
+      "before": null,
+      "after": "no figure yet (in %/month), ↑ raises Monthly churn after expansion effects, a rate, not known yet, based on \"This is an unsized downside hypothesis; pilot country demand, competing offers, acquisition-channel customer mix and support capacity must be compared with retention in similar actual launches to size the possible churn increase.\"",
+      "author": "olumi"
+     },
+     {
+      "id": "larger_launch_monthly_churn_change",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Larger-launch monthly churn increase from retention strain",
+      "before": null,
+      "after": "no figure yet (in %/month), ↑ raises Monthly churn after expansion effects, a rate, not known yet, based on \"This is an independently unsized downside hypothesis; the larger launch's country demand, competing offers, acquisition-channel customer mix and support capacity must be compared with retention in similar actual launches to size the possible churn increase.\"",
+      "author": "olumi"
+     },
+     {
+      "id": "limited_european_pilot__pilot_active",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Limited European pilot: Pilot operating",
+      "before": null,
+      "after": "1, a fact, known, based on \"\"Limited European pilot\" switched on.\", a fixed part of the model’s structure",
+      "author": "olumi"
+     },
+     {
+      "id": "larger_european_launch__larger_launch_active",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Larger European launch: Larger launch operating",
+      "before": null,
+      "after": "1, a fact, known, based on \"\"Larger European launch\" switched on.\", a fixed part of the model’s structure",
+      "author": "olumi"
+     },
+     {
+      "id": "option_acquisition_effects",
+      "kind": "relation",
+      "action": "add",
+      "label": "New customers per month",
+      "before": null,
+      "after": "an effect on \"New customers per month\", starting from \"New customers per month without European expansion\" (still to be given), changes by \"Pilot additional new customers per month\" (no figure yet customer/month) for each \"Pilot operating\" 0, changes by \"Larger-launch additional new customers per month\" (no figure yet customer/month) for each \"Larger launch operating\" 0",
+      "author": "olumi"
+     },
+     {
+      "id": "option_churn_effects",
+      "kind": "relation",
+      "action": "add",
+      "label": "Monthly churn after expansion effects",
+      "before": null,
+      "after": "an effect on \"Monthly churn after expansion effects\", starting from \"Current monthly churn\" 8 %/month, changes by \"Pilot monthly churn increase from retention strain\" (no figure yet %/month) for each \"Pilot operating\" 0, changes by \"Larger-launch monthly churn increase from retention strain\" (no figure yet %/month) for each \"Larger launch operating\" 0",
+      "author": "olumi"
+     },
+     {
+      "id": "acquisition_effect",
+      "kind": "relation",
+      "action": "remove",
+      "label": "New customers per month",
+      "before": "an effect on \"New customers per month\", starting from \"New customers per month without European expansion\" (still to be given), changes by \"Additional monthly customers per pound invested\" (no figure yet customer/month/GBP) for each \"Total committed European expansion investment\" 0 GBP",
+      "after": null,
+      "author": "olumi"
+     },
+     {
+      "id": "retention_strain_effect",
+      "kind": "relation",
+      "action": "remove",
+      "label": "Monthly churn after expansion effects",
+      "before": "an effect on \"Monthly churn after expansion effects\", starting from \"Current monthly churn\" 8 %/month, changes by \"Possible monthly churn increase from expansion strain\" (no figure yet %/month/GBP) for each \"Total committed European expansion investment\" 0 GBP",
+      "after": null,
+      "author": "olumi"
+     },
+     {
+      "id": "reach_customer_target",
+      "kind": "goal",
+      "action": "change",
+      "label": "The target is 800.",
+      "before": "at its highest over \"Expansion timeframe\" 6–12 month, resting on \"The expansion timeframe is provisionally also the window for reaching the total customer target; the stated timeframe remains a range rather than a single chosen deadline.\"",
+      "after": "at its highest over \"Time allowed to reach the customer target\" (still to be given), resting on nothing stated",
+      "author": "person"
+     },
+     {
+      "id": "limited_european_pilot",
+      "kind": "option",
+      "action": "change",
+      "label": "Limited European pilot",
+      "before": "sets \"Total committed European expansion investment\" 0 GBP to \"Limited European pilot: Total committed European expansion investment\" 150,000 GBP from \"Months until European launch readiness\" (still to be given), without this setting",
+      "after": "sets \"Total committed European expansion investment\" 0 GBP to \"Limited European pilot: Total committed European expansion investment\" 150,000 GBP from the start, sets \"Pilot operating\" 0 to \"Limited European pilot: Pilot operating\" 1 from \"Months until pilot launch readiness\" (still to be given), as a switch",
+      "author": "olumi"
+     },
+     {
+      "id": "larger_european_launch",
+      "kind": "option",
+      "action": "change",
+      "label": "Larger European launch",
+      "before": "sets \"Total committed European expansion investment\" 0 GBP to \"Maximum investment\" 500,000 GBP from \"Months until European launch readiness\" (still to be given), without this setting",
+      "after": "sets \"Total committed European expansion investment\" 0 GBP to \"Maximum investment\" 500,000 GBP from the start, sets \"Larger launch operating\" 0 to \"Larger European launch: Larger launch operating\" 1 from \"Months until larger-launch readiness\" (still to be given), as a switch",
+      "author": "olumi"
+     },
+     {
+      "id": "investment_scope",
+      "kind": "record",
+      "action": "change",
+      "label": "Each provisional expansion option treats its allocation as an all-in commitment covering pre-launch compliance, launch, acquisition and additional operating support over the planning window, not a recurring monthly spend. The whole commitment enters budget accounting from the start of the option, rather than being deferred until launch. This commitment accounting is not a forecast of payment timing or proof that the allocation covers actual costs.",
+      "before": "worded \"Each proposed investment is an all-in commitment covering launch, acquisition, regulatory compliance and additional operating support over the window, not a recurring monthly spend.\"",
+      "after": "worded \"Each provisional expansion option treats its allocation as an all-in commitment covering pre-launch compliance, launch, acquisition and additional operating support over the planning window, not a recurring monthly spend. The whole commitment enters budget accounting from the start of the option, rather than being deferred until launch. This commitment accounting is not a forecast of payment timing or proof that the allocation covers actual costs.\"",
+      "author": "olumi"
+     },
+     {
+      "id": "provisional_option_allocations",
+      "kind": "record",
+      "action": "add",
+      "label": "The pilot allocation is an unsupported planning assumption, not a market estimate or the person's figure. The larger launch's allocation of the whole available budget is likewise Olumi's provisional design assumption, not a spending commitment by the person. Both designs remain provisional until country-specific plans and actual-launch comparisons support their costs and feasibility.",
+      "before": null,
+      "after": "applied in the model, about \"Limited European pilot\", \"Limited European pilot: Total committed European expansion investment\", \"Larger European launch\" and \"Maximum investment\"",
+      "author": "olumi"
+     },
+     {
+      "id": "independent_option_effects",
+      "kind": "record",
+      "action": "add",
+      "label": "Each expansion design has independently specified additional monthly acquisition and retention-strain effects, initially unknown. Its operating effects begin only after its own readiness delay and are provisionally held constant thereafter; they are not inferred from its investment allocation or from the other design.",
+      "before": null,
+      "after": "applied in the model, about \"New customers per month\", \"Monthly churn after expansion effects\", \"Months until pilot launch readiness\" and \"Months until larger-launch readiness\"",
+      "author": "olumi"
+     },
+     {
+      "id": "target_timing_reading",
+      "kind": "record",
+      "action": "remove",
+      "label": "The expansion timeframe is provisionally also the window for reaching the total customer target; the stated timeframe remains a range rather than a single chosen deadline.",
+      "before": "applied in the model, about \"The target is 800.\" and \"Expansion timeframe\"",
+      "after": null,
+      "author": "olumi"
+     },
+     {
+      "id": "provisional_scaling",
+      "kind": "record",
+      "action": "remove",
+      "label": "The draft uses proportional investment effects on monthly acquisition and retention strain after launch; neither effect is sized yet, and country-specific fixed costs or diminishing returns could invalidate this simplification.",
+      "before": "applied in the model, about \"New customers per month\" and \"Monthly churn after expansion effects\"",
+      "after": null,
+      "author": "olumi"
+     },
+     {
+      "id": "shared_readiness",
+      "kind": "record",
+      "action": "remove",
+      "label": "Both expansion designs provisionally use the same launch-readiness date, with no acquisition benefit or retention strain before launch.",
+      "before": "applied in the model, about \"Months until European launch readiness\", \"Limited European pilot\" and \"Larger European launch\"",
+      "after": null,
+      "author": "olumi"
+     },
+     {
+      "id": "legal_readiness",
+      "kind": "record",
+      "action": "change",
+      "label": "Each expansion option requires its own country-specific legal and operational checks before serving customers, including confirmation that required compliance and operating support fit within its provisional allocation. Pilot and larger-launch readiness are independently unresolved; a shared launch delay is not assumed.",
+      "before": "worded \"An expansion option requires confirmation that the selected countries can legally be served and that the required compliance and operating support fit within its proposed investment.\", about \"Limited European pilot\", \"Larger European launch\" and \"The investment budget is up to £500k.\"",
+      "after": "worded \"Each expansion option requires its own country-specific legal and operational checks before serving customers, including confirmation that required compliance and operating support fit within its provisional allocation. Pilot and larger-launch readiness are independently unresolved; a shared launch delay is not assumed.\", about \"Limited European pilot\", \"Larger European launch\", \"Months until pilot launch readiness\", \"Months until larger-launch readiness\" and \"The investment budget is up to £500k.\"",
+      "author": "olumi"
+     },
+     {
+      "id": "effects_not_sized",
+      "kind": "record",
+      "action": "change",
+      "label": "Independent pilot and larger-launch acquisition and churn effects remain unknown, and readiness and the customer-target deadline remain unresolved. These structural repairs do not supply numerical evidence or make a defensible success probability or recommendation between expansion designs available.",
+      "before": "worded \"The brief does not support a numerical expansion-effect range, so the draft cannot yet support a defensible success probability or recommendation between the expansion designs.\", about \"Additional monthly customers per pound invested\" and \"Possible monthly churn increase from expansion strain\"",
+      "after": "worded \"Independent pilot and larger-launch acquisition and churn effects remain unknown, and readiness and the customer-target deadline remain unresolved. These structural repairs do not supply numerical evidence or make a defensible success probability or recommendation between expansion designs available.\", about \"Pilot additional new customers per month\", \"Larger-launch additional new customers per month\", \"Pilot monthly churn increase from retention strain\", \"Larger-launch monthly churn increase from retention strain\", \"Months until pilot launch readiness\", \"Months until larger-launch readiness\" and \"Time allowed to reach the customer target\"",
+      "author": "olumi"
+     },
+     {
+      "id": "country_launch_evidence_activity",
+      "kind": "record",
+      "action": "add",
+      "label": "Prepare separate country-specific pilot and larger-launch plans and compare them with similar actual launches to estimate demand, acquisition-channel performance against competing offers, all-in costs including pre-launch compliance and support, readiness and retention under the planned support capacity. This is a proposed evidence-gathering activity, not evidence already obtained.",
+      "before": null,
+      "after": "a prerequisite, about \"Pilot additional new customers per month\", \"Larger-launch additional new customers per month\", \"Pilot monthly churn increase from retention strain\", \"Larger-launch monthly churn increase from retention strain\", \"Months until pilot launch readiness\", \"Months until larger-launch readiness\", \"The pilot allocation is an unsupported planning assumption, not a market estimate or the person's figure. The larger launch's allocation of the whole available budget is likewise Olumi's provisional design assumption, not a spending commitment by the person. Both designs remain provisional until country-specific plans and actual-launch comparisons support their costs and feasibility.\" and \"Each provisional expansion option treats its allocation as an all-in commitment covering pre-launch compliance, launch, acquisition and additional operating support over the planning window, not a recurring monthly spend. The whole commitment enters budget accounting from the start of the option, rather than being deferred until launch. This commitment accounting is not a forecast of payment timing or proof that the allocation covers actual costs.\"",
+      "author": "olumi"
+     },
+     {
+      "id": "profitability_not_modelled",
+      "kind": "left_out",
+      "action": "change",
+      "label": "Actual profitability and investment payback are not calculated.",
+      "before": "left out because \"Customer revenue, margins and operating costs are absent, so the churn guardrail is not a profit forecast.\"",
+      "after": "left out because \"Revenue per customer, margins, operating costs and spending timing are needed to calculate profitability and payback; staying below the churn ceiling does not establish profitability.\"",
+      "author": "olumi"
+     }
+    ],
+    "missing": []
+   }
+  ],
+  "notes": [],
+  "run": null,
+  "receipts": [],
+  "paused": null,
+  "error": null
+ }
+}

@@ -1,0 +1,106 @@
+{
+ "_source": "Served core-route turn body, an edit card (4 adds: two records, two left out): /Users/paulslee/olumi-work/recovery/live/runs-core/2026-10-25T083005Z/capacity/turns/04-edit.json (`.body`), served UI 748f20a1 · CEE 7f527f94 · PLoT cf2c48dd · ISL 0d3ef918 (that run's SUMMARY.md). Kept: the contract envelope the card is read from (turn_id, durability, assistant_text, model.revision and model.scenario_revision, cards, notes, run, receipts, paused, error), verbatim. Dropped: model.graph, analysis_state, canonical_analysis_view, action_bar, diagnostics (_agent, _provider_calls, model_program), headers and request_body.",
+ "body": {
+  "turn_id": "e6cd2680-8beb-419a-9acb-c8c2a6f06596",
+  "durability": "recorded",
+  "assistant_text": "I’ve prepared “Staff absence” as a factor that reduces “Weekly support capacity”; it awaits your approval on the card.\n\n- The reducing effect is recorded, but no amount or calculation rule has been invented. Absence is therefore not yet included in either option’s calculated capacity.\n- How would you measure Staff absence—for example, staff-days lost per week or tickets of capacity lost per week?\n- Are your existing capacity figures already net of typical absence? This matters so we don’t count the same reduction twice.",
+  "model": {
+   "revision": "6fa0109ba28710aa",
+   "scenario_revision": "2ff7b69af82e02081ac8b469d857cd2ae4c933ca92fd40b5ec9027d1a4726a7b"
+  },
+  "cards": [
+   {
+    "proposal_id": "prop_4703f45495c4cb606124521d0c288848",
+    "revision": "b5ab012a-846f-4e11-93b8-8961e0af0e5c",
+    "digest": "a81689b2cbaf606ace2304db2798c470",
+    "approve_action": {
+     "id": "agent-approve-proposal:prop_4703f45495c4cb606124521d0c288848",
+     "label": "Make this change",
+     "message": "Yes, make that change.",
+     "detail": "Add Staff absence as a reduction in Weekly support capacity"
+    },
+    "decline_action": {
+     "id": "agent-decline-proposal:prop_4703f45495c4cb606124521d0c288848",
+     "label": "Not now",
+     "message": "Not now."
+    },
+    "issued_turn_id": "e6cd2680-8beb-419a-9acb-c8c2a6f06596",
+    "fields": [],
+    "adds": [
+     {
+      "field_id": "change_note:record:staff_absence",
+      "kind": "change_note",
+      "text": "Adds ‘staff_absence’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:staff_absence_reduces_capacity",
+      "kind": "change_note",
+      "text": "Adds ‘staff_absence_reduces_capacity’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:left_out:staff_absence_measurement_open",
+      "kind": "change_note",
+      "text": "Adds ‘staff_absence_measurement_open’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:left_out:staff_absence_effect_open",
+      "kind": "change_note",
+      "text": "Adds ‘staff_absence_effect_open’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     }
+    ],
+    "changes": [
+     {
+      "id": "staff_absence",
+      "kind": "record",
+      "action": "add",
+      "label": "Staff absence",
+      "before": null,
+      "after": "about \"Weekly support capacity\", in your words \"Add a factor called \"Staff absence\" that reduces weekly support capacity.\"",
+      "author": "person"
+     },
+     {
+      "id": "staff_absence_reduces_capacity",
+      "kind": "record",
+      "action": "add",
+      "label": "Staff absence reduces weekly support capacity.",
+      "before": null,
+      "after": "about \"Staff absence\" and \"Weekly support capacity\", in your words \"Add a factor called \"Staff absence\" that reduces weekly support capacity.\"",
+      "author": "person"
+     },
+     {
+      "id": "staff_absence_measurement_open",
+      "kind": "left_out",
+      "action": "add",
+      "label": "The measurement of Staff absence remains open.",
+      "before": null,
+      "after": "No measurement or unit has been chosen, so no numerical absence input has been introduced. Olumi asks: “How would you measure Staff absence?”. It concerns Staff absence and Staff absence reduces weekly support capacity.",
+      "author": "olumi"
+     },
+     {
+      "id": "staff_absence_effect_open",
+      "kind": "left_out",
+      "action": "add",
+      "label": "The reduction in Weekly support capacity caused by Staff absence is not yet included in the calculation for either staffing option.",
+      "before": null,
+      "after": "The reducing relationship is recorded, but its size and response rule remain open as requested; the existing capacity definition is unchanged. Olumi asks: “What records of staff absence and tickets resolved in the same weeks could you provide to establish its effect?”. It concerns Staff absence and Staff absence reduces weekly support capacity. and Weekly support capacity and Weekly support capacity and Keep current staffing and Add one specialist",
+      "author": "olumi"
+     }
+    ],
+    "missing": []
+   }
+  ],
+  "notes": [],
+  "run": null,
+  "receipts": [],
+  "paused": null,
+  "error": null
+ }
+}
