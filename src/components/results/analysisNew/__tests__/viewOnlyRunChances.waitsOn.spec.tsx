@@ -27,7 +27,10 @@ import funding from '../../../../canvas/runView/__tests__/fixtures/s1-funding-wa
 import capacity from '../../../../canvas/runView/__tests__/fixtures/alpha2-capacity-r1-read.json'
 
 type Read = { scenario_id: string; graph: { nodes: { id: string; kind: string | null; label: string | null }[] }; canonical_analysis_view: Record<string, any> }
-const WAITS = 'Waits on: ‘Cash available now’, ‘Monthly cash burn after operating income’, ‘Additional cash costs of an angel raise’'
+// One label per line (audit U2, 25 Oct): the lead, then each label as its own list item, in CEE's order.
+const WAITS = ['‘Cash available now’', '‘Monthly cash burn after operating income’', '‘Additional cash costs of an angel raise’']
+const items = (el: HTMLElement) => Array.from(el.querySelectorAll('li')).map((li) => li.textContent)
+
 
 afterEach(() => { cleanup(); useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null }); useValuePrefillStore.setState({ request: null }) })
 beforeEach(() => { useStrengthenStore.setState({ records: {} }); vi.mocked(focusModelTarget).mockClear() })
@@ -55,7 +58,8 @@ describe('the result lists what it waits on, in CEE’s labels', () => {
   it('every waits_on label, in CEE’s order, under the chance', () => {
     board(funding as Read)
     draw()
-    expect(waits().textContent).toBe(WAITS)
+    expect(waits().querySelector('p')?.textContent).toBe('Waits on:')
+    expect(items(waits())).toEqual(WAITS)
     // Under the chance: after the sentence and each option's line, in the same result.
     const block = screen.getByTestId('analysis-view-only-chances')
     expect(block).toContainElement(waits())
@@ -80,7 +84,8 @@ describe('the result lists what it waits on, in CEE’s labels', () => {
     board(funding as Read, { waits_on: [{ ...cash, answer: null }, burn, overhead] },
       (funding as Read).graph.nodes.filter(n => n.id !== 'monthly_net_burn'))
     draw()
-    expect(waits().textContent).toBe(WAITS)
+    expect(waits().querySelector('p')?.textContent).toBe('Waits on:')
+    expect(items(waits())).toEqual(WAITS)
     expect(screen.queryByTestId('analysis-view-only-waits-on-answer-cash_available')).toBeNull()
     expect(screen.queryByTestId('analysis-view-only-waits-on-answer-monthly_net_burn')).toBeNull()
     expect(screen.getByTestId('analysis-view-only-waits-on-answer-angel_cash_overhead')).toBeInTheDocument()

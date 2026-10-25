@@ -40,6 +40,7 @@ const board = (read: Read, goalChance: Record<string, unknown> | null = null, op
   expect(parsed).not.toBeNull()
   useCanonicalAnalysisViewStore.getState().adopt(read.scenario_id, parsed)
 }
+const items = (el: HTMLElement) => Array.from(el.querySelectorAll('li')).map((li) => li.textContent)
 const draw = () => render(
   <AnalysisNewTabBody resultsSectionData={openStrategicChallenge()} isPreRun isRunning={false} isStale={false}
     blockedListing={null} canRunAnalysis onReanalyse={() => {}} />,
@@ -51,7 +52,8 @@ describe('a goal chance that waits says what it waits on', () => {
     draw()
     const headline = screen.getByTestId('analysis-view-only-waits-headline')
     expect(headline.textContent).toBe(
-      'Chance of meeting the goalwaits on 2 things: ‘Weekly admin unrelated to these two projects’, ‘Score on the panel\'s published scoring sheet’')
+      'Chance of meeting the goalwaits on 2 things:‘Weekly admin unrelated to these two projects’‘Score on the panel\'s published scoring sheet’')
+    expect(items(headline)).toEqual(['‘Weekly admin unrelated to these two projects’', '‘Score on the panel\'s published scoring sheet’'])
     const block = screen.getByTestId('analysis-view-only-chances')
     expect(block.textContent).not.toContain('Chance not shown yet')
     expect(block.textContent).not.toContain('Waits on: ')
@@ -63,15 +65,18 @@ describe('a goal chance that waits says what it waits on', () => {
     const [admin] = (grant as Read).canonical_analysis_view.goal_chance.waits_on
     board(grant as Read, { waits_on: [admin] })
     draw()
-    expect(screen.getByTestId('analysis-view-only-waits-on').textContent).toBe('waits on 1 figure: ‘Weekly admin unrelated to these two projects’')
+    const waits = screen.getByTestId('analysis-view-only-waits-on')
+    expect(waits.querySelector('p')?.textContent).toBe('waits on 1 figure:')
+    expect(items(waits)).toEqual(['‘Weekly admin unrelated to these two projects’'])
   })
 
   it('CONTRAST: a Run with chances keeps each option’s line and the "Waits on:" list under it; no headline', () => {
     board(funding as Read)
     draw()
     expect(screen.queryByTestId('analysis-view-only-waits-headline')).toBeNull()
-    expect(screen.getByTestId('analysis-view-only-waits-on').textContent)
-      .toBe('Waits on: ‘Cash available now’, ‘Monthly cash burn after operating income’, ‘Additional cash costs of an angel raise’')
+    const waits = screen.getByTestId('analysis-view-only-waits-on')
+    expect(waits.querySelector('p')?.textContent).toBe('Waits on:')
+    expect(items(waits)).toEqual(['‘Cash available now’', '‘Monthly cash burn after operating income’', '‘Additional cash costs of an angel raise’'])
     expect(screen.getByTestId('analysis-view-only-chance-angel_investors').textContent).toContain('about 57% chance')
   })
 
@@ -80,7 +85,7 @@ describe('a goal chance that waits says what it waits on', () => {
     board(grant as Read, null, [{ ...first, cell: { kind: 'none' } }, ...rest])
     draw()
     expect(screen.queryByTestId('analysis-view-only-waits-headline')).toBeNull()
-    expect(screen.getByTestId('analysis-view-only-waits-on').textContent?.startsWith('Waits on: ')).toBe(true)
+    expect(screen.getByTestId('analysis-view-only-waits-on').querySelector('p')?.textContent).toBe('Waits on:')
   })
 
   it('CONTRAST: every option withheld but nothing listed: each option’s withheld face, as before', () => {

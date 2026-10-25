@@ -112,14 +112,17 @@ export function waitsOnCountWords(items: readonly CanonicalWaitsOn[]): string {
   return `waits on ${n} ${figures ? (n === 1 ? 'figure' : 'figures') : (n === 1 ? 'thing' : 'things')}`
 }
 
-/** The labels CEE says the result waits on, each opening its card's answer box where it has one. */
+/**
+ * The labels CEE says the result waits on, one per line and left-aligned, each opening its card's answer box where it
+ * has one. One per line because a label is an `inline-flex` control (its touch target) that cannot wrap inside itself:
+ * run inline in a narrow card, each long label dropped to its own centred line and left its comma alone (Paul's test,
+ * 25 Oct, audit U2).
+ */
 export function WaitsOnList({ items, testIdPrefix = WAITS_ON_TESTID }: { items: readonly CanonicalWaitsOn[]; testIdPrefix?: string }) {
   return (
-    <>
-      {items.map((w, i) => (
-        <span key={w.id}>{i > 0 ? ', ' : null}<WaitsOnItem item={w} testIdPrefix={testIdPrefix} /></span>
-      ))}
-    </>
+    <ul className="m-0 list-none p-0">
+      {items.map((w) => <li key={w.id}><WaitsOnItem item={w} testIdPrefix={testIdPrefix} /></li>)}
+    </ul>
   )
 }
 
@@ -149,10 +152,10 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
       {waits ? (
         <div data-testid="analysis-view-only-waits-headline">
           <p className={`${typography.panelMeta} text-text-light`}>{WAITS_ON_HEADLINE}</p>
-          <p className={`${typography.panelBody} text-text-body`} data-testid="analysis-view-only-waits-on">
-            {`${waitsOnCountWords(chances.waitsOn)}: `}
+          <div className={`${typography.panelBody} text-text-body`} data-testid="analysis-view-only-waits-on">
+            <p>{`${waitsOnCountWords(chances.waitsOn)}:`}</p>
             <WaitsOnList items={chances.waitsOn} />
-          </p>
+          </div>
         </div>
       ) : null}
       {chances.lines.map(line => (
@@ -165,10 +168,10 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
         </div>
       ))}
       {waits || chances.waitsOn.length === 0 ? null : (
-        <p className={`${typography.panelBody} text-text-body`} data-testid="analysis-view-only-waits-on">
-          {'Waits on: '}
+        <div className={`${typography.panelBody} text-text-body`} data-testid="analysis-view-only-waits-on">
+          <p>Waits on:</p>
           <WaitsOnList items={chances.waitsOn} />
-        </p>
+        </div>
       )}
       {chances.stale ? <RunAgain /> : null}
     </div>
@@ -200,7 +203,7 @@ function WaitsOnItem({ item, testIdPrefix }: { item: CanonicalWaitsOn; testIdPre
   const requestPrefill = useValuePrefillStore(s => s.requestPrefill)
   if (quantityId === null || !onCanvas) return <span data-testid={`${testIdPrefix}-${item.id}`}>{`‘${item.label}’`}</span>
   return (
-    <button type="button" className={action('inline')} data-testid={`${testIdPrefix}-answer-${quantityId}`}
+    <button type="button" className={`${action('inline')} text-left`} data-testid={`${testIdPrefix}-answer-${quantityId}`}
       onClick={() => { focusModelTarget(quantityId); requestPrefill({ nodeId: quantityId, text: '' }) }}>
       {`‘${item.label}’`}
     </button>

@@ -347,7 +347,10 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
       {goalWaits ? (
         <div data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-waits`} className="mt-1.5 space-y-0.5">
           {goalTarget ? <p className={`${typography.panelBody} text-text-body mb-0`}>{goalTarget}</p> : null}
-          <p className={`${typography.panelBody} text-text-body mb-0`}>{'Waits on: '}<WaitsOnList items={waitsOn} testIdPrefix={`${OLUMI_ATTENTION_CARD_TESTID}-waits-on`} /></p>
+          <div className={`${typography.panelBody} text-text-body`}>
+            <p className="mb-0">Waits on:</p>
+            <WaitsOnList items={waitsOn} testIdPrefix={`${OLUMI_ATTENTION_CARD_TESTID}-waits-on`} />
+          </div>
         </div>
       ) : null}
 
