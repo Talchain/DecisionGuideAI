@@ -1,0 +1,3822 @@
+{
+ "_source": "Served core-route bodies, 25 Oct 2026, cut for the approve-outcome rows (lease U-W2). Turns keep the contract envelope verbatim (turn_id, durability, assistant_text, model.revision and model.scenario_revision, cards, notes, run, analysis_state, receipts, paused, action_bar, error); model.graph, canonical_analysis_view and diagnostics (_agent, _provider_calls, model_program) are dropped. Reads are the scenario read served right after the press, whole.",
+ "qualitative": {
+  "_source": "/Users/paulslee/olumi-work/recovery/live/runs-core/2026-10-25T094004Z/qualitative: turns/01-draft.json (the reading card; recorder cp1252-mis-decoded the streamed body, repaired with s.encode('cp1252').decode('utf-8')), turns/02-approve.json (its approval: apply_change ok, receipts []), reads/approve-after.json. Served UI 748f20a1 · CEE 1e74dbf9 (SUMMARY.md).",
+  "card_turn": {
+   "turn_id": "153c9f12-7657-40e3-9e78-22c5fedb6dd0",
+   "durability": "recorded",
+   "assistant_text": "I've drafted a first model of: Should the app update be delayed given the reported database sync bug, existing advertising commitments and possible review damage?\n\n1. What would a fair outcome from the discussion with your boss look like?\n2. What is the scheduled launch date?\n3. How many weeks would you propose pushing it back?",
+   "model": {
+    "revision": "1bfa82fd785046a5",
+    "scenario_revision": "eb17fd448ff2c75073148423942a78168f56864226e9d0cde3702276e7d2a3b0"
+   },
+   "cards": [
+    {
+     "proposal_id": "prop_f85dc966d769a7ee2f68113607d62995",
+     "revision": "54935c16-478b-4bf7-971a-a55995c3cdea",
+     "digest": "d8fa841385edf55585bdc8f5d4540bf4",
+     "approve_action": {
+      "id": "agent-approve-proposal:prop_f85dc966d769a7ee2f68113607d62995",
+      "label": "Yes, that’s what I meant",
+      "message": "Yes, that’s what I meant."
+     },
+     "decline_action": {
+      "id": "agent-decline-proposal:prop_f85dc966d769a7ee2f68113607d62995",
+      "label": "Not now",
+      "message": "Not now."
+     },
+     "issued_turn_id": "153c9f12-7657-40e3-9e78-22c5fedb6dd0",
+     "fields": [],
+     "adds": [
+      {
+       "field_id": "change_note:goal:avoid_unfair_team_blame",
+       "kind": "change_note",
+       "text": "Adds ‘so he doesnt just blame my team’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:option:delay_release",
+       "kind": "change_note",
+       "text": "Adds the option ‘push it back’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:option:release_as_scheduled",
+       "kind": "change_note",
+       "text": "Adds the option ‘launch broken apps’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:relation:launch_timing",
+       "kind": "change_note",
+       "text": "Adds ‘launch_timing’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:record:near_term_launch",
+       "kind": "change_note",
+       "text": "Adds ‘Claim: The scheduled launch is less than a month away.’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:record:reported_sync_bug",
+       "kind": "change_note",
+       "text": "Adds ‘Claim: Sarah reports a massive database sync bug requiring weeks to fix.’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:record:advertising_commitment",
+       "kind": "change_note",
+       "text": "Adds ‘Claim: Marketing has already bought Q4 advertising, and the person expects strong oppo…’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:record:review_damage_concern",
+       "kind": "change_note",
+       "text": "Adds ‘Claim: The person expects poor reviews if the app launches broken; this is a predictio…’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:record:boss_reaction_concern",
+       "kind": "change_note",
+       "text": "Adds ‘Claim: The person expects a strongly negative reaction from their boss to delaying.’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:record:technical_case_requires_evidence",
+       "kind": "change_note",
+       "text": "Adds ‘Condition: The brief does not establish the bug's affected workflows, frequency, data-inte…’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:record:delay_needs_verified_exit",
+       "kind": "change_note",
+       "text": "Adds ‘Condition: Extra time could allow repair and regression testing, but a calendar delay alon…’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:record:advertising_tradeoff",
+       "kind": "change_note",
+       "text": "Adds ‘Condition: Launching on schedule could preserve campaign coordination, but exposing advert…’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:record:decision_not_prejudged",
+       "kind": "change_note",
+       "text": "Adds ‘Condition: The information provided does not establish that delaying is necessarily the ri…’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:quantity:scheduled_launch_in",
+       "kind": "change_note",
+       "text": "Adds ‘Weeks until the scheduled launch’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:quantity:launch_delay",
+       "kind": "change_note",
+       "text": "Adds ‘Additional launch delay’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:quantity:proposed_delay",
+       "kind": "change_note",
+       "text": "Adds ‘proposed_delay’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:quantity:launch_in",
+       "kind": "change_note",
+       "text": "Adds ‘Weeks until launch under the option’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      },
+      {
+       "field_id": "change_note:quantity:reported_fix_duration",
+       "kind": "change_note",
+       "text": "Adds ‘Sarah's reported time to fix the bug’ (source not yet confirmed).",
+       "source": "unverified",
+       "editable": false
+      }
+     ],
+     "changes": [
+      {
+       "id": "avoid_unfair_team_blame",
+       "kind": "goal",
+       "action": "add",
+       "label": "so he doesnt just blame my team",
+       "before": null,
+       "after": "Olumi asks \"What would a fair outcome from the discussion with your boss look like?\", in your words \"so he doesnt just blame my team\"",
+       "author": "person"
+      },
+      {
+       "id": "delay_release",
+       "kind": "option",
+       "action": "add",
+       "label": "push it back",
+       "before": null,
+       "after": "compared, sets \"Additional launch delay\" 0 week to \"Proposed length of the delay\" (still to be given) from the start, in your words \"honestly i think we have to push it back\"",
+       "author": "person"
+      },
+      {
+       "id": "release_as_scheduled",
+       "kind": "option",
+       "action": "add",
+       "label": "launch broken apps",
+       "before": null,
+       "after": "carries on as now, compared, in your words \"but if we launch broken apps people will give us 1 star reviews.\"",
+       "author": "person"
+      },
+      {
+       "id": "launch_timing",
+       "kind": "relation",
+       "action": "add",
+       "label": "Weeks until launch under the option",
+       "before": null,
+       "after": "\"Weeks until launch under the option\" is the sum of \"Weeks until the scheduled launch\" (still to be given), raised by \"Additional launch delay\" 0 week",
+       "author": "olumi"
+      },
+      {
+       "id": "near_term_launch",
+       "kind": "record",
+       "action": "add",
+       "label": "The scheduled launch is less than a month away.",
+       "before": null,
+       "after": "about \"Weeks until the scheduled launch\", in your words \"we are supposed to go live with the new app update in like less than a month\"",
+       "author": "person"
+      },
+      {
+       "id": "reported_sync_bug",
+       "kind": "record",
+       "action": "add",
+       "label": "Sarah reports a massive database sync bug requiring weeks to fix.",
+       "before": null,
+       "after": "about \"Sarah's reported time to fix the bug\", \"launch broken apps\" and \"push it back\", in Sarah’s words \"now Sarah says there is some massive database sync bug that is going to take 'weeks' to fix.\"",
+       "author": "person"
+      },
+      {
+       "id": "advertising_commitment",
+       "kind": "record",
+       "action": "add",
+       "label": "Marketing has already bought Q4 advertising, and the person expects strong opposition to a delay.",
+       "before": null,
+       "after": "about \"push it back\", in your words \"if we delay marketing is going to lose their minds because they already bought ads for Q4.\"",
+       "author": "person"
+      },
+      {
+       "id": "review_damage_concern",
+       "kind": "record",
+       "action": "add",
+       "label": "The person expects poor reviews if the app launches broken; this is a prediction, not observed review evidence.",
+       "before": null,
+       "after": "about \"launch broken apps\", in your words \"but if we launch broken apps people will give us 1 star reviews.\"",
+       "author": "person"
+      },
+      {
+       "id": "boss_reaction_concern",
+       "kind": "record",
+       "action": "add",
+       "label": "The person expects a strongly negative reaction from their boss to delaying.",
+       "before": null,
+       "after": "about \"push it back\" and \"so he doesnt just blame my team\", in your words \"honestly i think we have to push it back but my boss is going to kill me.\"",
+       "author": "person"
+      },
+      {
+       "id": "technical_case_requires_evidence",
+       "kind": "record",
+       "action": "add",
+       "label": "The brief does not establish the bug's affected workflows, frequency, data-integrity consequences or available workarounds; technical arguments should distinguish confirmed findings from possible consequences.",
+       "before": null,
+       "after": "a challenge, about \"Sarah reports a massive database sync bug requiring weeks to fix.\", \"launch broken apps\" and \"push it back\"",
+       "author": "olumi"
+      },
+      {
+       "id": "delay_needs_verified_exit",
+       "kind": "record",
+       "action": "add",
+       "label": "Extra time could allow repair and regression testing, but a calendar delay alone does not establish that the sync bug will be resolved or the release safe.",
+       "before": null,
+       "after": "a challenge, about \"push it back\" and \"Sarah's reported time to fix the bug\"",
+       "author": "olumi"
+      },
+      {
+       "id": "advertising_tradeoff",
+       "kind": "record",
+       "action": "add",
+       "label": "Launching on schedule could preserve campaign coordination, but exposing advertised users to a defective update could also waste advertising spend; neither effect is sized by the brief.",
+       "before": null,
+       "after": "a challenge, about \"Marketing has already bought Q4 advertising, and the person expects strong opposition to a delay.\", \"launch broken apps\" and \"push it back\"",
+       "author": "olumi"
+      },
+      {
+       "id": "decision_not_prejudged",
+       "kind": "record",
+       "action": "add",
+       "label": "The information provided does not establish that delaying is necessarily the right move; a defensible recommendation should compare confirmed release risks with the consequences of delay rather than add unsupported technical claims.",
+       "before": null,
+       "after": "a challenge, about \"push it back\", \"launch broken apps\" and \"so he doesnt just blame my team\"",
+       "author": "olumi"
+      },
+      {
+       "id": "scheduled_launch_in",
+       "kind": "quantity",
+       "action": "add",
+       "label": "Weeks until the scheduled launch",
+       "before": null,
+       "after": "no figure yet (in week), a fact, still to be given, Olumi asks \"What is the scheduled launch date?\"",
+       "author": "person"
+      },
+      {
+       "id": "launch_delay",
+       "kind": "quantity",
+       "action": "add",
+       "label": "Additional launch delay",
+       "before": null,
+       "after": "0 week, a fact, known, based on \"Zero additional weeks means keeping the scheduled launch; the options change this setting.\", a fixed part of the model’s structure",
+       "author": "olumi"
+      },
+      {
+       "id": "proposed_delay",
+       "kind": "quantity",
+       "action": "add",
+       "label": "Proposed length of the delay",
+       "before": null,
+       "after": "no figure yet (in week), a fact, still to be given, Olumi asks \"How many weeks would you propose pushing it back?\"",
+       "author": "person"
+      },
+      {
+       "id": "launch_in",
+       "kind": "quantity",
+       "action": "add",
+       "label": "Weeks until launch under the option",
+       "before": null,
+       "after": "in week, a result, worked out from the model",
+       "author": "olumi"
+      },
+      {
+       "id": "reported_fix_duration",
+       "kind": "quantity",
+       "action": "add",
+       "label": "Sarah's reported time to fix the bug",
+       "before": null,
+       "after": "no figure yet (in week), a fact, outside what the model can use, based on \"The word 'weeks' gives neither a numeric duration nor a usable range, and does not establish whether validation is included.\", in Sarah’s words \"now Sarah says there is some massive database sync bug that is going to take 'weeks' to fix.\"",
+       "author": "person"
+      }
+     ],
+     "reading": true,
+     "missing": []
+    }
+   ],
+   "notes": [],
+   "run": {
+    "run_key": "mp_run_1_941bd8c81bd2",
+    "run_id": "mp_run_1_941bd8c81bd2",
+    "computed_against": "1bfa82fd785046a5",
+    "state": {
+     "kind": "complete_current",
+     "computed_at": "2026-10-25T09:41:21.705Z"
+    }
+   },
+   "analysis_state": {
+    "run_state": {
+     "kind": "never_run"
+    },
+    "readiness": {
+     "status": "needs_user_input",
+     "blockers": []
+    },
+    "leader_claim": {
+     "permitted": false,
+     "withheld_reason": "analysis_no_result"
+    },
+    "robustness": {},
+    "usable_for_prose": false,
+    "usable_for_chips": false,
+    "usable_for_followup": false,
+    "requires_rerun": false,
+    "blocked_unusable": false,
+    "contradictions": []
+   },
+   "receipts": [],
+   "paused": null,
+   "action_bar": {
+    "v": 1,
+    "state_key": "7375d53d4e26cce8",
+    "revision": {
+     "graph_hash": "1bfa82fd785046a5",
+     "run_key": null
+    },
+    "priority": [],
+    "standard": [
+     {
+      "action_id": "pre_mortem",
+      "label": "Pre-mortem",
+      "icon": "ClipboardList",
+      "group": "method",
+      "press_id": "agent-next-pre-mortem",
+      "user_line": "Run a pre-mortem with me: imagine we went ahead and it went badly. What most plausibly went wrong?",
+      "enabled": true,
+      "why_now": "Imagine this went badly and find the most likely causes.",
+      "offer_key": "f62a9901c508765d"
+     }
+    ],
+    "more": []
+   },
+   "error": null
+  },
+  "approve_turn": {
+   "turn_id": "38c82147-4ae1-4362-920a-bcb55d7d1705",
+   "durability": "recorded",
+   "assistant_text": "The model is saved, but it does not yet establish whether delaying is justified; a credible case needs evidence, not technical-sounding blame avoidance.\n\nTo take it further:\n1. What observable outcome would count as fair treatment of your team—for example, your boss agreeing to assess the release evidence before assigning responsibility?\n2. What exact date is the update scheduled to launch? That sets the time available for repair and testing.\n3. How long a delay are you considering? That defines the alternative to launching as scheduled.\n\nSarah’s reported “weeks” remains an unconfirmed repair timeline, not evidence that a particular delay will resolve the bug.",
+   "model": {
+    "revision": "1bfa82fd785046a5",
+    "scenario_revision": "654d9f65f258d294af6fb55465139936f2bd5c3a243530d315d502425d576f30"
+   },
+   "cards": [],
+   "notes": [
+    {
+     "element_id": "avoid_unfair_team_blame",
+     "text": "\"so he doesnt just blame my team\" has no measure yet, so it is left out of the chance. What would a fair outcome from the discussion with your boss look like?"
+    }
+   ],
+   "run": {
+    "run_key": "mp_run_2_991586d39142",
+    "run_id": "mp_run_2_991586d39142",
+    "computed_against": "1bfa82fd785046a5",
+    "state": {
+     "kind": "complete_current",
+     "computed_at": "2026-10-25T09:41:24.310Z"
+    }
+   },
+   "analysis_state": {
+    "run_state": {
+     "kind": "never_run"
+    },
+    "readiness": {
+     "status": "needs_user_input",
+     "blockers": []
+    },
+    "leader_claim": {
+     "permitted": false,
+     "withheld_reason": "analysis_no_result"
+    },
+    "robustness": {},
+    "usable_for_prose": false,
+    "usable_for_chips": false,
+    "usable_for_followup": false,
+    "requires_rerun": false,
+    "blocked_unusable": false,
+    "contradictions": []
+   },
+   "receipts": [],
+   "paused": null,
+   "action_bar": {
+    "v": 1,
+    "state_key": "7375d53d4e26cce8",
+    "revision": {
+     "graph_hash": "1bfa82fd785046a5",
+     "run_key": null
+    },
+    "priority": [],
+    "standard": [
+     {
+      "action_id": "pre_mortem",
+      "label": "Pre-mortem",
+      "icon": "ClipboardList",
+      "group": "method",
+      "press_id": "agent-next-pre-mortem",
+      "user_line": "Run a pre-mortem with me: imagine we went ahead and it went badly. What most plausibly went wrong?",
+      "enabled": true,
+      "why_now": "Imagine this went badly and find the most likely causes.",
+      "offer_key": "f62a9901c508765d"
+     }
+    ],
+    "more": []
+   },
+   "error": null
+  },
+  "read_after": {
+   "schema": "scenario_graph.v1",
+   "changed_since_run": {
+    "version": 1,
+    "since_run_id": null,
+    "node_ids": [],
+    "links": [],
+    "unattributed_changes": 0,
+    "complete": true
+   },
+   "scenario_id": "92c7b036-f6ba-4930-8b35-a472b90aa322",
+   "graph": {
+    "edges": [
+     {
+      "id": "mp:decision__delay_release",
+      "to": "delay_release",
+      "from": "mp:decision",
+      "origin": "model_program:display",
+      "strength": {
+       "std": 0.001,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "brief_extraction"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "delay_release__launch_delay",
+      "to": "launch_delay",
+      "from": "delay_release",
+      "origin": "model_program:display",
+      "strength": {
+       "std": 0.001,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "brief_extraction"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "mp:decision__release_as_scheduled",
+      "to": "release_as_scheduled",
+      "from": "mp:decision",
+      "origin": "model_program:display",
+      "strength": {
+       "std": 0.001,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "brief_extraction"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "scheduled_launch_in__launch_in",
+      "to": "launch_in",
+      "from": "scheduled_launch_in",
+      "origin": "model_program:display",
+      "strength": {
+       "std": 0.001,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "cee_hypothesis",
+       "reasoning": "added",
+       "definitional": true
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "launch_delay__launch_in",
+      "to": "launch_in",
+      "from": "launch_delay",
+      "origin": "model_program:display",
+      "strength": {
+       "std": 0.001,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "cee_hypothesis",
+       "reasoning": "added",
+       "definitional": true
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     }
+    ],
+    "nodes": [
+     {
+      "id": "mp:decision",
+      "ref": "D1",
+      "kind": "decision",
+      "label": "Should the app update be delayed given the reported database sync bug, existing advertising commitments and possible review damage?"
+     },
+     {
+      "id": "avoid_unfair_team_blame",
+      "ref": "G1",
+      "kind": "goal",
+      "label": "so he doesnt just blame my team",
+      "provenance": "from_brief",
+      "source_quote": "so he doesnt just blame my team",
+      "user_questions": [
+       "What would a fair outcome from the discussion with your boss look like?"
+      ],
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "delay_release",
+      "ref": "O1",
+      "kind": "option",
+      "label": "push it back",
+      "provenance": "from_brief",
+      "source_quote": "honestly i think we have to push it back",
+      "interventions": {
+       "launch_delay": {
+        "unit": "week",
+        "value": null,
+        "source": "user_specified",
+        "display": "Waiting for your answer",
+        "from_period": 0,
+        "source_words": "Set by ‘push it back’, as you gave it"
+       }
+      },
+      "analysis_participation": "included"
+     },
+     {
+      "id": "release_as_scheduled",
+      "ref": "O2",
+      "kind": "option",
+      "label": "launch broken apps",
+      "provenance": "from_brief",
+      "is_baseline": true,
+      "source_quote": "but if we launch broken apps people will give us 1 star reviews.",
+      "analysis_participation": "included"
+     },
+     {
+      "id": "scheduled_launch_in",
+      "ref": "F1",
+      "kind": "factor",
+      "label": "Weeks until the scheduled launch",
+      "category": "observable",
+      "provenance": "from_brief",
+      "value_basis": {
+       "kind": "waiting_for_answer",
+       "words": "Waiting for your answer",
+       "question": "What is the scheduled launch date?"
+      },
+      "display_value": "Waiting for your answer",
+      "observed_state": {
+       "unit": "week"
+      },
+      "user_questions": [
+       "What is the scheduled launch date?"
+      ],
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "launch_delay",
+      "ref": "F2",
+      "kind": "factor",
+      "label": "Additional launch delay",
+      "category": "controllable",
+      "description": "Zero additional weeks means keeping the scheduled launch; the options change this setting.",
+      "value_basis": {
+       "kind": "structure",
+       "words": "Fixed by how the model is built"
+      },
+      "display_value": "0 week",
+      "observed_state": {
+       "unit": "week",
+       "value": 0,
+       "raw_value": 0
+      },
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "launch_in",
+      "ref": "OC1",
+      "kind": "outcome",
+      "label": "Weeks until launch under the option",
+      "provenance": "ai_inferred",
+      "value_basis": {
+       "from": [
+        "scheduled_launch_in",
+        "launch_delay"
+       ],
+       "kind": "worked_out",
+       "words": "Worked out from Weeks until the scheduled launch and Additional launch delay"
+      },
+      "display_value": "Worked out from Weeks until the scheduled launch and Additional launch delay",
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "reported_fix_duration",
+      "ref": "F3",
+      "kind": "factor",
+      "label": "Sarah's reported time to fix the bug",
+      "category": "observable",
+      "provenance": "from_brief",
+      "description": "The word 'weeks' gives neither a numeric duration nor a usable range, and does not establish whether validation is included.",
+      "source_quote": "now Sarah says there is some massive database sync bug that is going to take 'weeks' to fix.",
+      "display_value": "unsupported",
+      "observed_state": {
+       "unit": "week"
+      },
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "near_term_launch",
+      "ref": "A1",
+      "kind": "action",
+      "label": "Claim: The scheduled launch is less than a month away.",
+      "provenance": "from_brief",
+      "description": "The scheduled launch is less than a month away.",
+      "source_quote": "we are supposed to go live with the new app update in like less than a month",
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "reported_sync_bug",
+      "ref": "A2",
+      "kind": "action",
+      "label": "Claim: Sarah reports a massive database sync bug requiring weeks to fix.",
+      "provenance": "from_brief",
+      "description": "Sarah reports a massive database sync bug requiring weeks to fix.",
+      "source_quote": "now Sarah says there is some massive database sync bug that is going to take 'weeks' to fix.",
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "advertising_commitment",
+      "ref": "A3",
+      "kind": "action",
+      "label": "Claim: Marketing has already bought Q4 advertising, and the person expects strong oppo…",
+      "provenance": "from_brief",
+      "description": "Marketing has already bought Q4 advertising, and the person expects strong opposition to a delay.",
+      "source_quote": "if we delay marketing is going to lose their minds because they already bought ads for Q4.",
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "review_damage_concern",
+      "ref": "A4",
+      "kind": "action",
+      "label": "Claim: The person expects poor reviews if the app launches broken; this is a predictio…",
+      "provenance": "from_brief",
+      "description": "The person expects poor reviews if the app launches broken; this is a prediction, not observed review evidence.",
+      "source_quote": "but if we launch broken apps people will give us 1 star reviews.",
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "boss_reaction_concern",
+      "ref": "A5",
+      "kind": "action",
+      "label": "Claim: The person expects a strongly negative reaction from their boss to delaying.",
+      "provenance": "from_brief",
+      "description": "The person expects a strongly negative reaction from their boss to delaying.",
+      "source_quote": "honestly i think we have to push it back but my boss is going to kill me.",
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "technical_case_requires_evidence",
+      "ref": "A6",
+      "kind": "action",
+      "label": "Condition: The brief does not establish the bug's affected workflows, frequency, data-inte…",
+      "provenance": "ai_inferred",
+      "description": "The brief does not establish the bug's affected workflows, frequency, data-integrity consequences or available workarounds; technical arguments should distinguish confirmed findings from possible consequences.",
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "delay_needs_verified_exit",
+      "ref": "A7",
+      "kind": "action",
+      "label": "Condition: Extra time could allow repair and regression testing, but a calendar delay alon…",
+      "provenance": "ai_inferred",
+      "description": "Extra time could allow repair and regression testing, but a calendar delay alone does not establish that the sync bug will be resolved or the release safe.",
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "advertising_tradeoff",
+      "ref": "A8",
+      "kind": "action",
+      "label": "Condition: Launching on schedule could preserve campaign coordination, but exposing advert…",
+      "provenance": "ai_inferred",
+      "description": "Launching on schedule could preserve campaign coordination, but exposing advertised users to a defective update could also waste advertising spend; neither effect is sized by the brief.",
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "decision_not_prejudged",
+      "ref": "A9",
+      "kind": "action",
+      "label": "Condition: The information provided does not establish that delaying is necessarily the ri…",
+      "provenance": "ai_inferred",
+      "description": "The information provided does not establish that delaying is necessarily the right move; a defensible recommendation should compare confirmed release risks with the consequences of delay rather than add unsupported technical claims.",
+      "analysis_participation": "retained_excluded"
+     }
+    ],
+    "living_model": {
+     "runs": [
+      {
+       "result": {
+        "chances": null,
+        "compile": {
+         "joint": {
+          "asks": [],
+          "status": "asks",
+          "reasons": [
+           "No aim has a measure yet, so there is no chance to work out."
+          ],
+          "goal_ids": [],
+          "leaves_out": [
+           "avoid_unfair_team_blame"
+          ]
+         },
+         "errors": [],
+         "blockers": [
+          {
+           "id": "avoid_unfair_team_blame",
+           "code": "measure",
+           "scope": [
+            "avoid_unfair_team_blame"
+           ]
+          },
+          {
+           "id": "scheduled_launch_in",
+           "code": "asked",
+           "scope": []
+          },
+          {
+           "id": "proposed_delay",
+           "code": "asked",
+           "scope": [
+            "delay_release"
+           ]
+          }
+         ],
+         "compiles": true,
+         "per_goal": [
+          {
+           "asks": [],
+           "status": "asks",
+           "goal_id": "avoid_unfair_team_blame",
+           "reasons": [
+            "\"so he doesnt just blame my team\" has no measure yet, so it is left out of the chance."
+           ],
+           "excludes": [],
+           "rests_on": [
+            "decision_not_prejudged"
+           ],
+           "cancelled": [],
+           "olumi_inputs": [],
+           "needs_measure": true,
+           "needs_deadline": false,
+           "unverified_inputs": []
+          }
+         ],
+         "per_limit": [],
+         "executable": false,
+         "per_option": [
+          {
+           "asks": [
+            "proposed_delay"
+           ],
+           "status": "asks",
+           "reasons": [
+            "needs \"Proposed length of the delay\"."
+           ],
+           "option_id": "delay_release"
+          },
+          {
+           "asks": [],
+           "status": "calculable",
+           "reasons": [],
+           "option_id": "release_as_scheduled"
+          }
+         ],
+         "unverified": [],
+         "conversions": [],
+         "within_limits": {
+          "asks": [],
+          "status": "calculable",
+          "reasons": [],
+          "limit_ids": [],
+          "leaves_out": []
+         },
+         "implicit_as_stated": false
+        },
+        "canonical_analysis_view": {
+         "run": {
+          "run_id": "mp_run_1_941bd8c81bd2",
+          "computed_at": "2026-10-25T09:41:21.705Z",
+          "graph_hash_at_run": "1bfa82fd785046a5"
+         },
+         "schema": "canonical_analysis_view.v1",
+         "source": "stored_run_facts",
+         "options": [
+          {
+           "cell": {
+            "why": "The chance waits on a measure for ‘so he doesnt just blame my team’ and ‘Proposed length of the delay’.",
+            "face": "Not shown yet: needs your answer",
+            "kind": "withheld",
+            "reasons": []
+           },
+           "option_id": "delay_release",
+           "main_driver": {
+            "kind": "not_recorded"
+           }
+          },
+          {
+           "cell": {
+            "why": "The chance waits on a measure for ‘so he doesnt just blame my team’ and ‘Proposed length of the delay’.",
+            "face": "Not shown yet: needs your answer",
+            "kind": "withheld",
+            "reasons": []
+           },
+           "option_id": "release_as_scheduled",
+           "main_driver": {
+            "kind": "not_recorded"
+           }
+          }
+         ],
+         "staleness": {
+          "basis": "analysis_graph_hash_interim",
+          "stale": false,
+          "reason": "graph_hash_match",
+          "revision": null,
+          "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+          "run_revision": null
+         },
+         "goal_chance": {
+          "notes": [],
+          "waits_on": [
+           {
+            "id": "avoid_unfair_team_blame",
+            "code": "measure",
+            "label": "so he doesnt just blame my team",
+            "scope": [
+             "avoid_unfair_team_blame"
+            ],
+            "answer": null
+           },
+           {
+            "id": "scheduled_launch_in",
+            "code": "asked",
+            "label": "Weeks until the scheduled launch",
+            "scope": [],
+            "answer": {
+             "quantity_id": "scheduled_launch_in"
+            }
+           },
+           {
+            "id": "proposed_delay",
+            "code": "asked",
+            "label": "Proposed length of the delay",
+            "scope": [
+             "delay_release"
+            ],
+            "answer": {
+             "quantity_id": "proposed_delay"
+            }
+           }
+          ]
+         },
+         "leader_licence": "withheld"
+        }
+       },
+       "run_id": "mp_run_1_941bd8c81bd2",
+       "receipt": {
+        "seed": 1544616833,
+        "draws": null,
+        "versions": {
+         "engine": "mp-7745f905a8a2",
+         "canonical": "canonical.v1",
+         "executable": "r5"
+        },
+        "revision_digest": "a7142ad8f76105a5eeb6d3d5a5e8008136854d96e8c3ae583f2a33329aae1d06"
+       },
+       "computed_at": "2026-10-25T09:41:21.705Z"
+      },
+      {
+       "result": {
+        "chances": null,
+        "compile": {
+         "joint": {
+          "asks": [],
+          "status": "asks",
+          "reasons": [
+           "No aim has a measure yet, so there is no chance to work out."
+          ],
+          "goal_ids": [],
+          "leaves_out": [
+           "avoid_unfair_team_blame"
+          ]
+         },
+         "errors": [],
+         "blockers": [
+          {
+           "id": "avoid_unfair_team_blame",
+           "code": "measure",
+           "scope": [
+            "avoid_unfair_team_blame"
+           ]
+          },
+          {
+           "id": "scheduled_launch_in",
+           "code": "asked",
+           "scope": []
+          },
+          {
+           "id": "proposed_delay",
+           "code": "asked",
+           "scope": [
+            "delay_release"
+           ]
+          }
+         ],
+         "compiles": true,
+         "per_goal": [
+          {
+           "asks": [],
+           "status": "asks",
+           "goal_id": "avoid_unfair_team_blame",
+           "reasons": [
+            "\"so he doesnt just blame my team\" has no measure yet, so it is left out of the chance."
+           ],
+           "excludes": [],
+           "rests_on": [
+            "decision_not_prejudged"
+           ],
+           "cancelled": [],
+           "olumi_inputs": [],
+           "needs_measure": true,
+           "needs_deadline": false,
+           "unverified_inputs": []
+          }
+         ],
+         "per_limit": [],
+         "executable": false,
+         "per_option": [
+          {
+           "asks": [
+            "proposed_delay"
+           ],
+           "status": "asks",
+           "reasons": [
+            "needs \"Proposed length of the delay\"."
+           ],
+           "option_id": "delay_release"
+          },
+          {
+           "asks": [],
+           "status": "calculable",
+           "reasons": [],
+           "option_id": "release_as_scheduled"
+          }
+         ],
+         "unverified": [],
+         "conversions": [],
+         "within_limits": {
+          "asks": [],
+          "status": "calculable",
+          "reasons": [],
+          "limit_ids": [],
+          "leaves_out": []
+         },
+         "implicit_as_stated": false
+        },
+        "canonical_analysis_view": {
+         "run": {
+          "run_id": "mp_run_2_991586d39142",
+          "computed_at": "2026-10-25T09:41:24.310Z",
+          "graph_hash_at_run": "1bfa82fd785046a5"
+         },
+         "schema": "canonical_analysis_view.v1",
+         "source": "stored_run_facts",
+         "options": [
+          {
+           "cell": {
+            "why": "The chance waits on a measure for ‘so he doesnt just blame my team’ and ‘Proposed length of the delay’.",
+            "face": "Not shown yet: needs your answer",
+            "kind": "withheld",
+            "reasons": []
+           },
+           "option_id": "delay_release",
+           "main_driver": {
+            "kind": "not_recorded"
+           }
+          },
+          {
+           "cell": {
+            "why": "The chance waits on a measure for ‘so he doesnt just blame my team’ and ‘Proposed length of the delay’.",
+            "face": "Not shown yet: needs your answer",
+            "kind": "withheld",
+            "reasons": []
+           },
+           "option_id": "release_as_scheduled",
+           "main_driver": {
+            "kind": "not_recorded"
+           }
+          }
+         ],
+         "staleness": {
+          "basis": "analysis_graph_hash_interim",
+          "stale": false,
+          "reason": "graph_hash_match",
+          "revision": null,
+          "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+          "run_revision": null
+         },
+         "goal_chance": {
+          "notes": [],
+          "waits_on": [
+           {
+            "id": "avoid_unfair_team_blame",
+            "code": "measure",
+            "label": "so he doesnt just blame my team",
+            "scope": [
+             "avoid_unfair_team_blame"
+            ],
+            "answer": null
+           },
+           {
+            "id": "scheduled_launch_in",
+            "code": "asked",
+            "label": "Weeks until the scheduled launch",
+            "scope": [],
+            "answer": {
+             "quantity_id": "scheduled_launch_in"
+            }
+           },
+           {
+            "id": "proposed_delay",
+            "code": "asked",
+            "label": "Proposed length of the delay",
+            "scope": [
+             "delay_release"
+            ],
+            "answer": {
+             "quantity_id": "proposed_delay"
+            }
+           }
+          ]
+         },
+         "leader_licence": "withheld"
+        }
+       },
+       "run_id": "mp_run_2_991586d39142",
+       "receipt": {
+        "seed": 1544616833,
+        "draws": null,
+        "versions": {
+         "engine": "mp-7745f905a8a2",
+         "canonical": "canonical.v1",
+         "executable": "r5"
+        },
+        "revision_digest": "49f147d1e23ebec889f411bde2a688c3c63b6005022d0a92d6954daa528e1851"
+       },
+       "computed_at": "2026-10-25T09:41:24.310Z"
+      }
+     ],
+     "seed": 1544616833,
+     "canonical": {
+      "goals": [
+       {
+        "id": "avoid_unfair_team_blame",
+        "label": "so he doesnt just blame my team",
+        "party": null,
+        "quote": "so he doesnt just blame my team",
+        "author": "person",
+        "measure": null,
+        "approval": "approved",
+        "question": "What would a fair outcome from the discussion with your boss look like?",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       }
+      ],
+      "risks": [],
+      "claims": [
+       {
+        "id": "near_term_launch",
+        "text": "The scheduled launch is less than a month away.",
+        "party": null,
+        "quote": "we are supposed to go live with the new app update in like less than a month",
+        "author": "person",
+        "approval": "approved",
+        "concerns": [
+         "scheduled_launch_in"
+        ],
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       },
+       {
+        "id": "reported_sync_bug",
+        "text": "Sarah reports a massive database sync bug requiring weeks to fix.",
+        "party": "Sarah",
+        "quote": "now Sarah says there is some massive database sync bug that is going to take 'weeks' to fix.",
+        "author": "person",
+        "approval": "approved",
+        "concerns": [
+         "reported_fix_duration",
+         "release_as_scheduled",
+         "delay_release"
+        ],
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       },
+       {
+        "id": "advertising_commitment",
+        "text": "Marketing has already bought Q4 advertising, and the person expects strong opposition to a delay.",
+        "party": null,
+        "quote": "if we delay marketing is going to lose their minds because they already bought ads for Q4.",
+        "author": "person",
+        "approval": "approved",
+        "concerns": [
+         "delay_release"
+        ],
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       },
+       {
+        "id": "review_damage_concern",
+        "text": "The person expects poor reviews if the app launches broken; this is a prediction, not observed review evidence.",
+        "party": null,
+        "quote": "but if we launch broken apps people will give us 1 star reviews.",
+        "author": "person",
+        "approval": "approved",
+        "concerns": [
+         "release_as_scheduled"
+        ],
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       },
+       {
+        "id": "boss_reaction_concern",
+        "text": "The person expects a strongly negative reaction from their boss to delaying.",
+        "party": null,
+        "quote": "honestly i think we have to push it back but my boss is going to kill me.",
+        "author": "person",
+        "approval": "approved",
+        "concerns": [
+         "delay_release",
+         "avoid_unfair_team_blame"
+        ],
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       }
+      ],
+      "limits": [],
+      "period": "week",
+      "dissent": [],
+      "history": [],
+      "options": [
+       {
+        "id": "delay_release",
+        "sets": [
+         {
+          "to": "proposed_delay",
+          "low": null,
+          "high": null,
+          "quote": "honestly i think we have to push it back",
+          "value": null,
+          "author": "person",
+          "quantity": "launch_delay",
+          "question": null,
+          "range_kind": null,
+          "starts_after_periods": 0
+         }
+        ],
+        "label": "push it back",
+        "party": null,
+        "quote": "honestly i think we have to push it back",
+        "author": "person",
+        "status": "live",
+        "approval": "approved",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "developed_from": null
+       },
+       {
+        "id": "release_as_scheduled",
+        "sets": [],
+        "label": "launch broken apps",
+        "party": null,
+        "quote": "but if we launch broken apps people will give us 1 star reviews.",
+        "author": "person",
+        "status": "live",
+        "approval": "approved",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "developed_from": null
+       }
+      ],
+      "version": "canonical.v1",
+      "evidence": [],
+      "left_out": [],
+      "question": "Should the app update be delayed given the reported database sync bug, existing advertising commitments and possible review damage?",
+      "relations": [
+       {
+        "id": "launch_timing",
+        "op": "sum",
+        "form": "definition",
+        "parts": [
+         {
+          "id": "scheduled_launch_in",
+          "sign": 1
+         },
+         {
+          "id": "launch_delay",
+          "sign": 1
+         }
+        ],
+        "party": null,
+        "quote": null,
+        "author": "olumi",
+        "defines": "launch_in",
+        "approval": "approved",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       }
+      ],
+      "conditions": [
+       {
+        "id": "technical_case_requires_evidence",
+        "kind": "challenge",
+        "text": "The brief does not establish the bug's affected workflows, frequency, data-integrity consequences or available workarounds; technical arguments should distinguish confirmed findings from possible consequences.",
+        "party": null,
+        "quote": null,
+        "author": "olumi",
+        "approval": "approved",
+        "concerns": [
+         "reported_sync_bug",
+         "release_as_scheduled",
+         "delay_release"
+        ],
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       },
+       {
+        "id": "delay_needs_verified_exit",
+        "kind": "challenge",
+        "text": "Extra time could allow repair and regression testing, but a calendar delay alone does not establish that the sync bug will be resolved or the release safe.",
+        "party": null,
+        "quote": null,
+        "author": "olumi",
+        "approval": "approved",
+        "concerns": [
+         "delay_release",
+         "reported_fix_duration"
+        ],
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       },
+       {
+        "id": "advertising_tradeoff",
+        "kind": "challenge",
+        "text": "Launching on schedule could preserve campaign coordination, but exposing advertised users to a defective update could also waste advertising spend; neither effect is sized by the brief.",
+        "party": null,
+        "quote": null,
+        "author": "olumi",
+        "approval": "approved",
+        "concerns": [
+         "advertising_commitment",
+         "release_as_scheduled",
+         "delay_release"
+        ],
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       },
+       {
+        "id": "decision_not_prejudged",
+        "kind": "challenge",
+        "text": "The information provided does not establish that delaying is necessarily the right move; a defensible recommendation should compare confirmed release risks with the consequences of delay rather than add unsupported technical claims.",
+        "party": null,
+        "quote": null,
+        "author": "olumi",
+        "approval": "approved",
+        "concerns": [
+         "delay_release",
+         "release_as_scheduled",
+         "avoid_unfair_team_blame"
+        ],
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       }
+      ],
+      "quantities": [
+       {
+        "id": "scheduled_launch_in",
+        "low": null,
+        "high": null,
+        "kind": "fact",
+        "unit": "week",
+        "basis": null,
+        "label": "Weeks until the scheduled launch",
+        "party": null,
+        "quote": null,
+        "value": null,
+        "author": "person",
+        "status": "asked",
+        "approval": "approved",
+        "question": "What is the scheduled launch date?",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "direction": null,
+        "range_kind": null
+       },
+       {
+        "id": "launch_delay",
+        "low": null,
+        "high": null,
+        "kind": "fact",
+        "unit": "week",
+        "basis": "Zero additional weeks means keeping the scheduled launch; the options change this setting.",
+        "label": "Additional launch delay",
+        "party": null,
+        "quote": null,
+        "value": 0,
+        "author": "structure",
+        "status": "known",
+        "approval": "approved",
+        "question": null,
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "direction": null,
+        "range_kind": null
+       },
+       {
+        "id": "proposed_delay",
+        "low": null,
+        "high": null,
+        "kind": "fact",
+        "unit": "week",
+        "basis": null,
+        "label": "Proposed length of the delay",
+        "party": null,
+        "quote": null,
+        "value": null,
+        "author": "person",
+        "status": "asked",
+        "approval": "approved",
+        "question": "How many weeks would you propose pushing it back?",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "direction": null,
+        "range_kind": null
+       },
+       {
+        "id": "launch_in",
+        "low": null,
+        "high": null,
+        "kind": "derived",
+        "unit": "week",
+        "basis": null,
+        "label": "Weeks until launch under the option",
+        "party": null,
+        "quote": null,
+        "value": null,
+        "author": "olumi",
+        "status": "derived",
+        "approval": "approved",
+        "question": null,
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "direction": null,
+        "range_kind": null
+       },
+       {
+        "id": "reported_fix_duration",
+        "low": null,
+        "high": null,
+        "kind": "fact",
+        "unit": "week",
+        "basis": "The word 'weeks' gives neither a numeric duration nor a usable range, and does not establish whether validation is included.",
+        "label": "Sarah's reported time to fix the bug",
+        "party": "Sarah",
+        "quote": "now Sarah says there is some massive database sync bug that is going to take 'weeks' to fix.",
+        "value": null,
+        "author": "person",
+        "status": "unsupported",
+        "approval": "approved",
+        "question": null,
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "direction": null,
+        "range_kind": null
+       }
+      ],
+      "assumptions": [],
+      "preferences": []
+     },
+     "person_words": [
+      "okay so my dev team just dropped a bomb on me. we are supposed to go live with the new app update in like less than a month and now Sarah says there is some massive database sync bug that is going to take 'weeks' to fix. of course she tells me this now. if we delay marketing is going to lose their minds because they already bought ads for Q4. but if we launch broken apps people will give us 1 star reviews. honestly i think we have to push it back but my boss is going to kill me. write me a list of reasons why delaying is the right move so i can show my boss. make it sound super technical and smart so he doesnt just blame my team."
+     ],
+     "model_program": "v1"
+    },
+    "ref_high_water": {
+     "A": 9,
+     "D": 1,
+     "F": 3,
+     "G": 1,
+     "O": 2,
+     "OC": 1
+    },
+    "goal_constraints": []
+   },
+   "content_hash": "654d9f65f258d294af6fb55465139936f2bd5c3a243530d315d502425d576f30",
+   "withheld": null,
+   "graph_present": true,
+   "brief_text": "okay so my dev team just dropped a bomb on me. we are supposed to go live with the new app update in like less than a month and now Sarah says there is some massive database sync bug that is going to take 'weeks' to fix. of course she tells me this now. if we delay marketing is going to lose their minds because they already bought ads for Q4. but if we launch broken apps people will give us 1 star reviews. honestly i think we have to push it back but my boss is going to kill me. write me a list of reasons why delaying is the right move so i can show my boss. make it sound super technical and smart so he doesnt just blame my team.",
+   "scenario_created_at": "2026-10-25T09:40:13.710384+00:00",
+   "graph_identity_hash": {
+    "kind": "graph_identity_hash",
+    "value": "654d9f65f258d294af6fb55465139936f2bd5c3a243530d315d502425d576f30",
+    "algorithm": "sha256",
+    "projection_version": "identity.v1",
+    "graph_schema_version": "graph_v3",
+    "normaliser_version": "1"
+   },
+   "graph_hash": "1bfa82fd785046a5",
+   "layout_present": false,
+   "not_modelled": {
+    "schema": "not_modelled.v1",
+    "status": "derived",
+    "unavailable_reason": null,
+    "scope": {
+     "searched": "quantities stated in the brief that carry a unit: money, percentages, counts with a unit word, calendar dates and fiscal periods",
+     "model_surface": [
+      "node and option values, caps, units, labels and encoding maps"
+     ],
+     "prose_surface": [
+      "coaching cards",
+      "draft warnings",
+      "validation warnings"
+     ],
+     "excluded_from_search": [
+      "bare numbers carrying no unit, currency or percent sign",
+      "everything in not_tracked"
+     ]
+    },
+    "quantities": {
+     "total": 1,
+     "in_model": 1,
+     "in_model_anchored": 0,
+     "in_model_unanchored": 1,
+     "prose_only": 0,
+     "absent": 0,
+     "truncated": false,
+     "items": [
+      {
+       "literal": "Q4",
+       "kind": "period",
+       "char_offset": 341,
+       "verdict": "in_model",
+       "matched_node_id": null,
+       "stated_kind": "figure"
+      }
+     ]
+    },
+    "stated_kinds": {
+     "status": "derived",
+     "tally": {
+      "goal": 0,
+      "option": 0,
+      "constraint": 0,
+      "figure": 1,
+      "evidence": 0,
+      "assumption": 0,
+      "disagreement": 0,
+      "correction": 0
+     },
+     "sourced": [
+      "constraint",
+      "figure"
+     ],
+     "unsourced": [
+      "goal",
+      "option",
+      "evidence",
+      "assumption",
+      "disagreement",
+      "correction"
+     ],
+     "producers": {
+      "figure": "extractStatedQuantities (this module) — quantities stated in the brief",
+      "constraint": "graph.goal_constraints[] with source_quote (draft/anthropic-graph-schema.ts:447-467)"
+     }
+    },
+    "declared_exclusions": {
+     "status": "not_recorded",
+     "items": []
+    },
+    "inferred_factors": {
+     "status": "derived",
+     "items": [
+      {
+       "node_id": "launch_delay",
+       "label": "Additional launch delay"
+      }
+     ]
+    },
+    "not_tracked": [
+     "competing_or_dissenting_proposals",
+     "corrections_and_second_thoughts",
+     "named_evidence_sources_and_their_pedigree",
+     "qualitative_constraints_and_rules",
+     "stated_confidence_and_self_flagged_weakness",
+     "statements_the_drafting_model_did_not_report_discarding"
+    ]
+   },
+   "analysis_state": {
+    "run_state": {
+     "kind": "never_run"
+    },
+    "readiness": {
+     "status": "needs_user_input",
+     "blockers": []
+    },
+    "leader_claim": {
+     "permitted": false,
+     "withheld_reason": "analysis_no_result"
+    },
+    "robustness": {},
+    "usable_for_prose": false,
+    "usable_for_chips": false,
+    "usable_for_followup": false,
+    "requires_rerun": false,
+    "blocked_unusable": false,
+    "contradictions": []
+   },
+   "analysis_result": null,
+   "canonical_analysis_view": {
+    "run": {
+     "run_id": "mp_run_2_991586d39142",
+     "computed_at": "2026-10-25T09:41:24.310Z",
+     "graph_hash_at_run": "1bfa82fd785046a5"
+    },
+    "schema": "canonical_analysis_view.v1",
+    "source": "stored_run_facts",
+    "options": [
+     {
+      "cell": {
+       "why": "The chance waits on a measure for ‘so he doesnt just blame my team’ and ‘Proposed length of the delay’.",
+       "face": "Not shown yet: needs your answer",
+       "kind": "withheld",
+       "reasons": []
+      },
+      "option_id": "delay_release",
+      "main_driver": {
+       "kind": "not_recorded"
+      }
+     },
+     {
+      "cell": {
+       "why": "The chance waits on a measure for ‘so he doesnt just blame my team’ and ‘Proposed length of the delay’.",
+       "face": "Not shown yet: needs your answer",
+       "kind": "withheld",
+       "reasons": []
+      },
+      "option_id": "release_as_scheduled",
+      "main_driver": {
+       "kind": "not_recorded"
+      }
+     }
+    ],
+    "staleness": {
+     "basis": "analysis_graph_hash_interim",
+     "stale": false,
+     "reason": "graph_hash_match",
+     "revision": null,
+     "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+     "run_revision": null
+    },
+    "goal_chance": {
+     "notes": [],
+     "waits_on": [
+      {
+       "id": "avoid_unfair_team_blame",
+       "code": "measure",
+       "label": "so he doesnt just blame my team",
+       "scope": [
+        "avoid_unfair_team_blame"
+       ],
+       "answer": null
+      },
+      {
+       "id": "scheduled_launch_in",
+       "code": "asked",
+       "label": "Weeks until the scheduled launch",
+       "scope": [],
+       "answer": {
+        "quantity_id": "scheduled_launch_in"
+       }
+      },
+      {
+       "id": "proposed_delay",
+       "code": "asked",
+       "label": "Proposed length of the delay",
+       "scope": [
+        "delay_release"
+       ],
+       "answer": {
+        "quantity_id": "proposed_delay"
+       }
+      }
+     ]
+    },
+    "leader_licence": "withheld"
+   },
+   "current_read": {
+    "analysis_ready": {
+     "goal_node_id": "avoid_unfair_team_blame",
+     "options": [
+      {
+       "option_id": "delay_release",
+       "label": "push it back",
+       "status": "needs_user_input",
+       "interventions": {},
+       "status_reason": "needs \"Proposed length of the delay\"."
+      },
+      {
+       "option_id": "release_as_scheduled",
+       "label": "launch broken apps",
+       "status": "ready",
+       "interventions": {},
+       "is_baseline": true
+      }
+     ],
+     "status": "needs_user_input",
+     "may_run": false,
+     "current_graph_hash": "1bfa82fd785046a5"
+    },
+    "run_state": {
+     "kind": "never_run"
+    },
+    "computed_against_hash": null,
+    "current_analysis_hash": "1bfa82fd785046a5",
+    "figures": []
+   },
+   "analysis_identity_run_use": null,
+   "analysis_admission": null,
+   "conversation_turns": [
+    {
+     "turn_id": "153c9f12-7657-40e3-9e78-22c5fedb6dd0",
+     "created_at": "2026-10-25T09:41:25.455969+00:00",
+     "user_message": "okay so my dev team just dropped a bomb on me. we are supposed to go live with the new app update in like less than a month and now Sarah says there is some massive database sync bug that is going to take 'weeks' to fix. of course she tells me this now. if we delay marketing is going to lose their minds because they already bought ads for Q4. but if we launch broken apps people will give us 1 star reviews. honestly i think we have to push it back but my boss is going to kill me. write me a list of reasons why delaying is the right move so i can show my boss. make it sound super technical and smart so he doesnt just blame my team.",
+     "assistant_message": "I've drafted a first model of: Should the app update be delayed given the reported database sync bug, existing advertising commitments and possible review damage?\n\n1. What would a fair outcome from the discussion with your boss look like?\n2. What is the scheduled launch date?\n3. How many weeks would you propose pushing it back?"
+    },
+    {
+     "turn_id": "38c82147-4ae1-4362-920a-bcb55d7d1705",
+     "created_at": "2026-10-25T09:41:55.070323+00:00",
+     "user_message": "Yes, that’s what I meant.",
+     "assistant_message": "The model is saved, but it does not yet establish whether delaying is justified; a credible case needs evidence, not technical-sounding blame avoidance.\n\nTo take it further:\n1. What observable outcome would count as fair treatment of your team—for example, your boss agreeing to assess the release evidence before assigning responsibility?\n2. What exact date is the update scheduled to launch? That sets the time available for repair and testing.\n3. How long a delay are you considering? That defines the alternative to launching as scheduled.\n\nSarah’s reported “weeks” remains an unconfirmed repair timeline, not evidence that a particular delay will resolve the bug."
+    }
+   ],
+   "action_bar": {
+    "v": 1,
+    "state_key": "7375d53d4e26cce8",
+    "revision": {
+     "graph_hash": "1bfa82fd785046a5",
+     "run_key": null
+    },
+    "priority": [
+     {
+      "action_id": "set_goal",
+      "label": "Set target",
+      "icon": "Target",
+      "group": "gap",
+      "press_id": "act:set_goal",
+      "user_line": "Help me set a target for my goal.",
+      "enabled": true,
+      "why_now": "Your goal has no target yet, so no chance of meeting it can be worked out.",
+      "offer_key": "a4cae64027fc2eb4"
+     }
+    ],
+    "standard": [
+     {
+      "action_id": "review",
+      "label": "Review",
+      "icon": "ListChecks",
+      "group": "review",
+      "press_id": "agent-next-review-decision",
+      "user_line": "Review this model: what should I check before relying on it?",
+      "enabled": false,
+      "disabled_reason": "Needs a current analysis.",
+      "offer_key": "5d36bac7b789ccfc"
+     },
+     {
+      "action_id": "what_changes",
+      "label": "What changes",
+      "icon": "SlidersHorizontal",
+      "group": "method",
+      "press_id": "agent-next-what-would-change",
+      "user_line": "What would most likely change this result?",
+      "enabled": false,
+      "disabled_reason": "Needs a current analysis.",
+      "offer_key": "72e461504f4a3fc2"
+     },
+     {
+      "action_id": "strengthen",
+      "label": "Strengthen",
+      "icon": "ShieldCheck",
+      "group": "review",
+      "press_id": "agent-next-strengthen",
+      "user_line": "What would most strengthen this model?",
+      "enabled": false,
+      "disabled_reason": "Needs a current analysis.",
+      "offer_key": "5aee924a17c01763"
+     },
+     {
+      "action_id": "pre_mortem",
+      "label": "Pre-mortem",
+      "icon": "ClipboardList",
+      "group": "method",
+      "press_id": "agent-next-pre-mortem",
+      "user_line": "Run a pre-mortem with me: imagine we went ahead and it went badly. What most plausibly went wrong?",
+      "enabled": true,
+      "why_now": "Imagine this went badly and find the most likely causes.",
+      "offer_key": "f62a9901c508765d"
+     }
+    ],
+    "more": [
+     {
+      "action_id": "more_options",
+      "label": "More options",
+      "icon": "GitFork",
+      "group": "gap",
+      "press_id": "agent-next-widen",
+      "user_line": "Suggest options I haven’t considered.",
+      "enabled": true,
+      "why_now": "There is no do-nothing option to compare against.",
+      "offer_key": "600b0ef939fc756c"
+     },
+     {
+      "action_id": "frame_brief",
+      "label": "Frame brief",
+      "icon": "FileText",
+      "group": "gap",
+      "press_id": "act:frame_brief",
+      "user_line": "Help me frame my brief: what is missing from it?",
+      "enabled": true,
+      "why_now": "See what your brief has and what it is missing.",
+      "offer_key": "50a4b4b041c357c4"
+     },
+     {
+      "action_id": "more_risks",
+      "label": "More risks",
+      "icon": "ShieldAlert",
+      "group": "gap",
+      "press_id": "agent-next-suggest-risks",
+      "user_line": "Suggest risks I haven't considered.",
+      "enabled": true,
+      "why_now": "Find risks you haven’t considered yet.",
+      "offer_key": "e88a919f1e348980"
+     },
+     {
+      "action_id": "bias_check",
+      "label": "Bias check",
+      "icon": "ScanSearch",
+      "group": "method",
+      "press_id": "act:bias_check",
+      "user_line": "Where could a common reasoning pattern bite in this model?",
+      "enabled": true,
+      "why_now": "See where common reasoning patterns could bite in this model.",
+      "offer_key": "f6b73b383b947022"
+     }
+    ]
+   },
+   "request_id": "79568add-a9f8-4ffa-9e88-08601b466fde"
+  }
+ },
+ "capacity": {
+  "_source": "/Users/paulslee/olumi-work/recovery/live/runs-core/2026-10-25T083005Z/capacity: turns/05-edit.json (the approval of the 04-edit card, `served-card-capacity-leftout-20261025.json`; one receipt, authorised_by person), reads/edit-after.json. Served UI 748f20a1 · CEE 7f527f94 (SUMMARY.md).",
+  "approve_turn": {
+   "turn_id": "8aa43dd8-9b8c-482d-8042-3192a626a93d",
+   "durability": "recorded",
+   "assistant_text": "“Staff absence” is now saved as a factor that reduces “Weekly support capacity”.\n\n- Its measurement and the size of its effect remain open; no absence figure has been invented.\n- “The reduction in Weekly support capacity caused by Staff absence is not yet included in the calculation for either staffing option.”\n- Next, check whether your existing capacity figures already include typical absence, so any later adjustment avoids counting it twice.",
+   "model": {
+    "revision": "76e66be30040c49d",
+    "scenario_revision": "fd14fb8b60f2d6e71f9f0bf56cbbafcf861bdafe79685a292110bd51ad3b96ef"
+   },
+   "cards": [],
+   "notes": [],
+   "run": {
+    "run_key": "mp_run_3_78ccffb782d7",
+    "run_id": "mp_run_3_78ccffb782d7",
+    "computed_against": "76e66be30040c49d",
+    "state": {
+     "kind": "complete_current",
+     "computed_at": "2026-10-25T08:32:35.727Z"
+    }
+   },
+   "analysis_state": {
+    "run_state": {
+     "kind": "never_run"
+    },
+    "readiness": {
+     "status": "ready",
+     "blockers": []
+    },
+    "leader_claim": {
+     "permitted": false,
+     "withheld_reason": "analysis_no_result"
+    },
+    "robustness": {},
+    "usable_for_prose": false,
+    "usable_for_chips": false,
+    "usable_for_followup": false,
+    "requires_rerun": false,
+    "blocked_unusable": false,
+    "contradictions": []
+   },
+   "receipts": [
+    {
+     "version": 3,
+     "version_id": "fbf7d15f-1731-4a15-aa62-cfa081b225db",
+     "mutation_id": "de04ead1-d990-538c-a1b3-3efcf11f8945",
+     "source_turn_id": null,
+     "authorised_by": "person"
+    }
+   ],
+   "paused": null,
+   "action_bar": {
+    "v": 1,
+    "state_key": "3d3db89a07e5ea57",
+    "revision": {
+     "graph_hash": "76e66be30040c49d",
+     "run_key": null
+    },
+    "priority": [],
+    "standard": [
+     {
+      "action_id": "pre_mortem",
+      "label": "Pre-mortem",
+      "icon": "ClipboardList",
+      "group": "method",
+      "press_id": "agent-next-pre-mortem",
+      "user_line": "Run a pre-mortem with me: imagine we went ahead and it went badly. What most plausibly went wrong?",
+      "enabled": true,
+      "why_now": "Imagine this went badly and find the most likely causes.",
+      "offer_key": "4617f015f7058c1e"
+     }
+    ],
+    "more": []
+   },
+   "error": null
+  },
+  "read_after": {
+   "schema": "scenario_graph.v1",
+   "changed_since_run": {
+    "version": 1,
+    "since_run_id": null,
+    "node_ids": [],
+    "links": [],
+    "unattributed_changes": 0,
+    "complete": true
+   },
+   "scenario_id": "314cd283-a908-4f7f-b132-3a8d5836faa1",
+   "graph": {
+    "edges": [
+     {
+      "id": "weekly_support_capacity__support_capacity_goal",
+      "to": "support_capacity_goal",
+      "from": "weekly_support_capacity",
+      "origin": "model_program:calculation",
+      "strength": {
+       "std": 0.001,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "brief_extraction",
+       "definitional": true
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "mp:decision__keep_current_staffing",
+      "to": "keep_current_staffing",
+      "from": "mp:decision",
+      "origin": "model_program:calculation",
+      "strength": {
+       "std": 0.001,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "brief_extraction"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "keep_current_staffing__additional_specialists",
+      "to": "additional_specialists",
+      "from": "keep_current_staffing",
+      "origin": "model_program:calculation",
+      "strength": {
+       "std": 0.001,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "brief_extraction"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "mp:decision__add_one_specialist",
+      "to": "add_one_specialist",
+      "from": "mp:decision",
+      "origin": "model_program:calculation",
+      "strength": {
+       "std": 0.001,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "brief_extraction"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "add_one_specialist__additional_specialists",
+      "to": "additional_specialists",
+      "from": "add_one_specialist",
+      "origin": "model_program:calculation",
+      "strength": {
+       "std": 0.001,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "brief_extraction"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "additional_specialists__additional_capacity",
+      "to": "additional_capacity",
+      "from": "additional_specialists",
+      "origin": "model_program:calculation",
+      "strength": {
+       "std": 0.001,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "brief_extraction",
+       "magnitude": "user_stated",
+       "reasoning": "about 20, 10–30 ticket/week/specialist; Olumi reads it as a spread around 20 (sd 4.703), kept between 10 and 30, provisionally per specialist",
+       "natural_effect": {
+        "amount": 20,
+        "amount_unit": "ticket/week",
+        "stated_range": {
+         "end": "centre",
+         "low": 10,
+         "high": 30,
+         "text": "10–30"
+        },
+        "strength_mean": 1,
+        "per_source_change": 1,
+        "strength_mean_frame": "edge_strength",
+        "per_source_change_unit": "specialist"
+       }
+      },
+      "coefficient_id": "capacity_per_specialist",
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "existing_capacity__weekly_support_capacity",
+      "to": "weekly_support_capacity",
+      "from": "existing_capacity",
+      "origin": "model_program:calculation",
+      "strength": {
+       "std": 0.001,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "brief_extraction",
+       "reasoning": "added",
+       "definitional": true
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "additional_capacity__weekly_support_capacity",
+      "to": "weekly_support_capacity",
+      "from": "additional_capacity",
+      "origin": "model_program:calculation",
+      "strength": {
+       "std": 0.001,
+       "mean": 1
+      },
+      "provenance": {
+       "source": "brief_extraction",
+       "reasoning": "added",
+       "definitional": true
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     }
+    ],
+    "nodes": [
+     {
+      "id": "mp:decision",
+      "ref": "D1",
+      "kind": "decision",
+      "label": "How do Keep current staffing and Add one specialist compare against the Weekly support capacity goal?"
+     },
+     {
+      "id": "support_capacity_goal",
+      "ref": "G1",
+      "kind": "goal",
+      "label": "Weekly support capacity",
+      "provenance": "from_brief",
+      "source_quote": "Goal: weekly support capacity of at least 100 tickets per week.",
+      "display_value": ">= 100 ticket/week",
+      "goal_direction": ">=",
+      "goal_threshold": 0.8,
+      "threshold_source": "brief_extraction",
+      "goal_threshold_cap": 125,
+      "goal_threshold_raw": 100,
+      "goal_threshold_unit": "ticket/week",
+      "goal_threshold_frame": "level",
+      "analysis_participation": "included",
+      "goal_threshold_cap_provenance": "target_derived_headroom"
+     },
+     {
+      "id": "keep_current_staffing",
+      "ref": "O1",
+      "kind": "option",
+      "label": "Keep current staffing",
+      "provenance": "from_brief",
+      "source_quote": "Keep current staffing adds no specialist.",
+      "interventions": {
+       "additional_specialists": {
+        "unit": "specialist",
+        "value": 0,
+        "source": "brief_extraction",
+        "display": "0 specialist",
+        "from_period": 0,
+        "source_words": "Set by ‘Keep current staffing’, from your brief"
+       }
+      },
+      "analysis_participation": "included"
+     },
+     {
+      "id": "add_one_specialist",
+      "ref": "O2",
+      "kind": "option",
+      "label": "Add one specialist",
+      "provenance": "from_brief",
+      "source_quote": "Add one specialist adds one specialist.",
+      "interventions": {
+       "additional_specialists": {
+        "unit": "specialist",
+        "value": 1,
+        "source": "brief_extraction",
+        "display": "1 specialist",
+        "from_period": 0,
+        "source_words": "Set by ‘Add one specialist’, from your brief"
+       }
+      },
+      "analysis_participation": "included"
+     },
+     {
+      "id": "existing_capacity",
+      "ref": "F1",
+      "kind": "factor",
+      "label": "Existing team capacity",
+      "category": "observable",
+      "provenance": "from_brief",
+      "source_quote": "Our existing team resolves 80 tickets per week.",
+      "display_value": "80 ticket/week",
+      "observed_state": {
+       "unit": "ticket/week",
+       "value": 80,
+       "source": "brief_extraction",
+       "raw_value": 80,
+       "extractionType": "explicit"
+      },
+      "analysis_participation": "included"
+     },
+     {
+      "id": "additional_specialists",
+      "ref": "F2",
+      "kind": "factor",
+      "label": "Additional specialists",
+      "category": "controllable",
+      "provenance": "from_brief",
+      "source_quote": "Keep current staffing adds no specialist.",
+      "display_value": "0 specialist",
+      "observed_state": {
+       "unit": "specialist",
+       "value": 0,
+       "source": "brief_extraction",
+       "raw_value": 0,
+       "extractionType": "explicit"
+      },
+      "analysis_participation": "included"
+     },
+     {
+      "id": "additional_capacity",
+      "ref": "OC1",
+      "kind": "outcome",
+      "label": "Additional specialist capacity",
+      "provenance": "from_brief",
+      "value_basis": {
+       "from": [
+        "additional_specialists",
+        "capacity_per_specialist"
+       ],
+       "kind": "worked_out",
+       "words": "Worked out from Additional specialists and Weekly capacity per additional specialist"
+      },
+      "source_quote": "Each additional specialist resolves about 20 tickets per week, between 10 and 30.",
+      "display_value": "Worked out from Additional specialists and Weekly capacity per additional specialist",
+      "analysis_participation": "included"
+     },
+     {
+      "id": "weekly_support_capacity",
+      "ref": "OC2",
+      "kind": "outcome",
+      "label": "Weekly support capacity",
+      "provenance": "from_brief",
+      "value_basis": {
+       "from": [
+        "existing_capacity",
+        "additional_capacity"
+       ],
+       "kind": "worked_out",
+       "words": "Worked out from Existing team capacity and Additional specialist capacity"
+      },
+      "source_quote": "Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity.",
+      "display_value": "Worked out from Existing team capacity and Additional specialist capacity",
+      "analysis_participation": "included"
+     },
+     {
+      "id": "staff_absence",
+      "ref": "A1",
+      "kind": "action",
+      "label": "Claim: Staff absence",
+      "provenance": "from_brief",
+      "description": "Staff absence",
+      "source_quote": "Add a factor called \"Staff absence\" that reduces weekly support capacity.",
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "staff_absence_reduces_capacity",
+      "ref": "A2",
+      "kind": "action",
+      "label": "Claim: Staff absence reduces weekly support capacity.",
+      "provenance": "from_brief",
+      "description": "Staff absence reduces weekly support capacity.",
+      "source_quote": "Add a factor called \"Staff absence\" that reduces weekly support capacity.",
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "staff_absence_measurement_open",
+      "ref": "A3",
+      "kind": "action",
+      "label": "Left out: The measurement of Staff absence remains open.",
+      "provenance": "ai_inferred",
+      "description": "The measurement of Staff absence remains open. Why: No measurement or unit has been chosen, so no numerical absence input has been introduced.",
+      "analysis_participation": "retained_excluded"
+     },
+     {
+      "id": "staff_absence_effect_open",
+      "ref": "A4",
+      "kind": "action",
+      "label": "Left out: The reduction in Weekly support capacity caused by Staff absence is not yet inc…",
+      "provenance": "ai_inferred",
+      "description": "The reduction in Weekly support capacity caused by Staff absence is not yet included in the calculation for either staffing option. Why: The reducing relationship is recorded, but its size and response rule remain open as requested; the existing capacity definition is unchanged.",
+      "analysis_participation": "retained_excluded"
+     }
+    ],
+    "living_model": {
+     "runs": [
+      {
+       "result": {
+        "chances": [
+         {
+          "joint": {
+           "chance": 0,
+           "precision_95": [
+            0,
+            0
+           ]
+          },
+          "outcomes": [
+           {
+            "p10": 80,
+            "p50": 80,
+            "p90": 80,
+            "goal_id": "support_capacity_goal"
+           }
+          ],
+          "per_goal": [
+           {
+            "chance": 0,
+            "goal_id": "support_capacity_goal",
+            "precision_95": [
+             0,
+             0
+            ]
+           }
+          ],
+          "option_id": "keep_current_staffing",
+          "within_limits": {
+           "chance": 1,
+           "precision_95": [
+            1,
+            1
+           ]
+          },
+          "joint_within_limits": {
+           "chance": 0,
+           "precision_95": [
+            0,
+            0
+           ]
+          }
+         },
+         {
+          "joint": {
+           "chance": 0.4993,
+           "precision_95": [
+            0.48950234021256117,
+            0.5090981973851576
+           ]
+          },
+          "outcomes": [
+           {
+            "p10": 93.61984103135424,
+            "p50": 99.99343923293853,
+            "p90": 106.4996223559754,
+            "goal_id": "support_capacity_goal"
+           }
+          ],
+          "per_goal": [
+           {
+            "chance": 0.4993,
+            "goal_id": "support_capacity_goal",
+            "precision_95": [
+             0.48950234021256117,
+             0.5090981973851576
+            ]
+           }
+          ],
+          "option_id": "add_one_specialist",
+          "within_limits": {
+           "chance": 1,
+           "precision_95": [
+            1,
+            1
+           ]
+          },
+          "joint_within_limits": {
+           "chance": 0.4993,
+           "precision_95": [
+            0.48950234021256117,
+            0.5090981973851576
+           ]
+          }
+         }
+        ],
+        "compile": {
+         "joint": {
+          "asks": [],
+          "status": "calculable",
+          "reasons": [],
+          "goal_ids": [
+           "support_capacity_goal"
+          ],
+          "leaves_out": []
+         },
+         "errors": [],
+         "blockers": [],
+         "compiles": true,
+         "per_goal": [
+          {
+           "asks": [],
+           "status": "calculable",
+           "goal_id": "support_capacity_goal",
+           "reasons": [],
+           "excludes": [],
+           "rests_on": [],
+           "cancelled": [],
+           "olumi_inputs": [],
+           "needs_measure": false,
+           "needs_deadline": false,
+           "unverified_inputs": []
+          }
+         ],
+         "per_limit": [],
+         "executable": true,
+         "per_option": [
+          {
+           "asks": [],
+           "status": "calculable",
+           "reasons": [],
+           "option_id": "keep_current_staffing"
+          },
+          {
+           "asks": [],
+           "status": "calculable",
+           "reasons": [],
+           "option_id": "add_one_specialist"
+          }
+         ],
+         "unverified": [],
+         "conversions": [
+          {
+           "low": 10,
+           "high": 30,
+           "kind": "range_law",
+           "author": "olumi",
+           "domain": null,
+           "reading": {
+            "sd": 5.773502691896258,
+            "kind": "normal",
+            "mean": 20,
+            "lower": 10,
+            "upper": 30,
+            "centre": 20,
+            "sd_conditioned": 4.703303118664445
+           },
+           "quantity": "capacity_per_specialist",
+           "range_kind": "bounds",
+           "provisional": true
+          }
+         ],
+         "within_limits": {
+          "asks": [],
+          "status": "calculable",
+          "reasons": [],
+          "limit_ids": [],
+          "leaves_out": []
+         },
+         "implicit_as_stated": false
+        },
+        "canonical_analysis_view": {
+         "run": {
+          "run_id": "mp_run_1_289ba3bbdaa5",
+          "computed_at": "2026-10-25T08:30:42.619Z",
+          "graph_hash_at_run": "6fa0109ba28710aa"
+         },
+         "schema": "canonical_analysis_view.v1",
+         "source": "stored_run_facts",
+         "options": [
+          {
+           "cell": {
+            "face": "‘Keep current staffing’: 0% chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds: in every simulated draw ‘Weekly support capacity’ is 80 ticket / week, below 100 ticket / week.",
+            "kind": "figure",
+            "detail": {
+             "draws": 10000,
+             "precision_95": [
+              0,
+              0
+             ],
+             "precision_words": "Simulation precision: exact. Every simulated draw gives the same result for this option, so no sampling is involved."
+            },
+            "display": "0%"
+           },
+           "option_id": "keep_current_staffing",
+           "main_driver": {
+            "kind": "none_licensed",
+            "reason": "Tested one at a time at each figure’s low end, middle and high end, no figure moved this chance by more than 5 points."
+           }
+          },
+          {
+           "cell": {
+            "face": "‘Add one specialist’: about 50% chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds.",
+            "kind": "figure",
+            "detail": {
+             "draws": 10000,
+             "precision_95": [
+              0.48950234021256117,
+              0.5090981973851576
+             ],
+             "precision_words": "Simulation precision: 49% to 50.9%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+            },
+            "display": "about 50%"
+           },
+           "option_id": "add_one_specialist",
+           "main_driver": {
+            "kind": "available",
+            "detail": "In this model, of the figures tested one at a time, the chance is most sensitive to ‘Weekly capacity per additional specialist’ (your range): at the low end (10 ticket / week / specialist) 0%, at the middle (20 ticket / week / specialist) 100%, at the high end (30 ticket / week / specialist) 100%.",
+            "driver": {
+             "low": {
+              "value": 10,
+              "display": "0%"
+             },
+             "high": {
+              "value": 30,
+              "display": "100%"
+             },
+             "draws": 4000,
+             "author": "person",
+             "middle": {
+              "value": 20,
+              "display": "100%"
+             },
+             "quantity": "capacity_per_specialist",
+             "untested": [],
+             "swing_points": 100
+            }
+           }
+          }
+         ],
+         "staleness": {
+          "basis": "analysis_graph_hash_interim",
+          "stale": false,
+          "reason": "graph_hash_match",
+          "revision": null,
+          "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+          "run_revision": null
+         },
+         "goal_chance": {
+          "chance_words": "chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect"
+         },
+         "leader_licence": "withheld"
+        }
+       },
+       "run_id": "mp_run_1_289ba3bbdaa5",
+       "receipt": {
+        "seed": 2426040492,
+        "draws": 10000,
+        "versions": {
+         "engine": "mp-7745f905a8a2",
+         "canonical": "canonical.v1",
+         "executable": "r5"
+        },
+        "revision_digest": "51da3017f7410fbb1f57ce8d732b287898f7c6d1b19c98e10d67179319d34695"
+       },
+       "computed_at": "2026-10-25T08:30:42.619Z"
+      },
+      {
+       "result": {
+        "chances": [
+         {
+          "joint": {
+           "chance": 0,
+           "precision_95": [
+            0,
+            0
+           ]
+          },
+          "outcomes": [
+           {
+            "p10": 80,
+            "p50": 80,
+            "p90": 80,
+            "goal_id": "support_capacity_goal"
+           }
+          ],
+          "per_goal": [
+           {
+            "chance": 0,
+            "goal_id": "support_capacity_goal",
+            "precision_95": [
+             0,
+             0
+            ]
+           }
+          ],
+          "option_id": "keep_current_staffing",
+          "within_limits": {
+           "chance": 1,
+           "precision_95": [
+            1,
+            1
+           ]
+          },
+          "joint_within_limits": {
+           "chance": 0,
+           "precision_95": [
+            0,
+            0
+           ]
+          }
+         },
+         {
+          "joint": {
+           "chance": 0.4993,
+           "precision_95": [
+            0.48950234021256117,
+            0.5090981973851576
+           ]
+          },
+          "outcomes": [
+           {
+            "p10": 93.61984103135424,
+            "p50": 99.99343923293853,
+            "p90": 106.4996223559754,
+            "goal_id": "support_capacity_goal"
+           }
+          ],
+          "per_goal": [
+           {
+            "chance": 0.4993,
+            "goal_id": "support_capacity_goal",
+            "precision_95": [
+             0.48950234021256117,
+             0.5090981973851576
+            ]
+           }
+          ],
+          "option_id": "add_one_specialist",
+          "within_limits": {
+           "chance": 1,
+           "precision_95": [
+            1,
+            1
+           ]
+          },
+          "joint_within_limits": {
+           "chance": 0.4993,
+           "precision_95": [
+            0.48950234021256117,
+            0.5090981973851576
+           ]
+          }
+         }
+        ],
+        "compile": {
+         "joint": {
+          "asks": [],
+          "status": "calculable",
+          "reasons": [],
+          "goal_ids": [
+           "support_capacity_goal"
+          ],
+          "leaves_out": []
+         },
+         "errors": [],
+         "blockers": [],
+         "compiles": true,
+         "per_goal": [
+          {
+           "asks": [],
+           "status": "calculable",
+           "goal_id": "support_capacity_goal",
+           "reasons": [],
+           "excludes": [],
+           "rests_on": [],
+           "cancelled": [],
+           "olumi_inputs": [],
+           "needs_measure": false,
+           "needs_deadline": false,
+           "unverified_inputs": []
+          }
+         ],
+         "per_limit": [],
+         "executable": true,
+         "per_option": [
+          {
+           "asks": [],
+           "status": "calculable",
+           "reasons": [],
+           "option_id": "keep_current_staffing"
+          },
+          {
+           "asks": [],
+           "status": "calculable",
+           "reasons": [],
+           "option_id": "add_one_specialist"
+          }
+         ],
+         "unverified": [],
+         "conversions": [
+          {
+           "low": 10,
+           "high": 30,
+           "kind": "range_law",
+           "author": "olumi",
+           "domain": null,
+           "reading": {
+            "sd": 5.773502691896258,
+            "kind": "normal",
+            "mean": 20,
+            "lower": 10,
+            "upper": 30,
+            "centre": 20,
+            "sd_conditioned": 4.703303118664445
+           },
+           "quantity": "capacity_per_specialist",
+           "range_kind": "bounds",
+           "provisional": true
+          }
+         ],
+         "within_limits": {
+          "asks": [],
+          "status": "calculable",
+          "reasons": [],
+          "limit_ids": [],
+          "leaves_out": []
+         },
+         "implicit_as_stated": false
+        },
+        "canonical_analysis_view": {
+         "run": {
+          "run_id": "mp_run_2_b580f644f9ca",
+          "computed_at": "2026-10-25T08:30:47.331Z",
+          "graph_hash_at_run": "6fa0109ba28710aa"
+         },
+         "schema": "canonical_analysis_view.v1",
+         "source": "stored_run_facts",
+         "options": [
+          {
+           "cell": {
+            "face": "‘Keep current staffing’: 0% chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds: in every simulated draw ‘Weekly support capacity’ is 80 ticket / week, below 100 ticket / week.",
+            "kind": "figure",
+            "detail": {
+             "draws": 10000,
+             "precision_95": [
+              0,
+              0
+             ],
+             "precision_words": "Simulation precision: exact. Every simulated draw gives the same result for this option, so no sampling is involved."
+            },
+            "display": "0%"
+           },
+           "option_id": "keep_current_staffing",
+           "main_driver": {
+            "kind": "none_licensed",
+            "reason": "Tested one at a time at each figure’s low end, middle and high end, no figure moved this chance by more than 5 points."
+           }
+          },
+          {
+           "cell": {
+            "face": "‘Add one specialist’: about 50% chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds.",
+            "kind": "figure",
+            "detail": {
+             "draws": 10000,
+             "precision_95": [
+              0.48950234021256117,
+              0.5090981973851576
+             ],
+             "precision_words": "Simulation precision: 49% to 50.9%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+            },
+            "display": "about 50%"
+           },
+           "option_id": "add_one_specialist",
+           "main_driver": {
+            "kind": "available",
+            "detail": "In this model, of the figures tested one at a time, the chance is most sensitive to ‘Weekly capacity per additional specialist’ (your range): at the low end (10 ticket / week / specialist) 0%, at the middle (20 ticket / week / specialist) 100%, at the high end (30 ticket / week / specialist) 100%.",
+            "driver": {
+             "low": {
+              "value": 10,
+              "display": "0%"
+             },
+             "high": {
+              "value": 30,
+              "display": "100%"
+             },
+             "draws": 4000,
+             "author": "person",
+             "middle": {
+              "value": 20,
+              "display": "100%"
+             },
+             "quantity": "capacity_per_specialist",
+             "untested": [],
+             "swing_points": 100
+            }
+           }
+          }
+         ],
+         "staleness": {
+          "basis": "analysis_graph_hash_interim",
+          "stale": false,
+          "reason": "graph_hash_match",
+          "revision": null,
+          "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+          "run_revision": null
+         },
+         "goal_chance": {
+          "chance_words": "chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect"
+         },
+         "leader_licence": "withheld"
+        }
+       },
+       "run_id": "mp_run_2_b580f644f9ca",
+       "receipt": {
+        "seed": 2426040492,
+        "draws": 10000,
+        "versions": {
+         "engine": "mp-7745f905a8a2",
+         "canonical": "canonical.v1",
+         "executable": "r5"
+        },
+        "revision_digest": "268e12d3a583963cb50197745fff0ef8ad6bc1b10061dde52ab4bde6b6026433"
+       },
+       "computed_at": "2026-10-25T08:30:47.331Z"
+      },
+      {
+       "result": {
+        "chances": [
+         {
+          "joint": {
+           "chance": 0,
+           "precision_95": [
+            0,
+            0
+           ]
+          },
+          "outcomes": [
+           {
+            "p10": 80,
+            "p50": 80,
+            "p90": 80,
+            "goal_id": "support_capacity_goal"
+           }
+          ],
+          "per_goal": [
+           {
+            "chance": 0,
+            "goal_id": "support_capacity_goal",
+            "precision_95": [
+             0,
+             0
+            ]
+           }
+          ],
+          "option_id": "keep_current_staffing",
+          "within_limits": {
+           "chance": 1,
+           "precision_95": [
+            1,
+            1
+           ]
+          },
+          "joint_within_limits": {
+           "chance": 0,
+           "precision_95": [
+            0,
+            0
+           ]
+          }
+         },
+         {
+          "joint": {
+           "chance": 0.4993,
+           "precision_95": [
+            0.48950234021256117,
+            0.5090981973851576
+           ]
+          },
+          "outcomes": [
+           {
+            "p10": 93.61984103135424,
+            "p50": 99.99343923293853,
+            "p90": 106.4996223559754,
+            "goal_id": "support_capacity_goal"
+           }
+          ],
+          "per_goal": [
+           {
+            "chance": 0.4993,
+            "goal_id": "support_capacity_goal",
+            "precision_95": [
+             0.48950234021256117,
+             0.5090981973851576
+            ]
+           }
+          ],
+          "option_id": "add_one_specialist",
+          "within_limits": {
+           "chance": 1,
+           "precision_95": [
+            1,
+            1
+           ]
+          },
+          "joint_within_limits": {
+           "chance": 0.4993,
+           "precision_95": [
+            0.48950234021256117,
+            0.5090981973851576
+           ]
+          }
+         }
+        ],
+        "compile": {
+         "joint": {
+          "asks": [],
+          "status": "calculable",
+          "reasons": [],
+          "goal_ids": [
+           "support_capacity_goal"
+          ],
+          "leaves_out": []
+         },
+         "errors": [],
+         "blockers": [],
+         "compiles": true,
+         "per_goal": [
+          {
+           "asks": [],
+           "status": "calculable",
+           "goal_id": "support_capacity_goal",
+           "reasons": [],
+           "excludes": [],
+           "rests_on": [],
+           "cancelled": [],
+           "olumi_inputs": [],
+           "needs_measure": false,
+           "needs_deadline": false,
+           "unverified_inputs": []
+          }
+         ],
+         "per_limit": [],
+         "executable": true,
+         "per_option": [
+          {
+           "asks": [],
+           "status": "calculable",
+           "reasons": [],
+           "option_id": "keep_current_staffing"
+          },
+          {
+           "asks": [],
+           "status": "calculable",
+           "reasons": [],
+           "option_id": "add_one_specialist"
+          }
+         ],
+         "unverified": [],
+         "conversions": [
+          {
+           "low": 10,
+           "high": 30,
+           "kind": "range_law",
+           "author": "olumi",
+           "domain": null,
+           "reading": {
+            "sd": 5.773502691896258,
+            "kind": "normal",
+            "mean": 20,
+            "lower": 10,
+            "upper": 30,
+            "centre": 20,
+            "sd_conditioned": 4.703303118664445
+           },
+           "quantity": "capacity_per_specialist",
+           "range_kind": "bounds",
+           "provisional": true
+          }
+         ],
+         "within_limits": {
+          "asks": [],
+          "status": "calculable",
+          "reasons": [],
+          "limit_ids": [],
+          "leaves_out": []
+         },
+         "implicit_as_stated": false
+        },
+        "canonical_analysis_view": {
+         "run": {
+          "run_id": "mp_run_3_78ccffb782d7",
+          "computed_at": "2026-10-25T08:32:35.727Z",
+          "graph_hash_at_run": "76e66be30040c49d"
+         },
+         "schema": "canonical_analysis_view.v1",
+         "source": "stored_run_facts",
+         "options": [
+          {
+           "cell": {
+            "face": "‘Keep current staffing’: 0% chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds: in every simulated draw ‘Weekly support capacity’ is 80 ticket / week, below 100 ticket / week.",
+            "kind": "figure",
+            "detail": {
+             "draws": 10000,
+             "precision_95": [
+              0,
+              0
+             ],
+             "precision_words": "Simulation precision: exact. Every simulated draw gives the same result for this option, so no sampling is involved."
+            },
+            "display": "0%"
+           },
+           "option_id": "keep_current_staffing",
+           "main_driver": {
+            "kind": "none_licensed",
+            "reason": "Tested one at a time at each figure’s low end, middle and high end, no figure moved this chance by more than 5 points."
+           }
+          },
+          {
+           "cell": {
+            "face": "‘Add one specialist’: about 50% chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds.",
+            "kind": "figure",
+            "detail": {
+             "draws": 10000,
+             "precision_95": [
+              0.48950234021256117,
+              0.5090981973851576
+             ],
+             "precision_words": "Simulation precision: 49% to 50.9%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+            },
+            "display": "about 50%"
+           },
+           "option_id": "add_one_specialist",
+           "main_driver": {
+            "kind": "available",
+            "detail": "In this model, of the figures tested one at a time, the chance is most sensitive to ‘Weekly capacity per additional specialist’ (your range): at the low end (10 ticket / week / specialist) 0%, at the middle (20 ticket / week / specialist) 100%, at the high end (30 ticket / week / specialist) 100%.",
+            "driver": {
+             "low": {
+              "value": 10,
+              "display": "0%"
+             },
+             "high": {
+              "value": 30,
+              "display": "100%"
+             },
+             "draws": 4000,
+             "author": "person",
+             "middle": {
+              "value": 20,
+              "display": "100%"
+             },
+             "quantity": "capacity_per_specialist",
+             "untested": [],
+             "swing_points": 100
+            }
+           }
+          }
+         ],
+         "staleness": {
+          "basis": "analysis_graph_hash_interim",
+          "stale": false,
+          "reason": "graph_hash_match",
+          "revision": null,
+          "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+          "run_revision": null
+         },
+         "goal_chance": {
+          "notes": [
+           "Covers: ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect · Leaves out: ‘The measurement of Staff absence remains open.’ and ‘The reduction in Weekly support capacity caused by Staff absence is not yet included in the calculation for either staffing option.’"
+          ],
+          "chance_words": "chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect"
+         },
+         "leader_licence": "withheld"
+        }
+       },
+       "run_id": "mp_run_3_78ccffb782d7",
+       "receipt": {
+        "seed": 2426040492,
+        "draws": 10000,
+        "versions": {
+         "engine": "mp-7745f905a8a2",
+         "canonical": "canonical.v1",
+         "executable": "r5"
+        },
+        "revision_digest": "ecf6da53f5afc7eef61778d53ed77601d824672efcea00cba35c5f1387729aa0"
+       },
+       "computed_at": "2026-10-25T08:32:35.727Z"
+      }
+     ],
+     "seed": 2426040492,
+     "canonical": {
+      "goals": [
+       {
+        "id": "support_capacity_goal",
+        "label": "Weekly support capacity",
+        "party": null,
+        "quote": "Goal: weekly support capacity of at least 100 tickets per week.",
+        "author": "person",
+        "measure": {
+         "cmp": ">=",
+         "per": null,
+         "frame": "level",
+         "target": "capacity_target",
+         "window": null,
+         "quantity": "weekly_support_capacity",
+         "reference": null,
+         "exclusions": [],
+         "measure_by": "person",
+         "aggregation": "end",
+         "assumptions": []
+        },
+        "approval": "approved",
+        "question": null,
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       }
+      ],
+      "risks": [],
+      "claims": [
+       {
+        "id": "staff_absence",
+        "text": "Staff absence",
+        "party": null,
+        "quote": "Add a factor called \"Staff absence\" that reduces weekly support capacity.",
+        "author": "person",
+        "approval": "approved",
+        "concerns": [
+         "weekly_support_capacity"
+        ],
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       },
+       {
+        "id": "staff_absence_reduces_capacity",
+        "text": "Staff absence reduces weekly support capacity.",
+        "party": null,
+        "quote": "Add a factor called \"Staff absence\" that reduces weekly support capacity.",
+        "author": "person",
+        "approval": "approved",
+        "concerns": [
+         "staff_absence",
+         "weekly_support_capacity"
+        ],
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       }
+      ],
+      "limits": [],
+      "period": "week",
+      "dissent": [],
+      "history": [],
+      "options": [
+       {
+        "id": "keep_current_staffing",
+        "sets": [
+         {
+          "to": "keep_current_staffing__additional_specialists",
+          "low": null,
+          "high": null,
+          "quote": "Keep current staffing adds no specialist.",
+          "value": null,
+          "author": "person",
+          "quantity": "additional_specialists",
+          "question": null,
+          "range_kind": null,
+          "starts_after_periods": 0
+         }
+        ],
+        "label": "Keep current staffing",
+        "party": null,
+        "quote": "Keep current staffing adds no specialist.",
+        "author": "person",
+        "status": "live",
+        "approval": "approved",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "developed_from": null
+       },
+       {
+        "id": "add_one_specialist",
+        "sets": [
+         {
+          "to": "add_one_specialist__additional_specialists",
+          "low": null,
+          "high": null,
+          "quote": "Add one specialist adds one specialist.",
+          "value": null,
+          "author": "person",
+          "quantity": "additional_specialists",
+          "question": null,
+          "range_kind": null,
+          "starts_after_periods": 0
+         }
+        ],
+        "label": "Add one specialist",
+        "party": null,
+        "quote": "Add one specialist adds one specialist.",
+        "author": "person",
+        "status": "live",
+        "approval": "approved",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "developed_from": null
+       }
+      ],
+      "version": "canonical.v1",
+      "evidence": [],
+      "left_out": [
+       {
+        "id": "staff_absence_measurement_open",
+        "why": "No measurement or unit has been chosen, so no numerical absence input has been introduced.",
+        "text": "The measurement of Staff absence remains open.",
+        "party": null,
+        "quote": null,
+        "author": "olumi",
+        "approval": "approved",
+        "concerns": [
+         "staff_absence",
+         "staff_absence_reduces_capacity"
+        ],
+        "question": "How would you measure Staff absence?",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       },
+       {
+        "id": "staff_absence_effect_open",
+        "why": "The reducing relationship is recorded, but its size and response rule remain open as requested; the existing capacity definition is unchanged.",
+        "text": "The reduction in Weekly support capacity caused by Staff absence is not yet included in the calculation for either staffing option.",
+        "party": null,
+        "quote": null,
+        "author": "olumi",
+        "approval": "approved",
+        "concerns": [
+         "staff_absence",
+         "staff_absence_reduces_capacity",
+         "weekly_support_capacity",
+         "support_capacity_goal",
+         "keep_current_staffing",
+         "add_one_specialist"
+        ],
+        "question": "What records of staff absence and tickets resolved in the same weeks could you provide to establish its effect?",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       }
+      ],
+      "question": "How do Keep current staffing and Add one specialist compare against the Weekly support capacity goal?",
+      "relations": [
+       {
+        "id": "define_additional_capacity",
+        "op": "product",
+        "form": "definition",
+        "parts": [
+         {
+          "id": "additional_specialists",
+          "power": 1
+         },
+         {
+          "id": "capacity_per_specialist",
+          "power": 1
+         }
+        ],
+        "party": null,
+        "quote": "Each additional specialist resolves about 20 tickets per week, between 10 and 30.",
+        "author": "person",
+        "defines": "additional_capacity",
+        "approval": "approved",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       },
+       {
+        "id": "define_weekly_support_capacity",
+        "op": "sum",
+        "form": "definition",
+        "parts": [
+         {
+          "id": "existing_capacity",
+          "sign": 1
+         },
+         {
+          "id": "additional_capacity",
+          "sign": 1
+         }
+        ],
+        "party": null,
+        "quote": "Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity.",
+        "author": "person",
+        "defines": "weekly_support_capacity",
+        "approval": "approved",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+       }
+      ],
+      "conditions": [],
+      "quantities": [
+       {
+        "id": "existing_capacity",
+        "low": null,
+        "high": null,
+        "kind": "fact",
+        "unit": "ticket/week",
+        "basis": null,
+        "label": "Existing team capacity",
+        "party": null,
+        "quote": "Our existing team resolves 80 tickets per week.",
+        "value": 80,
+        "author": "person",
+        "status": "known",
+        "approval": "approved",
+        "question": null,
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "direction": null,
+        "range_kind": null
+       },
+       {
+        "id": "additional_specialists",
+        "low": null,
+        "high": null,
+        "kind": "fact",
+        "unit": "specialist",
+        "basis": null,
+        "label": "Additional specialists",
+        "party": null,
+        "quote": "Keep current staffing adds no specialist.",
+        "value": 0,
+        "author": "person",
+        "status": "known",
+        "approval": "approved",
+        "question": null,
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "direction": null,
+        "range_kind": null
+       },
+       {
+        "id": "capacity_per_specialist",
+        "low": 10,
+        "high": 30,
+        "kind": "coefficient",
+        "unit": "ticket/week/specialist",
+        "basis": null,
+        "label": "Weekly capacity per additional specialist",
+        "party": null,
+        "quote": "Each additional specialist resolves about 20 tickets per week, between 10 and 30.",
+        "value": 20,
+        "author": "person",
+        "status": "known",
+        "approval": "approved",
+        "question": null,
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "direction": null,
+        "range_kind": "bounds"
+       },
+       {
+        "id": "additional_capacity",
+        "low": null,
+        "high": null,
+        "kind": "derived",
+        "unit": "ticket/week",
+        "basis": null,
+        "label": "Additional specialist capacity",
+        "party": null,
+        "quote": "Each additional specialist resolves about 20 tickets per week, between 10 and 30.",
+        "value": null,
+        "author": "person",
+        "status": "derived",
+        "approval": "approved",
+        "question": null,
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "direction": null,
+        "range_kind": null
+       },
+       {
+        "id": "weekly_support_capacity",
+        "low": null,
+        "high": null,
+        "kind": "derived",
+        "unit": "ticket/week",
+        "basis": null,
+        "label": "Weekly support capacity",
+        "party": null,
+        "quote": "Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity.",
+        "value": null,
+        "author": "person",
+        "status": "derived",
+        "approval": "approved",
+        "question": null,
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "direction": null,
+        "range_kind": null
+       },
+       {
+        "id": "capacity_target",
+        "low": null,
+        "high": null,
+        "kind": "fact",
+        "unit": "ticket/week",
+        "basis": null,
+        "label": "Weekly support capacity target",
+        "party": null,
+        "quote": "Goal: weekly support capacity of at least 100 tickets per week.",
+        "value": 100,
+        "author": "person",
+        "status": "known",
+        "approval": "approved",
+        "question": null,
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "direction": null,
+        "range_kind": null
+       },
+       {
+        "id": "keep_current_staffing__additional_specialists",
+        "low": null,
+        "high": null,
+        "kind": "fact",
+        "unit": "specialist",
+        "basis": null,
+        "label": "Keep current staffing: Additional specialists",
+        "party": null,
+        "quote": "Keep current staffing adds no specialist.",
+        "value": 0,
+        "author": "person",
+        "status": "known",
+        "approval": "approved",
+        "question": null,
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "direction": null,
+        "range_kind": null
+       },
+       {
+        "id": "add_one_specialist__additional_specialists",
+        "low": null,
+        "high": null,
+        "kind": "fact",
+        "unit": "specialist",
+        "basis": null,
+        "label": "Add one specialist: Additional specialists",
+        "party": null,
+        "quote": "Add one specialist adds one specialist.",
+        "value": 1,
+        "author": "person",
+        "status": "known",
+        "approval": "approved",
+        "question": null,
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "direction": null,
+        "range_kind": null
+       }
+      ],
+      "assumptions": [],
+      "preferences": []
+     },
+     "person_words": [
+      "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+      "I'm not sure yet. Keep that open for now, and tell me what you would need from me to pin it down.",
+      "Add a factor called \"Staff absence\" that reduces weekly support capacity."
+     ],
+     "model_program": "v1"
+    },
+    "ref_high_water": {
+     "A": 4,
+     "D": 1,
+     "F": 2,
+     "G": 1,
+     "O": 2,
+     "OC": 2
+    },
+    "goal_constraints": []
+   },
+   "content_hash": "fd14fb8b60f2d6e71f9f0bf56cbbafcf861bdafe79685a292110bd51ad3b96ef",
+   "withheld": null,
+   "graph_present": true,
+   "brief_text": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+   "scenario_created_at": "2026-10-25T08:30:20.264427+00:00",
+   "graph_identity_hash": {
+    "kind": "graph_identity_hash",
+    "value": "fd14fb8b60f2d6e71f9f0bf56cbbafcf861bdafe79685a292110bd51ad3b96ef",
+    "algorithm": "sha256",
+    "projection_version": "identity.v1",
+    "graph_schema_version": "graph_v3",
+    "normaliser_version": "1"
+   },
+   "graph_hash": "76e66be30040c49d",
+   "layout_present": false,
+   "not_modelled": {
+    "schema": "not_modelled.v1",
+    "status": "derived",
+    "unavailable_reason": null,
+    "scope": {
+     "searched": "quantities stated in the brief that carry a unit: money, percentages, counts with a unit word, calendar dates and fiscal periods",
+     "model_surface": [
+      "node and option values, caps, units, labels and encoding maps"
+     ],
+     "prose_surface": [
+      "coaching cards",
+      "draft warnings",
+      "validation warnings"
+     ],
+     "excluded_from_search": [
+      "bare numbers carrying no unit, currency or percent sign",
+      "everything in not_tracked"
+     ]
+    },
+    "quantities": {
+     "total": 4,
+     "in_model": 4,
+     "in_model_anchored": 0,
+     "in_model_unanchored": 4,
+     "prose_only": 0,
+     "absent": 0,
+     "truncated": false,
+     "items": [
+      {
+       "literal": "80 tickets per week",
+       "kind": "count",
+       "char_offset": 185,
+       "verdict": "in_model",
+       "matched_node_id": null,
+       "stated_kind": "figure"
+      },
+      {
+       "literal": "20 tickets per week",
+       "kind": "count",
+       "char_offset": 330,
+       "verdict": "in_model",
+       "matched_node_id": null,
+       "stated_kind": "figure"
+      },
+      {
+       "literal": "80 tickets per week",
+       "kind": "count",
+       "char_offset": 427,
+       "verdict": "in_model",
+       "matched_node_id": null,
+       "stated_kind": "figure"
+      },
+      {
+       "literal": "100 tickets per week",
+       "kind": "count",
+       "char_offset": 530,
+       "verdict": "in_model",
+       "matched_node_id": null,
+       "stated_kind": "figure"
+      }
+     ]
+    },
+    "stated_kinds": {
+     "status": "derived",
+     "tally": {
+      "goal": 0,
+      "option": 0,
+      "constraint": 0,
+      "figure": 4,
+      "evidence": 0,
+      "assumption": 0,
+      "disagreement": 0,
+      "correction": 0
+     },
+     "sourced": [
+      "constraint",
+      "figure"
+     ],
+     "unsourced": [
+      "goal",
+      "option",
+      "evidence",
+      "assumption",
+      "disagreement",
+      "correction"
+     ],
+     "producers": {
+      "figure": "extractStatedQuantities (this module) — quantities stated in the brief",
+      "constraint": "graph.goal_constraints[] with source_quote (draft/anthropic-graph-schema.ts:447-467)"
+     }
+    },
+    "declared_exclusions": {
+     "status": "not_recorded",
+     "items": []
+    },
+    "inferred_factors": {
+     "status": "derived",
+     "items": [
+      {
+       "node_id": "additional_specialists",
+       "label": "Additional specialists"
+      }
+     ]
+    },
+    "not_tracked": [
+     "competing_or_dissenting_proposals",
+     "corrections_and_second_thoughts",
+     "named_evidence_sources_and_their_pedigree",
+     "qualitative_constraints_and_rules",
+     "stated_confidence_and_self_flagged_weakness",
+     "statements_the_drafting_model_did_not_report_discarding"
+    ]
+   },
+   "analysis_state": {
+    "run_state": {
+     "kind": "never_run"
+    },
+    "readiness": {
+     "status": "ready",
+     "blockers": []
+    },
+    "leader_claim": {
+     "permitted": false,
+     "withheld_reason": "analysis_no_result"
+    },
+    "robustness": {},
+    "usable_for_prose": false,
+    "usable_for_chips": false,
+    "usable_for_followup": false,
+    "requires_rerun": false,
+    "blocked_unusable": false,
+    "contradictions": []
+   },
+   "analysis_result": null,
+   "canonical_analysis_view": {
+    "run": {
+     "run_id": "mp_run_3_78ccffb782d7",
+     "computed_at": "2026-10-25T08:32:35.727Z",
+     "graph_hash_at_run": "76e66be30040c49d"
+    },
+    "schema": "canonical_analysis_view.v1",
+    "source": "stored_run_facts",
+    "options": [
+     {
+      "cell": {
+       "face": "‘Keep current staffing’: 0% chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds: in every simulated draw ‘Weekly support capacity’ is 80 ticket / week, below 100 ticket / week.",
+       "kind": "figure",
+       "detail": {
+        "draws": 10000,
+        "precision_95": [
+         0,
+         0
+        ],
+        "precision_words": "Simulation precision: exact. Every simulated draw gives the same result for this option, so no sampling is involved."
+       },
+       "display": "0%"
+      },
+      "option_id": "keep_current_staffing",
+      "main_driver": {
+       "kind": "none_licensed",
+       "reason": "Tested one at a time at each figure’s low end, middle and high end, no figure moved this chance by more than 5 points."
+      }
+     },
+     {
+      "cell": {
+       "face": "‘Add one specialist’: about 50% chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds.",
+       "kind": "figure",
+       "detail": {
+        "draws": 10000,
+        "precision_95": [
+         0.48950234021256117,
+         0.5090981973851576
+        ],
+        "precision_words": "Simulation precision: 49% to 50.9%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+       },
+       "display": "about 50%"
+      },
+      "option_id": "add_one_specialist",
+      "main_driver": {
+       "kind": "available",
+       "detail": "In this model, of the figures tested one at a time, the chance is most sensitive to ‘Weekly capacity per additional specialist’ (your range): at the low end (10 ticket / week / specialist) 0%, at the middle (20 ticket / week / specialist) 100%, at the high end (30 ticket / week / specialist) 100%.",
+       "driver": {
+        "low": {
+         "value": 10,
+         "display": "0%"
+        },
+        "high": {
+         "value": 30,
+         "display": "100%"
+        },
+        "draws": 4000,
+        "author": "person",
+        "middle": {
+         "value": 20,
+         "display": "100%"
+        },
+        "quantity": "capacity_per_specialist",
+        "untested": [],
+        "swing_points": 100
+       }
+      }
+     }
+    ],
+    "staleness": {
+     "basis": "analysis_graph_hash_interim",
+     "stale": false,
+     "reason": "graph_hash_match",
+     "revision": null,
+     "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+     "run_revision": null
+    },
+    "goal_chance": {
+     "notes": [
+      "Covers: ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect · Leaves out: ‘The measurement of Staff absence remains open.’ and ‘The reduction in Weekly support capacity caused by Staff absence is not yet included in the calculation for either staffing option.’"
+     ],
+     "chance_words": "chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect"
+    },
+    "leader_licence": "withheld"
+   },
+   "current_read": {
+    "analysis_ready": {
+     "goal_node_id": "support_capacity_goal",
+     "goal_threshold": 0.8,
+     "goal_threshold_raw": 100,
+     "goal_threshold_unit": "ticket/week",
+     "goal_threshold_cap": 125,
+     "goal_threshold_cap_provenance": "target_derived_headroom",
+     "goal_threshold_frame": "level",
+     "options": [
+      {
+       "option_id": "keep_current_staffing",
+       "label": "Keep current staffing",
+       "status": "ready",
+       "interventions": {
+        "additional_specialists": 0
+       }
+      },
+      {
+       "option_id": "add_one_specialist",
+       "label": "Add one specialist",
+       "status": "ready",
+       "interventions": {
+        "additional_specialists": 1
+       }
+      }
+     ],
+     "status": "ready",
+     "may_run": true,
+     "current_graph_hash": "76e66be30040c49d"
+    },
+    "run_state": {
+     "kind": "never_run"
+    },
+    "computed_against_hash": null,
+    "current_analysis_hash": "76e66be30040c49d",
+    "figures": []
+   },
+   "analysis_identity_run_use": null,
+   "analysis_admission": null,
+   "conversation_turns": [
+    {
+     "turn_id": "0c701977-f7c7-4c3b-8bcf-7e7c0b8aa75f",
+     "created_at": "2026-10-25T08:30:48.806053+00:00",
+     "user_message": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+     "assistant_message": "I've drafted a first model of: How do Keep current staffing and Add one specialist compare against the Weekly support capacity goal?\n\n‘Keep current staffing’: 0% chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds: in every simulated draw ‘Weekly support capacity’ is 80 ticket / week, below 100 ticket / week.\n\n‘Add one specialist’: about 50% chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect, in this model, if ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds."
+    },
+    {
+     "turn_id": "e03cc798-4013-48ca-9408-3bd846f3bbd9",
+     "created_at": "2026-10-25T08:31:17.767609+00:00",
+     "user_message": "Yes, that’s what I meant.",
+     "assistant_message": "The staffing model is now saved, with your figures and option labels unchanged.\n\n- The bell-shaped spread used within your specialist-capacity range remains **Olumi’s provisional assumption**, not something your brief established.\n- A useful next step is to check weekly ticket counts for comparable specialists, to test whether that spread reflects the evidence."
+    },
+    {
+     "turn_id": "a72decf4-16f7-4d97-8e57-cda346a05880",
+     "created_at": "2026-10-25T08:31:38.897577+00:00",
+     "user_message": "I'm not sure yet. Keep that open for now, and tell me what you would need from me to pin it down.",
+     "assistant_message": "We can leave the shape of the specialist-capacity range unresolved; I haven’t changed the saved model.\n\nTo test Olumi’s provisional bell-shaped assumption, I’d need:\n- **Weekly ticket counts for comparable specialists**, including quieter and busier weeks—not just an average. These would show whether results cluster around the middle or elsewhere.\n- **Context for those counts:** hours worked, ticket difficulty, experience and any help from colleagues, so we compare like with like.\n- **The basis for your range:** whether “between 10 and 30” means firm limits or simply the range you have seen so far.\n\nWhen you’re ready, start with whatever weekly records you already have. There’s no need to invent a more precise estimate now."
+    },
+    {
+     "turn_id": "e6cd2680-8beb-419a-9acb-c8c2a6f06596",
+     "created_at": "2026-10-25T08:32:42.433125+00:00",
+     "user_message": "Add a factor called \"Staff absence\" that reduces weekly support capacity.",
+     "assistant_message": "I’ve prepared “Staff absence” as a factor that reduces “Weekly support capacity”; it awaits your approval on the card.\n\n- The reducing effect is recorded, but no amount or calculation rule has been invented. Absence is therefore not yet included in either option’s calculated capacity.\n- How would you measure Staff absence—for example, staff-days lost per week or tickets of capacity lost per week?\n- Are your existing capacity figures already net of typical absence? This matters so we don’t count the same reduction twice."
+    },
+    {
+     "turn_id": "8aa43dd8-9b8c-482d-8042-3192a626a93d",
+     "created_at": "2026-10-25T08:33:04.227501+00:00",
+     "user_message": "Yes, make that change.",
+     "assistant_message": "“Staff absence” is now saved as a factor that reduces “Weekly support capacity”.\n\n- Its measurement and the size of its effect remain open; no absence figure has been invented.\n- “The reduction in Weekly support capacity caused by Staff absence is not yet included in the calculation for either staffing option.”\n- Next, check whether your existing capacity figures already include typical absence, so any later adjustment avoids counting it twice."
+    }
+   ],
+   "action_bar": {
+    "v": 1,
+    "state_key": "3d3db89a07e5ea57",
+    "revision": {
+     "graph_hash": "76e66be30040c49d",
+     "run_key": null
+    },
+    "priority": [
+     {
+      "action_id": "more_options",
+      "label": "More options",
+      "icon": "GitFork",
+      "group": "gap",
+      "press_id": "agent-next-widen",
+      "user_line": "Suggest options I haven’t considered.",
+      "enabled": true,
+      "why_now": "There is only one option besides doing nothing.",
+      "offer_key": "31cc9acc800fb904"
+     }
+    ],
+    "standard": [
+     {
+      "action_id": "review",
+      "label": "Review",
+      "icon": "ListChecks",
+      "group": "review",
+      "press_id": "agent-next-review-decision",
+      "user_line": "Review this model: what should I check before relying on it?",
+      "enabled": false,
+      "disabled_reason": "Needs a current analysis.",
+      "offer_key": "9c307de502a39bc9"
+     },
+     {
+      "action_id": "what_changes",
+      "label": "What changes",
+      "icon": "SlidersHorizontal",
+      "group": "method",
+      "press_id": "agent-next-what-would-change",
+      "user_line": "What would most likely change this result?",
+      "enabled": false,
+      "disabled_reason": "Needs a current analysis.",
+      "offer_key": "41d4fcbe67165048"
+     },
+     {
+      "action_id": "strengthen",
+      "label": "Strengthen",
+      "icon": "ShieldCheck",
+      "group": "review",
+      "press_id": "agent-next-strengthen",
+      "user_line": "What would most strengthen this model?",
+      "enabled": false,
+      "disabled_reason": "Needs a current analysis.",
+      "offer_key": "78764848de343090"
+     },
+     {
+      "action_id": "pre_mortem",
+      "label": "Pre-mortem",
+      "icon": "ClipboardList",
+      "group": "method",
+      "press_id": "agent-next-pre-mortem",
+      "user_line": "Run a pre-mortem with me: imagine we went ahead and it went badly. What most plausibly went wrong?",
+      "enabled": true,
+      "why_now": "Imagine this went badly and find the most likely causes.",
+      "offer_key": "4617f015f7058c1e"
+     }
+    ],
+    "more": [
+     {
+      "action_id": "frame_brief",
+      "label": "Frame brief",
+      "icon": "FileText",
+      "group": "gap",
+      "press_id": "act:frame_brief",
+      "user_line": "Help me frame my brief: what is missing from it?",
+      "enabled": true,
+      "why_now": "See what your brief has and what it is missing.",
+      "offer_key": "7a9f7f5e0cfded76"
+     },
+     {
+      "action_id": "more_risks",
+      "label": "More risks",
+      "icon": "ShieldAlert",
+      "group": "gap",
+      "press_id": "agent-next-suggest-risks",
+      "user_line": "Suggest risks I haven't considered.",
+      "enabled": true,
+      "why_now": "Find risks you haven’t considered yet.",
+      "offer_key": "4eb40cf4c775c06a"
+     },
+     {
+      "action_id": "bias_check",
+      "label": "Bias check",
+      "icon": "ScanSearch",
+      "group": "method",
+      "press_id": "act:bias_check",
+      "user_line": "Where could a common reasoning pattern bite in this model?",
+      "enabled": true,
+      "why_now": "See where common reasoning patterns could bite in this model.",
+      "offer_key": "dc6225cafdbba455"
+     }
+    ],
+    "bias_risk": {
+     "v": 1,
+     "items": [
+      {
+       "claim_id": "DSK-B-007",
+       "name": "Narrow framing",
+       "why": "The only choice on the table is ‘Add one specialist’ or carrying on as now, which can hide other routes.",
+       "action_id": "more_options",
+       "press_id": "agent-next-widen",
+       "offer_key": "31cc9acc800fb904",
+       "science": {
+        "claim_id": "DSK-B-007",
+        "claim_title": "Narrow framing and insufficient option generation",
+        "evidence_strength": "medium"
+       }
+      }
+     ]
+    }
+   },
+   "request_id": "ad8a5adb-4391-435d-888e-4b3bbb30c6e7"
+  }
+ },
+ "still_running": {
+  "_source": "/Users/paulslee/olumi-work/recovery/live/runs-core/european-20261025T122645Z/european/turns/05-edit.json: HTTP 504, CEE's own TURN_STILL_RUNNING body. Served UI bed9c21a · CEE f005cef9 (SUMMARY.md).",
+  "status": 504,
+  "body": {
+   "turn_id": "228ae241-fa12-44ba-a3a2-4483bfddccd1",
+   "durability": "unknown",
+   "assistant_text": "",
+   "model": {
+    "revision": null,
+    "scenario_revision": null
+   },
+   "cards": [],
+   "notes": [],
+   "run": null,
+   "analysis_state": null,
+   "receipts": [],
+   "paused": null,
+   "error": {
+    "code": "TURN_STILL_RUNNING",
+    "message": "The reply did not arrive in time. Olumi may still be finishing this turn; reload to see the current model before sending it again.",
+    "retry_safe": false,
+    "nothing_saved": false
+   },
+   "action_bar": null
+  }
+ }
+}
