@@ -25,18 +25,32 @@ describe('the legacy validator is off on a core board, including while its read 
     read.graph = { nodes: [], living_model: { version: 1 } }
     expect(at('/?ai=core-route', CORE_ID)).toBe(true)
     read.graph = { nodes: [] }
-    expect(at('/?ai=core-route', CORE_ID)).toBe(false)
+    expect(at('/?ai=core-route', 'c0ffee00-0000-4000-8000-000000000002')).toBe(false)
   })
 
   it('⭐ a pending or failed read on the core lane keeps it off (the cycle rule never comes back mid-load)', () => {
     read.graph = null
+    const UNANSWERED = 'c0ffee00-0000-4000-8000-000000000003'
+    expect(at('/?ai=core-route', UNANSWERED)).toBe(true)
+    expect(at('/?ai=openai', UNANSWERED)).toBe(true)
+  })
+
+  it('⭐ a board already answered as legacy stays validated while a later read is pending or failed (Codex r2)', () => {
+    const LEGACY_ID = '0b4c2d7e-1111-4222-8333-944455556666'
+    read.graph = { nodes: [] }
+    expect(at('/?ai=core-route', LEGACY_ID)).toBe(false)
+    read.graph = null
+    expect(at('/?ai=core-route', LEGACY_ID)).toBe(false)
+    // A core board answered once stays off through a refresh too.
+    read.graph = { nodes: [], living_model: {} }
     expect(at('/?ai=core-route', CORE_ID)).toBe(true)
-    expect(at('/?ai=openai', CORE_ID)).toBe(true)
+    read.graph = null
+    expect(at('/?ai=conventional', CORE_ID)).toBe(true)
   })
 
   it('CONTRAST: off the core lane, or a board CEE cannot address, the validator runs as before', () => {
     read.graph = null
-    expect(at('/?ai=conventional', CORE_ID)).toBe(false)
+    expect(at('/?ai=conventional', 'a1b2c3d4-0000-4000-8000-000000000001')).toBe(false)
     expect(at('/?ai=core-route', null)).toBe(false)
   })
 })

@@ -27,7 +27,16 @@ export function useLegacyValidationOff(): boolean {
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
   if (graph !== null && typeof graph === 'object' && !Array.isArray(graph)) {
     const lm = (graph as { living_model?: unknown }).living_model
-    return lm !== null && typeof lm === 'object'
+    const core = lm !== null && typeof lm === 'object'
+    if (typeof scenarioId === 'string') answeredCore.set(scenarioId, core)
+    return core
   }
+  // Unanswered: what this scenario's last answered read said (a legacy board stays validated through a refresh or a
+  // failed read; Codex r2 on #2995), else the lane's default.
+  const answered = typeof scenarioId === 'string' ? answeredCore.get(scenarioId) : undefined
+  if (answered !== undefined) return answered
   return isOpenAiLane(resolveAiComparisonMode()) && isCeeAddressableScenarioId(scenarioId)
 }
+
+/** The last answered verdict per scenario (a scenario's model does not change kind between reads). */
+const answeredCore = new Map<string, boolean>()
