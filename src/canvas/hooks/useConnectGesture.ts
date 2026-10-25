@@ -55,6 +55,7 @@ import { proposeForDrawnLink, proposeWhenLeftUnsized } from '../conversation/dra
 import { isRefusedQuestionLink } from '../domain/questionLink'
 import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 import { linkIsStructural } from '../edges/edgePresentation'
+import { useSavedModelIsProgram } from '../nodes/shared/savedModelProgram'
 
 type ShowToast = (message: string, type: 'error' | 'info' | 'success' | 'warning') => void
 
@@ -127,13 +128,16 @@ interface ConnectStartParams {
 }
 
 export function useConnectGesture({
-  enabled,
+  enabled: authorised,
   showToast,
 }: {
   /** `CANVAS_EDGE_ADD_CONNECTED` — the edge-draw carrier's authority, owned by `ReactFlowGraph`. */
   enabled: boolean
   showToast: ShowToast
 }) {
+  // U-W3 (25 Oct): CEE's core route refuses a drawn link on a program board (only a card's figure or a goal's target is
+  // edited there), and nothing takes a refused link back off the canvas. So a program board offers none.
+  const enabled = !useSavedModelIsProgram() && authorised
   const connectSucceededRef = useRef(false)
   const connectStartRef = useRef<{ nodeId: string; handleType: 'source' | 'target' } | null>(null)
 
