@@ -33,6 +33,7 @@ import { useProvisionalAnalysisDelivery } from '../canvas/hooks/useProvisionalAn
 import { useImportRegistration } from '../canvas/registration/useImportRegistration'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../canvas/mutations/mutationAuthority'
 import { resolveModelDisplayName } from '../canvas/domain/modelDisplayName'
+import { useSavedModelIsCore } from '../canvas/nodes/shared/savedModelIsCore'
 import { getStarter, resolveStarterId } from '../canvas/starters/loadStarter'
 import { resolveNodeTypeLiteral } from '../canvas/domain/nodes'
 
@@ -248,6 +249,11 @@ function CanvasMVPBody() {
     const starterId = resolveStarterId(state.nodes ?? [])
     return starterId ? (getStarter(starterId)?.title ?? null) : null
   })
+
+  // A core board takes its readiness from CEE alone: the legacy client validator is switched off there (store
+  // `legacyValidationOff`), so its cycle rule can neither block Run nor list raw ids in the panel (Paul's test, 25 Oct).
+  const savedModelIsCore = useSavedModelIsCore()
+  useEffect(() => { useCanvasStore.getState().setLegacyValidationOff(savedModelIsCore) }, [savedModelIsCore])
 
   const scenarioTitle = (() => {
     if (currentScenarioId) {
