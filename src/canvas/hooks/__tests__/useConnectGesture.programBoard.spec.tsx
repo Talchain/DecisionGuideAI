@@ -27,6 +27,9 @@ const FROM = 'firm_deal_size'
 const TO = 'cash_available'
 
 let read: Json = funding as Json
+/** How the graph route answers: with the read, not yet (held until `answer()`), or with a server error. */
+let route: 'serve' | 'hold' | 'fail' = 'serve'
+let answer: () => void = () => {}
 let n = 0
 /** The served read on screen: as served (a program board) or, `false`, with its program flag removed. */
 function board(program: boolean) {
@@ -74,11 +77,13 @@ beforeEach(() => {
   toasts = []
   showToast.mockClear()
   window.history.replaceState(null, '', '/?ai=core-route')
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => (
-    /\/scenarios\/[^/]+\/graph$/.test(String(url))
-      ? new Response(JSON.stringify(read), { status: 200, headers: { 'Content-Type': 'application/json' } })
-      : new Response('{}', { status: 404 })
-  )))
+  route = 'serve'
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (!/\/scenarios\/[^/]+\/graph$/.test(String(url))) return new Response('{}', { status: 404 })
+    if (route === 'fail') return new Response('{}', { status: 500 })
+    if (route === 'hold') await new Promise<void>((resolve) => { answer = resolve })
+    return new Response(JSON.stringify(read), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  }))
 })
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); document.body.innerHTML = ''; window.history.replaceState(null, '', '/') })
 
@@ -128,5 +133,38 @@ describe('CONTRAST: the same read with no program flag keeps today’s gesture',
     await settle()
     const options = [...(screen.getByTestId('inspector-connect-picker').querySelectorAll('option'))].map((o) => o.value)
     expect(options).toContain(TO)
+  })
+})
+
+describe('NOT KNOWN YET: no link is drawn until the read says the board is not a program (Codex r1 on #2998)', () => {
+  it('while the read is pending, a drop and the picker are refused; once it answers "not a program", the link draws', async () => {
+    board(false)
+    route = 'hold'
+    const hook = renderHook(() => useConnectGesture({ enabled: true, showToast }))
+    render(<InspectorConnectPicker nodeId={FROM} />)
+    await settle()
+    const pending = hook.result.current
+    expect(pending.isValidConnection({ source: FROM, target: TO })).toBe(false)
+    pending.onConnectStart(null, { nodeId: FROM, handleType: 'source' })
+    pending.onConnectEnd(release(cardBody(TO)))
+    expect(drawn()).toEqual([])
+    expect(queued()).toEqual([])
+    expect(toasts).toEqual([[SHARED_MODEL_AUTHORITY_COPY, 'info']])
+    expect(screen.getByTestId('inspector-connect-picker').querySelector('select')).toBeNull()
+
+    answer()
+    await settle()
+    expect(hook.result.current.isValidConnection({ source: FROM, target: TO })).toBe(true)
+    expect(screen.getByTestId('inspector-connect-picker').querySelector('select')).not.toBeNull()
+  })
+
+  it('after a failed read, a drop is refused and nothing is made', async () => {
+    board(false)
+    route = 'fail'
+    const g = await gesture()
+    g.onConnectStart(null, { nodeId: FROM, handleType: 'source' })
+    g.onConnectEnd(release(cardBody(TO)))
+    expect(drawn()).toEqual([])
+    expect(toasts).toEqual([[SHARED_MODEL_AUTHORITY_COPY, 'info']])
   })
 })

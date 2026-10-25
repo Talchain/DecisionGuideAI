@@ -35,22 +35,38 @@ function readOnce(key: string, scenarioId: string, graphHash: string): Promise<u
   return last.read
 }
 
-/** The saved graph for the scenario and saved hash on screen now; null until that read answers (or off the core lane). */
-export function useSavedGraph(): unknown {
+/**
+ * The saved-graph read for the board on screen, with what `useSavedGraph`'s null cannot tell apart: `none` (no read
+ * applies: off the core lane, or no saved scenario and hash yet), `pending` (this key's read has not answered), `failed`
+ * (it answered with no graph of this scenario and hash) or `read`.
+ */
+export type SavedGraphRead =
+  | { readonly status: 'none' | 'pending' | 'failed' }
+  | { readonly status: 'read'; readonly graph: unknown }
+
+export function useSavedGraphRead(): SavedGraphRead {
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
   const graphHash = useCanvasStore((s) => s.lastServerGraphHash)
   // A living-model-only write leaves the analysis hash as it was; each applied turn or acknowledgement reads again.
   const epoch = useSyncExternalStore(subscribeSavedGraphEpoch, savedGraphEpoch)
   const key = `${scenarioId ?? ''}:${graphHash ?? ''}:${epoch}`
   const [read, setRead] = useState<{ key: string; graph: unknown } | null>(null)
+  // CEE serves the core lane under the default `openai` mode too (`laneModeFor`): reading only on `?ai=core` left every
+  // living-model reader dark on the default path. A legacy graph carries no living model, so its readers show nothing.
+  const applies = isOpenAiLane(resolveAiComparisonMode()) && isCeeAddressableScenarioId(scenarioId) && graphHash !== null
   useEffect(() => {
-    // CEE serves the core lane under the default `openai` mode too (`laneModeFor`): reading only on `?ai=core` left every
-    // living-model reader dark on the default path. A legacy graph carries no living model, so its readers show nothing.
-    const mode = resolveAiComparisonMode()
-    if (!isOpenAiLane(mode) || !isCeeAddressableScenarioId(scenarioId) || graphHash === null) return
+    if (!applies || !isCeeAddressableScenarioId(scenarioId) || graphHash === null) return
     let live = true
     void readOnce(key, scenarioId, graphHash).then((graph) => { if (live) setRead({ key, graph }) })
     return () => { live = false }
-  }, [scenarioId, graphHash, key])
-  return read?.key === key ? read.graph : null
+  }, [applies, scenarioId, graphHash, key])
+  if (!applies) return { status: 'none' }
+  if (read?.key !== key) return { status: 'pending' }
+  return read.graph === null ? { status: 'failed' } : { status: 'read', graph: read.graph }
+}
+
+/** The saved graph for the scenario and saved hash on screen now; null until that read answers (or off the core lane). */
+export function useSavedGraph(): unknown {
+  const read = useSavedGraphRead()
+  return read.status === 'read' ? read.graph : null
 }

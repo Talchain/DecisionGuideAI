@@ -55,7 +55,7 @@ import { proposeForDrawnLink, proposeWhenLeftUnsized } from '../conversation/dra
 import { isRefusedQuestionLink } from '../domain/questionLink'
 import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 import { linkIsStructural } from '../edges/edgePresentation'
-import { useSavedModelIsProgram } from '../nodes/shared/savedModelProgram'
+import { useSavedModelProgramState } from '../nodes/shared/savedModelProgram'
 
 type ShowToast = (message: string, type: 'error' | 'info' | 'success' | 'warning') => void
 
@@ -136,8 +136,9 @@ export function useConnectGesture({
   showToast: ShowToast
 }) {
   // U-W3 (25 Oct): CEE's core route refuses a drawn link on a program board (only a card's figure or a goal's target is
-  // edited there), and nothing takes a refused link back off the canvas. So a program board offers none.
-  const enabled = !useSavedModelIsProgram() && authorised
+  // edited there), and nothing takes a refused link back off the canvas. So a link is drawn only on a board KNOWN not to
+  // be a program: while the saved read is pending, or after it failed, none is (Codex r1 on #2998).
+  const enabled = useSavedModelProgramState() === 'not_program' && authorised
   const connectSucceededRef = useRef(false)
   const connectStartRef = useRef<{ nodeId: string; handleType: 'source' | 'target' } | null>(null)
 
