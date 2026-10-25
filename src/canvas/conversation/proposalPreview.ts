@@ -20,7 +20,7 @@
  */
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { CONSENT_CHIP_PREFIX } from './messageComposition'
-import { readProposalFields, type Band, type Proposal, changeNotesOf, otherChangeCountOf } from './proposalFields'
+import { cardCannotBeShownInFull, readProposalFields, type Band, type Proposal, changeNotesOf, otherChangeCountOf } from './proposalFields'
 
 const DECLINE_CHIP_PREFIX = 'agent-decline-proposal:'
 import type { ActionChip, ConversationMessage } from './types'
@@ -176,7 +176,8 @@ export function previewOfLatestReply(messages: readonly ConversationMessage[]): 
       if (!(m.actionChips ?? []).some((c) => c.id === consentChipIdFor(preview.proposalId))) return null
       // ⛔ CONSENT (Codex r2 #2904): an explicit preview's card can list changes in words too; the ghost must know (no approve).
       const held = readProposalFields(m.proposalFields)?.proposals.find((p) => p.proposal_id === preview.proposalId)
-      return held && changeNotesOf(held).length > 0 ? { ...preview, otherChanges: otherChangeCountOf(held) } : preview
+      const other = held ? ghostOtherChanges(held) : {}
+      return other.otherChanges === undefined ? preview : { ...preview, ...other }
     }
     // ⭐ Core sends no `proposal_preview`: the held card's own fields (`_proposal_fields`) name what it changes or adds.
     // The latest reply's fields are CEE's CURRENT held set; the card itself sits on its ISSUING reply, which a reopen
@@ -221,6 +222,16 @@ export function previewFromFields(p: Proposal): ProposalPreview | null {
       ? { op: 'add_node', id: add.node_id, label: add.label, kind: 'factor', value: add.value, source: add.source }
       : { op: 'add_edge', fromId: add.from_id, toId: add.to_id, band: null, direction: add.direction, source: add.source })
   }
-  // Any note at all keeps the approve off the ghost; the count says only the changes it does not draw.
-  return ops.length > 0 ? { proposalId: p.proposal_id, ops, ...(changeNotesOf(p).length > 0 ? { otherChanges: otherChangeCountOf(p) } : {}) } : null
+  return ops.length > 0 ? { proposalId: p.proposal_id, ops, ...ghostOtherChanges(p) } : null
+}
+
+/**
+ * What keeps the approve off a ghost (its card's other changes, approved on the card): any note at all, the count saying
+ * only the changes it does not draw. A card that cannot be shown in full (`cardCannotBeShownInFull`) is approved from
+ * nowhere: the ghost sends the person to the card, with no count. The board is not asked here: CEE's program cards draw
+ * no ghost (no `fields`, only change notes in `adds`; the served cards of 25 Oct).
+ */
+function ghostOtherChanges(p: Proposal): { otherChanges?: number } {
+  if (cardCannotBeShownInFull(p, false)) return { otherChanges: 0 }
+  return changeNotesOf(p).length > 0 ? { otherChanges: otherChangeCountOf(p) } : {}
 }

@@ -151,7 +151,7 @@ describe('Codex r1 on #2957: the list is CEE’s, whole and exact', () => {
     expect(onChipClick).not.toHaveBeenCalled()
   })
 
-  it('CONTRAST: a list read in full, and an absent list, keep Approve live with no reason line', async () => {
+  it('CONTRAST: a list read in full, and an absent list on a board that is not a program board, keep Approve live with no reason line', async () => {
     board(true)
     await mount(withChanges([goal, figure]))
     expect(approveChip().disabled).toBe(false)
@@ -159,6 +159,8 @@ describe('Codex r1 on #2957: the list is CEE’s, whole and exact', () => {
     fireEvent.click(approveChip())
     expect(onChipClick).toHaveBeenCalledTimes(1)
     cleanup()
+    // An absent list on a program board cannot be shown in full (U-W1 (c), `servedProgramCard.spec.tsx`).
+    board(false)
     const { changes: _absent, ...legacy } = fixture.card
     await mount(legacy)
     expect(approveChip().disabled).toBe(false)

@@ -1,0 +1,658 @@
+{
+ "_source": "Served core-route turn body, the first draft's reading card (`reading: true`, 38 adds, person + olumi): /Users/paulslee/olumi-work/recovery/live/runs-core/european-20261025T113429Z/european/turns/01-draft.json (`.body`), served UI bed9c21a · CEE 49ffe36c · PLoT cf2c48dd · ISL 0d3ef918 (that run's SUMMARY.md). Kept: the contract envelope the card is read from (turn_id, durability, assistant_text, model.revision and model.scenario_revision, cards, notes, run, receipts, paused, error), verbatim. Dropped: model.graph, analysis_state, canonical_analysis_view, action_bar, diagnostics (_agent, _provider_calls, model_program), headers and request_body. The recorder stored this streamed body cp1252-mis-decoded (\"â€™\" for \"’\"); every string is repaired with s.encode('cp1252').decode('utf-8'), lossless; structure untouched.",
+ "body": {
+  "turn_id": "aef0bba3-e3df-45d2-9865-b21a33a8de84",
+  "durability": "recorded",
+  "assistant_text": "I've drafted a first model of: Should we expand into Europe over the next 6–12 months to reach 800 customers while keeping monthly churn at or below 12% and investment within £500,000?\n\n1. How many new customers joined last month, before subtracting customers who left?\n2. How many whole months from now would you need before you could legally and operationally start serving European customers?\n\nThe chance also waits on 2 other things, listed with the result.",
+  "model": {
+   "revision": "bf7f6065d69174f8",
+   "scenario_revision": "39b3d4781afc793eb7aadcb851e79a31de827259ef7174ac967442ee686acea6"
+  },
+  "cards": [
+   {
+    "proposal_id": "prop_0879ed27973676a03e96fd0203eaf8d5",
+    "revision": "83d6fea3-bd26-4177-861a-e6885db39693",
+    "digest": "8343bf46626cce8367ebfa7650094cb3",
+    "approve_action": {
+     "id": "agent-approve-proposal:prop_0879ed27973676a03e96fd0203eaf8d5",
+     "label": "Yes, that’s what I meant",
+     "message": "Yes, that’s what I meant."
+    },
+    "decline_action": {
+     "id": "agent-decline-proposal:prop_0879ed27973676a03e96fd0203eaf8d5",
+     "label": "Not now",
+     "message": "Not now."
+    },
+    "issued_turn_id": "aef0bba3-e3df-45d2-9865-b21a33a8de84",
+    "fields": [],
+    "adds": [
+     {
+      "field_id": "change_note:goal:reach_customer_target",
+      "kind": "change_note",
+      "text": "Adds ‘The target is 800.’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:churn_guardrail",
+      "kind": "change_note",
+      "text": "Adds ‘churn_guardrail’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:investment_guardrail",
+      "kind": "change_note",
+      "text": "Adds ‘investment_guardrail’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:option:no_european_expansion",
+      "kind": "change_note",
+      "text": "Adds the option ‘Continue without European expansion’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:option:limited_european_pilot",
+      "kind": "change_note",
+      "text": "Adds the option ‘Limited European pilot’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:option:larger_european_launch",
+      "kind": "change_note",
+      "text": "Adds the option ‘Larger European launch’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:left_out:profitability_not_modelled",
+      "kind": "change_note",
+      "text": "Adds ‘Left out: Actual profitability and investment payback are not calculated.’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:relation:acquisition_effect",
+      "kind": "change_note",
+      "text": "Adds ‘acquisition_effect’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:relation:retention_strain_effect",
+      "kind": "change_note",
+      "text": "Adds ‘retention_strain_effect’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:relation:departures_definition",
+      "kind": "change_note",
+      "text": "Adds ‘departures_definition’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:relation:customer_stock",
+      "kind": "change_note",
+      "text": "Adds ‘customer_stock’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:competition_context",
+      "kind": "change_note",
+      "text": "Adds ‘Claim: Competition intensity varies.’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:regulatory_context",
+      "kind": "change_note",
+      "text": "Adds ‘Claim: Multiple complex country regulations are a consideration.’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:churn_profitability_warning",
+      "kind": "change_note",
+      "text": "Adds ‘Claim: Churn beyond the stated threshold creates a danger of losing money; staying bel…’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:target_timing_reading",
+      "kind": "change_note",
+      "text": "Adds ‘Assumption: The expansion timeframe is provisionally also the window for reaching the total…’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:baseline_continuation",
+      "kind": "change_note",
+      "text": "Adds ‘Assumption: Without expansion, monthly new-customer acquisition and the monthly churn rate …’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:investment_scope",
+      "kind": "change_note",
+      "text": "Adds ‘Assumption: Each proposed investment is an all-in commitment covering launch, acquisition, …’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:provisional_scaling",
+      "kind": "change_note",
+      "text": "Adds ‘Assumption: The draft uses proportional investment effects on monthly acquisition and reten…’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:shared_readiness",
+      "kind": "change_note",
+      "text": "Adds ‘Assumption: Both expansion designs provisionally use the same launch-readiness date, with n…’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:legal_readiness",
+      "kind": "change_note",
+      "text": "Adds ‘Condition: An expansion option requires confirmation that the selected countries can legal…’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:effects_not_sized",
+      "kind": "change_note",
+      "text": "Adds ‘Condition: The brief does not support a numerical expansion-effect range, so the draft can…’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:starting_customers",
+      "kind": "change_note",
+      "text": "Adds ‘Customers today’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:customer_target",
+      "kind": "change_note",
+      "text": "Adds ‘customer_target’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:decision_horizon",
+      "kind": "change_note",
+      "text": "Adds ‘Expansion timeframe’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:baseline_monthly_joins",
+      "kind": "change_note",
+      "text": "Adds ‘New customers per month without European expansion’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:baseline_churn",
+      "kind": "change_note",
+      "text": "Adds ‘Current monthly churn’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:churn_ceiling",
+      "kind": "change_note",
+      "text": "Adds ‘churn_ceiling’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:investment_budget",
+      "kind": "change_note",
+      "text": "Adds ‘Maximum investment’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:expansion_investment",
+      "kind": "change_note",
+      "text": "Adds ‘Total committed European expansion investment’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:launch_delay",
+      "kind": "change_note",
+      "text": "Adds ‘Months until European launch readiness’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:acquisition_per_investment",
+      "kind": "change_note",
+      "text": "Adds ‘acquisition_per_investment’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:churn_strain_per_investment",
+      "kind": "change_note",
+      "text": "Adds ‘churn_strain_per_investment’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:percentage_scale",
+      "kind": "change_note",
+      "text": "Adds ‘Percentage conversion scale’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:monthly_joins",
+      "kind": "change_note",
+      "text": "Adds ‘New customers per month’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:monthly_churn",
+      "kind": "change_note",
+      "text": "Adds ‘Monthly churn after expansion effects’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:monthly_departures",
+      "kind": "change_note",
+      "text": "Adds ‘Customers leaving per month’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:customers",
+      "kind": "change_note",
+      "text": "Adds ‘Total customers’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:quantity:limited_european_pilot__expansion_investment",
+      "kind": "change_note",
+      "text": "Adds ‘limited_european_pilot__expansion_investment’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     }
+    ],
+    "changes": [
+     {
+      "id": "reach_customer_target",
+      "kind": "goal",
+      "action": "add",
+      "label": "The target is 800.",
+      "before": null,
+      "after": "\"Total customers\" at least \"Customer target\" 800 customer, at its highest over \"Expansion timeframe\" 6–12 month, the measure you named, resting on \"The expansion timeframe is provisionally also the window for reaching the total customer target; the stated timeframe remains a range rather than a single chosen deadline.\", in your words \"The target is 800.\"",
+      "author": "person"
+     },
+     {
+      "id": "churn_guardrail",
+      "kind": "record",
+      "action": "add",
+      "label": "If it goes beyond 12%, we're in danger of losing money.",
+      "before": null,
+      "after": "\"Monthly churn after expansion effects\" at most \"Monthly churn danger threshold\" 12 %/month, at its highest over \"Expansion timeframe\" 6–12 month, in your words \"If it goes beyond 12%, we're in danger of losing money.\"",
+      "author": "person"
+     },
+     {
+      "id": "investment_guardrail",
+      "kind": "record",
+      "action": "add",
+      "label": "The investment budget is up to £500k.",
+      "before": null,
+      "after": "\"Total committed European expansion investment\" 0 GBP at most \"Maximum investment\" 500,000 GBP, at its highest over \"Expansion timeframe\" 6–12 month, in your words \"The investment budget is up to £500k.\"",
+      "author": "person"
+     },
+     {
+      "id": "no_european_expansion",
+      "kind": "option",
+      "action": "add",
+      "label": "Continue without European expansion",
+      "before": null,
+      "after": "carries on as now, compared",
+      "author": "olumi"
+     },
+     {
+      "id": "limited_european_pilot",
+      "kind": "option",
+      "action": "add",
+      "label": "Limited European pilot",
+      "before": null,
+      "after": "compared, sets \"Total committed European expansion investment\" 0 GBP to \"Limited European pilot: Total committed European expansion investment\" 150,000 GBP from \"Months until European launch readiness\" (still to be given)",
+      "author": "olumi"
+     },
+     {
+      "id": "larger_european_launch",
+      "kind": "option",
+      "action": "add",
+      "label": "Larger European launch",
+      "before": null,
+      "after": "compared, sets \"Total committed European expansion investment\" 0 GBP to \"Maximum investment\" 500,000 GBP from \"Months until European launch readiness\" (still to be given)",
+      "author": "olumi"
+     },
+     {
+      "id": "profitability_not_modelled",
+      "kind": "left_out",
+      "action": "add",
+      "label": "Actual profitability and investment payback are not calculated.",
+      "before": null,
+      "after": "Customer revenue, margins and operating costs are absent, so the churn guardrail is not a profit forecast. It concerns If it goes beyond 12%, we're in danger of losing money. and The investment budget is up to £500k.",
+      "author": "olumi"
+     },
+     {
+      "id": "acquisition_effect",
+      "kind": "relation",
+      "action": "add",
+      "label": "New customers per month",
+      "before": null,
+      "after": "an effect on \"New customers per month\", starting from \"New customers per month without European expansion\" (still to be given), changes by \"Additional monthly customers per pound invested\" (no figure yet customer/month/GBP) for each \"Total committed European expansion investment\" 0 GBP",
+      "author": "olumi"
+     },
+     {
+      "id": "retention_strain_effect",
+      "kind": "relation",
+      "action": "add",
+      "label": "Monthly churn after expansion effects",
+      "before": null,
+      "after": "an effect on \"Monthly churn after expansion effects\", starting from \"Current monthly churn\" 8 %/month, changes by \"Possible monthly churn increase from expansion strain\" (no figure yet %/month/GBP) for each \"Total committed European expansion investment\" 0 GBP",
+      "author": "olumi"
+     },
+     {
+      "id": "departures_definition",
+      "kind": "relation",
+      "action": "add",
+      "label": "Customers leaving per month",
+      "before": null,
+      "after": "\"Customers leaving per month\" is \"Total customers\" multiplied by \"Monthly churn after expansion effects\" divided by \"Percentage conversion scale\" 100 %",
+      "author": "olumi"
+     },
+     {
+      "id": "customer_stock",
+      "kind": "relation",
+      "action": "add",
+      "label": "Total customers",
+      "before": null,
+      "after": "a running total of \"Total customers\", starting at \"Customers today\" 400 customer, adding \"New customers per month\", taking away \"Customers leaving per month\", each month",
+      "author": "olumi"
+     },
+     {
+      "id": "competition_context",
+      "kind": "record",
+      "action": "add",
+      "label": "Competition intensity varies.",
+      "before": null,
+      "after": "about \"Additional monthly customers per pound invested\", in your words \"Competition intensity varies.\"",
+      "author": "person"
+     },
+     {
+      "id": "regulatory_context",
+      "kind": "record",
+      "action": "add",
+      "label": "Multiple complex country regulations are a consideration.",
+      "before": null,
+      "after": "about \"Months until European launch readiness\", \"Possible monthly churn increase from expansion strain\" and \"An expansion option requires confirmation that the selected countries can legally be served and that the required compliance and operating support fit within its proposed investment.\", in your words \"Multiple complex country regulations are a consideration.\"",
+      "author": "person"
+     },
+     {
+      "id": "churn_profitability_warning",
+      "kind": "record",
+      "action": "add",
+      "label": "Churn beyond the stated threshold creates a danger of losing money; staying below it does not establish profitability.",
+      "before": null,
+      "after": "about \"If it goes beyond 12%, we're in danger of losing money.\" and \"Actual profitability and investment payback are not calculated.\"",
+      "author": "olumi"
+     },
+     {
+      "id": "target_timing_reading",
+      "kind": "record",
+      "action": "add",
+      "label": "The expansion timeframe is provisionally also the window for reaching the total customer target; the stated timeframe remains a range rather than a single chosen deadline.",
+      "before": null,
+      "after": "applied in the model, about \"The target is 800.\" and \"Expansion timeframe\"",
+      "author": "olumi"
+     },
+     {
+      "id": "baseline_continuation",
+      "kind": "record",
+      "action": "add",
+      "label": "Without expansion, monthly new-customer acquisition and the monthly churn rate remain at their current levels throughout the window.",
+      "before": null,
+      "after": "applied in the model, about \"New customers per month without European expansion\", \"Current monthly churn\" and \"Continue without European expansion\"",
+      "author": "olumi"
+     },
+     {
+      "id": "investment_scope",
+      "kind": "record",
+      "action": "add",
+      "label": "Each proposed investment is an all-in commitment covering launch, acquisition, regulatory compliance and additional operating support over the window, not a recurring monthly spend.",
+      "before": null,
+      "after": "applied in the model, about \"Total committed European expansion investment\", \"The investment budget is up to £500k.\", \"Limited European pilot\" and \"Larger European launch\"",
+      "author": "olumi"
+     },
+     {
+      "id": "provisional_scaling",
+      "kind": "record",
+      "action": "add",
+      "label": "The draft uses proportional investment effects on monthly acquisition and retention strain after launch; neither effect is sized yet, and country-specific fixed costs or diminishing returns could invalidate this simplification.",
+      "before": null,
+      "after": "applied in the model, about \"New customers per month\" and \"Monthly churn after expansion effects\"",
+      "author": "olumi"
+     },
+     {
+      "id": "shared_readiness",
+      "kind": "record",
+      "action": "add",
+      "label": "Both expansion designs provisionally use the same launch-readiness date, with no acquisition benefit or retention strain before launch.",
+      "before": null,
+      "after": "applied in the model, about \"Months until European launch readiness\", \"Limited European pilot\" and \"Larger European launch\"",
+      "author": "olumi"
+     },
+     {
+      "id": "legal_readiness",
+      "kind": "record",
+      "action": "add",
+      "label": "An expansion option requires confirmation that the selected countries can legally be served and that the required compliance and operating support fit within its proposed investment.",
+      "before": null,
+      "after": "a prerequisite, about \"Limited European pilot\", \"Larger European launch\" and \"The investment budget is up to £500k.\"",
+      "author": "olumi"
+     },
+     {
+      "id": "effects_not_sized",
+      "kind": "record",
+      "action": "add",
+      "label": "The brief does not support a numerical expansion-effect range, so the draft cannot yet support a defensible success probability or recommendation between the expansion designs.",
+      "before": null,
+      "after": "a challenge, about \"Additional monthly customers per pound invested\" and \"Possible monthly churn increase from expansion strain\"",
+      "author": "olumi"
+     },
+     {
+      "id": "starting_customers",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Customers today",
+      "before": null,
+      "after": "400 customer, a fact, known, in your words \"Our current customer base is 400.\"",
+      "author": "person"
+     },
+     {
+      "id": "customer_target",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Customer target",
+      "before": null,
+      "after": "800 customer, a fact, known, in your words \"The target is 800.\"",
+      "author": "person"
+     },
+     {
+      "id": "decision_horizon",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Expansion timeframe",
+      "before": null,
+      "after": "from 6 to 12 month (firm ends), a fact, known, in your words \"in the next 6-12 months\"",
+      "author": "person"
+     },
+     {
+      "id": "baseline_monthly_joins",
+      "kind": "quantity",
+      "action": "add",
+      "label": "New customers per month without European expansion",
+      "before": null,
+      "after": "no figure yet (in customer/month), a fact, still to be given, Olumi asks \"How many new customers joined last month, before subtracting customers who left?\"",
+      "author": "person"
+     },
+     {
+      "id": "baseline_churn",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Current monthly churn",
+      "before": null,
+      "after": "8 %/month, a rate, known, in your words \"Monthly churn is at 8%.\"",
+      "author": "person"
+     },
+     {
+      "id": "churn_ceiling",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Monthly churn danger threshold",
+      "before": null,
+      "after": "12 %/month, a fact, known, in your words \"If it goes beyond 12%, we're in danger of losing money.\"",
+      "author": "person"
+     },
+     {
+      "id": "investment_budget",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Maximum investment",
+      "before": null,
+      "after": "500,000 GBP, a fact, known, in your words \"The investment budget is up to £500k.\"",
+      "author": "person"
+     },
+     {
+      "id": "expansion_investment",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Total committed European expansion investment",
+      "before": null,
+      "after": "0 GBP, a fact, known, based on \"Starting level of the expansion investment setting before any proposed option is selected.\", a fixed part of the model’s structure",
+      "author": "olumi"
+     },
+     {
+      "id": "launch_delay",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Months until European launch readiness",
+      "before": null,
+      "after": "no figure yet (in month), a fact, still to be given, Olumi asks \"How many whole months from now would you need before you could legally and operationally start serving European customers?\"",
+      "author": "person"
+     },
+     {
+      "id": "acquisition_per_investment",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Additional monthly customers per pound invested",
+      "before": null,
+      "after": "no figure yet (in customer/month/GBP), ↑ raises New customers per month, a rate, not known yet, based on \"Investment could bring new European customers, but the business sector, target countries, acquisition channels and competing offers are needed to establish any defensible acquisition scale.\"",
+      "author": "olumi"
+     },
+     {
+      "id": "churn_strain_per_investment",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Possible monthly churn increase from expansion strain",
+      "before": null,
+      "after": "no figure yet (in %/month/GBP), ↑ raises Monthly churn after expansion effects, a rate, not known yet, based on \"Serving additional jurisdictions could strain customer service and retention, but staffing capacity, compliance demands and retention evidence are needed to size this hypothesised downside.\"",
+      "author": "olumi"
+     },
+     {
+      "id": "percentage_scale",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Percentage conversion scale",
+      "before": null,
+      "after": "100 %, a fact, known, based on \"100% represents one whole.\", a fixed part of the model’s structure",
+      "author": "olumi"
+     },
+     {
+      "id": "monthly_joins",
+      "kind": "quantity",
+      "action": "add",
+      "label": "New customers per month",
+      "before": null,
+      "after": "in customer/month, a result, worked out from the model",
+      "author": "olumi"
+     },
+     {
+      "id": "monthly_churn",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Monthly churn after expansion effects",
+      "before": null,
+      "after": "in %/month, a rate, worked out from the model",
+      "author": "olumi"
+     },
+     {
+      "id": "monthly_departures",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Customers leaving per month",
+      "before": null,
+      "after": "in customer/month, a result, worked out from the model",
+      "author": "olumi"
+     },
+     {
+      "id": "customers",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Total customers",
+      "before": null,
+      "after": "in customer, a result, worked out from the model",
+      "author": "olumi"
+     },
+     {
+      "id": "limited_european_pilot__expansion_investment",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Limited European pilot: Total committed European expansion investment",
+      "before": null,
+      "after": "150,000 GBP, a fact, known, based on \"Olumi's proposed setting for its option \"Limited European pilot\".\"",
+      "author": "olumi"
+     }
+    ],
+    "reading": true,
+    "missing": []
+   }
+  ],
+  "notes": [],
+  "run": {
+   "run_key": "mp_run_1_48d6666849c6",
+   "run_id": "mp_run_1_48d6666849c6",
+   "computed_against": "bf7f6065d69174f8",
+   "state": {
+    "kind": "complete_current",
+    "computed_at": "2026-10-25T11:36:00.197Z"
+   }
+  },
+  "receipts": [],
+  "paused": null,
+  "error": null
+ }
+}
