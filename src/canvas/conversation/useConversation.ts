@@ -133,7 +133,7 @@ import {
 import { recordDroppedContent } from '../../lib/droppedContentCounter'
 import { buildChipMeta, type ChipMeta } from './chipMeta'
 import { readAfterWriteExpectation, checkReadAfterWrite, readAfterWriteNotice } from './readAfterWrite'
-import { START_NEW_DRAFT_CHIP_ID, LOAD_SAVED_MODEL_CHIP_ID } from './chipDispatch'
+import { START_NEW_DRAFT_CHIP_ID, LOAD_SAVED_MODEL_CHIP_ID, isChipRenderable } from './chipDispatch'
 import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { extractOpenQuestionListSidecar } from './serverOpenQuestions'
@@ -211,7 +211,7 @@ import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { trackEvent } from '../../lib/posthog'
 import { logger } from '../../lib/logger'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
-import { approvesUnreadChanges, displayedProposals, readProposalFields } from './proposalFields'
+import { approvesUnreadChanges, displayedProposals } from './proposalFields'
 import { buildRequestIdHeaders, generateRequestId } from '../../types/requestId'
 import { REQUEST_ID_HEADER } from '../../types/requestId'
 import {
@@ -6569,12 +6569,6 @@ export function useConversation(): UseConversationReturn {
           }, STILL_FINISHING_REPLAY_DELAY_MS)
         } else if (replayUnresolved) {
           // The re-send could not settle it either (409 TURN_OUTCOME_UNKNOWN, a 503, another timeout): read what was saved.
-          // An approval is finished only when this read shows its card no longer held; a merged graph alone never says
-          // so (DL, U-W2). The held set the read publishes is caught here, whoever takes the offer first.
-          let readHeld: unknown
-          const stopReadingHeld = useServerConversationTurnsStore.subscribe((s) => {
-            if (s.offer?.scenarioId === scenarioIdAtDispatch) readHeld = s.offer.proposalFields
-          })
           const recovery = await recoverDraftFromServer({
             scenarioId: scenarioIdAtDispatch,
             userId: v5UserId,
@@ -6582,11 +6576,11 @@ export function useConversation(): UseConversationReturn {
             turnClientId,
             signal: controller.signal,
             includeConversationTurns: true,
-          }).finally(stopReadingHeld)
-          const approvedId = chipMeta?.id?.startsWith(CONSENT_CHIP_PREFIX) ? chipMeta.id.slice(CONSENT_CHIP_PREFIX.length) : null
-          const stillHeld = readProposalFields(readHeld)?.proposals.some((p) => p.proposal_id === approvedId) ?? true
+          })
+          // An approval never says it finished here: a merged graph does not show the approval was applied (DL, U-W2).
+          const approval = chipMeta?.id?.startsWith(CONSENT_CHIP_PREFIX) === true
           updateMessage(stillFinishingReplay!.noticeId, {
-            content: recovery === 'recovered' && (approvedId === null || !stillHeld) ? CORE_FINISHED_RELOADED_NOTICE : CORE_OUTCOME_UNKNOWN_NOTICE,
+            content: recovery === 'recovered' && !approval ? CORE_FINISHED_RELOADED_NOTICE : CORE_OUTCOME_UNKNOWN_NOTICE,
           })
         } else if (streamedUnsettledCause === 'terminal_error_model_kept') {
           // ═══ F1 — the kept-model terminal error says ONE thing ═══════════
@@ -6654,8 +6648,13 @@ export function useConversation(): UseConversationReturn {
             recovery,
             rawBody: target.rawBody,
           })
-          // The one decision whether this reply offers "Try again": its words may name it only when it is offered (U-W2).
-          const offersRetry = !revisionConflict && retryable && !deliveryUnverified && mode === 'user' && !hidden
+          const retryChips: ActionChip[] = !revisionConflict && retryable && !deliveryUnverified && mode === 'user' && !hidden
+            ? [{ id: 'retry', label: 'Try again', intent: 'primary',
+                // Local retryLast routing still owns the click; the prompt makes this chip renderable.
+                ...(target.ownershipRefusal !== undefined && inputForRestore ? { message: inputForRestore } : {}) }]
+            : []
+          // The words name "Try again" only when a Try again is drawn, by the rule every chip row renders by (U-W2).
+          const retryRenders = retryChips.some(isChipRenderable)
           let content: string
           if (unanswered === 'not_sent') {
             content = NOT_DELIVERED_COPY
@@ -6673,7 +6672,7 @@ export function useConversation(): UseConversationReturn {
               + (coreError.nothing_saved === true ? 'Nothing was saved. ' : '')
               + 'Try again later.'
           } else if (pressOutcomeUnknown) {
-            content = offersRetry ? APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY : CORE_OUTCOME_UNKNOWN_NOTICE
+            content = retryRenders ? APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY : CORE_OUTCOME_UNKNOWN_NOTICE
           } else if (transportFailure && target.transportMeta) {
             content = buildTransportFailureCopy(target.transportMeta, retryable)
           } else {
@@ -6719,11 +6718,6 @@ export function useConversation(): UseConversationReturn {
               .filter((s) => s.length > 0)
               .join('\n\n')
           }
-          const retryChips: ActionChip[] = offersRetry
-            ? [{ id: 'retry', label: 'Try again', intent: 'primary',
-                // Local retryLast routing still owns the click; the prompt makes this chip renderable.
-                ...(target.ownershipRefusal !== undefined && inputForRestore ? { message: inputForRestore } : {}) }]
-            : []
           // System turns get NO transcript bubble — the failure propagates to
           // the dispatcher instead (see SystemEventSendError). Gating here
           // matches the empty/catch/timeout branches, which already user-gate
