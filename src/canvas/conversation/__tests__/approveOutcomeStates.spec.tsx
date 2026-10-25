@@ -2,19 +2,19 @@
  * ⭐ WHAT THE PERSON IS TOLD AFTER PRESSING APPROVE ON A PROGRAM CARD (lease U-W2, DL 25 Oct): only what the client knows.
  *   (1) A read-back that still serves another model says "Your change was saved, but…" only after a turn that carries a
  *       receipt of its write; after any other turn it says the view couldn't refresh (`READ_FAILED_NOTICE`).
- *   (2) An approval answered by a 5xx says "press Try again" only beside the Try again it names; with none offered, the
- *       core unknown notice (`CORE_OUTCOME_UNKNOWN_NOTICE`).
- *   (3) An approval whose re-send could not be settled says "Olumi finished this" only when the read shows its card is
- *       no longer held; a merged graph alone never does.
+ *   (2) An approval answered by a 5xx says "press Try again" only when a Try again is drawn; with none drawn, the core
+ *       unknown notice (`CORE_OUTCOME_UNKNOWN_NOTICE`).
+ *   (3) An approval whose re-send could not be settled never says "Olumi finished this": a merged graph does not show the
+ *       approval applied. A typed turn keeps it.
  *
  * Real path: the REAL `useConversation`, the REAL `callV5Turn` → `parseV5Response` (core contract) on served bodies
  * (`fixtures/served-approve-outcomes-20261025.json`, `served-card-capacity-leftout-20261025.json`; each `_source` names the
- * run). Only `fetch` is stubbed (turn and scenario read), plus `recoverDraftFromServer`, whose stub publishes the read's held
- * set exactly as `serverGraphHydration.ts` does (`offerServerConversationTurns`) and reports the merge. Synthetic mutations
- * of served bodies are named in each row.
+ * run). The served capacity card is the card on screen in every row; the press is answered by the served turn the row
+ * names. Only `fetch` is stubbed (turn and scenario read), plus `recoverDraftFromServer`'s answer. What is drawn is read by
+ * rendering the reply's chips through the real `SuggestedChips`.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 
 vi.mock('../turnService', () => ({
   callOrchestratorTurn: vi.fn(),
@@ -41,6 +41,7 @@ vi.mock('../../hydrate/draftRecovery', async (importOriginal) => ({
 }))
 
 import { useConversation } from '../useConversation'
+import { SuggestedChips } from '../zones/SuggestedChips'
 import { useCanvasStore } from '../../store'
 import { useServerConversationTurnsStore } from '../../stores/serverConversationTurnsStore'
 import { buildSuggestedActionChips } from '../../../v5/blocks/suggestedActionChips'
@@ -54,37 +55,45 @@ type Json = Record<string, any>
 const SCENARIO = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+const CARD = capacityCard.body
 
 let turnAnswers: Array<() => Response> = []
 let read: Json | null = null
 const turnPosts = () => (fetch as unknown as { mock: { calls: [string, RequestInit?][] } }).mock.calls.filter(([u, i]) => /\/proxy\/v5\/turn$/.test(String(u)) && i?.method === 'POST')
+/** The served read fields, as a read: it must carry a graph object to count as one; no row reads the graph itself. */
+const readOf = (fields: Json): Json => ({ ...clone(fields), graph: {} })
+/** A read serving `turn`'s saved model (synthetic: hash and Run set to the turn's), so that turn's read-back says nothing. */
+const readServing = (turn: Json): Json => {
+  const r = readOf(served.no_receipt_approval.read)
+  return { ...r, content_hash: turn.model.scenario_revision,
+    canonical_analysis_view: { run: { ...r.canonical_analysis_view.run, run_id: turn.run?.run_id ?? null }, staleness: { ...r.canonical_analysis_view.staleness, stale: false } } }
+}
 
 let live: ReturnType<typeof useConversation> | null = null
 function App() { live = useConversation(); return null }
 const settle = (ms = 60) => act(async () => { await new Promise((r) => setTimeout(r, ms)) })
-/**
- * A served read made to serve `turn`'s saved model (synthetic: its `content_hash` and Run set to the turn's), so a turn's
- * own read-back confirms and says nothing.
- */
-const readServing = (base: Json, turn: Json): Json => ({ ...clone(base), content_hash: turn.model.scenario_revision,
-  canonical_analysis_view: { ...clone(base.canonical_analysis_view ?? {}), run: { ...(base.canonical_analysis_view?.run ?? {}), run_id: turn.run?.run_id ?? null },
-    staleness: { ...(base.canonical_analysis_view?.staleness ?? {}), stale: false } } })
-/** The card on screen: a typed message answered by the served card turn, its own read-back confirmed. */
-async function cardOnScreen(cardTurn: Json) {
-  read = readServing(served.capacity.read_after as Json, cardTurn)
-  turnAnswers.push(() => json(cardTurn))
+const notices = () => live!.messages.filter((m) => m.role === 'assistant' && m.synthetic).map((m) => m.content)
+/** The served capacity card on screen: a typed message answered by the served card turn, its own read-back confirmed. */
+async function cardOnScreen() {
+  read = readServing(CARD)
+  turnAnswers.push(() => json(CARD))
   render(<App />)
   await act(async () => { await live!.sendMessage('Here is my situation.') })
   await settle(300)
   expect(notices()).toEqual([])
 }
-const approveOf = (cardTurn: Json) => buildSuggestedActionChips([], [cardTurn.cards[0].approve_action])[0]
-async function press(cardTurn: Json) {
-  await act(async () => { await live!.sendChip(approveOf(cardTurn) as never) })
+async function pressApprove() {
+  await act(async () => { await live!.sendChip(buildSuggestedActionChips([], [CARD.cards[0].approve_action])[0] as never) })
   await settle()
 }
-const notices = () => live!.messages.filter((m) => m.role === 'assistant' && m.synthetic).map((m) => m.content)
-const retryOffered = () => live!.messages.some((m) => (m.actionChips ?? []).some((c) => c.id === 'retry'))
+/** The chips the failure notice DRAWS, through the real chip row. */
+function drawnUnderNotice(): string[] {
+  const notice = live!.messages.filter((m) => m.role === 'assistant' && m.synthetic).at(-1)
+  const { unmount } = render(<SuggestedChips chips={notice?.actionChips ?? []} onChipClick={async () => {}} />)
+  const ids = screen.queryAllByTestId(/^suggested-chip-/).map((el) => el.getAttribute('data-testid')!.replace('suggested-chip-', ''))
+  unmount()
+  return ids
+}
 /** CEE's own core error body (the served TURN_STILL_RUNNING envelope) with another error. */
 const coreError = (error: Json) => ({ ...clone(served.still_running.body), error })
 
@@ -108,103 +117,95 @@ vi.setConfig({ testTimeout: 15_000 })
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); window.history.replaceState(null, '', '/'); live = null })
 
 describe('(1) a read-back that serves another model claims "saved" only after a turn with a receipt', () => {
-  it('🔴 served qualitative approval (receipts []), the read still serving another model: "couldn’t refresh", never "saved"', async () => {
-    const q = served.qualitative as Json
-    await cardOnScreen(q.card_turn)
-    read = { ...clone(q.read_after), content_hash: 'f'.repeat(64) }
-    turnAnswers.push(() => json(q.approve_turn))
-    await press(q.card_turn)
+  it('🔴 an approval answered with receipts [] (served qualitative), the read still serving another model: "couldn’t refresh", never "saved"', async () => {
+    await cardOnScreen()
+    read = { ...readOf(served.no_receipt_approval.read), content_hash: 'f'.repeat(64) }
+    turnAnswers.push(() => json(served.no_receipt_approval.turn))
+    await pressApprove()
     await waitFor(() => expect(notices()).toContain(READ_FAILED_NOTICE), { timeout: 5000 })
     expect(notices()).not.toContain(STALE_MODEL_NOTICE)
   })
 
-  it('CONTRAST: served capacity approval (one receipt, the person’s), the same stale read: "Your change was saved, but…"', async () => {
-    const c = served.capacity as Json
-    await cardOnScreen(capacityCard.body)
-    read = { ...clone(c.read_after), content_hash: 'f'.repeat(64) }
-    turnAnswers.push(() => json(c.approve_turn))
-    await press(capacityCard.body)
+  it('CONTRAST: an approval answered with one receipt (served capacity), the same stale read: "Your change was saved, but…"', async () => {
+    await cardOnScreen()
+    read = { ...readOf(served.no_receipt_approval.read), content_hash: 'f'.repeat(64) }
+    turnAnswers.push(() => json(served.receipt_approval.turn))
+    await pressApprove()
     await waitFor(() => expect(notices()).toContain(STALE_MODEL_NOTICE), { timeout: 5000 })
   })
 
-  it('CONTROL: the served read after the qualitative approval serves that model: no notice', async () => {
-    const q = served.qualitative as Json
-    await cardOnScreen(q.card_turn)
-    read = clone(q.read_after)
-    turnAnswers.push(() => json(q.approve_turn))
-    await press(q.card_turn)
+  it('CONTROL: the served read after that approval serves its model: no notice', async () => {
+    await cardOnScreen()
+    read = readOf(served.no_receipt_approval.read)
+    turnAnswers.push(() => json(served.no_receipt_approval.turn))
+    await pressApprove()
     await settle(2000)
     expect(notices()).toEqual([])
   })
 })
 
-describe('(2) "press Try again" only beside the Try again it names', () => {
-  it('🔴 an approval answered by a proxy 504 with no CEE body: no Try again offered, so the core unknown notice', async () => {
-    await cardOnScreen(capacityCard.body)
-    turnAnswers.push(() => new Response('<html><body>504 Gateway Time-out</body></html>', { status: 504, headers: { 'content-type': 'text/html' } }))
-    await press(capacityCard.body)
-    expect(retryOffered()).toBe(false)
+describe('(2) an approval answered by a 5xx says "press Try again" only when a Try again is drawn', () => {
+  it('🔴 CEE’s own 503 licensing a resend (`retry_safe: true`): no Try again is drawn, so the core unknown notice (Codex r1 on #2997)', async () => {
+    await cardOnScreen()
+    turnAnswers.push(() => json(coreError({ code: 'INTERNAL_ERROR', message: 'Something failed.', retry_safe: true, nothing_saved: false }), 503))
+    await pressApprove()
+    expect(drawnUnderNotice()).not.toContain('retry')
     expect(notices()).toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
     expect(notices()).not.toContain(APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY)
   })
 
-  it('CONTRAST: CEE’s own 503 licensing a resend (`retry_safe: true`): Try again offered, and the words name it', async () => {
-    await cardOnScreen(capacityCard.body)
-    turnAnswers.push(() => json(coreError({ code: 'INTERNAL_ERROR', message: 'Something failed.', retry_safe: true, nothing_saved: false }), 503))
-    await press(capacityCard.body)
-    expect(retryOffered()).toBe(true)
-    expect(notices()).toContain(APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY)
+  it('🔴 a proxy 504 with no CEE body: no Try again is drawn, so the core unknown notice', async () => {
+    await cardOnScreen()
+    turnAnswers.push(() => new Response('<html><body>504 Gateway Time-out</body></html>', { status: 504, headers: { 'content-type': 'text/html' } }))
+    await pressApprove()
+    expect(drawnUnderNotice()).not.toContain('retry')
+    expect(notices()).toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
+    expect(notices()).not.toContain(APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY)
   })
 })
 
-describe('(3) an approval whose re-send could not be settled is "finished" only when its card is no longer held', () => {
-  const card = capacityCard.body.cards[0]
+describe('(3) an approval whose re-send could not be settled never says "Olumi finished this"', () => {
   /** The served 504 TURN_STILL_RUNNING, then the re-send refused as unknown (synthetic: CEE's 409 on the same envelope). */
   function stillRunningThenUnknown() {
     turnAnswers.push(() => json(clone(served.still_running.body), served.still_running.status))
     turnAnswers.push(() => json(coreError({ code: 'TURN_OUTCOME_UNKNOWN', message: 'Unknown.', retry_safe: false, nothing_saved: false }), 409))
-  }
-  /** The recovery read merged, with this held set (published as `serverGraphHydration.ts` publishes it). */
-  function recoveredHolding(proposals: unknown[]) {
     // The card turn's own first message may already have read back once; only this press's recovery is counted.
-    recover.mockClear()
-    recover.mockImplementation(async (args: { scenarioId: string }) => {
-      useServerConversationTurnsStore.getState().offerServerConversationTurns({ scenarioId: args.scenarioId, turns: [], heldProposalOffers: [],
-        proposalFields: { version: 1, graph_hash: capacityCard.body.model.revision, proposals }, run: { runNotCurrent: false, currentRunComputedAt: null } })
-      // The read publishes its held set before it returns, as the real hydrate does. Taken at once here: the panel's
-      // reconcile of the offer is not what these rows measure, and inside act() its timing is the test's, not the app's.
-      useServerConversationTurnsStore.getState().takeServerConversationTurns(args.scenarioId)
-      return 'recovered'
-    })
+    recover.mockReset()
+    recover.mockResolvedValue('recovered')
   }
 
-  it('🔴 the read still holds the card: the core unknown notice, never "Olumi finished this"', async () => {
-    await cardOnScreen(capacityCard.body)
+  it('🔴 an approval, the recovery read merged: the core unknown notice', async () => {
+    await cardOnScreen()
     stillRunningThenUnknown()
-    recoveredHolding([card])
-    await press(capacityCard.body)
+    await pressApprove()
     await waitFor(() => expect(recover).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(notices()).not.toContain(CORE_STILL_FINISHING_NOTICE), { timeout: 3000 })
     expect(turnPosts()).toHaveLength(3)
     expect(notices()).toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
     expect(notices()).not.toContain(CORE_FINISHED_RELOADED_NOTICE)
-    expect(notices()).not.toContain(CORE_STILL_FINISHING_NOTICE)
   })
 
-  it('CONTRAST: the read no longer holds the card: "Olumi finished this"', async () => {
-    await cardOnScreen(capacityCard.body)
+  it('🔴 the recovery read lists the card twice (no one card can be read): still the core unknown notice (Codex r1 on #2997)', async () => {
+    await cardOnScreen()
     stillRunningThenUnknown()
-    recoveredHolding([])
-    await press(capacityCard.body)
+    recover.mockImplementation(async (args: { scenarioId: string }) => {
+      // Published as `serverGraphHydration.ts` publishes a read's held set, and taken at once (the panel's reconcile is not measured here).
+      const store = useServerConversationTurnsStore.getState()
+      store.offerServerConversationTurns({ scenarioId: args.scenarioId, turns: [], heldProposalOffers: [],
+        proposalFields: { version: 1, graph_hash: CARD.model.revision, proposals: [CARD.cards[0], CARD.cards[0]] }, run: { runNotCurrent: false, currentRunComputedAt: null } })
+      store.takeServerConversationTurns(args.scenarioId)
+      return 'recovered'
+    })
+    await pressApprove()
     await waitFor(() => expect(recover).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(notices()).not.toContain(CORE_STILL_FINISHING_NOTICE), { timeout: 3000 })
-    expect(notices()).toContain(CORE_FINISHED_RELOADED_NOTICE)
+    expect(notices()).toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
+    expect(notices()).not.toContain(CORE_FINISHED_RELOADED_NOTICE)
   })
 
   it('CONTRAST: a typed turn (no approval) recovered the same way keeps "Olumi finished this"', async () => {
-    await cardOnScreen(capacityCard.body)
+    await cardOnScreen()
     stillRunningThenUnknown()
-    recoveredHolding([card])
     await act(async () => { await live!.sendMessage('Add staff absence as a factor.') })
     await waitFor(() => expect(recover).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(notices()).not.toContain(CORE_STILL_FINISHING_NOTICE), { timeout: 3000 })
