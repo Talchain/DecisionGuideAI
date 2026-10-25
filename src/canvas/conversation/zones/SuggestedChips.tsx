@@ -660,7 +660,8 @@ export function SuggestedChips({
         )
       })}
       {/* ⭐ CONSENT (DL 22 Oct): everything else the approval writes, in CEE's words, read before the approve. */}
-      {(bindable?.proposals ?? []).filter(p => visible.some(c => c.id === p.approve_action.id)).map(p => {
+      {/* A card kept for review shows its changes beside "Review this change" as beside its approve (Codex r1 on #2996). */}
+      {(bindable?.proposals ?? []).filter(p => visible.some(c => c.id === p.approve_action.id || c.id === p.review_action?.id)).map(p => {
         const notes = changeNotesOf(p)
         // Present `changes[]` is the whole list: an empty one means no other changes, and the notes are not read.
         if (p.changes !== null ? p.changes.length === 0 : notes.length === 0) return null

@@ -232,18 +232,23 @@ export function cardCannotBeShownInFull(held: Proposal | undefined, program: boo
   return held.changesUnread || (program && held.changes === null)
 }
 /**
- * ⛔ WHETHER AN APPROVE WOULD APPLY MORE THAN ITS CARD SHOWS, for the send boundary: the rule above, on the card read from
- * the newest reply that holds that proposal (a later reply carries CEE's current held set), the same projection every
- * approve surface renders from. `program`: the saved model on screen is a program board; unknown reads as not one.
+ * ⛔ WHETHER AN APPROVE WOULD APPLY MORE THAN ITS CARD SHOWS, for the send boundary: the rule above, on the card in the
+ * NEWEST reply that lists that proposal (a later reply carries CEE's current held set; Codex r1 on #2996: an older readable
+ * copy never vouches for a newer one). Listed there but unreadable: refused. Listed nowhere: not the boundary's to refuse,
+ * since a surface may have armed it from its own reloaded fields; the board is the surfaces' to read, never this one's.
  */
-export function approvesUnreadChanges(messages: readonly ConversationMessage[], chipId: string | undefined, opts: { program?: boolean } = {}): boolean {
+export function approvesUnreadChanges(messages: readonly ConversationMessage[], chipId: string | undefined): boolean {
   if (typeof chipId !== 'string' || !chipId.startsWith(APPROVE_PREFIX)) return false
   const id = chipId.slice(APPROVE_PREFIX.length)
-  let held: Proposal | undefined
-  for (let i = messages.length - 1; i >= 0 && held === undefined; i--) {
-    held = readProposalFields(messages[i].proposalFields)?.proposals.find(p => p.proposal_id === id)
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const raw = messages[i].proposalFields
+    const listed = raw !== null && typeof raw === 'object' && Array.isArray((raw as { proposals?: unknown }).proposals)
+      && (raw as { proposals: unknown[] }).proposals.some(p => p !== null && typeof p === 'object' && (p as { proposal_id?: unknown }).proposal_id === id)
+    if (!listed) continue
+    const held = readProposalFields(raw)?.proposals.find(p => p.proposal_id === id)
+    return held === undefined || cardCannotBeShownInFull(held, false)
   }
-  return cardCannotBeShownInFull(held, opts.program === true)
+  return false
 }
 /**
  * ⭐ WHAT THE USER IS SHOWN (Codex BLOCK on CEE #3420 / DGAI #2819, 18 Oct, P1: a replacement whose reply was lost inherited

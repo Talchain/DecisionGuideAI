@@ -11,9 +11,7 @@ import { isCeeAddressableScenarioId } from '../../hydrate/bootGraphRead'
 import { useCanvasStore } from '../../store'
 import { savedGraphEpoch, subscribeSavedGraphEpoch } from './savedGraphEpoch'
 
-/** The one read in flight or answered; `graph` once it has answered (`savedGraphNow`). */
-type SavedGraphRead = { key: string; read: Promise<unknown>; graph?: unknown }
-let last: SavedGraphRead | null = null
+let last: { key: string; read: Promise<unknown> } | null = null
 /** The saved graph IS the one on screen: same scenario, same saved hash (one may be the other's 16-hex prefix). */
 const sameHash = (a: string | null, b: string): boolean => a !== null && (a === b || a.startsWith(b) || b.startsWith(a))
 function readOnce(key: string, scenarioId: string, graphHash: string): Promise<unknown> {
@@ -29,25 +27,12 @@ function readOnce(key: string, scenarioId: string, graphHash: string): Promise<u
       return result.withheld != null && result.graph !== null && typeof result.graph === 'object'
         ? { ...(result.graph as Record<string, unknown>), withheld: result.withheld } : result.graph
     })().catch(() => null)
-    const entry: SavedGraphRead = { key, read }
+    const entry = { key, read }
     last = entry
     // A failed or mismatched read is not kept: the next mount reads again (Codex R1).
     void read.then((graph) => { if (graph === null && last === entry) last = null })
-    // The answer, kept on this read only while it is still the current one: a late read for an old key never wins.
-    void read.then((graph) => { if (last === entry) entry.graph = graph })
   }
   return last.read
-}
-
-/**
- * The saved graph on screen now, for code outside React (the send boundary): the answered read for the scenario, saved hash
- * and epoch `useSavedGraph` keys it by; null before that read answers, or for any other key. Pure: it starts no read and
- * subscribes to nothing.
- */
-export function savedGraphNow(): unknown {
-  const { currentScenarioId, lastServerGraphHash } = useCanvasStore.getState()
-  const key = `${currentScenarioId ?? ''}:${lastServerGraphHash ?? ''}:${savedGraphEpoch()}`
-  return last !== null && last.key === key && 'graph' in last ? last.graph : null
 }
 
 /** The saved graph for the scenario and saved hash on screen now; null until that read answers (or off the core lane). */
