@@ -168,3 +168,29 @@ describe('NOT KNOWN YET: no link is drawn until the read says the board is not a
     expect(toasts).toEqual([[SHARED_MODEL_AUTHORITY_COPY, 'info']])
   })
 })
+
+describe('NO SAVED HASH YET: a saved scenario restored before its hash arrives is not known (Codex r2 on #2998)', () => {
+  it('a restored program board with no saved hash refuses a drop and offers no picker target', async () => {
+    board(true)
+    // Autosave restored the cards; hydration has not stamped the saved hash (or the boot read failed).
+    useCanvasStore.setState({ lastServerGraphHash: null } as never)
+    render(<InspectorConnectPicker nodeId={FROM} />)
+    const g = await gesture()
+    g.onConnectStart(null, { nodeId: FROM, handleType: 'source' })
+    g.onConnectEnd(release(cardBody(TO)))
+    expect(drawn()).toEqual([])
+    expect(queued()).toEqual([])
+    expect(toasts).toEqual([[SHARED_MODEL_AUTHORITY_COPY, 'info']])
+    expect(screen.getByTestId('inspector-connect-picker').querySelector('select')).toBeNull()
+  })
+
+  it('CONTRAST: a board never saved (no scenario id) draws as today', async () => {
+    board(false)
+    useCanvasStore.setState({ currentScenarioId: null, lastServerGraphHash: null } as never)
+    const g = await gesture()
+    g.onConnectStart(null, { nodeId: FROM, handleType: 'source' })
+    g.onConnectEnd(release(cardBody(TO)))
+    expect(drawn()).toHaveLength(1)
+    expect(toasts).toEqual([])
+  })
+})

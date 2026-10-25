@@ -37,8 +37,9 @@ function readOnce(key: string, scenarioId: string, graphHash: string): Promise<u
 
 /**
  * The saved-graph read for the board on screen, with what `useSavedGraph`'s null cannot tell apart: `none` (no read
- * applies: off the core lane, or no saved scenario and hash yet), `pending` (this key's read has not answered), `failed`
- * (it answered with no graph of this scenario and hash) or `read`.
+ * applies: off the core lane, or no saved scenario), `pending` (a saved scenario whose read has not answered, including
+ * one with no saved hash yet: a restored or hydrating canvas, Codex r2 on #2998), `failed` (it answered with no graph of
+ * this scenario and hash) or `read`.
  */
 export type SavedGraphRead =
   | { readonly status: 'none' | 'pending' | 'failed' }
@@ -53,15 +54,16 @@ export function useSavedGraphRead(): SavedGraphRead {
   const [read, setRead] = useState<{ key: string; graph: unknown } | null>(null)
   // CEE serves the core lane under the default `openai` mode too (`laneModeFor`): reading only on `?ai=core` left every
   // living-model reader dark on the default path. A legacy graph carries no living model, so its readers show nothing.
-  const applies = isOpenAiLane(resolveAiComparisonMode()) && isCeeAddressableScenarioId(scenarioId) && graphHash !== null
+  const saved = isOpenAiLane(resolveAiComparisonMode()) && isCeeAddressableScenarioId(scenarioId)
+  const applies = saved && graphHash !== null
   useEffect(() => {
     if (!applies || !isCeeAddressableScenarioId(scenarioId) || graphHash === null) return
     let live = true
     void readOnce(key, scenarioId, graphHash).then((graph) => { if (live) setRead({ key, graph }) })
     return () => { live = false }
   }, [applies, scenarioId, graphHash, key])
-  if (!applies) return { status: 'none' }
-  if (read?.key !== key) return { status: 'pending' }
+  if (!saved) return { status: 'none' }
+  if (!applies || read?.key !== key) return { status: 'pending' }
   return read.graph === null ? { status: 'failed' } : { status: 'read', graph: read.graph }
 }
 

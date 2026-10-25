@@ -27,7 +27,8 @@ export function useSavedModelIsProgram(): boolean {
 
 /**
  * Whether the saved model on screen is a program, saying when that is not known: `unknown` while its read is pending
- * or after it failed. With no read to make (off the core lane, or no saved scenario and hash yet) no program is on screen.
+ * (a saved scenario with no saved hash yet included) or after it failed. With no read to make (off the core lane, or no
+ * saved scenario) no program is on screen.
  */
 export function useSavedModelProgramState(): 'program' | 'not_program' | 'unknown' {
   const read = useSavedGraphRead()
