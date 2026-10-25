@@ -1,0 +1,673 @@
+{
+  "_capture": "Paul's European-expansion board 19faa1f8 (staging Supabase, 25 Oct 2026, GET-only via sb-read.sh): graph nodes and edges as saved, living model left out. 0 AI calls.",
+  "scenario_id": "19faa1f8-d96b-4ec4-ba05-f6c6b02d6093",
+  "graph": {
+    "nodes": [
+      {
+        "id": "mp:decision",
+        "ref": "D1",
+        "kind": "decision",
+        "label": "Should we expand into the European market over the next 6–12 months, given the customer target, churn danger threshold and investment budget?"
+      },
+      {
+        "id": "customer_growth_goal",
+        "ref": "G1",
+        "kind": "goal",
+        "label": "The target is 800",
+        "provenance": "from_brief",
+        "source_quote": "The target is 800.",
+        "display_value": ">= 800 customer",
+        "goal_direction": ">=",
+        "goal_threshold": 0.8,
+        "threshold_source": "brief_extraction",
+        "goal_threshold_cap": 1000,
+        "goal_threshold_raw": 800,
+        "goal_threshold_unit": "customer",
+        "goal_threshold_frame": "level",
+        "analysis_participation": "retained_excluded",
+        "goal_threshold_cap_provenance": "target_derived_headroom"
+      },
+      {
+        "id": "no_expansion",
+        "ref": "O1",
+        "kind": "option",
+        "label": "Continue without European expansion",
+        "provenance": "ai_inferred",
+        "is_baseline": true,
+        "proposed_by": "olumi",
+        "analysis_participation": "included"
+      },
+      {
+        "id": "focused_pilot",
+        "ref": "O2",
+        "kind": "option",
+        "label": "Focused European pilot",
+        "provenance": "ai_inferred",
+        "proposed_by": "olumi",
+        "interventions": {
+          "expansion_investment": {
+            "unit": "GBP",
+            "value": 150000,
+            "source": "cee_hypothesis",
+            "display": "150,000 GBP, Olumi's reading",
+            "from_period": "launch_delay",
+            "source_words": "Set by ‘Focused European pilot’, Olumi’s figure"
+          }
+        },
+        "analysis_participation": "included"
+      },
+      {
+        "id": "full_budget_expansion",
+        "ref": "O3",
+        "kind": "option",
+        "label": "Full-budget European expansion",
+        "provenance": "ai_inferred",
+        "proposed_by": "olumi",
+        "interventions": {
+          "expansion_investment": {
+            "unit": "GBP",
+            "value": 500000,
+            "source": "brief_extraction",
+            "display": "500,000 GBP",
+            "from_period": "launch_delay",
+            "source_words": "Set by ‘Full-budget European expansion’, from your brief"
+          }
+        },
+        "analysis_participation": "included"
+      },
+      {
+        "id": "current_customers",
+        "ref": "F1",
+        "kind": "factor",
+        "label": "Current customer base",
+        "category": "observable",
+        "provenance": "from_brief",
+        "source_quote": "Our current customer base is 400.",
+        "display_value": "400 customer",
+        "observed_state": {
+          "unit": "customer",
+          "value": 400,
+          "source": "brief_extraction",
+          "raw_value": 400,
+          "extractionType": "explicit"
+        },
+        "analysis_participation": "included"
+      },
+      {
+        "id": "planning_window",
+        "ref": "F2",
+        "kind": "factor",
+        "label": "Planning horizon",
+        "category": "observable",
+        "provenance": "from_brief",
+        "source_quote": "in the next 6-12 months",
+        "display_value": "6–12 month; Olumi reads it as a spread around 9 (sd 1.411), kept between 6 and 12, provisionally",
+        "observed_state": {
+          "unit": "month",
+          "range": {
+            "low": 6,
+            "high": 12
+          },
+          "value": 9,
+          "source": "cee_inference",
+          "raw_value": 9,
+          "extractionType": "inferred"
+        },
+        "analysis_participation": "retained_excluded"
+      },
+      {
+        "id": "baseline_churn",
+        "ref": "F3",
+        "kind": "factor",
+        "label": "Current monthly churn",
+        "category": "observable",
+        "provenance": "from_brief",
+        "source_quote": "Monthly churn is at 8%.",
+        "display_value": "8 %/month",
+        "observed_state": {
+          "unit": "%/month",
+          "value": 8,
+          "source": "brief_extraction",
+          "raw_value": 8,
+          "extractionType": "explicit"
+        },
+        "analysis_participation": "included"
+      },
+      {
+        "id": "investment_budget",
+        "ref": "F4",
+        "kind": "factor",
+        "label": "Maximum investment budget",
+        "category": "observable",
+        "provenance": "from_brief",
+        "source_quote": "The investment budget is up to £500k.",
+        "display_value": "500,000 GBP",
+        "observed_state": {
+          "unit": "GBP",
+          "value": 500000,
+          "source": "brief_extraction",
+          "raw_value": 500000,
+          "extractionType": "explicit"
+        },
+        "analysis_participation": "included"
+      },
+      {
+        "id": "baseline_new_customers",
+        "ref": "F5",
+        "kind": "factor",
+        "label": "New customers per month without European expansion",
+        "category": "observable",
+        "provenance": "from_brief",
+        "value_basis": {
+          "kind": "waiting_for_answer",
+          "words": "Waiting for your answer",
+          "question": "How many new customers joined last month, before subtracting those who left?"
+        },
+        "display_value": "Waiting for your answer",
+        "observed_state": {
+          "unit": "customer/month"
+        },
+        "user_questions": [
+          "How many new customers joined last month, before subtracting those who left?"
+        ],
+        "analysis_participation": "included"
+      },
+      {
+        "id": "launch_delay",
+        "ref": "F6",
+        "kind": "factor",
+        "label": "Months until European service could start",
+        "category": "observable",
+        "provenance": "from_brief",
+        "value_basis": {
+          "kind": "waiting_for_answer",
+          "words": "Waiting for your answer",
+          "question": "How many months from now could you begin serving European customers?"
+        },
+        "display_value": "Waiting for your answer",
+        "observed_state": {
+          "unit": "month"
+        },
+        "user_questions": [
+          "How many months from now could you begin serving European customers?"
+        ],
+        "analysis_participation": "included"
+      },
+      {
+        "id": "expansion_investment",
+        "ref": "F7",
+        "kind": "factor",
+        "label": "Committed European expansion investment",
+        "category": "controllable",
+        "description": "Zero is the starting setting for additional investment controlled by the proposed options, not a statement about historical spending.",
+        "value_basis": {
+          "kind": "structure",
+          "words": "Fixed by how the model is built"
+        },
+        "display_value": "0 GBP",
+        "observed_state": {
+          "unit": "GBP",
+          "value": 0,
+          "raw_value": 0
+        },
+        "analysis_participation": "included"
+      },
+      {
+        "id": "monthly_new_customers",
+        "ref": "OC1",
+        "kind": "outcome",
+        "label": "New customers per month",
+        "provenance": "ai_inferred",
+        "value_basis": {
+          "from": [
+            "baseline_new_customers",
+            "expansion_investment"
+          ],
+          "kind": "worked_out",
+          "words": "Worked out from New customers per month without European expansion and Committed European expansion investment"
+        },
+        "display_value": "Worked out from New customers per month without European expansion and Committed European expansion investment",
+        "analysis_participation": "included"
+      },
+      {
+        "id": "monthly_churn",
+        "ref": "OC2",
+        "kind": "outcome",
+        "label": "Monthly churn after expansion effects",
+        "provenance": "ai_inferred",
+        "value_basis": {
+          "from": [
+            "baseline_churn",
+            "expansion_investment"
+          ],
+          "kind": "worked_out",
+          "words": "Worked out from Current monthly churn and Committed European expansion investment"
+        },
+        "display_value": "Worked out from Current monthly churn and Committed European expansion investment",
+        "analysis_participation": "included"
+      },
+      {
+        "id": "percentage_scale",
+        "ref": "F8",
+        "kind": "factor",
+        "label": "Whole percentage",
+        "category": "observable",
+        "description": "A whole is 100 percent; dividing a percentage rate by this converts it to a fractional rate.",
+        "value_basis": {
+          "kind": "structure",
+          "words": "Fixed by how the model is built"
+        },
+        "display_value": "100 %",
+        "observed_state": {
+          "unit": "%",
+          "value": 100,
+          "raw_value": 100
+        },
+        "analysis_participation": "included"
+      },
+      {
+        "id": "monthly_customer_losses",
+        "ref": "OC3",
+        "kind": "outcome",
+        "label": "Customers lost per month",
+        "provenance": "ai_inferred",
+        "value_basis": {
+          "from": [
+            "customers",
+            "monthly_churn",
+            "percentage_scale"
+          ],
+          "kind": "worked_out",
+          "words": "Worked out from Customer base, Monthly churn after expansion effects and Whole percentage"
+        },
+        "display_value": "Worked out from Customer base, Monthly churn after expansion effects and Whole percentage",
+        "analysis_participation": "included"
+      },
+      {
+        "id": "customers",
+        "ref": "OC4",
+        "kind": "outcome",
+        "label": "Customer base",
+        "provenance": "ai_inferred",
+        "value_basis": {
+          "from": [
+            "current_customers",
+            "monthly_new_customers",
+            "monthly_customer_losses"
+          ],
+          "kind": "worked_out",
+          "words": "Worked out from Current customer base, New customers per month and Customers lost per month"
+        },
+        "display_value": "Worked out from Current customer base, New customers per month and Customers lost per month",
+        "analysis_participation": "included"
+      },
+      {
+        "id": "variable_competition",
+        "ref": "A1",
+        "kind": "action",
+        "label": "Claim: Competition intensity varies.",
+        "provenance": "from_brief",
+        "description": "Competition intensity varies.",
+        "source_quote": "Competition intensity varies.",
+        "analysis_participation": "retained_excluded"
+      },
+      {
+        "id": "country_regulatory_complexity",
+        "ref": "A2",
+        "kind": "action",
+        "label": "Claim: Multiple complex country regulations are a consideration.",
+        "provenance": "from_brief",
+        "description": "Multiple complex country regulations are a consideration.",
+        "source_quote": "Multiple complex country regulations are a consideration.",
+        "analysis_participation": "retained_excluded"
+      },
+      {
+        "id": "churn_profit_warning",
+        "ref": "A3",
+        "kind": "action",
+        "label": "Claim: If it goes beyond 12%, we're in danger of losing money.",
+        "provenance": "from_brief",
+        "description": "If it goes beyond 12%, we're in danger of losing money.",
+        "source_quote": "If it goes beyond 12%, we're in danger of losing money.",
+        "analysis_participation": "retained_excluded"
+      },
+      {
+        "id": "target_horizon_reading",
+        "ref": "A4",
+        "kind": "action",
+        "label": "Assumption: The customer target is evaluated at the end of the stated 6–12-month planning h…",
+        "provenance": "ai_inferred",
+        "description": "The customer target is evaluated at the end of the stated 6–12-month planning horizon; the brief does not separately date the target or select one deadline within that interval.",
+        "analysis_participation": "retained_excluded"
+      },
+      {
+        "id": "baseline_continuation",
+        "ref": "A5",
+        "kind": "action",
+        "label": "Assumption: Without expansion, monthly customer acquisition and the current churn rate rema…",
+        "provenance": "ai_inferred",
+        "description": "Without expansion, monthly customer acquisition and the current churn rate remain unchanged over the planning horizon.",
+        "analysis_participation": "retained_excluded"
+      },
+      {
+        "id": "investment_response_structure",
+        "ref": "A6",
+        "kind": "action",
+        "label": "Assumption: Investment is a total commitment rather than monthly spending; after launch, it…",
+        "provenance": "ai_inferred",
+        "description": "Investment is a total commitment rather than monthly spending; after launch, its acquisition benefit and possible churn pressure persist and scale proportionally with the commitment as a provisional comparison structure.",
+        "analysis_participation": "retained_excluded"
+      },
+      {
+        "id": "pilot_design",
+        "ref": "A7",
+        "kind": "action",
+        "label": "Assumption: The pilot concentrates on one selected country and leaves the remainder of the …",
+        "provenance": "ai_inferred",
+        "description": "The pilot concentrates on one selected country and leaves the remainder of the budget uncommitted; further rollout requires a separate decision after learning from the pilot.",
+        "analysis_participation": "retained_excluded"
+      },
+      {
+        "id": "all_in_investment_scope",
+        "ref": "A8",
+        "kind": "action",
+        "label": "Assumption: Each proposed commitment must cover its launch, acquisition, localisation and r…",
+        "provenance": "ai_inferred",
+        "description": "Each proposed commitment must cover its launch, acquisition, localisation and regulatory setup costs within the investment budget.",
+        "analysis_participation": "retained_excluded"
+      },
+      {
+        "id": "regulatory_readiness",
+        "ref": "A9",
+        "kind": "action",
+        "label": "Condition: Before launching, establish which country-specific obligations apply and whethe…",
+        "provenance": "ai_inferred",
+        "description": "Before launching, establish which country-specific obligations apply and whether the proposed offering can meet them within the investment commitment.",
+        "analysis_participation": "retained_excluded"
+      },
+      {
+        "id": "unsized_expansion_effects",
+        "ref": "A10",
+        "kind": "action",
+        "label": "Condition: The brief does not support a numerical success probability or a preferred inves…",
+        "provenance": "ai_inferred",
+        "description": "The brief does not support a numerical success probability or a preferred investment scale: acquisition benefits and churn pressure have no defensible sizes yet, and country competition may make proportional returns a poor approximation.",
+        "analysis_participation": "retained_excluded"
+      },
+      {
+        "id": "profitability_not_modelled",
+        "ref": "A11",
+        "kind": "action",
+        "label": "Left out: Actual profitability and country-specific commercial viability are not calculat…",
+        "provenance": "ai_inferred",
+        "description": "Actual profitability and country-specific commercial viability are not calculated; the stated churn danger threshold is retained, but staying below it does not establish that expansion makes money. Why: The brief provides no customer revenue, contribution margin or ongoing operating-cost model, so customer growth and churn cannot establish profit.",
+        "analysis_participation": "retained_excluded"
+      }
+    ],
+    "edges": [
+      {
+        "id": "customers__customer_growth_goal",
+        "to": "customer_growth_goal",
+        "from": "customers",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "brief_extraction",
+          "definitional": true
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "id": "mp:decision__no_expansion",
+        "to": "no_expansion",
+        "from": "mp:decision",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "id": "mp:decision__focused_pilot",
+        "to": "focused_pilot",
+        "from": "mp:decision",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "id": "focused_pilot__expansion_investment",
+        "to": "expansion_investment",
+        "from": "focused_pilot",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "id": "mp:decision__full_budget_expansion",
+        "to": "full_budget_expansion",
+        "from": "mp:decision",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "id": "full_budget_expansion__expansion_investment",
+        "to": "expansion_investment",
+        "from": "full_budget_expansion",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "id": "baseline_new_customers__monthly_new_customers",
+        "to": "monthly_new_customers",
+        "from": "baseline_new_customers",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis",
+          "reasoning": "base level",
+          "definitional": true
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "id": "expansion_investment__monthly_new_customers",
+        "to": "monthly_new_customers",
+        "from": "expansion_investment",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis",
+          "magnitude": "olumi_estimate",
+          "reasoning": "unknown per GBP; its size is not given yet"
+        },
+        "coefficient_id": "acquisition_per_investment",
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "id": "baseline_churn__monthly_churn",
+        "to": "monthly_churn",
+        "from": "baseline_churn",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis",
+          "reasoning": "base level",
+          "definitional": true
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "id": "expansion_investment__monthly_churn",
+        "to": "monthly_churn",
+        "from": "expansion_investment",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis",
+          "magnitude": "olumi_estimate",
+          "reasoning": "unknown per GBP; its size is not given yet"
+        },
+        "coefficient_id": "churn_pressure_per_investment",
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "id": "customers__monthly_customer_losses",
+        "to": "monthly_customer_losses",
+        "from": "customers",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis",
+          "reasoning": "multiplied",
+          "definitional": true
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "id": "monthly_churn__monthly_customer_losses",
+        "to": "monthly_customer_losses",
+        "from": "monthly_churn",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis",
+          "reasoning": "multiplied",
+          "definitional": true
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "id": "percentage_scale__monthly_customer_losses",
+        "to": "monthly_customer_losses",
+        "from": "percentage_scale",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": -1
+        },
+        "provenance": {
+          "source": "cee_hypothesis",
+          "reasoning": "divided by",
+          "definitional": true
+        },
+        "effect_direction": "negative",
+        "exists_probability": 1
+      },
+      {
+        "id": "current_customers__customers",
+        "to": "customers",
+        "from": "current_customers",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis",
+          "reasoning": "starting level",
+          "definitional": true
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "id": "monthly_new_customers__customers",
+        "to": "customers",
+        "from": "monthly_new_customers",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis",
+          "reasoning": "inflow per month",
+          "definitional": true
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "id": "monthly_customer_losses__customers",
+        "to": "customers",
+        "from": "monthly_customer_losses",
+        "origin": "model_program:display",
+        "strength": {
+          "std": 0.001,
+          "mean": -1
+        },
+        "provenance": {
+          "source": "cee_hypothesis",
+          "reasoning": "outflow per month",
+          "definitional": true
+        },
+        "effect_direction": "negative",
+        "exists_probability": 1
+      }
+    ]
+  }
+}

@@ -1235,6 +1235,13 @@ interface CanvasState {
   engineLimitsFetchedAt: number | null
   // M4: Graph Health & Repair
   graphHealth: GraphHealth | null
+  /**
+   * The saved model is core (it carries a living model): CEE's admission is the only readiness authority, so the legacy
+   * client validator (`validation/graphValidator`) does not run and `graphHealth` stays null. Its directed-cycle rule
+   * refused every stock-and-flow core model ("Cycle detected: customers → monthly_customer_losses → customers") and
+   * disabled Run (Paul's test, 25 Oct). Set from `useSavedModelIsCore` by `CanvasMVP`.
+   */
+  legacyValidationOff: boolean
   showIssuesPanel: boolean
   needleMovers: NeedleMover[]
   // Phase 3: Interaction enhancements (Set for O(1) lookup)
@@ -2011,6 +2018,7 @@ interface CanvasState {
   setEngineLimitsLoading: (loading: boolean) => void
   // M4: Graph Health actions
   validateGraph: () => void
+  setLegacyValidationOff: (off: boolean) => void
   setShowIssuesPanel: (show: boolean) => void
   applyRepair: (issueId: string) => void
   applyAllRepairs: () => void
@@ -3581,6 +3589,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   templatesPanelInvoker: null,
   // M4: Graph Health & Repair
   graphHealth: null,
+  legacyValidationOff: false,
   needleMovers: [],
   highlightedNodes: new Set<string>(),
   olumiAttention: null,
@@ -5822,6 +5831,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         reportEpoch: s.results.runEpoch,
       },
       graphHealth: (() => {
+        if (s.legacyValidationOff) return null // core board: CEE's admission decides, no legacy health
         if (!healthFromQuality) return s.graphHealth ?? null
         if (!s.graphHealth) return healthFromQuality
         // Preserve structural validation output when issues are present,
@@ -6490,6 +6500,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         ceeError: run.ceeError ?? null
       },
       graphHealth: (() => {
+        if (s.legacyValidationOff) return null // core board: CEE's admission decides, no legacy health
         if (!healthFromQuality) return s.graphHealth ?? null
         if (!s.graphHealth) return healthFromQuality
         if (s.graphHealth.issues.length > 0) return s.graphHealth
@@ -6562,6 +6573,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         ...hydratedRunMeta,
       },
       graphHealth: (() => {
+        if (s.legacyValidationOff) return null // core board: CEE's admission decides, no legacy health
         if (!healthFromQuality) return s.graphHealth ?? null
         if (!s.graphHealth) return healthFromQuality
         if (s.graphHealth.issues.length > 0) return s.graphHealth
@@ -7915,8 +7927,19 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({ engineLimitsLoading: loading })
   },
 
+  setLegacyValidationOff: (off: boolean) => {
+    if (get().legacyValidationOff === off) return
+    set({ legacyValidationOff: off })
+    get().validateGraph()
+  },
+
   // M4: Graph Health actions
   validateGraph: async () => {
+    // A core board has no legacy validation: CEE's admission decides readiness (see `legacyValidationOff`).
+    if (get().legacyValidationOff) {
+      if (get().graphHealth !== null) set({ graphHealth: null })
+      return
+    }
     // Get nodes/edges for validation (before await to ensure consistency)
     const { nodes, edges } = get()
 
@@ -7926,6 +7949,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     // Brief 37 Optimization: Re-check current store state AFTER async import
     // to avoid race conditions where multiple calls see stale existingHealth
+    if (get().legacyValidationOff) return
     const existingHealth = get().graphHealth
 
     // Skip update if health is unchanged (prevents re-renders from new object refs)
@@ -7963,6 +7987,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     pushToHistory(get, set)
 
     const { applyRepair: apply } = await import('./validation/graphRepair')
+    if (get().legacyValidationOff) return // switched to a core board while loading: no legacy repair runs
     const { nodes: repairedNodes, edges: repairedEdges } = apply(nodes, edges, issue.suggestedFix)
 
     const typedEdges: Edge<EdgeData>[] = repairedEdges.map(edge => ({
@@ -7991,6 +8016,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     pushToHistory(get, set)
 
     const { quickFixAll } = await import('./validation/graphRepair')
+    if (get().legacyValidationOff) return // switched to a core board while loading: no legacy repair runs
     const { nodes: repairedNodes, edges: repairedEdges } = quickFixAll(nodes, edges, graphHealth.issues)
 
     const typedEdges: Edge<EdgeData>[] = repairedEdges.map(edge => ({

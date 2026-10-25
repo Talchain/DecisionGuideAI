@@ -4,6 +4,9 @@
  * under either. Its own module, so a spec that replaces `savedGraph` with a plain read still gets this from that read.
  */
 import { useSavedGraph } from './savedGraph'
+import { useCanvasStore } from '../../store'
+import { isOpenAiLane, resolveAiComparisonMode } from '../../../v5/aiComparisonMode'
+import { isCeeAddressableScenarioId } from '../../hydrate/bootGraphRead'
 
 export function useSavedModelIsCore(): boolean {
   const graph = useSavedGraph()
@@ -11,3 +14,29 @@ export function useSavedModelIsCore(): boolean {
   const lm = (graph as { living_model?: unknown }).living_model
   return lm !== null && typeof lm === 'object'
 }
+
+/**
+ * Whether the legacy client validator is off for the board on screen (store `legacyValidationOff`): a read that answered
+ * decides (a living model → off), and while the read is pending or failed it is off on the core lane (the URL's
+ * `openai`-family mode, a scenario CEE can address), where CEE serves core and its admission decides. Off that lane (a
+ * guest or local board, another AI mode) the validator runs as before (Codex r1 on #2995: a pending read must not
+ * switch the cycle rule back on).
+ */
+export function useLegacyValidationOff(): boolean {
+  const graph = useSavedGraph()
+  const scenarioId = useCanvasStore((s) => s.currentScenarioId)
+  if (graph !== null && typeof graph === 'object' && !Array.isArray(graph)) {
+    const lm = (graph as { living_model?: unknown }).living_model
+    const core = lm !== null && typeof lm === 'object'
+    if (typeof scenarioId === 'string') answeredCore.set(scenarioId, core)
+    return core
+  }
+  // Unanswered: what this scenario's last answered read said (a legacy board stays validated through a refresh or a
+  // failed read; Codex r2 on #2995), else the lane's default.
+  const answered = typeof scenarioId === 'string' ? answeredCore.get(scenarioId) : undefined
+  if (answered !== undefined) return answered
+  return isOpenAiLane(resolveAiComparisonMode()) && isCeeAddressableScenarioId(scenarioId)
+}
+
+/** The last answered verdict per scenario (a scenario's model does not change kind between reads). */
+const answeredCore = new Map<string, boolean>()

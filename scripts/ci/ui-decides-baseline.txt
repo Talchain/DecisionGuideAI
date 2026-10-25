@@ -47,7 +47,10 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:150
 src/canvas/hooks/useScienceIcons.ts:165
-src/canvas/store.ts:8266
+src/canvas/store.ts:8292
+#    (`store.ts:8266` -> `8292`, a pure +26 line shift from the core-board legacy-validation switch (25 Oct 2026): the
+#    `legacyValidationOff` field, its default, its setter, its guards in `validateGraph`, the repairs and the three
+#    report-health writers, all above this site. Line text identical.)
 #    (`store.ts:8259` -> `8266`, a pure +7 line shift from vision PR-F (23 Oct 2026): the lens's `_emphasisEdgeIds`
 #    field, its default and its setter, all above this site. Line text identical.)
 #    (`store.ts:8256` -> `8259`, a pure +3 line shift from the Living Model canvas (22 Oct 2026): the
