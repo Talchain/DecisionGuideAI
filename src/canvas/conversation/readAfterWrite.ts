@@ -74,9 +74,12 @@ export async function checkReadAfterWrite(
   return last
 }
 
-/** The notice for an outcome the person must act on, or null. */
-export function readAfterWriteNotice(outcome: ReadAfterWriteOutcome): string | null {
-  return outcome === 'stale_model' ? STALE_MODEL_NOTICE
+/**
+ * The notice for an outcome the person must act on, or null. `wrote`: the turn carries a receipt of its write; only then
+ * may a stale read say "Your change was saved" (DL, U-W2). After any other turn it says the view couldn't refresh.
+ */
+export function readAfterWriteNotice(outcome: ReadAfterWriteOutcome, opts: { wrote: boolean }): string | null {
+  return outcome === 'stale_model' ? (opts.wrote ? STALE_MODEL_NOTICE : READ_FAILED_NOTICE)
     : outcome === 'run_not_delivered' ? RUN_NOT_DELIVERED_NOTICE
     : outcome === 'unknown' ? READ_FAILED_NOTICE
     : null
