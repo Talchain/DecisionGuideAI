@@ -33,6 +33,8 @@
  * drift apart. A second copy would be this estate's hand-maintained mirror.
  */
 
+import { decisionLabelIsUnwritten } from './vocabulary'
+
 /** Shown when a model has neither a name nor a goal to be named after. */
 export const UNNAMED_MODEL_FALLBACK = 'Untitled scenario'
 
@@ -71,6 +73,16 @@ export function deriveModelNameFromGoal(goal: unknown): string | null {
  * unchanged; it is never invented here — callers pass the manifest's own string
  * or nothing.
  */
+/**
+ * A question card's words as a name: the producer's "Decision: " prefix off, and null when it is unwritten (the default
+ * "Question", or a bare prefix), so a placeholder never names a model over its goal (Codex r1 on #2994).
+ */
+export function questionDisplayName(label: unknown): string | null {
+  if (typeof label !== 'string') return null
+  const words = label.replace(/^\s*decision\s*:\s*/i, '').trim()
+  return words.length === 0 || decisionLabelIsUnwritten(words) ? null : words
+}
+
 export function resolveModelDisplayName(
   storedTitle: unknown,
   goal: unknown,
@@ -85,6 +97,7 @@ export function resolveModelDisplayName(
     return exampleTitle.trim()
   }
   // The question is said whole: each surface truncates it as it fits (a word is never cut to the goal's 60-character cap).
-  if (typeof question === 'string' && question.trim().length > 0) return question.trim()
+  const asked = questionDisplayName(question)
+  if (asked !== null) return asked
   return deriveModelNameFromGoal(goal) ?? UNNAMED_MODEL_FALLBACK
 }

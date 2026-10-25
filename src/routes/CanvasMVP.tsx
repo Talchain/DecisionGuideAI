@@ -33,7 +33,6 @@ import { useProvisionalAnalysisDelivery } from '../canvas/hooks/useProvisionalAn
 import { useImportRegistration } from '../canvas/registration/useImportRegistration'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../canvas/mutations/mutationAuthority'
 import { resolveModelDisplayName } from '../canvas/domain/modelDisplayName'
-import { displayLabelText } from '../canvas/domain/elementLabel'
 import { getStarter, resolveStarterId } from '../canvas/starters/loadStarter'
 import { resolveNodeTypeLiteral } from '../canvas/domain/nodes'
 
@@ -248,7 +247,7 @@ function CanvasMVPBody() {
   const questionNodeLabel = useCanvasStore(state => {
     const question = (state.nodes ?? []).find(n => resolveNodeTypeLiteral(n) === 'decision')
     const label = (question?.data as { label?: unknown } | undefined)?.label
-    return typeof label === 'string' && label.trim().length > 0 ? displayLabelText(label, 'decision') : null
+    return typeof label === 'string' ? label : null
   })
 
   // A saved example's own name — the manifest title the starter card shows —

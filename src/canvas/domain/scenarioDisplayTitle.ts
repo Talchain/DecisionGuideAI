@@ -26,8 +26,7 @@
  * `{ type, data: { label } }`. Both are read, because local/guest-saved graphs
  * carry the canvas shape.
  */
-import { deriveModelNameFromGoal } from './modelDisplayName'
-import { displayLabelText } from './elementLabel'
+import { deriveModelNameFromGoal, questionDisplayName } from './modelDisplayName'
 
 type Loose = Record<string, unknown>
 
@@ -58,10 +57,9 @@ export function storedGoalNodeLabel(graph: unknown): string | null {
   return storedNodeLabel(graph, 'goal')
 }
 
-/** The question card's words in a stored graph (its producer's "Decision: " prefix off, as the card shows it), or null. */
+/** The question card's words in a stored graph as a name (`questionDisplayName`: prefix off, placeholder refused), or null. */
 export function storedQuestionNodeLabel(graph: unknown): string | null {
-  const label = storedNodeLabel(graph, 'decision')
-  return label === null ? null : displayLabelText(label, 'decision')
+  return questionDisplayName(storedNodeLabel(graph, 'decision'))
 }
 
 /**

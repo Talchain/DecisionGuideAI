@@ -72,7 +72,6 @@ import { useAnalysisRunState } from '../../components/results/analysisState/useA
 import { DecisionOverviewCard } from '../../components/results/decision-overview/DecisionOverviewCard'
 import { isDecisionOverviewEnabled } from '../../flags'
 import { resolveModelDisplayName, UNNAMED_MODEL_FALLBACK } from '../domain/modelDisplayName'
-import { displayLabelText } from '../domain/elementLabel'
 import { getStarter, resolveStarterId } from '../starters/loadStarter'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { deriveResultsTabFreshness } from './resultsTabFreshness'
@@ -1294,7 +1293,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const overviewQuestionLabel = useCanvasStore((s) => {
     const question = (s.nodes ?? []).find((n) => resolveNodeTypeLiteral(n) === 'decision')
     const label = (question?.data as { label?: unknown } | undefined)?.label
-    return typeof label === 'string' && label.trim().length > 0 ? displayLabelText(label, 'decision') : null
+    return typeof label === 'string' ? label : null
   })
   const overviewExampleTitle = useCanvasStore((s) => {
     const starterId = resolveStarterId(s.nodes ?? [])

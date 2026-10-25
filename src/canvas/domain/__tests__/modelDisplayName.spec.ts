@@ -72,6 +72,10 @@ describe('resolveModelDisplayName — precedence', () => {
     expect(resolveModelDisplayName('Europe plan', 'The target is 800', undefined, question)).toBe('Europe plan')
     expect(resolveModelDisplayName(undefined, 'The target is 800', 'Market entry example', question)).toBe('Market entry example')
     expect(resolveModelDisplayName(undefined, 'The target is 800', undefined, '   ')).toBe('The target is 800')
+    // A placeholder question never names a model over its goal: the default "Question", or a bare producer prefix.
+    expect(resolveModelDisplayName(undefined, 'The target is 800', undefined, 'Question')).toBe('The target is 800')
+    expect(resolveModelDisplayName(undefined, 'The target is 800', undefined, 'Decision:')).toBe('The target is 800')
+    expect(resolveModelDisplayName(undefined, 'The target is 800', undefined, 'Decision: Enter Europe?')).toBe('Enter Europe?')
   })
 
   it('a whitespace-only stored title does not beat a usable goal', () => {
