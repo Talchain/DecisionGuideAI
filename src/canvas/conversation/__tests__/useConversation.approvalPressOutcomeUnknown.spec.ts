@@ -78,7 +78,8 @@ vi.mock('../../../v5/eligibility', async (importOriginal) => {
  * stays offered. Real path: stubbed fetch → REAL callV5Turn → parseV5Response → routeV5Response → useConversation.
  * Wire shape: the captured served body (`redteam/joined-proof/runs/20261019T114135Z/REC-WRITE/correction/turns/03.json`).
  */
-import { assertsDeliveryUnknown, assertsNonDelivery, statesANextStep } from '../deliveryUnknown'
+import { assertsNonDelivery } from '../deliveryUnknown'
+import { isChipRenderable } from '../chipDispatch'
 
 const SERVED_AFTER_WRITE_FAULT = { error: 'RECOVERY_FAULT_INJECTED', point: 'after_write' }
 
@@ -111,7 +112,9 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks() })
 
 describe('an approval press answered by a server failure: outcome unknown, never "something went wrong on our side"', () => {
-  it('RED: the served after-write 503 on an approval press says the outcome cannot be confirmed, offers the safe re-press, and is not filed as a server failure', async () => {
+  // U-W2 (Codex r1 on #2997, DL): the stored retry chip carries no message, so no row draws it (`isChipRenderable`); the
+  // words therefore never name "Try again". No case in this file draws a real retry chip.
+  it('RED: the served after-write 503 on an approval press says the outcome cannot be confirmed, names no Try again it does not draw, and is not filed as a server failure', async () => {
     const fetchStub = stubFetchWith(503, SERVED_AFTER_WRITE_FAULT)
     const { result } = renderHook(() => useConversation())
     await act(async () => { await result.current.sendChip(APPROVE_CHIP as never) })
@@ -119,10 +122,13 @@ describe('an approval press answered by a server failure: outcome unknown, never
     const last = result.current.messages[result.current.messages.length - 1]!
     expect(last.role).toBe('assistant')
     expect(last.content).not.toContain('Something went wrong on our side')
-    expect(assertsDeliveryUnknown(last.content)).toBe(true)
+    expect(last.content).toBe("Olumi's answer couldn't be confirmed yet. Reload to see the current model before sending again.")
+    expect(last.content).not.toMatch(/try again/i)
     expect(assertsNonDelivery(last.content)).toBe(false)
-    expect(statesANextStep(last.content)).toBe(true)
+    // Its next step is to reload, which `NEXT_STEP_PATTERNS` does not list (and is not widened for this): said inline.
+    expect(last.content).toMatch(/Reload to see the current model/)
     expect(last.actionChips).toEqual([{ id: 'retry', label: 'Try again', intent: 'primary' }])
+    expect((last.actionChips ?? []).filter(isChipRenderable)).toEqual([])
     expect(result.current.lastSendFailure?.kind).toBe('delivery_unknown')
   })
 
