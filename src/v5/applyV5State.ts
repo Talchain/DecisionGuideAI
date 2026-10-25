@@ -1548,8 +1548,8 @@ export function applyV5State(
          * which is the one thing this channel must not carry.
          */
         const rawNote = (block as { note?: unknown }).note
-        // The contract's note is a plain string (`ui_directive.note`, ≤140 characters): the producer's own sentence,
-        // said beside what it points at. The object form below is kept for a producer that sends the richer note.
+        // The contract's note is a plain string (`ui_directive.note`; ≤140 characters on the legacy wire, uncapped on the core
+        // route): the producer's own sentence, said beside what it points at. The object form is kept for a richer note.
         const attentionNote: OlumiAttentionNote | null =
           typeof rawNote === 'string'
             ? (rawNote.trim() ? { body: rawNote.trim() } : null)

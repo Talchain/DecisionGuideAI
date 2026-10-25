@@ -3,11 +3,21 @@
  * its data alone. A hand-written contract sample until the route serves one (DL 22 Oct).
  */
 import { describe, expect, it } from 'vitest'
-import { parseV5Response, ADDITIVE_EXTENSIONS_KEY } from '../responseParser'
-import { readProposalFields } from '../../canvas/conversation/proposalFields'
+import { parseV5Response, ADDITIVE_EXTENSIONS_KEY, type V5ParseResult } from '../responseParser'
+import { parseCoreTurn, coreTurnToClientBody } from '../coreTurnContract'
+import { readProposalFields, readTurnProposalFields } from '../../canvas/conversation/proposalFields'
 import { readRecordedServerTurnId } from '../../canvas/conversation/serverTurnId'
 import { readAgentTurnReceipts, agentTurnUndoLabel } from '../../canvas/undo/captureAgentTurnForUndo'
+import { extractOpenQuestionListSidecar } from '../../canvas/conversation/serverOpenQuestions'
+import { extractProvisionalViewSidecar } from '../../canvas/conversation/provisionalView'
+import { readAfterWriteExpectation } from '../../canvas/conversation/readAfterWrite'
+import { readActionBar } from '../../canvas/conversation/actionBar/actionBarContract'
 import served from './fixtures/core-turn-run-served.json'
+import real from './fixtures/core-turn-r2-real.json'
+import servedChatEdit from './fixtures/core-turn-served-chat-edit.json'
+import r2Errors from './fixtures/core-turn-r2-errors.json'
+import clientBodyCapture from './fixtures/core-freshness-5e28e10f-edit.json'
+import step0 from './fixtures/core-turn-step0-cee-8114c0bf.json'
 
 const TURN = 'b0106a96-f123-4920-9f08-542eaaeadab3'
 const card = {
@@ -110,5 +120,94 @@ describe('core route: the client reads only the contract', () => {
     const legacy = { response_version: 2, assistant_text: 'hi', blocks: [], suggested_actions: [], insights: [], stage_indicator: 'frame' }
     const parsed = await parseV5Response(response(legacy))
     expect(parsed.kind === 'response' && parsed.response.assistant_text).toBe('hi')
+  })
+})
+
+/**
+ * ⭐ The core contract is a core turn's ONLY check (DL, 25 Oct). The parse used to hand the answer on to the legacy
+ * steps, so `OlumiResponseSchema`'s 140-character `ui_directive.note` cap refused a valid reply (a 189-character goal
+ * note from CEE: HTTP 200, "Sent — reply not received"). Every core-route body the tests and step 0 have is read here;
+ * each reader of the answer and of its side channels (`_agent`, `_read_after_write`, `_proposal_fields`, `action_bar`)
+ * gets what the legacy parse of the same answer gave it, wherever that parse accepted the answer.
+ */
+describe('⭐ a core turn is read by the core contract alone', () => {
+  const CORE_BAR = { v: 1, state_key: '0123456789abcdef', revision: { graph_hash: 'fedcba9876543210', run_key: null }, priority: [],
+    standard: [{ action_id: 'pre_mortem', label: 'Pre-mortem', icon: 'SearchX', group: 'method', press_id: 'agent-next-pre-mortem',
+      user_line: 'Run a pre-mortem on this model.', enabled: true, why_now: 'Imagine this went badly and work back to why.', offer_key: 'aaaabbbbccccdddd' }], more: [] }
+  const SAVED = 'c57ba8f34f877fa3bcce4de5c6f40c527f8578e821e04b0b9f4237baf2184d9f'
+  const readBack = (run: unknown) => ({ turn_id: 't', assistant_text: 'ok', cards: [], notes: [], receipts: [], error: null, run,
+    model: { revision: '48e2a1babc59ccfd', scenario_revision: SAVED, graph: { nodes: [], edges: [] } } })
+  const LONG_NOTE = 'Would the extra barista still pay after wages, holiday cover and training, once the morning queue settles and the weekend trade is counted apart from the weekday rush at both of the shops?'
+  const parse = (body: unknown, status = 200) => parseV5Response(response(body, status), { coreRoute: true })
+  /** The parse as it was: the same answer through the legacy steps (`coreTurnToClientBody`, then `OlumiResponseSchema`). */
+  const legacyParse = (body: unknown) => parseV5Response(response(coreTurnToClientBody(parseCoreTurn(body)!)))
+  const sidecarOf = (r: unknown) => ({ ...(r as Record<string, Record<string, unknown>>)[ADDITIVE_EXTENSIONS_KEY] })
+  /** What each reader takes from a turn: the answer's own fields, its sidecar, and every side-channel reader's result. */
+  const seen = (p: V5ParseResult) => p.kind !== 'response' ? p : {
+    answer: { ...p.response }, sidecar: sidecarOf(p.response),
+    readers: {
+      turnId: readRecordedServerTurnId(p.response), receipts: readAgentTurnReceipts(p.response), undo: agentTurnUndoLabel(p.response),
+      openQuestions: extractOpenQuestionListSidecar(p.response), provisionalView: extractProvisionalViewSidecar(p.response),
+      readAfterWrite: readAfterWriteExpectation(p.response), proposals: readProposalFields(readTurnProposalFields(p.response)),
+      actionBar: readActionBar(p.response),
+    },
+  }
+  const short: Array<[string, unknown]> = [
+    ['the hand contract', contract()],
+    ['the hand contract, a Run', contract({ cards: [], notes: [], analysis_result: served.analysis_result, analysis_state: served.analysis_state })],
+    ['the hand contract, an Olumi write', contract({ receipts: [{ version: 3, version_id: 'v3', mutation_id: 'm3', authorised_by: 'olumi' }] })],
+    ['the hand contract, notes on no card', contract({ cards: [], notes: [{ element_id: 'nope', text: 'x' }, { element_id: 'decision', text: 'y' }] })],
+    ['R2 card turn', real.card_turn], ['R2 approval turn', real.approval_turn], ['R2 value-change card turn', real.value_change_card_turn],
+    ['served chat edit', servedChatEdit.chat_edit_turn],
+    ['served chat edit with its action bar', { ...servedChatEdit.chat_edit_turn, action_bar: CORE_BAR }],
+    ['served chat edit, action_bar null', { ...servedChatEdit.chat_edit_turn, action_bar: null }],
+    ['a saved model to read back', readBack(null)],
+    ['a saved model and its Run to read back', readBack({ run_key: '07b381d77a4ad439', run_id: 'c253bb65588667a6213a562667f5ae728532b1a966adfa298cbf222d4673bb63', computed_against: '48e2a1babc59ccfd', state: { kind: 'complete_current' } })],
+    ['step 0: CEE draft', step0.draft_short], ['step 0: CEE draft, long question', step0.draft_long],
+    ['step 0: CEE approval, short goal note', step0.approve_short],
+  ]
+  it.each(short)('%s: read, and every reader gets what the legacy parse gave it', async (_name, body) => {
+    const [now, before] = [await parse(body), await legacyParse(body)]
+    expect([now.kind, before.kind]).toEqual(['response', 'response'])
+    expect(seen(now)).toEqual(seen(before))
+  })
+
+  const long: Array<[string, Record<string, unknown>, string]> = [
+    ['step 0: CEE approval, a goal note past 140 characters', step0.approve_long, step0.approve_long.notes[0].text],
+    ['the hand contract, a 188-character note', contract({ notes: [{ element_id: 'second_barista', text: LONG_NOTE }] }), LONG_NOTE],
+  ]
+  it.each(long)('⭐ %s: the reply is read, its note whole, its side channels attached', async (_name, body, note) => {
+    expect(note.length).toBeGreaterThan(140)
+    const before = await legacyParse(body)
+    expect(before.kind === 'parse_error' && before.parse_failure_kind).toBe('schema_mismatch') // the class this closes
+    const now = await parse(body)
+    expect(now.kind).toBe('response')
+    if (now.kind !== 'response') return
+    expect(now.response.assistant_text).toBe(body.assistant_text)
+    expect(now.response.blocks.filter((b) => b.type === 'ui_directive').map((b) => (b as { note?: unknown }).note)).toEqual([note])
+    const built = coreTurnToClientBody(parseCoreTurn(body)!)
+    const channels = ['_agent', '_read_after_write', '_proposal_fields', 'action_bar'].filter((k) => k in built)
+    expect(sidecarOf(now.response)).toEqual({ ...Object.fromEntries(channels.map((k) => [k, built[k]])),
+      __original_top_level_keys__: Object.keys(built).sort() })
+    expect(readRecordedServerTurnId(now.response)).toBe(body.turn_id)
+    expect(readAfterWriteExpectation(now.response)?.scenarioRevision).toBe((body.model as { scenario_revision: string }).scenario_revision)
+  })
+
+  it('⛔ a body that is not the core contract is still a schema mismatch (a legacy answer, a client body, nothing, an empty note)', async () => {
+    const legacy = { response_version: 2, assistant_text: 'hi', blocks: [], suggested_actions: [], insights: [], stage_indicator: 'frame' }
+    for (const body of [legacy, clientBodyCapture, {}, contract({ notes: [{ element_id: 'second_barista', text: '' }] })]) {
+      const parsed = await parse(body)
+      expect(parsed.kind === 'parse_error' && parsed.parse_failure_kind).toBe('schema_mismatch')
+    }
+  })
+
+  it('a failed core turn still reaches today\'s failure path with its own flags, whatever its status', async () => {
+    const timeout = r2Errors.stream_timeout_complete_frame
+    for (const [body, status] of [[timeout.payload, timeout.status_code], [r2Errors.resend_after_claim_wait.body, r2Errors.resend_after_claim_wait.status], [r2Errors.resend_after_claim_wait.body, 200]] as const) {
+      const parsed = await parse(body, status)
+      const { code, message, retry_safe, nothing_saved } = body.error
+      expect(parsed.kind === 'parse_error' && [parsed.parse_failure_kind, parsed.raw])
+        .toEqual([status === 200 ? 'schema_mismatch' : 'non_ok_non_boundary', { error: code, detail: message, retry_safe, nothing_saved }])
+    }
   })
 })

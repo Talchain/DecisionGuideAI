@@ -44,7 +44,7 @@
  *   explicit allowlist + mapper + renderer + visibility tests before CEE
  *   relies on it being shown to the user.
  */
-import { parseCoreTurn, coreTurnErrorBody, coreTurnToClientBody } from './coreTurnContract';
+import { parseCoreTurn, coreTurnErrorBody, coreTurnToClientBody, type CoreTurn } from './coreTurnContract';
 import type { z } from 'zod';
 import { ownershipRefusalReason, type OwnershipRefusalReason } from './ownershipRefusalCopy';
 
@@ -745,6 +745,40 @@ export type V5ParseResult =
     };
 
 // ---------------------------------------------------------------------------
+// Core route
+// ---------------------------------------------------------------------------
+
+/**
+ * The side channels a core turn carries beside its answer (`coreTurnToClientBody`), each on the additive sidecar where
+ * its reader looks: `_agent` (turn id, receipts, undo label), `_read_after_write`, `_proposal_fields` and `action_bar`.
+ */
+const CORE_SIDE_CHANNEL_KEYS: ReadonlySet<string> = new Set(['_agent', '_read_after_write', '_proposal_fields', 'action_bar']);
+
+/** A valid core turn as the client's answer: unchecked by the legacy schema, its side channels attached here. */
+function coreTurnResponse(turn: CoreTurn): OlumiResponseWithExtensions {
+  const body = coreTurnToClientBody(turn);
+  const answer: Record<string, unknown> = {};
+  const sidecar: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(body)) (CORE_SIDE_CHANNEL_KEYS.has(key) ? sidecar : answer)[key] = value;
+  sidecar[ORIGINAL_TOP_LEVEL_KEYS_KEY] = Object.freeze(Object.keys(body).sort());
+  return attachAdditiveSidecar(answer as unknown as OlumiResponse, sidecar);
+}
+
+/**
+ * A failed core turn as today's failure envelope, field for field: CEE's code, message, retry and nothing-saved flags
+ * as `raw`. The envelope has none of `BoundaryErrorSchema`'s required keys and is no answer, so it is the result the
+ * legacy steps always reached for it.
+ */
+function coreTurnFailure(error: NonNullable<CoreTurn['error']>, text: string, res: Response): V5ParseResult {
+  const raw = coreTurnErrorBody(error);
+  return res.ok
+    ? { kind: 'parse_error', reason: 'body did not match OlumiResponse schema', http_status: res.status, raw,
+        diagnosticHeaders: captureDiagnosticHeaders(res), parse_failure_kind: 'schema_mismatch' }
+    : { kind: 'parse_error', reason: `non-ok status ${res.status} and body is not a BoundaryError`, http_status: res.status, raw,
+        source: classifyErrorSource(text, res), diagnosticHeaders: captureDiagnosticHeaders(res), parse_failure_kind: 'non_ok_non_boundary' };
+}
+
+// ---------------------------------------------------------------------------
 // Parser
 // ---------------------------------------------------------------------------
 
@@ -784,9 +818,11 @@ export async function parseV5Response(res: Response, opts: { coreRoute?: boolean
     };
   }
 
-  // The core route answers with its own fixed contract (`coreTurnContract.ts`, the one reader of it). A body that is
-  // not that contract is a schema mismatch; a valid one goes on as the client body built from its data alone, and its
-  // error as today's failure envelope, so every path below reads only what the contract carried.
+  // The core route answers with its own fixed contract (`coreTurnContract.ts`, the one reader of it), and that contract
+  // is its ONLY check: a core turn's parse ends here and never reaches the legacy steps below. A body that is not that
+  // contract is a schema mismatch; a valid one is the answer built from its data alone, or its error as today's failure
+  // envelope. (Falling through let `OlumiResponseSchema` refuse a valid reply: a goal note over the legacy 140-character
+  // cap became "Sent — reply not received", 24 Oct.)
   if (opts.coreRoute) {
     const turn = parseCoreTurn(raw);
     if (turn === null) {
@@ -800,7 +836,7 @@ export async function parseV5Response(res: Response, opts: { coreRoute?: boolean
         parse_failure_kind: 'schema_mismatch',
       };
     }
-    raw = turn.error !== null ? coreTurnErrorBody(turn.error) : coreTurnToClientBody(turn);
+    return turn.error !== null ? coreTurnFailure(turn.error, text, res) : { kind: 'response', response: coreTurnResponse(turn) };
   }
 
   // A typed BoundaryError is returned with a non-2xx status (e.g. 422).
