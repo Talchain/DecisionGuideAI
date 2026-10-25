@@ -91,8 +91,13 @@ export function coreTurnToClientBody(turn: CoreTurn): Record<string, unknown> {
     const target = noteTarget(nodes, n.element_id)
     return target === null ? [] : [{ type: 'ui_directive', verb: 'highlight', targets: [target], note: n.text, source: 'composer' }]
   })
+  // A card kept for review (CEE PR-2) offers its "Review this change", never its approve, and "Change something first" sits
+  // only beside a card that can still be approved: exactly as a reopen offers them (`reconcileRestoredProposalFields`).
+  const reviewOf = (c: CoreTurn['cards'][number]) => { const r = actionSchema.safeParse(c.review_action); return r.success ? r.data : undefined }
   const cardActions = turn.cards.length === 0 ? [] : [
-    ...turn.cards.map((c) => c.approve_action), AMEND_PROPOSAL_ACTION, ...turn.cards.map((c) => c.decline_action),
+    ...turn.cards.map((c) => reviewOf(c) ?? c.approve_action),
+    ...(turn.cards.some((c) => reviewOf(c) === undefined) ? [AMEND_PROPOSAL_ACTION] : []),
+    ...turn.cards.map((c) => c.decline_action),
   ].map(({ id, label, message }) => ({ id, label, message }))
   return {
     response_version: 2,

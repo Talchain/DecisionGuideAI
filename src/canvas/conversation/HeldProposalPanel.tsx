@@ -7,7 +7,7 @@ import { getSessionIdentity } from '../../lib/supabase'
 import { useCanvasStore } from '../store'
 import { CANVAS_STRENGTH_BANDS, getCanvasStrengthBand } from '../domain/vocabulary'
 import { StrengthBandButtons } from '../ui/inspector-v2/shared/StrengthBandButtons'
-import { factorValueAllowed, readProposalFields, type Band, type Proposal, type ProposalEdits, type ProposalPanelAction } from './proposalFields'
+import { cardCannotBeShownInFull, factorValueAllowed, readProposalFields, type Band, type Proposal, type ProposalEdits, type ProposalPanelAction } from './proposalFields'
 import type { ActionChip } from './types'
 import { formatMoneyFigure } from '../../utils/unitClassifier'
 
@@ -57,9 +57,12 @@ function enteredFactorValue(field: Extract<Proposal['fields'][number], { kind: '
   return factorValueAllowed(field, value) ? value : null
 }
 
-export function HeldProposalPanel({ proposal, graphHash, disabled, onAction }: {
-  proposal: Proposal; graphHash: string; disabled: boolean; onAction: (action: ProposalPanelAction) => void
+export function HeldProposalPanel({ proposal, graphHash, program = false, disabled: busy, onAction }: {
+  /** `program`: the saved model on screen is a program board (its host's `useSavedModelIsProgram`). */
+  proposal: Proposal; graphHash: string; program?: boolean; disabled: boolean; onAction: (action: ProposalPanelAction) => void
 }) {
+  // A card that cannot be shown in full is approved from nowhere, this panel included (`cardCannotBeShownInFull`).
+  const disabled = busy || cardCannotBeShownInFull(proposal, program)
   const [selections, setSelections] = useState<Record<string, Band | null>>({})
   const [figures, setFigures] = useState<Record<string, string>>({})
   const changed = proposal.fields.flatMap<ProposalEdits['fields'][number]>(field => {

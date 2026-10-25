@@ -73,7 +73,8 @@ const PROGRAM_CHANGE_NOUNS: Readonly<Record<string, string>> = { goal: 'goal', q
  * ⭐ THE SUBSTANCE OF EVERY CHANGE (DL 23 Oct, Paul: simplify): CEE's `changes[]` on a program proposal names each item the
  * approval writes, with its before and after in CEE's own rendered words and whose it is. Read whole, one entry at a time:
  * a malformed entry is dropped on its own, never the card. Absent (an older CEE, a board that is not a program board):
- * null, and the card keeps its change notes as before.
+ * null, and the card keeps its change notes as before; on a program board such a card cannot be approved
+ * (`cardCannotBeShownInFull`).
  */
 const proposalChangeSchema = z.object({
   id: z.string().min(1),
@@ -149,7 +150,7 @@ const proposalSchema = z.object({
     const r = addSchema.safeParse(a)
     return r.success ? [r.data] : []
   })),
-  changes: z.unknown().optional().transform(changes => (Array.isArray(changes) ? changes : null)),
+  changes: z.unknown().optional(),
   // CEE's own flag for the first draft's reading card; only `true` is one, never inferred from what the card holds.
   reading: z.unknown().optional().transform(reading => reading === true),
 }).refine(p => p.approve_action.id === `agent-approve-proposal:${p.proposal_id}`
@@ -158,7 +159,9 @@ const proposalSchema = z.object({
   // Each `changes[]` entry is read on its own and the readable ones are kept on view; `changesUnread` says a PRESENT list
   // could not be read in full, so the card cannot be approved as shown (buddy on #2957: never approve 3 while showing 2).
   .transform(({ changes, ...p }) => {
-    if (changes === null) return { ...p, changes: null, changesUnread: false }
+    if (changes === undefined) return { ...p, changes: null, changesUnread: false }
+    // Present but not a list (null included: CEE omits the key, never sends another value): nothing of it can be shown.
+    if (!Array.isArray(changes)) return { ...p, changes: [], changesUnread: true }
     const read = changes.flatMap(c => {
       const r = proposalChangeSchema.safeParse(c)
       return r.success ? [r.data] : []
@@ -218,18 +221,29 @@ export const AMEND_PROPOSAL_ACTION = { id: 'agent-amend-proposal', label: 'Chang
 const APPROVE_PREFIX = 'agent-approve-proposal:'
 export interface DisplayedProposal { proposal_id: string; revision?: string }
 /**
- * ⛔ WHETHER AN APPROVE WOULD APPLY MORE THAN ITS CARD SHOWS (Codex BLOCK on #2958): the card's id names a held proposal
- * whose PRESENT `changes[]` could not be read in full (`changesUnread`). Read from the newest reply that holds that
- * proposal (a later reply carries CEE's current held set), the same projection every approve surface renders from.
+ * ⛔ THE ONE RULE FOR EVERY APPROVE (Codex BLOCK on #2958; lease U-W1): the card behind an approve cannot be shown in full,
+ * so approving it would apply more than it shows. On any board: its PRESENT `changes` could not be read whole
+ * (`changesUnread`). On a program board, where CEE lists every change on every card (`holdProgramCard`), also: no readable
+ * card for the approve (missing from the held set, or refused by this reader), or a card with no `changes[]`. The chat
+ * card, its panel, the canvas ghost and the send boundary all ask this; none decides it again.
  */
-export function approvesUnreadChanges(messages: readonly ConversationMessage[], chipId: string | undefined): boolean {
+export function cardCannotBeShownInFull(held: Proposal | undefined, program: boolean): boolean {
+  if (held === undefined) return program
+  return held.changesUnread || (program && held.changes === null)
+}
+/**
+ * ⛔ WHETHER AN APPROVE WOULD APPLY MORE THAN ITS CARD SHOWS, for the send boundary: the rule above, on the card read from
+ * the newest reply that holds that proposal (a later reply carries CEE's current held set), the same projection every
+ * approve surface renders from. `program`: the saved model on screen is a program board; unknown reads as not one.
+ */
+export function approvesUnreadChanges(messages: readonly ConversationMessage[], chipId: string | undefined, opts: { program?: boolean } = {}): boolean {
   if (typeof chipId !== 'string' || !chipId.startsWith(APPROVE_PREFIX)) return false
   const id = chipId.slice(APPROVE_PREFIX.length)
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const held = readProposalFields(messages[i].proposalFields)?.proposals.find(p => p.proposal_id === id)
-    if (held !== undefined) return held.changesUnread
+  let held: Proposal | undefined
+  for (let i = messages.length - 1; i >= 0 && held === undefined; i--) {
+    held = readProposalFields(messages[i].proposalFields)?.proposals.find(p => p.proposal_id === id)
   }
-  return false
+  return cardCannotBeShownInFull(held, opts.program === true)
 }
 /**
  * ⭐ WHAT THE USER IS SHOWN (Codex BLOCK on CEE #3420 / DGAI #2819, 18 Oct, P1: a replacement whose reply was lost inherited

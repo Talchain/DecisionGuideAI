@@ -114,11 +114,11 @@ afterEach(() => {
 })
 
 describe('the canvas ghost cannot approve a card whose changes[] could not be read in full', () => {
-  it('⛔ the ghost’s Approve is pressed: zero approvals reach the wire (the one boundary refuses)', async () => {
+  it('⛔ the ghost offers no Approve of its own (U-W1: "Review on the card"); zero approvals reach the wire', async () => {
     await openWith(card(UNREAD))
     expect(turnsSent()).toBe(1)
-    const approve = screen.getByTestId('proposal-ghost-actions-approve')
-    await act(async () => { fireEvent.click(approve) })
+    expect(screen.queryByTestId('proposal-ghost-actions-approve')).toBeNull()
+    await act(async () => { fireEvent.click(screen.getByTestId('proposal-ghost-actions-review')) })
     await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
     expect(approvalsSent()).toBe(0)
     expect(turnsSent()).toBe(1)

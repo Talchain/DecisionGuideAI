@@ -9,7 +9,7 @@ const aiMode = vi.hoisted(() => ({ value: 'core-route' as string | null }))
 vi.mock('../../../../v5/aiComparisonMode', async (actual) => ({ ...(await actual<object>()), resolveAiComparisonMode: () => aiMode.value }))
 vi.mock('../../../hydrate/bootGraphRead', () => ({ isCeeAddressableScenarioId: (id: unknown) => typeof id === 'string' }))
 
-import { useSavedGraph } from '../savedGraph'
+import { savedGraphNow, useSavedGraph } from '../savedGraph'
 import { useCanvasStore } from '../../../store'
 import { bumpSavedGraphEpoch } from '../savedGraphEpoch'
 
@@ -61,5 +61,48 @@ describe('useSavedGraph', () => {
     fetchScenarioGraph.mockResolvedValueOnce({ status: 'graph', scenarioId: 's3', graphHash: 'dddddddddddddddd', graph: renamed })
     act(() => bumpSavedGraphEpoch())
     await waitFor(() => expect(result.current).toBe(renamed))
+  })
+})
+
+/** The send boundary's synchronous read of the same answer (lease U-W1): pure, the read `useSavedGraph` keys, or null. */
+describe('savedGraphNow', () => {
+  it('⭐ the answered read for the scenario, saved hash and epoch on screen now', async () => {
+    const graph = { nodes: [], living_model: { model_program: 'v1' } }
+    useCanvasStore.setState({ currentScenarioId: 's4', lastServerGraphHash: 'eeeeeeeeeeeeeeee' } as never)
+    fetchScenarioGraph.mockResolvedValueOnce({ status: 'graph', scenarioId: 's4', graphHash: 'eeeeeeeeeeeeeeee', graph })
+    const { result } = renderHook(() => useSavedGraph())
+    await waitFor(() => expect(result.current).toBe(graph))
+    expect(savedGraphNow()).toBe(graph)
+  })
+
+  it('⛔ another saved hash, or the next epoch, is not that read: null', async () => {
+    const graph = { nodes: [], living_model: { model_program: 'v1' } }
+    useCanvasStore.setState({ currentScenarioId: 's5', lastServerGraphHash: 'ffffffffffffffff' } as never)
+    fetchScenarioGraph.mockResolvedValueOnce({ status: 'graph', scenarioId: 's5', graphHash: 'ffffffffffffffff', graph })
+    const { result, unmount } = renderHook(() => useSavedGraph())
+    await waitFor(() => expect(result.current).toBe(graph))
+    unmount()
+    useCanvasStore.setState({ lastServerGraphHash: '1111111111111111' } as never)
+    expect(savedGraphNow()).toBeNull()
+    useCanvasStore.setState({ lastServerGraphHash: 'ffffffffffffffff' } as never)
+    expect(savedGraphNow()).toBe(graph)
+    bumpSavedGraphEpoch()
+    expect(savedGraphNow()).toBeNull()
+  })
+
+  it('⛔ before the read answers: null (and no read is started by asking)', async () => {
+    const graph = { nodes: [], living_model: { model_program: 'v1' } }
+    let answer: (v: unknown) => void = () => {}
+    useCanvasStore.setState({ currentScenarioId: 's6', lastServerGraphHash: '2222222222222222' } as never)
+    fetchScenarioGraph.mockClear()
+    expect(savedGraphNow()).toBeNull()
+    expect(fetchScenarioGraph).not.toHaveBeenCalled()
+    fetchScenarioGraph.mockReturnValueOnce(new Promise((r) => { answer = r }))
+    const { result } = renderHook(() => useSavedGraph())
+    await waitFor(() => expect(fetchScenarioGraph).toHaveBeenCalledTimes(1))
+    expect(savedGraphNow()).toBeNull()
+    await act(async () => { answer({ status: 'graph', scenarioId: 's6', graphHash: '2222222222222222', graph }) })
+    await waitFor(() => expect(result.current).toBe(graph))
+    expect(savedGraphNow()).toBe(graph)
   })
 })

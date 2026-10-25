@@ -212,6 +212,8 @@ import { trackEvent } from '../../lib/posthog'
 import { logger } from '../../lib/logger'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 import { approvesUnreadChanges, displayedProposals } from './proposalFields'
+import { savedGraphNow } from '../nodes/shared/savedGraph'
+import { isProgramGraph } from '../nodes/shared/savedModelProgram'
 import { buildRequestIdHeaders, generateRequestId } from '../../types/requestId'
 import { REQUEST_ID_HEADER } from '../../types/requestId'
 import {
@@ -4370,7 +4372,7 @@ export function useConversation(): UseConversationReturn {
       // ⛔ ONE BOUNDARY FOR EVERY APPROVE (Codex BLOCK on #2958): every turn leaves through here, so a card whose present
       // `changes[]` could not be read in full is approved from nowhere: the chat card, its panel, the canvas ghost or a
       // retry. Nothing is sent, and no turn in flight is aborted.
-      if (approvesUnreadChanges(messagesRef.current, chipMeta?.id)) return SEND_BLOCKED
+      if (approvesUnreadChanges(messagesRef.current, chipMeta?.id, { program: isProgramGraph(savedGraphNow()) })) return SEND_BLOCKED
 
       // 1.16i swallow guard: a run_analysis (re-)click while a run turn is
       // ALREADY in flight is swallowed — no preempt-abort of the running

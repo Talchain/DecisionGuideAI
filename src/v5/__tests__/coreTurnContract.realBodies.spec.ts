@@ -11,8 +11,13 @@ import { readRecordedServerTurnId } from '../../canvas/conversation/serverTurnId
 import { agentTurnUndoLabel, readAgentTurnReceipts } from '../../canvas/undo/captureAgentTurnForUndo'
 import { readAfterWriteExpectation } from '../../canvas/conversation/readAfterWrite'
 import { previewFromFields } from '../../canvas/conversation/proposalPreview'
+import { isHeldCardChipId } from '../../canvas/conversation/proposalFields'
+import { reconcileRestoredProposalFields } from '../../canvas/conversation/serverConversationTurns'
+import { buildSuggestedActionChips } from '../blocks/suggestedActionChips'
 import real from './fixtures/core-turn-r2-real.json'
 import servedChatEdit from './fixtures/core-turn-served-chat-edit.json'
+import servedReview from '../../canvas/conversation/__tests__/fixtures/served-card-qualitative-review-20261025.json'
+import servedRepair from '../../canvas/conversation/__tests__/fixtures/served-card-european-repair-20261025.json'
 
 const parse = (body: unknown) =>
   parseV5Response(new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } }), { coreRoute: true })
@@ -76,5 +81,31 @@ describe('⭐ the served journey (22 Oct 13:54Z, CEE 5b2b5441): a turn with no R
     expect(parsed.response.assistant_text).toBe(served.assistant_text)
     expect(parsed.response.suggested_actions.map((a) => a.label)).toEqual(['Make this change', 'Change something first', 'Not now'])
     expect(sidecar(parsed.response)._read_after_write).toEqual({ scenario_revision: served.model.scenario_revision })
+  })
+})
+
+describe('⭐ a card CEE kept for review (served qualitative 05-edit, 25 Oct, CEE 1e74dbf9): offered live as a reopen offers it', () => {
+  it('"Review this change" and "Not now", never its approve and no "Change something first"; the press is the reopened one', async () => {
+    const body = servedReview.body
+    const card = body.cards[0]
+    const parsed = await parse(body)
+    expect(parsed.kind).toBe('response')
+    if (parsed.kind !== 'response') return
+    const live = buildSuggestedActionChips(parsed.response.blocks, parsed.response.suggested_actions)
+    expect(live.map((c) => c.id)).toEqual([`agent-review-proposal:${card.proposal_id}`, `agent-decline-proposal:${card.proposal_id}`])
+    // The reopen of the same card (`reconcileRestoredProposalFields`, on its issuing reply) offers the same chips, pressed alike.
+    const [reopened] = reconcileRestoredProposalFields([{ id: `restored-assistant-${card.issued_turn_id}`, role: 'assistant', content: '', timestamp: new Date(0) }],
+      { version: 1, graph_hash: body.model.revision, proposals: body.cards })
+    const press = (chips: readonly { id: string; label: string; message?: string }[]) => chips.map(({ id, label, message }) => ({ id, label, message }))
+    expect(press(live)).toEqual(press(reopened.actionChips ?? []))
+    expect(live[0]).toMatchObject({ label: 'Review this change', message: 'Show me this change again on the model as it is now: "Keep the fair-treatment goal open".' })
+    expect(isHeldCardChipId(live[0].id)).toBe(true)
+  })
+
+  it('CONTRAST: a card that can still be approved (served European repair) keeps approve, "Change something first" and "Not now"', async () => {
+    const card = servedRepair.body.cards[0]
+    const parsed = await parse(servedRepair.body)
+    expect(parsed.kind === 'response' && parsed.response.suggested_actions.map((a) => a.id))
+      .toEqual([card.approve_action.id, 'agent-amend-proposal', card.decline_action.id])
   })
 })

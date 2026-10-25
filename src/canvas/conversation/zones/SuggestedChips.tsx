@@ -41,8 +41,8 @@ import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
 import { PANEL_LIST_BULLET } from '../panelLists'
 import {
-  changeNotesOf, changeNotesSummary, isHeldCardChipId, OLUMI_CHANGE_MARK, proposalChangesSummary, proposalChangeWords,
-  READING_HEADING, REVIEW_PROPOSAL_PREFIX,
+  cardCannotBeShownInFull, changeNotesOf, changeNotesSummary, isHeldCardChipId, OLUMI_CHANGE_MARK, proposalChangesSummary,
+  proposalChangeWords, READING_HEADING, REVIEW_PROPOSAL_PREFIX,
   type ChangeNote, type ProposalChange,
 } from '../proposalFields'
 import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
@@ -324,6 +324,8 @@ export function SuggestedChips({
     proposals: fields.proposals.filter(p => p.issued_turn_id != null && p.issued_turn_id === turnOfReply) }), [ownFields, fields, turnOfReply])
   const [openedProposalId, setOpenedProposalId] = useState<string | null>(null)
   const [chipError, setChipError] = useState<string | null>(null)
+  // A program board lists every change on every card: what its approve may apply is decided by `cardCannotBeShownInFull`.
+  const program = useSavedModelIsProgram()
   const analysisStatus = useAnalysisStatus()
   // CEE's own admission verdict for this turn. `undefined` on a pre-`may_run`
   // CEE, which `admitsRunAffordance` reads as "fall back to `status`".
@@ -566,9 +568,10 @@ export function SuggestedChips({
 
   const disabled = isThinking || isHistorical
   const showRunGateReason = runGateReason !== undefined && visible.some(isRunAnalysisAffordance)
-  /** An approve whose card's `changes[]` could not be read in full: shown, never pressable (buddy on #2957). */
-  const unreadApproveIds = new Set((bindable?.proposals ?? []).filter(p => p.changesUnread).map(p => p.approve_action.id))
-  const showUnreadReason = visible.some(c => typeof c.id === 'string' && unreadApproveIds.has(c.id))
+  /** An approve whose card cannot be shown in full (`cardCannotBeShownInFull`): shown, never pressable (buddy on #2957). */
+  const unreadApproveIds = new Set(visible.flatMap(c => isConsentChip(c)
+    && cardCannotBeShownInFull(bindable?.proposals.find(p => p.approve_action.id === c.id), program) ? [c.id] : []))
+  const showUnreadReason = unreadApproveIds.size > 0
 
   const proposal = bindable?.proposals.find(p => p.proposal_id === (controlledProposalId === undefined ? openedProposalId : controlledProposalId)
     && visible.some(c => c.id === p.approve_action.id))
@@ -783,7 +786,7 @@ export function SuggestedChips({
 
       {proposal && bindable && (
         <HeldProposalPanel key={`${replyId}:${proposal.proposal_id}:${proposal.digest}:${proposal.revision}:${bindable.graph_hash}`}
-          proposal={proposal} graphHash={bindable.graph_hash} disabled={disabled || unreadApproveIds.has(proposal.approve_action.id)} onAction={handleClick} />
+          proposal={proposal} graphHash={bindable.graph_hash} program={program} disabled={disabled} onAction={handleClick} />
       )}
 
       {chipError && (
