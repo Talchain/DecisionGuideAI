@@ -133,7 +133,7 @@ import {
 import { recordDroppedContent } from '../../lib/droppedContentCounter'
 import { buildChipMeta, type ChipMeta } from './chipMeta'
 import { readAfterWriteExpectation, checkReadAfterWrite, readAfterWriteNotice } from './readAfterWrite'
-import { START_NEW_DRAFT_CHIP_ID, LOAD_SAVED_MODEL_CHIP_ID } from './chipDispatch'
+import { START_NEW_DRAFT_CHIP_ID, LOAD_SAVED_MODEL_CHIP_ID, isChipRenderable } from './chipDispatch'
 import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { extractOpenQuestionListSidecar } from './serverOpenQuestions'
@@ -6523,7 +6523,7 @@ export function useConversation(): UseConversationReturn {
             void checkReadAfterWrite(scenarioIdAtDispatch, expectedRead, { userId: v5UserId, accessToken: v5Identity.accessToken })
               .catch(() => 'unknown' as const)
               .then((outcome) => {
-                const notice = readAfterWriteNotice(outcome)
+                const notice = readAfterWriteNotice(outcome, { wrote: (readAgentTurnReceipts(target.response)?.length ?? 0) > 0 })
                 if (notice !== null && responseBelongsToDispatchingScenario(useCanvasStore.getState().currentScenarioId, scenarioIdAtDispatch)) {
                   addMessage({ id: crypto.randomUUID(), role: 'assistant', synthetic: true, content: notice, timestamp: new Date() })
                 }
@@ -6577,8 +6577,10 @@ export function useConversation(): UseConversationReturn {
             signal: controller.signal,
             includeConversationTurns: true,
           })
+          // An approval never says it finished here: a merged graph does not show the approval was applied (DL, U-W2).
+          const approval = chipMeta?.id?.startsWith(CONSENT_CHIP_PREFIX) === true
           updateMessage(stillFinishingReplay!.noticeId, {
-            content: recovery === 'recovered' ? CORE_FINISHED_RELOADED_NOTICE : CORE_OUTCOME_UNKNOWN_NOTICE,
+            content: recovery === 'recovered' && !approval ? CORE_FINISHED_RELOADED_NOTICE : CORE_OUTCOME_UNKNOWN_NOTICE,
           })
         } else if (streamedUnsettledCause === 'terminal_error_model_kept') {
           // ═══ F1 — the kept-model terminal error says ONE thing ═══════════
@@ -6646,6 +6648,13 @@ export function useConversation(): UseConversationReturn {
             recovery,
             rawBody: target.rawBody,
           })
+          const retryChips: ActionChip[] = !revisionConflict && retryable && !deliveryUnverified && mode === 'user' && !hidden
+            ? [{ id: 'retry', label: 'Try again', intent: 'primary',
+                // Local retryLast routing still owns the click; the prompt makes this chip renderable.
+                ...(target.ownershipRefusal !== undefined && inputForRestore ? { message: inputForRestore } : {}) }]
+            : []
+          // The words name "Try again" only when a Try again is drawn, by the rule every chip row renders by (U-W2).
+          const retryRenders = retryChips.some(isChipRenderable)
           let content: string
           if (unanswered === 'not_sent') {
             content = NOT_DELIVERED_COPY
@@ -6663,7 +6672,7 @@ export function useConversation(): UseConversationReturn {
               + (coreError.nothing_saved === true ? 'Nothing was saved. ' : '')
               + 'Try again later.'
           } else if (pressOutcomeUnknown) {
-            content = APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY
+            content = retryRenders ? APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY : CORE_OUTCOME_UNKNOWN_NOTICE
           } else if (transportFailure && target.transportMeta) {
             content = buildTransportFailureCopy(target.transportMeta, retryable)
           } else {
@@ -6709,11 +6718,6 @@ export function useConversation(): UseConversationReturn {
               .filter((s) => s.length > 0)
               .join('\n\n')
           }
-          const retryChips: ActionChip[] = !revisionConflict && retryable && !deliveryUnverified && mode === 'user' && !hidden
-            ? [{ id: 'retry', label: 'Try again', intent: 'primary',
-                // Local retryLast routing still owns the click; the prompt makes this chip renderable.
-                ...(target.ownershipRefusal !== undefined && inputForRestore ? { message: inputForRestore } : {}) }]
-            : []
           // System turns get NO transcript bubble — the failure propagates to
           // the dispatcher instead (see SystemEventSendError). Gating here
           // matches the empty/catch/timeout branches, which already user-gate

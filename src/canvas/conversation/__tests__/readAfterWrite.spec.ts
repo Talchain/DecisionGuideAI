@@ -29,19 +29,23 @@ describe('read-after-write after a core-route turn', () => {
   })
   it('⭐ still an older model after the retry → the refresh notice, never shown as saved', async () => {
     const outcome = await checkReadAfterWrite('scn', model, {}, reads(read(OLDER), read(OLDER)).deps)
-    expect([outcome, readAfterWriteNotice(outcome)]).toEqual(['stale_model', STALE_MODEL_NOTICE])
+    expect([outcome, readAfterWriteNotice(outcome, { wrote: true })]).toEqual(['stale_model', STALE_MODEL_NOTICE])
+  })
+  it('⛔ the same stale read after a turn with no receipt never says "saved": the could-not-refresh line (U-W2)', async () => {
+    const outcome = await checkReadAfterWrite('scn', model, {}, reads(read(OLDER), read(OLDER)).deps)
+    expect([outcome, readAfterWriteNotice(outcome, { wrote: false })]).toEqual(['stale_model', READ_FAILED_NOTICE])
   })
   it('⭐ a Run degraded while the model matches → not delivered (stale, or another Run), never a pass', async () => {
     const stale = await checkReadAfterWrite('scn', afterRun, {}, reads(read(SAVED, { run_id: RUN, stale: true }), read(SAVED, { run_id: RUN, stale: true })).deps)
     const other = await checkReadAfterWrite('scn', afterRun, {}, reads(read(SAVED, { run_id: 'b'.repeat(64), stale: false }), read(SAVED)).deps)
-    expect([stale, other, readAfterWriteNotice(stale)]).toEqual(['run_not_delivered', 'run_not_delivered', RUN_NOT_DELIVERED_NOTICE])
+    expect([stale, other, readAfterWriteNotice(stale, { wrote: true })]).toEqual(['run_not_delivered', 'run_not_delivered', RUN_NOT_DELIVERED_NOTICE])
   })
   it('CONTRAST: the saved model and this Run, current → confirmed in one read; no graph read at all → the could-not-refresh line', async () => {
     const once = reads(read(SAVED, { run_id: RUN, stale: false }))
     expect(await checkReadAfterWrite('scn', afterRun, {}, once.deps)).toBe('confirmed')
     expect(once.calls).toHaveLength(1)
     const none = await checkReadAfterWrite('scn', model, {}, reads({ status: 'unavailable' }, { status: 'unavailable' }).deps)
-    expect([none, readAfterWriteNotice(none), readAfterWriteNotice('confirmed')]).toEqual(['unknown', READ_FAILED_NOTICE, null])
+    expect([none, readAfterWriteNotice(none, { wrote: true }), readAfterWriteNotice('confirmed', { wrote: true })]).toEqual(['unknown', READ_FAILED_NOTICE, null])
   })
   it('a core-route turn names what to read back (with its Run after a Run); a legacy turn names nothing', async () => {
     const res = (b: unknown) => new Response(JSON.stringify(b), { status: 200, headers: { 'content-type': 'application/json' } })

@@ -1,0 +1,116 @@
+{
+ "_source": "Served core-route bodies, 25 Oct 2026, cut to the fields the approve-outcome rows read (lease U-W2); every kept value is as served. Turns: the core contract envelope (model.graph dropped). Read: the fields the read-back checks.",
+ "no_receipt_approval": {
+  "_source": "/Users/paulslee/olumi-work/recovery/live/runs-core/2026-10-25T094004Z/qualitative: turns/02-approve.json (apply_change ok, receipts []) and reads/approve-after.json (schema, scenario_id, graph_present, graph_hash, content_hash, canonical_analysis_view.run and .staleness). Served UI 748f20a1 · CEE 1e74dbf9.",
+  "turn": {
+   "turn_id": "38c82147-4ae1-4362-920a-bcb55d7d1705",
+   "durability": "recorded",
+   "assistant_text": "The model is saved, but it does not yet establish whether delaying is justified; a credible case needs evidence, not technical-sounding blame avoidance.\n\nTo take it further:\n1. What observable outcome would count as fair treatment of your team—for example, your boss agreeing to assess the release evidence before assigning responsibility?\n2. What exact date is the update scheduled to launch? That sets the time available for repair and testing.\n3. How long a delay are you considering? That defines the alternative to launching as scheduled.\n\nSarah’s reported “weeks” remains an unconfirmed repair timeline, not evidence that a particular delay will resolve the bug.",
+   "model": {
+    "revision": "1bfa82fd785046a5",
+    "scenario_revision": "654d9f65f258d294af6fb55465139936f2bd5c3a243530d315d502425d576f30"
+   },
+   "cards": [],
+   "notes": [
+    {
+     "element_id": "avoid_unfair_team_blame",
+     "text": "\"so he doesnt just blame my team\" has no measure yet, so it is left out of the chance. What would a fair outcome from the discussion with your boss look like?"
+    }
+   ],
+   "run": {
+    "run_key": "mp_run_2_991586d39142",
+    "run_id": "mp_run_2_991586d39142",
+    "computed_against": "1bfa82fd785046a5",
+    "state": {
+     "kind": "complete_current",
+     "computed_at": "2026-10-25T09:41:24.310Z"
+    }
+   },
+   "receipts": [],
+   "paused": null,
+   "error": null
+  },
+  "read": {
+   "schema": "scenario_graph.v1",
+   "scenario_id": "92c7b036-f6ba-4930-8b35-a472b90aa322",
+   "graph_present": true,
+   "graph_hash": "1bfa82fd785046a5",
+   "content_hash": "654d9f65f258d294af6fb55465139936f2bd5c3a243530d315d502425d576f30",
+   "canonical_analysis_view": {
+    "run": {
+     "run_id": "mp_run_2_991586d39142",
+     "computed_at": "2026-10-25T09:41:24.310Z",
+     "graph_hash_at_run": "1bfa82fd785046a5"
+    },
+    "staleness": {
+     "basis": "analysis_graph_hash_interim",
+     "stale": false,
+     "reason": "graph_hash_match",
+     "revision": null,
+     "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+     "run_revision": null
+    }
+   }
+  }
+ },
+ "receipt_approval": {
+  "_source": "/Users/paulslee/olumi-work/recovery/live/runs-core/2026-10-25T083005Z/capacity: turns/05-edit.json (the approval of the 04-edit card, served-card-capacity-leftout-20261025.json; one receipt, authorised_by person). Served UI 748f20a1 · CEE 7f527f94.",
+  "turn": {
+   "turn_id": "8aa43dd8-9b8c-482d-8042-3192a626a93d",
+   "durability": "recorded",
+   "assistant_text": "“Staff absence” is now saved as a factor that reduces “Weekly support capacity”.\n\n- Its measurement and the size of its effect remain open; no absence figure has been invented.\n- “The reduction in Weekly support capacity caused by Staff absence is not yet included in the calculation for either staffing option.”\n- Next, check whether your existing capacity figures already include typical absence, so any later adjustment avoids counting it twice.",
+   "model": {
+    "revision": "76e66be30040c49d",
+    "scenario_revision": "fd14fb8b60f2d6e71f9f0bf56cbbafcf861bdafe79685a292110bd51ad3b96ef"
+   },
+   "cards": [],
+   "notes": [],
+   "run": {
+    "run_key": "mp_run_3_78ccffb782d7",
+    "run_id": "mp_run_3_78ccffb782d7",
+    "computed_against": "76e66be30040c49d",
+    "state": {
+     "kind": "complete_current",
+     "computed_at": "2026-10-25T08:32:35.727Z"
+    }
+   },
+   "receipts": [
+    {
+     "version": 3,
+     "version_id": "fbf7d15f-1731-4a15-aa62-cfa081b225db",
+     "mutation_id": "de04ead1-d990-538c-a1b3-3efcf11f8945",
+     "source_turn_id": null,
+     "authorised_by": "person"
+    }
+   ],
+   "paused": null,
+   "error": null
+  }
+ },
+ "still_running": {
+  "_source": "/Users/paulslee/olumi-work/recovery/live/runs-core/european-20261025T122645Z/european/turns/05-edit.json: HTTP 504, CEE's own TURN_STILL_RUNNING body. Served UI bed9c21a · CEE f005cef9.",
+  "status": 504,
+  "body": {
+   "turn_id": "228ae241-fa12-44ba-a3a2-4483bfddccd1",
+   "durability": "unknown",
+   "assistant_text": "",
+   "model": {
+    "revision": null,
+    "scenario_revision": null
+   },
+   "cards": [],
+   "notes": [],
+   "run": null,
+   "analysis_state": null,
+   "receipts": [],
+   "paused": null,
+   "error": {
+    "code": "TURN_STILL_RUNNING",
+    "message": "The reply did not arrive in time. Olumi may still be finishing this turn; reload to see the current model before sending it again.",
+    "retry_safe": false,
+    "nothing_saved": false
+   },
+   "action_bar": null
+  }
+ }
+}
