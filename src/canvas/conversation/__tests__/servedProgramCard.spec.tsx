@@ -164,6 +164,19 @@ describe('a card kept for review offers no approve (verify: served qualitative 0
     expect(chips.map((k) => k.id)).not.toContain(c.approve_action.id)
     expect(screen.queryByTestId(`suggested-chip-${c.approve_action.id}`)).toBeNull()
   })
+
+  it('🔴 beside "Review this change" the card still shows its change: what it was, what it becomes, and whose (Codex r1 on #2996)', async () => {
+    board(true)
+    const c = card(reviewTurn.body)
+    const e = c.changes[0]
+    await mount(reviewTurn.body)
+    expect(screen.getByTestId(`proposal-change-summary-${c.proposal_id}`).textContent).toBe('Also changes 1 goal')
+    openList(c.proposal_id)
+    expect(screen.getByTestId('proposal-change-goal:avoid_unfair_team_blame').textContent)
+      .toBe(`Changes ‘so he doesnt just blame my team’: ${e.before} → ${e.after}`)
+    // The person's goal: no Olumi mark.
+    expect(screen.queryByTestId('proposal-change-olumi-goal:avoid_unfair_team_blame')).toBeNull()
+  })
 })
 
 describe('🔴 (a) a present `changes` that is not a list: nothing can be shown, so nothing can be approved (any board)', () => {
