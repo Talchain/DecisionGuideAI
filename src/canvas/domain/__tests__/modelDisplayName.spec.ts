@@ -65,6 +65,15 @@ describe('resolveModelDisplayName — precedence', () => {
     expect(resolveModelDisplayName('   ', '   ')).toBe(UNNAMED_MODEL_FALLBACK)
   })
 
+  it('⭐ the question card’s words name the model before its goal, said whole (Paul, 25 Oct: "the reframed question")', () => {
+    const question = 'Should we expand into the European market this year, or keep growing at home?'
+    expect(resolveModelDisplayName(undefined, 'The target is 800', undefined, question)).toBe(question)
+    // A chosen name and an example's own title still win; a blank question falls back to the goal.
+    expect(resolveModelDisplayName('Europe plan', 'The target is 800', undefined, question)).toBe('Europe plan')
+    expect(resolveModelDisplayName(undefined, 'The target is 800', 'Market entry example', question)).toBe('Market entry example')
+    expect(resolveModelDisplayName(undefined, 'The target is 800', undefined, '   ')).toBe('The target is 800')
+  })
+
   it('a whitespace-only stored title does not beat a usable goal', () => {
     // The escape: treating any non-undefined title as "chosen" would let a
     // blank string suppress the derivation and reinstate the generic name.

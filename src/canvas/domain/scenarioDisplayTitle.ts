@@ -13,7 +13,7 @@
  * derivation (`deriveModelNameFromGoal`) so the two cannot drift:
  *   1. the `title` column (a name someone chose; the canvas syncs renames here);
  *   2. `framing.title`;
- *   3. the stored graph's question node label (the question card's words; Paul, 25 Oct 2026), derived;
+ *   3. the stored graph's question node label (the question card's words, whole; Paul, 25 Oct 2026);
  *   4. `framing.goal`, derived;
  *   5. the stored graph's goal node label, derived;
  *   6. `framing.decision_question` / `framing.question` (older rows).
@@ -93,7 +93,7 @@ export function scenarioDisplayTitle(row: {
   return (
     text(row.title) ??
     text(framing?.title) ??
-    deriveModelNameFromGoal(storedQuestionNodeLabel(row.graph)) ??
+    storedQuestionNodeLabel(row.graph) ??
     deriveModelNameFromGoal(framing?.goal) ??
     deriveModelNameFromGoal(storedGoalNodeLabel(row.graph)) ??
     text(framing?.decision_question) ??

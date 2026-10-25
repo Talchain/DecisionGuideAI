@@ -62,7 +62,7 @@ export function deriveModelNameFromGoal(goal: unknown): string | null {
  *      the name the starter card already shows for it (Canvas v3.1 DESIGN-GAP
  *      #5, 26 Sep 2026: every starter's top bar read its GOAL sentence as the
  *      model's name, because this ladder never consulted the name it had);
- *   3. the question the model reasons about (the question card's words, capped as a goal is): Paul, 25 Oct 2026, "the
+ *   3. the question the model reasons about (the question card's words, whole): Paul, 25 Oct 2026, "the
  *      reframed question" over the raw brief a goal can carry;
  *   4. the goal, derived — truthful about what the model is about;
  *   5. the generic fallback — truthful about being unnamed.
@@ -84,5 +84,7 @@ export function resolveModelDisplayName(
   if (typeof exampleTitle === 'string' && exampleTitle.trim().length > 0) {
     return exampleTitle.trim()
   }
-  return deriveModelNameFromGoal(question) ?? deriveModelNameFromGoal(goal) ?? UNNAMED_MODEL_FALLBACK
+  // The question is said whole: each surface truncates it as it fits (a word is never cut to the goal's 60-character cap).
+  if (typeof question === 'string' && question.trim().length > 0) return question.trim()
+  return deriveModelNameFromGoal(goal) ?? UNNAMED_MODEL_FALLBACK
 }

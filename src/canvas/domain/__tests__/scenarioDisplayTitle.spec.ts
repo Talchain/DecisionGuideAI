@@ -18,19 +18,33 @@ describe('scenarioDisplayTitle', () => {
   })
 
   it('agrees with the canvas ladder for the same row', () => {
-    // routes/CanvasMVP.tsx: resolveModelDisplayName(framing?.title, framing?.goal ?? goalNodeLabel, exampleTitle)
+    // routes/CanvasMVP.tsx: resolveModelDisplayName(framing?.title, framing?.goal ?? goalNodeLabel, exampleTitle, questionNodeLabel)
     expect(scenarioDisplayTitle(row)).toBe(resolveModelDisplayName(undefined, storedGoalNodeLabel(row.graph)))
   })
 
-  it('names the goal, not the decision node that comes first in the stored graph', () => {
+  it('never says the question node’s producer prefix ("Decision: …")', () => {
     expect(row.graph.nodes[0].kind).toBe('decision')
-    expect(scenarioDisplayTitle(row)).not.toBe(row.graph.nodes[0].label)
+    expect(row.graph.nodes[0].label).toBe('Decision: monthly recurring revenue')
+    expect(scenarioDisplayTitle(row)).toBe('monthly recurring revenue')
+  })
+
+  it('⭐ names the question, not a goal that carries the raw brief (Paul, 25 Oct; served row 43b3c54f, its two nodes verbatim)', () => {
+    const graph = { nodes: [
+      { id: 'mp:decision', kind: 'decision', label: 'What evidence would justify delaying the app update rather than launching with the reported database sync bug?' },
+      { id: 'justify_delay_to_boss', kind: 'goal', label: 'write me a list of reasons why delaying is the right move so i can show my boss' },
+    ] }
+    expect(scenarioDisplayTitle({ title: null, framing: null, graph })).toBe('What evidence would justify delaying the app update rather than launching with the reported database sync bug?')
+    // CONTRAST: with no question node, the goal names it, as before.
+    expect(scenarioDisplayTitle({ title: null, framing: null, graph: { nodes: [graph.nodes[1]] } }))
+      .toBe('write me a list of reasons why delaying is the right move...')
   })
 
   it('a chosen name wins: the title column, then the framing title, then the framing goal', () => {
     expect(scenarioDisplayTitle({ ...row, title: '  Pricing 2027 ' })).toBe('Pricing 2027')
     expect(scenarioDisplayTitle({ ...row, framing: { title: 'Renamed on canvas', goal: 'A goal' } })).toBe('Renamed on canvas')
-    expect(scenarioDisplayTitle({ ...row, framing: { goal: 'Reach the revenue target' } })).toBe('Reach the revenue target')
+    // A framing goal names a row with no question node (the question card's words come first, Paul 25 Oct).
+    const noQuestion = { ...row.graph, nodes: row.graph.nodes.filter((n) => n.kind !== 'decision') }
+    expect(scenarioDisplayTitle({ ...row, graph: noQuestion, framing: { goal: 'Reach the revenue target' } })).toBe('Reach the revenue target')
   })
 
   it('reads a canvas-shaped goal node too (guest-saved graphs)', () => {
