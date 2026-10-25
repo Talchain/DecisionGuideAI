@@ -124,6 +124,9 @@ describe('an approval press answered by a server failure: outcome unknown, never
     expect(last.content).not.toContain('Something went wrong on our side')
     expect(last.content).toBe("Olumi's answer couldn't be confirmed yet. Reload to see the current model before sending again.")
     expect(last.content).not.toMatch(/try again/i)
+    // It cannot know either way: never "nothing changed" or "nothing was saved", and never "saved".
+    expect(last.content).not.toMatch(/nothing (?:was |has )?(?:been )?(?:changed|saved)/i)
+    expect(last.content).not.toMatch(/\bsaved\b/i)
     expect(assertsNonDelivery(last.content)).toBe(false)
     // Its next step is to reload, which `NEXT_STEP_PATTERNS` does not list (and is not widened for this): said inline.
     expect(last.content).toMatch(/Reload to see the current model/)
