@@ -48,9 +48,10 @@ const groupButton = (g: string) => screen.getByTestId(`reading-group-${PID}-${g}
 const section = (g: string) => screen.getByTestId(`reading-group-section-${PID}-${g}`)
 
 let scrolled: Element[]
+let scrollOptions: unknown[]
 beforeEach(() => {
-  scrolled = []
-  Element.prototype.scrollIntoView = vi.fn(function (this: Element) { scrolled.push(this) })
+  scrolled = []; scrollOptions = []
+  Element.prototype.scrollIntoView = vi.fn(function (this: Element, opts?: unknown) { scrolled.push(this); scrollOptions.push(opts) })
   useCanvasStore.setState({ currentScenarioId: null, lastServerGraphHash: null } as never)
 })
 afterEach(() => cleanup())
@@ -71,7 +72,11 @@ describe('a reading card with a group on every row', () => {
   it('a mark opens the list at its group', async () => {
     await mount(grouped())
     fireEvent.click(groupButton('left_out'))
+    expect(scrolled).toEqual([]) // after the thread's own re-pin, on the next frame
+    await act(async () => { await new Promise((r) => requestAnimationFrame(() => r(null))) })
     expect(scrolled).toEqual([section('left_out')])
+    // A group taller than the chat opens at its first row, not its last.
+    expect(scrollOptions).toEqual([{ block: 'start' }])
     expect(within(section('left_out')).getAllByRole('listitem').map((li) => li.textContent))
       .toEqual([expect.stringContaining('Leaves out')])
   })

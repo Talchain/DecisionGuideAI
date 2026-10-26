@@ -88,7 +88,10 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
   const program = useSavedModelIsProgram()
   useEffect(() => {
     if (!open || scrollTo === null) return
-    sections.current[scrollTo]?.scrollIntoView({ block: 'nearest' })
+    // Next frame: opening the list grows the thread, and the thread's own content sensor re-pins it to the bottom
+    // (useSmartScroll) after this effect. Scrolled after that pin, the group's first row is what the person sees.
+    // Not cancelled on cleanup: clearing `scrollTo` re-runs this effect. An unmounted section's ref is null.
+    requestAnimationFrame(() => sections.current[scrollTo]?.scrollIntoView({ block: 'start' }))
     setScrollTo(null)
   }, [open, scrollTo])
   // CEE's `changes[]` (DL 23 Oct): every item, its substance in CEE's words, Olumi's marked. Absent: the notes as before.
