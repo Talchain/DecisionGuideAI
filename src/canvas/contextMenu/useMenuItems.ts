@@ -271,7 +271,8 @@ function menuIdIsAuthorised(id: string, connected: boolean, structuralCanvasEdit
   // served 27 Oct), so a delete there would only take the item off the canvas: withheld, with the reason (U-W5).
   if (id === 'delete' && !structuralCanvasEdits) return false
   if (DURABLE_NODE_ADD_MENU_IDS.has(id)) {
-    return hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash)
+    // On a program board CEE refuses an added node too, with nothing saved (U5): the add items are not offered there.
+    return structuralCanvasEdits && hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash)
   }
   if (CONNECTED_NODE_ADD_MENU_IDS.has(id)) {
     // BOTH, never either — see the set's header. A node saved with its link
@@ -303,6 +304,14 @@ function menuIdIsAuthorised(id: string, connected: boolean, structuralCanvasEdit
  * menus for viewers, and the per-carrier filter judges the Delete row.
  * Node-kind refusals (including the last goal/decision) remain in deleteAction.
  */
+/**
+ * Does the pane menu offer an add? The sidebar's add door opens that same menu, so it reads this one judgement (U5: on a
+ * program board neither offers an add, which CEE would refuse with nothing saved).
+ */
+export function canAddFromPaneMenu(structuralCanvasEdits = true): boolean {
+  return menuIdIsAuthorised('add-node', false, structuralCanvasEdits)
+}
+
 export function canDeleteFromContextMenu(viewer = isViewerSession(), structuralCanvasEdits = true): boolean {
   return !viewer && menuIdIsAuthorised(
     'delete', hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations), structuralCanvasEdits,
@@ -514,6 +523,7 @@ export function useMenuItems({
     if (target.kind === 'pane') {
       return applyContextMenuMutationAuthority(
         buildPaneMenu(target, showToast, screenToFlowPosition, wrap, interactionMode, onSetInteractionMode),
+        { structuralCanvasEdits },
       )
     }
     if (target.kind === 'node') {

@@ -193,26 +193,12 @@ const CANVAS_EDGE_ADD_CONNECTED = hasServerGraphAuthority(
 )
 
 /**
- * ⭐⭐ THE NODE-ADD GATE FOR STANDING CHROME — third carrier, third constant,
- * and the same argument as the two above rather than a new one.
- *
- * `canvasNodeAddWithServerHash` is `'server_graph'`: a receipt-bearing
- * `structural_add`, a server-side write to `scenarios.graph`, a committed
- * `edit_graph` fact. `contextMenu/useMenuItems.ts` moved the pane menu's
- * `add-node` items onto it on 13 Sep 2026, out from under the blanket key. The
- * TOOLBAR was not moved with them, because the toolbar had no add control to
- * move — so the gesture was authorised and had exactly one entry point: a
- * right-click on empty canvas.
- *
- * ⛔ STILL NOT THE BLANKET KEY. `canvasSemanticMutations` continues to gate
- * undo, redo, paste and the blueprint insert, none of which has a durable
- * carrier. (The LeftSidebar's undo/redo buttons run the saved-change
- * command, `undo/undoCommand.ts`, and read no key at all since Undo S5.)
- * Two questions, two constants, named apart (CLAUDE.md trap 21).
+ * ⭐⭐ THE NODE-ADD GATE FOR STANDING CHROME. The sidebar's add door opens the pane menu, so it reads that menu's own
+ * judgement (`canAddFromPaneMenu`: the receipt-bearing `canvasNodeAddWithServerHash` carrier, and never on a program
+ * board, U5). `canvasSemanticMutations` is not that key: it gates undo, redo, paste and the blueprint insert (CLAUDE.md
+ * trap 21).
  */
-const CANVAS_NODE_ADD_CONNECTED = hasServerGraphAuthority(
-  CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash,
-)
+import { canAddFromPaneMenu } from './contextMenu/useMenuItems'
 import { FirstUseComposer } from './components/FirstUseComposer'
 import { StarterProvenanceBanner } from './components/StarterProvenanceBanner'
 import { RunChangesSummary } from './components/RunChangesSummary'
@@ -222,6 +208,7 @@ import { useUIStore } from '../stores/uiStore'
 import { PanelErrorBoundary } from './components/PanelErrorBoundary'
 import { LensInfoPanel } from './components/LensInfoPanel'
 import { LensBar } from './artefacts/LensBar'
+import { useSavedModelProgramState } from './nodes/shared/savedModelProgram'
 import { noteCardMoved } from './utils/cardPositionNotice'
 import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
 import { isOnboardingTourEnabled, isCrossHighlightEnabled } from '../flags'
@@ -1247,6 +1234,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // behaviour props AND by the toolbar icon below. L-01(a): the toolbar used
   // to read the raw persisted mode, so the icon and the pointer disagreed.
   const effectiveMode = resolveEffectiveInteractionMode(interactionMode, spaceHeld)
+  // CEE refuses an added node on a program board with nothing saved, so the sidebar's add door is not offered there (U5).
+  const structuralCanvasEdits = useSavedModelProgramState() === 'not_program'
   const canDragSelect = effectiveMode === 'select'
 
 
@@ -2937,7 +2926,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
            at the button's own rect, so there is one kind list and one
            authority. See the authoring-group comment in `LeftSidebar`. */
         onAddToModelClick={
-          CANVAS_NODE_ADD_CONNECTED
+          canAddFromPaneMenu(structuralCanvasEdits)
             ? (screenPos) => setContextMenuTarget({ kind: 'pane', screenPos })
             : undefined
         }
