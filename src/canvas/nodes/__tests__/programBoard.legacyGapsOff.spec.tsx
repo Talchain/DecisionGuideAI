@@ -39,7 +39,8 @@ async function board(legacyValidationOff: boolean) {
 const props = (id: string) => {
   const node = useCanvasStore.getState().nodes.find((n) => n.id === id)!
   return { id, type: node.type, data: node.data, position: { x: 0, y: 0 }, selected: false, isConnectable: true,
-    positionAbsoluteX: 0, positionAbsoluteY: 0, dragging: false, zIndex: 0 } as never
+    // ReactFlow's NodeProps needs fields no assertion here reads; the sibling node specs cast the same way.
+    positionAbsoluteX: 0, positionAbsoluteY: 0, dragging: false, zIndex: 0 } as any
 }
 const mount = (el: JSX.Element) => render(<ReactFlowProvider>{el}</ReactFlowProvider>)
 const topGap = () => screen.queryByTestId('decision-node-top-gap')
