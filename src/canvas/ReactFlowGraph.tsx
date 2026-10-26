@@ -954,6 +954,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const fitFlowRef = useRef({ getNodes, getNodesBounds, setViewport })
   fitFlowRef.current = { getNodes, getNodesBounds, setViewport }
 
+  // CEE refuses an added node on a program board with nothing saved, so the sidebar's add door is not offered there (U5).
+  const structuralCanvasEdits = useSavedModelProgramState() === 'not_program'
+
   const HARD_ISOLATE_MINIMAL_CANVAS = false
   if (HARD_ISOLATE_MINIMAL_CANVAS) {
     return (
@@ -1237,8 +1240,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // behaviour props AND by the toolbar icon below. L-01(a): the toolbar used
   // to read the raw persisted mode, so the icon and the pointer disagreed.
   const effectiveMode = resolveEffectiveInteractionMode(interactionMode, spaceHeld)
-  // CEE refuses an added node on a program board with nothing saved, so the sidebar's add door is not offered there (U5).
-  const structuralCanvasEdits = useSavedModelProgramState() === 'not_program'
   const canDragSelect = effectiveMode === 'select'
 
 
