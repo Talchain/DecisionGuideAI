@@ -2452,7 +2452,8 @@ export const OptionNode = memo((props: NodeProps) => {
       style={{ height: '100%', width: '100%', position: 'relative' }}
     >
       <BaseNode
-        optionChanceCell={chanceCell}
+        // The reduced line shows the chance exactly when the card does (a program board is never in Results mode).
+        optionChanceCell={chanceText === null ? undefined : chanceCell}
         {...props}
         nodeType="option"
         icon={metadata.icon}

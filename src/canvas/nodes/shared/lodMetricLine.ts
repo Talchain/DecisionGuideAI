@@ -421,7 +421,7 @@ function resolveText({
       if (typeof facts?.optionTakenOutLine === 'string') return facts.optionTakenOutLine
       const chanceText = facts?.optionChanceCell?.text
       const caption = facts?.optionResultCaption
-      if (displayMetadata.isResultsMode && chanceText != null && caption) {
+      if (chanceText != null && caption) {
         // Vision spec (23 Oct): the reduced line says the card's headline (CEE's display, verbatim) and drops the
         // "Current model" caption (row 2); a "Last run" / "Model result" caption still says something, so it stays.
         const headline = facts?.optionChanceCell?.display ?? chanceText

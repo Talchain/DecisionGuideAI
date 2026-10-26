@@ -199,15 +199,16 @@ describe('the other three types, which rendered nothing at any zoom before', () 
   })
 
   it('and says nothing before a run — a win share with no run behind it is a fabrication', () => {
-    // Locked Canvas design (23 Sep 2026): caption supplied so the results-mode
-    // gate, not the missing caption, is what withholds.
+    // Locked Canvas design (23 Sep 2026): caption supplied so the missing chance, not the missing caption, is what
+    // withholds. The card hands the line a chance cell only when the card itself shows a chance (OptionNode; a program
+    // board is never in Results mode, 26 Oct), so before a run there is no cell, and a win share never stands in.
     expect(
       resolveLodMetricLine({
         nodeType: 'option',
         data: { label: 'Build' },
         label: 'Build',
         displayMetadata: meta({ isResultsMode: false, winRate: 0.47 }),
-        facts: { optionResultCaption: 'Current model', optionChanceCell: chanceCells('Build') },
+        facts: { optionResultCaption: 'Current model' },
       }),
     ).toBeNull()
   })
