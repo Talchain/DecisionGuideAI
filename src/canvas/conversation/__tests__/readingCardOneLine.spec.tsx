@@ -29,7 +29,7 @@ const PID: string = body.cards[0].proposal_id
 const CHANGES = paulsCard.changes as ProposalChange[]
 const keyOf = (c: ProposalChange) => `${c.kind}:${c.id}`
 
-let onChipClick: ReturnType<typeof vi.fn>
+let onChipClick: ReturnType<typeof vi.fn<[chip: { id: string }], Promise<void>>>
 async function mount() {
   const parsed = await parseV5Response(new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } }), { coreRoute: true })
   if (parsed.kind !== 'response') throw new Error(`the served body did not parse: ${parsed.kind}`)
@@ -48,7 +48,7 @@ const row = (c: ProposalChange) => screen.getByTestId(`proposal-change-${keyOf(c
 const line = (c: ProposalChange) => screen.getByTestId(`proposal-change-open-${keyOf(c)}`)
 
 beforeEach(() => {
-  onChipClick = vi.fn(async () => {})
+  onChipClick = vi.fn(async (_chip: { id: string }) => {})
   Element.prototype.scrollIntoView = vi.fn()
   useCanvasStore.setState({ currentScenarioId: null, lastServerGraphHash: null } as never)
 })
