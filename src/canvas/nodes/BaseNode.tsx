@@ -781,10 +781,11 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       }),
       optionResultCaption: resultCaption ?? null,
       optionChanceCell,
+      atFarZoom: lodBodyHidden,
       winSharesWithheld: winSharesWithheld && optionComparedInRun,
       optionTakenOutLine: optionTakenOutLine(data),
     }
-  }, [bodyReduced, nodeType, id, ceeAnalysisReady, baselineOptions, graphHasDeclaredBaseline, data, allNodes, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, optionChanceCell, resultsFromLastRun, winSharesWithheld, optionComparedInRun])
+  }, [bodyReduced, lodBodyHidden, nodeType, id, ceeAnalysisReady, baselineOptions, graphHasDeclaredBaseline, data, allNodes, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, optionChanceCell, resultsFromLastRun, winSharesWithheld, optionComparedInRun])
 
   const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
     if (!bodyReduced) return { text: null, unconfirmedEstimate: false }

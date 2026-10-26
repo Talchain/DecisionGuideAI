@@ -13,6 +13,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
 vi.mock('@xyflow/react', async () => ({ ...(await vi.importActual('@xyflow/react')), Handle: () => null }))
+vi.mock('../../../flags', async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), isGraphLensEnabled: () => true }))
 vi.mock('../../../lib/supabase', () => ({ getUserId: async () => null, getSessionIdentity: async () => ({ userId: null, accessToken: null }) }))
 
 import { useCanvasStore } from '../../store'
@@ -24,7 +25,7 @@ import served from './fixtures/served-program-orders-full-read-20261026.json'
 
 const OPTION = 'launch_referrals'
 
-async function board(read: object, lodRung: 'full' | 'line') {
+async function board(read: object, lodRung: 'full' | 'line' | 'quiet') {
   useCanvasStore.setState({ currentScenarioId: served.scenario_id } as never)
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(read), { status: 200, headers: { 'Content-Type': 'application/json' } })))
   // A repeat read of the same saved graph answers `unchanged`; the read's canonical view is adopted either way.
@@ -60,6 +61,16 @@ describe('a program board zoomed out: the option card keeps its chance', () => {
     await board(served, 'line')
     mount()
     expect(reducedLine()).toBe('Model result · about 10%')
+  })
+})
+
+describe('CONTRAST: a lens-dimmed card at `quiet` recedes; the chance is the far rung\'s only (DL ruling on #3000)', () => {
+  it('a lens sets the option aside at `quiet`: its reduced line stays "Changes 1 factor", never its chance', async () => {
+    await board(served, 'quiet')
+    const state = useCanvasStore.getState() as any
+    useCanvasStore.setState({ lens: { ...state.lens, _dimmedNodeIds: new Set([OPTION]) } } as never)
+    mount()
+    expect(reducedLine()).toBe('Changes 1 factor')
   })
 })
 
