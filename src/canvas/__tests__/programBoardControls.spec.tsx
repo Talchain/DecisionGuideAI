@@ -90,7 +90,7 @@ async function optionValueEditors() {
   render(<ReactFlowProvider>
     <OptionNode type="option" position={{ x: 0, y: 0 }} selected={false} isConnectable
       positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0}
-      deletable selectable draggable id={OPTION} data={option.data} {...({} as never)} />
+      deletable selectable draggable id={OPTION} data={option.data} {...({} as any)} />
     <OptionPanel nodeId={OPTION} techMode onClose={() => {}} onNavigate={() => {}} />
   </ReactFlowProvider>)
   await settle()
