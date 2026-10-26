@@ -69,4 +69,16 @@ describe('CONTRAST: where the card shows no chance, the zoomed-out line is uncha
     mount()
     expect(reducedLine()).toBe('Changes 1 factor')
   })
+
+  it('while a held Run report is not the shown result (a Run in progress), the line shows no chance the card does not show', async () => {
+    await board(served, 'line')
+    // Synthetic, labelled: a report naming the served Run (its own run id and hash), held while a new Run is in progress.
+    // The card shows a chance only in Results mode or with no report held, so it shows none here; the line must agree.
+    const state = useCanvasStore.getState()
+    useCanvasStore.setState({ results: { ...state.results, status: 'running',
+      report: { run_id: served.canonical_analysis_view.run.run_id, computed_against_hash: served.graph_hash } } } as never)
+    const card = mount()
+    expect(card.querySelector('[data-testid="option-win-readout-launch_referrals"]')).toBeNull()
+    expect(reducedLine()).toBe('Changes 1 factor')
+  })
 })
