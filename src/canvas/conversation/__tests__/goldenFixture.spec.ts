@@ -15,7 +15,6 @@ import { resolve } from 'node:path'
 import { adaptCEEBlock } from '../useConversation'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from '../utils/applyPatch'
 import { useCanvasStore } from '../../store'
-import { validateBeforeRun } from '../../hooks/usePreRunValidation'
 import type { GraphPatchBlock } from '../types'
 
 const rawFixture = JSON.parse(
@@ -252,32 +251,6 @@ describe('golden fixture — synthesiseCeeAnalysisReady', () => {
     expect(Object.keys(optRaise!.interventions)).toContain('fac_subscription_price')
   })
 
-  it('usePreRunValidation no longer returns OPTIONS_NEED_MAPPING', () => {
-    const adapted = adaptCEEBlock(rawFixture.blocks[0]) as GraphPatchBlock
-    applyAutoApplyPatch(adapted)
-
-    const synthesised = synthesiseCeeAnalysisReady()
-    expect(synthesised).not.toBeNull()
-
-    // Simulate what handleEnvelope does: set it in the store
-    useCanvasStore.setState({ ceeAnalysisReady: synthesised })
-
-    const store = useCanvasStore.getState()
-    const validation = validateBeforeRun(
-      store.outcomeNodeId,
-      store.nodes,
-      store.edges,
-      store.ceeAnalysisReady,
-    )
-
-    // Should NOT have OPTIONS_NEED_MAPPING or EMPTY_INTERVENTIONS blockers
-    const mappingBlocker = validation.blockers.find((b) => b.code === 'OPTIONS_NEED_MAPPING')
-    const emptyBlocker = validation.blockers.find((b) => b.code === 'EMPTY_INTERVENTIONS')
-    expect(mappingBlocker).toBeUndefined()
-    expect(emptyBlocker).toBeUndefined()
-    expect(validation.canRun).toBe(true)
-  })
-
   it('returns null when no goal node exists', () => {
     // Apply patch but clear the outcome node
     const adapted = adaptCEEBlock(rawFixture.blocks[0]) as GraphPatchBlock
@@ -417,28 +390,6 @@ describe('golden fixture — CEE-provided analysis_ready', () => {
     expect(optKeep!.interventions.fac_subscription_price.source).toBe('cee_resolved')
   })
 
-  it('usePreRunValidation produces no OPTIONS_NEED_MAPPING with CEE-provided data', () => {
-    const block = makeFixtureWithAnalysisReady()
-    const adapted = adaptCEEBlock(block) as GraphPatchBlock
-    applyAutoApplyPatch(adapted)
-
-    useCanvasStore.getState().setCeeAnalysisReady(adapted.analysis_ready!)
-
-    const store = useCanvasStore.getState()
-    const validation = validateBeforeRun(
-      store.outcomeNodeId,
-      store.nodes,
-      store.edges,
-      store.ceeAnalysisReady,
-    )
-
-    const mappingBlocker = validation.blockers.find((b) => b.code === 'OPTIONS_NEED_MAPPING')
-    const emptyBlocker = validation.blockers.find((b) => b.code === 'EMPTY_INTERVENTIONS')
-    expect(mappingBlocker).toBeUndefined()
-    expect(emptyBlocker).toBeUndefined()
-    expect(validation.canRun).toBe(true)
-  })
-
   it('falls back to synthesis when analysis_ready is absent', () => {
     // Original fixture has no analysis_ready — fallback should fire
     const adapted = adaptCEEBlock(rawFixture.blocks[0]) as GraphPatchBlock
@@ -469,45 +420,6 @@ describe('golden fixture — CEE-provided analysis_ready', () => {
 // ---------------------------------------------------------------------------
 
 describe('golden fixture — contract validation integration', () => {
-  const validAnalysisReady = {
-    status: 'ready' as const,
-    goal_node_id: 'goal_maximise_revenue',
-    options: [
-      {
-        id: 'opt_keep_price',
-        label: 'Keep Price at £49',
-        status: 'ready' as const,
-        interventions: {
-          fac_subscription_price: {
-            value: 0.49,
-            source: 'cee_resolved',
-            target_match: { node_id: 'fac_subscription_price', match_type: 'exact_id', confidence: 'high' },
-          },
-        },
-      },
-    ],
-  }
-
-  it('valid CEE analysis_ready passes contract validation end-to-end', () => {
-    const block = JSON.parse(JSON.stringify(rawFixture.blocks[0]))
-    block.data.analysis_ready = validAnalysisReady
-
-    const adapted = adaptCEEBlock(block) as GraphPatchBlock
-    applyAutoApplyPatch(adapted)
-    useCanvasStore.getState().setCeeAnalysisReady(adapted.analysis_ready!)
-
-    const store = useCanvasStore.getState()
-    const validation = validateBeforeRun(
-      store.outcomeNodeId,
-      store.nodes,
-      store.edges,
-      store.ceeAnalysisReady,
-    )
-
-    expect(validation.canRun).toBe(true)
-    expect(validation.blockers).toHaveLength(0)
-  })
-
   it('CEE analysis_ready with missing option status triggers synthesis fallback', () => {
     const block = JSON.parse(JSON.stringify(rawFixture.blocks[0]))
     // CEE omits status on option — contract validator should reject
@@ -547,43 +459,5 @@ describe('golden fixture — contract validation integration', () => {
     const adapted = adaptCEEBlock(block) as GraphPatchBlock
     expect(adapted.analysis_ready).toBeDefined()
     expect(adapted.analysis_ready!.options).toHaveLength(1)
-  })
-
-  it('unknown option status blocks analysis in usePreRunValidation', () => {
-    // Simulate a scenario where normaliseOptionStatus returns 'unknown'
-    const adapted = adaptCEEBlock(rawFixture.blocks[0]) as GraphPatchBlock
-    applyAutoApplyPatch(adapted)
-
-    // Set analysis_ready with an option that has an unrecognised status
-    // normaliseOptionStatus will map it to 'unknown'
-    useCanvasStore.setState({
-      ceeAnalysisReady: {
-        status: 'ready',
-        goal_node_id: 'goal_maximise_revenue',
-        options: [
-          {
-            id: 'opt_keep_price',
-            label: 'Keep Price',
-            status: 'banana' as any,  // unrecognised → normaliseOptionStatus → 'unknown'
-            interventions: {
-              fac_subscription_price: { value: 0.49, source: 'cee_resolved' },
-            },
-          },
-        ],
-      },
-    })
-
-    const store = useCanvasStore.getState()
-    const validation = validateBeforeRun(
-      store.outcomeNodeId,
-      store.nodes,
-      store.edges,
-      store.ceeAnalysisReady,
-    )
-
-    // Should have an OPTIONS_UNKNOWN_STATUS blocker, not OPTIONS_NEED_MAPPING
-    const unknownBlocker = validation.blockers.find((b) => b.code === 'OPTIONS_UNKNOWN_STATUS')
-    expect(unknownBlocker).toBeDefined()
-    expect(validation.canRun).toBe(false)
   })
 })

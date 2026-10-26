@@ -18,7 +18,7 @@
  * ## What this pins
  *
  *  1. For EVERY `editDeliveryHold` cause, on every surface that prints the hold
- *     — the shared authority, the legacy footer gate, the run gate's reason (the
+ *     — the shared authority, the run gate's reason (the
  *     V3 footer and the Model-tab reanalyse bar read it; the dock spec
  *     `OutputsDock.holdSaysItsCause.spec.tsx` mounts those), the run chip's
  *     title and the saved-example banner — the sentence names the operative
@@ -55,7 +55,6 @@ import * as held from '../analysisHeldOnInjectedModel'
 import { ANALYSIS_HELD_NOTICE, analysisHeldNotice } from '../analysisHeldOnInjectedModel'
 import { canRunAnalysis, getRunButtonTooltip } from '../canRunAnalysis'
 import { vetBlockedReason } from '../vetBlockedReason'
-import { applyAnalysisHold, type FooterGate } from '../../components/pre-analysis/footerGate'
 import { NodeChip } from '../../nodes/shared/NodeChip'
 import { StarterProvenanceBanner } from '../../components/StarterProvenanceBanner'
 import { ToastProvider } from '../../ToastContext'
@@ -77,7 +76,6 @@ import {
   type HoldCause,
 } from '../../registration/__tests__/helpers/editHoldCauses'
 
-const READY: FooterGate = { isReady: true, hasBlockers: false, blockerCount: 0, blockedReason: undefined }
 const REDRAFT = /re-?draft/i
 
 /** The deployed run-path posture (see `OutputsDock.blockedReasonWiring.spec.tsx`). */
@@ -180,13 +178,6 @@ describe('the shared authority names the operative cause', () => {
 })
 
 describe('every surface prints it — and none offers re-draft', () => {
-  it.each(HOLD_CAUSES)('%s → legacy footer gate', (cause) => {
-    arrangeHoldCause(cause)
-    const gate = applyAnalysisHold(READY, analysisHeldNotice(useCanvasStore.getState() as never))
-    expect(gate.hasBlockers && gate.blockerCount > 0, 'footer would still enable').toBe(true)
-    expectNamesTheCause(gate.blockedReason, cause)
-  })
-
   it.each(HOLD_CAUSES)('%s → run gate reason (V3 footer, reanalyse bar, composer, run toast)', (cause) => {
     arrangeHoldCause(cause)
     expectNamesTheCause(gateReason(), cause)
@@ -211,7 +202,6 @@ describe('PARITY — one sentence, whichever surface prints it', () => {
     const shared = sharedSentence()
     expect(shared).toBeTruthy()
 
-    const footer = applyAnalysisHold(READY, analysisHeldNotice(useCanvasStore.getState() as never)).blockedReason
     const gate = gateReason()
     // The V3 footer and the reanalyse bar render the gate's reason THROUGH the
     // CEE-text vet; a sentence the vet rewrites is a different sentence.
@@ -221,8 +211,7 @@ describe('PARITY — one sentence, whichever surface prints it', () => {
     cleanup()
     const banner = bannerHoldLine().textContent?.replace(/^Edit anything on the canvas\.\s*/, '')
 
-    expect({ footer, gate, vetted, chip, banner }).toEqual({
-      footer: shared,
+    expect({ gate, vetted, chip, banner }).toEqual({
       gate: shared,
       vetted: shared,
       chip: shared,
@@ -240,8 +229,6 @@ describe('PARITY — one sentence, whichever surface prints it', () => {
 describe('CONTROLS — nothing else moves', () => {
   it('no edit unresolved: the surfaces print the saved-example sentence, unchanged', () => {
     expect(analysisHeldNotice(useCanvasStore.getState() as never)).toBe(ANALYSIS_HELD_NOTICE.starter)
-    expect(applyAnalysisHold(READY, analysisHeldNotice(useCanvasStore.getState() as never)).blockedReason)
-      .toBe(ANALYSIS_HELD_NOTICE.starter)
     renderRunChip()
     expect(runChip()).toHaveAttribute('title', ANALYSIS_HELD_NOTICE.starter)
     cleanup()
@@ -264,7 +251,6 @@ describe('CONTROLS — nothing else moves', () => {
     arrangeHoldCause(cause)
     acknowledgeCurrentGraph()
     expect(analysisHeldNotice(useCanvasStore.getState() as never)).toBeNull()
-    expect(applyAnalysisHold(READY, analysisHeldNotice(useCanvasStore.getState() as never))).toEqual(READY)
     renderRunChip()
     expect(runChip()).not.toHaveAttribute('title')
     cleanup()

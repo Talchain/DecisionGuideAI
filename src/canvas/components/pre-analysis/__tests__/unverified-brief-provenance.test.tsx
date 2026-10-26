@@ -10,7 +10,6 @@ import { factorValueSourceMark, ValueSourceMark } from '../../../nodes/shared/va
 import { CanvasLegendPopover } from '../../CanvasLegendPopover'
 import { provenanceKey } from '../../provenanceKey'
 import { factorValueSourceLabel } from '../../../ui/inspector-v2/inspectorStrings'
-import { provenanceToPill } from '../provenanceUtils'
 import { buildEstimateRows } from '../../pre-analysis-v3/selectors/buildEstimateRows'
 import { computeGraphFacts, computeProvenanceCounts } from '../../pre-analysis-v3/selectors/graphFacts'
 import { projectAuthoredEntities } from '../../pre-analysis-v3/selectors/projectAuthoredEntities'
@@ -73,8 +72,6 @@ describe('unverified brief provenance is disclosed without inventing authorship'
       const node = factor('unverified_brief', source)
       expect(node.data.provenance).toBe('unverified_brief')
       expect(classifyNodeProvenance(node.data.provenance as string)).toEqual({ kind: 'unverified_brief', userOwned: false })
-      const pill = provenanceToPill('unverified_brief', source, true)
-      expect(pill?.label).toBe(LABEL)
       const row = estimate(node)
       expect(row.aiSourced).toBe(false)
       expect(row.reviewed).toBe(false)
@@ -100,7 +97,6 @@ describe('unverified brief provenance is disclosed without inventing authorship'
     const node = factor('future_provenance', 'cee_inference')
     expect(node.data.provenance).toBe('future_provenance')
     expect(classifyNodeProvenance('future_provenance')).toBeNull()
-    expect(provenanceToPill('future_provenance', 'cee_inference', true)).toBeNull()
     const row = estimate(node)
     expect(row.attribution).toBeNull()
     expect(factorValueSourceLabel(node.data)).toBe('Source not recorded')
@@ -151,7 +147,6 @@ describe('unverified brief provenance is disclosed without inventing authorship'
 
   it('keeps ai_inferred attributed to Olumi', () => {
     const node = factor('ai_inferred', 'cee_inference')
-    expect(provenanceToPill('ai_inferred')?.label).toBe('AI estimate')
     const row = estimate(node)
     expect(row.aiSourced).toBe(true)
     expect(projectAuthoredEntities([{ ...node, type: 'risk', data: { ...node.data, kind: 'risk' } }], 'risk')[0].attribution).toEqual({ kind: 'olumi' })
@@ -162,7 +157,6 @@ describe('unverified brief provenance is disclosed without inventing authorship'
   it('keeps from_brief unchanged', () => {
     const node = factor('from_brief', 'brief_extraction')
     expect(classifyNodeProvenance(node.data.provenance as string)).toEqual({ kind: 'brief', userOwned: false })
-    expect(provenanceToPill('from_brief')?.label).toBe('From brief')
     const { container } = render(createElement(NodeProvenanceMark, { nodeType: 'option', data: node.data }))
     expect(screen.getByTestId('node-provenance-mark')).toHaveAccessibleName('From your brief')
     expectNoOlumi(container)

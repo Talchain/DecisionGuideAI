@@ -32,7 +32,6 @@ vi.mock('../../hooks/useGraphReadiness', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../hooks/useGraphReadiness')>()
   return { ...actual, useGraphReadiness: () => ({ readiness: null, loading: false, error: null, refresh: vi.fn() }) }
 })
-vi.mock('../pre-analysis', () => ({ PreAnalysisPanel: () => <div data-testid="stub-pre-run" /> }))
 vi.mock('../pre-analysis-v3', () => ({ default: () => <div data-testid="stub-pre-run-v3" /> }))
 
 import { OutputsDock } from '../OutputsDock'

@@ -5,9 +5,8 @@
  * surfaces (mount census in the lane report; `preAnalysisV3=1`,
  * `USE_INSPECTOR_V2` hardcoded true, model tab unflagged):
  *
- *   D1  `provenanceToPill('user_set')` returns NULL — the one node-level
- *       provenance value that says a human owns the number has no pill, while
- *       the two AI-owned values both do.
+ *   D1  (the node-level pill, `provenanceToPill`; its rows went with the "What
+ *       Olumi added" section in U2.)
  *   D2  `getExtractionLabel('user_confirmed')` returns **'Estimated by Olumi'**
  *       (default arm) — a value the user explicitly confirmed is labelled as
  *       the machine's guess, on three live inspector panels.
@@ -32,30 +31,9 @@ import { describe, it, expect } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { render, screen } from '@testing-library/react'
 
-import { provenanceToPill } from '../../components/pre-analysis/provenanceUtils'
 import { getExtractionLabel, getProvenanceLabel } from '../../ui/inspector-v2/inspectorStrings'
 import { SourceProvenancePill } from '../../components/model-tab/SourceProvenancePill'
 import { mapSourceToDisplay } from '../../components/model-tab/utils'
-
-describe('2.638 S2 · D1 — the node-level confirmation pill renders', () => {
-  it('provenanceToPill("user_set") returns a pill, not null', () => {
-    const pill = provenanceToPill('user_set')
-    expect(pill).not.toBeNull()
-    expect(pill!.label).toBe('Set by you')
-  })
-
-  it('leaves the two producer pills exactly as they were', () => {
-    expect(provenanceToPill('from_brief')).toEqual({
-      label: 'From brief',
-      borderClass: 'border-success/30',
-    })
-    expect(provenanceToPill('ai_inferred')).toEqual({
-      label: 'AI estimate',
-      borderClass: 'border-info/30',
-    })
-    expect(provenanceToPill(undefined)).toBeNull()
-  })
-})
 
 describe('2.638 S2 · D2 — the inspector stops calling a confirmed value an Olumi estimate', () => {
   it('getExtractionLabel("user_confirmed") says confirmed, never "Estimated by Olumi"', () => {

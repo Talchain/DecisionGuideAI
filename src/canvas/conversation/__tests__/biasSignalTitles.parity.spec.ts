@@ -13,32 +13,14 @@
  *     and an icon;
  *   - every code the deterministic-trigger/tooltip literals compose from
  *     resolves;
- *   - both real public mappers (pre-analysis panel, both wire conventions)
- *     resolve every registry code to the registry title;
- *   - hostile prototype-chain codes fail closed everywhere (C7) and the
- *     findings path is case-insensitive (C8).
+ *   - hostile prototype-chain codes fail closed (C7).
+ * (The pre-analysis panel's two mappers and their rows went with the panel, U2.)
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { Anchor, EyeOff, Frame, Gauge } from 'lucide-react'
 
 import { BIAS_SIGNAL_REGISTRY, biasSignal, resolveBiasSignal } from '../../shared/biasSignalTitles'
 import type { KnownBiasCode } from '../../shared/biasSignalTitles'
-import {
-  mapDraftBiasSignalToTrigger,
-  normaliseCeeBiasFinding,
-} from '../../components/pre-analysis/PreAnalysisPanel'
-
-// PreAnalysisPanel imports the canvas store transitively; keep the module
-// import light and deterministic (the functions under test are pure).
-vi.mock('../../store', () => {
-  const mockState = { nodes: [] as Array<{ id: string }> }
-  return {
-    useCanvasStore: Object.assign(
-      (selector: (s: unknown) => unknown) => selector(mockState),
-      { getState: () => mockState },
-    ),
-  }
-})
 
 // The composed-trigger allowlist that used to live here is GONE
 // (/simplify item 2). Composed call sites now go through the TOTAL accessor
@@ -99,113 +81,22 @@ describe('bias-signal registry — drift traps over the SOURCE (C9)', () => {
 })
 
 describe('bias-signal registry — every surface resolves through it', () => {
-  it('the pre-analysis draft-signal mapper resolves every registry code to the registry title, both cases', () => {
-    for (const [code, entry] of Object.entries(BIAS_SIGNAL_REGISTRY)) {
-      const trigger = mapDraftBiasSignalToTrigger(
-        { type: code, detail: 'A grounded detail sentence.' },
-        0,
-        () => null,
-      )
-      expect(trigger, `code ${code} produced no trigger`).not.toBeNull()
-      expect(trigger!.title, `title drift for code ${code}`).toBe(entry.title)
-      expect(trigger!.icon, `icon drift for code ${code}`).toBe(entry.icon)
-      const upper = mapDraftBiasSignalToTrigger(
-        { type: code.toUpperCase(), detail: 'A grounded detail sentence.' },
-        0,
-        () => null,
-      )
-      expect(upper!.title, `uppercase title drift for code ${code}`).toBe(entry.title)
-      expect(upper!.icon, `uppercase icon drift for code ${code}`).toBe(entry.icon)
-    }
-  })
-
   it('the conversation resolver agrees with the registry, case-insensitively', () => {
     for (const [code, entry] of Object.entries(BIAS_SIGNAL_REGISTRY)) {
       expect(resolveBiasSignal(code)?.title).toBe(entry.title)
       expect(resolveBiasSignal(code.toUpperCase())?.title).toBe(entry.title)
     }
   })
-
-  it('the CEE-findings mapper resolves every registry code to the registry title and icon', () => {
-    for (const [code, entry] of Object.entries(BIAS_SIGNAL_REGISTRY)) {
-      const trigger = normaliseCeeBiasFinding(
-        { code, explanation: 'A grounded explanation.' },
-        0,
-        () => null,
-      )
-      expect(trigger, `code ${code} produced no trigger`).not.toBeNull()
-      expect(trigger!.title, `title drift for code ${code}`).toBe(entry.title)
-      expect(trigger!.icon, `icon drift for code ${code}`).toBe(entry.icon)
-    }
-  })
 })
 
 // ─── Review-folds pins (C7 + C8) — written RED before the registry fix ────
 
-describe('C7: hostile wire codes must not crash the pre-analysis panel mappers', () => {
+describe('C7: hostile wire codes fail closed', () => {
   it('resolveBiasSignal fails closed on prototype-chain keys and non-strings', () => {
     expect(resolveBiasSignal('__proto__')).toBeNull()
     expect(resolveBiasSignal('constructor')).toBeNull()
     expect(resolveBiasSignal('CONSTRUCTOR')).toBeNull()
     expect(resolveBiasSignal(42)).toBeNull()
     expect(resolveBiasSignal('   ')).toBeNull()
-  })
-
-  it("mapDraftBiasSignalToTrigger('constructor') falls back — icon defined, title a string", () => {
-    const trigger = mapDraftBiasSignalToTrigger(
-      { type: 'constructor', detail: 'Hostile wire code.' },
-      0,
-      () => null,
-    )
-    expect(trigger).not.toBeNull()
-    expect(typeof trigger!.icon).not.toBe('undefined')
-    expect(typeof trigger!.title).toBe('string')
-    expect(trigger!.title.trim().length).toBeGreaterThan(0)
-  })
-
-  it("mapDraftBiasSignalToTrigger('__proto__') falls back — icon defined, title a string", () => {
-    const trigger = mapDraftBiasSignalToTrigger(
-      { type: '__proto__', detail: 'Hostile wire code.' },
-      0,
-      () => null,
-    )
-    expect(trigger).not.toBeNull()
-    expect(typeof trigger!.icon).not.toBe('undefined')
-    expect(typeof trigger!.title).toBe('string')
-  })
-
-  it("normaliseCeeBiasFinding('constructor'/'__proto__') never throws and falls back honestly", () => {
-    for (const code of ['constructor', '__proto__']) {
-      let trigger: ReturnType<typeof normaliseCeeBiasFinding> = null
-      expect(() => {
-        trigger = normaliseCeeBiasFinding(
-          { code, explanation: 'Hostile wire code.', target_factor_id: 'n1' },
-          0,
-          () => 'A resolvable label',
-        )
-      }, `code ${code} crashed the mapper`).not.toThrow()
-      expect(trigger).not.toBeNull()
-      expect(typeof trigger!.title).toBe('string')
-      expect(typeof trigger!.icon).not.toBe('undefined')
-    }
-  })
-})
-
-describe('C8: the findings path resolves case-insensitively (both wire conventions)', () => {
-  it("normaliseCeeBiasFinding({ code: 'ANCHORING' }) resolves the canonical Anchoring title, not the fallback", () => {
-    const trigger = normaliseCeeBiasFinding(
-      { code: 'ANCHORING', explanation: 'A grounded explanation.' },
-      0,
-      () => null,
-    )
-    expect(trigger).not.toBeNull()
-    expect(trigger!.title).toBe('Anchoring')
-  })
-
-  it("lowercase 'sunk_cost' and uppercase 'SUNK_COST' land on the same title", () => {
-    const lower = normaliseCeeBiasFinding({ code: 'sunk_cost', explanation: 'x.' }, 0, () => null)
-    const upper = normaliseCeeBiasFinding({ code: 'SUNK_COST', explanation: 'x.' }, 0, () => null)
-    expect(lower!.title).toBe('Sunk cost')
-    expect(upper!.title).toBe('Sunk cost')
   })
 })

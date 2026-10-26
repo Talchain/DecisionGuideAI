@@ -59,7 +59,6 @@ vi.mock('../../../flags', async (io) => ({
   ...(await io<Record<string, unknown>>()),
   isAiPanelV2Enabled: () => flagState.aiPanelV2,
 }))
-vi.mock('../pre-analysis', () => ({ PreAnalysisPanel: () => null }))
 vi.mock('../../hooks/useGraphReadiness', () => ({
   useGraphReadiness: () => ({ readiness: { state: 'ready' } }),
 }))

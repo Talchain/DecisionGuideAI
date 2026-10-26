@@ -48,7 +48,6 @@ vi.mock('../../../flags', async (importOriginal) => ({
 }))
 
 import { useAnalysisState } from '../analysisStateSelector'
-import { useAnalysisDisplayState } from '../../hooks/useAnalysisDisplayState'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useEditConfirmation } from '../../ui/inspector-v2/useEditConfirmation'
 import { AnalysisFreshnessNotice } from '../../../components/results/AnalysisFreshnessNotice'
@@ -110,9 +109,8 @@ function verdict(over: Partial<AnalysisStateV1> = {}): AnalysisStateV1 {
 /** The three consumer surfaces, read exactly as the product reads them. */
 function readSurfaces() {
   const selector = renderHook(() => useAnalysisState()).result.current
-  const hero = renderHook(() => useAnalysisDisplayState()).result.current
   const trust = renderHook(() => useAnalysisTrust()).result.current
-  return { selector, hero, trust }
+  return { selector, trust }
 }
 
 describe('three-truths window — a refused turn', () => {
@@ -162,17 +160,10 @@ describe('three-truths window — a refused turn', () => {
     expect(result.current.isStaleAfterEdit).toBe(true)
   })
 
-  it('the HERO no longer says "Analysis complete" (useAnalysisDisplayState re-point)', () => {
-    const { hero } = readSurfaces()
-    expect(hero.state).toBe('results_stale')
-    expect(hero.cta).toStrictEqual({ kind: 'secondary', label: 'Rerun analysis' })
-  })
-
   it('ALL THREE AGREE — no surface claims currency', () => {
-    const { selector, hero, trust } = readSurfaces()
+    const { selector, trust } = readSurfaces()
     expect(selector.semantic).toBe('cannot_confirm')
     expect(trust.semantic).toBe('cannot_confirm')
-    expect(hero.state).not.toBe('complete')
     expect(selector.displayedFreshness).not.toBe('fresh')
   })
 })
@@ -182,19 +173,17 @@ describe('three-truths window — the opposite direction', () => {
     // Without this pair the suite would also pass if the re-points had simply
     // hardcoded pessimism — the affirmative must still be reachable.
     store = makeStore(verdict())
-    const { selector, hero, trust } = readSurfaces()
+    const { selector, trust } = readSurfaces()
     expect(selector.semantic).toBe('current')
     expect(trust.semantic).toBe('current')
-    expect(hero.state).toBe('complete')
     expect(selector.displayedFreshness).toBe('fresh')
   })
 
-  it('a blocked verdict routes the hero to not_ready, not to a completion claim', () => {
+  it('a blocked verdict claims no freshness', () => {
     store = makeStore(
       verdict({ run_state: { kind: 'blocked', reason_code: 'no_goal_node', blockers: [] } }),
     )
-    const { hero, selector } = readSurfaces()
-    expect(hero.state).toBe('not_ready')
+    const { selector } = readSurfaces()
     expect(selector.displayedFreshness).toBe('none')
   })
 })
@@ -202,11 +191,10 @@ describe('three-truths window — the opposite direction', () => {
 describe('no wire verdict — every surface behaves exactly as before', () => {
   it('is the legacy answer on all three surfaces', () => {
     store = makeStore(null)
-    const { selector, hero, trust } = readSurfaces()
+    const { selector, trust } = readSurfaces()
     expect(selector.authority).toBe('derived')
     expect(selector.semantic).toBe('current')
     expect(trust.semantic).toBe('current')
-    expect(hero.state).toBe('complete')
     expect(selector.displayedFreshness).toBe('fresh')
   })
 })

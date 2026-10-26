@@ -12,8 +12,10 @@
  * the commit message: unmount a named surface, or drop its bias feeder, and a
  * case here goes RED.
  *
- *   §1.5(1) FRAME        — pre-analysis panel bias cards (deterministic engine
- *                          + draft `bias_signals`); mounted as PreAnalysisPanel.
+ *   §1.5(1) FRAME        — pre-analysis panel bias cards. ⚠ UNMOUNTED 26 Oct
+ *                          2026 (U2, Paul: "all of the old code stripped"): the
+ *                          v2.1 PreAnalysisPanel and its cases went with the
+ *                          legacy code. No case here; recorded, not hidden.
  *   §1.5(2) EXPLORE      — canvas node icons (the single useScienceIcons /
  *                          ScienceIcon system, max 2/node), with the popover +
  *                          "discuss with AI" affordance.
@@ -74,7 +76,7 @@
  * cannot see PMS-served prompt content, so those legs live in CEE.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, renderHook, screen, within, fireEvent, cleanup } from '@testing-library/react'
+import { render, renderHook, screen, fireEvent, cleanup } from '@testing-library/react'
 
 // ── One mocked canvas store serves the surfaces below (module id is shared, so
 //    every importer — PreAnalysisPanel, useScienceIcons, useNodeDisplayMetadata
@@ -124,101 +126,15 @@ vi.mock('../../../store', () => {
   }
 })
 
-// Non-store dependencies of PreAnalysisPanel (mirrors the proven biasTriggerFilter
-// harness — these need providers or throw otherwise).
-vi.mock('../hooks/usePreAnalysisData', () => ({ usePreAnalysisData: vi.fn() }))
-vi.mock('../../../stores/draftStore', () => ({
-  useDraftStore: Object.assign(
-    (selector: (state: any) => any) =>
-      selector({
-        lastDraftError: null,
-        lastDraftDescription: '',
-        selectedGenerationModel: null,
-        selectedRepairModel: null,
-        selectedEnrichmentModel: null,
-        isGenerating: false,
-        fullDraftAppliedAt: null,
-      }),
-    { getState: () => ({ lastDraftError: null, isGenerating: false, setLastDraftError: vi.fn() }) },
-  ),
-}))
-vi.mock('../../../hooks/useRetryDraft', () => ({
-  useRetryDraft: () => ({ retryDraft: vi.fn(), canRetry: true, isRetrying: false, retryError: null }),
-}))
-vi.mock('../../../hooks/usePreRunValidation', () => ({
-  SOFT_BYPASS_STATUSES: new Set(['needs_user_mapping', 'needs_encoding']),
-}))
-vi.mock('../../../ToastContext', () => ({ useShowToast: () => vi.fn() }))
-vi.mock('../../../../utils/clipboard', () => ({ copyTextToClipboard: vi.fn().mockResolvedValue(true) }))
-
-import { PreAnalysisPanel } from '../PreAnalysisPanel'
 import { ScienceIcon } from '../../../nodes/shared/ScienceIcon'
 import { useScienceIcons } from '../../../hooks/useScienceIcons'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
-import * as usePreAnalysisDataModule from '../hooks/usePreAnalysisData'
-import type { PreAnalysisData } from '../hooks/usePreAnalysisData'
 // §1.5(3)'s structural pin reads its relocated spec from DISK rather than
 // importing the hero — see the §1.5(3) block below for why importing it here is
 // not available. `readFileSync`/`resolve`, same mechanism the sibling source
 // guards (`analysis-hero/__tests__/hygiene.spec.ts`) use.
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-
-const mockUsePreAnalysisData = usePreAnalysisDataModule.usePreAnalysisData as ReturnType<typeof vi.fn>
-
-const baseData = (): PreAnalysisData =>
-  ({
-    improvementsByCategory: { fix: [], verify: [], add_evidence: [], strengthen: [] },
-    tiers: {
-      mustAddress: { items: [], count: 0 },
-      reviewAssumptions: { items: [], count: 0 },
-      optional: { items: [], count: 0 },
-    },
-    totalImprovements: 0,
-    topActions: [],
-    evidenceQuality: { level: 'medium', ratio: 0.5, nonAiCount: 2, totalCount: 4 },
-    isReady: true,
-    hasBlockers: false,
-    blockerCount: 0,
-    nodesByKind: {
-      goal: [{ id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } }],
-      decision: [],
-      option: [
-        { id: 'o1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
-        { id: 'o2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2' } },
-      ],
-      factor: [],
-      risk: [],
-      outcome: [],
-    },
-    edgeCount: 2,
-    goalNode: { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
-    successThreshold: null,
-    isThresholdAutoDerived: false,
-    isThresholdConfirmed: false,
-    thresholdProvenance: null,
-    isLoading: false,
-    reviewedFactorsCount: 0,
-    totalReviewableFactorsCount: 0,
-    enrichedBlockers: [],
-    informationalBlockers: [],
-    modelAdjustments: [],
-    preMortem: null,
-    goalThresholdRaw: null,
-    goalThresholdUnit: null,
-    isGoalConfirmed: false,
-    optionPreviews: [],
-    qualityChecks: [],
-    repairActions: [],
-    ceeQuality: null,
-    hasDefaultStrengths: false,
-    defaultStrengthPercent: 0,
-    contestedEdges: [],
-    coachingSummary: null,
-    thresholdSourceBadge: null,
-    assumptionsLedger: null,
-    triageActions: { top3: [], quickFix: [] },
-  }) as unknown as PreAnalysisData
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -235,34 +151,6 @@ afterEach(() => {
 })
 
 describe('bias-surface liveness gate (§4.3 UI surface leg)', () => {
-  // ── §1.5(1) FRAME — pre-analysis panel bias cards ────────────────────────
-  it('§1.5(1) FRAME: a resolvable CEE bias finding renders a pre-analysis bias card', () => {
-    mockNodes = [
-      { id: 'fac-velocity', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Engineering velocity' } },
-    ]
-    mockCeeAnalysisReady = {
-      goal_node_id: 'g1',
-      options: [],
-      bias_findings: [
-        {
-          id: 'bf1',
-          code: 'CONFIRMATION_BIAS',
-          severity: 'medium',
-          explanation: 'Pattern of agreeable estimates.',
-          target_factor_id: 'fac-velocity',
-        },
-      ],
-    }
-    mockUsePreAnalysisData.mockReturnValue(baseData())
-
-    render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
-
-    const t1Card = screen.getByTestId('t1-decision-readiness-card')
-    const nudges = within(t1Card).getAllByTestId(/^t1-bias-nudge-/)
-    expect(nudges.length).toBeGreaterThanOrEqual(1)
-    expect(nudges[0].textContent).toContain('Pattern of agreeable estimates')
-  })
-
   // ── §1.5(2) EXPLORE — canvas node icons (useScienceIcons / ScienceIcon) ───
   it('§1.5(2) EXPLORE: a baseline option feeds a status-quo-bias node icon', () => {
     mockNodes = [

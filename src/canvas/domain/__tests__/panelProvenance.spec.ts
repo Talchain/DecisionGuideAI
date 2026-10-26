@@ -20,7 +20,6 @@ import {
   getExtractionLabel,
   getProvenanceLabel,
 } from '../../ui/inspector-v2/inspectorStrings'
-import { provenanceToPill } from '../../components/pre-analysis/provenanceUtils'
 
 describe('panel_elicited provenance', () => {
   it('classifies as kind "panel"', () => {
@@ -74,21 +73,6 @@ describe('panel_elicited provenance', () => {
     expect(label).not.toContain('panel_elicited')
     expect(label).not.toContain('Source:')
     expect(label).toBe('From your panel')
-  })
-
-  it('⭐ an applied colleague value is never pilled "Set by you"', () => {
-    // CEE stamps `node.provenance = 'user_set'` unconditionally, including for
-    // a panel apply, so the node rung alone credits the READER with somebody
-    // else's number. `observed_state.source` takes precedence.
-    const pill = provenanceToPill('user_set', 'panel_elicited')
-    expect(pill?.label).not.toBe('Set by you')
-    expect(pill?.label).toBe('From your panel')
-
-    // CONTROL / no-regression: with no source, or an ordinary user source, the
-    // node rung is unchanged — every pre-0.40.0 caller behaves as before.
-    expect(provenanceToPill('user_set')?.label).toBe('Set by you')
-    expect(provenanceToPill('user_set', 'user_override')?.label).toBe('Edited by you')
-    expect(provenanceToPill('ai_inferred')?.label).toBe('AI estimate')
   })
 
   it('an UNKNOWN literal still classifies as null — honest-neutral, never guessed', () => {

@@ -1,9 +1,8 @@
 /**
  * T1H-3 (14 Oct) — the OPPOSITE misattribution to T1H: the person's OWN typed words must reach CEE as theirs.
  *
- * Before this fix two doors sent the user's words as a chip:
- *   · SuccessTarget "Add constraint" — `_dispatchAction({ action_type: 'add_constraint', parameters: { description },
- *     message: "I'd like to add a constraint: <words>" })` → `chip_click`;
+ * Before this fix two doors sent the user's words as a chip (the first, SuccessTarget "Add constraint", went with the
+ * legacy pre-analysis panel in U2; its rows went with it):
  *   · Results "Respond" (`askAi` userWords + typed parameters) — `{ source: 'chip', chip: { parameters } }` with the
  *     card heading `On ‘<title>’:` prepended.
  * CEE treats chip text as product copy: the agent lane's `typedByUser` is false for any chip
@@ -32,14 +31,12 @@ vi.mock('../../../v5/v5Adapter', async (original) => ({
 import { useConversation, type UseConversationReturn } from '../useConversation'
 import { ConversationPanel } from '../ConversationPanel'
 import { askAi } from '../askAi'
-import { SuccessTarget } from '../../components/pre-analysis/SuccessTarget'
 import { ScienceIcon } from '../../nodes/shared/ScienceIcon'
 import { OLUMI_TEXT_CHIP_IDS } from '../chipMeta'
 import { ChallengeCard } from '../../../components/results/analysisNew/sections/ChallengeCard'
 import { buildAnalysisNewViewModel } from '../../../components/results/analysisNew/buildAnalysisNewViewModel'
 import { genuineDecision } from '../../../components/results/analysisNew/__tests__/analysisNewFixtures'
 import type { Recommendation } from '../../../components/results/strengthen/strengthenTypes'
-import { buildV5Payload } from '../../../v5/buildPayload'
 import { useCanvasStore } from '../../store'
 import { setCurrentScenarioId } from '../../store/scenarios'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -138,39 +135,6 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllEnvs() })
 
 describe('T1H-3 — the person\'s own typed words go out as theirs: chipless composer, exactly as typed', () => {
-  it('SuccessTarget "Add constraint" (was an add_constraint chip) → composer, the typed statement alone, no chip', async () => {
-    render(<Registered><SuccessTarget goalNode={GOAL as never} successThreshold={100} isThresholdAutoDerived={false}
-      isThresholdConfirmed={false} /></Registered>)
-    fireEvent.click(screen.getByRole('button', { name: 'Add constraint' }))
-    fireEvent.change(screen.getByPlaceholderText('e.g. Budget must stay under $50k'), { target: { value: '  Keep Budget under $40,000.  ' } })
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Add' })) })
-    const body = await onlyBody()
-    expect(body.message).toBe('Keep Budget under $40,000.')
-    expect(body.source).toBe('composer')
-    expect(body).not.toHaveProperty('chip')
-  })
-
-  it('…and that body meets CEE\'s conditions for crediting it: typedByUser, the constraint door runs, the message IS the statement (contrast: the pre-fix body fails all three)', async () => {
-    const words = 'Keep Budget under $40,000.'
-    render(<Registered><SuccessTarget goalNode={GOAL as never} successThreshold={100} isThresholdAutoDerived={false}
-      isThresholdConfirmed={false} /></Registered>)
-    fireEvent.click(screen.getByRole('button', { name: 'Add constraint' }))
-    fireEvent.change(screen.getByPlaceholderText('e.g. Budget must stay under $50k'), { target: { value: words } })
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Add' })) })
-    const body = await onlyBody()
-    expect(cee.typedByUser(body)).toBe(true)
-    expect(cee.constraintDoorRuns(body)).toBe(true)
-    expect(cee.messageIsTheStatement(body, words)).toBe(true)
-    // CONTRAST — the pre-fix send, built by the REAL payload builder from the old call's inputs.
-    const before = buildV5Payload({ turnId: '11111111-1111-4111-8111-111111111111', scenarioId: SID, stage: 'frame',
-      turnClass: 'clarify', mode: 'user', source: 'chip', message: `I'd like to add a constraint: ${words}`,
-      chipMeta: { action_type: 'add_constraint', parameters: { description: words } } })
-    if (!before.ok) throw new Error('PRECONDITION: the pre-fix body must build')
-    const old = before.payload as unknown as Body
-    expect(old.source).toBe('chip_click')
-    expect([cee.typedByUser(old), cee.constraintDoorRuns(old), cee.messageIsTheStatement(old, words)]).toEqual([false, false, false])
-  })
-
   it('Respond on an intervention (was a parameters chip + Olumi heading) → composer, the reader\'s words alone, target typed', async () => {
     const r = viaVm(rec({ id: 'strengthen:flip:opt_a', targetId: 'opt_a' }))
     render(<Registered><ChallengeCard intervention={r} methodId={null} onRunIntervention={vi.fn()} onRunMethod={vi.fn()} analysisHash="hash_1" /></Registered>)

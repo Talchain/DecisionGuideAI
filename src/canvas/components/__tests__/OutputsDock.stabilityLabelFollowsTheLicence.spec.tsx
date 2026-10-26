@@ -60,7 +60,6 @@ vi.mock('../../conversation/useConversation', () => ({
   }),
 }))
 
-vi.mock('../pre-analysis', () => ({ PreAnalysisPanel: () => null }))
 vi.mock('../../hooks/useGraphReadiness', () => ({
   useGraphReadiness: () => ({ readiness: { state: 'ready' } }),
 }))

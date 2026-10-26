@@ -110,14 +110,6 @@ vi.mock('../../ToastContext', async (importOriginal) => {
   }
 })
 
-vi.mock('../pre-analysis/hooks/usePreAnalysisData', () => ({
-  usePreAnalysisData: () => ({}),
-}))
-
-vi.mock('../pre-analysis', () => ({
-  PreAnalysisPanel: () => <div data-testid="pre-analysis-stub" />,
-}))
-
 vi.mock('../../hooks/useGraphReadiness', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../hooks/useGraphReadiness')>()
   return {

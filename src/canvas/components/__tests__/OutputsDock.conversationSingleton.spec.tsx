@@ -83,9 +83,6 @@ vi.mock('../../conversation/useConversation', () => ({
 // PreAnalysisPanel pulls in ToastProvider + readiness fetches that fail
 // outside the full app shell. Stub it to a placeholder so the dock can
 // expand for tests that require non-empty canvas state.
-vi.mock('../pre-analysis', () => ({
-  PreAnalysisPanel: () => null,
-}))
 // Readiness store fetches /bff/cee/graph-readiness which jsdom can't parse
 // as a relative URL. Stub the hook so the dock can render past readiness
 // gating in dock-expanded tests.

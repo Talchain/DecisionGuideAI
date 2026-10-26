@@ -6,7 +6,6 @@ vi.mock('dompurify', () => ({ default: { sanitize: (s: string) => s } }))
 vi.mock('react-router-dom', async (io) => ({ ...(await io<any>()), useNavigate: vi.fn(() => vi.fn()) }))
 vi.mock('../../../flags', async (io) => ({ ...(await io<any>()), isAiPanelV2Enabled: () => true, isJourneyTabEnabled: () => false, isTelemetryEnabled: () => false }))
 vi.mock('../../hooks/useGraphReadiness', async (io) => ({ ...(await io<any>()), useGraphReadiness: () => ({ readiness: null, loading: false, error: null, refresh: vi.fn() }) }))
-vi.mock('../pre-analysis', () => ({ PreAnalysisPanel: () => <div data-testid="stub-pre-run" /> }))
 vi.mock('../pre-analysis-v3', () => ({ default: () => <div data-testid="stub-pre-run-v3" /> }))
 import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'

@@ -93,9 +93,6 @@ vi.mock('../../hooks/useGraphReadiness', async (importOriginal) => {
 // asserts anything about its contents — the twin case below only needs to know
 // that the EMPTY state is absent once a model exists, so the stub is a marker,
 // not a fixture standing in for behaviour under test.
-vi.mock('../pre-analysis', () => ({
-  PreAnalysisPanel: () => <div data-testid="stub-pre-run" />,
-}))
 vi.mock('../pre-analysis-v3', () => ({
   default: () => <div data-testid="stub-pre-run-v3" />,
 }))

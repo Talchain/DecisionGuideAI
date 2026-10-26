@@ -16,7 +16,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ComponentProps, ReactNode } from 'react'
 
 const mockCallV5Turn = vi.fn()
@@ -36,13 +36,6 @@ vi.mock('../../../components/results/coaching/askOlumiStore', async (original) =
 }))
 // Card nodes render React Flow handles, which need a mounted flow; the handle is not under test.
 vi.mock('@xyflow/react', async (original) => ({ ...await original<typeof import('@xyflow/react')>(), Handle: () => null }))
-// PreAnalysisPanel's T1 checks read the pre-analysis view model; seed it per row (real otherwise).
-const preAnalysisData = vi.hoisted(() => ({ value: null as unknown }))
-vi.mock('../../components/pre-analysis/hooks/usePreAnalysisData', async (original) => {
-  const real = await original<typeof import('../../components/pre-analysis/hooks/usePreAnalysisData')>()
-  return { ...real, usePreAnalysisData: (...a: Parameters<typeof real.usePreAnalysisData>) =>
-    (preAnalysisData.value ?? real.usePreAnalysisData(...a)) as ReturnType<typeof real.usePreAnalysisData> }
-})
 
 import { useConversation, type UseConversationReturn } from '../useConversation'
 import { ConversationPanel } from '../ConversationPanel'
@@ -50,7 +43,6 @@ import { GuidanceStrip } from '../GuidanceStrip'
 import { OLUMI_TEXT_CHIP_IDS } from '../chipMeta'
 import type { ConversationBlock, ConversationMessage } from '../types'
 import { InspectorGuidanceSection } from '../../ui/inspector/InspectorGuidanceSection'
-import { OptionPreview } from '../../components/pre-analysis/OptionPreview'
 import { DraftNotes } from '../../components/pre-analysis/DraftNotes'
 import { OptionsComparison } from '../../../components/results/analysisNew/sections/OptionsComparison'
 import { buildAnalysisNewViewModel } from '../../../components/results/analysisNew/buildAnalysisNewViewModel'
@@ -73,8 +65,6 @@ import { NodeChip } from '../../nodes/shared/NodeChip'
 import { composeCounterfactualQuestion } from '../../nodes/shared/counterfactualQuestion'
 import { DiscussWithAiButton } from '../../components/pre-analysis/DiscussWithAiButton'
 import { buildAiDiscussPrompt } from '../../components/pre-analysis/buildAiDiscussPrompt'
-import { PreAnalysisPanel } from '../../components/pre-analysis/PreAnalysisPanel'
-import { ToastProvider } from '../../ToastContext'
 import { CoachingCard } from '../../components/CoachingCard'
 import { ModelHealthSection } from '../../components/model-tab/ModelHealthSection'
 import { createOlumiHandOff } from '../olumiHandOff'
@@ -215,15 +205,6 @@ describe('T1H — Olumi\'s text goes out as a chip carrying its surface\'s ident
       bringIntoComparisonQuestion('Buy an AI Triage Tool', 'not_returned'))
   })
 
-  it('OptionPreview "Explore other strategies" → chip option_preview_explore_strategies, sentence unchanged', async () => {
-    const opt = { id: 'opt1', label: 'Option A', status: 'ready', isBaseline: false,
-      interventions: [{ factorId: 'fac1', factorLabel: 'Price', interventionValue: 0.5, currentValue: 0.3, direction: 'up', cap: 1, unit: '', currentRawValue: null }] }
-    render(<Host>{c => <OptionPreview options={[opt] as never} onSendMessage={c.sendMessage} />}</Host>)
-    await act(async () => { fireEvent.click(screen.getByTestId('option-preview-explore-strategies')) })
-    expectChip(await onlyBody(), OLUMI_TEXT_CHIP_IDS.optionPreviewExploreStrategies,
-      'What other strategies should I consider for this decision?')
-  })
-
   it('DraftNotes "Add factor" (constraint label with figures) → chip draft_notes_constraint_factor, sentence unchanged', async () => {
     render(<Host>{c => <DraftNotes modelAdjustments={[]} repairActions={[]}
       goalConstraints={[{ id: 'c1', label: 'Budget under £250k', probability: null }]} onSendMessage={c.sendMessage} />}</Host>)
@@ -245,16 +226,16 @@ describe('T1H — Olumi\'s text goes out as a chip carrying its surface\'s ident
   })
 
   it('RETRY: a failed Olumi-text chip retries as the SAME chip, never as chip-less free text', async () => {
-    const opt = { id: 'opt1', label: 'Option A', status: 'ready', isBaseline: false,
-      interventions: [{ factorId: 'fac1', factorLabel: 'Price', interventionValue: 0.5, currentValue: 0.3, direction: 'up', cap: 1, unit: '', currentRawValue: null }] }
-    render(<Host>{c => <OptionPreview options={[opt] as never} onSendMessage={c.sendMessage} />}</Host>)
-    await act(async () => { fireEvent.click(screen.getByTestId('option-preview-explore-strategies')) })
+    // Re-pointed (U2) from OptionPreview, removed with the legacy pre-analysis panel, onto GuidanceStrip "discuss".
+    useGuidanceStore.getState().setGuidanceItems([guidance({ type: 'discuss', prompt: 'Is a 20% churn cut realistic?' })])
+    render(<Host>{c => <GuidanceStrip onSendMessage={c.sendMessage} onSetActive={() => {}} onScrollToPatch={() => {}} onOpenInspector={() => {}} />}</Host>)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /discuss/i })) })
     const first = await onlyBody()
     await act(async () => { await conversation.retryLast() })
     await waitFor(() => expect(mockCallV5Turn).toHaveBeenCalledTimes(2))
     const retried = mockCallV5Turn.mock.calls[1][0] as Payload
     expect(retried.turn_id).toBe(first.turn_id)
-    expectChip(retried, OLUMI_TEXT_CHIP_IDS.optionPreviewExploreStrategies, first.message)
+    expectChip(retried, OLUMI_TEXT_CHIP_IDS.guidanceDiscuss, first.message)
   })
 })
 
@@ -309,18 +290,6 @@ describe('T1H-2 — the remaining Olumi-text sends carry their surface\'s chip i
     render(<Host>{c => <DiscussWithAiButton element={element} onSend={c.sendMessage} />}</Host>)
     await act(async () => { fireEvent.click(screen.getByTestId('discuss-with-ai')) })
     expectChip(await onlyBody(), OLUMI_TEXT_CHIP_IDS.discussWithAi, buildAiDiscussPrompt(element))
-  })
-
-  it.each([
-    ['t1-check-fewer-than-2-options', OLUMI_TEXT_CHIP_IDS.preAnalysisAddOption, 'Add another option to compare'],
-    ['t1-check-no-baseline', OLUMI_TEXT_CHIP_IDS.preAnalysisAddBaseline, 'Add a status quo option to compare against'],
-  ])('PreAnalysisPanel %s → chip %s, copy unchanged', async (testId, id, text) => {
-    preAnalysisData.value = preAnalysisFixture()
-    try {
-      render(<ToastProvider><Host>{c => <PreAnalysisPanel onAnalyse={() => {}} onSendMessage={c.sendMessage} />}</Host></ToastProvider>)
-      await act(async () => { fireEvent.click(within(screen.getByTestId(testId)).getByRole('button')) })
-      expectChip(await onlyBody(), id, text)
-    } finally { preAnalysisData.value = null }
   })
 
   it('WhatIWasGivenSection "add" on a not-modelled figure → chip what_i_was_given_not_modelled, question unchanged', async () => {
@@ -391,26 +360,4 @@ describe('T1H-2 — the remaining Olumi-text sends carry their surface\'s chip i
     expectChip(await onlyBody(), OLUMI_TEXT_CHIP_IDS.insightAction, 'Suggest additional options for this decision')
   })
 })
-
-function preAnalysisFixture() {
-  const none = { fix: [], verify: [], add_evidence: [], strengthen: [] }
-  return {
-    improvementsByCategory: none,
-    tiers: { mustAddress: { items: [], count: 0 }, reviewAssumptions: { items: [], count: 0 }, optional: { items: [], count: 0 } },
-    totalImprovements: 0, topActions: [],
-    evidenceQuality: { level: 'medium', ratio: 0.5, nonAiCount: 2, totalCount: 4 },
-    isReady: true, hasBlockers: false, blockerCount: 0,
-    nodesByKind: { goal: [{ id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } }], decision: [],
-      option: [{ id: 'o1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } }], factor: [], risk: [], outcome: [] },
-    edgeCount: 1,
-    goalNode: { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
-    successThreshold: 100, isThresholdAutoDerived: false, isThresholdConfirmed: false, thresholdProvenance: null,
-    isLoading: false, reviewedFactorsCount: 0, totalReviewableFactorsCount: 0, enrichedBlockers: [], informationalBlockers: [],
-    modelAdjustments: [], preMortem: null, goalThresholdRaw: null, goalThresholdUnit: null, isGoalConfirmed: false,
-    optionPreviews: [{ id: 'o1', label: 'Option 1', isBaseline: false, status: 'ready', interventions: [] }],
-    qualityChecks: [{ id: 'no_baseline', message: 'No baseline', cta: 'Add baseline', ctaAction: 'add_baseline', pill: 'framing', category: 'structure' }],
-    repairActions: [], ceeQuality: null, hasDefaultStrengths: false, defaultStrengthPercent: 0, contestedEdges: [],
-    coachingSummary: null, thresholdSourceBadge: null, assumptionsLedger: null, triageActions: { top3: [], quickFix: [] },
-  }
-}
 

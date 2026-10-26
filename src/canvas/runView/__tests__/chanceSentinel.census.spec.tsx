@@ -88,7 +88,6 @@ import { ComparisonCanvasLayout } from '../../components/ComparisonCanvasLayout'
 import { useComparisonStore } from '../../stores/comparisonStore'
 import SharedBriefPage from '../../../pages/SharedBriefPage'
 import { buildAskAiQuestion } from '../../conversation/askAi'
-import { renderTimelineSummary } from '../../journey/renderTimelineSummary'
 import { EdgePanel } from '../../ui/inspector-v2/panels/EdgePanel'
 import { StyledEdge } from '../../edges/StyledEdge'
 import { ModelTabBody } from '../../components/ModelTabBody'
@@ -546,8 +545,6 @@ const FUNCTIONS: ReadonlyArray<readonly [string, () => string]> = [
       buildAskAiQuestion({ intent: 'explain', nodeIds: [A], includeOptions: true } as never).question].join(' | ')],
   // Round 2: the analysis snapshot record is no longer a row here. It reaches neither a person nor the AI: production reads
   // only its run count and latest timestamp (checked in the derivation block below, "the analysis snapshot record").
-  ['journey timeline summary (renderTimelineSummary)', () => renderTimelineSummary([{ id: 'e1', event_type: 'analysis_run', source: 'ai',
-    created_at: '2026-10-12T02:00:00Z', details: { winner: label(A), probability: Math.round(win(A) * 100), robustness: 'moderate' } }] as never)],
   // Round 2 (Codex r1 blocking 3): the brief's copied text and its printable page carried the same chances.
   ['decision brief, copied text (decisionBriefToText)', () => decisionBriefToText(buildDecisionBrief(savedRead() as never))],
   ['decision brief, printable page (decisionBriefToHtml)', () => decisionBriefToHtml(buildDecisionBrief(savedRead() as never))],
@@ -868,7 +865,7 @@ const BUILDER_DISPOSITION: Readonly<Record<string, string>> = {
   'src/poc/AppPoC.tsx': 'downloads the sandbox graph state (`nodes`, `edges`, `renames`)',
   'src/poc/export/exportCanvas.ts': 'serialises the canvas\'s rendered SVG: its text is what the censused canvas cards and edges render',
   'src/routes/CanvasMVP.tsx': 'copies a share URL',
-  'src/utils/clipboard.ts': 'a helper; its callers copy a draft-error report (PreAnalysisPanel) or debug JSON (BoundaryCard, JsonViewer)',
+  'src/utils/clipboard.ts': 'a helper; its callers copy debug JSON (BoundaryCard, JsonViewer)',
   'src/components/DebugTray.tsx': DEBUG_ONLY,
   'src/components/debug/PayloadLabTab.tsx': DEBUG_ONLY,
   'src/components/debug/components/JsonViewer.tsx': DEBUG_ONLY,

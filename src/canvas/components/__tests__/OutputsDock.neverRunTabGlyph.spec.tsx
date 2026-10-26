@@ -53,9 +53,6 @@ vi.mock('../../hooks/useGraphReadiness', async (importOriginal) => {
   }
 })
 
-vi.mock('../pre-analysis', () => ({
-  PreAnalysisPanel: () => <div data-testid="stub-pre-run" />,
-}))
 vi.mock('../pre-analysis-v3', () => ({
   default: () => <div data-testid="stub-pre-run-v3" />,
 }))

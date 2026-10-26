@@ -16,7 +16,6 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: vi.fn(() => vi.fn()) }
 })
 // Unrelated bodies are irrelevant to the footer mount. Reasoning stays real to verify its shared run owner.
-vi.mock('../../components/pre-analysis', () => ({ PreAnalysisPanel: () => null }))
 vi.mock('../../components/ModelTabBody', () => ({ ModelTabBody: () => null }))
 vi.mock('../../components/OlumiTabBody', () => ({ OlumiTabBody: () => null }))
 vi.mock('../../hooks/useStageAwarePlaceholder', () => ({ useStageAwarePlaceholder: () => 'Ask Olumi…' }))

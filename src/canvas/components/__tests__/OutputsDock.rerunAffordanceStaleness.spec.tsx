@@ -92,8 +92,6 @@ vi.mock('../../conversation/useConversation', () => ({
   }),
 }))
 
-vi.mock('../pre-analysis', () => ({ PreAnalysisPanel: () => null }))
-
 // ⭐ A RUNNABLE READINESS VERDICT, AND IT IS LOAD-BEARING.
 //
 // The neighbouring specs mock this as `{ readiness: { state: 'ready' } }`,

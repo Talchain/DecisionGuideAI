@@ -177,10 +177,6 @@ vi.mock('../../ToastContext', async (importOriginal) => {
   }
 })
 
-vi.mock('../pre-analysis/hooks/usePreAnalysisData', () => ({
-  usePreAnalysisData: () => mockUsePreAnalysisData(),
-}))
-
 // Mock the readiness hook — its real implementation calls fetch() against a
 // relative URL on mount via startListening(), which jsdom rejects with
 // "Invalid URL". The rejection bubbles up as an unhandled promise rejection
@@ -199,14 +195,6 @@ vi.mock('../../hooks/useGraphReadiness', async (importOriginal) => {
     }),
   }
 })
-
-vi.mock('../pre-analysis', () => ({
-  PreAnalysisPanel: ({ onAnalyse }: { onAnalyse: () => void }) => (
-    <button data-testid="outputs-run-button" type="button" onClick={onAnalyse}>
-      Run
-    </button>
-  ),
-}))
 
 function ensureMatchMedia() {
   if (typeof window.matchMedia !== 'function') {

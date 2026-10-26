@@ -32,7 +32,6 @@ import type { ModelRowDetail } from '../../model-tab-v2/types'
 import { ModelRowView } from '../../model-tab-v2/ModelRowView'
 import { buildEstimateRows } from '../../components/pre-analysis-v3/selectors/buildEstimateRows'
 import type { RankingResult } from '../../components/pre-analysis-v3/types'
-import { provenanceToPill } from '../../components/pre-analysis/provenanceUtils'
 import { factorValueSourceLabel, getInputGroupLabel, getProvenanceLabel } from '../../ui/inspector-v2/inspectorStrings'
 import { userValueReplacesPrior } from '../../nodes/shared/factorPriorRange'
 import { hasObservedData } from '../../utils/observedStateHelpers'
@@ -154,11 +153,6 @@ describe('every pre-run surface that names whose number it is says the same (52f
   it('pre-analysis estimates: the adopted row is kind `accepted`; the bare literal stays `assumption`', () => {
     expect(buildEstimateRows([rf(ADOPTED, 'ai_inferred')], ranking, null)[0]?.provenanceKind).toBe('accepted')
     expect(buildEstimateRows([rf(BRIEF_MARKED, 'user_set')], ranking, null)[0]?.provenanceKind).toBe('assumption')
-  })
-
-  it('"What Olumi added": the accepted pill says AIQ\u2019s words; the bare literal keeps "Your assumption"', () => {
-    expect(provenanceToPill(undefined, 'user_assumption', true)?.label).toBe(ACCEPTED)
-    expect(provenanceToPill(undefined, 'user_assumption', false)?.label).toBe('Your assumption')
   })
 })
 

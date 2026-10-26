@@ -87,10 +87,6 @@ vi.mock('../../ToastContext', async (importOriginal) => {
   }
 })
 
-vi.mock('../pre-analysis/hooks/usePreAnalysisData', () => ({
-  usePreAnalysisData: () => ({}),
-}))
-
 vi.mock('../../hooks/useGraphReadiness', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../hooks/useGraphReadiness')>()
   return {
@@ -98,10 +94,6 @@ vi.mock('../../hooks/useGraphReadiness', async (importOriginal) => {
     useGraphReadiness: () => ({ readiness: null, loading: false, error: null, refresh: vi.fn() }),
   }
 })
-
-vi.mock('../pre-analysis', () => ({
-  PreAnalysisPanel: () => <div data-testid="pre-analysis-stub" />,
-}))
 
 // Memo-mocked body: re-renders ONLY when its props change identity — the
 // honest measure for the SSE-tick test. Continuity is asserted on the

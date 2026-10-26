@@ -76,13 +76,8 @@ export const GRAPH_WRITE_REGISTRY: GraphWriteRegistryEntry[] = [
   { file: 'src/canvas/mutations/structuralDelete.ts', mutators: ['applyStructuralDeleteRevert'], class: 'optimistic', revert: 'revertStructuralDelete' },
   { file: 'src/canvas/contextMenu/actions.ts', mutators: ['duplicateSelected', 'updateEdgeEndpoints', 'updateNode', 'updateEdgeData', 'setState.nodes', 'setState.edges'], class: 'gated_off', gate: 'CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations' },
   { file: 'src/canvas/useKeyboardShortcuts.ts', mutators: ['duplicateSelected', 'cutSelected', 'pasteClipboard'], class: 'gated_off', gate: 'CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations' },
-  { file: 'src/canvas/components/OutputsDock.tsx', mutators: ['applyAutoFixChanges'], class: 'gated_off', gate: 'CANONICAL_EDIT_AUTHORITY.postRunAutoFix' },
   { file: 'src/canvas/components/OutputsDock.tsx', mutators: ['setGoalThresholdAndUpdateNode'], class: 'gated_off', gate: 'CANONICAL_EDIT_AUTHORITY.goalSuccessTarget' },
   { file: 'src/components/results/modals/DefineSuccessModal.tsx', mutators: ['setGoalThresholdAndUpdateNode'], class: 'gated_off', gate: 'CANONICAL_EDIT_AUTHORITY.goalSuccessTarget' },
-  { file: 'src/canvas/components/pre-analysis/PreAnalysisPanel.tsx', mutators: ['updateNode'], class: 'gated_off', gate: 'CANONICAL_EDIT_AUTHORITY.preAnalysisFactorValue' },
-  { file: 'src/canvas/components/pre-analysis/PreAnalysisPanel.tsx', mutators: ['updateNode'], class: 'gated_off', gate: 'CANONICAL_EDIT_AUTHORITY.preAnalysisFactorConfirmation' },
-  { file: 'src/canvas/components/pre-analysis/PreAnalysisPanel.tsx', mutators: ['updateEdgeData'], class: 'gated_off', gate: 'CANONICAL_EDIT_AUTHORITY.preAnalysisEdgeStrength' },
-  { file: 'src/canvas/components/pre-analysis/PreAnalysisPanel.tsx', mutators: ['setGoalThresholdAndUpdateNode'], class: 'gated_off', gate: 'CANONICAL_EDIT_AUTHORITY.goalSuccessTarget' },
   { file: 'src/canvas/components/pre-analysis-v3/hero/HeroSection.tsx', mutators: ['setGoalThresholdAndUpdateNode'], class: 'gated_off', gate: 'CANONICAL_EDIT_AUTHORITY.goalSuccessTarget' },
   // Importer evidence: no non-test imports of these modules. GuidedLayoutDialog
   // is imported only by the unused LayoutPopover; useCEECoaching only by the

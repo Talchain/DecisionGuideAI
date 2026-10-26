@@ -78,11 +78,8 @@ import { deriveResultsTabFreshness } from './resultsTabFreshness'
 import { typography, typo } from '../../styles/typography'
 import {
   trackCompareOpened,
-  trackAutoFixClicked,
-  trackAutoFixSuccess,
-  trackAutoFixFailed,
 } from '../utils/sandboxTelemetry'
-import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isPreAnalysisV3Enabled } from '../../flags'
+import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled } from '../../flags'
 import { OlumiTabBody } from './OlumiTabBody'
 import { PersistentInputStrip } from './PersistentInputStrip'
 import { SelectionPill } from './SelectionPill'
@@ -94,10 +91,6 @@ import {
   needsSingleExpandedPanel,
   requestFloatingOlumiSurface,
 } from './panelComposition'
-import {
-  CANONICAL_EDIT_AUTHORITY,
-  hasServerGraphAuthority,
-} from '../mutations/mutationAuthority'
 import { dockWidthBounds, parseStoredDockWidth, resolveDockWidth } from './dockWidth'
 import {
   shouldAutoExpandDockForResponse,
@@ -115,8 +108,6 @@ import { modelTabFactorsToVerify } from './model-tab/utils'
 import { getGoalDirection } from '../utils/getObjectiveText'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
-import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
-import { PreAnalysisPanel } from './pre-analysis'
 import {
   computeInfluenceCoverage,
   isTransitionBridgeReviewed,
@@ -153,7 +144,6 @@ import {
   deriveReadinessCheck,
   readinessNothingHasAnswered,
 } from './pre-analysis-v3/footer/readinessDisplay'
-import { JourneyTabBody } from '../journey/JourneyTabBody'
 import { CompareRunPairBody } from '../compare-tab/CompareRunPairBody'
 // Results Panel Redesign: v7 four-section layout components
 import { useResultsSectionData } from '../../components/results/useResultsSectionData'
@@ -168,7 +158,6 @@ import { ViewComparisonPointer } from './model-tab/ViewComparisonPointer'
 import { SectionErrorBoundary } from './SectionErrorBoundary'
 import { useGuidanceStore, withOlumiReveal } from '../stores/guidanceStore'
 import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
-import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { getStrengthCorrections } from '../../adapters/plot/v2/adapter'
 // P0.6: User-friendly error messages
 import { getUserFriendlyError } from '../../lib/userFriendlyErrors'
@@ -184,7 +173,6 @@ import { useRobustness } from '../hooks/useRobustness'
 import { mapRobustness } from '../../lib/mappers/mapRobustness'
 import type { MappedRobustness } from '../../lib/mappers/types'
 // ScenarioComparison modal removed - now rendered as ComparisonCanvasLayout in ReactFlowGraph
-import type { CritiqueItemV1 } from '../../adapters/plot/types'
 import { verboseDebug } from '../../utils/verboseLog'
 import { AnalysisFooter } from '../shared/AnalysisFooter'
 import {
@@ -209,26 +197,6 @@ import { AssistantOpenedNotice } from './AssistantOpenedNotice'
 import { DefineSuccessModal, DecisionRecordModal, HowComputedModal } from '../../components/results/modals'
 import { useIsViewer } from '../../lib/viewerMode'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
-
-/**
- * Map API critique format (CritiqueItemV1) to ValidationPanel format
- * Converts severity to level and passes through node/edge references for click-to-focus
- * Only marks items as auto_fixable if we actually support that fix type
- */
-function mapCritiqueToValidation(critique: CritiqueItemV1[] | undefined): CritiqueItem[] {
-  if (!critique || critique.length === 0) return []
-
-  return critique.map(c => ({
-    level: c.severity === 'BLOCKER' ? 'blocker' : c.severity === 'WARNING' ? 'warning' : 'info',
-    message: c.message,
-    code: c.code,
-    node_id: c.node_id,
-    edge_id: c.edge_id,
-    suggested_fix: c.suggested_fix,
-    // Only show auto-fix button if we actually support this fix type
-    auto_fixable: c.auto_fixable && c.code ? !!determineFixType(c.code) : false,
-  }))
-}
 
 /** Derived from the store's union rather than hand-mirrored beside it —
  *  the two were previously separate "must match exactly" copies (trap 12). */
@@ -799,7 +767,6 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
   const setShowComparePanel = useCanvasStore(s => s.setShowComparePanel)
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
-  const applyAutoFixChanges = useCanvasStore(s => s.applyAutoFixChanges)
   // P2: Success target affordance - threshold update
   const setGoalThreshold = useCanvasStore(s => s.setGoalThreshold)
   const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
@@ -1985,52 +1952,6 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
 
   const strengthCorrectionsForRun = useMemo(() => getStrengthCorrections(), [report])
 
-  // Handle auto-fix for validation issues
-  const handleAutoFix = useCallback(async (item: CritiqueItem): Promise<boolean> => {
-    // Track that auto-fix was clicked
-    trackAutoFixClicked()
-
-    if (!item.code) {
-      trackAutoFixFailed()
-      return false
-    }
-
-    const fixType = determineFixType(item.code)
-    if (!fixType) {
-      console.warn('[OutputsDock] No auto-fix available for code:', item.code)
-      trackAutoFixFailed()
-      return false
-    }
-
-    const params: AutoFixParams = {
-      fixType,
-      nodeId: item.node_id,
-      edgeId: item.edge_id,
-    }
-
-    try {
-      const result = executeAutoFix(params, nodes, edges)
-
-      if (result.success) {
-        // Use store action instead of direct setState (P1 fix - proper history/undo support)
-        applyAutoFixChanges({
-          nodes: result.updatedNodes,
-          edges: result.updatedEdges,
-        })
-
-        trackAutoFixSuccess()
-        return true
-      }
-
-      console.warn('[OutputsDock] Auto-fix failed:', result.message)
-      trackAutoFixFailed()
-      return false
-    } catch (err) {
-      console.error('[OutputsDock] Auto-fix error:', err)
-      trackAutoFixFailed()
-      return false
-    }
-  }, [nodes, edges, applyAutoFixChanges])
 
   // ⛔ REMOVED (A5, cascade): `canonicalBands` and `mostLikelyValue`.
   //
@@ -3716,11 +3637,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   </div>
                 )}
                 {isPreRun && nodes.length > 0 && viewOnlyChances === null && (
-                  isPreAnalysisV3Enabled() ? (
-                    /* Pre-analysis panel v3 (flag preAnalysisV3): outcome-centred
-                       panel, lazy-loaded so flag-off users pay no bundle cost.
-                       Reinstatement: flag off restores the legacy branch below,
-                       byte-identical. See docs/pre-analysis-panel-solution-design-v1.md §14. */
+                    /* Pre-analysis panel v3: outcome-centred, lazy-loaded. The v2.1 panel it replaced is gone (U2: the
+                       flag was on in every deploy). See docs/pre-analysis-panel-solution-design-v1.md §14. */
                     <div className="flex-1 min-h-0 flex flex-col" data-testid="outputs-pre-run-v3">
                       <Suspense fallback={null}>
                         <PreAnalysisPanelV3
@@ -3734,19 +3652,6 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                         />
                       </Suspense>
                     </div>
-                  ) : (
-                    <div className="flex-1 min-h-0 flex flex-col" data-testid="outputs-pre-run">
-                      {/* Pre-Analysis Panel - M1 rebuild with new component architecture */}
-                      {/* Goal node selector and threshold are now inside AnalysisSettings accordion */}
-                      <PreAnalysisPanel
-                        onAnalyse={handleRunAnalysis}
-                        isAnalysing={isRunning}
-                        blockedReason={runBlockedTooltip}
-                        onSendMessage={sendMessage}
-                        expertMode={expertMode}
-                      />
-                    </div>
-                  )
                 )}
                 {/* 1.16i + first-five-minutes: visible staged processing for
                     the WHOLE analysis turn, on every run. It renders above
@@ -3783,35 +3688,6 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 })()}
                 {/* NOTE: UnifiedStatusBadge removed - TrustSignal now provides plain-language
                     reliability assessment. Keeping import for potential future use in Compare tab. */}
-                {/* v1.1 Contract: Engine critique shown post-run only if blockers exist
-                    Note: Pre-run validation uses graphHealth, post-run uses engine critique
-                    Only show if engine detected blockers that prevented clean results.
-
-                    ⛔ ROADMAP 2.651 — Paul's Ruling 3. The `!analysisNotConfirmedFresh`
-                    limb of this gate is RETIRED. RCA-C/F18 freshness-gated the render
-                    because an engine critique bakes the run-time limit into its free text
-                    ("Graph too large: 16 nodes (limit: 12)"), which a newer live limit
-                    could contradict. That is an argument about what the display CLAIMS,
-                    and the tab already answers it — AnalysisFreshnessNotice states "Model
-                    changed since this analysis. Re-run to update." directly above. Hiding
-                    it also hid ValidationPanel's Auto-fix, a graph MUTATION affordance,
-                    from the user's first edit onward. Staleness is a property of RESULTS,
-                    never a lock: out-of-date results are labelled, not withheld — the same
-                    doctrine the wrapper below already records ("v6 keeps stale results
-                    fully readable … No dimming, no aria-disabled lockout"). Live
-                    graphHealth still speaks in parallel; it is no longer made to speak
-                    INSTEAD. `!isPreRun` and the BLOCKER filter are untouched — both are
-                    pinned in `OutputsDock.staleEngineCritique.spec.tsx`. */}
-                {!isPreRun && report?.run?.critique && report.run.critique.some(c => c.severity === 'BLOCKER') && (
-                  <div data-testid="outputs-engine-critique">
-                    <ValidationPanel
-                      critique={mapCritiqueToValidation(report.run.critique)}
-                      onAutoFix={hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.postRunAutoFix)
-                        ? handleAutoFix
-                        : undefined}
-                    />
-                  </div>
-                )}
                 {/* Phase 2: Response warnings banner (edge type inferred, weights normalized, etc.) */}
                 {!isPreRun && !warningsDismissed && report?.warnings && report.warnings.length > 0 && (
                   <WarningBanner
@@ -4301,9 +4177,6 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 and this needs three store reads. Putting it in the dock keeps
                 the guard intact instead of arguing with it. */}
             {effectiveActiveTab === 'diagnostics' && <ViewComparisonPointer />}
-            {effectiveActiveTab === 'journey' && (
-              <JourneyTabBody />
-            )}
             {/* Olumi: keep mounted across tab switches so ChatThread's scroll
                 position and useSmartScroll state survive. Visibility toggled
                 with CSS so the underlying ChatThread never unmounts when the

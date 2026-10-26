@@ -393,45 +393,20 @@ describe('the DUPLICATE stack’s residual is bounded and named', () => {
     // the equality below, which reds on growth.
     const corpus = tsFiles(V1_DIR).map(f => relative(REPO, f))
     expect(corpus.length).toBeGreaterThan(5)
-    expect(corpus).toContain('src/canvas/components/model-tab/ContestedEdgeCard.tsx')
     expect(corpus).toContain('src/canvas/components/model-tab/ModelHealthSection.tsx')
 
     expect(scan(V1_DIR)).toEqual(V1_PINNED)
   })
 
-  it('ContestedEdgeCard is NOT in the residual — it outlives the removal', () => {
-    // Design §7.4 E keeps this card wholesale, so its two endpoint fallbacks
-    // would have become permanent rather than swept up by the delete. They were
-    // fixed in place for exactly that reason, and this pins the distinction.
-    const card = join(V1_DIR, 'ContestedEdgeCard.tsx')
-    const cardKey = relative(REPO, card)
-    // Precondition: the walk REACHED this file. Without it the `undefined`
-    // below is satisfied by a scan that never looked.
-    expect(tsFiles(V1_DIR).map(f => relative(REPO, f))).toContain(cardKey)
-
-    const v1 = scan(V1_DIR)
-    expect(v1[cardKey]).toBeUndefined()
-
-    // ⭐ CONTRAST CONTROL, RE-POINTED ONTO THE CARD ITSELF (11 Sep 2026).
-    //
-    // This read `GoalSection.tsx`, pinned at 1 — a file the v1 removal DELETED,
-    // which is why this assertion went red on a PR that never touched this
-    // spec. The residual is now EMPTY, so “a file that IS in the residual reads
-    // non-zero” has no surviving successor and the control cannot simply be
-    // re-pointed at another file in the list: there is no list.
-    //
-    // It is re-pointed onto THIS CARD'S OWN BYTES instead, which is stronger
-    // than what it replaces — the old control discriminated using a DIFFERENT
-    // file, so a scan blind to `ContestedEdgeCard.tsx` specifically would have
-    // passed both halves. Deleting it, rather than re-pointing it, would leave
-    // `toBeUndefined()` asserting nothing at all.
-    const cardSrc = readAnchor(card)
-    expect(cardSrc.length).toBeGreaterThan(1000)
-    expect(countIn(cardSrc, card)).toBe(0)
-    // …and the instrument DOES fire on this file's text: one banned endpoint
-    // fallback, injected into the real source, is seen. So the zero above is a
-    // fact about the card and not a dead scan.
-    expect(countIn(`${cardSrc}\nconst l = e?.label ?? edge.source\n`, card)).toBe(1)
+  it('CONTRAST CONTROL: the scan reads a surviving file of this directory, and it discriminates', () => {
+    // Re-pointed (U2, 26 Oct 2026) from `ContestedEdgeCard.tsx`, deleted with the legacy results code, onto a
+    // surviving file of the same directory, so the empty residual above stays a fact about the files, not a dead scan.
+    const file = join(V1_DIR, 'ModelHealthSection.tsx')
+    expect(tsFiles(V1_DIR).map(f => relative(REPO, f))).toContain(relative(REPO, file))
+    const src = readAnchor(file)
+    expect(src.length).toBeGreaterThan(1000)
+    expect(countIn(src, file)).toBe(0)
+    expect(countIn(`${src}\nconst l = e?.label ?? edge.source\n`, file)).toBe(1)
   })
 })
 

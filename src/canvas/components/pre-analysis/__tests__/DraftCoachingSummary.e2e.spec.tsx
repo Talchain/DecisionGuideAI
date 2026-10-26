@@ -4,17 +4,15 @@
  * Covers the regression ChatGPT identified: legacy ingestion paths read
  * `(draftData as any).coaching?.summary` from the raw response, but the
  * adapter consumes `coaching` and emits `draftCoaching`. The summary must
- * therefore be sourced from `draftData.draftCoaching?.summary` so that
- * ModelHealthCard can continue to display it via the legacy
- * analysis_ready.coaching_summary path.
+ * therefore be sourced from `draftData.draftCoaching?.summary` and reach the
+ * store's analysis_ready.coaching_summary. (The ModelHealthCard render half went
+ * with the card, U2.)
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
 import { adaptDraftResponse } from '../../../../adapters/cee/client'
 import { applyDraftResult } from '../../../utils/applyDraftResult'
 import { useCanvasStore } from '../../../store'
-import { ModelHealthCard } from '../ModelHealthCard'
 
 // setCeeAnalysisReady (store.ts) emits DEV-only console.warn + console.trace
 // diagnostics. Silence them in this targeted spec so output stays clean —
@@ -38,8 +36,8 @@ afterEach(() => {
   traceSpy.mockRestore()
 })
 
-describe('coaching.summary end-to-end (raw response → adapter → applyDraftResult → render)', () => {
-  it('still writes coaching.summary into the store, even though ModelHealthCard now renders the static reframe instead (pre-analysis-power-v1 Task 1)', () => {
+describe('coaching.summary end-to-end (raw response → adapter → applyDraftResult → store)', () => {
+  it('writes coaching.summary into the store', () => {
     const raw = {
       schema_version: '2.2',
       quality_overall: 7,
@@ -66,29 +64,6 @@ describe('coaching.summary end-to-end (raw response → adapter → applyDraftRe
     const ar = useCanvasStore.getState().ceeAnalysisReady as { coaching_summary?: string } | null
     expect(ar).not.toBeNull()
     expect(ar!.coaching_summary).toBe('You have three options to weigh.')
-
-    render(
-      <ModelHealthCard
-        compact
-        completeness={null}
-        evidence={null}
-        balance={null}
-        calibration={null}
-        optionCount={1}
-        goalLabel="Revenue"
-        coachingSummary={ar!.coaching_summary ?? null}
-        dynamicHeadline={null}
-        isLoading={false}
-        hasGoalNode
-      />,
-    )
-    // The dynamic summary is no longer rendered in the pre-analysis hero —
-    // and the static "Ready for provisional analysis" block was deduped in
-    // the post-deploy correction pass (P0 #4). The compact ModelHealthCard
-    // now renders ring + dimension bars only; the intro headline lives in
-    // T1DecisionReadinessCard's narrative slot.
-    expect(screen.queryByText('You have three options to weigh.')).not.toBeInTheDocument()
-    expect(screen.queryByText('Ready for provisional analysis')).not.toBeInTheDocument()
   })
 
   it('does not write coaching_summary when coaching.summary is absent', () => {

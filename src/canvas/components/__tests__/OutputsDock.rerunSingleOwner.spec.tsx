@@ -85,10 +85,6 @@ vi.mock('../../conversation/useConversation', () => ({
 
 // PreAnalysisPanel pulls ToastProvider + readiness fetches that fail outside
 // the full app shell; post-run surface under test never renders it.
-vi.mock('../pre-analysis', () => ({
-  PreAnalysisPanel: () => null,
-}))
-
 vi.mock('../../hooks/useGraphReadiness', () => ({
   useGraphReadiness: () => ({ readiness: { state: 'ready' } }),
 }))
