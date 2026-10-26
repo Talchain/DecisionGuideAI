@@ -34,7 +34,7 @@ import { producerMarksAnalysisUnusable } from '../../lib/coherence/crossSurfaceC
 import { heldRunIsNotCurrentPerRead } from '../hydrate/serverGraphHydration'
 import { isProgramGraph } from '../nodes/shared/savedModelProgram'
 import { parseCanonicalAnalysisView } from '../runView/canonicalAnalysisView'
-import { runViewOf } from '../runView/runView'
+import { programRunStateOf } from '../runView/programRunState'
 import { resolveGoalTarget, type GoalTargetSource } from '../domain/goalTarget'
 import { heldTargetBoundWords } from '../domain/goalOwnTargetRow'
 import { goalTargetSourceMark, factorValueSourceMark, type ValueSourceMarkKind } from '../nodes/shared/valueSourceMark'
@@ -259,9 +259,9 @@ function runOf(read: SavedScenarioRead): { run: BriefRun; withheld: BriefWithhel
   // W3b: on a program board the Run is the program's own (`canonical_analysis_view`), never the old record it leaves at
   // "never run". With no program reading the brief says nothing about a Run (an empty statement is not shown).
   if (isProgramGraph(read.graph)) {
-    const view = parseCanonicalAnalysisView(read.canonicalAnalysisView ?? null)
-    if (view === null || view.run === null) return { run: { status: 'unknown', statement: '', ...base }, withheld }
-    if (runViewOf(null, view).boundToCurrentCanonical()) {
+    const programRun = programRunStateOf(parseCanonicalAnalysisView(read.canonicalAnalysisView ?? null))
+    if (programRun === 'none') return { run: { status: 'unknown', statement: '', ...base }, withheld }
+    if (programRun === 'current') {
       return { run: { status: 'current', statement: DECISION_BRIEF_COPY.runCurrent, ...base }, withheld }
     }
     withheld.push({ id: 'run:stale', text: DECISION_BRIEF_COPY.runStaleNeed, nodeId: null })

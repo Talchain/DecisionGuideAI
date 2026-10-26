@@ -4,6 +4,9 @@
  * Summary, the Model tab, the readiness line, the "What would change" lens and Compare say it had not been run. On a
  * program board whether a Run exists now comes from the program's own Run; a surface with no program reading says nothing.
  *
+ * Every surface reads ONE reader on a program board (`programRunState.ts`, from the canonical view; ALPHA-CODE-INVENTORY
+ * §0 item 2), never the legacy record: the stale rows below change only the view, and the surfaces follow it.
+ *
  * Real path: the served program read (`served-program-orders-full-read-20261026.json`: `run_state: never_run`, and a
  * canonical view whose Run is bound to the read's graph hash) through the real `fetchScenarioGraph` and
  * `hydrateCanvasFromServer` (only `fetch` stubbed), then each real surface. Each row has a non-program contrast: the same
@@ -38,6 +41,16 @@ const nonProgram = (() => {
   return { ...served, scenario_id: NON_PROGRAM_ID, graph_hash: `${served.graph_hash}-np`, graph }
 })()
 
+/** SYNTHETIC, labelled: the served program read with its own view's Run marked not current (`staleness.stale: true`). */
+const staleProgram = {
+  ...served, scenario_id: '0b4c2d7e-1111-4222-8333-94445555a005', graph_hash: served.graph_hash,
+  canonical_analysis_view: { ...served.canonical_analysis_view, staleness: { ...served.canonical_analysis_view.staleness, stale: true } },
+}
+/** SYNTHETIC, labelled: the served program read with no view at all (no program reading). */
+const { canonical_analysis_view: _noView, ...noReadingBase } = served
+const noReading = { ...noReadingBase, scenario_id: '0b4c2d7e-1111-4222-8333-94445555a006' }
+const MODEL_CHANGED = 'Model changed. Results may be out of date.'
+
 const respond = (read: unknown) =>
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(read), { status: 200, headers: { 'Content-Type': 'application/json' } })))
 
@@ -69,9 +82,13 @@ describe('Summary', () => {
     expect(screen.queryByText(DECISION_BRIEF_COPY.runNeverRun)).toBeNull()
   })
 
+  it('a program board whose own Run is not current: the stale statement, from the view alone', async () => {
+    const b = await brief(staleProgram)
+    expect([b.run.status, b.run.statement]).toEqual(['not_current', DECISION_BRIEF_COPY.runStale])
+  })
+
   it('a program board with no program reading says nothing about a Run (no "Latest Run" section)', async () => {
-    const { canonical_analysis_view: _view, ...noView } = served
-    const b = await brief(noView)
+    const b = await brief(noReading)
     expect(b.run.statement).toBe('')
     render(<DecisionBriefView brief={b} />)
     expect(screen.queryByTestId('brief-run')).toBeNull()
@@ -100,12 +117,30 @@ describe('the Model tab and the readiness line (the shared run-on-record input)'
     expect(screen.queryByText(READINESS_PENDING)).toBeNull()
   })
 
+  it('a program board whose own Run is not current: the Model tab bar says "Model changed…", from the view alone', async () => {
+    await board(staleProgram, 'program')
+    render(<ReanalyseBar canRun blockedReason={undefined} isAnalysing={false} />)
+    await settle()
+    expect(screen.getByText(MODEL_CHANGED)).toBeTruthy()
+  })
+
+  it('a program board with no program reading: no Model tab bar and no readiness bar', async () => {
+    await board(noReading, 'program')
+    const { container } = render(<ReanalyseBar canRun blockedReason={undefined} isAnalysing={false} />)
+    await settle()
+    expect(container.textContent).toBe('')
+    const { result } = renderHook(() => useReanalyseBarInputs())
+    await settle()
+    expect(result.current.preRunWithModel).toBe(false)
+  })
+
   it('CONTRAST — a non-program board: "This model has not been analysed yet." and "Readiness not checked yet"', async () => {
     await board(nonProgram, 'not_program')
     render(<ReanalyseBar canRun blockedReason={undefined} isAnalysing={false} />)
     await settle()
     expect(screen.getByText(NOT_ANALYSED)).toBeTruthy()
     const { result } = renderHook(() => useReanalyseBarInputs())
+    await settle()
     expect(result.current.preRunWithModel).toBe(true)
     render(<AnalysisReadinessBar preRunWithModel={result.current.preRunWithModel} canRun nothingHasAnswered isAnalysing={false} onAnalyse={() => {}} />)
     expect(screen.getByText(READINESS_PENDING)).toBeTruthy()
