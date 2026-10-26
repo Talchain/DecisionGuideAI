@@ -32,6 +32,7 @@ import { useAnalysisTrust } from './useAnalysisTrust'
 // 54-violation measurement that put it there.
 import { FIRST_USE_PLACEHOLDER } from '../components/firstUsePlaceholder'
 import { useProgramBoardShowsResult, useViewOnlyRunChances } from '../../components/results/analysisNew/ViewOnlyRunChances'
+import { useSavedModelIsProgram } from '../nodes/shared/savedModelProgram'
 
 /**
  * The five states the ladder below distinguishes, named so more than one voice
@@ -119,6 +120,7 @@ export function useConversationStage(): ConversationStage {
  */
 export function useEmptyConversationInvitation(): string {
   const stage = useConversationStage()
+  const programBoard = useSavedModelIsProgram()
   const staleWords = useAnalysisStaleReasonWords()
   switch (stage) {
     case 'changed':
@@ -132,6 +134,9 @@ export function useEmptyConversationInvitation(): string {
     case 'modelled':
       // Canvas ask B / R&C (b) / DL 5851099677: no run yet, so the ONE next move is the first analysis.
       // No location (the floating host has no readiness bar), no figure, no coaching of our own.
+      // U2 (provisional, pending Paul's copy call): a program board has no Run control (the host runs it), so no
+      // "Run a first pass" there.
+      if (programBoard) return 'Your model is on the canvas. Ask Olumi about any part of it.'
       return 'Your model is on the canvas. Run a first pass to see how the options compare, then ask Olumi about any part of it.'
     case 'empty':
       return FIRST_USE_PLACEHOLDER
