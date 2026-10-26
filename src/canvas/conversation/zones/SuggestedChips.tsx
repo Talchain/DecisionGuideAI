@@ -47,6 +47,7 @@ import {
 } from '../proposalFields'
 import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
 import { cardMark, type CardMarkIcon } from '../../nodes/shared/cardMarks'
+import { scrollWithinThread } from '../hooks/threadScroll'
 
 /**
  * Under an approve this card cannot offer: part of its change list could not be read, so approving would apply more than
@@ -90,8 +91,12 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
     if (!open || scrollTo === null) return
     // Next frame: opening the list grows the thread, and the thread's own content sensor re-pins it to the bottom
     // (useSmartScroll) after this effect. Scrolled after that pin, the group's first row is what the person sees.
+    // Only the thread moves (threadScroll.ts: `scrollIntoView` also scrolled the dock and blanked the Olumi tab, 7 Oct).
     // Not cancelled on cleanup: clearing `scrollTo` re-runs this effect. An unmounted section's ref is null.
-    requestAnimationFrame(() => sections.current[scrollTo]?.scrollIntoView({ block: 'start' }))
+    requestAnimationFrame(() => {
+      const section = sections.current[scrollTo]
+      if (section) scrollWithinThread(section, { behavior: 'auto', block: 'start' })
+    })
     setScrollTo(null)
   }, [open, scrollTo])
   // CEE's `changes[]` (DL 23 Oct): every item, its substance in CEE's words, Olumi's marked. Absent: the notes as before.
