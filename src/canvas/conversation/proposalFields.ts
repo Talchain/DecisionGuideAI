@@ -89,6 +89,11 @@ const proposalChangeSchema = z.object({
   // the calculation, or else in the model. Optional (an older CEE sends none); a value this reader does not know is read
   // as none, never a reason to drop the row.
   group: z.enum(['used', 'inferred', 'left_out', 'other']).optional().catch(undefined),
+  // W3b (CEE #3799), additive and optional like `group`: which of the model's families the row is, a fixed part of the
+  // model's structure (a unit conversion, an on/off switch: nobody's figure), and a figure still to be given.
+  family: z.enum(['quantity', 'relation', 'goal', 'limit', 'preference', 'option', 'risk', 'claims', 'evidence', 'assumptions', 'dissent', 'conditions', 'left_out']).optional().catch(undefined),
+  structure: z.literal(true).optional().catch(undefined),
+  asked: z.literal(true).optional().catch(undefined),
 })
 export type ProposalChange = z.infer<typeof proposalChangeSchema>
 /** The card's words for one change, CEE's label and rendered values verbatim; nothing is shortened or reworded. */
@@ -103,6 +108,8 @@ export function proposalChangeWords(c: ProposalChange): string {
 }
 /** The mark beside an item that is Olumi's, never the person's (`author: 'olumi'`). */
 export const OLUMI_CHANGE_MARK = 'Olumi’s'
+/** Is this row Olumi's? `author: 'olumi'`, unless it is a fixed part of the structure, which is nobody's (W3b). */
+export const changeIsOlumis = (c: ProposalChange): boolean => c.author === 'olumi' && c.structure !== true
 const CHANGE_KIND_NOUNS: Readonly<Record<ProposalChange['kind'], string>> = {
   goal: 'goal', quantity: 'figure', relation: 'calculation', option: 'option', risk: 'risk', record: 'other item', left_out: 'left-out item',
 }

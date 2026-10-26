@@ -124,6 +124,28 @@ describe('RiskNode', () => {
     expect(screen.queryByTestId('risk-exposure-unset')).toBeNull()
   })
 
+  /**
+   * W3b (CEE #3799): the horizon in the model's own period. CEE's own block (`project.ts` eventRiskOf, project-truth row
+   * 2: Olumi's 20–40 % over three months) as the contrast; a weekly or yearly model's horizon as weeks or years, never
+   * converted. Before, a weekly risk's card said "Likelihood and impact not set yet".
+   */
+  it.each([
+    [{ months: 3 }, 'May happen · about 20–40% within 3 months'],
+    [{ weeks: 12 }, 'May happen · about 20–40% within 12 weeks'],
+    [{ weeks: 1 }, 'May happen · about 20–40% within a week'],
+    [{ years: 2 }, 'May happen · about 20–40% within 2 years'],
+  ])('says the chance over the model\'s own horizon %o', (horizon, line) => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
+    renderRisk({ event_risk: { version: 1, occurrence: { p_low: 0.2, p_high: 0.4, meaning: 'at_least_once_within_horizon', basis: 'olumi' }, horizon } })
+    expect(screen.getByTestId('risk-event-line').textContent).toBe(line)
+    expect(screen.queryByTestId('risk-exposure-unset')).toBeNull()
+  })
+
+  it('a horizon in two units at once is malformed: no event line', () => {
+    renderRisk({ event_risk: { version: 1, occurrence: { p_low: 0.2, p_high: 0.4, basis: 'olumi' }, horizon: { weeks: 12, months: 3 } } })
+    expect(screen.queryByTestId('risk-event-line')).toBeNull()
+  })
+
   it('ignores malformed event risk and keeps the unset sentence byte-identical', () => {
     renderRisk({ event_risk: { version: 1, occurrence: { p_low: 0.4, p_high: 0.3, basis: 'user' }, horizon: { months: 6 } } })
     expect(screen.getByTestId('risk-exposure-unset')).toHaveAttribute('aria-label', 'Likelihood and impact not set yet')

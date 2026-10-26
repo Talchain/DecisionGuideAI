@@ -197,7 +197,7 @@ export const RiskNode = memo((props: NodeProps) => {
       ? `${Math.round(eventRisk.pLow * 100)}%`
       : `${Math.round(eventRisk.pLow * 100)}–${Math.round(eventRisk.pHigh * 100)}%`
     : null
-  const eventHorizon = eventRisk ? (eventRisk.months === 1 ? 'a month' : `${eventRisk.months} months`) : null
+  const eventHorizon = eventRisk ? (eventRisk.periods === 1 ? `a ${eventRisk.periodUnit}` : `${eventRisk.periods} ${eventRisk.periodUnit}s`) : null
   const eventLine = eventRisk ? `May happen · about ${eventPercent} within ${eventHorizon}` : null
   // Whose chance it is, in the canvas's one wording (DL ruling 21 Oct): a reference figure is never called Olumi's.
   const eventBasis = eventRisk ? EVENT_BASIS_WORDS[eventRisk.basis] : null

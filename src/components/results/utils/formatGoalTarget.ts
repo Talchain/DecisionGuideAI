@@ -98,7 +98,7 @@ export const TARGET_NOT_CAPTURED = 'Target not captured'
  * @returns the display string, or `null` when `value` is not a finite number —
  *          callers show no target rather than "≥ NaN".
  */
-export function formatGoalTarget(value: number, unit: string | null | undefined, frame?: unknown, quantityFrame?: unknown): string | null {
+export function formatGoalTarget(value: number, unit: string | null | undefined, frame?: unknown, quantityFrame?: unknown, reference?: unknown): string | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null
 
   /**
@@ -116,7 +116,7 @@ export function formatGoalTarget(value: number, unit: string | null | undefined,
     // Recovery Batch C (C CEE 6e3bce10): a % change_abs with no quantity frame has no sayable size; never a default.
     if (change === 'change_abs' && isGoalPercentUnit(unit) && goalQuantityFrameOf(quantityFrame) === null) return null
     const { direction, size } = goalChangeParts(value, unit, change, quantityFrame)
-    return `${direction} ${size} from today`
+    return `${direction} ${size}${changeFromWords(reference)}`
   }
 
   // An unnamed currency (the drafter's "currency/<period>" placeholder) is said in words, never printed raw and never
@@ -232,7 +232,7 @@ function goalChangeParts(
  * `null` — say no number — for a level, an unread frame, a non-finite or zero change, or no readable comparator.
  */
 export function formatGoalChangeBound(
-  value: number, unit: string | null | undefined, frame: unknown, comparator: unknown, quantityFrame?: unknown,
+  value: number, unit: string | null | undefined, frame: unknown, comparator: unknown, quantityFrame?: unknown, reference?: unknown,
 ): string | null {
   const change = goalTargetChangeFrameOf(frame)
   const held = goalHeldComparatorOf(comparator)
@@ -243,7 +243,20 @@ export function formatGoalChangeBound(
   // The comparator points the way the change moves (≥ a rise, ≤ a fall) → a floor on the move; otherwise a ceiling.
   const floor = (held === '>=' || held === '>') === (value > 0)
   const words = floor ? (strict ? 'more than' : 'at least') : (strict ? 'less than' : 'no more than')
-  return `${direction} ${words} ${size} from today`
+  return `${direction} ${words} ${size}${changeFromWords(reference)}`
+}
+
+/**
+ * What a change is measured FROM, as the goal node's `goal_reference` says it (W3b, CEE #3799): today (`kind: 'now'`, or
+ * no reference) is "from today"; an option or a stated value is named by its label, "compared with ‘Carry on as now’".
+ * A reference this reader cannot name (no label, an unknown kind) names nothing, never "today".
+ */
+function changeFromWords(reference: unknown): string {
+  if (reference === undefined || reference === null) return ' from today'
+  const r = typeof reference === 'object' ? reference as { kind?: unknown; label?: unknown } : {}
+  if (r.kind === 'now') return ' from today'
+  if ((r.kind === 'option' || r.kind === 'value') && typeof r.label === 'string' && r.label.trim() !== '') return ` compared with ‘${r.label.trim()}’`
+  return ''
 }
 
 /** A currency token with a magnitude letter written onto it, then optional words: `£M ARR`, `$k`, `£bn revenue`. */

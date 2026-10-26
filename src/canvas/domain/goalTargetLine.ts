@@ -14,7 +14,7 @@ export function goalTargetDisplay(data: GoalTargetSource | null | undefined): st
   const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
   const unit = typeof data.goal_threshold_unit === 'string' ? data.goal_threshold_unit : undefined
   // target-text: a non-numeric stored target is the user's own words, said verbatim
-  const figure = Number.isNaN(raw) ? String(thresholdRaw) : formatGoalTarget(raw, unit, data.goal_threshold_frame, data.quantity_frame)
+  const figure = Number.isNaN(raw) ? String(thresholdRaw) : formatGoalTarget(raw, unit, data.goal_threshold_frame, data.quantity_frame, (data as { goal_reference?: unknown }).goal_reference)
   if (figure === null) return TARGET_NOT_CAPTURED
   // SD-1 (DL 0df0e1, 6 Oct): a goal that HOLDS a ceiling says "at most" before its figure (`heldTargetBoundWords`).
   const held = heldTargetBoundWords(data)

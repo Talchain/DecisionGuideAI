@@ -102,7 +102,7 @@ import {
 import { isStrengthPlaceholder, strengthForWords } from '../domain/strengthPlaceholder'
 import { useIdentityExactWords } from '../domain/identityExactLinks'
 import { isStrengthStated } from '../domain/strengthStated'
-import { isStrengthDefinitional } from '../domain/strengthDefinitional'
+import { BY_DEFINITION, isStrengthDefinitional } from '../domain/strengthDefinitional'
 import { edgeStrengthSourceMark } from '../domain/edgeStrengthSourceIcon'
 import { registerEdgeHover, routeEdgeHover, routeEdgeHoverOnMove, endEdgeHover, claimEdgeHover, type EdgeHoverBehaviour, type EdgeHoverSeat } from './edgeHoverArbiter'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
@@ -1213,8 +1213,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       ? { label: programFigure.words, tooltip: programFigure.words }
       : identityExact !== null
       ? { label: identityExact, tooltip: identityExact }
+      // W3b (Paul's decision 8): a link that holds by definition, with no strength (CEE #3799), says so, never "Boost,
+      // strength not set".
+      : strengthIsDefinitional && !edgeSignedStrength.show
+      ? { label: BY_DEFINITION, tooltip: BY_DEFINITION }
       : getEdgeLabel(strengthForWords(edgeData as Record<string, unknown> | undefined, edgeSignedStrength), edgeLikelihood, directionDisplay, labelMode, edgeUncertainty),
-    [programFigure, identityExact, edgeData, edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty],
+    [programFigure, identityExact, strengthIsDefinitional, edgeData, edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty],
   )
   /**
    * ⛔⛔ AND THE DISCLOSURE TOO — `aria-label` REPLACES DESCENDANT TEXT, SO THE
@@ -2209,12 +2213,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     isHighlighted: isHighlightedEdge,
     polarityStroke: directionStroke,
     existence: existenceDash,
-    strengthNotSet: identityExact === null && isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined),
+    // A definition has no strength to set, so it is drawn plain, not dotted (W3b, decision 8).
+    strengthNotSet: identityExact === null && !strengthIsDefinitional && isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined),
     // `visualPropsDash` is no longer passed: a stored style cannot assert existence
     // (Paul 23 Sep contract feedback point 4; `EDGE_DASH_RULES`).
   }), [
     isStructuralEdge, contested,
-    isHighlightedEdge, directionStroke, existenceDash, edgeData, identityExact,
+    isHighlightedEdge, directionStroke, existenceDash, edgeData, identityExact, strengthIsDefinitional,
   ])
   const edgeStroke = useMemo(() => resolveEdgeStroke(presentationState), [presentationState])
 

@@ -8,7 +8,12 @@ const EventRiskSchema = z.object({
     basis: z.enum(['user', 'olumi', 'reference']),
     meaning: z.literal('at_least_once_within_horizon').optional(),
   }).strict().refine(({ p_low, p_high }) => p_low <= p_high),
-  horizon: z.object({ months: z.number().positive().max(600) }).strict(),
+  // W3b (CEE #3799): the horizon in the model's own period. A weekly model's is a number of weeks, never converted to months.
+  horizon: z.union([
+    z.object({ weeks: z.number().positive().max(2600) }).strict(),
+    z.object({ months: z.number().positive().max(600) }).strict(),
+    z.object({ years: z.number().positive().max(50) }).strict(),
+  ]),
   mitigations: z.array(z.object({
     factor_id: z.string(),
     occurrence_reduction: z.number().min(0).max(1),
@@ -18,7 +23,9 @@ const EventRiskSchema = z.object({
 export interface EventRiskReadout {
   pLow: number
   pHigh: number
-  months: number
+  /** The horizon as the model states it: a number of its own periods. */
+  periods: number
+  periodUnit: 'week' | 'month' | 'year'
   basis: 'user' | 'olumi' | 'reference'
 }
 
@@ -28,5 +35,7 @@ export function readEventRisk(data: unknown): EventRiskReadout | null {
   const parsed = EventRiskSchema.safeParse((data as Record<string, unknown>).event_risk)
   if (!parsed.success) return null
   const { occurrence, horizon } = parsed.data
-  return { pLow: occurrence.p_low, pHigh: occurrence.p_high, months: horizon.months, basis: occurrence.basis }
+  const [periods, periodUnit] = 'weeks' in horizon ? [horizon.weeks, 'week' as const]
+    : 'months' in horizon ? [horizon.months, 'month' as const] : [horizon.years, 'year' as const]
+  return { pLow: occurrence.p_low, pHigh: occurrence.p_high, periods, periodUnit, basis: occurrence.basis }
 }
