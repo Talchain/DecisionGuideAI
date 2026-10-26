@@ -370,6 +370,9 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   const viewMode = useCanvasStore(state => state.viewMode)
   const goalThreshold = useCanvasStore(state => state.goalThreshold)
   const goalConstraints = useCanvasStore(state => state.goalConstraints)
+  // A core board: CEE's admission decides, so the legacy triage never speaks (it reads a scalar a program board never
+  // fills, and said "set a success target" beside a stated target).
+  const legacyValidationOff = useCanvasStore(state => state.legacyValidationOff)
 
   const isPostAnalysis = resultsStatus === 'complete'
   const isDetailed = viewMode === 'expert'
@@ -444,7 +447,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
 
   // ---- Triage line: single most important next action (pre-analysis only) ----
   const triage = useMemo<{ full: string } | null>(() => {
-    if (isPostAnalysis) return null
+    if (isPostAnalysis || legacyValidationOff) return null
 
     const factorNodes = nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor')
     const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
@@ -510,7 +513,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
 
     // 5. Model is reasonably complete — no triage line
     return null
-  }, [isPostAnalysis, nodes, edges, goalDefined])
+  }, [isPostAnalysis, legacyValidationOff, nodes, edges, goalDefined])
 
   /**
    * ⛔ `biggestRisk` LIVED HERE. DELETED, NOT REPAIRED.

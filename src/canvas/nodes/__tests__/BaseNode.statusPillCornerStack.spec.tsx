@@ -281,7 +281,7 @@ describe('BaseNode — "Needs input" pill: one owner, no positioning of its own'
     // CONTRAST CONTROL — the goal arm DOES carry the phase gate. Without this
     // the negative assertion below would also pass on a reader that sliced
     // nothing useful out of the file.
-    expect(goalArm).toContain('if (!isPreRunMode) return false')
+    expect(goalArm).toContain('if (!isPreRunMode || legacyValidationOff) return false')
 
     // THE CLAIM: the factor arm asks about the GAP and nothing else.
     expect(factorArm).toContain('isFactorNeedsInput(data)')

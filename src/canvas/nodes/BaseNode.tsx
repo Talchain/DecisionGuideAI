@@ -702,6 +702,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const goalThreshold = useCanvasStore(s => s.goalThreshold)
   const goalConstraints = useCanvasStore(s => s.goalConstraints)
+  // A core board: CEE's admission decides, so the legacy goal-target check never speaks (it reads a scalar a program
+  // board never fills).
+  const legacyValidationOff = useCanvasStore(s => s.legacyValidationOff)
   const edges = useCanvasStore(s => s.edges)
   const isPreRunMode = resultsStatus !== 'complete'
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
@@ -982,7 +985,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
     }
     if (nodeType === 'goal') {
       // Still phase-gated — see the scope note above.
-      if (!isPreRunMode) return false
+      if (!isPreRunMode || legacyValidationOff) return false
       return !isGoalDefined(goalThreshold, goalConstraints)
     }
     if (nodeType === 'decision') {
