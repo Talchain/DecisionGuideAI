@@ -23,7 +23,7 @@ import { WORKSPACE_SURFACES } from './shellContract'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useCanvasStore } from '../../store'
 import { selectHasRunOnRecord } from '../../state/hasRunOnRecord'
-import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
+import { useProgramRunState } from '../../runView/programRunState'
 import type { AnalysisRefusalNotice } from '../../store/analysisRefusalNotice'
 
 export interface ReanalyseBarInputs {
@@ -87,16 +87,21 @@ export function useReanalyseBarInputs(): ReanalyseBarInputs & { preRunWithModel:
   const { semantic } = useAnalysisTrust()
   const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
   // `?? true`: the same defensive default `composeAnalysisState` applies to this field (`analysisStateSelector.ts`).
-  const recordHasRun = useCanvasStore((s) => selectHasRunOnRecord({
+  const hasRunOnRecord = useCanvasStore((s) => selectHasRunOnRecord({
     hasCompletedFirstRun: s.hasCompletedFirstRun ?? true,
     analysisStateV1: s.analysisStateV1,
   }))
-  // W3b: a program board's Run is its own (`canonical_analysis_view`), run by the host on every change; the old record it
-  // leaves at "never run" never makes it a first Run ("This model has not been analysed yet", the readiness bar).
-  const hasRunOnRecord = useSavedModelIsProgram() || recordHasRun
   // `?.`: partial store mocks (the ReanalyseBar specs) carry no `nodes`; the real store always does.
   const nodeCount = useCanvasStore((s) => s.nodes?.length ?? 0)
   const refusedUnchanged = useCanvasStore((s) => refusalHoldsRerun(s.analysisRefusalNotice, s.lastServerGraphHash))
+  // W3b: a program board reads its own Run (`programRunState.ts`), never the legacy record, trust verdict, import hold or
+  // refusal. It is never a first Run (the host runs it on every change), so no "not analysed yet" and no first-Run
+  // readiness bar; a Run that is not current is the bar's "changed"; with no program reading nothing is said.
+  const programRun = useProgramRunState()
+  if (programRun !== null) {
+    return { semantic: programRun === 'not_current' ? 'changed' : programRun === 'current' ? 'current' : 'none',
+      importHold: false, hasRunOnRecord: true, preRunWithModel: false, refusedUnchanged: false }
+  }
   return { semantic, importHold, hasRunOnRecord, preRunWithModel: !hasRunOnRecord && nodeCount > 0, refusedUnchanged }
 }
 
