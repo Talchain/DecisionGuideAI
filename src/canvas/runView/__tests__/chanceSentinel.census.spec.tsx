@@ -824,6 +824,7 @@ const FIELD_DISPOSITION: Readonly<Record<string, FieldDisposition>> = {
   probability_threshold: { excluded: 'a configured threshold of the structural-challenge check (an input), not a result' },
   threshold: { excluded: 'an input: the person\'s target or limit, or a configured near-tie / flip threshold; not a result' },
   goal_threshold: { excluded: 'the person\'s own target (an input), not a chance' },
+  goal_window: { excluded: 'the goal\'s window (CEE #3799): a start and a count of the model\'s own periods, said as "within 12 weeks"; an input, not a chance' },
   probes_used: { excluded: 'a count of the flip search\'s probes, not a share' },
   mean_outcome: { excluded: OUTCOME_QUANTITY }, downside: { excluded: OUTCOME_QUANTITY }, p05: { excluded: OUTCOME_QUANTITY },
   p10: { excluded: OUTCOME_QUANTITY }, p50: { excluded: OUTCOME_QUANTITY }, p90: { excluded: OUTCOME_QUANTITY },
