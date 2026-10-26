@@ -32,6 +32,9 @@ import { readOptionParticipation } from '../state/storedOptionParticipation'
 import { readLimitVerdicts } from '../state/storedLimitVerdicts'
 import { producerMarksAnalysisUnusable } from '../../lib/coherence/crossSurfaceCoherence'
 import { heldRunIsNotCurrentPerRead } from '../hydrate/serverGraphHydration'
+import { isProgramGraph } from '../nodes/shared/savedModelProgram'
+import { parseCanonicalAnalysisView } from '../runView/canonicalAnalysisView'
+import { runViewOf } from '../runView/runView'
 import { resolveGoalTarget, type GoalTargetSource } from '../domain/goalTarget'
 import { heldTargetBoundWords } from '../domain/goalOwnTargetRow'
 import { goalTargetSourceMark, factorValueSourceMark, type ValueSourceMarkKind } from '../nodes/shared/valueSourceMark'
@@ -253,6 +256,17 @@ function runOf(read: SavedScenarioRead): { run: BriefRun; withheld: BriefWithhel
       : null
   const base = { computedAt, computedAtText: formatRunTime(computedAt) }
 
+  // W3b: on a program board the Run is the program's own (`canonical_analysis_view`), never the old record it leaves at
+  // "never run". With no program reading the brief says nothing about a Run (an empty statement is not shown).
+  if (isProgramGraph(read.graph)) {
+    const view = parseCanonicalAnalysisView(read.canonicalAnalysisView ?? null)
+    if (view === null || view.run === null) return { run: { status: 'unknown', statement: '', ...base }, withheld }
+    if (runViewOf(null, view).boundToCurrentCanonical()) {
+      return { run: { status: 'current', statement: DECISION_BRIEF_COPY.runCurrent, ...base }, withheld }
+    }
+    withheld.push({ id: 'run:stale', text: DECISION_BRIEF_COPY.runStaleNeed, nodeId: null })
+    return { run: { status: 'not_current', statement: DECISION_BRIEF_COPY.runStale, ...base }, withheld }
+  }
   if (state === null) {
     return { run: { status: 'unknown', statement: DECISION_BRIEF_COPY.runUnknown, ...base }, withheld }
   }
@@ -385,7 +399,10 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
   let chancesNote: string | null = null
   const drivers: BriefDriver[] = []
 
-  if (run.status === 'current') {
+  if (run.status === 'current' && read.analysisResult == null) {
+    // A program's current Run (W3b): its chances are its own view's, shown on the Results tab; no old report to read.
+    chancesNote = DECISION_BRIEF_COPY.chancesWhere
+  } else if (run.status === 'current') {
     const report = mapV5AnalysisToReport(read.analysisResult as AnalysisResultBlock, {
       computedAt: run.computedAt,
       goalCertainty: readGoalCertainty(read.goalCertainty),

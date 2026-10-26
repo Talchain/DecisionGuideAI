@@ -114,12 +114,12 @@ beforeEach(() => { window.history.replaceState(null, '', '/?ai=core-route') })
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/') })
 
 describe('a program board hides the controls a program has no contract for', () => {
-  it('the lens bar: no "If it failed" and no "What if"', async () => {
+  it('the lens bar: no "If it failed", "What would change" or "What if" (W3b: it reads the old Run report)', async () => {
     await board(served, 'program')
-    expect(await barLenses()).toEqual(['lens-bar-full', 'lens-bar-tradeoffs', 'lens-bar-rests_on', 'lens-bar-what_changes'])
+    expect(await barLenses()).toEqual(['lens-bar-full', 'lens-bar-tradeoffs', 'lens-bar-rests_on'])
   })
 
-  it('the L key: from Rests on it wraps to Model (no Run, so "What would change" waits), never to a hidden lens', async () => {
+  it('the L key: from Rests on it wraps to Model, never to a hidden lens', async () => {
     await board(served, 'program')
     expect(await lensAfterL('rests_on')).toBe('full')
   })

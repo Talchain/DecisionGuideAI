@@ -38,6 +38,7 @@ import { linkSizingStateOf, type LinkSizingStateOf } from './CompareSizingCheckl
 import { unsizedLinksOf } from '../../components/results/analysisNew/analysisNewCopy'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 import { usePairChanceFigures } from './usePairChanceFigures'
+import { useSavedModelIsProgram } from '../nodes/shared/savedModelProgram'
 
 export const COMPARE_RUN_PAIR_TESTID = 'compare-run-pair'
 /**
@@ -100,8 +101,10 @@ export function CompareRunPairBody({
   responseHash: string | null | undefined
   /** `selectRunOnRecordWithoutResult` from the dock; absent = no Run on record, so "No comparison yet" stands. */
   runOnRecordWithoutResult?: RunOnRecordWithoutResult
-}): JSX.Element {
+}): JSX.Element | null {
   const view = useDisplayedRunDeltaView(responseHash, 'all')
+  // W3b: a program board's Runs are its own; this pair is read from the old record, so with no pair it says nothing.
+  const program = useSavedModelIsProgram()
   const chances = usePairChanceFigures(view, responseHash)
   const delta = useCanvasStore(s => s.runDelta?.delta)
   const endpoints = delta?.endpoints
@@ -141,6 +144,7 @@ export function CompareRunPairBody({
   const route = useRunChangesRouteFocus(view?.attributable === true)
   const absenceReason = useCanvasStore(s => selectRunDeltaAbsenceReason(s, responseHash))
   const staleWords = useAnalysisStaleReasonWords()
+  if (view === null && program) return null
   if (view === null && runOnRecordWithoutResult !== null) {
     const copy = runOnRecordWithoutResult === 'stale' && staleWords !== null
       ? compareOutOfDateCopy(staleWords) : COMPARE_RUN_ON_RECORD_COPY[runOnRecordWithoutResult]
