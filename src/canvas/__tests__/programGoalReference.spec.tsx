@@ -60,6 +60,11 @@ describe('what a program goal\'s change is measured from (`goal_reference`)', ()
     expect(goalTargetDisplay(await goalData({}))).toBe('up 5% from today')
   })
 
+  it('a stated value: "compared with" its own label (Paul, 26 Oct: "using the reference\'s label")', async () => {
+    const value = { kind: 'value', quantity_id: 'base_orders', label: 'Orders last quarter' }
+    expect(goalTargetDisplay(await goalData({ goal_reference: value }))).toBe('up 5% compared with ‘Orders last quarter’')
+  })
+
   it('a stated value with no label to name it: the change alone, never "from today"', async () => {
     expect(goalTargetDisplay(await goalData({ goal_reference: { kind: 'value', quantity_id: 'base_orders', label: null } }))).toBe('up 5%')
   })
