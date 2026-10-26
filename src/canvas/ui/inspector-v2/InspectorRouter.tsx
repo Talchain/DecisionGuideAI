@@ -42,6 +42,7 @@ import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdi
 import { isStrengthDefinitional } from '../../domain/strengthDefinitional'
 import { isStructuralEdge } from '../../domain/edgeUtils'
 import { canDeleteFromContextMenu } from '../../contextMenu/useMenuItems'
+import { useSavedModelProgramState } from '../../nodes/shared/savedModelProgram'
 import { useIsViewer } from '../../../lib/viewerMode'
 import { InspectorRemoveMenuItem, type InspectorRemoveTarget } from './shared/InspectorRemoveMenuItem'
 import type { EdgeData } from '../../domain/edges'
@@ -155,7 +156,8 @@ export const InspectorRouter = memo(function InspectorRouter({
   const serverHeldPairs = useCanvasStore(s => s.lastAuthoritativeGraph)
   const { techMode, setTechMode } = useTechToggle()
   const isViewer = useIsViewer()
-  const canRemove = canDeleteFromContextMenu(isViewer)
+  // A program board's saved model refuses a canvas delete with nothing saved: Remove is withheld there (U-W5).
+  const canRemove = canDeleteFromContextMenu(isViewer, useSavedModelProgramState() === 'not_program')
   const removalWatch = useRef<(() => void) | null>(null)
 
   // The action may refuse or only open a confirmation. Keep the inspector
