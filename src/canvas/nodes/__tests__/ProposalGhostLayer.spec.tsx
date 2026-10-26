@@ -279,12 +279,13 @@ describe('ProposalGhostLayer: draws the store’s ghost, render-only', () => {
     expect(screen.queryByTestId(PROPOSAL_GHOST_TESTID)).toBeNull()
   })
 
-  it('⛔ DS v5 §11.3: no dashed or dotted border anywhere in the ghost; ⛔ never interactive', () => {
+  it('⭐ a ghost proposal is dashed, card and link (Paul 24 Oct ruling 2: dashed means doubt or unset, the ghost included; DS v5 §11.3 retired); ⛔ never interactive', () => {
     rfNodes = NODES
     render(<ProposalGhostLayer />)
     act(() => useProposalGhostStore.getState().showGhost(preview([ADD, TIE])))
     const layer = screen.getByTestId(PROPOSAL_GHOST_TESTID)
-    expect(layer.outerHTML).not.toMatch(/border-dashed|border-dotted|stroke-dasharray|strokeDasharray/)
+    expect(screen.getByTestId('proposal-ghost-node-fac_onboarding_time').className.split(/\s+/)).toContain('border-dashed')
+    expect(screen.getByTestId('proposal-ghost-line-fac_onboarding_time->enterprise_prospect_signing_likelihood').getAttribute('stroke-dasharray')).toBe('5 5')
     expect(layer.style.pointerEvents).toBe('none')
     expect(layer.querySelectorAll('button, a, input, [role="button"], [tabindex]')).toHaveLength(0)
   })
