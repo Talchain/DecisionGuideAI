@@ -35,7 +35,11 @@ vi.mock('../../store', () => ({
 
 // The saved model on screen: a core scenario carries a living model; a legacy one does not.
 const saved = vi.hoisted(() => ({ graph: { nodes: [], living_model: { aims: [], links: [] } } as unknown }))
-vi.mock('../shared/savedGraph', () => ({ useSavedGraph: () => saved.graph }))
+vi.mock('../shared/savedGraph', () => ({
+  useSavedGraph: () => saved.graph,
+  // The program reader (`savedModelProgram.ts`) reads the same saved graph.
+  useSavedGraphRead: () => (saved.graph == null ? { status: 'none' } : { status: 'read', graph: saved.graph }),
+}))
 
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => ({

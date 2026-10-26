@@ -23,7 +23,11 @@ vi.mock('../../ui/inspector-v2/useAnalysisResults', async (importOriginal) => ({
 }))
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({ useNodeDisplayMetadata: vi.fn() }))
 const saved = vi.hoisted(() => ({ graph: null as unknown }))
-vi.mock('../shared/savedGraph', () => ({ useSavedGraph: () => saved.graph }))
+vi.mock('../shared/savedGraph', () => ({
+  useSavedGraph: () => saved.graph,
+  // The program reader (`savedModelProgram.ts`) reads the same saved graph.
+  useSavedGraphRead: () => (saved.graph == null ? { status: 'none' } : { status: 'read', graph: saved.graph }),
+}))
 
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
