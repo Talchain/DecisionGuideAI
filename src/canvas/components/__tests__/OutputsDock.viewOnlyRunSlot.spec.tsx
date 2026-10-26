@@ -149,17 +149,19 @@ describe('the Analysis tab pre-run slot on a board read with a canonical view', 
     expect(slot.textContent).not.toMatch(/\d+%/)
   })
 
-  it('CONTRAST: a program board whose bound Run is stale with no line of CEE’s: the panel, no served words', async () => {
+  // U2 (provisional, pending Paul's design call): a program board never mounts the legacy pre-analysis panel; with no
+  // served line the slot is empty. The non-program contrast above still keeps the panel.
+  it('a program board whose bound Run is stale with no line of CEE’s: no panel, no served words', async () => {
     board(PROGRAM, { staleness: { ...capacity.canonical_analysis_view.staleness, stale: true, reason: 'graph_changed' } })
     await openAnalysisTab()
-    expect(prePanel()).not.toBeNull()
+    expect(prePanel()).toBeNull()
     expect(screen.queryByTestId('outputs-pre-run-view-only')).toBeNull()
   })
 
-  it('CONTRAST: a program board with no canonical view: the panel', async () => {
+  it('a program board with no canonical view: no panel, no served words', async () => {
     board(PROGRAM, null)
     await openAnalysisTab()
-    expect(prePanel()).not.toBeNull()
+    expect(prePanel()).toBeNull()
     expect(screen.queryByTestId('outputs-pre-run-view-only')).toBeNull()
   })
 })

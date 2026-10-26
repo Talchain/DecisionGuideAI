@@ -92,6 +92,15 @@ describe('the Olumi tab on a reopened program board', () => {
     expect(said()).toBe(READY)
   })
 
+  it('U2 (provisional copy): a program board with no Run yet is modelled, and never says "Run a first pass"', async () => {
+    await board(current as Json)
+    useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null })
+    await draw(true)
+    expect(screen.getByTestId('stage').textContent).toBe('modelled')
+    expect(said()).toBe('Your model is on the canvas. Ask Olumi about any part of it.')
+    expect(said()).not.toBe(FIRST_PASS)
+  })
+
   it('a saved Run that is no longer current: never current and never "first pass": the existing analysed words', async () => {
     expect((stale as Json).canonical_analysis_view.staleness.stale).toBe(true)
     await board(stale as Json)
