@@ -41,7 +41,7 @@ import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
 import { PANEL_LIST_BULLET } from '../panelLists'
 import {
-  cardCannotBeShownInFull, changeNotesOf, changeNotesSummary, isHeldCardChipId, OLUMI_CHANGE_MARK, proposalChangesSummary,
+  cardCannotBeShownInFull, changeIsOlumis, changeNotesOf, changeNotesSummary, isHeldCardChipId, OLUMI_CHANGE_MARK, proposalChangesSummary,
   proposalChangeWords, READING_HEADING, REVIEW_PROPOSAL_PREFIX,
   type ChangeNote, type ProposalChange,
 } from '../proposalFields'
@@ -80,12 +80,12 @@ function ReadingChangeRow({ change: c }: { change: ProposalChange }) {
   const detailId = useId()
   const key = `${c.kind}:${c.id}`
   return (
-    <li data-author={c.author} className={`${styles.reasoningPanelBody} ${c.author === 'olumi' ? CHANGE_NOTE_SOURCE_CLASS.estimate : ''}`}
+    <li data-author={c.author} className={`${styles.reasoningPanelBody} ${changeIsOlumis(c) ? CHANGE_NOTE_SOURCE_CLASS.estimate : ''}`}
       data-testid={`proposal-change-${key}`}>
       <button type="button" className="flex w-full min-w-0 text-left" onClick={() => setOpen((v) => !v)}
         aria-expanded={open} aria-controls={open ? detailId : undefined} data-testid={`proposal-change-open-${key}`}>
         <span className="truncate">{c.label}</span>
-        {c.author === 'olumi' && <span className="shrink-0 whitespace-pre" data-testid={`proposal-change-olumi-${key}`}>{` · ${OLUMI_CHANGE_MARK}`}</span>}
+        {changeIsOlumis(c) && <span className="shrink-0 whitespace-pre" data-testid={`proposal-change-olumi-${key}`}>{` · ${OLUMI_CHANGE_MARK}`}</span>}
       </button>
       {open && <p id={detailId} data-testid={`proposal-change-detail-${key}`}>{proposalChangeWords(c)}</p>}
     </li>
@@ -126,10 +126,10 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
   const listChanges = changes !== null
   const changeRow = (c: ProposalChange) => (
     <li key={`${c.kind}:${c.id}:${c.action}`} data-author={c.author}
-      className={`${styles.reasoningPanelBody} ${c.author === 'olumi' ? CHANGE_NOTE_SOURCE_CLASS.estimate : ''}`}
+      className={`${styles.reasoningPanelBody} ${changeIsOlumis(c) ? CHANGE_NOTE_SOURCE_CLASS.estimate : ''}`}
       data-testid={`proposal-change-${c.kind}:${c.id}`}>
       {proposalChangeWords(c)}
-      {c.author === 'olumi' && <span data-testid={`proposal-change-olumi-${c.kind}:${c.id}`}>{` · ${OLUMI_CHANGE_MARK}`}</span>}
+      {changeIsOlumis(c) && <span data-testid={`proposal-change-olumi-${c.kind}:${c.id}`}>{` · ${OLUMI_CHANGE_MARK}`}</span>}
     </li>
   )
   const detailsToggle = <button type="button" className={styles.inlineDisclosureToggle} onClick={() => setOpen((v) => !v)}

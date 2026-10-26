@@ -34,6 +34,8 @@ export function goalHorizonText(data: unknown): string | null {
   const source = data as { goal_horizon?: unknown; goal_horizon_months?: unknown } | null | undefined
   const horizon = source?.goal_horizon
   if (horizon === undefined) {
+    const window = goalWindowText(data)
+    if (window !== null) return window
     const months = source?.goal_horizon_months
     const validMonths = typeof months === 'number'
       && Number.isFinite(months)
@@ -60,6 +62,21 @@ export function goalHorizonText(data: unknown): string | null {
     return `within ${h.months} ${h.months === 1 ? 'month' : 'months'}`
   }
   return null
+}
+
+/**
+ * W3b (CEE #3799 `goal_window`): a window in the model's own period, where no `goal_horizon` is sent (a weekly model's
+ * window is not a whole number of months). "within 12 weeks", the horizon's own wording. Said only for a window that
+ * starts at the model's start with its periods given: one still asked (`periods: null`), one that starts later or from an
+ * event says nothing rather than a horizon it does not have.
+ */
+function goalWindowText(data: unknown): string | null {
+  const w = (data as { goal_window?: unknown } | null | undefined)?.goal_window
+  if (w === null || typeof w !== 'object') return null
+  const { start, periods, period_unit: unit, origin_event: event } = w as Record<string, unknown>
+  if (start !== 0 || event !== null || typeof periods !== 'number' || !Number.isInteger(periods) || periods < 1) return null
+  if (typeof unit !== 'string' || !Object.prototype.hasOwnProperty.call(GOAL_PERIOD_COPY, unit)) return null
+  return `within ${periods} ${periods === 1 ? unit : `${unit}s`}`
 }
 
 /** The goal card's one muted line: period and horizon joined, or `null` when neither is stated. */

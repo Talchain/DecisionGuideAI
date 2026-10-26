@@ -293,12 +293,12 @@ export const GoalPanel = memo(function GoalPanel({
     const raw = typeof resolvedTarget.raw === 'number' ? resolvedTarget.raw : Number(resolvedTarget.raw)
     // target-text: a non-numeric stored target is the user's own words, said verbatim
     if (Number.isNaN(raw)) return String(resolvedTarget.raw)
-    return formatGoalTarget(raw, resolvedTarget.unit, resolvedTarget.frame, resolvedTarget.quantityFrame) ?? TARGET_NOT_CAPTURED
+    return formatGoalTarget(raw, resolvedTarget.unit, resolvedTarget.frame, resolvedTarget.quantityFrame, (node?.data as { goal_reference?: unknown } | undefined)?.goal_reference) ?? TARGET_NOT_CAPTURED
   })()
   /** A change target's success bound, from the node's held comparator (UI #2287 review); `null` → say no number. */
   const changeBound = resolvedTarget?.frame != null
     ? formatGoalChangeBound(Number(resolvedTarget.raw), resolvedTarget.unit, resolvedTarget.frame,
-      (node?.data as GoalTargetSource | undefined)?.goal_direction, resolvedTarget.quantityFrame)
+      (node?.data as GoalTargetSource | undefined)?.goal_direction, resolvedTarget.quantityFrame, (node?.data as { goal_reference?: unknown } | undefined)?.goal_reference)
     : null
   /**
    * ⛔⛔ TWO QUESTIONS, AND THEY MUST NOT SHARE A NAME (CLAUDE.md trap 21).
@@ -552,7 +552,7 @@ export const GoalPanel = memo(function GoalPanel({
     return Number.isNaN(raw)
       // target-text: a non-numeric stored target is the user's own words, said verbatim
       ? String(summaryTarget.raw)
-      : formatGoalTarget(raw, summaryTarget.unit, summaryTarget.frame, summaryTarget.quantityFrame) ?? TARGET_NOT_CAPTURED
+      : formatGoalTarget(raw, summaryTarget.unit, summaryTarget.frame, summaryTarget.quantityFrame, (node?.data as { goal_reference?: unknown } | undefined)?.goal_reference) ?? TARGET_NOT_CAPTURED
   })()
   // #2747 r2 (fresh check BLOCKING 6): the store's scalar alone is never said as the target ("Success means 85000."):
   // it carries no frame, unit or bound. With no target on the node, any held scalar is the honest "no target we can show".
@@ -566,6 +566,7 @@ export const GoalPanel = memo(function GoalPanel({
       summaryTarget.frame,
       goalTargetComparator(node.data as GoalTargetSource, goalConstraints, nodeId),
       summaryTarget.quantityFrame,
+      (node?.data as { goal_reference?: unknown } | undefined)?.goal_reference,
     )
     : null
   const summarySentence = summaryTargetDisplay === null

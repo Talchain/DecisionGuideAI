@@ -44,7 +44,8 @@ export function GoalAdvancedEditor({ nodeId }: GoalAdvancedEditorProps) {
   const changeFrame = goalTargetChangeFrameOf(goalData?.goal_threshold_frame)
   const changeTarget = changeFrame !== null ? resolveGoalTarget(goalData) : null
   const changeBound = changeTarget?.frame != null
-    ? formatGoalChangeBound(Number(changeTarget.raw), changeTarget.unit, changeTarget.frame, goalData?.goal_direction, changeTarget.quantityFrame)
+    ? formatGoalChangeBound(Number(changeTarget.raw), changeTarget.unit, changeTarget.frame, goalData?.goal_direction, changeTarget.quantityFrame,
+      (goalData as { goal_reference?: unknown } | undefined)?.goal_reference)
     : null
 
   /**

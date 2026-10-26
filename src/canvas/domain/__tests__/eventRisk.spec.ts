@@ -14,7 +14,7 @@ const valid = {
 
 describe('readEventRisk', () => {
   it('reads a valid event risk', () => {
-    expect(readEventRisk({ event_risk: valid })).toEqual({ pLow: 0.1, pHigh: 0.3, months: 6, basis: 'user' })
+    expect(readEventRisk({ event_risk: valid })).toEqual({ pLow: 0.1, pHigh: 0.3, periods: 6, periodUnit: 'month', basis: 'user' })
   })
 
   it('returns null for an inverted range', () => {

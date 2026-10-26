@@ -66,13 +66,22 @@ export function strengthDefinitionalPatch(
   wireEdge: Record<string, unknown> | undefined | null,
   wireSuppliedStrength: boolean,
 ): { strengthDefinitional?: true } {
-  if (!wireSuppliedStrength) return {}
+  // W3b (CEE #3799): a program link that holds by definition carries NO strength at all, and is labelled all the same.
+  if (!wireSuppliedStrength && !wireCarriesNoStrength(wireEdge)) return {}
   return readWireStrengthIsDefinitional(wireEdge) ? { strengthDefinitional: true } : {}
+}
+
+/** The wire edge has no strength in any spelling (CEE #3799's program link), as opposed to one this hop refused. */
+function wireCarriesNoStrength(wireEdge: Record<string, unknown> | undefined | null): boolean {
+  return wireEdge != null && wireEdge.strength === undefined && wireEdge.strength_mean === undefined && wireEdge.weight === undefined
 }
 
 /** Does this edge's strength, as it stands now, hold by definition? See the header. */
 export function isStrengthDefinitional(data: Record<string, unknown> | undefined | null): boolean {
   if (!data) return false
   if (data.strengthDefinitional !== true) return false
-  return edgeValueSource(data, 'weight') === 'cee'
+  // A link labelled with no strength (W3b) holds only the default weight (no source), which says nothing; a person's or a
+  // template's is still theirs.
+  const source = edgeValueSource(data, 'weight')
+  return source === 'cee' || source === null
 }
