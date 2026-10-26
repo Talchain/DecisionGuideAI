@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act, waitFor } from '@testing-library/react'
+import { renderHook, act } from '@testing-library/react'
 import type { Node, Edge } from '@xyflow/react'
 
 import { useConversation } from '../useConversation'
@@ -22,15 +22,6 @@ import {
   STRUCTURAL_DELETE_NOTICE,
   type StructuralDeleteIntent,
 } from '../../mutations/structuralDelete'
-
-/**
- * The fence's own per-verdict sentences (`FENCE_REFUSAL_COPY`,
- * `v5/failureTypeRetryability.ts`), bound by the EXACT string.
- */
-const FENCE_STOPPED_COPY =
-  "That change wasn't saved because this turn was stopped. Nothing in your decision changed. Send the change again if you still want it."
-const FENCE_SUPERSEDED_COPY =
-  "That change wasn't saved because a newer change to this decision got in first. Nothing was overwritten. Check the latest state, then make the edit again if it's still needed."
 
 // ---------------------------------------------------------------------------
 // Mocks — seams only; the V5 adapter/parser/router chain stays REAL.
