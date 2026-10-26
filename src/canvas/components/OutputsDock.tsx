@@ -3710,7 +3710,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                     <ViewOnlyRunChancesBlock chances={viewOnlyChances} />
                   </div>
                 )}
-                {isPreRun && nodes.length > 0 && viewOnlyChances === null && (
+                {/* U2 (provisional, pending Paul's design call): a program board with no Run shows CEE's served words only
+                    (above, when a Run exists) and otherwise nothing; never the legacy pre-analysis panel. */}
+                {isPreRun && nodes.length > 0 && viewOnlyChances === null && !programBoardDock && (
                   isPreAnalysisV3Enabled() ? (
                     /* Pre-analysis panel v3 (flag preAnalysisV3): outcome-centred
                        panel, lazy-loaded so flag-off users pay no bundle cost.
