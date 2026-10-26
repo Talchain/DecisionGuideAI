@@ -51,6 +51,7 @@ import {
 } from './actions'
 import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 import { openNodeInspector } from '../nodes/shared/openNodeInspector'
+import { useSavedModelProgramState } from '../nodes/shared/savedModelProgram'
 import { isViewerSession, useIsViewer } from '../../lib/viewerMode'
 
 type ShowToastFn = (message: string, type: 'error' | 'info' | 'success' | 'warning') => void
@@ -265,7 +266,7 @@ function compactDividers(entries: MenuEntry[]): MenuEntry[] {
  * nothing here claims them, which is why adding a genuinely local mutation
  * needs an entry in `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` rather than silence.
  */
-function menuIdIsAuthorised(id: string, connected: boolean): boolean {
+function menuIdIsAuthorised(id: string, connected: boolean, connectedNodeAdds = true): boolean {
   if (DURABLE_NODE_ADD_MENU_IDS.has(id)) {
     return hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash)
   }
@@ -273,6 +274,7 @@ function menuIdIsAuthorised(id: string, connected: boolean): boolean {
     // BOTH, never either — see the set's header. A node saved with its link
     // dropped is the silent half-loss this conjunction exists to refuse.
     return (
+      connectedNodeAdds &&
       hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash) &&
       hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasEdgeAddWithServerHash)
     )
@@ -398,7 +400,7 @@ function unavailableReason(_id: string): { tooltip: string; disabledReason: stri
  */
 export function applyContextMenuMutationAuthority(
   entries: MenuEntry[],
-  opts?: { connected?: boolean },
+  opts?: { connected?: boolean; connectedNodeAdds?: boolean },
 ): MenuEntry[] {
   const connected = opts?.connected
     ?? hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)
@@ -422,7 +424,7 @@ export function applyContextMenuMutationAuthority(
 
   const walk = (list: MenuEntry[]): MenuEntry[] => list.flatMap<MenuEntry>((entry) => {
     if (isDivider(entry)) return [entry]
-    if (!menuIdIsAuthorised(entry.id, connected)) {
+    if (!menuIdIsAuthorised(entry.id, connected, opts?.connectedNodeAdds)) {
       if (!KEYBOARD_REACHABLE_SEMANTIC_IDS.has(entry.id)) {
         hidMenuOnlyGesture = true
         return []
@@ -499,6 +501,8 @@ export function useMenuItems({
   onSetInteractionMode,
 }: UseMenuItemsOptions): MenuEntry[] {
   const isViewer = useIsViewer()
+  // CEE does not accept structural canvas edits on executable models.
+  const connectedNodeAdds = useSavedModelProgramState() === 'not_program'
   return useMemo(() => {
     const wrap = (action: () => void | Promise<void>) => () => { void action(); onClose() }
 
@@ -510,6 +514,7 @@ export function useMenuItems({
     if (target.kind === 'node') {
       return applyContextMenuMutationAuthority(
         buildNodeMenu(target, showToast, wrap, onOpenCustomValue, factorValueWriter),
+        { connectedNodeAdds },
       )
     }
     if (target.kind === 'edge') {
@@ -519,7 +524,7 @@ export function useMenuItems({
       return applyContextMenuMutationAuthority(buildMultiMenu(target, showToast, wrap))
     }
     return []
-  }, [target, showToast, screenToFlowPosition, onClose, onOpenCustomValue, factorValueWriter, isViewer])
+  }, [target, showToast, screenToFlowPosition, onClose, onOpenCustomValue, factorValueWriter, isViewer, connectedNodeAdds])
 }
 
 // ---------------------------------------------------------------------------
