@@ -1050,6 +1050,8 @@ export const OPTION_RESULT_COPY = {
    */
   withheld: 'withheld',
   withheldDash: '—',
+  /** D6 B (Paul, 26 Oct): the mark on the option CEE names as most likely to meet the goal, in the mock's words. */
+  mostLikely: 'most likely in this model',
   /**
    * ⭐ GOAL-ONLY, WHEN THE LIMIT VERDICT WITHHOLDS THE LEADER CLAIM (RC #63
    * 5803875794 P0 #3(c); Paul's 23 Sep staging test: "£20k MRR" + "churn < 4%",
