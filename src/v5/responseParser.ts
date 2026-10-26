@@ -753,6 +753,8 @@ export type V5ParseResult =
  * its reader looks: `_agent` (turn id, receipts, undo label), `_read_after_write`, `_proposal_fields` and `action_bar`.
  */
 const CORE_SIDE_CHANNEL_KEYS: ReadonlySet<string> = new Set(['_agent', '_read_after_write', '_proposal_fields', 'action_bar']);
+/** The parsed core turn itself, on the sidecar, for the core applier (`applyCoreTurn.ts`, U4). */
+const CORE_TURN_KEY = '_core_turn';
 
 /** A valid core turn as the client's answer: unchecked by the legacy schema, its side channels attached here. */
 function coreTurnResponse(turn: CoreTurn): OlumiResponseWithExtensions {
@@ -761,6 +763,7 @@ function coreTurnResponse(turn: CoreTurn): OlumiResponseWithExtensions {
   const sidecar: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(body)) (CORE_SIDE_CHANNEL_KEYS.has(key) ? sidecar : answer)[key] = value;
   sidecar[ORIGINAL_TOP_LEVEL_KEYS_KEY] = Object.freeze(Object.keys(body).sort());
+  sidecar[CORE_TURN_KEY] = turn;
   return attachAdditiveSidecar(answer as unknown as OlumiResponse, sidecar);
 }
 

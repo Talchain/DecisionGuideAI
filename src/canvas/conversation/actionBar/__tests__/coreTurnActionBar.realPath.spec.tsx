@@ -1,8 +1,9 @@
 /**
- * The core route's action bar, on the REAL send path: a core turn (`x-olumi-ai-mode: core-route`) carrying CEE's
- * `action_bar` goes through fetch → `parseV5Response` → `coreTurnToClientBody` → `useConversation`, and the Reasoning
- * panel's bar (`ReasoningActionBar`) draws CEE's offer. Only `fetch` is stubbed (pattern:
- * `useConversation.coreRouteServedTurn.spec.ts`). The bar is the one core serves today (CEE #3703): Pre-mortem only.
+ * The core route's action bar, on the REAL send path: a core turn (`x-olumi-ai-mode: core-route`) goes through fetch →
+ * `parseV5Response` → `useConversation`. U4 (ALPHA-CODE-INVENTORY §1): a core turn is applied from its own contract and
+ * writes NO bar, whatever it carries. A program has no bar contract (C13), and a bar written from the turn was pressable
+ * from the raw store past that gate (`pressAction`). Only `fetch` is stubbed (pattern:
+ * `useConversation.coreRouteServedTurn.spec.ts`). The bar is the one core served (CEE #3703): Pre-mortem only.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -91,17 +92,14 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); window.history.replaceState({}, '', '/'); vi.unstubAllGlobals() })
 
-describe('a core turn carrying `action_bar`, through the real send path', () => {
-  it('⭐ the panel draws the bar CEE sent: the Pre-mortem control, by its id and label', async () => {
+describe('a core turn and the action bar, through the real send path', () => {
+  it('⭐ U4: a core turn carrying CEE\'s bar writes none, so no panel draws it', async () => {
     const calls = stubTurn({ ...served.chat_edit_turn, action_bar: CORE_BAR })
     await sendOneTurn()
     expect(calls.filter((c) => /\/proxy\/v5\/turn$/.test(c.url)).map((c) => c.mode)).toEqual(['core-route'])
-    // The bar waits for the saved read to say this board is not a program (C13: none on a program board).
-    expect(await screen.findByTestId('reasoning-action-bar')).toHaveAttribute('data-state-key', '0123456789abcdef')
-    const control = screen.getByTestId('reasoning-action-bar-icon-pre_mortem')
-    expect(control).toHaveAttribute('aria-label', 'Pre-mortem — Imagine this went badly and work back to why.')
-    expect(control).not.toHaveAttribute('aria-disabled')
-    expect(screen.queryByTestId('no-bar')).toBeNull()
+    expect(useActionBarStore.getState().bar).toBeNull()
+    expect(screen.getByTestId('no-bar')).toBeInTheDocument()
+    expect(screen.queryByTestId('reasoning-action-bar')).toBeNull()
   })
 
   it('⛔ CONTRAST: the same core turn without `action_bar` draws no bar', async () => {

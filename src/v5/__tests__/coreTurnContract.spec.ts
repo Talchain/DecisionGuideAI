@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { parseV5Response, ADDITIVE_EXTENSIONS_KEY, type V5ParseResult } from '../responseParser'
+import { readCoreTurn } from '../applyCoreTurn'
 import { parseCoreTurn, coreTurnToClientBody } from '../coreTurnContract'
 import { readProposalFields, readTurnProposalFields } from '../../canvas/conversation/proposalFields'
 import { readRecordedServerTurnId } from '../../canvas/conversation/serverTurnId'
@@ -141,7 +142,11 @@ describe('⭐ a core turn is read by the core contract alone', () => {
   const parse = (body: unknown, status = 200) => parseV5Response(response(body, status), { coreRoute: true })
   /** The parse as it was: the same answer through the legacy steps (`coreTurnToClientBody`, then `OlumiResponseSchema`). */
   const legacyParse = (body: unknown) => parseV5Response(response(coreTurnToClientBody(parseCoreTurn(body)!)))
-  const sidecarOf = (r: unknown) => ({ ...(r as Record<string, Record<string, unknown>>)[ADDITIVE_EXTENSIONS_KEY] })
+  /** The sidecar the legacy readers see: everything but the core turn itself, which only the core applier reads (U4). */
+  const sidecarOf = (r: unknown) => {
+    const { _core_turn: _turn, ...rest } = { ...(r as Record<string, Record<string, unknown>>)[ADDITIVE_EXTENSIONS_KEY] }
+    return rest
+  }
   /** What each reader takes from a turn: the answer's own fields, its sidecar, and every side-channel reader's result. */
   const seen = (p: V5ParseResult) => p.kind !== 'response' ? p : {
     answer: { ...p.response }, sidecar: sidecarOf(p.response),
@@ -170,6 +175,8 @@ describe('⭐ a core turn is read by the core contract alone', () => {
     const [now, before] = [await parse(body), await legacyParse(body)]
     expect([now.kind, before.kind]).toEqual(['response', 'response'])
     expect(seen(now)).toEqual(seen(before))
+    // U4: the core applier reads the contract itself, kept whole beside the answer.
+    expect(now.kind === 'response' && readCoreTurn(now.response)).toEqual(parseCoreTurn(body))
   })
 
   const long: Array<[string, Record<string, unknown>, string]> = [
@@ -189,6 +196,7 @@ describe('⭐ a core turn is read by the core contract alone', () => {
     const channels = ['_agent', '_read_after_write', '_proposal_fields', 'action_bar'].filter((k) => k in built)
     expect(sidecarOf(now.response)).toEqual({ ...Object.fromEntries(channels.map((k) => [k, built[k]])),
       __original_top_level_keys__: Object.keys(built).sort() })
+    expect(readCoreTurn(now.response)).toEqual(parseCoreTurn(body))
     expect(readRecordedServerTurnId(now.response)).toBe(body.turn_id)
     expect(readAfterWriteExpectation(now.response)?.scenarioRevision).toBe((body.model as { scenario_revision: string }).scenario_revision)
   })
