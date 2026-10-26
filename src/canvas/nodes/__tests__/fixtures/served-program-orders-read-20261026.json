@@ -1,0 +1,334 @@
+{
+ "_source": "served staging read, POST /bff/cee/scenarios/5651fd74-d8cc-4445-8294-eaac5ef89e35/graph (guest, core route), UI bb585f8b, 26 Oct 2026, from a synthetic weekly-orders brief. Trimmed: the question, goal, option, factor and outcome nodes (the four claim cards dropped), every edge in full, and the living model cut to its program flag. Every value kept is as served.",
+ "schema": "scenario_graph.v1",
+ "scenario_id": "5651fd74-d8cc-4445-8294-eaac5ef89e35",
+ "graph_present": true,
+ "graph_hash": "c5edb653e65ffe98",
+ "graph": {
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "ref": "D1",
+    "kind": "decision",
+    "label": "Which option could help the online shop reach at least 150 orders a week within three months?"
+   },
+   {
+    "id": "reach_order_target",
+    "ref": "G1",
+    "kind": "goal",
+    "label": "reach at least 150 orders a week within three months",
+    "provenance": "from_brief",
+    "source_quote": "We want to reach at least 150 orders a week within three months.",
+    "display_value": ">= 150 order/week",
+    "goal_direction": ">=",
+    "goal_threshold": 0.8,
+    "threshold_source": "brief_extraction",
+    "goal_threshold_cap": 187.5,
+    "goal_threshold_raw": 150,
+    "goal_threshold_unit": "order/week",
+    "goal_threshold_frame": "level",
+    "analysis_participation": "included",
+    "goal_threshold_cap_provenance": "target_derived_headroom"
+   },
+   {
+    "id": "launch_referrals",
+    "ref": "O1",
+    "kind": "option",
+    "label": "launch a referral programme",
+    "provenance": "from_brief",
+    "source_quote": "launch a referral programme",
+    "interventions": {
+     "referral_active": {
+      "unit": "1",
+      "value": 1,
+      "source": "brief_extraction",
+      "display": "1",
+      "from_period": 0,
+      "source_words": "Set by ‘launch a referral programme’, from your brief"
+     }
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "cut_prices",
+    "ref": "O2",
+    "kind": "option",
+    "label": "cut prices by 10%",
+    "provenance": "from_brief",
+    "source_quote": "cut prices by 10%",
+    "interventions": {
+     "price_cut": {
+      "unit": "%",
+      "value": 10,
+      "source": "brief_extraction",
+      "display": "10 %",
+      "from_period": 0,
+      "source_words": "Set by ‘cut prices by 10%’, from your brief"
+     }
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "carry_on",
+    "ref": "O3",
+    "kind": "option",
+    "label": "carry on as now",
+    "provenance": "from_brief",
+    "is_baseline": true,
+    "source_quote": "carry on as now",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "baseline_orders",
+    "ref": "F1",
+    "kind": "factor",
+    "label": "Current orders per week",
+    "category": "observable",
+    "provenance": "from_brief",
+    "source_quote": "about 125 orders a week",
+    "display_value": "125 order/week",
+    "observed_state": {
+     "unit": "order/week",
+     "value": 125,
+     "source": "brief_extraction",
+     "raw_value": 125,
+     "extractionType": "explicit"
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "referral_active",
+    "ref": "F2",
+    "kind": "factor",
+    "label": "Referral programme switched on",
+    "category": "controllable",
+    "description": "The proposed referral programme is switched off until an option launches it.",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "display_value": "0",
+    "observed_state": {
+     "unit": "1",
+     "value": 0,
+     "raw_value": 0
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "price_cut",
+    "ref": "F3",
+    "kind": "factor",
+    "label": "Price reduction",
+    "category": "controllable",
+    "description": "The price-change setting starts at zero relative to current prices.",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "display_value": "0 %",
+    "observed_state": {
+     "unit": "%",
+     "value": 0,
+     "raw_value": 0
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "weekly_orders",
+    "ref": "OC1",
+    "kind": "outcome",
+    "label": "Orders per week",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "baseline_orders",
+      "referral_active",
+      "price_cut"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Current orders per week, Referral programme switched on and Price reduction"
+    },
+    "display_value": "Worked out from Current orders per week, Referral programme switched on and Price reduction",
+    "analysis_participation": "included"
+   }
+  ],
+  "edges": [
+   {
+    "id": "weekly_orders__reach_order_target",
+    "to": "reach_order_target",
+    "from": "weekly_orders",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__launch_referrals",
+    "to": "launch_referrals",
+    "from": "mp:decision",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "launch_referrals__referral_active",
+    "to": "referral_active",
+    "from": "launch_referrals",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__cut_prices",
+    "to": "cut_prices",
+    "from": "mp:decision",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "cut_prices__price_cut",
+    "to": "price_cut",
+    "from": "cut_prices",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__carry_on",
+    "to": "carry_on",
+    "from": "mp:decision",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "baseline_orders__weekly_orders",
+    "to": "weekly_orders",
+    "from": "baseline_orders",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "base level",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "referral_active__weekly_orders",
+    "to": "weekly_orders",
+    "from": "referral_active",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "reasoning": "about 12, 0–35 order/week, Olumi's estimate; Olumi reads it as a spread around 12 (sd 10.1), provisionally per 1",
+     "natural_effect": {
+      "amount": 12,
+      "amount_unit": "order/week",
+      "stated_range": {
+       "end": "centre",
+       "low": 0,
+       "high": 35,
+       "text": "0–35"
+      },
+      "strength_mean": 1,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "1"
+     }
+    },
+    "coefficient_id": "referral_order_lift",
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "price_cut__weekly_orders",
+    "to": "weekly_orders",
+    "from": "price_cut",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "reasoning": "about 1.25, 0–3 order/week/%, Olumi's estimate; Olumi reads it as a spread around 1.25 (sd 0.866), provisionally per %",
+     "natural_effect": {
+      "amount": 1.25,
+      "amount_unit": "order/week",
+      "stated_range": {
+       "end": "centre",
+       "low": 0,
+       "high": 3,
+       "text": "0–3"
+      },
+      "strength_mean": 1,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "%"
+     }
+    },
+    "coefficient_id": "price_order_response",
+    "effect_direction": "positive",
+    "exists_probability": 1
+   }
+  ],
+  "living_model": {
+   "model_program": "v1"
+  }
+ }
+}
