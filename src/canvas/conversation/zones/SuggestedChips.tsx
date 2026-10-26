@@ -124,6 +124,11 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
               <Icon size={12} aria-hidden="true" />{count}
             </button>
           })}
+          {/* In the row, not the list: a card of only `other` rows has no other opener (Codex r1 on #3003). */}
+          {otherRows.length > 0 && <button type="button" className={styles.inlineDisclosureToggle}
+            onClick={() => { if (open && otherOpen) { setOtherOpen(false); return } setOpen(true); setOtherOpen(true); setScrollTo('other') }}
+            aria-expanded={open && otherOpen} aria-controls={open ? listId : undefined}
+            data-testid={`reading-other-${proposalId}`}>{`Also in the model (${otherRows.length})`}</button>}
           {open && detailsToggle}
         </div>
         {open && (
@@ -137,9 +142,7 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
                 <ul className={PANEL_LIST_BULLET}>{rows.map(changeRow)}</ul>
               </div>
             })}
-            {otherRows.length > 0 && <button type="button" className={styles.inlineDisclosureToggle} onClick={() => setOtherOpen((v) => !v)}
-              aria-expanded={otherOpen} data-testid={`reading-other-${proposalId}`}>{`Also in the model (${otherRows.length})`}</button>}
-            {otherOpen && <div data-testid={`reading-group-section-${proposalId}-other`}>
+            {otherOpen && <div ref={(el) => { sections.current.other = el }} data-testid={`reading-group-section-${proposalId}-other`}>
               <ul className={PANEL_LIST_BULLET}>{otherRows.map(changeRow)}</ul>
             </div>}
           </div>

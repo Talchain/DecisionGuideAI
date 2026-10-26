@@ -96,6 +96,17 @@ describe('a reading card with a group on every row', () => {
     expect(ids('other')).toEqual(servedIds('other'))
     expect(rows()).toHaveLength(38)
   })
+
+  it('a card of only `other` rows still opens: "Also in the model (38)" reaches every row (Codex r1 on #3003)', async () => {
+    const body = clone(served)
+    body.cards[0].changes = body.cards[0].changes.map((c: Json) => ({ ...c, group: 'other' }))
+    await mount(body)
+    expect(rows()).toHaveLength(0)
+    for (const g of ['used', 'inferred', 'left_out']) expect((groupButton(g) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByTestId(`reading-other-${PID}`))
+    expect(rows().map((li) => li.getAttribute('data-testid')))
+      .toEqual((served.cards[0].changes as Json[]).map((c) => `proposal-change-${c.kind}:${c.id}`))
+  })
 })
 
 describe('CONTRAST: without a group on every row, the card is exactly as before', () => {
