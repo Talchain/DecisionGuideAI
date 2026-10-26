@@ -441,10 +441,10 @@ export interface GoalTodayLevel {
   readonly unit: string
   readonly basis: 'olumi_reading' | 'user_stated' | 'user_confirmed' | 'from_brief' | 'from_parts'
   readonly quote: string | null
-  /** `from_parts` only: the parts CEE worked the level out from (the goal's `nonlinear_identity`). */
+  /** `from_parts` only: the parts CEE worked the level out from (the goal's `nonlinear_identity`, or its `value_basis`). */
   readonly parts?: { readonly operation: string; readonly factorIds: readonly string[] }
 }
-export function goalTodayLevel(data: (GoalTargetSource & { goal_level_reading?: unknown; observedState?: unknown; nonlinear_identity?: unknown }) | null | undefined): GoalTodayLevel | null {
+export function goalTodayLevel(data: (GoalTargetSource & { goal_level_reading?: unknown; observedState?: unknown; nonlinear_identity?: unknown; value_basis?: unknown }) | null | undefined): GoalTodayLevel | null {
   if (!data || goalTargetMeaningUnread(data)) return null
   const isChangeGoal = goalTargetChangeFrameOf(data.goal_threshold_frame) !== null
   const goalUnit = typeof data.goal_threshold_unit === 'string' ? data.goal_threshold_unit.trim() : ''
@@ -473,6 +473,13 @@ export function goalTodayLevel(data: (GoalTargetSource & { goal_level_reading?: 
   const factorIds = Array.isArray(identity?.factor_ids) ? identity.factor_ids.filter((id): id is string => typeof id === 'string') : []
   if (observed?.source === undefined && factorIds.length > 1 && Number.isFinite(raw) && unit === goalUnit) {
     return { level: raw, unit, basis: 'from_parts', quote: null, parts: { operation: String(identity?.operation ?? ''), factorIds } }
+  }
+  // A program goal whose measured quantity the model works out (CEE's `value_basis: worked_out`, CEE bede2d1d; DL 27 Oct):
+  // the engine's exact starting figure, in the goal's unit, with no source of its own. Said as worked out, the same way.
+  const valueBasis = data.value_basis as { kind?: unknown; from?: unknown } | null | undefined
+  if (observed?.source === undefined && valueBasis?.kind === 'worked_out' && Number.isFinite(raw) && unit === goalUnit) {
+    const from = Array.isArray(valueBasis.from) ? valueBasis.from.filter((id): id is string => typeof id === 'string') : []
+    return { level: raw, unit, basis: 'from_parts', quote: null, parts: { operation: 'worked_out', factorIds: from } }
   }
   return null
 }
