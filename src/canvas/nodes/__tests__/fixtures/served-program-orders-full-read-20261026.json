@@ -1,0 +1,1502 @@
+{
+ "_source": "served staging read, POST /bff/cee/scenarios/5651fd74-d8cc-4445-8294-eaac5ef89e35/graph (guest, x-olumi-ai-mode core-route), UI bb585f8b, CEE staging, 26 Oct 2026, from a synthetic weekly-orders brief; the whole response body, every value as served",
+ "schema": "scenario_graph.v1",
+ "scenario_id": "5651fd74-d8cc-4445-8294-eaac5ef89e35",
+ "graph": {
+  "edges": [
+   {
+    "id": "weekly_orders__reach_order_target",
+    "to": "reach_order_target",
+    "from": "weekly_orders",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__launch_referrals",
+    "to": "launch_referrals",
+    "from": "mp:decision",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "launch_referrals__referral_active",
+    "to": "referral_active",
+    "from": "launch_referrals",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__cut_prices",
+    "to": "cut_prices",
+    "from": "mp:decision",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "cut_prices__price_cut",
+    "to": "price_cut",
+    "from": "cut_prices",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__carry_on",
+    "to": "carry_on",
+    "from": "mp:decision",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "baseline_orders__weekly_orders",
+    "to": "weekly_orders",
+    "from": "baseline_orders",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "base level",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "referral_active__weekly_orders",
+    "to": "weekly_orders",
+    "from": "referral_active",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "reasoning": "about 12, 0–35 order/week, Olumi's estimate; Olumi reads it as a spread around 12 (sd 10.1), provisionally per 1",
+     "natural_effect": {
+      "amount": 12,
+      "amount_unit": "order/week",
+      "stated_range": {
+       "end": "centre",
+       "low": 0,
+       "high": 35,
+       "text": "0–35"
+      },
+      "strength_mean": 1,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "1"
+     }
+    },
+    "coefficient_id": "referral_order_lift",
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "price_cut__weekly_orders",
+    "to": "weekly_orders",
+    "from": "price_cut",
+    "origin": "model_program:calculation",
+    "strength": {
+     "std": 0.001,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "reasoning": "about 1.25, 0–3 order/week/%, Olumi's estimate; Olumi reads it as a spread around 1.25 (sd 0.866), provisionally per %",
+     "natural_effect": {
+      "amount": 1.25,
+      "amount_unit": "order/week",
+      "stated_range": {
+       "end": "centre",
+       "low": 0,
+       "high": 3,
+       "text": "0–3"
+      },
+      "strength_mean": 1,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "%"
+     }
+    },
+    "coefficient_id": "price_order_response",
+    "effect_direction": "positive",
+    "exists_probability": 1
+   }
+  ],
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "ref": "D1",
+    "kind": "decision",
+    "label": "Which option could help the online shop reach at least 150 orders a week within three months?"
+   },
+   {
+    "id": "reach_order_target",
+    "ref": "G1",
+    "kind": "goal",
+    "label": "reach at least 150 orders a week within three months",
+    "provenance": "from_brief",
+    "source_quote": "We want to reach at least 150 orders a week within three months.",
+    "display_value": ">= 150 order/week",
+    "goal_direction": ">=",
+    "goal_threshold": 0.8,
+    "threshold_source": "brief_extraction",
+    "goal_threshold_cap": 187.5,
+    "goal_threshold_raw": 150,
+    "goal_threshold_unit": "order/week",
+    "goal_threshold_frame": "level",
+    "analysis_participation": "included",
+    "goal_threshold_cap_provenance": "target_derived_headroom"
+   },
+   {
+    "id": "launch_referrals",
+    "ref": "O1",
+    "kind": "option",
+    "label": "launch a referral programme",
+    "provenance": "from_brief",
+    "source_quote": "launch a referral programme",
+    "interventions": {
+     "referral_active": {
+      "unit": "1",
+      "value": 1,
+      "source": "brief_extraction",
+      "display": "1",
+      "from_period": 0,
+      "source_words": "Set by ‘launch a referral programme’, from your brief"
+     }
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "cut_prices",
+    "ref": "O2",
+    "kind": "option",
+    "label": "cut prices by 10%",
+    "provenance": "from_brief",
+    "source_quote": "cut prices by 10%",
+    "interventions": {
+     "price_cut": {
+      "unit": "%",
+      "value": 10,
+      "source": "brief_extraction",
+      "display": "10 %",
+      "from_period": 0,
+      "source_words": "Set by ‘cut prices by 10%’, from your brief"
+     }
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "carry_on",
+    "ref": "O3",
+    "kind": "option",
+    "label": "carry on as now",
+    "provenance": "from_brief",
+    "is_baseline": true,
+    "source_quote": "carry on as now",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "baseline_orders",
+    "ref": "F1",
+    "kind": "factor",
+    "label": "Current orders per week",
+    "category": "observable",
+    "provenance": "from_brief",
+    "source_quote": "about 125 orders a week",
+    "display_value": "125 order/week",
+    "observed_state": {
+     "unit": "order/week",
+     "value": 125,
+     "source": "brief_extraction",
+     "raw_value": 125,
+     "extractionType": "explicit"
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "referral_active",
+    "ref": "F2",
+    "kind": "factor",
+    "label": "Referral programme switched on",
+    "category": "controllable",
+    "description": "The proposed referral programme is switched off until an option launches it.",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "display_value": "0",
+    "observed_state": {
+     "unit": "1",
+     "value": 0,
+     "raw_value": 0
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "price_cut",
+    "ref": "F3",
+    "kind": "factor",
+    "label": "Price reduction",
+    "category": "controllable",
+    "description": "The price-change setting starts at zero relative to current prices.",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "display_value": "0 %",
+    "observed_state": {
+     "unit": "%",
+     "value": 0,
+     "raw_value": 0
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "weekly_orders",
+    "ref": "OC1",
+    "kind": "outcome",
+    "label": "Orders per week",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "baseline_orders",
+      "referral_active",
+      "price_cut"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Current orders per week, Referral programme switched on and Price reduction"
+    },
+    "display_value": "Worked out from Current orders per week, Referral programme switched on and Price reduction",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "baseline_stays_flat",
+    "ref": "A1",
+    "kind": "action",
+    "label": "Assumption: Without either intervention, weekly orders remain at the reported approximate c…",
+    "provenance": "ai_inferred",
+    "description": "Without either intervention, weekly orders remain at the reported approximate current level over the three-month window; seasonality and underlying growth or decline are not modelled.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "immediate_response",
+    "ref": "A2",
+    "kind": "action",
+    "label": "Assumption: Either intervention starts now and its modelled weekly-order response is availa…",
+    "provenance": "ai_inferred",
+    "description": "Either intervention starts now and its modelled weekly-order response is available from the first monthly period; launch delays and gradual referral uptake are not separately modelled.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "weak_customer_response",
+    "ref": "A3",
+    "kind": "action",
+    "label": "Condition: Neither intervention guarantees enough extra orders: referrals depend on custom…",
+    "provenance": "ai_inferred",
+    "description": "Neither intervention guarantees enough extra orders: referrals depend on customers sharing and new shoppers buying, while lower prices may do little if price is not the main barrier.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "profitability_not_measured",
+    "ref": "A4",
+    "kind": "action",
+    "label": "Left out: Whether extra orders are profitable after price reductions, referral rewards an…",
+    "provenance": "ai_inferred",
+    "description": "Whether extra orders are profitable after price reductions, referral rewards and programme costs. Why: The stated aim concerns order volume, and the brief supplies neither margins nor referral costs; reaching the order target does not establish profitability.",
+    "analysis_participation": "retained_excluded"
+   }
+  ],
+  "living_model": {
+   "runs": [
+    {
+     "result": {
+      "chances": [
+       {
+        "joint": {
+         "chance": 0.1007,
+         "precision_95": [
+          0.09495432940119516,
+          0.10675233169762716
+         ]
+        },
+        "outcomes": [
+         {
+          "p10": 124.10124170149962,
+          "p50": 137.15247314401483,
+          "p90": 150.05606703345225,
+          "goal_id": "reach_order_target"
+         }
+        ],
+        "per_goal": [
+         {
+          "chance": 0.1007,
+          "goal_id": "reach_order_target",
+          "precision_95": [
+           0.09495432940119516,
+           0.10675233169762716
+          ]
+         }
+        ],
+        "option_id": "launch_referrals",
+        "within_limits": {
+         "chance": 1,
+         "precision_95": [
+          1,
+          1
+         ]
+        },
+        "joint_within_limits": {
+         "chance": 0.1007,
+         "precision_95": [
+          0.09495432940119516,
+          0.10675233169762716
+         ]
+        }
+       },
+       {
+        "joint": {
+         "chance": 0.0757,
+         "precision_95": [
+          0.07067691814967836,
+          0.0810489428676778
+         ]
+        },
+        "outcomes": [
+         {
+          "p10": 126.49319962162583,
+          "p50": 137.40506846294818,
+          "p90": 148.64648698069087,
+          "goal_id": "reach_order_target"
+         }
+        ],
+        "per_goal": [
+         {
+          "chance": 0.0757,
+          "goal_id": "reach_order_target",
+          "precision_95": [
+           0.07067691814967836,
+           0.0810489428676778
+          ]
+         }
+        ],
+        "option_id": "cut_prices",
+        "within_limits": {
+         "chance": 1,
+         "precision_95": [
+          1,
+          1
+         ]
+        },
+        "joint_within_limits": {
+         "chance": 0.0757,
+         "precision_95": [
+          0.07067691814967836,
+          0.0810489428676778
+         ]
+        }
+       },
+       {
+        "joint": {
+         "chance": 0,
+         "precision_95": [
+          0,
+          0
+         ]
+        },
+        "outcomes": [
+         {
+          "p10": 125,
+          "p50": 125,
+          "p90": 125,
+          "goal_id": "reach_order_target"
+         }
+        ],
+        "per_goal": [
+         {
+          "chance": 0,
+          "goal_id": "reach_order_target",
+          "precision_95": [
+           0,
+           0
+          ]
+         }
+        ],
+        "option_id": "carry_on",
+        "within_limits": {
+         "chance": 1,
+         "precision_95": [
+          1,
+          1
+         ]
+        },
+        "joint_within_limits": {
+         "chance": 0,
+         "precision_95": [
+          0,
+          0
+         ]
+        }
+       }
+      ],
+      "compile": {
+       "joint": {
+        "asks": [],
+        "status": "calculable",
+        "reasons": [],
+        "goal_ids": [
+         "reach_order_target"
+        ],
+        "leaves_out": []
+       },
+       "errors": [],
+       "blockers": [],
+       "compiles": true,
+       "per_goal": [
+        {
+         "asks": [],
+         "status": "calculable",
+         "goal_id": "reach_order_target",
+         "reasons": [],
+         "excludes": [],
+         "rests_on": [
+          "baseline_stays_flat",
+          "immediate_response",
+          "weak_customer_response"
+         ],
+         "cancelled": [],
+         "olumi_inputs": [
+          "price_order_response",
+          "referral_order_lift",
+          "orders_response",
+          "orders_response:referral_active",
+          "orders_response:price_cut"
+         ],
+         "needs_measure": false,
+         "needs_deadline": false,
+         "unverified_inputs": []
+        }
+       ],
+       "per_limit": [],
+       "executable": true,
+       "per_option": [
+        {
+         "asks": [],
+         "status": "calculable",
+         "reasons": [],
+         "option_id": "launch_referrals"
+        },
+        {
+         "asks": [],
+         "status": "calculable",
+         "reasons": [],
+         "option_id": "cut_prices"
+        },
+        {
+         "asks": [],
+         "status": "calculable",
+         "reasons": [],
+         "option_id": "carry_on"
+        }
+       ],
+       "unverified": [],
+       "conversions": [
+        {
+         "to": "1",
+         "from": "%",
+         "kind": "percent",
+         "author": "olumi",
+         "factor": 0.01,
+         "quantity": "price_cut"
+        },
+        {
+         "low": 0,
+         "high": 35,
+         "kind": "range_law",
+         "author": "olumi",
+         "domain": null,
+         "reading": {
+          "sd": 10.103629710818451,
+          "kind": "normal",
+          "mean": 12,
+          "lower": null,
+          "upper": null,
+          "centre": 12,
+          "sd_conditioned": 10.103629710818451
+         },
+         "quantity": "referral_order_lift",
+         "range_kind": "plausible",
+         "provisional": true
+        },
+        {
+         "to": "order/week",
+         "from": "order/week/%",
+         "kind": "percent",
+         "author": "olumi",
+         "factor": 100,
+         "quantity": "price_order_response"
+        },
+        {
+         "low": 0,
+         "high": 300,
+         "kind": "range_law",
+         "author": "olumi",
+         "domain": null,
+         "reading": {
+          "sd": 86.60254037844388,
+          "kind": "normal",
+          "mean": 125,
+          "lower": null,
+          "upper": null,
+          "centre": 125,
+          "sd_conditioned": 86.60254037844388
+         },
+         "quantity": "price_order_response",
+         "range_kind": "plausible",
+         "provisional": true
+        },
+        {
+         "to": "1",
+         "from": "%",
+         "kind": "percent",
+         "author": "olumi",
+         "factor": 0.01,
+         "quantity": "cut_prices__price_cut"
+        }
+       ],
+       "within_limits": {
+        "asks": [],
+        "status": "calculable",
+        "reasons": [],
+        "limit_ids": [],
+        "leaves_out": []
+       },
+       "implicit_as_stated": false
+      },
+      "canonical_analysis_view": {
+       "run": {
+        "run_id": "mp_run_1_da9c2a7ac537",
+        "computed_at": "2026-10-26T00:49:22.173Z",
+        "graph_hash_at_run": "c5edb653e65ffe98"
+       },
+       "schema": "canonical_analysis_view.v1",
+       "source": "stored_run_facts",
+       "options": [
+        {
+         "cell": {
+          "face": "‘launch a referral programme’: about 10% chance of ‘Orders per week’ being at least 150 order / week at its highest at the ends of months 1 to 3 from now, in this model, if ‘Extra weekly orders from a referral programme’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0 order / week to 35 order / week, into a bell-shaped spread, ‘Extra weekly orders per percentage point of price reduction’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0 order / week / % to 3 order / week / %, into a bell-shaped spread and ‘Orders per week’ follows Olumi’s assumed relationship.",
+          "kind": "figure",
+          "detail": {
+           "draws": 10000,
+           "precision_95": [
+            0.09495432940119516,
+            0.10675233169762716
+           ],
+           "precision_words": "Simulation precision: 9.5% to 10.7%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+          },
+          "display": "about 10%"
+         },
+         "option_id": "launch_referrals",
+         "main_driver": {
+          "kind": "available",
+          "detail": "In this model, of the figures tested one at a time, the chance is most sensitive to ‘Extra weekly orders from a referral programme’ (Olumi’s estimate): at the low end (0 order / week) 0%, at the middle (17.5 order / week) 0%, at the high end (35 order / week) 100%.",
+          "driver": {
+           "low": {
+            "value": 0,
+            "display": "0%"
+           },
+           "high": {
+            "value": 35,
+            "display": "100%"
+           },
+           "draws": 4000,
+           "author": "olumi",
+           "middle": {
+            "value": 17.5,
+            "display": "0%"
+           },
+           "quantity": "referral_order_lift",
+           "untested": [],
+           "swing_points": 100
+          }
+         }
+        },
+        {
+         "cell": {
+          "face": "‘cut prices by 10%’: about 8% chance of ‘Orders per week’ being at least 150 order / week at its highest at the ends of months 1 to 3 from now, in this model, if ‘Extra weekly orders from a referral programme’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0 order / week to 35 order / week, into a bell-shaped spread, ‘Extra weekly orders per percentage point of price reduction’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0 order / week / % to 3 order / week / %, into a bell-shaped spread and ‘Orders per week’ follows Olumi’s assumed relationship.",
+          "kind": "figure",
+          "detail": {
+           "draws": 10000,
+           "precision_95": [
+            0.07067691814967836,
+            0.0810489428676778
+           ],
+           "precision_words": "Simulation precision: 7.1% to 8.1%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+          },
+          "display": "about 8%"
+         },
+         "option_id": "cut_prices",
+         "main_driver": {
+          "kind": "available",
+          "detail": "In this model, of the figures tested one at a time, the chance is most sensitive to ‘Extra weekly orders per percentage point of price reduction’ (Olumi’s estimate): at the low end (0 order / week / %) 0%, at the middle (1.5 order / week / %) 0%, at the high end (3 order / week / %) 100%.",
+          "driver": {
+           "low": {
+            "value": 0,
+            "display": "0%"
+           },
+           "high": {
+            "value": 300,
+            "display": "100%"
+           },
+           "draws": 4000,
+           "author": "olumi",
+           "middle": {
+            "value": 150,
+            "display": "0%"
+           },
+           "quantity": "price_order_response",
+           "untested": [],
+           "swing_points": 100
+          }
+         }
+        },
+        {
+         "cell": {
+          "face": "‘carry on as now’: 0% chance of ‘Orders per week’ being at least 150 order / week at its highest at the ends of months 1 to 3 from now, in this model, if ‘Extra weekly orders from a referral programme’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0 order / week to 35 order / week, into a bell-shaped spread, ‘Extra weekly orders per percentage point of price reduction’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0 order / week / % to 3 order / week / %, into a bell-shaped spread and ‘Orders per week’ follows Olumi’s assumed relationship: in every simulated draw ‘Orders per week’ is 125 order / week at its highest at the ends of months 1 to 3 from now, below 150 order / week.",
+          "kind": "figure",
+          "detail": {
+           "draws": 10000,
+           "precision_95": [
+            0,
+            0
+           ],
+           "precision_words": "Simulation precision: exact. Every simulated draw gives the same result for this option, so no sampling is involved."
+          },
+          "display": "0%"
+         },
+         "option_id": "carry_on",
+         "main_driver": {
+          "kind": "none_licensed",
+          "reason": "Tested one at a time at each figure’s low end, middle and high end, no figure moved this chance by more than 5 points."
+         }
+        }
+       ],
+       "staleness": {
+        "basis": "analysis_graph_hash_interim",
+        "stale": false,
+        "reason": "graph_hash_match",
+        "revision": null,
+        "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+        "run_revision": null
+       },
+       "goal_chance": {
+        "notes": [
+         "Covers: ‘Orders per week’ being at least 150 order / week at its highest at the ends of months 1 to 3 from now · Leaves out: ‘Whether extra orders are profitable after price reductions, referral rewards and programme costs.’"
+        ],
+        "chance_words": "chance of ‘Orders per week’ being at least 150 order / week at its highest at the ends of months 1 to 3 from now"
+       },
+       "leader_licence": "withheld"
+      }
+     },
+     "run_id": "mp_run_1_da9c2a7ac537",
+     "receipt": {
+      "seed": 4084963,
+      "draws": 10000,
+      "versions": {
+       "engine": "mp-ded665add052",
+       "canonical": "canonical.v1",
+       "executable": "r5"
+      },
+      "revision_digest": "d564d7bfe8ac911254c68f9f5e44a5b706a1169546bfe5319daff49fb79584fa"
+     },
+     "computed_at": "2026-10-26T00:49:22.173Z"
+    }
+   ],
+   "seed": 4084963,
+   "canonical": {
+    "goals": [
+     {
+      "id": "reach_order_target",
+      "label": "reach at least 150 orders a week within three months",
+      "party": null,
+      "quote": "We want to reach at least 150 orders a week within three months.",
+      "author": "person",
+      "measure": {
+       "cmp": ">=",
+       "per": null,
+       "frame": "level",
+       "target": "order_target",
+       "window": {
+        "start": 0,
+        "periods": "goal_window",
+        "origin_event": null,
+        "origin_offset": null
+       },
+       "quantity": "weekly_orders",
+       "reference": null,
+       "exclusions": [],
+       "measure_by": "person",
+       "aggregation": "max",
+       "assumptions": [
+        "baseline_stays_flat",
+        "immediate_response"
+       ]
+      },
+      "approval": "proposed",
+      "question": null,
+      "author_id": null
+     }
+    ],
+    "risks": [],
+    "claims": [],
+    "limits": [],
+    "period": "month",
+    "dissent": [],
+    "history": [],
+    "options": [
+     {
+      "id": "launch_referrals",
+      "sets": [
+       {
+        "to": "launch_referrals__referral_active",
+        "low": null,
+        "high": null,
+        "quote": null,
+        "value": null,
+        "author": "structure",
+        "quantity": "referral_active",
+        "question": null,
+        "range_kind": null,
+        "starts_after_periods": 0
+       }
+      ],
+      "label": "launch a referral programme",
+      "party": null,
+      "quote": "launch a referral programme",
+      "author": "person",
+      "status": "live",
+      "approval": "proposed",
+      "author_id": null,
+      "developed_from": null
+     },
+     {
+      "id": "cut_prices",
+      "sets": [
+       {
+        "to": "cut_prices__price_cut",
+        "low": null,
+        "high": null,
+        "quote": "cut prices by 10%",
+        "value": null,
+        "author": "person",
+        "quantity": "price_cut",
+        "question": null,
+        "range_kind": null,
+        "starts_after_periods": 0
+       }
+      ],
+      "label": "cut prices by 10%",
+      "party": null,
+      "quote": "cut prices by 10%",
+      "author": "person",
+      "status": "live",
+      "approval": "proposed",
+      "author_id": null,
+      "developed_from": null
+     },
+     {
+      "id": "carry_on",
+      "sets": [],
+      "label": "carry on as now",
+      "party": null,
+      "quote": "carry on as now",
+      "author": "person",
+      "status": "live",
+      "approval": "proposed",
+      "author_id": null,
+      "developed_from": null
+     }
+    ],
+    "version": "canonical.v1",
+    "evidence": [],
+    "left_out": [
+     {
+      "id": "profitability_not_measured",
+      "why": "The stated aim concerns order volume, and the brief supplies neither margins nor referral costs; reaching the order target does not establish profitability.",
+      "text": "Whether extra orders are profitable after price reductions, referral rewards and programme costs.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "proposed",
+      "concerns": [
+       "launch_referrals",
+       "cut_prices",
+       "reach_order_target"
+      ],
+      "question": null,
+      "author_id": null
+     }
+    ],
+    "question": "Which option could help the online shop reach at least 150 orders a week within three months?",
+    "relations": [
+     {
+      "id": "orders_response",
+      "base": "baseline_orders",
+      "form": "effect",
+      "party": null,
+      "quote": null,
+      "terms": [
+       {
+        "party": null,
+        "quote": null,
+        "author": "olumi",
+        "driver": "referral_active",
+        "approval": "proposed",
+        "author_id": null,
+        "coefficient": "referral_order_lift"
+       },
+       {
+        "party": null,
+        "quote": null,
+        "author": "olumi",
+        "driver": "price_cut",
+        "approval": "proposed",
+        "author_id": null,
+        "coefficient": "price_order_response"
+       }
+      ],
+      "author": "olumi",
+      "defines": "weekly_orders",
+      "approval": "proposed",
+      "author_id": null
+     }
+    ],
+    "conditions": [
+     {
+      "id": "weak_customer_response",
+      "kind": "challenge",
+      "text": "Neither intervention guarantees enough extra orders: referrals depend on customers sharing and new shoppers buying, while lower prices may do little if price is not the main barrier.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "proposed",
+      "concerns": [
+       "referral_order_lift",
+       "price_order_response"
+      ],
+      "author_id": null
+     }
+    ],
+    "quantities": [
+     {
+      "id": "baseline_orders",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "order/week",
+      "basis": null,
+      "label": "Current orders per week",
+      "party": null,
+      "quote": "about 125 orders a week",
+      "value": 125,
+      "author": "person",
+      "status": "known",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "referral_active",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1",
+      "basis": "The proposed referral programme is switched off until an option launches it.",
+      "label": "Referral programme switched on",
+      "party": null,
+      "quote": null,
+      "value": 0,
+      "author": "structure",
+      "status": "known",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "price_cut",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "%",
+      "basis": "The price-change setting starts at zero relative to current prices.",
+      "label": "Price reduction",
+      "party": null,
+      "quote": null,
+      "value": 0,
+      "author": "structure",
+      "status": "known",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "referral_order_lift",
+      "low": 0,
+      "high": 35,
+      "kind": "coefficient",
+      "unit": "order/week",
+      "basis": "For a shop of this size, referrals could bring anything from negligible uptake to several dozen extra weekly orders; the reward, customer engagement and reach are unspecified.",
+      "label": "Extra weekly orders from a referral programme",
+      "party": null,
+      "quote": null,
+      "value": 12,
+      "author": "olumi",
+      "status": "estimated",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": "plausible"
+     },
+     {
+      "id": "price_order_response",
+      "low": 0,
+      "high": 3,
+      "kind": "coefficient",
+      "unit": "order/week/%",
+      "basis": "Retail demand can be almost insensitive to a modest discount or respond appreciably; this broad provisional range allows for unknown product category, competition and customer price sensitivity.",
+      "label": "Extra weekly orders per percentage point of price reduction",
+      "party": null,
+      "quote": null,
+      "value": 1.25,
+      "author": "olumi",
+      "status": "estimated",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": "plausible"
+     },
+     {
+      "id": "weekly_orders",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "order/week",
+      "basis": null,
+      "label": "Orders per week",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "order_target",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "order/week",
+      "basis": null,
+      "label": "Target orders per week",
+      "party": null,
+      "quote": "at least 150 orders a week",
+      "value": 150,
+      "author": "person",
+      "status": "known",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "goal_window",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "month",
+      "basis": null,
+      "label": "Time to reach the order target",
+      "party": null,
+      "quote": "within three months",
+      "value": 3,
+      "author": "person",
+      "status": "known",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "launch_referrals__referral_active",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1",
+      "basis": "\"launch a referral programme\" switched on.",
+      "label": "launch a referral programme: Referral programme switched on",
+      "party": null,
+      "quote": null,
+      "value": 1,
+      "author": "structure",
+      "status": "known",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "cut_prices__price_cut",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "%",
+      "basis": null,
+      "label": "cut prices by 10%: Price reduction",
+      "party": null,
+      "quote": "cut prices by 10%",
+      "value": 10,
+      "author": "person",
+      "status": "known",
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     }
+    ],
+    "assumptions": [
+     {
+      "id": "baseline_stays_flat",
+      "text": "Without either intervention, weekly orders remain at the reported approximate current level over the three-month window; seasonality and underlying growth or decline are not modelled.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "applied": true,
+      "approval": "proposed",
+      "concerns": [
+       "baseline_orders",
+       "orders_response",
+       "carry_on"
+      ],
+      "author_id": null
+     },
+     {
+      "id": "immediate_response",
+      "text": "Either intervention starts now and its modelled weekly-order response is available from the first monthly period; launch delays and gradual referral uptake are not separately modelled.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "applied": true,
+      "approval": "proposed",
+      "concerns": [
+       "launch_referrals",
+       "cut_prices",
+       "orders_response"
+      ],
+      "author_id": null
+     }
+    ],
+    "preferences": []
+   },
+   "person_words": [
+    "We run an online shop that gets about 125 orders a week. We want to reach at least 150 orders a week within three months. We're weighing three options: launch a referral programme, cut prices by 10%, or carry on as now."
+   ],
+   "model_program": "v1"
+  },
+  "ref_high_water": {
+   "A": 4,
+   "D": 1,
+   "F": 3,
+   "G": 1,
+   "O": 3,
+   "OC": 1
+  },
+  "goal_constraints": []
+ },
+ "content_hash": "3531490bd3317fe51d5c4a95d3677617331f26ade675a4c07dd3afd70c91e085",
+ "withheld": null,
+ "graph_present": true,
+ "brief_text": "We run an online shop that gets about 125 orders a week. We want to reach at least 150 orders a week within three months. We're weighing three options: launch a referral programme, cut prices by 10%, or carry on as now.",
+ "scenario_created_at": "2026-10-26T00:48:35.859552+00:00",
+ "graph_identity_hash": {
+  "kind": "graph_identity_hash",
+  "value": "3531490bd3317fe51d5c4a95d3677617331f26ade675a4c07dd3afd70c91e085",
+  "algorithm": "sha256",
+  "projection_version": "identity.v1",
+  "graph_schema_version": "graph_v3",
+  "normaliser_version": "1"
+ },
+ "graph_hash": "c5edb653e65ffe98",
+ "layout_present": false,
+ "not_modelled": {
+  "schema": "not_modelled.v1",
+  "status": "derived",
+  "unavailable_reason": null,
+  "scope": {
+   "searched": "quantities stated in the brief that carry a unit: money, percentages, counts with a unit word, calendar dates and fiscal periods",
+   "model_surface": [
+    "node and option values, caps, units, labels and encoding maps"
+   ],
+   "prose_surface": [
+    "coaching cards",
+    "draft warnings",
+    "validation warnings"
+   ],
+   "excluded_from_search": [
+    "bare numbers carrying no unit, currency or percent sign",
+    "everything in not_tracked"
+   ]
+  },
+  "quantities": {
+   "total": 3,
+   "in_model": 3,
+   "in_model_anchored": 0,
+   "in_model_unanchored": 3,
+   "prose_only": 0,
+   "absent": 0,
+   "truncated": false,
+   "items": [
+    {
+     "literal": "125 orders a week",
+     "kind": "count",
+     "char_offset": 38,
+     "verdict": "in_model",
+     "matched_node_id": null,
+     "stated_kind": "figure"
+    },
+    {
+     "literal": "150 orders a week",
+     "kind": "count",
+     "char_offset": 83,
+     "verdict": "in_model",
+     "matched_node_id": null,
+     "stated_kind": "figure"
+    },
+    {
+     "literal": "10%",
+     "kind": "percent",
+     "char_offset": 195,
+     "verdict": "in_model",
+     "matched_node_id": null,
+     "stated_kind": "figure"
+    }
+   ]
+  },
+  "stated_kinds": {
+   "status": "derived",
+   "tally": {
+    "goal": 0,
+    "option": 0,
+    "constraint": 0,
+    "figure": 3,
+    "evidence": 0,
+    "assumption": 0,
+    "disagreement": 0,
+    "correction": 0
+   },
+   "sourced": [
+    "constraint",
+    "figure"
+   ],
+   "unsourced": [
+    "goal",
+    "option",
+    "evidence",
+    "assumption",
+    "disagreement",
+    "correction"
+   ],
+   "producers": {
+    "figure": "extractStatedQuantities (this module) — quantities stated in the brief",
+    "constraint": "graph.goal_constraints[] with source_quote (draft/anthropic-graph-schema.ts:447-467)"
+   }
+  },
+  "declared_exclusions": {
+   "status": "not_recorded",
+   "items": []
+  },
+  "inferred_factors": {
+   "status": "derived",
+   "items": [
+    {
+     "node_id": "referral_active",
+     "label": "Referral programme switched on"
+    },
+    {
+     "node_id": "price_cut",
+     "label": "Price reduction"
+    }
+   ]
+  },
+  "not_tracked": [
+   "competing_or_dissenting_proposals",
+   "corrections_and_second_thoughts",
+   "named_evidence_sources_and_their_pedigree",
+   "qualitative_constraints_and_rules",
+   "stated_confidence_and_self_flagged_weakness",
+   "statements_the_drafting_model_did_not_report_discarding"
+  ]
+ },
+ "analysis_state": {
+  "run_state": {
+   "kind": "never_run"
+  },
+  "readiness": {
+   "status": "ready",
+   "blockers": []
+  },
+  "leader_claim": {
+   "permitted": false,
+   "withheld_reason": "analysis_no_result"
+  },
+  "robustness": {},
+  "usable_for_prose": false,
+  "usable_for_chips": false,
+  "usable_for_followup": false,
+  "requires_rerun": false,
+  "blocked_unusable": false,
+  "contradictions": []
+ },
+ "analysis_result": null,
+ "canonical_analysis_view": {
+  "run": {
+   "run_id": "mp_run_1_da9c2a7ac537",
+   "computed_at": "2026-10-26T00:49:22.173Z",
+   "graph_hash_at_run": "c5edb653e65ffe98"
+  },
+  "schema": "canonical_analysis_view.v1",
+  "source": "stored_run_facts",
+  "options": [
+   {
+    "cell": {
+     "face": "‘launch a referral programme’: about 10% chance of ‘Orders per week’ being at least 150 order / week at its highest at the ends of months 1 to 3 from now, in this model, if ‘Extra weekly orders from a referral programme’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0 order / week to 35 order / week, into a bell-shaped spread, ‘Extra weekly orders per percentage point of price reduction’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0 order / week / % to 3 order / week / %, into a bell-shaped spread and ‘Orders per week’ follows Olumi’s assumed relationship.",
+     "kind": "figure",
+     "detail": {
+      "draws": 10000,
+      "precision_95": [
+       0.09495432940119516,
+       0.10675233169762716
+      ],
+      "precision_words": "Simulation precision: 9.5% to 10.7%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+     },
+     "display": "about 10%"
+    },
+    "option_id": "launch_referrals",
+    "main_driver": {
+     "kind": "available",
+     "detail": "In this model, of the figures tested one at a time, the chance is most sensitive to ‘Extra weekly orders from a referral programme’ (Olumi’s estimate): at the low end (0 order / week) 0%, at the middle (17.5 order / week) 0%, at the high end (35 order / week) 100%.",
+     "driver": {
+      "low": {
+       "value": 0,
+       "display": "0%"
+      },
+      "high": {
+       "value": 35,
+       "display": "100%"
+      },
+      "draws": 4000,
+      "author": "olumi",
+      "middle": {
+       "value": 17.5,
+       "display": "0%"
+      },
+      "quantity": "referral_order_lift",
+      "untested": [],
+      "swing_points": 100
+     }
+    }
+   },
+   {
+    "cell": {
+     "face": "‘cut prices by 10%’: about 8% chance of ‘Orders per week’ being at least 150 order / week at its highest at the ends of months 1 to 3 from now, in this model, if ‘Extra weekly orders from a referral programme’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0 order / week to 35 order / week, into a bell-shaped spread, ‘Extra weekly orders per percentage point of price reduction’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0 order / week / % to 3 order / week / %, into a bell-shaped spread and ‘Orders per week’ follows Olumi’s assumed relationship.",
+     "kind": "figure",
+     "detail": {
+      "draws": 10000,
+      "precision_95": [
+       0.07067691814967836,
+       0.0810489428676778
+      ],
+      "precision_words": "Simulation precision: 7.1% to 8.1%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+     },
+     "display": "about 8%"
+    },
+    "option_id": "cut_prices",
+    "main_driver": {
+     "kind": "available",
+     "detail": "In this model, of the figures tested one at a time, the chance is most sensitive to ‘Extra weekly orders per percentage point of price reduction’ (Olumi’s estimate): at the low end (0 order / week / %) 0%, at the middle (1.5 order / week / %) 0%, at the high end (3 order / week / %) 100%.",
+     "driver": {
+      "low": {
+       "value": 0,
+       "display": "0%"
+      },
+      "high": {
+       "value": 300,
+       "display": "100%"
+      },
+      "draws": 4000,
+      "author": "olumi",
+      "middle": {
+       "value": 150,
+       "display": "0%"
+      },
+      "quantity": "price_order_response",
+      "untested": [],
+      "swing_points": 100
+     }
+    }
+   },
+   {
+    "cell": {
+     "face": "‘carry on as now’: 0% chance of ‘Orders per week’ being at least 150 order / week at its highest at the ends of months 1 to 3 from now, in this model, if ‘Extra weekly orders from a referral programme’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0 order / week to 35 order / week, into a bell-shaped spread, ‘Extra weekly orders per percentage point of price reduction’ follows Olumi’s provisional conversion of Olumi’s own estimated range, 0 order / week / % to 3 order / week / %, into a bell-shaped spread and ‘Orders per week’ follows Olumi’s assumed relationship: in every simulated draw ‘Orders per week’ is 125 order / week at its highest at the ends of months 1 to 3 from now, below 150 order / week.",
+     "kind": "figure",
+     "detail": {
+      "draws": 10000,
+      "precision_95": [
+       0,
+       0
+      ],
+      "precision_words": "Simulation precision: exact. Every simulated draw gives the same result for this option, so no sampling is involved."
+     },
+     "display": "0%"
+    },
+    "option_id": "carry_on",
+    "main_driver": {
+     "kind": "none_licensed",
+     "reason": "Tested one at a time at each figure’s low end, middle and high end, no figure moved this chance by more than 5 points."
+    }
+   }
+  ],
+  "staleness": {
+   "basis": "analysis_graph_hash_interim",
+   "stale": false,
+   "reason": "graph_hash_match",
+   "revision": null,
+   "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+   "run_revision": null
+  },
+  "goal_chance": {
+   "notes": [
+    "Covers: ‘Orders per week’ being at least 150 order / week at its highest at the ends of months 1 to 3 from now · Leaves out: ‘Whether extra orders are profitable after price reductions, referral rewards and programme costs.’"
+   ],
+   "chance_words": "chance of ‘Orders per week’ being at least 150 order / week at its highest at the ends of months 1 to 3 from now"
+  },
+  "leader_licence": "withheld"
+ },
+ "current_read": {
+  "analysis_ready": {
+   "goal_node_id": "reach_order_target",
+   "goal_threshold": 0.8,
+   "goal_threshold_raw": 150,
+   "goal_threshold_unit": "order/week",
+   "goal_threshold_cap": 187.5,
+   "goal_threshold_cap_provenance": "target_derived_headroom",
+   "goal_threshold_frame": "level",
+   "options": [
+    {
+     "option_id": "launch_referrals",
+     "label": "launch a referral programme",
+     "status": "ready",
+     "interventions": {
+      "referral_active": 1
+     }
+    },
+    {
+     "option_id": "cut_prices",
+     "label": "cut prices by 10%",
+     "status": "ready",
+     "interventions": {
+      "price_cut": 10
+     }
+    },
+    {
+     "option_id": "carry_on",
+     "label": "carry on as now",
+     "status": "ready",
+     "interventions": {},
+     "is_baseline": true
+    }
+   ],
+   "status": "ready",
+   "may_run": true,
+   "current_graph_hash": "c5edb653e65ffe98"
+  },
+  "run_state": {
+   "kind": "never_run"
+  },
+  "computed_against_hash": null,
+  "current_analysis_hash": "c5edb653e65ffe98",
+  "figures": []
+ },
+ "analysis_identity_run_use": null,
+ "analysis_admission": null,
+ "request_id": "4d7dc4e1-9780-4ea1-82a1-abec05a16e55"
+}

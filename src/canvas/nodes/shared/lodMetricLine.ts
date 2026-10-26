@@ -209,6 +209,11 @@ export interface LodMetricFacts {
   /** `display`: CEE's own figure or range display, the card's headline (vision spec row 1, 23 Oct). */
   optionChanceCell?: OptionChanceCell & { readonly display?: string }
   /**
+   * The canvas is at the far (`line`) rung: the card keeps its chance there (vision spec §2a, Paul's ruling 4). A
+   * lens-dimmed card at `quiet` is meant to recede, so the chance outside Results mode is the far rung's only (DL, #3000).
+   */
+  atFarZoom?: boolean
+  /**
    * CURRENT-READ row 9 (AIQ 5912710392): the producer withheld the leader, so no per-option win share is
    * shown at any zoom. The reduced line says `Not ranked` (`winShareGate.ts`), as the full-zoom card does.
    */
@@ -421,7 +426,7 @@ function resolveText({
       if (typeof facts?.optionTakenOutLine === 'string') return facts.optionTakenOutLine
       const chanceText = facts?.optionChanceCell?.text
       const caption = facts?.optionResultCaption
-      if (displayMetadata.isResultsMode && chanceText != null && caption) {
+      if ((displayMetadata.isResultsMode || facts?.atFarZoom === true) && chanceText != null && caption) {
         // Vision spec (23 Oct): the reduced line says the card's headline (CEE's display, verbatim) and drops the
         // "Current model" caption (row 2); a "Last run" / "Model result" caption still says something, so it stays.
         const headline = facts?.optionChanceCell?.display ?? chanceText
