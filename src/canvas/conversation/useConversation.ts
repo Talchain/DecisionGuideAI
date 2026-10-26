@@ -5833,10 +5833,10 @@ export function useConversation(): UseConversationReturn {
           // takes an INJECTED `V5ApplicatorStore`, so a leaf guard would mean
           // widening that interface and every test double with it. Re-derive the
           // caller count before moving this — a second caller makes it wrong.
-          useCanvasStore.getState().beginExternalGraphMutation?.('envelope_apply')
           // U4: a core-route turn is applied from its own contract (`applyCoreTurn.ts`), never through the legacy
           // V2-envelope steps; any other answer keeps `applyV5State`.
           const coreBody = readCoreTurn(target.response)
+          useCanvasStore.getState().beginExternalGraphMutation?.('envelope_apply')
           let stateApply: ReturnType<typeof applyV5State>
           try {
             stateApply = coreBody !== null ? applyCoreTurnState(coreBody, v5StoreSnapshot, {
