@@ -85,6 +85,10 @@ const proposalChangeSchema = z.object({
   before: z.string().nullable(),
   after: z.string().nullable(),
   author: z.enum(['person', 'olumi']),
+  // A reading card's row, as CEE groups it (DL G13, 26 Oct): from the brief, Olumi's for the person to check, left out of
+  // the calculation, or else in the model. Optional (an older CEE sends none); a value this reader does not know is read
+  // as none, never a reason to drop the row.
+  group: z.enum(['used', 'inferred', 'left_out', 'other']).optional().catch(undefined),
 })
 export type ProposalChange = z.infer<typeof proposalChangeSchema>
 /** The card's words for one change, CEE's label and rendered values verbatim; nothing is shortened or reworded. */
