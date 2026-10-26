@@ -94,6 +94,8 @@ export interface BuildV5PayloadInput {
   source?: string | undefined
   /** Held-proposal binding and optional edits; sent only beside that proposal's own approve chip. */
   proposalEdits?: ProposalEdits
+  /** A reading card's ticked rows (D4): sent only beside its own approve chip, so CEE approves exactly these items. */
+  approveIds?: readonly string[]
   /**
    * The cards with a button on screen, at the revision rendered (`displayedProposals`). Sent on a typed turn only: CEE binds
    * typed words to a card ONLY when it is in this set (Codex BLOCK 18 Oct: an unseen replacement inherited typed consent).
@@ -206,7 +208,7 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
           : rawSource
   const source = normaliseMessageSource(effectiveSource)
 
-  const base: MessageTurnPayload & { proposal_edits?: ProposalEdits; displayed_proposals?: DisplayedProposal[] } = {
+  const base: MessageTurnPayload & { proposal_edits?: ProposalEdits; approve_ids?: string[]; displayed_proposals?: DisplayedProposal[] } = {
     kind: 'message',
     turn_id: turnId,
     scenario_id: scenarioId,
@@ -234,6 +236,10 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
   if ((source === 'chip' || source === 'chip_click') && input.chipMeta?.id === `agent-approve-proposal:${input.proposalEdits?.proposal_id}`
     && input.proposalEdits) {
     base.proposal_edits = input.proposalEdits
+  }
+  if ((source === 'chip' || source === 'chip_click') && input.chipMeta?.id?.startsWith('agent-approve-proposal:') && input.approveIds !== undefined
+    && input.approveIds.length > 0) {
+    base.approve_ids = [...input.approveIds]
   }
 
   // A typed turn says which cards the user can see; a press already names its card (`chip.id`). Sent only when a card is

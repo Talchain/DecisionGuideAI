@@ -2360,6 +2360,8 @@ export interface DispatchActionOpts {
   /** G1 — the card action this is; stamped on the user bubble, never on the wire. */
   sourceBlockKey?: string
   proposalEdits?: ProposalEdits
+  /** A reading card's ticked rows (D4), beside its own approve chip. */
+  approveIds?: readonly string[]
 }
 
 /**
@@ -2367,7 +2369,7 @@ export interface DispatchActionOpts {
  * naming the card action it stands for (G1). The key is forwarded to the user
  * bubble beside the chip metadata — never into it, so never onto the wire.
  */
-export type SourceKeyedChip = ActionChip & { sourceBlockKey?: string; proposalEdits?: ProposalEdits }
+export type SourceKeyedChip = ActionChip & { sourceBlockKey?: string; proposalEdits?: ProposalEdits; approveIds?: readonly string[] }
 
 function resolveUserTurnType(
   source: string | undefined,
@@ -2453,6 +2455,7 @@ export interface SendFailureNotice {
  */
 export interface SendTurnOpts {
   proposalEdits?: ProposalEdits
+  approveIds?: readonly string[]
   /** Session delivery epoch captured at the original gesture, retained through the deferred queue. Never on the wire. */
   editNoteRevision?: number
   message: string
@@ -2840,6 +2843,7 @@ export function useConversation(): UseConversationReturn {
     chipMeta?: ChipMeta
     chipSource?: 'chip' | 'chip_click'
     proposalEdits?: ProposalEdits
+    approveIds?: readonly string[]
   }>({ message: '' })
   const missingDraftRecoveryRef = useRef<(() => Promise<void>) | null>(null)
   /** B UI: the saved-model read before a re-send, while it is out. A scenario switch clears it, as it clears the one above. */
@@ -4651,7 +4655,7 @@ export function useConversation(): UseConversationReturn {
           // T1H: a `sendMessage` carrying `chipMeta` (Olumi's text, e.g. the starter brief or a guidance prompt)
           // went out as a chip — buildV5Payload derives 'chip' from chipMeta whatever the debug source — so it
           // retries as that chip, never as chip-less free text.
-          ...(chipMeta ? { chipMeta, chipSource: source === 'chip_click' ? 'chip_click' as const : 'chip' as const, proposalEdits: opts.proposalEdits } : {}) }
+          ...(chipMeta ? { chipMeta, chipSource: source === 'chip_click' ? 'chip_click' as const : 'chip' as const, proposalEdits: opts.proposalEdits, approveIds: opts.approveIds } : {}) }
         setLastSendFailure(null)
       } else if (hidden && source === 'right_panel_action') {
         recordUserAction({
@@ -4814,6 +4818,7 @@ export function useConversation(): UseConversationReturn {
         source,
         chipMeta,
         proposalEdits: opts.proposalEdits,
+        approveIds: opts.approveIds,
         // The cards on screen now: CEE binds typed words only to one of these (`displayedProposals`).
         displayedProposals: displayedProposals(messagesRef.current),
         systemEvent,
@@ -7663,6 +7668,7 @@ export function useConversation(): UseConversationReturn {
         chipMeta,
         chipInitiated: !opts.hidden,
         proposalEdits: opts.proposalEdits,
+        approveIds: opts.approveIds,
         ...(opts.sourceBlockKey ? { sourceBlockKey: opts.sourceBlockKey } : {}),
       })
     },
@@ -7718,6 +7724,7 @@ export function useConversation(): UseConversationReturn {
           message: messageToSend,
           source: 'chip',
           proposalEdits: chip.proposalEdits,
+          approveIds: chip.approveIds,
           // G1 — rides beside the chip metadata, never inside it.
           ...(chip.sourceBlockKey ? { sourceBlockKey: chip.sourceBlockKey } : {}),
         })
@@ -7767,7 +7774,7 @@ export function useConversation(): UseConversationReturn {
         skipUserBubble: true,
         retryClientTurnId: last.clientTurnId,
         // A typed press retries as itself (its chip source + chip); free text retries as 'retry'.
-        ...(last.chipMeta && last.chipSource ? { chipMeta: last.chipMeta, source: last.chipSource, proposalEdits: last.proposalEdits } : { source: 'retry' as const }),
+        ...(last.chipMeta && last.chipSource ? { chipMeta: last.chipMeta, source: last.chipSource, proposalEdits: last.proposalEdits, approveIds: last.approveIds } : { source: 'retry' as const }),
       })
     }
   }, [sendTurn])

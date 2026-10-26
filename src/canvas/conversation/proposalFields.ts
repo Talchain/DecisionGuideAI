@@ -183,7 +183,7 @@ export interface ProposalEdits {
   graph_hash: string
   fields: Array<{ field_id: string; band: Band } | { field_id: string; value: number }>
 }
-export type ProposalPanelAction = ActionChip & { proposalEdits?: ProposalEdits }
+export type ProposalPanelAction = ActionChip & { proposalEdits?: ProposalEdits; approveIds?: readonly string[] }
 
 /** CEE amend bounds apply to the stored value, without any unit conversion. */
 export function factorValueAllowed(field: Pick<z.infer<typeof factorValueFieldSchema>, 'cap' | 'declared_scale'>, value: number): boolean {

@@ -36,15 +36,16 @@ function grouped(body: Json = served): Json {
   return b
 }
 
-async function mount(body: Json) {
+async function mount(body: Json, onChipClick = vi.fn(async (_chip: Json) => {})) {
   const parsed = await parseV5Response(new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } }), { coreRoute: true })
   if (parsed.kind !== 'response') throw new Error(`the served body did not parse: ${parsed.kind}`)
   const chips = buildSuggestedActionChips(parsed.response.blocks, parsed.response.suggested_actions)
   // Inside a dock and a thread, as ChatThread mounts it: the dock is `overflow: hidden` and must never be scrolled.
   render(<aside data-testid="dock" style={{ overflow: 'hidden' }}><div {...{ [THREAD_SCROLLER_ATTRIBUTE]: '' }} data-testid="thread">
-    <SuggestedChips chips={chips} onChipClick={vi.fn(async () => {})} proposalFields={readTurnProposalFields(parsed.response)} />
+    <SuggestedChips chips={chips} onChipClick={onChipClick} proposalFields={readTurnProposalFields(parsed.response)} />
   </div></aside>)
   await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
+  return onChipClick
 }
 const panel = () => screen.getByTestId(`proposal-change-notes-${PID}`)
 const rows = () => [...panel().querySelectorAll('li')]
@@ -145,5 +146,62 @@ describe('CONTRAST: without a group on every row, the card is exactly as before'
     await mount(body)
     expect(rows()).toHaveLength(38)
     expect(screen.queryByTestId(`reading-group-${PID}-used`)).toBeNull()
+  })
+})
+
+/**
+ * ⭐ D4, PER-ITEM APPROVAL: open, every row of the grouped reading card takes a tick; rows from the brief start ticked,
+ * Olumi's and the rest need an active yes; ONE press sends the card's own approve chip carrying exactly the ticked ids
+ * (CEE approves those and nothing else, with no AI call). The whole-card approve is unchanged.
+ */
+describe('D4: ticking rows on the reading card', () => {
+  const tick = (id: string) => screen.getByTestId(`reading-tick-${PID}-${id}`) as HTMLInputElement
+  const press = () => screen.getByTestId(`reading-confirm-${PID}`) as HTMLButtonElement
+  const changes = () => served.cards[0].changes as Json[]
+  const openAll = () => { fireEvent.click(groupButton('inferred')); fireEvent.click(screen.getByTestId(`reading-other-${PID}`)) }
+
+  it('closed: no ticks and no press; open: every row ticked as its group starts (brief rows ticked, the rest not), the press counting them', async () => {
+    await mount(grouped())
+    expect(screen.queryByTestId(`reading-confirm-${PID}`)).toBeNull()
+    openAll()
+    expect(rows()).toHaveLength(38)
+    for (const c of changes()) expect([c.id, tick(c.id).checked]).toEqual([c.id, groupOf(c) === 'used'])
+    expect(press().textContent).toBe('Confirm ticked (9)')
+    // The marks, in the order the person checks them: Olumi's, left out, from their brief.
+    expect([...panel().querySelectorAll('[data-testid^="reading-group-' + PID + '-"]')].map((b) => b.getAttribute('data-testid')))
+      .toEqual(['inferred', 'left_out', 'used'].map((g) => `reading-group-${PID}-${g}`))
+  })
+
+  it('the press sends the card\'s own approve chip with exactly the ticked ids, in the card\'s order, bound to its record; nothing ticked, nothing to press', async () => {
+    const onChipClick = await mount(grouped())
+    openAll()
+    const olumi = changes().find((c) => groupOf(c) === 'inferred')!
+    const brief = changes().filter((c) => groupOf(c) === 'used')
+    fireEvent.click(tick(olumi.id))
+    fireEvent.click(tick(brief[0].id))
+    expect(press().textContent).toBe(`Confirm ticked (${brief.length})`)
+    fireEvent.click(press())
+    expect(onChipClick).toHaveBeenCalledTimes(1)
+    const sent = onChipClick.mock.calls[0][0]
+    const expected = changes().filter((c) => c.id === olumi.id || (groupOf(c) === 'used' && c.id !== brief[0].id)).map((c) => c.id)
+    expect(sent).toMatchObject({ id: served.cards[0].approve_action.id, label: 'Confirm ticked', message: 'Confirm ticked.', approveIds: expected })
+    expect(sent.proposalEdits).toMatchObject({ proposal_id: PID, fields: [] })
+    // Untick everything: the press is disabled and sends nothing.
+    for (const id of expected) fireEvent.click(tick(id))
+    expect([press().disabled, press().textContent]).toEqual([true, 'Confirm ticked (0)'])
+    fireEvent.click(press())
+    expect(onChipClick).toHaveBeenCalledTimes(1)
+    // The whole card's approve is unchanged: its own words, no ids.
+    fireEvent.click(screen.getByRole('button', { name: served.cards[0].approve_action.label }))
+    expect(onChipClick).toHaveBeenCalledTimes(2)
+    expect(onChipClick.mock.calls[1][0]).toMatchObject({ id: served.cards[0].approve_action.id, label: served.cards[0].approve_action.label })
+    expect(onChipClick.mock.calls[1][0]).not.toHaveProperty('approveIds')
+  })
+
+  it('CONTRAST: an ungrouped reading card (an older CEE) has no ticks and no press', async () => {
+    await mount(served)
+    expect(rows()).toHaveLength(38)
+    expect(screen.queryByTestId(`reading-confirm-${PID}`)).toBeNull()
+    expect(panel().querySelectorAll('input[type="checkbox"]')).toHaveLength(0)
   })
 })

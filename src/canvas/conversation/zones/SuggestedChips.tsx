@@ -63,12 +63,19 @@ const CHANGE_NOTE_SOURCE_CLASS: Readonly<Record<ChangeNote['source'], string>> =
 }
 
 type ReadingGroup = NonNullable<ProposalChange['group']>
-/** A reading card's three counted marks, in the card marks' own glyphs; the rest (`other`) sits behind "Also in the model". */
+/**
+ * A reading card's three counted marks, in the card marks' own glyphs; the rest (`other`) sits behind "Also in the model".
+ * In the order the person checks them (D4): Olumi's first, then what was left out, then what came from their brief.
+ */
 const READING_GROUP_MARKS: readonly { group: ReadingGroup; words: string; Icon: CardMarkIcon }[] = [
-  { group: 'used', words: 'From your brief', Icon: cardMark('source-brief').Icon },
   { group: 'inferred', words: 'Olumi’s, for you to check', Icon: cardMark('source-olumi').Icon },
   { group: 'left_out', words: 'Left out of the calculation', Icon: cardMark('not-analysed').Icon },
+  { group: 'used', words: 'From your brief', Icon: cardMark('source-brief').Icon },
 ]
+/** D4: a row from their brief starts ticked; Olumi's own, and everything else, needs an active yes. */
+const startsTicked = (c: ProposalChange) => c.group === 'used'
+/** D4 (Paul's wording to come): the press of the ticked rows, and the words it sends. */
+export const CONFIRM_TICKED = { label: 'Confirm ticked', message: 'Confirm ticked.' } as const
 
 /**
  * ⭐ EVERYTHING ELSE THE APPROVAL WRITES: ONE PLAIN LINE, THE NOTES BEHIND "DETAILS" (DL 22 Oct, Paul's served test: the
@@ -76,7 +83,8 @@ const READING_GROUP_MARKS: readonly { group: ReadingGroup; words: string; Icon: 
  * before the approve; "Details" opens CEE's sentences, each in the colour of whose it is. A reading card grouped row by row
  * starts closed on its three counted marks instead, each opening the list at its group (DL G13, 26 Oct).
  */
-function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId: string; notes: readonly ChangeNote[]; changes: readonly ProposalChange[] | null; reading: boolean }) {
+function ChangeNotesPanel({ proposalId, notes, changes, reading, onConfirmRows, disabled = false }: { proposalId: string; notes: readonly ChangeNote[];
+  changes: readonly ProposalChange[] | null; reading: boolean; onConfirmRows?: (ids: readonly string[]) => void; disabled?: boolean }) {
   // A reading card whose every row CEE grouped folds to its three counted marks (DL G13, 26 Oct). One row without a group
   // (an older CEE) keeps the card exactly as before.
   const grouped = reading && changes !== null && changes.length > 0 && changes.every(c => c.group !== undefined)
@@ -87,6 +95,10 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
   const sections = useRef<Partial<Record<ReadingGroup, HTMLDivElement | null>>>({})
   const listId = useId()
   const program = useSavedModelIsProgram()
+  // D4: the grouped reading card's rows each take a tick, and ONE press sends the ticked ids (CEE approves exactly those).
+  const tickable = grouped && onConfirmRows !== undefined
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set((changes ?? []).filter(startsTicked).map(c => c.id)))
+  const toggle = (id: string) => setTicked(prev => { const next = new Set(prev); if (!next.delete(id)) next.add(id); return next })
   useEffect(() => {
     if (!open || scrollTo === null) return
     // Next frame: opening the list grows the thread, and the thread's own content sensor re-pins it to the bottom
@@ -106,6 +118,8 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
     <li key={`${c.kind}:${c.id}:${c.action}`} data-author={c.author}
       className={`${styles.reasoningPanelBody} ${c.author === 'olumi' ? CHANGE_NOTE_SOURCE_CLASS.estimate : ''}`}
       data-testid={`proposal-change-${c.kind}:${c.id}`}>
+      {tickable && <input type="checkbox" className="mr-1.5 align-middle" checked={ticked.has(c.id)} disabled={disabled} onChange={() => toggle(c.id)}
+        aria-label={`Confirm: ${c.label}`} data-testid={`reading-tick-${proposalId}-${c.id}`} />}
       {proposalChangeWords(c)}
       {c.author === 'olumi' && <span data-testid={`proposal-change-olumi-${c.kind}:${c.id}`}>{` · ${OLUMI_CHANGE_MARK}`}</span>}
     </li>
@@ -150,6 +164,9 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
             {otherOpen && <div ref={(el) => { sections.current.other = el }} data-testid={`reading-group-section-${proposalId}-other`}>
               <ul className={PANEL_LIST_BULLET}>{otherRows.map(changeRow)}</ul>
             </div>}
+            {tickable && <button type="button" className={`${CHIP_CLASS} mt-2`} disabled={disabled || ticked.size === 0}
+              onClick={() => onConfirmRows!(changes.filter(c => ticked.has(c.id)).map(c => c.id))} data-testid={`reading-confirm-${proposalId}`}>
+              {`${CONFIRM_TICKED.label} (${ticked.size})`}</button>}
           </div>
         )}
       </div>
@@ -737,7 +754,10 @@ export function SuggestedChips({
         const notes = changeNotesOf(p)
         // Present `changes[]` is the whole list: an empty one means no other changes, and the notes are not read.
         if (p.changes !== null ? p.changes.length === 0 : notes.length === 0) return null
-        return <ChangeNotesPanel key={`change-notes-${p.proposal_id}`} proposalId={p.proposal_id} notes={notes} changes={p.changes} reading={p.reading} />
+        // D4: a reading card's ticked rows go with its own approve, as that chip's press carrying the ids.
+        const approve = p.reading ? visible.find(c => c.id === p.approve_action.id) : undefined
+        return <ChangeNotesPanel key={`change-notes-${p.proposal_id}`} proposalId={p.proposal_id} notes={notes} changes={p.changes} reading={p.reading} disabled={disabled}
+          {...(approve !== undefined ? { onConfirmRows: (ids: readonly string[]) => handleClick({ ...approve, ...CONFIRM_TICKED, approveIds: ids }) } : {})} />
       })}
       <div
         className="flex flex-wrap gap-1.5 mt-3"
