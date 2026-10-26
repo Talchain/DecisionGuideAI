@@ -8,6 +8,8 @@
  * (`face_when_stale`), never its old figures, with one "Run again" that sends the existing Run press.
  * Under each option's chance line, CEE's own words on what that chance rests on most (`main_driver.detail`, through
  * `mainDriverDetailOf`), or CEE's reason none is shown (`none_licensed`); nothing when not recorded, or for a stale Run.
+ * W6 (CEE #3792; Paul 6 and 14 Oct): under the chances, once, CEE's own sentence (`leader.words`) on which option is most
+ * likely to achieve the goal in this model, or that the options are too close to call; nothing for a stale Run or without it.
  */
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
@@ -40,6 +42,11 @@ export interface ViewOnlyRunChances {
   readonly stale: boolean
   /** CEE withheld EVERY option's chance (each option's cell, shown or not). */
   readonly allWithheld: boolean
+  /**
+   * W6: CEE's `leader.words`, verbatim, for a current Run only: which option is most likely to achieve the goal in this
+   * model, or that the options are too close to call. Null otherwise; the UI composes and decides none of it.
+   */
+  readonly mostLikely: string | null
 }
 
 /** The block's one act on a Run that is not current (DL, row 19). */
@@ -63,7 +70,7 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
       // The chance gate stands: no figure from a Run that is not current. CEE's own line, said once for every option.
       const line = program ? view.notCurrentLine() : null
       return line === null ? null
-        : { sentence: null, lines: [{ optionIds: canonical.options.map(o => o.option_id), text: line, why: null, driver: null, withheld: false }], waitsOn: [], stale: true, allWithheld: false }
+        : { sentence: null, lines: [{ optionIds: canonical.options.map(o => o.option_id), text: line, why: null, driver: null, withheld: false }], waitsOn: [], stale: true, allWithheld: false, mostLikely: null }
     }
     const lines: { optionIds: string[]; text: string; why: string | null; driver: string | null; withheld: boolean }[] = []
     let allWithheld = canonical.options.length > 0
@@ -80,7 +87,9 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
       else lines.push({ optionIds: [optionId], text: cell.text, why, driver, withheld })
     }
     const sentence = runViewGoalChanceSentence(view)
-    return lines.length === 0 && sentence === null ? null : { sentence, lines, waitsOn: view.goalChanceDetail()?.waits_on ?? [], stale: false, allWithheld }
+    // Past the current-Run gate above, as the chances are: CEE's words alone, never one the UI composes from the cells.
+    const mostLikely = canonical.leader?.words ?? null
+    return lines.length === 0 && sentence === null ? null : { sentence, lines, waitsOn: view.goalChanceDetail()?.waits_on ?? [], stale: false, allWithheld, mostLikely }
   }, [report, canonical, program])
 }
 
@@ -164,6 +173,9 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
           )}
         </div>
       ))}
+      {chances.mostLikely === null ? null : (
+        <p className={`${typography.panelBody} text-text-body`} data-testid="analysis-view-only-most-likely">{chances.mostLikely}</p>
+      )}
       {waits || chances.waitsOn.length === 0 ? null : (
         <p className={`${typography.panelBody} text-text-body`} data-testid="analysis-view-only-waits-on">
           {'Waits on: '}
