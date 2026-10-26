@@ -30,6 +30,9 @@ export function GoalProgressChecklist({ nodeId, onExpandAssumptions }: GoalProgr
   const edges = useCanvasStore(s => s.edges)
   const goalThreshold = useCanvasStore(s => s.goalThreshold)
   const goalConstraints = useCanvasStore(s => s.goalConstraints)
+  // A core board: CEE's admission decides, so the legacy threshold check is not shown (it reads a scalar a program board
+  // never fills, and said "not set yet" beside a stated target).
+  const legacyValidationOff = useCanvasStore(s => s.legacyValidationOff)
 
   const node = nodes.find(n => n.id === nodeId)
   const titleSet = Boolean(node?.data?.label?.toString().trim())
@@ -39,14 +42,14 @@ export function GoalProgressChecklist({ nodeId, onExpandAssumptions }: GoalProgr
 
   const checks: CheckItem[] = [
     { label: 'Title set', failLabel: 'Title not set yet', passed: titleSet },
-    {
+    ...(legacyValidationOff ? [] : [{
       label: 'Threshold set',
       failLabel: 'Threshold not set yet',
       passed: thresholdSet,
       action: onExpandAssumptions
         ? { text: 'Set now', onClick: onExpandAssumptions }
         : undefined,
-    },
+    }]),
     { label: 'Connected to factors', failLabel: 'Not connected to factors', passed: hasIncomingEdges },
     { label: 'Options defined', failLabel: 'No options defined', passed: hasOptions },
   ]
