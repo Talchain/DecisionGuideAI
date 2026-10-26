@@ -28,7 +28,8 @@
 import { useAnalysisTrust } from './useAnalysisTrust'
 import { useCanvasStore } from '../store'
 import { useShallow } from 'zustand/react/shallow'
-import { composeAnalysisState } from '../state/analysisStateSelector'
+import { analysisStateComposition } from '../state/analysisStateSelector'
+import { useSavedModelProgramState } from '../nodes/shared/savedModelProgram'
 import { selectHasRenderableAnalysisResult } from '../ui/inspector-v2/useAnalysisResults'
 
 export function useModelChangedSinceRun(): boolean {
@@ -79,8 +80,12 @@ export function useModelChangedSinceRunLight(): boolean {
     })),
   )
   const hasRenderableResult = useCanvasStore(selectHasRenderableAnalysisResult)
+  // U6: on a program board the verdict is CEE's alone (`composeProgramAnalysisState`), from the first render: until the
+  // saved read answers, a board is not yet known to be legacy, so the legacy composition does not run.
+  const programBoard = useSavedModelProgramState() !== 'not_program'
 
-  return composeAnalysisState({
+  if (programBoard) return analysisStateComposition.program(analysisState ?? null).semantic === 'changed'
+  return analysisStateComposition.legacy({
     analysisState,
     freshness,
     dirty,

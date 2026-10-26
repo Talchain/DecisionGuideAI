@@ -82,6 +82,7 @@ import {
   type ResultsTabFreshnessIndicator,
 } from '../components/resultsTabFreshness'
 import { ANALYSIS_READY_STATUS_UNSUPPLIED } from '../../adapters/cee/types'
+import { useSavedModelProgramState } from '../nodes/shared/savedModelProgram'
 
 /** The results-slice statuses that mean "an analysis is in flight right now". */
 const RUNNING_STATUSES: ReadonlySet<string> = new Set(['preparing', 'connecting', 'streaming'])
@@ -871,8 +872,64 @@ export function composeAnalysisState(
 }
 
 /**
+ * ⭐ U6: A PROGRAM BOARD'S ANALYSIS STATE IS CEE'S VERDICT, AND NOTHING ELSE. On a program board the analysis is CEE's:
+ * the core turn carries its verdict (`analysis_state`, set by the core applier) and the Run is the canonical view's. The
+ * legacy composition above folds in the client's own signals (local freshness slices, the edit overlay, the results
+ * slice, the report and its source classification); none of those is the program's, so none is read here. Each member
+ * says what the verdict says, through the same mappings the wire branch above uses, with no report held (a program turn
+ * carries no `analysis_result`). With no verdict yet it is the neutral answer the legacy path gives an empty board.
+ * `useAnalysisState` uses it from the first render until the saved read says the board is NOT a program, so the legacy
+ * composition never runs on a program board; a legacy board reads it only until its saved read answers.
+ */
+export function composeProgramAnalysisState(wire: AnalysisStateV1 | null): ComposedAnalysisState {
+  const kind = wire?.run_state.kind ?? null
+  const semantic: FreshnessDisplaySemantic = kind === null ? 'none' : mapRunStateKindToSemantic(kind, false)
+  const displayedFreshness = kind === null ? null : mapRunStateKindToDisplayedFreshness(kind, false)
+  const startedAt = wire !== null && wire.run_state.kind === 'running' ? Date.parse(wire.run_state.started_at) : Number.NaN
+  return {
+    authority: wire === null ? 'derived' : 'wire',
+    wire,
+    runStateKind: kind,
+    semantic,
+    displayedFreshness,
+    trust: {
+      semantic,
+      orphaned: false,
+      isRunning: kind === 'running',
+      ...(Number.isFinite(startedAt) ? { runStartedAt: startedAt } : {}),
+    },
+    displayState: deriveAnalysisDisplayState({
+      hasRenderableResult: false,
+      figuresWithheld: false,
+      ceeAnalysisReadyStatus: wire === null
+        ? undefined
+        : kind === 'blocked'
+          ? 'blocked'
+          : wire.readiness.status === ANALYSIS_READY_STATUS_UNSUPPLIED ? undefined : wire.readiness.status,
+      hasReport: false,
+      analysisChanged: wire !== null && kind !== 'complete_current' && kind !== 'blocked',
+    }),
+    resultsTab: deriveResultsTabFreshness(true, displayedFreshness),
+    source: 'none',
+    robustnessAggregateLevel: wire?.robustness.aggregate_level ?? null,
+    factorsThatFlipLeader: wire?.robustness.factors_that_flip_leader ?? null,
+    readinessStatus: wire?.readiness.status ?? null,
+    readinessBlockers: wire?.readiness.blockers ?? null,
+    usableForProse: wire?.usable_for_prose ?? null,
+    usableForChips: wire?.usable_for_chips ?? null,
+    usableForFollowup: wire?.usable_for_followup ?? null,
+    requiresRerun: wire?.requires_rerun ?? false,
+    blockedUnusable: wire?.blocked_unusable ?? null,
+    contradictions: wire?.contradictions ?? null,
+  }
+}
+
+/** The two compositions, called through this seam so a test can count which one ran (U6 real-path rows). */
+export const analysisStateComposition = { legacy: composeAnalysisState, program: composeProgramAnalysisState }
+
+/**
  * THE selector. Every analysis-truth surface reads this — never the slices,
- * never a private re-derivation.
+ * never a private re-derivation. On a program board it is CEE's verdict alone (`composeProgramAnalysisState`).
  */
 export function useAnalysisState(): ComposedAnalysisState {
   const analysisState = useCanvasStore((s) => s.analysisStateV1)
@@ -890,10 +947,11 @@ export function useAnalysisState(): ComposedAnalysisState {
   const figuresWithheld = useCanvasStore(selectRunWithholdsFigures)
   const ceeAnalysisReadyStatus = useCanvasStore((s) => s.ceeAnalysisReady?.status)
   const { source } = useAnalysisStateSource()
+  const programBoard = useSavedModelProgramState() !== 'not_program'
 
   return useMemo(
-    () =>
-      composeAnalysisState({
+    () => programBoard ? analysisStateComposition.program(analysisState) :
+      analysisStateComposition.legacy({
         analysisState,
         freshness,
         dirty,
@@ -913,6 +971,7 @@ export function useAnalysisState(): ComposedAnalysisState {
         aiPanelV2On: true,
       }),
     [
+      programBoard,
       analysisState,
       freshness,
       dirty,

@@ -98,6 +98,7 @@
 import { useCanvasStore } from '@/canvas/store'
 import { useAnalysisState } from '@/canvas/state/analysisStateSelector'
 import type { AnalysisRunStateKind } from './analysisStateContract'
+import { useSavedModelProgramState } from '@/canvas/nodes/shared/savedModelProgram'
 
 /**
  * The pure mapping, exported so it is mutation-testable without a store.
@@ -225,7 +226,12 @@ export function useAnalysisRunState(): AnalysisRunStateKind {
   const refusal = useCanvasStore((s) => s.analysisRefusalNotice)
   const resultsStatus = useCanvasStore((s) => s.results?.status)
   const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun)
+  // U6: on a program board the run state is CEE's verdict alone; the legacy results slice and refusal notice are not
+  // the program's (no Run is dispatched from the client, and the core applier writes no refusal notice). Until the saved
+  // read answers, a board is not yet known to be legacy.
+  const programBoard = useSavedModelProgramState() !== 'not_program'
 
+  if (programBoard) return composed.runStateKind ?? 'never_run'
   return mapToAnalysisRunState({
     // ⭐ READ DIRECTLY — and that is now SAFE BY TYPE, which it was not before.
     //
