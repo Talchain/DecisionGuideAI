@@ -266,7 +266,10 @@ function compactDividers(entries: MenuEntry[]): MenuEntry[] {
  * nothing here claims them, which is why adding a genuinely local mutation
  * needs an entry in `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` rather than silence.
  */
-function menuIdIsAuthorised(id: string, connected: boolean, connectedNodeAdds = true): boolean {
+function menuIdIsAuthorised(id: string, connected: boolean, structuralCanvasEdits = true): boolean {
+  // CEE refuses a structural canvas edit on an executable (program) model with nothing saved (409 `CANVAS_EDIT_REFUSED`,
+  // served 27 Oct), so a delete there would only take the item off the canvas: withheld, with the reason (U-W5).
+  if (id === 'delete' && !structuralCanvasEdits) return false
   if (DURABLE_NODE_ADD_MENU_IDS.has(id)) {
     return hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash)
   }
@@ -274,7 +277,7 @@ function menuIdIsAuthorised(id: string, connected: boolean, connectedNodeAdds = 
     // BOTH, never either — see the set's header. A node saved with its link
     // dropped is the silent half-loss this conjunction exists to refuse.
     return (
-      connectedNodeAdds &&
+      structuralCanvasEdits &&
       hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash) &&
       hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasEdgeAddWithServerHash)
     )
@@ -300,9 +303,9 @@ function menuIdIsAuthorised(id: string, connected: boolean, connectedNodeAdds = 
  * menus for viewers, and the per-carrier filter judges the Delete row.
  * Node-kind refusals (including the last goal/decision) remain in deleteAction.
  */
-export function canDeleteFromContextMenu(viewer = isViewerSession()): boolean {
+export function canDeleteFromContextMenu(viewer = isViewerSession(), structuralCanvasEdits = true): boolean {
   return !viewer && menuIdIsAuthorised(
-    'delete', hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations),
+    'delete', hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations), structuralCanvasEdits,
   )
 }
 
@@ -349,6 +352,8 @@ export function canDeleteFromContextMenu(viewer = isViewerSession()): boolean {
 export const KEYBOARD_REACHABLE_SEMANTIC_IDS = new Set([
   // (`undo` / `redo` left with LOCAL_SEMANTIC_CONTEXT_MENU_IDS at Undo S5: they are never unavailable now.)
   'cut',
+  // Delete/Backspace reach it (`useKeyboardShortcuts`), and on a program board the key says the same reason (U-W5).
+  'delete',
   // ⛔ `duplicate` REMOVED 13 Sep 2026 — it FAILED BOTH CLAUSES of this set's own
   // stated criterion, and the contradiction was already written down fifteen
   // lines into a sibling module before this set was authored.
@@ -400,7 +405,7 @@ function unavailableReason(_id: string): { tooltip: string; disabledReason: stri
  */
 export function applyContextMenuMutationAuthority(
   entries: MenuEntry[],
-  opts?: { connected?: boolean; connectedNodeAdds?: boolean },
+  opts?: { connected?: boolean; structuralCanvasEdits?: boolean },
 ): MenuEntry[] {
   const connected = opts?.connected
     ?? hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)
@@ -424,7 +429,7 @@ export function applyContextMenuMutationAuthority(
 
   const walk = (list: MenuEntry[]): MenuEntry[] => list.flatMap<MenuEntry>((entry) => {
     if (isDivider(entry)) return [entry]
-    if (!menuIdIsAuthorised(entry.id, connected, opts?.connectedNodeAdds)) {
+    if (!menuIdIsAuthorised(entry.id, connected, opts?.structuralCanvasEdits)) {
       if (!KEYBOARD_REACHABLE_SEMANTIC_IDS.has(entry.id)) {
         hidMenuOnlyGesture = true
         return []
@@ -501,8 +506,8 @@ export function useMenuItems({
   onSetInteractionMode,
 }: UseMenuItemsOptions): MenuEntry[] {
   const isViewer = useIsViewer()
-  // CEE does not accept structural canvas edits on executable models.
-  const connectedNodeAdds = useSavedModelProgramState() === 'not_program'
+  // CEE does not accept structural canvas edits on executable models (an unanswered read withholds too).
+  const structuralCanvasEdits = useSavedModelProgramState() === 'not_program'
   return useMemo(() => {
     const wrap = (action: () => void | Promise<void>) => () => { void action(); onClose() }
 
@@ -514,17 +519,17 @@ export function useMenuItems({
     if (target.kind === 'node') {
       return applyContextMenuMutationAuthority(
         buildNodeMenu(target, showToast, wrap, onOpenCustomValue, factorValueWriter),
-        { connectedNodeAdds },
+        { structuralCanvasEdits },
       )
     }
     if (target.kind === 'edge') {
-      return applyContextMenuMutationAuthority(buildEdgeMenu(target, showToast, wrap))
+      return applyContextMenuMutationAuthority(buildEdgeMenu(target, showToast, wrap), { structuralCanvasEdits })
     }
     if (target.kind === 'multi') {
-      return applyContextMenuMutationAuthority(buildMultiMenu(target, showToast, wrap))
+      return applyContextMenuMutationAuthority(buildMultiMenu(target, showToast, wrap), { structuralCanvasEdits })
     }
     return []
-  }, [target, showToast, screenToFlowPosition, onClose, onOpenCustomValue, factorValueWriter, isViewer, connectedNodeAdds])
+  }, [target, showToast, screenToFlowPosition, onClose, onOpenCustomValue, factorValueWriter, isViewer, structuralCanvasEdits])
 }
 
 // ---------------------------------------------------------------------------

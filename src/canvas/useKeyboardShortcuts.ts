@@ -15,6 +15,7 @@ import { useConfirmDialogStore } from './stores/confirmDialogStore'
 import { armNodeKeyboardScopeForOneDispatch } from './nodes/nodeKeyboardScope'
 import { runCanvasUndo } from './undo/undoCommand'
 import { isViewerSession } from '../lib/viewerMode'
+import { useSavedModelProgramState } from './nodes/shared/savedModelProgram'
 
 /** The keys React Flow's node handler moves a node on — and the nudge's keys. */
 const ARROW_KEYS: ReadonlySet<string> = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
@@ -465,6 +466,10 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
   // Last time the cut/paste notice was emitted, so a held or repeatedly-pressed
   // gesture produces one message rather than a column of them.
   const lastClipboardNoticeAtRef = useRef(0)
+  // A program board's saved model refuses a canvas delete with nothing saved (U-W5): the key says why instead, as the
+  // menu's withheld row does. Read through a ref so the listener is not rebuilt.
+  const structuralCanvasEditsRef = useRef(true)
+  structuralCanvasEditsRef.current = useSavedModelProgramState() === 'not_program'
   // Fix: Use getState() inside handler to avoid dependency array issues.
   // Previously, all 12 action functions were in the dependency array, but
   // Zustand selectors return new function references on every render,
@@ -643,6 +648,12 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
       if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault()
         if (event.repeat || useConfirmDialogStore.getState().pending) return
+        if (!structuralCanvasEditsRef.current) {
+          // Only where the key would have deleted something (`deleteSelectionAction` reads the same selection).
+          const { selection } = useCanvasStore.getState()
+          if (selection.nodeIds.size > 0 || selection.edgeIds.size > 0) showCanvasToast(CANVAS_STRUCTURAL_EDIT_NOTICE, 'info')
+          return
+        }
         void deleteSelectionAction(showCanvasToast).catch((err) => {
           console.error('[useKeyboardShortcuts] delete failed:', err)
         })
