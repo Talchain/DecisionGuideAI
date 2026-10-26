@@ -109,12 +109,14 @@ export function DecisionBriefView({ brief, onShowNode }: DecisionBriefViewProps)
         </Section>
       )}
 
-      <Section title="Latest Run" testId="brief-run">
-        <p data-testid="brief-run-statement">{brief.run.statement}</p>
-        {current && brief.chancesNote && (
-          <p className="mt-2" data-testid="brief-chances-note">{brief.chancesNote}</p>
-        )}
-      </Section>
+      {brief.run.statement !== '' && (
+        <Section title="Latest Run" testId="brief-run">
+          <p data-testid="brief-run-statement">{brief.run.statement}</p>
+          {current && brief.chancesNote && (
+            <p className="mt-2" data-testid="brief-chances-note">{brief.chancesNote}</p>
+          )}
+        </Section>
+      )}
 
       {brief.record && (
         <Section title={brief.record.heading} testId="brief-record">

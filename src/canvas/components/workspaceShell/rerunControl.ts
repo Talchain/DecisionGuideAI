@@ -23,6 +23,7 @@ import { WORKSPACE_SURFACES } from './shellContract'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useCanvasStore } from '../../store'
 import { selectHasRunOnRecord } from '../../state/hasRunOnRecord'
+import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
 import type { AnalysisRefusalNotice } from '../../store/analysisRefusalNotice'
 
 export interface ReanalyseBarInputs {
@@ -86,10 +87,13 @@ export function useReanalyseBarInputs(): ReanalyseBarInputs & { preRunWithModel:
   const { semantic } = useAnalysisTrust()
   const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
   // `?? true`: the same defensive default `composeAnalysisState` applies to this field (`analysisStateSelector.ts`).
-  const hasRunOnRecord = useCanvasStore((s) => selectHasRunOnRecord({
+  const recordHasRun = useCanvasStore((s) => selectHasRunOnRecord({
     hasCompletedFirstRun: s.hasCompletedFirstRun ?? true,
     analysisStateV1: s.analysisStateV1,
   }))
+  // W3b: a program board's Run is its own (`canonical_analysis_view`), run by the host on every change; the old record it
+  // leaves at "never run" never makes it a first Run ("This model has not been analysed yet", the readiness bar).
+  const hasRunOnRecord = useSavedModelIsProgram() || recordHasRun
   // `?.`: partial store mocks (the ReanalyseBar specs) carry no `nodes`; the real store always does.
   const nodeCount = useCanvasStore((s) => s.nodes?.length ?? 0)
   const refusedUnchanged = useCanvasStore((s) => refusalHoldsRerun(s.analysisRefusalNotice, s.lastServerGraphHash))
