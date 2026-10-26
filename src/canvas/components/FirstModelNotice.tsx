@@ -87,6 +87,7 @@ import { useHasCompletedFirstRun } from '../selectors/results'
 import { isReviewedByUser, isReviewedEdge } from './pre-analysis/utils/isReviewedByUser'
 import { EDGE_PROVENANCED_FIELDS, edgeValueSource } from '../domain/edgeValueProvenance'
 import { resolveStarterId } from '../starters/loadStarter'
+import { useSavedModelProgramState } from '../nodes/shared/savedModelProgram'
 import { typography } from '../../styles/typography'
 
 export const FIRST_MODEL_NOTICE_TESTID = 'first-model-notice'
@@ -127,6 +128,7 @@ export function FirstModelNotice() {
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const hasCompletedFirstRun = useHasCompletedFirstRun()
+  const program = useSavedModelProgramState()
   const [dismissed, setDismissed] = useState(false)
 
   // ⚠ THESE ARE NOT THE BAND'S QUESTION, AND COLLAPSING THEM INTO IT WOULD BE
@@ -145,6 +147,9 @@ export function FirstModelNotice() {
   // stays purely spatial.
   const wants =
     !dismissed &&
+    // A model program's board has its own first step, the reading card, and its own Run; this legacy notice and its legacy
+    // expiry (`hasCompletedFirstRun`) do not run there (T2, Paul 26 Oct: it stayed up over a program's results).
+    program === 'not_program' &&
     // Nothing on the canvas — there is no model to characterise.
     nodes.length > 0 &&
     // A bundled example already carries its own, stronger disclosure

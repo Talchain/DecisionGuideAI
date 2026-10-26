@@ -17,6 +17,7 @@
  * which carry `Last run ·` rather than vanish (ED 11:52Z point 8).
  */
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
+import { useProgramRunState, type ProgramRunState } from '../../runView/programRunState'
 import type { FreshnessDisplaySemantic } from '../../store/analysisFreshness'
 import { OPTION_RESULT_COPY } from './metricVocabulary'
 
@@ -35,8 +36,18 @@ export function runCurrencyOf(semantic: FreshnessDisplaySemantic | undefined): R
   }
 }
 
+/**
+ * A program board's currency, from its own Run (W3b, `useProgramRunState`), exactly as the rerun control maps it: the legacy
+ * freshness record is not consulted on a program board (T2, Paul 26 Oct: it captioned a current Run "Model result").
+ */
+export function programRunCurrencyOf(state: ProgramRunState): RunCurrency {
+  return state === 'current' ? 'current' : state === 'not_current' ? 'changed' : 'none'
+}
+
 export function useRunCurrency(): RunCurrency {
-  return runCurrencyOf(useAnalysisTrust().semantic)
+  const program = useProgramRunState()
+  const legacy = runCurrencyOf(useAnalysisTrust().semantic)
+  return program === null ? legacy : programRunCurrencyOf(program)
 }
 
 /** The option result's caption for a currency, or `null` to withhold it. */
