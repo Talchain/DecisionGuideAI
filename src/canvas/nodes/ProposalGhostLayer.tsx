@@ -296,6 +296,7 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
               className="stroke-info"
               strokeOpacity={0.55}
               strokeWidth={1.5}
+              strokeDasharray="5 5"
             />
           ))}
         </svg>
@@ -307,7 +308,7 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
             key={c.id}
             data-testid={`proposal-ghost-node-${c.id}`}
             data-ghost-id={c.id}
-            className="absolute flex flex-col justify-center rounded-lg border border-info bg-panel opacity-80"
+            className="absolute flex flex-col justify-center rounded-lg border border-dashed border-info bg-panel opacity-80"
             style={{ left: c.x, top: c.y, width: c.w, minHeight: GHOST_CARD_HEIGHT, padding: 12, gap: 4, pointerEvents: 'none' }}
           >
             <span className="flex items-center" style={{ gap: 4 }}>
