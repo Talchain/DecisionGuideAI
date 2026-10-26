@@ -798,4 +798,15 @@ describe('Olumi’s notes under "Also in the model"', () => {
     expect(items).toHaveLength(7)
     expect(items.filter((t) => t.includes(assumption.slice(0, 40)))).toEqual([`Assumption (Olumi’s): ${assumption}`])
   })
+
+  it('a saved node that is not an object is skipped: the page renders its nodes and the note (Codex delta on 60d0dfa9)', async () => {
+    const graph = {
+      nodes: [{ id: 'o1', kind: 'option', label: 'Lease' }, null], edges: [],
+      living_model: { canonical: { assumptions: [{ id: 'a1', text: 'Rent stays flat.', author: 'olumi', concerns: ['o1'] }] } },
+    }
+    mockGetSharedSnapshotBySlug.mockResolvedValue({ ...SNAPSHOT, graph })
+    renderPage()
+    expect(await screen.findByText('Lease')).toBeInTheDocument()
+    expect(await alsoInTheModel()).toEqual(['Assumption (Olumi’s): Rent stays flat.'])
+  })
 })
