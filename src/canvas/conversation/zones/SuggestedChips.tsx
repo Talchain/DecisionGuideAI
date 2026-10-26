@@ -46,6 +46,8 @@ import {
   type ChangeNote, type ProposalChange,
 } from '../proposalFields'
 import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
+import { cardMark, type CardMarkIcon } from '../../nodes/shared/cardMarks'
+import { scrollWithinThread } from '../hooks/threadScroll'
 
 /**
  * Under an approve this card cannot offer: part of its change list could not be read, so approving would apply more than
@@ -60,38 +62,108 @@ const CHANGE_NOTE_SOURCE_CLASS: Readonly<Record<ChangeNote['source'], string>> =
   estimate: 'text-info', yours: '', party: '', unverified: 'text-text-light',
 }
 
+type ReadingGroup = NonNullable<ProposalChange['group']>
+/** A reading card's three counted marks, in the card marks' own glyphs; the rest (`other`) sits behind "Also in the model". */
+const READING_GROUP_MARKS: readonly { group: ReadingGroup; words: string; Icon: CardMarkIcon }[] = [
+  { group: 'used', words: 'From your brief', Icon: cardMark('source-brief').Icon },
+  { group: 'inferred', words: 'Olumi’s, for you to check', Icon: cardMark('source-olumi').Icon },
+  { group: 'left_out', words: 'Left out of the calculation', Icon: cardMark('not-analysed').Icon },
+]
+
 /**
  * ⭐ EVERYTHING ELSE THE APPROVAL WRITES: ONE PLAIN LINE, THE NOTES BEHIND "DETAILS" (DL 22 Oct, Paul's served test: the
  * card printed CEE's notes in raw "(1/3)…(3/3)" fragments). The line counts the changes from the notes' own ids, read
- * before the approve; "Details" opens CEE's sentences, each in the colour of whose it is.
+ * before the approve; "Details" opens CEE's sentences, each in the colour of whose it is. A reading card grouped row by row
+ * starts closed on its three counted marks instead, each opening the list at its group (DL G13, 26 Oct).
  */
 function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId: string; notes: readonly ChangeNote[]; changes: readonly ProposalChange[] | null; reading: boolean }) {
+  // A reading card whose every row CEE grouped folds to its three counted marks (DL G13, 26 Oct). One row without a group
+  // (an older CEE) keeps the card exactly as before.
+  const grouped = reading && changes !== null && changes.length > 0 && changes.every(c => c.group !== undefined)
   // A reading card (CEE's `reading: true`) is read before anything else, so its list starts open, under its own heading.
-  const [open, setOpen] = useState(reading)
+  const [open, setOpen] = useState(reading && !grouped)
+  const [otherOpen, setOtherOpen] = useState(false)
+  const [scrollTo, setScrollTo] = useState<ReadingGroup | null>(null)
+  const sections = useRef<Partial<Record<ReadingGroup, HTMLDivElement | null>>>({})
   const listId = useId()
   const program = useSavedModelIsProgram()
+  useEffect(() => {
+    if (!open || scrollTo === null) return
+    // Next frame: opening the list grows the thread, and the thread's own content sensor re-pins it to the bottom
+    // (useSmartScroll) after this effect. Scrolled after that pin, the group's first row is what the person sees.
+    // Only the thread moves (threadScroll.ts: `scrollIntoView` also scrolled the dock and blanked the Olumi tab, 7 Oct).
+    // Not cancelled on cleanup: clearing `scrollTo` re-runs this effect. An unmounted section's ref is null.
+    requestAnimationFrame(() => {
+      const section = sections.current[scrollTo]
+      if (section) scrollWithinThread(section, { behavior: 'auto', block: 'start' })
+    })
+    setScrollTo(null)
+  }, [open, scrollTo])
   // CEE's `changes[]` (DL 23 Oct): every item, its substance in CEE's words, Olumi's marked. Absent: the notes as before.
   // Present is the whole list (Codex r1 on #2957): the notes are read only when `changes[]` is absent.
   const listChanges = changes !== null
+  const changeRow = (c: ProposalChange) => (
+    <li key={`${c.kind}:${c.id}:${c.action}`} data-author={c.author}
+      className={`${styles.reasoningPanelBody} ${c.author === 'olumi' ? CHANGE_NOTE_SOURCE_CLASS.estimate : ''}`}
+      data-testid={`proposal-change-${c.kind}:${c.id}`}>
+      {proposalChangeWords(c)}
+      {c.author === 'olumi' && <span data-testid={`proposal-change-olumi-${c.kind}:${c.id}`}>{` · ${OLUMI_CHANGE_MARK}`}</span>}
+    </li>
+  )
+  const detailsToggle = <button type="button" className={styles.inlineDisclosureToggle} onClick={() => setOpen((v) => !v)}
+    aria-expanded={open} aria-controls={open ? listId : undefined} data-testid={`proposal-change-details-${proposalId}`}>
+    {open ? <><ChevronUp size={12} aria-hidden="true" /> Hide details</> : <><ChevronDown size={12} aria-hidden="true" /> Details</>}
+  </button>
+  if (grouped) {
+    const rowsOf = (group: ReadingGroup) => changes.filter(c => c.group === group)
+    const otherRows = rowsOf('other')
+    return (
+      <div className={styles.reasoningPanel} style={{ marginTop: 12, marginBottom: -4 }} data-testid={`proposal-change-notes-${proposalId}`}>
+        <p className={styles.reasoningPanelHeading} data-testid={`proposal-change-summary-${proposalId}`}>{READING_HEADING}</p>
+        <div className="flex flex-wrap items-center gap-3">
+          {READING_GROUP_MARKS.map(({ group, words, Icon }) => {
+            const count = rowsOf(group).length
+            return <button key={group} type="button" className={`${styles.inlineDisclosureToggle} inline-flex items-center gap-1`}
+              disabled={count === 0} aria-label={`${words}: ${count}`} title={words} aria-controls={open ? listId : undefined}
+              onClick={() => { setOpen(true); setScrollTo(group) }} data-testid={`reading-group-${proposalId}-${group}`}>
+              <Icon size={12} aria-hidden="true" />{count}
+            </button>
+          })}
+          {/* In the row, not the list: a card of only `other` rows has no other opener (Codex r1 on #3003). */}
+          {otherRows.length > 0 && <button type="button" className={styles.inlineDisclosureToggle}
+            onClick={() => { if (open && otherOpen) { setOtherOpen(false); return } setOpen(true); setOtherOpen(true); setScrollTo('other') }}
+            aria-expanded={open && otherOpen} aria-controls={open ? listId : undefined}
+            data-testid={`reading-other-${proposalId}`}>{`Also in the model (${otherRows.length})`}</button>}
+          {open && detailsToggle}
+        </div>
+        {open && (
+          <div id={listId}>
+            {READING_GROUP_MARKS.map(({ group, words, Icon }) => {
+              const rows = rowsOf(group)
+              if (rows.length === 0) return null
+              return <div key={group} ref={(el) => { sections.current[group] = el }} role="group" aria-label={words}
+                data-testid={`reading-group-section-${proposalId}-${group}`}>
+                <Icon size={12} aria-hidden="true" className="mt-2" />
+                <ul className={PANEL_LIST_BULLET}>{rows.map(changeRow)}</ul>
+              </div>
+            })}
+            {otherOpen && <div ref={(el) => { sections.current.other = el }} data-testid={`reading-group-section-${proposalId}-other`}>
+              <ul className={PANEL_LIST_BULLET}>{otherRows.map(changeRow)}</ul>
+            </div>}
+          </div>
+        )}
+      </div>
+    )
+  }
   return (
     <div className={styles.reasoningPanel} style={{ marginTop: 12, marginBottom: -4 }} data-testid={`proposal-change-notes-${proposalId}`}>
       <p className={styles.reasoningPanelHeading} data-testid={`proposal-change-summary-${proposalId}`}>
         {reading ? READING_HEADING : listChanges ? proposalChangesSummary(changes) : changeNotesSummary(notes, { program })}
       </p>
-      {(listChanges || notes.length > 0) && <button type="button" className={styles.inlineDisclosureToggle} onClick={() => setOpen((v) => !v)}
-        aria-expanded={open} aria-controls={open ? listId : undefined} data-testid={`proposal-change-details-${proposalId}`}>
-        {open ? <><ChevronUp size={12} aria-hidden="true" /> Hide details</> : <><ChevronDown size={12} aria-hidden="true" /> Details</>}
-      </button>}
+      {(listChanges || notes.length > 0) && detailsToggle}
       {open && (listChanges || notes.length > 0) && (
         <ul id={listId} className={PANEL_LIST_BULLET}>
-          {listChanges ? changes.map(c => (
-            <li key={`${c.kind}:${c.id}:${c.action}`} data-author={c.author}
-              className={`${styles.reasoningPanelBody} ${c.author === 'olumi' ? CHANGE_NOTE_SOURCE_CLASS.estimate : ''}`}
-              data-testid={`proposal-change-${c.kind}:${c.id}`}>
-              {proposalChangeWords(c)}
-              {c.author === 'olumi' && <span data-testid={`proposal-change-olumi-${c.kind}:${c.id}`}>{` · ${OLUMI_CHANGE_MARK}`}</span>}
-            </li>
-          )) : notes.map(n => (
+          {listChanges ? changes.map(changeRow) : notes.map(n => (
             <li key={n.field_id} data-source={n.source} className={`${styles.reasoningPanelBody} ${CHANGE_NOTE_SOURCE_CLASS[n.source]}`}
               data-testid={`proposal-change-note-${n.field_id}`}>{n.text}</li>
           ))}
