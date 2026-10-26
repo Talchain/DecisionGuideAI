@@ -574,6 +574,11 @@ export const STRUCTURAL_DELETE_NOTICE = {
   // CEE OLRV1 atomic rollback proves that nothing was written.
   revision_conflict: REVISION_CONFLICT_NOTICE,
   /**
+   * The core route refused the delete and said it saved nothing (`nothing_saved: true`, e.g. a program model's
+   * `CANVAS_EDIT_REFUSED`, served 27 Oct), so the elements are back. CEE's own words for why follow this sentence.
+   */
+  refused_nothing_saved: "That wasn't removed from the saved model, so I've put it back on the canvas.",
+  /**
    * Any other server-side failure. The turn reached the server and failed; we
    * hold no committed bytes, so we know neither that it landed nor that it did
    * not. Saying "couldn't confirm" is the only claim the evidence supports.

@@ -519,6 +519,17 @@ class StreamedDraftAbortedWithPreviewError extends Error {
 }
 
 /** Does a parsed turn result carry a draft graph with anything in it? */
+/**
+ * A core-route refusal's own no-write guarantee (`nothing_saved: true` on the core contract's error, as
+ * `coreTurnErrorBody` carries it) with CEE's words for why, or nothing. The default `openai` mode is served by core too.
+ */
+function coreNothingSavedOf(headers: Record<string, string>, errorBody: unknown): { coreNothingSaved?: { readonly words: string | null } } {
+  if (!isOpenAiLane((headers[AI_MODE_HEADER] ?? null) as AiComparisonMode | null)) return {}
+  if (!isRecord(errorBody) || errorBody.nothing_saved !== true) return {}
+  const words = typeof errorBody.detail === 'string' && errorBody.detail.trim() !== '' ? errorBody.detail.trim() : null
+  return { coreNothingSaved: { words } }
+}
+
 function resultCarriesDraftGraph(result: V5CallResult): boolean {
   if (result.kind !== 'response') return false
   const graph = (result.response as { draft_graph?: { nodes?: unknown[] } }).draft_graph
@@ -3378,11 +3389,13 @@ export function useConversation(): UseConversationReturn {
       capturedScenarioId: string | null,
       outcome:
         | { kind: 'response'; response: { draft_graph?: unknown; assistant_text?: unknown } }
-        | { kind: 'typed_error'; conflictCategory: string | undefined }
+        | { kind: 'typed_error'; conflictCategory: string | undefined; coreNothingSaved?: { readonly words: string | null } }
         | { kind: 'transport' },
     ) => {
       const store = useCanvasStore.getState()
       let notice: StructuralDeleteNoticeKey | null = null
+      // CEE's own words for a core refusal that saved nothing, after the restore's sentence.
+      let refusalWords: string | null = null
       // The fence's own sentence, when the proven no-write was a turn fence —
       // see the typed_error arm below.
       let fenceCopy: string | null = null
@@ -3465,6 +3478,13 @@ export function useConversation(): UseConversationReturn {
         shouldRevert = provenNoWrite
         notice = provenNoWrite ? (outcome.conflictCategory === 'revision_conflict' ? 'revision_conflict' : 'base_hash_diverged') : 'unconfirmed_server'
         fenceCopy = provenNoWrite ? fenceRefusalCopyForCategory(outcome.conflictCategory) : null
+        // The core route states its own no-write guarantee, whatever refused (U-W5: a program model's
+        // `CANVAS_EDIT_REFUSED`, 409 with `nothing_saved: true`). The canvas then holds what the saved model holds.
+        if (!provenNoWrite && outcome.coreNothingSaved !== undefined) {
+          shouldRevert = true
+          notice = 'refused_nothing_saved'
+          refusalWords = outcome.coreNothingSaved.words
+        }
       } else {
         notice = 'unconfirmed_transport'
       }
@@ -3499,7 +3519,8 @@ export function useConversation(): UseConversationReturn {
           id: crypto.randomUUID(),
           role: 'assistant',
           synthetic: true,
-          content: (notice === 'base_hash_diverged' ? fenceCopy : null) ?? STRUCTURAL_DELETE_NOTICE[notice],
+          content: (notice === 'base_hash_diverged' ? fenceCopy : null)
+            ?? (refusalWords !== null ? `${STRUCTURAL_DELETE_NOTICE[notice]} ${refusalWords}` : STRUCTURAL_DELETE_NOTICE[notice]),
           timestamp: new Date(),
         })
       }
@@ -5506,6 +5527,7 @@ export function useConversation(): UseConversationReturn {
               ? {
                   kind: 'typed_error',
                   conflictCategory: conflictCategory,
+                  ...coreNothingSavedOf(v5Headers, target.rawBody ?? target.boundaryError),
                 }
               : { kind: 'response', response: target.response },
           )
