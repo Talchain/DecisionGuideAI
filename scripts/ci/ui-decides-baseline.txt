@@ -61,10 +61,6 @@ src/canvas/utils/ceeAnalysisReadyValidation.ts:159
 src/canvas/utils/ceeDataAdapter.ts:328
 src/canvas/utils/ceeDataAdapter.ts:331
 src/canvas/utils/formatCEEError.ts:84
-src/canvas/utils/graphHealthStrings.ts:22
-src/canvas/utils/graphHealthStrings.ts:26
-src/canvas/utils/limitsStatus.ts:47
-src/canvas/utils/limitsStatus.ts:51
 src/components/results/TornadoChart.tsx:673
 src/components/results/TornadoChart.tsx:690
 src/hooks/useCEEDraft.ts:101

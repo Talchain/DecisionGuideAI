@@ -49,7 +49,6 @@ vi.mock('../../../contexts/AuthContext', async importOriginal => ({
   ...await importOriginal<typeof import('../../../contexts/AuthContext')>(),
   useAuth: () => ({ authenticated: false, user: null }),
 }))
-vi.mock('../../../hooks/useISLConformal', () => ({ useISLConformal: () => ({ data: null, loading: false, predict: vi.fn() }) }))
 vi.mock('../../hooks/useComparisonDetection', () => ({ useComparisonDetection: () => ({ optionNodes: [], isComparison: false }) }))
 vi.mock('../../graphChanges/rowCanvasLink', async importOriginal => ({
   ...await importOriginal<typeof import('../../graphChanges/rowCanvasLink')>(), canvasLinkOfTarget: vi.fn(), useCanvasLight: vi.fn(),
@@ -83,7 +82,6 @@ import { OptionPanel } from '../../ui/inspector-v2/panels/OptionPanel'
 import { DecisionPanel } from '../../ui/inspector-v2/panels/DecisionPanel'
 import { OutcomePanel } from '../../ui/inspector-v2/panels/OutcomePanel'
 import { RiskPanel } from '../../ui/inspector-v2/panels/RiskPanel'
-import { DecisionSummary } from '../../components/DecisionSummary'
 import { ComparisonCanvasLayout } from '../../components/ComparisonCanvasLayout'
 import { useComparisonStore } from '../../stores/comparisonStore'
 import SharedBriefPage from '../../../pages/SharedBriefPage'
@@ -383,10 +381,6 @@ const SURFACES: readonly Surface[] = [
   {
     name: 'canvas outcome card (OutcomeNode)', u0: false, minText: 5,
     mount: () => render(<ReactFlowProvider><OutcomeNode {...nodeProps<ComponentProps<typeof OutcomeNode>>('delivery', 'outcome')} /></ReactFlowProvider>).container,
-  },
-  {
-    name: 'canvas decision summary (DecisionSummary)', u0: false, minText: 10,
-    mount: () => render(<DecisionSummary />).container,
   },
   {
     name: 'canvas comparison layout (ComparisonCanvasLayout)', u0: false, minText: 10,
@@ -828,13 +822,13 @@ const FIELD_DISPOSITION: Readonly<Record<string, FieldDisposition>> = {
   probes_used: { excluded: 'a count of the flip search\'s probes, not a share' },
   mean_outcome: { excluded: OUTCOME_QUANTITY }, downside: { excluded: OUTCOME_QUANTITY }, p05: { excluded: OUTCOME_QUANTITY },
   p10: { excluded: OUTCOME_QUANTITY }, p50: { excluded: OUTCOME_QUANTITY }, p90: { excluded: OUTCOME_QUANTITY },
-  winner_pct: { excluded: DEBUG_ONLY }, defaulted_percentage: { excluded: DEBUG_ONLY }, confidence_unique_values: { excluded: DEBUG_ONLY },
+  defaulted_percentage: { excluded: DEBUG_ONLY }, confidence_unique_values: { excluded: DEBUG_ONLY },
   never_truncate_key_max_length: { excluded: DEBUG_ONLY }, rank_displayed: { excluded: DEBUG_ONLY }, win_probability_displayed: { excluded: DEBUG_ONLY },
   chance_words: { excluded: 'CEE\'s served words (rule C: the only text a chance becomes); not a number' },
   goal_chance_leader: { excluded: 'an option id (whom CEE\'s goal-chance licence names highest), not a number; the ruled claim it permits is censused by identity (rulingClaimElements)' },
   goal_chance: { excluded: 'CEE\'s served goal-chance detail (its words and displays, which are CEE\'s served strings above); not a number' },
   alt_winner_label: { excluded: NOT_A_NUMBER }, alternative_winner: { excluded: NOT_A_NUMBER }, alternative_winner_id: { excluded: NOT_A_NUMBER },
-  alternative_winner_label: { excluded: NOT_A_NUMBER }, percentiles_source: { excluded: NOT_A_NUMBER }, robust_winner: { excluded: NOT_A_NUMBER },
+  alternative_winner_label: { excluded: NOT_A_NUMBER }, percentiles_source: { excluded: NOT_A_NUMBER },
   shareable_url: { excluded: NOT_A_NUMBER }, shared_at: { excluded: NOT_A_NUMBER }, shared_mechanism: { excluded: NOT_A_NUMBER },
   switch_reading: { excluded: NOT_A_NUMBER }, switch_reason: { excluded: NOT_A_NUMBER }, win_probabilities_unavailable: { excluded: NOT_A_NUMBER },
   winner_flips: { excluded: NOT_A_NUMBER }, winner_id: { excluded: NOT_A_NUMBER }, winner_label: { excluded: NOT_A_NUMBER },
@@ -844,7 +838,6 @@ type SurfaceDisposition = 'rendered' | { readonly excluded: string }
 const productionSources = (): Array<[string, string]> => [...productionModules()].map(f => [f, sourceFiles().get(f) ?? ''])
 const NOT_RENDERED_HELPER_ONLY = 'never rendered: production imports only its helpers (no `<Name` JSX of it in a production file; checked below)'
 const SURFACE_DISPOSITION: Readonly<Record<string, SurfaceDisposition>> = {
-  'src/components/debug/PayloadLabTab.tsx': { excluded: DEBUG_ONLY },
   // Last check, blocking 1: SummaryTab no longer reads win_probability (its "N% confidence" is removed), so it is no reader.
   'src/components/results/RangeVisualization.tsx': { excluded: NOT_RENDERED_HELPER_ONLY },
 }
@@ -870,7 +863,6 @@ const BUILDER_DISPOSITION: Readonly<Record<string, string>> = {
   'src/routes/CanvasMVP.tsx': 'copies a share URL',
   'src/utils/clipboard.ts': 'a helper; its callers copy a draft-error report (PreAnalysisPanel) or debug JSON (BoundaryCard, JsonViewer)',
   'src/components/DebugTray.tsx': DEBUG_ONLY,
-  'src/components/debug/PayloadLabTab.tsx': DEBUG_ONLY,
   'src/components/debug/components/JsonViewer.tsx': DEBUG_ONLY,
   'src/components/debug/tabs/DataFlowTab.tsx': DEBUG_ONLY,
   'src/components/debug/tabs/PipelineTab.tsx': DEBUG_ONLY,

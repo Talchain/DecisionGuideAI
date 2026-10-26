@@ -1,12 +1,11 @@
 /**
  * Debug Tray (M1.4 + S5-DEBUG)
- * Collapsible developer info showing Request IDs, limits, feature flags,
+ * Collapsible developer info showing Request IDs, feature flags,
  * response hashes (determinism), performance metrics, and error logs
  */
 
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, Copy, CheckCircle2, AlertCircle } from 'lucide-react'
-import { useLimitsStore } from '../stores/limitsStore'
 import { isCeeIdempotencyEnabled, setCeeIdempotencyEnabled } from '../utils/idempotency'
 import type { CeeDebugHeaders } from '../canvas/utils/ceeDebugHeaders'
 
@@ -40,7 +39,6 @@ export function DebugTray({
 }: DebugTrayProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [copiedHash, setCopiedHash] = useState(false)
-  const { limits } = useLimitsStore()
   const [ceeIdempotencyEnabled, setCeeIdempotencyEnabledState] = useState<boolean>(() => {
     try {
       return isCeeIdempotencyEnabled()
@@ -105,21 +103,6 @@ export function DebugTray({
             <div>
               <div className="text-gray-400 mb-1">Assist Correlation ID:</div>
               <div className="text-info break-all">{correlationId}</div>
-            </div>
-          )}
-
-          {limits && (
-            <div>
-              <div className="text-gray-400 mb-1">PLoT Limits:</div>
-              <div className="text-gray-300 space-y-1">
-                <div>Nodes: {limits.max_nodes}</div>
-                <div>Edges: {limits.max_edges}</div>
-                <div>Payload: {limits.max_body_kb} KB</div>
-                <div>Rate: {limits.rate_limit_rpm} RPM</div>
-                {limits.flags?.scm_lite !== undefined && (
-                  <div>SCM Lite: {limits.flags.scm_lite ? 'ON' : 'OFF'}</div>
-                )}
-              </div>
             </div>
           )}
 

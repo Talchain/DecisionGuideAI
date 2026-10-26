@@ -180,7 +180,6 @@ import { ResultsPanelSkeleton } from './ResultsPanelSkeleton'
 import { trackRunStarted, trackRunCompleted, trackRunFailed } from '../../lib/resultsInstrumentation'
 import { isErrorReport } from '../../adapters/plot/v2/responseMapper'
 import { useScenarioComparison, COMPARISON_UNAVAILABLE_REASON } from '../hooks/useScenarioComparison'
-import { useRobustness } from '../hooks/useRobustness'
 import { mapRobustness } from '../../lib/mappers/mapRobustness'
 import type { MappedRobustness } from '../../lib/mappers/types'
 // ScenarioComparison modal removed - now rendered as ComparisonCanvasLayout in ReactFlowGraph
@@ -747,15 +746,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const [degradedBannerDismissed, setDegradedBannerDismissed] = useState(false)
   const scenarioComparison = useScenarioComparison()
 
-  // Brief 25: Fetch robustness data for sensitivity, VoI, robustness bounds
-  // Uses runMeta.runId and results hash when available
   const results = useCanvasStore(s => s.results)
   const robustnessRunId = results?.hash ? `run-${results.hash.slice(0, 8)}` : undefined
-  useRobustness({
-    runId: robustnessRunId,
-    responseHash: results?.hash,
-    autoFetch: true,
-  })
 
   // React #185 FIX: Combine state selectors with shallow comparison
   // Using individual selectors for objects (runMeta, graphHealth, etc.) caused

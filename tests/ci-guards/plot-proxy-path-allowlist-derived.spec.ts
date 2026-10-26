@@ -259,7 +259,8 @@ describe('plot-proxy allowlist is derived from the browser→PLoT call sites', (
     // future call site stops resolving, `resolved` drops below `sites` and the
     // dedicated resolve test REDs by name.
     // 8 → 7 (#2799, DL Q2b): the pre-run `/v1/pre-analysis-sensitivity` caller was DELETED (no graph out of the browser).
-    expect(sites.length).toBeGreaterThanOrEqual(7)
+    // 7 → 5 (inventory U1): both `/v1/limits` sites left with their deleted caller (`useEngineLimits` → `v1/http.ts limits`).
+    expect(sites.length).toBeGreaterThanOrEqual(5)
     expect(resolved.length).toBe(sites.length)
   })
 
@@ -273,16 +274,18 @@ describe('plot-proxy allowlist is derived from the browser→PLoT call sites', (
     // behind REDs `DERIVED ⊇ ALLOWLIST` instead. Lower it only alongside a
     // deletion that earns it.
     // 7 → 6 (#2799, DL Q2b): `/v1/pre-analysis-sensitivity` left with its deleted caller, the deletion that earns it.
-    expect(allowlist.length).toBeGreaterThanOrEqual(6)
+    // 6 → 5 (inventory U1): `/v1/limits` left with its deleted caller.
+    expect(allowlist.length).toBeGreaterThanOrEqual(5)
     // Bound by identity to a route that must always be there, so a parse returning
     // junk regexes cannot pass.
     expect(allowlist.some((re) => re.test('/v1/cee/draft-graph'))).toBe(true)
-    expect(allowlist.some((re) => re.test('/v1/limits'))).toBe(true)
+    expect(allowlist.some((re) => re.test('/v1/templates'))).toBe(true)
     // NEGATIVE identity bind: a route this pass retired must be GONE. Without
     // this the floor above is satisfied by any seven entries, including a set
     // that still carried `/v2/run` (trap 13b — a control that agrees with
     // itself). `/v2/run` joins the retired list this pass.
     expect(allowlist.some((re) => re.test('/v2/run'))).toBe(false)
+    expect(allowlist.some((re) => re.test('/v1/limits'))).toBe(false)
     expect(allowlist.some((re) => re.test('/v1/run'))).toBe(false)
     expect(allowlist.some((re) => re.test('/version'))).toBe(false)
   })

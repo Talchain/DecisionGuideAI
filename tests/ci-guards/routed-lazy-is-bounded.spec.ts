@@ -77,11 +77,6 @@ const EXEMPT: ReadonlyArray<{ file: string; symbol: string; why: string }> = [
   },
   {
     file: 'routes/CanvasMVP.tsx',
-    symbol: 'TemplatesPanel',
-    why: 'In-page panel inside a loaded canvas; a stall costs the panel, not the page.',
-  },
-  {
-    file: 'routes/CanvasMVP.tsx',
     symbol: 'VersionsPanelHost',
     why: 'In-page panel inside a loaded canvas; a stall costs the panel, not the page.',
   },

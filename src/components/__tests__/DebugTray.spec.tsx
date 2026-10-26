@@ -16,19 +16,6 @@ import { DebugTray } from '../DebugTray'
 const mockIsCeeIdempotencyEnabled = vi.fn()
 const mockSetCeeIdempotencyEnabled = vi.fn()
 
-// Mock the stores
-vi.mock('../../stores/limitsStore', () => ({
-  useLimitsStore: () => ({
-    limits: {
-      max_nodes: 100,
-      max_edges: 200,
-      max_body_kb: 512,
-      rate_limit_rpm: 60,
-      flags: { scm_lite: true }
-    }
-  })
-}))
-
 vi.mock('../../utils/idempotency', () => ({
   isCeeIdempotencyEnabled: () => mockIsCeeIdempotencyEnabled(),
   setCeeIdempotencyEnabled: (enabled: boolean) => mockSetCeeIdempotencyEnabled(enabled),
@@ -349,26 +336,6 @@ describe('DebugTray - S5-DEBUG Features', () => {
       fireEvent.click(screen.getByText('Debug Info'))
 
       expect(screen.queryByText(/Errors/)).not.toBeInTheDocument()
-    })
-  })
-
-  describe('Limits Display', () => {
-    it('should display PLoT limits from store', () => {
-      render(<DebugTray />)
-      fireEvent.click(screen.getByText('Debug Info'))
-
-      expect(screen.getByText('PLoT Limits:')).toBeInTheDocument()
-      expect(screen.getByText(/Nodes: 100/)).toBeInTheDocument()
-      expect(screen.getByText(/Edges: 200/)).toBeInTheDocument()
-      expect(screen.getByText(/Payload: 512 KB/)).toBeInTheDocument()
-      expect(screen.getByText(/Rate: 60 RPM/)).toBeInTheDocument()
-    })
-
-    it('should display feature flags when present', () => {
-      render(<DebugTray />)
-      fireEvent.click(screen.getByText('Debug Info'))
-
-      expect(screen.getByText(/SCM Lite: ON/)).toBeInTheDocument()
     })
   })
 

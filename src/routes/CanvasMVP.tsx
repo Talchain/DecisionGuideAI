@@ -2,10 +2,9 @@
 // Canvas MVP - React Flow graph editor with integrated Templates panel
 
 import '../styles/plot.css'
-import { useEffect, useState, lazy, Suspense, useCallback, useRef } from 'react'
+import { useEffect, lazy, Suspense, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import ReactFlowGraph from '../canvas/ReactFlowGraph'
-import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintEventBus } from '../canvas/blueprints/eventBus'
 import { ToastProvider } from '../canvas/ToastContext'
 import { useCanvasStore } from '../canvas/store'
@@ -31,17 +30,11 @@ import { ServerGraphRetryNotice } from '../canvas/components/ServerGraphRetryNot
 // server-driven delivery from the message loop entirely.
 import { useProvisionalAnalysisDelivery } from '../canvas/hooks/useProvisionalAnalysisDelivery'
 import { useImportRegistration } from '../canvas/registration/useImportRegistration'
-import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../canvas/mutations/mutationAuthority'
 import { resolveModelDisplayName } from '../canvas/domain/modelDisplayName'
 import { useLegacyValidationOff } from '../canvas/nodes/shared/savedModelIsCore'
 import { getStarter, resolveStarterId } from '../canvas/starters/loadStarter'
 import { resolveNodeTypeLiteral } from '../canvas/domain/nodes'
 
-const TEMPLATE_GRAPH_MUTATIONS_CONNECTED = hasServerGraphAuthority(
-  CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
-)
-
-const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
 const VersionsPanelHost = lazy(() => import('../canvas/versions/VersionsPanelHost').then(m => ({ default: m.VersionsPanelHost })))
 
 /**
@@ -63,7 +56,6 @@ function CanvasMVPBody() {
     console.log(`[CanvasMVP] Render #${renderCountRef.current}`)
   }
 
-  const [insertionError, setInsertionError] = useState<string | null>(null)
   const showTemplatesPanel = useCanvasStore(state => state.showTemplatesPanel)
   const closeTemplatesPanel = useCanvasStore(state => state.closeTemplatesPanel)
   // React #185 FIX: runMeta is an object - use shallow comparison to prevent infinite re-renders
@@ -158,34 +150,6 @@ function CanvasMVPBody() {
       console.log('[CANVAS]', { route: '/canvas', mode: 'RF+Templates' })
     }
   }, [])
-
-  const handleInsertBlueprint = useCallback(async (blueprint: Blueprint) => {
-    const result = blueprintEventBus.emit(blueprint)
-    if (result.error) {
-      // Keep Templates panel open and show error
-      setInsertionError(result.error)
-    } else {
-      // Success: close Templates panel, show docked Results view, clear error
-      closeTemplatesPanel()
-      useCanvasStore.getState().setShowResultsPanel(true)
-      setInsertionError(null)
-
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console, no-restricted-syntax
-        console.log('[CanvasMVP] Template inserted:', blueprint.name)
-      }
-
-      // ⚠ AUTO-RUN RETIRED. Inserting a template used to fire an UNGATED
-      // browser→PLoT `/v1/run` immediately — a legacy direct-analysis caller that
-      // spent an analysis the user had not asked for, on a graph they had not yet
-      // seen. Canonical analysis is UI→CEE→PLoT→ISL, reached from the Run
-      // affordance the user drives; template insertion now only inserts.
-      //
-      // Do not reintroduce an auto-run here. If insertion should trigger analysis,
-      // that decision belongs to CEE (the rowed CEE-side auto-analysis direction),
-      // so the run carries the assistant's context rather than bypassing it.
-    }
-  }, [closeTemplatesPanel])
 
   // Close Templates panel when user interacts with canvas
   // Brief 37: Use ref to avoid dependency on showTemplatesPanel, keeping callback stable
@@ -429,19 +393,6 @@ function CanvasMVPBody() {
           scenario on screen, and only while the canvas is empty.
         */}
         <ServerGraphRetryNotice />
-
-        {/* Templates Panel */}
-        <Suspense fallback={null}>
-          <TemplatesPanel
-            isOpen={TEMPLATE_GRAPH_MUTATIONS_CONNECTED && showTemplatesPanel}
-            onClose={() => {
-              closeTemplatesPanel()
-              setInsertionError(null) // Clear error when panel closes
-            }}
-            onInsertBlueprint={handleInsertBlueprint}
-            insertionError={insertionError}
-          />
-        </Suspense>
 
         {/* Versioned workspace: the version-history PANEL only.
             R4 (Paul, 16 Aug 2026): the floating "Versions" pill that used to

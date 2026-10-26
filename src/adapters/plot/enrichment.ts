@@ -16,8 +16,32 @@ import type {
   RobustnessLabel,
   SensitiveParameter,
 } from '../../canvas/components/RecommendationCard/types'
-import type { ISLValidationResponse, ISLValidationSuggestion } from '../isl/types'
 import { isPlotEnrichmentEnabled } from '../../flags'
+
+// The validation shape these readers return (moved from the deleted ISL client's types, inventory U1).
+export interface ISLValidationSuggestion {
+  id: string
+  type: 'missing_edge' | 'missing_node' | 'incomplete_data' | 'logic_error'
+  severity: 'error' | 'warning' | 'info'
+  message: string
+  affectedNodes: string[]
+  affectedEdges?: string[]
+  quickFix?: {
+    label: string
+    action: 'add_edge' | 'add_node' | 'update_data' | 'remove_node'
+    payload: any
+  }
+}
+
+export interface ISLValidationResponse {
+  valid: boolean
+  suggestions: ISLValidationSuggestion[]
+  graph_health: {
+    completeness: number // 0-1
+    connectivity: number // 0-1
+    logical_consistency: number // 0-1
+  }
+}
 
 // =============================================================================
 // PLoT Enrichment Schema (actual response from PLoT backend)

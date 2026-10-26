@@ -739,11 +739,12 @@ describe('plot-proxy path allowlist (/bff/engine/* → plot-lite-service)', () =
     // `MOUNTS` serves both prefixes. A guard applied to only one of them would
     // leave the other wide open, and every assertion above would still pass.
     // ROADMAP 2.1229 — the on-list example moved off `/v2/run` (retired with
-    // its caller) onto `/v1/limits`, which survives. The PROPERTY under test
-    // is unchanged: the second mount is bounded by the same list.
-    const on = await invoke(plotHandler as Handler, { path: '/engine/v1/limits' })
+    // its caller) onto `/v1/limits`, and inventory U1 moved it again onto
+    // `/v1/templates` when `/v1/limits` left with its caller. The PROPERTY under
+    // test is unchanged: the second mount is bounded by the same list.
+    const on = await invoke(plotHandler as Handler, { path: '/engine/v1/templates' })
     expect(on.fetchCalled).toBe(true)
-    expect(on.calledUrl).toBe('https://plot-lite-service-staging.onrender.com/v1/limits')
+    expect(on.calledUrl).toBe('https://plot-lite-service-staging.onrender.com/v1/templates')
 
     const off = await invoke(plotHandler as Handler, { path: '/engine/v1/admin/secrets' })
     expect(off.status).toBe(404)
