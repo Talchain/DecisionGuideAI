@@ -68,7 +68,11 @@ function stubTurn(body: Record<string, unknown>) {
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
     calls.push({ url, mode: new Headers(init?.headers).get('x-olumi-ai-mode') })
-    return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } })
+    // The board's saved read (`savedGraph.ts`): the turn's own graph, a core model that is not a program.
+    const read = url.includes(`/scenarios/${SCENARIO}/graph`)
+      ? { schema: 'scenario_graph.v1', scenario_id: SCENARIO, graph_present: true, graph_hash: useCanvasStore.getState().lastServerGraphHash, graph: served.chat_edit_turn.model.graph }
+      : body
+    return new Response(JSON.stringify(read), { status: 200, headers: { 'content-type': 'application/json' } })
   }))
   return calls
 }
@@ -92,7 +96,8 @@ describe('a core turn carrying `action_bar`, through the real send path', () => 
     const calls = stubTurn({ ...served.chat_edit_turn, action_bar: CORE_BAR })
     await sendOneTurn()
     expect(calls.filter((c) => /\/proxy\/v5\/turn$/.test(c.url)).map((c) => c.mode)).toEqual(['core-route'])
-    expect(screen.getByTestId('reasoning-action-bar')).toHaveAttribute('data-state-key', '0123456789abcdef')
+    // The bar waits for the saved read to say this board is not a program (C13: none on a program board).
+    expect(await screen.findByTestId('reasoning-action-bar')).toHaveAttribute('data-state-key', '0123456789abcdef')
     const control = screen.getByTestId('reasoning-action-bar-icon-pre_mortem')
     expect(control).toHaveAttribute('aria-label', 'Pre-mortem — Imagine this went badly and work back to why.')
     expect(control).not.toHaveAttribute('aria-disabled')
