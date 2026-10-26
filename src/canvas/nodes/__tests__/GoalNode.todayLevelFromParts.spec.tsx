@@ -23,7 +23,11 @@ vi.mock('../../store', () => ({
   })),
 }))
 // A core scenario (its saved model has a living model): where a stated level would be typed on the card.
-vi.mock('../shared/savedGraph', () => ({ useSavedGraph: () => ({ nodes: [], living_model: { aims: [], links: [] } }) }))
+vi.mock('../shared/savedGraph', () => {
+  const graph = { nodes: [], living_model: { aims: [], links: [] } }
+  // The program reader (`savedModelProgram.ts`) reads the same saved graph.
+  return { useSavedGraph: () => graph, useSavedGraphRead: () => ({ status: 'read', graph }) }
+})
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: () => ({ sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
     achievementProbability: null, stabilityPercentage: null, winRate: null, isResultsMode: false, predictedOutcome: null,

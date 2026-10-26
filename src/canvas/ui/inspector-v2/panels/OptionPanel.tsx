@@ -19,6 +19,7 @@ import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
 import { useNodeMutations } from '../useInspectorMutations'
 import { useOptionInterventionCommit } from '../shared/useOptionInterventionCommit'
+import { useSavedModelProgramState } from '../../../nodes/shared/savedModelProgram'
 import { resolveOptionTargetDisplayFrame, resolveOptionTargetEntryFrame } from '../shared/optionTargetEntry'
 import {
   GROUP_LABELS,
@@ -185,6 +186,8 @@ export const OptionPanel = memo(function OptionPanel({
     unapplied: unappliedIntervention,
     dismiss: dismissIntervention,
   } = useOptionInterventionCommit(nodeId ?? null)
+  // Spec §3 (C13): the core route refuses an option's value edit on a program board, so the values read as text there.
+  const optionValuesEditable = useSavedModelProgramState() === 'not_program'
   // ROADMAP 2.1204 — the drafter's rephrase-absorption notes are separated
   // from the user's description. CEE APPENDS `\n\n<note>` per absorbed twin
   // (option-rephrase-merge.ts:459-462), so before this split they rendered
@@ -754,10 +757,11 @@ export const OptionPanel = memo(function OptionPanel({
                  * state that produced the founder's board, where 3 of 5
                  * options carried no effect at all.
                  *
-                 * ⚠ `false`, NOT `readOnly`, AND NOT SIMPLY OMITTED. Written
-                 * out so the next reader sees a DECISION rather than a missing
-                 * prop, and so the diff that ever restores `readOnly` has to
-                 * delete this paragraph to do it.
+                 * ⚠ NOT `readOnly`, AND NOT SIMPLY OMITTED. Written out so the
+                 * next reader sees a DECISION rather than a missing prop, and so
+                 * the diff that ever restores `readOnly` has to delete this
+                 * paragraph to do it. The one fence is the carrier's own: a
+                 * program board's core route refuses this edit (C13).
                  *
                  * ⛔ THE LOCAL-ONLY FENCES STAY. `description` and
                  * `advanced-editor` remain. The factor picker uses the canvas
@@ -767,7 +771,7 @@ export const OptionPanel = memo(function OptionPanel({
                  * Router's blanket did, and this panel exists to be finer than
                  * that.
                  */
-                disabled={false}
+                disabled={!optionValuesEditable}
                 techMode={techMode}
                 /* normalisedValue intentionally omitted — raw system values
                    live in TechnicalDisclosure via OptionAdvancedEditor. */

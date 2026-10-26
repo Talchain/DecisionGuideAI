@@ -21,7 +21,8 @@ import { TOP_PILL_BOTTOM_PX, TOP_PILL_HEIGHT_PX, TOP_PILL_TOP_PX } from '../../c
 import { resolveActiveGoalNodeId } from '../hooks/goalThresholdResolvers'
 import { assumptionMapOf } from './assumptionMapModel'
 import { isUnsettled } from './RestsOnMarker'
-import { LENS_COPY, LENS_ICON, LENS_ORDER, lensNeedsRun, useCurrentPremortemWorksheet, usePremortemArrival, type BarLens } from './lenses'
+import { useSavedModelProgramState } from '../nodes/shared/savedModelProgram'
+import { barLensesFor, LENS_COPY, LENS_ICON, lensNeedsRun, useCurrentPremortemWorksheet, usePremortemArrival, type BarLens } from './lenses'
 
 export const LENS_BAR_TESTID = 'lens-bar'
 /** The space kept between the bar and the pill, the dock or the window edge. */
@@ -102,6 +103,8 @@ export function LensBar() {
   const active = useCanvasStore((s) => s.lens.active)
   const hasRun = useCanvasStore((s) => s.results.status === 'complete' && !!s.results.report)
   const setLens = useCanvasStore((s) => s.setLens)
+  // A program board shows only the lenses a program fills (`barLensesFor`); an unknown read withholds them too.
+  const lenses = barLensesFor(useSavedModelProgramState() !== 'not_program')
   const counts = useSegmentCounts()
   const [bar, setBar] = useState<HTMLDivElement | null>(null)
   const placement = useLensBarPlacement(bar)
@@ -119,7 +122,7 @@ export function LensBar() {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
     event.preventDefault()
     event.stopPropagation()
-    const usable = LENS_ORDER.filter((lens) => hasRun || !lensNeedsRun(lens))
+    const usable = lenses.filter((lens) => hasRun || !lensNeedsRun(lens))
     const at = usable.indexOf(current)
     const next = usable[(at + (event.key === 'ArrowRight' ? 1 : usable.length - 1)) % usable.length]
     choose(next)
@@ -144,7 +147,7 @@ export function LensBar() {
         opacity: placement ? 1 : 0,
       }}
     >
-      {LENS_ORDER.map((lens) => {
+      {lenses.map((lens) => {
         const selected = lens === current
         const waiting = lensNeedsRun(lens) && !hasRun
         const count = counts[lens] ?? 0

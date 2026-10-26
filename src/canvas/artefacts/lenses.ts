@@ -42,11 +42,23 @@ export const LENS_ICON: Readonly<Record<BarLens, LucideIcon>> = {
 /** "What would change" reads a Run, so before one it is shown but cannot be chosen. */
 export const lensNeedsRun = (lens: BarLens): boolean => lens === 'what_changes'
 
+/**
+ * Spec §3 (C13): a program board offers only the lenses a program fills. Hidden there:
+ * - "If it failed": its worksheet comes only from the legacy agent turn, never the core route a program uses;
+ * - "What if": CEE's what-if reads the legacy living model and refuses a program as `not_a_core_scenario`.
+ * Trade-offs and Rests on read the drawn graph, which a program fills; "What would change" stays, disabled with its
+ * reason until a Run report exists (`lensNeedsRun`).
+ */
+const NO_PROGRAM_CONTRACT: ReadonlySet<BarLens> = new Set(['premortem', 'what_if'])
+export const barLensesFor = (program: boolean): readonly BarLens[] =>
+  program ? LENS_ORDER.filter((lens) => !NO_PROGRAM_CONTRACT.has(lens)) : LENS_ORDER
+
 /** The lens after `current` on the bar (wrapping), skipping one that cannot show yet. Option isolation counts as Model. */
-export function nextBarLens(current: LensMode, hasRun: boolean): BarLens {
-  const at = LENS_ORDER.indexOf(current === 'option' ? 'full' : current)
-  for (let step = 1; step <= LENS_ORDER.length; step += 1) {
-    const lens = LENS_ORDER[(at + step) % LENS_ORDER.length]
+export function nextBarLens(current: LensMode, hasRun: boolean, program = false): BarLens {
+  const order = barLensesFor(program)
+  const at = order.indexOf(current === 'option' ? 'full' : current)
+  for (let step = 1; step <= order.length; step += 1) {
+    const lens = order[(at + step) % order.length]
     if (hasRun || !lensNeedsRun(lens)) return lens
   }
   return 'full'
