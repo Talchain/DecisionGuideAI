@@ -1242,7 +1242,7 @@ export interface EnrichedFullGraph {
   factors: EnrichedGraphNode[]
   edges: EnrichedGraphEdge[]
   options: EnrichedGraphNode[]
-  /** Olumi's notes the canvas shows as glyphs, not cards (`noteRecordsModel.ts`), for the scenario they were published for. */
+  /** Olumi's notes the canvas shows as glyphs, not cards (`noteRecordsModel.ts`): the exported scenario's own, absent when none were published for it. */
   notes?: { scenario_id: string | null; records: NoteRecord[] }
 }
 
@@ -2197,6 +2197,8 @@ interface DebugBundle {
 // =============================================================================
 
 export interface FullGraphData {
+  /** The scenario this graph belongs to: Olumi's notes are exported only when they were published for it. */
+  scenarioId?: string | null
   nodes: Array<{
     id: string
     data: Record<string, unknown> & {
@@ -3796,9 +3798,12 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
   // Transform graph data if requested (always enriched)
   let fullGraph: DebugBundle['full_graph'] | undefined
   if (options.includeFullGraph && options.graphData) {
-    // The notes are not graph nodes, so the graph alone would drop them from the export.
+    // The notes are not graph nodes, so the graph alone would drop them from the export. Only the exported scenario's own:
+    // notes published for another scenario (or for none) are left out, never put in this graph's export.
     const notes = useNoteRecordsStore.getState()
-    fullGraph = { ...transformGraphDataEnriched(options.graphData), notes: { scenario_id: notes.scenarioId, records: [...notes.records.values()] } }
+    const scenarioId = options.graphData.scenarioId ?? null
+    const own = scenarioId !== null && notes.scenarioId === scenarioId
+    fullGraph = { ...transformGraphDataEnriched(options.graphData), ...(own ? { notes: { scenario_id: scenarioId, records: [...notes.records.values()] } } : {}) }
   }
 
   // Capture ceeAnalysisReady.options — real intervention data that node.data.interventions misses

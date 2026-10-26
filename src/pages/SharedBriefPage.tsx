@@ -47,7 +47,7 @@ import { Loader2, AlertTriangle, FileText } from 'lucide-react'
 import * as scenarioService from '../services/scenarioService'
 import type { SharedSnapshotRow } from '../types/scenario'
 import { formatRelativeTime } from '../utils/formatRelativeTime'
-import { NOTE_FAMILY_WORDS, noteRecordsOf } from '../canvas/domain/noteRecordsModel'
+import { noteLine, noteRecordsOf } from '../canvas/domain/noteRecordsModel'
 
 // ---------------------------------------------------------------------------
 // Graph reading — allowlisted fields only
@@ -512,9 +512,11 @@ function ModelContent({ graph }: { graph: unknown }) {
   const known = new Set(GROUPS.map((g) => g.type))
   // Olumi's notes that the graph does not carry as nodes (claims, assumptions, left out…), from the saved model itself
   // (`noteRecordsModel.ts`); one the graph still draws as a node is listed once, as that node.
-  const graphNodes = Array.isArray((graph as { nodes?: unknown } | null)?.nodes) ? (graph as { nodes: { id: string }[] }).nodes : []
-  const notes: ReadNode[] = [...noteRecordsOf(graph, graphNodes).values()]
-    .map((note) => ({ type: 'note', label: `${NOTE_FAMILY_WORDS[note.family]}: ${note.text}` }))
+  // The saved nodes are shaped as the canvas holds them (`type`, `data.label`), so a note naming a card reads its name.
+  const savedNodes = Array.isArray((graph as { nodes?: unknown } | null)?.nodes) ? (graph as { nodes: Array<Record<string, unknown>> }).nodes : []
+  const cards = savedNodes.flatMap((n) => typeof n.id === 'string'
+    ? [{ id: n.id, type: typeof n.kind === 'string' ? n.kind : typeof n.type === 'string' ? n.type : undefined, data: { label: n.label } }] : [])
+  const notes: ReadNode[] = [...noteRecordsOf(graph, cards).values()].map((note) => ({ type: 'note', label: noteLine(note) }))
   const others = [...nodes.filter((n) => !known.has(n.type)), ...notes]
 
   return (

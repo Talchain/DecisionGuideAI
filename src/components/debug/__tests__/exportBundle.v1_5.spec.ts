@@ -213,15 +213,23 @@ describe('Debug Bundle V1.5', () => {
   // provenance the canvas carries. Values are from Paul's export 90b8f080:
   // node provenance ai_inferred / from_brief, and edge e-5
   // keep_current_49_price -> pro_plan_price with origin 'repair'.
-  // #2982: Olumi's notes are glyphs on cards, not graph nodes, so the export carries them beside the graph.
-  it('full_graph carries Olumi’s notes as published for the scenario, none when none are', () => {
+  // #2982: Olumi's notes are glyphs on cards, not graph nodes, so the export carries them beside the graph: the exported
+  // scenario's own only (Codex r1 P1 on 7b2f7c5c: scenario A's notes went into B's export).
+  it('full_graph carries the notes published for the exported scenario', () => {
     const note: NoteRecord = { id: 'cost_range_interpretation', family: 'assumptions', text: 'Treat the range as annual.', author: 'olumi', anchorId: 'f1' }
-    useNoteRecordsStore.getState().publish('3de98183', new Map([[note.id, note]]))
-    expect(buildDebugBundle(makeDebugData(), { includeFullGraph: true, graphData: makeGraphData() }).full_graph!.notes)
-      .toEqual({ scenario_id: '3de98183', records: [note] })
-    useNoteRecordsStore.getState().publish(null, new Map())
-    expect(buildDebugBundle(makeDebugData(), { includeFullGraph: true, graphData: makeGraphData() }).full_graph!.notes)
-      .toEqual({ scenario_id: null, records: [] })
+    useNoteRecordsStore.getState().publish('scenario-a', new Map([[note.id, note]]))
+    const graphData = { ...makeGraphData(), scenarioId: 'scenario-a' }
+    expect(buildDebugBundle(makeDebugData(), { includeFullGraph: true, graphData }).full_graph!.notes)
+      .toEqual({ scenario_id: 'scenario-a', records: [note] })
+  })
+
+  it('CONTRAST: notes published for another scenario, or a graph with no scenario, are never exported', () => {
+    const note: NoteRecord = { id: 'cost_range_interpretation', family: 'assumptions', text: 'Treat the range as annual.', author: 'olumi', anchorId: 'f1' }
+    useNoteRecordsStore.getState().publish('scenario-a', new Map([[note.id, note]]))
+    for (const scenarioId of ['scenario-b', null, undefined]) {
+      const graphData = { ...makeGraphData(), scenarioId }
+      expect(buildDebugBundle(makeDebugData(), { includeFullGraph: true, graphData }).full_graph).not.toHaveProperty('notes')
+    }
   })
 
   it('i152: full_graph nodes carry their provenance verbatim, and absent stays absent', () => {

@@ -780,19 +780,22 @@ describe('Olumi’s notes under "Also in the model"', () => {
     return within(heading.closest('section') as HTMLElement).getAllByRole('listitem').map((li) => li.textContent ?? '')
   }
 
-  it('after CEE: all 7 notes are listed, in their own words with their family', async () => {
+  it('after CEE: all 7 notes are listed, in their own words with their family and Olumi’s mark', async () => {
     mockGetSharedSnapshotBySlug.mockResolvedValue({ ...SNAPSHOT, graph: afterCee })
     renderPage()
     const items = await alsoInTheModel()
     expect(items).toHaveLength(7)
-    expect(items).toContain(`Assumption: ${assumption}`)
+    expect(items).toContain(`Assumption (Olumi’s): ${assumption}`)
+    // A preference names its quantity by the card's own name, never its id; the person's words carry no mark.
+    expect(items).toContain('Preference: Lower Total annual assistant spending (“to save money”)')
   })
 
-  it('CONTRAST — today: each record is listed once, as the node CEE draws, never again as a note', async () => {
-    mockGetSharedSnapshotBySlug.mockResolvedValue({ ...SNAPSHOT, graph: today })
+  it('a record still drawn as a node is listed once, as that node; one no longer drawn is listed as a note', async () => {
+    const oneLeft: G = { ...today, nodes: today.nodes.filter((n) => n.id !== 'cost_range_interpretation') }
+    mockGetSharedSnapshotBySlug.mockResolvedValue({ ...SNAPSHOT, graph: oneLeft })
     renderPage()
     const items = await alsoInTheModel()
     expect(items).toHaveLength(7)
-    expect(items.filter((t) => t.includes(assumption.slice(0, 40)))).toHaveLength(1)
+    expect(items.filter((t) => t.includes(assumption.slice(0, 40)))).toEqual([`Assumption (Olumi’s): ${assumption}`])
   })
 })

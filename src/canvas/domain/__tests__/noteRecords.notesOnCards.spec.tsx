@@ -161,11 +161,12 @@ describe('"Rests on" lists the assumptions in their own words (Paul, 24 Oct)', (
     expect(shown()).toEqual(assumptionIds)
   })
 
-  it('CONTRAST — today: the assumptions are cards on the canvas, so the list does not repeat them', () => {
-    const nodes = storeNodesOf(today)
+  it('an assumption still drawn as a card is not repeated; one no longer drawn is listed', () => {
+    const oneLeft: G = { ...today, nodes: today.nodes.filter((n) => n.id !== 'cost_range_interpretation') }
+    const nodes = storeNodesOf(oneLeft)
     useCanvasStore.setState({ nodes, edges: [] } as never)
-    publish(noteRecordsOf(today, nodes))
+    publish(noteRecordsOf(oneLeft, nodes))
     render(<RestsOnKey />)
-    expect(shown()).toEqual([])
+    expect(shown()).toEqual(['cost_range_interpretation'])
   })
 })

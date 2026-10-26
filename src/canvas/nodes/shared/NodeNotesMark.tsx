@@ -3,15 +3,9 @@ import { NotebookPen } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
 import { typography } from '../../../styles/typography'
 import { PROVENANCE_ICON_SIZE_CLASSES } from '../../domain/valueProvenanceIcon'
-import { NOTE_FAMILY_WORDS, useNoteRecords, type NoteRecord } from '../../domain/noteRecords'
+import { noteLine, useNoteRecords } from '../../domain/noteRecords'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { BottomCardMark } from './CardMark'
-
-/** "Assumption: … (Olumi's)" — the note as its hover and accessible name read it. */
-export function noteLine(n: NoteRecord): string {
-  const who = n.author === 'olumi' ? ' (Olumi’s)' : ''
-  return `${NOTE_FAMILY_WORDS[n.family]}${who}: ${n.text}`
-}
 
 /**
  * The card's notes (Paul, 24 Oct 2026, the card icon row: notes are a counted glyph in the reasoning-flags slot). Every

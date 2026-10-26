@@ -116,6 +116,12 @@ export const useNoteRecordsStore = create<NoteRecordsState>()((set) => ({
   publish: (scenarioId, records) => set({ scenarioId, records }),
 }))
 
+/** "Assumption (Olumi's): …" — the note as every reader words it (the card's glyph, the shared brief). */
+export function noteLine(n: NoteRecord): string {
+  const who = n.author === 'olumi' ? ' (Olumi’s)' : ''
+  return `${NOTE_FAMILY_WORDS[n.family]}${who}: ${n.text}`
+}
+
 /** Same record set: used to publish only on a real change. */
 export function sameNoteRecords(a: ReadonlyMap<string, NoteRecord>, b: ReadonlyMap<string, NoteRecord>): boolean {
   if (a.size !== b.size) return false
