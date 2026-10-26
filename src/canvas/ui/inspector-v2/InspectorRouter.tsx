@@ -157,7 +157,8 @@ export const InspectorRouter = memo(function InspectorRouter({
   const { techMode, setTechMode } = useTechToggle()
   const isViewer = useIsViewer()
   // A program board's saved model refuses a canvas delete with nothing saved: Remove is withheld there (U-W5).
-  const canRemove = canDeleteFromContextMenu(isViewer, useSavedModelProgramState() === 'not_program')
+  const structuralCanvasEdits = useSavedModelProgramState() === 'not_program'
+  const canRemove = canDeleteFromContextMenu(isViewer, structuralCanvasEdits)
   const removalWatch = useRef<(() => void) | null>(null)
 
   // The action may refuse or only open a confirmation. Keep the inspector
@@ -558,7 +559,9 @@ export const InspectorRouter = memo(function InspectorRouter({
          `provenanceAfterHumanAuthoredLabel`. `setLabel` writes via `updateNode`
          and would do neither — the rename would apply locally and vanish on
          reload, which is the exact defect UI #1025 reverted #1024 for. */
-      onLabelChange={handleLabelChange}
+      // Spec §3 (C13): the core route refuses a rename on a program board (only a figure or a goal's target saves), so
+      // the title is read-only there (`EditableLabel` with no `onSave`).
+      onLabelChange={structuralCanvasEdits ? handleLabelChange : undefined}
       headerMenu={canAsk || canRemove ? (
         <>
           {canRemove && <InspectorRemoveMenuItem target={{ kind: 'node', nodeId }} onRequested={handleRemoveRequested} />}

@@ -15,10 +15,11 @@
  * - ?: Show keyboard map
  */
 
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import { useCanvasStore, getNextInvalidNode } from '../store'
 import { isGraphLensEnabled } from '../../flags'
 import { nextBarLens } from '../artefacts/lenses'
+import { useSavedModelProgramState } from '../nodes/shared/savedModelProgram'
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
@@ -53,6 +54,9 @@ export function useCanvasKeyboardShortcuts({
   onOpenContextMenu,
   onAutoArrange,
 }: UseCanvasKeyboardShortcutsOptions = {}) {
+  // L cycles only the lenses the bar shows: a program board hides those with no program contract (`barLensesFor`).
+  const programRef = useRef(false)
+  programRef.current = useSavedModelProgramState() !== 'not_program'
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     // Ignore plain-key shortcuts when typing in text inputs/areas or editable content
     const target = e.target as HTMLElement | null
@@ -222,7 +226,7 @@ export function useCanvasKeyboardShortcuts({
       if (isGraphLensEnabled() && !isTextInputTarget) {
         e.preventDefault()
         const state = useCanvasStore.getState()
-        state.setLens(nextBarLens(state.lens.active, state.results.status === 'complete' && !!state.results.report))
+        state.setLens(nextBarLens(state.lens.active, state.results.status === 'complete' && !!state.results.report, programRef.current))
       }
       return
     }
