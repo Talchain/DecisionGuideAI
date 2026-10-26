@@ -61,6 +61,10 @@ describe('the "most likely in this model" mark on an option card', () => {
     expect(card(current, WITHHELD, ADD)).toBeNull()
   })
 
+  it('a licence short of "permitted" (with a caveat), though CEE named this option: no mark', () => {
+    expect(card(current, { ...PERMITTED(ADD), licence: 'permitted_with_caveat' }, ADD)).toBeNull()
+  })
+
   it('the Run is not current: no mark, though CEE named this option', () => {
     expect(card(stale, PERMITTED(ADD), ADD)).toBeNull()
   })
