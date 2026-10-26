@@ -29,7 +29,7 @@ const GOAL = 'reach_order_target'
  */
 const LEGACY_ID = '0b4c2d7e-1111-4222-8333-94445555a001'
 const legacy = (() => {
-  const { living_model: _lm, ...graph } = served.graph as Record<string, unknown>
+  const graph = Object.fromEntries(Object.entries(served.graph).filter(([k]) => k !== 'living_model'))
   return { ...served, scenario_id: LEGACY_ID, graph_hash: `${served.graph_hash}-legacy`, graph }
 })()
 
