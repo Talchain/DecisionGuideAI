@@ -6,7 +6,7 @@
  */
 import { useMemo } from 'react'
 
-import { useSavedGraph } from './savedGraph'
+import { useSavedGraph, useSavedGraphRead } from './savedGraph'
 import { formatNumber } from '../../utils/formatValueWithUnit'
 import { unitWords } from '../../../utils/unitClassifier'
 import type { ValueProvenanceKind } from '../../domain/valueProvenance'
@@ -23,6 +23,18 @@ export function isProgramGraph(graph: unknown): boolean {
 
 export function useSavedModelIsProgram(): boolean {
   return isProgramGraph(useSavedGraph())
+}
+
+/**
+ * Whether the saved model on screen is a program, saying when that is not known: `unknown` while its read is pending
+ * (a saved scenario with no saved hash yet included) or after it failed. With no read to make (off the core lane, or no
+ * saved scenario) no program is on screen.
+ */
+export function useSavedModelProgramState(): 'program' | 'not_program' | 'unknown' {
+  const read = useSavedGraphRead()
+  if (read.status === 'none') return 'not_program'
+  if (read.status === 'read') return isProgramGraph(read.graph) ? 'program' : 'not_program'
+  return 'unknown'
 }
 
 /** The canonical coefficient behind one program link, in its natural units, as the read states it. */
