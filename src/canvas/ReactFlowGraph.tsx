@@ -144,7 +144,6 @@ import { ConnectPrompt } from './components/ConnectPrompt'
 import { FocusModeChip } from './components/FocusModeChip'
 import { AssistantFocusChip } from './components/AssistantFocusChip'
 // EdgeLabelToggle moved to CanvasToolbar for cleaner UI
-import { LimitsPanel } from './components/LimitsPanel'
 import { BottomSheet } from './components/BottomSheet'
 import { OutputsDock } from './components/OutputsDock'
 import { DraftChat } from './components/DraftChat'
@@ -227,7 +226,6 @@ import { noteCardMoved } from './utils/cardPositionNotice'
 import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
 import { isOnboardingTourEnabled, isCrossHighlightEnabled } from '../flags'
 import { HighlightProvider, useHighlightContext } from './highlighting/HighlightContext'
-import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 import { useAutosave } from './hooks/useAutosave'
 // P1 (external review round 2): the DebugPanel is mounted ONCE, gated, at the
@@ -1193,7 +1191,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     position: { x: number; y: number }
   } | null>(null)
   const addEdge = useCanvasStore(s => s.addEdge)
-  const [showLimits, setShowLimits] = useState(false)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   /**
@@ -1264,7 +1261,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const toggleProvenanceRedaction = useCanvasStore(s => s.toggleProvenanceRedaction)
   const addDocument = useCanvasStore(s => s.addDocument)
 
-  useEngineLimits()
   const checkRunEligibility = useRunEligibilityCheck()
 
   useEffect(() => {
@@ -3248,12 +3244,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       {/* Lenses on the model: the bar that switches them, and the key card of the one on screen */}
       <LensBar />
       <LensInfoPanel />
-      <LimitsPanel
-        isOpen={showLimits}
-        onClose={() => setShowLimits(false)}
-        currentNodes={nodes.length}
-        currentEdges={edges.length}
-      />
 
       {/* Coaching nudges render on the nodes themselves
           (./nodes/FactorNode.tsx → ./components/CoachingCard.tsx), not as a canvas overlay */}

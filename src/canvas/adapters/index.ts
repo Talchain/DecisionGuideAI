@@ -4,43 +4,6 @@
  * Brief 12: Centralized exports for all canvas service adapters
  */
 
-// ISL Robustness Adapter
-export {
-  adaptISLRobustnessResponse,
-  generateFallbackRobustness,
-  deriveConfidenceFromSpread,
-  inferRobustnessLabel,
-} from './islRobustnessAdapter'
-
-export type { ISLRobustnessResponse } from './islRobustnessAdapter'
-
-// ISL Request Adapter
-export {
-  adaptRobustnessRequest,
-  adaptFormRequest,
-  buildRobustnessRequest,
-  buildFormRequest,
-  // Brief F Task 2: New ISL format transformation functions
-  buildISLRobustnessRequest,
-  transformNodesToISLGraph,
-  transformEdgesToISLGraph,
-  extractISLOptions,
-  extractParameterUncertainties,
-  extractUtility,
-  // Brief F Task 5: Range format helper
-  extractRange,
-} from './islRequestAdapter'
-
-export type {
-  UIRobustnessRequest,
-  UIEdgeContext,
-  CEEEdgeContext,
-  UIFormRequest,
-  CEEFormRequest,
-  UINode,
-  UIEdge,
-} from './islRequestAdapter'
-
 // CEE Synthesis Adapter (Brief F Task 3C)
 export {
   transformISLToCEESynthesis,

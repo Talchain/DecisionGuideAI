@@ -6,23 +6,19 @@
  * - Data Flow: Service chain tracing
  * - Pipeline: CEE internal processing stages
  * - Captured: Recorded payloads (redacted at capture time)
- * - Payload Lab: Interactive testing for CEE drafts and ISL payloads
  */
 
-import { useState, useCallback, useMemo, CSSProperties } from 'react'
+import { useState, useCallback, CSSProperties } from 'react'
 import { useDebugData } from './hooks/useDebugData'
 import { SummaryTab, DataFlowTab, PipelineTab, RawTab, LLMCallsTab, ContractIntegrityTab } from './tabs'
-import { PayloadLabTab } from './PayloadLabTab'
 import { exportDebugBundleAsync, copyRequestId } from './utils/exportBundle'
-import type { ISLTestResponse } from './types'
-import { ISLClient } from '../../adapters/isl/client'
 import { useCanvasStore } from '../../canvas/store'
 
 // =============================================================================
 // Types
 // =============================================================================
 
-type V2Tab = 'summary' | 'data-flow' | 'pipeline' | 'llm-calls' | 'contracts' | 'raw' | 'payload-lab'
+type V2Tab = 'summary' | 'data-flow' | 'pipeline' | 'llm-calls' | 'contracts' | 'raw'
 
 interface TabConfig {
   id: V2Tab
@@ -36,7 +32,6 @@ const V2_TABS: TabConfig[] = [
   { id: 'llm-calls', label: 'LLM Calls' },
   { id: 'contracts', label: 'Contract Integrity' },
   { id: 'raw', label: 'Captured' },
-  { id: 'payload-lab', label: 'Payload Lab' },
 ]
 
 // =============================================================================
@@ -95,48 +90,6 @@ export function DebugPanelV2({ onClose, width, height, expanded, onToggleExpande
   const navigateToDataFlow = useCallback(() => setActiveTab('data-flow'), [])
   const navigateToPipeline = useCallback(() => setActiveTab('pipeline'), [])
   const navigateToRaw = useCallback(() => setActiveTab('raw'), [])
-
-  // ISL client instance (memoized to avoid recreation)
-  const islClient = useMemo(() => new ISLClient({ timeout: 60000 }), [])
-
-  // ISL test runner for Payload Lab - uses ISLClient for proper observability
-  const handleRunISLTest = useCallback(async (
-    payload: object,
-    seed: string,
-    nSamples: number
-  ): Promise<ISLTestResponse> => {
-    const startTime = Date.now()
-
-    // Add seed and n_samples to the request
-    const requestPayload = {
-      ...payload,
-      seed,
-      n_samples: nSamples,
-    }
-
-    try {
-      // Use ISLClient.conformalPredict for proper observability headers
-      // Cast to expected type since PayloadLab generates valid ISL conformal requests
-      const rawResponse = await islClient.conformalPredict(
-        requestPayload as Parameters<typeof islClient.conformalPredict>[0]
-      )
-      const duration_ms = Date.now() - startTime
-
-      // Transform to ISLTestResponse format
-      return {
-        summary: {
-          duration_ms,
-          options: [],
-        },
-        raw_response: rawResponse,
-      }
-    } catch (error) {
-      // Cap error message length for UI safety (P3 fix)
-      const message = error instanceof Error ? error.message : String(error)
-      const truncatedMessage = message.length > 300 ? message.slice(0, 300) + '...' : message
-      throw new Error(truncatedMessage)
-    }
-  }, [islClient])
 
   // Derive status for header badge
   const statusColor =
@@ -354,7 +307,6 @@ export function DebugPanelV2({ onClose, width, height, expanded, onToggleExpande
         {activeTab === 'llm-calls' && <LLMCallsTab data={data} />}
         {activeTab === 'contracts' && <ContractIntegrityTab data={data} />}
         {activeTab === 'raw' && <RawTab data={data} />}
-        {activeTab === 'payload-lab' && <PayloadLabTab onRunTest={handleRunISLTest} />}
       </div>
     </div>
   )

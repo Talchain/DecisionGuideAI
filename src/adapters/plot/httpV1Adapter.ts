@@ -6,8 +6,6 @@
 import type {
   ReportV1,
   ErrorV1,
-  LimitsV1,
-  LimitsFetch,
   TemplateDetail,
   TemplateListV1,
   ConfidenceLevel,
@@ -17,10 +15,8 @@ import type {
   V1Error,
 } from './v1/types'
 import * as v1http from './v1/http'
-import { V1_LIMITS } from './v1/types'
 import { graphToV1Request, type ReactFlowGraph } from './v1/mapper'
 import { isRetryableErrorCode, isRetryableStatus } from './v1/constants'
-import { getGraphCaps } from './v1/sdkHelpers'
 
 // ⚠ NAMED, LITERAL env reads only. This was `(import.meta as any)?.env || {}` —
 // a bare reference Vite cannot statically narrow, so it inlined the ENTIRE env
@@ -35,7 +31,6 @@ const ENABLE_HTTPV1_DEBUG: boolean = (() => {
   }
 })()
 
-let loggedLimitsSuccess = false
 
 /**
  * Load template graph from live v1 endpoint
@@ -310,77 +305,6 @@ export const httpV1Adapter = {
       return result
     } catch (err: any) {
       throw mapV1ErrorToUI(err as V1Error)
-    }
-  },
-
-  // Limits (fetch from live endpoint for v1.2 engine_p95_ms_budget)
-  // Returns structured payload to expose fallback vs outage
-  async limits(): Promise<LimitsFetch> {
-    const fetchedAt = Date.now()
-
-    try {
-      const response = await v1http.limits()
-
-      if (import.meta.env.DEV && !loggedLimitsSuccess) {
-        console.log('[httpV1] /v1/limits succeeded (live)')
-        loggedLimitsSuccess = true
-      }
-
-      // Map backend format (limits.v1) to UI format using central helper
-      const caps = getGraphCaps(response)
-      const mappedData: LimitsV1 = {
-        nodes: { max: caps.maxNodes },
-        edges: { max: caps.maxEdges },
-      }
-
-      // Include max_body_kb if present (v1.2: 96 KB prod limit)
-      if (caps.maxBodyKb !== undefined) {
-        mappedData.body_kb = { max: caps.maxBodyKb }
-      }
-
-      // Include engine_p95_ms_budget if present (v1.2 feature)
-      if ('engine_p95_ms_budget' in response) {
-        mappedData.engine_p95_ms_budget = response.engine_p95_ms_budget
-      }
-
-      return {
-        ok: true,
-        source: 'live',
-        data: mappedData,
-        fetchedAt,
-      }
-    } catch (err) {
-      // Handle V1Error objects (have code/message) and Error instances
-      const error = err instanceof Error
-        ? err
-        : (err as V1Error).message
-          ? new Error((err as V1Error).message)
-          : new Error(String(err))
-
-      // DEV: may return fallback with clear reason
-      if (import.meta.env.DEV) {
-        console.warn('[httpV1] /v1/limits failed, using fallback constants:', error.message)
-
-        return {
-          ok: true,
-          source: 'fallback',
-          data: {
-            nodes: { max: V1_LIMITS.MAX_NODES },
-            edges: { max: V1_LIMITS.MAX_EDGES },
-          },
-          fetchedAt,
-          reason: `Live endpoint failed: ${error.message}`,
-        }
-      }
-
-      // PROD: return error, no silent fallback masking
-      console.error('[httpV1] /v1/limits failed in production:', error)
-
-      return {
-        ok: false,
-        error,
-        fetchedAt,
-      }
     }
   },
 

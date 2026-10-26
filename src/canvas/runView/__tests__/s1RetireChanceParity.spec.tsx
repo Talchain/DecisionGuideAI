@@ -15,7 +15,6 @@ import { useResultsSectionData } from '../../../components/results/useResultsSec
 import { optionChanceCellFromResults } from '../../../components/results/optionChanceCellFromResults'
 import { buildGoalFitRows } from '../../components/model-tab/buildGoalFitRows'
 import { buildDecisionBrief, DECISION_BRIEF_COPY } from '../../decisionBrief/buildDecisionBrief'
-import { DecisionSummary } from '../../components/DecisionSummary'
 import { GoalNode } from '../../nodes/GoalNode'
 import { GoalPanel } from '../../ui/inspector-v2/panels/GoalPanel'
 import { fromOptionProbabilities } from '../../../lib/discriminationFallback'
@@ -24,7 +23,6 @@ vi.mock('../../../contexts/AuthContext', async importOriginal => ({
   ...await importOriginal<typeof import('../../../contexts/AuthContext')>(),
   useAuth: () => ({ authenticated: false, user: null }),
 }))
-vi.mock('../../../hooks/useISLConformal', () => ({ useISLConformal: () => ({ data: null, loading: false, predict: vi.fn() }) }))
 vi.mock('../../hooks/useComparisonDetection', () => ({ useComparisonDetection: () => ({ optionNodes: [], isComparison: false }) }))
 vi.mock('@xyflow/react', async importOriginal => ({ ...await importOriginal<typeof import('@xyflow/react')>(), Handle: () => null }))
 
@@ -143,12 +141,8 @@ it('R2: raw goal_probability without a licence never supplies a number or numeri
     expect(metadata.goalFitAvailable).toBe(false)
     expect(metadata).not.toHaveProperty('achievementChanceCell')
     useCanvasStore.setState({ nodes: [option, ...useCanvasStore.getState().nodes.filter(n => n.id !== option.id)] })
-    // #2747 re-scope 2 (U0): the DecisionSummary and GoalPanel CHANCE_NOT_SHOWN_YET face presence (and the two negatives
-    // bound to each face) are deleted — neither surface shows a chance face in C. Their container-wide negatives stay.
-    const summary = render(<DecisionSummary />)
-    expect(summary.container.textContent).not.toContain('Run the analysis again to see the chance.')
-    expect(summary.container.textContent).not.toContain('73%')
-    summary.unmount()
+    // #2747 re-scope 2 (U0): the GoalPanel CHANCE_NOT_SHOWN_YET face presence (and the two negatives bound to it) is
+    // deleted — it shows no chance face in C. Its container-wide negatives stay. (DecisionSummary left with the ISL stack, U1.)
     const goalMount = render(<ReactFlowProvider><GoalNode {...({ id: goal.id, data: { ...goal.data, success_threshold: 20000, threshold_source: 'user' }, isConnectable: true } as any)} /></ReactFlowProvider>)
     // #2747 re-scope 2 (U0): the GoalNode CHANCE_NOT_SHOWN_YET face presence (and the two negatives bound to it) is deleted —
     // the canvas goal card shows no chance face in C. Its container-wide negatives stay.

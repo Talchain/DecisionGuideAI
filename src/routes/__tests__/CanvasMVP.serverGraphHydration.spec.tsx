@@ -93,6 +93,6 @@ describe('CanvasMVP — boot ORDERING invariant (A5)', () => {
     // POSITIVE CONTROL (trap 13): the same matcher DOES find the lazy form on
     // the sibling that genuinely uses it, so a green above is an observation
     // rather than a matcher that can never fire.
-    expect(src).toMatch(/lazy\(\s*\(\)\s*=>\s*import\('\.\.\/canvas\/panels\/TemplatesPanel'\)/)
+    expect(src).toMatch(/lazy\(\s*\(\)\s*=>\s*import\('\.\.\/canvas\/versions\/VersionsPanelHost'\)/)
   })
 })

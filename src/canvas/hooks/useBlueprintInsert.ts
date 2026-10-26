@@ -16,13 +16,12 @@ import { commitGraphMutation } from '../mutations/commitGraphMutation'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
 import { checkLimits, formatLimitError } from '../utils/limitGuard'
-import { useEngineLimits } from './useEngineLimits'
 
 export function useBlueprintInsert() {
   const { getViewport } = useReactFlow()
   const createNodeId = useCanvasStore(s => s.createNodeId)
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
-  const { limits } = useEngineLimits() // Sprint 2: Shared limits hook
+  const limits = useCanvasStore(s => s.engineLimits)
 
   const insertBlueprint = useCallback((blueprint: Blueprint): { nodeIdMap: Map<string, string>; newNodes: any[]; newEdges: any[]; error?: string } => {
     // Sprint 2: Check limits BEFORE inserting

@@ -72,18 +72,8 @@ vi.mock('@xyflow/react', async (importOriginal) => ({
   useReactFlow: () => ({ getViewport: () => ({ x: 0, y: 0, zoom: 1 }) }),
 }))
 
-// `checkLimits` allows when limits are null (graceful degradation), so a null
-// here exercises the insert rather than the limit-refusal branch.
-vi.mock('../../hooks/useEngineLimits', () => ({
-  useEngineLimits: () => ({
-    limits: null,
-    source: 'test',
-    loading: false,
-    error: null,
-    fetchedAt: null,
-    retry: vi.fn(),
-  }),
-}))
+// `checkLimits` allows when limits are null (graceful degradation); the store's
+// `engineLimits` starts null, so this exercises the insert rather than the limit-refusal branch.
 
 import { RecoveryBanner } from '../../components/RecoveryBanner'
 import { useBlueprintInsert } from '../../hooks/useBlueprintInsert'

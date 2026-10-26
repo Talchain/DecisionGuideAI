@@ -147,7 +147,6 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
   // --- Utility (non-analysis). These are the exceptions the cutover retains. ---
   /^\/health$/,
   /^\/v1\/health$/,
-  /^\/v1\/limits$/,
   /^\/v1\/templates$/,
   /^\/v1\/templates\/[^/]+\/graph$/,
 

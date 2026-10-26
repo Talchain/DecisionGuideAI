@@ -6,10 +6,8 @@
  */
 
 import type {
-  LimitsV1,
   TemplateListV1,
   TemplateDetail,
-  LimitsFetch,
 } from './types'
 import { httpV1Adapter } from './httpV1Adapter'
 import { probeCapability, clearProbeCache, type ProbeResult } from './v1/probe'
@@ -113,27 +111,6 @@ export const autoDetectAdapter = {
     const errorMsg = createBackendErrorMessage(probe, `fetch template "${id}"`)
     console.error('[AutoDetect]', errorMsg)
     throw new BackendUnavailableError(errorMsg, probe, 'template')
-  },
-
-  async limits(): Promise<LimitsFetch> {
-    const probe = await getProbeResult();
-
-    if (probe.available) {
-      return httpV1Adapter.limits();
-    }
-
-    // For limits, return a "not available" response instead of throwing
-    // This allows the app to continue with conservative defaults
-    return {
-      ok: false,
-      source: 'error',
-      data: {
-        nodes: { max: 50 },  // Conservative fallback
-        edges: { max: 100 },
-      } as LimitsV1,
-      fetchedAt: Date.now(),
-      reason: 'Backend services unavailable. Using conservative limits.',
-    };
   },
 
   async health() {
