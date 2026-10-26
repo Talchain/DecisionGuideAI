@@ -1,0 +1,1429 @@
+{
+ "_source": "acceptance run 20261026T1556Z-de43edbd-f0514be1 (served UI f0514be1, CEE de43edbd), run/qualitative/reads/draft-after.json (draft-after at 2026-10-26T16:14:14Z); trimmed to the graph read's keys, byte-unchanged otherwise",
+ "schema": "scenario_graph.v1",
+ "scenario_id": "c59c7492-732a-4497-b611-d15214a202ee",
+ "graph": {
+  "edges": [
+   {
+    "id": "additional_one_star_share__working_release_aim",
+    "to": "working_release_aim",
+    "from": "additional_one_star_share",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "definitional": true
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__postpone_release",
+    "to": "postpone_release",
+    "from": "mp:decision",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "postpone_release__release_delay",
+    "to": "release_delay",
+    "from": "postpone_release",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__launch_as_planned",
+    "to": "launch_as_planned",
+    "from": "mp:decision",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__limited_initial_rollout",
+    "to": "limited_initial_rollout",
+    "from": "mp:decision",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "limited_initial_rollout__rollout_share",
+    "to": "rollout_share",
+    "from": "limited_initial_rollout",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "bug_persists_at_planned_release__bug_persists_at_release",
+    "to": "bug_persists_at_release",
+    "from": "bug_persists_at_planned_release",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "base level",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "release_delay__bug_persists_at_release",
+    "to": "bug_persists_at_release",
+    "from": "release_delay",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "reasoning": "unknown per week; its size is not given yet"
+    },
+    "coefficient_id": "delay_effect_on_bug_persistence",
+    "effect_direction": "negative",
+    "exists_probability": 1
+   },
+   {
+    "id": "rollout_share__expected_affected_share",
+    "to": "expected_affected_share",
+    "from": "rollout_share",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "bug_persists_at_release__expected_affected_share",
+    "to": "expected_affected_share",
+    "from": "bug_persists_at_release",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "affected_share_if_unfixed__expected_affected_share",
+    "to": "expected_affected_share",
+    "from": "affected_share_if_unfixed",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "zero_additional_reviews__additional_one_star_share",
+    "to": "additional_one_star_share",
+    "from": "zero_additional_reviews",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "brief_extraction",
+     "reasoning": "base level",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "expected_affected_share__additional_one_star_share",
+    "to": "additional_one_star_share",
+    "from": "expected_affected_share",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "brief_extraction",
+     "magnitude": "olumi_estimate",
+     "reasoning": "unknown per 1; its size is not given yet"
+    },
+    "coefficient_id": "one_star_response",
+    "effect_direction": "positive",
+    "exists_probability": 1
+   }
+  ],
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "ref": "D1",
+    "kind": "decision",
+    "label": "Should the app update be delayed, launched as planned, or released first to a limited group given the reported database sync bug?"
+   },
+   {
+    "id": "working_release_aim",
+    "ref": "G1",
+    "kind": "goal",
+    "label": "Limit poor reviews caused by the update",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "zero_additional_reviews",
+      "expected_affected_share"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Additional review harm with no affected users and Expected share of all users affected in the initial rollout"
+    },
+    "display_value": "<= Waiting for your answer",
+    "goal_direction": "<=",
+    "goal_measure_by": "olumi",
+    "goal_threshold_unit": "1",
+    "goal_threshold_frame": "level",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "boss_approval",
+    "ref": "G2",
+    "kind": "goal",
+    "label": "Show my boss why delaying is the right move",
+    "provenance": "from_brief",
+    "source_quote": "write me a list of reasons why delaying is the right move so i can show my boss.",
+    "user_questions": [
+     "What evidence would your boss need to approve a delay?"
+    ],
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "postpone_release",
+    "ref": "O1",
+    "kind": "option",
+    "label": "Postpone the release",
+    "provenance": "from_brief",
+    "source_quote": "honestly i think we have to push it back",
+    "interventions": {
+     "release_delay": {
+      "unit": "week",
+      "value": null,
+      "source": "user_specified",
+      "display": "Waiting for your answer",
+      "from_period": 0,
+      "source_words": "Set by ‘Postpone the release’, as you gave it"
+     }
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "launch_as_planned",
+    "ref": "O2",
+    "kind": "option",
+    "label": "Launch as planned",
+    "provenance": "from_brief",
+    "is_baseline": true,
+    "source_quote": "if we launch broken apps",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "limited_initial_rollout",
+    "ref": "O3",
+    "kind": "option",
+    "label": "Limited initial rollout",
+    "provenance": "ai_inferred",
+    "proposed_by": "olumi",
+    "interventions": {
+     "rollout_share": {
+      "unit": "1",
+      "value": 0.1,
+      "source": "cee_hypothesis",
+      "display": "0.1, Olumi's reading",
+      "from_period": 0,
+      "source_words": "Set by ‘Limited initial rollout’, Olumi’s figure"
+     }
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "release_delay",
+    "ref": "F1",
+    "kind": "factor",
+    "label": "Additional delay before release",
+    "category": "controllable",
+    "description": "Zero additional delay is the starting setting before an option changes it.",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "display_value": "0 week",
+    "observed_state": {
+     "unit": "week",
+     "value": 0,
+     "raw_value": 0
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "rollout_share",
+    "ref": "F2",
+    "kind": "factor",
+    "label": "Share of users offered the update initially",
+    "category": "controllable",
+    "description": "One represents a full rollout; an option can reduce this setting.",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "display_value": "1",
+    "observed_state": {
+     "unit": "1",
+     "value": 1,
+     "raw_value": 1
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "bug_persists_at_planned_release",
+    "ref": "F3",
+    "kind": "factor",
+    "label": "Chance the sync bug remains at the planned release",
+    "category": "observable",
+    "provenance": "ai_inferred",
+    "description": "A reported fix duration of 'weeks' and a release less than a month away do not establish a probability; a reproducible diagnosis and a fix-and-validation schedule would size it.",
+    "display_value": "unknown",
+    "observed_state": {
+     "unit": "1"
+    },
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "bug_persists_at_release",
+    "ref": "OC1",
+    "kind": "outcome",
+    "label": "Chance the sync bug remains when released",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "bug_persists_at_planned_release",
+      "release_delay"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Chance the sync bug remains at the planned release and Additional delay before release"
+    },
+    "display_value": "Worked out from Chance the sync bug remains at the planned release and Additional delay before release",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "affected_share_if_unfixed",
+    "ref": "F4",
+    "kind": "factor",
+    "label": "Share of update recipients affected if the bug remains",
+    "category": "observable",
+    "provenance": "ai_inferred",
+    "description": "The description does not establish which devices, accounts or sync operations are affected; reproduction tests and affected-user telemetry would size this share.",
+    "display_value": "unknown",
+    "observed_state": {
+     "unit": "1"
+    },
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "expected_affected_share",
+    "ref": "OC2",
+    "kind": "outcome",
+    "label": "Expected share of all users affected in the initial rollout",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "rollout_share",
+      "bug_persists_at_release",
+      "affected_share_if_unfixed"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Share of users offered the update initially, Chance the sync bug remains when released and Share of update recipients affected if the bug remains"
+    },
+    "display_value": "Worked out from Share of users offered the update initially, Chance the sync bug remains when released and Share of update recipients affected if the bug remains",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "zero_additional_reviews",
+    "ref": "F5",
+    "kind": "factor",
+    "label": "Additional review harm with no affected users",
+    "category": "observable",
+    "description": "Zero is the baseline for additional reviews attributable specifically to this bug.",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "display_value": "0",
+    "observed_state": {
+     "unit": "1",
+     "value": 0,
+     "raw_value": 0
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "additional_one_star_share",
+    "ref": "OC3",
+    "kind": "outcome",
+    "label": "Expected share of all users leaving an additional one-star review",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "zero_additional_reviews",
+      "expected_affected_share"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Additional review harm with no affected users and Expected share of all users affected in the initial rollout"
+    },
+    "display_value": "Worked out from Additional review harm with no affected users and Expected share of all users affected in the initial rollout",
+    "analysis_participation": "included"
+   }
+  ],
+  "living_model": {
+   "runs": [
+    {
+     "result": {
+      "chances": null,
+      "compile": {
+       "joint": {
+        "asks": [
+         "acceptable_one_star_share"
+        ],
+        "status": "withheld",
+        "reasons": [
+         "The chance of meeting every goal together waits on \"Limit poor reviews caused by the update\"."
+        ],
+        "goal_ids": [
+         "working_release_aim"
+        ],
+        "leaves_out": [
+         "boss_approval"
+        ]
+       },
+       "errors": [],
+       "blockers": [
+        {
+         "id": "boss_approval",
+         "code": "measure",
+         "scope": [
+          "boss_approval"
+         ]
+        },
+        {
+         "id": "proposed_delay",
+         "code": "asked",
+         "scope": [
+          "postpone_release"
+         ]
+        },
+        {
+         "id": "bug_persists_at_planned_release",
+         "code": "unknown",
+         "scope": [
+          "working_release_aim"
+         ]
+        },
+        {
+         "id": "delay_effect_on_bug_persistence",
+         "code": "unknown",
+         "scope": [
+          "working_release_aim"
+         ]
+        },
+        {
+         "id": "affected_share_if_unfixed",
+         "code": "unknown",
+         "scope": [
+          "working_release_aim"
+         ]
+        },
+        {
+         "id": "one_star_response",
+         "code": "unknown",
+         "scope": [
+          "working_release_aim"
+         ]
+        },
+        {
+         "id": "acceptable_one_star_share",
+         "code": "asked",
+         "scope": [
+          "working_release_aim"
+         ]
+        }
+       ],
+       "compiles": true,
+       "per_goal": [
+        {
+         "asks": [
+          "acceptable_one_star_share"
+         ],
+         "status": "withheld",
+         "goal_id": "working_release_aim",
+         "reasons": [
+          "rests on \"Share of update recipients affected if the bug remains\", which is unknown: The description does not establish which devices, accounts or sync operations are affected; reproduction tests and affected-user telemetry would size this share.",
+          "rests on \"Change in unresolved-bug chance per extra week\", which is unknown: Extra time can permit repair and validation, but its effect has no defensible scale without the failure mechanism, remaining work and test plan.",
+          "rests on \"Chance the sync bug remains at the planned release\", which is unknown: A reported fix duration of 'weeks' and a release less than a month away do not establish a probability; a reproducible diagnosis and a fix-and-validation schedule would size it.",
+          "rests on \"Additional one-star review probability per affected user\", which is unknown: A sync failure can provoke poor reviews, but its incremental review probability depends on symptom severity, user expectations and review behaviour; comparable incident data would size it.",
+          "needs \"Maximum acceptable additional one-star review share\"."
+         ],
+         "excludes": [
+          "marketing_consequences",
+          "other_customer_harm",
+          "review_observation_period"
+         ],
+         "rests_on": [
+          "initial_rollout_comparison",
+          "representative_limited_rollout",
+          "repair_time_assumption"
+         ],
+         "cancelled": [],
+         "olumi_inputs": [
+          "initial_user_exposure",
+          "delay_changes_release_readiness",
+          "delay_changes_release_readiness:release_delay"
+         ],
+         "needs_measure": false,
+         "needs_deadline": false,
+         "unverified_inputs": []
+        },
+        {
+         "asks": [],
+         "status": "asks",
+         "goal_id": "boss_approval",
+         "reasons": [
+          "\"Show my boss why delaying is the right move\" has no measure yet, so it is left out of the chance."
+         ],
+         "excludes": [],
+         "rests_on": [],
+         "cancelled": [],
+         "olumi_inputs": [],
+         "needs_measure": true,
+         "needs_deadline": false,
+         "unverified_inputs": []
+        }
+       ],
+       "per_limit": [],
+       "executable": false,
+       "per_option": [
+        {
+         "asks": [
+          "proposed_delay"
+         ],
+         "status": "asks",
+         "reasons": [
+          "needs \"Length of the proposed postponement\"."
+         ],
+         "rests_on": [
+          "repair_time_assumption"
+         ],
+         "option_id": "postpone_release"
+        },
+        {
+         "asks": [],
+         "status": "calculable",
+         "reasons": [],
+         "rests_on": [],
+         "option_id": "launch_as_planned"
+        },
+        {
+         "asks": [],
+         "status": "calculable",
+         "reasons": [],
+         "rests_on": [
+          "initial_rollout_comparison",
+          "representative_limited_rollout",
+          "limited_rollout_safety"
+         ],
+         "option_id": "limited_initial_rollout"
+        }
+       ],
+       "unverified": [],
+       "conversions": [],
+       "within_limits": {
+        "asks": [],
+        "status": "calculable",
+        "reasons": [],
+        "limit_ids": [],
+        "leaves_out": []
+       },
+       "implicit_as_stated": false
+      },
+      "canonical_analysis_view": {
+       "run": {
+        "run_id": "mp_run_1_fc99fe4bb735",
+        "computed_at": "2026-10-26T16:13:52.350Z",
+        "graph_hash_at_run": "eba585881ea46ab7"
+       },
+       "schema": "canonical_analysis_view.v1",
+       "source": "stored_run_facts",
+       "options": [
+        {
+         "cell": {
+          "why": "The chance waits on ‘Length of the proposed postponement’, ‘Chance the sync bug remains at the planned release’, which no one can size yet (A reported fix duration of 'weeks' and a release less than a month away do not establish a probability; a reproducible diagnosis and a fix-and-validation schedule would size it), ‘Change in unresolved-bug chance per extra week’, which no one can size yet (Extra time can permit repair and validation, but its effect has no defensible scale without the failure mechanism, remaining work and test plan), ‘Share of update recipients affected if the bug remains’, which no one can size yet (The description does not establish which devices, accounts or sync operations are affected; reproduction tests and affected-user telemetry would size this share), ‘Additional one-star review probability per affected user’, which no one can size yet (A sync failure can provoke poor reviews, but its incremental review probability depends on symptom severity, user expectations and review behaviour; comparable incident data would size it) and ‘Maximum acceptable additional one-star review share’.",
+          "face": "Not shown yet: needs your answer",
+          "kind": "withheld",
+          "reasons": [
+           {
+            "code": "goal_withheld",
+            "message": "rests on \"Share of update recipients affected if the bug remains\", which is unknown: The description does not establish which devices, accounts or sync operations are affected; reproduction tests and affected-user telemetry would size this share. rests on \"Change in unresolved-bug chance per extra week\", which is unknown: Extra time can permit repair and validation, but its effect has no defensible scale without the failure mechanism, remaining work and test plan. rests on \"Chance the sync bug remains at the planned release\", which is unknown: A reported fix duration of 'weeks' and a release less than a month away do not establish a probability; a reproducible diagnosis and a fix-and-validation schedule would size it. rests on \"Additional one-star review probability per affected user\", which is unknown: A sync failure can provoke poor reviews, but its incremental review probability depends on symptom severity, user expectations and review behaviour; comparable incident data would size it. needs \"Maximum acceptable additional one-star review share\"."
+           }
+          ]
+         },
+         "option_id": "postpone_release",
+         "main_driver": {
+          "kind": "not_recorded"
+         }
+        },
+        {
+         "cell": {
+          "why": "The chance waits on ‘Chance the sync bug remains at the planned release’, which no one can size yet (A reported fix duration of 'weeks' and a release less than a month away do not establish a probability; a reproducible diagnosis and a fix-and-validation schedule would size it), ‘Change in unresolved-bug chance per extra week’, which no one can size yet (Extra time can permit repair and validation, but its effect has no defensible scale without the failure mechanism, remaining work and test plan), ‘Share of update recipients affected if the bug remains’, which no one can size yet (The description does not establish which devices, accounts or sync operations are affected; reproduction tests and affected-user telemetry would size this share), ‘Additional one-star review probability per affected user’, which no one can size yet (A sync failure can provoke poor reviews, but its incremental review probability depends on symptom severity, user expectations and review behaviour; comparable incident data would size it) and ‘Maximum acceptable additional one-star review share’.",
+          "face": "Not shown yet: needs your answer",
+          "kind": "withheld",
+          "reasons": [
+           {
+            "code": "goal_withheld",
+            "message": "rests on \"Share of update recipients affected if the bug remains\", which is unknown: The description does not establish which devices, accounts or sync operations are affected; reproduction tests and affected-user telemetry would size this share. rests on \"Change in unresolved-bug chance per extra week\", which is unknown: Extra time can permit repair and validation, but its effect has no defensible scale without the failure mechanism, remaining work and test plan. rests on \"Chance the sync bug remains at the planned release\", which is unknown: A reported fix duration of 'weeks' and a release less than a month away do not establish a probability; a reproducible diagnosis and a fix-and-validation schedule would size it. rests on \"Additional one-star review probability per affected user\", which is unknown: A sync failure can provoke poor reviews, but its incremental review probability depends on symptom severity, user expectations and review behaviour; comparable incident data would size it. needs \"Maximum acceptable additional one-star review share\"."
+           }
+          ]
+         },
+         "option_id": "launch_as_planned",
+         "main_driver": {
+          "kind": "not_recorded"
+         }
+        },
+        {
+         "cell": {
+          "why": "The chance waits on ‘Chance the sync bug remains at the planned release’, which no one can size yet (A reported fix duration of 'weeks' and a release less than a month away do not establish a probability; a reproducible diagnosis and a fix-and-validation schedule would size it), ‘Change in unresolved-bug chance per extra week’, which no one can size yet (Extra time can permit repair and validation, but its effect has no defensible scale without the failure mechanism, remaining work and test plan), ‘Share of update recipients affected if the bug remains’, which no one can size yet (The description does not establish which devices, accounts or sync operations are affected; reproduction tests and affected-user telemetry would size this share), ‘Additional one-star review probability per affected user’, which no one can size yet (A sync failure can provoke poor reviews, but its incremental review probability depends on symptom severity, user expectations and review behaviour; comparable incident data would size it) and ‘Maximum acceptable additional one-star review share’.",
+          "face": "Not shown yet: needs your answer",
+          "kind": "withheld",
+          "reasons": [
+           {
+            "code": "goal_withheld",
+            "message": "rests on \"Share of update recipients affected if the bug remains\", which is unknown: The description does not establish which devices, accounts or sync operations are affected; reproduction tests and affected-user telemetry would size this share. rests on \"Change in unresolved-bug chance per extra week\", which is unknown: Extra time can permit repair and validation, but its effect has no defensible scale without the failure mechanism, remaining work and test plan. rests on \"Chance the sync bug remains at the planned release\", which is unknown: A reported fix duration of 'weeks' and a release less than a month away do not establish a probability; a reproducible diagnosis and a fix-and-validation schedule would size it. rests on \"Additional one-star review probability per affected user\", which is unknown: A sync failure can provoke poor reviews, but its incremental review probability depends on symptom severity, user expectations and review behaviour; comparable incident data would size it. needs \"Maximum acceptable additional one-star review share\"."
+           }
+          ]
+         },
+         "option_id": "limited_initial_rollout",
+         "main_driver": {
+          "kind": "not_recorded"
+         }
+        }
+       ],
+       "staleness": {
+        "basis": "analysis_graph_hash_interim",
+        "stale": false,
+        "reason": "graph_hash_match",
+        "revision": null,
+        "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+        "run_revision": null
+       },
+       "goal_chance": {
+        "notes": [
+         "‘Limit poor reviews caused by the update’ waits on ‘Chance the sync bug remains at the planned release’, which no one can size yet (A reported fix duration of 'weeks' and a release less than a month away do not establish a probability; a reproducible diagnosis and a fix-and-validation schedule would size it), ‘Change in unresolved-bug chance per extra week’, which no one can size yet (Extra time can permit repair and validation, but its effect has no defensible scale without the failure mechanism, remaining work and test plan), ‘Share of update recipients affected if the bug remains’, which no one can size yet (The description does not establish which devices, accounts or sync operations are affected; reproduction tests and affected-user telemetry would size this share), ‘Additional one-star review probability per affected user’, which no one can size yet (A sync failure can provoke poor reviews, but its incremental review probability depends on symptom severity, user expectations and review behaviour; comparable incident data would size it) and ‘Maximum acceptable additional one-star review share’."
+        ],
+        "waits_on": [
+         {
+          "id": "boss_approval",
+          "code": "measure",
+          "label": "Show my boss why delaying is the right move",
+          "scope": [
+           "boss_approval"
+          ],
+          "answer": null
+         },
+         {
+          "id": "proposed_delay",
+          "code": "asked",
+          "label": "Length of the proposed postponement",
+          "scope": [
+           "postpone_release"
+          ],
+          "answer": {
+           "quantity_id": "proposed_delay"
+          }
+         },
+         {
+          "id": "bug_persists_at_planned_release",
+          "code": "unknown",
+          "basis": "A reported fix duration of 'weeks' and a release less than a month away do not establish a probability; a reproducible diagnosis and a fix-and-validation schedule would size it.",
+          "label": "Chance the sync bug remains at the planned release",
+          "scope": [
+           "working_release_aim"
+          ],
+          "answer": null
+         },
+         {
+          "id": "delay_effect_on_bug_persistence",
+          "code": "unknown",
+          "basis": "Extra time can permit repair and validation, but its effect has no defensible scale without the failure mechanism, remaining work and test plan.",
+          "label": "Change in unresolved-bug chance per extra week",
+          "scope": [
+           "working_release_aim"
+          ],
+          "answer": null
+         },
+         {
+          "id": "affected_share_if_unfixed",
+          "code": "unknown",
+          "basis": "The description does not establish which devices, accounts or sync operations are affected; reproduction tests and affected-user telemetry would size this share.",
+          "label": "Share of update recipients affected if the bug remains",
+          "scope": [
+           "working_release_aim"
+          ],
+          "answer": null
+         },
+         {
+          "id": "one_star_response",
+          "code": "unknown",
+          "basis": "A sync failure can provoke poor reviews, but its incremental review probability depends on symptom severity, user expectations and review behaviour; comparable incident data would size it.",
+          "label": "Additional one-star review probability per affected user",
+          "scope": [
+           "working_release_aim"
+          ],
+          "answer": null
+         },
+         {
+          "id": "acceptable_one_star_share",
+          "code": "asked",
+          "label": "Maximum acceptable additional one-star review share",
+          "scope": [
+           "working_release_aim"
+          ],
+          "answer": {
+           "quantity_id": "acceptable_one_star_share"
+          }
+         }
+        ]
+       },
+       "leader_licence": "withheld"
+      }
+     },
+     "run_id": "mp_run_1_fc99fe4bb735",
+     "receipt": {
+      "seed": 2796130397,
+      "draws": null,
+      "versions": {
+       "engine": "mp-a7b1584d30c7",
+       "canonical": "canonical.v1",
+       "executable": "r5"
+      },
+      "revision_digest": "f342292bf73792a2a481a5c5656cebf5bf3be018b1f649179dc4d82bd4776f94"
+     },
+     "computed_at": "2026-10-26T16:13:52.350Z"
+    }
+   ],
+   "seed": 2796130397,
+   "canonical": {
+    "goals": [
+     {
+      "id": "working_release_aim",
+      "label": "Limit poor reviews caused by the update",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "measure": {
+       "cmp": "<=",
+       "per": null,
+       "frame": "level",
+       "target": "acceptable_one_star_share",
+       "window": null,
+       "quantity": "additional_one_star_share",
+       "reference": null,
+       "exclusions": [
+        "marketing_consequences",
+        "other_customer_harm",
+        "review_observation_period"
+       ],
+       "measure_by": "olumi",
+       "aggregation": "end",
+       "assumptions": [
+        "initial_rollout_comparison",
+        "representative_limited_rollout",
+        "repair_time_assumption"
+       ]
+      },
+      "approval": "proposed",
+      "question": null,
+      "author_id": null
+     },
+     {
+      "id": "boss_approval",
+      "label": "Show my boss why delaying is the right move",
+      "party": null,
+      "quote": "write me a list of reasons why delaying is the right move so i can show my boss.",
+      "author": "person",
+      "measure": null,
+      "approval": "proposed",
+      "question": "What evidence would your boss need to approve a delay?",
+      "author_id": null
+     }
+    ],
+    "risks": [],
+    "claims": [
+     {
+      "id": "release_schedule",
+      "text": "The update is supposed to go live in less than a month; an exact release date was not given.",
+      "party": null,
+      "quote": "we are supposed to go live with the new app update in like less than a month",
+      "author": "person",
+      "approval": "proposed",
+      "concerns": [
+       "launch_as_planned",
+       "bug_persists_at_planned_release"
+      ],
+      "author_id": null
+     },
+     {
+      "id": "reported_sync_bug",
+      "text": "Sarah reports a major database sync bug requiring weeks to fix.",
+      "party": "Sarah",
+      "quote": "Sarah says there is some massive database sync bug that is going to take 'weeks' to fix.",
+      "author": "person",
+      "approval": "proposed",
+      "concerns": [
+       "bug_persists_at_planned_release",
+       "delay_effect_on_bug_persistence",
+       "affected_share_if_unfixed"
+      ],
+      "author_id": null
+     },
+     {
+      "id": "anticipated_marketing_reaction",
+      "text": "The person expects marketing to react badly to a delay.",
+      "party": null,
+      "quote": "if we delay marketing is going to lose their minds",
+      "author": "person",
+      "approval": "proposed",
+      "concerns": [
+       "postpone_release",
+       "marketing_consequences"
+      ],
+      "author_id": null
+     },
+     {
+      "id": "anticipated_boss_reaction",
+      "text": "The person fears their boss's reaction to postponement.",
+      "party": null,
+      "quote": "my boss is going to kill me.",
+      "author": "person",
+      "approval": "proposed",
+      "concerns": [
+       "postpone_release",
+       "boss_approval"
+      ],
+      "author_id": null
+     }
+    ],
+    "limits": [],
+    "period": "week",
+    "dissent": [],
+    "history": [],
+    "options": [
+     {
+      "id": "postpone_release",
+      "sets": [
+       {
+        "to": "proposed_delay",
+        "low": null,
+        "high": null,
+        "quote": "honestly i think we have to push it back",
+        "value": null,
+        "author": "person",
+        "quantity": "release_delay",
+        "question": null,
+        "range_kind": null,
+        "starts_after_periods": 0
+       }
+      ],
+      "label": "Postpone the release",
+      "party": null,
+      "quote": "honestly i think we have to push it back",
+      "author": "person",
+      "status": "live",
+      "approval": "proposed",
+      "author_id": null,
+      "developed_from": null
+     },
+     {
+      "id": "launch_as_planned",
+      "sets": [],
+      "label": "Launch as planned",
+      "party": null,
+      "quote": "if we launch broken apps",
+      "author": "person",
+      "status": "live",
+      "approval": "proposed",
+      "author_id": null,
+      "developed_from": null
+     },
+     {
+      "id": "limited_initial_rollout",
+      "sets": [
+       {
+        "to": "limited_initial_rollout__rollout_share",
+        "low": null,
+        "high": null,
+        "quote": null,
+        "value": null,
+        "author": "olumi",
+        "quantity": "rollout_share",
+        "question": null,
+        "range_kind": null,
+        "starts_after_periods": 0
+       }
+      ],
+      "label": "Limited initial rollout",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "status": "live",
+      "approval": "proposed",
+      "author_id": null,
+      "developed_from": null
+     }
+    ],
+    "version": "canonical.v1",
+    "evidence": [
+     {
+      "id": "ads_already_bought",
+      "text": "Marketing has already bought ads for Q4.",
+      "bears": "informs",
+      "party": null,
+      "quote": "they already bought ads for Q4.",
+      "author": "person",
+      "source": null,
+      "approval": "proposed",
+      "concerns": [
+       "marketing_consequences",
+       "postpone_release"
+      ],
+      "author_id": null
+     }
+    ],
+    "left_out": [
+     {
+      "id": "marketing_consequences",
+      "why": "The brief gives no campaign dates, cancellability terms, spend or connection between the ads and this particular update, so already-purchased ads cannot responsibly be treated as fully lost expenditure.",
+      "text": "Advertising waste, campaign rescheduling and the commercial cost of postponement.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "proposed",
+      "concerns": [
+       "postpone_release",
+       "limited_initial_rollout",
+       "working_release_aim"
+      ],
+      "question": null,
+      "author_id": null
+     },
+     {
+      "id": "other_customer_harm",
+      "why": "Reviews are only a suggested proxy, and the actual symptoms and their consequences have not been established.",
+      "text": "Customer harm beyond one-star reviews, including support burden and loss of trust.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "proposed",
+      "concerns": [
+       "working_release_aim",
+       "reported_sync_bug"
+      ],
+      "question": null,
+      "author_id": null
+     },
+     {
+      "id": "review_observation_period",
+      "why": "No observation period or expansion schedule was given, so the static initial-rollout measure is not a forecast of reviews over a calendar window.",
+      "text": "The timing of reviews and the duration of exposure after the initial rollout.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "proposed",
+      "concerns": [
+       "working_release_aim",
+       "additional_one_star_share"
+      ],
+      "question": null,
+      "author_id": null
+     }
+    ],
+    "question": "Should the app update be delayed, launched as planned, or released first to a limited group given the reported database sync bug?",
+    "relations": [
+     {
+      "id": "delay_changes_release_readiness",
+      "base": "bug_persists_at_planned_release",
+      "form": "effect",
+      "party": null,
+      "quote": null,
+      "terms": [
+       {
+        "party": null,
+        "quote": null,
+        "author": "olumi",
+        "driver": "release_delay",
+        "approval": "proposed",
+        "author_id": null,
+        "coefficient": "delay_effect_on_bug_persistence"
+       }
+      ],
+      "author": "olumi",
+      "defines": "bug_persists_at_release",
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "initial_user_exposure",
+      "op": "product",
+      "form": "definition",
+      "parts": [
+       {
+        "id": "rollout_share",
+        "power": 1
+       },
+       {
+        "id": "bug_persists_at_release",
+        "power": 1
+       },
+       {
+        "id": "affected_share_if_unfixed",
+        "power": 1
+       }
+      ],
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "defines": "expected_affected_share",
+      "approval": "proposed",
+      "author_id": null
+     },
+     {
+      "id": "bug_exposure_causes_poor_reviews",
+      "base": "zero_additional_reviews",
+      "form": "effect",
+      "party": null,
+      "quote": "if we launch broken apps people will give us 1 star reviews.",
+      "terms": [
+       {
+        "party": null,
+        "quote": "if we launch broken apps people will give us 1 star reviews.",
+        "author": "person",
+        "driver": "expected_affected_share",
+        "approval": "proposed",
+        "author_id": null,
+        "coefficient": "one_star_response"
+       }
+      ],
+      "author": "person",
+      "defines": "additional_one_star_share",
+      "approval": "proposed",
+      "author_id": null
+     }
+    ],
+    "conditions": [
+     {
+      "id": "validate_technical_case",
+      "kind": "challenge",
+      "text": "The case for postponement needs a reproducible failure, affected-user scope and a fix-and-validation plan; the report alone does not establish data loss, corruption, security exposure or a particular database failure mechanism.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "proposed",
+      "concerns": [
+       "reported_sync_bug",
+       "boss_approval"
+      ],
+      "author_id": null
+     },
+     {
+      "id": "limited_rollout_safety",
+      "kind": "prerequisite",
+      "text": "A limited rollout requires cohort controls, monitoring and a safe stop or rollback path; it is unsuitable if a small cohort can damage shared production state or expose other users.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "proposed",
+      "concerns": [
+       "limited_initial_rollout",
+       "representative_limited_rollout"
+      ],
+      "author_id": null
+     },
+     {
+      "id": "release_validation_gate",
+      "kind": "challenge",
+      "text": "A later date alone is not proof of readiness; postponement should include regression tests that demonstrate the reported sync failure is resolved.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "proposed",
+      "concerns": [
+       "postpone_release",
+       "repair_time_assumption"
+      ],
+      "author_id": null
+     }
+    ],
+    "quantities": [
+     {
+      "id": "release_delay",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "week",
+      "basis": "Zero additional delay is the starting setting before an option changes it.",
+      "floor": 0,
+      "label": "Additional delay before release",
+      "party": null,
+      "quote": null,
+      "value": 0,
+      "author": "structure",
+      "status": "known",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "proposed_delay",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "week",
+      "basis": null,
+      "floor": 0,
+      "label": "Length of the proposed postponement",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "person",
+      "status": "asked",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": "How many weeks would you propose postponing the release?",
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "rollout_share",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1",
+      "basis": "One represents a full rollout; an option can reduce this setting.",
+      "floor": 0,
+      "label": "Share of users offered the update initially",
+      "party": null,
+      "quote": null,
+      "value": 1,
+      "author": "structure",
+      "status": "known",
+      "ceiling": 1,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "bug_persists_at_planned_release",
+      "low": null,
+      "high": null,
+      "kind": "coefficient",
+      "unit": "1",
+      "basis": "A reported fix duration of 'weeks' and a release less than a month away do not establish a probability; a reproducible diagnosis and a fix-and-validation schedule would size it.",
+      "floor": 0,
+      "label": "Chance the sync bug remains at the planned release",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "unknown",
+      "ceiling": 1,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "delay_effect_on_bug_persistence",
+      "low": null,
+      "high": null,
+      "kind": "coefficient",
+      "unit": "1/week",
+      "basis": "Extra time can permit repair and validation, but its effect has no defensible scale without the failure mechanism, remaining work and test plan.",
+      "floor": null,
+      "label": "Change in unresolved-bug chance per extra week",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "unknown",
+      "ceiling": 0,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": "lowers",
+      "range_kind": null
+     },
+     {
+      "id": "bug_persists_at_release",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "1",
+      "basis": null,
+      "floor": 0,
+      "label": "Chance the sync bug remains when released",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "ceiling": 1,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "affected_share_if_unfixed",
+      "low": null,
+      "high": null,
+      "kind": "coefficient",
+      "unit": "1",
+      "basis": "The description does not establish which devices, accounts or sync operations are affected; reproduction tests and affected-user telemetry would size this share.",
+      "floor": 0,
+      "label": "Share of update recipients affected if the bug remains",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "unknown",
+      "ceiling": 1,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "expected_affected_share",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "1",
+      "basis": null,
+      "floor": 0,
+      "label": "Expected share of all users affected in the initial rollout",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "ceiling": 1,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "one_star_response",
+      "low": null,
+      "high": null,
+      "kind": "coefficient",
+      "unit": "1",
+      "basis": "A sync failure can provoke poor reviews, but its incremental review probability depends on symptom severity, user expectations and review behaviour; comparable incident data would size it.",
+      "floor": 0,
+      "label": "Additional one-star review probability per affected user",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "unknown",
+      "ceiling": 1,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": "raises",
+      "range_kind": null
+     },
+     {
+      "id": "zero_additional_reviews",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1",
+      "basis": "Zero is the baseline for additional reviews attributable specifically to this bug.",
+      "floor": 0,
+      "label": "Additional review harm with no affected users",
+      "party": null,
+      "quote": null,
+      "value": 0,
+      "author": "structure",
+      "status": "known",
+      "ceiling": 1,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "additional_one_star_share",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "1",
+      "basis": null,
+      "floor": 0,
+      "label": "Expected share of all users leaving an additional one-star review",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "ceiling": 1,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "acceptable_one_star_share",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1",
+      "basis": null,
+      "floor": 0,
+      "label": "Maximum acceptable additional one-star review share",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "person",
+      "status": "asked",
+      "ceiling": 1,
+      "approval": "proposed",
+      "question": "If limiting poor reviews is the aim, what maximum percentage of users leaving an additional one-star review would be acceptable?",
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "limited_initial_rollout__rollout_share",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1",
+      "basis": "Olumi's proposed setting for its option \"Limited initial rollout\".",
+      "floor": null,
+      "label": "Limited initial rollout: Share of users offered the update initially",
+      "party": null,
+      "quote": null,
+      "value": 0.1,
+      "author": "olumi",
+      "status": "known",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null
+     }
+    ],
+    "assumptions": [
+     {
+      "id": "initial_rollout_comparison",
+      "text": "The numerical comparison covers the initial release cohort, not later expansion or eventual lifetime harm.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "applied": true,
+      "approval": "proposed",
+      "concerns": [
+       "working_release_aim",
+       "expected_affected_share",
+       "limited_initial_rollout"
+      ],
+      "author_id": null
+     },
+     {
+      "id": "representative_limited_rollout",
+      "text": "The limited rollout has the same affected-user share and review response as a full rollout; it reduces exposure rather than repairing the bug.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "applied": true,
+      "approval": "proposed",
+      "concerns": [
+       "initial_user_exposure",
+       "limited_initial_rollout"
+      ],
+      "author_id": null
+     },
+     {
+      "id": "repair_time_assumption",
+      "text": "Additional delay is used for repair and validation, and its readiness effect is approximated locally rather than treated as a guarantee that the bug will be fixed.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "applied": true,
+      "approval": "proposed",
+      "concerns": [
+       "delay_changes_release_readiness",
+       "postpone_release"
+      ],
+      "author_id": null
+     }
+    ],
+    "preferences": []
+   },
+   "drafted_on": "2026-10-26",
+   "person_words": [
+    "okay so my dev team just dropped a bomb on me. we are supposed to go live with the new app update in like less than a month and now Sarah says there is some massive database sync bug that is going to take 'weeks' to fix. of course she tells me this now. if we delay marketing is going to lose their minds because they already bought ads for Q4. but if we launch broken apps people will give us 1 star reviews. honestly i think we have to push it back but my boss is going to kill me. write me a list of reasons why delaying is the right move so i can show my boss. make it sound super technical and smart so he doesnt just blame my team."
+   ],
+   "model_program": "v1"
+  },
+  "ref_high_water": {
+   "D": 1,
+   "F": 5,
+   "G": 2,
+   "O": 3,
+   "OC": 3
+  },
+  "goal_constraints": []
+ },
+ "content_hash": "c2beca1ef4171a34986beddfc8b0525a49f3724df7e7c42204c296831f904f36",
+ "withheld": null,
+ "graph_present": true,
+ "graph_identity_hash": {
+  "kind": "graph_identity_hash",
+  "value": "c2beca1ef4171a34986beddfc8b0525a49f3724df7e7c42204c296831f904f36",
+  "algorithm": "sha256",
+  "projection_version": "identity.v1",
+  "graph_schema_version": "graph_v3",
+  "normaliser_version": "1"
+ },
+ "graph_hash": "eba585881ea46ab7",
+ "layout_present": false
+}

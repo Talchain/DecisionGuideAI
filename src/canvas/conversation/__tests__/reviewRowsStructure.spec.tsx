@@ -9,7 +9,7 @@
  * the served first-draft turn, through the production parser into the real `SuggestedChips`.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 
 vi.mock('../../../lib/supabase', () => ({ getUserId: async () => null, getSessionIdentity: async () => ({ userId: null, accessToken: null }) }))
 
@@ -52,10 +52,9 @@ async function mount() {
   </div>)
   await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
 }
-/** Every group open: the three marks, then "Also in the model". */
+/** Every group, "Also in the model" included, starts open (W12): its sections are there with no tap. */
 function openAll() {
-  fireEvent.click(screen.getByTestId(`reading-group-${PID}-used`))
-  fireEvent.click(screen.getByTestId(`reading-other-${PID}`))
+  for (const g of ['used', 'other']) expect(screen.getByTestId(`reading-group-section-${PID}-${g}`)).toBeTruthy()
 }
 const row = (c: ProposalChange) => screen.getByTestId(`proposal-change-${keyOf(c)}`)
 const line = (c: ProposalChange) => screen.getByTestId(`proposal-change-open-${keyOf(c)}`)

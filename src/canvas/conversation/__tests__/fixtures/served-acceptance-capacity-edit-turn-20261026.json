@@ -1,0 +1,751 @@
+{
+ "_source": "acceptance run 20261026T1556Z-de43edbd-f0514be1 (served UI f0514be1, CEE de43edbd), run/capacity/turns/04-edit.json: the correction turn's response body, byte-unchanged",
+ "body": {
+  "turn_id": "c0bc58b8-33ef-49e4-9f1e-c2e6b8cfe68e",
+  "durability": "recorded",
+  "assistant_text": "I’ve prepared “Staff absence” for your approval on the card; it has not been saved.\n\n- It reduces weekly support capacity by **about 10 tickets per week, between 5 and 15**, using your words and figures.\n- The reduction applies across the existing staffing options. No other figures, options or goals change.\n- Before approving, check that the existing **80 tickets per week** does not already account for staff absence, so the same loss is not counted twice.",
+  "model": {
+   "revision": "d86a8003da093f81",
+   "scenario_revision": "cd5d884d9a6b2c50f3e0c0299bc0697bca173b7c91409138d61424a1c8abeeb8",
+   "graph": {
+    "nodes": [
+     {
+      "id": "mp:decision",
+      "ref": "D1",
+      "kind": "decision",
+      "label": "Which staffing option provides weekly support capacity of at least 100 tickets?"
+     },
+     {
+      "id": "weekly_support_capacity_goal",
+      "ref": "G1",
+      "kind": "goal",
+      "label": "Weekly support capacity",
+      "provenance": "from_brief",
+      "value_basis": {
+       "from": [
+        "existing_capacity",
+        "additional_capacity"
+       ],
+       "kind": "worked_out",
+       "words": "Worked out from Existing weekly support capacity and Additional specialist capacity"
+      },
+      "source_quote": "Goal: weekly support capacity of at least 100 tickets per week.",
+      "display_value": ">= 100 ticket/week",
+      "goal_direction": ">=",
+      "goal_threshold": 0.8,
+      "observed_state": {
+       "unit": "ticket/week",
+       "value": 80,
+       "raw_value": 80
+      },
+      "goal_measure_by": "person",
+      "threshold_source": "brief_extraction",
+      "goal_threshold_cap": 125,
+      "goal_threshold_raw": 100,
+      "goal_threshold_unit": "ticket/week",
+      "goal_threshold_frame": "level",
+      "analysis_participation": "included",
+      "goal_threshold_cap_provenance": "target_derived_headroom"
+     },
+     {
+      "id": "keep_current_staffing",
+      "ref": "O1",
+      "kind": "option",
+      "label": "Keep current staffing",
+      "provenance": "from_brief",
+      "source_quote": "Keep current staffing",
+      "interventions": {
+       "additional_specialists": {
+        "unit": "specialist",
+        "value": 0,
+        "source": "brief_extraction",
+        "display": "0 specialist",
+        "from_period": 0,
+        "source_words": "Set by ‘Keep current staffing’, from your brief"
+       }
+      },
+      "analysis_participation": "included"
+     },
+     {
+      "id": "add_one_specialist",
+      "ref": "O2",
+      "kind": "option",
+      "label": "Add one specialist",
+      "provenance": "from_brief",
+      "source_quote": "Add one specialist",
+      "interventions": {
+       "additional_specialists": {
+        "unit": "specialist",
+        "value": 1,
+        "source": "brief_extraction",
+        "display": "1 specialist",
+        "from_period": 0,
+        "source_words": "Set by ‘Add one specialist’, from your brief"
+       }
+      },
+      "analysis_participation": "included"
+     },
+     {
+      "id": "shared_specialist",
+      "ref": "O3",
+      "kind": "option",
+      "label": "Shared specialist",
+      "provenance": "ai_inferred",
+      "proposed_by": "olumi",
+      "interventions": {
+       "additional_specialists": {
+        "unit": "specialist",
+        "value": 0.5,
+        "source": "cee_hypothesis",
+        "display": "0.5 specialist, Olumi's reading",
+        "from_period": 0,
+        "source_words": "Set by ‘Shared specialist’, Olumi’s figure"
+       }
+      },
+      "analysis_participation": "included"
+     },
+     {
+      "id": "existing_capacity",
+      "ref": "F1",
+      "kind": "factor",
+      "label": "Existing weekly support capacity",
+      "category": "observable",
+      "provenance": "from_brief",
+      "source_quote": "Our existing team resolves 80 tickets per week.",
+      "display_value": "80 ticket/week",
+      "observed_state": {
+       "unit": "ticket/week",
+       "value": 80,
+       "source": "brief_extraction",
+       "raw_value": 80,
+       "extractionType": "explicit"
+      },
+      "analysis_participation": "included"
+     },
+     {
+      "id": "additional_specialists",
+      "ref": "F2",
+      "kind": "factor",
+      "label": "Additional specialists",
+      "category": "controllable",
+      "description": "The starting level of the additional staffing setting, before an option adds a specialist.",
+      "value_basis": {
+       "kind": "structure",
+       "words": "Fixed by how the model is built"
+      },
+      "display_value": "0 specialist",
+      "observed_state": {
+       "unit": "specialist",
+       "value": 0,
+       "raw_value": 0
+      },
+      "analysis_participation": "included"
+     },
+     {
+      "id": "additional_capacity",
+      "ref": "OC1",
+      "kind": "outcome",
+      "label": "Additional specialist capacity",
+      "provenance": "ai_inferred",
+      "value_basis": {
+       "from": [
+        "additional_specialists",
+        "capacity_per_specialist"
+       ],
+       "kind": "worked_out",
+       "words": "Worked out from Additional specialists and Weekly capacity per additional specialist"
+      },
+      "display_value": "Worked out from Additional specialists and Weekly capacity per additional specialist",
+      "observed_state": {
+       "unit": "ticket/week",
+       "value": 0,
+       "raw_value": 0
+      },
+      "analysis_participation": "included"
+     },
+     {
+      "id": "total_capacity",
+      "ref": "OC2",
+      "kind": "outcome",
+      "label": "Weekly support capacity",
+      "provenance": "ai_inferred",
+      "value_basis": {
+       "from": [
+        "existing_capacity",
+        "additional_capacity"
+       ],
+       "kind": "worked_out",
+       "words": "Worked out from Existing weekly support capacity and Additional specialist capacity"
+      },
+      "display_value": "Worked out from Existing weekly support capacity and Additional specialist capacity",
+      "observed_state": {
+       "unit": "ticket/week",
+       "value": 80,
+       "raw_value": 80
+      },
+      "analysis_participation": "included"
+     }
+    ],
+    "edges": [
+     {
+      "id": "total_capacity__weekly_support_capacity_goal",
+      "to": "weekly_support_capacity_goal",
+      "from": "total_capacity",
+      "origin": "model_program:calculation",
+      "provenance": {
+       "source": "brief_extraction",
+       "definitional": true
+      },
+      "exists_probability": 1
+     },
+     {
+      "id": "mp:decision__keep_current_staffing",
+      "to": "keep_current_staffing",
+      "from": "mp:decision",
+      "origin": "model_program:calculation",
+      "provenance": {
+       "source": "brief_extraction"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "keep_current_staffing__additional_specialists",
+      "to": "additional_specialists",
+      "from": "keep_current_staffing",
+      "origin": "model_program:calculation",
+      "provenance": {
+       "source": "brief_extraction"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "mp:decision__add_one_specialist",
+      "to": "add_one_specialist",
+      "from": "mp:decision",
+      "origin": "model_program:calculation",
+      "provenance": {
+       "source": "brief_extraction"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "add_one_specialist__additional_specialists",
+      "to": "additional_specialists",
+      "from": "add_one_specialist",
+      "origin": "model_program:calculation",
+      "provenance": {
+       "source": "brief_extraction"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "mp:decision__shared_specialist",
+      "to": "shared_specialist",
+      "from": "mp:decision",
+      "origin": "model_program:calculation",
+      "provenance": {
+       "source": "cee_hypothesis"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "shared_specialist__additional_specialists",
+      "to": "additional_specialists",
+      "from": "shared_specialist",
+      "origin": "model_program:calculation",
+      "provenance": {
+       "source": "cee_hypothesis"
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "additional_specialists__additional_capacity",
+      "to": "additional_capacity",
+      "from": "additional_specialists",
+      "origin": "model_program:calculation",
+      "provenance": {
+       "source": "brief_extraction",
+       "magnitude": "user_stated",
+       "reasoning": "about 20, 10–30 ticket/week/specialist; Olumi reads it as a spread around 20 (sd 4.703), kept between 10 and 30, provisionally per specialist",
+       "natural_effect": {
+        "amount": 20,
+        "amount_unit": "ticket/week",
+        "stated_range": {
+         "end": "centre",
+         "low": 10,
+         "high": 30,
+         "text": "10–30"
+        },
+        "per_source_change": 1,
+        "per_source_change_unit": "specialist"
+       }
+      },
+      "coefficient_id": "capacity_per_specialist",
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "existing_capacity__total_capacity",
+      "to": "total_capacity",
+      "from": "existing_capacity",
+      "origin": "model_program:calculation",
+      "provenance": {
+       "source": "brief_extraction",
+       "reasoning": "added",
+       "definitional": true
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     },
+     {
+      "id": "additional_capacity__total_capacity",
+      "to": "total_capacity",
+      "from": "additional_capacity",
+      "origin": "model_program:calculation",
+      "provenance": {
+       "source": "brief_extraction",
+       "reasoning": "added",
+       "definitional": true
+      },
+      "effect_direction": "positive",
+      "exists_probability": 1
+     }
+    ],
+    "node_count": 9,
+    "edge_count": 10
+   }
+  },
+  "cards": [
+   {
+    "proposal_id": "prop_9c721c2ee5fdf96d0bc3fde9ad002b3c",
+    "revision": "972acae3-49a3-43ea-bbd0-239838e4f659",
+    "digest": "f3343d485697508cf02aae241253353a",
+    "approve_action": {
+     "id": "agent-approve-proposal:prop_9c721c2ee5fdf96d0bc3fde9ad002b3c",
+     "label": "Make this change",
+     "message": "Yes, make that change.",
+     "detail": "Keep the interpretation of specialist capacity open"
+    },
+    "decline_action": {
+     "id": "agent-decline-proposal:prop_9c721c2ee5fdf96d0bc3fde9ad002b3c",
+     "label": "Not now",
+     "message": "Not now."
+    },
+    "issued_turn_id": "b0044807-f247-4a67-ad6b-ac7c2dccd720",
+    "fields": [],
+    "adds": [
+     {
+      "field_id": "change_note:record:provisional_specialist_capacity_shape",
+      "kind": "change_note",
+      "text": "Adds ‘provisional_specialist_capacity_shape’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:record:specialist_capacity_shape_open",
+      "kind": "change_note",
+      "text": "Adds ‘specialist_capacity_shape_open’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     }
+    ],
+    "changes": [
+     {
+      "id": "provisional_specialist_capacity_shape",
+      "kind": "record",
+      "after": "not applied in the model, about \"Weekly capacity per additional specialist\"",
+      "label": "A bell-shaped interpretation of weekly capacity per additional specialist is Olumi's provisional interpretation, not confirmed by the person. Week-by-week ticket completion records for comparable specialists, with working hours, ticket complexity and ramp-up context, would help assess it.",
+      "action": "add",
+      "author": "olumi",
+      "before": null,
+      "family": "assumptions"
+     },
+     {
+      "id": "specialist_capacity_shape_open",
+      "kind": "record",
+      "after": "a challenge, about \"A bell-shaped interpretation of weekly capacity per additional specialist is Olumi's provisional interpretation, not confirmed by the person. Week-by-week ticket completion records for comparable specialists, with working hours, ticket complexity and ramp-up context, would help assess it.\", in your words \"I'm not sure yet. Keep that open for now, and tell me what you would need from me to pin it down.\"",
+      "label": "I'm not sure yet. Keep that open for now, and tell me what you would need from me to pin it down.",
+      "action": "add",
+      "author": "person",
+      "before": null,
+      "family": "conditions"
+     }
+    ],
+    "missing": []
+   },
+   {
+    "proposal_id": "prop_0652ec2a14896e41ccf6535a590c11e4",
+    "revision": "69e92f4f-c908-4016-ae61-cca8cc6ed230",
+    "digest": "628df5ad6b5ccbb910c3a5cd3b94a777",
+    "approve_action": {
+     "id": "agent-approve-proposal:prop_0652ec2a14896e41ccf6535a590c11e4",
+     "label": "Make this change",
+     "message": "Yes, make that change.",
+     "detail": "Add Staff absence as a reduction in weekly support capacity"
+    },
+    "decline_action": {
+     "id": "agent-decline-proposal:prop_0652ec2a14896e41ccf6535a590c11e4",
+     "label": "Not now",
+     "message": "Not now."
+    },
+    "issued_turn_id": "c0bc58b8-33ef-49e4-9f1e-c2e6b8cfe68e",
+    "fields": [],
+    "adds": [
+     {
+      "field_id": "change_note:quantity:staff_absence",
+      "kind": "change_note",
+      "text": "Adds ‘staff_absence’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     },
+     {
+      "field_id": "change_note:relation:total_capacity_definition",
+      "kind": "change_note",
+      "text": "Changes ‘total_capacity_definition’ (source not yet confirmed).",
+      "source": "unverified",
+      "editable": false
+     }
+    ],
+    "changes": [
+     {
+      "id": "staff_absence",
+      "kind": "quantity",
+      "action": "add",
+      "label": "Staff absence",
+      "before": null,
+      "after": "from 5 to 15 ticket/week, most likely 10 (firm ends) (never below 0: Olumi’s reading), a rate, known, in your words \"Add a factor called \"Staff absence\" that reduces weekly support capacity by about 10 tickets per week, between 5 and 15.\"",
+      "author": "person",
+      "family": "quantity"
+     },
+     {
+      "id": "total_capacity_definition",
+      "kind": "relation",
+      "action": "change",
+      "label": "Weekly support capacity",
+      "before": "\"Weekly support capacity\" is the sum of \"Existing weekly support capacity\" 80 ticket/week, raised by \"Additional specialist capacity\"",
+      "after": "\"Weekly support capacity\" is the sum of \"Existing weekly support capacity\" 80 ticket/week, raised by \"Additional specialist capacity\", lowered by \"Staff absence\" 5–15 ticket/week",
+      "author": "person",
+      "family": "relation"
+     }
+    ],
+    "missing": []
+   }
+  ],
+  "notes": [],
+  "run": null,
+  "analysis_state": null,
+  "canonical_analysis_view": {
+   "run": {
+    "run_id": "mp_run_2_8a4bbaac5cbd",
+    "computed_at": "2026-10-26T15:57:33.149Z",
+    "graph_hash_at_run": "d86a8003da093f81"
+   },
+   "leader": {
+    "words": "In this model, ‘Add one specialist’ is the option most likely to achieve the goal: about 51% chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect, against 0% for ‘Keep current staffing’, the next most likely, if Olumi’s assumption ‘For the suggested shared-specialist option, half a specialist means half of a full specialist's weekly availability, with capacity proportional to that availability’ holds and ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds; with ‘Shared specialist’, also if Olumi’s condition ‘The suggested shared-specialist option requires a specialist who can be assigned for half of their weekly availability’ is met and ‘Shared specialist: Additional specialists’ is 0.5 specialist, Olumi’s figure. Its chance is most sensitive to ‘Weekly capacity per additional specialist’ (your range): 0% at its low end, 100% at its middle and 100% at its high end.",
+    "licence": "permitted",
+    "option_id": null,
+    "goal_chance_leader": "add_one_specialist",
+    "similar_option_ids": []
+   },
+   "schema": "canonical_analysis_view.v1",
+   "source": "stored_run_facts",
+   "options": [
+    {
+     "cell": {
+      "face": "‘Keep current staffing’: 0% chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect, in this model, if Olumi’s assumption ‘For the suggested shared-specialist option, half a specialist means half of a full specialist's weekly availability, with capacity proportional to that availability’ holds and ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds: in every simulated draw ‘Weekly support capacity’ is 80 ticket / week, below 100 ticket / week.",
+      "kind": "figure",
+      "detail": {
+       "draws": 10000,
+       "precision_95": [
+        0,
+        0
+       ],
+       "precision_words": "Simulation precision: exact. Every simulated draw gives the same result for this option, so no sampling is involved."
+      },
+      "display": "0%"
+     },
+     "option_id": "keep_current_staffing",
+     "main_driver": {
+      "kind": "none_licensed",
+      "reason": "Tested one at a time at each figure’s low end, middle and high end, no figure moved this chance by more than 5 points."
+     }
+    },
+    {
+     "cell": {
+      "face": "‘Add one specialist’: about 51% chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect, in this model, if Olumi’s assumption ‘For the suggested shared-specialist option, half a specialist means half of a full specialist's weekly availability, with capacity proportional to that availability’ holds and ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds.",
+      "kind": "figure",
+      "detail": {
+       "draws": 10000,
+       "precision_95": [
+        0.4965004201181919,
+        0.5160947415023375
+       ],
+       "precision_words": "Simulation precision: 49.7% to 51.6%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+      },
+      "display": "about 51%"
+     },
+     "option_id": "add_one_specialist",
+     "main_driver": {
+      "kind": "available",
+      "detail": "In this model, of the figures tested one at a time, the chance is most sensitive to ‘Weekly capacity per additional specialist’ (your range): at the low end (10 ticket / week / specialist) 0%, at the middle (20 ticket / week / specialist) 100%, at the high end (30 ticket / week / specialist) 100%.",
+      "driver": {
+       "low": {
+        "value": 10,
+        "display": "0%"
+       },
+       "high": {
+        "value": 30,
+        "display": "100%"
+       },
+       "draws": 4000,
+       "author": "person",
+       "middle": {
+        "value": 20,
+        "display": "100%"
+       },
+       "quantity": "capacity_per_specialist",
+       "untested": [],
+       "swing_points": 100
+      }
+     }
+    },
+    {
+     "cell": {
+      "face": "‘Shared specialist’: less than 1% chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect, in this model, if Olumi’s assumption ‘For the suggested shared-specialist option, half a specialist means half of a full specialist's weekly availability, with capacity proportional to that availability’ holds, Olumi’s condition ‘The suggested shared-specialist option requires a specialist who can be assigned for half of their weekly availability’ is met, ‘Weekly capacity per additional specialist’ follows Olumi’s provisional conversion of your range, 10 ticket / week / specialist to 30 ticket / week / specialist, into a bell-shaped spread, held within those bounds and ‘Shared specialist: Additional specialists’ is 0.5 specialist, Olumi’s figure.",
+      "kind": "figure",
+      "detail": {
+       "draws": 10000,
+       "precision_95": [
+        0,
+        0.00038399837067659573
+       ],
+       "precision_words": "Simulation precision: 0% to 0%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+      },
+      "display": "less than 1%"
+     },
+     "option_id": "shared_specialist",
+     "main_driver": {
+      "kind": "none_licensed",
+      "reason": "Tested one at a time at each figure’s low end, middle and high end, no figure moved this chance by more than 5 points."
+     }
+    }
+   ],
+   "staleness": {
+    "basis": "analysis_graph_hash_interim",
+    "stale": false,
+    "reason": "graph_hash_match",
+    "revision": null,
+    "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+    "run_revision": null
+   },
+   "goal_chance": {
+    "chance_words": "chance of ‘Weekly support capacity’ being at least 100 ticket / week with each option in effect"
+   },
+   "leader_licence": "permitted"
+  },
+  "model_program": {
+   "turn": "agent"
+  },
+  "receipts": [],
+  "paused": null,
+  "error": null,
+  "action_bar": null,
+  "_agent": {
+   "mode": "core",
+   "stopped_reason": "answered",
+   "tool_calls": [
+    {
+     "name": "propose_change",
+     "outcome": "ok"
+    }
+   ],
+   "sdk": {
+    "runtime": "@openai/agents@0.18.0",
+    "trace_id": "trace_06accba1d3674693b0dcbb882e3a0544",
+    "state": "openai_conversation",
+    "conversation_id": "conv_6adf78828d8c81939fd4b1c07d416a140200435c1f06ee85",
+    "conversation_created": false,
+    "compact_threshold": 100000
+   }
+  },
+  "_provider_calls": [
+   {
+    "site": "agent-core.sdk",
+    "provider": "openai",
+    "model": "gpt-6.1-sol",
+    "purpose": "conversation",
+    "outcome": "allowed",
+    "prompt_alias": "agent.converse",
+    "prompt_sha256": "d9836e169d977115ce426a2471307d416264a17479ee14eace51c59ea9cb13ab",
+    "tools_sha256": "1519be967697e2b5af93876943ca0636e4bd509da218e315061517946cffcde8",
+    "reasoning_effort": "medium",
+    "max_output_tokens": 12000,
+    "cee_build": "de43edbd9a0ee4dd6ed8c11065c1be04abc07d2f",
+    "environment": "staging",
+    "environment_source": "render_service_name",
+    "settings": {
+     "reasoning": {
+      "effort": "medium"
+     },
+     "max_output_tokens": 12000,
+     "parallel_tool_calls": false,
+     "context_management": [
+      {
+       "type": "compaction",
+       "compact_threshold": 100000
+      }
+     ]
+    },
+    "tool_names": [
+     "read_canonical_context",
+     "propose_change",
+     "apply_change",
+     "run_analysis"
+    ],
+    "input_sha256": "ffd53cf60200999698d26e6e15106dcb006f25f6031ae7b0f6fefc5927b5da93",
+    "duration_ms": 8064,
+    "usage": {
+     "raw": {
+      "input_tokens": 18704,
+      "input_tokens_details": {
+       "cache_write_tokens": 180,
+       "cached_tokens": 15694
+      },
+      "output_tokens": 152,
+      "output_tokens_details": {
+       "reasoning_tokens": 0
+      },
+      "total_tokens": 18856
+     },
+     "input_tokens": 18704,
+     "output_tokens": 152,
+     "cached_input_tokens": 15694
+    },
+    "returned_model": "gpt-6.1-sol",
+    "attempt": {
+     "transport_status": 200,
+     "result": "completed",
+     "outcome": "success",
+     "retry": false,
+     "response_sha256": "68f832e4fff547e9178957a9b28e7041f7901cb3664eacec4af4ff1586425fc2"
+    }
+   },
+   {
+    "site": "model-program.draft",
+    "provider": "openai",
+    "model": "gpt-6.1-sol",
+    "purpose": "canonical_draft",
+    "outcome": "allowed",
+    "prompt_alias": "agent.construct",
+    "prompt_sha256": "c7a5a8682cbf20699c057d14a5a99439f4f50dedc4e69a0e9964ee7ed3d9fee2",
+    "schema_sha256": "f60c0f72712ad625ae21908b5de1b03cab98e2ff9e46c8e7f986c3b3c55ad4b0",
+    "reasoning_effort": "medium",
+    "max_output_tokens": 32000,
+    "cee_build": "de43edbd9a0ee4dd6ed8c11065c1be04abc07d2f",
+    "environment": "staging",
+    "environment_source": "render_service_name",
+    "settings": {
+     "reasoning": {
+      "effort": "medium"
+     },
+     "max_output_tokens": 32000
+    },
+    "tool_names": [],
+    "input_sha256": "12576e4e9787d0e41b02b0c4e80c531e1015c9c465e9b5f478a991042bc00a49",
+    "duration_ms": 3994,
+    "usage": {
+     "raw": {
+      "input_tokens": 14489,
+      "input_tokens_details": {
+       "cache_write_tokens": 2581,
+       "cached_tokens": 11905
+      },
+      "output_tokens": 260,
+      "output_tokens_details": {
+       "reasoning_tokens": 0
+      },
+      "total_tokens": 14749
+     },
+     "input_tokens": 14489,
+     "output_tokens": 260,
+     "cached_input_tokens": 11905
+    },
+    "returned_model": "gpt-6.1-sol",
+    "attempt": {
+     "transport_status": 200,
+     "result": "completed",
+     "outcome": "success",
+     "retry": false,
+     "response_sha256": "1e79a503dbd1b97b4a26fb4cf3ce24b53e13a5cffd2bf948407c60a8894edc6e"
+    }
+   },
+   {
+    "site": "agent-core.sdk",
+    "provider": "openai",
+    "model": "gpt-6.1-sol",
+    "purpose": "conversation",
+    "outcome": "allowed",
+    "prompt_alias": "agent.converse",
+    "prompt_sha256": "d9836e169d977115ce426a2471307d416264a17479ee14eace51c59ea9cb13ab",
+    "tools_sha256": "1519be967697e2b5af93876943ca0636e4bd509da218e315061517946cffcde8",
+    "reasoning_effort": "medium",
+    "max_output_tokens": 12000,
+    "cee_build": "de43edbd9a0ee4dd6ed8c11065c1be04abc07d2f",
+    "environment": "staging",
+    "environment_source": "render_service_name",
+    "settings": {
+     "reasoning": {
+      "effort": "medium"
+     },
+     "max_output_tokens": 12000,
+     "parallel_tool_calls": false,
+     "context_management": [
+      {
+       "type": "compaction",
+       "compact_threshold": 100000
+      }
+     ]
+    },
+    "tool_names": [
+     "read_canonical_context",
+     "propose_change",
+     "apply_change",
+     "run_analysis"
+    ],
+    "input_sha256": "68b2c015a964eff93a4dd10a9a63d924eaca162f77c915fa84422ca94654e914",
+    "duration_ms": 4902,
+    "usage": {
+     "raw": {
+      "input_tokens": 19989,
+      "input_tokens_details": {
+       "cache_write_tokens": 4112,
+       "cached_tokens": 15874
+      },
+      "output_tokens": 102,
+      "output_tokens_details": {
+       "reasoning_tokens": 0
+      },
+      "total_tokens": 20091
+     },
+     "input_tokens": 19989,
+     "output_tokens": 102,
+     "cached_input_tokens": 15874
+    },
+    "returned_model": "gpt-6.1-sol",
+    "attempt": {
+     "transport_status": 200,
+     "result": "completed",
+     "outcome": "success",
+     "retry": false,
+     "response_sha256": "1f465cedfd889894e5a80092101e6477ae5e0788a64d7478ece0ee514bb58bd9"
+    }
+   }
+  ]
+ }
+}

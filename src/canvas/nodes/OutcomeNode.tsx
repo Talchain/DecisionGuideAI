@@ -18,7 +18,8 @@ import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { nodeRecordedValue } from '../domain/nodeRecordedValue'
-import { factorValueSourceMark, ValueSourceMark } from './shared/valueSourceMark'
+import { useSavedModelIsProgram } from './shared/savedModelProgram'
+import { factorValueSourceMark, NO_FIGURE_YET, ValueSourceMark } from './shared/valueSourceMark'
 import { openNodeInspector } from './shared/openNodeInspector'
 
 /**
@@ -86,7 +87,7 @@ function recordsAnyNumber(data: Record<string, unknown> | undefined): boolean {
 /** An outcome's recorded number is its TODAY level (`observed_state`), never the outcome's result. */
 export const OUTCOME_TODAY_PREFIX = 'Today: '
 /** The figure an outcome shows while CEE has worked out how, but not what (the same dash a withheld chance shows). */
-export const OUTCOME_NO_FIGURE_YET = '—'
+export const OUTCOME_NO_FIGURE_YET = NO_FIGURE_YET
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
@@ -123,13 +124,15 @@ export const OutcomeNode = memo((props: NodeProps) => {
   // from A and B"). That is a source, not a level: the line shows no figure, and the LINE ITSELF carries CEE's words on
   // hover, focus and in its name, at every rung the line shows (Paul, 24 Oct: visual indicators, not default text; it was
   // a cut sentence on every such card).
+  const savedIsProgram = useSavedModelIsProgram()
   const { recordedValue, noFigureWords } = useMemo(() => {
     const data = props.data as Record<string, unknown> | undefined
-    const value = nodeRecordedValue(data)
+    const value = nodeRecordedValue(data, { zeroIsAFigure: savedIsProgram })
     const basis = data?.value_basis as { kind?: unknown; words?: unknown } | undefined
-    const noFigure = value !== null && basis?.kind === 'worked_out' && typeof basis.words === 'string' && value === basis.words
-    return noFigure ? { recordedValue: OUTCOME_NO_FIGURE_YET, noFigureWords: value } : { recordedValue: value, noFigureWords: null }
-  }, [props.data])
+    // No recorded value at all is no figure too (W12): the card had no line at all.
+    const noFigure = basis?.kind === 'worked_out' && typeof basis.words === 'string' && (value === null || value === basis.words)
+    return noFigure ? { recordedValue: OUTCOME_NO_FIGURE_YET, noFigureWords: basis.words as string } : { recordedValue: value, noFigureWords: null }
+  }, [props.data, savedIsProgram])
   const recordedValueMark = recordedValue ? factorValueSourceMark(props.data) : null
   const showUnquantified = !recordedValue && !recordsAnyNumber(props.data as Record<string, unknown> | undefined)
   const hasStateLine = recordedValue != null || showUnquantified

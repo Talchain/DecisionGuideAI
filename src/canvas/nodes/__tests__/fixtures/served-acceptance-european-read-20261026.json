@@ -1,0 +1,3465 @@
+{
+ "_source": "acceptance run 20261026T1556Z-de43edbd-f0514be1 (served UI f0514be1, CEE de43edbd), run/european/reads/final-reload.json (final-reload at 2026-10-26T16:10:45Z); trimmed to the graph read's keys, byte-unchanged otherwise",
+ "schema": "scenario_graph.v1",
+ "scenario_id": "428b37e6-a407-4f7a-a582-ea562bbd854d",
+ "graph": {
+  "edges": [
+   {
+    "id": "customers__reach_customer_target",
+    "to": "reach_customer_target",
+    "from": "customers",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "brief_extraction",
+     "definitional": true
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__european_expansion",
+    "to": "european_expansion",
+    "from": "mp:decision",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "european_expansion__expansion_scale",
+    "to": "expansion_scale",
+    "from": "european_expansion",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "european_expansion__full_acquisition_active",
+    "to": "full_acquisition_active",
+    "from": "european_expansion",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__limited_european_pilot",
+    "to": "limited_european_pilot",
+    "from": "mp:decision",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "limited_european_pilot__pilot_active",
+    "to": "pilot_active",
+    "from": "limited_european_pilot",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "limited_european_pilot__pilot_acquisition_active",
+    "to": "pilot_acquisition_active",
+    "from": "limited_european_pilot",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__no_european_expansion",
+    "to": "no_european_expansion",
+    "from": "mp:decision",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "baseline_acquisitions__monthly_acquisitions",
+    "to": "monthly_acquisitions",
+    "from": "baseline_acquisitions",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "base level",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "full_acquisition_active__monthly_acquisitions",
+    "to": "monthly_acquisitions",
+    "from": "full_acquisition_active",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "reasoning": "unknown per 1; its size is not given yet"
+    },
+    "coefficient_id": "acquisitions_per_expansion",
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "pilot_acquisition_active__monthly_acquisitions",
+    "to": "monthly_acquisitions",
+    "from": "pilot_acquisition_active",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "reasoning": "unknown per 1; its size is not given yet"
+    },
+    "coefficient_id": "pilot_acquisitions",
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "baseline_churn__monthly_churn",
+    "to": "monthly_churn",
+    "from": "baseline_churn",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "base level",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "monthly_churn__fractional_churn",
+    "to": "fractional_churn",
+    "from": "monthly_churn",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "percentage_scale__fractional_churn",
+    "to": "fractional_churn",
+    "from": "percentage_scale",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "divided by",
+     "definitional": true
+    },
+    "effect_direction": "negative",
+    "exists_probability": 1
+   },
+   {
+    "id": "customers__monthly_losses",
+    "to": "monthly_losses",
+    "from": "customers",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "reasoning": "Worked out from Monthly customer churn and Percentage conversion per customer; its size is not given yet"
+    },
+    "coefficient_id": "fractional_churn",
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "customers_now__customers",
+    "to": "customers",
+    "from": "customers_now",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "starting level",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "monthly_acquisitions__customers",
+    "to": "customers",
+    "from": "monthly_acquisitions",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "inflow per month",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "monthly_losses__customers",
+    "to": "customers",
+    "from": "monthly_losses",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "outflow per month",
+     "definitional": true
+    },
+    "effect_direction": "negative",
+    "exists_probability": 1
+   },
+   {
+    "id": "full_expansion_investment__expansion_investment",
+    "to": "expansion_investment",
+    "from": "full_expansion_investment",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "pilot_investment_commitment__expansion_investment",
+    "to": "expansion_investment",
+    "from": "pilot_investment_commitment",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "added",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "planned_investment__full_expansion_investment",
+    "to": "full_expansion_investment",
+    "from": "planned_investment",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "expansion_scale__full_expansion_investment",
+    "to": "full_expansion_investment",
+    "from": "expansion_scale",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "pilot_total_investment__pilot_investment_commitment",
+    "to": "pilot_investment_commitment",
+    "from": "pilot_total_investment",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "pilot_active__pilot_investment_commitment",
+    "to": "pilot_investment_commitment",
+    "from": "pilot_active",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   }
+  ],
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "ref": "D1",
+    "kind": "decision",
+    "label": "Should we expand into the European market in the next 6–12 months, given the customer target, churn risk and investment budget?"
+   },
+   {
+    "id": "reach_customer_target",
+    "ref": "G1",
+    "kind": "goal",
+    "label": "The target is 800",
+    "provenance": "from_brief",
+    "goal_window": {
+     "start": 0,
+     "periods": null,
+     "aggregation": "end",
+     "period_unit": "month",
+     "origin_event": null
+    },
+    "value_basis": {
+     "from": [
+      "customers_now",
+      "monthly_acquisitions",
+      "monthly_losses"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Current customers, New customers per month and Customers leaving per month"
+    },
+    "source_quote": "The target is 800.",
+    "display_value": ">= 800 customer",
+    "goal_direction": ">=",
+    "goal_threshold": 0.8,
+    "goal_measure_by": "person",
+    "threshold_source": "brief_extraction",
+    "goal_threshold_cap": 1000,
+    "goal_threshold_raw": 800,
+    "goal_threshold_unit": "customer",
+    "goal_threshold_frame": "level",
+    "analysis_participation": "retained_excluded",
+    "goal_threshold_cap_provenance": "target_derived_headroom"
+   },
+   {
+    "id": "european_expansion",
+    "ref": "O1",
+    "kind": "option",
+    "label": "European expansion",
+    "provenance": "from_brief",
+    "source_quote": "Should we expand into the European market in the next 6-12 months?",
+    "interventions": {
+     "expansion_scale": {
+      "unit": "1",
+      "value": 1,
+      "source": "brief_extraction",
+      "display": "1",
+      "from_period": "expansion_timing",
+      "source_words": "Set by ‘European expansion’, from your brief"
+     },
+     "full_acquisition_active": {
+      "unit": "1",
+      "value": 1,
+      "source": "brief_extraction",
+      "display": "1",
+      "from_period": "full_acquisition_start",
+      "source_words": "Set by ‘European expansion’, from your brief"
+     }
+    },
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "limited_european_pilot",
+    "ref": "O2",
+    "kind": "option",
+    "label": "Limited European pilot",
+    "provenance": "ai_inferred",
+    "proposed_by": "olumi",
+    "interventions": {
+     "pilot_active": {
+      "unit": "1",
+      "value": 1,
+      "source": "cee_hypothesis",
+      "display": "1",
+      "from_period": "expansion_timing",
+      "source_words": "Set by ‘Limited European pilot’, Olumi’s figure"
+     },
+     "pilot_acquisition_active": {
+      "unit": "1",
+      "value": 1,
+      "source": "cee_hypothesis",
+      "display": "1",
+      "from_period": "pilot_acquisition_start",
+      "source_words": "Set by ‘Limited European pilot’, Olumi’s figure"
+     }
+    },
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "no_european_expansion",
+    "ref": "O3",
+    "kind": "option",
+    "label": "Continue without European expansion",
+    "provenance": "ai_inferred",
+    "is_baseline": true,
+    "proposed_by": "olumi",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "customers_now",
+    "ref": "F1",
+    "kind": "factor",
+    "label": "Current customers",
+    "category": "observable",
+    "provenance": "from_brief",
+    "source_quote": "Our current customer base is 400.",
+    "display_value": "400 customer",
+    "observed_state": {
+     "unit": "customer",
+     "value": 400,
+     "source": "brief_extraction",
+     "raw_value": 400,
+     "extractionType": "explicit"
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "target_deadline",
+    "ref": "F2",
+    "kind": "factor",
+    "label": "Time to reach the customer target",
+    "category": "observable",
+    "provenance": "from_brief",
+    "value_basis": {
+     "kind": "waiting_for_answer",
+     "words": "Waiting for your answer",
+     "question": "By when do you want to reach 800 customers?"
+    },
+    "display_value": "Waiting for your answer",
+    "observed_state": {
+     "unit": "month"
+    },
+    "user_questions": [
+     "By when do you want to reach 800 customers?"
+    ],
+    "analysis_participation": "included"
+   },
+   {
+    "id": "baseline_acquisitions",
+    "ref": "F3",
+    "kind": "factor",
+    "label": "New customers per month without European expansion",
+    "category": "observable",
+    "provenance": "from_brief",
+    "value_basis": {
+     "kind": "waiting_for_answer",
+     "words": "Waiting for your answer",
+     "question": "How many new customers joined last month, before subtracting customers who left?"
+    },
+    "display_value": "Waiting for your answer",
+    "observed_state": {
+     "unit": "customer/month"
+    },
+    "user_questions": [
+     "How many new customers joined last month, before subtracting customers who left?"
+    ],
+    "analysis_participation": "included"
+   },
+   {
+    "id": "baseline_churn",
+    "ref": "F4",
+    "kind": "factor",
+    "label": "Current monthly churn",
+    "category": "observable",
+    "provenance": "from_brief",
+    "source_quote": "Monthly churn is at 8%.",
+    "display_value": "8 %/month",
+    "observed_state": {
+     "unit": "%/month",
+     "value": 8,
+     "source": "brief_extraction",
+     "raw_value": 8,
+     "extractionType": "explicit"
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "planned_investment",
+    "ref": "F5",
+    "kind": "factor",
+    "label": "Investment required for the proposed expansion",
+    "category": "observable",
+    "provenance": "from_brief",
+    "value_basis": {
+     "kind": "waiting_for_answer",
+     "words": "Waiting for your answer",
+     "question": "How much would the proposed European expansion cost, including setup and regulatory compliance?"
+    },
+    "display_value": "Waiting for your answer",
+    "observed_state": {
+     "unit": "GBP"
+    },
+    "user_questions": [
+     "How much would the proposed European expansion cost, including setup and regulatory compliance?"
+    ],
+    "analysis_participation": "included"
+   },
+   {
+    "id": "expansion_timing",
+    "ref": "F6",
+    "kind": "factor",
+    "label": "Months until expansion starts",
+    "category": "observable",
+    "provenance": "from_brief",
+    "source_quote": "Should we expand into the European market in the next 6-12 months?",
+    "display_value": "6–12 month; Olumi reads it as a spread around 9 (sd 1.411), kept between 6 and 12, provisionally",
+    "observed_state": {
+     "unit": "month",
+     "range": {
+      "low": 6,
+      "high": 12
+     },
+     "value": 9,
+     "source": "cee_inference",
+     "raw_value": 9,
+     "extractionType": "inferred"
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "expansion_scale",
+    "ref": "F7",
+    "kind": "factor",
+    "label": "Share of the proposed expansion undertaken",
+    "category": "controllable",
+    "description": "The option setting starts at zero; one represents undertaking the proposed expansion in full.",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "display_value": "0",
+    "observed_state": {
+     "unit": "1",
+     "value": 0,
+     "raw_value": 0
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "percentage_scale",
+    "ref": "F8",
+    "kind": "factor",
+    "label": "Percentage conversion",
+    "category": "observable",
+    "description": "100 percent is one whole.",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "display_value": "100 %",
+    "observed_state": {
+     "unit": "%",
+     "value": 100,
+     "raw_value": 100
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "monthly_acquisitions",
+    "ref": "OC1",
+    "kind": "outcome",
+    "label": "New customers per month",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "baseline_acquisitions",
+      "full_acquisition_active",
+      "pilot_acquisition_active"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from New customers per month without European expansion, Full-expansion acquisition effect switched on and Pilot acquisition effect switched on"
+    },
+    "display_value": "Worked out from New customers per month without European expansion, Full-expansion acquisition effect switched on and Pilot acquisition effect switched on",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "monthly_churn",
+    "ref": "OC2",
+    "kind": "outcome",
+    "label": "Monthly customer churn",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "baseline_churn",
+      "expansion_scale",
+      "pilot_active"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Current monthly churn, Share of the proposed expansion undertaken and Pilot commitment and churn effect switched on"
+    },
+    "display_value": "Worked out from Current monthly churn, Share of the proposed expansion undertaken and Pilot commitment and churn effect switched on",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "fractional_churn",
+    "ref": "OC3",
+    "kind": "outcome",
+    "label": "Fraction of customers leaving per month",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "monthly_churn",
+      "percentage_scale"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Monthly customer churn and Percentage conversion"
+    },
+    "display_value": "Worked out from Monthly customer churn and Percentage conversion",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "monthly_losses",
+    "ref": "OC4",
+    "kind": "outcome",
+    "label": "Customers leaving per month",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "customers",
+      "fractional_churn"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Customer base and Fraction of customers leaving per month"
+    },
+    "display_value": "Worked out from Customer base and Fraction of customers leaving per month",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "customers",
+    "ref": "OC5",
+    "kind": "outcome",
+    "label": "Customer base",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "customers_now",
+      "monthly_acquisitions",
+      "monthly_losses"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Current customers, New customers per month and Customers leaving per month"
+    },
+    "display_value": "Worked out from Current customers, New customers per month and Customers leaving per month",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "expansion_investment",
+    "ref": "OC6",
+    "kind": "outcome",
+    "label": "Committed expansion investment",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "full_expansion_investment",
+      "pilot_investment_commitment"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Full-expansion investment commitment and Pilot investment commitment"
+    },
+    "display_value": "Worked out from Full-expansion investment commitment and Pilot investment commitment",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "full_acquisition_active",
+    "ref": "F9",
+    "kind": "factor",
+    "label": "Full-expansion acquisition effect switched on",
+    "category": "controllable",
+    "description": "The full-expansion acquisition effect is off until the option activates it after its unknown ramp-up duration.",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "display_value": "0",
+    "observed_state": {
+     "unit": "1",
+     "value": 0,
+     "raw_value": 0
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "pilot_active",
+    "ref": "F10",
+    "kind": "factor",
+    "label": "Pilot commitment and churn effect switched on",
+    "category": "controllable",
+    "description": "The provisional pilot is off unless its option is selected.",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "display_value": "0",
+    "observed_state": {
+     "unit": "1",
+     "value": 0,
+     "raw_value": 0
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "pilot_acquisition_active",
+    "ref": "F11",
+    "kind": "factor",
+    "label": "Pilot acquisition effect switched on",
+    "category": "controllable",
+    "description": "The pilot acquisition effect is off until the option activates it after its independently unknown ramp-up duration.",
+    "value_basis": {
+     "kind": "structure",
+     "words": "Fixed by how the model is built"
+    },
+    "display_value": "0",
+    "observed_state": {
+     "unit": "1",
+     "value": 0,
+     "raw_value": 0
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "pilot_total_investment",
+    "ref": "F12",
+    "kind": "factor",
+    "label": "Total investment required for the provisional pilot",
+    "category": "observable",
+    "provenance": "from_brief",
+    "value_basis": {
+     "kind": "waiting_for_answer",
+     "words": "Waiting for your answer",
+     "question": "What would the limited European pilot cost in total, including setup and regulatory compliance?"
+    },
+    "display_value": "Waiting for your answer",
+    "observed_state": {
+     "unit": "GBP"
+    },
+    "user_questions": [
+     "What would the limited European pilot cost in total, including setup and regulatory compliance?"
+    ],
+    "analysis_participation": "included"
+   },
+   {
+    "id": "full_acquisition_ramp_duration",
+    "ref": "F13",
+    "kind": "factor",
+    "label": "Full-expansion acquisition ramp-up duration",
+    "category": "observable",
+    "provenance": "ai_inferred",
+    "description": "Time from launch to the full acquisition effect needs comparable launch observations, channel lead times and operational-readiness evidence; no duration or range is defensible from the brief.",
+    "display_value": "unknown",
+    "observed_state": {
+     "unit": "month"
+    },
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "pilot_acquisition_ramp_duration",
+    "ref": "F14",
+    "kind": "factor",
+    "label": "Pilot acquisition ramp-up duration",
+    "category": "observable",
+    "provenance": "ai_inferred",
+    "description": "The pilot needs its own launch, channel and operational-readiness evidence to establish time to its acquisition level; its duration is not scaled from full expansion.",
+    "display_value": "unknown",
+    "observed_state": {
+     "unit": "month"
+    },
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "full_acquisition_start",
+    "ref": "F15",
+    "kind": "factor",
+    "label": "Months until full-expansion acquisition effect",
+    "category": "observable",
+    "provenance": "ai_inferred",
+    "description": "Olumi's provisional direct timing input is the whole number of months from now until the post-ramp acquisition effect begins; it needs launch-readiness and ramp-up evidence consistent with the stated launch window, and cannot be sized from that window alone.",
+    "display_value": "unknown",
+    "observed_state": {
+     "unit": "month"
+    },
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "pilot_acquisition_start",
+    "ref": "F16",
+    "kind": "factor",
+    "label": "Months until pilot acquisition effect",
+    "category": "observable",
+    "provenance": "ai_inferred",
+    "description": "Olumi's provisional direct timing input is the whole number of months from now until the pilot's post-ramp acquisition effect begins; it needs independent pilot launch-readiness and ramp-up evidence consistent with its launch timing, with no defensible figure yet.",
+    "display_value": "unknown",
+    "observed_state": {
+     "unit": "month"
+    },
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "full_expansion_investment",
+    "ref": "OC7",
+    "kind": "outcome",
+    "label": "Full-expansion investment commitment",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "planned_investment",
+      "expansion_scale"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Investment required for the proposed expansion and Share of the proposed expansion undertaken"
+    },
+    "display_value": "Worked out from Investment required for the proposed expansion and Share of the proposed expansion undertaken",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "pilot_investment_commitment",
+    "ref": "OC8",
+    "kind": "outcome",
+    "label": "Pilot investment commitment",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "pilot_total_investment",
+      "pilot_active"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Total investment required for the provisional pilot and Pilot commitment and churn effect switched on"
+    },
+    "display_value": "Worked out from Total investment required for the provisional pilot and Pilot commitment and churn effect switched on",
+    "analysis_participation": "included"
+   }
+  ],
+  "living_model": {
+   "runs": [
+    {
+     "result": {
+      "chances": null,
+      "compile": {
+       "joint": {
+        "asks": [
+         "baseline_acquisitions",
+         "target_deadline"
+        ],
+        "status": "withheld",
+        "reasons": [
+         "The chance of meeting every goal together waits on \"The target is 800\"."
+        ],
+        "goal_ids": [
+         "reach_customer_target"
+        ],
+        "leaves_out": []
+       },
+       "errors": [],
+       "blockers": [
+        {
+         "id": "target_deadline",
+         "code": "asked",
+         "scope": [
+          "reach_customer_target",
+          "avoid_dangerous_churn",
+          "stay_within_budget"
+         ]
+        },
+        {
+         "id": "baseline_acquisitions",
+         "code": "asked",
+         "scope": [
+          "reach_customer_target"
+         ]
+        },
+        {
+         "id": "planned_investment",
+         "code": "asked",
+         "scope": [
+          "stay_within_budget"
+         ]
+        },
+        {
+         "id": "acquisitions_per_expansion",
+         "code": "unknown",
+         "scope": [
+          "reach_customer_target"
+         ]
+        },
+        {
+         "id": "churn_increase_per_expansion",
+         "code": "unknown",
+         "scope": [
+          "reach_customer_target",
+          "avoid_dangerous_churn"
+         ]
+        }
+       ],
+       "compiles": true,
+       "per_goal": [
+        {
+         "asks": [
+          "baseline_acquisitions",
+          "target_deadline"
+         ],
+         "status": "withheld",
+         "goal_id": "reach_customer_target",
+         "reasons": [
+          "rests on \"Additional monthly churn from expansion strain\", which is unknown: Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload.",
+          "rests on \"Additional monthly customers from the full expansion\", which is unknown: Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion.",
+          "needs \"New customers per month without European expansion\".",
+          "needs \"Time to reach the customer target\"."
+         ],
+         "excludes": [],
+         "rests_on": [
+          "baseline_continues",
+          "timing_interpretation",
+          "pilot_scaling",
+          "post_launch_effects"
+         ],
+         "cancelled": [],
+         "olumi_inputs": [
+          "customer_stock",
+          "calculate_customer_losses",
+          "convert_churn",
+          "churn_effect",
+          "churn_effect:expansion_scale",
+          "acquisition_effect",
+          "acquisition_effect:expansion_scale"
+         ],
+         "needs_measure": false,
+         "needs_deadline": false,
+         "unverified_inputs": []
+        }
+       ],
+       "per_limit": [
+        {
+         "asks": [
+          "target_deadline"
+         ],
+         "status": "withheld",
+         "reasons": [
+          "rests on \"Additional monthly churn from expansion strain\", which is unknown: Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload.",
+          "needs \"Time to reach the customer target\"."
+         ],
+         "limit_id": "avoid_dangerous_churn",
+         "rests_on": [
+          "baseline_continues",
+          "timing_interpretation",
+          "pilot_scaling",
+          "post_launch_effects"
+         ],
+         "cancelled": [],
+         "needs_measure": false
+        },
+        {
+         "asks": [
+          "planned_investment",
+          "target_deadline"
+         ],
+         "status": "asks",
+         "reasons": [
+          "needs \"Investment required for the proposed expansion\".",
+          "needs \"Time to reach the customer target\"."
+         ],
+         "limit_id": "stay_within_budget",
+         "rests_on": [
+          "timing_interpretation",
+          "pilot_scaling",
+          "post_launch_effects",
+          "regulatory_readiness"
+         ],
+         "cancelled": [],
+         "needs_measure": false
+        }
+       ],
+       "executable": false,
+       "per_option": [
+        {
+         "asks": [],
+         "status": "calculable",
+         "reasons": [],
+         "rests_on": [
+          "timing_interpretation",
+          "regulatory_readiness"
+         ],
+         "option_id": "european_expansion"
+        },
+        {
+         "asks": [],
+         "status": "calculable",
+         "reasons": [],
+         "rests_on": [
+          "timing_interpretation",
+          "pilot_scaling",
+          "regulatory_readiness"
+         ],
+         "option_id": "limited_european_pilot"
+        },
+        {
+         "asks": [],
+         "status": "calculable",
+         "reasons": [],
+         "rests_on": [
+          "baseline_continues"
+         ],
+         "option_id": "no_european_expansion"
+        }
+       ],
+       "unverified": [],
+       "conversions": [],
+       "within_limits": {
+        "asks": [
+         "target_deadline",
+         "planned_investment"
+        ],
+        "status": "withheld",
+        "reasons": [
+         "Staying within the limits waits on \"Avoid churn beyond 12%\".",
+         "Staying within the limits waits on \"Investment budget up to £500k\"."
+        ],
+        "limit_ids": [
+         "avoid_dangerous_churn",
+         "stay_within_budget"
+        ],
+        "leaves_out": []
+       },
+       "implicit_as_stated": false
+      },
+      "canonical_analysis_view": {
+       "run": {
+        "run_id": "mp_run_1_448962cca4cf",
+        "computed_at": "2026-10-26T16:04:00.488Z",
+        "graph_hash_at_run": "2fe23fdd4cae4a03"
+       },
+       "schema": "canonical_analysis_view.v1",
+       "source": "stored_run_facts",
+       "options": [
+        {
+         "cell": {
+          "why": "The chance waits on ‘Time to reach the customer target’, ‘New customers per month without European expansion’, ‘Additional monthly customers from the full expansion’, which no one can size yet (Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion) and ‘Additional monthly churn from expansion strain’, which no one can size yet (Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload).",
+          "face": "Not shown yet: needs your answer",
+          "kind": "withheld",
+          "reasons": [
+           {
+            "code": "goal_withheld",
+            "message": "rests on \"Additional monthly churn from expansion strain\", which is unknown: Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload. rests on \"Additional monthly customers from the full expansion\", which is unknown: Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion. needs \"New customers per month without European expansion\". needs \"Time to reach the customer target\"."
+           }
+          ]
+         },
+         "option_id": "european_expansion",
+         "main_driver": {
+          "kind": "not_recorded"
+         }
+        },
+        {
+         "cell": {
+          "why": "The chance waits on ‘Time to reach the customer target’, ‘New customers per month without European expansion’, ‘Additional monthly customers from the full expansion’, which no one can size yet (Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion) and ‘Additional monthly churn from expansion strain’, which no one can size yet (Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload).",
+          "face": "Not shown yet: needs your answer",
+          "kind": "withheld",
+          "reasons": [
+           {
+            "code": "goal_withheld",
+            "message": "rests on \"Additional monthly churn from expansion strain\", which is unknown: Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload. rests on \"Additional monthly customers from the full expansion\", which is unknown: Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion. needs \"New customers per month without European expansion\". needs \"Time to reach the customer target\"."
+           }
+          ]
+         },
+         "option_id": "limited_european_pilot",
+         "main_driver": {
+          "kind": "not_recorded"
+         }
+        },
+        {
+         "cell": {
+          "why": "The chance waits on ‘Time to reach the customer target’, ‘New customers per month without European expansion’, ‘Additional monthly customers from the full expansion’, which no one can size yet (Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion) and ‘Additional monthly churn from expansion strain’, which no one can size yet (Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload).",
+          "face": "Not shown yet: needs your answer",
+          "kind": "withheld",
+          "reasons": [
+           {
+            "code": "goal_withheld",
+            "message": "rests on \"Additional monthly churn from expansion strain\", which is unknown: Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload. rests on \"Additional monthly customers from the full expansion\", which is unknown: Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion. needs \"New customers per month without European expansion\". needs \"Time to reach the customer target\"."
+           }
+          ]
+         },
+         "option_id": "no_european_expansion",
+         "main_driver": {
+          "kind": "not_recorded"
+         }
+        }
+       ],
+       "staleness": {
+        "basis": "analysis_graph_hash_interim",
+        "stale": false,
+        "reason": "graph_hash_match",
+        "revision": null,
+        "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+        "run_revision": null
+       },
+       "goal_chance": {
+        "notes": [
+         "‘The target is 800’ waits on ‘Time to reach the customer target’, ‘New customers per month without European expansion’, ‘Additional monthly customers from the full expansion’, which no one can size yet (Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion) and ‘Additional monthly churn from expansion strain’, which no one can size yet (Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload)."
+        ],
+        "waits_on": [
+         {
+          "id": "target_deadline",
+          "code": "asked",
+          "label": "Time to reach the customer target",
+          "scope": [
+           "reach_customer_target",
+           "avoid_dangerous_churn",
+           "stay_within_budget"
+          ],
+          "answer": {
+           "quantity_id": "target_deadline"
+          }
+         },
+         {
+          "id": "baseline_acquisitions",
+          "code": "asked",
+          "label": "New customers per month without European expansion",
+          "scope": [
+           "reach_customer_target"
+          ],
+          "answer": {
+           "quantity_id": "baseline_acquisitions"
+          }
+         },
+         {
+          "id": "planned_investment",
+          "code": "asked",
+          "label": "Investment required for the proposed expansion",
+          "scope": [
+           "stay_within_budget"
+          ],
+          "answer": {
+           "quantity_id": "planned_investment"
+          }
+         },
+         {
+          "id": "acquisitions_per_expansion",
+          "code": "unknown",
+          "basis": "Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion.",
+          "label": "Additional monthly customers from the full expansion",
+          "scope": [
+           "reach_customer_target"
+          ],
+          "answer": null
+         },
+         {
+          "id": "churn_increase_per_expansion",
+          "code": "unknown",
+          "basis": "Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload.",
+          "label": "Additional monthly churn from expansion strain",
+          "scope": [
+           "reach_customer_target",
+           "avoid_dangerous_churn"
+          ],
+          "answer": null
+         }
+        ]
+       },
+       "leader_licence": "withheld"
+      }
+     },
+     "run_id": "mp_run_1_448962cca4cf",
+     "receipt": {
+      "seed": 3168351954,
+      "draws": null,
+      "versions": {
+       "engine": "mp-a7b1584d30c7",
+       "canonical": "canonical.v1",
+       "executable": "r5"
+      },
+      "revision_digest": "c1929b57333ec883298c5e5eb05db6605b9c96bc09f4af4f36a21c691c23e371"
+     },
+     "computed_at": "2026-10-26T16:04:00.488Z"
+    },
+    {
+     "result": {
+      "chances": null,
+      "compile": {
+       "joint": {
+        "asks": [
+         "baseline_acquisitions",
+         "target_deadline"
+        ],
+        "status": "withheld",
+        "reasons": [
+         "The chance of meeting every goal together waits on \"The target is 800\"."
+        ],
+        "goal_ids": [
+         "reach_customer_target"
+        ],
+        "leaves_out": []
+       },
+       "errors": [],
+       "blockers": [
+        {
+         "id": "target_deadline",
+         "code": "asked",
+         "scope": [
+          "reach_customer_target",
+          "avoid_dangerous_churn",
+          "stay_within_budget"
+         ]
+        },
+        {
+         "id": "baseline_acquisitions",
+         "code": "asked",
+         "scope": [
+          "reach_customer_target"
+         ]
+        },
+        {
+         "id": "planned_investment",
+         "code": "asked",
+         "scope": [
+          "stay_within_budget"
+         ]
+        },
+        {
+         "id": "acquisitions_per_expansion",
+         "code": "unknown",
+         "scope": [
+          "reach_customer_target"
+         ]
+        },
+        {
+         "id": "churn_increase_per_expansion",
+         "code": "unknown",
+         "scope": [
+          "reach_customer_target",
+          "avoid_dangerous_churn"
+         ]
+        }
+       ],
+       "compiles": true,
+       "per_goal": [
+        {
+         "asks": [
+          "baseline_acquisitions",
+          "target_deadline"
+         ],
+         "status": "withheld",
+         "goal_id": "reach_customer_target",
+         "reasons": [
+          "rests on \"Additional monthly churn from expansion strain\", which is unknown: Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload.",
+          "rests on \"Additional monthly customers from the full expansion\", which is unknown: Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion.",
+          "needs \"New customers per month without European expansion\".",
+          "needs \"Time to reach the customer target\"."
+         ],
+         "excludes": [],
+         "rests_on": [
+          "baseline_continues",
+          "timing_interpretation",
+          "pilot_scaling",
+          "post_launch_effects"
+         ],
+         "cancelled": [],
+         "olumi_inputs": [
+          "customer_stock",
+          "calculate_customer_losses",
+          "convert_churn",
+          "churn_effect",
+          "churn_effect:expansion_scale",
+          "acquisition_effect",
+          "acquisition_effect:expansion_scale"
+         ],
+         "needs_measure": false,
+         "needs_deadline": false,
+         "unverified_inputs": []
+        }
+       ],
+       "per_limit": [
+        {
+         "asks": [
+          "target_deadline"
+         ],
+         "status": "withheld",
+         "reasons": [
+          "rests on \"Additional monthly churn from expansion strain\", which is unknown: Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload.",
+          "needs \"Time to reach the customer target\"."
+         ],
+         "limit_id": "avoid_dangerous_churn",
+         "rests_on": [
+          "baseline_continues",
+          "timing_interpretation",
+          "pilot_scaling",
+          "post_launch_effects"
+         ],
+         "cancelled": [],
+         "needs_measure": false
+        },
+        {
+         "asks": [
+          "planned_investment",
+          "target_deadline"
+         ],
+         "status": "asks",
+         "reasons": [
+          "needs \"Investment required for the proposed expansion\".",
+          "needs \"Time to reach the customer target\"."
+         ],
+         "limit_id": "stay_within_budget",
+         "rests_on": [
+          "timing_interpretation",
+          "pilot_scaling",
+          "post_launch_effects",
+          "regulatory_readiness"
+         ],
+         "cancelled": [],
+         "needs_measure": false
+        }
+       ],
+       "executable": false,
+       "per_option": [
+        {
+         "asks": [],
+         "status": "calculable",
+         "reasons": [],
+         "rests_on": [
+          "timing_interpretation",
+          "regulatory_readiness"
+         ],
+         "option_id": "european_expansion"
+        },
+        {
+         "asks": [],
+         "status": "calculable",
+         "reasons": [],
+         "rests_on": [
+          "timing_interpretation",
+          "pilot_scaling",
+          "regulatory_readiness"
+         ],
+         "option_id": "limited_european_pilot"
+        },
+        {
+         "asks": [],
+         "status": "calculable",
+         "reasons": [],
+         "rests_on": [
+          "baseline_continues"
+         ],
+         "option_id": "no_european_expansion"
+        }
+       ],
+       "unverified": [],
+       "conversions": [],
+       "within_limits": {
+        "asks": [
+         "target_deadline",
+         "planned_investment"
+        ],
+        "status": "withheld",
+        "reasons": [
+         "Staying within the limits waits on \"Avoid churn beyond 12%\".",
+         "Staying within the limits waits on \"Investment budget up to £500k\"."
+        ],
+        "limit_ids": [
+         "avoid_dangerous_churn",
+         "stay_within_budget"
+        ],
+        "leaves_out": []
+       },
+       "implicit_as_stated": false
+      },
+      "canonical_analysis_view": {
+       "run": {
+        "run_id": "mp_run_2_d0b3fa259703",
+        "computed_at": "2026-10-26T16:04:03.872Z",
+        "graph_hash_at_run": "2fe23fdd4cae4a03"
+       },
+       "schema": "canonical_analysis_view.v1",
+       "source": "stored_run_facts",
+       "options": [
+        {
+         "cell": {
+          "why": "The chance waits on ‘Time to reach the customer target’, ‘New customers per month without European expansion’, ‘Additional monthly customers from the full expansion’, which no one can size yet (Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion) and ‘Additional monthly churn from expansion strain’, which no one can size yet (Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload).",
+          "face": "Not shown yet: needs your answer",
+          "kind": "withheld",
+          "reasons": [
+           {
+            "code": "goal_withheld",
+            "message": "rests on \"Additional monthly churn from expansion strain\", which is unknown: Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload. rests on \"Additional monthly customers from the full expansion\", which is unknown: Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion. needs \"New customers per month without European expansion\". needs \"Time to reach the customer target\"."
+           }
+          ]
+         },
+         "option_id": "european_expansion",
+         "main_driver": {
+          "kind": "not_recorded"
+         }
+        },
+        {
+         "cell": {
+          "why": "The chance waits on ‘Time to reach the customer target’, ‘New customers per month without European expansion’, ‘Additional monthly customers from the full expansion’, which no one can size yet (Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion) and ‘Additional monthly churn from expansion strain’, which no one can size yet (Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload).",
+          "face": "Not shown yet: needs your answer",
+          "kind": "withheld",
+          "reasons": [
+           {
+            "code": "goal_withheld",
+            "message": "rests on \"Additional monthly churn from expansion strain\", which is unknown: Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload. rests on \"Additional monthly customers from the full expansion\", which is unknown: Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion. needs \"New customers per month without European expansion\". needs \"Time to reach the customer target\"."
+           }
+          ]
+         },
+         "option_id": "limited_european_pilot",
+         "main_driver": {
+          "kind": "not_recorded"
+         }
+        },
+        {
+         "cell": {
+          "why": "The chance waits on ‘Time to reach the customer target’, ‘New customers per month without European expansion’, ‘Additional monthly customers from the full expansion’, which no one can size yet (Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion) and ‘Additional monthly churn from expansion strain’, which no one can size yet (Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload).",
+          "face": "Not shown yet: needs your answer",
+          "kind": "withheld",
+          "reasons": [
+           {
+            "code": "goal_withheld",
+            "message": "rests on \"Additional monthly churn from expansion strain\", which is unknown: Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload. rests on \"Additional monthly customers from the full expansion\", which is unknown: Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion. needs \"New customers per month without European expansion\". needs \"Time to reach the customer target\"."
+           }
+          ]
+         },
+         "option_id": "no_european_expansion",
+         "main_driver": {
+          "kind": "not_recorded"
+         }
+        }
+       ],
+       "staleness": {
+        "basis": "analysis_graph_hash_interim",
+        "stale": false,
+        "reason": "graph_hash_match",
+        "revision": null,
+        "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+        "run_revision": null
+       },
+       "goal_chance": {
+        "notes": [
+         "‘The target is 800’ waits on ‘Time to reach the customer target’, ‘New customers per month without European expansion’, ‘Additional monthly customers from the full expansion’, which no one can size yet (Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion) and ‘Additional monthly churn from expansion strain’, which no one can size yet (Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload)."
+        ],
+        "waits_on": [
+         {
+          "id": "target_deadline",
+          "code": "asked",
+          "label": "Time to reach the customer target",
+          "scope": [
+           "reach_customer_target",
+           "avoid_dangerous_churn",
+           "stay_within_budget"
+          ],
+          "answer": {
+           "quantity_id": "target_deadline"
+          }
+         },
+         {
+          "id": "baseline_acquisitions",
+          "code": "asked",
+          "label": "New customers per month without European expansion",
+          "scope": [
+           "reach_customer_target"
+          ],
+          "answer": {
+           "quantity_id": "baseline_acquisitions"
+          }
+         },
+         {
+          "id": "planned_investment",
+          "code": "asked",
+          "label": "Investment required for the proposed expansion",
+          "scope": [
+           "stay_within_budget"
+          ],
+          "answer": {
+           "quantity_id": "planned_investment"
+          }
+         },
+         {
+          "id": "acquisitions_per_expansion",
+          "code": "unknown",
+          "basis": "Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion.",
+          "label": "Additional monthly customers from the full expansion",
+          "scope": [
+           "reach_customer_target"
+          ],
+          "answer": null
+         },
+         {
+          "id": "churn_increase_per_expansion",
+          "code": "unknown",
+          "basis": "Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload.",
+          "label": "Additional monthly churn from expansion strain",
+          "scope": [
+           "reach_customer_target",
+           "avoid_dangerous_churn"
+          ],
+          "answer": null
+         }
+        ]
+       },
+       "leader_licence": "withheld"
+      }
+     },
+     "run_id": "mp_run_2_d0b3fa259703",
+     "receipt": {
+      "seed": 3168351954,
+      "draws": null,
+      "versions": {
+       "engine": "mp-a7b1584d30c7",
+       "canonical": "canonical.v1",
+       "executable": "r5"
+      },
+      "revision_digest": "b7a18e0b5f183eed4971731afb1fb9b47c8108d5e0d5a4849de32c6bef82d9c3"
+     },
+     "computed_at": "2026-10-26T16:04:03.872Z"
+    },
+    {
+     "result": {
+      "chances": null,
+      "compile": {
+       "joint": {
+        "asks": [
+         "baseline_acquisitions",
+         "target_deadline"
+        ],
+        "status": "withheld",
+        "reasons": [
+         "The chance of meeting every goal together waits on \"The target is 800\"."
+        ],
+        "goal_ids": [
+         "reach_customer_target"
+        ],
+        "leaves_out": []
+       },
+       "errors": [],
+       "blockers": [
+        {
+         "id": "target_deadline",
+         "code": "asked",
+         "scope": [
+          "reach_customer_target",
+          "avoid_dangerous_churn",
+          "stay_within_budget"
+         ]
+        },
+        {
+         "id": "baseline_acquisitions",
+         "code": "asked",
+         "scope": [
+          "reach_customer_target"
+         ]
+        },
+        {
+         "id": "planned_investment",
+         "code": "asked",
+         "scope": [
+          "stay_within_budget"
+         ]
+        },
+        {
+         "id": "acquisitions_per_expansion",
+         "code": "unknown",
+         "scope": [
+          "reach_customer_target"
+         ]
+        },
+        {
+         "id": "churn_increase_per_expansion",
+         "code": "unknown",
+         "scope": [
+          "reach_customer_target",
+          "avoid_dangerous_churn"
+         ]
+        },
+        {
+         "id": "pilot_acquisitions",
+         "code": "unknown",
+         "scope": [
+          "reach_customer_target"
+         ]
+        },
+        {
+         "id": "pilot_churn_change",
+         "code": "unknown",
+         "scope": [
+          "reach_customer_target",
+          "avoid_dangerous_churn"
+         ]
+        },
+        {
+         "id": "pilot_total_investment",
+         "code": "asked",
+         "scope": [
+          "stay_within_budget"
+         ]
+        },
+        {
+         "id": "full_acquisition_start",
+         "code": "unknown",
+         "scope": [
+          "european_expansion"
+         ]
+        },
+        {
+         "id": "pilot_acquisition_start",
+         "code": "unknown",
+         "scope": [
+          "limited_european_pilot"
+         ]
+        }
+       ],
+       "compiles": true,
+       "per_goal": [
+        {
+         "asks": [
+          "baseline_acquisitions",
+          "target_deadline"
+         ],
+         "status": "withheld",
+         "goal_id": "reach_customer_target",
+         "reasons": [
+          "rests on \"Signed monthly churn change from the pilot\", which is unknown: The pilot could improve or worsen retention; its own cohort, staffing and service-capacity evidence must size this change independently of full expansion, with resulting total churn restricted to its physical bounds.",
+          "rests on \"Signed monthly churn change from full expansion\", which is unknown: Olumi's provisional repair permits either improved retention or deterioration; historical cohort retention, service-capacity evidence and country-specific customer research are needed to size the change, with resulting total churn restricted to its physical bounds.",
+          "rests on \"Additional monthly customers from the pilot\", which is unknown: Pilot acquisitions require evidence for the pilot's own scope, reachable demand, competition and acquisition channels; they are not inferred as a fraction of full-expansion acquisitions.",
+          "rests on \"Additional monthly customers from the full expansion\", which is unknown: The full-expansion acquisition level after ramp-up needs country-specific reachable-demand, competition and acquisition-channel evidence; neither the current customer count nor the investment budget establishes its scale.",
+          "needs \"New customers per month without European expansion\".",
+          "needs \"Time to reach the customer target\"."
+         ],
+         "excludes": [],
+         "rests_on": [
+          "baseline_continues",
+          "timing_interpretation",
+          "post_launch_effects",
+          "physical_churn_admissibility",
+          "country_evidence_requirements"
+         ],
+         "cancelled": [],
+         "olumi_inputs": [
+          "customer_stock",
+          "calculate_customer_losses",
+          "convert_churn",
+          "churn_effect",
+          "churn_effect:expansion_scale",
+          "churn_effect:pilot_active",
+          "acquisition_effect",
+          "acquisition_effect:full_acquisition_active",
+          "acquisition_effect:pilot_acquisition_active"
+         ],
+         "needs_measure": false,
+         "needs_deadline": false,
+         "unverified_inputs": []
+        }
+       ],
+       "per_limit": [
+        {
+         "asks": [
+          "target_deadline"
+         ],
+         "status": "withheld",
+         "reasons": [
+          "rests on \"Signed monthly churn change from the pilot\", which is unknown: The pilot could improve or worsen retention; its own cohort, staffing and service-capacity evidence must size this change independently of full expansion, with resulting total churn restricted to its physical bounds.",
+          "rests on \"Signed monthly churn change from full expansion\", which is unknown: Olumi's provisional repair permits either improved retention or deterioration; historical cohort retention, service-capacity evidence and country-specific customer research are needed to size the change, with resulting total churn restricted to its physical bounds.",
+          "needs \"Time to reach the customer target\"."
+         ],
+         "limit_id": "avoid_dangerous_churn",
+         "rests_on": [
+          "baseline_continues",
+          "timing_interpretation",
+          "post_launch_effects",
+          "physical_churn_admissibility"
+         ],
+         "cancelled": [],
+         "needs_measure": false
+        },
+        {
+         "asks": [
+          "pilot_total_investment",
+          "planned_investment",
+          "target_deadline"
+         ],
+         "status": "asks",
+         "reasons": [
+          "needs \"Total investment required for the provisional pilot\".",
+          "needs \"Investment required for the proposed expansion\".",
+          "needs \"Time to reach the customer target\"."
+         ],
+         "limit_id": "stay_within_budget",
+         "rests_on": [
+          "timing_interpretation",
+          "post_launch_effects",
+          "regulatory_readiness",
+          "country_evidence_requirements"
+         ],
+         "cancelled": [],
+         "needs_measure": false
+        }
+       ],
+       "executable": false,
+       "per_option": [
+        {
+         "asks": [],
+         "status": "withheld",
+         "reasons": [
+          "rests on \"Months until full-expansion acquisition effect\", which is unknown: Olumi's provisional direct timing input is the whole number of months from now until the post-ramp acquisition effect begins; it needs launch-readiness and ramp-up evidence consistent with the stated launch window, and cannot be sized from that window alone."
+         ],
+         "rests_on": [
+          "timing_interpretation",
+          "post_launch_effects",
+          "regulatory_readiness",
+          "country_evidence_requirements"
+         ],
+         "option_id": "european_expansion"
+        },
+        {
+         "asks": [],
+         "status": "withheld",
+         "reasons": [
+          "rests on \"Months until pilot acquisition effect\", which is unknown: Olumi's provisional direct timing input is the whole number of months from now until the pilot's post-ramp acquisition effect begins; it needs independent pilot launch-readiness and ramp-up evidence consistent with its launch timing, with no defensible figure yet."
+         ],
+         "rests_on": [
+          "timing_interpretation",
+          "post_launch_effects",
+          "regulatory_readiness",
+          "country_evidence_requirements"
+         ],
+         "option_id": "limited_european_pilot"
+        },
+        {
+         "asks": [],
+         "status": "calculable",
+         "reasons": [],
+         "rests_on": [
+          "baseline_continues"
+         ],
+         "option_id": "no_european_expansion"
+        }
+       ],
+       "unverified": [],
+       "conversions": [],
+       "within_limits": {
+        "asks": [
+         "target_deadline",
+         "pilot_total_investment",
+         "planned_investment"
+        ],
+        "status": "withheld",
+        "reasons": [
+         "Staying within the limits waits on \"Avoid churn beyond 12%\".",
+         "Staying within the limits waits on \"Investment budget up to £500k\"."
+        ],
+        "limit_ids": [
+         "avoid_dangerous_churn",
+         "stay_within_budget"
+        ],
+        "leaves_out": []
+       },
+       "implicit_as_stated": false
+      },
+      "canonical_analysis_view": {
+       "run": {
+        "run_id": "mp_run_3_ffdf3654399e",
+        "computed_at": "2026-10-26T16:08:17.561Z",
+        "graph_hash_at_run": "35bd2bd1f79b7337"
+       },
+       "schema": "canonical_analysis_view.v1",
+       "source": "stored_run_facts",
+       "options": [
+        {
+         "cell": {
+          "why": "The chance waits on ‘Time to reach the customer target’, ‘New customers per month without European expansion’, ‘Additional monthly customers from the full expansion’, which no one can size yet (The full-expansion acquisition level after ramp-up needs country-specific reachable-demand, competition and acquisition-channel evidence; neither the current customer count nor the investment budget establishes its scale), ‘Signed monthly churn change from full expansion’, which no one can size yet (Olumi's provisional repair permits either improved retention or deterioration; historical cohort retention, service-capacity evidence and country-specific customer research are needed to size the change, with resulting total churn restricted to its physical bounds), ‘Additional monthly customers from the pilot’, which no one can size yet (Pilot acquisitions require evidence for the pilot's own scope, reachable demand, competition and acquisition channels; they are not inferred as a fraction of full-expansion acquisitions), ‘Signed monthly churn change from the pilot’, which no one can size yet (The pilot could improve or worsen retention; its own cohort, staffing and service-capacity evidence must size this change independently of full expansion, with resulting total churn restricted to its physical bounds) and ‘Months until full-expansion acquisition effect’, which no one can size yet (Olumi's provisional direct timing input is the whole number of months from now until the post-ramp acquisition effect begins; it needs launch-readiness and ramp-up evidence consistent with the stated launch window, and cannot be sized from that window alone).",
+          "face": "Not shown yet: needs your answer",
+          "kind": "withheld",
+          "reasons": [
+           {
+            "code": "goal_withheld",
+            "message": "rests on \"Signed monthly churn change from the pilot\", which is unknown: The pilot could improve or worsen retention; its own cohort, staffing and service-capacity evidence must size this change independently of full expansion, with resulting total churn restricted to its physical bounds. rests on \"Signed monthly churn change from full expansion\", which is unknown: Olumi's provisional repair permits either improved retention or deterioration; historical cohort retention, service-capacity evidence and country-specific customer research are needed to size the change, with resulting total churn restricted to its physical bounds. rests on \"Additional monthly customers from the pilot\", which is unknown: Pilot acquisitions require evidence for the pilot's own scope, reachable demand, competition and acquisition channels; they are not inferred as a fraction of full-expansion acquisitions. rests on \"Additional monthly customers from the full expansion\", which is unknown: The full-expansion acquisition level after ramp-up needs country-specific reachable-demand, competition and acquisition-channel evidence; neither the current customer count nor the investment budget establishes its scale. needs \"New customers per month without European expansion\". needs \"Time to reach the customer target\"."
+           }
+          ]
+         },
+         "option_id": "european_expansion",
+         "main_driver": {
+          "kind": "not_recorded"
+         }
+        },
+        {
+         "cell": {
+          "why": "The chance waits on ‘Time to reach the customer target’, ‘New customers per month without European expansion’, ‘Additional monthly customers from the full expansion’, which no one can size yet (The full-expansion acquisition level after ramp-up needs country-specific reachable-demand, competition and acquisition-channel evidence; neither the current customer count nor the investment budget establishes its scale), ‘Signed monthly churn change from full expansion’, which no one can size yet (Olumi's provisional repair permits either improved retention or deterioration; historical cohort retention, service-capacity evidence and country-specific customer research are needed to size the change, with resulting total churn restricted to its physical bounds), ‘Additional monthly customers from the pilot’, which no one can size yet (Pilot acquisitions require evidence for the pilot's own scope, reachable demand, competition and acquisition channels; they are not inferred as a fraction of full-expansion acquisitions), ‘Signed monthly churn change from the pilot’, which no one can size yet (The pilot could improve or worsen retention; its own cohort, staffing and service-capacity evidence must size this change independently of full expansion, with resulting total churn restricted to its physical bounds) and ‘Months until pilot acquisition effect’, which no one can size yet (Olumi's provisional direct timing input is the whole number of months from now until the pilot's post-ramp acquisition effect begins; it needs independent pilot launch-readiness and ramp-up evidence consistent with its launch timing, with no defensible figure yet).",
+          "face": "Not shown yet: needs your answer",
+          "kind": "withheld",
+          "reasons": [
+           {
+            "code": "goal_withheld",
+            "message": "rests on \"Signed monthly churn change from the pilot\", which is unknown: The pilot could improve or worsen retention; its own cohort, staffing and service-capacity evidence must size this change independently of full expansion, with resulting total churn restricted to its physical bounds. rests on \"Signed monthly churn change from full expansion\", which is unknown: Olumi's provisional repair permits either improved retention or deterioration; historical cohort retention, service-capacity evidence and country-specific customer research are needed to size the change, with resulting total churn restricted to its physical bounds. rests on \"Additional monthly customers from the pilot\", which is unknown: Pilot acquisitions require evidence for the pilot's own scope, reachable demand, competition and acquisition channels; they are not inferred as a fraction of full-expansion acquisitions. rests on \"Additional monthly customers from the full expansion\", which is unknown: The full-expansion acquisition level after ramp-up needs country-specific reachable-demand, competition and acquisition-channel evidence; neither the current customer count nor the investment budget establishes its scale. needs \"New customers per month without European expansion\". needs \"Time to reach the customer target\"."
+           }
+          ]
+         },
+         "option_id": "limited_european_pilot",
+         "main_driver": {
+          "kind": "not_recorded"
+         }
+        },
+        {
+         "cell": {
+          "why": "The chance waits on ‘Time to reach the customer target’, ‘New customers per month without European expansion’, ‘Additional monthly customers from the full expansion’, which no one can size yet (The full-expansion acquisition level after ramp-up needs country-specific reachable-demand, competition and acquisition-channel evidence; neither the current customer count nor the investment budget establishes its scale), ‘Signed monthly churn change from full expansion’, which no one can size yet (Olumi's provisional repair permits either improved retention or deterioration; historical cohort retention, service-capacity evidence and country-specific customer research are needed to size the change, with resulting total churn restricted to its physical bounds), ‘Additional monthly customers from the pilot’, which no one can size yet (Pilot acquisitions require evidence for the pilot's own scope, reachable demand, competition and acquisition channels; they are not inferred as a fraction of full-expansion acquisitions) and ‘Signed monthly churn change from the pilot’, which no one can size yet (The pilot could improve or worsen retention; its own cohort, staffing and service-capacity evidence must size this change independently of full expansion, with resulting total churn restricted to its physical bounds).",
+          "face": "Not shown yet: needs your answer",
+          "kind": "withheld",
+          "reasons": [
+           {
+            "code": "goal_withheld",
+            "message": "rests on \"Signed monthly churn change from the pilot\", which is unknown: The pilot could improve or worsen retention; its own cohort, staffing and service-capacity evidence must size this change independently of full expansion, with resulting total churn restricted to its physical bounds. rests on \"Signed monthly churn change from full expansion\", which is unknown: Olumi's provisional repair permits either improved retention or deterioration; historical cohort retention, service-capacity evidence and country-specific customer research are needed to size the change, with resulting total churn restricted to its physical bounds. rests on \"Additional monthly customers from the pilot\", which is unknown: Pilot acquisitions require evidence for the pilot's own scope, reachable demand, competition and acquisition channels; they are not inferred as a fraction of full-expansion acquisitions. rests on \"Additional monthly customers from the full expansion\", which is unknown: The full-expansion acquisition level after ramp-up needs country-specific reachable-demand, competition and acquisition-channel evidence; neither the current customer count nor the investment budget establishes its scale. needs \"New customers per month without European expansion\". needs \"Time to reach the customer target\"."
+           }
+          ]
+         },
+         "option_id": "no_european_expansion",
+         "main_driver": {
+          "kind": "not_recorded"
+         }
+        }
+       ],
+       "staleness": {
+        "basis": "analysis_graph_hash_interim",
+        "stale": false,
+        "reason": "graph_hash_match",
+        "revision": null,
+        "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+        "run_revision": null
+       },
+       "goal_chance": {
+        "notes": [
+         "‘The target is 800’ waits on ‘Time to reach the customer target’, ‘New customers per month without European expansion’, ‘Additional monthly customers from the full expansion’, which no one can size yet (The full-expansion acquisition level after ramp-up needs country-specific reachable-demand, competition and acquisition-channel evidence; neither the current customer count nor the investment budget establishes its scale), ‘Signed monthly churn change from full expansion’, which no one can size yet (Olumi's provisional repair permits either improved retention or deterioration; historical cohort retention, service-capacity evidence and country-specific customer research are needed to size the change, with resulting total churn restricted to its physical bounds), ‘Additional monthly customers from the pilot’, which no one can size yet (Pilot acquisitions require evidence for the pilot's own scope, reachable demand, competition and acquisition channels; they are not inferred as a fraction of full-expansion acquisitions) and ‘Signed monthly churn change from the pilot’, which no one can size yet (The pilot could improve or worsen retention; its own cohort, staffing and service-capacity evidence must size this change independently of full expansion, with resulting total churn restricted to its physical bounds)."
+        ],
+        "waits_on": [
+         {
+          "id": "target_deadline",
+          "code": "asked",
+          "label": "Time to reach the customer target",
+          "scope": [
+           "reach_customer_target",
+           "avoid_dangerous_churn",
+           "stay_within_budget"
+          ],
+          "answer": {
+           "quantity_id": "target_deadline"
+          }
+         },
+         {
+          "id": "baseline_acquisitions",
+          "code": "asked",
+          "label": "New customers per month without European expansion",
+          "scope": [
+           "reach_customer_target"
+          ],
+          "answer": {
+           "quantity_id": "baseline_acquisitions"
+          }
+         },
+         {
+          "id": "planned_investment",
+          "code": "asked",
+          "label": "Investment required for the proposed expansion",
+          "scope": [
+           "stay_within_budget"
+          ],
+          "answer": {
+           "quantity_id": "planned_investment"
+          }
+         },
+         {
+          "id": "acquisitions_per_expansion",
+          "code": "unknown",
+          "basis": "The full-expansion acquisition level after ramp-up needs country-specific reachable-demand, competition and acquisition-channel evidence; neither the current customer count nor the investment budget establishes its scale.",
+          "label": "Additional monthly customers from the full expansion",
+          "scope": [
+           "reach_customer_target"
+          ],
+          "answer": null
+         },
+         {
+          "id": "churn_increase_per_expansion",
+          "code": "unknown",
+          "basis": "Olumi's provisional repair permits either improved retention or deterioration; historical cohort retention, service-capacity evidence and country-specific customer research are needed to size the change, with resulting total churn restricted to its physical bounds.",
+          "label": "Signed monthly churn change from full expansion",
+          "scope": [
+           "reach_customer_target",
+           "avoid_dangerous_churn"
+          ],
+          "answer": null
+         },
+         {
+          "id": "pilot_acquisitions",
+          "code": "unknown",
+          "basis": "Pilot acquisitions require evidence for the pilot's own scope, reachable demand, competition and acquisition channels; they are not inferred as a fraction of full-expansion acquisitions.",
+          "label": "Additional monthly customers from the pilot",
+          "scope": [
+           "reach_customer_target"
+          ],
+          "answer": null
+         },
+         {
+          "id": "pilot_churn_change",
+          "code": "unknown",
+          "basis": "The pilot could improve or worsen retention; its own cohort, staffing and service-capacity evidence must size this change independently of full expansion, with resulting total churn restricted to its physical bounds.",
+          "label": "Signed monthly churn change from the pilot",
+          "scope": [
+           "reach_customer_target",
+           "avoid_dangerous_churn"
+          ],
+          "answer": null
+         },
+         {
+          "id": "pilot_total_investment",
+          "code": "asked",
+          "label": "Total investment required for the provisional pilot",
+          "scope": [
+           "stay_within_budget"
+          ],
+          "answer": {
+           "quantity_id": "pilot_total_investment"
+          }
+         },
+         {
+          "id": "full_acquisition_start",
+          "code": "unknown",
+          "basis": "Olumi's provisional direct timing input is the whole number of months from now until the post-ramp acquisition effect begins; it needs launch-readiness and ramp-up evidence consistent with the stated launch window, and cannot be sized from that window alone.",
+          "label": "Months until full-expansion acquisition effect",
+          "scope": [
+           "european_expansion"
+          ],
+          "answer": null
+         },
+         {
+          "id": "pilot_acquisition_start",
+          "code": "unknown",
+          "basis": "Olumi's provisional direct timing input is the whole number of months from now until the pilot's post-ramp acquisition effect begins; it needs independent pilot launch-readiness and ramp-up evidence consistent with its launch timing, with no defensible figure yet.",
+          "label": "Months until pilot acquisition effect",
+          "scope": [
+           "limited_european_pilot"
+          ],
+          "answer": null
+         }
+        ]
+       },
+       "leader_licence": "withheld"
+      }
+     },
+     "run_id": "mp_run_3_ffdf3654399e",
+     "receipt": {
+      "seed": 3168351954,
+      "draws": null,
+      "versions": {
+       "engine": "mp-a7b1584d30c7",
+       "canonical": "canonical.v1",
+       "executable": "r5"
+      },
+      "revision_digest": "20afc62ded8ac1cfc0123377ca4a1c5db8ee57d824f1d28d86ecb10a6c470009"
+     },
+     "computed_at": "2026-10-26T16:08:17.561Z"
+    }
+   ],
+   "seed": 3168351954,
+   "canonical": {
+    "goals": [
+     {
+      "id": "reach_customer_target",
+      "label": "The target is 800",
+      "party": null,
+      "quote": "The target is 800.",
+      "author": "person",
+      "measure": {
+       "cmp": ">=",
+       "per": null,
+       "frame": "level",
+       "target": "customer_target",
+       "window": {
+        "start": 0,
+        "periods": "target_deadline",
+        "origin_event": null,
+        "origin_offset": null
+       },
+       "quantity": "customers",
+       "reference": null,
+       "exclusions": [],
+       "measure_by": "person",
+       "aggregation": "end",
+       "assumptions": []
+      },
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     }
+    ],
+    "risks": [],
+    "claims": [
+     {
+      "id": "competition_varies",
+      "text": "Competition intensity varies.",
+      "party": null,
+      "quote": "Competition intensity varies.",
+      "author": "person",
+      "approval": "approved",
+      "concerns": [
+       "acquisitions_per_expansion"
+      ],
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "country_regulations",
+      "text": "Multiple complex country regulations are a consideration.",
+      "party": null,
+      "quote": "Multiple complex country regulations are a consideration.",
+      "author": "person",
+      "approval": "approved",
+      "concerns": [
+       "planned_investment",
+       "expansion_timing",
+       "churn_increase_per_expansion",
+       "regulatory_readiness"
+      ],
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "repair_approval_card",
+      "text": "Approval card — Olumi's provisional structural repairs, not approved business estimates or the person's choice. Replaced in place: churn_increase_per_expansion (increase-only effect replaced by an unknown signed change); acquisitions_per_expansion (explicitly the unknown post-ramp acquisition level); limited_european_pilot__expansion_scale (one-fifth scaling replaced by an on/off switch); acquisition_effect (independent full and pilot acquisition effects with separate delayed activation); churn_effect (independent signed full and pilot churn changes); calculate_expansion_investment (separate full and pilot commitments); european_expansion (acquisition activation separated from launch); limited_european_pilot (independent pilot inputs and activation); baseline_continues (constant baseline explicitly provisional and requiring historical checks); pilot_scaling (proportional scaling withdrawn); post_launch_effects (immediate full acquisitions withdrawn and timing approximation disclosed); country_specific_differences (explicit country-level evidence requirements); profitability_not_established (financial evidence needed made explicit). Compiler repair: full_acquisition_start and pilot_acquisition_start are now unknown direct timing inputs rather than derived quantities; calculate_full_acquisition_start and calculate_pilot_acquisition_start are removed. Ramp durations remain unknown evidence requirements, not automatically added to launch timing by the calculation. The person's figures, words, customer goal and limits remain unchanged; target_deadline remains unanswered. New records provide independent pilot inputs, unknown ramp durations and direct activation timings, investment definitions, evidence checks and representation limitations. No numerical business estimates or costs inferred from the budget have been added.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "approved",
+      "concerns": [
+       "churn_increase_per_expansion",
+       "acquisitions_per_expansion",
+       "limited_european_pilot__expansion_scale",
+       "acquisition_effect",
+       "churn_effect",
+       "calculate_expansion_investment",
+       "european_expansion",
+       "limited_european_pilot",
+       "baseline_continues",
+       "pilot_scaling",
+       "post_launch_effects",
+       "country_specific_differences",
+       "profitability_not_established",
+       "target_deadline",
+       "full_acquisition_start",
+       "pilot_acquisition_start",
+       "ramp_representation_limit",
+       "churn_bound_representation_limit"
+      ],
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     }
+    ],
+    "limits": [
+     {
+      "id": "avoid_dangerous_churn",
+      "label": "Avoid churn beyond 12%",
+      "party": null,
+      "quote": "If it goes beyond 12%, we're in danger of losing money.",
+      "author": "person",
+      "measure": {
+       "cmp": "<=",
+       "per": null,
+       "bound": "churn_limit",
+       "window": {
+        "start": 0,
+        "periods": "target_deadline",
+        "origin_event": null,
+        "origin_offset": null
+       },
+       "quantity": "monthly_churn",
+       "aggregation": "max"
+      },
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "stay_within_budget",
+      "label": "Investment budget up to £500k",
+      "party": null,
+      "quote": "The investment budget is up to £500k.",
+      "author": "person",
+      "measure": {
+       "cmp": "<=",
+       "per": null,
+       "bound": "investment_budget",
+       "window": {
+        "start": 0,
+        "periods": "target_deadline",
+        "origin_event": null,
+        "origin_offset": null
+       },
+       "quantity": "expansion_investment",
+       "aggregation": "max"
+      },
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     }
+    ],
+    "period": "month",
+    "dissent": [],
+    "history": [
+     {
+      "id": "acquisitions_per_expansion",
+      "old": "{\"id\":\"acquisitions_per_expansion\",\"label\":\"Additional monthly customers from the full expansion\",\"unit\":\"customer/month\",\"value\":null,\"low\":null,\"high\":null,\"range_kind\":null,\"floor\":0,\"ceiling\":null,\"kind\":\"coefficient\",\"status\":\"unknown\",\"question\":null,\"basis\":\"Expansion can open an additional customer pool, but no acquisition scale is defensible without the product, target countries, reachable demand and acquisition-channel evidence; competition affects this conversion.\",\"direction\":\"raises\",\"author\":\"olumi\",\"party\":null,\"quote\":null,\"approval\":\"approved\",\"author_id\":\"b6c10033-1330-43d7-86c8-f8b85b1702ad\"}",
+      "quote": null,
+      "change": "superseded",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "churn_increase_per_expansion",
+      "old": "{\"id\":\"churn_increase_per_expansion\",\"label\":\"Additional monthly churn from expansion strain\",\"unit\":\"%/month\",\"value\":null,\"low\":null,\"high\":null,\"range_kind\":null,\"floor\":0,\"ceiling\":null,\"kind\":\"coefficient\",\"status\":\"unknown\",\"question\":null,\"basis\":\"Expansion may divert customer-support and management capacity, raising churn, but its size needs evidence about staffing, service capacity and the regulatory workload.\",\"direction\":\"raises\",\"author\":\"olumi\",\"party\":null,\"quote\":null,\"approval\":\"approved\",\"author_id\":\"b6c10033-1330-43d7-86c8-f8b85b1702ad\"}",
+      "quote": null,
+      "change": "superseded",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "limited_european_pilot__expansion_scale",
+      "old": "{\"id\":\"limited_european_pilot__expansion_scale\",\"label\":\"Limited European pilot: Share of the proposed expansion undertaken\",\"unit\":\"1\",\"value\":0.2,\"low\":null,\"high\":null,\"range_kind\":null,\"floor\":null,\"ceiling\":null,\"kind\":\"fact\",\"status\":\"known\",\"question\":null,\"basis\":\"Olumi's proposed setting for its option \\\"Limited European pilot\\\".\",\"direction\":null,\"author\":\"olumi\",\"party\":null,\"quote\":null,\"approval\":\"approved\",\"author_id\":\"b6c10033-1330-43d7-86c8-f8b85b1702ad\"}",
+      "quote": null,
+      "change": "superseded",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "acquisition_effect",
+      "old": "{\"form\":\"effect\",\"id\":\"acquisition_effect\",\"defines\":\"monthly_acquisitions\",\"base\":\"baseline_acquisitions\",\"terms\":[{\"driver\":\"expansion_scale\",\"coefficient\":\"acquisitions_per_expansion\",\"author\":\"olumi\",\"party\":null,\"quote\":null,\"approval\":\"approved\",\"author_id\":\"b6c10033-1330-43d7-86c8-f8b85b1702ad\"}],\"author\":\"olumi\",\"party\":null,\"quote\":null,\"approval\":\"approved\",\"author_id\":\"b6c10033-1330-43d7-86c8-f8b85b1702ad\"}",
+      "quote": null,
+      "change": "superseded",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "churn_effect",
+      "old": "{\"form\":\"effect\",\"id\":\"churn_effect\",\"defines\":\"monthly_churn\",\"base\":\"baseline_churn\",\"terms\":[{\"driver\":\"expansion_scale\",\"coefficient\":\"churn_increase_per_expansion\",\"author\":\"olumi\",\"party\":null,\"quote\":null,\"approval\":\"approved\",\"author_id\":\"b6c10033-1330-43d7-86c8-f8b85b1702ad\"}],\"author\":\"olumi\",\"party\":null,\"quote\":null,\"approval\":\"approved\",\"author_id\":\"b6c10033-1330-43d7-86c8-f8b85b1702ad\"}",
+      "quote": null,
+      "change": "superseded",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "calculate_expansion_investment",
+      "old": "{\"form\":\"definition\",\"id\":\"calculate_expansion_investment\",\"defines\":\"expansion_investment\",\"op\":\"product\",\"parts\":[{\"id\":\"planned_investment\",\"power\":1},{\"id\":\"expansion_scale\",\"power\":1}],\"author\":\"olumi\",\"party\":null,\"quote\":null,\"approval\":\"approved\",\"author_id\":\"b6c10033-1330-43d7-86c8-f8b85b1702ad\"}",
+      "quote": null,
+      "change": "superseded",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "european_expansion",
+      "old": "{\"id\":\"european_expansion\",\"label\":\"European expansion\",\"sets\":[{\"quantity\":\"expansion_scale\",\"to\":\"european_expansion__expansion_scale\",\"value\":null,\"low\":null,\"high\":null,\"range_kind\":null,\"question\":null,\"starts_after_periods\":\"expansion_timing\",\"author\":\"structure\",\"quote\":null}],\"status\":\"live\",\"developed_from\":null,\"author\":\"person\",\"party\":null,\"quote\":\"Should we expand into the European market in the next 6-12 months?\",\"approval\":\"approved\",\"author_id\":\"b6c10033-1330-43d7-86c8-f8b85b1702ad\"}",
+      "quote": "Should we expand into the European market in the next 6-12 months?",
+      "change": "superseded",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "limited_european_pilot",
+      "old": "{\"id\":\"limited_european_pilot\",\"label\":\"Limited European pilot\",\"sets\":[{\"quantity\":\"expansion_scale\",\"to\":\"limited_european_pilot__expansion_scale\",\"value\":null,\"low\":null,\"high\":null,\"range_kind\":null,\"question\":null,\"starts_after_periods\":\"expansion_timing\",\"author\":\"olumi\",\"quote\":null}],\"status\":\"live\",\"developed_from\":\"european_expansion\",\"author\":\"olumi\",\"party\":null,\"quote\":null,\"approval\":\"approved\",\"author_id\":\"b6c10033-1330-43d7-86c8-f8b85b1702ad\"}",
+      "quote": null,
+      "change": "superseded",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "baseline_continues",
+      "old": "{\"id\":\"baseline_continues\",\"text\":\"Without expansion, the recent monthly acquisition count and current churn rate continue over the evaluation window.\",\"applied\":true,\"concerns\":[\"baseline_acquisitions\",\"baseline_churn\",\"no_european_expansion\",\"customer_stock\"],\"author\":\"olumi\",\"party\":null,\"quote\":null,\"approval\":\"approved\",\"author_id\":\"b6c10033-1330-43d7-86c8-f8b85b1702ad\"}",
+      "quote": null,
+      "change": "superseded",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "pilot_scaling",
+      "old": "{\"id\":\"pilot_scaling\",\"text\":\"The pilot is a proposed one-fifth-sized version of the expansion; investment, additional acquisitions and expansion-related churn strain scale proportionally as a provisional approximation.\",\"applied\":true,\"concerns\":[\"limited_european_pilot\",\"calculate_expansion_investment\",\"acquisition_effect\",\"churn_effect\"],\"author\":\"olumi\",\"party\":null,\"quote\":null,\"approval\":\"approved\",\"author_id\":\"b6c10033-1330-43d7-86c8-f8b85b1702ad\"}",
+      "quote": null,
+      "change": "superseded",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "post_launch_effects",
+      "old": "{\"id\":\"post_launch_effects\",\"text\":\"Expansion-related acquisition and churn effects begin at launch and remain constant thereafter; investment represents the total commitment rather than a recurring monthly expense.\",\"applied\":true,\"concerns\":[\"acquisition_effect\",\"churn_effect\",\"expansion_investment\"],\"author\":\"olumi\",\"party\":null,\"quote\":null,\"approval\":\"approved\",\"author_id\":\"b6c10033-1330-43d7-86c8-f8b85b1702ad\"}",
+      "quote": null,
+      "change": "superseded",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "profitability_not_established",
+      "old": "{\"id\":\"profitability_not_established\",\"text\":\"Staying below the churn danger threshold does not establish that the expansion will be profitable.\",\"why\":\"Customer revenue, contribution margins and ongoing operating costs are not supplied, so the model checks the stated churn warning rather than calculating profit.\",\"question\":null,\"concerns\":[\"avoid_dangerous_churn\",\"european_expansion\",\"limited_european_pilot\"],\"author\":\"olumi\",\"party\":null,\"quote\":null,\"approval\":\"approved\",\"author_id\":\"b6c10033-1330-43d7-86c8-f8b85b1702ad\"}",
+      "quote": null,
+      "change": "superseded",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "country_specific_differences",
+      "old": "{\"id\":\"country_specific_differences\",\"text\":\"Differences in acquisition economics, compliance costs and launch delays between individual European countries are not separately calculated.\",\"why\":\"No target countries or country-specific operating plan are identified.\",\"question\":null,\"concerns\":[\"acquisitions_per_expansion\",\"planned_investment\",\"expansion_timing\",\"regulatory_readiness\"],\"author\":\"olumi\",\"party\":null,\"quote\":null,\"approval\":\"approved\",\"author_id\":\"b6c10033-1330-43d7-86c8-f8b85b1702ad\"}",
+      "quote": null,
+      "change": "superseded",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     }
+    ],
+    "options": [
+     {
+      "id": "european_expansion",
+      "sets": [
+       {
+        "to": "european_expansion__expansion_scale",
+        "low": null,
+        "high": null,
+        "quote": null,
+        "value": null,
+        "author": "structure",
+        "quantity": "expansion_scale",
+        "question": null,
+        "range_kind": null,
+        "starts_after_periods": "expansion_timing"
+       },
+       {
+        "to": "european_expansion__expansion_scale",
+        "low": null,
+        "high": null,
+        "quote": null,
+        "value": null,
+        "author": "structure",
+        "quantity": "full_acquisition_active",
+        "question": null,
+        "range_kind": null,
+        "starts_after_periods": "full_acquisition_start"
+       }
+      ],
+      "label": "European expansion",
+      "party": null,
+      "quote": "Should we expand into the European market in the next 6-12 months?",
+      "author": "person",
+      "status": "live",
+      "approval": "approved",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "developed_from": null
+     },
+     {
+      "id": "limited_european_pilot",
+      "sets": [
+       {
+        "to": "limited_european_pilot__expansion_scale",
+        "low": null,
+        "high": null,
+        "quote": null,
+        "value": null,
+        "author": "structure",
+        "quantity": "pilot_active",
+        "question": null,
+        "range_kind": null,
+        "starts_after_periods": "expansion_timing"
+       },
+       {
+        "to": "limited_european_pilot__expansion_scale",
+        "low": null,
+        "high": null,
+        "quote": null,
+        "value": null,
+        "author": "structure",
+        "quantity": "pilot_acquisition_active",
+        "question": null,
+        "range_kind": null,
+        "starts_after_periods": "pilot_acquisition_start"
+       }
+      ],
+      "label": "Limited European pilot",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "status": "live",
+      "approval": "approved",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "developed_from": "european_expansion"
+     },
+     {
+      "id": "no_european_expansion",
+      "sets": [],
+      "label": "Continue without European expansion",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "status": "live",
+      "approval": "approved",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "developed_from": null
+     }
+    ],
+    "version": "canonical.v1",
+    "evidence": [],
+    "left_out": [
+     {
+      "id": "profitability_not_established",
+      "why": "Profitability requires evidence for customer revenue, contribution margins and ongoing operating costs, separately for the baseline, full expansion and pilot; revenue and cohort records, margin calculations and operating-cost plans would enable a financial model, but are not supplied.",
+      "text": "Staying below the churn danger threshold does not establish that the expansion will be profitable.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "approved",
+      "concerns": [
+       "avoid_dangerous_churn",
+       "european_expansion",
+       "limited_european_pilot"
+      ],
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "country_specific_differences",
+      "why": "Target countries and supporting demand studies, competitor observations, compliance quotations and readiness assessments have not been supplied; they are explicit evidence requirements rather than estimated country effects.",
+      "text": "Country-specific demand, competition, compliance costs and launch readiness are not separately calculated.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "approved",
+      "concerns": [
+       "acquisitions_per_expansion",
+       "pilot_acquisitions",
+       "planned_investment",
+       "pilot_total_investment",
+       "expansion_timing",
+       "full_acquisition_ramp_duration",
+       "pilot_acquisition_ramp_duration",
+       "regulatory_readiness",
+       "country_evidence_requirements"
+      ],
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "ramp_representation_limit",
+      "why": "The available calculation uses delayed steps at unknown direct whole-month timing inputs and rejects derived option timings; ramp durations therefore remain evidence requirements whose consistency with those timings must be checked, while a gradual ramp needs a supported time-varying mechanism or evidence-based stages.",
+      "text": "Gradual acquisition growth during ramp-up, a potentially changing acquisition level after ramp-up, and automatic derivation of activation timing from launch plus ramp duration are not represented.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "approved",
+      "concerns": [
+       "acquisition_effect",
+       "full_acquisition_ramp_duration",
+       "pilot_acquisition_ramp_duration",
+       "full_acquisition_start",
+       "pilot_acquisition_start",
+       "post_launch_effects",
+       "activation_timing_consistency"
+      ],
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "churn_bound_representation_limit",
+      "why": "The total retains its existing physical floor and ceiling, and only admissible signed effects may be used; if the calculation engine does not enforce those bounds on derived totals, it needs bound-aware validation or a bounded-response mechanism before simulation, since the available relation forms do not express clipping.",
+      "text": "An unrestricted signed additive churn effect cannot by itself guarantee physically valid total churn.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "approved",
+      "concerns": [
+       "monthly_churn",
+       "churn_effect",
+       "churn_increase_per_expansion",
+       "pilot_churn_change",
+       "physical_churn_admissibility"
+      ],
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     }
+    ],
+    "question": "Should we expand into the European market in the next 6–12 months, given the customer target, churn risk and investment budget?",
+    "relations": [
+     {
+      "id": "acquisition_effect",
+      "base": "baseline_acquisitions",
+      "form": "effect",
+      "party": null,
+      "quote": null,
+      "terms": [
+       {
+        "party": null,
+        "quote": null,
+        "author": "olumi",
+        "driver": "full_acquisition_active",
+        "approval": "approved",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "coefficient": "acquisitions_per_expansion"
+       },
+       {
+        "party": null,
+        "quote": null,
+        "author": "olumi",
+        "driver": "pilot_acquisition_active",
+        "approval": "approved",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "coefficient": "pilot_acquisitions"
+       }
+      ],
+      "author": "olumi",
+      "defines": "monthly_acquisitions",
+      "approval": "approved",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "churn_effect",
+      "base": "baseline_churn",
+      "form": "effect",
+      "party": null,
+      "quote": null,
+      "terms": [
+       {
+        "party": null,
+        "quote": null,
+        "author": "olumi",
+        "driver": "expansion_scale",
+        "approval": "approved",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "coefficient": "churn_increase_per_expansion"
+       },
+       {
+        "party": null,
+        "quote": null,
+        "author": "olumi",
+        "driver": "pilot_active",
+        "approval": "approved",
+        "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+        "coefficient": "pilot_churn_change"
+       }
+      ],
+      "author": "olumi",
+      "defines": "monthly_churn",
+      "approval": "approved",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "convert_churn",
+      "op": "product",
+      "form": "definition",
+      "parts": [
+       {
+        "id": "monthly_churn",
+        "power": 1
+       },
+       {
+        "id": "percentage_scale",
+        "power": -1
+       }
+      ],
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "defines": "fractional_churn",
+      "approval": "approved",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "calculate_customer_losses",
+      "op": "product",
+      "form": "definition",
+      "parts": [
+       {
+        "id": "customers",
+        "power": 1
+       },
+       {
+        "id": "fractional_churn",
+        "power": 1
+       }
+      ],
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "defines": "monthly_losses",
+      "approval": "approved",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "customer_stock",
+      "form": "stock",
+      "party": null,
+      "quote": null,
+      "start": "customers_now",
+      "author": "olumi",
+      "defines": "customers",
+      "inflows": [
+       "monthly_acquisitions"
+      ],
+      "approval": "approved",
+      "outflows": [
+       "monthly_losses"
+      ],
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "calculate_expansion_investment",
+      "op": "sum",
+      "form": "definition",
+      "parts": [
+       {
+        "id": "full_expansion_investment",
+        "sign": 1
+       },
+       {
+        "id": "pilot_investment_commitment",
+        "sign": 1
+       }
+      ],
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "defines": "expansion_investment",
+      "approval": "approved",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "calculate_full_expansion_investment",
+      "op": "product",
+      "form": "definition",
+      "parts": [
+       {
+        "id": "planned_investment",
+        "power": 1
+       },
+       {
+        "id": "expansion_scale",
+        "power": 1
+       }
+      ],
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "defines": "full_expansion_investment",
+      "approval": "approved",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "calculate_pilot_investment",
+      "op": "product",
+      "form": "definition",
+      "parts": [
+       {
+        "id": "pilot_total_investment",
+        "power": 1
+       },
+       {
+        "id": "pilot_active",
+        "power": 1
+       }
+      ],
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "defines": "pilot_investment_commitment",
+      "approval": "approved",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     }
+    ],
+    "conditions": [
+     {
+      "id": "regulatory_readiness",
+      "kind": "prerequisite",
+      "text": "Before entering a country, confirm that the proposed offering can meet its applicable legal and regulatory requirements within the investment budget and launch schedule.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "approved",
+      "concerns": [
+       "european_expansion",
+       "limited_european_pilot",
+       "planned_investment",
+       "expansion_timing"
+      ],
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "baseline_history_check",
+      "kind": "challenge",
+      "text": "Obtain historical monthly opening and closing customer counts, gross customer additions and departures on a consistent churn definition; check whether constant acquisitions and churn are credible before treating the baseline as a forecast.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "approved",
+      "concerns": [
+       "baseline_continues",
+       "baseline_acquisitions",
+       "baseline_churn",
+       "customer_stock"
+      ],
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "country_evidence_requirements",
+      "kind": "prerequisite",
+      "text": "For each country actually proposed, obtain reachable-demand and customer-research evidence, competitor and acquisition-channel observations, scoped legal advice and compliance-cost quotations, and a launch-readiness assessment with dependencies and lead times. Assess the pilot separately. No countries are selected here and none of these country-specific effects is claimed to have been calculated.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "approved",
+      "concerns": [
+       "european_expansion",
+       "limited_european_pilot",
+       "acquisitions_per_expansion",
+       "pilot_acquisitions",
+       "planned_investment",
+       "pilot_total_investment",
+       "full_acquisition_ramp_duration",
+       "pilot_acquisition_ramp_duration",
+       "regulatory_readiness",
+       "country_specific_differences"
+      ],
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "activation_timing_consistency",
+      "kind": "challenge",
+      "text": "Before using either activation timing, check that its whole-month value from now is consistent with the applicable launch timing and independently evidenced ramp duration. The compiler requires direct timing inputs and does not enforce this relationship through a timing definition; no activation date is currently established.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "approved",
+      "concerns": [
+       "expansion_timing",
+       "full_acquisition_start",
+       "pilot_acquisition_start",
+       "full_acquisition_ramp_duration",
+       "pilot_acquisition_ramp_duration",
+       "ramp_representation_limit"
+      ],
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     }
+    ],
+    "quantities": [
+     {
+      "id": "customers_now",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "customer",
+      "basis": null,
+      "floor": 0,
+      "label": "Current customers",
+      "party": null,
+      "quote": "Our current customer base is 400.",
+      "value": 400,
+      "author": "person",
+      "status": "known",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "customer_target",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "customer",
+      "basis": null,
+      "floor": 0,
+      "label": "Target customers",
+      "party": null,
+      "quote": "The target is 800.",
+      "value": 800,
+      "author": "person",
+      "status": "known",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "target_deadline",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "month",
+      "basis": null,
+      "floor": 0,
+      "label": "Time to reach the customer target",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "person",
+      "status": "asked",
+      "ceiling": null,
+      "approval": "approved",
+      "question": "By when do you want to reach 800 customers?",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "baseline_acquisitions",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "customer/month",
+      "basis": null,
+      "floor": 0,
+      "label": "New customers per month without European expansion",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "person",
+      "status": "asked",
+      "ceiling": null,
+      "approval": "approved",
+      "question": "How many new customers joined last month, before subtracting customers who left?",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "baseline_churn",
+      "low": null,
+      "high": null,
+      "kind": "coefficient",
+      "unit": "%/month",
+      "basis": null,
+      "floor": 0,
+      "label": "Current monthly churn",
+      "party": null,
+      "quote": "Monthly churn is at 8%.",
+      "value": 8,
+      "author": "person",
+      "status": "known",
+      "ceiling": 100,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "churn_limit",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "%/month",
+      "basis": null,
+      "floor": 0,
+      "label": "Monthly churn danger threshold",
+      "party": null,
+      "quote": "If it goes beyond 12%, we're in danger of losing money.",
+      "value": 12,
+      "author": "person",
+      "status": "known",
+      "ceiling": 100,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "investment_budget",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP",
+      "basis": null,
+      "floor": 0,
+      "label": "Maximum expansion investment",
+      "party": null,
+      "quote": "The investment budget is up to £500k.",
+      "value": 500000,
+      "author": "person",
+      "status": "known",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "planned_investment",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP",
+      "basis": null,
+      "floor": 0,
+      "label": "Investment required for the proposed expansion",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "person",
+      "status": "asked",
+      "ceiling": null,
+      "approval": "approved",
+      "question": "How much would the proposed European expansion cost, including setup and regulatory compliance?",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "expansion_timing",
+      "low": 6,
+      "high": 12,
+      "kind": "fact",
+      "unit": "month",
+      "basis": null,
+      "floor": 0,
+      "label": "Months until expansion starts",
+      "party": null,
+      "quote": "Should we expand into the European market in the next 6-12 months?",
+      "value": null,
+      "author": "person",
+      "status": "known",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": "bounds"
+     },
+     {
+      "id": "expansion_scale",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1",
+      "basis": "The option setting starts at zero; one represents undertaking the proposed expansion in full.",
+      "floor": 0,
+      "label": "Share of the proposed expansion undertaken",
+      "party": null,
+      "quote": null,
+      "value": 0,
+      "author": "structure",
+      "status": "known",
+      "ceiling": 1,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "acquisitions_per_expansion",
+      "low": null,
+      "high": null,
+      "kind": "coefficient",
+      "unit": "customer/month",
+      "basis": "The full-expansion acquisition level after ramp-up needs country-specific reachable-demand, competition and acquisition-channel evidence; neither the current customer count nor the investment budget establishes its scale.",
+      "floor": 0,
+      "label": "Additional monthly customers from the full expansion",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "unknown",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": "raises",
+      "range_kind": null
+     },
+     {
+      "id": "churn_increase_per_expansion",
+      "low": null,
+      "high": null,
+      "kind": "coefficient",
+      "unit": "%/month",
+      "basis": "Olumi's provisional repair permits either improved retention or deterioration; historical cohort retention, service-capacity evidence and country-specific customer research are needed to size the change, with resulting total churn restricted to its physical bounds.",
+      "floor": null,
+      "label": "Signed monthly churn change from full expansion",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "unknown",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "percentage_scale",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "%",
+      "basis": "100 percent is one whole.",
+      "floor": 0,
+      "label": "Percentage conversion",
+      "party": null,
+      "quote": null,
+      "value": 100,
+      "author": "structure",
+      "status": "known",
+      "ceiling": 100,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "monthly_acquisitions",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "customer/month",
+      "basis": null,
+      "floor": 0,
+      "label": "New customers per month",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "monthly_churn",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "%/month",
+      "basis": null,
+      "floor": 0,
+      "label": "Monthly customer churn",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "ceiling": 100,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "fractional_churn",
+      "low": null,
+      "high": null,
+      "kind": "coefficient",
+      "unit": "1/month",
+      "basis": null,
+      "floor": 0,
+      "label": "Fraction of customers leaving per month",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "ceiling": 1,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "monthly_losses",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "customer/month",
+      "basis": null,
+      "floor": 0,
+      "label": "Customers leaving per month",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "customers",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "customer",
+      "basis": null,
+      "floor": 0,
+      "label": "Customer base",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "expansion_investment",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "GBP",
+      "basis": null,
+      "floor": 0,
+      "label": "Committed expansion investment",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "european_expansion__expansion_scale",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1",
+      "basis": "\"European expansion\" switched on.",
+      "floor": null,
+      "label": "European expansion: Share of the proposed expansion undertaken",
+      "party": null,
+      "quote": null,
+      "value": 1,
+      "author": "structure",
+      "status": "known",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "limited_european_pilot__expansion_scale",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1",
+      "basis": "One switches Olumi's provisional pilot option on; it no longer represents a fraction of full expansion.",
+      "floor": 0,
+      "label": "Limited European pilot switched on",
+      "party": null,
+      "quote": null,
+      "value": 1,
+      "author": "structure",
+      "status": "known",
+      "ceiling": 1,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "full_acquisition_active",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1",
+      "basis": "The full-expansion acquisition effect is off until the option activates it after its unknown ramp-up duration.",
+      "floor": 0,
+      "label": "Full-expansion acquisition effect switched on",
+      "party": null,
+      "quote": null,
+      "value": 0,
+      "author": "structure",
+      "status": "known",
+      "ceiling": 1,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "pilot_active",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1",
+      "basis": "The provisional pilot is off unless its option is selected.",
+      "floor": 0,
+      "label": "Pilot commitment and churn effect switched on",
+      "party": null,
+      "quote": null,
+      "value": 0,
+      "author": "structure",
+      "status": "known",
+      "ceiling": 1,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "pilot_acquisition_active",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1",
+      "basis": "The pilot acquisition effect is off until the option activates it after its independently unknown ramp-up duration.",
+      "floor": 0,
+      "label": "Pilot acquisition effect switched on",
+      "party": null,
+      "quote": null,
+      "value": 0,
+      "author": "structure",
+      "status": "known",
+      "ceiling": 1,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "pilot_acquisitions",
+      "low": null,
+      "high": null,
+      "kind": "coefficient",
+      "unit": "customer/month",
+      "basis": "Pilot acquisitions require evidence for the pilot's own scope, reachable demand, competition and acquisition channels; they are not inferred as a fraction of full-expansion acquisitions.",
+      "floor": 0,
+      "label": "Additional monthly customers from the pilot",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "unknown",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": "raises",
+      "range_kind": null
+     },
+     {
+      "id": "pilot_churn_change",
+      "low": null,
+      "high": null,
+      "kind": "coefficient",
+      "unit": "%/month",
+      "basis": "The pilot could improve or worsen retention; its own cohort, staffing and service-capacity evidence must size this change independently of full expansion, with resulting total churn restricted to its physical bounds.",
+      "floor": null,
+      "label": "Signed monthly churn change from the pilot",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "unknown",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "pilot_total_investment",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP",
+      "basis": null,
+      "floor": 0,
+      "label": "Total investment required for the provisional pilot",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "person",
+      "status": "asked",
+      "ceiling": null,
+      "approval": "approved",
+      "question": "What would the limited European pilot cost in total, including setup and regulatory compliance?",
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "full_acquisition_ramp_duration",
+      "low": null,
+      "high": null,
+      "kind": "coefficient",
+      "unit": "month",
+      "basis": "Time from launch to the full acquisition effect needs comparable launch observations, channel lead times and operational-readiness evidence; no duration or range is defensible from the brief.",
+      "floor": 0,
+      "label": "Full-expansion acquisition ramp-up duration",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "unknown",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "pilot_acquisition_ramp_duration",
+      "low": null,
+      "high": null,
+      "kind": "coefficient",
+      "unit": "month",
+      "basis": "The pilot needs its own launch, channel and operational-readiness evidence to establish time to its acquisition level; its duration is not scaled from full expansion.",
+      "floor": 0,
+      "label": "Pilot acquisition ramp-up duration",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "unknown",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "full_acquisition_start",
+      "low": null,
+      "high": null,
+      "kind": "coefficient",
+      "unit": "month",
+      "basis": "Olumi's provisional direct timing input is the whole number of months from now until the post-ramp acquisition effect begins; it needs launch-readiness and ramp-up evidence consistent with the stated launch window, and cannot be sized from that window alone.",
+      "floor": 0,
+      "label": "Months until full-expansion acquisition effect",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "unknown",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "pilot_acquisition_start",
+      "low": null,
+      "high": null,
+      "kind": "coefficient",
+      "unit": "month",
+      "basis": "Olumi's provisional direct timing input is the whole number of months from now until the pilot's post-ramp acquisition effect begins; it needs independent pilot launch-readiness and ramp-up evidence consistent with its launch timing, with no defensible figure yet.",
+      "floor": 0,
+      "label": "Months until pilot acquisition effect",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "unknown",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "full_expansion_investment",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "GBP",
+      "basis": null,
+      "floor": 0,
+      "label": "Full-expansion investment commitment",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     },
+     {
+      "id": "pilot_investment_commitment",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "GBP",
+      "basis": null,
+      "floor": 0,
+      "label": "Pilot investment commitment",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "ceiling": null,
+      "approval": "approved",
+      "question": null,
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad",
+      "direction": null,
+      "range_kind": null
+     }
+    ],
+    "assumptions": [
+     {
+      "id": "baseline_continues",
+      "text": "Constant baseline monthly acquisitions and the stated current churn rate are provisional calculation assumptions, not established forecasts; check them against historical monthly customer counts, gross additions and departures for trends, seasonality and cohort differences before relying on the comparison.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "applied": true,
+      "approval": "approved",
+      "concerns": [
+       "baseline_acquisitions",
+       "baseline_churn",
+       "no_european_expansion",
+       "customer_stock",
+       "baseline_history_check"
+      ],
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "timing_interpretation",
+      "text": "The stated six-to-twelve-month interval is treated as the expansion start window, not as a stated deadline for reaching the customer target.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "applied": true,
+      "approval": "approved",
+      "concerns": [
+       "expansion_timing",
+       "target_deadline",
+       "european_expansion"
+      ],
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "pilot_scaling",
+      "text": "The former assumption that pilot investment, acquisitions and churn effects equal one fifth of full expansion is withdrawn; the pilot now has independent unknown acquisition, signed churn, total investment and ramp-duration inputs, and remains Olumi's provisional option rather than the person's choice.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "applied": false,
+      "approval": "approved",
+      "concerns": [
+       "limited_european_pilot",
+       "pilot_acquisitions",
+       "pilot_churn_change",
+       "pilot_total_investment",
+       "pilot_acquisition_ramp_duration"
+      ],
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "post_launch_effects",
+      "text": "Olumi's provisional timing approximation credits no additional acquisitions before each option's independently unknown direct activation timing, then activates its unknown post-ramp acquisition level. This is a delayed step, not a calculated gradual ramp. The activation timing must be established from launch and ramp-up evidence; the calculation does not derive it by adding durations. Signed churn changes provisionally begin at launch and remain constant; total investment is a commitment rather than a recurring monthly expense. These timing and persistence assumptions require evidence.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "applied": true,
+      "approval": "approved",
+      "concerns": [
+       "acquisition_effect",
+       "churn_effect",
+       "expansion_investment",
+       "full_acquisition_start",
+       "pilot_acquisition_start",
+       "ramp_representation_limit"
+      ],
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     },
+     {
+      "id": "physical_churn_admissibility",
+      "text": "Only signed churn changes that leave total monthly churn within the existing physical floor and ceiling of monthly_churn are admissible under each option. Those bounds do not provide an evidential range for either unknown signed effect.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "applied": true,
+      "approval": "approved",
+      "concerns": [
+       "monthly_churn",
+       "churn_effect",
+       "churn_increase_per_expansion",
+       "pilot_churn_change",
+       "churn_bound_representation_limit"
+      ],
+      "author_id": "b6c10033-1330-43d7-86c8-f8b85b1702ad"
+     }
+    ],
+    "preferences": []
+   },
+   "drafted_on": "2026-10-26",
+   "person_words": [
+    "Should we expand into the European market in the next 6-12 months? Our current customer base is 400. The target is 800. Monthly churn is at 8%. If it goes beyond 12%, we're in danger of losing money. The investment budget is up to £500k. Competition intensity varies. Multiple complex country regulations are a consideration.",
+    "Yes, that’s what I meant.",
+    "What's wrong with this model, and how do we fix it?",
+    "Can you make reasonable estimates and fix these issues for me?"
+   ],
+   "model_program": "v1"
+  },
+  "ref_high_water": {
+   "D": 1,
+   "F": 16,
+   "G": 1,
+   "O": 3,
+   "OC": 8
+  },
+  "goal_constraints": [
+   {
+    "unit": "%/month",
+    "label": "Avoid churn beyond 12%",
+    "value": 12,
+    "node_id": "monthly_churn",
+    "operator": "<=",
+    "provenance": "explicit",
+    "source_quote": "If it goes beyond 12%, we're in danger of losing money.",
+    "constraint_id": "avoid_dangerous_churn"
+   },
+   {
+    "unit": "GBP",
+    "label": "Investment budget up to £500k",
+    "value": 500000,
+    "node_id": "expansion_investment",
+    "operator": "<=",
+    "provenance": "explicit",
+    "source_quote": "The investment budget is up to £500k.",
+    "constraint_id": "stay_within_budget"
+   }
+  ]
+ },
+ "content_hash": "ed73ccc3a766c377bba16745008b6cadf4948a89c1a3dbc4756fa494919937a0",
+ "withheld": null,
+ "graph_present": true,
+ "graph_identity_hash": {
+  "kind": "graph_identity_hash",
+  "value": "ed73ccc3a766c377bba16745008b6cadf4948a89c1a3dbc4756fa494919937a0",
+  "algorithm": "sha256",
+  "projection_version": "identity.v1",
+  "graph_schema_version": "graph_v3",
+  "normaliser_version": "1"
+ },
+ "graph_hash": "35bd2bd1f79b7337",
+ "layout_present": false
+}

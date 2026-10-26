@@ -61,7 +61,7 @@ import { cardMark, sourceCardMarkId } from './shared/cardMarks'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
-import { factorValueSourceMark, PRIOR_RANGE_SOURCE_MARK, ValueSourceMark, type FactorValueSourceMark } from './shared/valueSourceMark'
+import { factorValueSourceMark, NO_FIGURE_YET, PRIOR_RANGE_SOURCE_MARK, ValueSourceMark, type FactorValueSourceMark } from './shared/valueSourceMark'
 import { useValuePrefillStore } from '../graphChanges/valuePrefill'
 
 /** Vision spec §3: "Source not recorded" is the "?" author glyph on the card; these words are its name and hover. */
@@ -69,6 +69,9 @@ const SourceUnknownGlyph = cardMark('source-unknown').Icon
 const SOURCE_UNKNOWN_WORDS = cardMark('source-unknown').keyText
 /** §2d: the mark an open field shows while it holds the person's own figure. Not saved yet, and it says so. */
 const DRAFT_IS_YOURS_MARK: FactorValueSourceMark = { kind: 'you', label: 'Yours once you save it' }
+
+/** Olumi's mark on a figure of Olumi's that nobody knows yet (W12): Olumi's item, no estimate behind it. */
+const OLUMI_NO_FIGURE_MARK: FactorValueSourceMark = { kind: 'olumi', label: 'Olumi’s: no figure yet' }
 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
@@ -350,8 +353,16 @@ export const FactorNode = memo((props: NodeProps) => {
   // recorded-value guard's UNIQUENESS binding: its anchor matched twice, so its
   // +/-240 window was no longer bound to either render site. An anchor that
   // matches twice is not a binding (trap 19) - the guard was right to refuse.
-  const recordedValueReadout =
-    isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay
+  const savedIsProgram = useSavedModelIsProgram()
+  // W12 (acceptance run 2; Paul 24 Oct, visual indicators, not default text): Olumi's figure nobody knows yet on a program
+  // graph (CEE: Olumi's item, no value, no `value_basis`, its display "unknown") shows the no-figure indicator the
+  // worked-out cards show, "—", with Olumi's mark saying so on hover and in its name. It read "Source not recorded unknown".
+  const olumiUnknownFigure = savedIsProgram && props.data?.provenance === 'ai_inferred'
+    && typeof observedState?.value !== 'number' && (props.data as { value_basis?: unknown } | undefined)?.value_basis == null
+    && valueDisplay?.trim() === 'unknown'
+  const figureParts = olumiUnknownFigure ? null : valueParts
+  const recordedValueReadout = olumiUnknownFigure ? NO_FIGURE_YET
+    : isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay
   /**
    * ⭐ NO BARE INTERNAL MODEL NUMBER ON THE CARD — contract v3.1
    * `checks.factor` (DESIGN-GAP-v31 #20). A value that reads only as a number on
@@ -378,14 +389,13 @@ export const FactorNode = memo((props: NodeProps) => {
   // neutral "no source" mark, never this one — see the range line below.) This supersedes R6's rest-only `est.` (the collapse above stays
   // rest-only; only the MARK now also shows in Detailed, where the full
   // "Moderate (0.5)" string otherwise read as unattributed).
-  const valueSourceMark = factorValueSourceMark(cleanedData)
+  const valueSourceMark = olumiUnknownFigure ? OLUMI_NO_FIGURE_MARK : factorValueSourceMark(cleanedData)
   const servedBasisMark = valueSourceMark?.kind === 'basis' || valueSourceMark?.kind === 'asked' ? valueSourceMark : null
   const ServedBasisGlyph = servedBasisMark ? cardMark(`source-${servedBasisMark.kind}`).Icon : null
   // An ASKED figure on a program graph (CEE's `value_basis`: "Waiting for your answer") is typed where it is shown, in the
   // same field and through the same writer as a missing value (DL, 23 Oct). The structure-fixed switches keep theirs.
   // ⛔ Only where the field reads the figure in its own unit: a program figure is never on the 0–1 model scale, and a
   // unitless field would refuse "45000" for a £ cost and accept "0.4" as one. The node must carry the quantity's unit.
-  const savedIsProgram = useSavedModelIsProgram()
   const askedOnProgramGraph = savedIsProgram && servedBasisMark?.kind === 'asked' && !valueFieldIsModelScale
   // DL ruling (23 Oct): a figure CEE says is "Fixed by how the model is built" (`value_basis` structure, e.g. an option's
   // switch count) has no in-card field on a program graph. The card says it is fixed, and editing it changes what an
@@ -399,10 +409,10 @@ export const FactorNode = memo((props: NodeProps) => {
     valueSourceMark === null ? null
       // ⛔ Olumi's figure the user ACCEPTED keeps Olumi's token but says so: `EstimateMarker`'s fixed copy ("not yet
       // confirmed — filled in for you") is false once accepted (served UI `cb25e5e2`, guest `9cec5206`; AIQ 5921018606).
-      : valueSourceMark.kind === 'olumi' && currentValueOrigin?.kind !== 'accepted' ? <EstimateMarker onOpenSource={openSourceDetail} inline={inline} />
+      : valueSourceMark.kind === 'olumi' && !olumiUnknownFigure && currentValueOrigin?.kind !== 'accepted' ? <EstimateMarker onOpenSource={openSourceDetail} inline={inline} />
         : <ValueSourceMark mark={valueSourceMark} testId={`factor-value-source-${props.id}`} subject={cleanedLabel} onOpenSource={openSourceDetail} inline={inline} />
   // Vision spec §2a (23 Oct): Olumi's figure carries a dotted info underline as well as the brand mark before it.
-  const valueIsOlumiEstimate = valueSourceMark?.kind === 'olumi'
+  const valueIsOlumiEstimate = valueSourceMark?.kind === 'olumi' && !olumiUnknownFigure
   // ⭐ Vision spec §2a (23 Oct 2026): "a glyph before each figure" — the author glyph LEADS the value, in its own line,
   // so the figure and whose it is read together. The join is the same one space inside the same `nowrap` row, now
   // after the mark, so the mark can only wrap WITH the value's first word.
@@ -1493,7 +1503,7 @@ export const FactorNode = memo((props: NodeProps) => {
                     here (fails OPEN, as `resolveFactorValueAdmission` does). */}
                 <NodeValueEditor
                   value={resolveValueInputSeed(props.data).seed ?? observedState.value}
-                  readout={<FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />}
+                  readout={<FactorValueFigure readout={recordedValueReadout} parts={figureParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />}
                   onCommit={(v, opts) => editAuthority.proposeFactorValue(v, opts)}
                   prefill={valuePrefill}
                   onPrefillConsumed={consumeValuePrefill}
@@ -1527,14 +1537,14 @@ export const FactorNode = memo((props: NodeProps) => {
               <span className="min-w-0">
                 <NodeValueEditor
                   {...emptyValueField}
-                  readout={<FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />}
+                  readout={<FactorValueFigure readout={recordedValueReadout} parts={figureParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />}
                   ariaLabel={`Value for ${props.data?.label ?? 'this factor'} (waiting for your answer)`}
                   {...(isDetailed ? { restingFlow: undefined } : {})}
                 />
               </span>
             ) : (
               <span className={isDetailed ? 'min-w-0 break-words' : 'min-w-0 break-words whitespace-normal'}>
-                <FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />
+                <FactorValueFigure readout={recordedValueReadout} parts={figureParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />
               </span>
             )}
           </div>

@@ -1,9 +1,10 @@
 /**
  * ⭐ THE READING CARD, FOLDED (DL G13, 26 Oct: Paul rejected the itemised first-reply list as too long). When CEE groups
- * every row of a reading card (`group`: used / inferred / left_out / other), the card starts closed and its closed row is
- * three counted marks — from your brief, Olumi's for you to check, left out of the calculation — each opening the list
- * at its group; open, the rows sit under the same marks, with a quiet "Also in the model (N)" for the rest. Counts are
- * rows per group. Without a group on every row (an older CEE), the card is exactly as before.
+ * every row of a reading card (`group`: used / inferred / left_out / other), its row is three counted marks — from your
+ * brief, Olumi's for you to check, left out of the calculation — each scrolling to its group, and a quiet "Also in the
+ * model (N)" for the rest. W12 (26 Oct, acceptance run 2; Paul's D3 "one line per item, with the detail on a tap"): the
+ * card starts OPEN, every group's one-line rows under the marks, "Also in the model" included, which folds on a tap.
+ * Counts are rows per group. Without a group on every row (an older CEE), the card is exactly as before.
  *
  * Real path: the served first-draft reading card (`served-card-european-reading-20261025.json`, `reading: true`, 38
  * rows; its `_source` names the run) through the production parser into the real `SuggestedChips`. CEE does not send
@@ -60,17 +61,17 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 describe('a reading card with a group on every row', () => {
-  it('starts closed: three counted marks and "Also in the model (N)", rows per group, and no list and no "Details"', async () => {
+  it('starts open (W12): three counted marks and "Also in the model (N)" over every group\'s one-line rows, all 38', async () => {
     await mount(grouped())
-    expect(rows()).toHaveLength(0)
-    expect(screen.queryByTestId(`proposal-change-details-${PID}`)).toBeNull()
+    expect(rows()).toHaveLength(38)
+    for (const g of ['used', 'inferred', 'left_out', 'other']) expect(section(g)).toBeTruthy()
     expect(groupButton('used').getAttribute('aria-label')).toBe('From your brief: 9')
     expect(groupButton('inferred').getAttribute('aria-label')).toBe('Olumi’s, for you to check: 16')
     expect(groupButton('left_out').getAttribute('aria-label')).toBe('Left out of the calculation: 1')
     expect(groupButton('used').textContent).toBe('9')
     expect(groupButton('inferred').textContent).toBe('16')
     expect(groupButton('left_out').textContent).toBe('1')
-    // The fourth tap target: the closed card's counts add up to every row the approve writes (9 + 16 + 1 + 12 = 38).
+    // The fourth tap target: the card's counts add up to every row the approve writes (9 + 16 + 1 + 12 = 38).
     expect(screen.getByTestId(`reading-other-${PID}`).textContent).toBe('Also in the model (12)')
   })
 
@@ -97,9 +98,8 @@ describe('a reading card with a group on every row', () => {
     expect(leftOut!.textContent).toContain('Leaves out')
   })
 
-  it('open: each group\'s rows under its mark, in CEE\'s order and words, and the rest behind "Also in the model (12)"', async () => {
+  it('each group\'s rows under its mark, in CEE\'s order and words; "Also in the model (12)" folds the rest on a tap', async () => {
     await mount(grouped())
-    fireEvent.click(groupButton('used'))
     const ids = (g: string) => within(section(g)).getAllByRole('listitem').map((li) => li.getAttribute('data-testid'))
     const servedIds = (g: string) => (served.cards[0].changes as Json[]).filter((c) => groupOf(c) === g).map((c) => `proposal-change-${c.kind}:${c.id}`)
     expect(ids('used')).toEqual(servedIds('used'))
@@ -107,21 +107,22 @@ describe('a reading card with a group on every row', () => {
     expect(ids('left_out')).toEqual(servedIds('left_out'))
     const other = screen.getByTestId(`reading-other-${PID}`)
     expect(other.textContent).toBe('Also in the model (12)')
-    expect(screen.queryByTestId(`reading-group-section-${PID}-other`)).toBeNull()
-    fireEvent.click(other)
     expect(ids('other')).toEqual(servedIds('other'))
     expect(rows()).toHaveLength(38)
+    fireEvent.click(other)
+    expect(screen.queryByTestId(`reading-group-section-${PID}-other`)).toBeNull()
+    expect(rows()).toHaveLength(26)
   })
 
-  it('a card of only `other` rows still opens: "Also in the model (38)" reaches every row (Codex r1 on #3003)', async () => {
+  it('a card of only `other` rows shows every row under "Also in the model (38)", and folds them on a tap (Codex r1 on #3003)', async () => {
     const body = clone(served)
     body.cards[0].changes = body.cards[0].changes.map((c: Json) => ({ ...c, group: 'other' }))
     await mount(body)
-    expect(rows()).toHaveLength(0)
     for (const g of ['used', 'inferred', 'left_out']) expect((groupButton(g) as HTMLButtonElement).disabled).toBe(true)
-    fireEvent.click(screen.getByTestId(`reading-other-${PID}`))
     expect(rows().map((li) => li.getAttribute('data-testid')))
       .toEqual((served.cards[0].changes as Json[]).map((c) => `proposal-change-${c.kind}:${c.id}`))
+    fireEvent.click(screen.getByTestId(`reading-other-${PID}`))
+    expect(rows()).toHaveLength(0)
   })
 })
 
