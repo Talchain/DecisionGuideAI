@@ -4,7 +4,7 @@
  * answerable label opening its card's answer box; then the note itself.
  *
  * Fixture: the CEE 2de696a9 witness grant board after the Run press, with that turn's core `notes` entry on the goal
- * (see its `_capture`), passed through the real `coreTurnToClientBody`. Expected words are spelled inline.
+ * (see its `_capture`), read through the real `parseCoreTurn` (the core applier's input, U4). Expected words are spelled inline.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
@@ -13,7 +13,7 @@ import { useCanvasStore } from '../../store'
 import { useCanonicalAnalysisViewStore } from '../../stores/canonicalAnalysisViewStore'
 import { parseCanonicalAnalysisView } from '../../runView/canonicalAnalysisView'
 import { useValuePrefillStore } from '../../graphChanges/valuePrefill'
-import { coreTurnToClientBody, parseCoreTurn } from '../../../v5/coreTurnContract'
+import { parseCoreTurn } from '../../../v5/coreTurnContract'
 import grant from '../../runView/__tests__/fixtures/w3735-grant-press-read.json'
 
 vi.mock('@xyflow/react', () => ({
@@ -26,13 +26,11 @@ vi.mock('../../utils/focusHelpers', () => ({ focusModelTarget: vi.fn(() => true)
 type Node = { id: string; kind: string; label: string } & Record<string, unknown>
 const GOAL = 'credible_application'
 
-/** The served turn's note on the goal, as the client reads it (`coreTurnToClientBody`'s highlight block). */
+/** The served turn's note on the goal, as the core applier reads it (`parseCoreTurn`'s `notes`). */
 function servedNote(): string {
   const turn = parseCoreTurn({ turn_id: 't', assistant_text: '', model: { graph: { nodes: grant.graph.nodes, edges: [] }, revision: 'r', scenario_revision: 'r' },
     cards: [], notes: grant.turn_notes, run: null, receipts: [], error: null })
-  const block = (coreTurnToClientBody(turn!).blocks as { type: string; targets?: { id: string }[]; note?: string }[])
-    .find((b) => b.type === 'ui_directive' && b.targets?.[0]?.id === GOAL)
-  return block!.note!
+  return turn!.notes.find((n) => n.element_id === GOAL)!.text.trim()
 }
 
 function hold(anchorId: string, goalChance: Record<string, unknown> | null = null) {

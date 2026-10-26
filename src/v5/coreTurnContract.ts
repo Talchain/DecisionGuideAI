@@ -64,33 +64,18 @@ export function coreTurnErrorBody(error: NonNullable<CoreTurn['error']>): Record
 }
 
 type GraphNode = { id?: unknown; label?: unknown; kind?: unknown }
-/** The card kinds a note sits beside (CEE `NOTE_NODE_KINDS`); the question itself is never a card to note. */
-const NOTE_KINDS = new Set(['factor', 'option', 'goal', 'risk', 'constraint', 'outcome'])
-
-/** The note's card as the canvas names it (its own label and kind); a note on anything else is not drawn. */
-function noteTarget(nodes: readonly GraphNode[], id: string): { id: string; label: string; kind: string } | null {
-  const node = nodes.find((n) => n.id === id)
-  return node && typeof node.label === 'string' && node.label.length > 0 && typeof node.kind === 'string' && NOTE_KINDS.has(node.kind)
-    ? { id, label: node.label, kind: node.kind }
-    : null
-}
-
 /**
  * The answer as the client reads it, from contract data alone: CEE's reply, the saved model and its revision, each
- * held card with its approve / change / decline (as a reopen offers them, `serverConversationTurns`), each note beside
- * its item (the block CEE's `note_on_item` sends today), the Run's result and the analysis verdict as CEE sent them, the
- * receipts with who authorised each write (for undo), and the turn's identity. The stage stays `frame`, as core sends
- * it today: the client works out its own stage from the canvas.
+ * held card with its approve / change / decline (as a reopen offers them, `serverConversationTurns`), the Run's result
+ * and the analysis verdict as CEE sent them, the receipts with who authorised each write (for undo), and the turn's
+ * identity. Notes, the stage and the action bar are not translated: the core applier (`applyCoreTurn.ts`, U4) owns the
+ * note, and a program has neither a client stage nor a bar contract.
  */
 export function coreTurnToClientBody(turn: CoreTurn): Record<string, unknown> {
   const graph = turn.model?.graph
   const revision = turn.model?.revision
   const nodes = (Array.isArray(graph?.nodes) ? graph.nodes : []) as GraphNode[]
   const edges = Array.isArray(graph?.edges) ? graph.edges : []
-  const notes = turn.notes.flatMap((n) => {
-    const target = noteTarget(nodes, n.element_id)
-    return target === null ? [] : [{ type: 'ui_directive', verb: 'highlight', targets: [target], note: n.text, source: 'composer' }]
-  })
   // A card kept for review (CEE PR-2) offers its "Review this change", never its approve, and "Change something first" sits
   // only beside a card that can still be approved: exactly as a reopen offers them (`reconcileRestoredProposalFields`).
   const reviewOf = (c: CoreTurn['cards'][number]) => { const r = actionSchema.safeParse(c.review_action); return r.success ? r.data : undefined }
@@ -102,16 +87,15 @@ export function coreTurnToClientBody(turn: CoreTurn): Record<string, unknown> {
   return {
     response_version: 2,
     assistant_text: turn.assistant_text,
-    blocks: [...(turn.analysis_result ? [{ type: 'analysis_result', ...turn.analysis_result }] : []), ...notes],
+    // A note is the core applier's (`applyCoreTurn.ts`, U4), never a legacy highlight directive.
+    blocks: turn.analysis_result ? [{ type: 'analysis_result', ...turn.analysis_result }] : [],
     suggested_actions: cardActions,
     insights: [],
-    stage_indicator: 'frame',
     // The saved model as the client's draft reader takes it (the read's `living_model` reaches the canvas by the read).
     ...(graph ? { draft_graph: { nodes, edges, node_count: nodes.length, edge_count: edges.length } } : {}),
     ...(revision ? { graph_hash: revision } : {}),
     ...(turn.cards.length > 0 && revision ? { _proposal_fields: { version: 1, graph_hash: revision, proposals: turn.cards } } : {}),
     ...(turn.analysis_state ? { analysis_state: turn.analysis_state } : {}),
-    ...(turn.action_bar != null ? { action_bar: turn.action_bar } : {}),
     // What the scenario read must serve after this turn: the saved model and, after a Run, that Run (`readAfterWrite.ts`).
     // A turn with no saved identity, or no Run, asks nothing of the read (`readAfterWriteExpectation`).
     ...(turn.model?.scenario_revision ? { _read_after_write: { scenario_revision: turn.model.scenario_revision, ...(turn.run?.run_id ? { run_id: turn.run.run_id } : {}) } } : {}),
