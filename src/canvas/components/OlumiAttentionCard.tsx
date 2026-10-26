@@ -329,7 +329,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
         ) : null}
         <span className="min-w-0 flex-1">
           {note?.title ? (
-            <span className={`${typography.panelHeader} text-text-header block mt-0.5`}>
+            <span className={`${typography.panelHeader} ${isStale ? 'text-text-light' : 'text-text-header'} block mt-0.5`}>
               {note.title}
             </span>
           ) : null}
@@ -352,7 +352,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
       ) : null}
 
       {note?.body ? (
-        <p className={`${typography.panelBody} text-text-body mt-1.5 mb-0`}>{note.body}</p>
+        <p className={`${typography.panelBody} ${isStale ? 'text-text-light' : 'text-text-body'} mt-1.5 mb-0`}>{note.body}</p>
       ) : null}
 
       {note && !viewer && !link && isQuestion(note.body ?? note.title) ? (

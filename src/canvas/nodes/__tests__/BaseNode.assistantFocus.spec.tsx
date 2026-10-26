@@ -133,13 +133,15 @@ describe('⭐ Olumi\'s note does not grey out the model (Paul 22 Oct: "the graph
     hold(['factor-other'])
     render(<ReactFlowProvider><BaseNode {...(props as any)} nodeType="factor" icon={Circle} /></ReactFlowProvider>)
     expect(tokens()).not.toContain('opacity-30')
-    expect(tokens()).not.toContain('olumi-attended')
+    expect(tokens()).not.toContain('ring-2')
   })
 
-  it('CONTRAST: the card the note is about carries the ring', () => {
+  it('CONTRAST: the card the note is about carries the ring: 2 px of info, nothing more (vision spec §2a "Olumi-attended")', () => {
     hold([props.id])
     render(<ReactFlowProvider><BaseNode {...(props as any)} nodeType="factor" icon={Circle} /></ReactFlowProvider>)
-    expect(tokens()).toContain('olumi-attended')
+    expect(tokens()).toEqual(expect.arrayContaining(['ring-2', 'ring-info']))
+    expect(tokens()).not.toContain('ring-4')
+    expect(tokens()).not.toContain('olumi-attended')
   })
 })
 

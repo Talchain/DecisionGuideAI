@@ -120,6 +120,21 @@ describe('Olumi’s note on the model', () => {
     useCanvasStore.setState({ lastServerGraphHash: null } as never)
   })
 
+  it('⭐ stale: the note’s words turn grey (vision spec §2c "Stale"); CONTRAST: a current note keeps body ink', () => {
+    useCanvasStore.setState({ lastServerGraphHash: 'now' } as never)
+    hold({ move: 'calibrate', title: 'Check this figure', body: 'Most of the chance rests on it.' })
+    useCanvasStore.setState({ olumiAttention: { ...useCanvasStore.getState().olumiAttention!, modelVersion: 'then' } })
+    render(<OlumiAttentionCard />)
+    expect(screen.getByText('Check this figure').className).toContain('text-text-light')
+    expect(screen.getByText('Most of the chance rests on it.').className).toContain('text-text-light')
+    cleanup()
+    useCanvasStore.setState({ olumiAttention: { ...useCanvasStore.getState().olumiAttention!, modelVersion: 'now' } })
+    render(<OlumiAttentionCard />)
+    expect(screen.getByText('Check this figure').className).toContain('text-text-header')
+    expect(screen.getByText('Most of the chance rests on it.').className).toContain('text-text-body')
+    useCanvasStore.setState({ lastServerGraphHash: null } as never)
+  })
+
   it('a plain-string note (the contract’s form) shows just its sentence', () => {
     hold({ body: 'This link carries most of the result.' })
     render(<OlumiAttentionCard />)
