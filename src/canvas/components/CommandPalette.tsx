@@ -16,6 +16,7 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { typography } from '../../styles/typography'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority, CANVAS_STRUCTURAL_EDIT_NOTICE } from '../mutations/mutationAuthority'
 import { Loader2 } from 'lucide-react'
+import { useSavedModelProgramState } from '../nodes/shared/savedModelProgram'
 
 interface Action {
   id: string
@@ -208,9 +209,12 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
   const withheldActions = semanticMutationsConnected
     ? []
     : actions.filter(a => a.id.startsWith('add-'))
-  const availableActions = semanticMutationsConnected
+  // A program board has no Run control: its host runs the analysis on every change (`programGraphHasNoRunButton`), so the
+  // palette's legacy Run is not offered there either (U5). An unanswered saved read withholds too.
+  const programBoard = useSavedModelProgramState() !== 'not_program'
+  const availableActions = (semanticMutationsConnected
     ? actions
-    : actions.filter(a => !a.id.startsWith('add-'))
+    : actions.filter(a => !a.id.startsWith('add-'))).filter(a => !(programBoard && a.id === 'run-analysis'))
 
   const matchesQuery = (label: string) =>
     query.trim() === '' || label.toLowerCase().includes(query.toLowerCase())

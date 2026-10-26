@@ -588,7 +588,7 @@ export const InspectorRouter = memo(function InspectorRouter({
             askContext={attentionAskContext(attention.reasons)}
             onAsk={examineView ? () => requestExamineAssumption(nodeId, examineView) : undefined}
             askTitle={examineView ? EXAMINE_LIMIT : undefined}
-            extra={panelType === 'decision' ? <DecisionAddOption decisionId={nodeId} /> : undefined}
+            extra={panelType === 'decision' && structuralCanvasEdits ? <DecisionAddOption decisionId={nodeId} /> : undefined}
           />
         </>
       }
