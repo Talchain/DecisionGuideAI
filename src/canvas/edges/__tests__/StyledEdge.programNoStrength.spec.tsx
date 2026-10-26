@@ -67,6 +67,7 @@ import { describeEdge } from '../../domain/edgeLabels'
 import { resolveEdgeDirectionDisplay, resolveEdgeSignedStrengthDisplay, resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
 import served from '../../nodes/__tests__/fixtures/served-program-orders-full-read-20261026.json'
 
+type Rec = Record<string, unknown>
 type Wire = Rec & { id: string; from: string; to: string }
 const GOAL_LINK = (served.graph.edges as Wire[]).find((e) => e.id === 'weekly_orders__reach_order_target')!
 const { strength: _served, ...noStrength } = GOAL_LINK

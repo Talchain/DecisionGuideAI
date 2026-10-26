@@ -86,7 +86,7 @@ describe('Summary', () => {
 describe('the Model tab and the readiness line (the shared run-on-record input)', () => {
   it('a program board: the Model tab bar never says "This model has not been analysed yet."', async () => {
     await board(served, 'program')
-    render(<ReanalyseBar />)
+    render(<ReanalyseBar canRun blockedReason={undefined} isAnalysing={false} />)
     await settle()
     expect(screen.queryByText(NOT_ANALYSED)).toBeNull()
   })
@@ -96,18 +96,18 @@ describe('the Model tab and the readiness line (the shared run-on-record input)'
     const { result } = renderHook(() => useReanalyseBarInputs())
     await settle()
     expect(result.current.preRunWithModel).toBe(false)
-    render(<AnalysisReadinessBar preRunWithModel={result.current.preRunWithModel} canRun nothingHasAnswered />)
+    render(<AnalysisReadinessBar preRunWithModel={result.current.preRunWithModel} canRun nothingHasAnswered isAnalysing={false} onAnalyse={() => {}} />)
     expect(screen.queryByText(READINESS_PENDING)).toBeNull()
   })
 
   it('CONTRAST — a non-program board: "This model has not been analysed yet." and "Readiness not checked yet"', async () => {
     await board(nonProgram, 'not_program')
-    render(<ReanalyseBar />)
+    render(<ReanalyseBar canRun blockedReason={undefined} isAnalysing={false} />)
     await settle()
     expect(screen.getByText(NOT_ANALYSED)).toBeTruthy()
     const { result } = renderHook(() => useReanalyseBarInputs())
     expect(result.current.preRunWithModel).toBe(true)
-    render(<AnalysisReadinessBar preRunWithModel={result.current.preRunWithModel} canRun nothingHasAnswered />)
+    render(<AnalysisReadinessBar preRunWithModel={result.current.preRunWithModel} canRun nothingHasAnswered isAnalysing={false} onAnalyse={() => {}} />)
     expect(screen.getByText(READINESS_PENDING)).toBeTruthy()
   })
 })
