@@ -73,6 +73,12 @@ import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
  */
 export function nodeRecordedValue(
   data: Record<string, unknown> | null | undefined,
+  /**
+   * W12 (DL, 26 Oct): on a program graph a zero IS a figure. The model works it out or holds it (capacity's "Additional
+   * specialist capacity" is 0 before an option adds anyone), and `formatFactorDisplayValue`'s minted zero sentences
+   * (below) belong to legacy payloads. Off a program graph the guard below stands, as its negatives pin.
+   */
+  opts: { zeroIsAFigure?: boolean } = {},
 ): string | null {
   if (!data || typeof data !== 'object') return null
 
@@ -102,7 +108,7 @@ export function nodeRecordedValue(
   const observed = (data as { observedState?: Record<string, unknown> }).observedState
   const raw = observed?.raw_value
   const numericRaw = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN
-  if (numericRaw === 0) return null
+  if (numericRaw === 0 && opts.zeroIsAFigure !== true) return null
 
   const text = factorDisplayText(data)
   if (typeof text !== 'string') return null

@@ -57,6 +57,9 @@ export const VALUE_SOURCE_MARK_TOKEN: Readonly<Record<ValueSourceMarkKind, strin
 })
 
 /** The accessible name per mark (screen readers, and the hover title). */
+/** The card's indicator for a quantity with no figure yet (Paul 24 Oct: an indicator, its words on hover and in its name). */
+export const NO_FIGURE_YET = '—'
+
 export const VALUE_SOURCE_MARK_LABEL: Readonly<Record<ValueSourceMarkKind, string>> = Object.freeze({
   olumi: cardMark('source-olumi').ariaWords,
   you: cardMark('source-you').ariaWords,

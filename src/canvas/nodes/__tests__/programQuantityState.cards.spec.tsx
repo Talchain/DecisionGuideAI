@@ -1,12 +1,14 @@
 /**
- * ⭐ A QUANTITY CARD WITH NO FIGURE STILL SAYS WHAT IT IS, AND WHOSE IT IS (W12; acceptance run 2, checks 2 and 1).
+ * ⭐ A QUANTITY CARD SAYS ITS FIGURE, OR SHOWS THE NO-FIGURE INDICATOR, AND KEEPS WHOSE IT IS (W12; acceptance run 2,
+ * checks 2 and 1; DL (B), keeping Paul's 24 Oct "visual indicators, not default text").
  *
- * Served on the three program boards of that run, some quantity cards with no figure said nothing about their state:
- *   · capacity "Additional specialist capacity": CEE works it out (`value_basis: worked_out`) and sends its starting level,
- *     0, beside its words, so the card had no line at all;
+ * Served on the three program boards of that run:
+ *   · capacity "Additional specialist capacity": CEE works it out and holds 0 before an option adds anyone, but a zero was
+ *     never a recorded value, so the card had no line at all. On a program graph a zero is a figure: "Today: 0 ticket/week".
  *   · Olumi's figures nobody knows yet (qualitative "Share of update recipients affected if the bug remains", european
- *     "Pilot acquisition ramp-up duration"): CEE_STATE_NOTE
- * Each now shows one state line from what CEE sends, keeping its author's mark.
+ *     "Months until pilot acquisition effect"): the value line read "Source not recorded unknown". It now shows the
+ *     no-figure indicator the worked-out cards show, "—", with Olumi's mark saying "Olumi’s: no figure yet" on hover and
+ *     in its name. No new visible words.
  *
  * Real path (as `programUnitWords.cards.spec.tsx`): the real `hydrateCanvasFromServer` read and saved-graph read (only
  * `fetch` stubbed), then the real cards. Fixtures: that run's served reads (`_source` names each), trimmed to the read's keys.
@@ -97,19 +99,63 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState({}, '', '/') })
 
-describe('a worked-out quantity with no figure yet', () => {
-  it('capacity "Additional specialist capacity" (served 0 beside its words): the worked-out line, CEE\'s words in its name', async () => {
+/** A factor's value line, and its mark's accessible words. */
+const factorLine = (id: string) => ({
+  text: screen.getByTestId('factor-recorded-value').textContent,
+  mark: screen.getByTestId(`factor-value-source-${id}`),
+})
+
+describe('a zero is a figure on a program graph', () => {
+  it('capacity "Additional specialist capacity" (worked out, 0 before an option adds anyone): "Today: 0 ticket/week"', async () => {
     await openBoard(capacity)
     await card('additional_capacity', OutcomeNode)
-    const { text, name } = outcomeLine()
-    expect(text).toBe('Today: —')
-    expect(name).toBe('Today: no figure yet. Worked out from Additional specialists and Weekly capacity per additional specialist')
+    expect(outcomeLine().text).toBe('Today: 0 ticket/week')
     expect(screen.getByTestId('node-provenance-mark')).toBeTruthy()
   })
 
-  it('CONTRAST: capacity "Weekly support capacity", worked out with a figure, says its figure, as today', async () => {
+  it('CONTRAST: capacity "Weekly support capacity", worked out to 80, says its figure, as today', async () => {
     await openBoard(capacity)
     await card('total_capacity', OutcomeNode)
     expect(outcomeLine().text).toBe('Today: 80 ticket/week')
+  })
+})
+
+describe('a worked-out quantity with no figure: the indicator, CEE\'s words in its name (as today)', () => {
+  it('european "Customer base": "Today: —", named with CEE\'s worked-out words', async () => {
+    await openBoard(european)
+    await card('customers', OutcomeNode)
+    const { text, name } = outcomeLine()
+    expect(text).toBe('Today: —')
+    expect(name).toBe('Today: no figure yet. Worked out from Current customers, New customers per month and Customers leaving per month')
+  })
+})
+
+describe('Olumi\'s figure nobody knows yet: the no-figure indicator, with Olumi\'s mark', () => {
+  it.each([
+    ['qualitative', 'affected_share_if_unfixed'],
+    ['qualitative', 'bug_persists_at_planned_release'],
+    ['european', 'pilot_acquisition_start'],
+    ['european', 'full_acquisition_ramp_duration'],
+  ] as const)('%s %s: "—" with Olumi\'s mark, "Olumi’s: no figure yet"; never "Source not recorded" or "unknown"', async (board, id) => {
+    await openBoard(board === 'qualitative' ? qualitative : european)
+    await card(id)
+    const { text, mark } = factorLine(id)
+    expect(text).toContain('—')
+    expect(text).not.toMatch(/unknown|Source not recorded/)
+    expect(mark.getAttribute('data-value-source')).toBe('olumi')
+    expect(mark.textContent + (mark.getAttribute('aria-label') ?? '') + (mark.getAttribute('title') ?? '')).toContain('Olumi’s: no figure yet')
+  })
+
+  it('CONTRAST: a figure still to be given (european "Time to reach the customer target") keeps its asked mark and field', async () => {
+    await openBoard(european)
+    await card('target_deadline')
+    expect(factorLine('target_deadline').mark.getAttribute('data-value-source')).toBe('asked')
+    expect(screen.getByTestId('node-value-editor-target_deadline')).toBeTruthy()
+  })
+
+  it('CONTRAST: a figure from the brief keeps its figure and mark (capacity "Existing weekly support capacity")', async () => {
+    await openBoard(capacity)
+    await card('existing_capacity')
+    expect(factorLine('existing_capacity').text).toBe('From your brief 80 ticket/week')
   })
 })
