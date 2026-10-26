@@ -82,6 +82,7 @@ import { factorValueAwaitsReceipt } from '../../../nodes/shared/valueSourceMark'
 import { InspectorMoreItems } from '../shared/InspectorMore'
 import { FactorAnatomySummary } from './FactorAnatomy'
 import anatomyStyles from './FactorAnatomy.module.css'
+import { useSavedModelProgramState } from '../../../nodes/shared/savedModelProgram'
 
 export const FactorControllablePanel = memo(function FactorControllablePanel({
   nodeId,
@@ -364,9 +365,12 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
    * exists to stop). Capless AND unitless only — see `acceptsElicitedBelief`
    * for why, and for what widening it would actually take.
    */
+  // U5: a program board has no contract for an elicited belief (CEE accepts only a figure or a goal's target), so
+  // the words door is not offered there.
+  const structuralCanvasEdits = useSavedModelProgramState() === 'not_program'
   const canDescribeInWords = useCanvasStore(s =>
     acceptsElicitedBelief(s.nodes.find(n => n.id === nodeId)?.data),
-  )
+  ) && structuralCanvasEdits
 
   /**
    * ONE commit path for both affordances on this panel.

@@ -66,8 +66,9 @@ describe('core route: the client reads only the contract', () => {
     expect(r.suggested_actions.map((a) => a.id)).toEqual([card.approve_action.id, 'agent-amend-proposal', card.decline_action.id])
     expect(readProposalFields((r as unknown as Record<string, Record<string, unknown>>)[ADDITIVE_EXTENSIONS_KEY]._proposal_fields)?.proposals
       .map((p) => p.proposal_id)).toEqual([card.proposal_id])
-    expect(r.blocks).toEqual([{ type: 'ui_directive', verb: 'highlight', note: 'Would the extra barista still pay after wages?',
-      source: 'composer', targets: [{ id: 'second_barista', label: 'Add a peak barista', kind: 'option' }] }])
+    // U4 p2: the note is the core applier's (`applyCoreTurn.ts`), read from the contract; no legacy highlight block.
+    expect(r.blocks).toEqual([])
+    expect(readCoreTurn(r)?.notes).toEqual([{ element_id: 'second_barista', text: 'Would the extra barista still pay after wages?' }])
     expect(readRecordedServerTurnId(r)).toBe(TURN)
     expect(readAgentTurnReceipts(r)).toEqual([{ version: 3, versionId: 'v3', mutationId: 'm3' }])
     expect((r.draft_graph?.nodes as Array<{ id: string }> | undefined)?.map((n) => n.id)).toEqual(['coffee_volume', 'second_barista', 'decision'])
@@ -140,8 +141,10 @@ describe('⭐ a core turn is read by the core contract alone', () => {
     model: { revision: '48e2a1babc59ccfd', scenario_revision: SAVED, graph: { nodes: [], edges: [] } } })
   const LONG_NOTE = 'Would the extra barista still pay after wages, holiday cover and training, once the morning queue settles and the weekend trade is counted apart from the weekday rush at both of the shops?'
   const parse = (body: unknown, status = 200) => parseV5Response(response(body, status), { coreRoute: true })
-  /** The parse as it was: the same answer through the legacy steps (`coreTurnToClientBody`, then `OlumiResponseSchema`). */
-  const legacyParse = (body: unknown) => parseV5Response(response(coreTurnToClientBody(parseCoreTurn(body)!)))
+  /** The same answer through the legacy schema (`coreTurnToClientBody`, then `OlumiResponseSchema`). U4 p2: the translator
+   *  no longer sends `stage_indicator`, which only the legacy schema requires, so it is added back here for that schema. */
+  const legacyParse = (body: unknown) =>
+    parseV5Response(response({ stage_indicator: 'frame', ...coreTurnToClientBody(parseCoreTurn(body)!) }))
   /** The sidecar the legacy readers see: everything but the core turn itself, which only the core applier reads (U4). */
   const sidecarOf = (r: unknown) => {
     const { _core_turn: _turn, ...rest } = { ...(r as Record<string, Record<string, unknown>>)[ADDITIVE_EXTENSIONS_KEY] }
@@ -174,7 +177,13 @@ describe('⭐ a core turn is read by the core contract alone', () => {
   it.each(short)('%s: read, and every reader gets what the legacy parse gave it', async (_name, body) => {
     const [now, before] = [await parse(body), await legacyParse(body)]
     expect([now.kind, before.kind]).toEqual(['response', 'response'])
-    expect(seen(now)).toEqual(seen(before))
+    const { answer: { stage_indicator: _legacyStage, ...beforeAnswer }, sidecar: { __original_top_level_keys__: beforeKeys, ...beforeSidecar }, ...beforeRest } = seen(before) as Record<string, Record<string, unknown>>
+    const { sidecar: { __original_top_level_keys__: nowKeys, ...nowSidecar }, ...nowRest } = seen(now) as Record<string, Record<string, unknown>>
+    expect({ ...nowRest, sidecar: nowSidecar }).toEqual({ ...beforeRest, answer: beforeAnswer, sidecar: beforeSidecar })
+    expect((beforeKeys as unknown as string[]).filter((k) => k !== 'stage_indicator')).toEqual(nowKeys)
+    // U4 p2: no legacy highlight block and no action bar from a core turn.
+    expect(now.kind === 'response' && now.response.blocks.filter((b) => b.type === 'ui_directive')).toEqual([])
+    expect(now.kind === 'response' && readActionBar(now.response)).toBeNull()
     // U4: the core applier reads the contract itself, kept whole beside the answer.
     expect(now.kind === 'response' && readCoreTurn(now.response)).toEqual(parseCoreTurn(body))
   })
@@ -186,14 +195,16 @@ describe('⭐ a core turn is read by the core contract alone', () => {
   it.each(long)('⭐ %s: the reply is read, its note whole, its side channels attached', async (_name, body, note) => {
     expect(note.length).toBeGreaterThan(140)
     const before = await legacyParse(body)
-    expect(before.kind === 'parse_error' && before.parse_failure_kind).toBe('schema_mismatch') // the class this closes
+    // U4 p2: the note never enters a legacy highlight block (whose schema capped it at 140), so even the legacy schema
+    // now reads the answer; before U4 p2 this was a schema_mismatch.
+    expect(before.kind).toBe('response')
     const now = await parse(body)
     expect(now.kind).toBe('response')
     if (now.kind !== 'response') return
     expect(now.response.assistant_text).toBe(body.assistant_text)
-    expect(now.response.blocks.filter((b) => b.type === 'ui_directive').map((b) => (b as { note?: unknown }).note)).toEqual([note])
+    expect(readCoreTurn(now.response)?.notes.map((n) => n.text)).toEqual([note])
     const built = coreTurnToClientBody(parseCoreTurn(body)!)
-    const channels = ['_agent', '_read_after_write', '_proposal_fields', 'action_bar'].filter((k) => k in built)
+    const channels = ['_agent', '_read_after_write', '_proposal_fields'].filter((k) => k in built)
     expect(sidecarOf(now.response)).toEqual({ ...Object.fromEntries(channels.map((k) => [k, built[k]])),
       __original_top_level_keys__: Object.keys(built).sort() })
     expect(readCoreTurn(now.response)).toEqual(parseCoreTurn(body))

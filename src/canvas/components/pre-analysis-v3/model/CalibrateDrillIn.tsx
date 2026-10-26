@@ -114,6 +114,7 @@ import { PanelIconButton } from '../ui/PanelIconButton'
 import { parseSuccessTarget } from '../hero/parseSuccessTarget'
 import type { EstimateRowModel } from '../types'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../../mutations/mutationAuthority'
+import { useSavedModelProgramState } from '../../../nodes/shared/savedModelProgram'
 
 const V3_FACTOR_VALUE_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.preAnalysisV3FactorValue,
@@ -192,9 +193,12 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
    * Selector returns a BOOLEAN, not the node: a fresh object per render is
    * what the zustand-selector guard exists to stop.
    */
+  // U5: a program board has no contract for an elicited belief (CEE accepts only a figure or a goal's target), so
+  // the words door is not offered there.
+  const structuralCanvasEdits = useSavedModelProgramState() === 'not_program'
   const canDescribeInWords = useCanvasStore(s =>
     acceptsElicitedBelief(s.nodes.find(n => n.id === row.nodeId)?.data),
-  )
+  ) && structuralCanvasEdits
 
   /**
    * CAPABILITY A — "Ask a teammate": the hop from an unresolved unknown to a

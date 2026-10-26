@@ -750,9 +750,9 @@ export type V5ParseResult =
 
 /**
  * The side channels a core turn carries beside its answer (`coreTurnToClientBody`), each on the additive sidecar where
- * its reader looks: `_agent` (turn id, receipts, undo label), `_read_after_write`, `_proposal_fields` and `action_bar`.
+ * its reader looks: `_agent` (turn id, receipts, undo label), `_read_after_write` and `_proposal_fields`.
  */
-const CORE_SIDE_CHANNEL_KEYS: ReadonlySet<string> = new Set(['_agent', '_read_after_write', '_proposal_fields', 'action_bar']);
+const CORE_SIDE_CHANNEL_KEYS: ReadonlySet<string> = new Set(['_agent', '_read_after_write', '_proposal_fields']);
 /** The parsed core turn itself, on the sidecar, for the core applier (`applyCoreTurn.ts`, U4). */
 const CORE_TURN_KEY = '_core_turn';
 

@@ -812,7 +812,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // DL ruling A (23 Oct): only on a program board, whose Run is automatic, do the served words take the pre-analysis
   // panel's place (its "Analyse anyway" included). Every other board keeps that panel unchanged.
   const viewOnlyChancesServed = useViewOnlyRunChances()
-  const viewOnlyChances = useSavedModelIsProgram() ? viewOnlyChancesServed : null
+  // U2: the legacy goal-threshold modal and the results "how computed" card open only from ResultsBody, which a program
+  // board never mounts; they are not mounted there either.
+  const programBoardDock = useSavedModelIsProgram()
+  const viewOnlyChances = programBoardDock ? viewOnlyChancesServed : null
   // ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`): after the first Run, the footer's Re-analyse when the
   // model changed, otherwise the composer icon. Read once here for the composer; the bar reads the same predicate.
   const rerunInputs = useReanalyseBarInputs()
@@ -3179,12 +3182,12 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       <AskOlumiDrawer />
       {/* Round-2 wiring: the parity modals mount once at the same root so
           openDefineSuccess()/openDecisionRecord() work from any surface. */}
-      <DefineSuccessModal />
+      {!programBoardDock && <DefineSuccessModal />}
       <DecisionRecordModal />
       {/* P1-9: Model-Card-Lite. Mounted at the same root so
           openHowComputed() works from the results header (and, later, from a
           number's own affordance) without prop drilling. */}
-      <HowComputedModal />
+      {!programBoardDock && <HowComputedModal />}
       {effectiveIsOpen && (
         <div
           aria-hidden="true"

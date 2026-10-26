@@ -833,7 +833,14 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // as one, and what the engine graph leaves out drawn beside them, marked "Not in the calculation yet". Display only.
   const drawnModel = useDrawnLivingModel(nodes, edges)
 
+  // CEE refuses an added node on a program board with nothing saved, so the sidebar's add door is not offered there (U5).
+  const savedProgramState = useSavedModelProgramState()
+  const structuralCanvasEdits = savedProgramState === 'not_program'
+  // U2/U5: on a program board CEE owns validation, What-if and the analysis state, so the legacy client layers do not run.
+  const programBoard = savedProgramState === 'program'
   const nodesWithGhost = useMemo(() => {
+    // U5 (DL 26 Oct): a program board shows no row-end "What else…?" prompts.
+    if (programBoard) return drawnModel.nodes
     /*
      * ⚠ THERE IS NO VISIBILITY GATE HERE, AND THAT IS THE POINT.
      *
@@ -884,7 +891,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         return layoutCardWidths?.[m.type ?? ''] ?? m.measured?.width ?? m.width ?? restingCardWidthForKind(m.type)
       },
     })
-  }, [drawnModel.nodes, layoutCardWidths])
+  }, [drawnModel.nodes, layoutCardWidths, programBoard])
 
   // AI coaching is rendered by the guidanceStore consumers, not here — see
   // ./nodes/FactorNode.tsx (on-canvas CoachingCard) and ./conversation/GuidanceStrip.tsx.
@@ -952,8 +959,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const fitFlowRef = useRef({ getNodes, getNodesBounds, setViewport })
   fitFlowRef.current = { getNodes, getNodesBounds, setViewport }
 
-  // CEE refuses an added node on a program board with nothing saved, so the sidebar's add door is not offered there (U5).
-  const structuralCanvasEdits = useSavedModelProgramState() === 'not_program'
 
   const HARD_ISOLATE_MINIMAL_CANVAS = false
   if (HARD_ISOLATE_MINIMAL_CANVAS) {
@@ -1479,7 +1484,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Validate on mount (initial load)
   useEffect(() => {
-    validateGraph()
+    if (structuralCanvasEdits) validateGraph()
 
     // Cleanup timer on unmount
     return () => {
@@ -1504,7 +1509,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
     // Debounce validation by 500ms after graph changes
     validationTimerRef.current = setTimeout(() => {
-      validateGraph()
+      if (structuralCanvasEdits) validateGraph()
     }, 500)
 
     return () => {
@@ -1512,7 +1517,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         clearTimeout(validationTimerRef.current)
       }
     }
-  }, [nodeCount, edgeCount, validateGraph])
+  }, [nodeCount, edgeCount, validateGraph, structuralCanvasEdits])
 
   const handleNodeClick = useCallback((_: any, node: any) => {
     // Close Templates panel when interacting with canvas
@@ -2848,7 +2853,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             {/* Vision spec §3 (23 Oct): no lane labels. Card colour and glyph carry the type. */}
             {/* Suggestion preview: the ghost of the proposal the latest reply offers (render-only; see the file). */}
             <ProposalGhostLayer />
-            <WhatIfMarkLayer />
+            {!programBoard && <WhatIfMarkLayer />}
             {/* Vision spec §3: what changed since the last run, as a pencil on each changed card (see the file). */}
             <RunChangePencilLayer />
             <DirectionNeededLayer />
@@ -2897,7 +2902,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
                 in the stacking context xyflow gives `.react-flow`, below the
                 renderer, so every card and edge paints over it. It still takes
                 the band's bottom-left slot; see `AnalysisStateCue.tsx`. */}
-            <AnalysisStateCue />
+            {!programBoard && <AnalysisStateCue />}
             <CanvasEditNote inspectorOpen={showFullInspector} />
           </ReactFlow>
         )}
@@ -3295,6 +3300,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
  * (see useConversation.ts scenario-hydration race + telemetry duplication).
  */
 export function MaybeConversationProvider({ children }: { children: import('react').ReactNode }) {
+  // U5: a program board has no legacy guidance items to invalidate (core turns carry none), so that host does not run there.
+  const programBoard = useSavedModelProgramState() === 'program'
   if (isAiPanelV2Enabled()) {
     return (
       <ConversationProvider>
@@ -3322,7 +3329,7 @@ export function MaybeConversationProvider({ children }: { children: import('reac
             structural edit. This host carries the coaching half ONLY: it takes
             no transport, so it cannot switch on `direct_graph_edit` emission as
             a side effect. */}
-        <GuidanceInvalidationHost />
+        {!programBoard && <GuidanceInvalidationHost />}
         {children}
       </ConversationProvider>
     )
