@@ -835,6 +835,14 @@ export const OptionNode = memo((props: NodeProps) => {
   const canonicalScenarioId = useCanvasStore(state => state.currentScenarioId)
   const heldCanonical = useCanonicalAnalysisViewStore(s => s.scenarioId === canonicalScenarioId ? s.view : null)
   const runLeaderView = useMemo(() => runViewOf(resultsReport, heldCanonical), [resultsReport, heldCanonical])
+  /**
+   * D6 B (Paul, 26 Oct): the program Run's own answer on which option is most likely to meet the goal, marked on that
+   * option's card. Only where CEE permits naming it (`leader.licence === 'permitted'`) and names this option as the goal
+   * chance leader of a current Run (`goalChanceLeaderOf`, null for a Run not known to be current); never the win-share
+   * badge above.
+   */
+  const mostLikelyInModel = useMemo(() => heldCanonical?.leader?.licence === 'permitted'
+    && runViewOf(null, heldCanonical).goalChanceLeaderOf() === props.id, [heldCanonical, props.id])
   const isRecommended = useMemo(() => {
     if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return false
     // S7 (DL #2800 follow-up): CEE's licence AND its leader identity, read behind the compute-status gate above.
@@ -2662,6 +2670,11 @@ export const OptionNode = memo((props: NodeProps) => {
         {/* The same slot is reserved before and after a Run, at the headline's line height (vision spec, 23 Oct), so a
             Run never grows the card. It holds CEE's display as the headline (a "Last run" / "Model result" caption
             before it); the full served sentence stays available in the accessible name and focusable tooltip. */}
+        {mostLikelyInModel && (
+          <p data-testid={`option-most-likely-${props.id}`} className={`${typography.edgeLabel} text-text-light mt-1`}>
+            {OPTION_RESULT_COPY.mostLikely}
+          </p>
+        )}
         <div
           data-testid={`option-share-slot-${props.id}`}
           className={`${typography.nodeHeadline} mt-1 h-[1lh] min-w-0 overflow-hidden [container-type:inline-size]`}
