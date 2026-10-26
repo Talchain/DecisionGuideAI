@@ -1,0 +1,195 @@
+{
+ "_source": "Paul's board, debug bundle olumi-debug-377f5f6b-20261026.json (26 Oct): payloads.cee_response.__additive__._proposal_fields.proposals[0].changes, the first-draft reading card (\"Your situation as I understood it\"), 19 rows as CEE sent them.",
+ "changes": [
+  {
+   "id": "delay_release",
+   "kind": "option",
+   "action": "add",
+   "label": "delay",
+   "before": null,
+   "after": "compared, sets \"Delay beyond the planned launch\" 0 week to \"Length of the proposed delay\" (still to be given) from the start, in your words \"if we delay marketing is going to lose their minds because they already bought ads for Q4.\"",
+   "author": "person",
+   "group": "used"
+  },
+  {
+   "id": "launch_as_planned",
+   "kind": "option",
+   "action": "add",
+   "label": "launch broken apps",
+   "before": null,
+   "after": "carries on as now, compared, in your words \"but if we launch broken apps people will give us 1 star reviews.\"",
+   "author": "person",
+   "group": "used"
+  },
+  {
+   "id": "aim",
+   "kind": "left_out",
+   "action": "add",
+   "label": "The outcome that should determine the decision has not yet been stated explicitly.",
+   "before": null,
+   "after": "The scheduled release and the feared consequences establish the dilemma, but not an agreed definition of success or a non-negotiable guardrail. Olumi asks: “What outcome matters most here: avoiding a broken release, keeping the launch date, or something else?”. It concerns delay and launch broken apps",
+   "author": "olumi",
+   "group": "left_out"
+  },
+  {
+   "id": "unquantified_tradeoffs",
+   "kind": "left_out",
+   "action": "add",
+   "label": "Repair readiness, advertising losses, user harm, review damage and stakeholder reactions are not assigned numerical effects or probabilities.",
+   "before": null,
+   "after": "The brief does not establish the bug's failure mode, repair scope, advertising flexibility or exposure, so numerical estimates would have no defensible scale. It concerns Sarah reports a major database sync bug that will take weeks to fix. and Marketing has already bought advertising for Q4. and You expect launching broken apps to lead to one-star reviews. and You expect delaying the release to provoke a strongly negative reaction from marketing because Q4 ads have already been bought. and You are worried about your boss's reaction to pushing back the launch. and Check whether the sync bug can lose or corrupt user data: that would materially change the consequences of launching, beyond poor reviews.",
+   "author": "olumi",
+   "group": "left_out"
+  },
+  {
+   "id": "release_timing",
+   "kind": "relation",
+   "action": "add",
+   "label": "Weeks from now until release",
+   "before": null,
+   "after": "\"Weeks from now until release\" is the sum of \"Weeks until the planned launch\" (still to be given), raised by \"Delay beyond the planned launch\" 0 week",
+   "author": "olumi",
+   "group": "other"
+  },
+  {
+   "id": "scheduled_launch",
+   "kind": "record",
+   "action": "add",
+   "label": "The update is currently supposed to go live in less than about a month; an exact launch date was not given.",
+   "before": null,
+   "after": "about \"Weeks until the planned launch\", in your words \"we are supposed to go live with the new app update in like less than a month\"",
+   "author": "person",
+   "group": "used"
+  },
+  {
+   "id": "reported_sync_bug",
+   "kind": "record",
+   "action": "add",
+   "label": "Sarah reports a major database sync bug that will take weeks to fix.",
+   "before": null,
+   "after": "about \"delay\", \"launch broken apps\" and \"A delay only addresses the launch-quality problem if it leaves enough time to fix and verify the sync bug; 'weeks' alone does not establish that release date.\", in Sarah’s words \"Sarah says there is some massive database sync bug that is going to take 'weeks' to fix.\"",
+   "author": "person",
+   "group": "used"
+  },
+  {
+   "id": "ads_already_bought",
+   "kind": "record",
+   "action": "add",
+   "label": "Marketing has already bought advertising for Q4.",
+   "before": null,
+   "after": "about \"delay\" and \"You expect delaying the release to provoke a strongly negative reaction from marketing because Q4 ads have already been bought.\", in your words \"they already bought ads for Q4.\"",
+   "author": "person",
+   "group": "used"
+  },
+  {
+   "id": "current_leaning",
+   "kind": "record",
+   "action": "add",
+   "label": "You currently think the launch needs to be pushed back, but expect a strongly negative reaction from your boss.",
+   "before": null,
+   "after": "about \"delay\" and \"You are worried about your boss's reaction to pushing back the launch.\", in your words \"honestly i think we have to push it back but my boss is going to kill me.\"",
+   "author": "person",
+   "group": "used"
+  },
+  {
+   "id": "unchanged_launch_timing",
+   "kind": "record",
+   "action": "add",
+   "label": "The option described as launching broken apps is interpreted as keeping the planned launch date.",
+   "before": null,
+   "after": "applied in the model, about \"launch broken apps\" and \"Weeks from now until release\"",
+   "author": "olumi",
+   "group": "inferred"
+  },
+  {
+   "id": "repair_readiness",
+   "kind": "record",
+   "action": "add",
+   "label": "A delay only addresses the launch-quality problem if it leaves enough time to fix and verify the sync bug; 'weeks' alone does not establish that release date.",
+   "before": null,
+   "after": "a challenge, about \"Sarah reports a major database sync bug that will take weeks to fix.\", \"delay\" and \"Weeks from now until release\"",
+   "author": "olumi",
+   "group": "inferred"
+  },
+  {
+   "id": "marketing_reaction",
+   "kind": "record",
+   "action": "add",
+   "label": "You expect delaying the release to provoke a strongly negative reaction from marketing because Q4 ads have already been bought.",
+   "before": null,
+   "after": "a challenge, about \"delay\" and \"Marketing has already bought advertising for Q4.\", in your words \"if we delay marketing is going to lose their minds because they already bought ads for Q4.\"",
+   "author": "person",
+   "group": "used"
+  },
+  {
+   "id": "review_concern",
+   "kind": "record",
+   "action": "add",
+   "label": "You expect launching broken apps to lead to one-star reviews.",
+   "before": null,
+   "after": "a challenge, about \"launch broken apps\", in your words \"but if we launch broken apps people will give us 1 star reviews.\"",
+   "author": "person",
+   "group": "used"
+  },
+  {
+   "id": "boss_reaction",
+   "kind": "record",
+   "action": "add",
+   "label": "You are worried about your boss's reaction to pushing back the launch.",
+   "before": null,
+   "after": "a challenge, about \"delay\", in your words \"honestly i think we have to push it back but my boss is going to kill me.\"",
+   "author": "person",
+   "group": "used"
+  },
+  {
+   "id": "sync_data_impact",
+   "kind": "record",
+   "action": "add",
+   "label": "Check whether the sync bug can lose or corrupt user data: that would materially change the consequences of launching, beyond poor reviews.",
+   "before": null,
+   "after": "a challenge, about \"Sarah reports a major database sync bug that will take weeks to fix.\" and \"launch broken apps\"",
+   "author": "olumi",
+   "group": "inferred"
+  },
+  {
+   "id": "planned_launch_offset",
+   "kind": "quantity",
+   "action": "add",
+   "label": "Weeks until the planned launch",
+   "before": null,
+   "after": "no figure yet (in week) (never below 0: Olumi’s reading), a fact, still to be given, Olumi asks \"What date is the update currently supposed to go live?\"",
+   "author": "person",
+   "group": "other"
+  },
+  {
+   "id": "launch_delay",
+   "kind": "quantity",
+   "action": "add",
+   "label": "Delay beyond the planned launch",
+   "before": null,
+   "after": "0 week (never below 0: Olumi’s reading), a fact, known, based on \"The delay setting starts at zero and is changed by the delay option.\", a fixed part of the model’s structure",
+   "author": "olumi",
+   "group": "other"
+  },
+  {
+   "id": "proposed_delay",
+   "kind": "quantity",
+   "action": "add",
+   "label": "Length of the proposed delay",
+   "before": null,
+   "after": "no figure yet (in week) (never below 0: Olumi’s reading), a fact, still to be given, Olumi asks \"How many weeks could you push the release back?\"",
+   "author": "person",
+   "group": "other"
+  },
+  {
+   "id": "release_offset",
+   "kind": "quantity",
+   "action": "add",
+   "label": "Weeks from now until release",
+   "before": null,
+   "after": "in week (never below 0: Olumi’s reading), a result, worked out from the model",
+   "author": "olumi",
+   "group": "other"
+  }
+ ]
+}

@@ -71,6 +71,28 @@ const READING_GROUP_MARKS: readonly { group: ReadingGroup; words: string; Icon: 
 ]
 
 /**
+ * A reading card's row: ONE line, the item's name and Olumi's mark when it is Olumi's; a tap opens CEE's full words for it
+ * (what it is, the quote, what it is about), so nothing is approved unseen (W7, D3: Paul, 26 Oct). Its kind is the group
+ * mark the row sits under.
+ */
+function ReadingChangeRow({ change: c }: { change: ProposalChange }) {
+  const [open, setOpen] = useState(false)
+  const detailId = useId()
+  const key = `${c.kind}:${c.id}`
+  return (
+    <li data-author={c.author} className={`${styles.reasoningPanelBody} ${c.author === 'olumi' ? CHANGE_NOTE_SOURCE_CLASS.estimate : ''}`}
+      data-testid={`proposal-change-${key}`}>
+      <button type="button" className="flex w-full min-w-0 text-left" onClick={() => setOpen((v) => !v)}
+        aria-expanded={open} aria-controls={open ? detailId : undefined} data-testid={`proposal-change-open-${key}`}>
+        <span className="truncate">{c.label}</span>
+        {c.author === 'olumi' && <span className="shrink-0 whitespace-pre" data-testid={`proposal-change-olumi-${key}`}>{` · ${OLUMI_CHANGE_MARK}`}</span>}
+      </button>
+      {open && <p id={detailId} data-testid={`proposal-change-detail-${key}`}>{proposalChangeWords(c)}</p>}
+    </li>
+  )
+}
+
+/**
  * ⭐ EVERYTHING ELSE THE APPROVAL WRITES: ONE PLAIN LINE, THE NOTES BEHIND "DETAILS" (DL 22 Oct, Paul's served test: the
  * card printed CEE's notes in raw "(1/3)…(3/3)" fragments). The line counts the changes from the notes' own ids, read
  * before the approve; "Details" opens CEE's sentences, each in the colour of whose it is. A reading card grouped row by row
@@ -144,11 +166,11 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
               return <div key={group} ref={(el) => { sections.current[group] = el }} role="group" aria-label={words}
                 data-testid={`reading-group-section-${proposalId}-${group}`}>
                 <Icon size={12} aria-hidden="true" className="mt-2" />
-                <ul className={PANEL_LIST_BULLET}>{rows.map(changeRow)}</ul>
+                <ul className={PANEL_LIST_BULLET}>{rows.map((c) => <ReadingChangeRow key={`${c.kind}:${c.id}:${c.action}`} change={c} />)}</ul>
               </div>
             })}
             {otherOpen && <div ref={(el) => { sections.current.other = el }} data-testid={`reading-group-section-${proposalId}-other`}>
-              <ul className={PANEL_LIST_BULLET}>{otherRows.map(changeRow)}</ul>
+              <ul className={PANEL_LIST_BULLET}>{otherRows.map((c) => <ReadingChangeRow key={`${c.kind}:${c.id}:${c.action}`} change={c} />)}</ul>
             </div>}
           </div>
         )}
