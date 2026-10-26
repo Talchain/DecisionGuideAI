@@ -47,6 +47,7 @@ import { Loader2, AlertTriangle, FileText } from 'lucide-react'
 import * as scenarioService from '../services/scenarioService'
 import type { SharedSnapshotRow } from '../types/scenario'
 import { formatRelativeTime } from '../utils/formatRelativeTime'
+import { NOTE_FAMILY_WORDS, noteRecordsOf } from '../canvas/domain/noteRecordsModel'
 
 // ---------------------------------------------------------------------------
 // Graph reading — allowlisted fields only
@@ -509,7 +510,12 @@ function ModelContent({ graph }: { graph: unknown }) {
   })).filter((g) => g.nodes.length > 0)
 
   const known = new Set(GROUPS.map((g) => g.type))
-  const others = nodes.filter((n) => !known.has(n.type))
+  // Olumi's notes that the graph does not carry as nodes (claims, assumptions, left out…), from the saved model itself
+  // (`noteRecordsModel.ts`); one the graph still draws as a node is listed once, as that node.
+  const graphNodes = Array.isArray((graph as { nodes?: unknown } | null)?.nodes) ? (graph as { nodes: { id: string }[] }).nodes : []
+  const notes: ReadNode[] = [...noteRecordsOf(graph, graphNodes).values()]
+    .map((note) => ({ type: 'note', label: `${NOTE_FAMILY_WORDS[note.family]}: ${note.text}` }))
+  const others = [...nodes.filter((n) => !known.has(n.type)), ...notes]
 
   return (
     <div className="space-y-6" data-testid="shared-snapshot-model">

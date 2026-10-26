@@ -17,6 +17,7 @@ vi.mock('../../../lib/debug-state', () => ({
 }))
 
 import { buildDebugBundle, type FullGraphData, type DisplayState } from '../utils/exportBundle'
+import { useNoteRecordsStore, type NoteRecord } from '../../../canvas/domain/noteRecordsModel'
 
 function makeDebugData(overrides: Partial<DebugData> = {}): DebugData {
   return {
@@ -212,6 +213,17 @@ describe('Debug Bundle V1.5', () => {
   // provenance the canvas carries. Values are from Paul's export 90b8f080:
   // node provenance ai_inferred / from_brief, and edge e-5
   // keep_current_49_price -> pro_plan_price with origin 'repair'.
+  // #2982: Olumi's notes are glyphs on cards, not graph nodes, so the export carries them beside the graph.
+  it('full_graph carries Olumi’s notes as published for the scenario, none when none are', () => {
+    const note: NoteRecord = { id: 'cost_range_interpretation', family: 'assumptions', text: 'Treat the range as annual.', author: 'olumi', anchorId: 'f1' }
+    useNoteRecordsStore.getState().publish('3de98183', new Map([[note.id, note]]))
+    expect(buildDebugBundle(makeDebugData(), { includeFullGraph: true, graphData: makeGraphData() }).full_graph!.notes)
+      .toEqual({ scenario_id: '3de98183', records: [note] })
+    useNoteRecordsStore.getState().publish(null, new Map())
+    expect(buildDebugBundle(makeDebugData(), { includeFullGraph: true, graphData: makeGraphData() }).full_graph!.notes)
+      .toEqual({ scenario_id: null, records: [] })
+  })
+
   it('i152: full_graph nodes carry their provenance verbatim, and absent stays absent', () => {
     const graphData = makeGraphData()
     graphData.nodes[0].data.provenance = 'ai_inferred'
