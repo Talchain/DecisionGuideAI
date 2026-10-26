@@ -112,6 +112,7 @@ import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
 import { ACTION_TO_TURN_TYPE } from './actionTurnTypes'
 import { deriveV5Stage } from '../../v5/stageMapper'
 import { applyV5State, runStateFreshnessVerdict, turnCanonicalRunOf } from '../../v5/applyV5State'
+import { applyCoreTurnState, readCoreTurn } from '../../v5/applyCoreTurn'
 import {
   extractPhase3FromV5Response,
   deriveV5AnalysisFactUpdate,
@@ -5833,9 +5834,16 @@ export function useConversation(): UseConversationReturn {
           // widening that interface and every test double with it. Re-derive the
           // caller count before moving this — a second caller makes it wrong.
           useCanvasStore.getState().beginExternalGraphMutation?.('envelope_apply')
+          // U4: a core-route turn is applied from its own contract (`applyCoreTurn.ts`), never through the legacy
+          // V2-envelope steps; any other answer keeps `applyV5State`.
+          const coreBody = readCoreTurn(target.response)
           let stateApply: ReturnType<typeof applyV5State>
           try {
-            stateApply = applyV5State(
+            stateApply = coreBody !== null ? applyCoreTurnState(coreBody, v5StoreSnapshot, {
+              turnClientId,
+              currentClientTurnId: activeV5TurnIdRef.current,
+              turnScenarioId: scenarioIdAtDispatch,
+            }) : applyV5State(
             target.response,
             {
               ...v5StoreSnapshot,
@@ -5898,10 +5906,11 @@ export function useConversation(): UseConversationReturn {
           // nullable flag) / clear / retain — lives in
           // deriveV5AnalysisFactUpdate so the mint→classify seam is pinned
           // against the production path.
-          const phase3 = extractPhase3FromV5Response(target.response)
-          const factUpdate = deriveV5AnalysisFactUpdate(target.response, phase3)
-          const factPresent = factUpdate.action === 'set'
-          if (factUpdate.action === 'set') {
+          // A core turn carries none of it (U4): no Phase 3 blocks, no analysis fact, no guidance items.
+          const phase3 = coreBody === null ? extractPhase3FromV5Response(target.response) : null
+          const factUpdate = phase3 === null ? null : deriveV5AnalysisFactUpdate(target.response, phase3)
+          const factPresent = factUpdate?.action === 'set'
+          if (factUpdate?.action === 'set') {
             const analysisHash = useCanvasStore.getState().results?.hash ?? null
             useCanvasStore.getState().setV5AnalysisFact({
               scenarioId: useCanvasStore.getState().currentScenarioId,
@@ -5917,7 +5926,7 @@ export function useConversation(): UseConversationReturn {
               })),
               writtenAt: Date.now(),
             })
-          } else if (factUpdate.action === 'clear') {
+          } else if (factUpdate?.action === 'clear') {
             // CEE explicitly says "no successful run_analysis fact" — this
             // is a legitimate clear (not a blind one). Drop the slice.
             useCanvasStore.getState().setV5AnalysisFact(null)
@@ -5931,7 +5940,7 @@ export function useConversation(): UseConversationReturn {
           // turn is NOT a signal to clear — that would race against the
           // V4 envelope path's guidance writes and erase legitimate
           // coaching from a prior turn.
-          if (phase3.guidanceItems.length > 0) {
+          if (phase3 !== null && phase3.guidanceItems.length > 0) {
             useGuidanceStore
               .getState()
               .setGuidanceItems(phase3.guidanceItems.map(toStoreGuidanceItem))
@@ -6367,7 +6376,7 @@ export function useConversation(): UseConversationReturn {
           // Full rules documented on composePhase3BridgedBlocks above.
           const finalBlocks = composePhase3BridgedBlocks(
             factPresent,
-            phase3.rawBlocks,
+            phase3?.rawBlocks ?? [],
             mappedBlocks,
           )
 
@@ -6502,7 +6511,8 @@ export function useConversation(): UseConversationReturn {
           )
           // S-B slice 1: the latest answer's action bar, for chat and the Reasoning tab alike. No bar on the answer → none
           // is drawn (the surfaces keep the controls they had).
-          if (!quietSystemAck) useActionBarStore.getState().setBar(scenarioIdAtDispatch ?? null, readActionBar(target.response, reportActionBarIssue))
+          // A core turn writes no bar (U4): a program has no bar contract (C13), and the bar was pressable from the raw store.
+          if (!quietSystemAck && coreBody === null) useActionBarStore.getState().setBar(scenarioIdAtDispatch ?? null, readActionBar(target.response, reportActionBarIssue))
           const proposalPreview = readProposalPreview(target.response)
           if (namesALatestRun(narration, isRunAnalysisTurn) && !isBoundExplain) {
             latestRunKeyRef.current = narration.runKey
