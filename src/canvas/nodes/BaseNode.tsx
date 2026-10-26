@@ -13,6 +13,7 @@ import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 
 import { memo, useState, useCallback, useEffect, useMemo, useRef, type ReactNode, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
 import { nodeTitleChannels } from './shared/nodeRenameAffordance'
+import { useSavedModelProgramState } from './shared/savedModelProgram'
 import { nodeCardTitle } from './shared/nodeCardTitle'
 import { optionsWereAssessed } from '../domain/optionAssessment'
 import { linkedOptionIds } from '../domain/linkedOptions'
@@ -958,6 +959,10 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   const isRetainedExcluded = isRetainedExcludedFromAnalysis(data)
   // An item drawn from the person's model alone (`domain/livingModelCanvas.ts`): the engine graph has no node for it.
   const livingOnly = livingOnlyOf(data)
+  // W4 (C13): the core route refuses a rename on a program board (only a figure or a goal's target saves), so its title
+  // does not rename on the card (as the inspector's does not, #3008). Until the saved read answers, nothing is offered.
+  const programState = useSavedModelProgramState()
+  const titleRenames = livingOnly === null && programState === 'not_program'
 
   const isIncomplete = (() => {
     /* ⭐ GATED ON THE GAP, NOT THE PHASE — for the two node types whose predicate
@@ -2684,8 +2689,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             {...(typeOrdinal !== undefined && !lodBodyHidden
               ? { [NODE_TYPE_ORDINAL_ATTR]: `${NODE_NUMBER_PREFIX[nodeType as NumberedNodeKind]}${typeOrdinal}` }
               : {})}
-            onClick={lodBodyHidden || livingOnly !== null ? undefined : onTitleClick}
-            onDoubleClick={lodBodyHidden || livingOnly !== null ? undefined : (e) => { e.stopPropagation(); cancelTitleClick(); setRenamingOnCard(true) }}
+            onClick={lodBodyHidden || !titleRenames ? undefined : onTitleClick}
+            onDoubleClick={lodBodyHidden || !titleRenames ? undefined : (e) => { e.stopPropagation(); cancelTitleClick(); setRenamingOnCard(true) }}
             {...(lodBodyHidden ? { [LOD_FAR_TITLE_ATTR]: 'true' } : {})}
             className={'group/edit ' + (
               /* ⭐ v3.1 WS1 #2 (26 Sep 2026): NO CLAMP AT A READING RUNG. The
@@ -2744,7 +2749,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
               <NodeProvenanceMark nodeType={nodeType} data={provenanceData} hideKind={isDetailedView ? null : provenanceDefault} place="title" />
             )}
             {/* E1d: the pencil says the title renames in place (double-click). Zero-width; see `EditPencilCue`. */}
-            {!lodBodyHidden && <EditPencilCue testId="node-title-pencil" />}
+            {!lodBodyHidden && titleRenames && <EditPencilCue testId="node-title-pencil" />}
           </div>
           )}
         </div>
