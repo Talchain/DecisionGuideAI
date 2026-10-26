@@ -134,6 +134,15 @@ describe('the Model tab and the readiness line (the shared run-on-record input)'
     expect(result.current.preRunWithModel).toBe(false)
   })
 
+  it('a program board before its saved read answers: nothing said, never the old record\'s "not analysed yet"', async () => {
+    await board(served, 'program')
+    // A fresh mount reads the board again: its first render is before that read answers.
+    render(<ReanalyseBar canRun blockedReason={undefined} isAnalysing={false} />)
+    expect(screen.queryByText(NOT_ANALYSED)).toBeNull()
+    await settle()
+    expect(screen.queryByText(NOT_ANALYSED)).toBeNull()
+  })
+
   it('CONTRAST — a non-program board: "This model has not been analysed yet." and "Readiness not checked yet"', async () => {
     await board(nonProgram, 'not_program')
     render(<ReanalyseBar canRun blockedReason={undefined} isAnalysing={false} />)
