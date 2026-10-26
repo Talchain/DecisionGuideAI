@@ -127,8 +127,11 @@ export const OutcomeNode = memo((props: NodeProps) => {
     const data = props.data as Record<string, unknown> | undefined
     const value = nodeRecordedValue(data)
     const basis = data?.value_basis as { kind?: unknown; words?: unknown } | undefined
-    const noFigure = value !== null && basis?.kind === 'worked_out' && typeof basis.words === 'string' && value === basis.words
-    return noFigure ? { recordedValue: OUTCOME_NO_FIGURE_YET, noFigureWords: value } : { recordedValue: value, noFigureWords: null }
+    // No recorded value at all is no figure too (W12): CEE sends a worked-out outcome's starting level beside its words
+    // (capacity's "Additional specialist capacity": 0, acceptance run 2), a zero is never a recorded value, and the card had
+    // no line at all.
+    const noFigure = basis?.kind === 'worked_out' && typeof basis.words === 'string' && (value === null || value === basis.words)
+    return noFigure ? { recordedValue: OUTCOME_NO_FIGURE_YET, noFigureWords: basis.words as string } : { recordedValue: value, noFigureWords: null }
   }, [props.data])
   const recordedValueMark = recordedValue ? factorValueSourceMark(props.data) : null
   const showUnquantified = !recordedValue && !recordsAnyNumber(props.data as Record<string, unknown> | undefined)

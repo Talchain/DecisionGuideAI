@@ -96,15 +96,17 @@ function ReadingChangeRow({ change: c }: { change: ProposalChange }) {
  * ⭐ EVERYTHING ELSE THE APPROVAL WRITES: ONE PLAIN LINE, THE NOTES BEHIND "DETAILS" (DL 22 Oct, Paul's served test: the
  * card printed CEE's notes in raw "(1/3)…(3/3)" fragments). The line counts the changes from the notes' own ids, read
  * before the approve; "Details" opens CEE's sentences, each in the colour of whose it is. A reading card grouped row by row
- * starts closed on its three counted marks instead, each opening the list at its group (DL G13, 26 Oct).
+ * starts open, its one-line rows under its three counted marks, each mark scrolling to its group (DL G13 and W12, 26 Oct).
  */
 function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId: string; notes: readonly ChangeNote[]; changes: readonly ProposalChange[] | null; reading: boolean }) {
   // A reading card whose every row CEE grouped folds to its three counted marks (DL G13, 26 Oct). One row without a group
   // (an older CEE) keeps the card exactly as before.
   const grouped = reading && changes !== null && changes.length > 0 && changes.every(c => c.group !== undefined)
-  // A reading card (CEE's `reading: true`) is read before anything else, so its list starts open, under its own heading.
-  const [open, setOpen] = useState(reading && !grouped)
-  const [otherOpen, setOtherOpen] = useState(false)
+  // A reading card (CEE's `reading: true`) is read before anything else, so its list starts open, under its own heading:
+  // grouped, every group's one-line rows show under the counted marks, "Also in the model" too (W12; Paul's D3: "one line
+  // per item, with the detail on a tap"; acceptance run 2 found the grouped card showing its counts and no item at all).
+  const [open, setOpen] = useState(reading)
+  const [otherOpen, setOtherOpen] = useState(grouped)
   const [scrollTo, setScrollTo] = useState<ReadingGroup | null>(null)
   const sections = useRef<Partial<Record<ReadingGroup, HTMLDivElement | null>>>({})
   const listId = useId()
