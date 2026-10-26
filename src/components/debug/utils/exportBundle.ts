@@ -166,6 +166,7 @@ import { useUIStore } from '@/stores/uiStore'
 // something in it is renderable". Imported, not restated, so `analysis_gate`
 // records the same fork the panels act on (see `analysis_gate`).
 import { selectHasRenderableAnalysisResult, selectRunWithholdsFigures } from '../../../canvas/ui/inspector-v2/useAnalysisResults'
+import { useNoteRecordsStore, type NoteRecord } from '../../../canvas/domain/noteRecordsModel'
 
 // =============================================================================
 // Feature Flag
@@ -1241,6 +1242,8 @@ export interface EnrichedFullGraph {
   factors: EnrichedGraphNode[]
   edges: EnrichedGraphEdge[]
   options: EnrichedGraphNode[]
+  /** Olumi's notes the canvas shows as glyphs, not cards (`noteRecordsModel.ts`): the exported scenario's own, absent when none were published for it. */
+  notes?: { scenario_id: string | null; records: NoteRecord[] }
 }
 
 /** V1.5: Orchestrator context */
@@ -1527,6 +1530,7 @@ interface DebugBundle {
     factors: Array<Record<string, unknown>>
     edges: Array<Record<string, unknown>>
     options: Array<Record<string, unknown>>
+    notes?: { scenario_id: string | null; records: NoteRecord[] }
   }
   /** CEE option interventions (ceeAnalysisReady.options) — real intervention data */
   cee_options?: Array<Record<string, unknown>> | null
@@ -2193,6 +2197,8 @@ interface DebugBundle {
 // =============================================================================
 
 export interface FullGraphData {
+  /** The scenario this graph belongs to: Olumi's notes are exported only when they were published for it. */
+  scenarioId?: string | null
   nodes: Array<{
     id: string
     data: Record<string, unknown> & {
@@ -3792,7 +3798,12 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
   // Transform graph data if requested (always enriched)
   let fullGraph: DebugBundle['full_graph'] | undefined
   if (options.includeFullGraph && options.graphData) {
-    fullGraph = transformGraphDataEnriched(options.graphData)
+    // The notes are not graph nodes, so the graph alone would drop them from the export. Only the exported scenario's own:
+    // notes published for another scenario (or for none) are left out, never put in this graph's export.
+    const notes = useNoteRecordsStore.getState()
+    const scenarioId = options.graphData.scenarioId ?? null
+    const own = scenarioId !== null && notes.scenarioId === scenarioId
+    fullGraph = { ...transformGraphDataEnriched(options.graphData), ...(own ? { notes: { scenario_id: scenarioId, records: [...notes.records.values()] } } : {}) }
   }
 
   // Capture ceeAnalysisReady.options — real intervention data that node.data.interventions misses

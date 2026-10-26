@@ -1,0 +1,1417 @@
+{
+ "edges": [
+  {
+   "id": "mp:decision__personal_assistant",
+   "to": "personal_assistant",
+   "from": "mp:decision",
+   "origin": "model_program:display",
+   "strength": {
+    "std": 0.001,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "brief_extraction"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "id": "personal_assistant__human_enabled",
+   "to": "human_enabled",
+   "from": "personal_assistant",
+   "origin": "model_program:display",
+   "strength": {
+    "std": 0.001,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "brief_extraction"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "id": "mp:decision__ai_assistant",
+   "to": "ai_assistant",
+   "from": "mp:decision",
+   "origin": "model_program:display",
+   "strength": {
+    "std": 0.001,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "brief_extraction"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "id": "ai_assistant__ai_enabled",
+   "to": "ai_enabled",
+   "from": "ai_assistant",
+   "origin": "model_program:display",
+   "strength": {
+    "std": 0.001,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "brief_extraction"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "id": "mp:decision__combined_assistant",
+   "to": "combined_assistant",
+   "from": "mp:decision",
+   "origin": "model_program:display",
+   "strength": {
+    "std": 0.001,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "brief_extraction"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "id": "combined_assistant__human_enabled",
+   "to": "human_enabled",
+   "from": "combined_assistant",
+   "origin": "model_program:display",
+   "strength": {
+    "std": 0.001,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "brief_extraction"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "id": "combined_assistant__ai_enabled",
+   "to": "ai_enabled",
+   "from": "combined_assistant",
+   "origin": "model_program:display",
+   "strength": {
+    "std": 0.001,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "brief_extraction"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "id": "ai_annual_cost__human_cost_implied_by_multiple",
+   "to": "human_cost_implied_by_multiple",
+   "from": "ai_annual_cost",
+   "origin": "model_program:display",
+   "strength": {
+    "std": 0.001,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "brief_extraction",
+    "magnitude": "user_stated",
+    "reasoning": "10 per USD/year",
+    "natural_effect": {
+     "amount": 10,
+     "amount_unit": "USD/year",
+     "strength_mean": 1,
+     "per_source_change": 1,
+     "strength_mean_frame": "edge_strength",
+     "per_source_change_unit": "USD/year"
+    }
+   },
+   "coefficient_id": "human_cost_multiple",
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "id": "human_enabled__human_spend",
+   "to": "human_spend",
+   "from": "human_enabled",
+   "origin": "model_program:display",
+   "strength": {
+    "std": 0.001,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "cee_hypothesis",
+    "reasoning": "multiplied",
+    "definitional": true
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "id": "human_annual_cost__human_spend",
+   "to": "human_spend",
+   "from": "human_annual_cost",
+   "origin": "model_program:display",
+   "strength": {
+    "std": 0.001,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "cee_hypothesis",
+    "reasoning": "multiplied",
+    "definitional": true
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "id": "ai_enabled__ai_spend",
+   "to": "ai_spend",
+   "from": "ai_enabled",
+   "origin": "model_program:display",
+   "strength": {
+    "std": 0.001,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "cee_hypothesis",
+    "reasoning": "multiplied",
+    "definitional": true
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "id": "ai_annual_cost__ai_spend",
+   "to": "ai_spend",
+   "from": "ai_annual_cost",
+   "origin": "model_program:display",
+   "strength": {
+    "std": 0.001,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "cee_hypothesis",
+    "reasoning": "multiplied",
+    "definitional": true
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "id": "human_spend__annual_spend",
+   "to": "annual_spend",
+   "from": "human_spend",
+   "origin": "model_program:display",
+   "strength": {
+    "std": 0.001,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "cee_hypothesis",
+    "reasoning": "added",
+    "definitional": true
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "id": "ai_spend__annual_spend",
+   "to": "annual_spend",
+   "from": "ai_spend",
+   "origin": "model_program:display",
+   "strength": {
+    "std": 0.001,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "cee_hypothesis",
+    "reasoning": "added",
+    "definitional": true
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  }
+ ],
+ "nodes": [
+  {
+   "id": "mp:decision",
+   "ref": "D1",
+   "kind": "decision",
+   "label": "Should you hire a personal assistant, use an AI assistant, or combine them to improve your focus on strategic tasks while saving money?"
+  },
+  {
+   "id": "strategic_focus",
+   "ref": "G1",
+   "kind": "goal",
+   "label": "focus on more strategic tasks",
+   "provenance": "from_brief",
+   "source_quote": "I need to focus on more strategic tasks.",
+   "user_questions": [
+    "How would you tell that your ability to focus on high-value tasks had improved significantly?"
+   ],
+   "analysis_participation": "retained_excluded"
+  },
+  {
+   "id": "personal_assistant",
+   "ref": "O1",
+   "kind": "option",
+   "label": "hire a personal assistant",
+   "provenance": "from_brief",
+   "source_quote": "hire a personal assistant",
+   "interventions": {
+    "human_enabled": {
+     "unit": "1",
+     "value": 1,
+     "source": "brief_extraction",
+     "display": "1",
+     "from_period": 0,
+     "source_words": "Set by \u2018hire a personal assistant\u2019, from your brief"
+    }
+   },
+   "analysis_participation": "included"
+  },
+  {
+   "id": "ai_assistant",
+   "ref": "O2",
+   "kind": "option",
+   "label": "use an AI assistant",
+   "provenance": "from_brief",
+   "source_quote": "use an AI assistant",
+   "interventions": {
+    "ai_enabled": {
+     "unit": "1",
+     "value": 1,
+     "source": "brief_extraction",
+     "display": "1",
+     "from_period": 0,
+     "source_words": "Set by \u2018use an AI assistant\u2019, from your brief"
+    }
+   },
+   "analysis_participation": "included"
+  },
+  {
+   "id": "combined_assistant",
+   "ref": "O3",
+   "kind": "option",
+   "label": "hire an assistant and equip them with an AI tool",
+   "provenance": "from_brief",
+   "source_quote": "I could also hire an assistant and equip them with an AI tool",
+   "interventions": {
+    "ai_enabled": {
+     "unit": "1",
+     "value": 1,
+     "source": "brief_extraction",
+     "display": "1",
+     "from_period": 0,
+     "source_words": "Set by \u2018hire an assistant and equip them with an AI tool\u2019, from your brief"
+    },
+    "human_enabled": {
+     "unit": "1",
+     "value": 1,
+     "source": "brief_extraction",
+     "display": "1",
+     "from_period": 0,
+     "source_words": "Set by \u2018hire an assistant and equip them with an AI tool\u2019, from your brief"
+    }
+   },
+   "analysis_participation": "included"
+  },
+  {
+   "id": "human_enabled",
+   "ref": "F1",
+   "kind": "factor",
+   "label": "Personal assistant included",
+   "category": "controllable",
+   "description": "A structural switch: zero excludes a personal assistant and one includes one.",
+   "value_basis": {
+    "kind": "structure",
+    "words": "Fixed by how the model is built"
+   },
+   "display_value": "0",
+   "observed_state": {
+    "unit": "1",
+    "value": 0,
+    "raw_value": 0
+   },
+   "analysis_participation": "retained_excluded"
+  },
+  {
+   "id": "ai_enabled",
+   "ref": "F2",
+   "kind": "factor",
+   "label": "AI assistant included",
+   "category": "controllable",
+   "description": "A structural switch: zero excludes an AI assistant and one includes one.",
+   "value_basis": {
+    "kind": "structure",
+    "words": "Fixed by how the model is built"
+   },
+   "display_value": "0",
+   "observed_state": {
+    "unit": "1",
+    "value": 0,
+    "raw_value": 0
+   },
+   "analysis_participation": "retained_excluded"
+  },
+  {
+   "id": "human_annual_cost",
+   "ref": "F3",
+   "kind": "factor",
+   "label": "Annual cost of a personal assistant",
+   "category": "observable",
+   "provenance": "from_brief",
+   "source_quote": "but is it worth spending $40,000 to $50,000 versus $10,000 per year for the AI?",
+   "display_value": "40,000\u201350,000 USD/year; Olumi reads it as a spread around 45,000 (sd 2352), kept between 40,000 and 50,000, provisionally",
+   "observed_state": {
+    "unit": "USD/year",
+    "range": {
+     "low": 40000,
+     "high": 50000
+    },
+    "value": 45000,
+    "source": "brief_extraction",
+    "raw_value": 45000,
+    "extractionType": "explicit"
+   },
+   "analysis_participation": "retained_excluded"
+  },
+  {
+   "id": "ai_annual_cost",
+   "ref": "F4",
+   "kind": "factor",
+   "label": "Annual cost of an AI assistant",
+   "category": "observable",
+   "provenance": "from_brief",
+   "source_quote": "$10,000 per year for the AI",
+   "display_value": "10,000 USD/year",
+   "observed_state": {
+    "unit": "USD/year",
+    "value": 10000,
+    "source": "brief_extraction",
+    "raw_value": 10000,
+    "extractionType": "explicit"
+   },
+   "analysis_participation": "retained_excluded"
+  },
+  {
+   "id": "human_cost_implied_by_multiple",
+   "ref": "OC1",
+   "kind": "outcome",
+   "label": "Personal-assistant annual cost implied by the stated multiple",
+   "provenance": "ai_inferred",
+   "value_basis": {
+    "from": [
+     "ai_annual_cost",
+     "human_cost_multiple"
+    ],
+    "kind": "worked_out",
+    "words": "Worked out from Annual cost of an AI assistant and Stated personal-assistant cost relative to AI"
+   },
+   "display_value": "Worked out from Annual cost of an AI assistant and Stated personal-assistant cost relative to AI",
+   "analysis_participation": "retained_excluded"
+  },
+  {
+   "id": "human_spend",
+   "ref": "OC2",
+   "kind": "outcome",
+   "label": "Annual spending on the personal assistant",
+   "provenance": "ai_inferred",
+   "value_basis": {
+    "from": [
+     "human_enabled",
+     "human_annual_cost"
+    ],
+    "kind": "worked_out",
+    "words": "Worked out from Personal assistant included and Annual cost of a personal assistant"
+   },
+   "display_value": "Worked out from Personal assistant included and Annual cost of a personal assistant",
+   "analysis_participation": "retained_excluded"
+  },
+  {
+   "id": "ai_spend",
+   "ref": "OC3",
+   "kind": "outcome",
+   "label": "Annual spending on the AI assistant",
+   "provenance": "ai_inferred",
+   "value_basis": {
+    "from": [
+     "ai_enabled",
+     "ai_annual_cost"
+    ],
+    "kind": "worked_out",
+    "words": "Worked out from AI assistant included and Annual cost of an AI assistant"
+   },
+   "display_value": "Worked out from AI assistant included and Annual cost of an AI assistant",
+   "analysis_participation": "retained_excluded"
+  },
+  {
+   "id": "annual_spend",
+   "ref": "OC4",
+   "kind": "outcome",
+   "label": "Total annual assistant spending",
+   "provenance": "ai_inferred",
+   "value_basis": {
+    "from": [
+     "human_spend",
+     "ai_spend"
+    ],
+    "kind": "worked_out",
+    "words": "Worked out from Annual spending on the personal assistant and Annual spending on the AI assistant"
+   },
+   "display_value": "Worked out from Annual spending on the personal assistant and Annual spending on the AI assistant",
+   "analysis_participation": "retained_excluded"
+  },
+  {
+   "id": "prefer_lower_spending",
+   "ref": "A1",
+   "kind": "action",
+   "label": "Preference: lower Total annual assistant spending",
+   "provenance": "from_brief",
+   "description": "Would like Total annual assistant spending lower. Shown beside the result; not a goal or a limit.",
+   "source_quote": "to save money",
+   "analysis_participation": "retained_excluded"
+  },
+  {
+   "id": "expected_human_focus_benefit",
+   "ref": "A2",
+   "kind": "action",
+   "label": "Claim: A personal assistant is hoped to significantly increase the ability to focus on\u2026",
+   "provenance": "from_brief",
+   "description": "A personal assistant is hoped to significantly increase the ability to focus on high-value tasks.",
+   "source_quote": "I hope it will significantly increase my ability to focus on high-value tasks.",
+   "analysis_participation": "retained_excluded"
+  },
+  {
+   "id": "cost_range_interpretation",
+   "ref": "A3",
+   "kind": "action",
+   "label": "Assumption: Provisionally treat the stated dollar range as the annual cost of the personal \u2026",
+   "provenance": "ai_inferred",
+   "description": "Provisionally treat the stated dollar range as the annual cost of the personal assistant alone; this interpretation needs confirmation.",
+   "analysis_participation": "retained_excluded"
+  },
+  {
+   "id": "combined_cost_additivity",
+   "ref": "A4",
+   "kind": "action",
+   "label": "Assumption: Provisionally price the combined option as the personal-assistant cost plus the\u2026",
+   "provenance": "ai_inferred",
+   "description": "Provisionally price the combined option as the personal-assistant cost plus the stated AI cost, with no bundle discount or change in staffing cost.",
+   "analysis_participation": "retained_excluded"
+  },
+  {
+   "id": "annual_cost_comparison",
+   "ref": "A5",
+   "kind": "action",
+   "label": "Assumption: Compare full-year recurring costs with each option available from the start, ra\u2026",
+   "provenance": "ai_inferred",
+   "description": "Compare full-year recurring costs with each option available from the start, rather than first-year hiring and implementation cash flows.",
+   "analysis_participation": "retained_excluded"
+  },
+  {
+   "id": "focus_benefit_not_quantified",
+   "ref": "A6",
+   "kind": "action",
+   "label": "Left out: The strategic-focus benefit and whether the extra spending is worthwhile are no\u2026",
+   "provenance": "ai_inferred",
+   "description": "The strategic-focus benefit and whether the extra spending is worthwhile are not yet included in the calculation. Why: The brief names the desired benefit but gives no measure of success, and the tasks to delegate are not specified enough to size an effect defensibly.",
+   "analysis_participation": "retained_excluded"
+  },
+  {
+   "id": "cost_figures_need_reconciliation",
+   "ref": "A7",
+   "kind": "action",
+   "label": "Left out: The stated cost multiple is retained separately but is not used to price the op\u2026",
+   "provenance": "ai_inferred",
+   "description": "The stated cost multiple is retained separately but is not used to price the options. Why: The stated multiple and the stated dollar range give incompatible readings of the personal-assistant cost, and the range might instead refer to the combined option.",
+   "analysis_participation": "retained_excluded"
+  }
+ ],
+ "living_model": {
+  "runs": [
+   {
+    "result": {
+     "chances": null,
+     "compile": {
+      "joint": {
+       "asks": [],
+       "status": "asks",
+       "reasons": [
+        "No aim has a measure yet, so there is no chance to work out."
+       ],
+       "goal_ids": [],
+       "leaves_out": [
+        "strategic_focus"
+       ]
+      },
+      "errors": [],
+      "blockers": [
+       {
+        "id": "strategic_focus",
+        "code": "measure",
+        "scope": [
+         "strategic_focus"
+        ]
+       }
+      ],
+      "compiles": true,
+      "per_goal": [
+       {
+        "asks": [],
+        "status": "asks",
+        "goal_id": "strategic_focus",
+        "reasons": [
+         "\"focus on more strategic tasks\" has no measure yet, so it is left out of the chance."
+        ],
+        "excludes": [],
+        "rests_on": [],
+        "cancelled": [],
+        "olumi_inputs": [],
+        "needs_measure": true,
+        "needs_deadline": false,
+        "unverified_inputs": []
+       }
+      ],
+      "per_limit": [],
+      "executable": false,
+      "per_option": [
+       {
+        "asks": [],
+        "status": "calculable",
+        "reasons": [],
+        "option_id": "personal_assistant"
+       },
+       {
+        "asks": [],
+        "status": "calculable",
+        "reasons": [],
+        "option_id": "ai_assistant"
+       },
+       {
+        "asks": [],
+        "status": "calculable",
+        "reasons": [],
+        "option_id": "combined_assistant"
+       }
+      ],
+      "unverified": [],
+      "conversions": [],
+      "within_limits": {
+       "asks": [],
+       "status": "calculable",
+       "reasons": [],
+       "limit_ids": [],
+       "leaves_out": []
+      },
+      "implicit_as_stated": false
+     },
+     "canonical_analysis_view": {
+      "run": {
+       "run_id": "mp_run_1_d31482bb1d60",
+       "computed_at": "2026-10-24T11:51:29.301Z",
+       "graph_hash_at_run": "ee8a85449474a0fe"
+      },
+      "schema": "canonical_analysis_view.v1",
+      "source": "stored_run_facts",
+      "options": [
+       {
+        "cell": {
+         "why": "The chance waits on a measure for \u2018focus on more strategic tasks\u2019.",
+         "face": "Not shown yet: needs your answer",
+         "kind": "withheld",
+         "reasons": []
+        },
+        "option_id": "personal_assistant",
+        "main_driver": {
+         "kind": "not_recorded"
+        }
+       },
+       {
+        "cell": {
+         "why": "The chance waits on a measure for \u2018focus on more strategic tasks\u2019.",
+         "face": "Not shown yet: needs your answer",
+         "kind": "withheld",
+         "reasons": []
+        },
+        "option_id": "ai_assistant",
+        "main_driver": {
+         "kind": "not_recorded"
+        }
+       },
+       {
+        "cell": {
+         "why": "The chance waits on a measure for \u2018focus on more strategic tasks\u2019.",
+         "face": "Not shown yet: needs your answer",
+         "kind": "withheld",
+         "reasons": []
+        },
+        "option_id": "combined_assistant",
+        "main_driver": {
+         "kind": "not_recorded"
+        }
+       }
+      ],
+      "staleness": {
+       "basis": "analysis_graph_hash_interim",
+       "stale": false,
+       "reason": "graph_hash_match",
+       "revision": null,
+       "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+       "run_revision": null
+      },
+      "goal_chance": {
+       "notes": [],
+       "waits_on": [
+        {
+         "id": "strategic_focus",
+         "code": "measure",
+         "label": "focus on more strategic tasks",
+         "scope": [
+          "strategic_focus"
+         ],
+         "answer": null
+        }
+       ]
+      },
+      "leader_licence": "withheld"
+     }
+    },
+    "run_id": "mp_run_1_d31482bb1d60",
+    "receipt": {
+     "seed": 4276037081,
+     "draws": null,
+     "versions": {
+      "engine": "mp-alpha-2026-10-23.1",
+      "canonical": "canonical.v1",
+      "executable": "r5"
+     },
+     "revision_digest": "6f13b440761b0caefd3e860baa3a5470bd567e4c8a70a95dc4b1afba1de782bd"
+    },
+    "computed_at": "2026-10-24T11:51:29.301Z"
+   },
+   {
+    "result": {
+     "chances": null,
+     "compile": {
+      "joint": {
+       "asks": [],
+       "status": "asks",
+       "reasons": [
+        "No aim has a measure yet, so there is no chance to work out."
+       ],
+       "goal_ids": [],
+       "leaves_out": [
+        "strategic_focus"
+       ]
+      },
+      "errors": [],
+      "blockers": [
+       {
+        "id": "strategic_focus",
+        "code": "measure",
+        "scope": [
+         "strategic_focus"
+        ]
+       }
+      ],
+      "compiles": true,
+      "per_goal": [
+       {
+        "asks": [],
+        "status": "asks",
+        "goal_id": "strategic_focus",
+        "reasons": [
+         "\"focus on more strategic tasks\" has no measure yet, so it is left out of the chance."
+        ],
+        "excludes": [],
+        "rests_on": [],
+        "cancelled": [],
+        "olumi_inputs": [],
+        "needs_measure": true,
+        "needs_deadline": false,
+        "unverified_inputs": []
+       }
+      ],
+      "per_limit": [],
+      "executable": false,
+      "per_option": [
+       {
+        "asks": [],
+        "status": "calculable",
+        "reasons": [],
+        "option_id": "personal_assistant"
+       },
+       {
+        "asks": [],
+        "status": "calculable",
+        "reasons": [],
+        "option_id": "ai_assistant"
+       },
+       {
+        "asks": [],
+        "status": "calculable",
+        "reasons": [],
+        "option_id": "combined_assistant"
+       }
+      ],
+      "unverified": [],
+      "conversions": [],
+      "within_limits": {
+       "asks": [],
+       "status": "calculable",
+       "reasons": [],
+       "limit_ids": [],
+       "leaves_out": []
+      },
+      "implicit_as_stated": false
+     },
+     "canonical_analysis_view": {
+      "run": {
+       "run_id": "mp_run_2_914690025eb4",
+       "computed_at": "2026-10-24T11:51:32.945Z",
+       "graph_hash_at_run": "ee8a85449474a0fe"
+      },
+      "schema": "canonical_analysis_view.v1",
+      "source": "stored_run_facts",
+      "options": [
+       {
+        "cell": {
+         "why": "The chance waits on a measure for \u2018focus on more strategic tasks\u2019.",
+         "face": "Not shown yet: needs your answer",
+         "kind": "withheld",
+         "reasons": []
+        },
+        "option_id": "personal_assistant",
+        "main_driver": {
+         "kind": "not_recorded"
+        }
+       },
+       {
+        "cell": {
+         "why": "The chance waits on a measure for \u2018focus on more strategic tasks\u2019.",
+         "face": "Not shown yet: needs your answer",
+         "kind": "withheld",
+         "reasons": []
+        },
+        "option_id": "ai_assistant",
+        "main_driver": {
+         "kind": "not_recorded"
+        }
+       },
+       {
+        "cell": {
+         "why": "The chance waits on a measure for \u2018focus on more strategic tasks\u2019.",
+         "face": "Not shown yet: needs your answer",
+         "kind": "withheld",
+         "reasons": []
+        },
+        "option_id": "combined_assistant",
+        "main_driver": {
+         "kind": "not_recorded"
+        }
+       }
+      ],
+      "staleness": {
+       "basis": "analysis_graph_hash_interim",
+       "stale": false,
+       "reason": "graph_hash_match",
+       "revision": null,
+       "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+       "run_revision": null
+      },
+      "goal_chance": {
+       "notes": [],
+       "waits_on": [
+        {
+         "id": "strategic_focus",
+         "code": "measure",
+         "label": "focus on more strategic tasks",
+         "scope": [
+          "strategic_focus"
+         ],
+         "answer": null
+        }
+       ]
+      },
+      "leader_licence": "withheld"
+     }
+    },
+    "run_id": "mp_run_2_914690025eb4",
+    "receipt": {
+     "seed": 4276037081,
+     "draws": null,
+     "versions": {
+      "engine": "mp-alpha-2026-10-23.1",
+      "canonical": "canonical.v1",
+      "executable": "r5"
+     },
+     "revision_digest": "b95eac68fbd430daae135774503a96cba79ebc62e4bb0f3c73618578ac22c325"
+    },
+    "computed_at": "2026-10-24T11:51:32.945Z"
+   }
+  ],
+  "seed": 4276037081,
+  "canonical": {
+   "goals": [
+    {
+     "id": "strategic_focus",
+     "label": "focus on more strategic tasks",
+     "party": null,
+     "quote": "I need to focus on more strategic tasks.",
+     "author": "person",
+     "measure": null,
+     "approval": "approved",
+     "question": "How would you tell that your ability to focus on high-value tasks had improved significantly?",
+     "author_id": null
+    }
+   ],
+   "risks": [],
+   "claims": [
+    {
+     "id": "expected_human_focus_benefit",
+     "text": "A personal assistant is hoped to significantly increase the ability to focus on high-value tasks.",
+     "party": null,
+     "quote": "I hope it will significantly increase my ability to focus on high-value tasks.",
+     "author": "person",
+     "approval": "approved",
+     "concerns": [
+      "personal_assistant",
+      "strategic_focus"
+     ],
+     "author_id": null
+    }
+   ],
+   "limits": [],
+   "period": "year",
+   "dissent": [],
+   "history": [],
+   "options": [
+    {
+     "id": "personal_assistant",
+     "sets": [
+      {
+       "to": "personal_assistant__human_enabled",
+       "low": null,
+       "high": null,
+       "quote": null,
+       "value": null,
+       "author": "structure",
+       "quantity": "human_enabled",
+       "question": null,
+       "range_kind": null,
+       "starts_after_periods": 0
+      }
+     ],
+     "label": "hire a personal assistant",
+     "party": null,
+     "quote": "hire a personal assistant",
+     "author": "person",
+     "status": "live",
+     "approval": "approved",
+     "author_id": null,
+     "developed_from": null
+    },
+    {
+     "id": "ai_assistant",
+     "sets": [
+      {
+       "to": "ai_assistant__ai_enabled",
+       "low": null,
+       "high": null,
+       "quote": null,
+       "value": null,
+       "author": "structure",
+       "quantity": "ai_enabled",
+       "question": null,
+       "range_kind": null,
+       "starts_after_periods": 0
+      }
+     ],
+     "label": "use an AI assistant",
+     "party": null,
+     "quote": "use an AI assistant",
+     "author": "person",
+     "status": "live",
+     "approval": "approved",
+     "author_id": null,
+     "developed_from": null
+    },
+    {
+     "id": "combined_assistant",
+     "sets": [
+      {
+       "to": "combined_assistant__human_enabled",
+       "low": null,
+       "high": null,
+       "quote": null,
+       "value": null,
+       "author": "structure",
+       "quantity": "human_enabled",
+       "question": null,
+       "range_kind": null,
+       "starts_after_periods": 0
+      },
+      {
+       "to": "combined_assistant__ai_enabled",
+       "low": null,
+       "high": null,
+       "quote": null,
+       "value": null,
+       "author": "structure",
+       "quantity": "ai_enabled",
+       "question": null,
+       "range_kind": null,
+       "starts_after_periods": 0
+      }
+     ],
+     "label": "hire an assistant and equip them with an AI tool",
+     "party": null,
+     "quote": "I could also hire an assistant and equip them with an AI tool",
+     "author": "person",
+     "status": "live",
+     "approval": "approved",
+     "author_id": null,
+     "developed_from": "personal_assistant"
+    }
+   ],
+   "version": "canonical.v1",
+   "evidence": [],
+   "left_out": [
+    {
+     "id": "focus_benefit_not_quantified",
+     "why": "The brief names the desired benefit but gives no measure of success, and the tasks to delegate are not specified enough to size an effect defensibly.",
+     "text": "The strategic-focus benefit and whether the extra spending is worthwhile are not yet included in the calculation.",
+     "party": null,
+     "quote": null,
+     "author": "olumi",
+     "approval": "approved",
+     "concerns": [
+      "strategic_focus",
+      "personal_assistant",
+      "ai_assistant",
+      "combined_assistant"
+     ],
+     "question": "Which tasks would you hand over to an assistant?",
+     "author_id": null
+    },
+    {
+     "id": "cost_figures_need_reconciliation",
+     "why": "The stated multiple and the stated dollar range give incompatible readings of the personal-assistant cost, and the range might instead refer to the combined option.",
+     "text": "The stated cost multiple is retained separately but is not used to price the options.",
+     "party": null,
+     "quote": null,
+     "author": "olumi",
+     "approval": "approved",
+     "concerns": [
+      "human_cost_multiple",
+      "human_cost_implied_by_multiple",
+      "human_annual_cost",
+      "cost_range_interpretation",
+      "combined_cost_additivity"
+     ],
+     "question": "What annual cost should be used for the personal assistant alone?",
+     "author_id": null
+    }
+   ],
+   "question": "Should you hire a personal assistant, use an AI assistant, or combine them to improve your focus on strategic tasks while saving money?",
+   "relations": [
+    {
+     "id": "implied_human_cost_definition",
+     "op": "product",
+     "form": "definition",
+     "parts": [
+      {
+       "id": "ai_annual_cost",
+       "power": 1
+      },
+      {
+       "id": "human_cost_multiple",
+       "power": 1
+      }
+     ],
+     "party": null,
+     "quote": "The personal assistant will likely be 10x as expensive",
+     "author": "person",
+     "defines": "human_cost_implied_by_multiple",
+     "approval": "approved",
+     "author_id": null
+    },
+    {
+     "id": "human_spend_definition",
+     "op": "product",
+     "form": "definition",
+     "parts": [
+      {
+       "id": "human_enabled",
+       "power": 1
+      },
+      {
+       "id": "human_annual_cost",
+       "power": 1
+      }
+     ],
+     "party": null,
+     "quote": null,
+     "author": "olumi",
+     "defines": "human_spend",
+     "approval": "approved",
+     "author_id": null
+    },
+    {
+     "id": "ai_spend_definition",
+     "op": "product",
+     "form": "definition",
+     "parts": [
+      {
+       "id": "ai_enabled",
+       "power": 1
+      },
+      {
+       "id": "ai_annual_cost",
+       "power": 1
+      }
+     ],
+     "party": null,
+     "quote": null,
+     "author": "olumi",
+     "defines": "ai_spend",
+     "approval": "approved",
+     "author_id": null
+    },
+    {
+     "id": "annual_spend_definition",
+     "op": "sum",
+     "form": "definition",
+     "parts": [
+      {
+       "id": "human_spend",
+       "sign": 1
+      },
+      {
+       "id": "ai_spend",
+       "sign": 1
+      }
+     ],
+     "party": null,
+     "quote": null,
+     "author": "olumi",
+     "defines": "annual_spend",
+     "approval": "approved",
+     "author_id": null
+    }
+   ],
+   "conditions": [],
+   "quantities": [
+    {
+     "id": "human_enabled",
+     "low": null,
+     "high": null,
+     "kind": "fact",
+     "unit": "1",
+     "basis": "A structural switch: zero excludes a personal assistant and one includes one.",
+     "label": "Personal assistant included",
+     "party": null,
+     "quote": null,
+     "value": 0,
+     "author": "structure",
+     "status": "known",
+     "approval": "approved",
+     "question": null,
+     "author_id": null,
+     "range_kind": null
+    },
+    {
+     "id": "ai_enabled",
+     "low": null,
+     "high": null,
+     "kind": "fact",
+     "unit": "1",
+     "basis": "A structural switch: zero excludes an AI assistant and one includes one.",
+     "label": "AI assistant included",
+     "party": null,
+     "quote": null,
+     "value": 0,
+     "author": "structure",
+     "status": "known",
+     "approval": "approved",
+     "question": null,
+     "author_id": null,
+     "range_kind": null
+    },
+    {
+     "id": "human_annual_cost",
+     "low": 40000,
+     "high": 50000,
+     "kind": "fact",
+     "unit": "USD/year",
+     "basis": null,
+     "label": "Annual cost of a personal assistant",
+     "party": null,
+     "quote": "but is it worth spending $40,000 to $50,000 versus $10,000 per year for the AI?",
+     "value": null,
+     "author": "person",
+     "status": "known",
+     "approval": "approved",
+     "question": null,
+     "author_id": null,
+     "range_kind": "bounds"
+    },
+    {
+     "id": "ai_annual_cost",
+     "low": null,
+     "high": null,
+     "kind": "fact",
+     "unit": "USD/year",
+     "basis": null,
+     "label": "Annual cost of an AI assistant",
+     "party": null,
+     "quote": "$10,000 per year for the AI",
+     "value": 10000,
+     "author": "person",
+     "status": "known",
+     "approval": "approved",
+     "question": null,
+     "author_id": null,
+     "range_kind": null
+    },
+    {
+     "id": "human_cost_multiple",
+     "low": null,
+     "high": null,
+     "kind": "coefficient",
+     "unit": "1",
+     "basis": null,
+     "label": "Stated personal-assistant cost relative to AI",
+     "party": null,
+     "quote": "The personal assistant will likely be 10x as expensive",
+     "value": 10,
+     "author": "person",
+     "status": "known",
+     "approval": "approved",
+     "question": null,
+     "author_id": null,
+     "range_kind": null
+    },
+    {
+     "id": "human_cost_implied_by_multiple",
+     "low": null,
+     "high": null,
+     "kind": "derived",
+     "unit": "USD/year",
+     "basis": null,
+     "label": "Personal-assistant annual cost implied by the stated multiple",
+     "party": null,
+     "quote": null,
+     "value": null,
+     "author": "olumi",
+     "status": "derived",
+     "approval": "approved",
+     "question": null,
+     "author_id": null,
+     "range_kind": null
+    },
+    {
+     "id": "human_spend",
+     "low": null,
+     "high": null,
+     "kind": "derived",
+     "unit": "USD/year",
+     "basis": null,
+     "label": "Annual spending on the personal assistant",
+     "party": null,
+     "quote": null,
+     "value": null,
+     "author": "olumi",
+     "status": "derived",
+     "approval": "approved",
+     "question": null,
+     "author_id": null,
+     "range_kind": null
+    },
+    {
+     "id": "ai_spend",
+     "low": null,
+     "high": null,
+     "kind": "derived",
+     "unit": "USD/year",
+     "basis": null,
+     "label": "Annual spending on the AI assistant",
+     "party": null,
+     "quote": null,
+     "value": null,
+     "author": "olumi",
+     "status": "derived",
+     "approval": "approved",
+     "question": null,
+     "author_id": null,
+     "range_kind": null
+    },
+    {
+     "id": "annual_spend",
+     "low": null,
+     "high": null,
+     "kind": "derived",
+     "unit": "USD/year",
+     "basis": null,
+     "label": "Total annual assistant spending",
+     "party": null,
+     "quote": null,
+     "value": null,
+     "author": "olumi",
+     "status": "derived",
+     "approval": "approved",
+     "question": null,
+     "author_id": null,
+     "range_kind": null
+    },
+    {
+     "id": "personal_assistant__human_enabled",
+     "low": null,
+     "high": null,
+     "kind": "fact",
+     "unit": "1",
+     "basis": "\"hire a personal assistant\" switched on.",
+     "label": "hire a personal assistant: Personal assistant included",
+     "party": null,
+     "quote": null,
+     "value": 1,
+     "author": "structure",
+     "status": "known",
+     "approval": "approved",
+     "question": null,
+     "author_id": null,
+     "range_kind": null
+    },
+    {
+     "id": "ai_assistant__ai_enabled",
+     "low": null,
+     "high": null,
+     "kind": "fact",
+     "unit": "1",
+     "basis": "\"use an AI assistant\" switched on.",
+     "label": "use an AI assistant: AI assistant included",
+     "party": null,
+     "quote": null,
+     "value": 1,
+     "author": "structure",
+     "status": "known",
+     "approval": "approved",
+     "question": null,
+     "author_id": null,
+     "range_kind": null
+    },
+    {
+     "id": "combined_assistant__human_enabled",
+     "low": null,
+     "high": null,
+     "kind": "fact",
+     "unit": "1",
+     "basis": "\"hire an assistant and equip them with an AI tool\" switched on.",
+     "label": "hire an assistant and equip them with an AI tool: Personal assistant included",
+     "party": null,
+     "quote": null,
+     "value": 1,
+     "author": "structure",
+     "status": "known",
+     "approval": "approved",
+     "question": null,
+     "author_id": null,
+     "range_kind": null
+    },
+    {
+     "id": "combined_assistant__ai_enabled",
+     "low": null,
+     "high": null,
+     "kind": "fact",
+     "unit": "1",
+     "basis": "\"hire an assistant and equip them with an AI tool\" switched on.",
+     "label": "hire an assistant and equip them with an AI tool: AI assistant included",
+     "party": null,
+     "quote": null,
+     "value": 1,
+     "author": "structure",
+     "status": "known",
+     "approval": "approved",
+     "question": null,
+     "author_id": null,
+     "range_kind": null
+    }
+   ],
+   "assumptions": [
+    {
+     "id": "cost_range_interpretation",
+     "text": "Provisionally treat the stated dollar range as the annual cost of the personal assistant alone; this interpretation needs confirmation.",
+     "party": null,
+     "quote": null,
+     "author": "olumi",
+     "applied": true,
+     "approval": "approved",
+     "concerns": [
+      "human_annual_cost",
+      "personal_assistant",
+      "combined_assistant"
+     ],
+     "author_id": null
+    },
+    {
+     "id": "combined_cost_additivity",
+     "text": "Provisionally price the combined option as the personal-assistant cost plus the stated AI cost, with no bundle discount or change in staffing cost.",
+     "party": null,
+     "quote": null,
+     "author": "olumi",
+     "applied": true,
+     "approval": "approved",
+     "concerns": [
+      "combined_assistant",
+      "annual_spend_definition"
+     ],
+     "author_id": null
+    },
+    {
+     "id": "annual_cost_comparison",
+     "text": "Compare full-year recurring costs with each option available from the start, rather than first-year hiring and implementation cash flows.",
+     "party": null,
+     "quote": null,
+     "author": "olumi",
+     "applied": true,
+     "approval": "approved",
+     "concerns": [
+      "personal_assistant",
+      "ai_assistant",
+      "combined_assistant",
+      "annual_spend"
+     ],
+     "author_id": null
+    }
+   ],
+   "preferences": [
+    {
+     "id": "prefer_lower_spending",
+     "party": null,
+     "quote": "to save money",
+     "author": "person",
+     "approval": "approved",
+     "quantity": "annual_spend",
+     "author_id": null,
+     "direction": "lower"
+    }
+   ]
+  },
+  "person_words": [
+   "I need to focus on more strategic tasks. Help me decide whether to hire a personal assistant or use an AI assistant to save money.  The personal assistant will likely be 10x as expensive, but I hope it will significantly increase my ability to focus on high-value tasks. I could also hire an assistant and equip them with an AI tool, but is it worth spending $40,000 to $50,000 versus $10,000 per year for the AI?"
+  ],
+  "model_program": "v1"
+ },
+ "ref_high_water": {
+  "A": 7,
+  "D": 1,
+  "F": 4,
+  "G": 1,
+  "O": 3,
+  "OC": 4
+ },
+ "goal_constraints": []
+}

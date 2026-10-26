@@ -25,6 +25,7 @@ import {
 } from './assumptionMapModel'
 import { isUnsettled } from './RestsOnMarker'
 import { FigureCard } from './FigureCard'
+import { useNoteRecords } from '../domain/noteRecords'
 
 export const RESTS_ON_KEY_TESTID = 'rests-on-key'
 
@@ -40,6 +41,7 @@ export const RESTS_ON_COPY = {
   next: 'Next figure',
   all: 'All figures',
   justNow: { yours: 'Set by you just now', accepted: 'Olumi’s estimate, accepted just now' },
+  assumptions: (n: number) => `It also rests on ${n} ${n === 1 ? 'assumption' : 'assumptions'}:`,
 } as const
 
 /** "7 are Olumi's estimates nobody has checked, 4 have no figure yet." The unsettled parts only, largest claim first. */
@@ -105,9 +107,29 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
   const picked = usePickedKey()
   const settledJustNow = useSettledJustNow(items)
   const light = useCanvasLight()
+  // Paul, 24 Oct: the assumptions the model rests on are listed here too, in their own words (`noteRecords.ts`).
+  const noteRecords = useNoteRecords()
+  const assumptions = useMemo(() => [...noteRecords.values()].filter((n) => n.family === 'assumptions'), [noteRecords])
+  const assumptionList = assumptions.length === 0 ? null : (
+    <section data-testid={`${RESTS_ON_KEY_TESTID}-assumptions`} className="space-y-1">
+      <h3 className={`${typography.panelMeta} text-text-light`}>{RESTS_ON_COPY.assumptions(assumptions.length)}</h3>
+      <ul className="m-0 list-none space-y-1 p-0">
+        {assumptions.map((a) => (
+          <li key={a.id} data-testid={`${RESTS_ON_KEY_TESTID}-assumption-${a.id}`} className={`${typography.panelBody} text-text-body`}>
+            {a.text}{a.author === 'olumi' ? <span className="text-text-light"> · Olumi’s</span> : null}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
 
   if (items.length === 0) {
-    return <p data-testid={RESTS_ON_KEY_TESTID} className={`${typography.panelBody} text-text-body`}>{ASSUMPTION_MAP_COPY.empty}</p>
+    return (
+      <div data-testid={RESTS_ON_KEY_TESTID} className="space-y-3">
+        <p className={`${typography.panelBody} text-text-body`}>{ASSUMPTION_MAP_COPY.empty}</p>
+        {folded ? null : assumptionList}
+      </div>
+    )
   }
   const pickedAt = items.findIndex((item) => restsOnKey(item.target) === picked)
   const pickedItem = pickedAt >= 0 ? items[pickedAt] : null
@@ -225,6 +247,7 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
             })}
           </div>
           <p className={`${typography.panelMeta} text-text-light`}>{RESTS_ON_COPY.pick} {ASSUMPTION_MAP_COPY.optionsNote}</p>
+          {assumptionList}
         </>
       )}
     </div>

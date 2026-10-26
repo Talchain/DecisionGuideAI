@@ -81,7 +81,7 @@ export function DebugPanelV2({ onClose, width, height, expanded, onToggleExpande
       // Get current graph data from store only when needed for export
       const state = useCanvasStore.getState()
       const graphData = includeFullGraph
-        ? { nodes: state.nodes, edges: state.edges }
+        ? { scenarioId: state.currentScenarioId ?? null, nodes: state.nodes, edges: state.edges }
         : undefined
       const ceeOptions = (state.ceeAnalysisReady as { options?: Array<Record<string, unknown>> } | null)?.options ?? null
 

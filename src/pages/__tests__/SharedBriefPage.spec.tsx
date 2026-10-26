@@ -24,6 +24,7 @@ vi.mock('../../services/scenarioService', () => ({
 }))
 
 import SharedBriefPage from '../SharedBriefPage'
+import strategic from '../../canvas/domain/__tests__/fixtures/strategic-3de98183-graph.json'
 
 function renderPage(slug = 'abc123') {
   return render(
@@ -757,4 +758,55 @@ describe('the mark against the source tokens the producer actually writes', () =
   })
 })
 
+})
+
+/**
+ * ⭐ OLUMI'S NOTES STAY ON THE SHARED PAGE WHEN CEE STOPS DRAWING THEM AS CARDS (#2982, the reader before CEE #3732).
+ * Fixture: Paul's 3de98183 saved graph (24 Oct), whose 7 display-only records CEE still projects as `action` nodes;
+ * "after CEE" is the same graph without those 7 nodes. The notes come from the saved model (`noteRecordsModel.ts`).
+ */
+describe('Olumi’s notes under "Also in the model"', () => {
+  type G = { nodes: Array<{ id: string; label?: string }>; living_model: unknown }
+  const NOTE_IDS = [
+    'prefer_lower_spending', 'expected_human_focus_benefit', 'cost_range_interpretation', 'combined_cost_additivity',
+    'annual_cost_comparison', 'focus_benefit_not_quantified', 'cost_figures_need_reconciliation',
+  ]
+  const today = strategic as unknown as G
+  const afterCee: G = { ...today, nodes: today.nodes.filter((n) => !NOTE_IDS.includes(n.id)) }
+  const assumption = (today.living_model as { canonical: { assumptions: Array<{ id: string; text: string }> } })
+    .canonical.assumptions.find((a) => a.id === 'cost_range_interpretation')!.text
+  const alsoInTheModel = async () => {
+    const heading = await screen.findByText('Also in the model')
+    return within(heading.closest('section') as HTMLElement).getAllByRole('listitem').map((li) => li.textContent ?? '')
+  }
+
+  it('after CEE: all 7 notes are listed, in their own words with their family and Olumi’s mark', async () => {
+    mockGetSharedSnapshotBySlug.mockResolvedValue({ ...SNAPSHOT, graph: afterCee })
+    renderPage()
+    const items = await alsoInTheModel()
+    expect(items).toHaveLength(7)
+    expect(items).toContain(`Assumption (Olumi’s): ${assumption}`)
+    // A preference names its quantity by the card's own name, never its id; the person's words carry no mark.
+    expect(items).toContain('Preference: Lower Total annual assistant spending (“to save money”)')
+  })
+
+  it('a record still drawn as a node is listed once, as that node; one no longer drawn is listed as a note', async () => {
+    const oneLeft: G = { ...today, nodes: today.nodes.filter((n) => n.id !== 'cost_range_interpretation') }
+    mockGetSharedSnapshotBySlug.mockResolvedValue({ ...SNAPSHOT, graph: oneLeft })
+    renderPage()
+    const items = await alsoInTheModel()
+    expect(items).toHaveLength(7)
+    expect(items.filter((t) => t.includes(assumption.slice(0, 40)))).toEqual([`Assumption (Olumi’s): ${assumption}`])
+  })
+
+  it('a saved node that is not an object is skipped: the page renders its nodes and the note (Codex delta on 60d0dfa9)', async () => {
+    const graph = {
+      nodes: [{ id: 'o1', kind: 'option', label: 'Lease' }, null], edges: [],
+      living_model: { canonical: { assumptions: [{ id: 'a1', text: 'Rent stays flat.', author: 'olumi', concerns: ['o1'] }] } },
+    }
+    mockGetSharedSnapshotBySlug.mockResolvedValue({ ...SNAPSHOT, graph })
+    renderPage()
+    expect(await screen.findByText('Lease')).toBeInTheDocument()
+    expect(await alsoInTheModel()).toEqual(['Assumption (Olumi’s): Rent stays flat.'])
+  })
 })
