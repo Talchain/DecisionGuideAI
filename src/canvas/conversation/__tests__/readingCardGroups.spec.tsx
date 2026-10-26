@@ -91,8 +91,10 @@ describe('a reading card with a group on every row', () => {
     expect(threadScrollTo).toHaveBeenCalledWith({ top: 300, behavior: 'auto' })
     expect(scrollIntoView).not.toHaveBeenCalled()
     expect(screen.getByTestId('dock').scrollTop).toBe(0)
-    expect(within(section('left_out')).getAllByRole('listitem').map((li) => li.textContent))
-      .toEqual([expect.stringContaining('Leaves out')])
+    // One line per row; a tap opens CEE's words for it (W7).
+    const [leftOut] = within(section('left_out')).getAllByRole('listitem')
+    fireEvent.click(within(leftOut!).getByRole('button'))
+    expect(leftOut!.textContent).toContain('Leaves out')
   })
 
   it('open: each group\'s rows under its mark, in CEE\'s order and words, and the rest behind "Also in the model (12)"', async () => {
