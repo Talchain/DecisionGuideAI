@@ -51,6 +51,12 @@ export interface CanonicalRunLeader {
   readonly goal_chance_leader?: string | null
   /** CEE `RunLeader.similar_option_ids`: options whose licensed goal chances are similar (the licence's `similar` form). */
   readonly similar_option_ids?: readonly string[]
+  /**
+   * CEE W6 (#3792, the model program's `present.ts`): CEE's own sentence on which option is most likely to achieve the goal
+   * in this model, or that the options are too close to call. Said verbatim; the UI composes none. Absent from an older CEE,
+   * and dropped on its own when malformed.
+   */
+  readonly words?: string
 }
 /**
  * Recovery Batch C, CEE `canonical-analysis-view.ts` `CanonicalGoalChanceDetail`, copied from the Run's stored licence. The
@@ -106,7 +112,7 @@ export function parseCanonicalGoalChance(v: unknown): CanonicalGoalChanceDetail 
   }
   return v as unknown as CanonicalGoalChanceDetail
 }
-/** CEE's `leader` (licence + option id only; the rest is CEE's own), or `undefined` when absent or malformed. */
+/** CEE's `leader` (licence, option ids and CEE's words; the rest is CEE's own), or `undefined` when absent or malformed. */
 function parseCanonicalRunLeader(v: unknown): CanonicalRunLeader | undefined {
   if (!rec(v) || !['permitted', 'permitted_with_caveat', 'withheld'].includes(v.licence as string)) return undefined
   if (!(v.option_id === null || (typeof v.option_id === 'string' && v.option_id.trim() !== ''))) return undefined
@@ -117,6 +123,7 @@ function parseCanonicalRunLeader(v: unknown): CanonicalRunLeader | undefined {
     // Optional facts: a malformed one is dropped on its own; the comparative leader still stands.
     ...(goal === null || (typeof goal === 'string' && goal.trim() !== '') ? { goal_chance_leader: goal } : {}),
     ...(Array.isArray(similar) && similar.every(id => typeof id === 'string' && id.trim() !== '') ? { similar_option_ids: similar as string[] } : {}),
+    ...(sayable(v.words) ? { words: v.words } : {}),
   }
 }
 /** The only parser of the opaque field carried by the READ adapter. */
