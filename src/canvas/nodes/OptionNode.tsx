@@ -17,6 +17,7 @@ import { useOptionAbsentFromRunShown, useOptionLeftOutOfRun } from '../hooks/use
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
+import { useSavedModelProgramState } from './shared/savedModelProgram'
 import { useAnalysisResultsAreCurrent } from '../hooks/useAnalysisResultsAreCurrent'
 import { NodeValueEditor } from './shared/NodeValueEditor'
 import { optionLabelRenamedToSetLevel } from './shared/optionLabelSetLevel'
@@ -760,6 +761,8 @@ export const OptionNode = memo((props: NodeProps) => {
   const nodes = useSwitchFactorNodes()
   // ⭐ E1b: the option's values are edited ON the card, through the inspector's own writer (`option_intervention_edit`).
   const optionEditAuthority = useModelEditAuthority(props.id)
+  // Spec §3 (C13): the core route refuses an option's value edit on a program board, so its amounts stay text there.
+  const optionValuesEditable = useSavedModelProgramState() === 'not_program'
   const resultsReport = useCanvasStore(state => state.results.report)
   /**
    * The Run's typed fact that it KEPT this Olumi-proposed option only because some of the user's options could not be
@@ -2027,7 +2030,7 @@ export const OptionNode = memo((props: NodeProps) => {
   const withValueEditor = (factorId: string, readout: ReactNode): ReactNode => {
     const chip = allInterventionChips.find(c => c.factorId === factorId)
     const inPlace = chip ? optionValueInPlace(chip) : null
-    if (!chip || !inPlace) return readout
+    if (!chip || !inPlace || !optionValuesEditable) return readout
     return (
       <NodeValueEditor
         value={chip.value}
@@ -2060,7 +2063,7 @@ export const OptionNode = memo((props: NodeProps) => {
   const withEmptyValueEditor = (factorId: string, readout: ReactNode): ReactNode => {
     const factorNode = nodes.find(n => n.id === factorId)
     const inPlace = optionValueInPlace({ value: null, ...resolveOptionTargetDisplayFrame(factorNode?.data, undefined) })
-    if (!inPlace) return readout
+    if (!inPlace || !optionValuesEditable) return readout
     const label = sentenceCaseFactorLabel(cleanFactorLabel((factorNode?.data?.label as string | undefined) ?? factorId))
     return (
       <NodeValueEditor
