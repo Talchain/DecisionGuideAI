@@ -9,7 +9,7 @@
  * the served first-draft turn, through the production parser into the real `SuggestedChips`.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 
 vi.mock('../../../lib/supabase', () => ({ getUserId: async () => null, getSessionIdentity: async () => ({ userId: null, accessToken: null }) }))
 

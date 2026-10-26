@@ -48,7 +48,7 @@ describe.each([['capacity', capacity, 17], ['european', european, 42], ['qualita
     const card = (turn.body as Json).cards[0] as Json
     const changes = card.changes as ProposalChange[]
 
-    it(`lists all ${count} items with no tap, one line each: the name, and Olumi\'s mark where it is Olumi\'s`, async () => {
+    it(`lists all ${count} items with no tap, one line each: the name, and Olumi’s mark where it is Olumi’s`, async () => {
       expect(card.reading).toBe(true)
       expect(changes).toHaveLength(count)
       await mount(turn.body as Json)
