@@ -162,16 +162,18 @@ describe('a value the user typed is not labelled an Olumi estimate', () => {
   })
 })
 
-describe('vision spec §2a/§3 (23 Oct): Olumi\'s figure has the Olumi mark BEFORE it and a dotted info underline', () => {
+// Paul, 27 Oct 2026: a card's icons sit on its bottom row only. The figure's mark (it led the figure in the value
+// line, vision §2a 23 Oct) is the same element in THIS card's bottom band; the dotted underline stays on the figure.
+describe('vision spec §2a/§3 (23 Oct): Olumi\'s figure has the Olumi mark on the bottom row and a dotted info underline', () => {
   const line = (c: HTMLElement) => c.querySelector('[data-testid="factor-recorded-value"]')!
+  const band = (c: HTMLElement) => c.querySelector('[data-testid="factor-bottom-marks-factor-1"]')!
   const figure = (c: HTMLElement) => line(c).querySelector('strong')!
 
-  it('⭐ Olumi\'s estimate: the brand mark leads the figure in the value line, and the figure is dotted-underlined', () => {
+  it('⭐ Olumi\'s estimate: the brand mark is on the card’s bottom row (not the value line), and the figure is dotted-underlined', () => {
     const { container } = renderFactor({ ...CEE_ESTIMATE, raw_value: 62, unit: 'engineers' })
-    const mark = line(container).querySelector('[data-testid="estimate-marker"]')
+    const mark = band(container).querySelector('[data-testid="estimate-marker"]')
     expect(mark).not.toBeNull()
-    // Before the figure, in document order (never after it, never off in the card's marks band).
-    expect(mark!.compareDocumentPosition(figure(container)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(line(container).contains(mark)).toBe(false)
     // The Olumi brand mark, not a sparkle.
     expect(mark!.querySelector('svg[data-icon="olumi-ai"]')).not.toBeNull()
     expect(mark!.querySelector('svg.lucide-sparkles')).toBeNull()
@@ -181,11 +183,11 @@ describe('vision spec §2a/§3 (23 Oct): Olumi\'s figure has the Olumi mark BEFO
     expect(figure(container).className).toContain('decoration-info')
   })
 
-  it('⛔ CONTROL: a figure the person typed has its own glyph first and no dotted underline', () => {
+  it('⛔ CONTROL: a figure the person typed has its own glyph on the bottom row and no dotted underline', () => {
     const { container } = renderFactor({ value: 0.62, raw_value: 62, unit: 'engineers', source: 'user' })
-    const mark = line(container).querySelector('[data-testid="factor-value-source-factor-1"]')
+    const mark = band(container).querySelector('[data-testid="factor-value-source-factor-1"]')
     expect(mark).not.toBeNull()
-    expect(mark!.compareDocumentPosition(figure(container)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(line(container).contains(mark)).toBe(false)
     expect(mark!.querySelector('svg[data-icon="olumi-ai"]')).toBeNull()
     expect(figure(container).className).not.toContain('decoration-dotted')
   })

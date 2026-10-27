@@ -234,21 +234,25 @@ describe('v3.1 #9 — full label, amount on one line', () => {
   // its own spaces rather than push the mark past the card's edge (#2119's rule
   // applied to run + mark). The mark rides the value's last line. Was: the value
   // one no-wrap run, the mark free to drop to a line of its own.
-  it('the "from" half and the glued source mark are no-wrap segments; the mark never leaves the value (audit #9)', () => {
+  // RE-PINNED (Paul, 27 Oct): a card's icons sit on its bottom row only, so the
+  // source mark and its glue have left the value; the no-wrap runs stand alone.
+  it('the "from" half and the "to" half are no-wrap segments; the source mark is on the bottom row, not in the value (audit #9)', () => {
     renderCard()
     const value = screen.getByTestId('option-change-row-value-opt-germany-f-germany')
     expect(changeRowValueText(value)).toBe('Low → Very high')
     // 27 Sep 2026 (landing text ceiling): the row budget is 25 characters (was
     // 17), so this run and its mark now fit WHOLE — one no-wrap run, its halves
-    // no-wrap segments inside it. The mark still never leaves the value.
+    // no-wrap segments inside it.
     expect(tokens(value).has('whitespace-nowrap')).toBe(true)
-    // Vision I: the value's own top-level runs, read less the target's mark (which now leads the target inside "→ …").
+    // The value's own top-level runs.
     expect([...value.children].filter((n) => n.classList.contains('whitespace-nowrap')).map((n) => changeRowValueText(n))).toEqual(['Low', '→ Very high'])
-    const mark = screen.getByTestId('option-change-row-mark-opt-germany-f-germany')
-    expect(tokens(mark).has('whitespace-nowrap')).toBe(true)
-    expect(mark.nextSibling?.textContent).toBe('\u00A0')
-    expect(value.contains(mark)).toBe(true)
-    expect(mark.compareDocumentPosition(screen.getByTestId('option-change-row-target-opt-germany-f-germany')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // No glue is left in the value: its text is the figures alone.
+    expect(value.textContent).not.toContain('\u00A0')
+    const mark = screen.getByTestId('option-change-row-source-opt-germany-f-germany')
+    expect(mark.getAttribute('data-value-source')).toBe('brief')
+    expect(value.contains(mark)).toBe(false)
+    expect(screen.getByTestId('option-bottom-marks-opt-germany').contains(mark)).toBe(true)
+    expect(value.contains(screen.getByTestId('option-change-row-target-opt-germany-f-germany'))).toBe(true)
   })
 
   it('the differentiator line is the contract\'s 10.5px muted line', () => {

@@ -67,15 +67,15 @@ it('all information marks are bottom-left, title has full width, Olumi stays in 
   const band = screen.getByTestId(`option-bottom-marks-${node.id}`)
   expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3')
   expect(band).toHaveAttribute('data-card-bottom-band', 'true')
-  // Vision spec §2c (23 Oct): Olumi's authorship mark ("Olumi suggested this") sits right after the name; every other
-  // information mark stays in the band.
+  // Paul, 27 Oct: a card's icons sit on its bottom row only. Olumi's authorship mark ("Olumi suggested this") joins
+  // every other information mark in the band (it sat right after the name, vision spec §2c 23 Oct).
   const title = screen.getByTestId('node-title')
   const authorship = screen.getByTestId('node-provenance-mark')
-  expect(title.contains(authorship)).toBe(true)
+  expect(title.contains(authorship)).toBe(false)
   expect(authorship).toHaveAttribute('data-provenance-claim', 'structural')
-  expect(band.contains(authorship)).toBe(false)
-  for (const el of document.querySelectorAll('[data-card-mark]')) if (el !== authorship) expect(band.contains(el)).toBe(true)
-  expect([...title.parentElement!.parentElement!.querySelectorAll('[data-card-mark], [data-testid="node-provenance-mark"]')]).toEqual([authorship])
+  expect(band.contains(authorship)).toBe(true)
+  for (const el of document.querySelectorAll('[data-card-mark]')) expect(band.contains(el)).toBe(true)
+  expect([...title.parentElement!.parentElement!.querySelectorAll('[data-card-mark], [data-testid="node-provenance-mark"]')]).toEqual([])
   expect(screen.queryByTestId('node-title-corner-spacer')).toBeNull()
   const olumi = screen.getByTestId(`node-coaching-icon-${node.id}`)
   expect(band.contains(olumi)).toBe(false)
@@ -94,20 +94,20 @@ it('baseline with a concrete target has its own shape and exact words', () => {
   mark(`option-baseline-meta-${node.id}`, 'baseline-option', 'Baseline option')
   expect(document.querySelector('[data-card-mark="baseline-no-changes"]')).toBeNull()
 })
-// Vision I (23 Oct, spec §2a "a glyph before each figure"): the target's source button LEADS its figure in the row,
-// keeping its value-specific words and inspector route; it is no longer in the band. (Was: "moves into the band".)
-it('the source button leads its figure in the row with its existing value-specific inspector route; the band does not hold it', () => {
+// Paul, 27 Oct: a card's icons sit on its bottom row only. The target's source button keeps its value-specific words
+// and inspector route, and sits in the band, not in the row. (Was vision I, 23 Oct: it led its figure in the row.)
+it('the source button sits on the bottom row with its existing value-specific inspector route; the row does not hold it', () => {
   seed({ targets: true })
   const band = screen.getByTestId(`option-bottom-marks-${node.id}`)
   const source = screen.getByTestId(`option-change-row-source-${node.id}-factor`)
   expect(source).toHaveAttribute('data-card-mark', 'source-you')
   expect(source.getAttribute('aria-label')).toContain('Set by you')
   expect(source.querySelector('.lucide-user-check')).not.toBeNull()
-  expect(band.contains(source)).toBe(false)
+  expect(band.contains(source)).toBe(true)
   const dd = screen.getByTestId(`option-change-row-${node.id}-factor`)
-  expect(dd.contains(source)).toBe(true)
-  const figure = screen.getByTestId(`option-change-row-target-${node.id}-factor`)
-  expect(source.compareDocumentPosition(figure) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(dd.contains(source)).toBe(false)
+  // The figure stays in its row.
+  expect(dd.contains(screen.getByTestId(`option-change-row-target-${node.id}-factor`))).toBe(true)
 })
 
 it('attention and coaching keep their exact words in ONE Olumi badge in the band (vision spec §3); each alone draws the same mark; absent signals are the contrast', () => {

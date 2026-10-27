@@ -257,14 +257,14 @@ afterEach(() => {
 // so the mark follows the value and wraps WITH it. Still never cut, and the mark
 // itself never splits. Pinned in full by `FactorNode.valueAndMarkWrapTogether.spec.tsx`.
 describe('ED 5809278282 · Factor · the value line is the ONE body line, and its mark wraps with the value', () => {
-  it.each(['full', 'quiet'] as const)('pre-run at %s: one visible body row — value, space, mark; the mark never splits', (lodRung) => {
+  it.each(['full', 'quiet'] as const)('pre-run at %s: one visible body row — the value alone; its mark on the bottom row', (lodRung) => {
     seed(VALUED, { phase: 'pre', lodRung })
     renderFactor(VALUED)
     const row = within(card()).getByTestId('factor-recorded-value')
     expect(visibleText(row)).toBe('8%')
-    // Vision spec §2a (23 Oct): the author glyph leads the figure in the value line, never the card's marks band.
-    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).not.toBeNull()
-    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).toBeNull()
+    // Paul, 27 Oct: the author glyph sits on the card's bottom row, never the value line.
+    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).toBeNull()
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
     // DL #70 5849644637: the primary row, then the reserved driver slot (pre-run line).
     expect(visibleBodyRows(row)).toEqual([row, driverSlot()])
     expect(driverSlot().textContent).toBe('')
@@ -277,13 +277,12 @@ describe('ED 5809278282 · Factor · the value line is the ONE body line, and it
     expect(rowTokens.has('truncate')).toBe(false)
     const markSlot = screen.getByTestId(`factor-value-mark-slot-${ID}`)
     expect(row.contains(markSlot)).toBe(true)
-    // Vision spec §2a (23 Oct): the author glyph leads the figure in the value line, never the card's marks band.
-    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).not.toBeNull()
-    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).toBeNull()
-    // The mark leads; the one joining space now follows it (vision spec §2a), inside the same `nowrap` row.
-    expect(markSlot.previousSibling, 'the mark is the first thing on the value line').toBeNull()
-    expect(markSlot.nextSibling?.textContent, 'one space after the mark').toBe(' ')
-    expect(tokens(markSlot).has('whitespace-nowrap')).toBe(true)
+    // Paul, 27 Oct: the author glyph sits on the card's bottom row, never the value line.
+    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).toBeNull()
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
+    // The slot only hosts the mark's portal: it draws nothing on the value line and adds no joining space.
+    expect(tokens(markSlot).has('hidden')).toBe(true)
+    expect(markSlot.nextSibling?.textContent ?? '', 'no joining space left behind').not.toBe(' ')
   })
 })
 
@@ -353,9 +352,9 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     const row = within(card()).getByTestId('factor-recorded-value')
     // RE-PINNED 27 Sep (DIFF item 3): one breakable space between the value and its mark.
     expect(visibleText(row)).toBe('8%')
-    // Vision spec §2a (23 Oct): the author glyph leads the figure in the value line, never the card's marks band.
-    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).not.toBeNull()
-    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).toBeNull()
+    // Paul, 27 Oct: the author glyph sits on the card's bottom row, never the value line.
+    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).toBeNull()
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
     const driver = onCardNotInPopover('factor-driver-line')
     const tp = onCardNotInPopover('factor-turning-point')
     // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
@@ -390,9 +389,9 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     expect(within(card()).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
     // RE-PINNED 27 Sep (DIFF item 3): one breakable space between the value and its mark.
     expect(visibleText(within(card()).getByTestId('factor-recorded-value'))).toBe('8%')
-    // Vision spec §2a (23 Oct): the author glyph leads the figure in the value line, never the card's marks band.
-    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).not.toBeNull()
-    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).toBeNull()
+    // Paul, 27 Oct: the author glyph sits on the card's bottom row, never the value line.
+    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).toBeNull()
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
   })
 
   it('HEIGHT SAFETY — the body is the same at `quiet` and `full`: no rung-triggered re-layout', () => {

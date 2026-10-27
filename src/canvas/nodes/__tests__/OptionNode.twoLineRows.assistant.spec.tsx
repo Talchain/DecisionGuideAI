@@ -162,22 +162,25 @@ describe('served 64c5eccc — the factor name gets its own line when the amount 
     expect([dt.tagName, dd.tagName]).toEqual(['DT', 'DD'])
     expect(visibleText(dt)).toBe(name)
     expect(visibleText(dd)).toBe(amount)
-    // RE-PINNED (vision I, 23 Oct: "a glyph before each figure"): each of this option's two Olumi-chosen targets
-    // carries its OWN brand mark, before its figure in the amount cell, glued to it by one no-break space; the band
-    // holds no row mark and no merged count.
+    // RE-PINNED (Paul, 27 Oct: a card's icons sit on its bottom row only): each of this option's two Olumi-chosen
+    // targets carries its OWN brand mark, now on THIS card's bottom row, not in the amount cell and with no no-break
+    // space glue; no merged count. (Was vision I, 23 Oct: before its figure in the amount cell.)
+    const band = onCard(container, `[data-testid="option-bottom-marks-${optionId}"]`)[0]
+    expect(band?.getAttribute('data-card-bottom-band')).toBe('true')
     const mark = dd.querySelector(`[data-testid="option-change-row-mark-${optionId}-${factorId}"]`)
-    expect(mark, 'the mark slot is in the amount cell').not.toBeNull()
-    const source = dd.querySelector<HTMLElement>(`[data-testid="option-change-row-estimate-${optionId}-${factorId}"]`)!
+    expect(mark, 'the (empty) mark slot is in the amount cell').not.toBeNull()
+    const source = onCard(container, `[data-testid="option-change-row-estimate-${optionId}-${factorId}"]`)[0]
+    expect(source, 'the target keeps its own mark').toBeDefined()
     expect(source.getAttribute('data-card-mark')).toBe('source-olumi')
     expect(source.getAttribute('data-olumi-mark')).toBeNull()
     expect(source.querySelector('svg[data-icon="olumi-ai"]')).not.toBeNull()
-    expect(source.closest('[data-card-bottom-band]')).toBeNull()
+    expect(dd.contains(source)).toBe(false)
+    expect(band.contains(source)).toBe(true)
     const sparkles = onCard(container, '[data-card-mark="source-olumi"]')
     expect(sparkles, 'one Olumi mark per estimated target, none merged').toHaveLength(2)
-    expect(sparkles.every(el => el.closest('[data-card-bottom-band]') === null)).toBe(true)
-    expect((mark!.nextSibling as Text | null)?.data).toBe('\u00a0')
-    const figure = dd.querySelector(`[data-testid="option-change-row-target-${optionId}-${factorId}"]`)!
-    expect(mark!.compareDocumentPosition(figure) & Node.DOCUMENT_POSITION_FOLLOWING, 'the mark leads its figure').toBeTruthy()
+    expect(sparkles.every(el => band.contains(el))).toBe(true)
+    expect(mark!.nextSibling?.nodeType, 'no glue text after the mark slot').not.toBe(Node.TEXT_NODE)
+    expect(dd.querySelector(`[data-testid="option-change-row-target-${optionId}-${factorId}"]`), 'the figure stays in the row').not.toBeNull()
     expect(dt.querySelector('[data-testid^="option-change-row-mark-"]')).toBeNull()
   })
 

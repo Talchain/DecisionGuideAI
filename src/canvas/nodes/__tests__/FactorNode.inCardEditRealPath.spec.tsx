@@ -171,7 +171,13 @@ async function typeOnCard(id: string, typed: string) {
 
 /** The `factor_value_edit` events that reached the wire, in order. */
 const valueEdits = () => sent.filter(b => b.kind === 'system_event' && b.event?.kind === 'factor_value_edit').map(b => b.event)
-const markOf = (id: string) => screen.getByTestId(`factor-value-mark-slot-${id}`).querySelector('[aria-label]')?.getAttribute('aria-label')
+// Paul, 27 Oct: the value's author mark renders on THIS card's bottom row (a portal), found in that band by identity.
+const markOf = (id: string) => {
+  const band = `[data-testid="factor-bottom-marks-${id}"]`
+  const sel = `${band} [data-testid="factor-value-source-${id}"], ${band} [data-testid="estimate-marker"]`
+  return document.querySelector(sel)?.closest('[aria-label]')?.getAttribute('aria-label')
+    ?? document.querySelector(`${band} [data-testid="factor-value-source-${id}"] [aria-label], ${band} [data-testid="estimate-marker"] [aria-label]`)?.getAttribute('aria-label')
+}
 const figureOf = (id: string) => screen.getByTestId(`node-value-editor-${id}`).textContent
 
 beforeEach(() => {

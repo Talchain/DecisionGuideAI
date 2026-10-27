@@ -350,6 +350,7 @@ export function EstimateMarker({
   title,
   onOpenSource,
   inline = false,
+  keepSourceAction = false,
 }: {
   /** Which unconfirmed thing this marker speaks for. Defaults to the card's own value. */
   subject?: EstimateSubject
@@ -359,6 +360,8 @@ export function EstimateMarker({
   onOpenSource?: () => void
   /** Vision spec §2a: drawn before its figure in the value line, not in the card's marks band. */
   inline?: boolean
+  /** In the band, but its click still opens the figure's source detail (a figure's mark moved to the bottom row, Paul 27 Oct). */
+  keepSourceAction?: boolean
 }) {
   const tip = title ?? ESTIMATE_SUBJECT_TITLE[subject]
   // On a card the band's Olumi glyph asks Olumi about the card (`OlumiAskMark`, Paul 24 Oct); an inline mark keeps
@@ -367,7 +370,7 @@ export function EstimateMarker({
   if (!onOpenSource) return <SourceMark testId="estimate-marker" tip={tip}>{UNCONFIRMED_ESTIMATE_TOKEN}</SourceMark>
   const Icon = cardMark('source-olumi').Icon
   const hoverTip = `${UNCONFIRMED_ESTIMATE_TOKEN} · ${tip}`
-  const asks = !inline && ask !== null
+  const asks = !inline && !keepSourceAction && ask !== null
   const body = (
     <SourceMark cardMarkId="source-olumi" testId="estimate-marker" tip={hoverTip} ariaLabel={asks ? ask.text : `${OLUMI_ESTIMATE_NAME}. ${tip}`} ariaDescription={asks ? `${OLUMI_ESTIMATE_NAME}. ${tip}` : undefined} onOpen={asks ? ask.ask : onOpenSource}>
       {/* Upright, regular weight (contract v3.1 `.prov`): one visual for every

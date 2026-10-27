@@ -266,10 +266,9 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       // Truth stays on the card: the mark is the row's own `you` (user_specified).
       expect(mark.getAttribute('data-value-source')).toBe('you')
       expect(dt.compareDocumentPosition(dd) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-      // Vision I (23 Oct): the mark LEADS its figure inside the amount cell (was: the card's bottom band).
-      expect(dd.contains(mark)).toBe(true)
-      expect(onCard('option-bottom-marks-option-1')?.contains(mark) ?? false).toBe(false)
-      expect(mark.compareDocumentPosition(onCard('option-change-row-target-option-1-f-price')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      // Paul, 27 Oct: every card icon sits on the bottom row; the amount cell holds the figure alone.
+      expect(dd.contains(mark)).toBe(false)
+      expect(onCard('option-bottom-marks-option-1')?.contains(mark) ?? false).toBe(true)
       expect(mark.querySelector('.lucide-user-check')).not.toBeNull()
       // The label carries the factor's FULL name, and nothing shortens it.
       expect(dt.textContent).toBe('Pro plan monthly price')
@@ -344,9 +343,12 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       expect(t.has('overflow-hidden')).toBe(false)
       expect(t.has('truncate')).toBe(false)
       expect(t.has('max-w-full')).toBe(true)
-      // `.delta-rows .amount{white-space:nowrap}` — on the value, and on the mark cluster.
+      // `.delta-rows .amount{white-space:nowrap}` — on the value. Paul, 27 Oct: a card's icons sit on its bottom row
+      // only, so the source mark is no longer in the amount (it was a no-wrap cluster there).
       expect(tokens(onCard('option-change-row-value-option-1-f-price')).has('whitespace-nowrap')).toBe(true)
-      expect(tokens(onCard('option-change-row-mark-option-1-f-price')).has('whitespace-nowrap')).toBe(true)
+      const mark = onCard('option-change-row-source-option-1-f-price')!
+      expect(dd.contains(mark)).toBe(false)
+      expect(onCard('option-bottom-marks-option-1')?.contains(mark) ?? false).toBe(true)
       // The row line is the contract grid: the amount beside the label, never the value apart.
       const line = tokens(onCard('option-change-row-line-option-1-f-price'))
       expect(line.has('grid')).toBe(true)

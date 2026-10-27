@@ -405,15 +405,17 @@ describe('contract v3.1 — option card polish', () => {
       // 23), so this pin holds unchanged.
       const value = inRows('option-change-row-value-option-1-f-head')!
       expect(tokens(value).has('whitespace-nowrap')).toBe(false)
-      // RE-PINNED (vision I, 23 Oct): the halves are the value's own top-level runs, read less the target's mark,
-      // which now LEADS the target inside the "to" half, glued to it by one U+00A0.
+      // RE-PINNED (Paul, 27 Oct): a card's icons sit on its bottom row only. The halves are the value's own top-level
+      // runs; the target's mark and its U+00A0 glue have left the "to" half (was vision I, 23 Oct: the mark led it).
       const halves = [...value.children].filter((n) => n.classList.contains('whitespace-nowrap')).map((n) => changeRowValueText(n))
       expect(halves).toEqual(['0', '→ 3 engineers']) // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
       expect(changeRowValueText(value)).toBe('0 → 3 engineers')
-      const mark = inRows('option-change-row-mark-option-1-f-head')!
-      expect(mark.nextSibling?.textContent).toBe('\u00A0')
-      expect(value.contains(mark)).toBe(true)
-      expect(mark.compareDocumentPosition(inRows('option-change-row-target-option-1-f-head')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(value.textContent).not.toContain('\u00A0')
+      const mark = screen.getByTestId('option-change-row-source-option-1-f-head')
+      expect(mark.getAttribute('data-value-source')).toBe('unknown')
+      expect(value.contains(mark)).toBe(false)
+      expect(screen.getByTestId('option-bottom-marks-option-1').contains(mark)).toBe(true)
+      expect(value.contains(inRows('option-change-row-target-option-1-f-head')!)).toBe(true)
     })
 
     it('label and amount are both the 11px label size at tight leading', () => {

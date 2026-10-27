@@ -1392,8 +1392,9 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.queryByTitle('Generated from your brief')).toBeNull()
     expect(screen.queryByLabelText('Estimated by Olumi')).toBeNull()
     expect(container.querySelector('[data-testid="estimate-marker"]')).toBeNull()
-    // Vision spec §2a (23 Oct): the author glyph leads the figure in the value line, not the marks band.
-    const mark = container.querySelector('[data-testid="factor-recorded-value"] [data-value-source="you"]')
+    // Paul, 27 Oct: the author glyph sits on the card's bottom row, never the value line.
+    expect(container.querySelector('[data-testid="factor-recorded-value"] [data-value-source="you"]')).toBeNull()
+    const mark = container.querySelector('[data-card-bottom-band] [data-value-source="you"]')
     expect(mark).not.toBeNull()
     // Contract v3.1 `prov('user')` (DESIGN-GAP-v31 #21): the person GLYPH, not
     // the word "you"; the name stays "Set by you".

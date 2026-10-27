@@ -137,7 +137,9 @@ describe('rule 2 — an option states what it sets before how it scored', () => 
     // Paul (24 Oct, #2981): this withheld cell is the `—` and the circle-slash mark on the card, no word; CEE's face is in
     // the line's accessible name.
     expect(support!.textContent).toBe('—')
-    expect(support!.querySelector('svg.lucide-circle-slash')).not.toBeNull()
+    // Paul, 27 Oct: the circle-slash mark sits on THIS card's bottom row, not in the cell.
+    expect(support!.querySelector('svg.lucide-circle-slash')).toBeNull()
+    expect(screen.getByTestId(`option-bottom-marks-${candidate.id}`).querySelector(`[data-testid="option-chance-withheld-${candidate.id}"] svg.lucide-circle-slash`)).not.toBeNull()
     expect(support!.getAttribute('aria-label')).toContain(String(chanceCells(candidate.id).text))
     expect(support!.textContent).not.toContain('of runs')
     const rel = delta.compareDocumentPosition(support as Element)

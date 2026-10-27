@@ -6,7 +6,7 @@ import { Fragment, memo, useMemo, useCallback, useState, type ReactNode } from '
 import type { NodeProps } from '@xyflow/react'
 import { Pencil, Target } from 'lucide-react'
 import Tooltip from '../../components/Tooltip'
-import { CardMark, CardMarkShape } from './shared/CardMark'
+import { BottomCardMark, CardMark, CardMarkShape } from './shared/CardMark'
 import { cardMark } from './shared/cardMarks'
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { pickOptionStatusMark, type OptionStatusMarkCandidate } from './shared/optionStatusMark'
@@ -223,12 +223,6 @@ import { coreSwitchOptionOf } from '../domain/coreSwitch'
 const OPTION_ROW_ESTIMATE_NOTE = 'Olumi chose this target; it is not yet confirmed.'
 const OPTION_ROW_ESTIMATE_TITLE = `${OPTION_ROW_ESTIMATE_NOTE} Open the details to set or confirm it.`
 
-/**
- * The join between a change row's value and its source mark: ONE no-break
- * space (U+00A0), never a breakable ' ', so the mark cannot drop to a line of
- * its own (design audit #9). Its width is the space the old join took.
- */
-const MARK_GLUE = '\u00A0'
 
 /**
  * ⭐⭐ ONE CHANGE ROW = THE CONTRACT'S ONE-LINE GRID, AT EVERY RUNG (side-by-side
@@ -2109,14 +2103,14 @@ export const OptionNode = memo((props: NodeProps) => {
    * the row (the same inline mark #2936 gave a factor's value), never in the card's marks band, so an option with two
    * estimated targets shows two marks, each at its own figure. Olumi's target also wears the dotted info underline
    * (`OLUMI_ESTIMATE_FIGURE_CLASSES`). The mark sits OUTSIDE the editor control (a mark is its own button, opening the
-   * inspector), joined to it by MARK_GLUE inside one no-wrap run, so the mark never stands alone on a line. Every
+   * inspector). Paul, 27 Oct: the mark now draws on the card's bottom row, with its click unchanged. Every
    * source carries its own mark (Paul 23 Sep point 7: you / brief / Olumi / no source), so an unmarked target is never
    * left to be read as Olumi's; the mark's name and hover keep the words ("<factor> target: Olumi's estimate …").
    */
   const renderTargetFigure = (r: OptionChangeRow, figure: string, holdWhole: boolean) => (
     <span className="whitespace-nowrap">
       <span
-        className="whitespace-nowrap"
+        className="hidden"
         data-testid={`option-change-row-mark-${props.id}-${r.factorId}`}
       >
         <ValueSourceMark
@@ -2127,10 +2121,9 @@ export const OptionNode = memo((props: NodeProps) => {
           title={r.estimated ? OPTION_ROW_ESTIMATE_TITLE : undefined}
           subject={`${r.fullLabel} target`}
           onOpenSource={() => openNodeInspector(props.id)}
-          inline
+          keepSourceAction
         />
       </span>
-      {MARK_GLUE}
       {withValueEditor(r.factorId, (
         <span
           className={[holdWhole ? 'whitespace-nowrap' : 'whitespace-normal', r.estimated ? OLUMI_ESTIMATE_FIGURE_CLASSES : ''].filter(Boolean).join(' ')}
@@ -2711,8 +2704,8 @@ export const OptionNode = memo((props: NodeProps) => {
               {/* Review of #2934 (spec §2a `.hl`): a goal-target glyph in goal colour before the figure, so a bare
                   "about 39%" reads as a chance of meeting the goal, never a win share. Not on a withheld face. */}
               {chanceHeadline !== null && (
-                <Target data-testid={`option-chance-goal-glyph-${props.id}`} aria-hidden="true" focusable="false"
-                  className="mr-1 h-[1em] w-[1em] shrink-0 text-goal" strokeWidth={2.25} />
+                <BottomCardMark><Target data-testid={`option-chance-goal-glyph-${props.id}`} aria-hidden="true" focusable="false"
+                  className="h-[1em] w-[1em] shrink-0 text-goal" strokeWidth={2.25} /></BottomCardMark>
               )}
               <span data-testid={`option-win-readout-${props.id}`}
                 className={`${chanceHeadline === null ? `${typography.edgeLabel} text-text-body` : `${typography.nodeHeadline} text-text-header`} min-w-0 truncate`} aria-hidden="true">
@@ -2721,10 +2714,10 @@ export const OptionNode = memo((props: NodeProps) => {
               {/* Paul (24 Oct): no word after the dash. The circle-slash mark says "withheld"; CEE's face and reason are
                   its accessible name and the line's hover (above), never card text. */}
               {chanceWithheldMark && (
-                <span data-testid={`option-chance-withheld-${props.id}`} data-card-mark="not-analysed" role="img"
-                  aria-label={chanceWithheldReason} className="ml-1 inline-flex shrink-0 items-center text-text-light">
+                <BottomCardMark><span data-testid={`option-chance-withheld-${props.id}`} data-card-mark="not-analysed" role="img"
+                  aria-label={chanceWithheldReason} className="inline-flex shrink-0 items-center text-text-light">
                   <CardMarkShape mark={cardMark('not-analysed')} />
-                </span>
+                </span></BottomCardMark>
               )}
             </div>
           </Tooltip>

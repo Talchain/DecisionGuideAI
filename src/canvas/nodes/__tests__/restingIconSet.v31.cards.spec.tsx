@@ -257,15 +257,21 @@ describe('U8 · v3.1 pts 1/7 — no card-level "From your brief" icon on an opti
     // The change rows are ON THE CARD at rest (Paul 25 Sep, the prototype) — the
     // row's own mark is read THERE.
     expect(optionCardRows('opt-raise')).not.toBeNull()
-    // Vision I: the mark leads its figure in the row (was: the bottom band).
-    expect(screen.getByTestId('option-change-row-opt-raise-fac-price').querySelector('[data-testid="option-change-row-source-opt-raise-fac-price"]')).toHaveAttribute('data-value-source', 'brief')
+    // Paul, 27 Oct 2026: a card's icons sit on its bottom row only — the row's mark (it led its figure in the row,
+    // vision I) is in this card's bottom band, never in the row.
+    const mark = screen.getByTestId('option-bottom-marks-opt-raise').querySelector('[data-testid="option-change-row-source-opt-raise-fac-price"]')
+    expect(mark).toHaveAttribute('data-value-source', 'brief')
+    expect(screen.getByTestId('option-change-row-opt-raise-fac-price').contains(mark)).toBe(false)
   })
 
   it('REPORTED, NOT CHANGED: any document glyph left on the option at rest is the node-authorship mark', () => {
     setState({ phase: 'post', lodRung: 'full' })
     const { container } = renderCard('opt-raise')
     const docGlyphs = [...container.querySelectorAll('[data-testid="node-provenance-mark"] svg.lucide-file-text')]
-    expect(screen.getByTestId('option-change-row-source-opt-raise-fac-price').closest('[data-testid="option-change-row-opt-raise-fac-price"]')).not.toBeNull()
+    // The row's own mark is a separate element (on the bottom row since Paul, 27 Oct), never a node-authorship mark.
+    const rowMark = screen.getByTestId('option-change-row-source-opt-raise-fac-price')
+    expect(rowMark.closest('[data-testid="option-bottom-marks-opt-raise"]')).not.toBeNull()
+    expect(rowMark.closest('[data-testid="node-provenance-mark"]')).toBeNull()
     // Positive control: on this mixed board the header mark IS a document glyph,
     // so the loop below is not vacuous.
     expect(docGlyphs.length).toBeGreaterThan(0)

@@ -242,7 +242,7 @@ afterEach(() => {
 })
 
 describe('NODE-ANATOMY v3.2 · Factor · pre-run with a value — title, value, nothing more', () => {
-  it('line 2 is the value and its mark, as plain text: no chip, no top margin, ONE line (ED 5809278282)', () => {
+  it('line 2 is the value, as plain text: no chip, no top margin, ONE line (ED 5809278282); its mark on the bottom row (Paul, 27 Oct)', () => {
     seed(VALUED, { phase: 'pre' })
     renderFactor(VALUED)
     mounted()
@@ -250,9 +250,10 @@ describe('NODE-ANATOMY v3.2 · Factor · pre-run with a value — title, value, 
     // RE-PINNED 27 Sep (side-by-side DIFF item 3): one breakable space is now the gap
     // between the value and its mark (inline flow, so the mark wraps WITH the value).
     expect(visibleText(row)).toBe('8%')
-    // Vision spec §2a (23 Oct): the author glyph leads the figure in the value line, never the card's marks band.
-    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).not.toBeNull()
-    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).toBeNull()
+    // Paul, 27 Oct 2026: a card's icons sit on its bottom row only — the author glyph (it led the figure in the value
+    // line, vision §2a) is in this card's bottom band, never in the value line.
+    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).toBeNull()
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')?.getAttribute('data-testid')).toBe(`factor-bottom-marks-${ID}`)
     // Principle 4 "no chips around values at rest": the editor rests as text.
     const editor = screen.getByTestId(`node-value-editor-${ID}`)
     const rest = tokens(editor)
@@ -542,9 +543,10 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     // The value is the factor's own state, not a finding: never prefixed.
     // RE-PINNED 27 Sep (DIFF item 3): the value and its mark are separated by one breakable space.
     expect(visibleText(screen.getByTestId('factor-recorded-value'))).toBe('8%')
-    // Vision spec §2a (23 Oct): the author glyph leads the figure in the value line, never the card's marks band.
-    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).not.toBeNull()
-    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).toBeNull()
+    // Paul, 27 Oct 2026: a card's icons sit on its bottom row only — the author glyph (it led the figure in the value
+    // line, vision §2a) is in this card's bottom band, never in the value line.
+    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).toBeNull()
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')?.getAttribute('data-testid')).toBe(`factor-bottom-marks-${ID}`)
     expectNothingItMustNeverSay()
   })
 

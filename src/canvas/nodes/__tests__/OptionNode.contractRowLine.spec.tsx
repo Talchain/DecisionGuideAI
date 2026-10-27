@@ -189,22 +189,23 @@ function hybridRow(container: HTMLElement, factorId: string) {
   return { line, dt, dd, mark, source }
 }
 
-describe('DIFF item 1 — the mark follows the value with no separator (contract `£49 → £59 brief`)', () => {
+describe('DIFF item 1 — the amount has no separator; its source mark sits on the bottom row (Paul, 27 Oct)', () => {
   for (const r of HYBRID_ROWS_ON_CARD) {
-    it(`${r.factorId}: the amount reads "${r.value} brief" — value, one no-break space, the mark; no "·"`, () => {
+    it(`${r.factorId}: the amount reads "${r.value}" and its "brief" mark is on the card’s bottom row; no "·"`, () => {
       const { container } = renderOption(PRICING, HYBRID)
       const { dd, mark, source } = hybridRow(container, r.factorId)
       expect(changeRowValueText(dd)).toBe(r.value)
-      // RE-PINNED (vision I, 23 Oct: "a glyph before each figure"): the whole visible amount is the from, the arrow,
-      // then the mark (a glyph, no visible text) glued to the target by one U+00A0 — no "·" anywhere.
-      expect(visibleText(dd)).toBe(r.value.replace('→ ', '→ \u00A0'))
+      // RE-PINNED (Paul, 27 Oct: a card's icons sit on its bottom row only): the whole visible amount is the from, the
+      // arrow and the target — no mark and no U+00A0 glue in the row (was vision I, 23 Oct: the mark glued before the
+      // target) — and no "·" anywhere.
+      expect(visibleText(dd)).toBe(r.value)
       expect(visibleText(dd)).not.toContain('·')
-      // The mark cluster holds the source mark and nothing else — no separator span — and it sits in the row.
+      // The row's mark cluster is left empty; the source mark itself is in the band, not in the row.
       expect(source.getAttribute('aria-label')).toContain('From your brief')
-      expect(mark.children).toHaveLength(1)
-      expect(mark.contains(source)).toBe(true)
-      expect(dd.contains(source)).toBe(true)
-      expect(onCard(container, `option-bottom-marks-${HYBRID}`)?.contains(source) ?? false).toBe(false)
+      expect(mark.children).toHaveLength(0)
+      expect(mark.contains(source)).toBe(false)
+      expect(dd.contains(source)).toBe(false)
+      expect(onCard(container, `option-bottom-marks-${HYBRID}`)?.contains(source) ?? false).toBe(true)
       expect(source.getAttribute('data-value-source')).toBe('brief')
     })
   }

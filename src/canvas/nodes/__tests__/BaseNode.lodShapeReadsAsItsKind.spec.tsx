@@ -196,11 +196,13 @@ describe('WS1 #25 — a far-zoom card is a white chip with its name and its kind
     expect(title.className).toMatch(/\bline-clamp-2\b/)
   })
 
-  it('CONTRAST — the FULL-rung title is never clamped (WS1 #2) and not the far chip', () => {
+  // Paul, 27 Oct 2026: no card title runs past two lines (replaces WS1 #2's "never clamp at a reading rung"); the
+  // whole title stays in the card's hover pop-up.
+  it('CONTRAST — the FULL-rung title clamps at two lines (Paul, 27 Oct) and is not the far chip', () => {
     const { container } = renderFactorAt('full', { label: 'Churn' })
     const title = titleOf(container)
     expect(title.getAttribute('data-lod-far-title')).toBeNull()
-    expect(title.className).not.toMatch(/line-clamp/)
+    expect(title.className.match(/\bline-clamp-\d+\b/g)).toEqual(['line-clamp-2'])
     expect(title.className).not.toContain('--canvas-far-title-scale')
   })
 

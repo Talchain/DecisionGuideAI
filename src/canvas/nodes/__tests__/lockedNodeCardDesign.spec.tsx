@@ -534,8 +534,9 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
     expect(changeRowValueText(cardRows('opt-raise').getByTestId('option-change-row-opt-raise-fac-price'))).toContain('£49 → £59')
   })
 
-  // RE-PINNED (vision I, 23 Oct: "a glyph before each figure"; supersedes the 14 Oct one merged sparkle for rows).
-  it('Olumi-chosen targets stay marked (each its own mark before its figure, none merged in the band); a user-set one is not — the brief row keeps its own mark', () => {
+  // RE-PINNED (Paul, 27 Oct 2026: a card's icons sit on its bottom row only; supersedes vision I's "a glyph before each
+  // figure", 23 Oct). Each target keeps its OWN mark — now on the bottom row, never in its row — and none is merged.
+  it('Olumi-chosen targets stay marked (each its own mark on the bottom row, none merged); a user-set one is not — the brief row keeps its own mark', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
     // fac-conv and fac-seats are both Olumi's (`cee_hypothesis`): each row carries its own estimate mark; no merged count.
@@ -543,17 +544,19 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
     expect(raiseBand.queryByTestId('node-olumi-mark')).toBeNull()
     for (const fid of ['fac-conv', 'fac-seats']) {
       const est = screen.getByTestId(`option-change-row-estimate-opt-raise-${fid}`)
-      expect(raiseBand.queryByTestId(`option-change-row-estimate-opt-raise-${fid}`)).toBeNull()
-      expect(screen.getByTestId(`option-change-row-opt-raise-${fid}`).contains(est)).toBe(true)
+      expect(raiseBand.queryByTestId(`option-change-row-estimate-opt-raise-${fid}`)).toBe(est)
+      expect(screen.getByTestId(`option-change-row-opt-raise-${fid}`).contains(est)).toBe(false)
     }
-    // Truth stays on the card: the price row carries its own `brief` mark, in the row.
+    // Truth stays on the card: the price row's own `brief` mark, on the bottom row.
     const price = screen.getByTestId('option-change-row-source-opt-raise-fac-price')
     expect(price.getAttribute('data-value-source')).toBe('brief')
-    expect(screen.getByTestId('option-change-row-opt-raise-fac-price').contains(price)).toBe(true)
+    expect(raiseBand.queryByTestId('option-change-row-source-opt-raise-fac-price')).toBe(price)
+    expect(screen.getByTestId('option-change-row-opt-raise-fac-price').contains(price)).toBe(false)
     cleanup()
     renderCard(OptionNode as never, 'opt-bundle')
-    // Positive control: the user-set row IS on the face, marked as the user's.
-    expect(screen.getByTestId('option-change-row-opt-bundle-fac-seats').querySelector('[data-testid="option-change-row-source-opt-bundle-fac-seats"]')?.getAttribute('data-value-source')).toBe('you')
+    // Positive control: the user-set row IS on the face, marked as the user's (its mark on the bottom row).
+    expect(screen.getByTestId('option-change-row-opt-bundle-fac-seats')).toBeTruthy()
+    expect(screen.getByTestId('option-bottom-marks-opt-bundle').querySelector('[data-testid="option-change-row-source-opt-bundle-fac-seats"]')?.getAttribute('data-value-source')).toBe('you')
     expect(screen.queryByTestId('option-change-row-estimate-opt-bundle-fac-seats')).toBeNull()
   })
 

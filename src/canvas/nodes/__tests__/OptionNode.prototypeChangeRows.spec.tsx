@@ -284,14 +284,15 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       expect(t.has('line-clamp-1')).toBe(false)
     })
 
-    // RE-PINNED (vision I, 23 Oct: "a glyph before each figure"): the source mark leads its target in the row (was: the band).
-    it('`from → to` is never inside a truncating element, and the source mark leads its target in the row', () => {
+    // RE-PINNED (Paul, 27 Oct): a card's icons sit on its bottom row only — the source mark is in the band, not the row
+    // (was vision I, 23 Oct: it led its target in the row).
+    it('`from → to` is never inside a truncating element, and the source mark sits on the card’s bottom row', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-conv')!
       const mark = onCard('option-change-row-estimate-option-1-f-conv')!
-      expect(dd.contains(mark)).toBe(true)
-      expect(onCard('option-bottom-marks-option-1')?.contains(mark) ?? false).toBe(false)
-      expect(mark.compareDocumentPosition(onCard('option-change-row-target-option-1-f-conv')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(dd.contains(mark)).toBe(false)
+      expect(onCard('option-bottom-marks-option-1')?.contains(mark) ?? false).toBe(true)
+      expect(dd.contains(onCard('option-change-row-target-option-1-f-conv')!)).toBe(true)
       expect(mark.querySelector('svg[data-icon="olumi-ai"]')).not.toBeNull()
       expect(changeRowValueText(dd).startsWith('→ 7%')).toBe(true)
       let el: HTMLElement | null = dd
@@ -302,7 +303,7 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
         }
         el = el.parentElement
       }
-      // The label is BEFORE the value, the mark AFTER it — never between them.
+      // The label is BEFORE the value.
       const dt = dd.previousElementSibling as HTMLElement
       expect(follows(dt, dd)).toBe(true)
     })

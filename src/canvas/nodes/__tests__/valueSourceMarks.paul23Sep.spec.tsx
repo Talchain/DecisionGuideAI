@@ -167,12 +167,17 @@ const renderNode = (Comp: unknown, id: string) => {
 }
 
 /** The factor's value-source mark in the card's single bottom band. */
-function factorValueMark(container: HTMLElement): string | null {
+function factorValueMark(container: HTMLElement, id: string): string | null {
   const line = container.querySelector('[data-testid="factor-recorded-value"]')
   if (!line) return 'NO-VALUE-LINE'
-  // Vision spec §2a (23 Oct): the value's author glyph leads the figure IN its value line (it was the band's icon).
-  if (line.querySelector('[data-testid="estimate-marker"]')) return 'olumi'
-  const m = line.querySelector('[data-value-source]')
+  // Paul, 27 Oct 2026: a card's icons sit on its bottom row only. The value's author glyph (it led the figure in its
+  // value line, vision §2a 23 Oct) is now in THIS card's bottom band, and never in the value line.
+  if (line.querySelector('[data-testid="estimate-marker"], [data-value-source]')) return 'MARK-IN-VALUE-LINE'
+  const band = container.querySelector(`[data-testid="factor-bottom-marks-${id}"]`)
+  if (!band) return 'NO-BAND'
+  const est = band.querySelectorAll('[data-testid="estimate-marker"]')
+  const m = band.querySelector(`[data-testid="factor-value-source-${id}"]`)
+  if (est.length > 0) return est.length === 1 && m === null ? 'olumi' : 'MORE-THAN-ONE-VALUE-MARK'
   return m ? m.getAttribute('data-value-source') : null
 }
 
@@ -199,7 +204,7 @@ describe('Paul 23 Sep point 1 — every factor value names its source on the fac
       ])('%s → %s', (id, expected) => {
         setState({ viewMode: view })
         const { container } = renderNode(FactorNode, id)
-        expect(factorValueMark(container)).toBe(expected)
+        expect(factorValueMark(container, id)).toBe(expected)
       })
     })
   }
@@ -207,13 +212,16 @@ describe('Paul 23 Sep point 1 — every factor value names its source on the fac
   it('the user-edit window (old Olumi source, withdrawn extractionType) reads "no source" — never est., never you, never unmarked (Codex #1919 5802926467)', () => {
     setState()
     const { container } = renderNode(FactorNode, 'fac-edit-window')
-    expect(factorValueMark(container)).toBe('unknown')
+    expect(factorValueMark(container, 'fac-edit-window')).toBe('unknown')
   })
 
   it('the mark is a visible token with an accessible name, not colour alone', () => {
     setState()
     const { container } = renderNode(FactorNode, 'fac-confirmed')
-    const m = container.querySelector('[data-testid="factor-recorded-value"] [data-value-source="you"]')!
+    // Paul, 27 Oct: the mark is on this card's bottom row, not in the value line.
+    const m = container.querySelector('[data-testid="factor-bottom-marks-fac-confirmed"] [data-testid="factor-value-source-fac-confirmed"]')!
+    expect(m.getAttribute('data-value-source')).toBe('you')
+    expect(container.querySelector('[data-testid="factor-recorded-value"]')!.contains(m)).toBe(false)
     // Contract v3.1 `prov('user')` (DESIGN-GAP-v31 #21): a person's value is the
     // PERSON GLYPH (was the word "you") — still a shape, never colour alone.
     expect(m.querySelector('[aria-hidden="true"][data-source-glyph="person"]')).not.toBeNull()
@@ -259,9 +267,15 @@ describe('Paul 23 Sep point 7 — an option change row says where its TARGET cam
     // The rows are ON THE CARD at rest (Paul 25 Sep, the prototype) — read THERE.
     const dd = optionCardRows(opt).querySelector(`[data-testid="option-change-row-${opt}-${fid}"]`)
     if (!dd) return 'NO-ROW'
-    // Vision I (23 Oct): the target's mark leads its figure IN the row (was: the card's bottom band).
-    if (dd.querySelector(`[data-testid="option-change-row-estimate-${opt}-${fid}"]`)) return 'olumi'
-    const m = dd.querySelector(`[data-testid="option-change-row-source-${opt}-${fid}"]`)
+    // Paul, 27 Oct 2026: a card's icons sit on its bottom row only. The target's mark (it led its figure in the row,
+    // vision I 23 Oct) is in THIS card's bottom band, and never in the row.
+    const est = `[data-testid="option-change-row-estimate-${opt}-${fid}"]`
+    const src = `[data-testid="option-change-row-source-${opt}-${fid}"]`
+    if (dd.querySelector(est) || dd.querySelector(src)) return 'MARK-IN-ROW'
+    const band = document.querySelector(`[data-testid="option-bottom-marks-${opt}"]`)
+    if (!band) return 'NO-BAND'
+    if (band.querySelector(est)) return 'olumi'
+    const m = band.querySelector(src)
     return m ? m.getAttribute('data-value-source') : null
   }
 
