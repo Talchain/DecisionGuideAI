@@ -7,6 +7,7 @@
 import { useMemo } from 'react'
 
 import { useSavedGraph, useSavedGraphRead } from './savedGraph'
+import { useCanvasStore } from '../../store'
 import { formatNumber } from '../../utils/formatValueWithUnit'
 import { unitWords } from '../../../utils/unitClassifier'
 import type { ValueProvenanceKind } from '../../domain/valueProvenance'
@@ -30,13 +31,24 @@ export function useSavedModelIsProgram(): boolean {
  * Whether the saved model on screen is a program, saying when that is not known: `unknown` while its read is pending
  * (a saved scenario with no saved hash yet included) or after it failed. With no read to make (off the core lane, or no
  * saved scenario) no program is on screen.
+ * A scenario a read has shown to be a program stays one while a later read of it is pending or failed: every program turn
+ * moves the saved hash and reads again, and the board must not fall back to the legacy surfaces in that window (or for
+ * good when the re-read fails or its hash does not match). Only a read that answers decides otherwise.
  */
 export function useSavedModelProgramState(): 'program' | 'not_program' | 'unknown' {
   const read = useSavedGraphRead()
+  const scenarioId = useCanvasStore((s) => s.currentScenarioId)
   if (read.status === 'none') return 'not_program'
-  if (read.status === 'read') return isProgramGraph(read.graph) ? 'program' : 'not_program'
-  return 'unknown'
+  if (read.status === 'read') {
+    const program = isProgramGraph(read.graph)
+    if (typeof scenarioId === 'string') answeredProgram.set(scenarioId, program)
+    return program ? 'program' : 'not_program'
+  }
+  return typeof scenarioId === 'string' && answeredProgram.get(scenarioId) === true ? 'program' : 'unknown'
 }
+
+/** The last answered read's verdict per scenario, as `answeredCore` keeps it (savedModelIsCore.ts). */
+const answeredProgram = new Map<string, boolean>()
 
 /** The canonical coefficient behind one program link, in its natural units, as the read states it. */
 export interface ProgramCoefficient {

@@ -163,7 +163,7 @@ import { ResultsBody } from '../../components/results/ResultsBody'
 import { staleReasonFromTrustSemantic } from '../../components/results/analysisNew/staleReason'
 import { AnalysisNewTabBody } from '../../components/results/analysisNew/AnalysisNewTabBody'
 import { useViewOnlyRunChances, ViewOnlyRunChancesBlock } from '../../components/results/analysisNew/ViewOnlyRunChances'
-import { useSavedModelIsProgram } from '../nodes/shared/savedModelProgram'
+import { useSavedModelProgramState } from '../nodes/shared/savedModelProgram'
 import { ViewComparisonPointer } from './model-tab/ViewComparisonPointer'
 import { SectionErrorBoundary } from './SectionErrorBoundary'
 import { useGuidanceStore, withOlumiReveal } from '../stores/guidanceStore'
@@ -813,8 +813,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // panel's place (its "Analyse anyway" included). Every other board keeps that panel unchanged.
   const viewOnlyChancesServed = useViewOnlyRunChances()
   // U2: the legacy goal-threshold modal and the results "how computed" card open only from ResultsBody, which a program
-  // board never mounts; they are not mounted there either.
-  const programBoardDock = useSavedModelIsProgram()
+  // board never mounts; they are not mounted there either. Only a board known not to be a program mounts the legacy
+  // surfaces: while its read is pending or failed a board may be one, and a known program stays one across re-reads.
+  const programBoardDock = useSavedModelProgramState() !== 'not_program'
   const viewOnlyChances = programBoardDock ? viewOnlyChancesServed : null
   // ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`): after the first Run, the footer's Re-analyse when the
   // model changed, otherwise the composer icon. Read once here for the composer; the bar reads the same predicate.

@@ -52,6 +52,7 @@ import { AlertTriangle, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useProgramBoardShowsResult, useViewOnlyRunChances, ViewOnlyRunChancesBlock } from './ViewOnlyRunChances'
 import { useSavedGraph } from '../../../canvas/nodes/shared/savedGraph'
+import { useSavedModelProgramState } from '../../../canvas/nodes/shared/savedModelProgram'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { openModelValueEditor } from '../../../canvas/nodes/shared/openModelValueEditor'
 import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
@@ -1522,8 +1523,13 @@ export function AnalysisNewTabBody({
   const showViewOnlyChances = viewOnlyChances !== null && !isBusyNow
   /** DL (23 Oct): on a program board showing that Run's result, the slot offers no "Run the analysis" (the host runs it). */
   const programShowsResult = useProgramBoardShowsResult()
+  /**
+   * U2, as the dock's Analysis slot does (OutputsDock): a board that may be a program (known one, or its read pending or
+   * failed) says CEE's served words here or nothing, never the legacy lines ("No analysis has run yet for this model.").
+   */
+  const programSaysOnlyServedWords = useSavedModelProgramState() !== 'not_program' && !showViewOnlyChances
   /** ⭐ V2 "Draft": the pre-run status block, mounted inside `PreRunCommitment`. */
-  const preRunStatus = vm.status.isPreRun ? (
+  const preRunStatus = vm.status.isPreRun && !programSaysOnlyServedWords ? (
       <div className="space-y-1" data-testid="analysis-new-status-pre-run">
         {showViewOnlyChances ? (
           <ViewOnlyRunChancesBlock chances={viewOnlyChances} />
