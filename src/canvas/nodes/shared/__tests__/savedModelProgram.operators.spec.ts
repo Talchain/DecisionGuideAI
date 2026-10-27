@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest'
 import board from './fixtures/ai-chat-launch-saved-20261027.json'
 import marketing from '../../../runView/__tests__/fixtures/accept3-marketing-r1-read.json'
-import { programCoefficientOf, programFigureWords, programFormulaWords, programLinkOperator } from '../savedModelProgram'
+import { programCoefficientOf, programFigureWords, programFormulaWords, programLinkDirectionUnsettled, programLinkOperator } from '../savedModelProgram'
 
 describe('a definition link says how its part enters the figure', () => {
   it.each([
@@ -77,5 +77,29 @@ describe('a coefficient added to a base reads as a change', () => {
   it('CONTRAST: a read with no relation keeps the multiplier reading (marketing, "×1.15 (0.5–2)")', () => {
     const c = programCoefficientOf(marketing.graph, 'baseline_conversion_rate__manager_conversion_rate')
     expect(c && programFigureWords(c)).toBe('×1.15 (0.5–2)')
+  })
+})
+
+// CEE #3859 (DL, 27 Oct): the projection adds `direction_settled: false` on a link whose range crosses zero, and
+// `effect_mode` on a risk's link. The board read predates #3859, so the fields are set here as CEE names them.
+describe('CEE #3859 link fields', () => {
+  type G = { edges: Array<Record<string, unknown>> }
+  const withEdge = (id: string, patch: Record<string, unknown>) => {
+    const copy = structuredClone(board) as unknown as G
+    Object.assign(copy.edges.find((e) => e.id === id)!, patch)
+    return copy
+  }
+  it('a range across zero: direction not settled', () => {
+    const g = withEdge('specialist_enabled__delivery_multiplier', { direction_settled: false })
+    expect(programLinkDirectionUnsettled(g, 'specialist_enabled', 'delivery_multiplier')).toBe(true)
+  })
+  it('CONTRAST: no flag, or another link, is settled', () => {
+    expect(programLinkDirectionUnsettled(board, 'specialist_enabled', 'delivery_multiplier')).toBe(false)
+    const g = withEdge('specialist_enabled__delivery_multiplier', { direction_settled: false })
+    expect(programLinkDirectionUnsettled(g, 'managed_service_enabled', 'delivery_multiplier')).toBe(false)
+  })
+  it('a multiplying risk draws ×; an adding one draws no operator (its sign is the link\'s own)', () => {
+    expect(programLinkOperator(withEdge('launch_rushed_testing__completed_tasks', { effect_mode: 'multiply' }), 'launch_rushed_testing', 'completed_tasks')).toBe('×')
+    expect(programLinkOperator(withEdge('launch_rushed_testing__completed_tasks', { effect_mode: 'add' }), 'launch_rushed_testing', 'completed_tasks')).toBeNull()
   })
 })

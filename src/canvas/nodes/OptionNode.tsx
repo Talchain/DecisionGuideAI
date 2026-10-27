@@ -2107,6 +2107,11 @@ export const OptionNode = memo((props: NodeProps) => {
    * source carries its own mark (Paul 23 Sep point 7: you / brief / Olumi / no source), so an unmarked target is never
    * left to be read as Olumi's; the mark's name and hover keep the words ("<factor> target: Olumi's estimate …").
    */
+  const startsWordsOf = (factorId: string): string | null => {
+    const iv = (props.data as { interventions?: Record<string, { from_period_display?: unknown }> } | undefined)?.interventions?.[factorId]
+    const words = typeof iv?.from_period_display === 'string' ? iv.from_period_display.trim() : ''
+    return words === '' ? null : words
+  }
   const renderTargetFigure = (r: OptionChangeRow, figure: string, holdWhole: boolean) => (
     <span className="whitespace-nowrap">
       <span
@@ -2133,6 +2138,10 @@ export const OptionNode = memo((props: NodeProps) => {
           {figure}
         </span>
       ))}
+      {/* CEE #3859: when the change starts (the option's start delay, folded onto this card), in CEE's own words. */}
+      {startsWordsOf(r.factorId) && (
+        <span className="text-text-light" data-testid={`option-change-row-starts-${props.id}-${r.factorId}`}>{` ${startsWordsOf(r.factorId)}`}</span>
+      )}
     </span>
   )
 

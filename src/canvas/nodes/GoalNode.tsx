@@ -889,6 +889,13 @@ export const GoalNode = memo((props: NodeProps) => {
   const goalOwnRowIsTheTarget = canCaptureTarget && goalOwnLimitRow(activeConstraints, props.id) !== null
   const noTargetDiagnostic = isPostAnalysis && !hasAnyProbability
   const noTargetChannels = goalNoTargetChannels({ diagnostic: noTargetDiagnostic })
+  // CEE #3859: an asked figure folded onto the card carries its question in the node's `user_questions`; the goal's
+  // missing target says what Olumi needs, on its hover (decision 2 A), never as card text.
+  const askedTargetQuestion = useMemo(() => {
+    const qs = (props.data as { user_questions?: unknown } | undefined)?.user_questions
+    const q = Array.isArray(qs) ? qs.find((x): x is string => typeof x === 'string' && x.trim() !== '') : undefined
+    return q?.trim() ?? null
+  }, [props.data])
   const targetSourceMark =
     targetLine !== null ? goalTargetSourceMark(props.data as GoalTargetSource) : null
   // ⛔ R1 S4-core: a change target is not edited as a level (the Model tab row is read-only for one, CEE refuses the
@@ -906,7 +913,7 @@ export const GoalNode = memo((props: NodeProps) => {
       ? goalTargetRouteChannels({ targetLine, sourceLabel: targetSourceMark?.label })
       : null
   const noTargetStatusChip = (
-    <BottomCardMark><Tooltip asChild content={`${GOAL_NO_TARGET_STATE} · Set a target`}><span className="inline-flex"><button
+    <BottomCardMark><Tooltip asChild content={askedTargetQuestion === null ? `${GOAL_NO_TARGET_STATE} · Set a target` : `${GOAL_NO_TARGET_STATE} · ${askedTargetQuestion}`}><span className="inline-flex"><button
       type="button"
       onClick={(e) => { e.stopPropagation(); setTargetEditorAnchor(e.currentTarget) }}
       onPointerDown={(e) => e.stopPropagation()}
