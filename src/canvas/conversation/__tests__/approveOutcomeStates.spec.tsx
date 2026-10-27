@@ -47,7 +47,9 @@ import { useServerConversationTurnsStore } from '../../stores/serverConversation
 import { buildSuggestedActionChips } from '../../../v5/blocks/suggestedActionChips'
 import { READ_FAILED_NOTICE, STALE_MODEL_NOTICE } from '../readAfterWrite'
 import { APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY } from '../deliveryUnknown'
-import { CORE_FINISHED_RELOADED_NOTICE, CORE_OUTCOME_UNKNOWN_NOTICE, CORE_STILL_FINISHING_NOTICE } from '../coreStillFinishing'
+import { CORE_OUTCOME_UNKNOWN_NOTICE, CORE_SAVED_REPLY_FAILED_NOTICE, CORE_STILL_FINISHING_NOTICE } from '../coreStillFinishing'
+/** The completion claim a merged recovery graph used to make (retired 27 Oct, C7): never shown. */
+const FINISHED = 'Olumi finished this. Your saved model is on the canvas.'
 import served from './fixtures/served-approve-outcomes-20261025.json'
 import capacityCard from './fixtures/served-card-capacity-leftout-20261025.json'
 
@@ -154,12 +156,30 @@ describe('(2) an approval answered by a 5xx says "press Try again" only when a T
     expect(notices()).not.toContain(APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY)
   })
 
+  it('🔴 C7: an approval CEE settled before any write (502, nothing_saved and retry_safe, no receipt) is a failure, never "unknown"', async () => {
+    await cardOnScreen()
+    turnAnswers.push(() => json(coreError({ code: 'UPSTREAM_ERROR', message: 'x', retry_safe: true, nothing_saved: true }), 502))
+    await pressApprove()
+    expect(notices()).not.toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
+    expect(notices()).not.toContain(APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY)
+    expect(notices()).not.toContain(CORE_SAVED_REPLY_FAILED_NOTICE)
+    expect(live!.lastSendFailure?.kind).toBe('server')
+  })
+
+  it('CONTRAST: nothing_saved with no resend licence (a turn still running has written nothing yet) stays unknown', async () => {
+    await cardOnScreen()
+    turnAnswers.push(() => json(coreError({ code: 'UPSTREAM_ERROR', message: 'x', retry_safe: false, nothing_saved: true }), 502))
+    await pressApprove()
+    expect(notices().some((n) => n === CORE_OUTCOME_UNKNOWN_NOTICE || n === APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY)).toBe(true)
+    expect(live!.lastSendFailure?.kind).toBe('delivery_unknown')
+  })
+
   it('🔴 C7: an approval saved before its reply failed (CEE 502 with the saved version’s receipt): "saved", never the unknown notice', async () => {
     await cardOnScreen()
     turnAnswers.push(() => json({ ...coreError({ code: 'UPSTREAM_ERROR', message: 'x', retry_safe: false, nothing_saved: false }),
       receipts: clone(served.receipt_approval.turn.receipts) }, 502))
     await pressApprove()
-    expect(notices()).toContain('Your model was saved, but the reply failed. Send a new message to continue.')
+    expect(notices()).toContain(CORE_SAVED_REPLY_FAILED_NOTICE)
     expect(notices()).not.toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
     expect(notices()).not.toContain(APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY)
   })
@@ -192,7 +212,7 @@ describe('(3) an approval whose re-send could not be settled never says "Olumi f
     await waitFor(() => expect(notices()).not.toContain(CORE_STILL_FINISHING_NOTICE), { timeout: 3000 })
     expect(turnPosts()).toHaveLength(3)
     expect(notices()).toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
-    expect(notices()).not.toContain(CORE_FINISHED_RELOADED_NOTICE)
+    expect(notices()).not.toContain(FINISHED)
   })
 
   it('🔴 the recovery read lists the card twice (no one card can be read): still the core unknown notice (Codex r1 on #2997)', async () => {
@@ -210,15 +230,30 @@ describe('(3) an approval whose re-send could not be settled never says "Olumi f
     await waitFor(() => expect(recover).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(notices()).not.toContain(CORE_STILL_FINISHING_NOTICE), { timeout: 3000 })
     expect(notices()).toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
-    expect(notices()).not.toContain(CORE_FINISHED_RELOADED_NOTICE)
+    expect(notices()).not.toContain(FINISHED)
   })
 
-  it('CONTRAST: a typed turn (no approval) recovered the same way keeps "Olumi finished this"', async () => {
+  it('🔴 C7: a typed turn recovered the same way says unknown too: a merged graph is not this turn finishing', async () => {
     await cardOnScreen()
     stillRunningThenUnknown()
     await act(async () => { await live!.sendMessage('Add staff absence as a factor.') })
     await waitFor(() => expect(recover).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(notices()).not.toContain(CORE_STILL_FINISHING_NOTICE), { timeout: 3000 })
-    expect(notices()).toContain(CORE_FINISHED_RELOADED_NOTICE)
+    expect(notices()).toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
+    expect(notices()).not.toContain(FINISHED)
+  })
+
+  it('CONTRAST: a replay answered with its own saved receipt (CEE 502 after its save) says saved, whatever the read', async () => {
+    await cardOnScreen()
+    turnAnswers.push(() => json(clone(served.still_running.body), served.still_running.status))
+    turnAnswers.push(() => json({ ...coreError({ code: 'UPSTREAM_ERROR', message: 'x', retry_safe: false, nothing_saved: false }),
+      receipts: clone(served.receipt_approval.turn.receipts) }, 502))
+    recover.mockReset()
+    recover.mockResolvedValue('recovered')
+    await act(async () => { await live!.sendMessage('Add staff absence as a factor.') })
+    await waitFor(() => expect(recover).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(notices()).not.toContain(CORE_STILL_FINISHING_NOTICE), { timeout: 3000 })
+    expect(notices()).toContain(CORE_SAVED_REPLY_FAILED_NOTICE)
+    expect(notices()).not.toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
   })
 })

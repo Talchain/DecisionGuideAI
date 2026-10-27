@@ -14,7 +14,7 @@ import { useConversation } from '../useConversation'
 import { useCanvasStore } from '../../store'
 import { useDraftStore } from '../../stores/draftStore'
 import { DRAFT_FAILED_MODEL_KEPT_NOTICE } from '../../components/DraftLoadingAnimation'
-import { CORE_STILL_FINISHING_NOTICE, CORE_FINISHED_RELOADED_NOTICE, STILL_FINISHING_REPLAY_DELAY_MS } from '../coreStillFinishing'
+import { CORE_STILL_FINISHING_NOTICE, CORE_OUTCOME_UNKNOWN_NOTICE, STILL_FINISHING_REPLAY_DELAY_MS } from '../coreStillFinishing'
 import wireFixture from './fixtures/cee-draft-goal-constraints-wire.json'
 
 const mockOpenStream = vi.fn()
@@ -207,7 +207,7 @@ describe('core: a 504 UPSTREAM_TIMEOUT stream end is an UNKNOWN outcome, not a f
     vi.useRealTimers()
   })
 
-  it('re-sends the SAME turn_id once, and on an unresolved re-send reads the saved model and says so', async () => {
+  it('re-sends the SAME turn_id once, and on an unresolved re-send reads the saved model and says the outcome is unknown', async () => {
     const result = await runCore(CORE_STREAM_BUDGET_TIMEOUT)
     expect(mockCallV5Turn).not.toHaveBeenCalled()
     await act(async () => { await vi.advanceTimersByTimeAsync(STILL_FINISHING_REPLAY_DELAY_MS + 50) })
@@ -217,7 +217,9 @@ describe('core: a 504 UPSTREAM_TIMEOUT stream end is an UNKNOWN outcome, not a f
     expect(turnIdOf(mockCallV5Turn.mock.calls[0])).not.toBeNull()
     expect(mockRecover).toHaveBeenCalledTimes(1)
     const texts = result.current.messages.map((m) => m.content)
-    expect(texts).toContain(CORE_FINISHED_RELOADED_NOTICE)
+    // C7 (27 Oct): the merged graph is not this turn finishing, so the outcome stays unknown.
+      expect(texts).toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
+      expect(texts.some((t) => t.includes('Olumi finished this'))).toBe(false)
     expect(texts).not.toContain(CORE_STILL_FINISHING_NOTICE)
     expect(result.current.messages.filter((m) => m.role === 'user')).toHaveLength(1)
     vi.useRealTimers()

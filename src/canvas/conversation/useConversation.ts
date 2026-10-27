@@ -197,7 +197,7 @@ import {
   isCoreStreamBudgetTimeout,
   STILL_FINISHING_REPLAY_DELAY_MS,
   CORE_STILL_FINISHING_NOTICE,
-  CORE_FINISHED_RELOADED_NOTICE,
+  CORE_SAVED_REPLY_FAILED_NOTICE,
   CORE_OUTCOME_UNKNOWN_NOTICE,
 } from './coreStillFinishing'
 import { readsBackBeforeResend, STREAM_LOSS_READ, waitBeforeStreamCloseReadback } from './streamCloseReadback'
@@ -5717,13 +5717,16 @@ export function useConversation(): UseConversationReturn {
           : null
         const httpStatus = v5Result.kind !== 'response' && 'http_status' in v5Result ? v5Result.http_status : undefined
         const httpServerFailure = typeof httpStatus === 'number' && httpStatus >= 500 && httpStatus < 600
-        // An approval press answered by a 5xx reached CEE, so its write may have committed: the outcome is UNKNOWN, never a
-        // "server" fault (VERIFIER REC-WRITE). The re-press is idempotent, so the retry stays offered.
-        const pressOutcomeUnknown = httpServerFailure && chipMeta?.id?.startsWith(CONSENT_CHIP_PREFIX) === true
         // The default `openai` mode is served by core too (CEE `laneModeFor`); a legacy turn never carries core's timeout body.
         const coreTurn = isOpenAiLane((v5Headers[AI_MODE_HEADER] ?? null) as AiComparisonMode | null)
         const errorBody = target.kind === 'typed_error' ? target.rawBody ?? target.boundaryError : undefined
         const coreError = coreTurn && isRecord(errorBody) ? errorBody : undefined
+        // CEE settled this turn before any write (C7): it says nothing was saved AND a resend is safe, with no saved receipt.
+        // `nothing_saved` alone is not that proof: a turn still running has written nothing yet, and is not resend-safe.
+        const settledNoWrite = coreError?.nothing_saved === true && coreError.retry_safe === true && coreError.save_outcome === undefined
+        // An approval press answered by a 5xx reached CEE, so its write may have committed: the outcome is UNKNOWN, never a
+        // "server" fault (VERIFIER REC-WRITE), unless CEE settled it before any write. The re-press is idempotent.
+        const pressOutcomeUnknown = httpServerFailure && chipMeta?.id?.startsWith(CONSENT_CHIP_PREFIX) === true && !settledNoWrite
         // A core turn past the stream budget is still running server-side: an UNKNOWN outcome, never a failure. Its one
         // re-send (same turn_id) either renders the answer or, when that too is unresolved, falls to a cold read.
         const stillFinishing = coreTurn && stillFinishingReplay === undefined && isCoreStreamBudgetTimeout(httpStatus, errorBody)
@@ -6601,7 +6604,7 @@ export function useConversation(): UseConversationReturn {
           }, STILL_FINISHING_REPLAY_DELAY_MS)
         } else if (replayUnresolved) {
           // The re-send could not settle it either (409 TURN_OUTCOME_UNKNOWN, a 503, another timeout): read what was saved.
-          const recovery = await recoverDraftFromServer({
+          await recoverDraftFromServer({
             scenarioId: scenarioIdAtDispatch,
             userId: v5UserId,
             accessToken: v5Identity.accessToken,
@@ -6609,10 +6612,10 @@ export function useConversation(): UseConversationReturn {
             signal: controller.signal,
             includeConversationTurns: true,
           })
-          // An approval never says it finished here: a merged graph does not show the approval was applied (DL, U-W2).
-          const approval = chipMeta?.id?.startsWith(CONSENT_CHIP_PREFIX) === true
+          // A merged graph shows a saved model was read, never that this turn finished (C7, 27 Oct): only the replayed
+          // answer's own saved receipt says it saved; otherwise the outcome stays unknown.
           updateMessage(stillFinishingReplay!.noticeId, {
-            content: recovery === 'recovered' && !approval ? CORE_FINISHED_RELOADED_NOTICE : CORE_OUTCOME_UNKNOWN_NOTICE,
+            content: coreError?.save_outcome === 'VERIFIED_SAVED' ? CORE_SAVED_REPLY_FAILED_NOTICE : CORE_OUTCOME_UNKNOWN_NOTICE,
           })
         } else if (streamedUnsettledCause === 'terminal_error_model_kept') {
           // ═══ F1 — the kept-model terminal error says ONE thing ═══════════
@@ -6695,7 +6698,7 @@ export function useConversation(): UseConversationReturn {
           } else if (target.ownershipRefusal !== undefined) {
             content = OWNERSHIP_REFUSAL_COPY[target.ownershipRefusal]
           } else if (coreError?.save_outcome === 'VERIFIED_SAVED') {
-            content = 'Your model was saved, but the reply failed. Send a new message to continue.'
+            content = CORE_SAVED_REPLY_FAILED_NOTICE
           } else if (coreError?.error === 'legacy_scenario') {
             // The core route refuses a scenario saved before the living model (CEE 409); no resend can change that (DL 22 Oct).
             content = LEGACY_SCENARIO_COPY

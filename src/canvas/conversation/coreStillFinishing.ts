@@ -23,5 +23,6 @@ export function isCoreStreamBudgetTimeout(httpStatus: number | undefined, body: 
 export const STILL_FINISHING_REPLAY_DELAY_MS = 3000
 
 export const CORE_STILL_FINISHING_NOTICE = 'Olumi is still finishing this. The answer will appear here.'
-export const CORE_FINISHED_RELOADED_NOTICE = 'Olumi finished this. Your saved model is on the canvas.'
+/** A failed core turn whose own receipt proves it saved (C7): the one saved outcome a failure can state. */
+export const CORE_SAVED_REPLY_FAILED_NOTICE = 'Your model was saved, but the reply failed. Send a new message to continue.'
 export const CORE_OUTCOME_UNKNOWN_NOTICE = "Olumi's answer couldn't be confirmed yet. Reload to see the current model before sending again."
