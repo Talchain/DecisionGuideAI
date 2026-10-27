@@ -614,7 +614,14 @@ export function SuggestedChips({
   // ⭐ ONE RERUN CONTROL (Paul, 7 Oct: "get rid of the pill inside the chat and just have the re-analyse button").
   // While the host shows (or defers to) a rerun control, a run chip is never a second one. Applied before the cap, so
   // it never costs another chip its slot.
-  const renderable = polished.filter((c) => isChipRenderable(c) && !(rerunOwnedByHost && isRunAnalysisAffordance(c)))
+  // ⭐ NO DEAD CONTROL ON A READING CARD (W4, Paul 27 Oct). The first draft is already saved and its reading card has no
+  // field to change, so "Change something first" only sent a canned sentence and spent a turn repeating the reply's own
+  // question. Hidden only when EVERY card this row offers is CEE's `reading: true`; a change card keeps it. Render-only:
+  // the wire and the reopen reader (`readServerHeldProposalOffers`, actions[1]) still carry it.
+  const rowCards = (bindable?.proposals ?? []).filter(p => chips.some(c => c.id === p.approve_action.id || c.id === p.review_action?.id))
+  const readingOnlyRow = rowCards.length > 0 && rowCards.every(p => p.reading)
+  const renderable = polished.filter((c) => isChipRenderable(c) && !(rerunOwnedByHost && isRunAnalysisAffordance(c))
+    && !(readingOnlyRow && c.id === 'agent-amend-proposal'))
   // GOAL-REACH guided path: the presses are matched by IDENTITY (press id === chip id), never by label, and keep CEE's
   // order. They are the method's own list (like a plan pick), so the cap applies only to the chips beside them.
   // The click carries CEE's own press parameters with the chip id (the wire action has no `parameters` slot).
