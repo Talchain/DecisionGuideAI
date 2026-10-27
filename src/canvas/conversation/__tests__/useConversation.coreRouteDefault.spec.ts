@@ -14,7 +14,7 @@ import real from '../../../v5/__tests__/fixtures/core-turn-r2-real.json'
 import r2Errors from '../../../v5/__tests__/fixtures/core-turn-r2-errors.json'
 import servedChatEdit from '../../../v5/__tests__/fixtures/core-turn-served-chat-edit.json'
 import { PROXY_TIMEOUT_UNKNOWN_COPY } from '../deliveryUnknown'
-import { CORE_STILL_FINISHING_NOTICE, CORE_FINISHED_RELOADED_NOTICE, STILL_FINISHING_REPLAY_DELAY_MS } from '../coreStillFinishing'
+import { CORE_STILL_FINISHING_NOTICE, CORE_OUTCOME_UNKNOWN_NOTICE, STILL_FINISHING_REPLAY_DELAY_MS } from '../coreStillFinishing'
 
 const mockOpenStream = vi.fn()
 vi.mock('../../../v5/streamedTurnTransport', async (importOriginal) => {
@@ -163,7 +163,7 @@ describe('⭐ staging default = core route, read only through the contract', () 
       expect(result.current.messages.find((m) => m.role === 'user')?.deliveryState).toBe('sent')
     })
 
-    it('⭐ its one re-send (same turn_id) meets 409 TURN_OUTCOME_UNKNOWN, so the saved model is read and the notice says so', async () => {
+    it('⭐ its one re-send (same turn_id) meets 409 TURN_OUTCOME_UNKNOWN, so the saved model is read and the outcome stays unknown', async () => {
       const { result, fetchStub } = await timedOutTurn()
       await act(async () => { await vi.advanceTimersByTimeAsync(STILL_FINISHING_REPLAY_DELAY_MS + 50) })
       await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
@@ -172,7 +172,9 @@ describe('⭐ staging default = core route, read only through the contract', () 
       expect(turnIdOf(resends[0][1])).toBe(turnIdOf({ body: JSON.stringify(mockOpenStream.mock.calls[0][0]) }))
       expect(mockRecover).toHaveBeenCalledTimes(1)
       const texts = result.current.messages.map((m) => m.content)
-      expect(texts).toContain(CORE_FINISHED_RELOADED_NOTICE)
+      // C7 (27 Oct): the merged graph is not this turn finishing, so the outcome stays unknown.
+      expect(texts).toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
+      expect(texts.some((t) => t.includes('Olumi finished this'))).toBe(false)
       expect(texts).not.toContain(CORE_STILL_FINISHING_NOTICE)
     })
   })

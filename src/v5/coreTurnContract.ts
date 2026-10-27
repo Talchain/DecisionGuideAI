@@ -58,9 +58,14 @@ export function parseCoreTurn(raw: unknown): CoreTurn | null {
 export const LEGACY_SCENARIO_COPY =
   'This scenario was built with an earlier version of Olumi. Start a new scenario to continue; this one stays here to read.'
 
-/** A failed core turn, in the envelope today's failure path reads (`error`, `detail`, `retry_safe`, `nothing_saved`). */
-export function coreTurnErrorBody(error: NonNullable<CoreTurn['error']>): Record<string, unknown> {
-  return { error: error.code, detail: error.message, retry_safe: error.retry_safe, nothing_saved: error.nothing_saved }
+/**
+ * A failed core turn, in the envelope today's failure path reads (`error`, `detail`, `retry_safe`, `nothing_saved`). A turn
+ * that saved before it failed carries each saved version's receipt (CEE C7), so it reads as `save_outcome: 'VERIFIED_SAVED'`
+ * with those receipts: a receipt is the one proof of a save, and `nothing_saved: false` alone proves nothing either way.
+ */
+export function coreTurnErrorBody(error: NonNullable<CoreTurn['error']>, receipts: CoreTurn['receipts'] = []): Record<string, unknown> {
+  return { error: error.code, detail: error.message, retry_safe: error.retry_safe, nothing_saved: error.nothing_saved,
+    ...(receipts.length > 0 ? { save_outcome: 'VERIFIED_SAVED', receipts } : {}) }
 }
 
 type GraphNode = { id?: unknown; label?: unknown; kind?: unknown }
