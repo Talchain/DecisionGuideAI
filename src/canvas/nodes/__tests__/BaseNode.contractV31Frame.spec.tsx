@@ -158,6 +158,10 @@ describe('vision spec — the frame is the kind hue, used solid', () => {
     expect(t.some((c) => c.includes('color-mix'))).toBe(false)
   })
 
+  it.each(KINDS)('%s: the frame is one EXISTING token class — no new colour', (kind) => {
+    expect(nodeColors[kind].frame).toMatch(/^border-[a-z]+(?:-[a-z]+)*$/)
+  })
+
   // Vision spec §3 (23 Oct): blue (info) means Olumi and nothing else, so the question card's frame is text-light grey.
   it('the question card wears a text-light frame, never an info-blue one', () => {
     const t = tokens(renderCard('decision').root)

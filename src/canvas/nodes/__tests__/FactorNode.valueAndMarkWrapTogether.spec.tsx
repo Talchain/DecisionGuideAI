@@ -143,9 +143,14 @@ describe('the value line holds the value; its author mark is on the bottom row (
         expect(rt.has(layout), `the value row is a ${layout} container`).toBe(false)
       }
       expect(rt.has('break-words'), 'a long value wraps inside the card').toBe(true)
-      const value = (c.editor ? row.querySelector(`[data-testid="node-value-editor-${ID}"]`) : row) as HTMLElement
+      // The row stays `nowrap`; the value's holder (the element after the emptied mark slot) re-opens its own spaces.
+      const slot = within(row).getByTestId(`factor-value-mark-slot-${ID}`)
+      const holder = [...row.children].find(el => el !== slot) as HTMLElement
+      const value = (c.editor ? holder.querySelector(`[data-testid="node-value-editor-${ID}"]`) : holder) as HTMLElement
       expect(value).not.toBeNull()
+      expect(tokens(value).has('whitespace-normal'), 'the value re-opens its own spaces').toBe(true)
       for (const cut of ['truncate', 'text-ellipsis', 'line-clamp-1']) expect(tokens(value).has(cut), cut).toBe(false)
+      expect(visibleText(value)).toBe('Moderate engineering allocation (2 of 4 engineers)')
       expect(visibleText(row)).toBe('Moderate engineering allocation (2 of 4 engineers)')
       const mark = within(card()).getByTestId('estimate-marker')
       expect(row.contains(mark), 'no icon on the value line').toBe(false)

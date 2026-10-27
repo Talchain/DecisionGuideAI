@@ -66,6 +66,25 @@ it.each((Object.keys(components) as (keyof typeof components)[]).flatMap(type =>
   expect(olumi.querySelector('img')).toHaveClass('olumi-glyph-ai')
   expect(olumi.querySelector('img')).toHaveAttribute('data-icon', 'olumi-brand-mark')
   expect(olumi.closest(`[data-testid="node-card-rail-marks-${type}"]`)).toHaveClass(type === 'goal' || type === 'decision' ? 'bottom-[6px]' : 'bottom-[5px]', 'right-[6px]')
+  // Codex r2 on #3040: EVERY drawn icon, tagged as a mark or not. Its homes are the bottom band and the bottom-right
+  // Olumi rail. Not icons: the card's type shape on its top edge (vision §2a, the kind's shape), and the rename pencils,
+  // invisible at rest (`EditPencilCue`, `opacity-0`, shown only on hovering the words they rename).
+  const card = screen.getByTestId('node-title').closest('[data-id], .group') as HTMLElement
+  const rail = olumi.closest(`[data-testid="node-card-rail-marks-${type}"]`) as HTMLElement
+  const stray = [...card.querySelectorAll('svg, img')].filter(el => !band.contains(el) && !rail.contains(el)
+    && !el.closest('[data-testid="node-type-glyph"]') && !el.closest('[data-testid$="-pencil"]'))
+  expect(stray.map(el => el.parentElement?.closest('[data-testid]')?.getAttribute('data-testid'))).toEqual([])
+  expect([...card.querySelectorAll('svg, img')].some(el => band.contains(el)), 'the probe sees the band\u2019s icons').toBe(true)
+})
+// Codex r2 on #3040: the description chevron is an icon too, so it sits on the bottom row; its click still toggles.
+it.each(Object.keys(components) as (keyof typeof components)[])('%s: the description chevron is on the bottom row and still expands', (type) => {
+  seed(type, { description: 'The person\u2019s own words about this.' })
+  const toggle = screen.getByTestId('node-description-toggle')
+  expect(screen.getByTestId(`${type}-bottom-marks-marks-${type}`).contains(toggle)).toBe(true)
+  expect(screen.getByTestId('node-header-row').contains(toggle)).toBe(false)
+  expect(toggle).toHaveAttribute('aria-label', 'Expand description')
+  fireEvent.click(toggle)
+  expect(screen.getByTestId('node-description-toggle')).toHaveAttribute('aria-label', 'Collapse description')
 })
 it.each([[.05, 'Very low', 1], [.3, 'Low', 2], [.5, 'Medium', 3], [.7, 'High', 4], [.95, 'Very high', 5]] as const)('factor %s: exact tier words explain the filled steps', (value, words, count) => {
   seed('factor', { provenance: 'ai_inferred', observedState: { value, raw_value: value, source: 'cee_inference', extractionType: 'inferred' } })

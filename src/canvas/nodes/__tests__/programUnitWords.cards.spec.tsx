@@ -90,6 +90,13 @@ async function card(id: string, Card: typeof FactorNode | typeof GoalNode = Fact
 /** The card's value line as read: the figure and unit. (Paul, 27 Oct 2026: its mark is on the card's bottom row now.) */
 const value = () => screen.getByTestId('factor-recorded-value').textContent
 const range = (id: string) => screen.getByTestId(`factor-stored-range-${id}`).textContent
+/** The value's mark, read from THIS card's bottom row by identity (Paul, 27 Oct: the mark left the value line). */
+const markWords = (id: string) => {
+  const band = screen.getByTestId(`factor-bottom-marks-${id}`)
+  const mark = band.querySelector(`[data-testid="factor-value-source-${id}"], [data-testid="estimate-marker"]`)
+  expect(screen.getByTestId('factor-recorded-value').contains(mark)).toBe(false)
+  return mark?.textContent?.trim() ?? null
+}
 
 beforeEach(() => {
   window.history.replaceState({}, '', '/#/canvas?ai=core-route')
@@ -102,6 +109,7 @@ describe('the dimensionless unit "1" prints no unit', () => {
     await openBoard(hiring)
     await card('new_developer_relative_output')
     expect(value()).toBe('0.55')
+    expect(markWords('new_developer_relative_output')).toBe('est.')
     expect(range('new_developer_relative_output')).toBe('Range: -0.2–1')
   })
 
@@ -109,12 +117,14 @@ describe('the dimensionless unit "1" prints no unit', () => {
     await openBoard(hiring)
     await card('baseline_productivity')
     expect(value()).toBe('1')
+    expect(markWords('baseline_productivity')).toBe('Fixed by how the model is built')
   })
 
   it('marketing ai_selected (0, unit "1", a switch) reads "0", not "0 1"', async () => {
     await openBoard(marketing)
     await card('ai_selected')
     expect(value()).toBe('0')
+    expect(markWords('ai_selected')).toBe('Fixed by how the model is built')
   })
 
   it('hiring goal increase_productivity (goal_threshold_unit "1"): the empty today slot has no "1" beside it', async () => {
@@ -130,12 +140,14 @@ describe('an underscored unit reads in words, and money per a thing takes the mo
     await openBoard(hiring)
     await card('tech_leads_added')
     expect(value()).toBe('0 tech lead')
+    expect(markWords('tech_leads_added')).toBe('Fixed by how the model is built')
   })
 
   it('hiring tech_lead_cost_per_hire (145,000 GBP/tech_lead, range 135,000–155,000): "£145,000 / tech lead" and its range', async () => {
     await openBoard(hiring)
     await card('tech_lead_cost_per_hire')
     expect(value()).toBe('£145,000 / tech lead')
+    expect(markWords('tech_lead_cost_per_hire')).toBe('Set by you')
     expect(range('tech_lead_cost_per_hire')).toBe('Range: £135,000–£155,000 / tech lead')
   })
 })
@@ -145,14 +157,17 @@ describe('CONTROL: a unit that is neither keeps its text, on the same boards', (
     await openBoard(hiring)
     await card('current_developers')
     expect(value()).toBe('6 developer')
+    expect(markWords('current_developers')).toBe('From your brief')
   })
 
   it('marketing manager_cost reads "£58,000" and baseline_conversion_rate reads "9%"', async () => {
     await openBoard(marketing)
     await card('manager_cost')
     expect(value()).toBe('£58,000')
+    expect(markWords('manager_cost')).toBe('Set by you')
     cleanup()
     await card('baseline_conversion_rate')
     expect(value()).toBe('9%')
+    expect(markWords('baseline_conversion_rate')).toBe('Set by you')
   })
 })

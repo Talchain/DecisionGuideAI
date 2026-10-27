@@ -174,12 +174,15 @@ describe('the reader\u2019s own limit reaches the card', () => {
  * reached the reader at ~5.9px at the landing zoom.
  */
 describe('the limit glyph is counter-scaled with its text (contract v3.1 ICON-11)', () => {
-  it('the Target glyph wears the 9px canvas glyph scale', async () => {
+  // Paul, 27 Oct: the glyph sits on the card's bottom row (once per card), in the marks' grey; the line keeps its words.
+  it('the Target glyph wears the 9px canvas glyph scale, on the bottom row, never blue', async () => {
     const { CANVAS_GLYPH_SIZE_CLASSES } = await import('../shared/canvasGlyphScale')
     renderWith([{ node_id: ID, operator: '<=', value: 4, unit: '%' }])
-    const glyph = line().querySelector('svg')
-    expect(glyph, 'the limit line lost its glyph').not.toBeNull()
-    const cls = (glyph!.getAttribute('class') ?? '').split(/\s+/)
+    expect(line().querySelector('svg'), 'no icon on the limit line').toBeNull()
+    const glyph = screen.getByTestId('factor-constraint-mark')
+    expect(glyph.closest(`[data-testid="outcome-bottom-marks-${ID}"]`), 'the glyph is on this card\u2019s bottom row').not.toBeNull()
+    const cls = (glyph.getAttribute('class') ?? '').split(/\s+/)
     for (const c of CANVAS_GLYPH_SIZE_CLASSES[9].split(' ')) expect(cls).toContain(c)
+    expect(cls).not.toContain('text-info')
   })
 })

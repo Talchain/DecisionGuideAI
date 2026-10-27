@@ -2836,8 +2836,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             a visible focus ring and the shared hover/focus Tooltip. The box
             (14 × scale + p-0.5) stays inside the title's line box at every
             scale, so the header height does not move. */}
+        {/* Paul, 27 Oct: a card's icons sit on its bottom row only, so the chevron draws there; its click is unchanged. */}
         {description && (
-          <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={isExpanded ? 'Collapse description' : 'Expand description'}>
+          <BottomCardMark><Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={isExpanded ? 'Collapse description' : 'Expand description'}>
             <button
               type="button"
               onClick={handleExpandToggle}
@@ -2852,7 +2853,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                 <ChevronDown size={14} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[14]} />
               )}
             </button>
-          </Tooltip>
+          </Tooltip></BottomCardMark>
         )}
       </div>
 
@@ -3003,13 +3004,12 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
               surfaces read as one idea rather than two. */}
           {showConstraintLines && (
             <div className="mt-1.5 space-y-0.5" data-testid="factor-constraint-lines">
+              {/* Paul, 27 Oct: the limit's target glyph sits on the bottom row, once per card, in the marks' neutral grey
+                  (blue is Olumi's alone); the lines keep their words. Declared = delivered (contract v3.1 ICON-11): the
+                  glyph carries `--canvas-label-scale`. */}
+              <BottomCardMark><Target size={9} data-testid="factor-constraint-mark" className={`text-text-light shrink-0 ${CANVAS_GLYPH_SIZE_CLASSES[9]}`} aria-hidden="true" /></BottomCardMark>
               {constraintLines.map((text, i) => (
                 <div key={i} className="flex items-start gap-1">
-                  {/* Declared = delivered (contract v3.1 ICON-11): the glyph
-                      carries `--canvas-label-scale` like the `edgeLabel` text
-                      beside it; a bare `size={9}` reached the user at ~5.9px
-                      at the landing zoom. */}
-                  <Target size={9} className={`text-info shrink-0 mt-[2px] ${CANVAS_GLYPH_SIZE_CLASSES[9]}`} aria-hidden="true" />
                   <span className={`${typography.edgeLabel} text-text-body`}>
                     {/* "Limit" names what the number IS. The formatter supplies
                         the operator, the unit and any "· Inferred limit"
