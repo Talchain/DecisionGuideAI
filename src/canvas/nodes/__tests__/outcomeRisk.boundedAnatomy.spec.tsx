@@ -242,9 +242,16 @@ describe('the primary line is ONE visual line; a value leads and is never the th
     expect(Array.from(readout.classList)).not.toEqual(expect.arrayContaining(['truncate']))
     expect(Array.from(readout.classList)).not.toContain('text-ellipsis')
     const mark = screen.getByTestId(markId)
-    expect(row.contains(mark)).toBe(false)
-    expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
-    expect(row.firstElementChild).toBe(readout)
+    if (kind === 'outcome') {
+      // Vision spec §2a (27 Oct): an outcome's author glyph leads its figure in the row, as a factor's does.
+      expect(row.firstElementChild).toBe(mark)
+      expect(mark.nextElementSibling).toBe(readout)
+      expect(mark.closest('[data-card-bottom-band]')).toBeNull()
+    } else {
+      expect(row.contains(mark)).toBe(false)
+      expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
+      expect(row.firstElementChild).toBe(readout)
+    }
   })
 
   it('⛔ a risk holding its own size never shows "not set" beside it — the sentence rides sr-only, title and popover', () => {

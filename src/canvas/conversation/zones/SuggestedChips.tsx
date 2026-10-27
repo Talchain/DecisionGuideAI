@@ -19,6 +19,7 @@
  */
 
 import { useState, useEffect, useId, useMemo, useRef } from 'react'
+import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import styles from '../Conversation.module.css'
@@ -49,10 +50,21 @@ import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
 import { cardMark, type CardMarkIcon } from '../../nodes/shared/cardMarks'
 import { scrollWithinThread } from '../hooks/threadScroll'
 
+/** Olumi's row on the review card: the Olumi mark, its words on hover and in its name (Paul 24 Oct: no default text). */
+function OlumiRowMark({ testId }: { testId: string }) {
+  return (
+    <span className="ml-1 inline-flex shrink-0 items-center self-center text-text-light" data-testid={testId} title={OLUMI_CHANGE_MARK}>
+      <OlumiAiIcon size={12} aria-hidden="true" />
+      <span className="sr-only">{` · ${OLUMI_CHANGE_MARK}`}</span>
+    </span>
+  )
+}
+
 /**
  * Under an approve this card cannot offer: part of its change list could not be read, so approving would apply more than
  * it shows. The remedy is the card's own "Change something first", which asks Olumi to offer the change again.
  */
+
 export const CHANGE_LIST_UNREAD = 'Part of this change couldn’t be shown, so it can’t be approved here. Choose “Change something first” to have Olumi offer it again.'
 
 /** The heading over a held card's other changes, read before its approve. */
@@ -85,7 +97,7 @@ function ReadingChangeRow({ change: c }: { change: ProposalChange }) {
       <button type="button" className="flex w-full min-w-0 text-left" onClick={() => setOpen((v) => !v)}
         aria-expanded={open} aria-controls={open ? detailId : undefined} data-testid={`proposal-change-open-${key}`}>
         <span className="truncate">{c.label}</span>
-        {changeIsOlumis(c) && <span className="shrink-0 whitespace-pre" data-testid={`proposal-change-olumi-${key}`}>{` · ${OLUMI_CHANGE_MARK}`}</span>}
+        {changeIsOlumis(c) && <OlumiRowMark testId={`proposal-change-olumi-${key}`} />}
       </button>
       {open && <p id={detailId} data-testid={`proposal-change-detail-${key}`}>{proposalChangeWords(c)}</p>}
     </li>
@@ -131,7 +143,7 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
       className={`${styles.reasoningPanelBody} ${changeIsOlumis(c) ? CHANGE_NOTE_SOURCE_CLASS.estimate : ''}`}
       data-testid={`proposal-change-${c.kind}:${c.id}`}>
       {proposalChangeWords(c)}
-      {changeIsOlumis(c) && <span data-testid={`proposal-change-olumi-${c.kind}:${c.id}`}>{` · ${OLUMI_CHANGE_MARK}`}</span>}
+      {changeIsOlumis(c) && <OlumiRowMark testId={`proposal-change-olumi-${c.kind}:${c.id}`} />}
     </li>
   )
   const detailsToggle = <button type="button" className={styles.inlineDisclosureToggle} onClick={() => setOpen((v) => !v)}

@@ -34,7 +34,8 @@ function rule(selector: string): Record<string, string> {
 
 describe('canvas toolbar icon colour (contract v3.1 CHR-7)', () => {
   it('POSITIVE CONTROL: the reader finds a rule known to exist, with its values', () => {
-    expect(rule('.iconButtonActive').color).toBe('var(--info)')
+    // Vision spec (22 Oct): blue means Olumi only, so the active tool is ink (was `var(--info)` under v3.1 CHR-7).
+    expect(rule('.iconButtonActive').color).toBe('var(--text-header)')
     expect(rule('.iconButton').width).toBe('29px')
   })
 
@@ -63,8 +64,10 @@ describe('canvas toolbar icon colour (contract v3.1 CHR-7)', () => {
     expect(rule('.menuItem').color).toBe('var(--text-body)')
   })
 
-  it('⛔ CONTRAST: info stays reserved for the active state — no resting or hover rule uses it for the glyph', () => {
+  it('⛔ CONTRAST: no toolbar rule uses info (blue means Olumi only), at rest, on hover or active', () => {
     expect(rule('.iconButton').color).not.toBe('var(--info)')
     expect(rule('.iconButton:hover').color).not.toBe('var(--info)')
+    expect(rule('.iconButtonActive').color).not.toBe('var(--info)')
+    expect(rule('.iconButtonActive').background).not.toContain('--info')
   })
 })

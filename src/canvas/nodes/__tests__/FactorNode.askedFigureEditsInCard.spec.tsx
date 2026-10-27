@@ -205,7 +205,7 @@ describe('an asked figure on a program graph', () => {
     expect(line.textContent).toBe('= —')
     expect(line).toHaveAttribute('tabindex', '0')
     expect(line).toHaveAttribute('aria-label', 'No figure yet. Worked out from Additional developers hired and Budget cost per additional developer')
-    expect(screen.getByTestId('outcome-recorded-value').textContent).not.toContain('Worked out from')
+    expect(screen.getByTestId('outcome-recorded-readout').textContent).not.toContain('Worked out from')
   })
 
   it('CONTRAST (Codex r1 on #3034): a board that is not a program keeps "Today: —" and CEE\'s words', async () => {

@@ -467,23 +467,6 @@ export const NodeQuickActions = memo(function NodeQuickActions({
       {/* ⭐ THE CARD'S ONE "ASK OLUMI" DOOR (vision spec §3, 23 Oct: one Olumi slot per card). The coaching icon no longer
           rests on every card; where the card has a coaching question it IS this door (same mark, its own question),
           otherwise the generic ask. At rest the card shows the Olumi badge only where Olumi has something here. */}
-      {coachingChip !== null && <NodeCoachingIcon nodeId={nodeId} chips={coaching} />}
-      {canAsk && coachingChip === null && (
-        <Tooltip asChild delay={300} content="Ask Olumi">
-          <button
-            type="button"
-            onClick={handleAsk}
-            onPointerDown={stopPointer}
-            className={BUTTON_CLASSES}
-            aria-label={`Ask Olumi about ${label}`}
-            data-testid={`node-action-ask-${nodeId}`}
-          >
-            {/* The Olumi AI icon (DS v5 §9.8; Paul 30 Sep) — the ONE "Ask Olumi" glyph, the SAME mark as the rail's
-                coaching door (`COACHING_ICON_GLYPH`), so one act never wears two glyphs. */}
-            <COACHING_ICON_GLYPH.Icon size={NODE_RAIL_AI_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_AI_GLYPH_CLASSES} />
-          </button>
-        </Tooltip>
-      )}
       {/* ⭐ THE GENERATIVE PEER OF THE ASK. Second, not last: it sits beside
           "Ask Olumi about this" because the two are the same kind of act — a
           question to the model about THIS element — and the overflow keeps its
@@ -551,6 +534,27 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           <MoreHorizontal size={NODE_RAIL_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
         </button>
       </Tooltip>
+    </div>
+    {/* Paul, 24 Oct: the Olumi mark rests in the card's bottom-right corner, and a click puts a prompt about THIS card
+        into the chat. It is the one door that stays visible; Challenge and More still show on selection or focus. */}
+    <div className={`flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-auto`} data-testid={`node-olumi-door-${nodeId}`}>
+      {coachingChip !== null && <NodeCoachingIcon nodeId={nodeId} chips={coaching} />}
+      {canAsk && coachingChip === null && (
+        <Tooltip asChild delay={300} content="Ask Olumi">
+          <button
+            type="button"
+            onClick={handleAsk}
+            onPointerDown={stopPointer}
+            className={BUTTON_CLASSES}
+            aria-label={`Ask Olumi about ${label}`}
+            data-testid={`node-action-ask-${nodeId}`}
+          >
+            {/* The Olumi AI icon (DS v5 §9.8; Paul 30 Sep) — the ONE "Ask Olumi" glyph, the SAME mark as the rail's
+                coaching door (`COACHING_ICON_GLYPH`), so one act never wears two glyphs. */}
+            <COACHING_ICON_GLYPH.Icon size={NODE_RAIL_AI_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_AI_GLYPH_CLASSES} />
+          </button>
+        </Tooltip>
+      )}
     </div>
     {restingIcons && (
       <div

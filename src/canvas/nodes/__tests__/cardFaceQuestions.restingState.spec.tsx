@@ -153,8 +153,10 @@ const expectRestingQuestion = (nodeId: string, label: string, chipId: string) =>
   expect(screen.queryByText(label)).toBeNull()
   // …present as the card's ONE "Ask Olumi" door, in the card's actions (vision spec §3, 23 Oct: one Olumi slot per
   // card — the coaching icon no longer rests on every card; its question is the actions' Olumi door).
-  const actions = screen.getByTestId(`node-quick-actions-${nodeId}`)
-  const icon = within(actions).getByTestId(`node-coaching-icon-${nodeId}`)
+  // Paul 24 Oct: the door rests in the card's bottom-right corner, visible without a hover, beside the hover actions.
+  const door = screen.getByTestId(`node-olumi-door-${nodeId}`)
+  const icon = within(door).getByTestId(`node-coaching-icon-${nodeId}`)
+  expect(within(screen.getByTestId(`node-quick-actions-${nodeId}`)).queryByTestId(`node-coaching-icon-${nodeId}`)).toBeNull()
   // One glyph, one meaning (canvas audit item 4): the Olumi mark's label says it asks Olumi.
   expect(icon).toHaveAccessibleName(`Ask Olumi: ${label}`)
   expect(icon).toHaveAttribute('data-coaching-chip-id', chipId)

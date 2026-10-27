@@ -91,7 +91,11 @@ describe('a reading card row from CEE #3799', () => {
     await mount()
     openAll()
     expect(line(OLUMIS).textContent).toBe(`${OLUMIS.label} · ${OLUMI_CHANGE_MARK}`)
-    expect(screen.getByTestId(`proposal-change-olumi-${keyOf(OLUMIS)}`)).toBeTruthy()
+    const mark = screen.getByTestId(`proposal-change-olumi-${keyOf(OLUMIS)}`)
+    // Paul 24 Oct (no default text): the row draws the Olumi mark; its words are its hover and accessible name only.
+    expect(mark.querySelector('svg')).not.toBeNull()
+    expect(mark.getAttribute('title')).toBe(OLUMI_CHANGE_MARK)
+    expect(mark.querySelector('.sr-only')?.textContent).toBe(` · ${OLUMI_CHANGE_MARK}`)
     expect(row(OLUMIS).className).toContain(ESTIMATE_STYLE)
   })
 })

@@ -1,7 +1,7 @@
 /**
  * Decision 8 A (Paul, 26 Oct 2026): a definition link carries + − × ÷ and a worked-out card's formula shows on hover,
  * read from the canonical relation that defines the figure. And a coefficient the effect relation ADDS to a base is a
- * change of that size, never "×": Paul's board (27 Oct) read "about ×0.5" for a +0.5 proportional pace change.
+ * change of that size, never "×": Paul's board (27 Oct) read "×0.5" for a +0.5 proportional pace change.
  *
  * The fixture is that board's saved read from staging (scenario bb169869, 27 Oct), as served.
  */
@@ -70,12 +70,12 @@ describe('a worked-out figure’s formula, in its parts’ labels', () => {
 })
 
 describe('a coefficient added to a base reads as a change', () => {
-  it('Paul’s board: "about +0.5 (-0.2–1.5)", never "×0.5"', () => {
+  it('Paul’s board: "+0.5 (-0.2–1.5)", never "×0.5"', () => {
     const c = programCoefficientOf(board, 'specialist_enabled__delivery_multiplier')
-    expect(c && programFigureWords(c)).toBe('about +0.5 (-0.2–1.5)')
+    expect(c && programFigureWords(c)).toBe('+0.5 (-0.2–1.5)')
   })
-  it('CONTRAST: a read with no relation keeps the multiplier reading (marketing, "about ×1.15 (0.5–2)")', () => {
+  it('CONTRAST: a read with no relation keeps the multiplier reading (marketing, "×1.15 (0.5–2)")', () => {
     const c = programCoefficientOf(marketing.graph, 'baseline_conversion_rate__manager_conversion_rate')
-    expect(c && programFigureWords(c)).toBe('about ×1.15 (0.5–2)')
+    expect(c && programFigureWords(c)).toBe('×1.15 (0.5–2)')
   })
 })

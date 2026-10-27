@@ -88,9 +88,9 @@ async function card(id: string, Card: typeof FactorNode | typeof OutcomeNode = F
 }
 /** The outcome's state line: its visible text, and its accessible name (where the words sit, Paul 24 Oct). */
 const outcomeLine = () => {
-  const line = screen.getByTestId('outcome-recorded-value')
-  const named = line.querySelector('[aria-label]')
-  return { text: line.textContent, name: named?.getAttribute('aria-label') ?? '' }
+  // The readout itself: the row also holds the author glyph before it (vision spec §2a), whose words are its own.
+  const readout = screen.getByTestId('outcome-recorded-readout')
+  return { text: readout.textContent, name: readout.getAttribute('aria-label') ?? '' }
 }
 
 beforeEach(() => {

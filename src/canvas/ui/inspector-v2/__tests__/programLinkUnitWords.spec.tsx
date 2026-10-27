@@ -5,9 +5,9 @@
  *   1. A coefficient the model works out (its node's `value_basis` is worked_out), or one with no value, gets no
  *      inspector field: hiring's developer link showed an empty "1/developer" field. As #2954 does for structure-fixed
  *      figures. The link beside it, whose coefficient is Olumi's estimate, keeps its field, seeded 0.15.
- *   2. A positive dimensionless coefficient (unit "1") is a multiplier: "about ×1.15 (0.5–2)", not
- *      "about +1.15 (0.5–2) 1". Every other unit keeps the signed form ("about +12 (3–35) %").
- *   3. A unit reads in words: "1/tech_lead" is "per tech lead" ("about +0.15 (-0.1–0.35) per tech lead").
+ *   2. A positive dimensionless coefficient (unit "1") is a multiplier: "×1.15 (0.5–2)", not
+ *      "+1.15 (0.5–2) 1". Every other unit keeps the signed form ("+12 (3–35) %").
+ *   3. A unit reads in words: "1/tech_lead" is "per tech lead" ("+0.15 (-0.1–0.35) per tech lead").
  * Display only: the field still sends the coefficient's own unit, and a non-program link keeps the β editor
  * (`programLinkValueEditor.spec.tsx` (b) and (g)).
  *
@@ -128,28 +128,28 @@ describe('1. a worked-out coefficient has no inspector field', () => {
 })
 
 describe('2. a positive dimensionless coefficient reads as a multiplier, with no bare "1"', () => {
-  it('marketing manager_conversion_multiplier (1.15, 0.5–2, unit "1") reads "about ×1.15 (0.5–2)"', async () => {
+  it('marketing manager_conversion_multiplier (1.15, 0.5–2, unit "1") reads "×1.15 (0.5–2)"', async () => {
     seed(marketing)
-    expect(await linkWords('baseline_conversion_rate__manager_conversion_rate')).toBe('about ×1.15 (0.5–2)')
+    expect(await linkWords('baseline_conversion_rate__manager_conversion_rate')).toBe('×1.15 (0.5–2)')
   })
 
-  it('marketing ai_conversion_multiplier (1, 0.3–2, unit "1") reads "about ×1 (0.3–2)", and its field shows no unit', async () => {
+  it('marketing ai_conversion_multiplier (1, 0.3–2, unit "1") reads "×1 (0.3–2)", and its field shows no unit', async () => {
     seed(marketing)
-    expect(await linkWords('baseline_conversion_rate__ai_conversion_rate')).toBe('about ×1 (0.3–2)')
+    expect(await linkWords('baseline_conversion_rate__ai_conversion_rate')).toBe('×1 (0.3–2)')
     render(panel('baseline_conversion_rate__ai_conversion_rate'))
     expect(((await screen.findByTestId('edge-program-coefficient-input')) as HTMLInputElement).value).toBe('1')
     expect(screen.queryByTestId('edge-program-coefficient-unit')).toBeNull()
   })
 
-  it('CONTROL: marketing manager_owner_time (12, 3–35, unit "%") keeps the signed form "about +12 (3–35) %"', async () => {
+  it('CONTROL: marketing manager_owner_time (12, 3–35, unit "%") keeps the signed form "+12 (3–35) %"', async () => {
     seed(marketing)
-    expect(await linkWords('manager_selected__owner_time')).toBe('about +12 (3–35) %')
+    expect(await linkWords('manager_selected__owner_time')).toBe('+12 (3–35) %')
   })
 })
 
 describe('3. a coefficient’s unit reads in words', () => {
-  it('hiring tech_lead_productivity_gain (0.15, -0.1–0.35, unit "1/tech_lead") reads "about +0.15 (-0.1–0.35) per tech lead"', async () => {
+  it('hiring tech_lead_productivity_gain (0.15, -0.1–0.35, unit "1/tech_lead") reads "+0.15 (-0.1–0.35) per tech lead"', async () => {
     seed(hiring)
-    expect(await linkWords('tech_leads_added__productivity')).toBe('about +0.15 (-0.1–0.35) per tech lead')
+    expect(await linkWords('tech_leads_added__productivity')).toBe('+0.15 (-0.1–0.35) per tech lead')
   })
 })

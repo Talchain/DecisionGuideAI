@@ -125,7 +125,7 @@ describe('a program link that holds by definition (decision 8)', () => {
     saved.graph = served.graph
     const d = draw(CAUSAL)
     expect(d.text).not.toContain('By definition')
-    expect(d.text).toContain('about +1.25 (0–3) order/week/%')
+    expect(d.text).toContain('+1.25 (0–3) order/week/%')
     expect(d.dash).not.toBe('')
   })
 
