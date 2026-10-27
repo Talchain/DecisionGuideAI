@@ -70,6 +70,12 @@ export interface InterventionValueInput {
    * words for the SAME value.
    */
   encoding_map?: unknown
+  /**
+   * The saved model on screen is a program (`living_model.model_program`, `isProgramGraph`): its values are figures in
+   * their own units, never the 0–1 model scale, so `value` IS the figure in `unit` and reads as the factor card reads
+   * its own figure ("1 tech lead"). Absent, today's model-scale chain.
+   */
+  naturalUnits?: boolean
 }
 
 export interface InterventionChangeInput {
@@ -87,6 +93,8 @@ export interface InterventionChangeInput {
   observedRawValue?: string | number | null
   /** CEE display_value for the TARGET intervention — verbatim wins. */
   targetDisplayValue?: string | null
+  /** As `InterventionValueInput.naturalUnits`: both ends are figures in their own units (a program board). */
+  naturalUnits?: boolean
 }
 
 export interface InterventionChange {
@@ -248,9 +256,12 @@ export function formatInterventionTargetText(chip: InterventionValueInput): stri
   // raw anchor exists, so anchor-less behaviour is unchanged.
   const effectiveUnit = chip.unit && !isSuppressedUnit(chip.unit) ? chip.unit : null
   const scaleBase = inferInterventionScaleBase(chip.cap ?? null, chip.observedValue, chip.observedRawValue)
-  if (modelValueWouldWearARealUnit(chip, effectiveUnit, scaleBase)) return ''
-  let rawValue: number | string | null = null
-  if (effectiveUnit && scaleBase != null && scaleBase > 1) {
+  // On a program board the value is the figure itself (`naturalUnits`), so it is never a model-scale number and is read
+  // as its own raw value: "Hire a tech lead" read "Increases" where "Hire two developers" read "0 → 2 developer"
+  // (Paul's test 27 Oct), only because 1 sits inside the model's 0–1 range.
+  if (!chip.naturalUnits && modelValueWouldWearARealUnit(chip, effectiveUnit, scaleBase)) return ''
+  let rawValue: number | string | null = chip.naturalUnits ? chip.value : null
+  if (!chip.naturalUnits && effectiveUnit && scaleBase != null && scaleBase > 1) {
     const raw = denormaliseInterventionValue(chip.value, chip.cap ?? null, chip.observedValue, chip.observedRawValue)
     // Clean float-precision artefacts: count/headcount units render as whole
     // numbers; other units keep ≤2 decimals. Display-only.
@@ -370,6 +381,7 @@ export function formatInterventionChange(input: InterventionChangeInput): Interv
     cap: input.cap ?? undefined,
     observedValue: input.observedValue ?? undefined,
     observedRawValue: input.observedRawValue ?? undefined,
+    ...(input.naturalUnits ? { naturalUnits: true } : {}),
   }
 
   // "No change" ONLY on exact equality of known values. Unknown baseline can

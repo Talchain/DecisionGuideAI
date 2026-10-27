@@ -251,6 +251,8 @@ export interface FactorContext {
    * formatting.
    */
   factorData?: Record<string, unknown> | null
+  /** The saved model is a program: the target is a figure in its own unit (`InterventionValueInput.naturalUnits`). */
+  naturalUnits?: boolean
 }
 
 export interface OptionChangeRow {
@@ -475,6 +477,7 @@ export function buildOptionChangeRow({
     // `formatTarget` below resolves BOTH ends through it, not just whichever
     // side happens to go through the current-value branch.
     encoding_map: (factor.factorData as Record<string, unknown> | null | undefined)?.encoding_map,
+    ...(factor.naturalUnits ? { naturalUnits: true } : {}),
   }
   // At rest a tier reading sheds its parenthesised internal-scale number
   // ("Very high (0.9)" → "Very high"), exactly as a factor's resting value does
@@ -557,6 +560,7 @@ export function buildOptionChangeRow({
       cap: factor.cap,
       observedValue: factor.observedValue,
       observedRawValue: factor.observedRawValue,
+      ...(factor.naturalUnits ? { naturalUnits: true } : {}),
     })
     if (change.changed && change.baselineText) {
       fromFull = unitless(change.baselineText)

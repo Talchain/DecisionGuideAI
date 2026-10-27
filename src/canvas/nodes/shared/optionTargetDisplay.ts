@@ -189,12 +189,14 @@ export function buildOptionNeedsInputTargetRow({
 }
 
 /**
- * The factor half of a change row, using the same target frame as both editors.
+ * The factor half of a change row, using the same target frame as both editors. `naturalUnits`: the saved model on
+ * screen is a program, so the target is a figure in its own unit (`InterventionValueInput.naturalUnits`).
  */
 export function optionFactorContext(
   factorNode: TargetNodeLike | undefined,
   factorId: string,
   intervention?: unknown,
+  naturalUnits = false,
 ): FactorContext {
   const obs = factorNode?.data?.observedState as { factor_type?: string } | undefined
   return {
@@ -202,6 +204,7 @@ export function optionFactorContext(
     ...resolveOptionTargetDisplayFrame(factorNode?.data, intervention),
     factorType: obs?.factor_type,
     factorData: factorNode?.data ?? null,
+    ...(naturalUnits ? { naturalUnits: true } : {}),
   }
 }
 
@@ -259,17 +262,20 @@ export function buildOptionTargetRow({
   target,
   factorNode,
   baselineReference,
+  naturalUnits = false,
 }: {
   factorId: string
   target: OptionTargetLike
   factorNode: TargetNodeLike | undefined
   baselineReference: BaselineOptionReference | null
+  /** The saved model on screen is a program (`useSavedModelProgramState() === 'program'`). */
+  naturalUnits?: boolean
 }): OptionChangeRow {
   const ref = baselineReference?.values[factorId]
   return buildOptionChangeRow({
     factorId,
     target,
-    factor: optionFactorContext(factorNode, factorId, target),
+    factor: optionFactorContext(factorNode, factorId, target, naturalUnits),
     baselineOptionTarget: ref && ref.value != null
       ? { value: ref.value, displayValue: ref.displayValue ?? null }
       : null,
