@@ -154,6 +154,16 @@ describe('(2) an approval answered by a 5xx says "press Try again" only when a T
     expect(notices()).not.toContain(APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY)
   })
 
+  it('🔴 C7: an approval saved before its reply failed (CEE 502 with the saved version’s receipt): "saved", never the unknown notice', async () => {
+    await cardOnScreen()
+    turnAnswers.push(() => json({ ...coreError({ code: 'UPSTREAM_ERROR', message: 'x', retry_safe: false, nothing_saved: false }),
+      receipts: clone(served.receipt_approval.turn.receipts) }, 502))
+    await pressApprove()
+    expect(notices()).toContain('Your model was saved, but the reply failed. Send a new message to continue.')
+    expect(notices()).not.toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
+    expect(notices()).not.toContain(APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY)
+  })
+
   it('🔴 a proxy 504 with no CEE body: no Try again is drawn, so the core unknown notice', async () => {
     await cardOnScreen()
     turnAnswers.push(() => new Response('<html><body>504 Gateway Time-out</body></html>', { status: 504, headers: { 'content-type': 'text/html' } }))

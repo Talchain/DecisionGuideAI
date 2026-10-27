@@ -239,6 +239,11 @@ describe('L2-UI core save outcomes through the real fetch → parser → router 
     { row: 'capacity, nothing saved: no resend', status: 503, body: coreFailure('PROVIDER_CAPACITY', true, true), words: CAPACITY, retry: false },
     { row: 'safe no-write retry', status: 502, body: coreFailure('UPSTREAM_ERROR', true, true), words: 'Something went wrong on our side. Please retry.', retry: true },
     { row: 'unsafe retry', status: 502, body: coreFailure('UPSTREAM_ERROR', false, false), words: 'Something went wrong on our side.', retry: false },
+    // C7: CEE's failed turn that saved first carries that version's receipt (`core-turn.ts` savedReceipts); `nothing_saved:
+    // false` with no receipt (the row above) is no saved claim.
+    { row: '⭐ C7 saved before the reply failed: the saved version’s receipt', status: 502,
+      body: { ...coreFailure('UPSTREAM_ERROR', false, false), receipts: [{ version: 3, version_id: 'v-3', mutation_id: 'm-3', source_turn_id: null, authorised_by: 'person' }] },
+      words: SAVED, retry: false },
     { row: '⭐ legacy scenario (409): one line, no resend, though CEE marks it retry-safe', status: 409,
       body: coreFailure('legacy_scenario', true, true, 'This scenario was saved before the current Olumi model and cannot be opened on this route. Nothing was changed.'),
       words: 'This scenario was built with an earlier version of Olumi. Start a new scenario to continue; this one stays here to read.', retry: false },

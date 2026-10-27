@@ -768,12 +768,12 @@ function coreTurnResponse(turn: CoreTurn): OlumiResponseWithExtensions {
 }
 
 /**
- * A failed core turn as today's failure envelope, field for field: CEE's code, message, retry and nothing-saved flags
- * as `raw`. The envelope has none of `BoundaryErrorSchema`'s required keys and is no answer, so it is the result the
- * legacy steps always reached for it.
+ * A failed core turn as today's failure envelope, field for field: CEE's code, message, retry and nothing-saved flags,
+ * and the receipts of what it saved before it failed, as `raw`. The envelope has none of `BoundaryErrorSchema`'s required
+ * keys and is no answer, so it is the result the legacy steps always reached for it.
  */
-function coreTurnFailure(error: NonNullable<CoreTurn['error']>, text: string, res: Response): V5ParseResult {
-  const raw = coreTurnErrorBody(error);
+function coreTurnFailure(turn: CoreTurn & { error: NonNullable<CoreTurn['error']> }, text: string, res: Response): V5ParseResult {
+  const raw = coreTurnErrorBody(turn.error, turn.receipts);
   return res.ok
     ? { kind: 'parse_error', reason: 'body did not match OlumiResponse schema', http_status: res.status, raw,
         diagnosticHeaders: captureDiagnosticHeaders(res), parse_failure_kind: 'schema_mismatch' }
@@ -839,7 +839,7 @@ export async function parseV5Response(res: Response, opts: { coreRoute?: boolean
         parse_failure_kind: 'schema_mismatch',
       };
     }
-    return turn.error !== null ? coreTurnFailure(turn.error, text, res) : { kind: 'response', response: coreTurnResponse(turn) };
+    return turn.error !== null ? coreTurnFailure({ ...turn, error: turn.error }, text, res) : { kind: 'response', response: coreTurnResponse(turn) };
   }
 
   // A typed BoundaryError is returned with a non-2xx status (e.g. 422).
