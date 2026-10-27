@@ -3,7 +3,9 @@
  * bound, current Run's served cells and goal-chance sentence in the pre-run slot, in CEE's own words. Display only: the
  * binding and currentness are `runViewOf`'s (run id AND graph hash, `stale === false`); no licence, chance or value logic.
  * A withheld cell says CEE's face and its `why`; options withheld with the same words are said once, since those words
- * name no option.
+ * name no option. Under the "waits on N things" headline (Paul 27 Oct: "If all of them are the same, then it should just
+ * say it once"), an option's `why` that only says what the chance waits on is not said again: the headline lists every
+ * item once, with CEE's own words on why an unknown cannot be sized yet.
  * Row 19 (DL, 24 Oct): on a PROGRAM board a Run that is no longer current says CEE's own not-current line once
  * (`face_when_stale`), never its old figures, with one "Run again" that sends the existing Run press.
  * Under each option's chance line, CEE's own words on what that chance rests on most (`main_driver.detail`, through
@@ -16,7 +18,7 @@ import { useCanvasStore } from '../../../canvas/store'
 import { useSavedModelIsProgram } from '../../../canvas/nodes/shared/savedModelProgram'
 import { useCanonicalAnalysisViewStore } from '../../../canvas/stores/canonicalAnalysisViewStore'
 import { optionChanceCell, runViewGoalChanceSentence, runViewOf } from '../../../canvas/runView/runView'
-import type { CanonicalWaitsOn } from '../../../canvas/runView/canonicalAnalysisView'
+import type { CanonicalAnalysisCell, CanonicalWaitsOn } from '../../../canvas/runView/canonicalAnalysisView'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useValuePrefillStore } from '../../../canvas/graphChanges/valuePrefill'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
@@ -31,6 +33,8 @@ export interface ViewOnlyRunChanceLine {
   readonly driver: string | null
   /** CEE withheld this line's chance (its `text` is CEE's withheld face). */
   readonly withheld: boolean
+  /** Its `why` only says what the chance waits on, every item of which CEE lists in `goal_chance.waits_on`. */
+  readonly whyIsWaitsOn: boolean
 }
 
 export interface ViewOnlyRunChances {
@@ -55,6 +59,16 @@ export const RUN_AGAIN = 'Run again'
 const CTX = { goalChanceHeroSays: false, labelOf: () => null }
 
 /**
+ * A withheld cell whose `why` is CEE's waits-on words: a goal that waits (`goal_asks` / `goal_withheld`), said from the typed
+ * blockers (CEE `waitsOnWords`, evaluate.ts and present.ts), never the compiler's own reason for a goal with no blocker.
+ */
+const WAITS_ON_REASONS = new Set(['goal_asks', 'goal_withheld'])
+function whyIsWaitsOn(cell: CanonicalAnalysisCell | undefined, why: string | null): boolean {
+  return why !== null && cell?.kind === 'withheld' && cell.reasons.length > 0 && cell.reasons.every(r => WAITS_ON_REASONS.has(r.code))
+    && /\bwaits? on ‘/.test(why) && !why.includes('is not in the chance yet')
+}
+
+/**
  * The bound, current view-only Run's served words; on a program board, a Run that is not current says CEE's not-current
  * line instead. Null where a report is held, or the view is unbound, or not current with no line of CEE's to say.
  */
@@ -70,11 +84,11 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
       // The chance gate stands: no figure from a Run that is not current. CEE's own line, said once for every option.
       const line = program ? view.notCurrentLine() : null
       return line === null ? null
-        : { sentence: null, lines: [{ optionIds: canonical.options.map(o => o.option_id), text: line, why: null, driver: null, withheld: false }], waitsOn: [], stale: true, allWithheld: false, mostLikely: null }
+        : { sentence: null, lines: [{ optionIds: canonical.options.map(o => o.option_id), text: line, why: null, driver: null, withheld: false, whyIsWaitsOn: false }], waitsOn: [], stale: true, allWithheld: false, mostLikely: null }
     }
-    const lines: { optionIds: string[]; text: string; why: string | null; driver: string | null; withheld: boolean }[] = []
+    const lines: { optionIds: string[]; text: string; why: string | null; driver: string | null; withheld: boolean; whyIsWaitsOn: boolean }[] = []
     let allWithheld = canonical.options.length > 0
-    for (const { option_id: optionId, main_driver: mainDriver } of canonical.options) {
+    for (const { option_id: optionId, main_driver: mainDriver, cell: served } of canonical.options) {
       const cell = optionChanceCell(view, optionId, CTX)
       if (cell.kind !== 'withheld') allWithheld = false
       if (cell.text === null) continue
@@ -84,7 +98,7 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
         ?? (mainDriver.kind === 'none_licensed' && mainDriver.reason.trim() !== '' ? mainDriver.reason : null)
       const same = withheld ? lines.find(l => l.withheld && l.text === cell.text && l.why === why && l.driver === driver) : undefined
       if (same) same.optionIds.push(optionId)
-      else lines.push({ optionIds: [optionId], text: cell.text, why, driver, withheld })
+      else lines.push({ optionIds: [optionId], text: cell.text, why, driver, withheld, whyIsWaitsOn: whyIsWaitsOn(served, why) })
     }
     const sentence = runViewGoalChanceSentence(view)
     // Past the current-Run gate above, as the chances are: CEE's words alone, never one the UI composes from the cells.
@@ -121,12 +135,19 @@ export function waitsOnCountWords(items: readonly CanonicalWaitsOn[]): string {
   return `waits on ${n} ${figures ? (n === 1 ? 'figure' : 'figures') : (n === 1 ? 'thing' : 'things')}`
 }
 
+/** An unknown's own reason, as CEE says it after the label in an option's `why` (present.ts `waitsOnWords`); else nothing. */
+function unknownBasisWords(item: CanonicalWaitsOn): string | null {
+  if (item.code !== 'unknown') return null
+  const basis = typeof item.basis === 'string' ? item.basis.trim().replace(/\s+/g, ' ').replace(/[.!]+$/, '') : ''
+  return `, which no one can size yet${basis === '' ? '' : ` (${basis})`}`
+}
+
 /** The labels CEE says the result waits on, each opening its card's answer box where it has one. */
-export function WaitsOnList({ items, testIdPrefix = WAITS_ON_TESTID }: { items: readonly CanonicalWaitsOn[]; testIdPrefix?: string }) {
+export function WaitsOnList({ items, testIdPrefix = WAITS_ON_TESTID, withBasis = false }: { items: readonly CanonicalWaitsOn[]; testIdPrefix?: string; withBasis?: boolean }) {
   return (
     <>
       {items.map((w, i) => (
-        <span key={w.id}>{i > 0 ? ', ' : null}<WaitsOnItem item={w} testIdPrefix={testIdPrefix} /></span>
+        <span key={w.id}>{i > 0 ? ', ' : null}<WaitsOnItem item={w} testIdPrefix={testIdPrefix} />{withBasis ? unknownBasisWords(w) : null}</span>
       ))}
     </>
   )
@@ -146,7 +167,8 @@ export function useProgramBoardShowsResult(): boolean {
 
 export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChances }) {
   // Every option withheld while CEE lists what the result waits on: one headline says the count and the list, not each
-  // option's withheld face (Paul, 24 Oct); each option's own reason (`why`) still follows.
+  // option's withheld face (Paul, 24 Oct). An option's reason that only repeats that list is not said again (Paul, 27 Oct);
+  // any other reason still follows.
   const waits = chances.allWithheld && chances.waitsOn.length > 0
   return (
     <div className="space-y-1" data-testid="analysis-view-only-chances">
@@ -160,14 +182,14 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
           <p className={`${typography.panelMeta} text-text-light`}>{WAITS_ON_HEADLINE}</p>
           <p className={`${typography.panelBody} text-text-body`} data-testid="analysis-view-only-waits-on">
             {`${waitsOnCountWords(chances.waitsOn)}: `}
-            <WaitsOnList items={chances.waitsOn} />
+            <WaitsOnList items={chances.waitsOn} withBasis />
           </p>
         </div>
       ) : null}
       {chances.lines.map(line => (
         <div key={line.optionIds.join('+')} data-testid={`analysis-view-only-chance-${line.optionIds.join('+')}`}>
           {waits ? null : <p className={`${typography.panelBody} text-text-body`}>{line.text}</p>}
-          {line.why === null ? null : <p className={`${typography.panelMeta} text-text-light`}>{line.why}</p>}
+          {line.why === null || (waits && line.whyIsWaitsOn) ? null : <p className={`${typography.panelMeta} text-text-light`}>{line.why}</p>}
           {line.driver === null ? null : (
             <p className={`${typography.panelMeta} text-text-light`} data-testid={`analysis-view-only-driver-${line.optionIds.join('+')}`}>{line.driver}</p>
           )}

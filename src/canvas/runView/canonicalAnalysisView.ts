@@ -83,6 +83,10 @@ export interface CanonicalWaitsOn {
   readonly id: string
   readonly label: string
   readonly answer: { readonly quantity_id: string } | null
+  /** CEE's blocker code (`asked`, `unknown`, …), as sent. */
+  readonly code?: string
+  /** For `unknown` only: CEE's words on why no one can size it yet, as sent. */
+  readonly basis?: string
 }
 const rec = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v)
 const nullableString = (v: unknown): v is string | null => v === null || typeof v === 'string'
