@@ -41,10 +41,17 @@ type Json = Record<string, any>
 let read: Json = {}
 // The saved-graph read is cached per scenario and hash, so each opening reads its own hash.
 let n = 0
-/** Opens a served board and returns the node ids the review queue holds an item about. */
+/**
+ * Opens a served board and returns the node ids the review queue holds an item about. The board's reasoning records
+ * (dissent, assumptions, conditions, claims) are set aside: they are review items of their own, each pointing at a node it
+ * concerns, and this file is about the figure check alone (`reviewQueueReadsModelRecords.spec.tsx` covers them).
+ */
 async function queueOf(board: Json): Promise<readonly string[]> {
   n += 1
-  read = { ...board, graph_hash: `${board.graph_hash}${n}` }
+  const canonical = board.graph.living_model.canonical
+  const figuresOnly = { ...board, graph: { ...board.graph, living_model: { ...board.graph.living_model,
+    canonical: { ...canonical, dissent: [], assumptions: [], conditions: [], claims: [] } } } }
+  read = { ...figuresOnly, graph_hash: `${board.graph_hash}${n}` }
   useCanvasStore.setState({
     nodes: [], edges: [], currentScenarioId: board.scenario_id, results: { status: 'idle' } as never,
     lastServerGraphHash: null, serverGraphIdentity: null, lastAuthoritativeGraph: null, analysisFreshness: null, analysisStateV1: null,

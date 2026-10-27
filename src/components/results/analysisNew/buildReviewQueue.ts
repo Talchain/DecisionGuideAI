@@ -52,6 +52,7 @@ import {
 import { UNCONFIRMED_ESTIMATE_LABEL } from '../../../canvas/domain/vocabulary'
 import { ANALYSIS_NEW_COPY } from './analysisNewCopy'
 import { buildModelStrip, type StripNode } from './buildModelStrip'
+import { programReasoningRecords, type ProgramReasoningRecord, type ProgramRecordKind } from '../../../canvas/nodes/shared/savedModelProgram'
 
 // ── Copy (this file owns it; nothing here is respelled from elsewhere) ────────
 
@@ -94,6 +95,12 @@ export const REVIEW_TOOL_COPY = {
   unnamedFactor: 'A factor with no name',
   askFactorDraft: (name: string) =>
     `Help me check the estimate for ${name}. What would support it, and what would change it?`,
+  // A reasoning record the model keeps (an assumption, claim, disagreement or condition).
+  askRecordDraft: (kind: string, text: string) =>
+    `Help me examine this ${kind.toLowerCase()}: "${text}" What would support it, and what would change it?`,
+  olumiRecord: "Olumi's",
+  yourRecord: 'Yours',
+  notYetAccepted: 'not yet accepted',
   // ── The item editor (prototype `review-form`, P:538 / P:668-673) ──────────
   editBelief: 'Edit this belief',
   beliefLabel: 'Belief or proposed wording',
@@ -124,6 +131,9 @@ export type ReviewKind =
   | 'value'
   | 'alternatives'
   | 'evidence'
+  | 'claim'
+  | 'disagreement'
+  | 'condition'
   | 'unclassified'
 
 /**
@@ -140,6 +150,9 @@ export const REVIEW_KIND_LABEL: Readonly<Record<ReviewKind, string>> = Object.fr
   value: 'Value',
   alternatives: 'Alternatives',
   evidence: 'Evidence',
+  claim: 'Claim',
+  disagreement: 'Disagreement',
+  condition: 'Condition',
   unclassified: 'Reasoning',
 })
 
@@ -150,6 +163,7 @@ export type ReviewKindBasis =
   | 'help-type'
   | 'edge-target'
   | 'verify-list'
+  | 'model-record'
   | 'none'
 
 /**
@@ -252,6 +266,8 @@ export interface ReviewQueueItem {
   sourceLine: string | null
   recommendation: Recommendation | null
   factor: ReviewFactor | null
+  /** The model's own reasoning record this item is (canonical dissent, assumption, condition or claim), else absent. */
+  record?: ProgramReasoningRecord
 }
 
 export interface ReviewQueueInputs {
@@ -319,7 +335,35 @@ export function buildReviewQueue(inputs: ReviewQueueInputs): ReviewQueueItem[] {
       factor: toReviewFactor(node),
     })
   }
+  // The model's own reasoning records, each as it states itself: its words, whose it is and whether it was accepted (Paul,
+  // 27 Oct: "make the review queue include the model's assumptions, claims, dissent and conditions").
+  const nodeIds = new Set(inputs.nodes.map((n) => n.id))
+  for (const record of programReasoningRecords(inputs.savedGraph)) {
+    items.push({
+      key: `record:${record.kind}:${record.id}`,
+      name: record.text,
+      targetId: record.concerns.find((id) => nodeIds.has(id)) ?? null,
+      kind: RECORD_KIND[record.kind],
+      kindBasis: 'model-record',
+      reason: recordReason(record),
+      sourceLine: null,
+      recommendation: null,
+      factor: null,
+      record,
+    })
+  }
   return items
+}
+
+const RECORD_KIND: Readonly<Record<ProgramRecordKind, ReviewKind>> = Object.freeze({
+  dissent: 'disagreement', assumption: 'assumption', condition: 'condition', claim: 'claim',
+})
+
+/** Whose the record is (its holder, else its author) and, while the person has not accepted it, that it is not yet. */
+function recordReason(record: ProgramReasoningRecord): string | null {
+  const who = record.holder ?? (record.author === 'olumi' ? REVIEW_TOOL_COPY.olumiRecord : record.author === 'person' ? REVIEW_TOOL_COPY.yourRecord : null)
+  const parts = [who, record.approved ? null : REVIEW_TOOL_COPY.notYetAccepted].filter((x): x is string => x !== null)
+  return parts.length === 0 ? null : parts.join(' · ')
 }
 
 // ── Provenance words ──────────────────────────────────────────────────────────
@@ -396,7 +440,7 @@ export function reviewItemAskPayload(item: ReviewQueueItem): AskOlumiPayload {
   }
   return {
     context: factorContext(item),
-    draft: REVIEW_TOOL_COPY.askFactorDraft(item.name),
+    draft: item.record ? REVIEW_TOOL_COPY.askRecordDraft(REVIEW_KIND_LABEL[item.kind], item.name) : REVIEW_TOOL_COPY.askFactorDraft(item.name),
     label: REVIEW_TOOL_COPY.ask,
     ...(item.targetId ? { targetId: item.targetId } : {}),
   }
