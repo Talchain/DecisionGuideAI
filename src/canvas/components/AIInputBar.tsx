@@ -35,6 +35,7 @@ import {
 } from './DraftLoadingAnimation'
 import { useDraftStore, draftStreamPhaseFor, draftStreamInFlight } from '../stores/draftStore'
 import { useIsViewer, VIEWER_COMPOSER_NOTICE } from '../../lib/viewerMode'
+import { ASKS_PLACEHOLDER, ComposerAsksPanel, composerAsksShow, useComposerAsks } from './ComposerAsks'
 
 export type AIInputBarVariant = 'strip' | 'docked-tab' | 'floating' | 'first-use' | 'welcome'
 
@@ -252,6 +253,8 @@ export const AIInputBar = memo(
     const { draft, setDraft, clearDraft, sendMessage, dispatchAction, isThinking, cancelTurn } =
       useConversationContext()
     const stagePlaceholder = useStageAwarePlaceholder()
+    // Paul's first screen (27 Oct): the figures Olumi needs and the coaching questions, above the text box (`ComposerAsks`).
+    const asks = useComposerAsks()
     const textareaRef = useRef<HTMLTextAreaElement | null>(null)
     // Empty canvas → the user's send should DRAFT a model (not chat).
     // Mirrors ConversationPanel.handleGenerateModel's wiring at
@@ -595,6 +598,20 @@ export const AIInputBar = memo(
       [setDraft],
     )
 
+    /** A question above the box goes into it, focused with the caret at its end, for the person to answer and send. */
+    const pickAsk = useCallback(
+      (text: string) => {
+        setDraft(text)
+        window.requestAnimationFrame(() => {
+          const el = textareaRef.current
+          if (!el) return
+          el.focus()
+          el.setSelectionRange(text.length, text.length)
+        })
+      },
+      [setDraft],
+    )
+
     const base = testId ?? `ai-input-bar-${variant}`
 
     /**
@@ -623,9 +640,12 @@ export const AIInputBar = memo(
     // Chat-mode thinking (nodeCount > 0) keeps the existing behaviour — Enter
     // blocked via handleSend, typing allowed so follow-ups can be composed.
     const inputDisabled = disabled || isGenerating
+    // The lists sit above the panel-footer composers only (the strip and the floating panel): the hero surfaces are for a
+    // first brief, with no saved model to ask about. While either shows, the placeholder points at them.
+    const asksShown = hasActionRow && !isGenerating && composerAsksShow(asks)
     const effectivePlaceholder = isGenerating
       ? ''
-      : placeholder ?? stagePlaceholder
+      : placeholder ?? (asksShown ? ASKS_PLACEHOLDER : stagePlaceholder)
     const canSend = draft.trim().length > 0 && !inputDisabled && !isThinking
 
     // Send button geometry. Welcome variant gets a larger filled disc so the
@@ -806,6 +826,7 @@ export const AIInputBar = memo(
         />
       )}
       <div className={containerClasses} data-testid={base}>
+        {asksShown && <ComposerAsksPanel asks={asks} disabled={inputDisabled || isThinking} onPick={pickAsk} testIdBase={base} />}
         {hasActionRow ? (
           /* PANEL-FOOTER LAYOUT — one bordered box holding the text and, beneath
              it, a right-aligned row of quiet controls. The box is the only

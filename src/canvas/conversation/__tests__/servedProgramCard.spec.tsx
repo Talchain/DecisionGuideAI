@@ -86,32 +86,32 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/') })
 
 describe('served cards: the complete change, in CEE’s words, Olumi’s items marked', () => {
-  it('the European reading card (`reading: true`): all 38 adds open under the reading heading, in CEE’s order; 25 Olumi’s, 13 the person’s', async () => {
+  it('the European reading card (`reading: true`), the first screen\'s reading list: all 38 rows behind "Show all (38)", Olumi\'s 25 first, then the person\'s 13, each in CEE\'s order and words; no whole-card approve', async () => {
     board(true)
     const c = card(readingTurn.body)
     await mount(readingTurn.body)
     expect(screen.getByTestId(`proposal-change-summary-${c.proposal_id}`).textContent).toBe('Your situation as I understood it')
-    const items = listed(c.proposal_id)
-    expect(items.map((li) => li.getAttribute('data-testid'))).toEqual(c.changes.map((e: Json) => `proposal-change-${e.kind}:${e.id}`))
-    // CEE's label and rendered `after` verbatim in every entry; nothing shortened or reworded.
-    c.changes.forEach((e: Json, i: number) => {
-      expect(items[i].textContent).toContain(`‘${e.label}’`)
-      expect(items[i].textContent).toContain(e.after)
-    })
-    expect(items[0].textContent).toBe('Adds ‘The target is 800.’: "Total customers" at least "Customer target" 800 customer, at its highest over '
+    expect(listed(c.proposal_id)).toHaveLength(3)
+    fireEvent.click(screen.getByTestId(`reading-show-all-${c.proposal_id}`))
+    const PERSONS = ['reach_customer_target', 'churn_guardrail', 'investment_guardrail', 'competition_context', 'regulatory_context',
+      'starting_customers', 'customer_target', 'decision_horizon', 'baseline_monthly_joins', 'baseline_churn', 'churn_ceiling',
+      'investment_budget', 'launch_delay']
+    const key = (e: Json) => `proposal-change-${e.kind}:${e.id}`
+    expect(listed(c.proposal_id).map((li) => li.getAttribute('data-testid'))).toEqual([
+      ...c.changes.filter((e: Json) => !PERSONS.includes(e.id)).map(key), ...c.changes.filter((e: Json) => PERSONS.includes(e.id)).map(key)])
+    // Each row is CEE's label; a tap opens CEE's words for it, nothing shortened or reworded (no card is on this canvas).
+    fireEvent.click(screen.getByTestId('proposal-change-open-goal:reach_customer_target'))
+    expect(screen.getByTestId('proposal-change-detail-goal:reach_customer_target').textContent).toBe('Adds ‘The target is 800.’: "Total customers" at least "Customer target" 800 customer, at its highest over '
       + '"Expansion timeframe" 6–12 month, the measure you named, resting on "The expansion timeframe is provisionally also the window for '
       + 'reaching the total customer target; the stated timeframe remains a range rather than a single chosen deadline.", in your words "The target is 800."')
-    expect(screen.getByTestId('proposal-change-left_out:profitability_not_modelled').textContent)
-      .toBe('Leaves out ‘Actual profitability and investment payback are not calculated.’ (Customer revenue, margins and operating costs are absent, '
-        + 'so the churn guardrail is not a profit forecast. It concerns If it goes beyond 12%, we\'re in danger of losing money. and The investment budget is up to £500k.) · Olumi’s')
     // Whose each item is, by identity: Olumi's carry the mark, the person's never do.
     const marked = c.changes.filter((e: Json) => screen.queryByTestId(`proposal-change-olumi-${e.kind}:${e.id}`) !== null).map((e: Json) => e.id)
     expect(marked).toHaveLength(25)
-    expect(c.changes.filter((e: Json) => !marked.includes(e.id)).map((e: Json) => e.id)).toEqual(['reach_customer_target', 'churn_guardrail',
-      'investment_guardrail', 'competition_context', 'regulatory_context', 'starting_customers', 'customer_target', 'decision_horizon',
-      'baseline_monthly_joins', 'baseline_churn', 'churn_ceiling', 'investment_budget', 'launch_delay'])
-    expect(chipEl(c.approve_action.id).textContent).toBe('Yes, that’s what I meant')
-    expectApproveLive(c.approve_action.id)
+    expect(c.changes.filter((e: Json) => !marked.includes(e.id)).map((e: Json) => e.id)).toEqual(PERSONS)
+    // No blanket card: neither the whole-card approve nor "Not now" is offered; the rows are confirmed by their ticks.
+    expect(screen.queryByTestId(`suggested-chip-${c.approve_action.id}`)).toBeNull()
+    expect(screen.queryByTestId(`suggested-chip-${c.decline_action.id}`)).toBeNull()
+    expect(screen.getByTestId(`reading-confirm-${c.proposal_id}`).textContent).toBe('Confirm (0)')
   })
 
   it('the European repair card: 31 entries with add, change and remove, each worded as CEE renders it', async () => {
