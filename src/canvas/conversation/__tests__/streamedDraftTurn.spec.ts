@@ -39,6 +39,7 @@ import {
   EARLY_STOP_ALREADY_SAVED_NOTICE,
 } from '../../components/DraftLoadingAnimation'
 import * as scenariosModule from '../../store/scenarios'
+import { CORE_OUTCOME_UNKNOWN_NOTICE } from '../coreStillFinishing'
 import wireFixture from './fixtures/cee-draft-goal-constraints-wire.json'
 
 // ---------------------------------------------------------------------------
@@ -844,6 +845,48 @@ describe('F1 — abort after GRAPH_READY (Stop button / 130 s timeout)', () => {
     expect(notices[0].actionChips?.map((c) => c.id)).toEqual([START_NEW_DRAFT_CHIP_ID])
     // The server was told, with the ids that went on the wire.
     expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
+  })
+
+  // C14 (8), 27 Oct: on core, CEE's Stop answers already_committed false whenever its turn's answer row is not yet written, and
+  // a core turn commits its change BEFORE that row. So "cancelled before it was saved" is unproven there: the outcome is unknown.
+  async function stopAfterGraphReadyOnCore(outcome: StopFenceResult) {
+    window.history.replaceState({}, '', '/#/canvas?ai=core-route')
+    mockStopV5Turn.mockResolvedValueOnce(outcome)
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => { sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void> })
+    await stream.push(F_DRAFTING + F_GRAPH_READY)
+    await act(async () => { result.current.cancelTurn() })
+    await stream.fail()
+    await act(async () => { await sent.catch(() => {}) })
+    window.history.replaceState({}, '', '/')
+    return result
+  }
+
+  it('🔴 C14 (8): on core, a Stop answered already_committed false says the outcome is unknown, never "cancelled before it was saved"', async () => {
+    const result = await stopAfterGraphReadyOnCore({ kind: 'not_saved' })
+    const contents = result.current.messages.map((m) => m.content)
+    expect(contents).toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
+    expect(contents).not.toContain(EARLY_STOP_NOT_SAVED_NOTICE)
+    expect(new Headers((mockStopV5Turn.mock.calls.at(-1)![1] as { headers: Record<string, string> }).headers).get('x-olumi-ai-mode')).toBe('core-route')
+  })
+
+  // already_committed true is no save proof on core either: the row it reads also exists after a stopped turn that wrote
+  // nothing (CEE #3841 row A1: a recorded answer, receipts [], no write). So it too is unknown, never "already saved".
+  it('🔴 C14 (8): on core, a Stop answered already_committed true says unknown too, never "already saved"', async () => {
+    const result = await stopAfterGraphReadyOnCore({ kind: 'already_saved' })
+    const contents = result.current.messages.map((m) => m.content)
+    expect(contents).toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
+    expect(contents).not.toContain(EARLY_STOP_ALREADY_SAVED_NOTICE)
+  })
+
+  it('CONTRAST: on core, a Stop that could not be recorded keeps its own unconfirmed words', async () => {
+    const result = await stopAfterGraphReadyOnCore({ kind: 'unconfirmed', reason: 'transport' })
+    const contents = result.current.messages.map((m) => m.content)
+    expect(contents).not.toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
+    expect(contents.some((c) => c.includes('could not reach the server'))).toBe(true)
   })
 
   // ══ F3 (#534 round-3) — A POSITIVE PIN FOR STOPPED_DRAFT_NOTICE ════════════
