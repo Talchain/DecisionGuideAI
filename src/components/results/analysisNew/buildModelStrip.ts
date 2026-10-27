@@ -40,6 +40,7 @@
 
 import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
 import { factorIsConfirmable, isAcceptedOlumiFigure } from '../../../canvas/domain/valueProvenance'
+import { programQuantityOf } from '../../../canvas/nodes/shared/savedModelProgram'
 import { nodeValueSource } from '../driverValueProvenance'
 import { factorCardVisibleText, factorDisplayParts, factorDisplayText, readFactorDisplayValue } from '../../../utils/formatFactorDisplayValue'
 
@@ -482,6 +483,8 @@ export function resolveGoalNodeId(
 
 export function buildModelStrip(
   nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }>,
+  /** The saved read's graph: on a program board a figure's check reads its canonical record (`programQuantityOf`). */
+  savedGraph: unknown = null,
 ): ModelStrip {
   const byKind = new Map<string, StripNode[]>()
   let goalLabel: string | null = null
@@ -506,7 +509,7 @@ export function buildModelStrip(
       id: node.id,
       label: labelOf(node),
       // Scoped to the predicate's own domain — see `StripNode.needsCheck`.
-      needsCheck: isFactor && factorIsConfirmable(node.data),
+      needsCheck: isFactor && factorIsConfirmable(node.data, programQuantityOf(savedGraph, node.id)),
       // Both scoped to factors for the reasons on the fields themselves.
       // ⭐ THE CARD'S OWN VISIBLE TEXT, not the formatter's raw string: served b8906035 read
       // "58.8 GBP per month" here beside a card reading "£58.80 / month" (ONE money-figure rule,

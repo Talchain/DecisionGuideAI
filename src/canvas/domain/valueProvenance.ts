@@ -476,7 +476,19 @@ export function factorValueIsUnconfirmedEstimate(data: unknown): boolean {
   return obs?.extractionType === 'inferred' || d?.extractionType === 'inferred'
 }
 
-export function factorNeedsVerification(data: unknown): boolean {
+/**
+ * The canonical record of a program quantity, as "does this figure need the person's check?" reads it: whose it is and
+ * whether the person approved it (`savedModelProgram.programQuantityOf`). Null off a program board.
+ */
+export interface ProgramFigureRecord {
+  readonly author: string | null
+  readonly approval: string | null
+}
+
+export function factorNeedsVerification(data: unknown, program: ProgramFigureRecord | null = null): boolean {
+  // On a program board the canonical record decides, and the stamps below are never written there: only Olumi's figure
+  // the person has not approved needs their check. A fixed part of the structure, or the person's own, never does.
+  if (program !== null) return program.author === 'olumi' && program.approval !== 'approved'
   const d = data as Record<string, unknown> | undefined
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
   return (!obs?.source || obs?.source === 'cee_inference') && !valueReviewedByUser(obs)
@@ -574,8 +586,8 @@ export function factorHasConfirmableValue(data: unknown): boolean {
  * number the outline can DISPLAY?", which is `getPrimaryValue` and legitimately
  * a different predicate. Named apart on purpose rather than aligned.
  */
-export function factorIsConfirmable(data: unknown): boolean {
-  return factorNeedsVerification(data) && factorHasConfirmableValue(data)
+export function factorIsConfirmable(data: unknown, program: ProgramFigureRecord | null = null): boolean {
+  return factorNeedsVerification(data, program) && factorHasConfirmableValue(data)
 }
 
 /**

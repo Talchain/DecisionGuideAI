@@ -186,6 +186,7 @@ import { Crosshair, Lightbulb, Pencil, X } from 'lucide-react'
  */
 
 import { useCanvasStore } from '../../../../canvas/store'
+import { useSavedGraph } from '../../../../canvas/nodes/shared/savedGraph'
 import { resolveNodeTypeLiteral } from '../../../../canvas/domain/nodes'
 import {
   classifyValueProvenance,
@@ -495,9 +496,10 @@ export function ModelStrip({
       .map((n) => `${n.id}:${n.type ?? ''}:${stripNodeValueSignature(n)}`)
       .join('|'),
   )
+  const savedGraph = useSavedGraph()
   const strip = useMemo(
-    () => buildModelStrip(useCanvasStore.getState().nodes ?? []),
-    [signature],
+    () => buildModelStrip(useCanvasStore.getState().nodes ?? [], savedGraph),
+    [signature, savedGraph],
   )
 
   /**

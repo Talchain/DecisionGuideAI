@@ -187,7 +187,7 @@ import { resolveFactorValueAdmission } from '../conversation/factorValueEdit'
 // ⭐⭐ THE ONE DISPLAY READER OF A FACTOR'S PRIOR RANGE — the owner the card and
 // the reduced low-zoom line already share. See `recordedRangeText` below.
 import { resolveFactorPriorRange, userValueReplacesPrior } from '../nodes/shared/factorPriorRange'
-import { programCoefficientOf, programFigureWords, programQuantityOf } from '../nodes/shared/savedModelProgram'
+import { programCoefficientOf, programFigureWords, programQuantityOf, type ProgramQuantity } from '../nodes/shared/savedModelProgram'
 import type {
   AttentionReason,
   ModelElementKind,
@@ -568,10 +568,10 @@ export { resolveEdgeStrengthEditSeed, type RelationshipStrengthEditSeed } from '
  * `row.primaryValue !== null` on top. One question was being answered twice, in
  * two files, with two different fields.
  */
-function attentionForFactor(data: unknown, value: string | null): AttentionReason[] {
+function attentionForFactor(data: unknown, value: string | null, program: ProgramQuantity | null): AttentionReason[] {
   const out: AttentionReason[] = []
   if (value === null) out.push('no-value')
-  if (factorIsConfirmable(data)) out.push('unconfirmed-estimate')
+  if (factorIsConfirmable(data, program)) out.push('unconfirmed-estimate')
   return out
 }
 
@@ -694,7 +694,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         // ⚠ UNCHANGED, DELIBERATELY. `attention` is the AFFORDANCE axis and it
         // still reads `value` (i.e. `raw_value`). A row with an estimate and no
         // supplied value must still ask for one.
-        attention: attentionForFactor(data, value),
+        attention: attentionForFactor(data, value, programQuantityOf(input.savedGraph, node.id)),
         /*
          * ⭐⭐ THE ROW CARRIES THE BOUND THE NODE DECLARES — resolved by the ONE
          * function that owns the scale contract, never re-derived here.
@@ -1021,7 +1021,7 @@ export function toRepairQueueItems(
        * quietly aligned — the earlier text here claimed the duplication was closed,
        * and that was the over-read.
        */
-      .filter(n => factorIsConfirmable(n.data))
+      .filter(n => factorIsConfirmable(n.data, programQuantityOf(input.savedGraph, n.id)))
       .map(n => {
         const data = n.data as Record<string, unknown> | undefined
         return {

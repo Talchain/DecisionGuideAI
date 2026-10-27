@@ -51,6 +51,7 @@ import { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import { AlertTriangle, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useProgramBoardShowsResult, useViewOnlyRunChances, ViewOnlyRunChancesBlock } from './ViewOnlyRunChances'
+import { useSavedGraph } from '../../../canvas/nodes/shared/savedGraph'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { openModelValueEditor } from '../../../canvas/nodes/shared/openModelValueEditor'
 import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
@@ -1226,7 +1227,8 @@ export function AnalysisNewTabBody({
   // ⚠ ONE STRIP, TWO CONSUMERS. `stripOffersTarget` built its own; Focus Now
   // needs the same object, and two `buildModelStrip` calls over one node list
   // would be two authorities on what the model contains (trap 12).
-  const modelStrip = useMemo(() => buildModelStrip(nodes ?? []), [nodes])
+  const savedGraph = useSavedGraph()
+  const modelStrip = useMemo(() => buildModelStrip(nodes ?? [], savedGraph), [nodes, savedGraph])
   /**
    * ⭐ PJ-B3 (28 Sep 2026; Canvas 5868665431): drivers the run RANKED but held no value for, and
    * the model states none — Canvas's rule verbatim (`runHoldsNoValueFor` over the same

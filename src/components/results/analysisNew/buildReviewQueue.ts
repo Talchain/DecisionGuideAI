@@ -263,6 +263,8 @@ export interface ReviewQueueInputs {
   nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }>
   /** The canvas edge ids, so an edge target can be told from a node target. */
   edgeIds?: Iterable<string>
+  /** The saved read's graph, as the model strip reads it. */
+  savedGraph?: unknown
 }
 
 function toReviewFactor(node: StripNode): ReviewFactor {
@@ -279,7 +281,7 @@ function toReviewFactor(node: StripNode): ReviewFactor {
 
 export function buildReviewQueue(inputs: ReviewQueueInputs): ReviewQueueItem[] {
   const edgeIds = new Set(inputs.edgeIds ?? [])
-  const strip = buildModelStrip(inputs.nodes)
+  const strip = buildModelStrip(inputs.nodes, inputs.savedGraph)
   const factorNodes = strip.rows.find((r) => r.kind === 'factor')?.nodes ?? []
   const factorById = new Map(factorNodes.map((n) => [n.id, n]))
 
