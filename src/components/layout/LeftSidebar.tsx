@@ -61,7 +61,15 @@ interface LeftSidebarProps {
    * promise of a key that does nothing.
    */
   onAddToModelClick?: (anchor: { x: number; y: number }) => void
+  /**
+   * The + asks in the chat instead of opening the add menu (a program board, where CEE adds what the person
+   * describes; first screen, Paul 27 Oct). Its name is the question it opens.
+   */
+  addAsksInChat?: boolean
 }
+
+/** The program board's + asks this, and the chat opens for the answer. */
+export const ADD_IN_CHAT_QUESTION = 'What would you like to add?'
 
 export function LeftSidebar({
   interactionMode = 'select',
@@ -71,6 +79,7 @@ export function LeftSidebar({
   canUndo = true,
   undoUnavailable = false,
   onAddToModelClick,
+  addAsksInChat = false,
 }: LeftSidebarProps) {
   const addBtnRef = useRef<HTMLButtonElement | null>(null)
 
@@ -130,13 +139,13 @@ export function LeftSidebar({
           menu, one authority, two ways in. */}
       {onAddToModelClick && (
         <div className={styles.group}>
-          <Tooltip content="Add to model">
+          <Tooltip content={addAsksInChat ? ADD_IN_CHAT_QUESTION : 'Add to model'}>
             <button
               ref={addBtnRef}
               type="button"
               className={styles.iconButton}
-              aria-label="Add to model"
-              aria-haspopup="menu"
+              aria-label={addAsksInChat ? ADD_IN_CHAT_QUESTION : 'Add to model'}
+              aria-haspopup={addAsksInChat ? undefined : 'menu'}
               data-testid="canvas-add-to-model"
               onClick={handleAddClick}
             >

@@ -29,6 +29,14 @@ describe('LeftSidebar — the Add to model door', () => {
     cleanup()
   })
 
+  it('CONTRAST: asking in the chat, the door is named by its question and opens no menu (program board, Paul 27 Oct)', () => {
+    render(<LeftSidebar onAddToModelClick={() => {}} addAsksInChat />)
+    const btn = screen.getByTestId('canvas-add-to-model')
+    expect(btn).toHaveAccessibleName('What would you like to add?')
+    expect(btn).not.toHaveAttribute('aria-haspopup')
+    cleanup()
+  })
+
   /**
    * ⭐ THE CONTRAST CONTROL. Without it, a component that rendered the button
    * unconditionally would pass the test above — and the whole point of the
