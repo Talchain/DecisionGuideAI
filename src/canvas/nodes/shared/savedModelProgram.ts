@@ -90,6 +90,47 @@ export function programQuantityOf(graph: unknown, id: string): ProgramQuantity |
   return q ? { id, value: num(q.value), low: num(q.low), high: num(q.high), author: str(q.author), approval: str(q.approval) } : null
 }
 
+/** A reasoning record the program keeps beside its figures: an assumption, a claim, a disagreement or a condition. */
+export type ProgramRecordKind = 'dissent' | 'assumption' | 'condition' | 'claim'
+export interface ProgramReasoningRecord {
+  kind: ProgramRecordKind
+  id: string
+  /** The record's own words: its text, else the person's quote (a disagreement's position, else its quote). */
+  text: string
+  /** `person` or `olumi`, as the record states it; null when it states neither. */
+  author: string | null
+  /** Who holds it, as the record names them (a disagreement's holder, a party); null when it names no one. */
+  holder: string | null
+  approved: boolean
+  /** The model items it concerns, in the record's order. */
+  concerns: string[]
+}
+const RECORD_FIELDS: ReadonlyArray<readonly [ProgramRecordKind, string]> = [
+  ['dissent', 'dissent'], ['assumption', 'assumptions'], ['condition', 'conditions'], ['claim', 'claims'],
+]
+/**
+ * The program's reasoning records (canonical `dissent`, `assumptions`, `conditions`, `claims`), in that order and each list
+ * in the record's own order, with the words, author, holder and approval each record states. Empty off a program.
+ */
+export function programReasoningRecords(graph: unknown): ProgramReasoningRecord[] {
+  if (!isProgramGraph(graph)) return []
+  const canonical = rec(rec(rec(graph)?.living_model)?.canonical)
+  const words = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v.trim() : null)
+  return RECORD_FIELDS.flatMap(([kind, field]) => (Array.isArray(canonical?.[field]) ? canonical[field] as unknown[] : []).flatMap((x) => {
+    const r = rec(x)
+    const id = words(r?.id)
+    const text = kind === 'dissent' ? words(r?.position) ?? words(r?.quote) : words(r?.text) ?? words(r?.quote)
+    if (r === null || id === null || text === null) return []
+    return [{
+      kind, id, text,
+      author: r.author === 'person' || r.author === 'olumi' ? r.author : null,
+      holder: words(r.holder) ?? words(r.party),
+      approved: r.approval === 'approved',
+      concerns: Array.isArray(r.concerns) ? r.concerns.filter((c): c is string => typeof c === 'string') : [],
+    }]
+  }))
+}
+
 /**
  * The program's limits that the projection does not list as goal constraints, as limit rows with no figure. CEE lists a
  * limit in `goal_constraints` only when its bound is one stated figure; it draws any other as a "Limit: …" text card
