@@ -111,14 +111,14 @@ const edgeProps = (wire: Rec) => ({
 afterEach(() => { saved.graph = null })
 
 describe('a program link shows its coefficient at rest', () => {
-  it('the capacity link: "about +20 (10–30) ticket/week/specialist" after the brief\'s mark, never a strength word', () => {
+  it('the capacity link: "+20 (10–30) ticket/week/specialist" after the brief\'s mark, never a strength word', () => {
     saved.graph = CAP_GRAPH
     const { container } = render(<StyledEdge {...(edgeProps(CAP_EDGE) as any)} />)
     const figure = container.querySelector('[data-testid="edge-program-figure"]')
     expect(figure).not.toBeNull()
-    expect(figure!.textContent).toBe('about +20 (10–30) ticket/week/specialist')
+    expect(figure!.textContent).toBe('+20 (10–30) ticket/week/specialist')
     expect(figure!.getAttribute('data-mark')).toBe('brief')
-    expect(figure!.getAttribute('aria-label')).toBe('about +20 (10–30) ticket/week/specialist. From brief')
+    expect(figure!.getAttribute('aria-label')).toBe('+20 (10–30) ticket/week/specialist. From brief')
     expect(figure!.querySelector('svg')).not.toBeNull()
     // The mark rides inside the figure; the bare source glyph is not drawn beside it.
     expect(container.querySelector('[data-edge-source-icon]')).toBeNull()

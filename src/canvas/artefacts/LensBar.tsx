@@ -169,7 +169,7 @@ export function LensBar() {
             onClick={() => choose(lens)}
             className={`${typography.panelBody} inline-flex h-full items-center gap-1.5 rounded-full border px-3 transition-colors duration-200 ${
               selected
-                ? 'border-info/30 bg-[var(--panel-tab-active-bg)] text-text-header'
+                ? 'border-panel-border bg-[var(--panel-tab-active-bg)] text-text-header'
                 : waiting
                   ? 'cursor-default border-transparent text-text-light/60'
                   : 'border-transparent text-text-light hover:text-text-body'

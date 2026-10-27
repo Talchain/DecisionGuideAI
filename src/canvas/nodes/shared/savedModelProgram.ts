@@ -148,7 +148,7 @@ export function programCoefficientOf(graph: unknown, edgeId: string): ProgramCoe
 }
 
 /**
- * The link's words at rest: "+20 ticket/week/specialist", or with a range "about +20 (10–30) ticket/week/specialist".
+ * The link's words at rest: "+20 ticket/week/specialist", or with a range "+20 (10–30) ticket/week/specialist".
  * The read's own numbers through the house formatter; null when the read gives no value.
  */
 export function programFigureWords(c: ProgramCoefficient): string | null {
@@ -162,7 +162,8 @@ export function programFigureWords(c: ProgramCoefficient): string | null {
   const range = c.low !== null && c.high !== null ? ` (${formatNumber(c.low)}–${formatNumber(c.high)})` : ''
   const words = unitWords(c.unit)
   const unit = words ? ` ${words}` : ''
-  return range ? `about ${signed}${range}${unit}` : `${signed}${unit}`
+  // Vision spec §2b hover chip "+ 0.6": the range and the author mark say it is uncertain; no "about" (static text).
+  return `${signed}${range}${unit}`
 }
 
 /** The glyph a definition draws on its link: how the part enters the figure it works out. */

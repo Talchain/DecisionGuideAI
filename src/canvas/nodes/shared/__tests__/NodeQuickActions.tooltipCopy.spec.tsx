@@ -83,10 +83,21 @@ describe('quick-action hints name the action, not the node', () => {
     expect(hintFor('node-action-menu-node-a')).toBe('More actions')
   })
 
+  it('Paul 24 Oct: the Olumi door rests visible in the corner, outside the hover-only row', () => {
+    render(<NodeQuickActions nodeId="node-a" nodeType="option" label={LABEL} />)
+    const door = screen.getByTestId('node-olumi-door-node-a')
+    const row = document.querySelector('.node-quick-actions') as HTMLElement
+    expect(row.className).toContain('opacity-0')
+    expect(row.contains(door)).toBe(false)
+    expect(door.className).not.toContain('opacity-0')
+    // Codex r1: the door keeps the card preview shut while it is hovered, as the row does (usePopoverHover's selector).
+    expect(door.closest('.node-quick-actions, [data-node-tooltip], [data-card-bottom-band]')).toBe(door)
+  })
+
   it('sweeps EVERY hint in the row for the label, enumerated from the DOM', () => {
     render(<NodeQuickActions nodeId="node-a" nodeType="option" label={LABEL} />)
-    const wrap = document.querySelector('.node-quick-actions') as HTMLElement
-    const buttons = [...wrap.querySelectorAll('button')]
+    // The hover row plus the resting Olumi door beside it (Paul 24 Oct: the door is visible at rest).
+    const buttons = [...document.querySelectorAll('.node-quick-actions button, [data-testid="node-olumi-door-node-a"] button')]
 
     // A hand-listed set of buttons is the mirror this estate keeps paying for:
     // a fourth action added later must be swept too, so they are enumerated.

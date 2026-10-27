@@ -132,8 +132,9 @@
   padding: 0;
   border-radius: 6px;
   border: 0;
-  background: rgb(var(--info-rgb) / 0.1);
-  color: var(--info);
+  /* Vision spec: blue means Olumi only, so the active tool is ink, as the lens bar's active pill is. */
+  background: var(--panel-tab-active-bg);
+  color: var(--text-header);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -143,7 +144,7 @@
 }
 
 .iconButtonActive:hover {
-  background: rgb(var(--info-rgb) / 0.1);
+  background: var(--panel-tab-active-bg);
 }
 
 /**

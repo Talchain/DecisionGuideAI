@@ -85,7 +85,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(
 describe('a program link says its canonical figure, or that it holds by definition', () => {
   it('capacity: the coefficient link says the stated 20 per specialist (10 to 30); the parts of the total say "By definition"', async () => {
     await openBoard(capacity)
-    expect(row('additional_specialists__additional_capacity')).toContain('about +20 (10–30) ticket/week/specialist')
+    expect(row('additional_specialists__additional_capacity')).toContain('+20 (10–30) ticket/week/specialist')
     expect(row('existing_capacity__total_capacity')).toContain('By definition')
     expect(row('additional_capacity__total_capacity')).toContain('By definition')
     // No relationship of the program is "with no value yet".
