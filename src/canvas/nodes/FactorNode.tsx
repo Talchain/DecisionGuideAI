@@ -366,8 +366,15 @@ export const FactorNode = memo((props: NodeProps) => {
   const askedNoFigure = savedIsProgram && typeof observedState?.value !== 'number' && askedBasis?.kind === 'waiting_for_answer'
   const askedQuestion = askedNoFigure && typeof askedBasis?.question === 'string' && askedBasis.question.trim() !== ''
     ? askedBasis.question.trim() : null
-  const figureParts = olumiUnknownFigure || askedNoFigure ? null : valueParts
-  const recordedValueReadout = olumiUnknownFigure || askedNoFigure ? NO_FIGURE_YET
+  // Vision spec §2a (worked-out author) + decision 8 A: a figure worked out from others with no number yet carried CEE's
+  // sentence as its value ("Worked out from A and B"), a paragraph on the card. It shows "= —" like the worked-out
+  // outcome; the sentence (the parts) is its hover, and the bottom row's calculator mark keeps it too.
+  const workedOutBasis = (props.data as { value_basis?: { kind?: unknown; words?: unknown } } | undefined)?.value_basis
+  const workedOutWords = savedIsProgram && typeof observedState?.value !== 'number' && workedOutBasis?.kind === 'worked_out'
+    && typeof workedOutBasis.words === 'string' && workedOutBasis.words.trim() !== '' && valueDisplay?.trim() === workedOutBasis.words.trim()
+    ? workedOutBasis.words.trim() : null
+  const figureParts = olumiUnknownFigure || askedNoFigure || workedOutWords !== null ? null : valueParts
+  const recordedValueReadout = olumiUnknownFigure || askedNoFigure || workedOutWords !== null ? NO_FIGURE_YET
     : isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay
   /**
    * ⭐ NO BARE INTERNAL MODEL NUMBER ON THE CARD — contract v3.1
@@ -1557,7 +1564,15 @@ export const FactorNode = memo((props: NodeProps) => {
               </span>
             ) : (
               <span className={isDetailed ? 'min-w-0 break-words' : 'min-w-0 break-words whitespace-normal'}>
-                {askedNoFigure ? askedSlot : <FactorValueFigure readout={recordedValueReadout} parts={figureParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />}
+                {askedNoFigure ? askedSlot : workedOutWords !== null ? (
+                  <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={workedOutWords}>
+                    <span data-testid={`factor-worked-out-${props.id}`} data-node-tooltip="true" tabIndex={0} aria-label={`No figure yet. ${workedOutWords}`}
+                      className="nodrag nopan rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
+                      <span aria-hidden="true" className="text-text-light">= </span>
+                      <span aria-hidden="true"><FactorValueFigure readout={recordedValueReadout} parts={null} nodeId={props.id} /></span>
+                    </span>
+                  </Tooltip>
+                ) : <FactorValueFigure readout={recordedValueReadout} parts={figureParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />}
               </span>
             )}
           </div>

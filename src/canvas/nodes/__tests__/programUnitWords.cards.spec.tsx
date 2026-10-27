@@ -22,6 +22,8 @@ import { ReactFlowProvider } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import hiring from '../../runView/__tests__/fixtures/accept3-hiring-r1-read.json'
 import marketing from '../../runView/__tests__/fixtures/accept3-marketing-r1-read.json'
+import bookshop from './fixtures/served-bookshop-worked-out-read-20261027.json'
+import mrr from '../../hydrate/__tests__/fixtures/served-3b6369b0-mrr-current.read.json'
 import { useCanvasStore } from '../../store'
 import { FactorNode } from '../FactorNode'
 import { GoalNode } from '../GoalNode'
@@ -59,7 +61,7 @@ async function openBoard(board: Json) {
   n += 1
   read = { ...board, graph_hash: `${board.graph_hash}${n}` }
   useCanvasStore.setState({
-    nodes: [], edges: [], currentScenarioId: board.scenario_id, results: { status: 'idle' } as never,
+    nodes: [], edges: [], currentScenarioId: board.scenario_id, serverGraphIdentity: null, results: { status: 'idle' } as never,
     lastServerGraphHash: null, lastAuthoritativeGraph: null, analysisFreshness: null, analysisStateV1: null,
     selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
   } as never)
@@ -169,5 +171,68 @@ describe('CONTROL: a unit that is neither keeps its text, on the same boards', (
     await card('baseline_conversion_rate')
     expect(value()).toBe('9%')
     expect(markWords('baseline_conversion_rate')).toBe('Set by you')
+  })
+})
+
+// Vision spec §2a (the worked-out author) + decision 8 A: a factor worked out from others with no number yet carried
+// CEE's sentence as its value ("Worked out from …"), a paragraph on the card (staging, 27 Oct). It reads "= —"; the
+// sentence is its hover and its accessible name, and the bottom row keeps the worked-out mark.
+describe('a worked-out factor with no figure yet reads "= —", the parts on hover', () => {
+  const WORDS = 'Worked out from Monthly book sales without either action and Sales share lost through newsletter annoyance'
+  it('bookshop newsletter_sales_loss: "= —", never the sentence on the card', async () => {
+    await openBoard(bookshop)
+    await card('newsletter_sales_loss')
+    expect(value()).toBe('= —')
+    const readout = screen.getByTestId('factor-worked-out-newsletter_sales_loss')
+    expect(readout).toHaveAttribute('aria-label', `No figure yet. ${WORDS}`)
+    expect(screen.getByTestId('factor-recorded-value').textContent).not.toContain('Worked out')
+    expect(screen.getByTestId('factor-bottom-marks-newsletter_sales_loss').querySelector('[data-testid="factor-value-source-newsletter_sales_loss"]')).not.toBeNull()
+    // CONTROL, same board: a factor with a figure keeps it (newsletter_uplift_percent "10%").
+    cleanup()
+    await card('newsletter_uplift_percent')
+    expect(value()).toContain('10')
+    expect(screen.queryByTestId('factor-worked-out-newsletter_uplift_percent')).toBeNull()
+  })
+
+  // Codex r1 on #3049: the same node, still worked out, with a figure or with other words, is never the dash.
+  it.each([
+    // CEE's sentence kept, so only the figure tells them apart: the card reads as before this change, never the dash.
+    ['a figure (SYNTHETIC observed_state 37)', (n: Json) => { n.observed_state = { ...(n.observed_state ?? {}), value: 37, raw_value: 37 } }, 'Worked out from'],
+    ['other words (SYNTHETIC display_value)', (n: Json) => { n.display_value = 'About 37 books a month' }, 'About 37 books a month'],
+  ] as const)('CONTRAST: newsletter_sales_loss, still worked out, with %s keeps them', async (_name, edit, shown) => {
+    const graph = structuredClone(bookshop.graph) as Json
+    edit(graph.nodes.find((x: Json) => x.id === 'newsletter_sales_loss'))
+    await openBoard({ ...bookshop, graph })
+    await card('newsletter_sales_loss')
+    expect(screen.queryByTestId('factor-worked-out-newsletter_sales_loss')).toBeNull()
+    expect(value()).toContain(shown)
+  })
+})
+
+// Vision spec §2a (goal card): a level target draws a track, today's level against the target on one scale; the
+// horizon is a chip. Served read 3b6369b0: MRR £75,000 today (brief), target £85,000 a month.
+describe('the goal card draws today against its target', () => {
+  it('MRR: a track with today filled and the target marked, named in words', async () => {
+    await openBoard(mrr)
+    await card('mrr', GoalNode)
+    const track = screen.getByTestId('goal-track-mrr')
+    expect(track.getAttribute('aria-label')).toMatch(/^Today .*75,000.*, target .*85,000/)
+    const fill = track.firstElementChild as HTMLElement
+    const marker = screen.getByTestId('goal-track-mrr-target')
+    // 75,000 and 85,000 on a scale to 85,000 × 4/3: 66.2% and 75%.
+    expect(parseFloat(fill.style.width)).toBeCloseTo(66.18, 1)
+    expect(parseFloat(marker.style.left)).toBeCloseTo(75, 1)
+  })
+
+  // Codex r1 on #3049: the contrast keeps today's level known, so only the change frame can withhold the track.
+  it('CONTRAST: the same MRR goal as a change target ("+£10,000 on today"; SYNTHETIC frame) draws no track', async () => {
+    const graph = structuredClone(mrr.graph) as Json
+    const goal = graph.nodes.find((x: Json) => x.id === 'mrr')
+    goal.goal_threshold_frame = 'change_abs'
+    goal.goal_threshold_raw = 10000
+    await openBoard({ ...mrr, graph })
+    await card('mrr', GoalNode)
+    expect(screen.getByTestId('goal-today-level-mrr').textContent).toContain('75,000')
+    expect(screen.queryByTestId('goal-track-mrr')).toBeNull()
   })
 })
