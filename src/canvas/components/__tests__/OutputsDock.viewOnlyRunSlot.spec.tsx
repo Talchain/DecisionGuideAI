@@ -136,8 +136,9 @@ describe('the Analysis tab pre-run slot on a board read with a canonical view', 
   })
 
   // ⛔ CHANGED CONTRACT (row 19, DL 24 Oct): this row pinned that a stale program Run mounted the panel, whose lines say no
-  // result exists, with no way to run. It now says CEE's own not-current line, once, and never the old figures.
-  it('a program board whose bound Run is stale (CEE’s stale face served): CEE’s line once, no figure, not the panel', async () => {
+  // result exists, with no way to run. It now says CEE's own not-current line, once. Paul, 27 Oct (spec: "A historical
+  // Run's chances are never hidden"): each option's stored words from that Run follow the line.
+  it('a program board whose bound Run is stale (CEE’s stale face served): CEE’s line once, then the stored chances, not the panel', async () => {
     // CEE's served stale face (hydrate/__tests__/fixtures/founder-blocked-reopen-247ae5b4.read.json).
     board(PROGRAM, { staleness: { ...capacity.canonical_analysis_view.staleness, stale: true, reason: 'graph_changed' },
       face_when_stale: 'Run the analysis again to see the chance.' })
@@ -146,7 +147,9 @@ describe('the Analysis tab pre-run slot on a board read with a canonical view', 
     const slot = screen.getByTestId('outputs-pre-run-view-only')
     expect(slot.querySelectorAll('[data-testid^="analysis-view-only-chance-"]')).toHaveLength(1)
     expect(slot.querySelector('[data-testid^="analysis-view-only-chance-"]')?.textContent).toBe('Run the analysis again to see the chance.')
-    expect(slot.textContent).not.toMatch(/\d+%/)
+    expect(slot.textContent?.indexOf('Run the analysis again to see the chance.')).toBe(0)
+    expect(slot.querySelectorAll('[data-testid^="analysis-view-only-earlier-chance-"]').length).toBe(capacity.canonical_analysis_view.options.length)
+    expect(slot.textContent).toMatch(/\d+% chance of ‘/)
   })
 
   // U2 (provisional, pending Paul's design call): a program board never mounts the legacy pre-analysis panel; with no

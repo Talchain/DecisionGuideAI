@@ -7,7 +7,8 @@
  * say it once"), an option's `why` that only says what the chance waits on is not said again: the headline lists every
  * item once, with CEE's own words on why an unknown cannot be sized yet.
  * Row 19 (DL, 24 Oct): on a PROGRAM board a Run that is no longer current says CEE's own not-current line once
- * (`face_when_stale`), never its old figures, with one "Run again" that sends the existing Run press.
+ * (`face_when_stale`), with one "Run again" that sends the existing Run press. Paul, 27 Oct (spec: "A historical Run's
+ * chances are never hidden"): each option's stored words from that Run follow the line.
  * Under each option's chance line, CEE's own words on what that chance rests on most (`main_driver.detail`, through
  * `mainDriverDetailOf`), or CEE's reason none is shown (`none_licensed`); nothing when not recorded, or for a stale Run.
  * W6 (CEE #3792; Paul 6 and 14 Oct): under the chances, once, CEE's own sentence (`leader.words`) on which option is most
@@ -35,6 +36,8 @@ export interface ViewOnlyRunChanceLine {
   readonly withheld: boolean
   /** Its `why` only says what the chance waits on, every item of which CEE lists in `goal_chance.waits_on`. */
   readonly whyIsWaitsOn: boolean
+  /** An option's words from a Run that is no longer current, said after CEE's not-current line. */
+  readonly earlier?: boolean
 }
 
 export interface ViewOnlyRunChances {
@@ -86,10 +89,17 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
     if (report != null || canonical === null) return null
     const view = runViewOf(null, canonical)
     if (!view.boundToCurrentCanonical()) {
-      // The chance gate stands: no figure from a Run that is not current. CEE's own line, said once for every option.
+      // CEE's own line, said once for every option, then each option's stored words from that Run (Paul, 27 Oct; spec: "A
+      // historical Run's chances are never hidden"). They follow the line that says the Run is not current, are never
+      // counted as a shown result, and carry no driver or "most likely" (CEE names no leader for a Run that is not current).
       const line = program ? view.notCurrentLine() : null
-      return line === null ? null
-        : { sentence: null, lines: [{ optionIds: canonical.options.map(o => o.option_id), text: line, why: null, driver: null, withheld: false, whyIsWaitsOn: false }], waitsOn: [], stale: true, allWithheld: false, mostLikely: null }
+      if (line === null) return null
+      const earlier = canonical.options.flatMap(({ option_id: optionId, cell }) => {
+        const words = cell.kind === 'figure' || cell.kind === 'range' ? cell.face ?? cell.display : cell.kind === 'withheld' ? cell.face ?? null : null
+        return words === null ? [] : [{ optionIds: [optionId], text: words, why: null, driver: null, withheld: false, whyIsWaitsOn: false, earlier: true }]
+      })
+      return { sentence: null, lines: [{ optionIds: canonical.options.map(o => o.option_id), text: line, why: null, driver: null, withheld: false, whyIsWaitsOn: false }, ...earlier],
+        waitsOn: [], stale: true, allWithheld: false, mostLikely: null }
     }
     const lines: { optionIds: string[]; text: string; why: string | null; driver: string | null; withheld: boolean; whyIsWaitsOn: boolean }[] = []
     let allWithheld = canonical.options.length > 0
@@ -194,7 +204,8 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
         </div>
       ) : null}
       {chances.lines.map(line => (
-        <div key={line.optionIds.join('+')} data-testid={`analysis-view-only-chance-${line.optionIds.join('+')}`}>
+        <div key={`${line.earlier ? 'earlier-' : ''}${line.optionIds.join('+')}`}
+          data-testid={`analysis-view-only-${line.earlier ? 'earlier-' : ''}chance-${line.optionIds.join('+')}`}>
           {waits ? null : <p className={`${typography.panelBody} text-text-body`}>{line.text}</p>}
           {line.why === null || (waits && line.whyIsWaitsOn) ? null : <p className={`${typography.panelMeta} text-text-light`}>{line.why}</p>}
           {line.driver === null ? null : (
