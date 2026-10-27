@@ -17,6 +17,7 @@
  */
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
+import { useSavedGraph } from '../../../canvas/nodes/shared/savedGraph'
 import { stripNodeValueSignature } from './buildModelStrip'
 import { buildReviewQueue } from './buildReviewQueue'
 import type { Recommendation } from '../strengthen/strengthenTypes'
@@ -36,6 +37,7 @@ export function useReviewTopicCount(source: ReviewTopicSource | undefined): numb
       .join('|'),
   )
   const edgeSignature = useCanvasStore((s) => (s.edges ?? []).map((e) => e.id).join('|'))
+  const savedGraph = useSavedGraph()
   const interventions = source?.interventions
   const excludeId = source?.excludeId ?? null
   return useMemo(() => {
@@ -46,8 +48,9 @@ export function useReviewTopicCount(source: ReviewTopicSource | undefined): numb
       excludeId,
       nodes: state.nodes ?? [],
       edgeIds: (state.edges ?? []).map((e) => e.id),
+      savedGraph,
     }).length
     // The signatures ARE the node and edge dependencies; see above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [interventions, excludeId, nodeSignature, edgeSignature])
+  }, [interventions, excludeId, nodeSignature, edgeSignature, savedGraph])
 }

@@ -56,6 +56,7 @@ import {
 
 import Tooltip from '../../../Tooltip'
 import { useCanvasStore } from '../../../../canvas/store'
+import { useSavedGraph } from '../../../../canvas/nodes/shared/savedGraph'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
@@ -181,6 +182,7 @@ export function ModelReviewTool({
       .join('|'),
   )
   const edgeSignature = useCanvasStore((s) => (s.edges ?? []).map((e) => e.id).join('|'))
+  const savedGraph = useSavedGraph()
   const queue = useMemo(() => {
     const state = useCanvasStore.getState()
     return buildReviewQueue({
@@ -188,10 +190,11 @@ export function ModelReviewTool({
       excludeId,
       nodes: state.nodes ?? [],
       edgeIds: (state.edges ?? []).map((e) => e.id),
+      savedGraph,
     })
     // The signatures ARE the node and edge dependencies; see above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [interventions, excludeId, nodeSignature, edgeSignature])
+  }, [interventions, excludeId, nodeSignature, edgeSignature, savedGraph])
 
   // ── "Edit the full question": ONE form, opened from here or the Method strip ──
   // This row hosts it; while mounted it registers, so the strip's "Edit decision
