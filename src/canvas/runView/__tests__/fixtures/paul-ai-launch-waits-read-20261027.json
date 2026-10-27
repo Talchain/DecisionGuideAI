@@ -1,0 +1,258 @@
+{
+ "_capture": "Staging scenario bb169869 (Paul's AI chat launch board), saved record read 27 Oct 2026 ~11:30Z (GET only): graph nodes (id, kind, label) and the stored Run's canonical_analysis_view (run mp_run_3, current), as stored.",
+ "scenario_id": "bb169869-b6b0-4359-9bd1-a526e8eb15fc",
+ "graph": {
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "kind": "decision",
+    "label": "Which approach could help the team launch the basic AI chat integration within the next two months?"
+   },
+   {
+    "id": "launch_basic_chat",
+    "kind": "goal",
+    "label": "Launch at least our basic AI chat integration within the next two months"
+   },
+   {
+    "id": "experienced_ai_support",
+    "kind": "option",
+    "label": "Bring in experienced AI support for the launch push"
+   },
+   {
+    "id": "managed_chat_service",
+    "kind": "option",
+    "label": "Integrate a managed AI chat service for the basic launch"
+   },
+   {
+    "id": "current_delivery_rate",
+    "kind": "factor",
+    "label": "Current team delivery pace"
+   },
+   {
+    "id": "completed_tasks_start",
+    "kind": "factor",
+    "label": "Remaining-scope tasks completed at the start"
+   },
+   {
+    "id": "completed_tasks",
+    "kind": "outcome",
+    "label": "Remaining-scope tasks completed"
+   },
+   {
+    "id": "specialist_enabled",
+    "kind": "factor",
+    "label": "Experienced AI support in place"
+   },
+   {
+    "id": "managed_service_enabled",
+    "kind": "factor",
+    "label": "Managed chat service approach in use"
+   },
+   {
+    "id": "baseline_pace_multiplier",
+    "kind": "factor",
+    "label": "Current pace multiplier"
+   },
+   {
+    "id": "delivery_multiplier",
+    "kind": "outcome",
+    "label": "Delivery pace relative to the current approach"
+   },
+   {
+    "id": "delivery_rate",
+    "kind": "outcome",
+    "label": "Tasks completed per month"
+   },
+   {
+    "id": "specialist_start_delay",
+    "kind": "factor",
+    "label": "Time until experienced AI support can start"
+   },
+   {
+    "id": "managed_service_start_delay",
+    "kind": "factor",
+    "label": "Time until the managed-service approach can start"
+   },
+   {
+    "id": "launch_unsafe_responses",
+    "kind": "risk",
+    "label": "Provisional risk under either approach: inaccurate or unsafe chat responses could harm users or block the basic chat launch."
+   },
+   {
+    "id": "launch_sensitive_data_exposure",
+    "kind": "risk",
+    "label": "Provisional risk under either approach: sensitive-data exposure or inadequate access controls could require security remediation or block the basic chat launch."
+   },
+   {
+    "id": "launch_rushed_testing",
+    "kind": "risk",
+    "label": "Provisional risk under either approach: deadline pressure could cause rushed testing, missed defects, rework or an unstable basic chat launch."
+   }
+  ]
+ },
+ "canonical_analysis_view": {
+  "run": {
+   "run_id": "mp_run_3_d3c35f228107",
+   "computed_at": "2026-10-27T11:27:05.997Z",
+   "graph_hash_at_run": "5cb431d51eac11be39c750e57b4a43a9d2b806a5212b1c3a508d634df3d4473f"
+  },
+  "schema": "canonical_analysis_view.v1",
+  "source": "stored_run_facts",
+  "options": [
+   {
+    "cell": {
+     "why": "The chance waits on ‘Tasks needed to launch the basic integration’, ‘Current team delivery pace’, ‘Time until experienced AI support can start’, ‘Chance of unsafe responses affecting the launch’, which no one can size yet (This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and representative response evaluations and release safeguards would be needed to size it), ‘Launch-progress impact if unsafe responses occur’, which no one can size yet (No numerical impact is supplied; affected release requirements and remediation work would be needed to express a launch-progress impact, and user harm is not quantified by the task measure), ‘Chance of a data-exposure or access-control problem’, which no one can size yet (This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and a review of data flows, access controls and security testing would be needed to size it), ‘Launch-progress impact of a data-security problem’, which no one can size yet (No numerical impact is supplied; the security findings, required remediation and release-blocking requirements would be needed to express a launch-progress impact), ‘Chance of deadline pressure causing rushed testing’, which no one can size yet (This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and the test plan, available testing time and defect evidence would be needed to size it) and ‘Launch-progress impact of missed defects and rework’, which no one can size yet (No numerical impact is supplied; missed-defect severity and resulting rework would be needed to express a launch-progress impact, and post-launch instability is not quantified by the task measure).",
+     "face": "Not shown yet: needs your answer",
+     "kind": "withheld",
+     "reasons": [
+      {
+       "code": "goal_withheld",
+       "message": "rests on \"Launch-progress impact of missed defects and rework\", which is unknown: No numerical impact is supplied; missed-defect severity and resulting rework would be needed to express a launch-progress impact, and post-launch instability is not quantified by the task measure. rests on \"Chance of deadline pressure causing rushed testing\", which is unknown: This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and the test plan, available testing time and defect evidence would be needed to size it. rests on \"Launch-progress impact of a data-security problem\", which is unknown: No numerical impact is supplied; the security findings, required remediation and release-blocking requirements would be needed to express a launch-progress impact. rests on \"Chance of a data-exposure or access-control problem\", which is unknown: This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and a review of data flows, access controls and security testing would be needed to size it. rests on \"Launch-progress impact if unsafe responses occur\", which is unknown: No numerical impact is supplied; affected release requirements and remediation work would be needed to express a launch-progress impact, and user harm is not quantified by the task measure. rests on \"Chance of unsafe responses affecting the launch\", which is unknown: This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and representative response evaluations and release safeguards would be needed to size it. needs \"Tasks needed to launch the basic integration\". needs \"Current team delivery pace\"."
+      }
+     ]
+    },
+    "option_id": "experienced_ai_support",
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "cell": {
+     "why": "The chance waits on ‘Tasks needed to launch the basic integration’, ‘Current team delivery pace’, ‘Time until the managed-service approach can start’, ‘Chance of unsafe responses affecting the launch’, which no one can size yet (This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and representative response evaluations and release safeguards would be needed to size it), ‘Launch-progress impact if unsafe responses occur’, which no one can size yet (No numerical impact is supplied; affected release requirements and remediation work would be needed to express a launch-progress impact, and user harm is not quantified by the task measure), ‘Chance of a data-exposure or access-control problem’, which no one can size yet (This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and a review of data flows, access controls and security testing would be needed to size it), ‘Launch-progress impact of a data-security problem’, which no one can size yet (No numerical impact is supplied; the security findings, required remediation and release-blocking requirements would be needed to express a launch-progress impact), ‘Chance of deadline pressure causing rushed testing’, which no one can size yet (This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and the test plan, available testing time and defect evidence would be needed to size it) and ‘Launch-progress impact of missed defects and rework’, which no one can size yet (No numerical impact is supplied; missed-defect severity and resulting rework would be needed to express a launch-progress impact, and post-launch instability is not quantified by the task measure).",
+     "face": "Not shown yet: needs your answer",
+     "kind": "withheld",
+     "reasons": [
+      {
+       "code": "goal_withheld",
+       "message": "rests on \"Launch-progress impact of missed defects and rework\", which is unknown: No numerical impact is supplied; missed-defect severity and resulting rework would be needed to express a launch-progress impact, and post-launch instability is not quantified by the task measure. rests on \"Chance of deadline pressure causing rushed testing\", which is unknown: This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and the test plan, available testing time and defect evidence would be needed to size it. rests on \"Launch-progress impact of a data-security problem\", which is unknown: No numerical impact is supplied; the security findings, required remediation and release-blocking requirements would be needed to express a launch-progress impact. rests on \"Chance of a data-exposure or access-control problem\", which is unknown: This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and a review of data flows, access controls and security testing would be needed to size it. rests on \"Launch-progress impact if unsafe responses occur\", which is unknown: No numerical impact is supplied; affected release requirements and remediation work would be needed to express a launch-progress impact, and user harm is not quantified by the task measure. rests on \"Chance of unsafe responses affecting the launch\", which is unknown: This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and representative response evaluations and release safeguards would be needed to size it. needs \"Tasks needed to launch the basic integration\". needs \"Current team delivery pace\"."
+      }
+     ]
+    },
+    "option_id": "managed_chat_service",
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   }
+  ],
+  "staleness": {
+   "basis": "analysis_graph_hash_interim",
+   "stale": false,
+   "reason": "graph_hash_match",
+   "revision": null,
+   "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+   "run_revision": null
+  },
+  "goal_chance": {
+   "notes": [
+    "‘Launch at least our basic AI chat integration within the next two months’ waits on ‘Tasks needed to launch the basic integration’, ‘Current team delivery pace’, ‘Chance of unsafe responses affecting the launch’, which no one can size yet (This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and representative response evaluations and release safeguards would be needed to size it), ‘Launch-progress impact if unsafe responses occur’, which no one can size yet (No numerical impact is supplied; affected release requirements and remediation work would be needed to express a launch-progress impact, and user harm is not quantified by the task measure), ‘Chance of a data-exposure or access-control problem’, which no one can size yet (This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and a review of data flows, access controls and security testing would be needed to size it), ‘Launch-progress impact of a data-security problem’, which no one can size yet (No numerical impact is supplied; the security findings, required remediation and release-blocking requirements would be needed to express a launch-progress impact), ‘Chance of deadline pressure causing rushed testing’, which no one can size yet (This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and the test plan, available testing time and defect evidence would be needed to size it) and ‘Launch-progress impact of missed defects and rework’, which no one can size yet (No numerical impact is supplied; missed-defect severity and resulting rework would be needed to express a launch-progress impact, and post-launch instability is not quantified by the task measure)."
+   ],
+   "waits_on": [
+    {
+     "id": "remaining_tasks",
+     "code": "asked",
+     "label": "Tasks needed to launch the basic integration",
+     "scope": [
+      "launch_basic_chat"
+     ],
+     "answer": {
+      "quantity_id": "remaining_tasks"
+     }
+    },
+    {
+     "id": "current_delivery_rate",
+     "code": "asked",
+     "label": "Current team delivery pace",
+     "scope": [
+      "launch_basic_chat"
+     ],
+     "answer": {
+      "quantity_id": "current_delivery_rate"
+     }
+    },
+    {
+     "id": "specialist_start_delay",
+     "code": "asked",
+     "label": "Time until experienced AI support can start",
+     "scope": [
+      "experienced_ai_support"
+     ],
+     "answer": {
+      "quantity_id": "specialist_start_delay"
+     }
+    },
+    {
+     "id": "managed_service_start_delay",
+     "code": "asked",
+     "label": "Time until the managed-service approach can start",
+     "scope": [
+      "managed_chat_service"
+     ],
+     "answer": {
+      "quantity_id": "managed_service_start_delay"
+     }
+    },
+    {
+     "id": "unsafe_responses_occurrence",
+     "code": "unknown",
+     "basis": "This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and representative response evaluations and release safeguards would be needed to size it.",
+     "label": "Chance of unsafe responses affecting the launch",
+     "scope": [
+      "launch_basic_chat"
+     ],
+     "answer": null
+    },
+    {
+     "id": "unsafe_responses_launch_impact",
+     "code": "unknown",
+     "basis": "No numerical impact is supplied; affected release requirements and remediation work would be needed to express a launch-progress impact, and user harm is not quantified by the task measure.",
+     "label": "Launch-progress impact if unsafe responses occur",
+     "scope": [
+      "launch_basic_chat"
+     ],
+     "answer": null
+    },
+    {
+     "id": "sensitive_data_exposure_occurrence",
+     "code": "unknown",
+     "basis": "This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and a review of data flows, access controls and security testing would be needed to size it.",
+     "label": "Chance of a data-exposure or access-control problem",
+     "scope": [
+      "launch_basic_chat"
+     ],
+     "answer": null
+    },
+    {
+     "id": "sensitive_data_exposure_launch_impact",
+     "code": "unknown",
+     "basis": "No numerical impact is supplied; the security findings, required remediation and release-blocking requirements would be needed to express a launch-progress impact.",
+     "label": "Launch-progress impact of a data-security problem",
+     "scope": [
+      "launch_basic_chat"
+     ],
+     "answer": null
+    },
+    {
+     "id": "rushed_testing_occurrence",
+     "code": "unknown",
+     "basis": "This provisional risk applies to the launch under both existing approaches; no likelihood is supplied, and the test plan, available testing time and defect evidence would be needed to size it.",
+     "label": "Chance of deadline pressure causing rushed testing",
+     "scope": [
+      "launch_basic_chat"
+     ],
+     "answer": null
+    },
+    {
+     "id": "rushed_testing_launch_impact",
+     "code": "unknown",
+     "basis": "No numerical impact is supplied; missed-defect severity and resulting rework would be needed to express a launch-progress impact, and post-launch instability is not quantified by the task measure.",
+     "label": "Launch-progress impact of missed defects and rework",
+     "scope": [
+      "launch_basic_chat"
+     ],
+     "answer": null
+    }
+   ]
+  },
+  "leader_licence": "withheld"
+ }
+}
