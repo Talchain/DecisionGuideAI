@@ -10,6 +10,7 @@
 
 import { useState, useCallback } from 'react'
 import { useAnalysisState } from '../../state/analysisStateSelector'
+import { useSavedModelProgramState } from '../../nodes/shared/savedModelProgram'
 
 export function useEditConfirmation() {
   const [lastConfirmed, setLastConfirmed] = useState<{ field: string; ts: number } | null>(null)
@@ -19,6 +20,9 @@ export function useEditConfirmation() {
   // model was confirmably fresh on a turn CEE had refused to vouch for.
   // Byte-identical when CEE states no verdict.
   const displayed = useAnalysisState().displayedFreshness
+  // A program's Run is the host's, on every change (its own view says when it is not current): the legacy freshness
+  // never asks to re-run on a board that may be a program (known one, or its read pending or failed).
+  const program = useSavedModelProgramState() !== 'not_program'
 
   const confirm = useCallback((field: string) => {
     setLastConfirmed({ field, ts: Date.now() })
@@ -26,7 +30,7 @@ export function useEditConfirmation() {
 
   // Not confirmably fresh per the sole freshness owner + an edit happened here.
   const notConfirmablyFresh = displayed === 'stale' || displayed === 'unknown'
-  const isStaleAfterEdit = notConfirmablyFresh && lastConfirmed !== null
+  const isStaleAfterEdit = !program && notConfirmablyFresh && lastConfirmed !== null
 
   return { confirm, lastConfirmed, isStaleAfterEdit }
 }
