@@ -2166,7 +2166,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    */
   const glyphPlacement = useMemo(() => {
     // Only where a sign can render (the render predicate below is a subset).
-    if ((!statedDirection && !isSignDisputed && !programOperator) || isStructuralEdge) return null
+    if ((!statedDirection && !isSignDisputed && !programOperator && !directionUnsettled) || isStructuralEdge) return null
     const poly = flattenSvgPath(edgePath)
     if (!poly) return null
     const glyphScale = glyphCounterScale(edgeTooltipZoom)
@@ -2204,7 +2204,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     const metrics = glyphMetricsAt(edgeStrokeWidth, glyphScale, labelCounterScale(edgeTooltipZoom))
     return resolvePolarityGlyphOnPath(poly, cardTop, metrics, keepOuts)
     // nodeRectsSignature: re-place when any card moves.
-  }, [statedDirection, isSignDisputed, programOperator, isStructuralEdge, sameRowRoute, edgePath, endY, getNodes, getEdges, id, target, sourcePosition, targetPosition, sourceY, targetX, targetY, edgeStrokeWidth, edgeTooltipZoom, nodeRectsSignature])
+  }, [statedDirection, isSignDisputed, programOperator, directionUnsettled, isStructuralEdge, sameRowRoute, edgePath, endY, getNodes, getEdges, id, target, sourcePosition, targetPosition, sourceY, targetX, targetY, edgeStrokeWidth, edgeTooltipZoom, nodeRectsSignature])
 
   // ── Stroke + dash, from the one authority ────────────────────────────────
   //
@@ -2757,7 +2757,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           on the amber stroke, and it is drawn even when the strength row's
           words carry a direction — those words are the FIRST pass's sign, the
           disputed one, so they cannot stand in for the dispute cue. */}
-      {(statedDirection || isSignDisputed || programOperator) && !isStructuralEdge && (isSignDisputed || programOperator || !strengthRowCarriesDirection) && (
+      {/* CEE #3859: an unsettled direction ("?") is drawn even when the strength row's words carry a sign — those words
+          are the centre's sign, which is exactly what is not settled (Codex r1 on the first-screen PR). */}
+      {(statedDirection || isSignDisputed || programOperator || directionUnsettled) && !isStructuralEdge && (isSignDisputed || programOperator || directionUnsettled || !strengthRowCarriesDirection) && (
         <EdgeLabelRenderer>
           <div
             style={{

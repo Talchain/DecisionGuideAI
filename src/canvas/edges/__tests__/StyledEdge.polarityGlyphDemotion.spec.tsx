@@ -96,6 +96,9 @@ vi.mock('../../hooks/usePrefersReducedMotion', () => ({
   usePrefersReducedMotion: () => false,
 }))
 vi.mock('../../../flags', () => ({ isGraphLensEnabled: () => false }))
+// CEE #3859 row below: the saved program read the "?" reads (null everywhere else in this file).
+const savedRead: { graph: unknown } = { graph: null }
+vi.mock('../../nodes/shared/savedGraph', () => ({ useSavedGraph: () => savedRead.graph }))
 vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../utils/graphDisplayCalculations')>()),
   calculateEdgeImportance: () => 0.5,
@@ -141,6 +144,7 @@ function pinAsTopStrength(): void {
 }
 
 beforeEach(() => {
+  savedRead.graph = null
   mockReport = null
   mockEdges = []
   mockViewMode = 'detailed'
@@ -157,6 +161,17 @@ describe('polarity glyph — suppressed only where a persistent chip already say
     expect(strengthText(container)!.textContent).toMatch(/boost|drag/)
     // …so the glyph does not repeat it.
     expect(glyph(container)).toBeNull()
+  })
+
+  // CEE #3859 (Codex r1 on the first-screen PR): the word is the centre's sign, which is what is not settled, so an
+  // unsettled direction keeps its "?" beside the same persistent row that suppresses "+" in THE DEFECT above.
+  it('an unsettled direction keeps "?" beside a persistent strength row', () => {
+    pinAsTopStrength()
+    savedRead.graph = { living_model: { model_program: 'v1' }, edges: [{ from: 'n1', to: 'n2', direction_settled: false }] }
+    const { container } = render(<StyledEdge {...(props as any)} />)
+    expect(strengthText(container)!.textContent).toMatch(/boost|drag/)
+    expect(glyph(container)?.textContent).toBe('?')
+    expect(glyph(container)?.getAttribute('aria-label')).toBe('Effect direction: not settled. Its range runs both ways.')
   })
 
   it('CONTROL: a TRANSIENT chip (selected, Detailed) KEEPS the glyph', () => {

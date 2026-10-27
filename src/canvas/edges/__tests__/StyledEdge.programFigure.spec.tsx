@@ -144,3 +144,32 @@ describe('CONTROL: a non-program link keeps its strength words and source mark',
     expect(container.querySelector('[data-edge-source-icon]')?.getAttribute('aria-label')).toBe('From brief')
   })
 })
+
+// CEE #3859: a link whose range runs both ways says "?", never the centre's sign — drawn even where the strength row
+// carries a direction (Codex r1 on the first-screen PR). Bound to the edge by `data-edge-id`.
+describe('an unsettled direction reads "?" on its own link', () => {
+  const withSettled = (settled: boolean | undefined) => {
+    const edge = settled === undefined ? CAP_EDGE : { ...CAP_EDGE, direction_settled: settled }
+    return { edge, graph: { ...CAP_GRAPH, edges: [edge] } }
+  }
+  const glyphOf = (container: HTMLElement) => container.querySelector(`div[data-edge-id="${CAP_EDGE.id}"]`)
+
+  it('direction_settled:false → "?" with its words', () => {
+    const { edge, graph } = withSettled(false)
+    saved.graph = graph
+    const glyph = glyphOf(render(<StyledEdge {...(edgeProps(edge) as any)} />).container)
+    expect(glyph?.textContent).toBe('?')
+    expect(glyph?.getAttribute('aria-label')).toBe('Effect direction: not settled. Its range runs both ways.')
+  })
+
+  it('CONTRAST: the same link, settled, draws no "?"', () => {
+    for (const settled of [true, undefined]) {
+      const { edge, graph } = withSettled(settled)
+      saved.graph = graph
+      const { container, unmount } = render(<StyledEdge {...(edgeProps(edge) as any)} />)
+      expect(glyphOf(container)?.textContent ?? '').not.toBe('?')
+      expect(container.textContent).not.toContain('not settled')
+      unmount()
+    }
+  })
+})

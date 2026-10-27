@@ -946,6 +946,8 @@ export const GoalNode = memo((props: NodeProps) => {
       className={`nodrag relative ${GOAL_STATE_WORD_CLASSES} before:absolute before:-inset-[3px] before:content-[''] hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
       style={GOAL_STATE_WORD_STYLE}
       aria-label={noTargetChannels['aria-label']}
+      // CEE #3859: the question Olumi asked for this target, for a screen reader as for the hover (Codex r1).
+      aria-description={askedTargetQuestion ?? undefined}
       aria-haspopup="dialog"
       aria-expanded={targetEditorAnchor !== null}
       title={noTargetChannels.title}
