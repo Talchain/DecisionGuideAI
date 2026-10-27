@@ -4,7 +4,9 @@
  * CEE flags that card `reading: true` and the UI never infers it from what the card holds. On a reading card:
  *   · the heading is "Your situation as I understood it", in place of the "Also changes …" summary;
  *   · the change list starts open, in CEE's order as given;
- *   · the approve says what CEE sends (its own label), "Change something first" and "Not now" as on every card.
+ *   · the approve says what CEE sends (its own label), and "Not now" as on every card; "Change something first" is not
+ *     shown (W4, Paul 27 Oct: the draft is saved and the card has no field to change, so it only sent a canned sentence).
+ *     To change something the person types it. A change card (no reading flag) keeps it.
  * A `left_out` entry is a readable kind on every card, worded "Leaves out ‘label’ (why)", so Approve stays live for it;
  * an unknown kind is still unreadable and still blocks Approve (#2958).
  *
@@ -69,7 +71,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/') })
 
 describe('a reading card (CEE `reading: true`): your situation as I understood it', () => {
-  it('renders open under its heading, in CEE’s order, left out worded, with CEE’s approve and the usual Change and Not now', async () => {
+  it('renders open under its heading, in CEE’s order, left out worded, with CEE’s approve and Not now, and no Change chip', async () => {
     board()
     await mount(reading())
     expect(heading()).toBe('Your situation as I understood it')
@@ -83,10 +85,12 @@ describe('a reading card (CEE `reading: true`): your situation as I understood i
     ])
     expect(listed().map((li) => li.getAttribute('data-testid')))
       .toEqual(['proposal-change-goal:secure_funding', 'proposal-change-option:angel_route', 'proposal-change-left_out:team_morale', 'proposal-change-quantity:firm_receipt_rate'])
-    // The approve is CEE's own words; the other two are every card's.
+    // The approve is CEE's own words and "Not now" is every card's; the amend chip CEE sent is not rendered (W4).
     expect(chip(CONFIRM.id).textContent).toBe('Yes, that’s what I meant')
-    expect(chip(AMEND_PROPOSAL_ACTION.id).textContent).toBe('Change something first')
     expect(chip(fixture.card.decline_action.id).textContent).toBe('Not now')
+    expect(screen.queryByTestId(`suggested-chip-${AMEND_PROPOSAL_ACTION.id}`)).toBeNull()
+    expect([...screen.getByTestId('suggested-chips').querySelectorAll('button')].map((b) => b.getAttribute('data-testid')))
+      .toEqual([`suggested-chip-${CONFIRM.id}`, `suggested-chip-${fixture.card.decline_action.id}`])
     // A left-out entry is readable: Approve is live, with no reason line, and a press sends CEE's approve.
     expect(screen.queryByTestId('suggested-chips-change-unread-reason')).toBeNull()
     expect(chip(CONFIRM.id).disabled).toBe(false)
@@ -95,7 +99,7 @@ describe('a reading card (CEE `reading: true`): your situation as I understood i
     expect(onChipClick.mock.calls[0][0]).toMatchObject({ id: CONFIRM.id })
   })
 
-  it('CONTRAST: the same card with no reading flag (absent, false or the text "true") keeps the summary and a closed list', async () => {
+  it('CONTRAST: the same card with no reading flag (absent, false or the text "true") keeps the summary, a closed list and its Change chip', async () => {
     for (const flag of [undefined, false, 'true']) {
       board()
       const { reading: _none, ...card } = reading()
@@ -103,6 +107,10 @@ describe('a reading card (CEE `reading: true`): your situation as I understood i
       expect(heading()).toBe('Also changes 1 goal, 1 option, 1 left-out item and 1 figure')
       expect(screen.getByTestId(`proposal-change-details-${PID}`).getAttribute('aria-expanded')).toBe('false')
       expect(listed()).toHaveLength(0)
+      // A change card keeps "Change something first", by its id, between the approve and "Not now".
+      expect([...screen.getByTestId('suggested-chips').querySelectorAll('button')].map((b) => b.getAttribute('data-testid')))
+        .toEqual([`suggested-chip-${CONFIRM.id}`, `suggested-chip-${AMEND_PROPOSAL_ACTION.id}`, `suggested-chip-${fixture.card.decline_action.id}`])
+      expect(chip(AMEND_PROPOSAL_ACTION.id).textContent).toBe('Change something first')
       // Opened, a left-out entry reads the same on any card.
       fireEvent.click(screen.getByTestId(`proposal-change-details-${PID}`))
       expect(screen.getByTestId('proposal-change-left_out:team_morale').textContent)
