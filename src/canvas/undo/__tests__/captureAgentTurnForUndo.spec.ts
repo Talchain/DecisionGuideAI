@@ -128,6 +128,8 @@ describe('C8: a guest save\'s versionless receipt proves the save and is never a
     expect(readAgentTurnReceipts(agentResponse([bad]))).toBeNull()
     expect(readAgentTurnReceipts(agentResponse([bad, receipt(6, V6)]))).toBeNull()
     expect(hasOwnSaveReceipt(agentResponse([bad]))).toBe(false)
+    // A well-formed one beside a malformed one: the set is malformed, so no save is claimed (review M7).
+    expect(hasOwnSaveReceipt(agentResponse([UNVERSIONED, bad]))).toBe(false)
   })
 
   it('beside a version, Undo is given only the version: one step back to its parent', async () => {
