@@ -257,9 +257,9 @@ export function unconfirmedStrengthDisclosure(
  */
 export const SOURCE_MARK_TYPE_CLASSES = `${typography.nodeMark} text-text-light`
 
-/** v3.1 `.prov svg{width:11px;height:11px}`, counter-scaled with the type. */
+/** Card icons are 12 px (vision spec icon section, Paul 24 Oct; was v3.1 `.prov svg` 11 px), counter-scaled with the type. */
 export const SOURCE_MARK_GLYPH_CLASSES =
-  'inline-block h-[calc(11px*var(--canvas-glyph-scale,1))] w-[calc(11px*var(--canvas-glyph-scale,1))] self-center'
+  'inline-block h-[calc(12px*var(--canvas-glyph-scale,1))] w-[calc(12px*var(--canvas-glyph-scale,1))] self-center'
 
 /**
  * ⭐⭐ A MARK THAT OPENS ITS SOURCE — v3.1 point 1: "Each mark has an accessible

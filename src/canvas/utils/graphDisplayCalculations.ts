@@ -384,7 +384,8 @@ export const MEASURED_EDGE_STROKE_WIDTH_FLOOR = Math.min(
  * — that function takes a `number` and so, by construction, cannot tell a
  * measurement from a default.
  */
-export const UNSET_EDGE_STROKE_WIDTH = 1
+// Vision spec §2b (22 Oct): an unset link is 1.5 px, still below the slightest measured band (2).
+export const UNSET_EDGE_STROKE_WIDTH = 1.5
 
 /**
  * ⚠ THE CUTS ARE DERIVED, NEVER RESTATED. This function used to carry its own

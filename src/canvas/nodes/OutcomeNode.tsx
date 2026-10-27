@@ -18,7 +18,8 @@ import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { nodeRecordedValue } from '../domain/nodeRecordedValue'
-import { useSavedModelIsProgram } from './shared/savedModelProgram'
+import { programFormulaWords, useSavedModelIsProgram } from './shared/savedModelProgram'
+import { useSavedGraph } from './shared/savedGraph'
 import { factorValueSourceMark, NO_FIGURE_YET, ValueSourceMark } from './shared/valueSourceMark'
 import { openNodeInspector } from './shared/openNodeInspector'
 
@@ -88,6 +89,8 @@ function recordsAnyNumber(data: Record<string, unknown> | undefined): boolean {
 export const OUTCOME_TODAY_PREFIX = 'Today: '
 /** The figure an outcome shows while CEE has worked out how, but not what (the same dash a withheld chance shows). */
 export const OUTCOME_NO_FIGURE_YET = NO_FIGURE_YET
+/** Decision 8 A (Paul, 26 Oct): a worked-out card carries an "=" mark; its formula shows on hover. */
+export const OUTCOME_WORKED_OUT_MARK = '='
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
@@ -134,6 +137,11 @@ export const OutcomeNode = memo((props: NodeProps) => {
     return noFigure ? { recordedValue: OUTCOME_NO_FIGURE_YET, noFigureWords: basis.words as string } : { recordedValue: value, noFigureWords: null }
   }, [props.data, savedIsProgram])
   const recordedValueMark = recordedValue ? factorValueSourceMark(props.data) : null
+  const savedGraph = useSavedGraph()
+  const formulaWords = useMemo(() => noFigureWords === null ? null : programFormulaWords(savedGraph, props.id) ?? noFigureWords,
+    [noFigureWords, savedGraph, props.id])
+  // Only a program board has decision 8's "=" reading; any other board keeps "Today:".
+  const workedOutMark = savedIsProgram
   const showUnquantified = !recordedValue && !recordsAnyNumber(props.data as Record<string, unknown> | undefined)
   const hasStateLine = recordedValue != null || showUnquantified
 
@@ -424,10 +432,13 @@ export const OutcomeNode = memo((props: NodeProps) => {
             {noFigureWords === null ? (
               <span className="shrink-0" data-testid="outcome-recorded-readout"><span data-testid="outcome-recorded-today">{OUTCOME_TODAY_PREFIX}</span>{recordedValue}</span>
             ) : (
-              <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={noFigureWords}>
+              <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={workedOutMark ? formulaWords : noFigureWords}>
                 <span className="shrink-0 nodrag nopan rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-info" data-testid="outcome-recorded-readout"
-                  data-node-tooltip="true" tabIndex={0} aria-label={`${OUTCOME_TODAY_PREFIX}no figure yet. ${noFigureWords}`}>
-                  <span data-testid="outcome-recorded-today" aria-hidden="true">{OUTCOME_TODAY_PREFIX}</span><span aria-hidden="true">{recordedValue}</span>
+                  data-node-tooltip="true" tabIndex={0} aria-label={workedOutMark ? `No figure yet. ${formulaWords}` : `${OUTCOME_TODAY_PREFIX}no figure yet. ${noFigureWords}`}>
+                  {workedOutMark
+                    ? <span data-testid="outcome-worked-out-mark" aria-hidden="true" className="text-text-light">{OUTCOME_WORKED_OUT_MARK} </span>
+                    : <span data-testid="outcome-recorded-today" aria-hidden="true">{OUTCOME_TODAY_PREFIX}</span>}
+                  <span aria-hidden="true">{recordedValue}</span>
                 </span>
               </Tooltip>
             )}

@@ -121,12 +121,14 @@ describe('a zero is a figure on a program graph', () => {
 })
 
 describe('a worked-out quantity with no figure: the indicator, CEE\'s words in its name (as today)', () => {
-  it('european "Customer base": "Today: —", named with CEE\'s worked-out words', async () => {
+  // Decision 8 A (Paul, 26 Oct): a worked-out card carries an "=" mark, never "Today:"; its formula is on hover.
+  it('european "Customer base": "= —", named with how it is worked out', async () => {
     await openBoard(european)
     await card('customers', OutcomeNode)
     const { text, name } = outcomeLine()
-    expect(text).toBe('Today: —')
-    expect(name).toBe('Today: no figure yet. Worked out from Current customers, New customers per month and Customers leaving per month')
+    expect(text).toBe('= —')
+    // The read's stock relation, in its parts' labels.
+    expect(name).toBe('No figure yet. Starts at Current customers; each period, the last level + New customers per month − Customers leaving per month')
   })
 })
 
