@@ -244,6 +244,10 @@ describe('L2-UI core save outcomes through the real fetch → parser → router 
     { row: '⭐ C7 saved before the reply failed: the saved version’s receipt', status: 502,
       body: { ...coreFailure('UPSTREAM_ERROR', false, false), receipts: [{ version: 3, version_id: 'v-3', mutation_id: 'm-3', source_turn_id: null, authorised_by: 'person' }] },
       words: SAVED, retry: false },
+    // A drafted first model saved, then the reply failed: CEE marks that receipt Olumi's (`core-turn.ts` turnReceipts).
+    { row: '⭐ C7 a drafted first model saved before the reply failed: Olumi’s receipt', status: 502,
+      body: { ...coreFailure('UPSTREAM_ERROR', false, false), receipts: [{ version: 1, version_id: 'v-1', mutation_id: 'm-1', source_turn_id: null, authorised_by: 'olumi' }] },
+      words: SAVED, retry: false },
     { row: '⭐ legacy scenario (409): one line, no resend, though CEE marks it retry-safe', status: 409,
       body: coreFailure('legacy_scenario', true, true, 'This scenario was saved before the current Olumi model and cannot be opened on this route. Nothing was changed.'),
       words: 'This scenario was built with an earlier version of Olumi. Start a new scenario to continue; this one stays here to read.', retry: false },
