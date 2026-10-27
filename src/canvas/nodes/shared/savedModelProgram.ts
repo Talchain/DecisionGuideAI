@@ -59,6 +59,26 @@ const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFi
 const markOf = (q: Rec): ValueProvenanceKind | null =>
   q.author === 'olumi' ? 'ai' : q.author === 'person' ? (typeof q.quote === 'string' && q.quote.length > 0 ? 'brief' : 'human') : null
 
+/** The canonical quantity record with this id on a program graph, or null (not a program, or no such quantity). */
+function canonicalQuantity(graph: unknown, id: string): Rec | null {
+  if (!isProgramGraph(graph)) return null
+  const canonical = rec(rec(rec(graph)?.living_model)?.canonical)
+  const quantities = Array.isArray(canonical?.quantities) ? canonical.quantities : []
+  return rec(quantities.find((x) => rec(x)?.id === id))
+}
+
+/** One quantity of a program, as its canonical record states it: the figure it holds (null when the program holds none). */
+export interface ProgramQuantity {
+  id: string
+  value: number | null
+}
+
+/** The canonical quantity behind a program card (a card's id is its quantity's id), or null off a program or for none. */
+export function programQuantityOf(graph: unknown, id: string): ProgramQuantity | null {
+  const q = canonicalQuantity(graph, id)
+  return q ? { id, value: num(q.value) } : null
+}
+
 /** The coefficient a program link names, or null when the link names none (or names one the read does not hold). */
 export function programCoefficientOf(graph: unknown, edgeId: string): ProgramCoefficient | null {
   if (!isProgramGraph(graph)) return null
@@ -66,9 +86,7 @@ export function programCoefficientOf(graph: unknown, edgeId: string): ProgramCoe
   const edges = Array.isArray(g?.edges) ? g.edges : []
   const coefficientId = rec(edges.find((e) => rec(e)?.id === edgeId))?.coefficient_id
   if (typeof coefficientId !== 'string' || coefficientId.length === 0) return null
-  const canonical = rec(rec(g?.living_model)?.canonical)
-  const quantities = Array.isArray(canonical?.quantities) ? canonical.quantities : []
-  const q = rec(quantities.find((x) => rec(x)?.id === coefficientId))
+  const q = canonicalQuantity(graph, coefficientId)
   if (!q) return null
   const nodes = Array.isArray(g?.nodes) ? g.nodes : []
   const workedOut = rec(rec(nodes.find((n) => rec(n)?.id === coefficientId))?.value_basis)?.kind === 'worked_out'

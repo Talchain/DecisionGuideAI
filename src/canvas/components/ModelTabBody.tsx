@@ -71,6 +71,7 @@ import { type ModelGroupId } from '../model-tab-v2/types'
 // stays free of fronting and store concerns.
 import { createOlumiHandOff, type OlumiSend } from '../conversation/olumiHandOff'
 import { useProgramBoardShowsResult } from '../../components/results/analysisNew/ViewOnlyRunChances'
+import { useSavedGraph } from '../nodes/shared/savedGraph'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -228,6 +229,7 @@ export const ModelTabBody = memo(function ModelTabBody({
   onSendMessage,
 }: ModelTabBodyProps) {
   const programShowsResult = useProgramBoardShowsResult()
+  const savedGraph = useSavedGraph()
   // ⚠ THE SEARCH STATE IS GONE, NOT PARKED. It was declared here, threaded to
   // `ModelFooter`, and consumed by NOTHING — no filter read it anywhere in
   // `src/`, so the box was an enabled control that silently did nothing. Keeping
@@ -864,6 +866,7 @@ export const ModelTabBody = memo(function ModelTabBody({
         edges={edges}
         goalThreshold={goalThreshold}
         goalConstraints={goalConstraintRows}
+        savedGraph={savedGraph}
         fragileEdgeIds={hasRobustnessData ? fragileEdgeIds : undefined}
         onHandOffToOlumi={olumiHandOff ? handOffToOlumi : undefined}
         currentScenarioId={currentScenarioId}
