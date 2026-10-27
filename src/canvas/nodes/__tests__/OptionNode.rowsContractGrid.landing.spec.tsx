@@ -259,11 +259,11 @@ for (const [starter, raw] of STARTERS) {
             expect(figure, 'the target figure stays in the row').not.toBeNull()
             // W8 c7.1 (27 Oct): one mark per source on the bottom row; a later row from the same source is covered by the
             // first row's mark, which names it.
-            const source = sourceMarkCovering(container, optionId, factorId, dt.textContent ?? '') ?? undefined
-            expect(source, 'the source retains its row identity').toBeDefined()
+            const source = sourceMarkCovering(container, optionId, factorId, dt.textContent ?? '')
+            expect(source, 'the source retains its row identity').not.toBeNull()
             expect(mark.contains(source)).toBe(false)
             expect(dd.contains(source)).toBe(false)
-            expect(source.closest(`[data-testid="option-bottom-marks-${optionId}"]`)).not.toBeNull()
+            expect(source!.closest(`[data-testid="option-bottom-marks-${optionId}"]`)).not.toBeNull()
           }
           // A value that may break says so explicitly — it must not inherit the cell's nowrap.
           if (value) {
