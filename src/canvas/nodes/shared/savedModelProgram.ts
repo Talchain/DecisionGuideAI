@@ -10,6 +10,7 @@ import { useSavedGraph, useSavedGraphRead } from './savedGraph'
 import { formatNumber } from '../../utils/formatValueWithUnit'
 import { unitWords } from '../../../utils/unitClassifier'
 import type { ValueProvenanceKind } from '../../domain/valueProvenance'
+import type { CEEGoalConstraint } from '../../../adapters/cee/types'
 
 type Rec = Record<string, unknown>
 const rec = (v: unknown): Rec | null => (v !== null && typeof v === 'object' && !Array.isArray(v) ? (v as Rec) : null)
@@ -85,6 +86,38 @@ export function programQuantityOf(graph: unknown, id: string): ProgramQuantity |
   const q = canonicalQuantity(graph, id)
   const str = (v: unknown): string | null => (typeof v === 'string' ? v : null)
   return q ? { id, value: num(q.value), low: num(q.low), high: num(q.high), author: str(q.author), approval: str(q.approval) } : null
+}
+
+/**
+ * The program's limits that the projection does not list as goal constraints, as limit rows with no figure. CEE lists a
+ * limit in `goal_constraints` only when its bound is one stated figure; it draws any other as a "Limit: …" text card
+ * ("its figure is not given yet"). Each row keeps the canonical record's label, what it measures and the person's words
+ * (CEE's own rule for the listed rows); its figure is not a number. Empty off a program.
+ */
+export function programLimitsWithoutFigure(
+  graph: unknown,
+  listed: readonly Pick<CEEGoalConstraint, 'constraint_id'>[] | null | undefined,
+): CEEGoalConstraint[] {
+  if (!isProgramGraph(graph)) return []
+  const canonical = rec(rec(rec(graph)?.living_model)?.canonical)
+  const limits = Array.isArray(canonical?.limits) ? canonical.limits : []
+  const shown = new Set((listed ?? []).map((c) => c.constraint_id))
+  return limits.flatMap((x) => {
+    const l = rec(x)
+    const id = typeof l?.id === 'string' ? l.id : null
+    if (l === null || id === null || shown.has(id)) return []
+    const measure = rec(l.measure)
+    const quote = l.author === 'person' && typeof l.quote === 'string' && l.quote.length > 0 ? l.quote.slice(0, 200) : null
+    return [{
+      constraint_id: id,
+      ...(typeof l.label === 'string' ? { label: l.label } : {}),
+      ...(typeof measure?.quantity === 'string' ? { node_id: measure.quantity } : {}),
+      operator: typeof measure?.cmp === 'string' && measure.cmp.startsWith('>') ? '>=' : '<=',
+      value: Number.NaN,
+      ...(quote === null ? {} : { source_quote: quote }),
+      provenance: l.author === 'olumi' ? 'inferred' : 'explicit',
+    }]
+  })
 }
 
 /** The coefficient a program link names, or null when the link names none (or names one the read does not hold). */

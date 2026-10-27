@@ -15,6 +15,7 @@ import '@testing-library/jest-dom/vitest'
 import { render, screen, cleanup, act, fireEvent } from '@testing-library/react'
 import capacity from '../../nodes/__tests__/fixtures/served-acceptance-capacity-read-20261026.json'
 import european from '../../nodes/__tests__/fixtures/served-acceptance-european-read-20261026.json'
+import paulHiring from './fixtures/paul-hiring-saved-20261027.json'
 import { useCanvasStore } from '../../store'
 import { ModelTabBody } from '../ModelTabBody'
 import { hydrateCanvasFromServer } from '../../hydrate/serverGraphHydration'
@@ -37,6 +38,11 @@ vi.mock('../../../lib/supabase', () => ({ getUserId: async () => null, getSessio
 vi.mock('../../../services/scenarioService', () => ({ loadScenario: async () => null, storeAnalysis: async () => undefined }))
 vi.mock('../../../lib/posthog', () => ({ trackEvent: () => undefined }))
 vi.mock('../../../telemetry/guidanceEvents', () => ({ trackGuidance: vi.fn() }))
+// A program board is opened signed in (thin client): its saved limits come from CEE's read, as on staging.
+vi.mock('../../thinClient/thinClient', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../thinClient/thinClient')>()),
+  isThinClientSession: () => true,
+}))
 
 type Json = Record<string, any>
 let read: Json = {}
@@ -110,5 +116,26 @@ describe('a quantity the program holds no figure for is not a placeholder', () =
     const node = useCanvasStore.getState().nodes.find((x) => x.id === 'expansion_scale')
     expect((node?.data as Json | undefined)?.value_basis?.kind).toBe('structure')
     expect(row('expansion_scale')).not.toContain('Not set')
+  })
+})
+
+describe('the Limits section lists every limit of the program', () => {
+  it('Paul\'s hiring board: "Maintaining code quality" (its figure is asked) is listed with no figure, in his words', async () => {
+    const limits = paulHiring.graph.living_model.canonical.limits as Json[]
+    expect(limits.map((l) => l.id)).toEqual(['maintain_code_quality', 'stay_within_budget'])
+    expect((paulHiring.graph.goal_constraints as Json[]).map((c) => c.constraint_id)).toEqual(['stay_within_budget'])
+    await openBoard(paulHiring)
+    const row = screen.getByTestId('model-goal-constraint-maintain_code_quality')
+    expect(row).toHaveTextContent('Maintaining code quality · limit not captured')
+    expect(row).toHaveTextContent('while maintaining code quality')
+  })
+
+  it('CONTRAST: the budget limit, listed by CEE with its figure, is listed once and keeps its figure', async () => {
+    await openBoard(paulHiring)
+    expect(useCanvasStore.getState().goalConstraints?.map((c) => c.constraint_id)).toEqual(['stay_within_budget'])
+    expect(screen.getAllByTestId('model-goal-constraint-stay_within_budget')).toHaveLength(1)
+    const row = screen.getByTestId('model-goal-constraint-stay_within_budget')
+    expect(row).toHaveTextContent('£200,000')
+    expect(row).not.toHaveTextContent('limit not captured')
   })
 })
