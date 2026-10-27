@@ -94,10 +94,15 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
       // counted as a shown result, and carry no driver or "most likely" (CEE names no leader for a Run that is not current).
       const line = program ? view.notCurrentLine() : null
       if (line === null) return null
-      const earlier = canonical.options.flatMap(({ option_id: optionId, cell }) => {
+      // Options whose stored words are the same are said once (a withheld face names no option), as for a current Run.
+      const earlier: { optionIds: string[]; text: string; why: null; driver: null; withheld: false; whyIsWaitsOn: false; earlier: true }[] = []
+      for (const { option_id: optionId, cell } of canonical.options) {
         const words = cell.kind === 'figure' || cell.kind === 'range' ? cell.face ?? cell.display : cell.kind === 'withheld' ? cell.face ?? null : null
-        return words === null ? [] : [{ optionIds: [optionId], text: words, why: null, driver: null, withheld: false, whyIsWaitsOn: false, earlier: true }]
-      })
+        if (words === null) continue
+        const same = earlier.find(l => l.text === words)
+        if (same) same.optionIds.push(optionId)
+        else earlier.push({ optionIds: [optionId], text: words, why: null, driver: null, withheld: false, whyIsWaitsOn: false, earlier: true })
+      }
       return { sentence: null, lines: [{ optionIds: canonical.options.map(o => o.option_id), text: line, why: null, driver: null, withheld: false, whyIsWaitsOn: false }, ...earlier],
         waitsOn: [], stale: true, allWithheld: false, mostLikely: null }
     }

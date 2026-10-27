@@ -102,6 +102,16 @@ describe('a program board whose stored Run is no longer current', () => {
     expect(runAnalysis).toHaveBeenCalledTimes(1)
   })
 
+  it('options whose stored words are the same are said once (european 7e3ba3e4, served 27 Oct: three "Not shown yet")', async () => {
+    const options = (stale as Json).canonical_analysis_view.options.map((o: Json) => ({ ...o,
+      cell: { kind: 'withheld', face: 'Not shown yet: needs your answer', why: 'The chance waits on ‘x’.', reasons: [] } }))
+    await board({ view: { options } })
+    await draw()
+    const earlier = [...screen.getByTestId('analysis-view-only-chances').querySelectorAll('[data-testid^="analysis-view-only-earlier-chance-"]')]
+    expect(earlier.map(e => e.getAttribute('data-testid'))).toEqual(['analysis-view-only-earlier-chance-keep_current_staffing+add_one_specialist'])
+    expect(earlier[0].textContent).toBe('Not shown yet: needs your answer')
+  })
+
   it('is never counted as a shown result; a current Run still is', async () => {
     await board()
     await draw()
