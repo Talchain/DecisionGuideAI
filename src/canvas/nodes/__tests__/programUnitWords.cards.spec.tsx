@@ -22,6 +22,8 @@ import { ReactFlowProvider } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import hiring from '../../runView/__tests__/fixtures/accept3-hiring-r1-read.json'
 import marketing from '../../runView/__tests__/fixtures/accept3-marketing-r1-read.json'
+import bookshop from './fixtures/served-bookshop-worked-out-read-20261027.json'
+import mrr from '../../hydrate/__tests__/fixtures/served-3b6369b0-mrr-current.read.json'
 import { useCanvasStore } from '../../store'
 import { FactorNode } from '../FactorNode'
 import { GoalNode } from '../GoalNode'
@@ -169,5 +171,48 @@ describe('CONTROL: a unit that is neither keeps its text, on the same boards', (
     await card('baseline_conversion_rate')
     expect(value()).toBe('9%')
     expect(markWords('baseline_conversion_rate')).toBe('Set by you')
+  })
+})
+
+// Vision spec §2a (the worked-out author) + decision 8 A: a factor worked out from others with no number yet carried
+// CEE's sentence as its value ("Worked out from …"), a paragraph on the card (staging, 27 Oct). It reads "= —"; the
+// sentence is its hover and its accessible name, and the bottom row keeps the worked-out mark.
+describe('a worked-out factor with no figure yet reads "= —", the parts on hover', () => {
+  const WORDS = 'Worked out from Monthly book sales without either action and Sales share lost through newsletter annoyance'
+  it('bookshop newsletter_sales_loss: "= —", never the sentence on the card', async () => {
+    await openBoard(bookshop)
+    await card('newsletter_sales_loss')
+    expect(value()).toBe('= —')
+    const readout = screen.getByTestId('factor-worked-out-newsletter_sales_loss')
+    expect(readout).toHaveAttribute('aria-label', `No figure yet. ${WORDS}`)
+    expect(screen.getByTestId('factor-recorded-value').textContent).not.toContain('Worked out')
+    expect(screen.getByTestId('factor-bottom-marks-newsletter_sales_loss').querySelector('[data-testid="factor-value-source-newsletter_sales_loss"]')).not.toBeNull()
+    // CONTROL, same board: a factor with a figure keeps it (newsletter_uplift_percent "10%").
+    cleanup()
+    await card('newsletter_uplift_percent')
+    expect(value()).toContain('10')
+    expect(screen.queryByTestId('factor-worked-out-newsletter_uplift_percent')).toBeNull()
+  })
+})
+
+// Vision spec §2a (goal card): a level target draws a track, today's level against the target on one scale; the
+// horizon is a chip. Served read 3b6369b0: MRR £75,000 today (brief), target £85,000 a month.
+describe('the goal card draws today against its target', () => {
+  it('MRR: a track with today filled and the target marked, named in words', async () => {
+    await openBoard(mrr)
+    await card('mrr', GoalNode)
+    const track = screen.getByTestId('goal-track-mrr')
+    expect(track.getAttribute('aria-label')).toMatch(/^Today .*75,000.*, target .*85,000/)
+    const fill = track.firstElementChild as HTMLElement
+    const marker = screen.getByTestId('goal-track-mrr-target')
+    // 75,000 and 85,000 on a scale to 85,000 × 4/3: 66.2% and 75%.
+    expect(parseFloat(fill.style.width)).toBeCloseTo(66.18, 1)
+    expect(parseFloat(marker.style.left)).toBeCloseTo(75, 1)
+  })
+
+  it('CONTRAST: a change target (bookshop, "+£… a month on today") draws no track', async () => {
+    await openBoard(bookshop)
+    await card('higher_revenue', GoalNode)
+    expect(screen.queryByTestId('goal-track-higher_revenue')).toBeNull()
   })
 })

@@ -43,8 +43,9 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { TARGET_NOT_CAPTURED } from '../../components/results/utils/formatGoalTarget'
 import { GOAL_TARGET_PREFIX, goalTargetDisplay } from '../domain/goalTargetLine'
-import { goalTodayLevelCopy } from './shared/goalTodayLevelCopy'
+import { goalTodayLevelCopy, goalTodayLevelFigure } from './shared/goalTodayLevelCopy'
 import { GoalTodayLevelText } from './shared/GoalTodayLevelLine'
+import { GoalTrack } from './shared/GoalTrack'
 import {
   canCaptureGoalTarget,
   goalTargetChangeFrameOf,
@@ -1096,8 +1097,9 @@ export const GoalNode = memo((props: NodeProps) => {
           {/* ⭐ T12 row 2 (MG F1 spec §1, schemas 0.69.0): the period the goal is per and when it must be met, as
               stated ("per quarter · within 6 months"), muted beside the target. Absent says nothing, and the unit
               string is never parsed for a period (`goalPeriodHorizon.ts`). */}
+          {/* Vision spec §2a: the horizon is a chip (words only: a card's icons sit on its bottom row, Paul 27 Oct). */}
           {periodHorizonLine !== null && (
-            <span className={`${typography.nodeLabel} text-text-light`} data-testid={`goal-period-horizon-${props.id}`}>
+            <span className={`${typography.nodeLabel} inline-flex items-center rounded-full border border-field/40 px-[7px] text-text-body`} data-testid={`goal-period-horizon-${props.id}`}>
               {periodHorizonLine}
             </span>
           )}
@@ -1197,6 +1199,11 @@ export const GoalNode = memo((props: NodeProps) => {
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`} data-testid={`goal-today-level-${props.id}`}>
             <GoalTodayLevelText level={todayLevel} sentence={goalTodayLevelCopy(todayLevel, partLabelOf)} testId={`goal-today-level-${props.id}`} />
           </p>
+        )}
+
+        {/* Vision spec §2a: a level target's track, today's level against the target, on one scale. Display only. */}
+        {typeof thresholdRaw === 'number' && goalTargetChangeFrameOf(thresholdFrame) === null && todayLevel !== null && thresholdDisplay != null && (
+          <GoalTrack today={todayLevel.level} target={thresholdRaw} label={`Today ${goalTodayLevelFigure(todayLevel)}, target ${thresholdDisplay}`} testId={`goal-track-${props.id}`} />
         )}
 
         {/* The saved model's other aims (Paul, 21 Oct 2026: never hide what Olumi has); display only, see the file. */}
