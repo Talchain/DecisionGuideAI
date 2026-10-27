@@ -42,7 +42,10 @@ export type QuantityKind = 'money' | 'percent' | 'count' | 'date' | 'period'
 export interface NotModelledItem {
   /** The user's own bytes. Rendered verbatim — never re-worded. */
   readonly literal: string
-  readonly kind: QuantityKind
+  /** Optional. CEE's older regex scan labels each figure with a kind; an item
+   *  built from the canonical model (a model-program read) carries none. Nothing
+   *  on screen reads it — the section groups by `verdict`. */
+  readonly kind?: QuantityKind
   /** Offset into `brief_text`. With `literal`, the item's IDENTITY. */
   readonly charOffset: number
   readonly verdict: QuantityVerdict
@@ -145,7 +148,9 @@ function parseItem(raw: unknown): NotModelledItem | null {
   if (!isRecord(raw)) return null
   const { literal, kind, char_offset: charOffset, verdict, matched_node_id: matchedNodeId } = raw
   if (typeof literal !== 'string' || literal.length === 0) return null
-  if (typeof kind !== 'string' || !KINDS.has(kind)) return null
+  // Absent `kind` is accepted. A PRESENT `kind` this repo does not know is
+  // still refused, exactly as before: an unknown value is a contract we cannot read.
+  if (kind !== undefined && (typeof kind !== 'string' || !KINDS.has(kind))) return null
   if (typeof charOffset !== 'number' || !Number.isInteger(charOffset) || charOffset < 0) return null
   if (typeof verdict !== 'string' || !VERDICTS.has(verdict)) return null
   if (matchedNodeId !== null && matchedNodeId !== undefined && typeof matchedNodeId !== 'string') {
@@ -153,7 +158,7 @@ function parseItem(raw: unknown): NotModelledItem | null {
   }
   return {
     literal,
-    kind: kind as QuantityKind,
+    ...(kind === undefined ? {} : { kind: kind as QuantityKind }),
     charOffset,
     verdict: verdict as QuantityVerdict,
     matchedNodeId: typeof matchedNodeId === 'string' ? matchedNodeId : null,
