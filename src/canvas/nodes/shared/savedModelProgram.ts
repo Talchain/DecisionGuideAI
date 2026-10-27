@@ -67,16 +67,18 @@ function canonicalQuantity(graph: unknown, id: string): Rec | null {
   return rec(quantities.find((x) => rec(x)?.id === id))
 }
 
-/** One quantity of a program, as its canonical record states it: the figure it holds (null when the program holds none). */
+/** One quantity of a program, as its canonical record states it: its figure and its range ends (null where it holds none). */
 export interface ProgramQuantity {
   id: string
   value: number | null
+  low: number | null
+  high: number | null
 }
 
 /** The canonical quantity behind a program card (a card's id is its quantity's id), or null off a program or for none. */
 export function programQuantityOf(graph: unknown, id: string): ProgramQuantity | null {
   const q = canonicalQuantity(graph, id)
-  return q ? { id, value: num(q.value) } : null
+  return q ? { id, value: num(q.value), low: num(q.low), high: num(q.high) } : null
 }
 
 /** The coefficient a program link names, or null when the link names none (or names one the read does not hold). */
