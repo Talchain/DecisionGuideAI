@@ -1567,7 +1567,7 @@ export const FactorNode = memo((props: NodeProps) => {
                 {askedNoFigure ? askedSlot : workedOutWords !== null ? (
                   <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={workedOutWords}>
                     <span data-testid={`factor-worked-out-${props.id}`} data-node-tooltip="true" tabIndex={0} aria-label={`No figure yet. ${workedOutWords}`}
-                      className="nodrag nopan rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-info">
+                      className="nodrag nopan rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
                       <span aria-hidden="true" className="text-text-light">= </span>
                       <span aria-hidden="true"><FactorValueFigure readout={recordedValueReadout} parts={null} nodeId={props.id} /></span>
                     </span>

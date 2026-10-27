@@ -61,7 +61,7 @@ async function openBoard(board: Json) {
   n += 1
   read = { ...board, graph_hash: `${board.graph_hash}${n}` }
   useCanvasStore.setState({
-    nodes: [], edges: [], currentScenarioId: board.scenario_id, results: { status: 'idle' } as never,
+    nodes: [], edges: [], currentScenarioId: board.scenario_id, serverGraphIdentity: null, results: { status: 'idle' } as never,
     lastServerGraphHash: null, lastAuthoritativeGraph: null, analysisFreshness: null, analysisStateV1: null,
     selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
   } as never)
@@ -193,6 +193,20 @@ describe('a worked-out factor with no figure yet reads "= —", the parts on hov
     expect(value()).toContain('10')
     expect(screen.queryByTestId('factor-worked-out-newsletter_uplift_percent')).toBeNull()
   })
+
+  // Codex r1 on #3049: the same node, still worked out, with a figure or with other words, is never the dash.
+  it.each([
+    // CEE's sentence kept, so only the figure tells them apart: the card reads as before this change, never the dash.
+    ['a figure (SYNTHETIC observed_state 37)', (n: Json) => { n.observed_state = { ...(n.observed_state ?? {}), value: 37, raw_value: 37 } }, 'Worked out from'],
+    ['other words (SYNTHETIC display_value)', (n: Json) => { n.display_value = 'About 37 books a month' }, 'About 37 books a month'],
+  ] as const)('CONTRAST: newsletter_sales_loss, still worked out, with %s keeps them', async (_name, edit, shown) => {
+    const graph = structuredClone(bookshop.graph) as Json
+    edit(graph.nodes.find((x: Json) => x.id === 'newsletter_sales_loss'))
+    await openBoard({ ...bookshop, graph })
+    await card('newsletter_sales_loss')
+    expect(screen.queryByTestId('factor-worked-out-newsletter_sales_loss')).toBeNull()
+    expect(value()).toContain(shown)
+  })
 })
 
 // Vision spec §2a (goal card): a level target draws a track, today's level against the target on one scale; the
@@ -210,9 +224,15 @@ describe('the goal card draws today against its target', () => {
     expect(parseFloat(marker.style.left)).toBeCloseTo(75, 1)
   })
 
-  it('CONTRAST: a change target (bookshop, "+£… a month on today") draws no track', async () => {
-    await openBoard(bookshop)
-    await card('higher_revenue', GoalNode)
-    expect(screen.queryByTestId('goal-track-higher_revenue')).toBeNull()
+  // Codex r1 on #3049: the contrast keeps today's level known, so only the change frame can withhold the track.
+  it('CONTRAST: the same MRR goal as a change target ("+£10,000 on today"; SYNTHETIC frame) draws no track', async () => {
+    const graph = structuredClone(mrr.graph) as Json
+    const goal = graph.nodes.find((x: Json) => x.id === 'mrr')
+    goal.goal_threshold_frame = 'change_abs'
+    goal.goal_threshold_raw = 10000
+    await openBoard({ ...mrr, graph })
+    await card('mrr', GoalNode)
+    expect(screen.getByTestId('goal-today-level-mrr').textContent).toContain('75,000')
+    expect(screen.queryByTestId('goal-track-mrr')).toBeNull()
   })
 })

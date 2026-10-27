@@ -18,7 +18,7 @@ export function GoalTrack({ today, target, label, testId }: { today: number; tar
   const at = goalTrackPositions(today, target)
   if (at === null) return null
   return (
-    <div role="img" aria-label={label} data-testid={testId} className="relative mt-1.5 h-1.5 rounded-full bg-border-default">
+    <div role="img" aria-label={label} data-testid={testId} className="relative mt-1.5 h-1.5 rounded-full bg-panel-border">
       <span className="absolute inset-y-0 left-0 rounded-full bg-goal" style={{ width: `${at.todayPct}%` }} />
       <span data-testid={`${testId}-target`} className="absolute -top-1 h-3.5 w-0.5 -translate-x-1/2 rounded-full bg-text-header" style={{ left: `${at.targetPct}%` }} />
     </div>
