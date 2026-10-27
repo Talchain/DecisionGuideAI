@@ -92,7 +92,9 @@ export function coreTurnToClientBody(turn: CoreTurn): Record<string, unknown> {
     suggested_actions: cardActions,
     insights: [],
     // The saved model as the client's draft reader takes it (the read's `living_model` reaches the canvas by the read).
-    ...(graph ? { draft_graph: { nodes, edges, node_count: nodes.length, edge_count: edges.length } } : {}),
+    // Its limits too: a draft apply clears the canvas's limits when the draft carries none (`applyDraftResult`).
+    ...(graph ? { draft_graph: { nodes, edges, node_count: nodes.length, edge_count: edges.length,
+      ...(Array.isArray(graph.goal_constraints) ? { goal_constraints: graph.goal_constraints } : {}) } } : {}),
     ...(revision ? { graph_hash: revision } : {}),
     ...(turn.cards.length > 0 && revision ? { _proposal_fields: { version: 1, graph_hash: revision, proposals: turn.cards } } : {}),
     ...(turn.analysis_state ? { analysis_state: turn.analysis_state } : {}),
