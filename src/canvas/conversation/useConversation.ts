@@ -8103,12 +8103,17 @@ export function useConversation(): UseConversationReturn {
     //   send B → stop B: the second tombstone names B, never
     //   A", in which BOTH stops are asserted to have executed.
     // The stop carries the route + auth headers its turn was sent with (the mode alone if Stop beat header build).
-    void stopV5Turn(identity, { headers: inFlightTurnRouteHeadersRef.current ?? aiComparisonHeaders() }).then((result) => {
+    const stopHeaders = inFlightTurnRouteHeadersRef.current ?? aiComparisonHeaders()
+    // On core, CEE's `already_committed: false` is no proof that nothing was saved: its Stop reads a conversation row the
+    // core turn writes only after its reply, while the change commits before it (C14 (8), 27 Oct). So core says the outcome
+    // is unknown there, never "cancelled before it was saved".
+    const stopOnCore = isOpenAiLane((stopHeaders[AI_MODE_HEADER] ?? null) as AiComparisonMode | null)
+    void stopV5Turn(identity, { headers: stopHeaders }).then((result) => {
       // R-16: copy chosen by TABLE lookup — `EARLY_STOP_NOTICE_BY_OUTCOME`
       // (module scope) is `Record<TurnStopOutcomeKind, string>`, so a fourth
       // outcome kind is a compile error here, never a silent fallthrough.
       if (valueEditNoticeWillSpeak) return
-      emitStopNotice(EARLY_STOP_NOTICE_BY_OUTCOME[result.kind])
+      emitStopNotice(stopOnCore && result.kind === 'not_saved' ? CORE_OUTCOME_UNKNOWN_NOTICE : EARLY_STOP_NOTICE_BY_OUTCOME[result.kind])
     })
   }, [updateMessage, cleanupStreamRefs, addMessage])
 
