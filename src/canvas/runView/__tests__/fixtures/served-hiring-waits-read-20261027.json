@@ -1,0 +1,243 @@
+{
+ "_capture": "Staging scenario 47183a6d (fresh hiring board, test account, UI c96de48a, CEE 2f389878), saved-graph read 27 Oct 2026 ~11:58Z after draft + approve: graph nodes (id, kind, label) and canonical_analysis_view, as served.",
+ "scenario_id": "47183a6d-e4b5-4f36-843b-97f7ff19d01e",
+ "graph": {
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "kind": "decision",
+    "label": "Should you hire a tech lead or two developers to raise productivity by at least 10% before the launch, while maintaining code quality and staying within budget?"
+   },
+   {
+    "id": "increase_productivity",
+    "kind": "goal",
+    "label": "increase productivity by at least 10%"
+   },
+   {
+    "id": "hire_tech_lead",
+    "kind": "option",
+    "label": "Hire a tech lead"
+   },
+   {
+    "id": "hire_two_developers",
+    "kind": "option",
+    "label": "Hire two developers"
+   },
+   {
+    "id": "current_developers",
+    "kind": "factor",
+    "label": "Current mid-weight developers"
+   },
+   {
+    "id": "baseline_productivity",
+    "kind": "factor",
+    "label": "Productivity today, normalised"
+   },
+   {
+    "id": "leads_added",
+    "kind": "factor",
+    "label": "Additional tech leads working"
+   },
+   {
+    "id": "developers_added",
+    "kind": "factor",
+    "label": "Additional developers working"
+   },
+   {
+    "id": "lead_start",
+    "kind": "factor",
+    "label": "Tech-lead start delay"
+   },
+   {
+    "id": "developer_start",
+    "kind": "factor",
+    "label": "Two-developer start delay"
+   },
+   {
+    "id": "developer_effective_contribution",
+    "kind": "factor",
+    "label": "Net effective contribution per added developer"
+   },
+   {
+    "id": "developer_productivity_effect",
+    "kind": "factor",
+    "label": "Relative productivity contribution per added developer"
+   },
+   {
+    "id": "productivity",
+    "kind": "outcome",
+    "label": "Team productivity relative to today"
+   },
+   {
+    "id": "lead_monthly_cost",
+    "kind": "factor",
+    "label": "Fully loaded monthly tech-lead cost"
+   },
+   {
+    "id": "developer_monthly_cost",
+    "kind": "factor",
+    "label": "Fully loaded monthly cost per added developer"
+   },
+   {
+    "id": "upfront_payment",
+    "kind": "factor",
+    "label": "One-off hiring payment"
+   },
+   {
+    "id": "lead_payroll",
+    "kind": "outcome",
+    "label": "Additional tech-lead payroll"
+   },
+   {
+    "id": "developer_payroll",
+    "kind": "outcome",
+    "label": "Additional developer payroll"
+   },
+   {
+    "id": "hiring_spend",
+    "kind": "outcome",
+    "label": "Cumulative additional hiring spend"
+   },
+   {
+    "id": "mp:limit:maintain_quality",
+    "kind": "action",
+    "label": "Limit: maintaining code quality"
+   }
+  ]
+ },
+ "canonical_analysis_view": {
+  "run": {
+   "run_id": "mp_run_2_ba73363514fc",
+   "computed_at": "2026-10-27T11:56:07.770Z",
+   "graph_hash_at_run": "70291b7019f0ca93a525aab9a4d315528b0be7be0ffc1f4e6a3f1b5f366d745b"
+  },
+  "schema": "canonical_analysis_view.v1",
+  "source": "stored_run_facts",
+  "options": [
+   {
+    "cell": {
+     "why": "The chance waits on ‘Tech-lead start delay’ and ‘One-off cost of hiring the tech lead’.",
+     "face": "Not shown yet: needs your answer",
+     "kind": "withheld",
+     "reasons": []
+    },
+    "option_id": "hire_tech_lead",
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "cell": {
+     "why": "The chance waits on ‘Two-developer start delay’ and ‘One-off cost of hiring both developers’.",
+     "face": "Not shown yet: needs your answer",
+     "kind": "withheld",
+     "reasons": []
+    },
+    "option_id": "hire_two_developers",
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   }
+  ],
+  "staleness": {
+   "basis": "analysis_graph_hash_interim",
+   "stale": false,
+   "reason": "graph_hash_match",
+   "revision": null,
+   "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+   "run_revision": null
+  },
+  "goal_chance": {
+   "notes": [],
+   "waits_on": [
+    {
+     "id": "maintain_quality",
+     "code": "measure",
+     "label": "maintaining code quality",
+     "scope": [
+      "maintain_quality"
+     ],
+     "answer": null
+    },
+    {
+     "id": "budget_duration",
+     "code": "asked",
+     "label": "Period the hiring budget must cover",
+     "scope": [
+      "stay_within_budget"
+     ],
+     "answer": {
+      "quantity_id": "budget_duration"
+     }
+    },
+    {
+     "id": "lead_start",
+     "code": "asked",
+     "label": "Tech-lead start delay",
+     "scope": [
+      "hire_tech_lead"
+     ],
+     "answer": {
+      "quantity_id": "lead_start"
+     }
+    },
+    {
+     "id": "developer_start",
+     "code": "asked",
+     "label": "Two-developer start delay",
+     "scope": [
+      "hire_two_developers"
+     ],
+     "answer": {
+      "quantity_id": "developer_start"
+     }
+    },
+    {
+     "id": "lead_monthly_cost",
+     "code": "asked",
+     "label": "Fully loaded monthly tech-lead cost",
+     "scope": [
+      "stay_within_budget"
+     ],
+     "answer": {
+      "quantity_id": "lead_monthly_cost"
+     }
+    },
+    {
+     "id": "developer_monthly_cost",
+     "code": "asked",
+     "label": "Fully loaded monthly cost per added developer",
+     "scope": [
+      "stay_within_budget"
+     ],
+     "answer": {
+      "quantity_id": "developer_monthly_cost"
+     }
+    },
+    {
+     "id": "lead_upfront_cost",
+     "code": "asked",
+     "label": "One-off cost of hiring the tech lead",
+     "scope": [
+      "hire_tech_lead"
+     ],
+     "answer": {
+      "quantity_id": "lead_upfront_cost"
+     }
+    },
+    {
+     "id": "developers_upfront_cost",
+     "code": "asked",
+     "label": "One-off cost of hiring both developers",
+     "scope": [
+      "hire_two_developers"
+     ],
+     "answer": {
+      "quantity_id": "developers_upfront_cost"
+     }
+    }
+   ]
+  },
+  "leader_licence": "withheld"
+ }
+}
