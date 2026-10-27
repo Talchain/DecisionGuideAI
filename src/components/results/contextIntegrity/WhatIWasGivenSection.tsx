@@ -902,7 +902,9 @@ export const WhatIWasGivenSection = forwardRef<
   // `manifest === null` is "CEE told us nothing"; a manifest that is not
   // `derived` means the figures could not be counted while the brief itself is
   // rendered right below this line.
-  const subtitle = figureTallySubtitle(tally, manifest === null ? 'no_manifest' : 'not_counted')
+  // A model-program read's items carry no `kind`: each is one of the person's sentences, which may hold several figures.
+  const unit = items.length > 0 && items.every((i) => i.kind === undefined) ? 'sentence' : 'figure'
+  const subtitle = figureTallySubtitle(tally, manifest === null ? 'no_manifest' : 'not_counted', unit)
   /**
    * ⭐ V2 (Reasoning tab only): A COLLAPSED ROW CARRIES NO EMPTY-STATE SENTENCE.
    * With no tally, both arms of `figureTallySubtitle` are apologies ("I can't

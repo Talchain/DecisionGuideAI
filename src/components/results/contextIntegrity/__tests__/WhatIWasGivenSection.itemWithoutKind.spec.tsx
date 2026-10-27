@@ -104,6 +104,24 @@ describe('an item without kind (model-program read)', () => {
   })
 })
 
+describe('the count names what was counted (C2 on #3864)', () => {
+  const show = (items: readonly Record<string, unknown>[]) => {
+    useContextIntegrityStore.getState().setContextIntegrity({
+      scenarioId: SCENARIO_ID, briefText: BRIEF, manifest: parseNotModelled(manifestWith(items)),
+    })
+    render(<WhatIWasGivenSection />)
+  }
+  it('a program read counts sentences, and a sentence still asked is not fully in the model yet', () => {
+    show(NO_KIND_ITEMS)
+    expect(screen.getByText("1 of 2 sentences with figures I found in your brief isn't fully in the model yet")).toBeTruthy()
+    expect(screen.queryByText(/figures I found in your brief (isn't|aren't) in the model/)).toBeNull()
+  })
+  it('CONTRAST: items with a kind are still counted as figures', () => {
+    show(NO_KIND_ITEMS.map((i) => ({ ...i, kind: 'count' })))
+    expect(screen.getByText("1 of 2 figures I found in your brief isn't in the model yet")).toBeTruthy()
+  })
+})
+
 describe('a present kind is still checked, as before', () => {
   it.each([
     ['an unknown kind string', 'ratio'],
