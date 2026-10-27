@@ -72,6 +72,7 @@ import { type ModelGroupId } from '../model-tab-v2/types'
 import { createOlumiHandOff, type OlumiSend } from '../conversation/olumiHandOff'
 import { useProgramBoardShowsResult } from '../../components/results/analysisNew/ViewOnlyRunChances'
 import { useSavedGraph } from '../nodes/shared/savedGraph'
+import { programLimitsWithoutFigure } from '../nodes/shared/savedModelProgram'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -500,6 +501,11 @@ export const ModelTabBody = memo(function ModelTabBody({
    * consumer, contains no literal `goal_constraints` at all.
    */
   const goalConstraints = useCanvasStore(s => s.goalConstraints)
+  // On a program board every canonical limit is listed: one with no single stated figure is not in `goal_constraints`.
+  const limitRows = useMemo(() => {
+    const withoutFigure = programLimitsWithoutFigure(savedGraph, goalConstraints)
+    return withoutFigure.length === 0 ? goalConstraints : [...(goalConstraints ?? []), ...withoutFigure]
+  }, [savedGraph, goalConstraints])
 
   // ── Scientific enrichment data from PLoT response ───────────────────────────
   // Single-pass extraction of all per-factor enrichment maps from factor_sensitivity.
@@ -883,7 +889,7 @@ export const ModelTabBody = memo(function ModelTabBody({
           transient hover pills and the Inspector's GoalPanel — and the Inspector
           is mutually exclusive with this dock, so opening this tab closes it.
           Renders nothing when the model has no constraints. */}
-      <GoalConstraintsSection constraints={goalConstraints} nodes={nodes} />
+      <GoalConstraintsSection constraints={limitRows} nodes={nodes} />
 
       {/* Unique scientific transparency from the legacy stack, rehomed rather
           than discarded. These are disclosures/audit facts, not a second
