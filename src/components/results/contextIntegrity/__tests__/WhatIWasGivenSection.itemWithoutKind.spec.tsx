@@ -13,7 +13,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 
-import { WhatIWasGivenSection } from '../WhatIWasGivenSection'
+import { WhatIWasGivenSection, composeNotModelledQuestion } from '../WhatIWasGivenSection'
 import { useCanvasStore } from '@/canvas/store'
 import { useContextIntegrityStore } from '@/canvas/stores/contextIntegrityStore'
 import { parseNotModelled } from '@/adapters/cee/notModelled'
@@ -111,14 +111,25 @@ describe('the count names what was counted (C2 on #3864)', () => {
     })
     render(<WhatIWasGivenSection />)
   }
-  it('a program read counts sentences, and a sentence still asked is not fully in the model yet', () => {
+  it('a program read counts quoted inputs, and one still asked is not fully in the model yet', () => {
     show(NO_KIND_ITEMS)
-    expect(screen.getByText("1 of 2 sentences with figures I found in your brief isn't fully in the model yet")).toBeTruthy()
+    expect(screen.getByText("1 of 2 quoted inputs I found in your brief isn't fully in the model yet")).toBeTruthy()
     expect(screen.queryByText(/figures I found in your brief (isn't|aren't) in the model/)).toBeNull()
   })
   it('CONTRAST: items with a kind are still counted as figures', () => {
     show(NO_KIND_ITEMS.map((i) => ({ ...i, kind: 'count' })))
     expect(screen.getByText("1 of 2 figures I found in your brief isn't in the model yet")).toBeTruthy()
+  })
+  it('the Add message for a quoted input says it is not fully in the model and asks about the missing part; a kind keeps the old words', () => {
+    const absent = parseNotModelled(manifestWith(NO_KIND_ITEMS))!.quantities!.items[1]
+    const quoted = composeNotModelledQuestion(absent, BRIEF)
+    expect(quoted).toContain(`My brief mentions ${NOT_YET}, which is not fully in the model yet.`)
+    expect(quoted).toContain('What could the missing part influence')
+    expect(quoted).not.toContain('this figure')
+    expect(quoted).toContain("Don't change the model yet.")
+    const withKind = parseNotModelled(manifestWith(NO_KIND_ITEMS.map((i) => ({ ...i, kind: 'count' }))))!.quantities!.items[1]
+    expect(composeNotModelledQuestion(withKind, BRIEF)).toContain(`My brief mentions ${NOT_YET}, which is not in the model yet. The brief says:`)
+    expect(composeNotModelledQuestion(withKind, BRIEF)).toContain('What could this figure influence')
   })
 })
 
