@@ -429,11 +429,6 @@ export const OutcomeNode = memo((props: NodeProps) => {
           >
             {/* ⛔ AIQ 5908482524: `observed_state` is where the outcome stands TODAY (CEE #2351 writes the cause's today
                 level onto "…at 12 months"), so it is named as today's — a bare figure reads as the outcome's own result. */}
-            {/* Vision spec §2a: the author glyph leads its figure, as on a factor card, so the bottom row holds only state
-                and notes (Codex design review, 27 Oct: author glyphs sat in two places). */}
-            {recordedValueMark && (
-              <ValueSourceMark mark={recordedValueMark} testId={`outcome-value-source-${props.id}`} onOpenSource={() => { openNodeInspector(props.id) }} inline />
-            )}
             {noFigureWords === null ? (
               <span className="shrink-0" data-testid="outcome-recorded-readout"><span data-testid="outcome-recorded-today">{OUTCOME_TODAY_PREFIX}</span>{recordedValue}</span>
             ) : (
@@ -446,6 +441,9 @@ export const OutcomeNode = memo((props: NodeProps) => {
                   <span aria-hidden="true">{recordedValue}</span>
                 </span>
               </Tooltip>
+            )}
+            {recordedValueMark && (
+              <ValueSourceMark mark={recordedValueMark} testId={`outcome-value-source-${props.id}`} onOpenSource={() => { openNodeInspector(props.id) }} olumiGroupNoun="value" />
             )}
           </div>
         ) : showUnquantified ? (

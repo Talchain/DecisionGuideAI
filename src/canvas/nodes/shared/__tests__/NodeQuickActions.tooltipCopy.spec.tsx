@@ -90,6 +90,8 @@ describe('quick-action hints name the action, not the node', () => {
     expect(row.className).toContain('opacity-0')
     expect(row.contains(door)).toBe(false)
     expect(door.className).not.toContain('opacity-0')
+    // Codex r1: the door keeps the card preview shut while it is hovered, as the row does (usePopoverHover's selector).
+    expect(door.closest('.node-quick-actions, [data-node-tooltip], [data-card-bottom-band]')).toBe(door)
   })
 
   it('sweeps EVERY hint in the row for the label, enumerated from the DOM', () => {

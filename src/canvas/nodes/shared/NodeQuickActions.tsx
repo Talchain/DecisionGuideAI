@@ -537,7 +537,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
     </div>
     {/* Paul, 24 Oct: the Olumi mark rests in the card's bottom-right corner, and a click puts a prompt about THIS card
         into the chat. It is the one door that stays visible; Challenge and More still show on selection or focus. */}
-    <div className={`flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-auto`} data-testid={`node-olumi-door-${nodeId}`}>
+    <div className={`flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-auto`} data-testid={`node-olumi-door-${nodeId}`} data-node-tooltip="true">
       {coachingChip !== null && <NodeCoachingIcon nodeId={nodeId} chips={coaching} />}
       {canAsk && coachingChip === null && (
         <Tooltip asChild delay={300} content="Ask Olumi">

@@ -174,9 +174,8 @@ describe('OR-02 / RHY-09 — the outcome card states its own state', () => {
     const row = screen.getByTestId('outcome-recorded-value')
     expect(screen.getByTestId('outcome-recorded-readout').textContent).toBe('Today: 12 months')
     const mark = screen.getByTestId('outcome-value-source-outcome-1')
-    // Vision spec §2a (27 Oct): the author glyph leads its figure in the row, as on a factor card.
-    expect(row.firstElementChild).toBe(mark)
-    expect(mark.closest('[data-card-bottom-band]')).toBeNull()
+    expect(row.contains(mark)).toBe(false)
+    expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
     expect(mark.getAttribute('data-value-source')).toBe('brief')
   })
 
