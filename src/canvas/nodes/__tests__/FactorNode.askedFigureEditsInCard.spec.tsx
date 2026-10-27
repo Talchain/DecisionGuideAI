@@ -113,11 +113,13 @@ const NOT_PROGRAM = { aims: [], links: [], factors: [], options: [] }
 const graphReads = () => vi.mocked(fetch).mock.calls.filter(([u]) => /\/scenarios\/[^/]+\/graph/.test(String(u))).length
 
 describe('an asked figure on a program graph', () => {
-  it('⭐ with its unit: "Waiting for your answer" opens the card’s field, and the figure goes out as one factor_value_edit in that unit', async () => {
+  it('⭐ with its unit: the no-figure dash opens the card’s field, and the figure goes out as one factor_value_edit in that unit', async () => {
     await openBoard(PROGRAM, 'GBP/developer')
     await card(ASKED)
     const value = screen.getByTestId(`node-value-editor-${ASKED}`)
-    expect(value).toHaveTextContent('Waiting for your answer')
+    // Decision 2 A (Paul, 26 Oct): the card shows the dash; CEE's words live on the hourglass beside it.
+    expect(value).toHaveTextContent('—')
+    expect(value).not.toHaveTextContent('Waiting for your answer')
     fireEvent.click(value)
     fireEvent.doubleClick(screen.queryByTestId(`node-value-editor-${ASKED}`) ?? value)
     const input = screen.getByTestId(`node-value-editor-${ASKED}-input`)
@@ -143,11 +145,11 @@ describe('an asked figure on a program graph', () => {
     expect(sent[0].event).toEqual({ kind: 'factor_value_edit', target_id: ASKED, field: 'value', value: 45000, raw_value: 45000, unit: 'GBP/developer' })
   })
 
-  it('⛔ the served node with no unit: no field (never the 0–1 model scale for a £ cost), the words as today', async () => {
+  it('⛔ the served node with no unit: no field (never the 0–1 model scale for a £ cost), the no-figure dash', async () => {
     await openBoard(PROGRAM)
     await card(ASKED)
     expect(graphReads()).toBeGreaterThan(1)
-    expect(screen.getByTestId('factor-recorded-value')).toHaveTextContent('Waiting for your answer')
+    expect(screen.getByTestId('factor-recorded-value')).toHaveTextContent('—')
     expect(screen.queryByTestId(`node-value-editor-${ASKED}`)).toBeNull()
   })
 
@@ -156,12 +158,14 @@ describe('an asked figure on a program graph', () => {
     await openBoard(PROGRAM)
     await card(ASKED)
     const mark = screen.getByTestId(`factor-value-source-${ASKED}`)
-    expect(mark).toHaveAttribute('aria-label', 'Budget cost per additional developer: Waiting for your answer')
+    // Decision 2 A: the hourglass carries CEE's question, so the card never prints it.
+    expect(mark).toHaveAttribute('aria-label', 'Budget cost per additional developer: What total cost per new developer would count against your £200,000 budget, including recruitment and employment costs for the period that budget covers?')
     expect(mark.querySelector('.lucide-hourglass')).not.toBeNull()
     expect(mark.querySelector('.lucide-help-circle, .lucide-file-text, .lucide-user-check')).toBeNull()
     const line = screen.getByTestId('factor-recorded-value')
-    expect(line).toHaveTextContent('Waiting for your answer')
-    expect(line.textContent).not.toMatch(/\d/)
+    expect(line).toHaveTextContent('—')
+    // The figure slot holds no number: the question's own "£200,000" is on the mark's hover, never on the card.
+    expect(screen.getByTestId(`factor-value-whole-${ASKED}`).textContent).toBe('—')
     expect(line.textContent).not.toMatch(/From your brief|Set by you|Source not recorded|Olumi/)
   })
 
@@ -177,13 +181,14 @@ describe('an asked figure on a program graph', () => {
     expect(mark.querySelector('.lucide-calculator')).not.toBeNull()
   })
 
-  it('an outcome CEE works out but has no figure for: "Today: —", and the LINE carries CEE’s words (hover, focus, name)', async () => {
+  // Decision 8 A (Paul, 26 Oct): the "=" mark, never "Today:"; with no relation in the read, CEE's words stand in.
+  it('an outcome CEE works out but has no figure for: "= —", and the LINE carries CEE’s words (hover, focus, name)', async () => {
     await openBoard(PROGRAM, 'GBP/developer')
     await card('developer_spend', OutcomeNode)
     const line = screen.getByTestId('outcome-recorded-readout')
-    expect(line.textContent).toBe('Today: —')
+    expect(line.textContent).toBe('= —')
     expect(line).toHaveAttribute('tabindex', '0')
-    expect(line).toHaveAttribute('aria-label', 'Today: no figure yet. Worked out from Additional developers hired and Budget cost per additional developer')
+    expect(line).toHaveAttribute('aria-label', 'No figure yet. Worked out from Additional developers hired and Budget cost per additional developer')
     expect(screen.getByTestId('outcome-recorded-value').textContent).not.toContain('Worked out from')
   })
 

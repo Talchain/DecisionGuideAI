@@ -54,6 +54,8 @@ export interface ProgramCoefficient {
    * figures); the link still says any figure it has.
    */
   editable: boolean
+  /** Whether the read's effect relation adds it to a base (`defines = base + coefficient × driver`), so it is a change. */
+  addedToBase?: boolean
 }
 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
@@ -140,6 +142,8 @@ export function programCoefficientOf(graph: unknown, edgeId: string): ProgramCoe
     unit: typeof q.unit === 'string' && q.unit.length > 0 ? q.unit : null,
     mark: markOf(q),
     editable: num(q.value) !== null && !workedOut,
+    addedToBase: relationsOf(graph).some((r) => r.form === 'effect' && typeof r.base === 'string'
+      && Array.isArray(r.terms) && r.terms.some((t) => rec(t)?.coefficient === coefficientId)),
   }
 }
 
@@ -149,14 +153,87 @@ export function programCoefficientOf(graph: unknown, edgeId: string): ProgramCoe
  */
 export function programFigureWords(c: ProgramCoefficient): string | null {
   if (c.value === null) return null
-  // A positive dimensionless coefficient (unit "1") is a multiplier: "about ×1.15 (0.5–2)" (DL, 23 Oct). Every other
-  // unit keeps the signed form, in the unit's reading words ("+0.15 per tech lead").
-  const multiplier = (c.unit ?? '').trim() === '1' && c.value > 0
+  // A positive dimensionless coefficient (unit "1") is a multiplier: "about ×1.15 (0.5–2)" (DL, 23 Oct) — unless the read's
+  // effect relation adds it to a base (`defines = base + coefficient × driver`): then it is a change of that size. It
+  // read "about ×0.5" for a +0.5 "proportional pace change" on Paul's board (27 Oct). Every other unit keeps the signed
+  // form, in the unit's reading words ("+0.15 per tech lead").
+  const multiplier = (c.unit ?? '').trim() === '1' && c.value > 0 && c.addedToBase !== true
   const signed = multiplier ? `×${formatNumber(c.value)}` : `${c.value > 0 ? '+' : ''}${formatNumber(c.value)}`
   const range = c.low !== null && c.high !== null ? ` (${formatNumber(c.low)}–${formatNumber(c.high)})` : ''
   const words = unitWords(c.unit)
   const unit = words ? ` ${words}` : ''
   return range ? `about ${signed}${range}${unit}` : `${signed}${unit}`
+}
+
+/** The glyph a definition draws on its link: how the part enters the figure it works out. */
+export type ProgramLinkOperator = '+' | '−' | '×' | '÷'
+export const PROGRAM_OPERATOR_WORDS: Readonly<Record<ProgramLinkOperator, string>> = { '+': 'added', '−': 'subtracted', '×': 'multiplied by', '÷': 'divided by' }
+
+const relationsOf = (graph: unknown): Rec[] => {
+  if (!isProgramGraph(graph)) return []
+  const relations = rec(rec(rec(graph)?.living_model)?.canonical)?.relations
+  return Array.isArray(relations) ? relations.map(rec).filter((r): r is Rec => r !== null) : []
+}
+
+/**
+ * How the link from `from` enters the figure `to` works out, read from the canonical relation that defines `to`
+ * (decision 8 A, Paul 26 Oct: definition links carry + − × ÷). A sum part is + or − by its sign, a product part × or ÷
+ * by its power, a stock's start and inflows +, its outflows −, an effect's base +. Null for an effect's driver (its
+ * size is its coefficient, said by the link's figure) and off a program.
+ */
+export function programLinkOperator(graph: unknown, from: string, to: string): ProgramLinkOperator | null {
+  for (const r of relationsOf(graph)) {
+    if (r.defines !== to) continue
+    const parts = Array.isArray(r.parts) ? r.parts.map(rec) : []
+    const part = parts.find((p) => p?.id === from)
+    if (r.form === 'definition' && part) {
+      if (r.op === 'sum') return part.sign === -1 ? '−' : '+'
+      if (r.op === 'product') return part.power === -1 ? '÷' : '×'
+    }
+    if (r.form === 'stock') {
+      if (r.start === from || (Array.isArray(r.inflows) && r.inflows.includes(from))) return '+'
+      if (Array.isArray(r.outflows) && r.outflows.includes(from)) return '−'
+    }
+    if (r.form === 'effect' && r.base === from) return '+'
+  }
+  return null
+}
+
+export function useProgramLinkOperator(from: string, to: string): ProgramLinkOperator | null {
+  const graph = useSavedGraph()
+  return useMemo(() => programLinkOperator(graph, from, to), [graph, from, to])
+}
+
+/**
+ * How a worked-out figure is worked out, in its parts' labels ("Current team delivery pace × Delivery pace relative to
+ * the current approach"), read from the canonical relation that defines it. Null when no relation defines it.
+ */
+export function programFormulaWords(graph: unknown, id: string): string | null {
+  const r = relationsOf(graph).find((x) => x.defines === id)
+  if (!r) return null
+  const quantities = rec(rec(rec(graph)?.living_model)?.canonical)?.quantities
+  const labelOf = (qid: unknown): string => {
+    const q = Array.isArray(quantities) ? rec(quantities.find((x) => rec(x)?.id === qid)) : null
+    return typeof q?.label === 'string' ? q.label : String(qid)
+  }
+  const join = (items: Array<[ProgramLinkOperator, unknown]>): string =>
+    items.map(([op, qid], i) => (i === 0 && (op === '+' || op === '×') ? labelOf(qid) : `${op} ${labelOf(qid)}`)).join(' ')
+  const parts = Array.isArray(r.parts) ? r.parts.map(rec).filter((p): p is Rec => p !== null) : []
+  if (r.form === 'definition' && r.op === 'sum') return join(parts.map((p) => [p.sign === -1 ? '−' : '+', p.id]))
+  if (r.form === 'definition' && r.op === 'product') return join(parts.map((p) => [p.power === -1 ? '÷' : '×', p.id]))
+  if (r.form === 'stock') {
+    const flows: Array<[ProgramLinkOperator, unknown]> = [
+      ['+', r.start],
+      ...(Array.isArray(r.inflows) ? r.inflows.map((f): [ProgramLinkOperator, unknown] => ['+', f]) : []),
+      ...(Array.isArray(r.outflows) ? r.outflows.map((f): [ProgramLinkOperator, unknown] => ['−', f]) : []),
+    ]
+    return `${join(flows)}, each period`
+  }
+  if (r.form === 'effect') {
+    const terms = Array.isArray(r.terms) ? r.terms.map(rec).filter((t): t is Rec => t !== null) : []
+    return [labelOf(r.base), ...terms.map((t) => `+ ${labelOf(t.coefficient)} × ${labelOf(t.driver)}`)].join(' ')
+  }
+  return null
 }
 
 /** The program figure for one link on the saved model on screen, or null (not a program, or no coefficient). */

@@ -84,7 +84,8 @@ import { isGraphLensEnabled } from '../../flags'
 import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdgeCopy'
 import type { RestsOnMark } from '../artefacts/assumptionMapModel'
 import { RestsOnMarker } from '../artefacts/RestsOnMarker'
-import { useProgramLinkFigure } from '../nodes/shared/savedModelProgram'
+import { PROGRAM_OPERATOR_WORDS, useProgramLinkFigure, useProgramLinkOperator } from '../nodes/shared/savedModelProgram'
+import { cardMark } from '../nodes/shared/cardMarks'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 import { VALUE_PROVENANCE_LABEL } from '../domain/valueProvenance'
 import { isEdgeFragile as isEdgeFragileFn, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate, type FragileEdgeMatchContext } from '../utils/fragileEdgeMatch'
@@ -411,6 +412,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const identityExact = useIdentityExactWords(edgeIdKey)
   // A program link says its coefficient in natural units, at rest, in place of the strength words (read body only).
   const programFigure = useProgramLinkFigure(edgeIdKey)
+  // Decision 8 A (Paul, 26 Oct): a definition link says how its part enters the figure: + − × ÷, from the canonical relation.
+  const programOperator = useProgramLinkOperator(String(source), String(target))
   const isAssistantFocused = useAssistantFocusStore(
     (state) => state.target?.kind === 'edge' && state.target.id === edgeIdKey,
   )
@@ -2161,7 +2164,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    */
   const glyphPlacement = useMemo(() => {
     // Only where a sign can render (the render predicate below is a subset).
-    if ((!statedDirection && !isSignDisputed) || isStructuralEdge) return null
+    if ((!statedDirection && !isSignDisputed && !programOperator) || isStructuralEdge) return null
     const poly = flattenSvgPath(edgePath)
     if (!poly) return null
     const glyphScale = glyphCounterScale(edgeTooltipZoom)
@@ -2199,7 +2202,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     const metrics = glyphMetricsAt(edgeStrokeWidth, glyphScale, labelCounterScale(edgeTooltipZoom))
     return resolvePolarityGlyphOnPath(poly, cardTop, metrics, keepOuts)
     // nodeRectsSignature: re-place when any card moves.
-  }, [statedDirection, isSignDisputed, isStructuralEdge, sameRowRoute, edgePath, endY, getNodes, getEdges, id, target, sourcePosition, targetPosition, sourceY, targetX, targetY, edgeStrokeWidth, edgeTooltipZoom, nodeRectsSignature])
+  }, [statedDirection, isSignDisputed, programOperator, isStructuralEdge, sameRowRoute, edgePath, endY, getNodes, getEdges, id, target, sourcePosition, targetPosition, sourceY, targetX, targetY, edgeStrokeWidth, edgeTooltipZoom, nodeRectsSignature])
 
   // ── Stroke + dash, from the one authority ────────────────────────────────
   //
@@ -2752,7 +2755,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           on the amber stroke, and it is drawn even when the strength row's
           words carry a direction — those words are the FIRST pass's sign, the
           disputed one, so they cannot stand in for the dispute cue. */}
-      {(statedDirection || isSignDisputed) && !isStructuralEdge && (isSignDisputed || !strengthRowCarriesDirection) && (
+      {(statedDirection || isSignDisputed || programOperator) && !isStructuralEdge && (isSignDisputed || programOperator || !strengthRowCarriesDirection) && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -2799,7 +2802,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             aria-label={
               isSignDisputed
                 ? `Effect direction: ${DIRECTION_DISPUTED_SENTENCE}`
-                : `Effect direction: ${statedDirection}`
+                : programOperator
+                  ? `Worked out: ${PROGRAM_OPERATOR_WORDS[programOperator]}`
+                  : `Effect direction: ${statedDirection}`
             }
             // ⭐ IDENTITY BINDING. Without it the only way to attribute a glyph
             // to an edge is its ORDER in the portal, and `EdgeLabelRenderer`
@@ -2810,7 +2815,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // stacking BY EDGE rather than by a value predicate.
             data-edge-id={id}
           >
-            {isSignDisputed ? '±' : statedDirection === 'positive' ? '+' : '−'}
+            {isSignDisputed ? '±' : programOperator ?? (statedDirection === 'positive' ? '+' : '−')}
           </div>
         </EdgeLabelRenderer>
       )}
@@ -2835,7 +2840,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       ) : programFigure !== null && !isStructuralEdge && restsOnPlacement ? (
         <EdgeLabelRenderer>
           {(() => {
-            const Mark = programFigure.mark ? VALUE_PROVENANCE_ICON[programFigure.mark] : null
+            // Vision spec §3 (Olumi is its mark, never a sparkle) and the card icon row: Olumi's figure carries the Olumi mark.
+            const Mark = programFigure.mark === 'ai' || programFigure.mark === 'accepted' ? cardMark('source-olumi').Icon
+              : programFigure.mark ? VALUE_PROVENANCE_ICON[programFigure.mark] : null
             const title = programFigure.mark ? `${programFigure.words}. ${VALUE_PROVENANCE_LABEL[programFigure.mark]}` : programFigure.words
             return (
               <button
