@@ -192,6 +192,15 @@ describe('an asked figure on a program graph', () => {
     expect(screen.getByTestId('outcome-recorded-value').textContent).not.toContain('Worked out from')
   })
 
+  it('CONTRAST (Codex r1 on #3034): a board that is not a program keeps "Today: —" and CEE\'s words', async () => {
+    await openBoard(NOT_PROGRAM, 'GBP/developer')
+    await card('developer_spend', OutcomeNode)
+    const line = screen.getByTestId('outcome-recorded-readout')
+    expect(line.textContent).toBe('Today: —')
+    expect(line).toHaveAttribute('aria-label', 'Today: no figure yet. Worked out from Additional developers hired and Budget cost per additional developer')
+    expect(screen.queryByTestId('outcome-worked-out-mark')).toBeNull()
+  })
+
   it('…even when another author mark would win the band (an inferred stamp): the words stay on the line', async () => {
     await openBoard(PROGRAM, 'GBP/developer', (x: Json) => x.id === 'developer_spend' ? { ...x, observed_state: { ...(x.observed_state ?? {}), extractionType: 'inferred' } } : x)
     await card('developer_spend', OutcomeNode)

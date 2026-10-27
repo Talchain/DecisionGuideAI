@@ -140,6 +140,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
   const savedGraph = useSavedGraph()
   const formulaWords = useMemo(() => noFigureWords === null ? null : programFormulaWords(savedGraph, props.id) ?? noFigureWords,
     [noFigureWords, savedGraph, props.id])
+  // Only a program board has decision 8's "=" reading; any other board keeps "Today:".
+  const workedOutMark = savedIsProgram
   const showUnquantified = !recordedValue && !recordsAnyNumber(props.data as Record<string, unknown> | undefined)
   const hasStateLine = recordedValue != null || showUnquantified
 
@@ -430,10 +432,13 @@ export const OutcomeNode = memo((props: NodeProps) => {
             {noFigureWords === null ? (
               <span className="shrink-0" data-testid="outcome-recorded-readout"><span data-testid="outcome-recorded-today">{OUTCOME_TODAY_PREFIX}</span>{recordedValue}</span>
             ) : (
-              <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={formulaWords}>
+              <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={workedOutMark ? formulaWords : noFigureWords}>
                 <span className="shrink-0 nodrag nopan rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-info" data-testid="outcome-recorded-readout"
-                  data-node-tooltip="true" tabIndex={0} aria-label={`No figure yet. ${formulaWords}`}>
-                  <span data-testid="outcome-worked-out-mark" aria-hidden="true" className="text-text-light">{OUTCOME_WORKED_OUT_MARK} </span><span aria-hidden="true">{recordedValue}</span>
+                  data-node-tooltip="true" tabIndex={0} aria-label={workedOutMark ? `No figure yet. ${formulaWords}` : `${OUTCOME_TODAY_PREFIX}no figure yet. ${noFigureWords}`}>
+                  {workedOutMark
+                    ? <span data-testid="outcome-worked-out-mark" aria-hidden="true" className="text-text-light">{OUTCOME_WORKED_OUT_MARK} </span>
+                    : <span data-testid="outcome-recorded-today" aria-hidden="true">{OUTCOME_TODAY_PREFIX}</span>}
+                  <span aria-hidden="true">{recordedValue}</span>
                 </span>
               </Tooltip>
             )}

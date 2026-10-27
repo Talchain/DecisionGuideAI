@@ -216,18 +216,25 @@ export function programFormulaWords(graph: unknown, id: string): string | null {
     const q = Array.isArray(quantities) ? rec(quantities.find((x) => rec(x)?.id === qid)) : null
     return typeof q?.label === 'string' ? q.label : String(qid)
   }
-  const join = (items: Array<[ProgramLinkOperator, unknown]>): string =>
-    items.map(([op, qid], i) => (i === 0 && (op === '+' || op === '×') ? labelOf(qid) : `${op} ${labelOf(qid)}`)).join(' ')
+  // A sum or product does not depend on its parts' order: the kept parts (+, ×) lead, so a ratio reads "A ÷ B", and a
+  // relation with none reads from 0 or 1 ("− A", "1 ÷ B").
+  const join = (items: Array<[ProgramLinkOperator, unknown]>): string => {
+    const kept = items.filter(([op]) => op === '+' || op === '×')
+    const ordered = [...kept, ...items.filter(([op]) => op === '−' || op === '÷')]
+    return ordered.map(([op, qid], i) => i === 0 && kept.length > 0 ? labelOf(qid)
+      : i === 0 && op === '÷' ? `1 ÷ ${labelOf(qid)}` : `${op} ${labelOf(qid)}`).join(' ')
+  }
   const parts = Array.isArray(r.parts) ? r.parts.map(rec).filter((p): p is Rec => p !== null) : []
   if (r.form === 'definition' && r.op === 'sum') return join(parts.map((p) => [p.sign === -1 ? '−' : '+', p.id]))
   if (r.form === 'definition' && r.op === 'product') return join(parts.map((p) => [p.power === -1 ? '÷' : '×', p.id]))
   if (r.form === 'stock') {
+    // `start` is the level at period 0; each later period carries the last level forward, plus inflows, less outflows.
     const flows: Array<[ProgramLinkOperator, unknown]> = [
-      ['+', r.start],
       ...(Array.isArray(r.inflows) ? r.inflows.map((f): [ProgramLinkOperator, unknown] => ['+', f]) : []),
       ...(Array.isArray(r.outflows) ? r.outflows.map((f): [ProgramLinkOperator, unknown] => ['−', f]) : []),
     ]
-    return `${join(flows)}, each period`
+    const change = flows.map(([op, qid]) => `${op} ${labelOf(qid)}`).join(' ')
+    return `Starts at ${labelOf(r.start)}; each period, the last level ${change}`
   }
   if (r.form === 'effect') {
     const terms = Array.isArray(r.terms) ? r.terms.map(rec).filter((t): t is Rec => t !== null) : []

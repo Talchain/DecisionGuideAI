@@ -36,7 +36,27 @@ describe('a worked-out figure’s formula, in its parts’ labels', () => {
     expect(programFormulaWords(board, 'delivery_rate')).toBe('Current team delivery pace × Delivery pace relative to the current approach')
   })
   it('a stock', () => {
-    expect(programFormulaWords(board, 'completed_tasks')).toBe('Remaining-scope tasks completed at the start + Tasks completed per month, each period')
+    expect(programFormulaWords(board, 'completed_tasks')).toBe('Starts at Remaining-scope tasks completed at the start; each period, the last level + Tasks completed per month')
+  })
+  // Codex r1 on #3034: a sum or product does not depend on its parts' order, so the formula never opens on "÷" or "−".
+  const withParts = (op: 'sum' | 'product', parts: Array<Record<string, unknown>>) => {
+    const copy = structuredClone(board) as { living_model: { canonical: { relations: Array<Record<string, unknown>> } } }
+    const r = copy.living_model.canonical.relations.find((x) => x.defines === 'delivery_rate')!
+    r.op = op
+    r.parts = parts
+    return copy
+  }
+  it('a ratio listed denominator first reads "A ÷ B"', () => {
+    expect(programFormulaWords(withParts('product', [{ id: 'delivery_multiplier', power: -1 }, { id: 'current_delivery_rate', power: 1 }]), 'delivery_rate'))
+      .toBe('Current team delivery pace ÷ Delivery pace relative to the current approach')
+  })
+  it('a product of a denominator alone reads "1 ÷ B"', () => {
+    expect(programFormulaWords(withParts('product', [{ id: 'delivery_multiplier', power: -1 }]), 'delivery_rate'))
+      .toBe('1 ÷ Delivery pace relative to the current approach')
+  })
+  it('a difference listed subtrahend first reads "A − B"', () => {
+    expect(programFormulaWords(withParts('sum', [{ id: 'delivery_multiplier', sign: -1 }, { id: 'current_delivery_rate', sign: 1 }]), 'delivery_rate'))
+      .toBe('Current team delivery pace − Delivery pace relative to the current approach')
   })
   it('an effect', () => {
     expect(programFormulaWords(board, 'delivery_multiplier')).toBe(

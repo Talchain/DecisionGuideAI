@@ -128,7 +128,7 @@ describe('a worked-out quantity with no figure: the indicator, CEE\'s words in i
     const { text, name } = outcomeLine()
     expect(text).toBe('= —')
     // The read's stock relation, in its parts' labels.
-    expect(name).toBe('No figure yet. Current customers + New customers per month − Customers leaving per month, each period')
+    expect(name).toBe('No figure yet. Starts at Current customers; each period, the last level + New customers per month − Customers leaving per month')
   })
 })
 
