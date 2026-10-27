@@ -91,3 +91,29 @@ describe('CONTROL: a board that is not a program keeps the model-scale reading',
     expect(target('hire_tech_lead', 'tech_leads_added')).toBe('Increases')
   })
 })
+
+// CEE #3859: an option change that starts later carries `from_period_display` on its intervention; the row says it
+// after the target. SYNTHETIC, labelled: the served read with that one field added in #3859's shape.
+describe('a program option says when its change starts', () => {
+  const later = (() => {
+    const graph = structuredClone(hiring.graph) as Json
+    const node = graph.nodes.find((x: Json) => x.id === 'hire_tech_lead')
+    node.interventions.tech_leads_added = { ...node.interventions.tech_leads_added, from_period: 1, from_period_display: 'after 1 month' }
+    return { ...hiring, graph }
+  })()
+  const starts = () => screen.queryByTestId('option-change-row-starts-hire_tech_lead-tech_leads_added')
+
+  it('"Hire a tech lead" starting a month in reads "1 tech lead after 1 month"', async () => {
+    await openBoard(later)
+    await card('hire_tech_lead')
+    expect(target('hire_tech_lead', 'tech_leads_added')).toBe('1 tech lead')
+    expect(starts()?.textContent).toBe(' after 1 month')
+  })
+
+  it('CONTROL: the served read (no start delay) says no start', async () => {
+    await openBoard(hiring)
+    await card('hire_tech_lead')
+    expect(target('hire_tech_lead', 'tech_leads_added')).toBe('1 tech lead')
+    expect(starts()).toBeNull()
+  })
+})

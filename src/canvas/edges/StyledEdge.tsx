@@ -84,7 +84,7 @@ import { isGraphLensEnabled } from '../../flags'
 import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdgeCopy'
 import type { RestsOnMark } from '../artefacts/assumptionMapModel'
 import { RestsOnMarker } from '../artefacts/RestsOnMarker'
-import { PROGRAM_OPERATOR_WORDS, useProgramLinkFigure, useProgramLinkOperator } from '../nodes/shared/savedModelProgram'
+import { PROGRAM_OPERATOR_WORDS, useProgramLinkDirectionUnsettled, useProgramLinkFigure, useProgramLinkOperator } from '../nodes/shared/savedModelProgram'
 import { cardMark } from '../nodes/shared/cardMarks'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 import { VALUE_PROVENANCE_LABEL } from '../domain/valueProvenance'
@@ -414,6 +414,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const programFigure = useProgramLinkFigure(edgeIdKey)
   // Decision 8 A (Paul, 26 Oct): a definition link says how its part enters the figure: + − × ÷, from the canonical relation.
   const programOperator = useProgramLinkOperator(String(source), String(target))
+  // CEE #3859: a range across zero leaves the direction unsettled; the glyph says "?" (vision spec §2b).
+  const directionUnsettled = useProgramLinkDirectionUnsettled(String(source), String(target))
   const isAssistantFocused = useAssistantFocusStore(
     (state) => state.target?.kind === 'edge' && state.target.id === edgeIdKey,
   )
@@ -2164,7 +2166,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    */
   const glyphPlacement = useMemo(() => {
     // Only where a sign can render (the render predicate below is a subset).
-    if ((!statedDirection && !isSignDisputed && !programOperator) || isStructuralEdge) return null
+    if ((!statedDirection && !isSignDisputed && !programOperator && !directionUnsettled) || isStructuralEdge) return null
     const poly = flattenSvgPath(edgePath)
     if (!poly) return null
     const glyphScale = glyphCounterScale(edgeTooltipZoom)
@@ -2202,7 +2204,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     const metrics = glyphMetricsAt(edgeStrokeWidth, glyphScale, labelCounterScale(edgeTooltipZoom))
     return resolvePolarityGlyphOnPath(poly, cardTop, metrics, keepOuts)
     // nodeRectsSignature: re-place when any card moves.
-  }, [statedDirection, isSignDisputed, programOperator, isStructuralEdge, sameRowRoute, edgePath, endY, getNodes, getEdges, id, target, sourcePosition, targetPosition, sourceY, targetX, targetY, edgeStrokeWidth, edgeTooltipZoom, nodeRectsSignature])
+  }, [statedDirection, isSignDisputed, programOperator, directionUnsettled, isStructuralEdge, sameRowRoute, edgePath, endY, getNodes, getEdges, id, target, sourcePosition, targetPosition, sourceY, targetX, targetY, edgeStrokeWidth, edgeTooltipZoom, nodeRectsSignature])
 
   // ── Stroke + dash, from the one authority ────────────────────────────────
   //
@@ -2755,7 +2757,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           on the amber stroke, and it is drawn even when the strength row's
           words carry a direction — those words are the FIRST pass's sign, the
           disputed one, so they cannot stand in for the dispute cue. */}
-      {(statedDirection || isSignDisputed || programOperator) && !isStructuralEdge && (isSignDisputed || programOperator || !strengthRowCarriesDirection) && (
+      {/* CEE #3859: an unsettled direction ("?") is drawn even when the strength row's words carry a sign — those words
+          are the centre's sign, which is exactly what is not settled (Codex r1 on the first-screen PR). */}
+      {(statedDirection || isSignDisputed || programOperator || directionUnsettled) && !isStructuralEdge && (isSignDisputed || programOperator || directionUnsettled || !strengthRowCarriesDirection) && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -2802,9 +2806,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             aria-label={
               isSignDisputed
                 ? `Effect direction: ${DIRECTION_DISPUTED_SENTENCE}`
-                : programOperator
-                  ? `Worked out: ${PROGRAM_OPERATOR_WORDS[programOperator]}`
-                  : `Effect direction: ${statedDirection}`
+                : directionUnsettled
+                  ? 'Effect direction: not settled. Its range runs both ways.'
+                  : programOperator
+                    ? `Worked out: ${PROGRAM_OPERATOR_WORDS[programOperator]}`
+                    : `Effect direction: ${statedDirection}`
             }
             // ⭐ IDENTITY BINDING. Without it the only way to attribute a glyph
             // to an edge is its ORDER in the portal, and `EdgeLabelRenderer`
@@ -2815,7 +2821,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // stacking BY EDGE rather than by a value predicate.
             data-edge-id={id}
           >
-            {isSignDisputed ? '±' : programOperator ?? (statedDirection === 'positive' ? '+' : '−')}
+            {isSignDisputed ? '±' : directionUnsettled ? '?' : programOperator ?? (statedDirection === 'positive' ? '+' : '−')}
           </div>
         </EdgeLabelRenderer>
       )}

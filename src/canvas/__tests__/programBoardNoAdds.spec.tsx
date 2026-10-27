@@ -21,7 +21,8 @@ vi.mock('../../lib/supabase', () => ({ supabase: {}, isSupabaseAvailable: () => 
 import { useCanvasStore } from '../store'
 import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
 import { useSavedModelProgramState } from '../nodes/shared/savedModelProgram'
-import { useMenuItems, canAddFromPaneMenu } from '../contextMenu/useMenuItems'
+import { useMenuItems, canAddFromPaneMenu, addInChat, ADD_IN_CHAT_PREFILL } from '../contextMenu/useMenuItems'
+import { LeftSidebar, ADD_IN_CHAT_QUESTION } from '../../components/layout/LeftSidebar'
 import { InspectorRouter } from '../ui/inspector-v2/InspectorRouter'
 import { CommandPalette } from '../components/CommandPalette'
 import { ToastProvider } from '../ToastContext'
@@ -107,5 +108,42 @@ describe('CONTRAST: a non-program board keeps them', () => {
   it('the command palette offers "Run Analysis"', async () => {
     await board(nonProgram, 'not_program')
     expect(await paletteRun()).toBe(true)
+  })
+})
+
+/**
+ * First screen (Paul 27 Oct): the program board keeps its +, and it opens the chat with "Add " for the person to finish
+ * (CEE adds what they describe there). Read as the board reads it: the real saved-read classifier, then the same rule
+ * `ReactFlowGraph` passes to the sidebar.
+ */
+describe('a program board’s + asks in the chat', () => {
+  async function door() {
+    const prefill = vi.fn()
+    const { result } = renderHook(() => addInChat(useSavedModelProgramState() === 'not_program', useSavedModelProgramState() === 'program', prefill))
+    await settle()
+    return { ask: result.current, prefill }
+  }
+
+  it('the + is named by its question, opens no menu, and puts "Add " in the composer', async () => {
+    await board(served, 'program')
+    const { ask, prefill } = await door()
+    expect(ask).not.toBeNull()
+    render(<LeftSidebar onAddToModelClick={ask!} addAsksInChat />)
+    const btn = screen.getByTestId('canvas-add-to-model')
+    expect(btn).toHaveAccessibleName(ADD_IN_CHAT_QUESTION)
+    expect(btn).not.toHaveAttribute('aria-haspopup')
+    act(() => btn.click())
+    expect(prefill).toHaveBeenCalledTimes(1)
+    expect(prefill).toHaveBeenCalledWith(ADD_IN_CHAT_PREFILL)
+    expect(ADD_IN_CHAT_PREFILL).toBe('Add ')
+  })
+
+  it('CONTRAST: a non-program board keeps the add menu, not the chat', async () => {
+    await board(nonProgram, 'not_program')
+    expect((await door()).ask).toBeNull()
+  })
+
+  it('CONTRAST: with no composer to take the words, no chat door', () => {
+    expect(addInChat(false, true, null)).toBeNull()
   })
 })

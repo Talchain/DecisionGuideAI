@@ -236,6 +236,8 @@ const relationsOf = (graph: unknown): Rec[] => {
  * size is its coefficient, said by the link's figure) and off a program.
  */
 export function programLinkOperator(graph: unknown, from: string, to: string): ProgramLinkOperator | null {
+  // CEE #3859: a risk's link says how its severity applies (`effect_mode`); a multiplying risk draws ×.
+  if (programEdgeOf(graph, from, to)?.effect_mode === 'multiply') return '×'
   for (const r of relationsOf(graph)) {
     if (r.defines !== to) continue
     const parts = Array.isArray(r.parts) ? r.parts.map(rec) : []
@@ -251,6 +253,26 @@ export function programLinkOperator(graph: unknown, from: string, to: string): P
     if (r.form === 'effect' && r.base === from) return '+'
   }
   return null
+}
+
+/** The saved program edge from → to, or null off a program or for none. */
+function programEdgeOf(graph: unknown, from: string, to: string): Rec | null {
+  if (!isProgramGraph(graph)) return null
+  const edges = rec(graph)?.edges
+  return Array.isArray(edges) ? rec(edges.find((e) => { const x = rec(e); return (x?.from ?? x?.source) === from && (x?.to ?? x?.target) === to })) : null
+}
+
+/**
+ * CEE #3859: the link's range crosses zero, so which way it pushes is not settled (`direction_settled: false`). The sign
+ * CEE draws is its median's; the canvas says it is unsettled (vision §2b: "?" when the direction is not set).
+ */
+export function programLinkDirectionUnsettled(graph: unknown, from: string, to: string): boolean {
+  return programEdgeOf(graph, from, to)?.direction_settled === false
+}
+
+export function useProgramLinkDirectionUnsettled(from: string, to: string): boolean {
+  const graph = useSavedGraph()
+  return useMemo(() => programLinkDirectionUnsettled(graph, from, to), [graph, from, to])
 }
 
 export function useProgramLinkOperator(from: string, to: string): ProgramLinkOperator | null {

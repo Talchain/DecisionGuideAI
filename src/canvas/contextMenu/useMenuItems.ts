@@ -312,6 +312,23 @@ export function canAddFromPaneMenu(structuralCanvasEdits = true): boolean {
   return menuIdIsAuthorised('add-node', false, structuralCanvasEdits)
 }
 
+/** What the program board's + puts in the chat composer for the person to finish ("Add a competitor factor"). */
+export const ADD_IN_CHAT_PREFILL = 'Add '
+
+/**
+ * First screen (Paul 27 Oct): a program board keeps its +, which opens the chat with "Add " for the person to finish,
+ * since CEE adds what they describe there and refuses a direct add (U5). Null where the pane menu is the door, or
+ * where there is no program board or no composer to take the words.
+ */
+export function addInChat(
+  structuralCanvasEdits: boolean,
+  programBoard: boolean,
+  prefillChat: ((text: string) => void) | null,
+): (() => void) | null {
+  if (canAddFromPaneMenu(structuralCanvasEdits) || !programBoard || !prefillChat) return null
+  return () => prefillChat(ADD_IN_CHAT_PREFILL)
+}
+
 export function canDeleteFromContextMenu(viewer = isViewerSession(), structuralCanvasEdits = true): boolean {
   return !viewer && menuIdIsAuthorised(
     'delete', hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations), structuralCanvasEdits,

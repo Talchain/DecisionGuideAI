@@ -127,3 +127,19 @@ describe("the goal card says Olumi's suggested measure as Olumi's, and never as 
     expect(measure()).toBeNull()
   })
 })
+
+// CEE #3859 (Codex r1 on the first-screen PR): the target question Olumi asked (`user_questions`) is the no-target
+// chip's accessible description, as it is its hover; with no question the chip keeps its old name and no description.
+describe('the goal’s missing target says what Olumi asked, to a screen reader too', () => {
+  const QUESTION = 'What weekly profit would count as success?'
+  it('the chip is described by the asked question', () => {
+    renderGoal({ user_questions: [QUESTION] })
+    expect(chip()).not.toBeNull()
+    expect(chip()!.getAttribute('aria-description')).toBe(QUESTION)
+  })
+  it('CONTRAST: no question, no description', () => {
+    renderGoal({})
+    expect(chip()).not.toBeNull()
+    expect(chip()!.hasAttribute('aria-description')).toBe(false)
+  })
+})

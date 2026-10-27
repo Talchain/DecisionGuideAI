@@ -198,7 +198,7 @@ const CANVAS_EDGE_ADD_CONNECTED = hasServerGraphAuthority(
  * board, U5). `canvasSemanticMutations` is not that key: it gates undo, redo, paste and the blueprint insert (CLAUDE.md
  * trap 21).
  */
-import { canAddFromPaneMenu } from './contextMenu/useMenuItems'
+import { addInChat, canAddFromPaneMenu } from './contextMenu/useMenuItems'
 import { FirstUseComposer } from './components/FirstUseComposer'
 import { StarterProvenanceBanner } from './components/StarterProvenanceBanner'
 import { RunChangesSummary } from './components/RunChangesSummary'
@@ -838,6 +838,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const structuralCanvasEdits = savedProgramState === 'not_program'
   // U2/U5: on a program board CEE owns validation, What-if and the analysis state, so the legacy client layers do not run.
   const programBoard = savedProgramState === 'program'
+  // First screen (Paul 27 Oct): on a program board the + opens the chat instead (`addInChat`).
+  const prefillChat = useGuidanceStore(s => s._prefillChat)
+  const programAddInChat = useMemo(() => addInChat(structuralCanvasEdits, programBoard, prefillChat), [structuralCanvasEdits, programBoard, prefillChat])
   const nodesWithGhost = useMemo(() => {
     // U5 (DL 26 Oct): a program board shows no row-end "What else…?" prompts.
     if (programBoard) return drawnModel.nodes
@@ -2934,8 +2937,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         onAddToModelClick={
           canAddFromPaneMenu(structuralCanvasEdits)
             ? (screenPos) => setContextMenuTarget({ kind: 'pane', screenPos })
-            : undefined
+            : programAddInChat ?? undefined
         }
+        addAsksInChat={programAddInChat !== null}
         interactionMode={effectiveMode}
         /* A-1: the button must toggle off the SAME value it displays. It read
            `effectiveMode` for its icon and label but toggled off the RAW mode,
