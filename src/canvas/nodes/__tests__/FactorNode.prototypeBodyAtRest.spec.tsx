@@ -430,9 +430,10 @@ describe('prototype · a currency rate reads `£39,000/year` on the card', () =>
     expect(within(c).getByTestId(`factor-value-figure-${ID}`).textContent).toBe('£39,000')
     expect(within(c).getByTestId(`factor-value-unit-${ID}`).textContent).toBe('/ year')
     expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('£39,000 / year')
-    // Vision spec §2a (23 Oct): the author glyph leads the figure in the value line, never the card's marks band.
-    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).not.toBeNull()
-    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).toBeNull()
+    // Paul, 27 Oct 2026: a card's icons sit on its bottom row only — the author glyph (it led the figure in the value
+    // line, vision §2a) is in this card's bottom band, never in the value line.
+    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).toBeNull()
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')?.getAttribute('data-testid')).toBe(`factor-bottom-marks-${ID}`)
   })
 
   it('CONTRAST — a non-currency rate (`hours/week`) is untouched: `40 hours/week`', () => {
@@ -443,9 +444,10 @@ describe('prototype · a currency rate reads `£39,000/year` on the card', () =>
     expect(within(c).getByTestId(`factor-value-figure-${ID}`).textContent).toBe('40')
     expect(within(c).getByTestId(`factor-value-unit-${ID}`).textContent).toBe('hours/week')
     expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('40 hours/week')
-    // Vision spec §2a (23 Oct): the author glyph leads the figure in the value line, never the card's marks band.
-    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).not.toBeNull()
-    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).toBeNull()
+    // Paul, 27 Oct 2026: a card's icons sit on its bottom row only — the author glyph (it led the figure in the value
+    // line, vision §2a) is in this card's bottom band, never in the value line.
+    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).toBeNull()
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')?.getAttribute('data-testid')).toBe(`factor-bottom-marks-${ID}`)
   })
 
   it('CONTRAST — a currency code with no glyph mapping (`CHF/year`) is untouched', () => {
@@ -453,8 +455,9 @@ describe('prototype · a currency rate reads `£39,000/year` on the card', () =>
     seed(data, { phase: 'pre' })
     renderFactor(data)
     expect(visibleText(within(card('Annual PA salary')).getByTestId('factor-recorded-value'))).toBe('39,000 CHF/year')
-    // Vision spec §2a (23 Oct): the author glyph leads the figure in the value line, never the card's marks band.
-    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).not.toBeNull()
-    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).toBeNull()
+    // Paul, 27 Oct 2026: a card's icons sit on its bottom row only — the author glyph (it led the figure in the value
+    // line, vision §2a) is in this card's bottom band, never in the value line.
+    expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).toBeNull()
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')?.getAttribute('data-testid')).toBe(`factor-bottom-marks-${ID}`)
   })
 })

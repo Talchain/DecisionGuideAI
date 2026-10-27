@@ -614,11 +614,13 @@ describe('FactorNode prior range: a normalised range beside a real-scale value',
     // pristine, and the string the journey witnessed):
     //   "Sales Payback Period18 monthRange: 0.08 to 0.28"
     // AFTER: the contradicting line is gone and the figure remains.
-    // Visible text only: the value line now opens with its author glyph, whose name ("Source not recorded") is sr-only.
+    // Visible text only (a mark's name, e.g. "Source not recorded", is sr-only). Paul, 27 Oct 2026: the author glyph
+    // and its joining space left the value line for the bottom row, so the title runs straight into the figure again,
+    // exactly as the witnessed string above.
     const visible = container.cloneNode(true) as HTMLElement
     visible.querySelectorAll('.sr-only').forEach(n => n.remove())
-    // …followed by the one joining space between the glyph and the figure.
-    expect(visible.textContent ?? '').toContain('Sales Payback Period 18 month')
+    expect(visible.textContent ?? '').toContain('Sales Payback Period18 month')
+    expect(visible.textContent ?? '').not.toContain('Range:')
   })
 
   it('OVER-SUPPRESSION PIN 1 of 3 — a PERCENT factor still renders its range', () => {

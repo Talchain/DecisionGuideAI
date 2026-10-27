@@ -411,12 +411,12 @@ export const FactorNode = memo((props: NodeProps) => {
   // v3.1 point 1 (DESIGN-GAP-v31 #21): the mark is focusable and opens this
   // factor's source detail — the inspector.
   const openSourceDetail = () => { openNodeInspector(props.id) }
-  const renderValueSourceMark = (inline: boolean) =>
+  const renderValueSourceMark = (inline: boolean, keepSourceAction = false) =>
     valueSourceMark === null ? null
       // ⛔ Olumi's figure the user ACCEPTED keeps Olumi's token but says so: `EstimateMarker`'s fixed copy ("not yet
       // confirmed — filled in for you") is false once accepted (served UI `cb25e5e2`, guest `9cec5206`; AIQ 5921018606).
-      : valueSourceMark.kind === 'olumi' && !olumiUnknownFigure && currentValueOrigin?.kind !== 'accepted' ? <EstimateMarker onOpenSource={openSourceDetail} inline={inline} />
-        : <ValueSourceMark mark={valueSourceMark} testId={`factor-value-source-${props.id}`} subject={cleanedLabel} onOpenSource={openSourceDetail} inline={inline}
+      : valueSourceMark.kind === 'olumi' && !olumiUnknownFigure && currentValueOrigin?.kind !== 'accepted' ? <EstimateMarker onOpenSource={openSourceDetail} inline={inline} keepSourceAction={keepSourceAction} />
+        : <ValueSourceMark mark={valueSourceMark} testId={`factor-value-source-${props.id}`} subject={cleanedLabel} onOpenSource={openSourceDetail} inline={inline} keepSourceAction={keepSourceAction}
             {...(askedQuestion !== null && valueSourceMark.kind === 'asked' ? { title: `${cleanedLabel}: ${askedQuestion}` } : {})} />
   // Vision spec §2a (23 Oct): Olumi's figure carries a dotted info underline as well as the brand mark before it.
   const valueIsOlumiEstimate = valueSourceMark?.kind === 'olumi' && !olumiUnknownFigure
@@ -438,7 +438,7 @@ export const FactorNode = memo((props: NodeProps) => {
       <span data-testid={`factor-value-mark-slot-${props.id}`} className="hidden">
         {draftIsYours
           ? <ValueSourceMark mark={DRAFT_IS_YOURS_MARK} testId={`factor-value-source-${props.id}`} subject={cleanedLabel} />
-          : renderValueSourceMark(false)}
+          : renderValueSourceMark(false, true)}
       </span>
     </>
   )

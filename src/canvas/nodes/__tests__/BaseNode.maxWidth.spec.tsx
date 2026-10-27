@@ -122,7 +122,7 @@ describe('BaseNode — maxWidth (H1)', () => {
     expect(nodeEl.style.maxWidth).toBe('238px')
   })
 
-  it('title element never clamps at a reading rung — the whole label wraps (v3.1 WS1 #2)', () => {
+  it('title element clamps at two lines at a reading rung — the whole label is in the DOM and the hover pop-up (Paul, 27 Oct)', () => {
     // A 60+ char label that, at typography.nodeTitle size and normal node
     // widths, wraps onto 4+ lines.
     const longLabel =
@@ -140,12 +140,10 @@ describe('BaseNode — maxWidth (H1)', () => {
     const titleEl = container.querySelector('.break-words') as HTMLElement | null
     expect(titleEl, 'title element with break-words should exist').toBeTruthy()
     expect(titleEl?.textContent).toBe(longLabel)
-    // ⭐ v3.1 WS1 #2 (26 Sep 2026): the contract's `.node h3` wraps and never
-    // clips. From 1 Sep this element carried `line-clamp-2`, and at the landing
-    // zoom it ellipsised 2–12 titles per starter ("Competitive Pressure for…").
-    // The layout reads the UNCLAMPED height at the bound, so a long title costs
-    // its row height, never a word. No clamp of ANY depth may come back.
-    expect(titleEl?.className ?? '').not.toMatch(/line-clamp/)
+    // ⭐ Paul, 27 Oct 2026: no card title runs past two lines; the full title is
+    // in the card's existing hover pop-up. This replaces v3.1 WS1 #2 (26 Sep
+    // 2026: "never clamp at a reading rung"). Exactly one clamp, of depth two.
+    expect((titleEl?.className ?? '').match(/\bline-clamp-\d+\b/g)).toEqual(['line-clamp-2'])
     expect(titleEl?.className).toContain('break-words')
   })
 })

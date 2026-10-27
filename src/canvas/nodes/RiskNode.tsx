@@ -495,7 +495,7 @@ export const RiskNode = memo((props: NodeProps) => {
   // stays words in the body; the probability x impact pair above is the repeated one that moved to the band.
   const riskEventLine = eventLine ? (
     <div className={`${typography.edgeLabel} text-text-light break-words`} data-card-primary-line="risk">
-      {eventMark && <><ValueSourceMark mark={eventMark} testId={`risk-event-source-${props.id}`} inline />{' '}</>}
+      {eventMark && <ValueSourceMark mark={eventMark} testId={`risk-event-source-${props.id}`} keepSourceAction />}
       <span aria-hidden="true" data-testid="risk-event-line">
         May happen · about <span className={`whitespace-nowrap ${eventMark?.kind === 'olumi' ? OLUMI_ESTIMATE_FIGURE_CLASSES : ''}`}
           data-testid="risk-event-figure">{eventPercent}</span> within {eventHorizon}

@@ -343,9 +343,12 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       expect(t.has('overflow-hidden')).toBe(false)
       expect(t.has('truncate')).toBe(false)
       expect(t.has('max-w-full')).toBe(true)
-      // `.delta-rows .amount{white-space:nowrap}` — on the value, and on the mark cluster.
+      // `.delta-rows .amount{white-space:nowrap}` — on the value. Paul, 27 Oct: a card's icons sit on its bottom row
+      // only, so the source mark is no longer in the amount (it was a no-wrap cluster there).
       expect(tokens(onCard('option-change-row-value-option-1-f-price')).has('whitespace-nowrap')).toBe(true)
-      expect(tokens(onCard('option-change-row-mark-option-1-f-price')).has('whitespace-nowrap')).toBe(true)
+      const mark = onCard('option-change-row-source-option-1-f-price')!
+      expect(dd.contains(mark)).toBe(false)
+      expect(onCard('option-bottom-marks-option-1')?.contains(mark) ?? false).toBe(true)
       // The row line is the contract grid: the amount beside the label, never the value apart.
       const line = tokens(onCard('option-change-row-line-option-1-f-price'))
       expect(line.has('grid')).toBe(true)

@@ -87,7 +87,7 @@ async function card(id: string, Card: typeof FactorNode | typeof GoalNode = Fact
   // The saved-graph read has answered before anything asserts.
   await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
 }
-/** The card's value line as read: its mark's words, then the figure and unit. */
+/** The card's value line as read: the figure and unit. (Paul, 27 Oct 2026: its mark is on the card's bottom row now.) */
 const value = () => screen.getByTestId('factor-recorded-value').textContent
 const range = (id: string) => screen.getByTestId(`factor-stored-range-${id}`).textContent
 
@@ -101,20 +101,20 @@ describe('the dimensionless unit "1" prints no unit', () => {
   it('hiring new_developer_relative_output (0.55, range -0.2–1, unit "1"): "0.55" and "Range: -0.2–1"', async () => {
     await openBoard(hiring)
     await card('new_developer_relative_output')
-    expect(value()).toBe('est. 0.55')
+    expect(value()).toBe('0.55')
     expect(range('new_developer_relative_output')).toBe('Range: -0.2–1')
   })
 
   it('hiring baseline_productivity (1, unit "1", fixed by the model) reads "1", not "1 1"', async () => {
     await openBoard(hiring)
     await card('baseline_productivity')
-    expect(value()).toBe('Fixed by how the model is built 1')
+    expect(value()).toBe('1')
   })
 
   it('marketing ai_selected (0, unit "1", a switch) reads "0", not "0 1"', async () => {
     await openBoard(marketing)
     await card('ai_selected')
-    expect(value()).toBe('Fixed by how the model is built 0')
+    expect(value()).toBe('0')
   })
 
   it('hiring goal increase_productivity (goal_threshold_unit "1"): the empty today slot has no "1" beside it', async () => {
@@ -129,13 +129,13 @@ describe('an underscored unit reads in words, and money per a thing takes the mo
   it('hiring tech_leads_added (0, unit "tech_lead") reads "0 tech lead"', async () => {
     await openBoard(hiring)
     await card('tech_leads_added')
-    expect(value()).toBe('Fixed by how the model is built 0 tech lead')
+    expect(value()).toBe('0 tech lead')
   })
 
   it('hiring tech_lead_cost_per_hire (145,000 GBP/tech_lead, range 135,000–155,000): "£145,000 / tech lead" and its range', async () => {
     await openBoard(hiring)
     await card('tech_lead_cost_per_hire')
-    expect(value()).toBe('Set by you £145,000 / tech lead')
+    expect(value()).toBe('£145,000 / tech lead')
     expect(range('tech_lead_cost_per_hire')).toBe('Range: £135,000–£155,000 / tech lead')
   })
 })
@@ -144,15 +144,15 @@ describe('CONTROL: a unit that is neither keeps its text, on the same boards', (
   it('hiring current_developers reads "6 developer"', async () => {
     await openBoard(hiring)
     await card('current_developers')
-    expect(value()).toBe('From your brief 6 developer')
+    expect(value()).toBe('6 developer')
   })
 
   it('marketing manager_cost reads "£58,000" and baseline_conversion_rate reads "9%"', async () => {
     await openBoard(marketing)
     await card('manager_cost')
-    expect(value()).toBe('Set by you £58,000')
+    expect(value()).toBe('£58,000')
     cleanup()
     await card('baseline_conversion_rate')
-    expect(value()).toBe('Set by you 9%')
+    expect(value()).toBe('9%')
   })
 })

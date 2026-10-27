@@ -2795,8 +2795,10 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           data-testid="node-provenance-mark-group"
           className="inline-flex items-center gap-1 shrink-0"
         >
-          {/* Paul, 27 Oct: a card's icons sit on its bottom row only, Olumi's authorship mark included (it sat after the title). */}
-          <NodeProvenanceMark nodeType={nodeType} data={provenanceData} hideKind={isDetailedView ? null : provenanceDefault} place="all" />
+          {/* Paul, 27 Oct: a card's icons sit on its bottom row only. Olumi's authorship mark (it sat after the title)
+              moves here unchanged — a static glyph, never the band's ask — so the move is display only. */}
+          <NodeProvenanceMark nodeType={nodeType} data={provenanceData} hideKind={isDetailedView ? null : provenanceDefault} place="title" />
+          <NodeProvenanceMark nodeType={nodeType} data={provenanceData} hideKind={isDetailedView ? null : provenanceDefault} place="band" />
         </span></BottomCardMark>
 
         {/* Graph v1.1 Task 5: header slot — science / state icons live top-right

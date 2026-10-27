@@ -320,6 +320,7 @@ export function ValueSourceMark({
   onOpenSource,
   olumiGroupNoun,
   inline = false,
+  keepSourceAction = false,
 }: {
   mark: FactorValueSourceMark
   testId?: string
@@ -339,11 +340,13 @@ export function ValueSourceMark({
    * card's marks band. An inline mark never joins the merged Olumi mark: it belongs to one figure.
    */
   inline?: boolean
+  /** In the band, but its click still opens the figure's source detail (a figure's mark moved to the bottom row, Paul 27 Oct). */
+  keepSourceAction?: boolean
 }) {
   const tip = title ?? (subject ? `${subject}: ${mark.label}` : mark.label)
   const definition = cardMark(`source-${mark.kind}` as CardMarkId)
   const Icon = definition.Icon
-  const slot = useOlumiMarkSlot(mark.kind === 'olumi' && olumiGroupNoun && !inline
+  const slot = useOlumiMarkSlot(mark.kind === 'olumi' && olumiGroupNoun && !inline && !keepSourceAction
     ? { role: 'estimate', text: olumiGroupNoun, accepted: mark.label === VALUE_PROVENANCE_LABEL.accepted, onOpen: onOpenSource }
     : null)
   // On a card the band's Olumi glyph asks Olumi about the card (`OlumiAskMark`, Paul 24 Oct). An INLINE mark belongs to
@@ -352,7 +355,7 @@ export function ValueSourceMark({
   if (slot.render === 'none') return null
   if (slot.render === 'merged') return <BottomCardMark><OlumiMergedMark label={slot.label} estimateCount={slot.estimateCount} onOpen={slot.onOpen} /></BottomCardMark>
   const hoverTip = `${definition.words} · ${title ? `${mark.label} · ${tip}` : tip}`
-  const asks = mark.kind === 'olumi' && !inline && ask !== null
+  const asks = mark.kind === 'olumi' && !inline && !keepSourceAction && ask !== null
   const body = (
     <SourceMark cardMarkId={definition.id} testId={testId} tip={hoverTip} ariaLabel={asks ? ask.text : tip} ariaDescription={asks ? hoverTip : mark.label} onOpen={asks ? ask.ask : onOpenSource} dataValueSource={mark.kind}>
       <span role="img" aria-label={definition.words}><Icon aria-hidden="true" strokeWidth={1.8} className={SOURCE_MARK_GLYPH_CLASSES} data-source-glyph={mark.kind === 'you' ? 'person' : undefined} /></span>

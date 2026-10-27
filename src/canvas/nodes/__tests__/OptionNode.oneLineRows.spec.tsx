@@ -16,8 +16,12 @@
  * geometry, no rung-triggered re-layout, fuller detail in the popover or the
  * inspector — not in card height.
  *
+ * ⚠ RE-PINNED (Paul, 27 Oct 2026): a card's icons sit on its bottom row only. Each
+ * row's source mark is now in the card's bottom band, not the row, and the glue
+ * below is gone; the label and value-run pins are unchanged.
+ *
  * WHAT IS PINNED, BY IDENTITY (option id + factor id test ids, exact text):
- *   · the mark is GLUED to the value — the only thing between the value and the
+ *   · (until 27 Oct) the mark is GLUED to the value — the only thing between the value and the
  *     mark cluster is one no-break space (U+00A0), so there is no line-break
  *     opportunity between them and the mark cannot drop to a line of its own;
  *   · gluing never pushes an unbreakable run past the card: any no-wrap run that
@@ -157,6 +161,15 @@ function cardRows(container: HTMLElement): HTMLElement {
   return blocks[0]
 }
 
+/** The card's bottom row of marks — never one inside the popover. */
+function cardBand(container: HTMLElement): HTMLElement {
+  const bands = [...container.querySelectorAll<HTMLElement>(`[data-testid="option-bottom-marks-${OPTION}"]`)]
+    .filter(b => !b.closest('[data-testid="node-popover"]'))
+  expect(bands.length, 'the bottom band renders once, on the card').toBe(1)
+  expect(bands[0].getAttribute('data-card-bottom-band')).toBe('true')
+  return bands[0]
+}
+
 function rowParts(container: HTMLElement, factorId: string) {
   const rows = cardRows(container)
   const q = (id: string) => rows.querySelector<HTMLElement>(`[data-testid="${id}-${OPTION}-${factorId}"]`)
@@ -164,8 +177,9 @@ function rowParts(container: HTMLElement, factorId: string) {
   const dd = q('option-change-row')
   const value = q('option-change-row-value')
   const mark = q('option-change-row-mark')
-  // Vision I (23 Oct): the source mark is in the row's own mark cluster, before its figure (was: the bottom band).
-  const source = mark?.querySelector<HTMLElement>(`[data-testid="option-change-row-source-${OPTION}-${factorId}"]`) ?? mark?.querySelector<HTMLElement>(`[data-testid="option-change-row-estimate-${OPTION}-${factorId}"]`) ?? null
+  // Paul, 27 Oct: the source mark is on THIS card's bottom row (was vision I, 23 Oct: in the row's own mark cluster).
+  const band = cardBand(container)
+  const source = band.querySelector<HTMLElement>(`[data-testid="option-change-row-source-${OPTION}-${factorId}"]`) ?? band.querySelector<HTMLElement>(`[data-testid="option-change-row-estimate-${OPTION}-${factorId}"]`) ?? null
   expect(line, `row line ${factorId}`).not.toBeNull()
   expect(dd, `row amount ${factorId}`).not.toBeNull()
   expect(value, `row value ${factorId}`).not.toBeNull()
@@ -203,35 +217,32 @@ describe('audit #9 — the fixture is the served opt_hybrid card', () => {
   })
 })
 
-// RE-POINTED (vision I, 23 Oct 2026, spec §2a "a glyph before each figure"): slice A had moved the source marks to
-// the bottom band; each now LEADS its own target figure inside the row, glued to it by one U+00A0.
-describe('vision I — each source mark leads its target figure in the row; value rows retain their geometry', () => {
+// RE-PINNED (Paul, 27 Oct 2026): a card's icons sit on its bottom row only. Each source mark is in the card's bottom
+// band, not the row, and the U+00A0 that glued it to its figure is gone. (Was vision I, 23 Oct: the mark led its target
+// figure inside the row; slice A before that had it in the band.)
+describe('each source mark sits on the card’s bottom row; value rows retain their geometry (Paul, 27 Oct)', () => {
   for (const r of ON_CARD_ROWS) {
-    it(`${r.factorId}: the mark leads its figure, glued by one no-break space, and is not in the bottom band`, () => {
+    it(`${r.factorId}: the mark is on the bottom row, not in the row, and no no-break space is left in the amount`, () => {
       const { container } = renderHybrid()
       const { dd, value, mark, source } = rowParts(container, r.factorId)
-      expect(mark.contains(source)).toBe(true)
-      expect(source.closest(`[data-testid="option-bottom-marks-${OPTION}"]`)).toBeNull()
+      expect(mark.contains(source)).toBe(false)
+      expect(dd.contains(source)).toBe(false)
+      expect(cardBand(container).contains(source)).toBe(true)
       expect(source.querySelector(".lucide-file-text")).not.toBeNull()
-      // Same amount cell: the mark is inside the value, before the target.
+      // Same amount cell: the value holds the target figure.
       expect(value.parentElement).toBe(dd)
-      expect(value.contains(mark)).toBe(true)
-      // The glue: exactly one text node, exactly U+00A0 — no breakable space,
-      // no element, nothing else between the mark cluster and its figure.
-      const glue = mark.nextSibling
-      expect(glue?.nodeType, 'a text node glues the mark to the figure').toBe(Node.TEXT_NODE)
-      expect((glue as Text).data).toBe(NBSP)
-      // …and the next node holds the target figure (itself, or the editor control around it).
-      const next = glue!.nextSibling as Element
       const targetId = `option-change-row-target-${OPTION}-${r.factorId}`
-      expect(next.getAttribute('data-testid') === targetId || next.querySelector(`[data-testid="${targetId}"]`) !== null).toBe(true)
-      // Nothing inside the cluster can break, and the mark-glue-figure run is held together.
-      expect(tokens(mark).has('whitespace-nowrap')).toBe(true)
+      expect(value.querySelector(`[data-testid="${targetId}"]`)).not.toBeNull()
+      // No glue is left: no text node in the amount cell carries U+00A0.
+      const walker = document.createTreeWalker(dd, NodeFilter.SHOW_TEXT)
+      const glued: string[] = []
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) if ((n as Text).data.includes(NBSP)) glued.push((n as Text).data)
+      expect(glued, 'a no-break space left in the amount').toEqual([])
+      // The target's own run is held together.
       expect(tokens(mark.parentElement!).has('whitespace-nowrap')).toBe(true)
-      // And no ordinary space anywhere in the amount cell outside the value and
-      // the cluster: a stray ' ' child is a break opportunity that drops the mark.
+      // And no ordinary space anywhere in the amount cell outside the value: a stray ' ' child is a break opportunity.
       const strays = [...dd.childNodes].filter(n => n.nodeType === Node.TEXT_NODE && /[ \t\n]/.test((n as Text).data))
-      expect(strays.length, 'a breakable space between the value and its mark').toBe(0)
+      expect(strays.length, 'a stray breakable space in the amount cell').toBe(0)
     })
 
     it(`${r.factorId}: moving the mark leaves value runs within the row budget`, () => {

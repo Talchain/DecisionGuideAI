@@ -412,8 +412,14 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
     // Was an ordinary breakable space; every other byte is unchanged.
     // RE-PINNED 27 Sep (side-by-side DIFF item 1): the `·` is retired — the
     // contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.
-    // RE-PINNED (vision I, 23 Oct): the mark LEADS the target, glued by the U+00A0; its screen-reader name reads in place.
-    expect(row!.textContent).toBe('0 → Source not recorded\u00A03 engineers') // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
-    expect(screen.getByTestId('option-change-row-source-option-1-f-head')?.getAttribute('data-value-source')).toBe('unknown')
+    // RE-PINNED (Paul, 27 Oct): a card's icons sit on its bottom row only, so the row reads the figures alone (no mark,
+    // no U+00A0 glue); the "no source" mark, with its screen-reader name, is on the bottom row (was vision I, 23 Oct:
+    // it led the target in the row).
+    expect(row!.textContent).toBe('0 → 3 engineers') // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
+    const mark = screen.getByTestId('option-change-row-source-option-1-f-head')
+    expect(mark.getAttribute('data-value-source')).toBe('unknown')
+    expect(mark.textContent).toContain('Source not recorded')
+    expect(row!.contains(mark)).toBe(false)
+    expect(screen.getByTestId('option-bottom-marks-option-1').contains(mark)).toBe(true)
   })
 })

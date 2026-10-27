@@ -75,10 +75,11 @@ describe('the card slot says the chance, not the option\'s own name', () => {
     expect(screen.getByTestId('option-win-readout-loyalty_card').textContent).toBe('about 39%')
     const line = screen.getByTestId('option-analysis-currency-loyalty_card')
     expect(line.textContent).toBe('about 39%')
-    // Review of #2934 (spec §2a `.hl`): the goal-target glyph sits immediately before the figure, in goal colour, hidden from
-    // the accessible name (which already carries CEE's sentence).
+    // Review of #2934 (spec §2a `.hl`): the goal-target glyph, in goal colour, hidden from the accessible name (which
+    // already carries CEE's sentence). Paul, 27 Oct: a card's icons sit on its bottom row only (it sat before the figure).
     const glyph = screen.getByTestId('option-chance-goal-glyph-loyalty_card')
-    expect(glyph.nextElementSibling).toBe(screen.getByTestId('option-win-readout-loyalty_card'))
+    expect(screen.getByTestId('option-bottom-marks-loyalty_card').contains(glyph)).toBe(true)
+    expect(line.contains(glyph)).toBe(false)
     expect(glyph.getAttribute('aria-hidden')).toBe('true')
     expect(glyph.getAttribute('class')).toContain('text-goal')
     expect(line.getAttribute('aria-label')).toMatch(/^Current model · ‘Start a loyalty card’: about 39% chance of ‘I want at least 480 customers a week/)

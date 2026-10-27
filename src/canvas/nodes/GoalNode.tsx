@@ -70,8 +70,6 @@ import { NeedsInputSlot, emptyValueUnit } from './shared/NeedsInputSlot'
 import { GoalOtherAims } from './shared/GoalOtherAims'
 import { suggestedMeasureWords, useSuggestedMeasure } from './shared/suggestedMeasure'
 import { useSavedModelIsCore } from './shared/savedModelIsCore'
-import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
-import { SOURCE_MARK_GLYPH_CLASSES } from './shared/EstimateMarker'
 import { GoalTargetPopover } from '../components/GoalTargetPopover'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
@@ -1024,7 +1022,10 @@ export const GoalNode = memo((props: NodeProps) => {
           {canCaptureTarget && !goalOwnRowIsTheTarget && noTargetStatusChip}
           {targetLine === null && suggestedMeasure !== null && (
             <span className={`${typography.nodeLabel} text-text-light`} data-testid={`goal-suggested-measure-${props.id}`}>
-              <VALUE_PROVENANCE_ICON.ai aria-hidden="true" className={`${SOURCE_MARK_GLYPH_CLASSES} inline align-[-2px]`} />{' '}
+              {/* Paul, 27 Oct: the mark sits on the bottom row; Olumi is its mark, never a sparkle (vision §3). */}
+              <BottomCardMark><span role="img" aria-label="Olumi’s suggested measure" data-card-mark="source-olumi" className="inline-flex">
+                <CardMarkShape mark={cardMark('source-olumi')} />
+              </span></BottomCardMark>
               {suggestedMeasureWords(suggestedMeasure)}
             </span>
           )}

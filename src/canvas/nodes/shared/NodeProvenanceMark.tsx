@@ -195,7 +195,7 @@ export function NodeProvenanceMark({ nodeType, data, hideKind = null, place = 'a
   if (hidden) return null
   if (place === 'title') {
     return (
-      <span data-testid="node-title-authorship" className="ml-1 inline-flex align-middle">
+      <span data-testid="node-title-authorship" className="inline-flex align-middle">
         {marks.map(m => <Fragment key={`${m.claim}-${m.kind}`}>{renderMark(m.claim, m.kind)}</Fragment>)}
       </span>
     )
