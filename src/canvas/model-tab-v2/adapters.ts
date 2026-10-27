@@ -529,7 +529,9 @@ function edgeValueParts(data: unknown, programWords: string | null = null): { te
   if (programWords !== null) return { text: programWords, sentence: false }
   const bag = (data ?? undefined) as Record<string, unknown> | undefined
   const seed = resolveEdgeStrengthEditSeed(bag)
-  if (seed === null) return { text: isStrengthDefinitional(bag) ? BY_DEFINITION : null, sentence: false }
+  // A link that holds BY DEFINITION says so, never "Olumi's estimate" (domain/strengthDefinitional).
+  const definitional = isStrengthDefinitional(bag)
+  if (seed === null) return { text: definitional ? BY_DEFINITION : null, sentence: false }
   const direction = resolveEdgeDirectionDisplay(bag)
   // ⭐ THE SIZE IN THE TARGET'S OWN UNITS FIRST, when the producer admitted one
   // for THIS β (magnitude contract, MG #70 5845713522). The |β| band called
@@ -538,8 +540,6 @@ function edgeValueParts(data: unknown, programWords: string | null = null): { te
   // ONE resolver for this row, the canvas hover card and the link inspector (`edges/edgeSizePhrase.ts`), so the
   // three say the same size with the same author words ("from your brief" / "your figure" / "Olumi's estimate").
   const size = edgeSizePhrase(bag)
-  // A link that holds BY DEFINITION says so, never "Olumi's estimate" (domain/strengthDefinitional).
-  const definitional = isStrengthDefinitional(bag)
   // MG ruling (1 Oct 2026): a definitional row offers no editor (`edgeStrengthEditIsAssertable`), so the cell where the
   // editor would be says what the strength is — the band too, when no natural-effect sentence carries the words.
   return size !== null
