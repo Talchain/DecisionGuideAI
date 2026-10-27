@@ -727,6 +727,8 @@ interface InterventionChip {
   cap?: number
   observedValue?: number
   observedRawValue?: string | number
+  /** The saved model is a program: `value` is a figure in its own unit (`InterventionValueInput.naturalUnits`). */
+  naturalUnits?: boolean
 }
 
 /** Structured delta for spec Section 13 pre-analysis display. */
@@ -761,8 +763,11 @@ export const OptionNode = memo((props: NodeProps) => {
   const nodes = useSwitchFactorNodes()
   // ⭐ E1b: the option's values are edited ON the card, through the inspector's own writer (`option_intervention_edit`).
   const optionEditAuthority = useModelEditAuthority(props.id)
+  const savedProgramState = useSavedModelProgramState()
   // Spec §3 (C13): the core route refuses an option's value edit on a program board, so its amounts stay text there.
-  const optionValuesEditable = useSavedModelProgramState() === 'not_program'
+  const optionValuesEditable = savedProgramState === 'not_program'
+  // On a program board an option's setting is a figure in its own unit, read as the factor card reads it.
+  const naturalUnits = savedProgramState === 'program'
   const resultsReport = useCanvasStore(state => state.results.report)
   /**
    * The Run's typed fact that it KEPT this Olumi-proposed option only because some of the user's options could not be
@@ -1003,13 +1008,13 @@ export const OptionNode = memo((props: NodeProps) => {
         const displayFrame = resolveOptionTargetDisplayFrame(factorNode?.data, targets.get(factorId) ?? rawValue)
         return [{
           factorId, factorData: factorNode?.data, label: cleanedLabel, value, displayValue: servedSwitchReading(factorNode?.data, value) ?? displayValue ?? undefined,
-          factorType: observedState?.factor_type, ...displayFrame,
+          factorType: observedState?.factor_type, ...displayFrame, ...(naturalUnits ? { naturalUnits: true } : {}),
         }]
       })
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
       // Core's option switch is the engine's working, not something the option sets (coreSwitch.ts).
       .filter((chip) => !switches.has(chip.factorId))
-  }, [ceeAnalysisReady, props.id, nodes, analysisViewStale, switches])
+  }, [ceeAnalysisReady, props.id, nodes, analysisViewStale, switches, naturalUnits])
 
   // Brief scope 7: Layer-1 pills cap visible chips at 4. The post-analysis
   // "What this option changes:" block needs the FULL built list so its
@@ -1095,6 +1100,7 @@ export const OptionNode = memo((props: NodeProps) => {
           observedValue: c.observedValue,
           observedRawValue: c.observedRawValue,
           targetDisplayValue: c.displayValue,
+          ...(c.naturalUnits ? { naturalUnits: true } : {}),
         })
         if (!change.changed) return null
         const direction = change.arrow
@@ -1266,11 +1272,11 @@ export const OptionNode = memo((props: NodeProps) => {
       const factorNode = nodes.find(n => n.id === fid) as TargetNodeLike | undefined
       const target = me.targets.get(fid)
       const row = target
-        ? buildOptionTargetRow({ factorId: fid, target, factorNode, baselineReference: baselineOptionReference })
+        ? buildOptionTargetRow({ factorId: fid, target, factorNode, baselineReference: baselineOptionReference, naturalUnits })
         : buildOptionNeedsInputTargetRow({ factorId: fid, factorNode, source: me.unsetSources.get(fid) ?? null })
       return isConcreteChangeRow(row, target, optionFactorContext(factorNode, fid)) ? [row] : []
     })
-  }, [optionSet, props.id, nodes, baselineOptionReference, switches])
+  }, [optionSet, props.id, nodes, baselineOptionReference, switches, naturalUnits])
   // Standard's resting rows also keep to the card's LINE budget (a two-line row
   // spends more of it — `fitRowsToLineBudget`); Detailed keeps its own layout.
   // A pure function of the model: a Run changes neither the rows nor their form.
@@ -1306,13 +1312,13 @@ export const OptionNode = memo((props: NodeProps) => {
     if (!me) return null
     const readings = [...me.targets].flatMap(([fid, target]) => {
       const factorNode = nodes.find(n => n.id === fid)
-      const reading = optionTargetReading(buildOptionTargetRow({ factorId: fid, target, factorNode, baselineReference: null }), factorNode?.data)
+      const reading = optionTargetReading(buildOptionTargetRow({ factorId: fid, target, factorNode, baselineReference: null, naturalUnits }), factorNode?.data)
       return reading.trim() ? [reading] : []
     })
     const label = typeof props.data?.label === 'string' ? props.data.label : ''
     const to = optionLabelRenamedToSetLevel(label, readings)
     return to !== null && to !== renameDeclined ? to : null
-  }, [editSentHere, isBaselineOption, optionSet, props.id, props.data?.label, nodes, renameDeclined])
+  }, [editSentHere, isBaselineOption, optionSet, props.id, props.data?.label, nodes, renameDeclined, naturalUnits])
   // Below Normal zoom (`quiet` / `line`) the change rows stack — see the render.
   // The same rung predicate the resting glyphs read, so one zoom boundary
   // decides both, never two.

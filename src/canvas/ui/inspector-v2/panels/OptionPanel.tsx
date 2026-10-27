@@ -186,8 +186,11 @@ export const OptionPanel = memo(function OptionPanel({
     unapplied: unappliedIntervention,
     dismiss: dismissIntervention,
   } = useOptionInterventionCommit(nodeId ?? null)
+  const savedProgramState = useSavedModelProgramState()
   // Spec §3 (C13): the core route refuses an option's value edit on a program board, so the values read as text there.
-  const optionValuesEditable = useSavedModelProgramState() === 'not_program'
+  const optionValuesEditable = savedProgramState === 'not_program'
+  // On a program board an option's setting is a figure in its own unit, read as the card reads it.
+  const naturalUnits = savedProgramState === 'program'
   // ROADMAP 2.1204 — the drafter's rephrase-absorption notes are separated
   // from the user's description. CEE APPENDS `\n\n<note>` per absorbed twin
   // (option-rephrase-merge.ts:459-462), so before this split they rendered
@@ -526,6 +529,7 @@ export const OptionPanel = memo(function OptionPanel({
         target,
         factorNode,
         baselineReference,
+        naturalUnits,
       })
       // DIFF N7 (28 Sep): never a bare 0–1 figure where the factor card shows a
       // word — the card's band word, in the tier-reading form (`optionTargetReading`).
@@ -545,7 +549,7 @@ export const OptionPanel = memo(function OptionPanel({
       })
     }
     return out
-  }, [nodeId, node, nodes, ceeAnalysisReady, interventions, isBaselineOption, analysisViewStale])
+  }, [nodeId, node, nodes, ceeAnalysisReady, interventions, isBaselineOption, analysisViewStale, naturalUnits])
 
   /** The option's own name, for each target box's accessible name. */
   const optionAccessibleLabel = resolveElementLabel(node?.data)
