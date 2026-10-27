@@ -73,7 +73,9 @@ import { suggestedMeasureWords, useSuggestedMeasure } from './shared/suggestedMe
 import { useSavedModelIsCore } from './shared/savedModelIsCore'
 import { GoalTargetPopover } from '../components/GoalTargetPopover'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
-import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
+import { goalTargetSourceMark, programGoalSourceMark, ValueSourceMark } from './shared/valueSourceMark'
+import { useSavedGraph } from './shared/savedGraph'
+import { programItemOf } from './shared/savedModelProgram'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { goalConstraintShortText, goalConstraintText } from '../utils/goalConstraintText'
 import { goalCardShownLimits, goalOwnLimitRow, goalStatedLimits, goalStatedTargets } from '../domain/goalOwnTargetRow'
@@ -897,8 +899,13 @@ export const GoalNode = memo((props: NodeProps) => {
     const q = Array.isArray(qs) ? qs.find((x): x is string => typeof x === 'string' && x.trim() !== '') : undefined
     return q?.trim() ?? null
   }, [props.data])
-  const targetSourceMark =
-    targetLine !== null ? goalTargetSourceMark(props.data as GoalTargetSource) : null
+  // W8 c7.6: where the target's own stamp records no source, a program goal's canonical record still says whose the goal
+  // is (the person's quoted words, or Olumi's reading), so the card never reads "Source not recorded" for it.
+  const savedGraph = useSavedGraph()
+  const stampedTargetSource = targetLine !== null ? goalTargetSourceMark(props.data as GoalTargetSource) : null
+  const targetSourceMark = stampedTargetSource?.kind === 'unknown'
+    ? programGoalSourceMark(programItemOf(savedGraph, 'goals', props.id)) ?? stampedTargetSource
+    : stampedTargetSource
   // ⛔ R1 S4-core: a change target is not edited as a level (the Model tab row is read-only for one, CEE refuses the
   // write by name), so its line is plain text — never a button promising "change it in the Model tab".
   // ⭐ E1a — the target is edited ON THE CARD when every input the write needs is already stated on the goal

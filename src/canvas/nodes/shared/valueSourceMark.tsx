@@ -311,6 +311,36 @@ export function goalTargetSourceMark(
   return { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }
 }
 
+/**
+ * W8 c7.6 (acceptance 27 Oct): on a program board the canonical option record says whether the person approved it. An
+ * option target of Olumi's on an approved option is Olumi's figure the person accepted: Olumi's token, the accepted words
+ * ("Olumi’s estimate · you accepted it", as a factor's accepted figure reads), never "not yet confirmed". Every other mark,
+ * and every option the record does not mark approved, is returned unchanged.
+ */
+export function approvedProgramOptionTargetMark(
+  mark: FactorValueSourceMark,
+  option: { approval: string | null } | null,
+): FactorValueSourceMark {
+  if (option?.approval !== 'approved' || mark.kind !== 'olumi' || mark.label === VALUE_PROVENANCE_LABEL.accepted) return mark
+  return { kind: 'olumi', label: VALUE_PROVENANCE_LABEL.accepted }
+}
+
+/** Olumi's own reading of the brief, as a program goal's canonical record marks it (`author: 'olumi'`). */
+export const OLUMI_READING_LABEL = 'Olumi’s reading'
+
+/**
+ * W8 c7.6: a program goal's author, from its canonical record: the person's quoted words are "From your brief", the
+ * person's own without a quote "Set by you", Olumi's "Olumi’s reading". Null off a program, for no record, or for an
+ * author the record does not name.
+ */
+export function programGoalSourceMark(goal: { author: string | null; quote: string | null } | null): FactorValueSourceMark | null {
+  if (goal?.author === 'person') {
+    return goal.quote !== null ? { kind: 'brief', label: VALUE_SOURCE_MARK_LABEL.brief } : { kind: 'you', label: VALUE_SOURCE_MARK_LABEL.you }
+  }
+  if (goal?.author === 'olumi') return { kind: 'olumi', label: OLUMI_READING_LABEL }
+  return null
+}
+
 /** Source glyphs use the product registry; names and inspector routes are unchanged. */
 export function ValueSourceMark({
   mark,

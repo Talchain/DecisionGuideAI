@@ -54,6 +54,11 @@ export interface ViewOnlyRunChances {
    * model, or that the options are too close to call. Null otherwise; the UI composes and decides none of it.
    */
   readonly mostLikely: string | null
+  /**
+   * W8 c5 (acceptance 27 Oct): a PROGRAM board. Under the "waits on" headline each withheld option still says CEE's own
+   * reason none is shown (its `why`), beside the option's name. Elsewhere the headline alone stands (Paul, 27 Oct).
+   */
+  readonly program?: boolean
 }
 
 /** The block's one act on a Run that is not current (DL, row 19). */
@@ -125,7 +130,8 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
     const sentence = runViewGoalChanceSentence(view)
     // Past the current-Run gate above, as the chances are: CEE's words alone, never one the UI composes from the cells.
     const mostLikely = canonical.leader?.words ?? null
-    return lines.length === 0 && sentence === null ? null : { sentence, lines, waitsOn, stale: false, allWithheld, mostLikely }
+    return lines.length === 0 && sentence === null ? null
+      : { sentence, lines, waitsOn, stale: false, allWithheld, mostLikely, ...(program ? { program: true } : {}) }
   }, [report, canonical, program])
 }
 
@@ -192,6 +198,8 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
   // option's withheld face (Paul, 24 Oct). An option's reason that only repeats that list is not said again (Paul, 27 Oct);
   // any other reason still follows.
   const waits = chances.allWithheld && chances.waitsOn.length > 0
+  // W8 c5: on a program board each option's withheld reason is said beside its name, in CEE's words.
+  const ownReasons = waits && chances.program === true
   return (
     <div className="space-y-1" data-testid="analysis-view-only-chances">
       {chances.sentence === null ? null : (
@@ -212,7 +220,11 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
         <div key={`${line.earlier ? 'earlier-' : ''}${line.optionIds.join('+')}`}
           data-testid={`analysis-view-only-${line.earlier ? 'earlier-' : ''}chance-${line.optionIds.join('+')}`}>
           {waits ? null : <p className={`${typography.panelBody} text-text-body`}>{line.text}</p>}
-          {line.why === null || (waits && line.whyIsWaitsOn) ? null : <p className={`${typography.panelMeta} text-text-light`}>{line.why}</p>}
+          {line.why === null ? null : ownReasons ? (
+            <p className={`${typography.panelMeta} text-text-light`} data-testid={`analysis-view-only-reason-${line.optionIds.join('+')}`}>
+              <OptionNames optionIds={line.optionIds} />{line.why}
+            </p>
+          ) : waits && line.whyIsWaitsOn ? null : <p className={`${typography.panelMeta} text-text-light`}>{line.why}</p>}
           {line.driver === null ? null : (
             <p className={`${typography.panelMeta} text-text-light`} data-testid={`analysis-view-only-driver-${line.optionIds.join('+')}`}>{line.driver}</p>
           )}
@@ -230,6 +242,17 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
       {chances.stale ? <RunAgain /> : null}
     </div>
   )
+}
+
+/** The options a reason belongs to, by the names the board holds ("‘A’ and ‘B’: "); nothing for an option with no name. */
+function OptionNames({ optionIds }: { optionIds: readonly string[] }) {
+  const names = useCanvasStore(s => optionIds.flatMap(id => {
+    const label = s.nodes.find(n => n.id === id)?.data?.label
+    return typeof label === 'string' && label.trim() !== '' ? [`‘${label.trim()}’`] : []
+  }).join('\u0000'))
+  const list = names === '' ? [] : names.split('\u0000')
+  if (list.length === 0) return null
+  return <>{`${list.length === 1 ? list[0] : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`}: `}</>
 }
 
 /**

@@ -102,6 +102,26 @@ export function programQuantityOf(graph: unknown, id: string): ProgramQuantity |
   return q ? { id, value: num(q.value), low: num(q.low), high: num(q.high), author: str(q.author), approval: str(q.approval) } : null
 }
 
+/**
+ * One canonical item of a program (an option or a goal), as its record states it: whose it is (`person`, `olumi`), the
+ * person's quote where the record keeps one, and whether the person approved it. Null off a program or for no such item.
+ */
+export interface ProgramItem {
+  id: string
+  author: string | null
+  quote: string | null
+  approval: string | null
+}
+export function programItemOf(graph: unknown, list: 'options' | 'goals', id: string): ProgramItem | null {
+  if (!isProgramGraph(graph)) return null
+  const canonical = rec(rec(rec(graph)?.living_model)?.canonical)
+  const items = Array.isArray(canonical?.[list]) ? canonical[list] as unknown[] : []
+  const item = rec(items.find((x) => rec(x)?.id === id))
+  if (item === null) return null
+  const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null)
+  return { id, author: str(item.author), quote: str(item.quote), approval: str(item.approval) }
+}
+
 /** A reasoning record the program keeps beside its figures: an assumption, a claim, a disagreement or a condition. */
 export type ProgramRecordKind = 'dissent' | 'assumption' | 'condition' | 'claim'
 export interface ProgramReasoningRecord {

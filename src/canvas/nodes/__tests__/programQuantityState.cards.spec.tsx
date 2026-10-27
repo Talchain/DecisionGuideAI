@@ -7,8 +7,8 @@
  *     never a recorded value, so the card had no line at all. On a program graph a zero is a figure: "Today: 0 ticket/week".
  *   · Olumi's figures nobody knows yet (qualitative "Share of update recipients affected if the bug remains", european
  *     "Months until pilot acquisition effect"): the value line read "Source not recorded unknown". It now shows the
- *     no-figure indicator the worked-out cards show, "—", with Olumi's mark saying "Olumi’s: no figure yet" on hover and
- *     in its name. No new visible words.
+ *     no-figure indicator the worked-out cards show, "—", with Olumi's mark saying "Olumi’s: not known yet, no figure set"
+ *     on hover and in its name (W8 c2, 27 Oct: the words say the figure is not known, as CEE's `status: 'unknown'` holds).
  *
  * Real path (as `programUnitWords.cards.spec.tsx`): the real `hydrateCanvasFromServer` read and saved-graph read (only
  * `fetch` stubbed), then the real cards. Fixtures: that run's served reads (`_source` names each), trimmed to the read's keys.
@@ -138,14 +138,14 @@ describe('Olumi\'s figure nobody knows yet: the no-figure indicator, with Olumi\
     ['qualitative', 'bug_persists_at_planned_release'],
     ['european', 'pilot_acquisition_start'],
     ['european', 'full_acquisition_ramp_duration'],
-  ] as const)('%s %s: "—" with Olumi\'s mark, "Olumi’s: no figure yet"; never "Source not recorded" or "unknown"', async (board, id) => {
+  ] as const)('%s %s: "—" with Olumi\'s mark, "Olumi’s: not known yet, no figure set"; never "Source not recorded" or "unknown"', async (board, id) => {
     await openBoard(board === 'qualitative' ? qualitative : european)
     await card(id)
     const { text, mark } = factorLine(id)
     expect(text).toContain('—')
     expect(text).not.toMatch(/unknown|Source not recorded/)
     expect(mark.getAttribute('data-value-source')).toBe('olumi')
-    expect(mark.textContent + (mark.getAttribute('aria-label') ?? '') + (mark.getAttribute('title') ?? '')).toContain('Olumi’s: no figure yet')
+    expect(mark.textContent + (mark.getAttribute('aria-label') ?? '') + (mark.getAttribute('title') ?? '')).toContain('Olumi’s: not known yet, no figure set')
   })
 
   it('CONTRAST: a figure still to be given (european "Time to reach the customer target") keeps its asked mark and field', async () => {

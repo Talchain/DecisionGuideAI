@@ -20,7 +20,7 @@ import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixtu
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, fireEvent, cleanup } from '@testing-library/react'
 import { optionCardRows } from './__helpers__/optionPreview'
-import { changeRowValueText } from './__helpers__/optionChangeRowText'
+import { changeRowValueText, sourceMarkCovering } from './__helpers__/optionChangeRowText'
 import { ReactFlowProvider } from '@xyflow/react'
 
 vi.mock('@xyflow/react', async () => {
@@ -535,18 +535,25 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
   })
 
   // RE-PINNED (Paul, 27 Oct 2026: a card's icons sit on its bottom row only; supersedes vision I's "a glyph before each
-  // figure", 23 Oct). Each target keeps its OWN mark — now on the bottom row, never in its row — and none is merged.
-  it('Olumi-chosen targets stay marked (each its own mark on the bottom row, none merged); a user-set one is not — the brief row keeps its own mark', () => {
+  // figure", 23 Oct). RE-PINNED (W8 c7.1, 27 Oct acceptance: the same mark twice in a row): the bottom row says each source
+  // ONCE, its mark naming every target it covers; never in a row, and none merged into a count.
+  it('Olumi-chosen targets stay marked (one mark on the bottom row naming both, none merged); a user-set one is not — the brief row keeps its own mark', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
-    // fac-conv and fac-seats are both Olumi's (`cee_hypothesis`): each row carries its own estimate mark; no merged count.
+    // fac-conv and fac-seats are both Olumi's (`cee_hypothesis`): ONE estimate mark covers both rows; no merged count.
     const raiseBand = within(screen.getByTestId('option-bottom-marks-opt-raise'))
     expect(raiseBand.queryByTestId('node-olumi-mark')).toBeNull()
-    for (const fid of ['fac-conv', 'fac-seats']) {
-      const est = screen.getByTestId(`option-change-row-estimate-opt-raise-${fid}`)
-      expect(raiseBand.queryByTestId(`option-change-row-estimate-opt-raise-${fid}`)).toBe(est)
+    const covering = ['fac-conv', 'fac-seats'].map((fid) => {
+      const label = screen.getByTestId(`option-change-row-opt-raise-${fid}`).previousElementSibling?.textContent ?? fid
+      const est = sourceMarkCovering(document.body, 'opt-raise', fid, label)
+      expect(est, `the Olumi mark covering ${fid}`).not.toBeNull()
+      expect(est?.getAttribute('data-card-mark')).toBe('source-olumi')
+      expect(screen.getByTestId('option-bottom-marks-opt-raise').contains(est)).toBe(true)
       expect(screen.getByTestId(`option-change-row-opt-raise-${fid}`).contains(est)).toBe(false)
-    }
+      return est
+    })
+    expect(covering[0]).toBe(covering[1])
+    expect(screen.getByTestId('option-bottom-marks-opt-raise').querySelectorAll('[data-testid^="option-change-row-estimate-opt-raise-"]')).toHaveLength(1)
     // Truth stays on the card: the price row's own `brief` mark, on the bottom row.
     const price = screen.getByTestId('option-change-row-source-opt-raise-fac-price')
     expect(price.getAttribute('data-value-source')).toBe('brief')

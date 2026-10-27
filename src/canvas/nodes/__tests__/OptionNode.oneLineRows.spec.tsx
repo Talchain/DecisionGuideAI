@@ -82,7 +82,7 @@ import { OptionNode } from '../OptionNode'
 import { optionAmountSegmentNoWrap } from '../shared/optionChangeRows'
 import { VALUE_SOURCE_MARK_LABEL } from '../shared/valueSourceMark'
 import { mapDraftNodeToCanvas, mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
-import { changeRowValueText } from './__helpers__/optionChangeRowText'
+import { changeRowValueText, sourceMarkCovering } from './__helpers__/optionChangeRowText'
 import pricingStarter from '../../starters/data/pricing-model.draft.json'
 
 const OPTION = 'opt_hybrid'
@@ -178,8 +178,9 @@ function rowParts(container: HTMLElement, factorId: string) {
   const value = q('option-change-row-value')
   const mark = q('option-change-row-mark')
   // Paul, 27 Oct: the source mark is on THIS card's bottom row (was vision I, 23 Oct: in the row's own mark cluster).
+  // W8 c7.1 (27 Oct): one mark per source on that row; a row from the same source as an earlier one is covered by its mark.
   const band = cardBand(container)
-  const source = band.querySelector<HTMLElement>(`[data-testid="option-change-row-source-${OPTION}-${factorId}"]`) ?? band.querySelector<HTMLElement>(`[data-testid="option-change-row-estimate-${OPTION}-${factorId}"]`) ?? null
+  const source = sourceMarkCovering(band, OPTION, factorId, SERVED_ROWS.find(r => r.factorId === factorId)?.label ?? factorId)
   expect(line, `row line ${factorId}`).not.toBeNull()
   expect(dd, `row amount ${factorId}`).not.toBeNull()
   expect(value, `row value ${factorId}`).not.toBeNull()
@@ -199,7 +200,7 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('audit #9 — the fixture is the served opt_hybrid card', () => {
-  it('renders the first two served rows, in the served order, each with a brief mark — the third behind +1 more', () => {
+  it('renders the first two served rows, in the served order, each covered by the one brief mark — the third behind +1 more', () => {
     const { container } = renderHybrid()
     const rows = cardRows(container)
     const lines = [...rows.querySelectorAll<HTMLElement>('[data-testid^="option-change-row-line-"]')]
@@ -276,8 +277,9 @@ describe('audit #9 — the label is one line, and the full label is still reacha
       const pop = container.querySelector<HTMLElement>('[data-testid="node-popover"]')
       expect(pop, 'the option popover is mounted').not.toBeNull()
       expect(within(pop!).getByText(r.label, { exact: true })).toBeTruthy()
-      // …and the brief mark's accessible name carries it.
-      expect(source.getAttribute('aria-label')).toBe(`${r.label} target: ${VALUE_SOURCE_MARK_LABEL.brief}`)
+      // …and the brief mark's accessible name carries it. RE-PINNED (W8 c7.1, 27 Oct): both rows are from the brief, so
+      // one mark covers them and names both.
+      expect(source.getAttribute('aria-label')).toBe(`${ON_CARD_ROWS.map(x => x.label).join(' and ')} targets: ${VALUE_SOURCE_MARK_LABEL.brief}`)
     })
   }
 })

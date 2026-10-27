@@ -87,6 +87,7 @@ import buildVsBuyStarter from '../../starters/data/build-vs-buy.draft.json'
 import headcountStarter from '../../starters/data/headcount-allocation.draft.json'
 import vendorStarter from '../../starters/data/vendor-selection.draft.json'
 import marketEntryStarter from '../../starters/data/market-entry.draft.json'
+import { sourceMarkCovering } from './__helpers__/optionChangeRowText'
 
 type Draft = { nodes: unknown[]; edges: unknown[]; analysis_ready: unknown }
 type CanvasNode = { id: string; data: Record<string, unknown> }
@@ -256,7 +257,9 @@ for (const [starter, raw] of STARTERS) {
             expect(tokens(mark.parentElement!).has('whitespace-nowrap'), 'the target figure is one no-wrap run').toBe(true)
             const figure = dd.querySelector(`[data-testid="option-change-row-target-${optionId}-${factorId}"]`)
             expect(figure, 'the target figure stays in the row').not.toBeNull()
-            const source = onCard(container, `[data-testid="option-change-row-source-${optionId}-${factorId}"]`)[0] ?? onCard(container, `[data-testid="option-change-row-estimate-${optionId}-${factorId}"]`)[0]
+            // W8 c7.1 (27 Oct): one mark per source on the bottom row; a later row from the same source is covered by the
+            // first row's mark, which names it.
+            const source = sourceMarkCovering(container, optionId, factorId, dt.textContent ?? '') ?? undefined
             expect(source, 'the source retains its row identity').toBeDefined()
             expect(mark.contains(source)).toBe(false)
             expect(dd.contains(source)).toBe(false)
