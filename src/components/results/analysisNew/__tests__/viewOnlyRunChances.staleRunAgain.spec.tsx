@@ -3,7 +3,8 @@
  * serves that Run marked stale with its own line (`face_when_stale`), and the pre-run slot said nothing of it: setup text,
  * no result, and no way to run but typing (a program board has no Run button). Now, on a PROGRAM board, the slot says
  * CEE's line once for every option, never the old figures (the chance gate stands), with one "Run again" that sends the
- * existing Run press (the conversation's gated runner). It is never counted as a shown result.
+ * existing Run press (the conversation's gated runner). It is never counted as a shown result. Paul, 27 Oct (spec: "A
+ * historical Run's chances are never hidden"): each option's stored words from that Run follow CEE's line.
  *
  * Fixture: CEE c197dd60's served read of the capacity board opened after that deploy (see its `_capture`). Real path:
  * the real `AnalysisNewTabBody`, the real saved-graph read for the program flag (only `fetch` stubbed).
@@ -75,16 +76,24 @@ afterEach(() => {
 })
 
 describe('a program board whose stored Run is no longer current', () => {
-  it('says CEE’s line once for every option, no old figure, and one "Run again" that sends the Run press', async () => {
+  it('⭐ says CEE’s line once, then each option’s stored chance from that Run, and one "Run again" that sends the Run press', async () => {
     await board()
     await draw()
     const block = screen.getByTestId('analysis-view-only-chances')
     const line = screen.getByTestId('analysis-view-only-chance-keep_current_staffing+add_one_specialist')
     expect(line.textContent).toBe(LINE)
     expect(block.querySelectorAll('[data-testid^="analysis-view-only-chance-"]')).toHaveLength(1)
-    // The chance gate stands: no figure, no chance sentence.
-    expect(block.textContent).not.toMatch(/\d+%|chance of ‘/)
+    // The historical Run's chances are never hidden: each option's own stored words, after the line, in CEE's order.
+    const earlier = [...block.querySelectorAll('[data-testid^="analysis-view-only-earlier-chance-"]')]
+    expect(earlier.map(e => e.getAttribute('data-testid'))).toEqual([
+      'analysis-view-only-earlier-chance-keep_current_staffing', 'analysis-view-only-earlier-chance-add_one_specialist'])
+    expect(earlier[0].textContent?.startsWith('‘Keep current staffing’: 0% chance of ‘Weekly support capacity’')).toBe(true)
+    expect(earlier[1].textContent?.startsWith('‘Add one specialist’: about 61% chance of ‘Weekly support capacity’')).toBe(true)
+    expect(block.textContent?.indexOf(LINE)).toBe(0)
+    // No current-Run sentence, driver or "most likely" from a Run that is not current.
     expect(screen.queryByTestId('analysis-view-only-chances-sentence')).toBeNull()
+    expect(block.querySelector('[data-testid^="analysis-view-only-driver-"]')).toBeNull()
+    expect(screen.queryByTestId('analysis-view-only-most-likely')).toBeNull()
     // One run act: the block's "Run again", and not the slot's own run act beside it.
     const again = screen.getByTestId('analysis-view-only-run-again')
     expect(again.textContent).toBe('Run again')
