@@ -420,6 +420,12 @@ export const FactorNode = memo((props: NodeProps) => {
             {...(askedQuestion !== null && valueSourceMark.kind === 'asked' ? { title: `${cleanedLabel}: ${askedQuestion}` } : {})} />
   // Vision spec §2a (23 Oct): Olumi's figure carries a dotted info underline as well as the brand mark before it.
   const valueIsOlumiEstimate = valueSourceMark?.kind === 'olumi' && !olumiUnknownFigure
+  // Decision 2 A: the missing figure is a dashed slot (the field opens from it), never the words.
+  const askedSlot = (
+    <span data-testid={`factor-asked-slot-${props.id}`} className="inline-flex rounded-sm border border-dashed border-text-light px-[calc(6px*var(--canvas-label-scale,1))] text-text-light">
+      <FactorValueFigure readout={recordedValueReadout} parts={figureParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />
+    </span>
+  )
   // ⭐ Vision spec §2a (23 Oct 2026): "a glyph before each figure" — the author glyph LEADS the value, in its own line,
   // so the figure and whose it is read together. The join is the same one space inside the same `nowrap` row, now
   // after the mark, so the mark can only wrap WITH the value's first word.
@@ -1544,14 +1550,14 @@ export const FactorNode = memo((props: NodeProps) => {
               <span className="min-w-0">
                 <NodeValueEditor
                   {...emptyValueField}
-                  readout={<FactorValueFigure readout={recordedValueReadout} parts={figureParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />}
+                  readout={askedSlot}
                   ariaLabel={`Value for ${props.data?.label ?? 'this factor'} (waiting for your answer)`}
                   {...(isDetailed ? { restingFlow: undefined } : {})}
                 />
               </span>
             ) : (
               <span className={isDetailed ? 'min-w-0 break-words' : 'min-w-0 break-words whitespace-normal'}>
-                <FactorValueFigure readout={recordedValueReadout} parts={figureParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />
+                {askedNoFigure ? askedSlot : <FactorValueFigure readout={recordedValueReadout} parts={figureParts} nodeId={props.id} estimated={valueIsOlumiEstimate} />}
               </span>
             )}
           </div>
@@ -1678,7 +1684,9 @@ export const FactorNode = memo((props: NodeProps) => {
         )}
         {/* G1/G2 slice (Paul 7 Oct "repeated text → icons"): "Working assumption · no analysis yet" is a bottom-band
             mark on the card it describes (BookOpen), its words in aria + tooltip. AnalysisStateCue stays P48's. */}
-        {noAnalysisYet ? (
+        {/* Not on a program board: the icon row has no "working assumption" mark (Flag is an assumption), and the
+            program's own Run says whether there is an analysis (Codex design review, 27 Oct). */}
+        {noAnalysisYet && !savedIsProgram ? (
           <CardMark id="working-assumption" testId={`factor-working-assumption-mark-${props.id}`} words={FACTOR_NO_ANALYSIS_YET} />
         ) : null}
         {turningPointAtRest && turningPointState ? (

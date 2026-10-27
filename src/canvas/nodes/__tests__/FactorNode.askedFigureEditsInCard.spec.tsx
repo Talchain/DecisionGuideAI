@@ -169,6 +169,22 @@ describe('an asked figure on a program graph', () => {
     expect(line.textContent).not.toMatch(/From your brief|Set by you|Source not recorded|Olumi/)
   })
 
+  it('⭐ decision 2 A: the missing figure is a dashed slot, and a program card draws no "working assumption" book', async () => {
+    await openBoard(PROGRAM)
+    await card(ASKED)
+    const slot = screen.getByTestId(`factor-asked-slot-${ASKED}`)
+    expect(slot.textContent).toBe('—')
+    expect(slot.className).toContain('border-dashed')
+    expect(screen.queryByTestId(`factor-working-assumption-mark-${ASKED}`)).toBeNull()
+  })
+
+  it('CONTRAST: a board that is not a program keeps the words, no slot, and its "working assumption" book', async () => {
+    await openBoard(NOT_PROGRAM)
+    await card(ASKED)
+    expect(screen.queryByTestId(`factor-asked-slot-${ASKED}`)).toBeNull()
+    expect(screen.getByTestId(`factor-working-assumption-mark-${ASKED}`)).toBeTruthy()
+  })
+
   it('DL ruling: the structure-fixed switch has no field on a program graph, and names itself as fixed', async () => {
     await openBoard(PROGRAM, 'GBP/developer')
     await card(SWITCH)

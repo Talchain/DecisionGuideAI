@@ -33,7 +33,7 @@ export const NodeNotesMark = memo(function NodeNotesMark({ nodeId }: { nodeId: s
           role="img"
           tabIndex={0}
           aria-label={label}
-          className={`nodrag nopan inline-flex shrink-0 items-center gap-0.5 rounded-sm text-text-light hover:text-info focus:outline-none focus-visible:text-info focus-visible:ring-2 focus-visible:ring-info ${typography.nodeMark}`}
+          className={`nodrag nopan inline-flex shrink-0 items-center gap-0.5 rounded-sm text-text-light hover:text-info focus:outline-none focus-visible:text-info focus-visible:ring-2 focus-visible:ring-info ${typography.edgeLabel}`}
         >
           <NotebookPen aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />
           <span aria-hidden="true">{notes.length}</span>
