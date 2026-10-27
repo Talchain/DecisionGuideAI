@@ -1926,14 +1926,14 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       // `__tests__/nodeCopyIsNeverCentred.spec.tsx`.
       className={`
         text-left
-        group relative rounded-sm border ${
+        group relative rounded-md border ${
           /* ⭐ ONE RESTING ELEVATION ON EVERY FAMILY, THE GOAL INCLUDED (contract
              v3.1 FRAME-05 / ANC-08: `.node{box-shadow:0 2px 4px #25252005}`,
              no per-kind override). The goal carried `shadow-3` — DS v5 §5's
              MODAL/OVERLAY elevation — so at the landing zoom it floated above
              the board. It is set apart by geometry (wide, alone in its row) and
-             by its semibold title, never by depth. `rounded-sm` is DS v5 §6.2
-             `sm` = 8px, the contract's `border-radius:8px` (FRAME-01 / OR-04);
+             by its semibold title, never by depth. `rounded-md` = 12px (vision spec §2a, Paul 27 Oct); it was
+             `rounded-sm`, DS v5 §6.2 `sm` = 8px, the contract's `border-radius:8px` (FRAME-01 / OR-04);
              `rounded-lg` rendered 14px through the index.css override.
              Selection lifts one step (`shadow-2`) with its ring (FRAME-09).
              ⭐ The resting value is the contract's own (`--shadow-card-rest`,
@@ -2693,7 +2693,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             onDoubleClick={lodBodyHidden || !titleRenames ? undefined : (e) => { e.stopPropagation(); cancelTitleClick(); setRenamingOnCard(true) }}
             {...(lodBodyHidden ? { [LOD_FAR_TITLE_ATTR]: 'true' } : {})}
             className={'group/edit ' + (
-              /* ⭐ v3.1 WS1 #2 (26 Sep 2026): NO CLAMP AT A READING RUNG. The
+              /* ⭐ Paul, 27 Oct 2026: no title runs past two lines; the whole title is the card's hover.
+                 Was v3.1 WS1 #2 (26 Sep 2026): NO CLAMP AT A READING RUNG. The
                  contract's `.node h3` wraps (`overflow-wrap:break-word`) and never
                  clips; `line-clamp-2` ellipsised 2–12 titles per starter at the
                  landing zoom ("Competitive Pressure for…"). The layout reads the
@@ -2703,7 +2704,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
               lodBodyHidden
                 ? `${FAR_TITLE_TYPE} break-words ${lodBoostTitle || isAnchorCard ? 'font-semibold text-text-header line-clamp-1' : 'text-text-body line-clamp-2'}`
                 : lodBoostTitle
-                ? `${typography.nodeTitle} font-semibold text-text-body break-words`
+                ? `${typography.nodeTitle} font-semibold text-text-body break-words line-clamp-2`
                 /* ⭐ THE ANCHORS TAKE THEIR EMPHASIS AT EVERY ZOOM, NOT ONLY BELOW
                    THE FLOOR (contract v3.1 ANC-04: `.node h3{font-weight:610}`,
                    the wide card's title one step above the others). The note
@@ -2717,8 +2718,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                    (`.node` sets no title colour; #3F3F3E). The anchors were
                    #262626 at the repeated cards' 14px; the step is now size. */
                 : isAnchorCard
-                  ? `${typography.nodeTitleWide} font-semibold text-text-body break-words`
-                  : `${typography.nodeTitle} text-text-body break-words`
+                  ? `${typography.nodeTitleWide} font-semibold text-text-body break-words line-clamp-2`
+                  : `${typography.nodeTitle} text-text-body break-words line-clamp-2`
             )}
             /* ⭐ CONTRACT `.node h3{font-weight:610}` — EVERY card's title, set
                inline so it cannot lose a cascade race with the size token's
@@ -2743,11 +2744,6 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             {/* The title's words are their OWN element, so the pencil beside them never makes the title a non-leaf:
                 `cardCopyCensus` reads leaf text runs, and #2322's pencil hid every card's own label from it. */}
             <span>{titleOverride ?? cardTitle}</span>
-            {/* Vision spec §2a/§2c (23 Oct): Olumi's authorship mark sits right after the name. A glyph with an
-                accessible name and no text, so the title's text and every reader of it are unchanged. */}
-            {!lodBodyHidden && (
-              <NodeProvenanceMark nodeType={nodeType} data={provenanceData} hideKind={isDetailedView ? null : provenanceDefault} place="title" />
-            )}
             {/* E1d: the pencil says the title renames in place (double-click). Zero-width; see `EditPencilCue`. */}
             {!lodBodyHidden && titleRenames && <EditPencilCue testId="node-title-pencil" />}
           </div>
@@ -2799,7 +2795,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           data-testid="node-provenance-mark-group"
           className="inline-flex items-center gap-1 shrink-0"
         >
-          <NodeProvenanceMark nodeType={nodeType} data={provenanceData} hideKind={isDetailedView ? null : provenanceDefault} place="band" />
+          {/* Paul, 27 Oct: a card's icons sit on its bottom row only, Olumi's authorship mark included (it sat after the title). */}
+          <NodeProvenanceMark nodeType={nodeType} data={provenanceData} hideKind={isDetailedView ? null : provenanceDefault} place="all" />
         </span></BottomCardMark>
 
         {/* Graph v1.1 Task 5: header slot — science / state icons live top-right

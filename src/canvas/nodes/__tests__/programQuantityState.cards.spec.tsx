@@ -158,6 +158,10 @@ describe('Olumi\'s figure nobody knows yet: the no-figure indicator, with Olumi\
   it('CONTRAST: a figure from the brief keeps its figure and mark (capacity "Existing weekly support capacity")', async () => {
     await openBoard(capacity)
     await card('existing_capacity')
-    expect(factorLine('existing_capacity').text).toBe('From your brief 80 ticket/week')
+    // Paul, 27 Oct: the author mark sits on the card's bottom row, not before the figure.
+    const { text, mark } = factorLine('existing_capacity')
+    expect(text).toBe('80 ticket/week')
+    expect(mark.getAttribute('data-value-source')).toBe('brief')
+    expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
   })
 })

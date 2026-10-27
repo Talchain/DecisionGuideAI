@@ -8,6 +8,9 @@
  * - Hover: {color}-hover (derived state)
  * - Selected: ONE neutral lift on every family, never a blue ring (Paul, 1 Oct — see below)
  *
+ * ⭐ Paul, 27 Oct 2026 (vision spec §2a, "a complete 1 px border in the type's colour, used solid"): `frame` is now the
+ * kind hue itself. The v3.1 76% mix below is retired and kept here as history.
+ *
  * ⭐ `frame` IS THE CARD'S OWN BORDER, AND IT IS NOT `border` (contract v3.1
  * FRAME-08 / OR-03 / T10). The contract draws every card with
  * `border:1px solid color-mix(in srgb,var(--kind) 76%,#E2DDD5)` — the kind hue
@@ -38,24 +41,25 @@ export const nodeColors = {
   goal: {
     bg: 'bg-goal-light',
     border: 'border-goal',
-    frame: 'border-[color:color-mix(in_srgb,var(--goal)_76%,var(--border-default))]',
+    frame: 'border-goal',
     hover: 'hover:border-goal-hover',
     selected: NODE_SELECTED_CLASSES,
     text: 'text-goal',
   },
   // Vision spec §3 (23 Oct): the question's frame is text-light grey. Blue (info) means Olumi and nothing else.
   decision: {
-    bg: 'bg-info-light',
+    // Vision spec §2a: the question card is grey; blue means Olumi only.
+    bg: 'bg-panel',
     border: 'border-text-light',
-    frame: 'border-[color:color-mix(in_srgb,var(--text-light)_76%,var(--border-default))]',
+    frame: 'border-text-light',
     hover: 'hover:border-text-light',
     selected: NODE_SELECTED_CLASSES,
-    text: 'text-info',
+    text: 'text-text-light',
   },
   option: {
     bg: 'bg-option-light',
     border: 'border-option',
-    frame: 'border-[color:color-mix(in_srgb,var(--option)_76%,var(--border-default))]',
+    frame: 'border-option',
     hover: 'hover:border-option/80',
     selected: NODE_SELECTED_CLASSES,
     text: 'text-option',
@@ -63,7 +67,7 @@ export const nodeColors = {
   outcome: {
     bg: 'bg-success-light',
     border: 'border-success',
-    frame: 'border-[color:color-mix(in_srgb,var(--success)_76%,var(--border-default))]',
+    frame: 'border-success',
     hover: 'hover:border-success-hover',
     selected: NODE_SELECTED_CLASSES,
     text: 'text-success',
@@ -71,7 +75,7 @@ export const nodeColors = {
   factor: {
     bg: 'bg-factor-light',
     border: 'border-factor',
-    frame: 'border-[color:color-mix(in_srgb,var(--factor)_76%,var(--border-default))]',
+    frame: 'border-factor',
     hover: 'hover:border-factor/80',
     selected: NODE_SELECTED_CLASSES,
     text: 'text-factor',
@@ -79,7 +83,7 @@ export const nodeColors = {
   risk: {
     bg: 'bg-danger-light',
     border: 'border-danger',
-    frame: 'border-[color:color-mix(in_srgb,var(--danger)_76%,var(--border-default))]',
+    frame: 'border-danger',
     hover: 'hover:border-danger-hover',
     selected: NODE_SELECTED_CLASSES,
     text: 'text-danger',
@@ -87,7 +91,7 @@ export const nodeColors = {
   action: {
     bg: 'bg-success-light',
     border: 'border-success',
-    frame: 'border-[color:color-mix(in_srgb,var(--success)_76%,var(--border-default))]',
+    frame: 'border-success',
     hover: 'hover:border-success-hover',
     selected: NODE_SELECTED_CLASSES,
     text: 'text-success',

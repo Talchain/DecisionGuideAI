@@ -92,10 +92,12 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('contract v3.1 — one 1px frame, one radius, one resting elevation (FRAME-01/02/05, OR-01, OR-04, ANC-08, T11)', () => {
-  it.each(KINDS)('%s: `rounded-sm` (8px) and a 1px `border`, never 2px / 0.5px / 14px', (kind) => {
+  // Vision spec §2a (Paul, 27 Oct): 12 px radius (`rounded-md`); was the v3.1 contract's 8 px `rounded-sm`.
+  it.each(KINDS)('%s: `rounded-md` (12px) and a 1px `border`, never 2px / 0.5px / 14px', (kind) => {
     const { root } = renderCard(kind)
     const t = tokens(root)
-    expect(t).toContain('rounded-sm')
+    expect(t).toContain('rounded-md')
+    expect(t).not.toContain('rounded-sm')
     expect(t).toContain('border')
     expect(t).not.toContain('rounded-lg')
     expect(t).not.toContain('border-2')
@@ -146,24 +148,21 @@ describe('contract v3.1 — one 1px frame, one radius, one resting elevation (FR
   })
 })
 
-describe('contract v3.1 — the frame colour is the kind hue mixed toward the warm neutral (FRAME-08, OR-03, T10)', () => {
-  it.each(KINDS)('%s: wears `colors.frame`, not the full-strength `colors.border`', (kind) => {
+// Vision spec §2a (Paul, 27 Oct): "a complete 1 px border in the type's colour, used solid". The v3.1 76% mix retired.
+describe('vision spec — the frame is the kind hue, used solid', () => {
+  it.each(KINDS)('%s: wears its kind hue (`colors.frame` = `colors.border`), never a color-mix', (kind) => {
     const { root } = renderCard(kind)
     const t = tokens(root)
+    expect(nodeColors[kind].frame).toBe(nodeColors[kind].border)
     expect(t).toContain(nodeColors[kind].frame)
-    expect(t).not.toContain(nodeColors[kind].border)
-  })
-
-  it.each(KINDS)('%s: the frame is a 76% color-mix of two EXISTING tokens — no new colour', (kind) => {
-    const frame = nodeColors[kind].frame
-    expect(frame).toMatch(/^border-\[color:color-mix\(in_srgb,var\(--[a-z-]+\)_76%,var\(--border-default\)\)\]$/)
+    expect(t.some((c) => c.includes('color-mix'))).toBe(false)
   })
 
   // Vision spec §3 (23 Oct): blue (info) means Olumi and nothing else, so the question card's frame is text-light grey.
   it('the question card wears a text-light frame, never an info-blue one', () => {
     const t = tokens(renderCard('decision').root)
-    expect(t).toContain('border-[color:color-mix(in_srgb,var(--text-light)_76%,var(--border-default))]')
-    expect(t.some((c) => c.includes('--info'))).toBe(false)
+    expect(t).toContain('border-text-light')
+    expect(t.some((c) => c.includes('info'))).toBe(false)
   })
 })
 

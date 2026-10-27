@@ -2127,7 +2127,6 @@ export const OptionNode = memo((props: NodeProps) => {
           title={r.estimated ? OPTION_ROW_ESTIMATE_TITLE : undefined}
           subject={`${r.fullLabel} target`}
           onOpenSource={() => openNodeInspector(props.id)}
-          inline
         />
       </span>
       {MARK_GLUE}

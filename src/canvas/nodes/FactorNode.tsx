@@ -434,12 +434,12 @@ export const FactorNode = memo((props: NodeProps) => {
       {/* Contract `.node .own-value{gap:6px}` between the value and its mark
           (29 Sep pixel-match): the join space is ≈3.5px of 13px type, so the
           slot adds 2.5px, counter-scaled with the type beside it. */}
-      <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap mr-[calc(2.5px*var(--canvas-label-scale,1))]">
+      {/* Paul, 27 Oct: the author glyph renders into the card's bottom row (a portal), so this slot draws nothing here. */}
+      <span data-testid={`factor-value-mark-slot-${props.id}`} className="hidden">
         {draftIsYours
-          ? <ValueSourceMark mark={DRAFT_IS_YOURS_MARK} testId={`factor-value-source-${props.id}`} subject={cleanedLabel} inline />
-          : renderValueSourceMark(true)}
+          ? <ValueSourceMark mark={DRAFT_IS_YOURS_MARK} testId={`factor-value-source-${props.id}`} subject={cleanedLabel} />
+          : renderValueSourceMark(false)}
       </span>
-      {' '}
     </>
   )
 

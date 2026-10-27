@@ -120,22 +120,22 @@ const CASES = [
   { name: 'contrast (external — the plain value text; observable is editable since vision §3)', data: () => ({ ...served.data, category: 'external' }), editor: false },
 ] as const
 
-describe('DIFF item 3 — the value and its mark wrap together (contract `.own-value`)', () => {
+// Paul, 27 Oct 2026: a card's icons sit on its bottom row only. The author mark no longer leads the figure (vision §2a's
+// "a glyph before each figure" and DIFF item 3's inline join are superseded); the value line holds the value alone.
+describe('the value line holds the value; its author mark is on the bottom row (Paul, 27 Oct)', () => {
   it('PRECONDITION: the served factor is the long qualitative Olumi value the audit measured', () => {
     expect(served, 'build-vs-buy carries fac_eng_capacity').toBeDefined()
     renderFactor(served.data)
     const row = within(card()).getByTestId('factor-recorded-value')
-    // Collapsed whitespace: the value alone; its mark (the Olumi mark, still named est.) leads it in the row.
     expect(visibleText(row).replace(/\s+/g, '')).toBe('Moderateengineeringallocation(2of4engineers)')
     const mark = within(card()).getByTestId('estimate-marker')
-    expect(row.contains(mark)).toBe(true)
+    expect(row.contains(mark)).toBe(false)
+    expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
     expect(mark.querySelector('[aria-label="est."]')).not.toBeNull()
   })
 
   for (const c of CASES) {
-    // Vision spec §2a (23 Oct): the author glyph now LEADS the figure ("a glyph before each figure"): the mark slot,
-    // the one joining space, then the value — the same inline flow and `nowrap` join, in the other order.
-    it(`${c.name}: inline flow — the mark, one space, then the value`, () => {
+    it(`${c.name}: the value alone on its line, wrapping, never cut; the mark on the bottom row`, () => {
       renderFactor(c.data())
       const row = within(card()).getByTestId('factor-recorded-value')
       const rt = tokens(row)
@@ -143,31 +143,13 @@ describe('DIFF item 3 — the value and its mark wrap together (contract `.own-v
         expect(rt.has(layout), `the value row is a ${layout} container`).toBe(false)
       }
       expect(rt.has('break-words'), 'a long value wraps inside the card').toBe(true)
-
-      // The mark slot, the gap (one space — no break opportunity: the row is
-      // `nowrap`), the value, as siblings in that order.
-      expect(rt.has('whitespace-nowrap'), 'the row\'s join cannot break').toBe(true)
-      const slot = within(row).getByTestId(`factor-value-mark-slot-${ID}`)
-      const kids = [...row.childNodes].filter(n => n.nodeType !== Node.COMMENT_NODE)
-      expect(kids).toHaveLength(3)
-      expect(kids[0]).toBe(slot)
-      const gap = slot.nextSibling as Text
-      expect(gap.nodeType).toBe(Node.TEXT_NODE)
-      expect(gap.data).toBe(' ')
-      const holder = gap.nextSibling as HTMLElement
-      const value = (c.editor ? holder.querySelector(`[data-testid="node-value-editor-${ID}"]`) : holder) as HTMLElement
-      expect(value.nodeType).toBe(Node.ELEMENT_NODE)
-      expect(tokens(value).has('whitespace-normal'), 'the value re-opens its own spaces').toBe(true)
-      const mark = within(card()).getByTestId('estimate-marker')
-      expect(slot.contains(mark), 'the mark leads the value in its row').toBe(true)
-      expect(mark.closest('[data-card-bottom-band]')).toBeNull()
-      expect(tokens(slot).has('whitespace-nowrap'), 'the mark never splits').toBe(true)
-      for (const push of ['ml-auto', 'absolute', 'float-right']) expect(tokens(slot).has(push), push).toBe(false)
-      // The value is never cut.
+      const value = (c.editor ? row.querySelector(`[data-testid="node-value-editor-${ID}"]`) : row) as HTMLElement
+      expect(value).not.toBeNull()
       for (const cut of ['truncate', 'text-ellipsis', 'line-clamp-1']) expect(tokens(value).has(cut), cut).toBe(false)
-      expect(visibleText(value)).toBe('Moderate engineering allocation (2 of 4 engineers)')
       expect(visibleText(row)).toBe('Moderate engineering allocation (2 of 4 engineers)')
-      // The editable value IS the inline editor (inline text, not an atomic box).
+      const mark = within(card()).getByTestId('estimate-marker')
+      expect(row.contains(mark), 'no icon on the value line').toBe(false)
+      expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
       expect(value.getAttribute('data-testid') === `node-value-editor-${ID}`).toBe(c.editor)
       if (c.editor) expect(value.tagName).not.toBe('BUTTON')
     })
