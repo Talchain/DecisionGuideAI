@@ -497,10 +497,12 @@ function factorValue(data: unknown): string | null {
 
 /**
  * The words of the value in use on a factor that states none. A program quantity whose canonical record holds no figure
- * (asked of the person, or Olumi's figure nobody knows yet) has no value in use: its words are not an estimate.
+ * and no range (asked of the person, or Olumi's figure nobody knows yet) has no value in use: its words are not an
+ * estimate. A stated range with no single figure keeps its words.
  */
 function factorEstimateText(data: unknown, label: string, savedGraph: unknown, id: string): string | null {
-  if (programQuantityOf(savedGraph, id)?.value === null) return null
+  const q = programQuantityOf(savedGraph, id)
+  if (q !== null && q.value === null && q.low === null && q.high === null) return null
   return factorDisplayText(data as Record<string, unknown> | undefined, label)
 }
 

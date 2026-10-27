@@ -96,6 +96,15 @@ describe('a quantity the program holds no figure for is not a placeholder', () =
     expect(screen.getByTestId('model-group-v2-factors-clause-no-value')).toBeInTheDocument()
   })
 
+  it('CONTRAST: a stated range with no single figure (european "expansion_timing", 6–12 months, its figure removed) keeps its words', async () => {
+    const quantities = european.graph.living_model.canonical.quantities as Json[]
+    expect(quantities.find((q) => q.id === 'expansion_timing')).toMatchObject({ value: null, low: 6, high: 12 })
+    const nodes = (european.graph.nodes as Json[]).map((x) => x.id !== 'expansion_timing' ? x
+      : { ...x, observed_state: { unit: x.observed_state.unit, range: x.observed_state.range, source: x.observed_state.source } })
+    await openBoard({ ...european, graph: { ...european.graph, nodes } })
+    expect(row('expansion_timing')).toContain('6–12')
+  })
+
   it('CONTRAST: european "expansion_scale" (fixed by the structure) keeps its figure', async () => {
     await openBoard(european)
     const node = useCanvasStore.getState().nodes.find((x) => x.id === 'expansion_scale')
