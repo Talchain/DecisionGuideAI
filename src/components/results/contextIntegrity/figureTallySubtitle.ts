@@ -157,26 +157,26 @@ export type TallyAbsence =
  * kind of branch has gone wrong before.
  */
 /**
- * What one counted item is. A model-program read (27 Oct, CEE #3864) lists the person's own SENTENCES that carry a
- * figure, and one sentence can hold several figures, so its count is never called a count of figures. One of its
- * figures still asked leaves the sentence "not fully in the model yet" (assessor + PL C2 on #3864).
+ * What one counted item is. A model-program read (27 Oct, CEE #3864) lists the person's own QUOTED INPUTS (exact quotes,
+ * which may be fragments), and one quote can hold several figures, so its count is never called a count of figures or
+ * sentences. One of its figures still asked leaves the quote "not fully in the model yet" (assessor + PL C2, #3864, #3047).
  */
-export type TallyUnit = 'figure' | 'sentence'
+export type TallyUnit = 'figure' | 'quoted'
 
-const sentences = (n: number): string => (n === 1 ? 'sentence with a figure' : 'sentences with figures')
+const quotedInputs = (n: number): string => (n === 1 ? 'quoted input' : 'quoted inputs')
 
-function sentenceTally(tally: FigureTally, notYet: number): string {
+function quotedTally(tally: FigureTally, notYet: number): string {
   const { total, inModel } = tally
   if (notYet > 0) {
-    if (total === 1 && notYet === 1) return `The sentence with a figure ${FOUND} isn't fully in the model yet`
+    if (total === 1 && notYet === 1) return `The quoted input ${FOUND} isn't fully in the model yet`
     const verb = notYet === 1 ? "isn't" : "aren't"
     return notYet <= total
-      ? `${notYet} of ${total} ${sentences(total)} ${FOUND} ${verb} fully in the model yet`
-      : `${notYet} ${sentences(notYet)} ${FOUND} ${verb} fully in the model yet`
+      ? `${notYet} of ${total} ${quotedInputs(total)} ${FOUND} ${verb} fully in the model yet`
+      : `${notYet} ${quotedInputs(notYet)} ${FOUND} ${verb} fully in the model yet`
   }
-  if (inModel === total) return total === 1 ? `The sentence with a figure ${FOUND} is in the model` : `All ${total} sentences with figures ${FOUND} are in the model`
-  if (inModel === 0) return `None of the ${total} ${sentences(total)} ${FOUND} ${total === 1 ? 'is' : 'are'} in the model`
-  return `${inModel} of ${total} ${sentences(total)} ${FOUND} ${inModel === 1 ? 'is' : 'are'} in the model`
+  if (inModel === total) return total === 1 ? `The quoted input ${FOUND} is in the model` : `All ${total} quoted inputs ${FOUND} are in the model`
+  if (inModel === 0) return `None of the ${total} ${quotedInputs(total)} ${FOUND} ${total === 1 ? 'is' : 'are'} in the model`
+  return `${inModel} of ${total} ${quotedInputs(total)} ${FOUND} ${inModel === 1 ? 'is' : 'are'} in the model`
 }
 
 export function figureTallySubtitle(
@@ -222,7 +222,7 @@ export function figureTallySubtitle(
     return "I didn't pick out any figures from your brief"
   }
 
-  if (unit === 'sentence') return sentenceTally(tally, notYet)
+  if (unit === 'quoted') return quotedTally(tally, notYet)
 
   if (notYet > 0) {
     if (tally.total === 1 && notYet === 1) return `The figure ${FOUND} isn't in the model yet`

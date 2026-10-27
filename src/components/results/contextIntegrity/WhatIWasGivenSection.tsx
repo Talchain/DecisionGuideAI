@@ -343,8 +343,13 @@ export function composeNotModelledQuestion(item: NotModelledItem, briefText: str
   // probed and shipped openings diverged at index 32. The claim "derived at the
   // live router" has to be about the bytes the product actually sends, not about
   // a neighbouring string, so the product now sends the string that was measured.
-  const opening = `My brief mentions ${item.literal}, which is not in the model yet.`
   const context = sentence ? ` The brief says: "${sentence}"` : ''
+  // A model-program item (no `kind`) is a quote of theirs that may hold several figures, some already in the model
+  // (assessor + PL C2 on #3047): it says so and asks about the missing part, never "this figure" for the whole quote.
+  if (item.kind === undefined) {
+    return `My brief mentions ${item.literal}, which is not fully in the model yet.${context} What could the missing part influence in this decision, and where would it belong? Don't change the model yet. Tell me the options first.`
+  }
+  const opening = `My brief mentions ${item.literal}, which is not in the model yet.`
   return `${opening}${context} What could this figure influence in this decision, and where would it belong? Don't change the model yet. Tell me the options first.`
 }
 
@@ -902,8 +907,8 @@ export const WhatIWasGivenSection = forwardRef<
   // `manifest === null` is "CEE told us nothing"; a manifest that is not
   // `derived` means the figures could not be counted while the brief itself is
   // rendered right below this line.
-  // A model-program read's items carry no `kind`: each is one of the person's sentences, which may hold several figures.
-  const unit = items.length > 0 && items.every((i) => i.kind === undefined) ? 'sentence' : 'figure'
+  // A model-program read's items carry no `kind`: each is one of the person's exact quotes, which may hold several figures.
+  const unit = items.length > 0 && items.every((i) => i.kind === undefined) ? 'quoted' : 'figure'
   const subtitle = figureTallySubtitle(tally, manifest === null ? 'no_manifest' : 'not_counted', unit)
   /**
    * ⭐ V2 (Reasoning tab only): A COLLAPSED ROW CARRIES NO EMPTY-STATE SENTENCE.
