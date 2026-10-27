@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseV5Response, ADDITIVE_EXTENSIONS_KEY, type V5ParseResult } from '../responseParser'
 import { readCoreTurn } from '../applyCoreTurn'
-import { parseCoreTurn, coreTurnToClientBody } from '../coreTurnContract'
+import { parseCoreTurn, coreTurnToClientBody, coreTurnErrorBody } from '../coreTurnContract'
 import { readProposalFields, readTurnProposalFields } from '../../canvas/conversation/proposalFields'
 import { readRecordedServerTurnId } from '../../canvas/conversation/serverTurnId'
 import { readAgentTurnReceipts, agentTurnUndoLabel } from '../../canvas/undo/captureAgentTurnForUndo'
@@ -228,5 +228,23 @@ describe('⭐ a core turn is read by the core contract alone', () => {
       expect(parsed.kind === 'parse_error' && [parsed.parse_failure_kind, parsed.raw])
         .toEqual([status === 200 ? 'schema_mismatch' : 'non_ok_non_boundary', { error: code, detail: message, retry_safe, nothing_saved }])
     }
+  })
+})
+
+describe('C8 (PL AMEND on #3037): a failed or stopped turn reads its receipts with the one save predicate', () => {
+  const error = { code: 'TURN_STOPPED', message: 'You stopped this turn.', retry_safe: false, nothing_saved: false }
+  const unversioned = { kind: 'unversioned', scenario_revision: 'a'.repeat(64), run_id: null, source_turn_id: 'turn-1', authorised_by: 'person' as const }
+  const versioned = { version: 6, version_id: 'v_6', mutation_id: 'm_6', authorised_by: 'person' as const }
+
+  it('a guest\'s well-formed versionless receipt is a save; CONTRAST: a version is one too', () => {
+    expect(coreTurnErrorBody(error, [unversioned])).toMatchObject({ save_outcome: 'VERIFIED_SAVED', receipts: [unversioned] })
+    expect(coreTurnErrorBody(error, [versioned])).toMatchObject({ save_outcome: 'VERIFIED_SAVED' })
+  })
+
+  it('⛔ a malformed receipt (a short identity, or a versionless one carrying version keys) proves no save, so the outcome stays unknown', () => {
+    expect(coreTurnErrorBody(error, [{ ...unversioned, scenario_revision: 'fd14fb8b' }])).not.toHaveProperty('save_outcome')
+    expect(coreTurnErrorBody(error, [{ ...unversioned, ...versioned }])).not.toHaveProperty('save_outcome')
+    expect(coreTurnErrorBody(error, [unversioned, { ...unversioned, run_id: 'run-2' }])).not.toHaveProperty('save_outcome')
+    expect(coreTurnErrorBody(error, [])).not.toHaveProperty('save_outcome')
   })
 })

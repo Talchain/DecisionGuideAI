@@ -164,7 +164,7 @@ import type { ThreadEntry } from '../journey/threadTypes'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { serializeSystemEvent } from './systemEvents'
 import { captureTurnForUndo } from '../undo/captureUndoReceipt'
-import { readAgentTurnReceipts } from '../undo/captureAgentTurnForUndo'
+import { hasOwnSaveReceipt, readAgentTurnReceipts } from '../undo/captureAgentTurnForUndo'
 import { redactStatedReason } from './findingDissent'
 import type {
   ConversationMessage,
@@ -6558,7 +6558,7 @@ export function useConversation(): UseConversationReturn {
             void checkReadAfterWrite(scenarioIdAtDispatch, expectedRead, { userId: v5UserId, accessToken: v5Identity.accessToken })
               .catch(() => 'unknown' as const)
               .then((outcome) => {
-                const notice = readAfterWriteNotice(outcome, { wrote: (readAgentTurnReceipts(target.response)?.length ?? 0) > 0 })
+                const notice = readAfterWriteNotice(outcome, { wrote: hasOwnSaveReceipt(target.response) })
                 if (notice !== null && responseBelongsToDispatchingScenario(useCanvasStore.getState().currentScenarioId, scenarioIdAtDispatch)) {
                   addMessage({ id: crypto.randomUUID(), role: 'assistant', synthetic: true, content: notice, timestamp: new Date() })
                 }

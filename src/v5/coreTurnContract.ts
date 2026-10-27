@@ -6,6 +6,7 @@
  */
 import { z } from 'zod'
 import { AMEND_PROPOSAL_ACTION } from '../canvas/conversation/proposalFields'
+import { receiptsProveOwnSave } from './saveReceipts'
 
 const actionSchema = z.object({ id: z.string().min(1), label: z.string().min(1), message: z.string().min(1) }).passthrough()
 const cardSchema = z.object({
@@ -61,11 +62,12 @@ export const LEGACY_SCENARIO_COPY =
 /**
  * A failed core turn, in the envelope today's failure path reads (`error`, `detail`, `retry_safe`, `nothing_saved`). A turn
  * that saved before it failed carries each saved version's receipt (CEE C7), so it reads as `save_outcome: 'VERIFIED_SAVED'`
- * with those receipts: a receipt is the one proof of a save, and `nothing_saved: false` alone proves nothing either way.
+ * with those receipts: a receipt is the one proof of a save, and `nothing_saved: false` alone proves nothing either way. The
+ * receipts are read by the one predicate the normal reply uses (`saveReceipts.ts`), so a malformed set is never a save here.
  */
 export function coreTurnErrorBody(error: NonNullable<CoreTurn['error']>, receipts: CoreTurn['receipts'] = []): Record<string, unknown> {
   return { error: error.code, detail: error.message, retry_safe: error.retry_safe, nothing_saved: error.nothing_saved,
-    ...(receipts.length > 0 ? { save_outcome: 'VERIFIED_SAVED', receipts } : {}) }
+    ...(receiptsProveOwnSave(receipts) ? { save_outcome: 'VERIFIED_SAVED', receipts } : {}) }
 }
 
 type GraphNode = { id?: unknown; label?: unknown; kind?: unknown }
