@@ -361,8 +361,6 @@ describe('estimated targets carry their own mark on the bottom row (Paul, 27 Oct
       </ReactFlowProvider>,
     )
   }
-  const bandOlumiMarks = (id: string) =>
-    Array.from(bandOf(id)?.querySelectorAll<HTMLElement>('[data-card-mark="source-olumi"]') ?? [])
   const ESTIMATE_NAME = 'Olumi chose this target; it is not yet confirmed. Open the details to set or confirm it.'
 
   // RE-PINNED (Paul, 27 Oct): every card icon sits on the bottom row. Each estimated target keeps its own named mark
