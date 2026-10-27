@@ -136,6 +136,35 @@ describe('(1) a read-back that serves another model claims "saved" only after a 
     await waitFor(() => expect(notices()).toContain(STALE_MODEL_NOTICE), { timeout: 5000 })
   })
 
+  /** C8: a guest's save answers with a versionless receipt (CEE's writer follows; synthetic, the contract's shape on the
+   *  served qualitative approval's own saved identity and Run). */
+  const VERSIONLESS = {
+    kind: 'unversioned', scenario_revision: served.no_receipt_approval.turn.model.scenario_revision,
+    run_id: served.no_receipt_approval.turn.run.run_id,
+    source_turn_id: 'graph_registration:0f7c2a8e-2b1d-4c3e-9f4a-5b6c7d8e9f01', authorised_by: 'person',
+  }
+  const guestSaved = (receipt: Json) => ({ ...clone(served.no_receipt_approval.turn), receipts: [receipt] })
+
+  it('🔴 C8: a guest approval answered with its versionless receipt, the same stale read: "Your change was saved, but…", and no Undo', async () => {
+    await cardOnScreen()
+    read = { ...readOf(served.no_receipt_approval.read), content_hash: 'f'.repeat(64) }
+    turnAnswers.push(() => json(guestSaved(VERSIONLESS)))
+    await pressApprove()
+    await waitFor(() => expect(notices()).toContain(STALE_MODEL_NOTICE), { timeout: 5000 })
+    const reply = live!.messages.find((m) => m.role === 'assistant' && m.content === served.no_receipt_approval.turn.assistant_text)
+    expect(reply).toBeDefined()
+    expect(reply).not.toHaveProperty('undoTurnId')
+  })
+
+  it('⛔ C8: a malformed versionless receipt (a short identity) proves nothing: "couldn’t refresh", never "saved"', async () => {
+    await cardOnScreen()
+    read = { ...readOf(served.no_receipt_approval.read), content_hash: 'f'.repeat(64) }
+    turnAnswers.push(() => json(guestSaved({ ...VERSIONLESS, scenario_revision: served.no_receipt_approval.turn.model.revision })))
+    await pressApprove()
+    await waitFor(() => expect(notices()).toContain(READ_FAILED_NOTICE), { timeout: 5000 })
+    expect(notices()).not.toContain(STALE_MODEL_NOTICE)
+  })
+
   it('CONTROL: the served read after that approval serves its model: no notice', async () => {
     await cardOnScreen()
     read = readOf(served.no_receipt_approval.read)

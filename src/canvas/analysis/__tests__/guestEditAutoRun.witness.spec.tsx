@@ -178,6 +178,34 @@ describe('a committed canvas edit starts exactly one automatic Run, with or with
 })
 
 /**
+ * C8: a guest's save will answer with its own versionless receipt on `_agent` (CEE's writer follows; synthetic, the
+ * contract's shape on the witness reply). It is the save's proof, never an Undo version: the edit stays a canvas-local commit.
+ */
+describe('C8: a guest edit answered with its versionless receipt is still analysed, and gives Undo no version', () => {
+  const VERSIONLESS = {
+    kind: 'unversioned', scenario_revision: 'c'.repeat(64), run_id: null,
+    source_turn_id: 'graph_registration:0f7c2a8e-2b1d-4c3e-9f4a-5b6c7d8e9f01', authorised_by: 'person',
+  }
+
+  it('🔴 the edit moved CEE’s graph H1 → H2: ONE commit and ONE Run, on H2; the journal is untouched', async () => {
+    await commitEdit({ ...witness.response_body, _agent: { receipts: [VERSIONLESS] } })
+
+    expect(noteCanvasLocalCommit).toHaveBeenCalledTimes(1)
+    expect(noteCanvasLocalCommit).toHaveBeenCalledWith(H2)
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(hashAtRun).toEqual([H2])
+    expect(useUndoJournalStore.getState().journal).toBe(EMPTY_UNDO_JOURNAL)
+  })
+
+  it('⛔ a malformed one (a short identity) is a malformed set, as before: no commit, no Run', async () => {
+    await commitEdit({ ...witness.response_body, _agent: { receipts: [{ ...VERSIONLESS, scenario_revision: H2 }] } })
+
+    expect(noteCanvasLocalCommit).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+  })
+})
+
+/**
  * ⛔ PL RULE (14 Oct, #94 6135017311): the guest auto-run fires ONLY on a SUCCESSFULLY APPLIED guest model revision.
  * Each row below is the witness above with only the field that defines its case changed, and asserts no Run.
  */

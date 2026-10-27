@@ -30,6 +30,7 @@ import {
   captureAgentTurnForUndo,
   agentTurnUndoLabel,
   APPROVED_CHANGE_UNDO_LABEL,
+  hasOwnSaveReceipt,
   isNextUndoThisTurn,
   readAgentTurnReceipts,
 } from '../captureAgentTurnForUndo'
@@ -92,6 +93,49 @@ describe('readAgentTurnReceipts', () => {
   })
   it('a response without the sidecar names none', () => {
     expect(readAgentTurnReceipts({ _agent: { receipts: [receipt(5, V5)] } })).toEqual([])
+  })
+})
+
+/** C8's versionless guest receipt, in the contract's shape (CEE's writer follows): synthetic. */
+const UNVERSIONED = {
+  kind: 'unversioned', scenario_revision: h('c'), run_id: 'mp_run_2_991586d39142',
+  source_turn_id: 'graph_registration:0f7c2a8e-2b1d-4c3e-9f4a-5b6c7d8e9f01', authorised_by: 'person',
+}
+const UNVERSIONED_NO_KIND = Object.fromEntries(Object.entries(UNVERSIONED).filter(([key]) => key !== 'kind'))
+
+describe('C8: a guest save\'s versionless receipt proves the save and is never an Undo version', () => {
+  it('the reader skips it: alone it names no version; beside a version it names only that version', () => {
+    expect(readAgentTurnReceipts(agentResponse([UNVERSIONED]))).toEqual([])
+    expect(readAgentTurnReceipts(agentResponse([{ ...UNVERSIONED, run_id: null }]))).toEqual([])
+    expect(readAgentTurnReceipts(agentResponse([UNVERSIONED, receipt(6, V6)]))?.map((r) => r.versionId)).toEqual([V6])
+  })
+
+  it('it is the turn\'s own save receipt; CONTRAST: a version is one, and no receipt is none', () => {
+    expect(hasOwnSaveReceipt(agentResponse([UNVERSIONED]))).toBe(true)
+    expect(hasOwnSaveReceipt(agentResponse([receipt(6, V6)]))).toBe(true)
+    expect(hasOwnSaveReceipt(agentResponse([]))).toBe(false)
+    expect(hasOwnSaveReceipt({ _agent: { receipts: [UNVERSIONED] } })).toBe(false)
+  })
+
+  it.each([
+    ['a bad hash', { ...UNVERSIONED, scenario_revision: 'fd14fb8b' }],
+    ['no kind', UNVERSIONED_NO_KIND],
+    ['a bad run id', { ...UNVERSIONED, run_id: 'run-2' }],
+    ['no source turn', { ...UNVERSIONED, source_turn_id: '' }],
+    ['an unknown author', { ...UNVERSIONED, authorised_by: 'someone' }],
+    ['a version beside its kind', { ...UNVERSIONED, ...receipt(6, V6) }],
+  ])('⛔ one with %s is malformed: the reader refuses the set, and no save is claimed', (_case, bad) => {
+    expect(readAgentTurnReceipts(agentResponse([bad]))).toBeNull()
+    expect(readAgentTurnReceipts(agentResponse([bad, receipt(6, V6)]))).toBeNull()
+    expect(hasOwnSaveReceipt(agentResponse([bad]))).toBe(false)
+  })
+
+  it('beside a version, Undo is given only the version: one step back to its parent', async () => {
+    listModelVersions.mockResolvedValue(listed(V6, [row(V6, 6, h('6'), V5)]))
+    expect(await captureAgentTurnForUndo({ scenarioId: S, turnId: 'turn-mixed-c8', response: agentResponse([UNVERSIONED, receipt(6, V6)]) })).toBe('recorded')
+    expect(journal().undo).toHaveLength(1)
+    expect(journal().seenMutationIds).toEqual(['m-6'])
+    expect(nextUndo(journal())).toMatchObject({ kind: 'restore', targetVersionId: V5, expectedFullHash: h('6') })
   })
 })
 

@@ -37,22 +37,60 @@ export interface AgentTurnReceipt {
   readonly mutationId: string
 }
 
+/**
+ * C8: a guest save's own receipt, as CEE sends it. A guest's model has no versions, so it names the saved model's identity
+ * and carries no `version`, `version_id` or `mutation_id`: it proves the save, and is never an Undo version.
+ */
+export interface UnversionedSaveReceipt {
+  readonly kind: 'unversioned'
+  readonly scenario_revision: string
+  readonly run_id: string | null
+  readonly source_turn_id: string
+  readonly authorised_by: 'person' | 'olumi'
+}
+
 const record = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
-/** `_agent.receipts` from the parser's non-enumerable additive sidecar, oldest first; `null` means a malformed set. */
+const SHA256_HEX = /^[0-9a-f]{64}$/
+const RUN_ID = /^mp_run_\d+_[0-9a-f]{12}$/
+
+function isUnversionedSaveReceipt(r: unknown): r is UnversionedSaveReceipt {
+  return record(r) && r.kind === 'unversioned'
+    && r.version === undefined && r.version_id === undefined && r.mutation_id === undefined
+    && typeof r.scenario_revision === 'string' && SHA256_HEX.test(r.scenario_revision)
+    && (r.run_id === null || (typeof r.run_id === 'string' && RUN_ID.test(r.run_id)))
+    && typeof r.source_turn_id === 'string' && r.source_turn_id.length > 0
+    && (r.authorised_by === 'person' || r.authorised_by === 'olumi')
+}
+
+/** `_agent.receipts` as the parser's non-enumerable additive sidecar holds them, unread. */
+function agentReceiptEntries(response: unknown): readonly unknown[] {
+  const sidecar = record(response) ? (response as Record<string, unknown>)[ADDITIVE_EXTENSIONS_KEY] : undefined
+  return record(sidecar) && record(sidecar._agent) && Array.isArray(sidecar._agent.receipts) ? sidecar._agent.receipts : []
+}
+
+/**
+ * The versions `_agent.receipts` names, oldest first; `null` means a malformed set. A well-formed versionless receipt (C8)
+ * is skipped: it is no version to undo, and a guest's canvas edit still goes on to its canvas-local commit.
+ */
 export function readAgentTurnReceipts(response: unknown): readonly AgentTurnReceipt[] | null {
-  if (!record(response)) return []
-  const sidecar = (response as Record<string, unknown>)[ADDITIVE_EXTENSIONS_KEY]
-  if (!record(sidecar) || !record(sidecar._agent) || !Array.isArray(sidecar._agent.receipts)) return []
   const out: AgentTurnReceipt[] = []
-  for (const r of sidecar._agent.receipts) {
-    if (!record(r)) return null
+  for (const r of agentReceiptEntries(response)) {
+    if (isUnversionedSaveReceipt(r)) continue
+    // One that says it is versionless but is not well-formed is malformed, never read as a version.
+    if (!record(r) || r.kind === 'unversioned') return null
     if (typeof r.version !== 'number' || !Number.isFinite(r.version)) return null
     if (typeof r.version_id !== 'string' || r.version_id.length === 0) return null
     if (typeof r.mutation_id !== 'string' || r.mutation_id.length === 0) return null
     out.push({ version: r.version, versionId: r.version_id, mutationId: r.mutation_id })
   }
   return out.sort((a, b) => a.version - b.version)
+}
+
+/** C8: does the turn carry its own save's receipt, a version or a guest's versionless one? Only that proves the save. */
+export function hasOwnSaveReceipt(response: unknown): boolean {
+  const versions = readAgentTurnReceipts(response)
+  return versions !== null && (versions.length > 0 || agentReceiptEntries(response).some(isUnversionedSaveReceipt))
 }
 
 /**
@@ -76,8 +114,6 @@ export interface CaptureAgentTurnDeps {
   readonly listVersions?: typeof listModelVersions
   readonly identity?: typeof getSessionIdentity
 }
-
-const SHA256_HEX = /^[0-9a-f]{64}$/
 
 interface CaptureFence {
   readonly revision: number
