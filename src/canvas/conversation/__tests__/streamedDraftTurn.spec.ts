@@ -873,11 +873,20 @@ describe('F1 — abort after GRAPH_READY (Stop button / 130 s timeout)', () => {
     expect(new Headers((mockStopV5Turn.mock.calls.at(-1)![1] as { headers: Record<string, string> }).headers).get('x-olumi-ai-mode')).toBe('core-route')
   })
 
-  it('CONTRAST: on core, a Stop answered already_committed true keeps "already saved"', async () => {
+  // already_committed true is no save proof on core either: the row it reads also exists after a stopped turn that wrote
+  // nothing (CEE #3841 row A1: a recorded answer, receipts [], no write). So it too is unknown, never "already saved".
+  it('🔴 C14 (8): on core, a Stop answered already_committed true says unknown too, never "already saved"', async () => {
     const result = await stopAfterGraphReadyOnCore({ kind: 'already_saved' })
     const contents = result.current.messages.map((m) => m.content)
-    expect(contents).toContain(EARLY_STOP_ALREADY_SAVED_NOTICE)
+    expect(contents).toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
+    expect(contents).not.toContain(EARLY_STOP_ALREADY_SAVED_NOTICE)
+  })
+
+  it('CONTRAST: on core, a Stop that could not be recorded keeps its own unconfirmed words', async () => {
+    const result = await stopAfterGraphReadyOnCore({ kind: 'unconfirmed', reason: 'transport' })
+    const contents = result.current.messages.map((m) => m.content)
     expect(contents).not.toContain(CORE_OUTCOME_UNKNOWN_NOTICE)
+    expect(contents.some((c) => c.includes('could not reach the server'))).toBe(true)
   })
 
   // ══ F3 (#534 round-3) — A POSITIVE PIN FOR STOPPED_DRAFT_NOTICE ════════════
