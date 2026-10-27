@@ -248,6 +248,8 @@ export interface ModelTabV2PanelProps {
   fragileEdgeIds?: ReadonlySet<string>
   /** A group a deep link wants open; forwarded straight to `ModelOutline`. */
   openGroupRequest?: ModelGroupId | null
+  /** The saved read's graph (the host's read): a program link's figure is its canonical coefficient. */
+  savedGraph?: unknown
   /**
    * Hand a turn to Olumi, having FRONTED the conversation first.
    *
@@ -407,6 +409,7 @@ export function ModelTabV2Panel({
   goalConstraints = null,
   fragileEdgeIds,
   openGroupRequest,
+  savedGraph = null,
   onHandOffToOlumi,
   currentScenarioId = null,
   lastServerGraphHash = null,
@@ -584,8 +587,9 @@ export function ModelTabV2Panel({
       goalThreshold,
       fragileEdgeIds,
       goalConstraints,
+      savedGraph,
     }),
-    [nodes, edges, goalThreshold, fragileEdgeIds, goalConstraints],
+    [nodes, edges, goalThreshold, fragileEdgeIds, goalConstraints, savedGraph],
   )
 
   const rows = useMemo(() => toModelRows(projection), [projection])

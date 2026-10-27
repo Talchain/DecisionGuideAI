@@ -143,7 +143,7 @@ import type { ObservedState as ModelTabObservedState } from '../components/model
 import type { ValidationMetadata } from '../domain/validation'
 import { getCausalEdges } from '../domain/edgeUtils'
 import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
-import { isStrengthDefinitional } from '../domain/strengthDefinitional'
+import { BY_DEFINITION, isStrengthDefinitional } from '../domain/strengthDefinitional'
 import { EDGE_PROVENANCE, edgeProvenance } from '../domain/edgeProvenance'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
 import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
@@ -187,6 +187,7 @@ import { resolveFactorValueAdmission } from '../conversation/factorValueEdit'
 // ⭐⭐ THE ONE DISPLAY READER OF A FACTOR'S PRIOR RANGE — the owner the card and
 // the reduced low-zoom line already share. See `recordedRangeText` below.
 import { resolveFactorPriorRange, userValueReplacesPrior } from '../nodes/shared/factorPriorRange'
+import { programCoefficientOf, programFigureWords, programQuantityOf } from '../nodes/shared/savedModelProgram'
 import type {
   AttentionReason,
   ModelElementKind,
@@ -230,6 +231,12 @@ export interface ModelProjectionInput {
    * when the node holds none: "at most 400" is stored only there (CEE's rule, `resolveGoalTargetWithOwnRow`).
    */
   goalConstraints?: readonly CEEGoalConstraint[] | null
+  /**
+   * The saved read's graph (the host's `useSavedGraph`). On a program board a link's figure is its canonical coefficient
+   * (`programCoefficientOf`, as the canvas link reads it) and a card's figure is its canonical quantity's
+   * (`programQuantityOf`); off a program neither names anything.
+   */
+  savedGraph?: unknown
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -489,6 +496,15 @@ function factorValue(data: unknown): string | null {
 }
 
 /**
+ * The words of the value in use on a factor that states none. A program quantity whose canonical record holds no figure
+ * (asked of the person, or Olumi's figure nobody knows yet) has no value in use: its words are not an estimate.
+ */
+function factorEstimateText(data: unknown, label: string, savedGraph: unknown, id: string): string | null {
+  if (programQuantityOf(savedGraph, id)?.value === null) return null
+  return factorDisplayText(data as Record<string, unknown> | undefined, label)
+}
+
+/**
  * An edge's displayed value, through BOTH read-side gates.
  *
  * ⚠ THE GATES ARE THE POINT, AND THEY ARE NOT MINE. An unstamped weight renders
@@ -502,11 +518,16 @@ function edgeValue(data: unknown): string | null {
   return edgeValueParts(data).text
 }
 
-/** The relationship's value, and whether it is the natural-effect SENTENCE (see `ModelRow.valueIsSentence`). */
-function edgeValueParts(data: unknown): { text: string | null; sentence: boolean } {
+/**
+ * The relationship's value, and whether it is the natural-effect SENTENCE (see `ModelRow.valueIsSentence`).
+ * A program link has no `strength`: its figure is the canonical coefficient it names (`programWords`, the canvas link's
+ * words), and a part of a total holds by definition (the canvas link's "By definition").
+ */
+function edgeValueParts(data: unknown, programWords: string | null = null): { text: string | null; sentence: boolean } {
+  if (programWords !== null) return { text: programWords, sentence: false }
   const bag = (data ?? undefined) as Record<string, unknown> | undefined
   const seed = resolveEdgeStrengthEditSeed(bag)
-  if (seed === null) return { text: null, sentence: false }
+  if (seed === null) return { text: isStrengthDefinitional(bag) ? BY_DEFINITION : null, sentence: false }
   const direction = resolveEdgeDirectionDisplay(bag)
   // ⭐ THE SIZE IN THE TARGET'S OWN UNITS FIRST, when the producer admitted one
   // for THIS β (magnitude contract, MG #70 5845713522). The |β| band called
@@ -612,7 +633,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
       // ⚠ `0.5` is a NORMALISED model number. Printing it beside a pseudo-unit
       // invites the reader to argue with a figure that has no real-world scale,
       // on the tab whose whole job is to be a true representation.
-      const estimateText = value === null ? factorDisplayText(data, label) : null
+      const estimateText = value === null ? factorEstimateText(data, label, input.savedGraph, node.id) : null
       // ⭐⭐ A17 — THE LINE THE CARD PRINTS, FROM THE CARD'S OWN OWNER.
       // `resolveFactorPriorRange` takes every suppression the card's "Range:"
       // line takes (ignorance prior, non-external factor, non-finite ends),
@@ -882,7 +903,8 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
       group: 'relationships',
       ...relationshipIdentity(data, edge.source, edge.target, nodeLabels),
       ...(() => {
-        const value = edgeValueParts(data)
+        const coefficient = programCoefficientOf(input.savedGraph, edge.id)
+        const value = edgeValueParts(data, coefficient === null ? null : programFigureWords(coefficient))
         return { primaryValue: value.text, ...(value.sentence ? { valueIsSentence: true as const } : {}) }
       })(),
       // Data layer Phase 1: whose the SIZE is comes from the ONE edge provenance classifier (`edgeProvenance.ts`), the
@@ -1221,6 +1243,7 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
         input.edges,
         nodeLabels,
         new Map(input.nodes.map(n => [n.id, n])),
+        input.savedGraph,
       ),
       advancedParameters: buildAdvancedForNode(node.id, obs),
     }
@@ -1296,6 +1319,7 @@ function buildOptionInterventionCandidates(
   edges: readonly Edge[],
   labels: ReadonlyMap<string, string>,
   nodesById: ReadonlyMap<string, Node>,
+  savedGraph: unknown = null,
 ): OptionInterventionCandidate[] {
   if (nodeKind(node) !== 'option') return []
   /*
@@ -1325,7 +1349,7 @@ function buildOptionInterventionCandidates(
     const factorLabel = resolveCanvasLabel(factorId, labels)
     if (factorLabel === null) return []
     seen.add(factorId)
-    return [{ factorId, factorLabel, ...factorReference(target.data, factorLabel) }]
+    return [{ factorId, factorLabel, ...factorReference(target.data, factorLabel, savedGraph, factorId) }]
   })
 }
 
@@ -1335,7 +1359,7 @@ function buildOptionInterventionCandidates(
  * two cannot show different "current" values for one factor.
  *
  *   · `factorValue`    — `factorValue(data)`, the row's `primaryValue`.
- *   · `factorEstimate` — `factorDisplayText(data, label)` ONLY when there is no
+ *   · `factorEstimate` — `factorEstimateText(data, label)` ONLY when there is no
  *                        `factorValue`: the row's `estimateText` condition.
  *   · `factorModelValue` — the normalised `observedState.value` when it is a
  *                        finite number in [0, 1], the scale the input takes.
@@ -1343,10 +1367,11 @@ function buildOptionInterventionCandidates(
 function factorReference(
   data: unknown,
   label: string,
+  savedGraph: unknown,
+  id: string,
 ): Pick<OptionInterventionCandidate, 'factorValue' | 'factorEstimate' | 'factorModelValue'> {
   const value = factorValue(data)
-  const estimate =
-    value === null ? factorDisplayText(data as Record<string, unknown> | undefined, label) : null
+  const estimate = value === null ? factorEstimateText(data, label, savedGraph, id) : null
   const normalised = (observedStateOf(data) as { value?: unknown } | undefined)?.value
   return {
     factorValue: value,
@@ -1374,7 +1399,7 @@ export function optionIdsWithValueInputs(input: ModelProjectionInput): ReadonlyS
   const ids = new Set<string>()
   for (const node of input.nodes) {
     if (nodeKind(node) !== 'option') continue
-    if (buildOptionInterventionCandidates(node, input.edges, labels, nodesById).length > 0) {
+    if (buildOptionInterventionCandidates(node, input.edges, labels, nodesById, input.savedGraph).length > 0) {
       ids.add(node.id)
     }
   }
