@@ -24,6 +24,7 @@ import { openStrategicChallenge } from './analysisNewFixtures'
 import grant from '../../../../canvas/runView/__tests__/fixtures/w3735-grant-press-read.json'
 import funding from '../../../../canvas/runView/__tests__/fixtures/s1-funding-waits-on-turn.json'
 import aiLaunch from '../../../../canvas/runView/__tests__/fixtures/paul-ai-launch-waits-read-20261027.json'
+import hiring from '../../../../canvas/runView/__tests__/fixtures/served-hiring-waits-read-20261027.json'
 
 type Read = { scenario_id: string; graph: { nodes: { id: string; kind: string | null; label: string | null }[] }; canonical_analysis_view: Record<string, any> }
 
@@ -92,6 +93,29 @@ describe('a goal chance that waits says what it waits on', () => {
     expect(block).not.toContain('The chance waits on')
     expect(block.split('‘Current team delivery pace’').length).toBe(2)
     expect(block.split('which no one can size yet').length).toBe(7)
+  })
+
+  it('⭐ fresh hiring board (47183a6d): an option\'s own items, already in the list, are not said again under it', () => {
+    board(hiring as unknown as Read)
+    draw()
+    const block = screen.getByTestId('analysis-view-only-chances').textContent ?? ''
+    expect(screen.getByTestId('analysis-view-only-waits-on').textContent).toBe(
+      'waits on 8 things: ‘maintaining code quality’, ‘Period the hiring budget must cover’, ‘Tech-lead start delay’, '
+      + '‘Two-developer start delay’, ‘Fully loaded monthly tech-lead cost’, ‘Fully loaded monthly cost per added developer’, '
+      + '‘One-off cost of hiring the tech lead’, ‘One-off cost of hiring both developers’')
+    expect(block).not.toContain('The chance waits on')
+    expect(block.split('‘Tech-lead start delay’').length).toBe(2)
+  })
+
+  it('CONTRAST: an option\'s line that names an item the list does not is still said', () => {
+    const view = (hiring as unknown as Read).canonical_analysis_view
+    const [first, ...rest] = view.options
+    const own = 'The chance waits on ‘Tech-lead start delay’ and ‘Notice period of the current lead’.'
+    board(hiring as unknown as Read, null, [{ ...first, cell: { ...first.cell, why: own } }, ...rest])
+    draw()
+    const block = screen.getByTestId('analysis-view-only-chances').textContent ?? ''
+    expect(block).toContain(own)
+    expect(block).not.toContain('‘Two-developer start delay’ and')
   })
 
   it('CONTRAST: an option\'s reason that is not the waits-on list (the model is too large) still follows the headline', () => {

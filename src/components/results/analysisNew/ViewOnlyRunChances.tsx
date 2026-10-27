@@ -59,13 +59,18 @@ export const RUN_AGAIN = 'Run again'
 const CTX = { goalChanceHeroSays: false, labelOf: () => null }
 
 /**
- * A withheld cell whose `why` is CEE's waits-on words: a goal that waits (`goal_asks` / `goal_withheld`), said from the typed
- * blockers (CEE `waitsOnWords`, evaluate.ts and present.ts), never the compiler's own reason for a goal with no blocker.
+ * A withheld cell whose `why` is CEE's waits-on words (CEE `waitsOnWords`, evaluate.ts and present.ts) and every item it
+ * names after "waits on" is already in the headline's list (Paul, 27 Oct: "when the list already names an option's items,
+ * don't repeat them under the option"). Never the compiler's own reason for a goal with no blocker, or another code's reason.
  */
 const WAITS_ON_REASONS = new Set(['goal_asks', 'goal_withheld'])
-function whyIsWaitsOn(cell: CanonicalAnalysisCell | undefined, why: string | null): boolean {
-  return why !== null && cell?.kind === 'withheld' && cell.reasons.length > 0 && cell.reasons.every(r => WAITS_ON_REASONS.has(r.code))
-    && /\bwaits? on ‘/.test(why) && !why.includes('is not in the chance yet')
+const inline = (s: string): string => s.trim().replace(/\s+/g, ' ')
+function whyIsWaitsOn(cell: CanonicalAnalysisCell | undefined, why: string | null, listed: ReadonlySet<string>): boolean {
+  if (why === null || cell?.kind !== 'withheld' || !cell.reasons.every(r => WAITS_ON_REASONS.has(r.code))) return false
+  const list = /\bwaits? on (‘.*)$/.exec(why)?.[1]
+  if (list === undefined || why.includes('is not in the chance yet')) return false
+  const named = [...list.matchAll(/‘([^’]+)’/g)].map(m => inline(m[1]))
+  return named.length > 0 && named.every(label => listed.has(label))
 }
 
 /**
@@ -88,6 +93,8 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
     }
     const lines: { optionIds: string[]; text: string; why: string | null; driver: string | null; withheld: boolean; whyIsWaitsOn: boolean }[] = []
     let allWithheld = canonical.options.length > 0
+    const waitsOn = view.goalChanceDetail()?.waits_on ?? []
+    const listed = new Set(waitsOn.map(w => inline(w.label)))
     for (const { option_id: optionId, main_driver: mainDriver, cell: served } of canonical.options) {
       const cell = optionChanceCell(view, optionId, CTX)
       if (cell.kind !== 'withheld') allWithheld = false
@@ -98,12 +105,12 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
         ?? (mainDriver.kind === 'none_licensed' && mainDriver.reason.trim() !== '' ? mainDriver.reason : null)
       const same = withheld ? lines.find(l => l.withheld && l.text === cell.text && l.why === why && l.driver === driver) : undefined
       if (same) same.optionIds.push(optionId)
-      else lines.push({ optionIds: [optionId], text: cell.text, why, driver, withheld, whyIsWaitsOn: whyIsWaitsOn(served, why) })
+      else lines.push({ optionIds: [optionId], text: cell.text, why, driver, withheld, whyIsWaitsOn: whyIsWaitsOn(served, why, listed) })
     }
     const sentence = runViewGoalChanceSentence(view)
     // Past the current-Run gate above, as the chances are: CEE's words alone, never one the UI composes from the cells.
     const mostLikely = canonical.leader?.words ?? null
-    return lines.length === 0 && sentence === null ? null : { sentence, lines, waitsOn: view.goalChanceDetail()?.waits_on ?? [], stale: false, allWithheld, mostLikely }
+    return lines.length === 0 && sentence === null ? null : { sentence, lines, waitsOn, stale: false, allWithheld, mostLikely }
   }, [report, canonical, program])
 }
 
