@@ -2157,6 +2157,8 @@ export const OptionNode = memo((props: NodeProps) => {
             title={r.estimated && (sourceMarkRows.get(r.factorId)?.length ?? 1) === 1 ? OPTION_ROW_ESTIMATE_TITLE : undefined}
             subject={sourceMarkSubject(sourceMarkRows.get(r.factorId) ?? [r])}
             onOpenSource={() => openNodeInspector(props.id)}
+            olumiGroupNoun="target value"
+            olumiGroupCount={sourceMarkRows.get(r.factorId)?.length ?? 1}
             keepSourceAction
           />
         )}

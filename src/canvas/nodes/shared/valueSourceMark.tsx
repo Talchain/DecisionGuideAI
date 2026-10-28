@@ -349,6 +349,7 @@ export function ValueSourceMark({
   subject,
   onOpenSource,
   olumiGroupNoun,
+  olumiGroupCount,
   inline = false,
   keepSourceAction = false,
 }: {
@@ -365,6 +366,8 @@ export function ValueSourceMark({
    * as ("target value") when an Olumi mark joins the card's one merged sparkle. Absent → this mark never merges.
    */
   olumiGroupNoun?: string
+  /** How many figures this mark covers, for the merged mark's count (1 when absent). */
+  olumiGroupCount?: number
   /**
    * Vision spec §2a (23 Oct): the author glyph sits BEFORE its figure, in the value's own line, rather than in the
    * card's marks band. An inline mark never joins the merged Olumi mark: it belongs to one figure.
@@ -376,8 +379,9 @@ export function ValueSourceMark({
   const tip = title ?? (subject ? `${subject}: ${mark.label}` : mark.label)
   const definition = cardMark(`source-${mark.kind}` as CardMarkId)
   const Icon = definition.Icon
-  const slot = useOlumiMarkSlot(mark.kind === 'olumi' && olumiGroupNoun && !inline && !keepSourceAction
-    ? { role: 'estimate', text: olumiGroupNoun, accepted: mark.label === VALUE_PROVENANCE_LABEL.accepted, onOpen: onOpenSource }
+  // A mark that keeps its source action still joins the card's one Olumi mark (Paul, 28 Oct); alone it keeps its route.
+  const slot = useOlumiMarkSlot(mark.kind === 'olumi' && olumiGroupNoun && !inline
+    ? { role: 'estimate', text: olumiGroupNoun, accepted: mark.label === VALUE_PROVENANCE_LABEL.accepted, count: olumiGroupCount, onOpen: onOpenSource }
     : null)
   // On a card the band's Olumi glyph asks Olumi about the card (`OlumiAskMark`, Paul 24 Oct). An INLINE mark belongs to
   // one figure and keeps its route to that figure's source detail.

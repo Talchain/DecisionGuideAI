@@ -367,26 +367,29 @@ describe('estimated targets carry their own mark on the bottom row (Paul, 27 Oct
   // and words twice in a row): the bottom row says each source ONCE, its mark naming every target it covers; each figure
   // keeps Olumi's dotted underline, and the authorship mark joins them.
   const target = (opt: string, fid: string) => screen.getByTestId(`option-change-row-target-${opt}-${fid}`)
-  it('Olumi authorship + two estimated targets → one mark on the bottom row naming both, none in the rows', () => {
+  // RE-PINNED (Paul, 28 Oct: one Olumi mark per card): the authorship and the targets' estimate join ONE merged mark,
+  // which names both and counts the two targets; each figure keeps Olumi's dotted underline.
+  it('Olumi authorship + two estimated targets → one Olumi mark on the bottom row naming both, none in the rows', () => {
     withOption('opt-split', 'ai_inferred', { 'fac-thru': iv(0.85, '0.85 scale', 'cee_hypothesis'), 'fac-ratio': iv(0.6, '0.6 ratio', 'cee_hypothesis') })
-    expect(document.querySelector('[data-olumi-estimates]')).toBeNull()
-    const est = screen.getByTestId('option-change-row-estimate-opt-split-fac-thru')
+    const olumi = Array.from(bandOf('opt-split')!.querySelectorAll('[data-card-mark="source-olumi"]'))
+    expect(olumi).toHaveLength(1)
+    const merged = olumi[0]
+    expect(merged.getAttribute('data-testid')).toBe('node-provenance-mark')
+    expect(merged.getAttribute('data-olumi-mark')).toBe('merged')
+    expect(merged.getAttribute('data-olumi-estimates')).toBe('2')
+    expect(merged.getAttribute('data-provenance-claim')).toBe('structural')
+    expect(merged.getAttribute('data-provenance-kind')).toBe('ai')
+    expect(merged.getAttribute('aria-label') ?? merged.closest('[aria-label]')?.getAttribute('aria-label'))
+      .toBe("Olumi suggested this option · 2 target values are Olumi's estimates")
+    expect(screen.queryByTestId('option-change-row-estimate-opt-split-fac-thru')).toBeNull()
     expect(screen.queryByTestId('option-change-row-estimate-opt-split-fac-ratio')).toBeNull()
-    expect(bandOf('opt-split')?.contains(est)).toBe(true)
-    expect(est.getAttribute('data-card-mark')).toBe('source-olumi')
-    expect(est.querySelectorAll('svg[data-icon="olumi-ai"]')).toHaveLength(1)
-    expect(est.getAttribute('aria-label')).toBe('Development throughput and Senior to junior ratio targets: Olumi\'s estimate — estimate not yet confirmed')
+    expect(screen.getByTestId('node-title').querySelector('[data-card-mark]')).toBeNull()
     for (const fid of ['fac-thru', 'fac-ratio']) {
-      expect(row(document.body, 'opt-split', fid).contains(est)).toBe(false)
+      expect(row(document.body, 'opt-split', fid).querySelector('[data-card-mark]')).toBeNull()
       const figure = target('opt-split', fid)
       expect(figure.getAttribute('data-olumi-estimate')).toBe('true')
       expect(figure.className).toContain('decoration-dotted')
     }
-    // The authorship claim is not lost: its own mark, on the bottom row (it sat after the name).
-    expect(screen.getByTestId('node-title').querySelector('[data-testid="node-provenance-mark"]')).toBeNull()
-    const authorship = bandOf('opt-split')!.querySelector('[data-testid="node-provenance-mark"]')!
-    expect(authorship.getAttribute('data-provenance-claim')).toBe('structural')
-    expect(authorship.getAttribute('data-provenance-kind')).toBe('ai')
   })
 
   it('contrast: a brief-authored option keeps "From your brief" as its OWN band mark beside the two estimates\' one mark', () => {
