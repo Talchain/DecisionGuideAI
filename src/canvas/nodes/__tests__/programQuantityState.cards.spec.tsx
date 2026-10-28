@@ -21,6 +21,7 @@ import type { Node } from '@xyflow/react'
 import capacity from './fixtures/served-acceptance-capacity-read-20261026.json'
 import european from './fixtures/served-acceptance-european-read-20261026.json'
 import qualitative from './fixtures/served-acceptance-qualitative-read-20261026.json'
+import q1European from './fixtures/served-q1-european-draft-read-20261028.json'
 import { useCanvasStore } from '../../store'
 import { FactorNode } from '../FactorNode'
 import { OutcomeNode } from '../OutcomeNode'
@@ -138,8 +139,11 @@ describe('Olumi\'s figure nobody knows yet: the no-figure indicator, with Olumi\
     ['qualitative', 'bug_persists_at_planned_release'],
     ['european', 'pilot_acquisition_start'],
     ['european', 'full_acquisition_ramp_duration'],
+    // Q1 (28 Oct, assessor AR-1942): since 1b CEE sends "?" for Olumi's unknown (project.ts display_value); served Box 3 read.
+    ['q1European', 'future_customers'],
+    ['q1European', 'competition'],
   ] as const)('%s %s: "—" with Olumi\'s mark, "Olumi’s: not known yet, no figure set"; never "Source not recorded" or "unknown"', async (board, id) => {
-    await openBoard(board === 'qualitative' ? qualitative : european)
+    await openBoard(board === 'qualitative' ? qualitative : board === 'q1European' ? q1European : european)
     await card(id)
     const { text, mark } = factorLine(id)
     expect(text).toContain('—')
