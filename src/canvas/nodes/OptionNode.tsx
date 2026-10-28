@@ -2306,12 +2306,16 @@ export const OptionNode = memo((props: NodeProps) => {
                   titled row is the exemption
                   `e2e/visual/nodeTextClipping.visual.spec.ts` requires of a
                   CSS ellipsis. */}
-              <dt
-                className={`${typography.edgeLabel} !leading-[1.2] min-w-0 truncate text-text-light`}
-                data-truncates="label"
-              >
-                {r.fullLabel}
-              </dt>
+              {/* A cut label shows its full words on hover and on keyboard focus (UI-SURGICAL 7, Paul 28 Oct). */}
+              <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={r.fullLabel}>
+                <dt
+                  className={`${typography.edgeLabel} !leading-[1.2] min-w-0 truncate text-text-light focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header rounded-sm`}
+                  data-truncates="label"
+                  tabIndex={0}
+                >
+                  {r.fullLabel}
+                </dt>
+              </Tooltip>
               {renderChangeAmount(r, 'right', true)}
             </div>
             )

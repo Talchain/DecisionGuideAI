@@ -112,3 +112,27 @@ describe('a folded switch is said on its option card, in CEE’s words', () => {
     expect(rowText('specialist_assisted_delivery', 'specialist_support')).toContain('External AI specialist support')
   })
 })
+
+// UI-SURGICAL 7 (Paul, 28 Oct): O3's row read "Use a ready-made hosted chat inte…". A row's label may cut to one line;
+// its full words show on hover and on keyboard focus.
+describe('a cut row label shows its full words on hover and focus', () => {
+  const FULL = 'Use a ready-made hosted chat integration'
+  const labelCell = () => screen.getByTestId('option-change-row-line-ready_made_chat_delivery-hosted_chat_route').querySelector('dt') as HTMLElement
+
+  it('focus shows the full name as a tooltip', async () => {
+    const { fireEvent } = await import('@testing-library/react')
+    await openBoard(chat as Json)
+    await card('ready_made_chat_delivery')
+    const dt = labelCell()
+    expect(dt.tabIndex).toBe(0)
+    await act(async () => { fireEvent.focus(dt) })
+    expect((await screen.findByRole('tooltip')).textContent).toBe(FULL)
+  })
+
+  it('CONTRAST: the label keeps its full words in the DOM, on one line', async () => {
+    await openBoard(chat as Json)
+    await card('ready_made_chat_delivery')
+    expect(labelCell().textContent).toBe(FULL)
+    expect(labelCell().getAttribute('data-truncates')).toBe('label')
+  })
+})
