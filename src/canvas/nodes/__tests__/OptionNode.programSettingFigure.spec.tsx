@@ -57,16 +57,17 @@ describe('a program option states its setting as a figure', () => {
   it('"Hire a tech lead" (tech_leads_added: value 1, unit tech_lead) reads "0 → 1 tech lead", never "Increases"', async () => {
     await openBoard(hiring)
     await card('hire_tech_lead')
-    expect(before('hire_tech_lead', 'tech_leads_added')).toBe('0')
+    // The "from" is the factor card's own reading, which counts its unit (UI-SURGICAL 3).
+    expect(before('hire_tech_lead', 'tech_leads_added')).toBe('0 tech leads')
     expect(target('hire_tech_lead', 'tech_leads_added')).toBe('1 tech lead')
     expect(screen.getByTestId('option-change-row-value-hire_tech_lead-tech_leads_added').textContent).not.toContain('Increases')
   })
 
-  it('CONTROL: "Hire two developers" (developers_added: value 2) still reads "0 → 2 developer"', async () => {
+  it('CONTROL: "Hire two developers" (developers_added: value 2) still reads "0 → 2 developers"', async () => {
     await openBoard(hiring)
     await card('hire_two_developers')
     expect(before('hire_two_developers', 'developers_added')).toBe('0')
-    expect(target('hire_two_developers', 'developers_added')).toBe('2 developer')
+    expect(target('hire_two_developers', 'developers_added')).toBe('2 developers')
   })
 })
 
