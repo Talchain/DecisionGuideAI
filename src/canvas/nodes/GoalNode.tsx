@@ -681,8 +681,10 @@ export const GoalNode = memo((props: NodeProps) => {
   // the URL names: the default `openai` mode serves core too), on a goal with a stated target and unit.
   const savedModelIsCore = useSavedModelIsCore()
   // A level worked out from the goal's parts is not typed over: changing a part changes it (F3).
+  // Nor a goal CEE says is worked out (`value_basis`): its figure comes from its parts, so no empty today slot (UI-SURGICAL 5).
   const todayLevelEditable = savedModelIsCore && hasThreshold && typeof thresholdUnit === 'string' && thresholdUnit.trim() !== ''
     && todayLevel?.basis !== 'from_parts'
+    && (props.data as { value_basis?: { kind?: unknown } } | undefined)?.value_basis?.kind !== 'worked_out'
   const partLabelOf = (id: string) => nodes.find(n => n.id === id)?.data?.label as string | undefined
   const todayLevelUnit = emptyValueUnit(thresholdUnit)
 

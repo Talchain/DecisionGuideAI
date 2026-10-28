@@ -47,6 +47,19 @@ describe('the goal says what it is worked out from, collapsed, in CEE’s words'
     expect(screen.getByTestId('goal-worked-out-words-launch_on_time').textContent).toBe(WORDS)
   })
 
+  // UI-SURGICAL 5: a worked-out figure comes from its parts, so the card has no empty "today" slot to type into.
+  it('no empty today slot on the worked-out goal', async () => {
+    await goal(chat as Json)
+    expect(screen.queryByTestId('goal-today-level-empty-launch_on_time')).toBeNull()
+  })
+
+  it('CONTRAST: the same goal without a worked-out basis keeps its empty today slot', async () => {
+    const graph = structuredClone(chat.graph) as Json
+    delete graph.nodes.find((n: Json) => n.id === 'launch_on_time').value_basis
+    await goal({ ...(chat as Json), graph })
+    expect(screen.queryByTestId('goal-today-level-empty-launch_on_time')).not.toBeNull()
+  })
+
   it('CONTRAST: a goal with no worked-out basis has no disclosure', async () => {
     const graph = structuredClone(chat.graph) as Json
     delete graph.nodes.find((n: Json) => n.id === 'launch_on_time').value_basis

@@ -50,7 +50,7 @@ function today(data: Record<string, unknown>, nodes: unknown[] = PARTS) {
   // Vision spec §3: the sentence is the line's hover and screen-reader text; the visible part is "today <figure>".
   const line = container.querySelector('[data-testid="goal-today-level-takings"]')
   const sentence = line?.querySelector('[data-testid="goal-today-level-takings-sentence"]')
-  return { text: line ? sentence?.textContent ?? '' : null, editor: container.querySelector('[data-testid="goal-today-level-editor-takings"]') }
+  return { text: line ? sentence?.getAttribute('aria-label') ?? '' : null, editor: container.querySelector('[data-testid="goal-today-level-editor-takings"]') }
 }
 
 afterEach(cleanup)
@@ -99,7 +99,7 @@ describe('vision spec §3 (23 Oct): the today line is "today <figure>" with its 
       hidden: shown?.getAttribute('aria-hidden') ?? null,
       glyph: shown?.querySelector('[data-today-glyph]')?.getAttribute('data-today-glyph') ?? null,
       // The sentence the hover (`Tooltip` content) and the screen reader both get.
-      title: line.querySelector('[data-testid="goal-today-level-takings-sentence"]')?.textContent ?? null,
+      title: line.querySelector('[data-testid="goal-today-level-takings-sentence"]')?.getAttribute('aria-label') ?? null,
     }
   }
 

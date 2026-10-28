@@ -3,11 +3,10 @@
  * its author as a glyph before the figure — your brief (page), worked out from the goal's parts (calculator), yours
  * (person), confirmed by you (tick), or Olumi's reading (the Olumi mark). The full sentence ("Today: 400 customers a
  * week — from your brief", "… — worked out from Weekly customers × Average spend per customer") is the hover and the
- * screen-reader text, so nothing the card said before is hidden.
+ * wrapper's accessible name, so nothing the card said before is hidden.
  */
 import { Calculator } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
-import { typography } from '../../../styles/typography'
 import type { GoalTodayLevel } from '../../domain/goalTarget'
 import { cardMark, type CardMarkIcon } from './cardMarks'
 import { SOURCE_MARK_GLYPH_CLASSES } from './EstimateMarker'
@@ -26,13 +25,13 @@ export function GoalTodayLevelText({ level, sentence, testId }: { level: GoalTod
   const Glyph = TODAY_GLYPH[level.basis]
   return (
     <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={sentence}>
-      <span className="inline" data-today-basis={level.basis}>
+      {/* The sentence is the wrapper's name, never a second text node, so page text says today once (UI-SURGICAL 5). */}
+      <span className="inline" role="group" aria-label={sentence} data-today-basis={level.basis} data-testid={`${testId}-sentence`}>
         <span aria-hidden="true" data-testid={`${testId}-visible`}>
           {GOAL_TODAY_WORD}{' '}
           <Glyph aria-hidden="true" data-today-glyph={level.basis} className={`${SOURCE_MARK_GLYPH_CLASSES} mr-0.5 align-[-1px]`} />
           {goalTodayLevelFigure(level)}
         </span>
-        <span className={typography.screenReaderOnly} data-testid={`${testId}-sentence`}>{sentence}</span>
       </span>
     </Tooltip>
   )
