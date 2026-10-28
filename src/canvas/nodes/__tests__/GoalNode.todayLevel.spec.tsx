@@ -97,9 +97,9 @@ const SERVED_CUT_COSTS = {
   goal_threshold_cap_provenance: 'target_derived_headroom',
 }
 // Vision spec §3 (23 Oct): the card shows "today <figure>" with an author glyph; the sentence these rows pin is the
-// line's hover and screen-reader text (`-sentence`), so every assertion below still binds the words a reader gets.
+// line's hover and the wrapper's accessible name (`-sentence`, aria-label), so every assertion below still binds the words a reader gets.
 const line = (container: HTMLElement) => container.querySelector('[data-testid="goal-today-level-goal-1"]')
-  ? container.querySelector('[data-testid="goal-today-level-goal-1-sentence"]')?.textContent ?? null
+  ? container.querySelector('[data-testid="goal-today-level-goal-1-sentence"]')?.getAttribute('aria-label') ?? null
   : null
 
 describe('GoalNode — today\'s level on a change goal', () => {

@@ -9,7 +9,8 @@ export function goalTodayLevelCopy(t: GoalTodayLevel, labelOf: (id: string) => s
   // #2747 r2: a level that is not a finite number is never printed (census B R2). The figure is today's LEVEL
   // (`goalTodayLevelFigure` carries the target-text reason at its one `formatGoalTarget` call).
   const figure = goalTodayLevelFigure(t)
-  if (t.basis === 'olumi_reading' && t.quote !== null) return `Today: ${figure} — Olumi's reading of ‘${t.quote}’`
+  // An Olumi reading with no quote is still Olumi's, never "you said" (UI-SURGICAL 5).
+  if (t.basis === 'olumi_reading') return t.quote !== null ? `Today: ${figure} — Olumi's reading of ‘${t.quote}’` : `Today: ${figure} — Olumi's reading`
   if (t.basis === 'from_brief') return `Today: ${figure} — from your brief`
   if (t.basis === 'from_parts') {
     // A product names its parts ("Weekly customers × Average spend per customer"); anything else, or a part with no

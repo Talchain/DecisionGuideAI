@@ -65,7 +65,7 @@ describe('a goal whose level CEE works out', () => {
     expect(today()?.textContent).toContain('today')
     expect(today()?.textContent).toContain('125')
     expect(document.querySelector(`[data-today-basis]`)?.getAttribute('data-today-basis')).toBe('from_parts')
-    expect(screen.getByTestId(`goal-today-level-${GOAL}-sentence`).textContent).toMatch(/^Today: 125 .* — worked out from its parts$/)
+    expect(screen.getByTestId(`goal-today-level-${GOAL}-sentence`).getAttribute('aria-label')).toMatch(/^Today: 125 .* — worked out from its parts$/)
     expect(screen.queryByTestId(`goal-today-level-editor-${GOAL}`)).toBeNull()
   })
 
