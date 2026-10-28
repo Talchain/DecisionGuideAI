@@ -20,7 +20,7 @@
 
 import { useState, useEffect, useId, useMemo, useRef } from 'react'
 import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import styles from '../Conversation.module.css'
 import { isV5Eligible } from '../../../v5/eligibility'
@@ -40,14 +40,15 @@ import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
-import { PANEL_LIST_BULLET } from '../panelLists'
+import { PANEL_LIST_BULLET, PANEL_LIST_CONTROLS } from '../panelLists'
 import {
   cardCannotBeShownInFull, changeIsOlumis, changeNotesOf, changeNotesSummary, isHeldCardChipId, OLUMI_CHANGE_MARK, proposalChangesSummary,
-  proposalChangeWords, READING_HEADING, REVIEW_PROPOSAL_PREFIX,
-  type ChangeNote, type ProposalChange,
+  proposalChangeWords, READING_HEADING, readingRowsInCheckOrder, REVIEW_PROPOSAL_PREFIX,
+  type ChangeNote, type Proposal, type ProposalChange,
 } from '../proposalFields'
-import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
+import { useSavedModelIsProgram, useSavedModelProgramState } from '../../nodes/shared/savedModelProgram'
 import { cardMark, type CardMarkIcon } from '../../nodes/shared/cardMarks'
+import { openNodeInspector } from '../../nodes/shared/openNodeInspector'
 import { scrollWithinThread } from '../hooks/threadScroll'
 
 /** Olumi's row on the review card: the Olumi mark, its words on hover and in its name (Paul 24 Oct: no default text). */
@@ -205,6 +206,113 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+/** The first screen's words (Paul, 27 Oct): a row's tick, the press that confirms the ticked rows, and the unfold. */
+export const READING_ROW_TICK = 'That’s right'
+export const readingConfirmLabel = (n: number): string => `Confirm (${n})`
+export const readingShowAllLabel = (n: number): string => `Show all (${n})`
+/** How many rows to check the folded list shows. */
+const READING_ROWS_FOLDED = 3
+
+/**
+ * One row of the first screen's reading list: its tick, its name and Olumi's mark when it is Olumi's. A row whose record
+ * is a card on the canvas highlights it on hover or focus (the canvas's own `highlightedNodes`) and opens its panel on a
+ * click (`openNodeInspector`); a note has no card, so no highlight, and a click opens CEE's words for it in place.
+ */
+function ReadingCheckRow({ change: c, ticked, disabled, onTick }: { change: ProposalChange; ticked: boolean; disabled: boolean; onTick: () => void }) {
+  const [open, setOpen] = useState(false)
+  const detailId = useId()
+  const key = `${c.kind}:${c.id}`
+  const onCanvas = useCanvasStore((s) => s.nodes.some((n) => n.id === c.id))
+  const highlighting = useRef(false)
+  const highlight = (on: boolean) => {
+    if (!onCanvas || highlighting.current === on) return
+    highlighting.current = on
+    useCanvasStore.getState().setHighlightedNodes(on ? [c.id] : [])
+  }
+  // A row that goes (the card answered, the list folded) takes its highlight with it.
+  useEffect(() => () => { if (highlighting.current) useCanvasStore.getState().setHighlightedNodes([]) }, [])
+  return (
+    <li data-author={c.author} className={`${styles.reasoningPanelBody} ${changeIsOlumis(c) ? CHANGE_NOTE_SOURCE_CLASS.estimate : ''}`}
+      data-testid={`proposal-change-${key}`} onMouseEnter={() => highlight(true)} onMouseLeave={() => highlight(false)}
+      onFocus={() => highlight(true)} onBlur={() => highlight(false)}>
+      <span className="flex min-w-0 items-center gap-1.5">
+        {/* A 24px target (WCAG 2.2 SC 2.5.8) around the 16px tick. */}
+        <button type="button" aria-pressed={ticked} aria-label={`${READING_ROW_TICK}: ${c.label}`} title={READING_ROW_TICK}
+          disabled={disabled} onClick={onTick} data-testid={`reading-tick-${key}`}
+          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-40">
+          <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full border transition-colors ${
+            ticked ? 'border-primary bg-primary text-text-on-color' : 'border-field text-text-light hover:text-text-body'}`}>
+            <Check size={12} aria-hidden="true" />
+          </span>
+        </button>
+        <button type="button" className="flex min-w-0 text-left" data-testid={`proposal-change-open-${key}`}
+          onClick={() => { if (!openNodeInspector(c.id)) setOpen((v) => !v) }}
+          {...(onCanvas ? {} : { 'aria-expanded': open, 'aria-controls': open ? detailId : undefined })}>
+          <span className="truncate">{c.label}</span>
+          {changeIsOlumis(c) && <OlumiRowMark testId={`proposal-change-olumi-${key}`} />}
+        </button>
+      </span>
+      {open && !onCanvas && <p id={detailId} data-testid={`proposal-change-detail-${key}`}>{proposalChangeWords(c)}</p>}
+    </li>
+  )
+}
+
+/**
+ * ⭐ NO BLANKET CARD (Paul's first screen, 27 Oct, a program board). The reading card offers no whole-card approve, "Not now"
+ * or "Change something first": a person who ignores it loses nothing, since every item stays Olumi's provisional reading.
+ * It starts folded: the heading, the counted marks (when CEE groups every row), the top rows to check
+ * (`readingRowsInCheckOrder`) and "Show all (N)". The person ticks the rows that are right; "Confirm (N)" sends the card's
+ * OWN approve press with the ticked ids (`approve_ids`, CEE #3793 D4), and CEE answers with a host reply and the card again,
+ * holding only the rows still open.
+ */
+function ReadingChecklist({ proposal: p, disabled, onConfirm }: { proposal: Proposal; disabled: boolean; onConfirm: (ids: string[]) => void }) {
+  const changes = useMemo(() => p.changes ?? [], [p.changes])
+  const rows = useMemo(() => readingRowsInCheckOrder(changes), [changes])
+  const [all, setAll] = useState(false)
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set())
+  const listId = useId()
+  const grouped = changes.every((c) => c.group !== undefined)
+  // Distinct record ids, in the card's order: CEE refuses a repeated id (422), so a record listed twice is sent once.
+  const tickedIds = [...new Set(changes.map((c) => c.id).filter((id) => ticked.has(id)))]
+  const toggle = (id: string) => setTicked((prev) => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
+  return (
+    <div className={styles.reasoningPanel} style={{ marginTop: 12, marginBottom: -4 }} data-testid={`proposal-change-notes-${p.proposal_id}`}>
+      <p className={styles.reasoningPanelHeading} data-testid={`proposal-change-summary-${p.proposal_id}`}>{READING_HEADING}</p>
+      {grouped && (
+        <div className="flex flex-wrap items-center gap-3 text-text-light" data-testid={`reading-count-${p.proposal_id}`}>
+          {READING_GROUP_MARKS.map(({ group, words, Icon }) => {
+            const count = changes.filter((c) => c.group === group).length
+            return <span key={group} role="img" className={`${typography.chatMeta} inline-flex items-center gap-1`} aria-label={`${words}: ${count}`}
+              title={words} data-testid={`reading-group-${p.proposal_id}-${group}`}><Icon size={12} aria-hidden="true" />{count}</span>
+          })}
+        </div>
+      )}
+      <ul id={listId} className={`${PANEL_LIST_CONTROLS} mt-2`}>
+        {(all ? rows : rows.slice(0, READING_ROWS_FOLDED)).map((c) => (
+          <ReadingCheckRow key={`${c.kind}:${c.id}:${c.action}`} change={c} ticked={ticked.has(c.id)} disabled={disabled} onTick={() => toggle(c.id)} />
+        ))}
+      </ul>
+      {rows.length > READING_ROWS_FOLDED && (
+        <button type="button" className={`${styles.inlineDisclosureToggle} mt-1`} onClick={() => setAll((v) => !v)}
+          aria-expanded={all} aria-controls={listId} data-testid={`reading-show-all-${p.proposal_id}`}>
+          {all ? <><ChevronUp size={12} aria-hidden="true" /> Hide details</> : <><ChevronDown size={12} aria-hidden="true" /> {readingShowAllLabel(rows.length)}</>}
+        </button>
+      )}
+      <div className="flex mt-3">
+        <button type="button" className={`suggested-chip ${CHIP_PRIMARY_CLASS}`} disabled={disabled || tickedIds.length === 0}
+          aria-disabled={disabled || tickedIds.length === 0} onClick={() => onConfirm(tickedIds)} data-testid={`reading-confirm-${p.proposal_id}`}>
+          {readingConfirmLabel(tickedIds.length)}
+        </button>
+      </div>
     </div>
   )
 }
@@ -433,7 +541,8 @@ export function SuggestedChips({
   const [openedProposalId, setOpenedProposalId] = useState<string | null>(null)
   const [chipError, setChipError] = useState<string | null>(null)
   // A program board lists every change on every card: what its approve may apply is decided by `cardCannotBeShownInFull`.
-  const program = useSavedModelIsProgram()
+  const programState = useSavedModelProgramState()
+  const program = programState === 'program'
   const analysisStatus = useAnalysisStatus()
   // CEE's own admission verdict for this turn. `undefined` on a pre-`may_run`
   // CEE, which `admitsRunAffordance` reads as "fall back to `status`".
@@ -632,8 +741,16 @@ export function SuggestedChips({
   // the wire and the reopen reader (`readServerHeldProposalOffers`, actions[1]) still carry it.
   const rowCards = (bindable?.proposals ?? []).filter(p => chips.some(c => c.id === p.approve_action.id || c.id === p.review_action?.id))
   const readingOnlyRow = rowCards.length > 0 && rowCards.every(p => p.reading)
+  // ⭐ NO BLANKET CARD (Paul's first screen, 27 Oct). On a program board a reading card this row offers, whose every change
+  // can be shown, is the reading list (`ReadingChecklist`): its approve and "Not now" are not chips, and its rows are
+  // confirmed item by item. Read as a program board until the saved-model read says it is not one: a reading card is only
+  // ever a program card, and a whole-card approve must not show while the read is out. A card that cannot be shown in
+  // full keeps today's card, its approve disabled with its reason.
+  const checklistCards = programState === 'not_program' ? [] : rowCards.filter(p => p.reading && p.changes !== null
+    && p.changes.length > 0 && !cardCannotBeShownInFull(p, program) && chips.some(c => c.id === p.approve_action.id))
+  const checklistChipIds = new Set(checklistCards.flatMap(p => [p.approve_action.id, p.decline_action.id]))
   const renderable = polished.filter((c) => isChipRenderable(c) && !(rerunOwnedByHost && isRunAnalysisAffordance(c))
-    && !(readingOnlyRow && c.id === 'agent-amend-proposal'))
+    && !(readingOnlyRow && c.id === 'agent-amend-proposal') && !(typeof c.id === 'string' && checklistChipIds.has(c.id)))
   // GOAL-REACH guided path: the presses are matched by IDENTITY (press id === chip id), never by label, and keep CEE's
   // order. They are the method's own list (like a plan pick), so the cap applies only to the chips beside them.
   // The click carries CEE's own press parameters with the chip id (the wire action has no `parameters` slot).
@@ -679,7 +796,7 @@ export function SuggestedChips({
     heldRowRef.current = liveRow
   }
   const { visible, showRerunLabel, runGateClosed, runGateReason, guidedProgressLine } = heldRowRef.current
-  if (visible.length === 0) return null
+  if (visible.length === 0 && checklistCards.length === 0) return null
 
   const disabled = isThinking || isHistorical
   const showRunGateReason = runGateReason !== undefined && visible.some(isRunAnalysisAffordance)
@@ -745,6 +862,15 @@ export function SuggestedChips({
     })
   }
 
+  /** "Confirm (N)": the card's own approve press (its chip id and message), bound to the card, with the ticked ids. */
+  function confirmRows(p: Proposal, ids: string[]) {
+    const approve = chips.find(c => c.id === p.approve_action.id)
+    if (approve === undefined || bindable === null || ids.length === 0) return
+    handleClick({ ...approve, label: readingConfirmLabel(ids.length), proposalEdits: {
+      proposal_id: p.proposal_id, revision: p.revision, digest: p.digest, graph_hash: bindable.graph_hash, fields: [], approve_ids: ids,
+    } })
+  }
+
   return (
     <div className="flex flex-col self-start gap-1 mb-4">
       {heldProposalEarlier && (
@@ -782,7 +908,11 @@ export function SuggestedChips({
         if (p.changes !== null ? p.changes.length === 0 : notes.length === 0) return null
         return <ChangeNotesPanel key={`change-notes-${p.proposal_id}`} proposalId={p.proposal_id} notes={notes} changes={p.changes} reading={p.reading} />
       })}
-      <div
+      {checklistCards.map(p => (
+        <ReadingChecklist key={`reading-checklist-${p.proposal_id}:${p.revision}`} proposal={p} disabled={disabled}
+          onConfirm={(ids) => confirmRows(p, ids)} />
+      ))}
+      {visible.length > 0 && <div
         className="flex flex-wrap gap-1.5 mt-3"
         data-testid="suggested-chips"
       >
@@ -871,7 +1001,7 @@ export function SuggestedChips({
             </button>
           )
         })}
-      </div>
+      </div>}
 
 
       {/* The gate's own sentence, verbatim, under the row it explains. It is

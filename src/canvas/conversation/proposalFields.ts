@@ -110,6 +110,19 @@ export function proposalChangeWords(c: ProposalChange): string {
 export const OLUMI_CHANGE_MARK = 'Olumi’s'
 /** Is this row Olumi's? `author: 'olumi'`, unless it is a fixed part of the structure, which is nobody's (W3b). */
 export const changeIsOlumis = (c: ProposalChange): boolean => c.author === 'olumi' && c.structure !== true
+/**
+ * ⭐ THE READING LIST'S ORDER (first screen, Paul 27 Oct): the card's own rows in the card's own order, Olumi's first (its
+ * author, or CEE's Olumi group `inferred`, "Olumi's, for you to check"), then the person's as Olumi read them, then the
+ * rest (a fixed part of the structure). No other ranking rule.
+ */
+export function readingRowsInCheckOrder(changes: readonly ProposalChange[]): ProposalChange[] {
+  const olumis = (c: ProposalChange) => changeIsOlumis(c) || c.group === 'inferred'
+  return [
+    ...changes.filter(olumis),
+    ...changes.filter((c) => !olumis(c) && c.author === 'person'),
+    ...changes.filter((c) => !olumis(c) && c.author !== 'person'),
+  ]
+}
 const CHANGE_KIND_NOUNS: Readonly<Record<ProposalChange['kind'], string>> = {
   goal: 'goal', quantity: 'figure', relation: 'calculation', option: 'option', risk: 'risk', record: 'other item', left_out: 'left-out item',
 }
@@ -189,6 +202,13 @@ export interface ProposalEdits {
   digest: string
   graph_hash: string
   fields: Array<{ field_id: string; band: Band } | { field_id: string; value: number }>
+  /**
+   * The reading card's ticked rows (first screen; CEE #3793 D4): its record ids, distinct, only beside that card's own
+   * approve. Sent at the top of the request as `approve_ids`, never inside `proposal_edits` (`buildV5Payload`). It rides
+   * here so every resend of the press (a retry, a deferred send) carries the same rows: without them CEE approves the
+   * whole card.
+   */
+  approve_ids?: string[]
 }
 export type ProposalPanelAction = ActionChip & { proposalEdits?: ProposalEdits }
 
