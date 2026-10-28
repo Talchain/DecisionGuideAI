@@ -90,6 +90,22 @@ describe('a folded switch is said on its option card, in CEE’s words', () => {
     expect(text).not.toContain('specialist_support')
   })
 
+  // UI-SURGICAL 4: CEE's state words name a switch whose card stays on the canvas too ("0 → 1" read as a count).
+  it('with the card on the canvas, CEE\u2019s "In use" reads "Not in use → In use", never "0 → 1"', async () => {
+    const graph = structuredClone(chat.graph) as Json
+    const opt = graph.nodes.find((n: Json) => n.id === 'specialist_assisted_delivery')
+    opt.interventions.specialist_support = { ...opt.interventions.specialist_support, label: 'External AI specialist support', display_value: 'In use' }
+    await openBoard({ ...chat, graph } as Json)
+    await card('specialist_assisted_delivery')
+    expect(cell('specialist_assisted_delivery', 'specialist_support').textContent).toContain('Not in use → In use')
+  })
+
+  it('CONTRAST: a bare "1" from CEE is not made a switch by the UI (its unit and figures cannot mint one)', async () => {
+    await openBoard(chat as Json)
+    await card('specialist_assisted_delivery')
+    expect(cell('specialist_assisted_delivery', 'specialist_support').textContent).not.toContain('In use')
+  })
+
   it('CONTROL: with the card on the canvas, the row is named from the card, as before', async () => {
     await openBoard(chat as Json)
     await card('specialist_assisted_delivery')
