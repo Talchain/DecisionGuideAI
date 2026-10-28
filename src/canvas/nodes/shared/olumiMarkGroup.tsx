@@ -29,6 +29,8 @@ export interface OlumiMarkEntry {
   text: string
   /** An Olumi figure the user accepted — still Olumi's number, said as such. */
   accepted?: boolean
+  /** How many figures this one mark covers (an option's one mark for several targets); 1 when absent. */
+  count?: number
   /** The mark's route to its source detail (the inspector), if it had one. */
   onOpen?: () => void
 }
@@ -48,7 +50,7 @@ export function OlumiMarkGroupProvider({ children }: { children: ReactNode }) {
       const at = prev.findIndex(e => e.id === entry.id)
       if (at === -1) return [...prev, entry]
       const old = prev[at]
-      if (old.role === entry.role && old.text === entry.text && old.accepted === entry.accepted && old.onOpen === entry.onOpen) return prev
+      if (old.role === entry.role && old.text === entry.text && old.accepted === entry.accepted && old.count === entry.count && old.onOpen === entry.onOpen) return prev
       const next = prev.slice()
       next[at] = entry
       return next
@@ -75,8 +77,9 @@ export function olumiMergedLabel(entries: readonly OlumiMarkEntry[]): string {
     if (e.role !== 'estimate') continue
     const key = `${e.text}\u0000${e.accepted ? 1 : 0}`
     const g = groups.get(key)
-    if (g) g.count += 1
-    else groups.set(key, { noun: e.text, accepted: Boolean(e.accepted), count: 1 })
+    const n = e.count ?? 1
+    if (g) g.count += n
+    else groups.set(key, { noun: e.text, accepted: Boolean(e.accepted), count: n })
   }
   for (const g of groups.values()) clauses.push(estimateClause(g.noun, g.count, g.accepted))
   return clauses.join(' · ')
@@ -103,10 +106,11 @@ export function useOlumiMarkSlot(entry: OlumiMarkEntry | null): OlumiMarkSlot {
   const role = entry?.role
   const text = entry?.text
   const accepted = entry?.accepted
+  const count = entry?.count
   useLayoutEffect(() => {
     if (!register || role === undefined || text === undefined) return
-    return register({ id, role, text, accepted, onOpen: stableOpen })
-  }, [register, id, role, text, accepted, stableOpen])
+    return register({ id, role, text, accepted, count, onOpen: stableOpen })
+  }, [register, id, role, text, accepted, count, stableOpen])
 
   if (!group || !entry) return { render: 'self' }
   const entries = group.entries
@@ -117,7 +121,7 @@ export function useOlumiMarkSlot(entry: OlumiMarkEntry | null): OlumiMarkSlot {
   return {
     render: 'merged',
     label: olumiMergedLabel(entries),
-    estimateCount: entries.filter(e => e.role === 'estimate').length,
+    estimateCount: entries.filter(e => e.role === 'estimate').reduce((n, e) => n + (e.count ?? 1), 0),
     onOpen,
   }
 }

@@ -187,13 +187,18 @@ export function NodeProvenanceMark({ nodeType, data, hideKind = null, place = 'a
   // ⭐ ONE OLUMI SPARKLE PER CARD (Paul, 14 Oct 2026; `olumiMarkGroup.tsx`): the card's Olumi-authorship mark joins
   // the card's Olumi value marks; where there are two or more, it renders the ONE merged sparkle naming them all.
   // Only the Olumi glyph joins — "From your brief" and every other kind keep their own mark.
-  // The title-row authorship mark stands alone (it is never merged into the band's mark).
-  const olumiMark = hidden || place === 'title' ? undefined : marks.find(m => sourceCardMarkId(m.kind) === 'source-olumi')
+  // Paul, 27–28 Oct: the authorship mark now sits on the bottom row too, so it joins the one merged mark there; alone,
+  // it stays the plain glyph it was after the title.
+  const olumiMark = hidden ? undefined : marks.find(m => sourceCardMarkId(m.kind) === 'source-olumi')
   const slot = useOlumiMarkSlot(olumiMark ? { role: 'authorship', text: olumiAuthorshipClause(olumiMark, nodeType) } : null)
   // On a card the band's Olumi glyph asks Olumi about the card (`OlumiAskMark`, Paul 24 Oct); null off a card.
   const ask = useOlumiMarkAsk()
   if (hidden) return null
   if (place === 'title') {
+    if (slot.render === 'none') return null
+    if (slot.render === 'merged' && olumiMark) {
+      return <OlumiMergedMark label={slot.label} estimateCount={slot.estimateCount} onOpen={slot.onOpen} provenance={{ kind: olumiMark.kind, claim: olumiMark.claim }} />
+    }
     return (
       <span data-testid="node-title-authorship" className="inline-flex align-middle">
         {marks.map(m => <Fragment key={`${m.claim}-${m.kind}`}>{renderMark(m.claim, m.kind)}</Fragment>)}
