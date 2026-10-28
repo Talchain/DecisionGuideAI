@@ -5446,9 +5446,12 @@ export function useConversation(): UseConversationReturn {
           typeof quietAckResponse.graph_hash === 'string' && quietAckResponse.graph_hash.trim().length > 0 &&
           isRecord(quietAckResponse.draft_graph) &&
           Array.isArray(quietAckResponse.draft_graph.nodes) && Array.isArray(quietAckResponse.draft_graph.edges) &&
-          AnalysisStateV1Schema.safeParse(
+          (AnalysisStateV1Schema.safeParse(
             (quietAckResponse as OlumiResponseWithExtensions & { analysis_state?: unknown }).analysis_state,
           ).success
+            // A program board's figure edit (core route, Paul 28 Oct: "couldn't generate a response" after his figure was saved)
+            // carries no legacy analysis state: its own save receipt is the proof (C8), never a blank reply's absence of one.
+            || (readCoreTurn(quietAckResponse) !== null && hasOwnSaveReceipt(quietAckResponse)))
         // CEE's revision CAS can use error.v1 or additive code keys, retained as raw JSON by strict parsing.
         const conflictEnvelope = target.kind === 'typed_error'
           ? target.boundaryError ?? (v5Result.kind === 'parse_error' && v5Result.http_status === 409 ? target.rawBody : undefined)
