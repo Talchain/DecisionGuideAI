@@ -781,11 +781,11 @@ export function reconcileAppliedGraph(
     /** The existing same-turn Run/state/result-hash projection, only when legacy analysis_ready is absent. */
     readonly runStateFreshness?: Readonly<Record<string, string>>
     /**
-     * The graph is a VERSION RESTORE: the complete stored model, not a receipt.
-     * A key it omits is a key that version did not have, so nodes and edges it
+     * The graph is the COMPLETE STORED MODEL, not a receipt: a version restore, or a core turn's committed model
+     * (the saved program's whole projection). A key it omits is a key that model does not have, so nodes and edges it
      * carries are REPLACED from the wire (layout and every other root-level
      * React Flow field kept), not overlaid. See `replaceNodeFromWire`.
-     * Omitted → false: every receipt caller keeps the overlay rule.
+     * Omitted → false: every legacy receipt keeps the overlay rule.
      */
     readonly restoreReplace?: boolean
   },

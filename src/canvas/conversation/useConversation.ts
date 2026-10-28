@@ -6224,6 +6224,9 @@ export function useConversation(): UseConversationReturn {
                 // The same Run/state/hash projection applyV5State just used. Receipt reconciliation must not re-dirty
                 // that analysed graph merely because core retires analysis_ready; it still checks the held verdict.
                 runStateFreshness: runStateFreshnessVerdict(target.response),
+                // A core turn's graph is the saved program's whole projection: a figure CEE now withholds is gone,
+                // so the nodes it carries are replaced, as on a cold reopen (W8 run 4 H10). Legacy receipts keep the overlay.
+                restoreReplace: readCoreTurn(target.response) !== null,
               })
               if (receiptExtendsAcknowledgement) {
                 const afterReceipt = useCanvasStore.getState()
