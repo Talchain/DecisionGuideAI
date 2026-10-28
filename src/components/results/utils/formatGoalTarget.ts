@@ -74,7 +74,7 @@
  * 0.8 count render as "very high".
  */
 import { unnamedCurrencyWords } from '../../../utils/unnamedCurrencyUnit'
-import { classifyUnit, compactUnitParts, ISO_CURRENCY_GLYPHS, joinCompactUnitParts, timeUnitForCount, unitIsDisplayable } from '../../../utils/unitClassifier'
+import { classifyUnit, compactUnitParts, ISO_CURRENCY_GLYPHS, joinCompactUnitParts, unitForCount, unitIsDisplayable } from '../../../utils/unitClassifier'
 import { formatTargetValue } from './formatTargetValue'
 import { goalHeldComparatorOf, goalQuantityFrameOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, isGoalPercentUnit, type GoalTargetChangeFrame } from '../../../canvas/domain/goalTarget'
 
@@ -203,7 +203,7 @@ export function formatGoalTarget(value: number, unit: string | null | undefined,
    */
   const compact = compactUnitParts(value.toLocaleString(), canonical)
   if (compact !== null) return joinCompactUnitParts(compact)
-  return `${value.toLocaleString()} ${timeUnitForCount(value, canonical)}`
+  return `${value.toLocaleString()} ${unitForCount(value, canonical)}`
 }
 
 function goalChangeParts(
