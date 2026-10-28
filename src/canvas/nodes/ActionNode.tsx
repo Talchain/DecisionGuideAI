@@ -7,6 +7,12 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { resolveElementLabel } from '../domain/elementLabel'
+import { withheldReasonLine } from '../domain/linkWords'
+import { useSavedGraph } from './shared/savedGraph'
+import { programNodeWithheldReason } from './shared/savedModelProgram'
+
+/** Q1 readers (DL G5): a program's limit card, as CEE projects it (`mp:limit:<id>`, kind 'action'). */
+const LIMIT_CARD_PREFIX = 'mp:limit:'
 
 const authoredText = (value: unknown) =>
   typeof value === 'string' && value.trim() ? value : null
@@ -23,6 +29,9 @@ export const ActionNode = memo((props: NodeProps) => {
     : summary
   const nodes = useCanvasStore(state => state.nodes)
   const edges = useCanvasStore(state => state.edges)
+  // Q1 readers: why this limit's outcome is not calculated, in CEE's words, from the saved read (as the goal card).
+  const savedGraph = useSavedGraph()
+  const withheldReason = props.id.startsWith(LIMIT_CARD_PREFIX) ? programNodeWithheldReason(savedGraph, props.id) : null
 
   // An edge supplies context, not proof of what this action tests or achieves.
   const connections = useMemo(() => edges.flatMap(edge => {
@@ -88,6 +97,12 @@ export const ActionNode = memo((props: NodeProps) => {
         {connections.length > 0 && (
           <p data-testid="action-connections" className={`${typography.nodeLabel} text-text-light m-0 line-clamp-1 break-words`}>
             Linked: {connections[0].label}{connections.length > 1 ? ` (+${connections.length - 1})` : ''}
+          </p>
+        )}
+
+        {withheldReason !== null && (
+          <p data-testid={`action-withheld-reason-${props.id}`} className={`${typography.nodeLabel} text-text-light m-0 break-words`}>
+            {withheldReasonLine(withheldReason)}
           </p>
         )}
 

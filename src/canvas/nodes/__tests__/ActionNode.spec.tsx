@@ -9,6 +9,7 @@ import { ActionNode } from '../ActionNode'
 import { NODE_REGISTRY } from '../../domain/nodes'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
+import words from '../shared/__tests__/fixtures/q1-words-graph.hand-made.json'
 
 // Mock ResizeObserver for React Flow
 vi.mock('@xyflow/react', async () => {
@@ -18,6 +19,10 @@ vi.mock('@xyflow/react', async () => {
     Handle: () => null, // Simplified handle for tests
   }
 })
+
+// Q1 readers: the saved read a limit card's withheld reason comes from; none unless a row sets one.
+const savedRead = vi.hoisted(() => ({ graph: null as unknown }))
+vi.mock('../shared/savedGraph', async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), useSavedGraph: () => savedRead.graph }))
 
 const defaultProps = {
   id: 'action-1',
@@ -175,5 +180,28 @@ describe('ActionNode - NODE_REGISTRY integration', () => {
     const { defaultSize } = NODE_REGISTRY.action
     expect(defaultSize.width).toBe(220)
     expect(defaultSize.height).toBe(100)
+  })
+})
+
+// Q1 readers (DL GO G5, 28 Oct): a limit card (`mp:limit:<id>`, kind 'action') whose outcome is not calculable says why,
+// in the goal card's one muted line, from the saved read's `withheld_reason`. Hand-made graph.
+describe('ActionNode — a limit card that is not calculated says why', () => {
+  const limit = words.nodes.find((n) => n.id === 'mp:limit:budget')!
+  beforeEach(() => { useCanvasStore.setState({ nodes: [], edges: [] }); savedRead.graph = null })
+  it('"Not calculated yet: <reason>", muted', () => {
+    savedRead.graph = words
+    renderWithProvider({ id: limit.id, data: { label: limit.label, description: limit.description, type: 'action' } })
+    const line = screen.getByTestId('action-withheld-reason-mp:limit:budget')
+    expect(line.textContent).toBe('Not calculated yet: Its figure is not given yet.')
+    expect(line.className).toContain('text-text-light')
+  })
+  it('CONTRAST: no saved reason, or a card that is not a limit, has no such line', () => {
+    renderWithProvider({ id: limit.id, data: { label: limit.label, type: 'action' } })
+    expect(screen.queryByTestId('action-withheld-reason-mp:limit:budget')).toBeNull()
+    const g = structuredClone(words) as { nodes: Array<Record<string, unknown>> }
+    g.nodes.push({ id: 'action-1', kind: 'action', label: 'Send notification', withheld_reason: 'Not a limit.' })
+    savedRead.graph = g
+    renderWithProvider()
+    expect(screen.queryByText(/Not calculated yet/)).toBeNull()
   })
 })

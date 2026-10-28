@@ -187,7 +187,8 @@ import { resolveFactorValueAdmission } from '../conversation/factorValueEdit'
 // ⭐⭐ THE ONE DISPLAY READER OF A FACTOR'S PRIOR RANGE — the owner the card and
 // the reduced low-zoom line already share. See `recordedRangeText` below.
 import { resolveFactorPriorRange, userValueReplacesPrior } from '../nodes/shared/factorPriorRange'
-import { programCoefficientOf, programFigureWords, programQuantityOf, type ProgramQuantity } from '../nodes/shared/savedModelProgram'
+import { programCoefficientOf, programFigureWords, programLinkWords, programQuantityOf, type ProgramQuantity } from '../nodes/shared/savedModelProgram'
+import { linkExistenceSentence, type LinkWords } from '../domain/linkWords'
 import type {
   AttentionReason,
   ModelElementKind,
@@ -1271,7 +1272,8 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
     interventions: [],
     // A relationship is not an option, so there is nothing it could change.
     interventionCandidates: [],
-    advancedParameters: buildAdvancedForEdge(edge.id, data, routeOnceHeldIds(input.nodes, input.edges).has(edge.id)),
+    advancedParameters: buildAdvancedForEdge(edge.id, data, routeOnceHeldIds(input.nodes, input.edges).has(edge.id),
+      programLinkWords(input.savedGraph, edge.id, String(edge.source), String(edge.target))),
   }
 }
 
@@ -1475,12 +1477,13 @@ function buildAdvancedForNode(id: string, obs: ObservedState | undefined) {
  *     read empty. `resolveEdgeValueDisplay(data, 'beliefExists')` owns that
  *     spelling — including the legacy `belief` leg — in one place.
  */
-function buildAdvancedForEdge(id: string, data: Record<string, unknown> | undefined, routeOnceHeld: boolean) {
+function buildAdvancedForEdge(id: string, data: Record<string, unknown> | undefined, routeOnceHeld: boolean, linkWords: LinkWords | null = null) {
   const std = resolveEdgeValueDisplay(data, 'strengthStd')
   const ep = resolveEdgeValueDisplay(data, 'beliefExists', { routeOnceHeld })
   return [
     { label: 'Edge ID', value: id },
     { label: 'Std', value: std.show ? String(std.value) : null },
-    { label: 'Exists probability', value: ep.show ? String(ep.value) : null },
+    // Q1 readers: a link in words' wire `exists_probability: 1` is nobody's; its stated confidence is said in words.
+    { label: 'Exists probability', value: linkWords !== null ? linkExistenceSentence(linkWords) : ep.show ? String(ep.value) : null },
   ]
 }

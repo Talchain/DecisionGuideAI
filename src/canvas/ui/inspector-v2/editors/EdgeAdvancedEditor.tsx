@@ -10,6 +10,9 @@ import { useCanvasStore } from '../../../store'
 import { resolveEdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 import { isStrengthDefinitional, STRENGTH_HOLDS_BY_DEFINITION } from '../../../domain/strengthDefinitional'
 import { METRIC_UNSET } from '../../../nodes/shared/metricVocabulary'
+import { useSavedGraph } from '../../../nodes/shared/savedGraph'
+import { programLinkWords } from '../../../nodes/shared/savedModelProgram'
+import { LINK_DIRECTION_WORDS, linkExistenceSentence } from '../../../domain/linkWords'
 import { useEdgeMutations } from '../useInspectorMutations'
 import { EDGE_COPY } from '../inspectorStrings'
 import { typography } from '../../../../styles/typography'
@@ -82,6 +85,9 @@ function unsetHelper(definition: string): string {
 
 export function EdgeAdvancedEditor({ edgeId, linkKind, onSendSettled }: EdgeAdvancedEditorProps) {
   const edge = useCanvasStore(s => s.edges.find(e => e.id === edgeId))
+  // Q1 readers: a link in words has no existence figure; its wire `exists_probability: 1` is nobody's.
+  const savedGraph = useSavedGraph()
+  const linkWords = edge ? programLinkWords(savedGraph, edge.id, String(edge.source), String(edge.target)) : null
   const mutations = useEdgeMutations(edgeId)
 
   const direction = edge?.data?.direction ?? 'positive'
@@ -295,23 +301,28 @@ export function EdgeAdvancedEditor({ edgeId, linkKind, onSendSettled }: EdgeAdva
           placeholder={stdDisplay.show ? undefined : METRIC_UNSET.standalone}
           helperText={stdDisplay.show ? SIGMA_DEFINITION : unsetHelper(SIGMA_DEFINITION)}
         />
-        <AdvancedField
-          label="Effect direction"
-          value={direction}
-          onChange={strengthIsDefinitional ? undefined : v => mutations.setDirection(v as 'positive' | 'negative')}
-          disabled={strengthIsDefinitional}
-          type="select"
-          options={[
-            { value: 'positive', label: 'positive' },
-            { value: 'negative', label: 'negative' },
-          ]}
-        />
+        {/* Q1 readers: a link in words states its direction in words, read-only; never the defaulted "positive". */}
+        {linkWords !== null ? (
+          <AdvancedField label="Effect direction" value={LINK_DIRECTION_WORDS[linkWords.direction]} type="readonly" />
+        ) : (
+          <AdvancedField
+            label="Effect direction"
+            value={direction}
+            onChange={strengthIsDefinitional ? undefined : v => mutations.setDirection(v as 'positive' | 'negative')}
+            disabled={strengthIsDefinitional}
+            type="select"
+            options={[
+              { value: 'positive', label: 'positive' },
+              { value: 'negative', label: 'negative' },
+            ]}
+          />
+        )}
       </AdvancedFieldGroup>
 
       <AdvancedFieldGroup title="Structural uncertainty">
         <AdvancedField
           label="Existence probability"
-          value={existenceDisplay.show ? Number(existenceDisplay.value.toFixed(4)) : undefined}
+          value={linkWords === null && existenceDisplay.show ? Number(existenceDisplay.value.toFixed(4)) : undefined}
           // ⛔ FENCED (SD-1, DL triage 6 Oct, a8's finding): this setter performs ONE local `updateEdge` and sends no
           // event (no typed edit kind exists for it), so an edit here is lost on the next server read and never reaches a
           // Run — a false affordance. Disabled, as the panel's own note says ("Other edits here are not sent yet."),
@@ -321,9 +332,10 @@ export function EdgeAdvancedEditor({ edgeId, linkKind, onSendSettled }: EdgeAdva
           min={0.01}
           max={1}
           step={0.01}
-          placeholder={existenceDisplay.show ? undefined : METRIC_UNSET.standalone}
+          placeholder={linkWords !== null || existenceDisplay.show ? undefined : METRIC_UNSET.standalone}
           helperText={
-            existenceDisplay.show ? EXISTENCE_DEFINITION : unsetHelper(EXISTENCE_DEFINITION)
+            linkWords !== null ? linkExistenceSentence(linkWords)
+              : existenceDisplay.show ? EXISTENCE_DEFINITION : unsetHelper(EXISTENCE_DEFINITION)
           }
         />
       </AdvancedFieldGroup>

@@ -67,3 +67,42 @@ describe('the goal says what it is worked out from, collapsed, in CEE’s words'
     expect(screen.queryByTestId('goal-worked-out-launch_on_time')).toBeNull()
   })
 })
+
+// Q1 readers (DL GO, 28 Oct): a goal whose outcome is not calculable says why, in one muted line, from the SAVED READ's
+// `withheld_reason` (`programNodeWithheldReason`), never from node data an earlier session left on the canvas. Paul's
+// served board, with the field set as CEE now names it; the real hydrate and fetch path, so reopening is a fresh read.
+describe('Q1: a goal that is not calculated says why', () => {
+  const REASON = 'It rests on the link “Specialist support → Remaining implementation time”, which is in words with no figure.'
+  const board = (reason?: string): Json => {
+    const graph = structuredClone(chat.graph) as Json
+    const node = graph.nodes.find((x: Json) => x.id === 'launch_on_time')
+    if (reason === undefined) delete node.withheld_reason
+    else node.withheld_reason = reason
+    return { ...(chat as Json), graph }
+  }
+  const renderGoal = async (b: Json, dataPatch: Json = {}) => {
+    const { GoalNode } = await import('../GoalNode')
+    await openBoard(b)
+    const node = useCanvasStore.getState().nodes.find((x) => x.id === 'launch_on_time')!
+    render(<ReactFlowProvider><GoalNode {...({ id: 'launch_on_time', type: node.type, data: { ...node.data, ...dataPatch }, position: { x: 0, y: 0 }, selected: false, isConnectable: true, positionAbsoluteX: 0, positionAbsoluteY: 0, dragging: false, zIndex: 0 } as any)} /></ReactFlowProvider>)
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
+  }
+  const line = () => screen.queryByTestId('goal-withheld-reason-launch_on_time')
+
+  it('one muted line, "Not calculated yet: <reason>", and the same after reopening', async () => {
+    await renderGoal(board(REASON))
+    expect(line()?.textContent).toBe(`Not calculated yet: ${REASON}`)
+    expect(line()?.className).toContain('text-text-light')
+    cleanup()
+    await renderGoal(board(REASON))
+    expect(line()?.textContent).toBe(`Not calculated yet: ${REASON}`)
+  })
+  it('a reopened read without it says nothing, even where the card\'s node data still holds an old reason', async () => {
+    await renderGoal(board(), { withheld_reason: 'an older reason' })
+    expect(line()).toBeNull()
+  })
+  it('CONTROL: the goal as served has no such line', async () => {
+    await renderGoal(chat as Json)
+    expect(line()).toBeNull()
+  })
+})

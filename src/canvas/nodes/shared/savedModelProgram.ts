@@ -11,6 +11,7 @@ import { useCanvasStore } from '../../store'
 import { formatNumber } from '../../utils/formatValueWithUnit'
 import { unitWords } from '../../../utils/unitClassifier'
 import type { ValueProvenanceKind } from '../../domain/valueProvenance'
+import { readLinkWords, type LinkWords } from '../../domain/linkWords'
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
 
 type Rec = Record<string, unknown>
@@ -255,9 +256,9 @@ const relationsOf = (graph: unknown): Rec[] => {
  * by its power, a stock's start and inflows +, its outflows −, an effect's base +. Null for an effect's driver (its
  * size is its coefficient, said by the link's figure) and off a program.
  */
-export function programLinkOperator(graph: unknown, from: string, to: string): ProgramLinkOperator | null {
+export function programLinkOperator(graph: unknown, from: string, to: string, edgeId?: string): ProgramLinkOperator | null {
   // CEE #3859: a risk's link says how its severity applies (`effect_mode`); a multiplying risk draws ×.
-  if (programEdgeOf(graph, from, to)?.effect_mode === 'multiply') return '×'
+  if (programEdgeOf(graph, from, to, edgeId)?.effect_mode === 'multiply') return '×'
   for (const r of relationsOf(graph)) {
     if (r.defines !== to) continue
     const parts = Array.isArray(r.parts) ? r.parts.map(rec) : []
@@ -275,29 +276,64 @@ export function programLinkOperator(graph: unknown, from: string, to: string): P
   return null
 }
 
-/** The saved program edge from → to, or null off a program or for none. */
-function programEdgeOf(graph: unknown, from: string, to: string): Rec | null {
+/**
+ * The saved program edge for one link: by its exact id (CEE gives parallel links between the same cards their own ids,
+ * `…__2`), else by its endpoints only when exactly one saved edge joins them. Never the first of several (PL, Q1 readers
+ * BLOCK 1): two claims are not folded into one. Null off a program or for none.
+ */
+function programEdgeOf(graph: unknown, from: string, to: string, edgeId?: string): Rec | null {
   if (!isProgramGraph(graph)) return null
   const edges = rec(graph)?.edges
-  return Array.isArray(edges) ? rec(edges.find((e) => { const x = rec(e); return (x?.from ?? x?.source) === from && (x?.to ?? x?.target) === to })) : null
+  if (!Array.isArray(edges)) return null
+  const byId = edgeId === undefined ? null : rec(edges.find((e) => rec(e)?.id === edgeId))
+  if (byId) return byId
+  const joining = edges.map(rec).filter((x): x is Rec => x !== null && (x.from ?? x.source) === from && (x.to ?? x.target) === to)
+  return joining.length === 1 ? joining[0]! : null
 }
 
 /**
  * CEE #3859: the link's range crosses zero, so which way it pushes is not settled (`direction_settled: false`). The sign
  * CEE draws is its median's; the canvas says it is unsettled (vision §2b: "?" when the direction is not set).
  */
-export function programLinkDirectionUnsettled(graph: unknown, from: string, to: string): boolean {
-  return programEdgeOf(graph, from, to)?.direction_settled === false
+export function programLinkDirectionUnsettled(graph: unknown, from: string, to: string, edgeId?: string): boolean {
+  return programEdgeOf(graph, from, to, edgeId)?.direction_settled === false
 }
 
-export function useProgramLinkDirectionUnsettled(from: string, to: string): boolean {
+export function useProgramLinkDirectionUnsettled(from: string, to: string, edgeId?: string): boolean {
   const graph = useSavedGraph()
-  return useMemo(() => programLinkDirectionUnsettled(graph, from, to), [graph, from, to])
+  return useMemo(() => programLinkDirectionUnsettled(graph, from, to, edgeId), [graph, from, to, edgeId])
 }
 
-export function useProgramLinkOperator(from: string, to: string): ProgramLinkOperator | null {
+/**
+ * Q1 readers: what the link `edgeId` (from → to) states in words (`link_words`: an influence link, or an unsized risk's), as
+ * the saved read carries it on THAT edge (`programEdgeOf`: by id). Null for a numerical link, off a program, or for a
+ * value outside the contract. Read here, from the saved graph, as `direction_settled` is: a reopen reads it again and
+ * nothing on the canvas holds a copy.
+ */
+export function programLinkWords(graph: unknown, edgeId: string, from: string, to: string): LinkWords | null {
+  return readLinkWords(programEdgeOf(graph, from, to, edgeId)?.link_words)
+}
+
+export function useProgramLinkWords(edgeId: string, from: string, to: string): LinkWords | null {
   const graph = useSavedGraph()
-  return useMemo(() => programLinkOperator(graph, from, to), [graph, from, to])
+  return useMemo(() => programLinkWords(graph, edgeId, from, to), [graph, edgeId, from, to])
+}
+
+/**
+ * Q1 readers: why a goal card or a limit card (`mp:limit:<id>`) is not calculated, in CEE's words (`withheld_reason` on
+ * the saved read's node). From the saved read, never node data: the canvas keeps a key a later read drops
+ * (`overlayNode`), so a card's own copy can outlive the reason.
+ */
+export function programNodeWithheldReason(graph: unknown, nodeId: string): string | null {
+  if (!isProgramGraph(graph)) return null
+  const nodes = rec(graph)?.nodes
+  const reason = Array.isArray(nodes) ? rec(nodes.find((n) => rec(n)?.id === nodeId))?.withheld_reason : undefined
+  return typeof reason === 'string' && reason.trim() !== '' ? reason.trim() : null
+}
+
+export function useProgramLinkOperator(from: string, to: string, edgeId?: string): ProgramLinkOperator | null {
+  const graph = useSavedGraph()
+  return useMemo(() => programLinkOperator(graph, from, to, edgeId), [graph, from, to, edgeId])
 }
 
 /**

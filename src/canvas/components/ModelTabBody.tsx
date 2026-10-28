@@ -72,7 +72,7 @@ import { type ModelGroupId } from '../model-tab-v2/types'
 import { createOlumiHandOff, type OlumiSend } from '../conversation/olumiHandOff'
 import { useProgramBoardShowsResult } from '../../components/results/analysisNew/ViewOnlyRunChances'
 import { useSavedGraph } from '../nodes/shared/savedGraph'
-import { programLimitsWithoutFigure } from '../nodes/shared/savedModelProgram'
+import { programLimitsWithoutFigure, programLinkWords } from '../nodes/shared/savedModelProgram'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -801,22 +801,27 @@ export const ModelTabBody = memo(function ModelTabBody({
       // export cannot disagree with the screen about what is known.
       edges: sortedEdges.map(e => {
         const data = e.data as Record<string, unknown> | undefined
+        // Q1 readers (PL BLOCK 2): a link in words is exported as its stated claim (direction, confidence, basis), never
+        // the wire's plumbing `exists_probability: 1` as a belief, nor the mapper's defaulted "positive" as its direction.
+        const linkWords = programLinkWords(savedGraph, e.id, String(e.source), String(e.target))
         return {
           id: getDisplayEdgeId(e),
           source: e.source,
           target: e.target,
           weight: (data as Record<string, unknown> | undefined)?.weight ?? null,
           weightSource: edgeValueSource(data, 'weight'),
-          direction: (data as Record<string, unknown> | undefined)?.direction ?? null,
-          beliefExists: (data as Record<string, unknown> | undefined)?.beliefExists ?? null,
-          beliefExistsSource: edgeValueSource(data, 'beliefExists'),
+          ...(linkWords !== null ? { link_words: linkWords } : {
+            direction: (data as Record<string, unknown> | undefined)?.direction ?? null,
+            beliefExists: (data as Record<string, unknown> | undefined)?.beliefExists ?? null,
+            beliefExistsSource: edgeValueSource(data, 'beliefExists'),
+          }),
           provenance: (data as Record<string, unknown> | undefined)?.provenance ?? null,
         }
       }),
     }
     const json = JSON.stringify(payload, null, 2)
     navigator.clipboard?.writeText(json).catch(() => {})
-  }, [goalLabel, sortedFactors, sortedEdges, nodeLabels])
+  }, [goalLabel, sortedFactors, sortedEdges, nodeLabels, savedGraph])
 
   /**
    * The Olumi hand-off for the canonical outline's group affordances.

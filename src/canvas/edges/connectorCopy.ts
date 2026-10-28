@@ -78,9 +78,13 @@ export function edgeArrowSentence(
    * disputed block names the direction inside a sentence that says it is
    * disputed. "Not stated" would be false too — a direction IS stated.
    */
-  opts?: { readonly signDisputed?: boolean },
+  /**
+   * Q1 readers: a link in words states its direction in the popover's Direction row ("Depends on conditions"), so the
+   * arrow is stated alone; "Direction not stated" would be false for a conditional or disputed link.
+   */
+  opts?: { readonly signDisputed?: boolean; readonly directionInRow?: boolean },
 ): string {
-  if (opts?.signDisputed) return `${sourceLabel} → ${targetLabel}.`
+  if (opts?.signDisputed || opts?.directionInRow) return `${sourceLabel} → ${targetLabel}.`
   const clause = directionWord === null
     ? 'Direction not stated in this model.'
     : `${directionWord} direction in this model.`

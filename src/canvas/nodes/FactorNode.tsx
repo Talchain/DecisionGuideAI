@@ -1206,6 +1206,7 @@ export const FactorNode = memo((props: NodeProps) => {
               nodeKind={conn.connectedNodeKind}
               label={conn.connectedNodeLabel}
               confidencePct={conn.confidencePct}
+              confidenceWord={conn.confidenceWord}
             />
           ))}
           <ConnRowsOverflow total={outboundConnections.length} shown={3} />

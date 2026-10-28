@@ -51,13 +51,14 @@
  *   3. Arguments captured by a store-boundary spy (`updateEdgeData`).
  * jsdom cannot prove VISIBILITY or layout (platform trap 3).
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, fireEvent } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { Position } from '@xyflow/react'
 import { StyledEdge } from '../StyledEdge'
 import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
+import words from '../../nodes/shared/__tests__/fixtures/q1-words-graph.hand-made.json'
 import {
   resolveEdgeDirectionDisplay,
   resolveEdgeSignedStrengthDisplay,
@@ -131,6 +132,10 @@ vi.mock('../../store', () => ({
     })
   ),
 }))
+
+// Q1 readers: the saved read a link's words come from; none unless a row sets one.
+const savedRead = vi.hoisted(() => ({ graph: null as unknown }))
+vi.mock('../../nodes/shared/savedGraph', async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), useSavedGraph: () => savedRead.graph }))
 
 vi.mock('../../store/edgeLabelMode', () => ({
   useEdgeLabelMode: vi.fn((selector: any) => selector({ mode: 'human' })),
@@ -522,5 +527,25 @@ describe('StyledEdge edge label — strength words (ROADMAP 2.950, #627 lineage)
       expect(outer).not.toHaveBeenCalled()
       expect(updateEdgeDataSpy).not.toHaveBeenCalled()
     })
+  })
+})
+
+// Q1 readers (DL GO, 28 Oct): a link in words carries `exists_probability: 1`, which is nobody's belief. Its label, when
+// shown, says it is in words and not sized; the "Belief: 100%" tooltip is a numerical link's only. Hand-made graph's
+// conditional influence link, moved onto src → tgt.
+describe('Q1: a link in words labels itself "In words, not sized"', () => {
+  const wire: WireEdge = { ...structuredClone((words.edges as WireEdge[]).find((e) => e.id === 'evening_classes__member_mood')!), from: 'src', to: 'tgt' }
+  afterEach(() => { savedRead.graph = null })
+  it('with the saved words: "In words, not sized", and no figure on the label or its hover text', () => {
+    savedRead.graph = { edges: [wire], living_model: { model_program: 'v1' } }
+    const { container } = renderEdge(ingest(wire))
+    expect(labelClaim(container)).toBe('In words, not sized')
+    expect(labelTooltip(container)).not.toMatch(/Belief|%/)
+    expect(labelAria(container)).toContain('In words, not sized')
+  })
+  it('CONTROL: the same link with no saved words reads its wire figure as belief, as today', () => {
+    const { container } = renderEdge(ingest(wire))
+    expect(labelTooltip(container)).toContain('Belief: 100%')
+    expect(labelClaim(container)).not.toBe('In words, not sized')
   })
 })

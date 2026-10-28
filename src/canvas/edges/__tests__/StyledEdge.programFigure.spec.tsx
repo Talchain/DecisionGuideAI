@@ -12,6 +12,8 @@ import { render } from '@testing-library/react'
 import { Position } from '@xyflow/react'
 import { StyledEdge } from '../StyledEdge'
 import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
+import words from '../../nodes/shared/__tests__/fixtures/q1-words-graph.hand-made.json'
+import parallel from '../../nodes/shared/__tests__/fixtures/q1-parallel-links.hand-made.json'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -171,5 +173,55 @@ describe('an unsettled direction reads "?" on its own link', () => {
       expect(container.textContent).not.toContain('not settled')
       unmount()
     }
+  })
+})
+
+// Q1 readers (DL GO, 28 Oct): a link in words keeps "?" where no way is settled, and its accessible name gives the
+// stated direction in words; "Its range runs both ways" stays for a numerical range only. Hand-made graph.
+describe('Q1: a link in words names its stated direction on the "?"', () => {
+  const glyphOf = (container: HTMLElement, id: string) => container.querySelector(`div[data-edge-id="${id}"]`)
+  const edgeOf = (g: Rec, id: string) => (g.edges as Rec[]).find((e) => e.id === id)!
+  it.each([
+    ['conditional', 'evening_classes__member_mood', 'Effect direction: depends on conditions'],
+    ['unknown (an unsized risk)', 'rent_rise__keep_members', 'Effect direction: not known yet'],
+  ])('%s → "?" with its words, never the range sentence', (_label, id, aria) => {
+    saved.graph = words
+    const edge = edgeOf(words as Rec, id)
+    const { container } = render(<StyledEdge {...(edgeProps(edge) as any)} />)
+    expect(glyphOf(container, id)?.textContent).toBe('?')
+    expect(glyphOf(container, id)?.getAttribute('aria-label')).toBe(aria)
+    expect(container.innerHTML).not.toContain('runs both ways')
+  })
+  it('disputed → "?" with "Effect direction: disputed"', () => {
+    const g = structuredClone(words) as Rec
+    ;(edgeOf(g, 'evening_classes__member_mood').link_words as Rec).direction = 'disputed'
+    saved.graph = g
+    const edge = edgeOf(g, 'evening_classes__member_mood')
+    const { container } = render(<StyledEdge {...(edgeProps(edge) as any)} />)
+    expect(glyphOf(container, edge.id as string)?.getAttribute('aria-label')).toBe('Effect direction: disputed')
+  })
+  it('CONTROL: a numerical range across zero keeps its sentence', () => {
+    saved.graph = words
+    const edge = edgeOf(words as Rec, 'monthly_cost__keep_members')
+    const { container } = render(<StyledEdge {...(edgeProps(edge) as any)} />)
+    expect(glyphOf(container, edge.id as string)?.getAttribute('aria-label')).toBe('Effect direction: not settled. Its range runs both ways.')
+  })
+})
+
+// Q1 readers (PL BLOCK 1): two links between the same cards under their own ids, word-first and numeric-first. Each glyph
+// says its own record.
+describe('Q1: parallel links each draw their own glyph', () => {
+  it.each([
+    ['quality__members', '?', 'Effect direction: depends on conditions'],
+    ['quality__members__2', '+', 'Effect direction: positive'],
+    ['price__demand', '−', 'Effect direction: negative'],
+    ['price__demand__2', '?', 'Effect direction: disputed'],
+  ])('%s → "%s", "%s"', (id, glyph, aria) => {
+    saved.graph = parallel
+    const edge = (parallel.edges as Rec[]).find((e) => e.id === id)!
+    const { container } = render(<StyledEdge {...(edgeProps(edge) as any)} />)
+    const el = container.querySelector(`div[data-edge-id="${id}"]`)
+    expect(el?.textContent).toBe(glyph)
+    expect(el?.getAttribute('aria-label')).toBe(aria)
   })
 })
