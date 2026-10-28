@@ -46,15 +46,15 @@ describe('the success-target line reads the goal\'s own limit row', () => {
     expect(screen.queryByTestId(`${TID}-value`)).toBeNull()
     expect(screen.getByTestId(`${TID}-none`)).toBeInTheDocument()
   })
-  it('⭐ the graph\'s row: "at most 400 cancellations/month"', () => {
+  it('⭐ the graph\'s row: "at most 400 cancellations per month"', () => {
     state.goalConstraints = [SERVED_ROW]
     draw()
-    expect(screen.getByTestId(`${TID}-value`)).toHaveTextContent('at most 400 cancellations/month')
+    expect(screen.getByTestId(`${TID}-value`)).toHaveTextContent('at most 400 cancellations per month')
   })
   it('⭐ after a Run with the graph slice cleared: the run\'s rows say it', () => {
     state.results = { status: 'complete', report: { goal_constraints: [SERVED_ROW] } }
     draw()
-    expect(screen.getByTestId(`${TID}-value`)).toHaveTextContent('at most 400 cancellations/month')
+    expect(screen.getByTestId(`${TID}-value`)).toHaveTextContent('at most 400 cancellations per month')
   })
   it('CONTROL — another node\'s limit: still asks', () => {
     state.goalConstraints = [{ ...SERVED_ROW, node_id: 'pause_instead_of_cancel_availability' }]

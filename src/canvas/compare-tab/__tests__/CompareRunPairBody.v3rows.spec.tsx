@@ -118,7 +118,7 @@ describe('the row parts are read from the producer\'s row by identity', () => {
     expect(inputRowValues(at(49, 59, 'GBP per month'))).toMatchObject({ before: '£49 / month', after: '£59 / month' })
     expect(inputRowValues(at(1200, 1500, 'GBP'))).toMatchObject({ before: '£1,200', after: '£1,500' })
     // Controls: a unit neither owner recognises prints exactly as before, and the sentence carries the same reading.
-    expect(inputRowValues(at(12, 14, 'hours/week'))).toMatchObject({ before: '12 hours/week', after: '14 hours/week' })
+    expect(inputRowValues(at(12, 14, 'hours/week'))).toMatchObject({ before: '12 hours per week', after: '14 hours per week' })
     expect(inputRowText(at(39, 49, '£ per paying customer per month'))).toBe('Pro price, Raise to £60: £39 per paying customer / month → £49 per paying customer / month')
   })
 

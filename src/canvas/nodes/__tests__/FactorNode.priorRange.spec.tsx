@@ -586,12 +586,12 @@ describe('FactorNode prior range: a normalised range beside a real-scale value',
     })
     const text = container.textContent ?? ''
     // Bind by identity: this is the exact pair the witness captured.
-    expect(countOccurrences(container, '18 month')).toBe(1)
+    expect(countOccurrences(container, '18 months')).toBe(1)
     expect(text).not.toContain('Range: 0.08 to 0.28')
     expect(text).not.toContain('Range:')
     // The OWNER declines it too (the Model tab reads it), because of the
     // contradiction.
-    expect(ownerRange('18 month')).toBeNull()
+    expect(ownerRange('18 months')).toBeNull()
   })
 
   it('WITNESSED CASE — the value line SURVIVES the suppression: the card never goes blank', () => {
@@ -608,8 +608,8 @@ describe('FactorNode prior range: a normalised range beside a real-scale value',
       observedState: { raw_value: 18, value: 0.3, unit: 'month', factor_type: 'external' },
     })
     // Contract §02 (GAP 14): figure and unit word are separate elements now;
-    // bound to this card's own figure, its host still reads "18 month".
-    expect(screen.getByTestId('factor-value-figure-factor-1').parentElement!.textContent).toBe('18 month')
+    // bound to this card's own figure, its host still reads "18 months".
+    expect(screen.getByTestId('factor-value-figure-factor-1').parentElement!.textContent).toBe('18 months')
     // The exact before/after of this card, pinned. BEFORE (measured at
     // pristine, and the string the journey witnessed):
     //   "Sales Payback Period18 monthRange: 0.08 to 0.28"
@@ -619,7 +619,7 @@ describe('FactorNode prior range: a normalised range beside a real-scale value',
     // exactly as the witnessed string above.
     const visible = container.cloneNode(true) as HTMLElement
     visible.querySelectorAll('.sr-only').forEach(n => n.remove())
-    expect(visible.textContent ?? '').toContain('Sales Payback Period18 month')
+    expect(visible.textContent ?? '').toContain('Sales Payback Period18 months')
     expect(visible.textContent ?? '').not.toContain('Range:')
   })
 

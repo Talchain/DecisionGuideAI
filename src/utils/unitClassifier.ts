@@ -225,8 +225,8 @@ const OUT_OF_UNIT = /^(.*?)\s*\bout of\s+(\d[\d,]*(?:\.\d+)?)$/i
  * names a quantity survives; only its notation changes.
  *
  * ⚠ DELIBERATELY NARROW, and each narrowing is pinned:
- *   · a word head already written with a slash (`hours/week`) is left as it is —
- *     it is already compact, and re-spacing it changes no meaning;
+ *   · a word rate reads in words, counted (UI-SURGICAL 3, 28 Oct): `hours/week` and
+ *     `ticket per week` read `hours per week` / `tickets per week` (`unitForCount`);
  *   · a head that is itself compound is left (`GBP MRR per seat per month`,
  *     `GBP per 1000 users per month`) — with ONE exception, money per a thing:
  *     a currency then one per-word (`GBP per subscriber per month`,
@@ -280,6 +280,11 @@ export function compactUnitParts(figure: string, unit: string | null | undefined
     return { figure: `${glyph}${figure}`, unit: `/ ${period}` }
   }
   if (kind === 'percent') return { figure: applyUnitPlacement(figure, head), unit: `/ ${period}` }
+  // UI-SURGICAL 3 (Paul, 28 Oct): a word rate reads in words, counted — "120 tickets per week", never "ticket/week".
+  // Money and percent keep the contract's compact "/ month" above.
+  if (kind === 'other' && /^[A-Za-z]+(?:[ _][A-Za-z]+)*$/.test(head)) {
+    return { figure, unit: `${unitForCount(figureCount(figure), unitWords(canonical))} per ${period}` }
+  }
   if (kind === 'other' && !slashed) return { figure, unit: `${canonical} / ${period}` }
   return null
 }
@@ -559,7 +564,52 @@ export function unitWords(unit: string | null | undefined): string {
  * `unitWords` gives it, because guessing the singular of an arbitrary noun would invent words. DISPLAY ONLY.
  */
 export function unitWordsForCount(count: number, unit: string | null | undefined): string {
-  return timeUnitForCount(count, unitWords(unit))
+  return unitForCount(count, unitWords(unit))
+}
+
+/** A figure string's count ("1,000" → 1000); NaN when it is not one plain number. */
+function figureCount(figure: string): number {
+  const t = figure.trim().replace(/,/g, '')
+  return /^-?\d+(?:\.\d+)?$/.test(t) ? Number(t) : Number.NaN
+}
+
+/** Mass nouns that never take an "s" as a unit ("40 staff", never "40 staffs"). */
+const UNCOUNTED_UNIT_WORDS = new Set([
+  'staff', 'people', 'personnel', 'data', 'money', 'revenue', 'time', 'equipment', 'software', 'feedback', 'capacity',
+  'effort', 'traffic', 'information', 'work', 'output', 'income', 'cash', 'stock', 'inventory', 'headcount', 'demand',
+  'churn', 'growth', 'spend', 'research', 'progress', 'evidence', 'support', 'training', 'experience', 'quality',
+  'energy', 'fuel', 'water', 'power', 'storage', 'bandwidth', 'news', 'advice', 'knowledge', 'freight', 'mail',
+  // Scale words: a figure ON a scale, not a count of things ("0.8 ratio", never "0.8 ratios").
+  'ratio', 'rate', 'share', 'index', 'score', 'level', 'fraction', 'proportion', 'probability', 'multiplier', 'factor',
+  'percent', 'scale', 'norm', 'unit',
+  // Abbreviations keep their spelling ("5 km", "30 min").
+  'min', 'sec', 'mph', 'kph', 'mpg', 'ppm', 'kwh', 'mwh',
+])
+
+/** The plural of one lower-case word, by the regular English rules; a word already ending in "s" is left. */
+function pluralWord(word: string): string {
+  // A word with no vowel is an abbreviation ("km", "kg", "ml", "ft"): never pluralised.
+  if (UNCOUNTED_UNIT_WORDS.has(word) || /s$/.test(word) || !/[aeiouy]/.test(word)) return word
+  if (/(?:x|z|ch|sh)$/.test(word)) return `${word}es`
+  if (/[^aeiou]y$/.test(word)) return `${word.slice(0, -1)}ies`
+  return `${word}s`
+}
+
+/**
+ * ⭐ A UNIT'S WORDS, COUNTED (UI-SURGICAL 3, Paul 28 Oct: "2 month", "at most 2 month"). DISPLAY ONLY.
+ * - A figure of exactly 1 keeps the singular time step ("1 month", never "1 months"), as before.
+ * - Any other figure pluralises a lower-case word unit's head ("2 months", "6 developers", "0 tech leads"); a mass
+ *   noun ("staff") and a word already plural are left, and so is any unit holding a capital, digit or symbol ("FTE").
+ * - A word rate reads "per" ("ticket/week" → "tickets per week").
+ */
+export function unitForCount(count: number, words: string): string {
+  const rate = /^([a-z]+(?: [a-z]+)*)\s*(?:\/|\bper\b)\s*([a-z]+(?: [a-z]+)*)$/.exec(words.trim())
+  if (rate) return `${unitForCount(count, rate[1])} per ${rate[2]}`
+  if (count === 1 || !Number.isFinite(count)) return timeUnitForCount(count, words)
+  if (!/^[a-z]+(?: [a-z]+)*$/.test(words)) return words
+  const parts = words.split(' ')
+  parts[parts.length - 1] = pluralWord(parts[parts.length - 1])
+  return parts.join(' ')
 }
 
 /** The singular step alone, for a composer that already holds its unit words. */

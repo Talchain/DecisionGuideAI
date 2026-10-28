@@ -57,7 +57,7 @@ describe('Olumi’s note on a goal whose chance waits', () => {
   it('⭐ says the goal card’s target and what the result waits on, above the note itself', () => {
     hold(GOAL)
     render(<OlumiAttentionCard />)
-    expect(waits().textContent).toBe('Target: 70 pointWaits on: ‘Weekly admin unrelated to these two projects’, ‘Score on the panel\'s published scoring sheet’')
+    expect(waits().textContent).toBe('Target: 70 pointsWaits on: ‘Weekly admin unrelated to these two projects’, ‘Score on the panel\'s published scoring sheet’')
     const card = screen.getByTestId(OLUMI_ATTENTION_CARD_TESTID)
     expect(card.textContent).toContain('rests on "Score on the panel\'s published scoring sheet", which is unknown')
     const body = Array.from(card.querySelectorAll('p')).find((p) => p.textContent?.startsWith('rests on'))!

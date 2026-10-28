@@ -83,7 +83,7 @@ const SERVED: Array<[string, string, Record<string, unknown>, string, string]> =
     '50', '/ 100'],
   ['monthly_pro_new_subscribers', 'Monthly Pro new subscribers',
     { unit: 'subscribers per month', value: 0.04, source: 'cee_inference', raw_value: 20, extractionType: 'inferred' },
-    '20', 'subscribers / month'],
+    '20', 'subscribers per month'],
   // Second served board (bf5-after-cd6a82e4/03-after-run.png).
   ['pro_plan_price_b', 'Pro plan price',
     { unit: '£/month', value: 0.245, source: 'brief_extraction', raw_value: 49 },

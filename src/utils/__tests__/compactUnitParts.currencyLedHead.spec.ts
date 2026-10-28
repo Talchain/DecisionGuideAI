@@ -37,14 +37,14 @@ describe('CONTROLS — the neighbouring shapes keep their earlier reading', () =
   it.each([
     // A bare currency rate — unchanged.
     ['49', 'GBP per month', '£49 / month'],
-    // A word rate — no currency, so no glyph.
-    ['75', 'subscribers per month', '75 subscribers / month'],
-    // An ISO code with no glyph this product has shown: the words stay as they were.
-    ['700', 'CHF MRR per month', '700 CHF MRR / month'],
+    // A word rate — no currency, so no glyph; it reads "per" (UI-SURGICAL 3, Paul 28 Oct).
+    ['75', 'subscribers per month', '75 subscribers per month'],
+    // An ISO code with no glyph this product has shown: the words stay as they were, the rate in "per".
+    ['700', 'CHF MRR per month', '700 CHF MRR per month'],
     // A digit in the remainder may be a magnitude: left as it was.
     ['7', 'GBP 000s per month', '7 GBP 000s / month'],
     // A negative amount: no sign convention is chosen here.
-    ['-700', 'GBP MRR added per month', '-700 GBP MRR added / month'],
+    ['-700', 'GBP MRR added per month', '-700 GBP MRR added per month'],
     // Percent rate — unchanged.
     ['7', 'percent per month', '7% / month'],
   ])('%s %s → %s', (figure, unit, expected) => {

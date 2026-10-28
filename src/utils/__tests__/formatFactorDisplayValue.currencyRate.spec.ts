@@ -47,13 +47,19 @@ describe('formatFactorDisplayParts — currency rate', () => {
   it.each([
     ['CHF/year', 'no glyph mapping'],
     ['GBP/full year', 'multi-word rate'],
-    ['hours/week', 'not a currency'],
   ])('CONTRAST — %s (%s) keeps the ordinary word split, byte-identical', (unit) => {
     const input = salary(unit)
     const text = formatFactorDisplayValue(input)
     const parts = formatFactorDisplayParts(input)
     expect(parts).toEqual({ figure: '39,000', unit: unit.trim() })
     expect(joinFactorDisplayParts(parts!)).toBe(text)
+  })
+
+  // UI-SURGICAL 3 (Paul, 28 Oct): a word rate (not a currency) reads in words — "39,000 hours per week".
+  it('CONTRAST — hours/week (not a currency) reads its rate in words, the card and its parts agreeing', () => {
+    const input = salary('hours/week')
+    expect(formatFactorDisplayValue(input)).toBe('39,000 hours per week')
+    expect(joinFactorDisplayParts(formatFactorDisplayParts(input)!)).toBe('39,000 hours per week')
   })
 
   it('CONTRAST — the formatter’s cost-at-zero SENTENCE is never re-spelt as an amount', () => {

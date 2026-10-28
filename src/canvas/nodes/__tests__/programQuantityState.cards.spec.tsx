@@ -4,7 +4,7 @@
  *
  * Served on the three program boards of that run:
  *   · capacity "Additional specialist capacity": CEE works it out and holds 0 before an option adds anyone, but a zero was
- *     never a recorded value, so the card had no line at all. On a program graph a zero is a figure: "Today: 0 ticket/week".
+ *     never a recorded value, so the card had no line at all. On a program graph a zero is a figure: "Today: 0 tickets per week".
  *   · Olumi's figures nobody knows yet (qualitative "Share of update recipients affected if the bug remains", european
  *     "Months until pilot acquisition effect"): the value line read "Source not recorded unknown". It now shows the
  *     no-figure indicator the worked-out cards show, "—", with Olumi's mark saying "Olumi’s: not known yet, no figure set"
@@ -106,17 +106,17 @@ const factorLine = (id: string) => ({
 })
 
 describe('a zero is a figure on a program graph', () => {
-  it('capacity "Additional specialist capacity" (worked out, 0 before an option adds anyone): "Today: 0 ticket/week"', async () => {
+  it('capacity "Additional specialist capacity" (worked out, 0 before an option adds anyone): "Today: 0 tickets per week"', async () => {
     await openBoard(capacity)
     await card('additional_capacity', OutcomeNode)
-    expect(outcomeLine().text).toBe('Today: 0 ticket/week')
+    expect(outcomeLine().text).toBe('Today: 0 tickets per week')
     expect(screen.getByTestId('node-provenance-mark')).toBeTruthy()
   })
 
   it('CONTRAST: capacity "Weekly support capacity", worked out to 80, says its figure, as today', async () => {
     await openBoard(capacity)
     await card('total_capacity', OutcomeNode)
-    expect(outcomeLine().text).toBe('Today: 80 ticket/week')
+    expect(outcomeLine().text).toBe('Today: 80 tickets per week')
   })
 })
 
@@ -160,7 +160,7 @@ describe('Olumi\'s figure nobody knows yet: the no-figure indicator, with Olumi\
     await card('existing_capacity')
     // Paul, 27 Oct: the author mark sits on the card's bottom row, not before the figure.
     const { text, mark } = factorLine('existing_capacity')
-    expect(text).toBe('80 ticket/week')
+    expect(text).toBe('80 tickets per week')
     expect(mark.getAttribute('data-value-source')).toBe('brief')
     expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
   })

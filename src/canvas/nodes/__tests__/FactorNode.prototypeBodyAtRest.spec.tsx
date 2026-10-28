@@ -436,14 +436,14 @@ describe('prototype · a currency rate reads `£39,000/year` on the card', () =>
     expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')?.getAttribute('data-testid')).toBe(`factor-bottom-marks-${ID}`)
   })
 
-  it('CONTRAST — a non-currency rate (`hours/week`) is untouched: `40 hours/week`', () => {
+  it('CONTRAST — a non-currency rate (`hours/week`) reads in words: `40 hours per week` (UI-SURGICAL 3)', () => {
     const data = { ...money('hours/week'), observedState: { value: 0.4, raw_value: 40, cap: 100, unit: 'hours/week', extractionType: 'inferred', source: 'cee_inference' } }
     seed(data, { phase: 'pre' })
     renderFactor(data)
     const c = card('Annual PA salary')
     expect(within(c).getByTestId(`factor-value-figure-${ID}`).textContent).toBe('40')
-    expect(within(c).getByTestId(`factor-value-unit-${ID}`).textContent).toBe('hours/week')
-    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('40 hours/week')
+    expect(within(c).getByTestId(`factor-value-unit-${ID}`).textContent).toBe('hours per week')
+    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('40 hours per week')
     // Paul, 27 Oct 2026: a card's icons sit on its bottom row only — the author glyph (it led the figure in the value
     // line, vision §2a) is in this card's bottom band, never in the value line.
     expect(screen.getByTestId('estimate-marker').closest('[data-testid="factor-recorded-value"]')).toBeNull()

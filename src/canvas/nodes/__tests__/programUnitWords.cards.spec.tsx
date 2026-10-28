@@ -9,7 +9,7 @@
  *   · money per a thing written with an underscore goes through the one money rule ("£145,000 / tech lead",
  *     "Range: £135,000–£155,000 / tech lead").
  * Display only: the numbers, signs and the unit the write sends are unchanged. A unit that is neither keeps its text
- * (CONTROL rows on the same boards: "6 developer", "£58,000", "9%").
+ * (CONTROL rows on the same boards: "6 developers", "£58,000", "9%").
  *
  * Driven through the real path (as `FactorNode.askedFigureEditsInCard.spec.tsx`): the real `hydrateCanvasFromServer`
  * read and the real saved-graph read (stubbed global `fetch` only), the real cards. Fixtures: CEE's served reads
@@ -23,6 +23,7 @@ import type { Node } from '@xyflow/react'
 import hiring from '../../runView/__tests__/fixtures/accept3-hiring-r1-read.json'
 import marketing from '../../runView/__tests__/fixtures/accept3-marketing-r1-read.json'
 import bookshop from './fixtures/served-bookshop-worked-out-read-20261027.json'
+import paulChat from './fixtures/paul-ai-chat-deadline-read-20261028.json'
 import mrr from '../../hydrate/__tests__/fixtures/served-3b6369b0-mrr-current.read.json'
 import { useCanvasStore } from '../../store'
 import { FactorNode } from '../FactorNode'
@@ -138,10 +139,10 @@ describe('the dimensionless unit "1" prints no unit', () => {
 })
 
 describe('an underscored unit reads in words, and money per a thing takes the money rule', () => {
-  it('hiring tech_leads_added (0, unit "tech_lead") reads "0 tech lead"', async () => {
+  it('hiring tech_leads_added (0, unit "tech_lead") reads "0 tech leads"', async () => {
     await openBoard(hiring)
     await card('tech_leads_added')
-    expect(value()).toBe('0 tech lead')
+    expect(value()).toBe('0 tech leads')
     expect(markWords('tech_leads_added')).toBe('Fixed by how the model is built')
   })
 
@@ -155,10 +156,10 @@ describe('an underscored unit reads in words, and money per a thing takes the mo
 })
 
 describe('CONTROL: a unit that is neither keeps its text, on the same boards', () => {
-  it('hiring current_developers reads "6 developer"', async () => {
+  it('hiring current_developers reads "6 developers"', async () => {
     await openBoard(hiring)
     await card('current_developers')
-    expect(value()).toBe('6 developer')
+    expect(value()).toBe('6 developers')
     expect(markWords('current_developers')).toBe('From your brief')
   })
 
@@ -234,5 +235,25 @@ describe('the goal card draws today against its target', () => {
     await card('mrr', GoalNode)
     expect(screen.getByTestId('goal-today-level-mrr').textContent).toContain('75,000')
     expect(screen.queryByTestId('goal-track-mrr')).toBeNull()
+  })
+})
+
+// UI-SURGICAL 3 (Paul, 28 Oct, his AI-chat board as served): a unit word is counted against its figure — "2 months",
+// "at most 2 months", "0 months" — never "2 month". One stays singular.
+describe('a unit word is counted against its figure', () => {
+  it('Paul’s current_engineering_time reads "2 months"; zero_extra_delay reads "0 months"', async () => {
+    await openBoard(paulChat)
+    await card('current_engineering_time')
+    expect(value()).toBe('2 months')
+    cleanup()
+    await card('zero_extra_delay')
+    expect(value()).toBe('0 months')
+  })
+
+  it('Paul’s goal target reads "at most 2 months"', async () => {
+    await openBoard(paulChat)
+    await card('launch_on_time', GoalNode)
+    expect(document.body.textContent).toContain('at most 2 months')
+    expect(document.body.textContent).not.toContain('at most 2 month ')
   })
 })
