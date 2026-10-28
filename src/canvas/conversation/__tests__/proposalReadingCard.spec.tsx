@@ -7,9 +7,6 @@
  *   · the approve says what CEE sends (its own label), and "Not now" as on every card; "Change something first" is not
  *     shown (W4, Paul 27 Oct: the draft is saved and the card has no field to change, so it only sent a canned sentence).
  *     To change something the person types it. A change card (no reading flag) keeps it.
- *   · ON A PROGRAM BOARD the reading card whose changes can all be shown is the first screen's reading list instead, with
- *     no whole-card approve and no "Not now" (Paul, 27 Oct: `firstScreenReadingList.spec.tsx`). The first row here is
- *     therefore on a board the read says is not a program board; the unreadable card (row 3) is today's card on both.
  * A `left_out` entry is a readable kind on every card, worded "Leaves out ‘label’ (why)", so Approve stays live for it;
  * an unknown kind is still unreadable and still blocks Approve (#2958).
  *
@@ -45,11 +42,9 @@ const reading = (extra: Json = {}): Json => ({ ...fixture.card, approve_action: 
 
 let read: Json = funding as Json
 let n = 0
-/** A saved board on screen: the served funding read (a program board) or, `false`, the same read with no program flag. */
-function board(program = true) {
+function board() {
   n += 1
-  read = { ...funding, graph_hash: `${funding.graph_hash.slice(0, 12)}${String(n).padStart(4, '0')}`,
-    ...(program ? {} : { graph: { ...funding.graph, living_model: { aims: [], links: [], factors: [], options: [] } } }) }
+  read = { ...funding, graph_hash: `${funding.graph_hash.slice(0, 12)}${String(n).padStart(4, '0')}` }
   useCanvasStore.setState({ currentScenarioId: funding.scenario_id, lastServerGraphHash: read.graph_hash } as never)
 }
 const onChipClick = vi.fn(async (_chip: { id?: string }) => {})
@@ -76,8 +71,8 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/') })
 
 describe('a reading card (CEE `reading: true`): your situation as I understood it', () => {
-  it('off a program board: renders open under its heading, in CEE’s order, left out worded, with CEE’s approve and Not now, and no Change chip', async () => {
-    board(false)
+  it('renders open under its heading, in CEE’s order, left out worded, with CEE’s approve and Not now, and no Change chip', async () => {
+    board()
     await mount(reading())
     expect(heading()).toBe('Your situation as I understood it')
     // Open with no press: every entry is on view, in the order CEE gave.

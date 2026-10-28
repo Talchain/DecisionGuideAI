@@ -206,11 +206,7 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
           : rawSource
   const source = normaliseMessageSource(effectiveSource)
 
-  const base: MessageTurnPayload & {
-    proposal_edits?: Omit<ProposalEdits, 'approve_ids'>
-    approve_ids?: string[]
-    displayed_proposals?: DisplayedProposal[]
-  } = {
+  const base: MessageTurnPayload & { proposal_edits?: ProposalEdits; displayed_proposals?: DisplayedProposal[] } = {
     kind: 'message',
     turn_id: turnId,
     scenario_id: scenarioId,
@@ -237,10 +233,7 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
 
   if ((source === 'chip' || source === 'chip_click') && input.chipMeta?.id === `agent-approve-proposal:${input.proposalEdits?.proposal_id}`
     && input.proposalEdits) {
-    // The reading card's ticked rows go at the top of the body, as CEE reads them (#3793 D4), and only with this press.
-    const { approve_ids: approveIds, ...edits } = input.proposalEdits
-    base.proposal_edits = edits
-    if (approveIds !== undefined) base.approve_ids = approveIds
+    base.proposal_edits = input.proposalEdits
   }
 
   // A typed turn says which cards the user can see; a press already names its card (`chip.id`). Sent only when a card is
