@@ -112,3 +112,32 @@ describe('a folded switch is said on its option card, in CEE’s words', () => {
     expect(rowText('specialist_assisted_delivery', 'specialist_support')).toContain('External AI specialist support')
   })
 })
+
+// UI-SURGICAL 7 (Paul, 28 Oct): O3's row read "Use a ready-made hosted chat inte…". A row's label may cut to one line;
+// its full words are the row's hover (its own title) and, on keyboard focus, the label wraps to them in place.
+describe('a cut row label shows its full words on hover and focus', () => {
+  const FULL = 'Use a ready-made hosted chat integration'
+  const line = () => screen.getByTestId('option-change-row-line-ready_made_chat_delivery-hosted_chat_route')
+  const labelCell = () => line().querySelector('dt') as HTMLElement
+
+  it('keyboard focus reaches the label, which wraps to its full words while focused', async () => {
+    await openBoard(chat as Json)
+    await card('ready_made_chat_delivery')
+    const dt = labelCell()
+    expect(dt.tabIndex).toBe(0)
+    await act(async () => { dt.focus() })
+    expect(document.activeElement).toBe(dt)
+    const cls = new Set(dt.className.split(/\s+/))
+    expect(cls.has('focus-visible:whitespace-normal') && cls.has('focus-visible:overflow-visible')).toBe(true)
+    expect(dt.textContent).toBe(FULL)
+  })
+
+  it('CONTRAST: at rest the label stays one cut line, and hover names it through the row’s own title', async () => {
+    await openBoard(chat as Json)
+    await card('ready_made_chat_delivery')
+    expect(new Set(labelCell().className.split(/\s+/)).has('truncate')).toBe(true)
+    expect(labelCell().getAttribute('data-truncates')).toBe('label')
+    expect(labelCell().hasAttribute('title')).toBe(false)
+    expect(line().getAttribute('title')).toBe(FULL)
+  })
+})

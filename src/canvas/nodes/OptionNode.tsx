@@ -2306,9 +2306,12 @@ export const OptionNode = memo((props: NodeProps) => {
                   titled row is the exemption
                   `e2e/visual/nodeTextClipping.visual.spec.ts` requires of a
                   CSS ellipsis. */}
+              {/* A cut label is reachable by keyboard and wraps to its full words while focused; on hover the row's own
+                  title names it (UI-SURGICAL 7, Paul 28 Oct). No native title on this cell, as above. */}
               <dt
-                className={`${typography.edgeLabel} !leading-[1.2] min-w-0 truncate text-text-light`}
+                className={`${typography.edgeLabel} !leading-[1.2] min-w-0 truncate text-text-light rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header focus-visible:whitespace-normal focus-visible:overflow-visible`}
                 data-truncates="label"
+                tabIndex={0}
               >
                 {r.fullLabel}
               </dt>
