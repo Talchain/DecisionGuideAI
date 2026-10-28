@@ -75,7 +75,8 @@ import { GoalTargetPopover } from '../components/GoalTargetPopover'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { goalTargetSourceMark, programGoalSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useSavedGraph } from './shared/savedGraph'
-import { programItemOf } from './shared/savedModelProgram'
+import { programItemOf, programNodeWithheldReason } from './shared/savedModelProgram'
+import { withheldReasonLine } from '../domain/linkWords'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { goalConstraintShortText, goalConstraintText } from '../utils/goalConstraintText'
 import { goalCardShownLimits, goalOwnLimitRow, goalStatedLimits, goalStatedTargets } from '../domain/goalOwnTargetRow'
@@ -908,6 +909,8 @@ export const GoalNode = memo((props: NodeProps) => {
   // W8 c7.6: where the target's own stamp records no source, a program goal's canonical record still says whose the goal
   // is (the person's quoted words, or Olumi's reading), so the card never reads "Source not recorded" for it.
   const savedGraph = useSavedGraph()
+  // Q1 readers: why this goal's outcome is not calculated, in CEE's words, from the saved read (never stale node data).
+  const withheldReason = programNodeWithheldReason(savedGraph, props.id)
   const stampedTargetSource = targetLine !== null ? goalTargetSourceMark(props.data as GoalTargetSource) : null
   const targetSourceMark = stampedTargetSource?.kind === 'unknown'
     ? programGoalSourceMark(programItemOf(savedGraph, 'goals', props.id)) ?? stampedTargetSource
@@ -1227,6 +1230,13 @@ export const GoalNode = memo((props: NodeProps) => {
             <summary className="cursor-pointer rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">Worked out from</summary>
             <p className="m-0 mt-0.5 text-text-body" data-testid={`goal-worked-out-words-${props.id}`}>{workedOutWords}</p>
           </details>
+        )}
+
+        {/* Q1 readers (DL GO, 28 Oct): a goal whose outcome is not calculable says why, in one muted line. */}
+        {withheldReason !== null && (
+          <p data-testid={`goal-withheld-reason-${props.id}`} className={`${typography.edgeLabel} text-text-light m-0 mt-0.5 break-words`}>
+            {withheldReasonLine(withheldReason)}
+          </p>
         )}
 
         {/* The saved model's other aims (Paul, 21 Oct 2026: never hide what Olumi has); display only, see the file. */}

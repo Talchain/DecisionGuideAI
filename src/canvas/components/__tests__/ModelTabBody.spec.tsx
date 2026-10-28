@@ -1,10 +1,11 @@
 /** ModelTabBody — the sole connected Model route. */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { Node, Edge } from '@xyflow/react'
 import { ModelTabBody } from '../ModelTabBody'
 import { openOutlineGroups } from '../../model-tab-v2/__tests__/openOutlineGroups'
+import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 
 vi.mock('../../utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -37,6 +38,9 @@ vi.mock('../../store', () => ({
     { getState: getMockState },
   ),
 }))
+// Q1 readers: the saved read a link's words come from; none unless a row sets one.
+const savedRead = vi.hoisted(() => ({ graph: null as unknown }))
+vi.mock('../../nodes/shared/savedGraph', async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), useSavedGraph: () => savedRead.graph }))
 vi.mock('../GraphTextView', () => ({
   SectionErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
@@ -197,5 +201,29 @@ describe('connected Model surface', () => {
       beliefExists: 0.8,
       beliefExistsSource: null,
     }))
+  })
+})
+
+// Q1 readers (PL BLOCK 2, 28 Oct): a link in words is exported with its stated claim (`link_words`), never the wire's
+// plumbing `exists_probability: 1` as a belief, nor the mapper's defaulted "positive" as its direction. Two parallel links
+// between the same cards under their own ids: the numerical one is exported as before.
+describe('the JSON export says a link in words as its words', () => {
+  afterEach(() => { savedRead.graph = null })
+  it('word link → link_words, no belief, no direction; the numerical twin unchanged', () => {
+    const wordWire = { id: 'budget__goal', from: 'factor-budget', to: 'goal-1', exists_probability: 1, direction_settled: false,
+      provenance: { source: 'cee_hypothesis' }, origin: 'model_program:display',
+      link_words: { direction: 'conditional', confidence: 'unsure', basis: 'Only if the budget is spent on training' } }
+    const numWire = { id: 'budget__goal__2', from: 'factor-budget', to: 'goal-1', exists_probability: 1, effect_direction: 'positive',
+      strength: { mean: 0.4, std: 0.1 }, provenance: { source: 'cee_hypothesis' }, origin: 'model_program:calculation' }
+    savedRead.graph = { edges: [wordWire, numWire], living_model: { model_program: 'v1' } }
+    const payload = copyJsonAndParse([wordWire, numWire].map((w, i) => mapDraftEdgeToCanvas(w, i)) as Edge[])
+    const word = payload.edges.find((e: { id: string }) => e.id === 'budget__goal')
+    const num = payload.edges.find((e: { id: string }) => e.id === 'budget__goal__2')
+    expect(word.link_words).toEqual({ direction: 'conditional', confidence: 'unsure', basis: 'Only if the budget is spent on training' })
+    expect(word).not.toHaveProperty('beliefExists')
+    expect(word).not.toHaveProperty('beliefExistsSource')
+    expect(word).not.toHaveProperty('direction')
+    expect(num).toMatchObject({ beliefExists: 1, beliefExistsSource: 'cee', direction: 'positive' })
+    expect(num).not.toHaveProperty('link_words')
   })
 })

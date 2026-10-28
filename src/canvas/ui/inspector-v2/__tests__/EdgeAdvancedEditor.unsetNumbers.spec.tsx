@@ -64,6 +64,12 @@ import { useCanvasStore } from '../../../store'
 import { USER_EDGE_DEFAULTS, EDGE_CONSTRAINTS } from '../../../domain/edges'
 import { METRIC_UNSET } from '../../../nodes/shared/metricVocabulary'
 import { NUMERIC_FIELD_REFUSAL } from '../shared/numericFieldAdmission'
+import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from '../../../utils/applyDraftResult'
+import words from '../../../nodes/shared/__tests__/fixtures/q1-words-graph.hand-made.json'
+
+// Q1 readers: the saved read a link's words come from; none unless a row sets one.
+const savedRead = vi.hoisted(() => ({ graph: null as unknown }))
+vi.mock('../../../nodes/shared/savedGraph', async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), useSavedGraph: () => savedRead.graph }))
 
 const NODES = [
   { id: 'fac1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Marketing budget' } },
@@ -343,5 +349,37 @@ describe('SD-1 fence — the three local-only fields are disabled; the fields th
     fireEvent.blur(screen.getByLabelText('Relationship description'))
     expect(edgeData().strengthStd).toBe(0.2)
     expect(edgeData().label).toBe('via churn')
+  })
+})
+
+// Q1 readers (PL disposition, 28 Oct): under "Technical detail" a link in words read "Existence probability 1", its wire
+// `exists_probability`, which is nobody's. It now holds no figure and its helper says the stated confidence in words.
+describe('EdgeAdvancedEditor — a link in words has no existence figure', () => {
+  const seedWords = (id: string) => {
+    useCanvasStore.setState({ ...useCanvasStore.getState(), nodes: words.nodes.map((n) => mapDraftNodeToCanvas(n)),
+      edges: words.edges.map((e, i) => mapDraftEdgeToCanvas(e, i)), results: { status: 'none', report: null } } as never)
+    savedRead.graph = words
+    render(<EdgeAdvancedEditor edgeId={id} linkKind="causal" onSendSettled={() => {}} />)
+  }
+  beforeEach(() => { savedRead.graph = null })
+  it('an "unsure" link: an empty field, "In words: unsure. No figure is set."', () => {
+    seedWords('member_mood__keep_members')
+    expect(field(EXISTENCE).value).toBe('')
+    expect(screen.getByText('In words: unsure. No figure is set.')).toBeDefined()
+  })
+  it('CONTROL: the numerical link keeps its figure', () => {
+    seedWords('monthly_cost__keep_members')
+    expect(field(EXISTENCE).value).toBe('1')
+  })
+  // (DL, 28 Oct): the "Effect direction" select read the defaulted "positive" on a conditional link.
+  it('a conditional link: its stated direction in words, read-only, never a defaulted "positive" select', () => {
+    seedWords('evening_classes__member_mood')
+    expect(screen.queryByLabelText('Effect direction')).toBeNull()
+    expect(screen.getByText('Effect direction')).toBeDefined()
+    expect(screen.getByText('Depends on conditions')).toBeDefined()
+  })
+  it('CONTROL: the numerical link keeps its direction select, as stated', () => {
+    seedWords('monthly_cost__keep_members')
+    expect((screen.getByLabelText('Effect direction') as HTMLSelectElement).value).toBe('negative')
   })
 })

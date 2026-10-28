@@ -8,7 +8,9 @@
 import { describe, it, expect } from 'vitest'
 import board from './fixtures/ai-chat-launch-saved-20261027.json'
 import marketing from '../../../runView/__tests__/fixtures/accept3-marketing-r1-read.json'
-import { programCoefficientOf, programFigureWords, programFormulaWords, programLinkDirectionUnsettled, programLinkOperator } from '../savedModelProgram'
+import words from './fixtures/q1-words-graph.hand-made.json'
+import parallel from './fixtures/q1-parallel-links.hand-made.json'
+import { programCoefficientOf, programFigureWords, programFormulaWords, programLinkDirectionUnsettled, programLinkOperator, programLinkWords, programNodeWithheldReason } from '../savedModelProgram'
 
 describe('a definition link says how its part enters the figure', () => {
   it.each([
@@ -101,5 +103,57 @@ describe('CEE #3859 link fields', () => {
   it('a multiplying risk draws ×; an adding one draws no operator (its sign is the link\'s own)', () => {
     expect(programLinkOperator(withEdge('launch_rushed_testing__completed_tasks', { effect_mode: 'multiply' }), 'launch_rushed_testing', 'completed_tasks')).toBe('×')
     expect(programLinkOperator(withEdge('launch_rushed_testing__completed_tasks', { effect_mode: 'add' }), 'launch_rushed_testing', 'completed_tasks')).toBeNull()
+  })
+})
+
+// Q1 readers (DL GO, 28 Oct): a link in words carries `link_words` and a card whose outcome is not calculable carries
+// `withheld_reason`, read from the saved graph exactly as `direction_settled` is. Hand-made graph in the contract's shapes.
+describe('Q1: the saved read\'s words for a link and a withheld card', () => {
+  it('an influence link: its stated direction, confidence and basis, as recorded', () => {
+    expect(programLinkWords(words, 'evening_classes__member_mood', 'evening_classes', 'member_mood'))
+      .toEqual({ direction: 'conditional', confidence: 'likely', basis: 'Members asked for them in the spring survey' })
+  })
+  it('an unsized risk link: no confidence and no basis are recorded', () => {
+    expect(programLinkWords(words, 'rent_rise__keep_members', 'rent_rise', 'keep_members')).toEqual({ direction: 'unknown', confidence: null, basis: null })
+  })
+  it('CONTRAST: a numerical link has none; off a program, none; an unrecognised value, none', () => {
+    expect(programLinkWords(words, 'monthly_cost__keep_members', 'monthly_cost', 'keep_members')).toBeNull()
+    const { living_model: _dropped, ...notProgram } = words as Record<string, unknown>
+    expect(programLinkWords(notProgram, 'evening_classes__member_mood', 'evening_classes', 'member_mood')).toBeNull()
+    for (const bad of [{ direction: 'sideways', confidence: 'likely', basis: null }, { direction: 'up', confidence: 'certain', basis: null }, { direction: 'up', confidence: null, basis: 3 }, 'up']) {
+      const copy = structuredClone(words) as { edges: Array<Record<string, unknown>> }
+      copy.edges.find((e) => e.id === 'evening_classes__member_mood')!.link_words = bad
+      expect(programLinkWords(copy, 'evening_classes__member_mood', 'evening_classes', 'member_mood')).toBeNull()
+    }
+  })
+  it('a goal and a limit card say why they are not calculated; other cards and non-programs say nothing', () => {
+    expect(programNodeWithheldReason(words, 'keep_members')).toBe('It rests on the link “Run evening classes → How members feel”, which is in words with no figure.')
+    expect(programNodeWithheldReason(words, 'mp:limit:budget')).toBe('Its figure is not given yet.')
+    expect(programNodeWithheldReason(words, 'member_mood')).toBeNull()
+    const { living_model: _dropped, ...notProgram } = words as Record<string, unknown>
+    expect(programNodeWithheldReason(notProgram, 'keep_members')).toBeNull()
+  })
+})
+
+// Q1 readers (PL BLOCK 1, 28 Oct): CEE gives parallel links distinct ids (`…__2`). Each is read by its own id, and the
+// endpoints decide only when exactly one saved edge joins them: two claims are never folded into one.
+describe('Q1: parallel links are read by their own id, never the first of the pair', () => {
+  it.each([
+    ['quality__members', 'quality', 'members', { direction: 'conditional', confidence: 'likely', basis: 'Only if the classes suit them' }],
+    ['quality__members__2', 'quality', 'members', null],
+    ['price__demand', 'price', 'demand', null],
+    ['price__demand__2', 'price', 'demand', { direction: 'disputed', confidence: 'unsure', basis: 'Staff disagree' }],
+  ] as const)('%s → its own words', (id, from, to, expected) => {
+    expect(programLinkWords(parallel, id, from, to)).toEqual(expected)
+  })
+  it('each link\'s own "direction not settled", by id', () => {
+    expect(programLinkDirectionUnsettled(parallel, 'quality', 'members', 'quality__members')).toBe(true)
+    expect(programLinkDirectionUnsettled(parallel, 'quality', 'members', 'quality__members__2')).toBe(false)
+    expect(programLinkDirectionUnsettled(parallel, 'price', 'demand', 'price__demand')).toBe(false)
+  })
+  it('an id the read lacks falls back to the endpoints only when exactly one edge joins them', () => {
+    expect(programLinkWords(words, 'not-a-saved-id', 'evening_classes', 'member_mood')?.direction).toBe('conditional')
+    expect(programLinkWords(parallel, 'not-a-saved-id', 'quality', 'members')).toBeNull()
+    expect(programLinkDirectionUnsettled(parallel, 'quality', 'members')).toBe(false)
   })
 })

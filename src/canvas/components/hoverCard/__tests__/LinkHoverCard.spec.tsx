@@ -13,6 +13,8 @@ import { HOVER_CARD_OPEN_DELAY_MS } from '../hoverCardPlacement'
 import { NOT_ON_RECORD } from '../NodeHoverCard'
 import served from '../../../edges/__tests__/fixtures/journey4ServedGraph.d4e6a8ba.json'
 import { mapDraftEdgeToCanvas } from '../../../utils/applyDraftResult'
+import words from '../../../nodes/shared/__tests__/fixtures/q1-words-graph.hand-made.json'
+import parallel from '../../../nodes/shared/__tests__/fixtures/q1-parallel-links.hand-made.json'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -50,6 +52,9 @@ vi.mock('../../../store', () => ({
     })
   ),
 }))
+// Q1 readers: the saved read a link's words come from (`savedModelProgram.programLinkWords`); none unless a row sets one.
+const savedRead = vi.hoisted(() => ({ graph: null as unknown }))
+vi.mock('../../../nodes/shared/savedGraph', async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), useSavedGraph: () => savedRead.graph }))
 vi.mock('../../../hooks/useModelChangedSinceRun', () => ({
   useModelChangedSinceRunLight: () => false,
   useModelChangedSinceRun: () => false,
@@ -191,5 +196,70 @@ describe('a link the last run changed says so on hover', () => {
     cleanup()
     storeExtra.value = { analysisHighlight: { source: 'flip_risks', edgeIds: new Set(['e1']) } }
     expect(text(hover(DATA)!, 'edge-hover-run-changed')).toBeNull()
+  })
+})
+
+// Q1 readers (DL GO, 28 Oct): a link in words says its stated direction, that it is in words and not sized, and its basis.
+// The edge and the saved read are the hand-made graph's, moved onto n1 → n2.
+describe('Q1: a link in words says its words on hover', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers(); savedRead.graph = null; storeExtra.value = {} })
+  type Rec = Record<string, unknown>
+  const onN1N2 = (id: string): Rec => ({ ...structuredClone((words.edges as Rec[]).find((e) => e.id === id)!), from: 'n1', to: 'n2' })
+  const program = (edge: Rec) => ({ edges: [edge], living_model: { model_program: 'v1' } })
+
+  it('conditional, with a basis: the arrow alone, the stated direction, "In words, not sized", the basis', () => {
+    const edge = onN1N2('evening_classes__member_mood')
+    savedRead.graph = program(edge)
+    const pop = hover(mapDraftEdgeToCanvas(edge, 0).data)!
+    expect(text(pop, 'edge-hover-arrow-sentence')).toBe('n1 → n2.')
+    expect(text(pop, 'edge-hover-direction')).toBe('DirectionDepends on conditions')
+    expect(text(pop, 'edge-hover-strength')).toBe('StrengthIn words, not sized')
+    expect(text(pop, 'edge-hover-basis')).toBe('Basis: Members asked for them in the spring survey')
+    expect(pop.textContent).not.toMatch(/%|Not on record|runs both ways|not stated/)
+  })
+  it('up, with no basis: "Raises it", and no basis line', () => {
+    const edge = onN1N2('member_mood__keep_members')
+    savedRead.graph = program(edge)
+    const pop = hover(mapDraftEdgeToCanvas(edge, 0).data)!
+    expect(text(pop, 'edge-hover-direction')).toBe('DirectionRaises it')
+    expect(text(pop, 'edge-hover-strength')).toBe('StrengthIn words, not sized')
+    expect(pop.querySelector('[data-testid="edge-hover-basis"]')).toBeNull()
+  })
+  it('CONTROL: the same link with no saved words keeps today\'s rows', () => {
+    const edge = onN1N2('evening_classes__member_mood')
+    const pop = hover(mapDraftEdgeToCanvas(edge, 0).data)!
+    expect(text(pop, 'edge-hover-arrow-sentence')).toBe('n1 → n2. Direction not stated in this model.')
+    expect(text(pop, 'edge-hover-strength')).toBe(`Strength${NOT_ON_RECORD}`)
+    expect(pop.querySelector('[data-testid="edge-hover-basis"]')).toBeNull()
+  })
+})
+
+// Q1 readers (PL BLOCK 1): the second link of each parallel pair says its own record on hover, never the first's.
+describe('Q1: parallel links each say their own record on hover', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers(); savedRead.graph = null })
+  type Rec = Record<string, unknown>
+  const hoverParallel = (id: string) => {
+    savedRead.graph = parallel
+    const wire = (parallel.edges as Rec[]).find((e) => e.id === id)!
+    const { container } = render(<StyledEdge {...(edgeProps as any)} id={id} source={wire.from} target={wire.to} data={mapDraftEdgeToCanvas(wire, 0).data} />)
+    act(() => {
+      fireEvent.mouseEnter(container.querySelector('path[stroke="transparent"]')!)
+      vi.advanceTimersByTime(HOVER_CARD_OPEN_DELAY_MS + 50)
+    })
+    return container.querySelector('[data-testid="edge-hover-popover"]') as HTMLElement
+  }
+  it('price → demand, the word link second: "Disputed", in words, its basis', () => {
+    const pop = hoverParallel('price__demand__2')
+    expect(text(pop, 'edge-hover-direction')).toBe('DirectionDisputed')
+    expect(text(pop, 'edge-hover-strength')).toBe('StrengthIn words, not sized')
+    expect(text(pop, 'edge-hover-basis')).toBe('Basis: Staff disagree')
+  })
+  it('quality → members, the numerical link second: its own strength, no words, no basis', () => {
+    const pop = hoverParallel('quality__members__2')
+    expect(text(pop, 'edge-hover-arrow-sentence')).toBe('quality → members. Positive direction in this model.')
+    expect(text(pop, 'edge-hover-strength')).not.toBe('StrengthIn words, not sized')
+    expect(pop.querySelector('[data-testid="edge-hover-basis"]')).toBeNull()
   })
 })

@@ -14,6 +14,9 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import type { NodeType } from '../domain/nodes'
 import { isEdgeValueSet } from '../domain/edgeValueProvenance'
+import { linkConfidenceWord } from '../domain/linkWords'
+import { programLinkWords } from '../nodes/shared/savedModelProgram'
+import { useSavedGraph } from '../nodes/shared/savedGraph'
 
 export interface ConnRowData {
   edgeId: string
@@ -22,6 +25,11 @@ export interface ConnRowData {
   connectedNodeLabel: string
   /** Confidence percentage (0-100), or null when exists_probability is unknown */
   confidencePct: number | null
+  /**
+   * Q1 readers: a link in words states its confidence as a word ("likely", "unsure", "not known") in place of a figure;
+   * null when it is not a link in words, or its record holds no confidence (an unsized risk: the dash).
+   */
+  confidenceWord: string | null
 }
 
 export function useNodeConnections(
@@ -31,6 +39,7 @@ export function useNodeConnections(
   const edges = useCanvasStore(s => s.edges)
   const nodes = useCanvasStore(s => s.nodes)
   const resultsStatus = useCanvasStore(s => s.results.status)
+  const savedGraph = useSavedGraph()
 
   return useMemo(() => {
     if (resultsStatus !== 'complete') return []
@@ -65,18 +74,21 @@ export function useNodeConnections(
       // counts once on its route (rule R, domain/routeOnceHeld: read-time, relational).
       const held = data?.existenceHeld === true || heldIds.has(edge.id)
       const raw = held ? 1 : isEdgeValueSet(data, 'beliefExists') ? (existsProb ?? beliefExists) : null
+      // Q1 readers: a link in words' wire `exists_probability: 1` is nobody's confidence; its stated word is.
+      const words = programLinkWords(savedGraph, edge.id, edge.source, edge.target)
 
       rows.push({
         edgeId: edge.id,
         connectedNodeId: connectedId,
         connectedNodeKind: kind,
         connectedNodeLabel: label,
-        confidencePct: raw != null ? Math.round(raw * 100) : null,
+        confidencePct: words === null && raw != null ? Math.round(raw * 100) : null,
+        confidenceWord: words === null ? null : linkConfidenceWord(words),
       })
     }
 
     // Sort by confidence descending (nulls last)
     rows.sort((a, b) => (b.confidencePct ?? -1) - (a.confidencePct ?? -1))
     return rows
-  }, [edges, nodes, nodeId, direction, resultsStatus])
+  }, [edges, nodes, nodeId, direction, resultsStatus, savedGraph])
 }

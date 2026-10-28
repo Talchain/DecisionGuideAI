@@ -84,7 +84,8 @@ import { isGraphLensEnabled } from '../../flags'
 import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdgeCopy'
 import type { RestsOnMark } from '../artefacts/assumptionMapModel'
 import { RestsOnMarker } from '../artefacts/RestsOnMarker'
-import { PROGRAM_OPERATOR_WORDS, useProgramLinkDirectionUnsettled, useProgramLinkFigure, useProgramLinkOperator } from '../nodes/shared/savedModelProgram'
+import { PROGRAM_OPERATOR_WORDS, useProgramLinkDirectionUnsettled, useProgramLinkFigure, useProgramLinkOperator, useProgramLinkWords } from '../nodes/shared/savedModelProgram'
+import { LINK_IN_WORDS_NOT_SIZED, linkDirectionAriaLabel } from '../domain/linkWords'
 import { cardMark } from '../nodes/shared/cardMarks'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 import { VALUE_PROVENANCE_LABEL } from '../domain/valueProvenance'
@@ -410,12 +411,20 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const edgeIdKey = String(id)
   // IDENTITY-EXACT (#2686 rebuild): an operand of an identity the current Run evaluated has no strength to set.
   const identityExact = useIdentityExactWords(edgeIdKey)
+  // Q1 readers: a link in words (`link_words` on the saved read, THIS edge by id) says its stated direction, confidence and
+  // basis, and its words win over every numerical rule below (PL BLOCK 1): a parallel link's figure, operator or range is
+  // never borrowed.
+  const linkWords = useProgramLinkWords(edgeIdKey, String(source), String(target))
   // A program link says its coefficient in natural units, at rest, in place of the strength words (read body only).
-  const programFigure = useProgramLinkFigure(edgeIdKey)
+  const ownProgramFigure = useProgramLinkFigure(edgeIdKey)
+  const programFigure = linkWords !== null ? null : ownProgramFigure
   // Decision 8 A (Paul, 26 Oct): a definition link says how its part enters the figure: + − × ÷, from the canonical relation.
-  const programOperator = useProgramLinkOperator(String(source), String(target))
-  // CEE #3859: a range across zero leaves the direction unsettled; the glyph says "?" (vision spec §2b).
-  const directionUnsettled = useProgramLinkDirectionUnsettled(String(source), String(target))
+  const ownProgramOperator = useProgramLinkOperator(String(source), String(target), edgeIdKey)
+  const programOperator = linkWords !== null ? null : ownProgramOperator
+  // CEE #3859: a range across zero leaves the direction unsettled; the glyph says "?" (vision spec §2b). A link in words is
+  // unsettled exactly when its stated way is neither up nor down.
+  const rangeUnsettled = useProgramLinkDirectionUnsettled(String(source), String(target), edgeIdKey)
+  const directionUnsettled = linkWords !== null ? linkWords.direction !== 'up' && linkWords.direction !== 'down' : rangeUnsettled
   const isAssistantFocused = useAssistantFocusStore(
     (state) => state.target?.kind === 'edge' && state.target.id === edgeIdKey,
   )
@@ -1222,8 +1231,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // strength not set".
       : strengthIsDefinitional && !edgeSignedStrength.show
       ? { label: BY_DEFINITION, tooltip: BY_DEFINITION }
+      // Q1 readers: a link in words has no size, and its wire `exists_probability: 1` is nobody's belief.
+      : linkWords !== null
+      ? { label: LINK_IN_WORDS_NOT_SIZED, tooltip: LINK_IN_WORDS_NOT_SIZED }
       : getEdgeLabel(strengthForWords(edgeData as Record<string, unknown> | undefined, edgeSignedStrength), edgeLikelihood, directionDisplay, labelMode, edgeUncertainty),
-    [programFigure, identityExact, strengthIsDefinitional, edgeData, edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty],
+    [programFigure, identityExact, strengthIsDefinitional, linkWords, edgeData, edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty],
   )
   /**
    * ⛔⛔ AND THE DISCLOSURE TOO — `aria-label` REPLACES DESCENDANT TEXT, SO THE
@@ -2133,6 +2145,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const strengthRowCarriesDirection =
     showLabel &&
     isTopStrengthEdge &&
+    // Q1 readers: a link in words' label ("In words, not sized") names no direction.
+    linkWords === null &&
     // ⛔ AND THE LABEL MUST ACTUALLY SAY IT. Without this clause the predicate
     // asserted its own name rather than checking it: in NUMERIC mode a stated
     // POSITIVE renders `w 0.60 • b 85%` — no word, no sign, no direction — and
@@ -2807,7 +2821,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               isSignDisputed
                 ? `Effect direction: ${DIRECTION_DISPUTED_SENTENCE}`
                 : directionUnsettled
-                  ? 'Effect direction: not settled. Its range runs both ways.'
+                  // Q1 readers: a link in words names its stated way; the range sentence is a numerical range's only.
+                  ? linkWords !== null
+                    ? linkDirectionAriaLabel(linkWords.direction)
+                    : 'Effect direction: not settled. Its range runs both ways.'
                   : programOperator
                     ? `Worked out: ${PROGRAM_OPERATOR_WORDS[programOperator]}`
                     : `Effect direction: ${statedDirection}`
@@ -3474,7 +3491,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               labelY={labelY}
               zoom={edgeTooltipZoom}
               surfaceRef={popoverElRef}
-              arrowSentence={edgeArrowSentence(String(srcTitle), String(tgtTitle), dirLabel, { signDisputed: isSignDisputed })}
+              arrowSentence={edgeArrowSentence(String(srcTitle), String(tgtTitle), dirLabel, { signDisputed: isSignDisputed, directionInRow: linkWords !== null })}
               doubtSentence={existenceDash.kind === 'stated' && existenceDash.dash !== undefined ? EDGE_EXISTENCE_DOUBT_SENTENCE : null}
               direction={directionDisplay}
               disputedSentence={isSignDisputed
@@ -3489,6 +3506,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               fragileSentence={isFragileEdge ? fragileSentence : null}
               size={edgeSize}
               runChanged={isRunChangedEdge}
+              linkWords={linkWords}
             />
           </EdgeLabelRenderer>
         )

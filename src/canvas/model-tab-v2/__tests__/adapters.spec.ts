@@ -19,6 +19,8 @@ import { describe, it, expect } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
 import type { EdgeData } from '../../domain/edges'
 import { readFileSync } from 'node:fs'
+import words from '../../nodes/shared/__tests__/fixtures/q1-words-graph.hand-made.json'
+import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from '../../utils/applyDraftResult'
 import { join } from 'node:path'
 import { countFactorsToVerify } from '../../components/model-tab/utils'
 import { factorIsConfirmable, factorNeedsVerification } from '../../domain/valueProvenance'
@@ -541,5 +543,25 @@ describe('toRowDetail — id-addressed, and absent rather than approximate', () 
       'f1',
     )!
     expect(detail.affects.map(a => a.id)).toEqual(['e1'])
+  })
+})
+
+// Q1 readers (PL disposition, 28 Oct): the Model tab's Advanced tier listed a link in words' wire `exists_probability: 1`
+// as "Exists probability 1". It now says the stated confidence in words; a numerical link keeps its figure. Hand-made graph.
+describe('toRowDetail — a link in words states its confidence in words, never a figure', () => {
+  const graph = () => input({
+    nodes: words.nodes.map((n) => mapDraftNodeToCanvas(n)) as Node[],
+    edges: words.edges.map((e, i) => mapDraftEdgeToCanvas(e, i)) as Edge<EdgeData>[],
+    savedGraph: words,
+  })
+  const exists = (rowId: string) => toRowDetail(graph(), rowId)!.advancedParameters.find((p) => p.label === 'Exists probability')!.value
+  it('an "unsure" influence link: "In words: unsure. No figure is set."', () => {
+    expect(exists('member_mood__keep_members')).toBe('In words: unsure. No figure is set.')
+  })
+  it('an unsized risk link (no confidence recorded): "Not stated. No figure is set."', () => {
+    expect(exists('rent_rise__keep_members')).toBe('Not stated. No figure is set.')
+  })
+  it('CONTROL: the numerical link keeps its figure', () => {
+    expect(exists('monthly_cost__keep_members')).toBe('1')
   })
 })

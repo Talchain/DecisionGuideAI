@@ -1105,7 +1105,8 @@ type GraphNormaliser = (graph: unknown) => unknown
  * write, a different question).
  */
 const NOT_ANALYSIS_AFFECTING = {
-  node: new Set(['description', 'display_value', 'provenance', 'provenance_display', 'origin', 'ref']
+  // `withheld_reason` (Q1 readers, DL G4, 28 Oct): CEE's words for why a goal or limit card is not calculable; display only.
+  node: new Set(['description', 'display_value', 'provenance', 'provenance_display', 'origin', 'ref', 'withheld_reason']
     .filter(key => !new Set<string>(CANONICAL_GRAPH_HASH_NESTED_PROJECTION.node.fields).has(key))),
   observedState: new Set(['unit', 'source', 'raw_value', 'extractionType']
     .filter(key => !new Set<string>(CANONICAL_GRAPH_HASH_NESTED_PROJECTION.node.observed_state_fields).has(key))),

@@ -86,7 +86,8 @@ import { canReceiveAsk, requestAsk } from '../askSemantic'
 import { resolveAskTemplate } from '../inspectorStrings'
 import { TestWithoutLinkButton } from '../../../../components/results/analysisNew/sections/TestWithoutLinkButton'
 import { useSavedGraph } from '../../../nodes/shared/savedGraph'
-import { isProgramGraph, programCoefficientOf } from '../../../nodes/shared/savedModelProgram'
+import { isProgramGraph, programCoefficientOf, programLinkWords } from '../../../nodes/shared/savedModelProgram'
+import { linkExistenceSentence } from '../../../domain/linkWords'
 import { ProgramCoefficientField } from '../shared/ProgramCoefficientField'
 
 /**
@@ -254,6 +255,8 @@ export const EdgePanel = memo(function EdgePanel({
   const savedGraph = useSavedGraph()
   const isProgram = isProgramGraph(savedGraph)
   const programCoefficient = edgeId ? programCoefficientOf(savedGraph, edgeId) : null
+  // Q1 readers: a link in words states its confidence as a word; its wire `exists_probability: 1` is nobody's.
+  const linkWords = edge ? programLinkWords(savedGraph, edge.id, String(edge.source), String(edge.target)) : null
   // The mapper retains the magnitude author on naturalEffect and an explicit placeholder marker,
   // rather than raw provenance.magnitude. Unknown authorship stays ineligible.
   const magnitudeProvenance = edge?.data?.naturalEffect?.author
@@ -1502,9 +1505,14 @@ export const EdgePanel = memo(function EdgePanel({
                 <p className={`${typography.panelBody} text-text-body mb-1`} title={EDGE_COPY.existenceTooltip}>
                   {INLINE_LABELS.existenceQuestion}
                 </p>
-                {/* S-DEF (Science 393023): a link CEE holds BY DEFINITION has no likelihood to show. No slider, no
+                {/* Q1 readers: a link in words states its confidence in words, with no slider and no figure.
+                    S-DEF (Science 393023): a link CEE holds BY DEFINITION has no likelihood to show. No slider, no
                     "Very likely to exist" readout: one sentence, the same fact the coaching line states. */}
-                {existenceHeldByDefinition ? (
+                {linkWords !== null ? (
+                  <p data-testid="edge-existence-in-words" className={`${typography.panelMeta} text-text-light`}>
+                    {linkExistenceSentence(linkWords)}
+                  </p>
+                ) : existenceHeldByDefinition ? (
                   <p data-testid="edge-existence-held-by-definition" className={`${typography.panelMeta} text-text-light`}>
                     {EDGE_COPY.existenceHeldByDefinitionNote}
                   </p>

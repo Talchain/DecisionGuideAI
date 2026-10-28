@@ -1,0 +1,31 @@
+{
+  "_source": "HAND-MADE (Q1 readers, PL BLOCK 1, 28 Oct 2026). Two pairs of parallel links between the same endpoints under distinct ids, as CEE suffixes them (`__2`): quality → members has the word link FIRST and a numerical link second; price → demand has the numerical link FIRST and a word link second. Each reader must show each edge's own record, never the first edge's.",
+  "nodes": [
+    { "id": "quality", "kind": "factor", "label": "Class quality" },
+    { "id": "members", "kind": "factor", "label": "Members" },
+    { "id": "price", "kind": "factor", "label": "Price" },
+    { "id": "demand", "kind": "factor", "label": "Demand" }
+  ],
+  "edges": [
+    {
+      "id": "quality__members", "from": "quality", "to": "members", "exists_probability": 1,
+      "provenance": { "source": "brief_extraction", "reasoning": "Only if the classes suit them" },
+      "origin": "model_program:display", "direction_settled": false,
+      "link_words": { "direction": "conditional", "confidence": "likely", "basis": "Only if the classes suit them" }
+    },
+    {
+      "id": "quality__members__2", "from": "quality", "to": "members", "exists_probability": 1, "effect_direction": "positive",
+      "strength": { "mean": 0.4, "std": 0.1 }, "provenance": { "source": "cee_hypothesis" }, "origin": "model_program:calculation"
+    },
+    {
+      "id": "price__demand", "from": "price", "to": "demand", "exists_probability": 1, "effect_direction": "negative",
+      "strength": { "mean": -0.5, "std": 0.1 }, "provenance": { "source": "cee_hypothesis" }, "origin": "model_program:calculation"
+    },
+    {
+      "id": "price__demand__2", "from": "price", "to": "demand", "exists_probability": 1,
+      "provenance": { "source": "brief_extraction", "reasoning": "Staff disagree" }, "origin": "model_program:display", "direction_settled": false,
+      "link_words": { "direction": "disputed", "confidence": "unsure", "basis": "Staff disagree" }
+    }
+  ],
+  "living_model": { "model_program": "v1", "canonical": { "quantities": [], "relations": [] } }
+}

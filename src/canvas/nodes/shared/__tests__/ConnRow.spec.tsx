@@ -113,3 +113,19 @@ describe('ConnRow — an unknown confidence is disclosed, not omitted', () => {
     expect(screen.queryByTestId('conn-row-confidence-unset-e1')).toBeNull()
   })
 })
+
+// Q1 readers (DL GO, 28 Oct): a link in words states its confidence as a word, never a figure from exists_probability.
+describe('ConnRow — a link in words', () => {
+  it.each(['likely', 'unsure', 'not known'])('shows the stated word "%s", with no percentage', (word) => {
+    render(<ConnRow edgeId="e1" nodeKind="outcome" label="How members feel" confidencePct={null} confidenceWord={word} />)
+    const cell = screen.getByText(word)
+    expect(cell.getAttribute('title')).toBe('Confidence the link exists, in words')
+    expect(cell.getAttribute('aria-label')).toBe(`Confidence the link exists: ${word}`)
+    expect(screen.queryByText(/%|conf\./)).toBeNull()
+    expect(screen.queryByTestId('conn-row-confidence-unset-e1')).toBeNull()
+  })
+  it('CONTRAST: no word and no figure keeps the dash', () => {
+    render(<ConnRow edgeId="e1" nodeKind="risk" label="Rent rise" confidencePct={null} confidenceWord={null} />)
+    expect(screen.getByTestId('conn-row-confidence-unset-e1')).toBeDefined()
+  })
+})

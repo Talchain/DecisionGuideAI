@@ -157,6 +157,25 @@ describe('W4: a metadata edge key CEE adds never declines a reload (served chip-
   })
 })
 
+// Q1 readers (DL G4, 28 Oct): `withheld_reason` (CEE's words for why a goal or limit card is not calculable) is display
+// only. The canvas keeps a node key the read omits (`overlayNode`), so a session's copy outlives a read that dropped it;
+// neither that nor a changed reason may make a reopen say the analysis is not current.
+describe('Q1: a goal\'s withheld_reason never declines a reopen', () => {
+  it.each([
+    ['changed', 'It now rests on a different link in words.'],
+    ['dropped', undefined],
+  ] as const)('the reason %s on reopen: no decline, the Run card reads current', async (_kind, readReason) => {
+    useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map((n) => n.id === 'mrr'
+      ? { ...n, data: { ...n.data, withheld_reason: 'It rests on a link in words.' } } : n) } as never)
+    const goal = readGraph.nodes.find((n) => n.id === 'mrr')!
+    if (readReason === undefined) delete goal.withheld_reason
+    else goal.withheld_reason = readReason
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog(), JSON.stringify(declineLog())).toBeUndefined()
+    expect(runCardCurrency()).toBe('current')
+  })
+})
+
 describe('CONTRASTS: every field the analysis hash counts still declines', () => {
   it('edge `effect_direction` differs: declined on THAT edge\'s hashed fields (direction, or the signed strength it sets)', async () => {
     const e = WRITTEN(readGraph)

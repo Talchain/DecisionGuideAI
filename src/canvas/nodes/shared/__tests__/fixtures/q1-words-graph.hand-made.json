@@ -1,0 +1,34 @@
+{
+  "_source": "HAND-MADE (Q1 readers, 28 Oct 2026; DL GO). Shapes from the accepted contract and CEE 1a project.ts link(): influence and unsized-risk edges keep exists_probability 1 and direction_settled false where no way is settled, and carry link_words; the numerical edge carries none. Goal and limit cards carry withheld_reason. Not a served read.",
+  "nodes": [
+    { "id": "evening_classes", "kind": "option", "label": "Run evening classes" },
+    { "id": "member_mood", "kind": "factor", "label": "How members feel" },
+    { "id": "rent_rise", "kind": "risk", "label": "Rent rise" },
+    { "id": "monthly_cost", "kind": "factor", "label": "Monthly cost" },
+    { "id": "keep_members", "kind": "goal", "label": "Keep members", "withheld_reason": "It rests on the link “Run evening classes → How members feel”, which is in words with no figure." },
+    { "id": "mp:limit:budget", "kind": "action", "label": "Limit: Stay within budget", "description": "Stay within budget (its figure is not given yet).", "withheld_reason": "Its figure is not given yet." }
+  ],
+  "edges": [
+    {
+      "id": "evening_classes__member_mood", "from": "evening_classes", "to": "member_mood", "exists_probability": 1,
+      "provenance": { "source": "brief_extraction", "reasoning": "Members asked for them in the spring survey" },
+      "origin": "model_program:display", "direction_settled": false,
+      "link_words": { "direction": "conditional", "confidence": "likely", "basis": "Members asked for them in the spring survey" }
+    },
+    {
+      "id": "member_mood__keep_members", "from": "member_mood", "to": "keep_members", "exists_probability": 1, "effect_direction": "positive",
+      "provenance": { "source": "cee_hypothesis" }, "origin": "model_program:display",
+      "link_words": { "direction": "up", "confidence": "unsure", "basis": null }
+    },
+    {
+      "id": "rent_rise__keep_members", "from": "rent_rise", "to": "keep_members", "exists_probability": 1,
+      "provenance": { "source": "brief_extraction", "reasoning": "if it happens" }, "origin": "model_program:display", "direction_settled": false,
+      "link_words": { "direction": "unknown", "confidence": null, "basis": null }
+    },
+    {
+      "id": "monthly_cost__keep_members", "from": "monthly_cost", "to": "keep_members", "exists_probability": 1, "effect_direction": "negative",
+      "strength": { "mean": -1, "std": 0.001 }, "provenance": { "source": "brief_extraction" }, "origin": "model_program:calculation", "direction_settled": false
+    }
+  ],
+  "living_model": { "model_program": "v1", "canonical": { "quantities": [], "relations": [] } }
+}

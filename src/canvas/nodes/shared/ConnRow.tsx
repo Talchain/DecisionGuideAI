@@ -87,9 +87,11 @@ interface ConnRowProps {
   label: string
   /** Confidence percentage (0-100), or null when unknown */
   confidencePct: number | null
+  /** Q1 readers: a link in words' stated confidence ("likely", "unsure", "not known"), shown in place of a figure. */
+  confidenceWord?: string | null
 }
 
-export function ConnRow({ edgeId, nodeKind, label, confidencePct }: ConnRowProps) {
+export function ConnRow({ edgeId, nodeKind, label, confidencePct, confidenceWord }: ConnRowProps) {
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     openEdgeStrengthEditor(edgeId)
@@ -128,7 +130,15 @@ export function ConnRow({ edgeId, nodeKind, label, confidencePct }: ConnRowProps
       <span className={`${typography.edgeLabel} text-info underline flex-1 truncate`} title={label}>
         {label}
       </span>
-      {confidencePct != null ? (
+      {confidenceWord != null ? (
+        <span
+          className={`${typography.edgeLabel} text-text-light text-right shrink-0 whitespace-nowrap`}
+          title="Confidence the link exists, in words"
+          aria-label={`Confidence the link exists: ${confidenceWord}`}
+        >
+          {confidenceWord}
+        </span>
+      ) : confidencePct != null ? (
         <span
           className={`${typography.edgeLabel} text-text-light text-right shrink-0 whitespace-nowrap`}
           title="Confidence the link exists"

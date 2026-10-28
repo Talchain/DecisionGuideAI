@@ -29,6 +29,7 @@ import { BY_DEFINITION } from '../../domain/strengthDefinitional'
 import type { EdgeSizePhrase } from '../../edges/edgeSizePhrase'
 import { RUN_CHANGE_WORDS } from '../../graphChanges/RunChangeBadge'
 import { sizingWords } from '../../../components/results/analysisNew/runDeltaLinkWords'
+import { LINK_DIRECTION_WORDS, LINK_IN_WORDS_NOT_SIZED, linkBasisSentence, type LinkWords } from '../../domain/linkWords'
 
 const DIRECTION_SOURCE_WORDS: Record<EdgeValueSource, string> = {
   user: 'Set by you',
@@ -92,6 +93,8 @@ export interface LinkHoverCardProps {
    * that is a glow, colour alone; here it is said in the Changes view's own word (`RUN_CHANGE_WORDS.changed`).
    */
   runChanged?: boolean
+  /** Q1 readers: what a link in words states (`savedModelProgram.programLinkWords`), or null for a numerical link. */
+  linkWords?: LinkWords | null
 }
 
 /** The hover's sentence for a link the last Run's changes light. Who changed it is not claimed: the light does not say. */
@@ -163,7 +166,9 @@ export function LinkHoverCard(props: LinkHoverCardProps) {
         <dl className="mt-1.5 mb-0 space-y-1">
           {props.disputedSentence === null && (
             <Row label="Direction" testId="edge-hover-direction">
-              {direction.show
+              {props.linkWords != null
+                ? LINK_DIRECTION_WORDS[props.linkWords.direction]
+                : direction.show
                 ? props.size?.exampleFigure === true
                   ? 'example figure'
                   : props.strengthDefinitional === true && direction.source === 'cee'
@@ -184,7 +189,7 @@ export function LinkHoverCard(props: LinkHoverCardProps) {
             </Row>
           )}
           <Row label="Strength" testId="edge-hover-strength">
-            {props.placeholderSentence !== null ? (
+            {props.linkWords != null ? LINK_IN_WORDS_NOT_SIZED : props.placeholderSentence !== null ? (
               <span data-testid="edge-hover-strength-placeholder">{props.placeholderSentence}</span>
             ) : strength.show ? (
               <>
@@ -195,6 +200,11 @@ export function LinkHoverCard(props: LinkHoverCardProps) {
             ) : NOT_ON_RECORD}
           </Row>
         </dl>
+        {props.linkWords?.basis != null && (
+          <p data-testid="edge-hover-basis" className={`${typography.panelBody} text-text-body m-0 mt-1.5 break-words`}>
+            {linkBasisSentence(props.linkWords.basis)}
+          </p>
+        )}
         {props.disputedSentence !== null && (
           <p data-testid="edge-hover-direction-disputed" className={`${typography.panelBody} text-text-body m-0 mt-1.5 break-words`}>
             {props.disputedSentence}
