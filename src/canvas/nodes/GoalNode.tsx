@@ -673,6 +673,10 @@ export const GoalNode = memo((props: NodeProps) => {
   // Olumi's suggested measure for a vague aim (CEE #3585): said as Olumi's, never a threshold (`suggestedMeasure.ts`).
   const suggestedMeasure = useSuggestedMeasure(props.id)
   const todayLevel = goalTodayLevel(props.data as Parameters<typeof goalTodayLevel>[0])
+  const workedOutWords = useMemo(() => {
+    const basis = (props.data as { value_basis?: { kind?: unknown; words?: unknown } } | undefined)?.value_basis
+    return basis?.kind === 'worked_out' && typeof basis.words === 'string' && basis.words.trim() !== '' ? basis.words.trim() : null
+  }, [props.data])
   // Editable only where a write exists for it: a core scenario (its saved model has a living model, whichever AI mode
   // the URL names: the default `openai` mode serves core too), on a goal with a stated target and unit.
   const savedModelIsCore = useSavedModelIsCore()
@@ -1211,6 +1215,16 @@ export const GoalNode = memo((props: NodeProps) => {
         {/* Vision spec §2a: a level target's track, today's level against the target, on one scale. Display only. */}
         {typeof thresholdRaw === 'number' && goalTargetChangeFrameOf(thresholdFrame) === null && todayLevel !== null && thresholdDisplay != null && (
           <GoalTrack today={todayLevel.level} target={thresholdRaw} label={`Today ${goalTodayLevelFigure(todayLevel)}, target ${thresholdDisplay}`} testId={`goal-track-${props.id}`} />
+        )}
+
+        {/* Paul's Q1 ruling (28 Oct): the canvas shows the situation, not the arithmetic. The goal's worked-out totals are
+            said here, collapsed, in CEE's own self-contained words (`value_basis.words`), shown verbatim. */}
+        {workedOutWords !== null && (
+          <details data-testid={`goal-worked-out-${props.id}`} className={`${typography.edgeLabel} nodrag nopan mt-0.5 text-text-light`}
+            onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+            <summary className="cursor-pointer rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">Worked out from</summary>
+            <p className="m-0 mt-0.5 text-text-body" data-testid={`goal-worked-out-words-${props.id}`}>{workedOutWords}</p>
+          </details>
         )}
 
         {/* The saved model's other aims (Paul, 21 Oct 2026: never hide what Olumi has); display only, see the file. */}
