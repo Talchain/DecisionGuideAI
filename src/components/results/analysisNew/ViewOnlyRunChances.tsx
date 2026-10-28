@@ -174,9 +174,19 @@ function unknownBasisWords(item: CanonicalWaitsOn): string | null {
 export function WaitsOnList({ items, testIdPrefix = WAITS_ON_TESTID, withBasis = false }: { items: readonly CanonicalWaitsOn[]; testIdPrefix?: string; withBasis?: boolean }) {
   return (
     <>
-      {items.map((w, i) => (
-        <span key={w.id}>{i > 0 ? ', ' : null}<WaitsOnItem item={w} testIdPrefix={testIdPrefix} />{withBasis ? unknownBasisWords(w) : null}</span>
-      ))}
+      {/* Each comma stays on the line of the item before it, so a wrap never leaves ", " alone on a line (UI-SURGICAL 6). */}
+      {items.map((w, i) => {
+        const comma = i < items.length - 1 ? ',' : null
+        const basis = withBasis ? unknownBasisWords(w) : null
+        return (
+          <span key={w.id}>
+            {basis === null
+              ? <span className="whitespace-nowrap" data-waits-on-item={w.id}><WaitsOnItem item={w} testIdPrefix={testIdPrefix} />{comma}</span>
+              : <><WaitsOnItem item={w} testIdPrefix={testIdPrefix} />{basis}{comma}</>}
+            {comma === null ? null : ' '}
+          </span>
+        )
+      })}
     </>
   )
 }
@@ -280,7 +290,7 @@ function WaitsOnItem({ item, testIdPrefix }: { item: CanonicalWaitsOn; testIdPre
   const requestPrefill = useValuePrefillStore(s => s.requestPrefill)
   if (quantityId === null || !onCanvas) return <span data-testid={`${testIdPrefix}-${item.id}`}>{`‘${item.label}’`}</span>
   return (
-    <button type="button" className={action('inline')} data-testid={`${testIdPrefix}-answer-${quantityId}`}
+    <button type="button" className={`${action('inline')} whitespace-normal`} data-testid={`${testIdPrefix}-answer-${quantityId}`}
       onClick={() => { focusModelTarget(quantityId); requestPrefill({ nodeId: quantityId, text: '' }) }}>
       {`‘${item.label}’`}
     </button>
