@@ -507,6 +507,10 @@ export function resolveProvenanceMarks(nodeType: NodeType, data: unknown): Resol
   // (53 of 198 valued factors in the corpus). Paul, 23 Sep point 1: a number
   // is never unmarked.
   const valueLine = factorValueSourceMark(data)
+  // A card waiting for an answer has no figure, so its "Waiting for your answer" names no number's source and the card's
+  // own authorship is the claim left: Olumi's added question keeps its mark (W8 run 4, 28 Oct; E2 serves it `ai_inferred`).
+  // A person's asked card is unchanged.
+  if (valueLine?.kind === 'asked' && nodeAuthorship?.kind === 'ai' && authorshipIsClaimable) return [{ claim: 'structural', kind: 'ai' }]
   const valueLineStatesTheSource = valueLine !== null && valueLine.kind !== 'unknown'
   return valueLineStatesTheSource ? marks.filter((m) => m.claim !== 'value') : marks
 }
