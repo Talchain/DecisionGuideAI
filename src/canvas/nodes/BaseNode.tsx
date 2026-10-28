@@ -1123,8 +1123,10 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // answers a different, narrower question (what does opening this card do),
   // so this gap follows the contract literally rather than inventing a
   // longer hybrid sentence.
-  // ⭐ The card's number within its type (Paul, 1 Oct 2026): options 1…N, factors 1…N, outcomes, risks. Display only.
-  const typeOrdinal = useCanvasStore((s) => nodeTypeNumber(nodeType, id, s.nodes as never, s.optionNumbering))
+  // ⭐ The card's number within its type (Paul, 1 Oct 2026). Options only since 28 Oct (vision spec §2a; UI-SURGICAL 2):
+  // F1 / OC1 / R1 read as internal codes on factors, outcomes and risks; an option's number is the Analysis panel's
+  // "Option N", so the two still agree. Display only.
+  const typeOrdinal = useCanvasStore((s) => nodeType === 'option' ? nodeTypeNumber(nodeType, id, s.nodes as never, s.optionNumbering) : undefined)
   // GAP-36's name first, unchanged ("Option: Rebuild. Open details."), then the card's number as its own sentence
   // ("Option 1."). #2392 put the number inside the kind ("Option 1: Rebuild") and turned every reader keyed on
   // `<Kind>: <title>. Open details.` red.

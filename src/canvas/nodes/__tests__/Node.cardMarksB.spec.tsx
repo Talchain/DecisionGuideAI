@@ -183,3 +183,13 @@ it.each(['option', 'risk', 'outcome'] as const)('⛔ CONTROL: a %s the person ad
   expect(screen.queryByTestId('node-title-authorship')).toBeNull()
   expect(screen.getByTestId('node-title').querySelectorAll(BRAND)).toHaveLength(0)
 })
+// UI-SURGICAL 2 (28 Oct; vision spec §2a): no internal code on a card. Factors, outcomes and risks carry no "F1" /
+// "OC1" / "R1"; an option keeps its number, which is the Analysis panel's "Option N".
+it.each(['factor', 'outcome', 'risk'] as const)('%s: the title carries no type number', (type) => {
+  seed(type)
+  expect(screen.getByTestId('node-title').getAttribute('data-type-ordinal')).toBeNull()
+})
+it('CONTRAST: an option keeps its number', () => {
+  seed('option')
+  expect(screen.getByTestId('node-title').getAttribute('data-type-ordinal')).toMatch(/^O\d+$/)
+})
