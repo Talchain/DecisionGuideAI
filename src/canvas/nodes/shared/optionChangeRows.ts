@@ -372,7 +372,7 @@ export function binaryTargetReading(factorData: unknown, reading: string): strin
   if (!isBinaryFactor({ unit, factorType }) && own !== null && own !== 0 && own !== 1) return null
   const word = reading.trim()
   if (!BARE_SWITCH_WORD.test(word)) return null
-  const v: 0 | 1 = /^(?:on|yes|true|1)$/i.test(word) ? 1 : 0
+  const v: 0 | 1 = /^(?:on|yes|true|1|in use)$/i.test(word) ? 1 : 0
   return switchReading(d, v)
 }
 
@@ -396,10 +396,10 @@ export function binaryTargetReading(factorData: unknown, reading: string): strin
  */
 export const BINARY_STATE_WORDS: Readonly<Record<0 | 1, string>> = Object.freeze({ 0: 'Not in use', 1: 'In use' })
 
-const BARE_SWITCH_WORD = /^(?:on|off|yes|no|true|false|0|1)$/i
+const BARE_SWITCH_WORD = /^(?:on|off|yes|no|true|false|0|1|in use|not in use)$/i
 
-/** CEE's word for a switched state; a bare digit is not one here. */
-export const SWITCH_STATE_WORD = /^(?:on|off|yes|no|true|false)$/i
+/** CEE's word for a switched state ("on", or its own "In use" / "Not in use", CEE #3875); a bare digit is not one here. */
+export const SWITCH_STATE_WORD = /^(?:on|off|yes|no|true|false|in use|not in use)$/i
 
 /**
  * ⭐ A FACTOR IS BINARY WHEN THE PRODUCER SAYS SO: its unit or type names it
