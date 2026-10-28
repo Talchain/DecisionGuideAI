@@ -41,7 +41,8 @@ describe('compactUnitParts — a currency-led unit carries the glyph on the figu
     // The rate arm's own shapes — unchanged.
     ['49', 'GBP per month', '£49 / month'],
     ['39,000', 'GBP/year', '£39,000 / year'],
-    ['20', 'subscribers per month', '20 subscribers / month'],
+    // A word rate reads "per" (UI-SURGICAL 3, Paul 28 Oct); money keeps "/ month".
+    ['20', 'subscribers per month', '20 subscribers per month'],
   ])('CONTROL (rate arm, unchanged) %s %s → %s', (figure, unit, expected) => {
     expect(compact(figure, unit)).toBe(expected)
   })

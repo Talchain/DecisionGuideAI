@@ -49,7 +49,9 @@ const DECLINED: ReadonlyArray<[number, string, { card: string; receipt: string; 
   [1500, 'subscribers', { card: '1,500 subscribers', receipt: '1,500 subscribers', threshold: '1,500 subscribers' }],
   [12, 'months', { card: '12 months', receipt: '12 months', threshold: '12 months' }],
   [5, '%', { card: '5%', receipt: '5%', threshold: '5%' }],
-  [3, 'hours/week', { card: '3 hours/week', receipt: '3 hours/week', threshold: '3 hours/week' }],
+  // A word rate reads "per" on the card (UI-SURGICAL 3, Paul 28 Oct); the receipt and the Analysis panel's threshold are not
+  // in that lease and keep their text.
+  [3, 'hours/week', { card: '3 hours per week', receipt: '3 hours/week', threshold: '3 hours/week' }],
   [49, 'CHF', { card: 'CHF 49', receipt: '49 CHF', threshold: 'CHF 49' }],
 ]
 

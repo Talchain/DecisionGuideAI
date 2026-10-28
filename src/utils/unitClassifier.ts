@@ -257,6 +257,7 @@ export function compactUnitParts(figure: string, unit: string | null | undefined
   const rate = COMPOUND_RATE_UNIT.exec(trimmed)
   if (!rate) return null
   const head = rate[1].trim()
+  const slashed = rate[2].includes('/')
   const period = unitWords(rate[3])
   const negative = figure.trim().startsWith('-')
   if (/\/|\bper\b/i.test(head)) {
@@ -281,7 +282,10 @@ export function compactUnitParts(figure: string, unit: string | null | undefined
   if (kind === 'percent') return { figure: applyUnitPlacement(figure, head), unit: `/ ${period}` }
   // UI-SURGICAL 3 (Paul, 28 Oct): a word rate reads in words, counted — "120 tickets per week", never "ticket/week".
   // Money and percent keep the contract's compact "/ month" above.
-  if (kind === 'other') return { figure, unit: `${unitForCount(figureCount(figure), unitWords(canonical))} per ${period}` }
+  if (kind === 'other' && /^[A-Za-z]+(?:[ _][A-Za-z]+)*$/.test(head)) {
+    return { figure, unit: `${unitForCount(figureCount(figure), unitWords(canonical))} per ${period}` }
+  }
+  if (kind === 'other' && !slashed) return { figure, unit: `${canonical} / ${period}` }
   return null
 }
 
@@ -575,11 +579,17 @@ const UNCOUNTED_UNIT_WORDS = new Set([
   'effort', 'traffic', 'information', 'work', 'output', 'income', 'cash', 'stock', 'inventory', 'headcount', 'demand',
   'churn', 'growth', 'spend', 'research', 'progress', 'evidence', 'support', 'training', 'experience', 'quality',
   'energy', 'fuel', 'water', 'power', 'storage', 'bandwidth', 'news', 'advice', 'knowledge', 'freight', 'mail',
+  // Scale words: a figure ON a scale, not a count of things ("0.8 ratio", never "0.8 ratios").
+  'ratio', 'rate', 'share', 'index', 'score', 'level', 'fraction', 'proportion', 'probability', 'multiplier', 'factor',
+  'percent', 'scale', 'norm', 'unit',
+  // Abbreviations keep their spelling ("5 km", "30 min").
+  'min', 'sec', 'mph', 'kph', 'mpg', 'ppm', 'kwh', 'mwh',
 ])
 
 /** The plural of one lower-case word, by the regular English rules; a word already ending in "s" is left. */
 function pluralWord(word: string): string {
-  if (UNCOUNTED_UNIT_WORDS.has(word) || /s$/.test(word)) return word
+  // A word with no vowel is an abbreviation ("km", "kg", "ml", "ft"): never pluralised.
+  if (UNCOUNTED_UNIT_WORDS.has(word) || /s$/.test(word) || !/[aeiouy]/.test(word)) return word
   if (/(?:x|z|ch|sh)$/.test(word)) return `${word}es`
   if (/[^aeiou]y$/.test(word)) return `${word.slice(0, -1)}ies`
   return `${word}s`
