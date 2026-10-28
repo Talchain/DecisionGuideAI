@@ -64,3 +64,35 @@ describe('one Olumi mark per card, on Paul’s AI-chat board', () => {
     expect(band.querySelector('[data-card-mark="source-brief"]')).not.toBeNull()
   })
 })
+
+// Paul's Q1 ruling (28 Oct): CEE folds an on/off switch off the canvas and onto the option, carrying the quantity's own
+// `label` and readable `display_value` on `interventions[id]`. With no card for that quantity, the row says CEE's
+// label and words, never the raw id. SYNTHETIC on Paul's board: the switch card removed and CEE's two fields added.
+describe('a folded switch is said on its option card, in CEE’s words', () => {
+  const folded = () => {
+    const graph = structuredClone(chat.graph) as Json
+    graph.nodes = graph.nodes.filter((n: Json) => n.id !== 'specialist_support')
+    graph.edges = (graph.edges ?? []).filter((e: Json) => e.from !== 'specialist_support' && e.to !== 'specialist_support')
+    const opt = graph.nodes.find((n: Json) => n.id === 'specialist_assisted_delivery')
+    opt.interventions.specialist_support = { ...opt.interventions.specialist_support, label: 'External AI specialist support', display_value: 'In use' }
+    return { ...chat, graph }
+  }
+  // The amount cell, and the row's whole line (label + amount) with its sentence (the cell's title).
+  const cell = (id: string, fid: string) => screen.getByTestId(`option-change-row-${id}-${fid}`)
+  const rowText = (id: string, fid: string) => `${cell(id, fid).parentElement?.textContent ?? ''} | ${cell(id, fid).getAttribute('title') ?? ''}`
+
+  it('the row names the quantity by CEE’s label and says "In use", never the id', async () => {
+    await openBoard(folded() as Json)
+    await card('specialist_assisted_delivery')
+    const text = rowText('specialist_assisted_delivery', 'specialist_support')
+    expect(text).toContain('External AI specialist support')
+    expect(cell('specialist_assisted_delivery', 'specialist_support').textContent).toContain('In use')
+    expect(text).not.toContain('specialist_support')
+  })
+
+  it('CONTROL: with the card on the canvas, the row is named from the card, as before', async () => {
+    await openBoard(chat as Json)
+    await card('specialist_assisted_delivery')
+    expect(rowText('specialist_assisted_delivery', 'specialist_support')).toContain('External AI specialist support')
+  })
+})

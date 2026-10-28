@@ -106,6 +106,7 @@ export function resolveOptionTargets(
       ? cell as Record<string, unknown> : undefined
     targets.set(fid, { value: u.value, displayValue: u.displayValue, source,
       raw_value: details?.raw_value, unit: details?.unit,
+      ...(typeof details?.label === 'string' && details.label.trim() !== '' ? { label: details.label.trim() } : {}),
       ...(interventionIsUserMaterialUnverified(cell) ? { userMaterialUnverified: true } : {}) })
   }
   return targets
@@ -192,6 +193,12 @@ export function buildOptionNeedsInputTargetRow({
  * The factor half of a change row, using the same target frame as both editors. `naturalUnits`: the saved model on
  * screen is a program, so the target is a figure in its own unit (`InterventionValueInput.naturalUnits`).
  */
+/** CEE's label on an option's intervention entry (`{ label }`), or null. */
+function interventionLabel(intervention: unknown): string | null {
+  const label = (intervention as { label?: unknown } | null | undefined)?.label
+  return typeof label === 'string' && label.trim() !== '' ? label.trim() : null
+}
+
 export function optionFactorContext(
   factorNode: TargetNodeLike | undefined,
   factorId: string,
@@ -200,7 +207,8 @@ export function optionFactorContext(
 ): FactorContext {
   const obs = factorNode?.data?.observedState as { factor_type?: string } | undefined
   return {
-    label: (factorNode?.data?.label as string | undefined) ?? factorId,
+    // Q1 (28 Oct): a quantity folded off the canvas has no card; CEE's own label for it names the row, never its id.
+    label: (factorNode?.data?.label as string | undefined) ?? interventionLabel(intervention) ?? factorId,
     ...resolveOptionTargetDisplayFrame(factorNode?.data, intervention),
     factorType: obs?.factor_type,
     factorData: factorNode?.data ?? null,

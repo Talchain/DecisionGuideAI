@@ -91,6 +91,11 @@ export interface OptionTargetLike {
    * when true. The mark then reads "Not confirmed from your brief", never Olumi's.
    */
   userMaterialUnverified?: boolean
+  /**
+   * CEE's own name for the quantity this target sets (`interventions[id].label`, Paul's Q1 ruling 28 Oct): read only
+   * when no card on the canvas carries that quantity (a folded on/off switch), so the row never names a raw id.
+   */
+  label?: string
 }
 
 /**
