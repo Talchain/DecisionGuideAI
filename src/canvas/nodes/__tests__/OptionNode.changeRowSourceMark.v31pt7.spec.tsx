@@ -363,19 +363,21 @@ describe('estimated targets carry their own mark on the bottom row (Paul, 27 Oct
   }
   const ESTIMATE_NAME = 'Olumi chose this target; it is not yet confirmed. Open the details to set or confirm it.'
 
-  // RE-PINNED (Paul, 27 Oct): every card icon sits on the bottom row. Each estimated target keeps its own named mark
-  // (there, not before its figure), the figure keeps Olumi's dotted underline, and the authorship mark joins them.
+  // RE-PINNED (Paul, 27 Oct): every card icon sits on the bottom row. RE-PINNED (W8 c7.1, 27 Oct acceptance: the same mark
+  // and words twice in a row): the bottom row says each source ONCE, its mark naming every target it covers; each figure
+  // keeps Olumi's dotted underline, and the authorship mark joins them.
   const target = (opt: string, fid: string) => screen.getByTestId(`option-change-row-target-${opt}-${fid}`)
-  it('Olumi authorship + two estimated targets → each target’s own mark on the bottom row, none in the rows', () => {
+  it('Olumi authorship + two estimated targets → one mark on the bottom row naming both, none in the rows', () => {
     withOption('opt-split', 'ai_inferred', { 'fac-thru': iv(0.85, '0.85 scale', 'cee_hypothesis'), 'fac-ratio': iv(0.6, '0.6 ratio', 'cee_hypothesis') })
     expect(document.querySelector('[data-olumi-estimates]')).toBeNull()
+    const est = screen.getByTestId('option-change-row-estimate-opt-split-fac-thru')
+    expect(screen.queryByTestId('option-change-row-estimate-opt-split-fac-ratio')).toBeNull()
+    expect(bandOf('opt-split')?.contains(est)).toBe(true)
+    expect(est.getAttribute('data-card-mark')).toBe('source-olumi')
+    expect(est.querySelectorAll('svg[data-icon="olumi-ai"]')).toHaveLength(1)
+    expect(est.getAttribute('aria-label')).toBe('Development throughput and Senior to junior ratio targets: Olumi\'s estimate — estimate not yet confirmed')
     for (const fid of ['fac-thru', 'fac-ratio']) {
-      const est = screen.getByTestId(`option-change-row-estimate-opt-split-${fid}`)
       expect(row(document.body, 'opt-split', fid).contains(est)).toBe(false)
-      expect(bandOf('opt-split')?.contains(est)).toBe(true)
-      expect(est.getAttribute('data-card-mark')).toBe('source-olumi')
-      expect(est.querySelectorAll('svg[data-icon="olumi-ai"]')).toHaveLength(1)
-      expect(est.getAttribute('aria-label')).toBe(ESTIMATE_NAME)
       const figure = target('opt-split', fid)
       expect(figure.getAttribute('data-olumi-estimate')).toBe('true')
       expect(figure.className).toContain('decoration-dotted')
@@ -387,19 +389,21 @@ describe('estimated targets carry their own mark on the bottom row (Paul, 27 Oct
     expect(authorship.getAttribute('data-provenance-kind')).toBe('ai')
   })
 
-  it('contrast: a brief-authored option keeps "From your brief" as its OWN band mark beside the two estimates', () => {
+  it('contrast: a brief-authored option keeps "From your brief" as its OWN band mark beside the two estimates\' one mark', () => {
     withOption('opt-split', 'from_brief', { 'fac-thru': iv(0.85, '0.85 scale', 'cee_hypothesis'), 'fac-ratio': iv(0.6, '0.6 ratio', 'cee_hypothesis') })
     const band = screen.getByTestId('option-bottom-marks-opt-split')
     const brief = band.querySelector<HTMLElement>('[data-testid="node-provenance-mark"]')
     expect(brief?.getAttribute('data-provenance-kind')).toBe('brief')
     expect(brief?.getAttribute('aria-label')).toBe('From your brief')
-    expect(Array.from(band.querySelectorAll('[data-card-mark="source-olumi"]')).filter(el => (el.getAttribute('data-testid') ?? '').startsWith('option-change-row-estimate-opt-split-'))).toHaveLength(2)
+    expect(Array.from(band.querySelectorAll('[data-card-mark="source-olumi"]')).filter(el => (el.getAttribute('data-testid') ?? '').startsWith('option-change-row-estimate-opt-split-'))).toHaveLength(1)
   })
 
   it('control: one estimated and one user-stated target → one Olumi mark (its figure underlined) and one person glyph (not underlined), both on the bottom row', () => {
     withOption('opt-split', 'from_brief', { 'fac-thru': iv(0.85, '0.85 scale', 'cee_hypothesis'), 'fac-price': iv(59, '£59', 'user_specified') })
     const est = screen.getByTestId('option-change-row-estimate-opt-split-fac-thru')
     expect(bandOf('opt-split')?.contains(est)).toBe(true)
+    // A mark covering one target keeps that target's own sentence.
+    expect(est.getAttribute('aria-label')).toBe(ESTIMATE_NAME)
     expect(target('opt-split', 'fac-thru').getAttribute('data-olumi-estimate')).toBe('true')
     const you = screen.getByTestId('option-change-row-source-opt-split-fac-price')
     expect(you.getAttribute('data-value-source')).toBe('you')

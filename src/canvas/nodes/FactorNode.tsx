@@ -70,8 +70,12 @@ const SOURCE_UNKNOWN_WORDS = cardMark('source-unknown').keyText
 /** §2d: the mark an open field shows while it holds the person's own figure. Not saved yet, and it says so. */
 const DRAFT_IS_YOURS_MARK: FactorValueSourceMark = { kind: 'you', label: 'Yours once you save it' }
 
-/** Olumi's mark on a figure of Olumi's that nobody knows yet (W12): Olumi's item, no estimate behind it. */
-const OLUMI_NO_FIGURE_MARK: FactorValueSourceMark = { kind: 'olumi', label: 'Olumi’s: no figure yet' }
+/**
+ * Olumi's mark on a figure of Olumi's that nobody knows yet (W12): Olumi's item, no estimate behind it. W8 c2 (27 Oct):
+ * its words say what the model holds, that the figure is not known and none is set, as CEE's quantity (`status:
+ * 'unknown'`, no value) states it.
+ */
+const OLUMI_NO_FIGURE_MARK: FactorValueSourceMark = { kind: 'olumi', label: 'Olumi’s: not known yet, no figure set' }
 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor

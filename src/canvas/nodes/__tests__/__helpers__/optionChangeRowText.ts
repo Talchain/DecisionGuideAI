@@ -51,3 +51,18 @@ export function changeRow(change: string | RegExp) {
       ? changeRowValueText(el) === change
       : change.test(changeRowValueText(el)))
 }
+
+/**
+ * W8 c7.1 (acceptance 27 Oct: one card said "From your brief" twice in a row): the card's bottom row says each source of
+ * its targets ONCE. The first row of a source carries the mark (`option-change-row-source-*` / `-estimate-*`); a later row
+ * from the same source carries none, and the first row's mark names it ("A and B targets: …"). This returns the mark that
+ * covers one row: its own, else the one that names it. Null when no mark covers it.
+ */
+export function sourceMarkCovering(root: ParentNode, optionId: string, factorId: string, rowLabel: string): HTMLElement | null {
+  const own = root.querySelector<HTMLElement>(
+    `[data-testid="option-change-row-source-${optionId}-${factorId}"], [data-testid="option-change-row-estimate-${optionId}-${factorId}"]`)
+  if (own) return own
+  return Array.from(root.querySelectorAll<HTMLElement>(
+    `[data-testid^="option-change-row-source-${optionId}-"], [data-testid^="option-change-row-estimate-${optionId}-"]`))
+    .find(m => / targets: /.test(m.getAttribute('aria-label') ?? '') && (m.getAttribute('aria-label') ?? '').includes(rowLabel)) ?? null
+}

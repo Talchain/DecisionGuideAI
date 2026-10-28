@@ -84,7 +84,7 @@ import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useAnalysisResultsAreCurrent } from '../../hooks/useAnalysisResultsAreCurrent'
 import { OptionNode } from '../OptionNode'
 import { mapDraftNodeToCanvas, mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
-import { changeRowValueText } from './__helpers__/optionChangeRowText'
+import { changeRowValueText, sourceMarkCovering } from './__helpers__/optionChangeRowText'
 import pricingStarter from '../../starters/data/pricing-model.draft.json'
 import buildVsBuyStarter from '../../starters/data/build-vs-buy.draft.json'
 import headcountStarter from '../../starters/data/headcount-allocation.draft.json'
@@ -181,12 +181,15 @@ function hybridRow(container: HTMLElement, factorId: string) {
   const line = get('option-change-row-line')
   const dd = get('option-change-row')
   const mark = get('option-change-row-mark')
-  const source = get('option-change-row-source')
+  // W8 c7.1 (27 Oct): one mark per source on the bottom row; the second brief row is covered by the first row's mark,
+  // which names it.
+  const source = sourceMarkCovering(container, HYBRID, factorId, HYBRID_ROWS.find(r => r.factorId === factorId)?.label ?? factorId)
+  expect(source, `the brief mark covering ${factorId} is on the card`).not.toBeNull()
   const dt = dd.previousElementSibling as HTMLElement
   expect(dt.tagName).toBe('DT')
   expect(dt.parentElement).toBe(line)
   expect(dd.parentElement).toBe(line)
-  return { line, dt, dd, mark, source }
+  return { line, dt, dd, mark, source: source! }
 }
 
 describe('DIFF item 1 — the amount has no separator; its source mark sits on the bottom row (Paul, 27 Oct)', () => {

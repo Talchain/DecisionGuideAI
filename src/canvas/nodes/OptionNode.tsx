@@ -17,7 +17,8 @@ import { useOptionAbsentFromRunShown, useOptionLeftOutOfRun } from '../hooks/use
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
-import { useSavedModelProgramState } from './shared/savedModelProgram'
+import { programItemOf, useSavedModelProgramState } from './shared/savedModelProgram'
+import { useSavedGraph } from './shared/savedGraph'
 import { useAnalysisResultsAreCurrent } from '../hooks/useAnalysisResultsAreCurrent'
 import { NodeValueEditor } from './shared/NodeValueEditor'
 import { optionLabelRenamedToSetLevel } from './shared/optionLabelSetLevel'
@@ -202,7 +203,7 @@ import { optionTakenOutLine } from '../domain/optionStatus'
 import { useRunCurrency, optionResultCaption, optionResultCurrencyNote } from './shared/runCurrency'
 import { olumiSuppliedFiguresDisclosure } from '../../components/results/analysisNew/analysisNewCopy'
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
-import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
+import { approvedProgramOptionTargetMark, ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
 import { OLUMI_ESTIMATE_FIGURE_CLASSES } from './shared/FactorValueFigure'
 import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
 import { resolveOptionTargetDisplayFrame } from '../ui/inspector-v2/shared/optionTargetEntry'
@@ -222,6 +223,12 @@ import { coreSwitchOptionOf } from '../domain/coreSwitch'
 /** The existing `est.` mark hover on a change row — one spelling for the row and the card line. */
 const OPTION_ROW_ESTIMATE_NOTE = 'Olumi chose this target; it is not yet confirmed.'
 const OPTION_ROW_ESTIMATE_TITLE = `${OPTION_ROW_ESTIMATE_NOTE} Open the details to set or confirm it.`
+/** What one bottom-row source mark covers: "X target", or "X and Y targets" for every row from that source. */
+function sourceMarkSubject(rows: readonly { fullLabel: string }[]): string {
+  const labels = rows.map(r => r.fullLabel)
+  if (labels.length === 1) return `${labels[0]} target`
+  return `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]} targets`
+}
 
 
 /**
@@ -762,6 +769,10 @@ export const OptionNode = memo((props: NodeProps) => {
   const optionValuesEditable = savedProgramState === 'not_program'
   // On a program board an option's setting is a figure in its own unit, read as the factor card reads it.
   const naturalUnits = savedProgramState === 'program'
+  // W8 c7.6: the canonical option record (program boards only; null elsewhere), whose `approval` says whether the person
+  // approved this option and the figures it sets.
+  const savedGraph = useSavedGraph()
+  const programOption = useMemo(() => programItemOf(savedGraph, 'options', props.id), [savedGraph, props.id])
   const resultsReport = useCanvasStore(state => state.results.report)
   /**
    * The Run's typed fact that it KEPT this Olumi-proposed option only because some of the user's options could not be
@@ -1268,9 +1279,13 @@ export const OptionNode = memo((props: NodeProps) => {
       const row = target
         ? buildOptionTargetRow({ factorId: fid, target, factorNode, baselineReference: baselineOptionReference, naturalUnits })
         : buildOptionNeedsInputTargetRow({ factorId: fid, factorNode, source: me.unsetSources.get(fid) ?? null })
-      return isConcreteChangeRow(row, target, optionFactorContext(factorNode, fid)) ? [row] : []
+      if (!isConcreteChangeRow(row, target, optionFactorContext(factorNode, fid))) return []
+      // W8 c7.6: once the person approved this program option, Olumi's figures on it read as accepted, never "not yet
+      // confirmed". `estimated` follows the mark (it is exactly `targetSource.kind === 'olumi'` for an unconfirmed one).
+      const targetSource = approvedProgramOptionTargetMark(row.targetSource, programOption)
+      return [targetSource === row.targetSource ? row : { ...row, targetSource, estimated: false }]
     })
-  }, [optionSet, props.id, nodes, baselineOptionReference, switches, naturalUnits])
+  }, [optionSet, props.id, nodes, baselineOptionReference, switches, naturalUnits, programOption])
   // Standard's resting rows also keep to the card's LINE budget (a two-line row
   // spends more of it — `fitRowsToLineBudget`); Detailed keeps its own layout.
   // A pure function of the model: a Run changes neither the rows nor their form.
@@ -1295,6 +1310,20 @@ export const OptionNode = memo((props: NodeProps) => {
   // changes stay one pencil away (the rail's `option-edit-targets-*` route, whose
   // accessible name still states the full target total).
   const changeRowsMore = isBaselineOption ? 0 : moreCount(concreteChangeRows.length, changeRows.length)
+  // W8 c7.1 (acceptance 27 Oct): every row's source mark draws on the card's bottom row (Paul, 27 Oct), so two rows from
+  // one source drew the same mark, with the same words, twice in a row. The bottom row says each source once: the first
+  // row of a source draws its mark, naming every row it covers; the others draw none.
+  const sourceMarkRows = useMemo(() => {
+    const groups = new Map<string, OptionChangeRow[]>()
+    for (const r of changeRows) {
+      if (r.needsInput) continue
+      const key = `${r.targetSource.kind}\u0000${r.targetSource.label}`
+      const group = groups.get(key)
+      if (group) group.push(r)
+      else groups.set(key, [r])
+    }
+    return new Map([...groups.values()].map(group => [group[0].factorId, group] as const))
+  }, [changeRows])
   // ⭐ AIQ 5908802422 §3: the edit's own confirmation OFFERS the rename ("Also rename it 'Raise to £60'?") — one press,
   // the user's choice, the only way the label changes. Offered only after an edit sent from THIS card, and only when the
   // rename is unambiguous (`optionLabelRenamedToSetLevel`); a refused edit rolls the value back and the offer with it.
@@ -2118,16 +2147,19 @@ export const OptionNode = memo((props: NodeProps) => {
         className="hidden"
         data-testid={`option-change-row-mark-${props.id}-${r.factorId}`}
       >
-        <ValueSourceMark
-          mark={r.targetSource}
-          testId={r.estimated
-            ? `option-change-row-estimate-${props.id}-${r.factorId}`
-            : `option-change-row-source-${props.id}-${r.factorId}`}
-          title={r.estimated ? OPTION_ROW_ESTIMATE_TITLE : undefined}
-          subject={`${r.fullLabel} target`}
-          onOpenSource={() => openNodeInspector(props.id)}
-          keepSourceAction
-        />
+        {sourceMarkRows.has(r.factorId) && (
+          <ValueSourceMark
+            mark={r.targetSource}
+            testId={r.estimated
+              ? `option-change-row-estimate-${props.id}-${r.factorId}`
+              : `option-change-row-source-${props.id}-${r.factorId}`}
+            // One row's estimate keeps its own sentence; a mark covering several names them (its subject) instead.
+            title={r.estimated && (sourceMarkRows.get(r.factorId)?.length ?? 1) === 1 ? OPTION_ROW_ESTIMATE_TITLE : undefined}
+            subject={sourceMarkSubject(sourceMarkRows.get(r.factorId) ?? [r])}
+            onOpenSource={() => openNodeInspector(props.id)}
+            keepSourceAction
+          />
+        )}
       </span>
       {withValueEditor(r.factorId, (
         <span
