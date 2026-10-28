@@ -363,7 +363,8 @@ export const FactorNode = memo((props: NodeProps) => {
   // worked-out cards show, "—", with Olumi's mark saying so on hover and in its name. It read "Source not recorded unknown".
   const olumiUnknownFigure = savedIsProgram && props.data?.provenance === 'ai_inferred'
     && typeof observedState?.value !== 'number' && (props.data as { value_basis?: unknown } | undefined)?.value_basis == null
-    && valueDisplay?.trim() === 'unknown'
+    // Q1 (28 Oct, assessor AR-1942): since 1b CEE says Olumi's unknown as "?" (project.ts display_value), "unknown" before it.
+    && (valueDisplay?.trim() === 'unknown' || valueDisplay?.trim() === '?')
   // Decision 2 A (Paul, 26 Oct; visual indicators, not default text): a figure waiting for the person's answer shows the
   // no-figure dash, not CEE's "Waiting for your answer". The hourglass before it carries those words and the question.
   const askedBasis = (props.data as { value_basis?: { kind?: unknown; question?: unknown } } | undefined)?.value_basis
