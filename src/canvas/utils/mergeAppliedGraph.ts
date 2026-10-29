@@ -135,7 +135,7 @@ import { logger } from '../../lib/logger'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
 import { pulseAppliedTargets } from './appliedEditPulse'
-import { canvasEdgePairKey, wireEdgePairKey } from './graphIdentity'
+import { canvasEdgePairKey, matchEdgesOneToOne, wireEdgePairKey } from './graphIdentity'
 import { placeAddedNodes } from './newNodePlacement'
 import { EDGE_PROVENANCED_FIELDS, edgeSourceKey } from '../domain/edgeValueProvenance'
 
@@ -842,7 +842,8 @@ export function reconcileAppliedGraph(
   for (const e of rawEdges) {
     if (e == null) continue
     const key = wireEdgePairKey(e)
-    // First wins: parallel edges between one pair are not a canvas shape.
+    // First wins. This index names the pairs the graph holds (the acknowledgement below); links themselves are matched
+    // one-to-one, by id first (`edgeMatch`, below).
     if (key && !wireEdgeByPair.has(key)) wireEdgeByPair.set(key, e)
   }
 
@@ -861,6 +862,10 @@ export function reconcileAppliedGraph(
 
   const survivingNodes = store.nodes.filter((n) => !removedNodeIds.has(n.id))
 
+  // DET-HARM D225/D227: each wire link stands for at most one canvas link (`matchEdgesOneToOne`), on every receipt.
+  // Removals and updates read this mapping, so a pair-rule receipt can never stamp one link's data onto two canvas links.
+  const edgeMatch = matchEdgesOneToOne(store.edges, rawEdges)
+
   const removedEdgeIds = new Set<string>()
   for (const e of store.edges) {
     // An edge whose endpoint was removed cannot survive (matches CEE's own
@@ -870,7 +875,7 @@ export function reconcileAppliedGraph(
       continue
     }
     const key = canvasEdgePairKey(e)
-    if (key && ackEdgePairs.has(key) && !wireEdgeByPair.has(key)) {
+    if (key && ackEdgePairs.has(key) && !edgeMatch.has(e)) {
       removedEdgeIds.add(e.id)
     }
   }
@@ -891,8 +896,7 @@ export function reconcileAppliedGraph(
   const tupleOnlyEdgeIds = new Set<string>()
   const survivingEdges = store.edges.filter((e) => !removedEdgeIds.has(e.id))
   const reconciledEdges = survivingEdges.map((e: any) => {
-    const key = canvasEdgePairKey(e)
-    const wireEdge = key ? wireEdgeByPair.get(key) : undefined
+    const wireEdge = edgeMatch.get(e)
     if (!wireEdge) return e
     const next = opts?.restoreReplace
       ? replaceEdgeFromWire(e, wireEdge, endsOf(wireEdge))
@@ -942,18 +946,26 @@ export function reconcileAppliedGraph(
       .filter((k): k is string => k !== null)
   )
   const survivingEdgeIds = new Set(reconciledEdges.map((e: any) => e.id))
+  // A wire link a canvas link already stands for is never added again. In the complete stored model a link left over
+  // under an id of its own is its own link even on a pair already drawn (D227): one id is one link. A legacy receipt's
+  // additions keep the pair rule.
+  const representedWireEdges = new Set<any>(edgeMatch.values())
+  const takenWireIds = new Set<string>([...representedWireEdges].map((w: any) => w.id).filter((id: unknown) => typeof id === 'string'))
   const missingRawEdges = rawEdges.filter((e: any) => {
     if (e == null) return false
     const key = wireEdgePairKey(e)
     if (key === null) return false
     if (typeof e.id === 'string' && survivingEdgeIds.has(e.id)) return false
-    if (seenEdgePairs.has(key)) return false
+    if (representedWireEdges.has(e)) return false
+    const ownLink = opts?.restoreReplace === true && typeof e.id === 'string' && e.id.length > 0 && !takenWireIds.has(e.id)
+    if (seenEdgePairs.has(key) && !ownLink) return false
     // Fail-closed: never add a dangling edge (e.g. wire endpoint the user
     // deleted locally and the receipt re-references).
     const from = e.from ?? e.source
     const to = e.to ?? e.target
     if (!unionNodeIds.has(from) || !unionNodeIds.has(to)) return false
     seenEdgePairs.add(key)
+    if (typeof e.id === 'string') takenWireIds.add(e.id)
     return true
   })
   const usedEdgeIds = new Set<string>([...existingEdgeIds, ...survivingEdgeIds])

@@ -1,8 +1,8 @@
 /**
  * THE CORE TURN'S COMPLETE PROGRAM GRAPH (DET-HARM D228; SPEC C13: the graph's limits match the saved canonical model).
  * A core turn's graph omits `goal_constraints` once the model has none (compose/applied-graph-emit.ts: an empty list is
- * left off). Legacy receipts keep their rules. (D225/D227, parallel links by id, is parked: its pair fallback needs a
- * one-to-one matcher, independent read 29 Oct 02:20Z.)
+ * left off). Legacy receipts keep their rules. (D225/D227, parallel links matched one-to-one, is pinned in
+ * mergeAppliedGraph.parallelLinks.spec.ts.)
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { reconcileAppliedGraph } from '../mergeAppliedGraph'
