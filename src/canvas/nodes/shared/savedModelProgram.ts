@@ -13,6 +13,7 @@ import { unitWords } from '../../../utils/unitClassifier'
 import type { ValueProvenanceKind } from '../../domain/valueProvenance'
 import { readLinkWords, type LinkWords } from '../../domain/linkWords'
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
+import { answeredProgram } from './programScenarios'
 
 type Rec = Record<string, unknown>
 const rec = (v: unknown): Rec | null => (v !== null && typeof v === 'object' && !Array.isArray(v) ? (v as Rec) : null)
@@ -48,8 +49,7 @@ export function useSavedModelProgramState(): 'program' | 'not_program' | 'unknow
   return typeof scenarioId === 'string' && answeredProgram.get(scenarioId) === true ? 'program' : 'unknown'
 }
 
-/** The last answered read's verdict per scenario, as `answeredCore` keeps it (savedModelIsCore.ts). */
-const answeredProgram = new Map<string, boolean>()
+export { __resetProgramScenariosForTest, noteProgramScenario, scenarioReadAsProgram } from './programScenarios'
 
 /** The canonical coefficient behind one program link, in its natural units, as the read states it. */
 export interface ProgramCoefficient {

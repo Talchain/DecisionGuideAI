@@ -122,7 +122,8 @@ import { unconfirmedEdgeEditOnGraph } from '../conversation/pendingEdgeEdit'
 import { pulseAppliedTargets } from './appliedEditPulse'
 import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from './applyDraftResult'
 import { linkEndsOf } from '../domain/heldUserLink'
-import { overlayEdge, overlayNode } from './mergeAppliedGraph'
+import { applyProgramGraph, overlayEdge, overlayNode } from './mergeAppliedGraph'
+import { isProgramGraph } from '../nodes/shared/savedModelProgram'
 import { placeAddedNodes } from './newNodePlacement'
 import { isThinClientSession, loadThinLayout } from '../thinClient/thinClient'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
@@ -368,6 +369,10 @@ export function mergeServerGraphOnHydrate(
   opts?: { dropOmittedDisplay?: boolean; authoritativeRead?: boolean },
 ): MergeServerGraphResult {
   if (serverGraph === null || typeof serverGraph !== 'object') return refused('unusableShape')
+  // A PROGRAM's read goes to the one program writer before any legacy step (`applyProgramGraph`): CEE's graph, whole.
+  if (isProgramGraph(serverGraph)) {
+    return { ...NO_CHANGE, removedLabels: [], removedCanvasOnlyLinkLabels: [], accepted: true, refusedReason: null, changed: applyProgramGraph(serverGraph).changed }
+  }
 
   const g = serverGraph as Record<string, unknown>
   const rawNodes: any[] = Array.isArray(g.nodes) ? g.nodes : []

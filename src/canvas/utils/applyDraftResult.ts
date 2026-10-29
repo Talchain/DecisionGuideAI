@@ -12,6 +12,7 @@
  */
 
 import { useCanvasStore } from '../store'
+import { scenarioReadAsProgram } from '../nodes/shared/programScenarios'
 import { captureBeforeIngest } from '../versions/autoCapture'
 import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../domain/edges'
 import { existenceHeldPatch, linkEndsOf, NO_LINK_ENDS, type LinkEnds } from '../domain/heldUserLink'
@@ -66,6 +67,20 @@ export function mapDraftNodeToCanvas(n: any): any {
   }
 }
 
+/** A PROGRAM's card: `mapDraftNodeToCanvas`, then every field CEE sends put back as sent (no UI value replaces one). */
+export function mapProgramNodeToCanvas(n: any): any {
+  const mapped = mapDraftNodeToCanvas(n)
+  const { id: _id, kind: _kind, type: _type, label: _label, observed_state: _observed, ...fields } = n ?? {}
+  return { ...mapped, data: { ...mapped.data, ...fields } }
+}
+
+/** How a program link is drawn, and only that: none of `DEFAULT_EDGE_DATA`'s weight, kind, beliefs or function. */
+const PROGRAM_EDGE_VIEW_DATA = {
+  style: DEFAULT_EDGE_DATA.style,
+  curvature: DEFAULT_EDGE_DATA.curvature,
+  schemaVersion: DEFAULT_EDGE_DATA.schemaVersion,
+}
+
 /**
  * Map one CEE wire edge → React Flow canvas edge. Same extraction rationale
  * as mapDraftNodeToCanvas. `i` feeds the fallback id (`e-${i}`) for wire
@@ -78,7 +93,11 @@ export function mapDraftEdgeToCanvas(
   // S-DEF: the link's two ends (labels, units) from the SAME graph, so a validated definition holds as CEE holds it
   // (`linkEndsOf`). Every production hop passes them; omitted, only the user's own range can hold the link.
   ends: LinkEnds = NO_LINK_ENDS,
+  // A PROGRAM's link (`isProgramGraph`): what CEE states and nothing more. No UI default fills an absent strength, sign,
+  // belief, kind or function (UI thin layer, step 1): absent stays absent. Every other link is mapped as before.
+  opts: { readonly program?: boolean } = {},
 ): any {
+  const program = opts.program === true
   const id =
     typeof e.id === 'string' && e.id.trim().length > 0 ? e.id : `e-${i}`
 
@@ -109,8 +128,8 @@ export function mapDraftEdgeToCanvas(
     e.effect_direction === 'positive' || e.effect_direction === 'negative'
       ? e.effect_direction
       : undefined
-  const direction: EffectDirection =
-    directionFromEdge ?? (rawWeight < 0 ? 'negative' : 'positive')
+  const direction: EffectDirection | undefined =
+    directionFromEdge ?? (program ? undefined : rawWeight < 0 ? 'negative' : 'positive')
 
   // The magnitude CEE holds, unchanged (DL, 24 Oct: a saved −4 landed as 2, and every projection of it then said −1).
   // Display bands its own width (`weightToStrokeWidth`, `weightMagnitudeToStrokeWidth`); a stored value is never capped here.
@@ -169,11 +188,11 @@ export function mapDraftEdgeToCanvas(
     target: e.to,
     type: 'styled' as const,
     data: {
-      ...DEFAULT_EDGE_DATA,
-      weight,
+      ...(program ? PROGRAM_EDGE_VIEW_DATA : DEFAULT_EDGE_DATA),
+      ...(!program || wireSuppliedStrength ? { weight } : {}),
       pathType: 'bezier' as const,
-      confidence,
-      beliefExists,
+      ...(!program || confidence !== undefined ? { confidence } : {}),
+      ...(!program || beliefExists !== undefined ? { beliefExists } : {}),
       ...(direction ? { direction } : {}),
       ...(strengthStd !== undefined ? { strengthStd } : {}),
       ...(edgeType !== undefined ? { edge_type: edgeType } : {}),
@@ -216,8 +235,17 @@ export function mapDraftEdgeToCanvas(
       }),
       // CEE display provenance (snake_case → camelCase). Distinct from `provenance_source`.
       ...edgeProvenanceDisplayPatch(e),
+      // A program's link keeps EVERY field CEE sends, as sent (its words, settled state, coefficient, raw provenance…);
+      // only its id and ends live on the root. Nothing above may replace a value CEE stated.
+      ...(program ? wireEdgeFields(e) : {}),
     },
   }
+}
+
+/** A wire link's own fields, all of them, without the id and ends the canvas edge carries on its root. */
+function wireEdgeFields(e: any): Record<string, unknown> {
+  const { id: _id, from: _from, to: _to, ...fields } = e ?? {}
+  return fields
 }
 
 /**
@@ -728,6 +756,8 @@ export function backfillInterventionsOntoOptionNodes(
     totalUpdatedCount: 0,
   }
   if (!analysisReady?.options?.length) return empty
+  // A program board's cards are CEE's graph alone (`applyProgramGraph`): no analysis cache writes onto them.
+  if (scenarioReadAsProgram(useCanvasStore.getState().currentScenarioId)) return empty
 
   const currentNodes = useCanvasStore.getState().nodes as any[]
   let interventionBackfilledCount = 0
@@ -866,6 +896,7 @@ export function backfillGoalThresholdOntoGoalNode(
   } | null
 ): void {
   if (!analysisReady?.goal_node_id) return
+  if (scenarioReadAsProgram(useCanvasStore.getState().currentScenarioId)) return
 
   // Distinguish "field absent from analysisReady" (don't touch) from
   // "field present but null" (clear the value on the goal node).

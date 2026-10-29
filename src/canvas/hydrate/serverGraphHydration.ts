@@ -36,6 +36,7 @@ import { declinedSavedRunKindOf, useDeclinedSavedRunStore } from '../stores/decl
 import { logger } from '../../lib/logger'
 import { fetchScenarioGraph, type FetchScenarioGraphOptions } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
+import { isProgramGraph } from '../nodes/shared/savedModelProgram'
 import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, applyScenarioAnalysisRead, isBootRestorableRunState } from './applyScenarioAnalysisRead'
 import { readProvisionalApplyStore } from './provisionalApplyStore'
 import { adoptDeliveredRecord } from './deliveredGuidanceSink'
@@ -697,7 +698,8 @@ async function readAndMergeServerGraph(
   dropHeldRunTheReadSaysIsNotCurrent(scenarioId, result.analysisState, result.analysisResult)
 
   const stored = useCanvasStore.getState().serverGraphIdentity
-  if (opts.reapplyServerGraph !== true && isSameServerGraph(stored, result.identity)) {
+  // A program's read always goes to the program writer: no identity short-circuit keeps a local change over it.
+  if (opts.reapplyServerGraph !== true && !isProgramGraph(result.graph) && isSameServerGraph(stored, result.identity)) {
     // The server has not moved since we last hydrated, so there is nothing to
     // apply. Skipping is not merely an optimisation: re-merging would roll a
     // local edit made since that hydration back to the same server value the

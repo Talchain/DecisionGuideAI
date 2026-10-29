@@ -128,14 +128,16 @@
  */
 
 import { CanonicalCommittedGraphReceiptSchema } from '@talchain/schemas/boundary'
-import { useCanvasStore } from '../store'
+import { firstGoalNodeId, useCanvasStore } from '../store'
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { validateNodesBatch } from '../domain/nodes'
 import { logger } from '../../lib/logger'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
 import { pulseAppliedTargets } from './appliedEditPulse'
-import { canvasEdgePairKey, matchEdgesOneToOne, wireEdgePairKey } from './graphIdentity'
+import { canvasEdgePairKey, identityFromCanvasGraph, matchEdgesOneToOne, wireEdgePairKey } from './graphIdentity'
+import { isThinClientSession, loadThinLayout } from '../thinClient/thinClient'
+import { noteProgramScenario } from '../nodes/shared/programScenarios'
 import { placeAddedNodes } from './newNodePlacement'
 import { EDGE_PROVENANCED_FIELDS, edgeSourceKey } from '../domain/edgeValueProvenance'
 
@@ -220,6 +222,7 @@ import {
   backfillInterventionsOntoOptionNodes,
   mapDraftEdgeToCanvas,
   mapDraftNodeToCanvas,
+  mapProgramNodeToCanvas,
 } from './applyDraftResult'
 import { linkEndsOf, type LinkEnds } from '../domain/heldUserLink'
 import type { CEEDraftResponse, CEEGoalConstraint, CEEv2Response, CEEv3Response } from '../../adapters/cee/types'
@@ -1209,4 +1212,84 @@ export function reconcileAppliedGraph(
   }
 
   return result
+}
+
+/**
+ * ⭐ THE ONE WRITER OF A PROGRAM BOARD'S CARDS AND LINKS (UI thin layer, step 1; DL ruling 29 Oct).
+ *
+ * Every entry point branches here FIRST on a program board, before any legacy step: the scenario read
+ * (`mergeServerGraphOnHydrate`; no identity short-circuit) and a core turn's receipt, draft or update, streamed final
+ * included (`useConversation`). Nodes and edges become CEE's graph wholesale: every field, CEE's ids, empty allowed.
+ * Only each card's and link's layout and view state (root React Flow fields) is kept, by id. No pair matching, no
+ * defaults, no analysis backfill, no local copy: a pending edit shows through the delivery hold. Legacy merges above
+ * serve every other board.
+ */
+export function applyProgramGraph(graph: unknown, opts: { readonly skipHistory?: boolean } = {}): { changed: boolean } {
+  const g = (graph ?? {}) as { nodes?: unknown; edges?: unknown; goal_constraints?: unknown }
+  const rawNodes: any[] = Array.isArray(g.nodes) ? g.nodes : []
+  const rawEdges: any[] = Array.isArray(g.edges) ? g.edges : []
+  const store = useCanvasStore.getState()
+  const heldNode = new Map<string, any>(store.nodes.map((n: any) => [n.id, n]))
+  const heldEdge = new Map<string, any>(store.edges.map((e: any) => [e.id, e]))
+  const endsOf = linkEndsOf(rawNodes)
+
+  const nodes: any[] = []
+  const ids = new Set<string>()
+  for (const w of rawNodes) {
+    if (w == null || typeof w.id !== 'string' || w.id.length === 0 || ids.has(w.id)) continue
+    ids.add(w.id)
+    const mapped = mapProgramNodeToCanvas(w)
+    const held = heldNode.get(w.id)
+    nodes.push(held ? { ...held, type: mapped.type, data: mapped.data } : mapped)
+  }
+  const edges: any[] = []
+  const linkIds = new Set<string>()
+  rawEdges.forEach((w, i) => {
+    if (w == null || typeof w.id !== 'string' || w.id.length === 0 || linkIds.has(w.id)) return
+    if (!ids.has(w.from) || !ids.has(w.to)) return
+    linkIds.add(w.id)
+    const mapped = mapDraftEdgeToCanvas(w, i, endsOf(w), { program: true })
+    const held = heldEdge.get(w.id)
+    edges.push(held ? { ...held, ...mapped } : mapped)
+  })
+
+  // Layout: a card already on screen keeps its place. A first graph (none of its cards on screen) takes the saved
+  // layout where this browser has one, else a fresh layout; a card added later joins its row.
+  const added = nodes.filter((n) => !heldNode.has(n.id))
+  const firstGraph = added.length > 0 && added.length === nodes.length
+  const saved = firstGraph && isThinClientSession() ? loadThinLayout(store.currentScenarioId) : null
+  for (const n of added) if (saved?.[n.id]) n.position = { x: saved[n.id].x, y: saved[n.id].y }
+  const unplaced = added.filter((n) => !saved?.[n.id])
+  const requestLayout = firstGraph && unplaced.length === added.length
+  if (unplaced.length > 0 && !requestLayout) {
+    const positions = placeAddedNodes(nodes.filter((n) => !unplaced.includes(n)), unplaced)
+    unplaced.forEach((n, i) => { n.position = positions[i] })
+  }
+
+  const changed = !sameValue(store.nodes, nodes) || !sameValue(store.edges, edges)
+  if (changed) {
+    if (opts.skipHistory !== true) store.pushHistory()
+    useCanvasStore.getState().beginExternalGraphMutation?.('envelope_apply')
+    try {
+      useCanvasStore.setState({
+        nodes: nodes as any,
+        edges: edges as any,
+        // The goal selection follows CEE's graph when the selected card is not in it (as every full-graph load does).
+        ...(ids.has(store.outcomeNodeId as string) ? {} : { outcomeNodeId: firstGoalNodeId(nodes) }),
+        // A layout begun on the graph this replaces is stale: a new generation drops its result (`applyLayout`).
+        layoutRequestId: useCanvasStore.getState().layoutRequestId + 1,
+        ...(requestLayout ? { pendingLayout: true } : {}),
+      })
+    } finally {
+      useCanvasStore.getState().endExternalGraphMutation?.()
+    }
+  }
+  // What CEE holds: one entry per link, never one per pair. Its limits are whole too: absent means none (D228).
+  useCanvasStore.getState().setLastAuthoritativeGraph(identityFromCanvasGraph(nodes, edges))
+  const limits = Array.isArray(g.goal_constraints) && g.goal_constraints.length > 0 ? g.goal_constraints as CEEGoalConstraint[] : null
+  if (!sameValue(useCanvasStore.getState().goalConstraints ?? null, limits)) {
+    useCanvasStore.getState().setGoalConstraints(limits, { fromProducerSync: true })
+  }
+  noteProgramScenario(store.currentScenarioId)
+  return { changed }
 }
