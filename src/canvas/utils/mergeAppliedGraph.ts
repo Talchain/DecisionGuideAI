@@ -788,6 +788,12 @@ export function reconcileAppliedGraph(
      * Omitted → false: every legacy receipt keeps the overlay rule.
      */
     readonly restoreReplace?: boolean
+    /**
+     * The graph's limits are complete: a core turn's committed model, whose projection leaves `goal_constraints` off once
+     * the model has none (CEE compose/applied-graph-emit.ts), so its absence clears the limits shown (DET-HARM D228).
+     * A version restore carries nodes and edges only, so it never sets this. Omitted → false.
+     */
+    readonly constraintsComplete?: boolean
   },
 ): ReconcileAppliedGraphResult {
   const canonicalReceipt = canonicalReceiptFromAugmentedDraft(draftData)
@@ -1019,7 +1025,9 @@ export function reconcileAppliedGraph(
   // post-state and must not self-dirty the freshness verdict this response set.
   const receiptGoalConstraints = (draftData as { goal_constraints?: unknown }).goal_constraints
   const canonicalExplicitClear =
-    canonicalReceipt.success && canonicalReceipt.data.goal_constraints.length === 0
+    (canonicalReceipt.success && canonicalReceipt.data.goal_constraints.length === 0)
+    // D228: a core turn's complete model with no limits leaves the field off (`constraintsComplete`, above).
+    || (opts?.constraintsComplete === true && !(Array.isArray(receiptGoalConstraints) && receiptGoalConstraints.length > 0))
   if (
     (Array.isArray(receiptGoalConstraints) && receiptGoalConstraints.length > 0) ||
     canonicalExplicitClear

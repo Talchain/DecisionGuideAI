@@ -130,11 +130,13 @@ describe('the dimensionless unit "1" prints no unit', () => {
     expect(markWords('ai_selected')).toBe('Fixed by how the model is built')
   })
 
-  it('hiring goal increase_productivity (goal_threshold_unit "1"): the empty today slot has no "1" beside it', async () => {
+  // DET-HARM D301 (pin updated knowingly): a program goal takes no typed level (CEE refuses a figure typed on a goal), so
+  // the hiring goal has no empty today slot at all, and no "1" anywhere on it. The unit rule itself: NeedsInputSlot.unit.spec.
+  it('hiring goal increase_productivity (goal_threshold_unit "1"): no empty today slot, and no "1" unit on the card', async () => {
     await openBoard(hiring)
     await card('increase_productivity', GoalNode)
-    const slot = screen.getByTestId('goal-today-level-empty-increase_productivity')
-    expect(slot.textContent).toBe('—')
+    expect(screen.queryByTestId('goal-today-level-empty-increase_productivity')).toBeNull()
+    expect(screen.queryByTestId('goal-today-level-editor-increase_productivity')).toBeNull()
   })
 })
 

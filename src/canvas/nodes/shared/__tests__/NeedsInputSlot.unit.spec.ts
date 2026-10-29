@@ -10,4 +10,8 @@ describe('emptyValueUnit', () => {
     expect(emptyValueUnit('tickets per week')).toEqual({ suffix: 'tickets per week' })
     expect(emptyValueUnit(undefined)).toEqual({})
   })
+  // Moved here from programUnitWords.cards.spec (DET-HARM D301: a program goal no longer draws the empty slot it was read on).
+  it('the dimensionless unit "1" adds nothing beside the field', () => {
+    expect(emptyValueUnit('1')).toEqual({})
+  })
 })

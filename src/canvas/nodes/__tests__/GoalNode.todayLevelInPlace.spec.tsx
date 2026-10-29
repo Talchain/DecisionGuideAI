@@ -114,6 +114,25 @@ describe("today's level on the goal card", () => {
     renderCard({})
     expect(screen.queryByTestId('goal-today-level-editor-goal_pricing_transition')).toBeNull()
   })
+  // DET-HARM D301 (SPEC C4/C13): on a program board a factor_value_edit names a quantity (CEE core-turn.ts: `quantity_id:
+  // target_id`), and the goal id is none, so CEE refuses it ("That is not a figure in this model"). The figure the goal
+  // measures is its own card, edited there; the goal card offers no field, and never says today's level is needed.
+  it('a PROGRAM board has no write for it on the goal: no field and no "Today\'s level needed"', () => {
+    saved.graph = { nodes: [], living_model: { model_program: 'v1', canonical: { quantities: [], goals: [] } } }
+    renderCard(TARGET_SET)
+    expect(screen.queryByTestId('goal-today-level-editor-goal_pricing_transition')).toBeNull()
+    expect(screen.queryByTestId('goal-today-level-empty-goal_pricing_transition')).toBeNull()
+    expect(screen.queryByLabelText("Today's level needed")).toBeNull()
+    saved.graph = { nodes: [], living_model: { aims: [], links: [] } }
+  })
+
+  it('CONTRAST: a PROGRAM goal with a stated level keeps its read-only line', () => {
+    saved.graph = { nodes: [], living_model: { model_program: 'v1', canonical: { quantities: [], goals: [] } } }
+    renderCard({ ...TARGET_SET, observedState: { raw_value: 80, unit: 'tickets per week', source: 'brief_extraction' } })
+    expect(screen.queryByTestId('goal-today-level-editor-goal_pricing_transition')).toBeNull()
+    expect(screen.getAllByTestId('goal-today-level-goal_pricing_transition').length).toBeGreaterThan(0)
+    saved.graph = { nodes: [], living_model: { aims: [], links: [] } }
+  })
 })
 
 describe('the level write names the unit it was typed in', () => {
