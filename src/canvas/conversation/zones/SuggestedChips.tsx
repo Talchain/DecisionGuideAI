@@ -18,7 +18,7 @@
  * Click failures show a brief inline error that auto-dismisses after 5s.
  */
 
-import { useState, useEffect, useId, useMemo, useRef } from 'react'
+import { Fragment, useState, useEffect, useId, useMemo, useRef } from 'react'
 import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { typography } from '../../../styles/typography'
@@ -43,8 +43,9 @@ import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition
 import { PANEL_LIST_BULLET } from '../panelLists'
 import {
   cardCannotBeShownInFull, changeIsOlumis, changeNotesOf, changeNotesSummary, isHeldCardChipId, OLUMI_CHANGE_MARK, proposalChangesSummary,
-  proposalChangeWords, READING_HEADING, REVIEW_PROPOSAL_PREFIX,
-  type ChangeNote, type ProposalChange,
+  proposalChangeWords, READING_ALSO_FROM_BRIEF, READING_CONFIRM_SELECTED, READING_CONFIRM_WHOLE, READING_HEADING, READING_ROW_TICK,
+  REVIEW_PROPOSAL_PREFIX,
+  type ChangeNote, type Proposal, type ProposalChange,
 } from '../proposalFields'
 import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
 import { cardMark, type CardMarkIcon } from '../../nodes/shared/cardMarks'
@@ -81,19 +82,30 @@ const READING_GROUP_MARKS: readonly { group: ReadingGroup; words: string; Icon: 
   { group: 'inferred', words: 'Olumi’s, for you to check', Icon: cardMark('source-olumi').Icon },
   { group: 'left_out', words: 'Left out of the calculation', Icon: cardMark('not-analysed').Icon },
 ]
+/** W7 (PANEL-1P rule 3): a program reading card's sections, what Olumi added or read first, then what it left out, then the brief. */
+const READING_GROUP_MARKS_OLUMI_FIRST = (['inferred', 'left_out', 'used'] as const).map((g) => READING_GROUP_MARKS.find((m) => m.group === g)!)
 
 /**
  * A reading card's row: ONE line, the item's name and Olumi's mark when it is Olumi's; a tap opens CEE's full words for it
  * (what it is, the quote, what it is about), so nothing is approved unseen (W7, D3: Paul, 26 Oct). Its kind is the group
  * mark the row sits under.
  */
-function ReadingChangeRow({ change: c }: { change: ProposalChange }) {
+/** W7: a program reading card's row tick, "That's right" (its row id is what a "Confirm selected" press sends). */
+type RowTick = { readonly checked: boolean; readonly onChange: () => void; readonly disabled: boolean }
+function ReadingChangeRow({ change: c, tick }: { change: ProposalChange; tick?: RowTick }) {
   const [open, setOpen] = useState(false)
   const detailId = useId()
   const key = `${c.kind}:${c.id}`
   return (
     <li data-author={c.author} className={`${styles.reasoningPanelBody} ${changeIsOlumis(c) ? CHANGE_NOTE_SOURCE_CLASS.estimate : ''}`}
       data-testid={`proposal-change-${key}`}>
+      {tick && (
+        <label className="mr-2 inline-flex shrink-0 items-center gap-1 text-text-light" data-testid={`reading-row-tick-${key}`}>
+          <input type="checkbox" checked={tick.checked} disabled={tick.disabled} onChange={tick.onChange}
+            aria-label={`${READING_ROW_TICK}: ${c.label}`} data-testid={`reading-row-tick-input-${key}`} />
+          <span aria-hidden="true">{READING_ROW_TICK}</span>
+        </label>
+      )}
       <button type="button" className="flex w-full min-w-0 text-left" onClick={() => setOpen((v) => !v)}
         aria-expanded={open} aria-controls={open ? detailId : undefined} data-testid={`proposal-change-open-${key}`}>
         <span className="truncate">{c.label}</span>
@@ -110,7 +122,9 @@ function ReadingChangeRow({ change: c }: { change: ProposalChange }) {
  * before the approve; "Details" opens CEE's sentences, each in the colour of whose it is. A reading card grouped row by row
  * starts open, its one-line rows under its three counted marks, each mark scrolling to its group (DL G13 and W12, 26 Oct).
  */
-function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId: string; notes: readonly ChangeNote[]; changes: readonly ProposalChange[] | null; reading: boolean }) {
+/** W7: a program reading card's ticks: the rows ticked so far, and how a row is ticked or unticked. */
+type ReadingTicks = { readonly selected: ReadonlySet<string>; readonly onToggle: (rowId: string) => void; readonly disabled: boolean }
+function ChangeNotesPanel({ proposalId, notes, changes, reading, ticks }: { proposalId: string; notes: readonly ChangeNote[]; changes: readonly ProposalChange[] | null; reading: boolean; ticks?: ReadingTicks }) {
   // A reading card whose every row CEE grouped folds to its three counted marks (DL G13, 26 Oct). One row without a group
   // (an older CEE) keeps the card exactly as before.
   const grouped = reading && changes !== null && changes.length > 0 && changes.every(c => c.group !== undefined)
@@ -119,6 +133,10 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
   // per item, with the detail on a tap"; acceptance run 2 found the grouped card showing its counts and no item at all).
   const [open, setOpen] = useState(reading)
   const [otherOpen, setOtherOpen] = useState(grouped)
+  // W7 (PANEL-1P rule 3): with ticks, Olumi's additions and readings come first and the rows from their brief start folded
+  // under "Also from your brief" (every row still reachable, none hidden for good). Folded is read only with ticks: the
+  // program read can arrive after the first render, so the fold never depends on what that render knew.
+  const [briefOpen, setBriefOpen] = useState(false)
   const [scrollTo, setScrollTo] = useState<ReadingGroup | null>(null)
   const sections = useRef<Partial<Record<ReadingGroup, HTMLDivElement | null>>>({})
   const listId = useId()
@@ -152,6 +170,8 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
   </button>
   if (grouped) {
     const rowsOf = (group: ReadingGroup) => changes.filter(c => c.group === group)
+    const tickOf = (c: ProposalChange): RowTick | undefined => ticks === undefined ? undefined
+      : { checked: ticks.selected.has(c.id), onChange: () => ticks.onToggle(c.id), disabled: ticks.disabled }
     const otherRows = rowsOf('other')
     return (
       <div className={styles.reasoningPanel} style={{ marginTop: 12, marginBottom: -4 }} data-testid={`proposal-change-notes-${proposalId}`}>
@@ -161,7 +181,7 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
             const count = rowsOf(group).length
             return <button key={group} type="button" className={`${styles.inlineDisclosureToggle} inline-flex items-center gap-1`}
               disabled={count === 0} aria-label={`${words}: ${count}`} title={words} aria-controls={open ? listId : undefined}
-              onClick={() => { setOpen(true); setScrollTo(group) }} data-testid={`reading-group-${proposalId}-${group}`}>
+              onClick={() => { setOpen(true); if (group === 'used') setBriefOpen(true); setScrollTo(group) }} data-testid={`reading-group-${proposalId}-${group}`}>
               <Icon size={12} aria-hidden="true" />{count}
             </button>
           })}
@@ -174,17 +194,23 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading }: { proposalId:
         </div>
         {open && (
           <div id={listId}>
-            {READING_GROUP_MARKS.map(({ group, words, Icon }) => {
+            {(ticks === undefined ? READING_GROUP_MARKS : READING_GROUP_MARKS_OLUMI_FIRST).map(({ group, words, Icon }) => {
               const rows = rowsOf(group)
               if (rows.length === 0) return null
+              const folded = ticks !== undefined && group === 'used' && !briefOpen
               return <div key={group} ref={(el) => { sections.current[group] = el }} role="group" aria-label={words}
                 data-testid={`reading-group-section-${proposalId}-${group}`}>
-                <Icon size={12} aria-hidden="true" className="mt-2" />
-                <ul className={PANEL_LIST_BULLET}>{rows.map((c) => <ReadingChangeRow key={`${c.kind}:${c.id}:${c.action}`} change={c} />)}</ul>
+                {ticks !== undefined && group === 'used'
+                  ? <button type="button" className={`${styles.inlineDisclosureToggle} mt-2 inline-flex items-center gap-1`} aria-expanded={briefOpen}
+                    onClick={() => setBriefOpen((v) => !v)} data-testid={`reading-also-from-brief-${proposalId}`}>
+                    <Icon size={12} aria-hidden="true" />{READING_ALSO_FROM_BRIEF} {briefOpen ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
+                  </button>
+                  : <Icon size={12} aria-hidden="true" className="mt-2" />}
+                {!folded && <ul className={PANEL_LIST_BULLET}>{rows.map((c) => <ReadingChangeRow key={`${c.kind}:${c.id}:${c.action}`} change={c} tick={tickOf(c)} />)}</ul>}
               </div>
             })}
             {otherOpen && <div ref={(el) => { sections.current.other = el }} data-testid={`reading-group-section-${proposalId}-other`}>
-              <ul className={PANEL_LIST_BULLET}>{otherRows.map((c) => <ReadingChangeRow key={`${c.kind}:${c.id}:${c.action}`} change={c} />)}</ul>
+              <ul className={PANEL_LIST_BULLET}>{otherRows.map((c) => <ReadingChangeRow key={`${c.kind}:${c.id}:${c.action}`} change={c} tick={tickOf(c)} />)}</ul>
             </div>}
           </div>
         )}
@@ -432,6 +458,8 @@ export function SuggestedChips({
     proposals: fields.proposals.filter(p => p.issued_turn_id != null && p.issued_turn_id === turnOfReply) }), [ownFields, fields, turnOfReply])
   const [openedProposalId, setOpenedProposalId] = useState<string | null>(null)
   const [chipError, setChipError] = useState<string | null>(null)
+  // W7: each program reading card's ticked rows, by card. Nothing is sent until a press; a card offered again is a new card.
+  const [ticked, setTicked] = useState<Readonly<Record<string, readonly string[]>>>({})
   // A program board lists every change on every card: what its approve may apply is decided by `cardCannotBeShownInFull`.
   const program = useSavedModelIsProgram()
   const analysisStatus = useAnalysisStatus()
@@ -688,6 +716,19 @@ export function SuggestedChips({
     && cardCannotBeShownInFull(bindable?.proposals.find(p => p.approve_action.id === c.id), program) ? [c.id] : []))
   const showUnreadReason = unreadApproveIds.size > 0
 
+  // W7 (PANEL-1P rule 3; PL 00:55Z): a program board's first-draft reading card, every row grouped by CEE and its whole list
+  // readable, offers a tick per row, "Confirm selected" (exactly the ticked rows, `approve_ids`) and "Confirm whole card".
+  const ticksApply = (p: Proposal | undefined): p is Proposal => p !== undefined && program && p.reading && p.changes !== null
+    && p.changes.length > 0 && p.changes.every(c => c.group !== undefined) && !cardCannotBeShownInFull(p, program)
+  const readingTicks = (p: Proposal) => ticksApply(p) ? {
+    selected: new Set(ticked[p.proposal_id] ?? []),
+    onToggle: (rowId: string) => setTicked((t) => {
+      const now = t[p.proposal_id] ?? []
+      return { ...t, [p.proposal_id]: now.includes(rowId) ? now.filter((x) => x !== rowId) : [...now, rowId] }
+    }),
+    disabled,
+  } : undefined
+
   const proposal = bindable?.proposals.find(p => p.proposal_id === (controlledProposalId === undefined ? openedProposalId : controlledProposalId)
     && visible.some(c => c.id === p.approve_action.id))
 
@@ -780,7 +821,8 @@ export function SuggestedChips({
         const notes = changeNotesOf(p)
         // Present `changes[]` is the whole list: an empty one means no other changes, and the notes are not read.
         if (p.changes !== null ? p.changes.length === 0 : notes.length === 0) return null
-        return <ChangeNotesPanel key={`change-notes-${p.proposal_id}`} proposalId={p.proposal_id} notes={notes} changes={p.changes} reading={p.reading} />
+        return <ChangeNotesPanel key={`change-notes-${p.proposal_id}`} proposalId={p.proposal_id} notes={notes} changes={p.changes} reading={p.reading}
+          ticks={readingTicks(p)} />
       })}
       <div
         className="flex flex-wrap gap-1.5 mt-3"
@@ -789,7 +831,11 @@ export function SuggestedChips({
         {visible.map((chip, i) => {
           // Presentation only: rewriting a label-only chip can erase the identity
           // the run gate and host detector need. Freeze this verdict with the row.
-          const baseLabel = showRerunLabel && isRunAnalysisAffordance(chip) ? 'Rerun' : declineNamesItsCard(chip, visible) ?? chip.label
+          // W7: a program reading card's own approve is the whole card, said so beside "Confirm selected".
+          const readingCard = isConsentChip(chip) ? bindable?.proposals.find(p => p.approve_action.id === chip.id) : undefined
+          const withTicks = ticksApply(readingCard) ? readingCard : undefined
+          const baseLabel = withTicks ? READING_CONFIRM_WHOLE
+            : showRerunLabel && isRunAnalysisAffordance(chip) ? 'Rerun' : declineNamesItsCard(chip, visible) ?? chip.label
           // ⭐ THE APPLY CONTROL MUST SAY WHAT IT WOULD APPLY.
           //
           // CEE's readiness repair offer arrives here as an ordinary
@@ -825,9 +871,23 @@ export function SuggestedChips({
           const unread = typeof chip.id === 'string' && unreadApproveIds.has(chip.id)
           const chipDisabled = disabled || runGated || unread
 
+          const selectedRows = withTicks ? [...(ticked[withTicks.proposal_id] ?? [])].sort() : []
+          const confirmSelected = withTicks && bindable && (
+            <button type="button" className={`suggested-chip chip-stagger-in ${CHIP_PRIMARY_CLASS}`} style={{ animationDelay: `${i * 70}ms` }}
+              disabled={chipDisabled || selectedRows.length === 0} aria-disabled={chipDisabled || selectedRows.length === 0}
+              data-testid={`reading-confirm-selected-${withTicks.proposal_id}`}
+              onClick={() => handleClick({ ...chip, label: READING_CONFIRM_SELECTED, proposalEdits: {
+                proposal_id: withTicks.proposal_id, revision: withTicks.revision, digest: withTicks.digest, graph_hash: bindable.graph_hash,
+                fields: [], approve_ids: selectedRows,
+              } })}>
+              {READING_CONFIRM_SELECTED}
+            </button>
+          )
+
           return (
+            <Fragment key={chip.id ?? `chip-${i}`}>
+            {confirmSelected}
             <button
-              key={chip.id ?? `chip-${i}`}
               type="button"
               onClick={() => handleClick(chip)}
               disabled={chipDisabled}
@@ -869,6 +929,7 @@ export function SuggestedChips({
             >
               {baseLabel}
             </button>
+            </Fragment>
           )
         })}
       </div>
