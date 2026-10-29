@@ -44,6 +44,18 @@ const board = (read: Read, goalChance: Record<string, unknown> | null = null, op
   expect(parsed).not.toBeNull()
   useCanonicalAnalysisViewStore.getState().adopt(read.scenario_id, parsed)
 }
+/**
+ * DL, 29 Oct (CEE GAP 3, shipping with goal-chance notes on program boards): CEE no longer sends the note that restates a
+ * single waiting aim's waits_on list; the headline and the cells' `why` carry it. These two captures predate that, so their
+ * single-aim waits note is left out, as CEE now serves them. (These boards serve no saved read, so they are not programs
+ * and say no notes; the program path is `viewOnlyRunChances.goalChanceNotes.spec.tsx`.)
+ */
+const withoutSingleAimWaitsNote = (read: Read): Record<string, unknown> => {
+  // In both captures it is the first note: the one aim that waits, and what it waits on.
+  const [singleAimWaits, ...rest] = read.canonical_analysis_view.goal_chance.notes as string[]
+  expect(singleAimWaits).toMatch(/^‘[^’]+’ waits on ‘/)
+  return { notes: rest }
+}
 const draw = () => render(
   <AnalysisNewTabBody resultsSectionData={openStrategicChallenge()} isPreRun isRunning={false} isStale={false}
     blockedListing={null} canRunAnalysis onReanalyse={() => {}} />,
@@ -51,7 +63,7 @@ const draw = () => render(
 
 describe('a goal chance that waits says what it waits on', () => {
   it('⭐ every option withheld: one headline with the count and CEE’s labels, never each option’s withheld face', () => {
-    board(grant as Read)
+    board(grant as Read, withoutSingleAimWaitsNote(grant as Read))
     draw()
     const headline = screen.getByTestId('analysis-view-only-waits-headline')
     expect(headline.textContent).toBe(
@@ -67,7 +79,7 @@ describe('a goal chance that waits says what it waits on', () => {
   })
 
   it('⭐ Paul\'s AI chat launch board (bb169869): the 10 things are said once, never again under each option', () => {
-    board(aiLaunch as unknown as Read)
+    board(aiLaunch as unknown as Read, withoutSingleAimWaitsNote(aiLaunch as unknown as Read))
     draw()
     const block = screen.getByTestId('analysis-view-only-chances').textContent ?? ''
     expect(screen.getByTestId('analysis-view-only-waits-on').textContent).toBe(
