@@ -75,6 +75,14 @@ describe('a reading card with a group on every row', () => {
     expect(screen.getByTestId(`reading-other-${PID}`).textContent).toBe('Also in the model (12)')
   })
 
+  it('W7 contrast: off a program board the reading card is unchanged: no row ticks, no "Confirm selected", its own approve label', async () => {
+    await mount(grouped())
+    expect(document.querySelector('[data-testid^="reading-row-tick-"]')).toBeNull()
+    expect(screen.queryByTestId(`reading-confirm-selected-${PID}`)).toBeNull()
+    expect(screen.queryByTestId(`reading-also-from-brief-${PID}`)).toBeNull()
+    expect(screen.getByTestId(`suggested-chip-${served.cards[0].approve_action.id}`).textContent).toBe(served.cards[0].approve_action.label)
+  })
+
   it('a mark opens the list at its group, moving only the thread (never `scrollIntoView`, never the dock)', async () => {
     await mount(grouped())
     const thread = screen.getByTestId('thread')

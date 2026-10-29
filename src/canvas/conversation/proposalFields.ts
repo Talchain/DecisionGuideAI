@@ -115,6 +115,15 @@ const CHANGE_KIND_NOUNS: Readonly<Record<ProposalChange['kind'], string>> = {
 }
 /** A reading card's heading (CEE's `reading: true`, the first draft's "Check what I understood"), in place of the summary. */
 export const READING_HEADING = 'Your situation as I understood it'
+/**
+ * W7 (PANEL-1P rule 3, DL 29 Oct under Paul's direction; PL 00:55Z): on a program reading card the person ticks the rows that
+ * are right and confirms exactly those, or confirms the whole card. Nothing is confirmed by silence; an unticked row stays
+ * Olumi's reading, unconfirmed; confirming never makes an item theirs.
+ */
+export const READING_ROW_TICK = 'That’s right'
+export const READING_CONFIRM_SELECTED = 'Confirm selected'
+export const READING_CONFIRM_WHOLE = 'Confirm whole card'
+export const READING_ALSO_FROM_BRIEF = 'Also from your brief'
 /** The summary from `changes[]`, counted by kind in CEE's order: "Also changes 1 goal, 4 calculations and 8 figures". */
 export function proposalChangesSummary(changes: readonly ProposalChange[]): string {
   const counts = new Map<string, Set<string>>()
@@ -189,6 +198,13 @@ export interface ProposalEdits {
   digest: string
   graph_hash: string
   fields: Array<{ field_id: string; band: Band } | { field_id: string; value: number }>
+  /**
+   * W7: the reading card's ticked rows, the card's own row ids (`changes[].id`), distinct, only beside that card's own approve.
+   * Sent at the top of the request as `approve_ids`, never inside `proposal_edits` (`buildV5Payload`); CEE approves exactly
+   * those records (core-turn.ts `approve_ids`, approve-rows.ts). It rides here so every resend of the press carries the same
+   * rows: without them CEE would approve the whole card.
+   */
+  approve_ids?: string[]
 }
 export type ProposalPanelAction = ActionChip & { proposalEdits?: ProposalEdits }
 
