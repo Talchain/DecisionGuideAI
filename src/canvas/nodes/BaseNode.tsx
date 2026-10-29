@@ -421,9 +421,14 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // `cardLines`: a limit the Goal card already shows is not repeated here (DIFF
   // pre-run item 7, 28 Sep) — see `useNodeConstraints`.
   const { cardLines: constraintLines } = useNodeConstraints(id, label)
+  // W4 (C13) reads it below too: whether the saved model on screen is a program, as the saved read answers it.
+  const programState = useSavedModelProgramState()
   // NODE-ANATOMY v3.2, Factor "Never on the card: a limit line (the boundary
   // lives on the Goal)" — the factor card no longer repeats the Goal's boundary.
-  const showConstraintLines = nodeType !== 'goal' && nodeType !== 'factor' && constraintLines.length > 0
+  // Paul's staging test, 29 Oct (d12634b4): on a PROGRAM board CEE names a FACTOR in `goal_constraints[].node_id` ("No
+  // more than 25% of your time" on `your_time`, "Start within three months" on `launch_time`), and the Goal card showed
+  // neither, so both limits were drawn nowhere. There the card its `node_id` names says it, as an outcome card does.
+  const showConstraintLines = nodeType !== 'goal' && (nodeType !== 'factor' || programState === 'program') && constraintLines.length > 0
   const description = typeof data?.description === 'string' ? data.description : undefined
   /**
    * ⭐ THE ONE TITLE OWNER (Paul's staging test, 28 Sep 2026, export 64c5eccc):
@@ -961,7 +966,6 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   const livingOnly = livingOnlyOf(data)
   // W4 (C13): the core route refuses a rename on a program board (only a figure or a goal's target saves), so its title
   // does not rename on the card (as the inspector's does not, #3008). Until the saved read answers, nothing is offered.
-  const programState = useSavedModelProgramState()
   const titleRenames = livingOnly === null && programState === 'not_program'
 
   const isIncomplete = (() => {

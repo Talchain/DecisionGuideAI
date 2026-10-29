@@ -13,6 +13,9 @@
  * `mainDriverDetailOf`), or CEE's reason none is shown (`none_licensed`); nothing when not recorded, or for a stale Run.
  * W6 (CEE #3792; Paul 6 and 14 Oct): under the chances, once, CEE's own sentence (`leader.words`) on which option is most
  * likely to achieve the goal in this model, or that the options are too close to call; nothing for a stale Run or without it.
+ * Paul's staging test, 29 Oct (d12634b4, 87549695): on a program board, then CEE's `goal_chance.notes`, each verbatim and
+ * once, in CEE's order (what a chance covers and leaves out, what is not in the Run, the independence note, which figures
+ * Olumi read as yours); nothing for a stale Run, as for the chances. Other boards are unchanged.
  */
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
@@ -54,6 +57,11 @@ export interface ViewOnlyRunChances {
    * model, or that the options are too close to call. Null otherwise; the UI composes and decides none of it.
    */
   readonly mostLikely: string | null
+  /**
+   * CEE's `goal_chance.notes`, every one verbatim and in CEE's order, on a PROGRAM board for a current Run only (as
+   * `mostLikely`); empty otherwise, and on any other board. Said under the chances; the UI composes and removes none.
+   */
+  readonly notes: readonly string[]
   /**
    * W8 c5 (acceptance 27 Oct): a PROGRAM board. Under the "waits on" headline each withheld option still says CEE's own
    * reason none is shown (its `why`), beside the option's name. Elsewhere the headline alone stands (Paul, 27 Oct).
@@ -109,7 +117,7 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
         else earlier.push({ optionIds: [optionId], text: words, why: null, driver: null, withheld: false, whyIsWaitsOn: false, earlier: true })
       }
       return { sentence: null, lines: [{ optionIds: canonical.options.map(o => o.option_id), text: line, why: null, driver: null, withheld: false, whyIsWaitsOn: false }, ...earlier],
-        waitsOn: [], stale: true, allWithheld: false, mostLikely: null }
+        waitsOn: [], stale: true, allWithheld: false, mostLikely: null, notes: [] }
     }
     const lines: { optionIds: string[]; text: string; why: string | null; driver: string | null; withheld: boolean; whyIsWaitsOn: boolean }[] = []
     let allWithheld = canonical.options.length > 0
@@ -130,8 +138,11 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
     const sentence = runViewGoalChanceSentence(view)
     // Past the current-Run gate above, as the chances are: CEE's words alone, never one the UI composes from the cells.
     const mostLikely = canonical.leader?.words ?? null
+    // CEE's disclosures beside the chance, on a program board (`goalChanceDetail` holds them for a current Run only): every
+    // note, verbatim and in CEE's order. The UI removes none (DL, 29 Oct): a repeat is fixed where CEE writes it.
+    const notes = program ? [...(view.goalChanceDetail()?.notes ?? [])] : []
     return lines.length === 0 && sentence === null ? null
-      : { sentence, lines, waitsOn, stale: false, allWithheld, mostLikely, ...(program ? { program: true } : {}) }
+      : { sentence, lines, waitsOn, stale: false, allWithheld, mostLikely, notes, ...(program ? { program: true } : {}) }
   }, [report, canonical, program])
 }
 
@@ -242,6 +253,13 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
       ))}
       {chances.mostLikely === null ? null : (
         <p className={`${typography.panelBody} text-text-body`} data-testid="analysis-view-only-most-likely">{chances.mostLikely}</p>
+      )}
+      {chances.notes.length === 0 ? null : (
+        <div data-testid="analysis-view-only-notes">
+          {chances.notes.map((note, i) => (
+            <p key={i} className={`${typography.panelMeta} text-text-light`} data-testid="analysis-view-only-note">{note}</p>
+          ))}
+        </div>
       )}
       {waits || chances.waitsOn.length === 0 ? null : (
         <p className={`${typography.panelBody} text-text-body`} data-testid="analysis-view-only-waits-on">
