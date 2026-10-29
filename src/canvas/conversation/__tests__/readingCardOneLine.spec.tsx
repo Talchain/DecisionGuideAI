@@ -74,7 +74,11 @@ describe('Paul’s 19-item reading card', () => {
     for (const c of CHANGES) {
       fireEvent.click(line(c))
       expect(line(c).getAttribute('aria-expanded')).toBe('true')
-      expect(screen.getByTestId(`proposal-change-detail-${keyOf(c)}`).textContent).toBe(proposalChangeWords(c))
+      // Acceptance 29 Oct (c7.1): the open row shows its whole name, and its words below do not say the name again.
+      expect(line(c).querySelector('.truncate')).toBeNull()
+      const detail = screen.getByTestId(`proposal-change-detail-${keyOf(c)}`).textContent
+      expect(detail).toBe(c.action === 'add' && c.after !== null ? (c.kind === 'left_out' ? `Leaves out: ${c.after}` : c.after) : proposalChangeWords(c))
+      expect(detail).not.toMatch(/^(Adds|Leaves out) ‘/)
     }
     const first = CHANGES[0]!
     fireEvent.click(line(first))

@@ -106,6 +106,16 @@ export function proposalChangeWords(c: ProposalChange): string {
   if (c.before !== null && c.after !== null) return `${head}: ${c.before} → ${c.after}`
   return c.after !== null ? `${head}: ${c.after}` : c.before !== null ? `${head} (was: ${c.before})` : head
 }
+/**
+ * A reading card row's words when tapped, under the row that already names it (W8 c7.1, acceptance 29 Oct: "Adds ‘X’: …"
+ * quoted the whole line it opens from): CEE's words for what is added, verbatim, without the name again. Anything else (a
+ * change, a removal, an add with no words) reads as `proposalChangeWords`.
+ */
+export function proposalRowDetail(c: ProposalChange): string {
+  if (c.action !== 'add' || c.after === null) return proposalChangeWords(c)
+  // What the model leaves out is never "added": it keeps its verb, without the name again.
+  return c.kind === 'left_out' ? `Leaves out: ${c.after}` : c.after
+}
 /** The mark beside an item that is Olumi's, never the person's (`author: 'olumi'`). */
 export const OLUMI_CHANGE_MARK = 'Olumi’s'
 /** Is this row Olumi's? `author: 'olumi'`, unless it is a fixed part of the structure, which is nobody's (W3b). */
