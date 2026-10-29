@@ -55,11 +55,12 @@ import {
 } from '../mutations/structuralAddEdge'
 import { resolveEdgeDirectionDisplay, resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
 import { canvasEdgePairKey } from '../utils/graphIdentity'
+import { scenarioReadAsProgram } from '../nodes/shared/savedModelProgram'
 import type { WireSystemEvent } from './types'
 
 export type StructuralAddEdgeSender = (
   event: WireSystemEvent,
-  opts?: { debugSource?: string; undoGestureId?: string },
+  opts?: { debugSource?: string; undoGestureId?: string; scenarioId?: string },
 ) => Promise<unknown>
 
 export function useStructuralAddEdgeEvents(sendSystemEvent: StructuralAddEdgeSender): void {
@@ -169,7 +170,11 @@ export function useStructuralAddEdgeEvents(sendSystemEvent: StructuralAddEdgeSen
             // Node-add chains are structural convention links. Their node
             // receipt may temporarily remove the local edge; readiness above
             // owns that lifecycle and its exact committed base hash.
-            if (intent.afterNodeAddIntentId === undefined) {
+            // A program board's canvas is CEE's graph alone (`applyProgramGraph`), so a queued link is sent from
+            // its own retained intent, never conditioned on its local edge still being drawn. It is sent under the
+            // scenario it was drawn on and no other; a reply for a board no longer open is fenced (`useConversation`).
+            const drawnOn = intent.scenarioId ?? useCanvasStore.getState().currentScenarioId
+            if (intent.afterNodeAddIntentId === undefined && !scenarioReadAsProgram(drawnOn)) {
               const live = useCanvasStore.getState()
               const edge = live.edges.find(e => e.id === intent.edgeId)
               if (!edge || live.lastAuthoritativeGraph?.edgePairs.includes(canvasEdgePairKey(edge)!)) continue
@@ -200,6 +205,7 @@ export function useStructuralAddEdgeEvents(sendSystemEvent: StructuralAddEdgeSen
                 // A link chained to a node add undoes WITH that node: one step.
                 {
                   debugSource: 'canvas_add_edge',
+                  ...(drawnOn ? { scenarioId: drawnOn } : {}),
                   ...(resolved.afterNodeAddIntentId !== undefined
                     ? { undoGestureId: resolved.afterNodeAddIntentId }
                     : {}),

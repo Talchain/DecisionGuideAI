@@ -28,6 +28,7 @@ import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextIn
 import type { ReportV1 } from '../adapters/plot/types'
 import type { LeaderClaimWithholdingReason } from './hydrate/applyScenarioAnalysisRead'
 import { beforeScenarioReplacement } from './store/scenarioReplacement'
+import { scenarioReadAsProgram } from './nodes/shared/programScenarios'
 /**
  * ⭐ THE RUN STATES ON WHICH A PRODUCER'S PERMISSION MAY CLEAR A WITHHOLDING.
  *
@@ -3026,11 +3027,13 @@ function planStructuralAddEdgeIntent(
   if (!result.ok) {
     return { patch: {}, deferred: false, needsStrength: result.reason === 'strength_not_stated' }
   }
+  // The scenario it was drawn on travels with it: it is sent under that id and no other.
+  const intent = { ...result.intent, scenarioId: state.currentScenarioId ?? null }
   return {
-    patch: { pendingStructuralAddEdges: [...state.pendingStructuralAddEdges, result.intent] },
+    patch: { pendingStructuralAddEdges: [...state.pendingStructuralAddEdges, intent] },
     deferred: result.deferred,
     needsStrength: false,
-    intent: result.intent,
+    intent,
   }
 }
 
@@ -5096,11 +5099,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // neighbours "overlapped" and a same-row link solved a ~3,300-unit dip
       // under the board (measured, MRR draft, 19 Oct 2026).
       const liveMeasured = new Map(get().nodes.map((n) => [n.id, n.measured]))
+      // A program board's cards are CEE's graph alone (`applyProgramGraph`): a layout writes only each card's position,
+      // by id, onto the cards on the board NOW. Never card content, never a card that has gone since it started.
+      const laidAt = scenarioReadAsProgram(get().currentScenarioId) ? new Map(layoutedNodes.map((n) => [n.id, n.position])) : null
       set({
-        nodes: layoutedNodes.map((n) => {
-          const live = liveMeasured.get(n.id)
-          return live && live !== n.measured ? { ...n, measured: live } : n
-        }),
+        nodes: laidAt
+          ? get().nodes.map((n) => (laidAt.has(n.id) ? { ...n, position: laidAt.get(n.id)! } : n))
+          : layoutedNodes.map((n) => {
+            const live = liveMeasured.get(n.id)
+            return live && live !== n.measured ? { ...n, measured: live } : n
+          }),
         layoutVersion: get().layoutVersion + 1,
         pendingLayout: false,
         // Recorded in the SAME set() as the version bump, so the fit trigger

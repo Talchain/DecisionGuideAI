@@ -202,7 +202,8 @@ import {
 } from './coreStillFinishing'
 import { readsBackBeforeResend, STREAM_LOSS_READ, waitBeforeStreamCloseReadback } from './streamCloseReadback'
 import { stopV5Turn, type TurnStopOutcomeKind } from '../../v5/stopTurn'
-import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
+import { applyProgramGraph, reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
+import { scenarioReadAsProgram } from '../nodes/shared/savedModelProgram'
 import {
   isGraphServerAcknowledged,
   markGraphServerAcknowledged,
@@ -2548,6 +2549,8 @@ export interface SendTurnOpts {
    * returned instead of creating a second, hidden copy of the same action.
    */
   deferIfBusy?: boolean
+  /** The scenario a retained gesture was made on: the turn goes out under this id and no other. */
+  scenarioId?: string
 }
 
 /** One send held back by the in-flight lock. */
@@ -2742,6 +2745,8 @@ export interface UseConversationReturn {
     onDeferredSettled?: (dispatch: Promise<SendTurnOutcome>) => void
     /** Return `SEND_BLOCKED` instead of queueing behind an in-flight turn. */
     deferIfBusy?: boolean
+    /** See `SendTurnOpts.scenarioId`. */
+    scenarioId?: string
     // Resolves to SEND_DEFERRED when the in-flight lock queued the send instead
     // of dispatching it, so a caller can tell "queued" from "sent" — the old
     // `Promise<void>` made those two indistinguishable, which is how an
@@ -4294,7 +4299,7 @@ export function useConversation(): UseConversationReturn {
     // Stamp the scenario at ENQUEUE time. Dispatch reads the scenario fresh, so
     // without this an edit queued in A would flush into whatever decision
     // happens to be open when the lock clears.
-    const scenarioId = useCanvasStore.getState().currentScenarioId ?? null
+    const scenarioId = opts.scenarioId ?? useCanvasStore.getState().currentScenarioId ?? null
     const entry: DeferredSystemSend = { key, opts, scenarioId, attempts: 0 }
 
     const existing = deferredSystemSendsRef.current.findIndex((d) => d.key === key)
@@ -4704,7 +4709,8 @@ export function useConversation(): UseConversationReturn {
       // If the store has no scenario_id or a legacy non-UUID format, generate
       // one client-side and persist it (store + localStorage writer) so subsequent
       // turns — including after a page refresh / re-init — reuse the same ID.
-      let currentScenarioId = useCanvasStore.getState().currentScenarioId
+      // A retained gesture names the scenario it was made on (`SendTurnOpts.scenarioId`); every other turn the open one.
+      let currentScenarioId = opts.scenarioId ?? useCanvasStore.getState().currentScenarioId
       if (!currentScenarioId || !isUUID(currentScenarioId)) {
         // ⚠ REFUSED FOR A SIGNED-IN SESSION. The mint is correct for a GUEST,
         // whose decisions are local and who has no decision list to open from.
@@ -5842,6 +5848,10 @@ export function useConversation(): UseConversationReturn {
           // U4: a core-route turn is applied from its own contract (`applyCoreTurn.ts`), never through the legacy
           // V2-envelope steps; any other answer keeps `applyV5State`.
           const coreBody = readCoreTurn(target.response)
+          // A turn on a PROGRAM board (UI thin layer, step 1): CEE puts its `model_program` record on every core turn whose
+          // saved model is a program, and this scenario's last answered read or program apply may already have shown one
+          // (`programScenarios.ts`). Its graph is applied as CEE's whole model, empty canvas or not (`applyProgramGraph`).
+          const programTurn = coreBody?.model_program != null || scenarioReadAsProgram(scenarioIdAtDispatch)
           useCanvasStore.getState().beginExternalGraphMutation?.('envelope_apply')
           let stateApply: ReturnType<typeof applyV5State>
           try {
@@ -6016,10 +6026,15 @@ export function useConversation(): UseConversationReturn {
               // preview graph on the undo stack, making undo one step deeper
               // than the buffered path's. Skipping here leaves the undo stack
               // identical.
-              applyDraftResult(inlineGraph as any, {
-                skipHistory: streamedPreviewOwnsCanvas,
-                turnVerdict: { analysisReady: target.response.analysis_ready, graphHash: target.response.graph_hash },
-              })
+              // A program's first graph, streamed final included, takes the one program writer: never the draft apply.
+              if (programTurn) {
+                applyProgramGraph(inlineGraph, { skipHistory: streamedPreviewOwnsCanvas })
+              } else {
+                applyDraftResult(inlineGraph as any, {
+                  skipHistory: streamedPreviewOwnsCanvas,
+                  turnVerdict: { analysisReady: target.response.analysis_ready, graphHash: target.response.graph_hash },
+                })
+              }
               draftAppliedThisTurn = true
               // ── The user's brief, recorded for the decision it just drafted ──
               //
@@ -6095,7 +6110,9 @@ export function useConversation(): UseConversationReturn {
                 console.log('[sendTurn V5] graph applied from inline response:', inlineNodeCount, 'nodes')
               }
             }
-          } else if (inlineGraph && inlineNodeCount > 0 && !canvasIsEmpty) {
+          } else if (inlineGraph && (inlineNodeCount > 0 || programTurn) && !canvasIsEmpty) {
+            // A program's saved model with no cards is still the saved model: it empties the canvas (`programTurn`).
+            //
             // POC Lane C (edit-journey display closure): applied-edit
             // receipt ingestion. CEE #414/#424 attach the FULL committed
             // post-mutation graph to applied-edit receipts via the same
@@ -6219,7 +6236,9 @@ export function useConversation(): UseConversationReturn {
                 typeof sentBaseHash === 'string' &&
                 sentBaseHash.length > 0 &&
                 target.response.graph_hash === sentBaseHash
-              const merged = reconcileAppliedGraph(inlineGraph as any, {
+              // A program's receipt goes to the one program writer: CEE's graph, whole (`applyProgramGraph`).
+              if (programTurn) applyProgramGraph(inlineGraph)
+              const merged = programTurn ? null : reconcileAppliedGraph(inlineGraph as any, {
                 analysisHashUnmoved,
                 // The same Run/state/hash projection applyV5State just used. Receipt reconciliation must not re-dirty
                 // that analysed graph merely because core retires analysis_ready; it still checks the held verdict.
@@ -6276,7 +6295,7 @@ export function useConversation(): UseConversationReturn {
                 )
               }
               if (
-                import.meta.env.DEV &&
+                import.meta.env.DEV && merged !== null &&
                 (merged.addedNodeCount > 0 ||
                   merged.addedEdgeCount > 0 ||
                   merged.updatedNodeCount > 0 ||
@@ -6292,7 +6311,7 @@ export function useConversation(): UseConversationReturn {
                 )
               }
             }
-          } else if (!inlineGraph && stateApply.applied.includes('stage:analyse') && canvasIsEmpty) {
+          } else if (!inlineGraph && !programTurn && stateApply.applied.includes('stage:analyse') && canvasIsEmpty) {
             // Fallback path: draft_graph absent → re-fetch from Supabase.
             // Still gated on stage:analyse because without an inline graph, that
             // transition is the only signal that a graph was produced. Requires auth.
@@ -7533,6 +7552,7 @@ export function useConversation(): UseConversationReturn {
       /** The queued send's own outcome, at flush — see `SendTurnOpts.onDeferredSettled`. */
       onDeferredSettled?: (dispatch: Promise<SendTurnOutcome>) => void
       deferIfBusy?: boolean
+      scenarioId?: string
     }) => {
       // No-op when orchestrator V2 is OFF
       if (!isOrchestratorV2Enabled()) return SEND_BLOCKED
@@ -7632,6 +7652,7 @@ export function useConversation(): UseConversationReturn {
         // it now surfaces as a revert plus an honest sentence rather than as an
         // option quietly reappearing on the next re-run.
         deferIfBusy: opts?.deferIfBusy,
+        scenarioId: opts?.scenarioId,
       }).finally(releaseEditDelivery)
     },
     [sendTurn],

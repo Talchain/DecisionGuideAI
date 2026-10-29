@@ -42,6 +42,9 @@ export const CoreTurnSchema = z.object({
   // the legacy fallbacks: absence audit, 22 Oct). Passed through as sent; never re-derived here.
   analysis_result: z.record(z.unknown()).nullable().optional(),
   analysis_state: z.record(z.unknown()).nullable().optional(),
+  // A model-program turn's own record (CEE sets it on every turn whose saved model is a program): kept raw, read only
+  // as that fact (`useConversation`'s program apply).
+  model_program: z.unknown().optional(),
   receipts: z.array(z.object({ authorised_by: z.enum(['person', 'olumi']) }).passthrough()).default([]),
   paused: z.object({ proposal_id: nullableId }).nullable().optional(),
   // CEE's action bar (`action_bar` v1, null when it offers nothing), raw: its one reader is `readActionBar`, as on a reload.

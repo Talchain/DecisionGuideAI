@@ -179,6 +179,8 @@ export interface StructuralAddEdgeIntent {
    * exist yet. See {@link chainStructuralAddEdgeToNodeAdd}.
    */
   readonly afterNodeAddIntentId?: string
+  /** The scenario the link was drawn on: it is sent under this id and no other (`useStructuralAddEdgeEvents`). */
+  readonly scenarioId?: string | null
 }
 
 export type ResolvedStructuralAddEdgeIntent = StructuralAddEdgeIntent & {
