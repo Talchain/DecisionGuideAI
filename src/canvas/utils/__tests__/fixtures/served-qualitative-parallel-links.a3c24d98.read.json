@@ -1,0 +1,306 @@
+{
+ "_source": {
+  "captured_at": "2026-10-29T02:51:56Z",
+  "label": "final-reload",
+  "status": 200,
+  "note": "saved graph read body (scenario_graph.v1), staging, qualitative journey final cold reload (DET-HARM D225/D227). Envelope keys kept: schema, scenario_id, graph_present, graph_identity_hash, layout_present, graph_hash, request_id. graph.nodes keep id, kind and label; graph.edges keep id, from, to, origin, effect_direction, direction_settled, link_words, exists_probability. Every node and edge is kept, in served order; nothing else is (analysis_state was null on this read)."
+ },
+ "schema": "scenario_graph.v1",
+ "scenario_id": "a3c24d98-ef77-44c6-a083-f31b2db29cbf",
+ "graph": {
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "kind": "decision",
+    "label": "Delay the app update?"
+   },
+   {
+    "id": "avoid_bad_reviews",
+    "kind": "goal",
+    "label": "Avoid one-star reviews"
+   },
+   {
+    "id": "avoid_team_blame",
+    "kind": "goal",
+    "label": "Avoid unfair blame on the team"
+   },
+   {
+    "id": "delay_update",
+    "kind": "option",
+    "label": "Push it back — tentative"
+   },
+   {
+    "id": "launch_as_planned",
+    "kind": "option",
+    "label": "Launch as planned"
+   },
+   {
+    "id": "staged_release",
+    "kind": "option",
+    "label": "Limited rollout with affected features held back"
+   },
+   {
+    "id": "sync_readiness",
+    "kind": "factor",
+    "label": "Sync bug's impact on launch readiness"
+   },
+   {
+    "id": "repair_time",
+    "kind": "factor",
+    "label": "Time needed to fix the sync bug"
+   },
+   {
+    "id": "planned_release_time",
+    "kind": "factor",
+    "label": "Time until the planned release"
+   },
+   {
+    "id": "review_reputation",
+    "kind": "factor",
+    "label": "App reputation with users"
+   },
+   {
+    "id": "marketing_disruption",
+    "kind": "factor",
+    "label": "Disruption to the Q4 campaign"
+   },
+   {
+    "id": "poor_reviews",
+    "kind": "risk",
+    "label": "Users post one-star reviews after a broken launch"
+   },
+   {
+    "id": "marketing_backlash",
+    "kind": "risk",
+    "label": "Marketing reacts badly to a delay"
+   },
+   {
+    "id": "boss_backlash",
+    "kind": "risk",
+    "label": "Boss reacts badly to postponement"
+   },
+   {
+    "id": "ads_before_fix",
+    "kind": "risk",
+    "label": "the Q4 ads go live before the database sync bug is fixed."
+   }
+  ],
+  "edges": [
+   {
+    "id": "mp:decision__delay_update",
+    "from": "mp:decision",
+    "to": "delay_update",
+    "origin": "model_program:display",
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__launch_as_planned",
+    "from": "mp:decision",
+    "to": "launch_as_planned",
+    "origin": "model_program:display",
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__staged_release",
+    "from": "mp:decision",
+    "to": "staged_release",
+    "origin": "model_program:display",
+    "exists_probability": 1
+   },
+   {
+    "id": "repair_time__sync_readiness",
+    "from": "repair_time",
+    "to": "sync_readiness",
+    "origin": "model_program:display",
+    "effect_direction": "negative",
+    "link_words": {
+     "basis": "A longer repair leaves less time before a fixed release; verification time is also unresolved.",
+     "direction": "down",
+     "confidence": "unsure"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "planned_release_time__sync_readiness",
+    "from": "planned_release_time",
+    "to": "sync_readiness",
+    "origin": "model_program:display",
+    "effect_direction": "positive",
+    "link_words": {
+     "basis": "More time can allow repair and verification, but does not itself establish readiness.",
+     "direction": "up",
+     "confidence": "unsure"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "delay_update__sync_readiness",
+    "from": "delay_update",
+    "to": "sync_readiness",
+    "origin": "model_program:display",
+    "direction_settled": false,
+    "link_words": {
+     "basis": "Delay helps only if the extra time is used to resolve and verify the affected workflows.",
+     "direction": "conditional",
+     "confidence": "unsure"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "launch_as_planned__sync_readiness",
+    "from": "launch_as_planned",
+    "to": "sync_readiness",
+    "origin": "model_program:display",
+    "direction_settled": false,
+    "link_words": {
+     "basis": "Readiness at the scheduled release depends on the remaining time and verified repair progress.",
+     "direction": "conditional",
+     "confidence": "unknown"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "staged_release__sync_readiness",
+    "from": "staged_release",
+    "to": "sync_readiness",
+    "origin": "model_program:display",
+    "direction_settled": false,
+    "link_words": {
+     "basis": "A limited release helps only if the affected functionality can be safely isolated.",
+     "direction": "conditional",
+     "confidence": "unsure"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "sync_readiness__review_reputation",
+    "from": "sync_readiness",
+    "to": "review_reputation",
+    "origin": "model_program:display",
+    "effect_direction": "positive",
+    "link_words": {
+     "basis": "Reliable syncing reduces one potential source of a poor user experience; it does not guarantee good reviews.",
+     "direction": "up",
+     "confidence": "likely"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "review_reputation__avoid_bad_reviews",
+    "from": "review_reputation",
+    "to": "avoid_bad_reviews",
+    "origin": "model_program:display",
+    "effect_direction": "positive",
+    "link_words": {
+     "basis": "A better user reputation supports avoiding poor reviews, without implying a numerical conversion.",
+     "direction": "up",
+     "confidence": "likely"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "delay_update__marketing_disruption",
+    "from": "delay_update",
+    "to": "marketing_disruption",
+    "origin": "model_program:display",
+    "direction_settled": false,
+    "link_words": {
+     "basis": "The effect depends on ad commitments and whether the campaign can run against the current app.",
+     "direction": "conditional",
+     "confidence": "unsure"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "staged_release__marketing_disruption",
+    "from": "staged_release",
+    "to": "marketing_disruption",
+    "origin": "model_program:display",
+    "direction_settled": false,
+    "link_words": {
+     "basis": "Campaign compatibility depends on what the ads promise and what is available to users.",
+     "direction": "conditional",
+     "confidence": "unsure"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "ads_before_fix__marketing_disruption",
+    "from": "ads_before_fix",
+    "to": "marketing_disruption",
+    "origin": "model_program:display",
+    "effect_direction": "positive",
+    "link_words": {
+     "basis": "Olumi's provisional reading: this could disrupt the campaign; neither user exposure to the bug nor lost spending is assumed.",
+     "direction": "up",
+     "confidence": "unsure"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "poor_reviews__review_reputation",
+    "from": "poor_reviews",
+    "to": "review_reputation",
+    "origin": "model_program:display",
+    "effect_direction": "negative",
+    "link_words": {
+     "basis": null,
+     "direction": "down",
+     "confidence": null
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "marketing_backlash__delay_update",
+    "from": "marketing_backlash",
+    "to": "delay_update",
+    "origin": "model_program:display",
+    "effect_direction": "negative",
+    "link_words": {
+     "basis": null,
+     "direction": "down",
+     "confidence": null
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "boss_backlash__avoid_team_blame",
+    "from": "boss_backlash",
+    "to": "avoid_team_blame",
+    "origin": "model_program:display",
+    "effect_direction": "negative",
+    "link_words": {
+     "basis": null,
+     "direction": "down",
+     "confidence": null
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "ads_before_fix__marketing_disruption__2",
+    "from": "ads_before_fix",
+    "to": "marketing_disruption",
+    "origin": "model_program:display",
+    "direction_settled": false,
+    "link_words": {
+     "basis": null,
+     "direction": "unknown",
+     "confidence": null
+    },
+    "exists_probability": 1
+   }
+  ]
+ },
+ "graph_present": true,
+ "graph_identity_hash": {
+  "kind": "graph_identity_hash",
+  "value": "ed6596983d3906404bfde3e8f5ca2e5577c8e1c5861965e55552b825a3d98b05",
+  "algorithm": "sha256",
+  "projection_version": "identity.v1",
+  "graph_schema_version": "graph_v3",
+  "normaliser_version": "1"
+ },
+ "layout_present": false,
+ "graph_hash": "8405adb4cc35bcd93457e1a64758f87b8730b83c75e150955aa5773aa84a7bb4",
+ "request_id": "1dc4f7ba-17a9-4f36-919c-e823af4a1c91"
+}

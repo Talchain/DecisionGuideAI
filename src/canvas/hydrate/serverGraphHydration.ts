@@ -49,7 +49,7 @@ import {
 import { markGraphServerAcknowledged } from '../store/importRegistrationMarker'
 import { editDeliveryHold } from '../registration/editDeliveryHold'
 import { buildRegistrationGraph } from '../registration/buildRegistrationGraph'
-import { edgePairKey, wireEdgePairKey } from '../utils/graphIdentity'
+import { edgePairKey, matchEdgesOneToOne, wireEdgePairKey } from '../utils/graphIdentity'
 import { canonicalJson } from '../../lib/canonical-hash'
 import { EdgeV3Schema } from '@talchain/schemas'
 import { CANONICAL_GRAPH_HASH_NESTED_PROJECTION } from '@talchain/schemas/boundary'
@@ -917,14 +917,16 @@ function dropHeldRunTheReadSaysIsNotCurrent(scenarioId: string, analysisState: A
 }
 
 function canvasProvenEqualToRead(scenarioId: string, wireGraph: unknown): boolean {
-  return whyCanvasNotProvenEqualToRead(scenarioId, withContractEdgeDefaults(wireGraph), withContractEdgeDefaults) === null
+  return whyCanvasNotProvenEqualToRead(scenarioId, wireGraph, withContractEdgeDefaults) === null
 }
 
 /**
  * The same proof, answering WHICH clause failed: `null` when the canvas is
  * proven equal, else the first failing clause (and, for a value clause, the
  * element, key and a short excerpt of both sides). One body, so the reason a
- * decline reports can never disagree with the decision it explains.
+ * decline reports can never disagree with the decision it explains. `wireGraph`
+ * is the read AS SERVED: `normalise` is applied to both sides here, after each
+ * link is paired with its own (`readLinkOf`).
  */
 function whyCanvasNotProvenEqualToRead(
   scenarioId: string,
@@ -976,11 +978,10 @@ function withContractEdgeDefaults(wireGraph: unknown): unknown {
  * `applyBootRunCurrency.ts`.
  */
 function whyCanvasNotProvenEqualToReadBothWays(scenarioId: string, wireGraph: unknown): string | null {
-  const read = currencyComparable(wireGraph)
   return (
-    whyCanvasNotProvenEqualToRead(scenarioId, read, currencyComparable) ??
-    firstReadValueTheCanvasLacks(read, currencyComparable) ??
-    firstGoalValueNotProvenEqual(read)
+    whyCanvasNotProvenEqualToRead(scenarioId, wireGraph, currencyComparable) ??
+    firstReadValueTheCanvasLacks(wireGraph, currencyComparable) ??
+    firstGoalValueNotProvenEqual(currencyComparable(wireGraph))
   )
 }
 
@@ -1210,6 +1211,46 @@ function analysisAffectingEdge(edge: unknown): unknown {
 const NOT_CARRIED_EDGE_KEYS: ReadonlySet<string> = new Set(['origin', 'provenance', 'provenance_display'])
 
 /**
+ * EACH LINK'S OWN COUNTERPART (DET-HARM D225/D227; SPEC C13). The saved program model can join one pair by two links
+ * (`from__to`, `from__to__2`), so the proofs pair the canvas's links with the read's by the SAME one-to-one mapping
+ * both merges use (`matchEdgesOneToOne`: exact id on the same pair first, then pair order), never a second rule.
+ *
+ * Ids come from the sides BEFORE normalising: the analysis-affecting projection drops them. The registration
+ * projection and every normaliser here map links one-to-one and in order, so index i names the same link before and
+ * after; a side that does not line up is refused (null), fail closed. Returned as indices: the canvas link at i is
+ * compared with the read link at `wireIndexOf.get(i)`, and the read link at j with the canvas link at
+ * `canvasIndexOf.get(j)`. `readLinkCount` counts what the read holds as links (an object with a pair), as before.
+ */
+function readLinkOf(
+  canvasEdges: ReadonlyArray<{ id?: unknown; source?: unknown; target?: unknown }>,
+  projectedEdges: ReadonlyArray<unknown>,
+  servedGraph: unknown,
+  normalisedReadEdges: unknown,
+): { wireIndexOf: Map<number, number>; canvasIndexOf: Map<number, number>; readLinkCount: number } | null {
+  const served = (servedGraph as { edges?: unknown } | null)?.edges
+  const servedEdges = Array.isArray(served) ? (served as unknown[]) : []
+  const readEdges = Array.isArray(normalisedReadEdges) ? normalisedReadEdges : []
+  if (canvasEdges.length !== projectedEdges.length || servedEdges.length !== readEdges.length) return null
+  type ReadLink = { id?: unknown; from?: unknown; to?: unknown; source?: unknown; target?: unknown }
+  const readLinks = servedEdges.map((w) => (w !== null && typeof w === 'object' ? (w as ReadLink) : null))
+  const matched = matchEdgesOneToOne(canvasEdges, readLinks)
+  const canvasIndex = new Map(canvasEdges.map((c, i) => [c, i] as const))
+  const readIndex = new Map<ReadLink, number>()
+  readLinks.forEach((w, j) => { if (w !== null) readIndex.set(w, j) })
+  const wireIndexOf = new Map<number, number>()
+  const canvasIndexOf = new Map<number, number>()
+  for (const [c, w] of matched) {
+    const i = canvasIndex.get(c)
+    const j = readIndex.get(w)
+    if (i === undefined || j === undefined) continue
+    wireIndexOf.set(i, j)
+    canvasIndexOf.set(j, i)
+  }
+  const readLinkCount = readLinks.filter((w) => w !== null && wireEdgePairKey(w) !== null).length
+  return { wireIndexOf, canvasIndexOf, readLinkCount }
+}
+
+/**
  * ⭐ THE REVERSE DIRECTION, used ONLY by the boot run-currency restore.
  *
  * `firstProjectedValueTheReadLacks` proves the canvas holds nothing CEE lacks.
@@ -1225,7 +1266,8 @@ const NOT_CARRIED_EDGE_KEYS: ReadonlySet<string> = new Set(['origin', 'provenanc
  * canvas unacknowledged, and the re-arm could then write the canvas (which
  * LACKS the value) into CEE. That is a different trade and out of this scope.
  */
-function firstReadValueTheCanvasLacks(wireGraph: unknown, normalise?: GraphNormaliser): string | null {
+function firstReadValueTheCanvasLacks(servedGraph: unknown, normalise?: GraphNormaliser): string | null {
+  const wireGraph = normalise ? normalise(servedGraph) : servedGraph
   if (wireGraph === null || typeof wireGraph !== 'object') return 'rev:read_not_a_graph'
   const g = wireGraph as { nodes?: unknown; edges?: unknown }
   const st = useCanvasStore.getState()
@@ -1234,10 +1276,8 @@ function firstReadValueTheCanvasLacks(wireGraph: unknown, normalise?: GraphNorma
   const canvasGraph = (normalise ? normalise(projected.graph) : projected.graph) as typeof projected.graph
   const nodeById = new Map<string, Record<string, unknown>>()
   for (const n of canvasGraph.nodes) nodeById.set(String(n.id), n as unknown as Record<string, unknown>)
-  const edgeByPair = new Map<string, Record<string, unknown>>()
-  for (const e of canvasGraph.edges) {
-    edgeByPair.set(edgePairKey(String(e.from), String(e.to)), e as unknown as Record<string, unknown>)
-  }
+  const links = readLinkOf(st.edges as never, canvasGraph.edges, servedGraph, g.edges)
+  if (links === null) return 'rev:edge_alignment'
   for (const w of Array.isArray(g.nodes) ? (g.nodes as unknown[]) : []) {
     if (w === null || typeof w !== 'object') return 'rev:node_not_an_object'
     const wire = w as Record<string, unknown>
@@ -1251,10 +1291,14 @@ function firstReadValueTheCanvasLacks(wireGraph: unknown, normalise?: GraphNorma
       }
     }
   }
-  for (const w of Array.isArray(g.edges) ? (g.edges as unknown[]) : []) {
+  const readEdges = Array.isArray(g.edges) ? (g.edges as unknown[]) : []
+  for (let i = 0; i < readEdges.length; i++) {
+    const w = readEdges[i]
     if (w === null || typeof w !== 'object') return 'rev:edge_not_an_object'
     const key = wireEdgePairKey(w as never)
-    const edge = key === null ? undefined : edgeByPair.get(key)
+    // ITS OWN canvas link (one-to-one, D225), never whichever canvas link shares the pair.
+    const canvasIndex = key === null ? undefined : links.canvasIndexOf.get(i)
+    const edge = canvasIndex === undefined ? undefined : (canvasGraph.edges[canvasIndex] as unknown as Record<string, unknown>)
     if (edge === undefined) return `rev:edge:${String(key)}:absent_on_canvas`
     for (const [k, value] of Object.entries(w as Record<string, unknown>)) {
       if (k === 'from' || k === 'to' || NOT_CARRIED_EDGE_KEYS.has(k) || value === undefined) continue
@@ -1329,11 +1373,12 @@ function sameNodeValue(key: string, projected: unknown, wire: unknown): boolean 
  * `null` when it does; otherwise the first element and key it does not carry.
  */
 function firstProjectedValueTheReadLacks(
-  wireGraph: unknown,
+  servedGraph: unknown,
   nodes: Parameters<typeof buildRegistrationGraph>[0],
   edges: Parameters<typeof buildRegistrationGraph>[1],
   normalise?: GraphNormaliser,
 ): string | null {
+  const wireGraph = normalise ? normalise(servedGraph) : servedGraph
   if (wireGraph === null || typeof wireGraph !== 'object') return 'fwd:read_not_a_graph'
   const g = wireGraph as { nodes?: unknown; edges?: unknown }
   const rawNodes = Array.isArray(g.nodes) ? (g.nodes as unknown[]) : []
@@ -1350,12 +1395,10 @@ function firstProjectedValueTheReadLacks(
     const id = (n as { id?: unknown }).id
     if (typeof id === 'string' && !wireNodeById.has(id)) wireNodeById.set(id, n as Record<string, unknown>)
   }
-  const wireEdgeByPair = new Map<string, Record<string, unknown>>()
-  for (const e of rawEdges) {
-    if (e === null || typeof e !== 'object') continue
-    const key = wireEdgePairKey(e as never)
-    if (key !== null && !wireEdgeByPair.has(key)) wireEdgeByPair.set(key, e as Record<string, unknown>)
-  }
+  // Each canvas link is paired with ITS OWN read link by the one-to-one mapping both merges use (D225/D227), so two
+  // links between one pair are two links here too, and neither is compared with its sibling.
+  const links = readLinkOf(edges as never, projected.graph.edges, servedGraph, rawEdges)
+  if (links === null) return 'fwd:edge_alignment'
 
   // EXACTLY the same elements: nothing the canvas holds that CEE lacks, and
   // nothing CEE holds that the canvas lacks (the merge adds CEE's elements, so
@@ -1363,8 +1406,8 @@ function firstProjectedValueTheReadLacks(
   if (projected.graph.nodes.length !== wireNodeById.size) {
     return `fwd:node_count canvas=${projected.graph.nodes.length} read=${wireNodeById.size}`
   }
-  if (projected.graph.edges.length !== wireEdgeByPair.size) {
-    return `fwd:edge_count canvas=${projected.graph.edges.length} read=${wireEdgeByPair.size}`
+  if (projected.graph.edges.length !== links.readLinkCount) {
+    return `fwd:edge_count canvas=${projected.graph.edges.length} read=${links.readLinkCount}`
   }
 
   for (const node of projected.graph.nodes) {
@@ -1379,9 +1422,11 @@ function firstProjectedValueTheReadLacks(
       }
     }
   }
-  for (const edge of projected.graph.edges) {
+  for (let i = 0; i < projected.graph.edges.length; i++) {
+    const edge = projected.graph.edges[i]
     const pair = edgePairKey(String(edge.from), String(edge.to))
-    const wire = wireEdgeByPair.get(pair)
+    const wireIndex = links.wireIndexOf.get(i)
+    const wire = wireIndex === undefined ? undefined : (rawEdges[wireIndex] as Record<string, unknown>)
     if (wire === undefined) return `fwd:edge:${pair}:absent_in_read`
     for (const [key, value] of Object.entries(edge)) {
       if (key === 'from' || key === 'to') continue

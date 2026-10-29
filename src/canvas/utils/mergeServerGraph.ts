@@ -114,7 +114,7 @@ import { interventionNumericValue } from '../../utils/interventionValue'
 import { logger } from '../../lib/logger'
 import { canonicalJson } from '../../lib/canonical-hash'
 import { normaliseInterventionKeys } from './normaliseInterventionKeys'
-import { canvasEdgePairKey, wireEdgePairKey } from './graphIdentity'
+import { canvasEdgePairKey, matchEdgesOneToOne, wireEdgePairKey } from './graphIdentity'
 import { recordsStrengthStandDown } from './canvasOnlyLink'
 import { editDeliveryHold, type EditDeliveryState } from '../registration/editDeliveryHold'
 import { pendingFactorEditValue } from '../conversation/pendingFactorEdit'
@@ -302,24 +302,33 @@ function isUiOnlyNode(n: { type?: unknown } | null | undefined): boolean {
  * identity: a removed node, an edge touching one (never a dangling edge), and
  * an edge on a pair the saved model lacks. Edges go by PAIR, never by id — the
  * same identity the removal used, so an id a removed edge once carried cannot
- * strip an edge the saved model holds. Returns the entry itself when it carried
- * none of them.
+ * strip an edge the saved model holds. The one exception is a removed link on a
+ * pair the saved model still holds (a second link between the same two cards,
+ * DET-HARM D225): it goes by its pair AND its own id, so its sibling stays.
+ * Returns the entry itself when it carried none of them.
  */
 function withoutRemovedElements<T extends { nodes: any[]; edges: any[] }>(
   entry: T,
   removedNodeIds: ReadonlySet<string>,
   removedPairKeys: ReadonlySet<string>,
+  removedSiblingKeys: ReadonlySet<string>,
 ): T {
   const nodes = entry.nodes.filter((n) => !removedNodeIds.has(n?.id))
   const edges = entry.edges.filter((e) => {
     if (e == null) return true
     if (removedNodeIds.has(e.source) || removedNodeIds.has(e.target)) return false
     const key = canvasEdgePairKey(e)
+    if (key !== null && removedSiblingKeys.has(siblingKey(key, e.id))) return false
     return key === null || !removedPairKeys.has(key)
   })
   return nodes.length === entry.nodes.length && edges.length === entry.edges.length
     ? entry
     : { ...entry, nodes, edges }
+}
+
+/** A removed link on a pair the saved model still holds, named by its pair and its own id. */
+function siblingKey(pairKey: string, id: unknown): string {
+  return `${pairKey}\u0000${String(id)}`
 }
 
 /** What the user is told a removed node was: its label, or its id. */
@@ -417,9 +426,12 @@ export function mergeServerGraphOnHydrate(
     }
   }
 
-  // --- Server indexes. Node identity is the id; EDGE identity is the endpoint
-  // pair (CEE mints composite ids, the draft mapper falls back to positional
-  // ones, so the same edge routinely carries different ids on the two sides).
+  // --- Server indexes. Node identity is the id. An EDGE is matched one-to-one,
+  // its own id first and then its endpoint pair (CEE mints composite ids, the
+  // draft mapper falls back to positional ones, so the same edge routinely
+  // carries different ids on the two sides; and the saved program model can join
+  // one pair by two links, `from__to` and `from__to__2`: DET-HARM D225/D227).
+  // `serverEdgeByPair` names the pairs the read holds.
   const serverNodeById = new Map<string, any>()
   for (const n of rawNodes) {
     if (n != null && typeof n.id === 'string' && n.id.length > 0) {
@@ -450,6 +462,8 @@ export function mergeServerGraphOnHydrate(
     if (uiOnlyNodeIds.has(n.id)) continue
     if (!serverNodeById.has(n.id)) removedNodeIds.add(n.id)
   }
+  // Each saved link stands for at most one canvas link; removals, updates and additions all read this one mapping.
+  const edgeMatch = matchEdgesOneToOne(store.edges as any[], rawEdges)
   for (const e of store.edges as any[]) {
     if (removedNodeIds.has(e.source) || removedNodeIds.has(e.target)) {
       removedEdgeIds.add(e.id)
@@ -458,7 +472,7 @@ export function mergeServerGraphOnHydrate(
     if (uiOnlyNodeIds.has(e.source) || uiOnlyNodeIds.has(e.target)) continue
     const key = canvasEdgePairKey(e)
     // A canvas edge with no resolvable pair cannot be compared; leave it.
-    if (key !== null && !serverEdgeByPair.has(key)) {
+    if (key !== null && !edgeMatch.has(e)) {
       removedEdgeIds.add(e.id)
       pairRemovedEdges.push(e)
     }
@@ -552,8 +566,7 @@ export function mergeServerGraphOnHydrate(
   let updatedEdgeCount = 0
   const valueChangedEdgeIds: string[] = []
   const mergedEdges = survivingEdges.map((e: any) => {
-    const key = canvasEdgePairKey(e)
-    const serverEdge = key ? serverEdgeByPair.get(key) : undefined
+    const serverEdge = edgeMatch.get(e)
     if (!serverEdge) return e
     if (unconfirmedEdgeEditOnGraph([e]) !== null) return e
 
@@ -721,6 +734,10 @@ export function mergeServerGraphOnHydrate(
       .map((e: any) => canvasEdgePairKey(e))
       .filter((k): k is string => k !== null),
   )
+  // A saved link a canvas link already stands for is never added again; one left over under an id of its own is its
+  // own link even on a pair already drawn (D227): one id is one link.
+  const representedServerEdges = new Set<any>(edgeMatch.values())
+  const takenServerIds = new Set<string>([...representedServerEdges].map((w: any) => w.id).filter((id: unknown) => typeof id === 'string'))
   const missingRawEdges = rawEdges.filter((e: any) => {
     if (e == null) return false
     const key = wireEdgePairKey(e)
@@ -728,12 +745,15 @@ export function mergeServerGraphOnHydrate(
     // SURVIVING ids, not every id the canvas held: an id carried by an edge this
     // merge just removed must not block the server's own edge under that id.
     if (typeof e.id === 'string' && survivingEdgeIds.has(e.id)) return false
-    if (seenEdgePairs.has(key)) return false
+    if (representedServerEdges.has(e)) return false
+    const ownLink = typeof e.id === 'string' && e.id.length > 0 && !takenServerIds.has(e.id)
+    if (seenEdgePairs.has(key) && !ownLink) return false
     // Fail closed: never add a dangling edge.
     const from = e.from ?? e.source
     const to = e.to ?? e.target
     if (!unionNodeIds.has(from) || !unionNodeIds.has(to)) return false
     seenEdgePairs.add(key)
+    if (typeof e.id === 'string') takenServerIds.add(e.id)
     return true
   })
   const usedEdgeIds = new Set<string>(existingEdgeIds)
@@ -845,11 +865,17 @@ export function mergeServerGraphOnHydrate(
     useCanvasStore.getState().pushHistory()
   }
   if (removedAny) {
-    const removedPairKeys = new Set<string>(
-      pairRemovedEdges.map((e: any) => canvasEdgePairKey(e)).filter((k): k is string => k !== null),
-    )
+    // A pair the read no longer holds goes by pair; a removed link whose pair the read still holds goes by its own id.
+    const removedPairKeys = new Set<string>()
+    const removedSiblingKeys = new Set<string>()
+    for (const e of pairRemovedEdges) {
+      const key = canvasEdgePairKey(e)
+      if (key === null) continue
+      if (serverEdgeByPair.has(key)) removedSiblingKeys.add(siblingKey(key, e.id))
+      else removedPairKeys.add(key)
+    }
     const strip = (entry: any) =>
-      withoutRemovedElements(entry, removedNodeIds, removedPairKeys)
+      withoutRemovedElements(entry, removedNodeIds, removedPairKeys, removedSiblingKeys)
     useCanvasStore.setState((s: any) => ({
       history: { past: s.history.past.map(strip), future: s.history.future.map(strip) },
     }))
