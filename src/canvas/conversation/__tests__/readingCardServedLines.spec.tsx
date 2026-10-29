@@ -14,7 +14,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 vi.mock('../../../lib/supabase', () => ({ getUserId: async () => null, getSessionIdentity: async () => ({ userId: null, accessToken: null }) }))
 
 import { SuggestedChips } from '../zones/SuggestedChips'
-import { readTurnProposalFields, proposalChangeWords, changeIsOlumis, OLUMI_CHANGE_MARK, type ProposalChange } from '../proposalFields'
+import { readTurnProposalFields, proposalRowDetail, changeIsOlumis, OLUMI_CHANGE_MARK, type ProposalChange } from '../proposalFields'
 import { buildSuggestedActionChips } from '../../../v5/blocks/suggestedActionChips'
 import { parseV5Response } from '../../../v5/responseParser'
 import { useCanvasStore } from '../../store'
@@ -67,7 +67,9 @@ describe.each([['capacity', capacity, 17], ['european', european, 42], ['qualita
       await mount(turn.body as Json)
       const c = changes[changes.length - 1]!
       fireEvent.click(screen.getByTestId(`proposal-change-open-${keyOf(c)}`))
-      expect(screen.getByTestId(`proposal-change-detail-${keyOf(c)}`).textContent).toBe(proposalChangeWords(c))
+      // Acceptance 29 Oct (c7.1): CEE's words for what is added, without the row's name again.
+      expect(screen.getByTestId(`proposal-change-detail-${keyOf(c)}`).textContent).toBe(proposalRowDetail(c))
+      expect(screen.getByTestId(`proposal-change-detail-${keyOf(c)}`).textContent).not.toMatch(/^Adds ‘/)
     })
   })
 

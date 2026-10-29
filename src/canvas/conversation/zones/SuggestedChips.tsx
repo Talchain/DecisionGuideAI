@@ -43,7 +43,7 @@ import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition
 import { PANEL_LIST_BULLET } from '../panelLists'
 import {
   cardCannotBeShownInFull, changeIsOlumis, changeNotesOf, changeNotesSummary, isHeldCardChipId, OLUMI_CHANGE_MARK, proposalChangesSummary,
-  proposalChangeWords, READING_ALSO_FROM_BRIEF, READING_CONFIRM_SELECTED, READING_CONFIRM_WHOLE, READING_HEADING, READING_ROW_TICK,
+  proposalChangeWords, proposalRowDetail, READING_ALSO_FROM_BRIEF, READING_CONFIRM_SELECTED, READING_CONFIRM_WHOLE, READING_HEADING, READING_ROW_TICK,
   REVIEW_PROPOSAL_PREFIX,
   type ChangeNote, type Proposal, type ProposalChange,
 } from '../proposalFields'
@@ -108,10 +108,11 @@ function ReadingChangeRow({ change: c, tick }: { change: ProposalChange; tick?: 
       )}
       <button type="button" className="flex w-full min-w-0 text-left" onClick={() => setOpen((v) => !v)}
         aria-expanded={open} aria-controls={open ? detailId : undefined} data-testid={`proposal-change-open-${key}`}>
-        <span className="truncate">{c.label}</span>
+        {/* Open, the row's whole name shows, so its words below need not say it again (W8 c7.1). */}
+        <span className={open ? 'min-w-0 break-words' : 'truncate'}>{c.label}</span>
         {changeIsOlumis(c) && <OlumiRowMark testId={`proposal-change-olumi-${key}`} />}
       </button>
-      {open && <p id={detailId} data-testid={`proposal-change-detail-${key}`}>{proposalChangeWords(c)}</p>}
+      {open && <p id={detailId} data-testid={`proposal-change-detail-${key}`}>{proposalRowDetail(c)}</p>}
     </li>
   )
 }
