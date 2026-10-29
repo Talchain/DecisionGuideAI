@@ -53,11 +53,14 @@ describe('the goal says what it is worked out from, collapsed, in CEE’s words'
     expect(screen.queryByTestId('goal-today-level-empty-launch_on_time')).toBeNull()
   })
 
-  it('CONTRAST: the same goal without a worked-out basis keeps its empty today slot', async () => {
+  // DET-HARM D301 (pin updated knowingly): this is a PROGRAM board, where CEE refuses a figure typed on a goal (it names a
+  // quantity, never a goal), so without a worked-out basis the goal still offers no empty "today" slot. It used to.
+  it('the same goal without a worked-out basis has no empty today slot either: a program goal takes no typed level', async () => {
     const graph = structuredClone(chat.graph) as Json
     delete graph.nodes.find((n: Json) => n.id === 'launch_on_time').value_basis
     await goal({ ...(chat as Json), graph })
-    expect(screen.queryByTestId('goal-today-level-empty-launch_on_time')).not.toBeNull()
+    expect(screen.queryByTestId('goal-today-level-empty-launch_on_time')).toBeNull()
+    expect(screen.queryByTestId('goal-today-level-editor-launch_on_time')).toBeNull()
   })
 
   it('CONTRAST: a goal with no worked-out basis has no disclosure', async () => {

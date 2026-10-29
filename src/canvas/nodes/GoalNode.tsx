@@ -75,7 +75,7 @@ import { GoalTargetPopover } from '../components/GoalTargetPopover'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { goalTargetSourceMark, programGoalSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useSavedGraph } from './shared/savedGraph'
-import { programItemOf, programNodeWithheldReason } from './shared/savedModelProgram'
+import { programItemOf, programNodeWithheldReason, useSavedModelIsProgram } from './shared/savedModelProgram'
 import { withheldReasonLine } from '../domain/linkWords'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { goalConstraintShortText, goalConstraintText } from '../utils/goalConstraintText'
@@ -681,9 +681,12 @@ export const GoalNode = memo((props: NodeProps) => {
   // Editable only where a write exists for it: a core scenario (its saved model has a living model, whichever AI mode
   // the URL names: the default `openai` mode serves core too), on a goal with a stated target and unit.
   const savedModelIsCore = useSavedModelIsCore()
+  // Nor on a program board (DET-HARM D301): there a figure edit names a quantity, never a goal, so CEE refuses it (core-turn.ts
+  // `quantity_id: target_id`; program-tools.ts "That is not a figure in this model"). What the goal measures is its own card.
+  const savedModelIsProgram = useSavedModelIsProgram()
   // A level worked out from the goal's parts is not typed over: changing a part changes it (F3).
   // Nor a goal CEE says is worked out (`value_basis`): its figure comes from its parts, so no empty today slot (UI-SURGICAL 5).
-  const todayLevelEditable = savedModelIsCore && hasThreshold && typeof thresholdUnit === 'string' && thresholdUnit.trim() !== ''
+  const todayLevelEditable = savedModelIsCore && !savedModelIsProgram && hasThreshold && typeof thresholdUnit === 'string' && thresholdUnit.trim() !== ''
     && todayLevel?.basis !== 'from_parts'
     && (props.data as { value_basis?: { kind?: unknown } } | undefined)?.value_basis?.kind !== 'worked_out'
   const partLabelOf = (id: string) => nodes.find(n => n.id === id)?.data?.label as string | undefined
