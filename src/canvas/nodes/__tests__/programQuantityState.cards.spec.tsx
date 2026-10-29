@@ -22,6 +22,7 @@ import capacity from './fixtures/served-acceptance-capacity-read-20261026.json'
 import european from './fixtures/served-acceptance-european-read-20261026.json'
 import qualitative from './fixtures/served-acceptance-qualitative-read-20261026.json'
 import q1European from './fixtures/served-q1-european-draft-read-20261028.json'
+import c6European from './fixtures/served-c6-european-draft-read-20261029.json'
 import { useCanvasStore } from '../../store'
 import { FactorNode } from '../FactorNode'
 import { OutcomeNode } from '../OutcomeNode'
@@ -167,5 +168,66 @@ describe('Olumi\'s figure nobody knows yet: the no-figure indicator, with Olumi\
     expect(text).toBe('80 tickets per week')
     expect(mark.getAttribute('data-value-source')).toBe('brief')
     expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
+  })
+})
+
+describe('the person\'s figure nobody knows yet: the no-figure indicator, with their mark (SPEC C6)', () => {
+  // Served european draft (29 Oct): CEE keeps "Competition intensity varies." as the person's quantity, `status: 'unknown'`,
+  // no value, and projects it `provenance: 'from_brief'`, `display_value: '?'`. The card read "Source not recorded … ?".
+  /** The read with one node's record changed, for the contrasts below. */
+  const withNode = (board: Json, id: string, edit: (node: Json) => Json): Json => ({
+    ...board, graph: { ...board.graph, nodes: board.graph.nodes.map((x: Json) => (x.id === id ? edit(x) : x)) },
+  })
+  const markWords = (mark: HTMLElement) => mark.textContent + (mark.getAttribute('aria-label') ?? '') + (mark.getAttribute('title') ?? '')
+
+  it('european "Competition intensity" (from the brief, not known): "—" with the brief\'s mark; never "Source not recorded"', async () => {
+    await openBoard(c6European)
+    await card('competition')
+    const { text, mark } = factorLine('competition')
+    expect(text).toContain('—')
+    expect(text).not.toMatch(/\?|unknown|Source not recorded/)
+    expect(mark.getAttribute('data-value-source')).toBe('brief')
+    expect(markWords(mark)).toContain('From your brief: not known yet, no figure set')
+    expect(markWords(mark)).not.toContain('Source not recorded')
+    expect(screen.getByTestId('node-provenance-mark')).toBeTruthy()
+  })
+
+  it('the same figure as the person\'s own answer (`user_set`): "—" with their mark, "Set by you: not known yet, no figure set"', async () => {
+    await openBoard(withNode(c6European, 'competition', (x) => ({ ...x, provenance: 'user_set' })))
+    await card('competition')
+    const { text, mark } = factorLine('competition')
+    expect(text).toContain('—')
+    expect(mark.getAttribute('data-value-source')).toBe('you')
+    expect(markWords(mark)).toContain('Set by you: not known yet, no figure set')
+    expect(markWords(mark)).not.toContain('Source not recorded')
+  })
+
+  it('CONTRAST: Olumi\'s figure nobody knows yet on the same read ("Monthly profit") keeps Olumi\'s mark (#3065)', async () => {
+    await openBoard(c6European)
+    await card('monthly_profit')
+    const { text, mark } = factorLine('monthly_profit')
+    expect(text).toContain('—')
+    expect(mark.getAttribute('data-value-source')).toBe('olumi')
+    expect(markWords(mark)).toContain('Olumi’s: not known yet, no figure set')
+  })
+
+  it('CONTRAST: a figure whose record names no author keeps "Source not recorded", as today', async () => {
+    await openBoard(withNode(c6European, 'competition', ({ provenance: _dropped, ...x }) => x))
+    await card('competition')
+    const { text, mark } = factorLine('competition')
+    expect(text).toContain('?')
+    expect(mark.getAttribute('data-value-source')).toBe('unknown')
+    expect(markWords(mark)).toContain('Source not recorded')
+  })
+
+  it('CONTRAST: off a program (no `model_program`), the brief\'s "?" figure keeps today\'s card', async () => {
+    const livingModel: Json = { ...c6European.graph.living_model }
+    delete livingModel.model_program
+    await openBoard({ ...c6European, graph: { ...c6European.graph, living_model: livingModel } })
+    await card('competition')
+    const { text, mark } = factorLine('competition')
+    expect(text).toContain('?')
+    expect(text).not.toContain('—')
+    expect(mark.getAttribute('data-value-source')).toBe('unknown')
   })
 })

@@ -61,7 +61,7 @@ import { cardMark, sourceCardMarkId } from './shared/cardMarks'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
-import { factorValueSourceMark, NO_FIGURE_YET, PRIOR_RANGE_SOURCE_MARK, ValueSourceMark, type FactorValueSourceMark } from './shared/valueSourceMark'
+import { factorValueSourceMark, NO_FIGURE_YET, PRIOR_RANGE_SOURCE_MARK, VALUE_SOURCE_MARK_LABEL, ValueSourceMark, type FactorValueSourceMark } from './shared/valueSourceMark'
 import { useValuePrefillStore } from '../graphChanges/valuePrefill'
 
 /** Vision spec §3: "Source not recorded" is the "?" author glyph on the card; these words are its name and hover. */
@@ -75,7 +75,14 @@ const DRAFT_IS_YOURS_MARK: FactorValueSourceMark = { kind: 'you', label: 'Yours 
  * its words say what the model holds, that the figure is not known and none is set, as CEE's quantity (`status:
  * 'unknown'`, no value) states it.
  */
-const OLUMI_NO_FIGURE_MARK: FactorValueSourceMark = { kind: 'olumi', label: 'Olumi’s: not known yet, no figure set' }
+const NOT_KNOWN_NO_FIGURE_WORDS = 'not known yet, no figure set'
+const OLUMI_NO_FIGURE_MARK: FactorValueSourceMark = { kind: 'olumi', label: `Olumi’s: ${NOT_KNOWN_NO_FIGURE_WORDS}` }
+/**
+ * SPEC C6 (29 Oct, served european "Competition intensity varies."): the PERSON's figure nobody knows yet keeps the
+ * person's mark, as Olumi's keeps Olumi's: their source words (from their brief, or set by them) and the same words.
+ */
+const BRIEF_NO_FIGURE_MARK: FactorValueSourceMark = { kind: 'brief', label: `${VALUE_SOURCE_MARK_LABEL.brief}: ${NOT_KNOWN_NO_FIGURE_WORDS}` }
+const YOURS_NO_FIGURE_MARK: FactorValueSourceMark = { kind: 'you', label: `${VALUE_SOURCE_MARK_LABEL.you}: ${NOT_KNOWN_NO_FIGURE_WORDS}` }
 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
@@ -361,10 +368,17 @@ export const FactorNode = memo((props: NodeProps) => {
   // W12 (acceptance run 2; Paul 24 Oct, visual indicators, not default text): Olumi's figure nobody knows yet on a program
   // graph (CEE: Olumi's item, no value, no `value_basis`, its display "unknown") shows the no-figure indicator the
   // worked-out cards show, "—", with Olumi's mark saying so on hover and in its name. It read "Source not recorded unknown".
-  const olumiUnknownFigure = savedIsProgram && props.data?.provenance === 'ai_inferred'
+  const unknownFigureOnProgram = savedIsProgram
     && typeof observedState?.value !== 'number' && (props.data as { value_basis?: unknown } | undefined)?.value_basis == null
     // Q1 (28 Oct, assessor AR-1942): since 1b CEE says Olumi's unknown as "?" (project.ts display_value), "unknown" before it.
     && (valueDisplay?.trim() === 'unknown' || valueDisplay?.trim() === '?')
+  const olumiUnknownFigure = unknownFigureOnProgram && props.data?.provenance === 'ai_inferred'
+  // SPEC C6: the person's figure nobody knows yet (CEE: their item, `from_brief` or `user_set`) reads the same way with
+  // their mark. It read "Source not recorded" beside "From brief".
+  const personNoFigureMark = !unknownFigureOnProgram ? null
+    : props.data?.provenance === 'from_brief' ? BRIEF_NO_FIGURE_MARK
+      : props.data?.provenance === 'user_set' ? YOURS_NO_FIGURE_MARK : null
+  const unknownFigure = olumiUnknownFigure || personNoFigureMark !== null
   // Decision 2 A (Paul, 26 Oct; visual indicators, not default text): a figure waiting for the person's answer shows the
   // no-figure dash, not CEE's "Waiting for your answer". The hourglass before it carries those words and the question.
   const askedBasis = (props.data as { value_basis?: { kind?: unknown; question?: unknown } } | undefined)?.value_basis
@@ -378,8 +392,8 @@ export const FactorNode = memo((props: NodeProps) => {
   const workedOutWords = savedIsProgram && typeof observedState?.value !== 'number' && workedOutBasis?.kind === 'worked_out'
     && typeof workedOutBasis.words === 'string' && workedOutBasis.words.trim() !== '' && valueDisplay?.trim() === workedOutBasis.words.trim()
     ? workedOutBasis.words.trim() : null
-  const figureParts = olumiUnknownFigure || askedNoFigure || workedOutWords !== null ? null : valueParts
-  const recordedValueReadout = olumiUnknownFigure || askedNoFigure || workedOutWords !== null ? NO_FIGURE_YET
+  const figureParts = unknownFigure || askedNoFigure || workedOutWords !== null ? null : valueParts
+  const recordedValueReadout = unknownFigure || askedNoFigure || workedOutWords !== null ? NO_FIGURE_YET
     : isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay
   /**
    * ⭐ NO BARE INTERNAL MODEL NUMBER ON THE CARD — contract v3.1
@@ -407,7 +421,7 @@ export const FactorNode = memo((props: NodeProps) => {
   // neutral "no source" mark, never this one — see the range line below.) This supersedes R6's rest-only `est.` (the collapse above stays
   // rest-only; only the MARK now also shows in Detailed, where the full
   // "Moderate (0.5)" string otherwise read as unattributed).
-  const valueSourceMark = olumiUnknownFigure ? OLUMI_NO_FIGURE_MARK : factorValueSourceMark(cleanedData)
+  const valueSourceMark = olumiUnknownFigure ? OLUMI_NO_FIGURE_MARK : personNoFigureMark ?? factorValueSourceMark(cleanedData)
   const servedBasisMark = valueSourceMark?.kind === 'basis' || valueSourceMark?.kind === 'asked' ? valueSourceMark : null
   const ServedBasisGlyph = servedBasisMark ? cardMark(`source-${servedBasisMark.kind}`).Icon : null
   // An ASKED figure on a program graph (CEE's `value_basis`: "Waiting for your answer") is typed where it is shown, in the

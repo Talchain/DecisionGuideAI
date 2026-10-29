@@ -1,0 +1,2037 @@
+{
+ "_source": "C6 person's unknown figure (acceptance, 29 Oct 02:42Z): european-simplify draft read on served ui 8ea51edc · cee 4e1a9e3e (live/acceptance/20261029T023458Z-4e1a9e3e-8ea51edc/run/european-simplify/reads/draft-after.json), trimmed to the read keys",
+ "schema": "scenario_graph.v1",
+ "scenario_id": "251b9655-8396-4bf6-9260-970d1c9ad654",
+ "graph": {
+  "edges": [
+   {
+    "id": "customers__reach_customer_target",
+    "to": "reach_customer_target",
+    "from": "customers",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "brief_extraction",
+     "definitional": true
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__european_expansion",
+    "to": "european_expansion",
+    "from": "mp:decision",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "european_expansion__new_customers",
+    "to": "new_customers",
+    "from": "european_expansion",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "european_expansion__monthly_churn",
+    "to": "monthly_churn",
+    "from": "european_expansion",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "european_expansion__monthly_investment",
+    "to": "monthly_investment",
+    "from": "european_expansion",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "brief_extraction"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__single_country_pilot",
+    "to": "single_country_pilot",
+    "from": "mp:decision",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "single_country_pilot__new_customers",
+    "to": "new_customers",
+    "from": "single_country_pilot",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "single_country_pilot__monthly_churn",
+    "to": "monthly_churn",
+    "from": "single_country_pilot",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "single_country_pilot__monthly_investment",
+    "to": "monthly_investment",
+    "from": "single_country_pilot",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "mp:decision__carry_on",
+    "to": "carry_on",
+    "from": "mp:decision",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "exists_probability": 1
+   },
+   {
+    "id": "initial_customers__customers",
+    "to": "customers",
+    "from": "initial_customers",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "starting level",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "new_customers__customers",
+    "to": "customers",
+    "from": "new_customers",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "inflow per month",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "customers__customers",
+    "to": "customers",
+    "from": "customers",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied in “Customers lost per month”, then outflow per month",
+     "definitional": true
+    },
+    "effect_direction": "negative",
+    "exists_probability": 1
+   },
+   {
+    "id": "monthly_churn__customers",
+    "to": "customers",
+    "from": "monthly_churn",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "multiplied in “Customers lost per month”, then outflow per month",
+     "definitional": true
+    },
+    "effect_direction": "negative",
+    "exists_probability": 1
+   },
+   {
+    "id": "initial_investment__cumulative_investment",
+    "to": "cumulative_investment",
+    "from": "initial_investment",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "starting level",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "monthly_investment__cumulative_investment",
+    "to": "cumulative_investment",
+    "from": "monthly_investment",
+    "origin": "model_program:display",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "inflow per month",
+     "definitional": true
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "id": "competition__new_customers",
+    "to": "new_customers",
+    "from": "competition",
+    "origin": "model_program:display",
+    "link_words": {
+     "basis": "Stronger rivals can make customer acquisition harder; the relevant markets are unspecified.",
+     "direction": "down",
+     "confidence": "unsure"
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "Stronger rivals can make customer acquisition harder; the relevant markets are unspecified."
+    },
+    "effect_direction": "negative",
+    "exists_probability": 1
+   },
+   {
+    "id": "churn_loss_danger__monthly_profit",
+    "to": "monthly_profit",
+    "from": "churn_loss_danger",
+    "origin": "model_program:display",
+    "link_words": {
+     "basis": null,
+     "direction": "down",
+     "confidence": null
+    },
+    "provenance": {
+     "source": "brief_extraction",
+     "reasoning": "if it happens"
+    },
+    "effect_direction": "negative",
+    "exists_probability": 1
+   },
+   {
+    "id": "regulatory_delay__european_expansion",
+    "to": "european_expansion",
+    "from": "regulatory_delay",
+    "origin": "model_program:display",
+    "link_words": {
+     "basis": null,
+     "direction": "down",
+     "confidence": null
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "if it happens"
+    },
+    "effect_direction": "negative",
+    "exists_probability": 1
+   }
+  ],
+  "nodes": [
+   {
+    "id": "mp:decision",
+    "ref": "D1",
+    "kind": "decision",
+    "label": "European expansion?",
+    "description": "Should we expand into the European market in the next 6–12 months to grow the customer base from 400 to 800?",
+    "coaching_questions": [
+     "Does the next 6–12 months mean starting expansion or reaching 800 customers?",
+     "Which European countries are you considering first?",
+     "How many new customers are you currently adding each month?"
+    ]
+   },
+   {
+    "id": "reach_customer_target",
+    "ref": "G1",
+    "kind": "goal",
+    "label": "Reach 800 customers",
+    "provenance": "from_brief",
+    "description": "The target is 800.",
+    "goal_window": {
+     "start": 0,
+     "periods": null,
+     "aggregation": "max",
+     "period_unit": "month",
+     "origin_event": null
+    },
+    "value_basis": {
+     "from": [
+      "initial_customers",
+      "new_customers",
+      "customers_lost"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Current customer base, New customers per month and Customers lost per month; Customers lost per month: worked out from Customer base and Monthly churn rate"
+    },
+    "source_quote": "The target is 800.",
+    "display_value": ">= 800 customer",
+    "goal_direction": ">=",
+    "goal_threshold": 0.8,
+    "user_questions": [
+     "By when should the customer base reach 800?"
+    ],
+    "goal_measure_by": "person",
+    "withheld_reason": "Rests on \"Competition intensity\", which is not measured: Varies across markets; no countries or comparable measure are specified. Rests on the link \"Competition intensity → New customers per month\", which is in words, never calculated. Needs \"New customers per month\". Needs \"Time to reach 800 customers\".",
+    "threshold_source": "brief_extraction",
+    "goal_threshold_cap": 1000,
+    "goal_threshold_raw": 800,
+    "goal_threshold_unit": "customer",
+    "goal_threshold_frame": "level",
+    "analysis_participation": "retained_excluded",
+    "goal_threshold_cap_provenance": "target_derived_headroom"
+   },
+   {
+    "id": "european_expansion",
+    "ref": "O1",
+    "kind": "option",
+    "label": "Expand into Europe?",
+    "provenance": "from_brief",
+    "source_quote": "Should we expand into the European market in the next 6-12 months?",
+    "interventions": {
+     "monthly_churn": {
+      "unit": "1/month",
+      "label": "Monthly churn rate",
+      "value": null,
+      "source": "cee_hypothesis",
+      "display": "Waiting for your answer",
+      "from_period": "expansion_start",
+      "source_words": "Set by ‘Expand into Europe?’, Olumi’s figure",
+      "display_value": "Waiting for your answer",
+      "from_period_display": "Waiting for your answer"
+     },
+     "new_customers": {
+      "unit": "customer/month",
+      "label": "New customers per month",
+      "value": null,
+      "source": "cee_hypothesis",
+      "display": "Waiting for your answer",
+      "from_period": "expansion_start",
+      "source_words": "Set by ‘Expand into Europe?’, Olumi’s figure",
+      "display_value": "Waiting for your answer",
+      "from_period_display": "Waiting for your answer"
+     },
+     "monthly_investment": {
+      "unit": "GBP/month",
+      "label": "Additional investment per month",
+      "value": null,
+      "source": "cee_hypothesis",
+      "display": "Waiting for your answer",
+      "from_period": "expansion_start",
+      "source_words": "Set by ‘Expand into Europe?’, Olumi’s figure",
+      "display_value": "Waiting for your answer",
+      "from_period_display": "Waiting for your answer"
+     }
+    },
+    "user_questions": [
+     "Does the next 6–12 months mean starting expansion or reaching 800 customers?",
+     "What monthly new-customer numbers are supported by your European sales pipeline?",
+     "What customer-retention evidence do you have for the proposed European markets?",
+     "What monthly investment does the European expansion plan require?"
+    ],
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "single_country_pilot",
+    "ref": "O2",
+    "kind": "option",
+    "label": "Pilot in one European country",
+    "provenance": "ai_inferred",
+    "proposed_by": "olumi",
+    "interventions": {
+     "monthly_churn": {
+      "unit": "1/month",
+      "label": "Monthly churn rate",
+      "value": null,
+      "source": "cee_hypothesis",
+      "display": "Waiting for your answer",
+      "from_period": "pilot_start",
+      "source_words": "Set by ‘Pilot in one European country’, Olumi’s figure",
+      "display_value": "Waiting for your answer",
+      "from_period_display": "about 3, 1–6 month, Olumi's estimate; Olumi reads it as a rough range, never below 0, provisionally"
+     },
+     "new_customers": {
+      "unit": "customer/month",
+      "label": "New customers per month",
+      "value": null,
+      "source": "cee_hypothesis",
+      "display": "Waiting for your answer",
+      "from_period": "pilot_start",
+      "source_words": "Set by ‘Pilot in one European country’, Olumi’s figure",
+      "display_value": "Waiting for your answer",
+      "from_period_display": "about 3, 1–6 month, Olumi's estimate; Olumi reads it as a rough range, never below 0, provisionally"
+     },
+     "monthly_investment": {
+      "unit": "GBP/month",
+      "label": "Additional investment per month",
+      "value": null,
+      "source": "cee_hypothesis",
+      "display": "Waiting for your answer",
+      "from_period": "pilot_start",
+      "source_words": "Set by ‘Pilot in one European country’, Olumi’s figure",
+      "display_value": "Waiting for your answer",
+      "from_period_display": "about 3, 1–6 month, Olumi's estimate; Olumi reads it as a rough range, never below 0, provisionally"
+     }
+    },
+    "user_questions": [
+     "What monthly new-customer numbers could a single-country pilot test?",
+     "What retention data are available for customers in the pilot country?",
+     "What monthly investment would a single-country pilot require?"
+    ],
+    "analysis_participation": "included"
+   },
+   {
+    "id": "carry_on",
+    "ref": "O3",
+    "kind": "option",
+    "label": "Carry on in current markets",
+    "provenance": "ai_inferred",
+    "is_baseline": true,
+    "proposed_by": "olumi",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "new_customers",
+    "ref": "F1",
+    "kind": "factor",
+    "label": "New customers per month",
+    "category": "controllable",
+    "provenance": "ai_inferred",
+    "description": "No sector, acquisition history or sales pipeline supports a useful estimate.",
+    "value_basis": {
+     "kind": "waiting_for_answer",
+     "words": "Waiting for your answer",
+     "question": "How many new customers are you currently adding each month?"
+    },
+    "display_value": "?",
+    "observed_state": {
+     "unit": "customer/month"
+    },
+    "user_questions": [
+     "How many new customers are you currently adding each month?"
+    ],
+    "analysis_participation": "included"
+   },
+   {
+    "id": "initial_customers",
+    "ref": "F2",
+    "kind": "factor",
+    "label": "Current customer base",
+    "category": "observable",
+    "provenance": "from_brief",
+    "source_quote": "Our current customer base is 400.",
+    "display_value": "400 customer",
+    "observed_state": {
+     "unit": "customer",
+     "value": 400,
+     "source": "brief_extraction",
+     "raw_value": 400,
+     "extractionType": "explicit"
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "monthly_churn",
+    "ref": "F3",
+    "kind": "factor",
+    "label": "Monthly churn rate",
+    "category": "controllable",
+    "provenance": "from_brief",
+    "source_quote": "Monthly churn is at 8%.",
+    "display_value": "0.08 1/month",
+    "observed_state": {
+     "unit": "1/month",
+     "value": 0.08,
+     "source": "brief_extraction",
+     "raw_value": 0.08,
+     "extractionType": "explicit"
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "customers",
+    "ref": "OC1",
+    "kind": "outcome",
+    "label": "Customer base",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "initial_customers",
+      "new_customers",
+      "customers_lost"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from Current customer base, New customers per month and Customers lost per month"
+    },
+    "display_value": "Worked out from Current customer base, New customers per month and Customers lost per month",
+    "analysis_participation": "included"
+   },
+   {
+    "id": "churn_danger_threshold",
+    "ref": "F4",
+    "kind": "factor",
+    "label": "Monthly churn danger threshold",
+    "category": "observable",
+    "provenance": "from_brief",
+    "source_quote": "If it goes beyond 12%, we're in danger of losing money.",
+    "display_value": "0.12 1/month",
+    "observed_state": {
+     "unit": "1/month",
+     "value": 0.12,
+     "source": "brief_extraction",
+     "raw_value": 0.12,
+     "extractionType": "explicit"
+    },
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "monthly_investment",
+    "ref": "F5",
+    "kind": "factor",
+    "label": "Additional investment per month",
+    "category": "controllable",
+    "provenance": "ai_inferred",
+    "description": "Additional spending on this expansion decision; carrying on adds none.",
+    "display_value": "0 GBP/month, Olumi's reading",
+    "observed_state": {
+     "unit": "GBP/month",
+     "value": 0,
+     "source": "cee_inference",
+     "raw_value": 0,
+     "extractionType": "inferred"
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "initial_investment",
+    "ref": "F6",
+    "kind": "factor",
+    "label": "New investment counted so far",
+    "category": "observable",
+    "provenance": "ai_inferred",
+    "description": "Counts only new investment arising from this decision.",
+    "display_value": "0 GBP, Olumi's reading",
+    "observed_state": {
+     "unit": "GBP",
+     "value": 0,
+     "source": "cee_inference",
+     "raw_value": 0,
+     "extractionType": "inferred"
+    },
+    "analysis_participation": "included"
+   },
+   {
+    "id": "cumulative_investment",
+    "ref": "OC2",
+    "kind": "outcome",
+    "label": "Cumulative additional investment",
+    "provenance": "ai_inferred",
+    "value_basis": {
+     "from": [
+      "initial_investment",
+      "monthly_investment"
+     ],
+     "kind": "worked_out",
+     "words": "Worked out from New investment counted so far and Additional investment per month"
+    },
+    "display_value": "Worked out from New investment counted so far and Additional investment per month",
+    "user_questions": [
+     "Over how many months does the £500,000 investment budget apply?"
+    ],
+    "analysis_participation": "included"
+   },
+   {
+    "id": "monthly_profit",
+    "ref": "F7",
+    "kind": "factor",
+    "label": "Monthly profit",
+    "category": "observable",
+    "provenance": "ai_inferred",
+    "description": "Revenue, customer margins and operating costs are not supplied.",
+    "display_value": "?",
+    "observed_state": {
+     "unit": "GBP/month"
+    },
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "competition",
+    "ref": "F8",
+    "kind": "factor",
+    "label": "Competition intensity",
+    "category": "observable",
+    "provenance": "from_brief",
+    "description": "Varies across markets; no countries or comparable measure are specified.",
+    "source_quote": "Competition intensity varies.",
+    "display_value": "?",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "churn_loss_danger",
+    "ref": "R1",
+    "kind": "risk",
+    "label": "Churn beyond 12% threatens losses",
+    "provenance": "from_brief",
+    "description": "Chance: not given. If it happens: its effect is not given.",
+    "source_quote": "If it goes beyond 12%, we're in danger of losing money.",
+    "analysis_participation": "retained_excluded"
+   },
+   {
+    "id": "regulatory_delay",
+    "ref": "R2",
+    "kind": "risk",
+    "label": "Regulatory approval delays entry",
+    "provenance": "ai_inferred",
+    "description": "Chance: not given. If it happens: its effect is not given.",
+    "analysis_participation": "retained_excluded"
+   }
+  ],
+  "living_model": {
+   "runs": [
+    {
+     "result": {
+      "chances": null,
+      "compile": {
+       "joint": {
+        "asks": [
+         "new_customers",
+         "target_deadline"
+        ],
+        "status": "withheld",
+        "reasons": [
+         "The chance of meeting every goal together waits on \"Reach 800 customers\"."
+        ],
+        "goal_ids": [
+         "reach_customer_target"
+        ],
+        "leaves_out": []
+       },
+       "errors": [],
+       "blockers": [
+        {
+         "id": "target_deadline",
+         "code": "asked",
+         "scope": [
+          "reach_customer_target"
+         ]
+        },
+        {
+         "id": "expansion_start",
+         "code": "asked",
+         "scope": [
+          "european_expansion"
+         ]
+        },
+        {
+         "id": "new_customers",
+         "code": "asked",
+         "scope": [
+          "reach_customer_target"
+         ]
+        },
+        {
+         "id": "budget_window",
+         "code": "asked",
+         "scope": [
+          "investment_cap"
+         ]
+        },
+        {
+         "id": "competition",
+         "code": "unknown",
+         "scope": [
+          "reach_customer_target"
+         ]
+        },
+        {
+         "id": "european_expansion__new_customers",
+         "code": "asked",
+         "scope": [
+          "european_expansion"
+         ]
+        },
+        {
+         "id": "european_expansion__monthly_churn",
+         "code": "asked",
+         "scope": [
+          "european_expansion"
+         ]
+        },
+        {
+         "id": "european_expansion__monthly_investment",
+         "code": "asked",
+         "scope": [
+          "european_expansion"
+         ]
+        },
+        {
+         "id": "single_country_pilot__new_customers",
+         "code": "asked",
+         "scope": [
+          "single_country_pilot"
+         ]
+        },
+        {
+         "id": "single_country_pilot__monthly_churn",
+         "code": "asked",
+         "scope": [
+          "single_country_pilot"
+         ]
+        },
+        {
+         "id": "single_country_pilot__monthly_investment",
+         "code": "asked",
+         "scope": [
+          "single_country_pilot"
+         ]
+        },
+        {
+         "id": "competition_affects_acquisition",
+         "code": "unknown",
+         "scope": [
+          "reach_customer_target"
+         ]
+        },
+        {
+         "id": "regulatory_delay",
+         "code": "unknown",
+         "scope": [
+          "european_expansion"
+         ]
+        }
+       ],
+       "compiles": true,
+       "per_goal": [
+        {
+         "asks": [
+          "new_customers",
+          "target_deadline"
+         ],
+         "status": "withheld",
+         "goal_id": "reach_customer_target",
+         "reasons": [
+          "rests on \"Competition intensity\", which is not measured: Varies across markets; no countries or comparable measure are specified.",
+          "rests on the link \"Competition intensity → New customers per month\", which is in words, never calculated.",
+          "needs \"New customers per month\".",
+          "needs \"Time to reach 800 customers\"."
+         ],
+         "excludes": [],
+         "rests_on": [
+          "churn_interpretation",
+          "baseline_projection"
+         ],
+         "cancelled": [],
+         "olumi_inputs": [
+          "customer_balance",
+          "calculate_customer_losses"
+         ],
+         "needs_measure": false,
+         "needs_deadline": false,
+         "unverified_inputs": []
+        }
+       ],
+       "per_limit": [
+        {
+         "asks": [
+          "budget_window"
+         ],
+         "status": "asks",
+         "reasons": [
+          "needs \"Investment budget period\"."
+         ],
+         "limit_id": "investment_cap",
+         "rests_on": [
+          "pilot_budget_check"
+         ],
+         "cancelled": [],
+         "needs_measure": false
+        }
+       ],
+       "executable": false,
+       "per_option": [
+        {
+         "asks": [
+          "expansion_start",
+          "european_expansion__monthly_investment",
+          "european_expansion__monthly_churn",
+          "european_expansion__new_customers"
+         ],
+         "status": "withheld",
+         "reasons": [
+          "rests on the risk \"Regulatory approval delays entry\", which the calculation cannot size.",
+          "needs \"Expansion start\".",
+          "needs \"Expand into Europe?: Additional investment per month\".",
+          "needs \"Expand into Europe?: Monthly churn rate\".",
+          "needs \"Expand into Europe?: New customers per month\"."
+         ],
+         "rests_on": [
+          "country_permissions"
+         ],
+         "option_id": "european_expansion"
+        },
+        {
+         "asks": [
+          "single_country_pilot__monthly_investment",
+          "single_country_pilot__monthly_churn",
+          "single_country_pilot__new_customers"
+         ],
+         "status": "asks",
+         "reasons": [
+          "needs \"Pilot in one European country: Additional investment per month\".",
+          "needs \"Pilot in one European country: Monthly churn rate\".",
+          "needs \"Pilot in one European country: New customers per month\"."
+         ],
+         "rests_on": [
+          "country_permissions",
+          "pilot_budget_check"
+         ],
+         "option_id": "single_country_pilot"
+        },
+        {
+         "asks": [],
+         "status": "calculable",
+         "reasons": [],
+         "rests_on": [
+          "baseline_projection"
+         ],
+         "option_id": "carry_on"
+        }
+       ],
+       "unverified": [],
+       "conversions": [],
+       "within_limits": {
+        "asks": [
+         "budget_window"
+        ],
+        "status": "asks",
+        "reasons": [
+         "Staying within the limits waits on \"Investment no more than £500,000\"."
+        ],
+        "limit_ids": [
+         "investment_cap"
+        ],
+        "leaves_out": []
+       },
+       "implicit_as_stated": false
+      },
+      "canonical_analysis_view": {
+       "run": {
+        "run_id": "mp_run_1_dc8aad7aadb3",
+        "computed_at": "2026-10-29T02:41:49.450Z",
+        "graph_hash_at_run": "3d746f81cdafcc7bbd85fa24a7b4ecc2488fa2b4fc95fa49bc8cb13b257cc519"
+       },
+       "schema": "canonical_analysis_view.v1",
+       "source": "stored_run_facts",
+       "options": [
+        {
+         "cell": {
+          "why": "The chance waits on ‘Time to reach 800 customers’, ‘Expansion start’, ‘New customers per month’, ‘Competition intensity’, which no one can size yet (Varies across markets; no countries or comparable measure are specified), ‘Expand into Europe?: New customers per month’, ‘Expand into Europe?: Monthly churn rate’, ‘Expand into Europe?: Additional investment per month’, ‘Competition intensity → New customers per month’, which no one can size yet (Stronger rivals can make customer acquisition harder; the relevant markets are unspecified) and ‘Regulatory approval delays entry’, which no one can size yet.",
+          "face": "Not shown yet: needs your answer",
+          "kind": "withheld",
+          "reasons": [
+           {
+            "code": "goal_withheld",
+            "message": "rests on \"Competition intensity\", which is not measured: Varies across markets; no countries or comparable measure are specified. rests on the link \"Competition intensity → New customers per month\", which is in words, never calculated. needs \"New customers per month\". needs \"Time to reach 800 customers\"."
+           }
+          ]
+         },
+         "option_id": "european_expansion",
+         "main_driver": {
+          "kind": "not_recorded"
+         }
+        },
+        {
+         "cell": {
+          "why": "The chance waits on ‘Time to reach 800 customers’, ‘New customers per month’, ‘Competition intensity’, which no one can size yet (Varies across markets; no countries or comparable measure are specified), ‘Pilot in one European country: New customers per month’, ‘Pilot in one European country: Monthly churn rate’, ‘Pilot in one European country: Additional investment per month’ and ‘Competition intensity → New customers per month’, which no one can size yet (Stronger rivals can make customer acquisition harder; the relevant markets are unspecified).",
+          "face": "Not shown yet: needs your answer",
+          "kind": "withheld",
+          "reasons": [
+           {
+            "code": "goal_withheld",
+            "message": "rests on \"Competition intensity\", which is not measured: Varies across markets; no countries or comparable measure are specified. rests on the link \"Competition intensity → New customers per month\", which is in words, never calculated. needs \"New customers per month\". needs \"Time to reach 800 customers\"."
+           }
+          ]
+         },
+         "option_id": "single_country_pilot",
+         "main_driver": {
+          "kind": "not_recorded"
+         }
+        },
+        {
+         "cell": {
+          "why": "The chance waits on ‘Time to reach 800 customers’, ‘New customers per month’, ‘Competition intensity’, which no one can size yet (Varies across markets; no countries or comparable measure are specified) and ‘Competition intensity → New customers per month’, which no one can size yet (Stronger rivals can make customer acquisition harder; the relevant markets are unspecified).",
+          "face": "Not shown yet: needs your answer",
+          "kind": "withheld",
+          "reasons": [
+           {
+            "code": "goal_withheld",
+            "message": "rests on \"Competition intensity\", which is not measured: Varies across markets; no countries or comparable measure are specified. rests on the link \"Competition intensity → New customers per month\", which is in words, never calculated. needs \"New customers per month\". needs \"Time to reach 800 customers\"."
+           }
+          ]
+         },
+         "option_id": "carry_on",
+         "main_driver": {
+          "kind": "not_recorded"
+         }
+        }
+       ],
+       "staleness": {
+        "basis": "analysis_graph_hash_interim",
+        "stale": false,
+        "reason": "graph_hash_match",
+        "revision": null,
+        "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+        "run_revision": null
+       },
+       "goal_chance": {
+        "notes": [
+         "‘Reach 800 customers’ waits on ‘Time to reach 800 customers’, ‘New customers per month’, ‘Competition intensity’, which no one can size yet (Varies across markets; no countries or comparable measure are specified) and ‘Competition intensity → New customers per month’, which no one can size yet (Stronger rivals can make customer acquisition harder; the relevant markets are unspecified)."
+        ],
+        "waits_on": [
+         {
+          "id": "target_deadline",
+          "code": "asked",
+          "label": "Time to reach 800 customers",
+          "scope": [
+           "reach_customer_target"
+          ],
+          "answer": {
+           "quantity_id": "target_deadline"
+          }
+         },
+         {
+          "id": "expansion_start",
+          "code": "asked",
+          "label": "Expansion start",
+          "scope": [
+           "european_expansion"
+          ],
+          "answer": {
+           "quantity_id": "expansion_start"
+          }
+         },
+         {
+          "id": "new_customers",
+          "code": "asked",
+          "label": "New customers per month",
+          "scope": [
+           "reach_customer_target"
+          ],
+          "answer": {
+           "quantity_id": "new_customers"
+          }
+         },
+         {
+          "id": "budget_window",
+          "code": "asked",
+          "label": "Investment budget period",
+          "scope": [
+           "investment_cap"
+          ],
+          "answer": {
+           "quantity_id": "budget_window"
+          }
+         },
+         {
+          "id": "competition",
+          "code": "unknown",
+          "basis": "Varies across markets; no countries or comparable measure are specified.",
+          "label": "Competition intensity",
+          "scope": [
+           "reach_customer_target"
+          ],
+          "answer": null
+         },
+         {
+          "id": "european_expansion__new_customers",
+          "code": "asked",
+          "label": "Expand into Europe?: New customers per month",
+          "scope": [
+           "european_expansion"
+          ],
+          "answer": {
+           "quantity_id": "european_expansion__new_customers"
+          }
+         },
+         {
+          "id": "european_expansion__monthly_churn",
+          "code": "asked",
+          "label": "Expand into Europe?: Monthly churn rate",
+          "scope": [
+           "european_expansion"
+          ],
+          "answer": {
+           "quantity_id": "european_expansion__monthly_churn"
+          }
+         },
+         {
+          "id": "european_expansion__monthly_investment",
+          "code": "asked",
+          "label": "Expand into Europe?: Additional investment per month",
+          "scope": [
+           "european_expansion"
+          ],
+          "answer": {
+           "quantity_id": "european_expansion__monthly_investment"
+          }
+         },
+         {
+          "id": "single_country_pilot__new_customers",
+          "code": "asked",
+          "label": "Pilot in one European country: New customers per month",
+          "scope": [
+           "single_country_pilot"
+          ],
+          "answer": {
+           "quantity_id": "single_country_pilot__new_customers"
+          }
+         },
+         {
+          "id": "single_country_pilot__monthly_churn",
+          "code": "asked",
+          "label": "Pilot in one European country: Monthly churn rate",
+          "scope": [
+           "single_country_pilot"
+          ],
+          "answer": {
+           "quantity_id": "single_country_pilot__monthly_churn"
+          }
+         },
+         {
+          "id": "single_country_pilot__monthly_investment",
+          "code": "asked",
+          "label": "Pilot in one European country: Additional investment per month",
+          "scope": [
+           "single_country_pilot"
+          ],
+          "answer": {
+           "quantity_id": "single_country_pilot__monthly_investment"
+          }
+         },
+         {
+          "id": "competition_affects_acquisition",
+          "code": "unknown",
+          "basis": "Stronger rivals can make customer acquisition harder; the relevant markets are unspecified.",
+          "label": "Competition intensity → New customers per month",
+          "scope": [
+           "reach_customer_target"
+          ],
+          "answer": null
+         },
+         {
+          "id": "regulatory_delay",
+          "code": "unknown",
+          "label": "Regulatory approval delays entry",
+          "scope": [
+           "european_expansion"
+          ],
+          "answer": null
+         }
+        ]
+       },
+       "leader_licence": "withheld"
+      }
+     },
+     "run_id": "mp_run_1_dc8aad7aadb3",
+     "receipt": {
+      "seed": 54249925,
+      "draws": null,
+      "versions": {
+       "engine": "mp-8eb741bd0152",
+       "canonical": "canonical.v1",
+       "executable": "r5"
+      },
+      "revision_digest": "3d746f81cdafcc7bbd85fa24a7b4ecc2488fa2b4fc95fa49bc8cb13b257cc519"
+     },
+     "computed_at": "2026-10-29T02:41:49.450Z"
+    }
+   ],
+   "seed": 54249925,
+   "canonical": {
+    "goals": [
+     {
+      "id": "reach_customer_target",
+      "label": "Reach 800 customers",
+      "party": null,
+      "quote": "The target is 800.",
+      "author": "person",
+      "measure": {
+       "cmp": ">=",
+       "per": null,
+       "frame": "level",
+       "target": "customer_target",
+       "window": {
+        "start": 0,
+        "periods": "target_deadline",
+        "origin_event": null,
+        "origin_offset": null
+       },
+       "quantity": "customers",
+       "reference": null,
+       "exclusions": [],
+       "measure_by": "person",
+       "aggregation": "max",
+       "assumptions": []
+      },
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "approved_by": null
+     }
+    ],
+    "risks": [
+     {
+      "id": "churn_loss_danger",
+      "mode": null,
+      "label": "Churn beyond 12% threatens losses",
+      "party": null,
+      "quote": "If it goes beyond 12%, we're in danger of losing money.",
+      "author": "person",
+      "approval": "proposed",
+      "severity": null,
+      "author_id": null,
+      "direction": "down",
+      "effect_on": "monthly_profit",
+      "occurrence": null,
+      "approved_by": null,
+      "starts_after_periods": 0
+     },
+     {
+      "id": "regulatory_delay",
+      "mode": null,
+      "label": "Regulatory approval delays entry",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "proposed",
+      "severity": null,
+      "author_id": null,
+      "direction": "down",
+      "effect_on": "european_expansion",
+      "occurrence": null,
+      "approved_by": null,
+      "starts_after_periods": 0
+     }
+    ],
+    "title": "European expansion?",
+    "claims": [],
+    "limits": [
+     {
+      "id": "investment_cap",
+      "label": "Investment no more than £500,000",
+      "party": null,
+      "quote": "The investment budget is up to £500k.",
+      "author": "person",
+      "measure": {
+       "cmp": "<=",
+       "per": null,
+       "bound": "investment_budget",
+       "window": {
+        "start": 0,
+        "periods": "budget_window",
+        "origin_event": null,
+        "origin_offset": null
+       },
+       "quantity": "cumulative_investment",
+       "aggregation": "max"
+      },
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "approved_by": null
+     }
+    ],
+    "period": "month",
+    "dissent": [],
+    "history": [],
+    "options": [
+     {
+      "id": "european_expansion",
+      "sets": [
+       {
+        "to": "european_expansion__new_customers",
+        "low": null,
+        "high": null,
+        "quote": null,
+        "value": null,
+        "author": "olumi",
+        "quantity": "new_customers",
+        "question": null,
+        "range_kind": null,
+        "starts_after_periods": "expansion_start"
+       },
+       {
+        "to": "european_expansion__monthly_churn",
+        "low": null,
+        "high": null,
+        "quote": null,
+        "value": null,
+        "author": "olumi",
+        "quantity": "monthly_churn",
+        "question": null,
+        "range_kind": null,
+        "starts_after_periods": "expansion_start"
+       },
+       {
+        "to": "european_expansion__monthly_investment",
+        "low": null,
+        "high": null,
+        "quote": null,
+        "value": null,
+        "author": "olumi",
+        "quantity": "monthly_investment",
+        "question": null,
+        "range_kind": null,
+        "starts_after_periods": "expansion_start"
+       }
+      ],
+      "label": "Expand into Europe?",
+      "party": null,
+      "quote": "Should we expand into the European market in the next 6-12 months?",
+      "author": "person",
+      "status": "live",
+      "approval": "proposed",
+      "carry_on": false,
+      "author_id": null,
+      "approved_by": null,
+      "developed_from": null
+     },
+     {
+      "id": "single_country_pilot",
+      "sets": [
+       {
+        "to": "single_country_pilot__new_customers",
+        "low": null,
+        "high": null,
+        "quote": null,
+        "value": null,
+        "author": "olumi",
+        "quantity": "new_customers",
+        "question": null,
+        "range_kind": null,
+        "starts_after_periods": "pilot_start"
+       },
+       {
+        "to": "single_country_pilot__monthly_churn",
+        "low": null,
+        "high": null,
+        "quote": null,
+        "value": null,
+        "author": "olumi",
+        "quantity": "monthly_churn",
+        "question": null,
+        "range_kind": null,
+        "starts_after_periods": "pilot_start"
+       },
+       {
+        "to": "single_country_pilot__monthly_investment",
+        "low": null,
+        "high": null,
+        "quote": null,
+        "value": null,
+        "author": "olumi",
+        "quantity": "monthly_investment",
+        "question": null,
+        "range_kind": null,
+        "starts_after_periods": "pilot_start"
+       }
+      ],
+      "label": "Pilot in one European country",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "status": "live",
+      "approval": "proposed",
+      "carry_on": false,
+      "author_id": null,
+      "approved_by": null,
+      "developed_from": null
+     },
+     {
+      "id": "carry_on",
+      "sets": [],
+      "label": "Carry on in current markets",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "status": "live",
+      "approval": "proposed",
+      "carry_on": true,
+      "author_id": null,
+      "approved_by": null,
+      "developed_from": null
+     }
+    ],
+    "version": "canonical.v1",
+    "evidence": [],
+    "left_out": [
+     {
+      "id": "profitability_gap",
+      "why": "The 12% churn warning is not a profit formula; customer margins and operating costs are missing.",
+      "text": "The chance of losing money cannot yet be calculated.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "proposed",
+      "concerns": [
+       "monthly_profit",
+       "churn_danger_threshold",
+       "churn_loss_danger"
+      ],
+      "question": "What customer margins and operating costs underpin the 12% churn warning?",
+      "author_id": null,
+      "approved_by": null
+     },
+     {
+      "id": "country_specific_gap",
+      "why": "No countries, sector or market evidence are supplied, so generic numerical estimates would be misleading.",
+      "text": "Country-specific demand, competition and compliance costs remain unsized.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "proposed",
+      "concerns": [
+       "european_expansion",
+       "single_country_pilot",
+       "competition",
+       "regulatory_delay"
+      ],
+      "question": "Which European countries are you considering first?",
+      "author_id": null,
+      "approved_by": null
+     },
+     {
+      "id": "investment_schedule_gap",
+      "why": "A monthly spending input is only a draft placeholder until the payment schedule is available.",
+      "text": "One-off setup payments and the investment spending schedule need separate treatment.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "proposed",
+      "concerns": [
+       "monthly_investment",
+       "investment_balance",
+       "investment_cap"
+      ],
+      "question": "What setup payments and subsequent spending would each expansion approach require?",
+      "author_id": null,
+      "approved_by": null
+     }
+    ],
+    "question": "Should we expand into the European market in the next 6–12 months to grow the customer base from 400 to 800?",
+    "relations": [
+     {
+      "id": "calculate_customer_losses",
+      "op": "product",
+      "form": "definition",
+      "parts": [
+       {
+        "id": "customers",
+        "power": 1
+       },
+       {
+        "id": "monthly_churn",
+        "power": 1
+       }
+      ],
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "defines": "customers_lost",
+      "approval": "proposed",
+      "author_id": null,
+      "approved_by": null
+     },
+     {
+      "id": "customer_balance",
+      "form": "stock",
+      "party": null,
+      "quote": null,
+      "start": "initial_customers",
+      "author": "olumi",
+      "defines": "customers",
+      "inflows": [
+       "new_customers"
+      ],
+      "approval": "proposed",
+      "outflows": [
+       "customers_lost"
+      ],
+      "author_id": null,
+      "approved_by": null
+     },
+     {
+      "id": "investment_balance",
+      "form": "stock",
+      "party": null,
+      "quote": null,
+      "start": "initial_investment",
+      "author": "olumi",
+      "defines": "cumulative_investment",
+      "inflows": [
+       "monthly_investment"
+      ],
+      "approval": "proposed",
+      "outflows": [],
+      "author_id": null,
+      "approved_by": null
+     },
+     {
+      "id": "competition_affects_acquisition",
+      "to": "new_customers",
+      "form": "influence",
+      "from": "competition",
+      "basis": "Stronger rivals can make customer acquisition harder; the relevant markets are unspecified.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "proposed",
+      "author_id": null,
+      "direction": "down",
+      "confidence": "unsure",
+      "approved_by": null
+     }
+    ],
+    "conditions": [
+     {
+      "id": "regulatory_complexity",
+      "kind": "challenge",
+      "text": "Multiple complex country regulations are a consideration.",
+      "party": null,
+      "quote": "Multiple complex country regulations are a consideration.",
+      "author": "person",
+      "approval": "proposed",
+      "concerns": [
+       "european_expansion",
+       "single_country_pilot"
+      ],
+      "author_id": null,
+      "approved_by": null
+     },
+     {
+      "id": "country_permissions",
+      "kind": "prerequisite",
+      "text": "Confirm the chosen country's legal requirements and necessary permissions before launching.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "proposed",
+      "concerns": [
+       "european_expansion",
+       "single_country_pilot"
+      ],
+      "author_id": null,
+      "approved_by": null
+     },
+     {
+      "id": "pilot_budget_check",
+      "kind": "prerequisite",
+      "text": "Commit to a pilot only after its full cost fits within the £500,000 cap.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "approval": "proposed",
+      "concerns": [
+       "single_country_pilot",
+       "investment_cap"
+      ],
+      "author_id": null,
+      "approved_by": null
+     }
+    ],
+    "quantities": [
+     {
+      "id": "target_deadline",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "month",
+      "basis": null,
+      "floor": 0,
+      "label": "Time to reach 800 customers",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "asked",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": "By when should the customer base reach 800?",
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "expansion_start",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "month",
+      "basis": "The proposed timing needs clarification before setting a start date.",
+      "floor": 0,
+      "label": "Expansion start",
+      "party": null,
+      "quote": "Should we expand into the European market in the next 6-12 months?",
+      "value": null,
+      "author": "person",
+      "status": "asked",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": "Does the next 6–12 months mean starting expansion or reaching 800 customers?",
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "new_customers",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "customer/month",
+      "basis": "No sector, acquisition history or sales pipeline supports a useful estimate.",
+      "floor": 0,
+      "label": "New customers per month",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "asked",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": "How many new customers are you currently adding each month?",
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "initial_customers",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "customer",
+      "basis": null,
+      "floor": 0,
+      "label": "Current customer base",
+      "party": null,
+      "quote": "Our current customer base is 400.",
+      "value": 400,
+      "author": "person",
+      "status": "known",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "customer_target",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "customer",
+      "basis": null,
+      "floor": 0,
+      "label": "Customer target",
+      "party": null,
+      "quote": "The target is 800.",
+      "value": 800,
+      "author": "person",
+      "status": "known",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "monthly_churn",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1/month",
+      "basis": null,
+      "floor": 0,
+      "label": "Monthly churn rate",
+      "party": null,
+      "quote": "Monthly churn is at 8%.",
+      "value": 0.08,
+      "author": "person",
+      "status": "known",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "customers",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "customer",
+      "basis": null,
+      "floor": 0,
+      "label": "Customer base",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "customers_lost",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "customer/month",
+      "basis": null,
+      "floor": 0,
+      "label": "Customers lost per month",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "churn_danger_threshold",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1/month",
+      "basis": null,
+      "floor": 0,
+      "label": "Monthly churn danger threshold",
+      "party": null,
+      "quote": "If it goes beyond 12%, we're in danger of losing money.",
+      "value": 0.12,
+      "author": "person",
+      "status": "known",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "investment_budget",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP",
+      "basis": null,
+      "floor": 0,
+      "label": "Investment budget",
+      "party": null,
+      "quote": "The investment budget is up to £500k.",
+      "value": 500000,
+      "author": "person",
+      "status": "known",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "budget_window",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "month",
+      "basis": null,
+      "floor": 0,
+      "label": "Investment budget period",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "asked",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": "Over how many months does the £500,000 investment budget apply?",
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "monthly_investment",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP/month",
+      "basis": "Additional spending on this expansion decision; carrying on adds none.",
+      "floor": 0,
+      "label": "Additional investment per month",
+      "party": null,
+      "quote": null,
+      "value": 0,
+      "author": "olumi",
+      "status": "known",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "initial_investment",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP",
+      "basis": "Counts only new investment arising from this decision.",
+      "floor": 0,
+      "label": "New investment counted so far",
+      "party": null,
+      "quote": null,
+      "value": 0,
+      "author": "olumi",
+      "status": "known",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "cumulative_investment",
+      "low": null,
+      "high": null,
+      "kind": "derived",
+      "unit": "GBP",
+      "basis": null,
+      "floor": 0,
+      "label": "Cumulative additional investment",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "derived",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "monthly_profit",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP/month",
+      "basis": "Revenue, customer margins and operating costs are not supplied.",
+      "floor": null,
+      "label": "Monthly profit",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "unknown",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "competition",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": null,
+      "basis": "Varies across markets; no countries or comparable measure are specified.",
+      "floor": null,
+      "label": "Competition intensity",
+      "party": null,
+      "quote": "Competition intensity varies.",
+      "value": null,
+      "author": "person",
+      "status": "unknown",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "pilot_start",
+      "low": 1,
+      "high": 6,
+      "kind": "fact",
+      "unit": "month",
+      "basis": "A small market pilot typically needs preparation; country permissions could extend this.",
+      "floor": 0,
+      "label": "Pilot start",
+      "party": null,
+      "quote": null,
+      "value": 3,
+      "author": "olumi",
+      "status": "estimated",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": null,
+      "author_id": null,
+      "direction": null,
+      "range_kind": "plausible",
+      "approved_by": null
+     },
+     {
+      "id": "european_expansion__new_customers",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "customer/month",
+      "basis": "Olumi's estimate of what \"Expand into Europe?\" sets this to.",
+      "floor": null,
+      "label": "Expand into Europe?: New customers per month",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "asked",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": "What monthly new-customer numbers are supported by your European sales pipeline?",
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "european_expansion__monthly_churn",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1/month",
+      "basis": "Olumi's estimate of what \"Expand into Europe?\" sets this to.",
+      "floor": null,
+      "label": "Expand into Europe?: Monthly churn rate",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "asked",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": "What customer-retention evidence do you have for the proposed European markets?",
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "european_expansion__monthly_investment",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP/month",
+      "basis": "Olumi's estimate of what \"Expand into Europe?\" sets this to.",
+      "floor": null,
+      "label": "Expand into Europe?: Additional investment per month",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "asked",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": "What monthly investment does the European expansion plan require?",
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "single_country_pilot__new_customers",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "customer/month",
+      "basis": "Olumi's proposed setting for its option \"Pilot in one European country\".",
+      "floor": null,
+      "label": "Pilot in one European country: New customers per month",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "asked",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": "What monthly new-customer numbers could a single-country pilot test?",
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "single_country_pilot__monthly_churn",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "1/month",
+      "basis": "Olumi's proposed setting for its option \"Pilot in one European country\".",
+      "floor": null,
+      "label": "Pilot in one European country: Monthly churn rate",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "asked",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": "What retention data are available for customers in the pilot country?",
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     },
+     {
+      "id": "single_country_pilot__monthly_investment",
+      "low": null,
+      "high": null,
+      "kind": "fact",
+      "unit": "GBP/month",
+      "basis": "Olumi's proposed setting for its option \"Pilot in one European country\".",
+      "floor": null,
+      "label": "Pilot in one European country: Additional investment per month",
+      "party": null,
+      "quote": null,
+      "value": null,
+      "author": "olumi",
+      "status": "asked",
+      "ceiling": null,
+      "approval": "proposed",
+      "question": "What monthly investment would a single-country pilot require?",
+      "author_id": null,
+      "direction": null,
+      "range_kind": null,
+      "approved_by": null
+     }
+    ],
+    "assumptions": [
+     {
+      "id": "churn_interpretation",
+      "text": "Treat 8% as the share of starting customers lost each month, excluding new customers acquired that month.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "applied": true,
+      "approval": "proposed",
+      "concerns": [
+       "monthly_churn",
+       "calculate_customer_losses",
+       "customer_balance"
+      ],
+      "author_id": null,
+      "approved_by": null
+     },
+     {
+      "id": "baseline_projection",
+      "text": "Until changed by an option, project the current churn rate and supplied monthly acquisition rate forward; carrying on does not freeze the customer base.",
+      "party": null,
+      "quote": null,
+      "author": "olumi",
+      "applied": true,
+      "approval": "proposed",
+      "concerns": [
+       "carry_on",
+       "customer_balance"
+      ],
+      "author_id": null,
+      "approved_by": null
+     }
+    ],
+    "preferences": [],
+    "coaching_questions": [
+     "Does the next 6–12 months mean starting expansion or reaching 800 customers?",
+     "Which European countries are you considering first?",
+     "How many new customers are you currently adding each month?"
+    ]
+   },
+   "drafted_on": "2026-10-29",
+   "person_words": [
+    "Should we expand into the European market in the next 6-12 months? Our current customer base is 400. The target is 800. Monthly churn is at 8%. If it goes beyond 12%, we're in danger of losing money. The investment budget is up to £500k. Competition intensity varies. Multiple complex country regulations are a consideration."
+   ],
+   "model_program": "v1"
+  },
+  "ref_high_water": {
+   "D": 1,
+   "F": 8,
+   "G": 1,
+   "O": 3,
+   "R": 2,
+   "OC": 2
+  },
+  "goal_constraints": [
+   {
+    "unit": "GBP",
+    "label": "Investment no more than £500,000",
+    "value": 500000,
+    "node_id": "cumulative_investment",
+    "operator": "<=",
+    "provenance": "explicit",
+    "source_quote": "The investment budget is up to £500k.",
+    "constraint_id": "investment_cap"
+   }
+  ]
+ },
+ "content_hash": "fa2d3857cb9e5e912da8fecc4e4f85acc2e964d05af400139d08f68876e716ae",
+ "withheld": null,
+ "graph_present": true,
+ "graph_identity_hash": {
+  "kind": "graph_identity_hash",
+  "value": "fa2d3857cb9e5e912da8fecc4e4f85acc2e964d05af400139d08f68876e716ae",
+  "algorithm": "sha256",
+  "projection_version": "identity.v1",
+  "graph_schema_version": "graph_v3",
+  "normaliser_version": "1"
+ },
+ "graph_hash": "3d746f81cdafcc7bbd85fa24a7b4ecc2488fa2b4fc95fa49bc8cb13b257cc519",
+ "layout_present": false
+}
