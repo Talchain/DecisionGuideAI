@@ -45,6 +45,19 @@ describe('SharedBriefPage: a program scenario\'s Run', () => {
     expect(screen.queryByTestId('analysis-view-only-most-likely')).toBeNull()
   })
 
+  it('a withheld reason names its option from the snapshot\'s model, on a page with no canvas', async () => {
+    const withheld = {
+      ...view,
+      options: view.options.map((o, i) => ({ ...o, cell: { kind: 'withheld', face: 'Not shown yet.', why: i === 0 ? 'Needs the staffing cost.' : 'Needs the start date.', reasons: [{ code: 'asked', message: null }] } })),
+      goal_chance: { ...view.goal_chance, waits_on: [{ id: 'w1', label: 'Staffing cost', answer: null }] },
+      leader: undefined,
+    }
+    mockGetSharedSnapshotBySlug.mockResolvedValue(snapshot({ canonical_analysis_view: withheld }))
+    renderPage()
+    const reason = await screen.findByTestId(`analysis-view-only-reason-${view.options[0].option_id}`)
+    expect(reason.textContent).toBe('‘Keep current staffing’: Needs the staffing cost.')
+  })
+
   it('shows no "Model hash" line', async () => {
     mockGetSharedSnapshotBySlug.mockResolvedValue(snapshot({ canonical_analysis_view: view }))
     renderPage()

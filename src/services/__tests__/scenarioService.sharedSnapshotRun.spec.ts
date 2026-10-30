@@ -29,12 +29,41 @@ describe('createSharedSnapshot: a program scenario', () => {
     mockRpc.mockResolvedValue({ data: { id: 'snap-1', slug: 'abc123' }, error: null })
   })
 
-  it('carries the scenario read\'s canonical_analysis_view in p_analysis, read with the session identity', async () => {
-    mockFetchScenarioGraph.mockResolvedValue({ status: 'graph', graph: ROW.graph, canonicalAnalysisView: served.canonical_analysis_view })
+  const RUN_HASH = served.canonical_analysis_view.run.graph_hash_at_run
+  const READ_GRAPH = { ...ROW.graph, nodes: [...served.nodes, { id: 'added_in_read', kind: 'factor', label: 'From the read' }] }
+  const answers = (graphHash: string | null) => mockFetchScenarioGraph.mockResolvedValue({
+    status: 'graph', graph: READ_GRAPH, graphHash, canonicalAnalysisView: served.canonical_analysis_view })
+  const sent = () => mockRpc.mock.calls[0]![1] as { p_graph: unknown; p_analysis: { canonical_analysis_view: Record<string, any> } }
+
+  it('carries the Run from the SAME read as the model, read with the session identity', async () => {
+    answers(RUN_HASH)
     const { createSharedSnapshot } = await import('../scenarioService')
     await createSharedSnapshot('scenario-1')
     expect(mockFetchScenarioGraph).toHaveBeenCalledWith('scenario-1', { userId: 'u-1', accessToken: 'token-1' })
-    expect(mockRpc.mock.calls[0]![1]).toMatchObject({ p_graph: ROW.graph, p_analysis: { canonical_analysis_view: served.canonical_analysis_view } })
+    expect(sent().p_graph).toEqual(READ_GRAPH)
+    const view = sent().p_analysis.canonical_analysis_view
+    expect(view.options.map((o: { cell: { face: string } }) => o.cell.face)).toEqual(served.canonical_analysis_view.options.map(o => o.cell.face))
+    expect(view.staleness.stale).toBe(false)
+    expect(view.leader.words).toBe(served.canonical_analysis_view.leader.words)
+  })
+
+  it('the public view carries no Run id, no graph hash and no revision', async () => {
+    answers(RUN_HASH)
+    const { createSharedSnapshot } = await import('../scenarioService')
+    await createSharedSnapshot('scenario-1')
+    const json = JSON.stringify(sent().p_analysis)
+    expect(json).not.toContain(served.canonical_analysis_view.run.run_id)
+    expect(json).not.toContain(RUN_HASH)
+    expect(sent().p_analysis.canonical_analysis_view.staleness).toMatchObject({ revision: null, run_revision: null })
+  })
+
+  it('a Run not bound to the read\'s model hash is stored as not current, with no "most likely"', async () => {
+    answers('0'.repeat(64))
+    const { createSharedSnapshot } = await import('../scenarioService')
+    await createSharedSnapshot('scenario-1')
+    const view = sent().p_analysis.canonical_analysis_view
+    expect(view.staleness.stale).toBe(true)
+    expect(view.leader).toBeUndefined()
   })
 
   it('NEGATIVE: a read that does not answer shares the model as before (p_analysis null), never a failed share', async () => {

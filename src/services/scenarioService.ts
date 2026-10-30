@@ -16,6 +16,7 @@
 import type { Node, Edge } from '@xyflow/react'
 import { supabase, getSessionIdentity } from '../lib/supabase'
 import { fetchScenarioGraph } from '../adapters/cee/scenarioGraph'
+import { parseCanonicalAnalysisView, type CanonicalAnalysisView } from '../canvas/runView/canonicalAnalysisView'
 // P0 (2026-08-13). MAY this client write `scenarios.graph` at all? Pure predicate,
 // no React or store dependency, so it respects this module's stated constraints.
 import { clientCanWriteReadableGraph } from '../lib/clientGraphWritePolicy'
@@ -679,12 +680,14 @@ export async function createSharedSnapshot(
   // A model program's Run is never in `scenarios.brief`: it is the newest stored Run, which CEE serves on the scenario
   // read as `canonical_analysis_view` (SM4, 30 Oct). The link carries it as it stands now, so a later Run needs a new
   // share. A read that does not answer leaves the share as it was: the model, never a failed share.
-  const canonicalView = await sharedRunViewOf(scenarioId)
-  const analysis = canonicalView === null ? brief : { ...(brief ?? {}), canonical_analysis_view: canonicalView }
+  // The model and its Run come from ONE scenario read, so the link can never pair one version's model with another's Run
+  // (sm4 r1 review). Without that read the link carries the saved row's model, as before, and no Run.
+  const shared = await sharedRunReadOf(scenarioId)
+  const analysis = shared === null ? brief : { ...(brief ?? {}), canonical_analysis_view: shared.view }
 
   const { data, error } = await supabase.rpc('create_shared_snapshot', {
     p_scenario_id: scenarioId,
-    p_graph: row.graph,
+    p_graph: shared?.graph ?? row.graph,
     p_analysis: analysis,
     p_brief_text: row.brief_text ?? null,
     p_graph_hash: row.graph_identity_hash ?? null,
@@ -703,16 +706,42 @@ export async function createSharedSnapshot(
   return data as { id: string; slug: string }
 }
 
-/** The scenario read's `canonical_analysis_view`, with the same identity the canvas reads with; null when it does not answer. */
-async function sharedRunViewOf(scenarioId: string): Promise<unknown> {
+/**
+ * The scenario read's model and Run, from the one response, with the Run as the PUBLIC projection a link may carry: the
+ * words, cells and staleness the page says, never the Run's id, the graph hashes or the revision counters. A Run whose
+ * hash is not the read's own model hash is stored as not current. Null when the read does not answer or holds no Run.
+ */
+async function sharedRunReadOf(scenarioId: string): Promise<{ graph: unknown; view: Record<string, unknown> } | null> {
   try {
     const identity = await getSessionIdentity()
     const read = await fetchScenarioGraph(scenarioId, { userId: identity.userId, accessToken: identity.accessToken })
-    return read.status === 'graph' && read.canonicalAnalysisView != null && typeof read.canonicalAnalysisView === 'object'
-      ? read.canonicalAnalysisView
-      : null
+    if (read.status !== 'graph' || read.graph == null || typeof read.graph !== 'object') return null
+    const view = parseCanonicalAnalysisView(read.canonicalAnalysisView)
+    if (view === null) return null
+    const bound = read.graphHash !== null && view.run?.graph_hash_at_run === read.graphHash
+    return { graph: read.graph, view: publicRunViewOf(view, bound && view.staleness.stale === false) }
   } catch {
     return null
+  }
+}
+
+/** The link's own Run identity: it names no Run and no model version, and binds the view to itself on the page. */
+const SHARED_RUN = 'shared_link'
+
+function publicRunViewOf(view: CanonicalAnalysisView, current: boolean): Record<string, unknown> {
+  return {
+    schema: view.schema,
+    source: view.source,
+    run: { run_id: SHARED_RUN, graph_hash_at_run: SHARED_RUN, computed_at: view.run?.computed_at ?? null },
+    staleness: { stale: !current, revision: null, run_revision: null, basis: view.staleness.basis, reason: null, limitation: view.staleness.limitation },
+    ...(view.face_when_stale !== undefined ? { face_when_stale: view.face_when_stale } : {}),
+    leader_licence: view.leader_licence,
+    options: view.options.map((o) => ({ option_id: o.option_id, cell: o.cell, main_driver: o.main_driver })),
+    ...(view.goal_chance !== undefined ? { goal_chance: view.goal_chance } : {}),
+    ...(view.leader !== undefined && current ? { leader: { licence: view.leader.licence, option_id: view.leader.option_id,
+      ...(view.leader.goal_chance_leader !== undefined ? { goal_chance_leader: view.leader.goal_chance_leader } : {}),
+      ...(view.leader.similar_option_ids !== undefined ? { similar_option_ids: view.leader.similar_option_ids } : {}),
+      ...(view.leader.words !== undefined ? { words: view.leader.words } : {}) } } : {}),
   }
 }
 

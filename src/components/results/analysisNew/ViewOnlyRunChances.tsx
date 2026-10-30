@@ -217,7 +217,8 @@ export function useProgramBoardShowsResult(): boolean {
   return program && chances !== null && !chances.stale
 }
 
-export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChances }) {
+/** `labelOf`: a page with no canvas (the shared link) names options from its own model; the board reads its nodes. */
+export function ViewOnlyRunChancesBlock({ chances, labelOf }: { chances: ViewOnlyRunChances; labelOf?: (optionId: string) => string | null }) {
   // Every option withheld while CEE lists what the result waits on: one headline says the count and the list, not each
   // option's withheld face (Paul, 24 Oct). An option's reason that only repeats that list is not said again (Paul, 27 Oct);
   // any other reason still follows.
@@ -246,7 +247,7 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
           {waits ? null : <p className={`${typography.panelBody} text-text-body`}>{line.text}</p>}
           {line.why === null ? null : ownReasons ? (
             <p className={`${typography.panelMeta} text-text-light`} data-testid={`analysis-view-only-reason-${line.optionIds.join('+')}`}>
-              <OptionNames optionIds={line.optionIds} />{line.why}
+              <OptionNames optionIds={line.optionIds} labelOf={labelOf} />{line.why}
             </p>
           ) : waits && line.whyIsWaitsOn ? null : <p className={`${typography.panelMeta} text-text-light`}>{line.why}</p>}
           {line.driver === null ? null : (
@@ -276,9 +277,9 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
 }
 
 /** The options a reason belongs to, by the names the board holds ("‘A’ and ‘B’: "); nothing for an option with no name. */
-function OptionNames({ optionIds }: { optionIds: readonly string[] }) {
+function OptionNames({ optionIds, labelOf }: { optionIds: readonly string[]; labelOf?: (optionId: string) => string | null }) {
   const names = useCanvasStore(s => optionIds.flatMap(id => {
-    const label = s.nodes.find(n => n.id === id)?.data?.label
+    const label = labelOf !== undefined ? labelOf(id) : s.nodes.find(n => n.id === id)?.data?.label
     return typeof label === 'string' && label.trim() !== '' ? [`‘${label.trim()}’`] : []
   }).join('\u0000'))
   const list = names === '' ? [] : names.split('\u0000')

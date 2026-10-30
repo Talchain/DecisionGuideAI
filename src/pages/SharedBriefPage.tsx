@@ -624,6 +624,12 @@ export default function SharedBriefPage() {
   const nodeTotal = readNodes(data.graph).length
   const edgeTotal = edgeCount(data.graph)
   const analysis = readAnalysis(data.analysis)
+  // The snapshot's own model names each option a Run line speaks of: an anonymous reader has no canvas to read it from.
+  const optionLabelOf = (graph: unknown, id: string): string | null => {
+    const nodes = graph !== null && typeof graph === 'object' ? (graph as { nodes?: unknown }).nodes : undefined
+    const node = Array.isArray(nodes) ? nodes.find((n) => (n as { id?: unknown } | null)?.id === id) as { label?: unknown } | undefined : undefined
+    return typeof node?.label === 'string' && node.label.trim() !== '' ? node.label.trim() : null
+  }
   const runChances = viewOnlyRunChancesOf(null, parseCanonicalAnalysisView(
     data.analysis !== null && typeof data.analysis === 'object' ? (data.analysis as Record<string, unknown>).canonical_analysis_view : undefined), true)
 
@@ -660,7 +666,7 @@ export default function SharedBriefPage() {
         {runChances !== null ? (
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-4" data-testid="shared-snapshot-run">
             <h2 className="text-base font-semibold text-text-header mb-3">What the model says</h2>
-            <ViewOnlyRunChancesBlock chances={runChances} />
+            <ViewOnlyRunChancesBlock chances={runChances} labelOf={(id) => optionLabelOf(data.graph, id)} />
           </div>
         ) : analysis && <AnalysisSection analysis={analysis} />}
 
