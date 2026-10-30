@@ -1591,12 +1591,6 @@ export interface AtAGlance {
    */
   winShare: string | null
   /**
-   * The same value unformatted, 0-1, FOR BAR GEOMETRY ONLY. Never rendered as
-   * a number: formatting it a second way is how two different roundings of one
-   * quantity end up on screen together.
-   */
-  winFraction: number | null
-  /**
    * What the win share ranges over. Rendered BESIDE the number, never behind
    * disclosure: it changes what the number means, so a reader who sees one
    * must see the other.

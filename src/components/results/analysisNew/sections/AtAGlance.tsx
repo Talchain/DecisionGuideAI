@@ -34,7 +34,6 @@
  */
 
 import { useState } from 'react'
-import { PanelFigure } from '../PanelFigure'
 import { AlertTriangle, CheckCircle, ChevronRight, Clock, RefreshCw } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
@@ -673,7 +672,7 @@ export function AtAGlance({
    * rationed amber budget to the sections that earn it.
    */
   const verdictCarriesItsOwnReading = Boolean(
-    glance.verdict && (glance.winShare || (glance.verdict.reason && !verdictReasonSaidByCaveat) || glance.winFraction !== null),
+    glance.verdict && (glance.winShare || (glance.verdict.reason && !verdictReasonSaidByCaveat)),
   )
 
   /* ⚠ THE ANSWER DISJUNCT WENT WITH THE ANSWER — the same rule recorded just
@@ -1264,28 +1263,6 @@ export function AtAGlance({
                       begins. */}
                   {sentenceCase(glance.verdict.reason)}
                 </p>
-              ) : null}
-              {glance.winFraction !== null ? (
-                /* ⭐⭐ ADOPTED, AND THE ROUNDING DEFECT GOES WITH IT.
-                   This was `Math.round(winFraction * 100)` — the exact
-                   expression `OptionsComparison` removed after it shipped a
-                   measured non-zero share as a 0px fill on deployed `ce32426c`
-                   ("< 1%" beside an empty track). The same defect was still
-                   live HERE, in the glance, which is the first figure a reader
-                   meets. `PanelFigure` floors a strictly-positive fraction and
-                   leaves a genuine zero empty, so the fix arrives with the
-                   grammar rather than needing to be remembered a third time.
-
-                   ⚠ AND THE TRACK WAS `h-1` — the 4px hairline #1346 ruled out
-                   as "a comparison drawn at four pixels reads as no comparison
-                   at all". It survived here because nothing swept for it. */
-                <PanelFigure
-                  variant="share"
-                  tone={glance.verdict.tone === 'stable' ? 'stable' : 'caution'}
-                  className="mt-2"
-                  fraction={glance.winFraction}
-                  testId={`${testId}-win-bar`}
-                />
               ) : null}
 
             </div>

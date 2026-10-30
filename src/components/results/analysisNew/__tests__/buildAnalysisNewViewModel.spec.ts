@@ -22,6 +22,8 @@ import {
   manyFragileEdges,
   openStrategicChallenge,
   uncertaintyDerivedFindings,
+  OUTCOME_READING,
+  withOutcomeWords,
 } from './analysisNewFixtures'
 
 const rec = (over: Partial<Recommendation> & { id: string }): Recommendation =>
@@ -397,12 +399,12 @@ describe('withheld fields (ROADMAP 2.1273) — never read, never rendered', () =
     }
   })
 
-  it('still renders the HONEST statistic it was standing beside', () => {
-    // The discriminating half: without this, deleting the win share outright
-    // would satisfy the absence case above and prove nothing.
-    expect(build(genuineDecision()).atAGlance.winShare).toBe(
-      'In this model, one option had the highest score in 69% of simulated futures.',
-    )
+  it('still renders the HONEST reading it was standing beside: CEE\'s outcome words (Paul 21 Oct: no win share)', () => {
+    // The discriminating half: without this, deleting the reading outright would satisfy the absence case above and prove
+    // nothing. The words are CEE's, verbatim, and only for a Run known to be current (contrast: not current → none).
+    expect(build(withOutcomeWords(genuineDecision()), [], { analysisIdentityIsCurrent: true }).atAGlance.winShare).toBe(OUTCOME_READING)
+    expect(build(withOutcomeWords(genuineDecision())).atAGlance.winShare).toBeNull()
+    expect(build(genuineDecision(), [], { analysisIdentityIsCurrent: true }).atAGlance.winShare).toBeNull()
   })
 })
 
