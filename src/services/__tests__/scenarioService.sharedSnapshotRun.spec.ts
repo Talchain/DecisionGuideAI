@@ -5,6 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import served from '../../pages/__tests__/fixtures/served-program-run-view.json'
+import servedGraph from './fixtures/served-program-graph.json'
 
 const mockRpc = vi.fn()
 const mockSingle = vi.fn()
@@ -37,10 +38,10 @@ describe('createSharedSnapshot: a program scenario', () => {
 
   it('carries the Run from the SAME read as the model, read with the session identity', async () => {
     answers(RUN_HASH)
-    const { createSharedSnapshot } = await import('../scenarioService')
+    const { createSharedSnapshot, publicGraphOf } = await import('../scenarioService')
     await createSharedSnapshot('scenario-1')
     expect(mockFetchScenarioGraph).toHaveBeenCalledWith('scenario-1', { userId: 'u-1', accessToken: 'token-1' })
-    expect(sent().p_graph).toEqual(READ_GRAPH)
+    expect(sent().p_graph).toEqual(publicGraphOf(READ_GRAPH))
     const view = sent().p_analysis.public_run_view
     expect(view.options.map((o: { cell: { face: string } }) => o.cell.face)).toEqual(served.canonical_analysis_view.options.map(o => o.cell.face))
     expect(view.staleness.stale).toBe(false)
@@ -100,10 +101,18 @@ describe('createSharedSnapshot: a program scenario', () => {
   it('a program scenario whose read fails shares the model with NO analysis, never its stale legacy brief', async () => {
     mockSingle.mockResolvedValue({ data: { ...ROW, brief: { headline: 'An older brief', options: [] } }, error: null })
     mockFetchScenarioGraph.mockRejectedValue(new Error('offline'))
-    const { createSharedSnapshot } = await import('../scenarioService')
+    const { createSharedSnapshot, publicGraphOf } = await import('../scenarioService')
     await createSharedSnapshot('scenario-1')
     expect(sent().p_analysis).toBeNull()
-    expect(sent().p_graph).toEqual(ROW.graph)
+    expect(sent().p_graph).toEqual(publicGraphOf(ROW.graph))
+  })
+
+  it('the share sends the public graph: no UUID-shaped value leaves in p_graph', async () => {
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'graph', graph: servedGraph.graph, graphHash: RUN_HASH, canonicalAnalysisView: served.canonical_analysis_view })
+    const { createSharedSnapshot } = await import('../scenarioService')
+    await createSharedSnapshot('scenario-1')
+    expect(JSON.stringify(servedGraph.graph)).toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/)
+    expect(JSON.stringify(sent().p_graph)).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/)
   })
 
   it('NEGATIVE: a read that does not answer shares the model as before (p_analysis null), never a failed share', async () => {
