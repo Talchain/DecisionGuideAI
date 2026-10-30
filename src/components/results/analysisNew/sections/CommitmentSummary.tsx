@@ -118,7 +118,8 @@ function RecordLine({ label, value, testId }: { label: string; value: string | n
   )
 }
 
-function RecordYourView({
+/** The record door and its read-back; also mounted under a program Run's chances on the dock's Analysis tab (P1 S6b). */
+export function RecordYourView({
   canCapture,
   record,
   onRecord,
