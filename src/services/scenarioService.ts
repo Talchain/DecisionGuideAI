@@ -16,6 +16,7 @@
 import type { Node, Edge } from '@xyflow/react'
 import { supabase, getSessionIdentity } from '../lib/supabase'
 import { fetchScenarioGraph } from '../adapters/cee/scenarioGraph'
+import { NOTE_FAMILIES } from '../canvas/domain/noteRecordsModel'
 import { parseCanonicalAnalysisView, type CanonicalAnalysisCell, type CanonicalAnalysisView, type CanonicalMainDriver } from '../canvas/runView/canonicalAnalysisView'
 // P0 (2026-08-13). MAY this client write `scenarios.graph` at all? Pure predicate,
 // no React or store dependency, so it respects this module's stated constraints.
@@ -690,7 +691,7 @@ export async function createSharedSnapshot(
 
   const { data, error } = await supabase.rpc('create_shared_snapshot', {
     p_scenario_id: scenarioId,
-    p_graph: shared?.graph ?? row.graph,
+    p_graph: publicGraphOf(shared?.graph ?? row.graph),
     p_analysis: analysis,
     p_brief_text: row.brief_text ?? null,
     p_graph_hash: row.graph_identity_hash ?? null,
@@ -735,6 +736,45 @@ const isProgramRowGraph = (graph: unknown): boolean => {
 
 /** The link's own Run identity: it names no Run and no model version, and binds the view to itself on the page. */
 const SHARED_RUN = 'shared_link'
+
+/**
+ * The model as a public link may carry it (the DL's p_graph projection, 30 Oct): by name, only what the shared page draws —
+ * each card's id, kind, words, shown value and unit, the sender's quote and the panel mark; each link's ids; and, for a
+ * model program, its marker and its notes. Never the person's words record, the Runs, an author or approver id, the
+ * layout or a hash.
+ */
+export function publicGraphOf(graph: unknown): Record<string, unknown> {
+  const g = (graph !== null && typeof graph === 'object' ? graph : {}) as Record<string, unknown>
+  const nodes = Array.isArray(g.nodes) ? g.nodes : []
+  const edges = Array.isArray(g.edges) ? g.edges : []
+  const lm = g.living_model !== null && typeof g.living_model === 'object' ? (g.living_model as Record<string, unknown>) : null
+  const canonical = lm !== null && lm.canonical !== null && typeof lm.canonical === 'object' ? (lm.canonical as Record<string, unknown>) : {}
+  return pick({
+    nodes: nodes.map((raw) => {
+      const n = (raw ?? {}) as Record<string, unknown>
+      const os = n.observed_state as Record<string, unknown> | null | undefined
+      return pick({ id: str(n.id), kind: str(n.kind), type: str(n.type), label: str(n.label), description: str(n.description),
+        display_value: str(n.display_value), value: typeof n.value === 'number' ? n.value : undefined, unit: str(n.unit),
+        source_quote: str(n.source_quote),
+        observed_state: os !== null && typeof os === 'object' && os.source === 'panel_elicited' ? { source: 'panel_elicited' } : undefined })
+    }),
+    edges: edges.map((raw) => {
+      const e = (raw ?? {}) as Record<string, unknown>
+      return pick({ id: str(e.id), from: str(e.from), to: str(e.to), source: str(e.source), target: str(e.target) })
+    }),
+    living_model: lm === null || !('model_program' in lm) ? undefined : {
+      model_program: str(lm.model_program) ?? null,
+      canonical: Object.fromEntries(NOTE_FAMILIES.map((family) => [family, (Array.isArray(canonical[family]) ? canonical[family] as unknown[] : [])
+        .map((raw) => {
+          const r = (raw ?? {}) as Record<string, unknown>
+          return pick({ id: str(r.id), text: str(r.text), holder: str(r.holder), position: str(r.position), why: str(r.why),
+            source: str(r.source), quantity: str(r.quantity), quote: str(r.quote), direction: str(r.direction),
+            concerns: Array.isArray(r.concerns) ? r.concerns.filter((c): c is string => typeof c === 'string') : undefined,
+            author: r.author === 'olumi' || r.author === 'person' ? r.author : undefined })
+        })])),
+    },
+  })
+}
 
 /** Said for a Run that is not current when CEE sent no line of its own (sm4 r2 review): never figures, never another analysis. */
 export const SHARED_NOT_CURRENT_LINE = 'This result is from an earlier version of the model.'
