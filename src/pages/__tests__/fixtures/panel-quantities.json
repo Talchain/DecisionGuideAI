@@ -1,0 +1,149 @@
+{
+ "_source": "staging verifier program row 2c6eaf55, 30 Oct; quantities only",
+ "quantities": [
+  {
+   "id": "target_window",
+   "label": "Time to reach 800 customers",
+   "unit": "month",
+   "kind": "fact"
+  },
+  {
+   "id": "current_acquisition",
+   "label": "New customers per month without expansion",
+   "unit": "customer/month",
+   "kind": "fact"
+  },
+  {
+   "id": "launch_delay",
+   "label": "Months until European launch",
+   "unit": "month",
+   "kind": "fact"
+  },
+  {
+   "id": "budget_window",
+   "label": "Period covered by the investment budget",
+   "unit": "month",
+   "kind": "fact"
+  },
+  {
+   "id": "current_customers",
+   "label": "Current customers",
+   "unit": "customer",
+   "kind": "fact"
+  },
+  {
+   "id": "customer_target",
+   "label": "Customer target",
+   "unit": "customer",
+   "kind": "fact"
+  },
+  {
+   "id": "monthly_churn",
+   "label": "Monthly customer churn",
+   "unit": "%",
+   "kind": "fact"
+  },
+  {
+   "id": "churn_warning",
+   "label": "Churn above which losses are a danger",
+   "unit": "%",
+   "kind": "fact"
+  },
+  {
+   "id": "percent_per_month",
+   "label": "Percentage conversion for monthly churn",
+   "unit": "% month",
+   "kind": "fact"
+  },
+  {
+   "id": "monthly_churn_rate",
+   "label": "Customer loss rate per month",
+   "unit": "1/month",
+   "kind": "derived"
+  },
+  {
+   "id": "extra_acquisition",
+   "label": "Additional European customers per month",
+   "unit": "customer/month",
+   "kind": "fact"
+  },
+  {
+   "id": "total_acquisition",
+   "label": "Total new customers per month",
+   "unit": "customer/month",
+   "kind": "derived"
+  },
+  {
+   "id": "customers_lost",
+   "label": "Customers lost per month",
+   "unit": "customer/month",
+   "kind": "derived"
+  },
+  {
+   "id": "customers",
+   "label": "Customer base",
+   "unit": "customer",
+   "kind": "derived"
+  },
+  {
+   "id": "investment_budget",
+   "label": "Investment budget",
+   "unit": "GBP",
+   "kind": "fact"
+  },
+  {
+   "id": "setup_spending",
+   "label": "Upfront expansion spending",
+   "unit": "GBP",
+   "kind": "fact"
+  },
+  {
+   "id": "monthly_spending",
+   "label": "Ongoing expansion spending",
+   "unit": "GBP/month",
+   "kind": "fact"
+  },
+  {
+   "id": "investment_spent",
+   "label": "Cumulative expansion spending",
+   "unit": "GBP",
+   "kind": "derived"
+  },
+  {
+   "id": "expansion_setup_estimate",
+   "label": "European launch setup cost",
+   "unit": "GBP",
+   "kind": "fact"
+  },
+  {
+   "id": "expansion_monthly_estimate",
+   "label": "European launch monthly cost",
+   "unit": "GBP/month",
+   "kind": "fact"
+  },
+  {
+   "id": "pilot_setup_estimate",
+   "label": "One-country pilot setup cost",
+   "unit": "GBP",
+   "kind": "fact"
+  },
+  {
+   "id": "pilot_monthly_estimate",
+   "label": "One-country pilot monthly cost",
+   "unit": "GBP/month",
+   "kind": "fact"
+  },
+  {
+   "id": "european_expansion__extra_acquisition",
+   "label": "Expand into Europe in the next 6\u201312 months: Additional European customers per month",
+   "unit": "customer/month",
+   "kind": "fact"
+  },
+  {
+   "id": "one_country_pilot__extra_acquisition",
+   "label": "Test one European country before wider expansion: Additional European customers per month",
+   "unit": "customer/month",
+   "kind": "fact"
+  }
+ ]
+}

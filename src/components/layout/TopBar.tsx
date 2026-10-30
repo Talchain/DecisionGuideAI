@@ -9,6 +9,7 @@ import { SCENARIO_RENAME_REQUEST_EVENT } from '../../canvas/components/scenarioR
 import { VersionsTrigger } from '../../canvas/versions/VersionsTrigger'
 import { DecisionBriefTrigger } from '../../canvas/decisionBrief/DecisionBriefTrigger'
 import { ownerPanelHash } from '../../collab/panelRoute'
+import { useCanvasStore } from '../../canvas/store'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import { useUIStore } from '../../stores/uiStore'
 import { useIsConfirmedOwner, useIsViewer } from '../../lib/viewerMode'
@@ -87,6 +88,11 @@ export const TopBar = ({
 }: TopBarProps) => {
   const isViewer = useIsViewer()
   const isConfirmedOwner = useIsConfirmedOwner()
+  // The one selected card, as "Ask your team" prefills it (S4): the round page offers it only where a panel can answer it.
+  const selectedCardId = useCanvasStore(s => {
+    const selected = s.nodes.filter(n => n.selected)
+    return selected.length === 1 ? selected[0]!.id : null
+  })
   const [inviteOpen, setInviteOpen] = useState(false)
 
   // The kebab menu's open-state lives in uiStore, NOT in component-local
@@ -356,7 +362,7 @@ export const TopBar = ({
         {panelScenarioId != null && panelScenarioId !== '' && (
           <Tooltip content="Ask your team — everyone answers privately, then compare">
             <a
-              href={ownerPanelHash(panelScenarioId)}
+              href={ownerPanelHash(panelScenarioId, selectedCardId === null ? undefined : { factorId: selectedCardId, label: null, unit: null })}
               className={`${styles.iconButton} ${styles.labelledButton}`}
               // ⚠ THE `aria-label` STAYS EVEN THOUGH THE TEXT IS NOW VISIBLE,
               // and it must keep MATCHING the visible text: it is what makes

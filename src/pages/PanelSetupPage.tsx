@@ -59,6 +59,7 @@ import { requireOwnerAccessToken } from '../collab/ownerAccessToken'
 import { readPendingApply, rememberPendingApply } from '../collab/panelApplyHandoff'
 import { readPanelPrefill } from '../collab/panelRoute'
 import { listScenarioMembers } from '../services/scenarioSharingService'
+import { loadScenario } from '../services/scenarioService'
 import {
   forgetOpenRound,
   recallOpenRound,
@@ -325,6 +326,21 @@ async function writeToClipboard(text: string): Promise<boolean> {
   }
 }
 
+/** A figure a blind panel can answer: one the person or Olumi estimates (never one the model works out), on a scale a
+ * person can give directly: unitless, a percentage, or a rate per period. A compound unit is not one. */
+const PANEL_UNIT = /^(|1|%|(1|%)\/(day|week|month|quarter|year))$/
+export interface PanelQuantity { readonly id: string; readonly label: string; readonly unit: string | null }
+export function panelAnswerableQuantities(graph: unknown): PanelQuantity[] | null {
+  const lm = graph !== null && typeof graph === 'object' ? (graph as { living_model?: unknown }).living_model : undefined
+  if (lm === null || typeof lm !== 'object' || (lm as { model_program?: unknown }).model_program !== 'v1') return null
+  const qs = ((lm as { canonical?: { quantities?: unknown } }).canonical?.quantities)
+  if (!Array.isArray(qs)) return []
+  return qs.flatMap((q: { id?: unknown; label?: unknown; unit?: unknown; kind?: unknown }) =>
+    typeof q?.id === 'string' && typeof q.label === 'string' && (q.kind === 'fact' || q.kind === 'coefficient')
+      && (q.unit == null || typeof q.unit === 'string') && PANEL_UNIT.test((q.unit as string | null) ?? '')
+      ? [{ id: q.id, label: q.label, unit: (q.unit as string | null) ?? null }] : [])
+}
+
 export default function PanelSetupPage(): JSX.Element {
   const { id: scenarioId } = useParams<{ id: string }>()
   const location = useLocation()
@@ -359,6 +375,24 @@ export default function PanelSetupPage(): JSX.Element {
     { id: prefill?.factorId ?? '', label: prefill?.label ?? '' },
   ])
   const [contextNote, setContextNote] = useState('')
+  // A model program's figures a panel can answer, by label (S4); null for any other scenario, which keeps the id field.
+  const [quantities, setQuantities] = useState<PanelQuantity[] | null>(null)
+  useEffect(() => {
+    if (!scenarioId) return
+    let live = true
+    loadScenario(scenarioId).then((row) => {
+      const listed = row === null ? null : panelAnswerableQuantities(row.graph)
+      if (!live || listed === null) return
+      setQuantities(listed)
+      // A prefilled card that is not a figure a panel can answer is not offered: the picker starts empty.
+      const byId = new Map(listed.map((q) => [q.id, q]))
+      setTargets((prev) => prev.map((t) => {
+        const q = byId.get(t.id)
+        return t.id === '' ? t : q === undefined ? { id: '', label: '' } : t.label === '' ? { id: t.id, label: q.label } : t
+      }))
+    }).catch(() => undefined)
+    return () => { live = false }
+  }, [scenarioId])
   const [names, setNames] = useState<string[]>(() => ['', ''])
   /**
    * ⭐ D2 S2: PANELLISTS FROM THE COLLEAGUES ALREADY INVITED. One entry per row, kept ALIGNED with
@@ -440,7 +474,8 @@ export default function PanelSetupPage(): JSX.Element {
             // it; matching on the id means the unit follows the FACTOR it
             // describes and cannot be inherited by a sibling that merely sits
             // where it used to.
-            unit: prefill !== null && t.id === prefill.factorId ? prefill.unit : null,
+            unit: quantities !== null ? quantities.find((q) => q.id === t.id)?.unit ?? null
+              : prefill !== null && t.id === prefill.factorId ? prefill.unit : null,
           })),
         participants: names
           .map((n) => ({ display_name: n.trim() }))
@@ -461,7 +496,7 @@ export default function PanelSetupPage(): JSX.Element {
     } finally {
       setBusyAction(null)
     }
-  }, [scenarioId, targets, contextNote, names, prefill])
+  }, [scenarioId, targets, contextNote, names, prefill, quantities])
 
   // Parameterised by round id because there are now TWO callers: the fresh
   // mint on screen, and the recovery banner's RECORDED round.
@@ -745,6 +780,18 @@ export default function PanelSetupPage(): JSX.Element {
                           ? 'Which factor should they estimate?'
                           : `Factor ${i + 1}`}
                       </label>
+                      {quantities !== null ? (
+                        <select
+                          id={`${idTestId}-input`}
+                          data-testid={idTestId}
+                          className={`${FIELD} ${typography.body} mt-2`}
+                          value={t.id}
+                          onChange={(e) => setTargetAt(i, { id: e.target.value, label: quantities.find((q) => q.id === e.target.value)?.label ?? '' })}
+                        >
+                          <option value="">{quantities.length === 0 ? 'No figure here can be answered as a chance yet.' : 'Choose a figure'}</option>
+                          {quantities.map((q) => <option key={q.id} value={q.id}>{q.label}</option>)}
+                        </select>
+                      ) : (
                       <input
                         id={`${idTestId}-input`}
                         data-testid={idTestId}
@@ -756,7 +803,8 @@ export default function PanelSetupPage(): JSX.Element {
                         onChange={(e) => setTargetAt(i, { id: e.target.value })}
                         placeholder="factor-churn-risk"
                       />
-                      {i === 0 && (
+                      )}
+                      {i === 0 && quantities === null && (
                         <p
                           id="panel-target-id-hint"
                           data-testid="panel-target-id-hint"
