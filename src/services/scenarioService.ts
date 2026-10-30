@@ -14,7 +14,9 @@
  */
 
 import type { Node, Edge } from '@xyflow/react'
-import { supabase } from '../lib/supabase'
+import { supabase, getSessionIdentity } from '../lib/supabase'
+import { fetchScenarioGraph } from '../adapters/cee/scenarioGraph'
+import { parseCanonicalAnalysisView, type CanonicalAnalysisCell, type CanonicalAnalysisView, type CanonicalMainDriver } from '../canvas/runView/canonicalAnalysisView'
 // P0 (2026-08-13). MAY this client write `scenarios.graph` at all? Pure predicate,
 // no React or store dependency, so it respects this module's stated constraints.
 import { clientCanWriteReadableGraph } from '../lib/clientGraphWritePolicy'
@@ -668,16 +670,27 @@ export async function createSharedSnapshot(
   // A shape that is not a JSON object degrades to null rather than failing the
   // share: `create_shared_snapshot` raises 22023 on a non-object p_analysis,
   // which would cost the recipient the MODEL as well as the analysis.
-  const analysis =
+  const brief =
     row.brief !== null &&
     typeof row.brief === 'object' &&
     !Array.isArray(row.brief)
-      ? row.brief
+      ? (row.brief as Record<string, unknown>)
       : null
+
+  // A model program's Run is never in `scenarios.brief`: it is the newest stored Run, which CEE serves on the scenario
+  // read as `canonical_analysis_view` (SM4, 30 Oct). The link carries it as it stands now, so a later Run needs a new
+  // share. A read that does not answer leaves the share as it was: the model, never a failed share.
+  // The model and its Run come from ONE scenario read, so the link can never pair one version's model with another's Run
+  // (sm4 r1 review). Without that read the link carries the saved row's model, as before, and no Run.
+  const isProgram = isProgramRowGraph(row.graph)
+  const shared = isProgram ? await sharedRunReadOf(scenarioId) : null
+  // A program scenario's analysis is its Run, never `scenarios.brief`: when its read fails the link carries the model
+  // alone, never an unrelated older brief (PL, 30 Oct).
+  const analysis = !isProgram ? brief : shared === null ? null : { public_run_view: shared.view }
 
   const { data, error } = await supabase.rpc('create_shared_snapshot', {
     p_scenario_id: scenarioId,
-    p_graph: row.graph,
+    p_graph: shared?.graph ?? row.graph,
     p_analysis: analysis,
     p_brief_text: row.brief_text ?? null,
     p_graph_hash: row.graph_identity_hash ?? null,
@@ -694,6 +707,84 @@ export async function createSharedSnapshot(
   }
 
   return data as { id: string; slug: string }
+}
+
+/**
+ * The scenario read's model and Run, from the one response, with the Run as the PUBLIC projection a link may carry: the
+ * words, cells and staleness the page says, never the Run's id, the graph hashes or the revision counters. A Run whose
+ * hash is not the read's own model hash is stored as not current. Null when the read does not answer or holds no Run.
+ */
+async function sharedRunReadOf(scenarioId: string): Promise<{ graph: unknown; view: Record<string, unknown> } | null> {
+  try {
+    const identity = await getSessionIdentity()
+    const read = await fetchScenarioGraph(scenarioId, { userId: identity.userId, accessToken: identity.accessToken })
+    if (read.status !== 'graph' || read.graph == null || typeof read.graph !== 'object') return null
+    const view = parseCanonicalAnalysisView(read.canonicalAnalysisView)
+    if (view === null) return null
+    const bound = read.graphHash !== null && view.run?.graph_hash_at_run === read.graphHash
+    return { graph: read.graph, view: publicRunViewOf(view, bound && view.staleness.stale === false) }
+  } catch {
+    return null
+  }
+}
+
+const isProgramRowGraph = (graph: unknown): boolean => {
+  const lm = (graph as { living_model?: unknown } | null)?.living_model
+  return lm !== null && typeof lm === 'object' && 'model_program' in (lm as object)
+}
+
+/** The link's own Run identity: it names no Run and no model version, and binds the view to itself on the page. */
+const SHARED_RUN = 'shared_link'
+
+/** Said for a Run that is not current when CEE sent no line of its own (sm4 r2 review): never figures, never another analysis. */
+export const SHARED_NOT_CURRENT_LINE = 'This result is from an earlier version of the model.'
+
+const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
+const pick = <T extends Record<string, unknown>>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T
+
+/** Every nested field copied by name: what the page says, and the model ids it names; nothing a reader is not shown. */
+function publicRunViewOf(view: CanonicalAnalysisView, current: boolean): Record<string, unknown> {
+  const gc = view.goal_chance
+  return pick({
+    schema: view.schema,
+    source: view.source,
+    run: { run_id: SHARED_RUN, graph_hash_at_run: SHARED_RUN, computed_at: str(view.run?.computed_at) ?? null },
+    staleness: { stale: !current, revision: null, run_revision: null, basis: view.staleness.basis, reason: null, limitation: view.staleness.limitation },
+    face_when_stale: current ? str(view.face_when_stale) : str(view.face_when_stale) ?? SHARED_NOT_CURRENT_LINE,
+    leader_licence: view.leader_licence,
+    options: view.options.map((o) => ({ option_id: o.option_id, cell: publicCellOf(o.cell), main_driver: publicDriverOf(o.main_driver) })),
+    goal_chance: gc === undefined ? undefined : pick({
+      chance_words: str(gc.chance_words),
+      notes: gc.notes?.filter((n): n is string => typeof n === 'string'),
+      status_quo: gc.status_quo === undefined ? undefined : { option_id: gc.status_quo.option_id, line: gc.status_quo.line },
+      targets: gc.targets === undefined ? undefined : {
+        joint: gc.targets.joint.status === 'licensed' ? { status: 'licensed', words: gc.targets.joint.words }
+          : pick({ status: 'withheld' as const, line: gc.targets.joint.line, frechet_line: str(gc.targets.joint.frechet_line) }),
+        per_target: gc.targets.per_target.map((t) => ({ constraint_id: t.constraint_id, words: t.words,
+          options: t.options.map((o) => ({ option_id: o.option_id, display: o.display })) })),
+      },
+      waits_on: gc.waits_on?.map((w) => pick({ id: w.id, label: w.label, answer: w.answer === null ? null : { quantity_id: w.answer.quantity_id },
+        code: str(w.code), basis: str(w.basis) })),
+    }),
+    leader: view.leader === undefined || !current ? undefined : pick({ licence: view.leader.licence, option_id: view.leader.option_id,
+      goal_chance_leader: view.leader.goal_chance_leader, similar_option_ids: view.leader.similar_option_ids, words: str(view.leader.words) }),
+  })
+}
+
+function publicCellOf(cell: CanonicalAnalysisCell): Record<string, unknown> {
+  switch (cell.kind) {
+    case 'figure': return pick({ kind: 'figure', display: cell.display, face: str(cell.face) })
+    case 'range': return pick({ kind: 'range', display: cell.display, face: str(cell.face), detail: {} })
+    case 'withheld': return pick({ kind: 'withheld', face: str(cell.face), why: str(cell.why),
+      reasons: cell.reasons.map((r) => ({ code: r.code, message: str(r.message) ?? null })) })
+    default: return { kind: 'none' }
+  }
+}
+
+function publicDriverOf(d: CanonicalMainDriver): Record<string, unknown> {
+  if (d.kind === 'available') return pick({ kind: 'available', driver: {}, detail: str(d.detail) })
+  if (d.kind === 'none_licensed') return { kind: 'none_licensed', reason: d.reason }
+  return { kind: 'not_recorded' }
 }
 
 export async function getSharedSnapshotBySlug(

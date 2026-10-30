@@ -22,7 +22,7 @@ import { useCanvasStore } from '../../../canvas/store'
 import { useSavedModelIsProgram } from '../../../canvas/nodes/shared/savedModelProgram'
 import { useCanonicalAnalysisViewStore } from '../../../canvas/stores/canonicalAnalysisViewStore'
 import { optionChanceCell, runViewGoalChanceSentence, runViewOf } from '../../../canvas/runView/runView'
-import type { CanonicalAnalysisCell, CanonicalWaitsOn } from '../../../canvas/runView/canonicalAnalysisView'
+import type { CanonicalAnalysisCell, CanonicalAnalysisView, CanonicalWaitsOn } from '../../../canvas/runView/canonicalAnalysisView'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useValuePrefillStore } from '../../../canvas/graphChanges/valuePrefill'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
@@ -98,7 +98,11 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
   const scenarioId = useCanvasStore(s => s.currentScenarioId)
   const canonical = useCanonicalAnalysisViewStore(s => (s.scenarioId === scenarioId ? s.view : null))
   const program = useSavedModelIsProgram()
-  return useMemo(() => {
+  return useMemo(() => viewOnlyRunChancesOf(report, canonical, program), [report, canonical, program])
+}
+
+/** The hook's own derivation, store-free, so a page with no canvas (the shared link) says the same lines from the same view. */
+export function viewOnlyRunChancesOf(report: unknown, canonical: CanonicalAnalysisView | null, program: boolean): ViewOnlyRunChances | null {
     if (report != null || canonical === null) return null
     const view = runViewOf(null, canonical)
     if (!view.boundToCurrentCanonical()) {
@@ -143,7 +147,6 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
     const notes = program ? [...(view.goalChanceDetail()?.notes ?? [])] : []
     return lines.length === 0 && sentence === null ? null
       : { sentence, lines, waitsOn, stale: false, allWithheld, mostLikely, notes, ...(program ? { program: true } : {}) }
-  }, [report, canonical, program])
 }
 
 /**
@@ -214,7 +217,8 @@ export function useProgramBoardShowsResult(): boolean {
   return program && chances !== null && !chances.stale
 }
 
-export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChances }) {
+/** `labelOf`: a page with no canvas (the shared link) names options from its own model; the board reads its nodes. */
+export function ViewOnlyRunChancesBlock({ chances, labelOf }: { chances: ViewOnlyRunChances; labelOf?: (optionId: string) => string | null }) {
   // Every option withheld while CEE lists what the result waits on: one headline says the count and the list, not each
   // option's withheld face (Paul, 24 Oct). An option's reason that only repeats that list is not said again (Paul, 27 Oct);
   // any other reason still follows.
@@ -243,7 +247,7 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
           {waits ? null : <p className={`${typography.panelBody} text-text-body`}>{line.text}</p>}
           {line.why === null ? null : ownReasons ? (
             <p className={`${typography.panelMeta} text-text-light`} data-testid={`analysis-view-only-reason-${line.optionIds.join('+')}`}>
-              <OptionNames optionIds={line.optionIds} />{line.why}
+              <OptionNames optionIds={line.optionIds} labelOf={labelOf} />{line.why}
             </p>
           ) : waits && line.whyIsWaitsOn ? null : <p className={`${typography.panelMeta} text-text-light`}>{line.why}</p>}
           {line.driver === null ? null : (
@@ -273,9 +277,9 @@ export function ViewOnlyRunChancesBlock({ chances }: { chances: ViewOnlyRunChanc
 }
 
 /** The options a reason belongs to, by the names the board holds ("‘A’ and ‘B’: "); nothing for an option with no name. */
-function OptionNames({ optionIds }: { optionIds: readonly string[] }) {
+function OptionNames({ optionIds, labelOf }: { optionIds: readonly string[]; labelOf?: (optionId: string) => string | null }) {
   const names = useCanvasStore(s => optionIds.flatMap(id => {
-    const label = s.nodes.find(n => n.id === id)?.data?.label
+    const label = labelOf !== undefined ? labelOf(id) : s.nodes.find(n => n.id === id)?.data?.label
     return typeof label === 'string' && label.trim() !== '' ? [`‘${label.trim()}’`] : []
   }).join('\u0000'))
   const list = names === '' ? [] : names.split('\u0000')
