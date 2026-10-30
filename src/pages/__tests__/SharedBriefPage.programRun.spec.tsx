@@ -17,7 +17,7 @@ import SharedBriefPage from '../SharedBriefPage'
 
 const view = served.canonical_analysis_view
 const snapshot = (analysis: unknown) => ({
-  graph: { nodes: served.nodes, edges: [] }, analysis, brief_text: 'Should we add a support specialist?',
+  graph: { nodes: served.nodes, edges: [], living_model: { model_program: 'v1' } }, analysis, brief_text: 'Should we add a support specialist?',
   graph_hash: 'f7e50e5fa84c', seed: null, created_at: '2026-10-29T23:40:00+00:00', expires_at: null,
 })
 const renderPage = () => render(
@@ -56,6 +56,23 @@ describe('SharedBriefPage: a program scenario\'s Run', () => {
     renderPage()
     const reason = await screen.findByTestId(`analysis-view-only-reason-${view.options[0].option_id}`)
     expect(reason.textContent).toBe('‘Keep current staffing’: Needs the staffing cost.')
+  })
+
+  it('a program link never falls through to a legacy analysis, even a stale Run with brief keys beside it', async () => {
+    const stale = { ...view, staleness: { ...view.staleness, stale: true }, face_when_stale: 'This result is from an earlier version of the model.' }
+    mockGetSharedSnapshotBySlug.mockResolvedValue(snapshot({ headline: 'An older brief', options: [{ label: 'Old', rank: 1 }], canonical_analysis_view: stale }))
+    renderPage()
+    const run = await screen.findByTestId('shared-snapshot-run')
+    expect(run.textContent).toContain('This result is from an earlier version of the model.')
+    expect(screen.queryByTestId('shared-snapshot-analysis')).toBeNull()
+  })
+
+  it('NEGATIVE: a legacy link (no program) says its own analysis, never a Run block, even with a view beside it', async () => {
+    mockGetSharedSnapshotBySlug.mockResolvedValue({ ...snapshot({ options: [{ label: 'Lease in Leeds', rank: 1, win_probability: 0.8 }], canonical_analysis_view: view }),
+      graph: { nodes: served.nodes, edges: [] } })
+    renderPage()
+    await screen.findByTestId('shared-snapshot-analysis')
+    expect(screen.queryByTestId('shared-snapshot-run')).toBeNull()
   })
 
   it('shows no "Model hash" line', async () => {

@@ -630,7 +630,10 @@ export default function SharedBriefPage() {
     const node = Array.isArray(nodes) ? nodes.find((n) => (n as { id?: unknown } | null)?.id === id) as { label?: unknown } | undefined : undefined
     return typeof node?.label === 'string' && node.label.trim() !== '' ? node.label.trim() : null
   }
-  const runChances = viewOnlyRunChancesOf(null, parseCanonicalAnalysisView(
+  // A model program's link says its Run and nothing else; any other link says its analysis as before (sm4 r2 review).
+  const lm = data.graph !== null && typeof data.graph === 'object' ? (data.graph as { living_model?: unknown }).living_model : undefined
+  const isProgram = lm !== null && typeof lm === 'object' && 'model_program' in (lm as object)
+  const runChances = !isProgram ? null : viewOnlyRunChancesOf(null, parseCanonicalAnalysisView(
     data.analysis !== null && typeof data.analysis === 'object' ? (data.analysis as Record<string, unknown>).canonical_analysis_view : undefined), true)
 
   return (
@@ -668,7 +671,7 @@ export default function SharedBriefPage() {
             <h2 className="text-base font-semibold text-text-header mb-3">What the model says</h2>
             <ViewOnlyRunChancesBlock chances={runChances} labelOf={(id) => optionLabelOf(data.graph, id)} />
           </div>
-        ) : analysis && <AnalysisSection analysis={analysis} />}
+        ) : !isProgram && analysis && <AnalysisSection analysis={analysis} />}
 
         {/* The model */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">

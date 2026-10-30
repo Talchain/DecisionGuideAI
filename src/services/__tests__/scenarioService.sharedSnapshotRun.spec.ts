@@ -66,6 +66,37 @@ describe('createSharedSnapshot: a program scenario', () => {
     expect(view.leader).toBeUndefined()
   })
 
+  it('nested fields are copied by name: an extra id inside a cell, a driver or the goal chance never reaches p_analysis', async () => {
+    const v = structuredClone(served.canonical_analysis_view) as any
+    v.options[0].cell.detail = { ...v.options[0].cell.detail, run_id: 'SECRET-RUN-1' }
+    v.options[0].cell.owner_id = 'SECRET-OWNER-2'
+    v.options[1].main_driver = { kind: 'available', driver: { user_id: 'SECRET-USER-3' }, detail: 'Rests most on staff absence.' }
+    v.goal_chance = { ...v.goal_chance, user_id: 'SECRET-USER-4' }
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'graph', graph: READ_GRAPH, graphHash: RUN_HASH, canonicalAnalysisView: v })
+    const { createSharedSnapshot } = await import('../scenarioService')
+    await createSharedSnapshot('scenario-1')
+    expect(JSON.stringify(sent().p_analysis)).not.toMatch(/SECRET-/)
+    expect(sent().p_analysis.canonical_analysis_view.options[1].main_driver.detail).toBe('Rests most on staff absence.')
+  })
+
+  it('a Run with no line of its own for "not current" gets the plain one when its hash does not match', async () => {
+    const { face_when_stale: _none, ...v } = served.canonical_analysis_view as any
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'graph', graph: READ_GRAPH, graphHash: '0'.repeat(64), canonicalAnalysisView: v })
+    const { createSharedSnapshot, SHARED_NOT_CURRENT_LINE } = await import('../scenarioService')
+    await createSharedSnapshot('scenario-1')
+    expect(sent().p_analysis.canonical_analysis_view.face_when_stale).toBe(SHARED_NOT_CURRENT_LINE)
+  })
+
+  it('NEGATIVE: a legacy scenario shares exactly as before: no scenario read, its own brief', async () => {
+    const brief = { headline: 'Lease in Leeds leads', options: [] }
+    mockSingle.mockResolvedValue({ data: { ...ROW, graph: { nodes: served.nodes, edges: [] }, brief }, error: null })
+    answers(RUN_HASH)
+    const { createSharedSnapshot } = await import('../scenarioService')
+    await createSharedSnapshot('scenario-1')
+    expect(mockFetchScenarioGraph).not.toHaveBeenCalled()
+    expect(sent().p_analysis).toEqual(brief)
+  })
+
   it('a program scenario whose read fails shares the model with NO analysis, never its stale legacy brief', async () => {
     mockSingle.mockResolvedValue({ data: { ...ROW, brief: { headline: 'An older brief', options: [] } }, error: null })
     mockFetchScenarioGraph.mockRejectedValue(new Error('offline'))
