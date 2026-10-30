@@ -725,7 +725,10 @@ async function runStreamedDraftTurn(args: {
     // ⭐ P44 draft-stall (DL forensics 8 Oct): read the saved model before re-sending, even over this turn's preview.
     if (streamOpened && readBackCommittedDraft && readsBackBeforeResend(reason)) {
       await waitBeforeStreamCloseReadback(signal)
-      if (!signal.aborted && (await readBackCommittedDraft({ overPreview: previewOnCanvas, previewFingerprint }))) {
+      const recovered = !signal.aborted && (await readBackCommittedDraft({ overPreview: previewOnCanvas, previewFingerprint }))
+      // A1 witness 4: a read that did not recover is said too (served consoles log warn+), then the re-send goes as before.
+      if (!recovered && !signal.aborted) logger.warn('draft_recovery.stream_close_readback', { outcome: 'not_recovered', reason, turnClientId })
+      if (recovered) {
         logger.warn('draft_recovery.stream_close_readback', { outcome: 'recovered', reason, turnClientId })
         useDraftStore.getState().setDraftStreamPhase('idle', null, null)
         return {

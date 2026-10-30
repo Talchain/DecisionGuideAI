@@ -32,6 +32,7 @@ import { useDraftStore } from '../../stores/draftStore'
 import { scenarioGraphUrl } from '../../../adapters/cee/scenarioGraph'
 import savedRead from './fixtures/capacity-001307-saved-read-20261012T004308Z.json'
 import { ADDITIVE_EXTENSIONS_KEY } from '../../../v5/responseParser'
+import { logger } from '../../../lib/logger'
 
 const mockOpenStream = vi.fn()
 const mockCallV5Turn = vi.fn()
@@ -310,4 +311,43 @@ describe('a confirmed non-send is never read back and still offers the resend', 
     expect(result.current.messages.find((m) => m.role === 'user')?.deliveryState).toBe('failed')
     expect(result.current.lastSendFailure).toMatchObject({ kind: 'not_sent', retryable: true })
   })
+})
+
+// A1 witness 4 (DL, 30 Oct): a read-back that does NOT recover logged nothing a served console can see (production logs
+// warn+, and every non-merge exit logs at debug). It now says so with the same event and fields as the recovered one.
+describe('the read-back says what it found, recovered or not', () => {
+  const readbackWarns = (spy: { mock: { calls: unknown[][] } }) =>
+    spy.mock.calls.filter((c) => c[0] === 'draft_recovery.stream_close_readback').map((c) => c[1] as Record<string, unknown>)
+
+  it('a read-back that finds no saved model warns "not_recovered" with the silence reason, then re-sends', async () => {
+    const warn = vi.spyOn(logger, 'warn')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404 })))
+    mockOpenStream.mockResolvedValue(silentAfterFirstBytes())
+    mockCallV5Turn.mockResolvedValue({ kind: 'parse_error', reason: 'network error: net::ERR_TIMED_OUT' })
+
+    await sendBrief()
+    await settleLookup()
+
+    const warns = readbackWarns(warn)
+    expect(warns).toHaveLength(1)
+    expect(warns[0]).toMatchObject({ outcome: 'not_recovered', turnClientId: turnIdOfStream() })
+    expect(String(warns[0]!.reason)).toMatch(/^silence: /)
+    expect(mockCallV5Turn, 'the re-send still goes out, as before').toHaveBeenCalledTimes(1)
+  }, 30_000)
+
+  it('CONTRAST: a read-back that recovers still warns "recovered", unchanged, and never "not_recovered"', async () => {
+    const warn = vi.spyOn(logger, 'warn')
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => url === scenarioGraphUrl(SCENARIO)
+      ? new Response(JSON.stringify(savedRead), { status: 200, headers: { 'content-type': 'application/json' } })
+      : new Response('{}', { status: 404 })))
+    mockOpenStream.mockResolvedValue(silentAfterFirstBytes())
+    mockCallV5Turn.mockResolvedValue({ kind: 'parse_error', reason: 'network error: net::ERR_TIMED_OUT' })
+
+    await sendBrief()
+    await settleLookup()
+
+    const warns = readbackWarns(warn)
+    expect(warns.map((w) => w.outcome)).toEqual(['recovered'])
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(0)
+  }, 30_000)
 })
