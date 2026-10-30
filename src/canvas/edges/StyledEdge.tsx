@@ -84,11 +84,13 @@ import { isGraphLensEnabled } from '../../flags'
 import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdgeCopy'
 import type { RestsOnMark } from '../artefacts/assumptionMapModel'
 import { RestsOnMarker } from '../artefacts/RestsOnMarker'
-import { PROGRAM_OPERATOR_WORDS, useProgramLinkDirectionUnsettled, useProgramLinkFigure, useProgramLinkOperator, useProgramLinkWords } from '../nodes/shared/savedModelProgram'
+import { PROGRAM_OPERATOR_WORDS, programQuantityOf, teammateFigureWords, useProgramLinkDirectionUnsettled, useProgramLinkFigure, useProgramLinkOperator, useProgramLinkWords } from '../nodes/shared/savedModelProgram'
+import { useSavedGraph } from '../nodes/shared/savedGraph'
 import { LINK_IN_WORDS_NOT_SIZED, linkDirectionAriaLabel } from '../domain/linkWords'
 import { cardMark } from '../nodes/shared/cardMarks'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 import { VALUE_PROVENANCE_LABEL } from '../domain/valueProvenance'
+import { useIsViewer } from '../../lib/viewerMode'
 import { isEdgeFragile as isEdgeFragileFn, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate, type FragileEdgeMatchContext } from '../utils/fragileEdgeMatch'
 import { resolveExistenceDash, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
@@ -418,6 +420,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // A program link says its coefficient in natural units, at rest, in place of the strength words (read body only).
   const ownProgramFigure = useProgramLinkFigure(edgeIdKey)
   const programFigure = linkWords !== null ? null : ownProgramFigure
+  // P1 S3b: a coefficient a teammate gave and the owner approved says whose it is on its link, as its card would (S3): the
+  // same reader over the same saved quantity, in place of the provenance words. Olumi's figure keeps its own words.
+  const savedGraph = useSavedGraph()
+  const isViewer = useIsViewer()
+  const teammateWords = ownProgramFigure !== null ? teammateFigureWords(programQuantityOf(savedGraph, ownProgramFigure.id), isViewer) : null
   // Decision 8 A (Paul, 26 Oct): a definition link says how its part enters the figure: + − × ÷, from the canonical relation.
   const ownProgramOperator = useProgramLinkOperator(String(source), String(target), edgeIdKey)
   const programOperator = linkWords !== null ? null : ownProgramOperator
@@ -2866,13 +2873,16 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // Vision spec §3 (Olumi is its mark, never a sparkle) and the card icon row: Olumi's figure carries the Olumi mark.
             const Mark = programFigure.mark === 'ai' || programFigure.mark === 'accepted' ? cardMark('source-olumi').Icon
               : programFigure.mark ? VALUE_PROVENANCE_ICON[programFigure.mark] : null
-            const title = programFigure.mark ? `${programFigure.words}. ${VALUE_PROVENANCE_LABEL[programFigure.mark]}` : programFigure.words
+            const source = teammateWords !== null && programFigure.mark !== 'ai' && programFigure.mark !== 'accepted' ? teammateWords
+              : programFigure.mark ? VALUE_PROVENANCE_LABEL[programFigure.mark] : null
+            const title = source !== null ? `${programFigure.words}. ${source}` : programFigure.words
             return (
               <button
                 type="button"
                 data-testid="edge-program-figure"
                 data-edge-id={edgeIdKey}
                 data-mark={programFigure.mark ?? undefined}
+                data-quantity-id={programFigure.id}
                 aria-label={title}
                 title={title}
                 className={`nodrag nopan inline-flex h-[calc(20px*var(--canvas-label-scale,1))] items-center gap-1 whitespace-nowrap rounded-full border border-panel-border bg-panel px-1.5 tabular-nums text-text-body shadow-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-info ${typography.edgeLabel}`}
