@@ -605,6 +605,8 @@ function pluralWord(word: string): string {
 export function unitForCount(count: number, words: string): string {
   const rate = /^([a-z]+(?: [a-z]+)*)\s*(?:\/|\bper\b)\s*([a-z]+(?: [a-z]+)*)$/.exec(words.trim())
   if (rate) return `${unitForCount(count, rate[1])} per ${rate[2]}`
+  // A bare rate ("per month", from `1/month`) has no leading noun: the word after "per" is never counted.
+  if (/^per\s/.test(words.trim())) return words
   if (count === 1 || !Number.isFinite(count)) return timeUnitForCount(count, words)
   if (!/^[a-z]+(?: [a-z]+)*$/.test(words)) return words
   const parts = words.split(' ')
