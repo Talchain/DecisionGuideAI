@@ -162,7 +162,8 @@ import { useCanvasResultsSync } from '../../components/results/useCanvasResultsS
 import { ResultsBody } from '../../components/results/ResultsBody'
 import { staleReasonFromTrustSemantic } from '../../components/results/analysisNew/staleReason'
 import { AnalysisNewTabBody } from '../../components/results/analysisNew/AnalysisNewTabBody'
-import { useViewOnlyRunChances, ViewOnlyRunChancesBlock } from '../../components/results/analysisNew/ViewOnlyRunChances'
+import { useProgramBoardShowsResult, useViewOnlyRunChances, ViewOnlyRunChancesBlock } from '../../components/results/analysisNew/ViewOnlyRunChances'
+import { RecordYourView } from '../../components/results/analysisNew/sections/CommitmentSummary'
 import { useSavedModelProgramState } from '../nodes/shared/savedModelProgram'
 import { ViewComparisonPointer } from './model-tab/ViewComparisonPointer'
 import { SectionErrorBoundary } from './SectionErrorBoundary'
@@ -205,7 +206,7 @@ import { selectBoundMayRun, useAnalysisMayRun, useBoundAdmissionWording } from '
 import { useReadinessStore } from '../stores/readinessStore'
 import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer'
 import { AssistantOpenedNotice } from './AssistantOpenedNotice'
-import { DefineSuccessModal, DecisionRecordModal, HowComputedModal } from '../../components/results/modals'
+import { DefineSuccessModal, DecisionRecordModal, HowComputedModal, openDecisionRecord, useDecisionRecordForScenario } from '../../components/results/modals'
 import { useIsViewer } from '../../lib/viewerMode'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
 
@@ -817,6 +818,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // surfaces: while its read is pending or failed a board may be one, and a known program stays one across re-reads.
   const programBoardDock = useSavedModelProgramState() !== 'not_program'
   const viewOnlyChances = programBoardDock ? viewOnlyChancesServed : null
+  // P1 S6b (30 Oct): the person reads a program Run's chances here, so S6's record door sits under them too, on S6's gate
+  // (a bound, current Run; never for a viewer, below). The same modal and read-back; Reasoning keeps its own door.
+  const programShowsResult = useProgramBoardShowsResult()
+  const programDecisionRecord = useDecisionRecordForScenario(currentScenarioIdForRun)
   // ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`): after the first Run, the footer's Re-analyse when the
   // model changed, otherwise the composer icon. Read once here for the composer; the bar reads the same predicate.
   const rerunInputs = useReanalyseBarInputs()
@@ -3709,6 +3714,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 {isPreRun && nodes.length > 0 && viewOnlyChances !== null && (
                   <div className="px-4 py-3" data-testid="outputs-pre-run-view-only">
                     <ViewOnlyRunChancesBlock chances={viewOnlyChances} />
+                    {programShowsResult && (programDecisionRecord !== null || !isViewer) ? (
+                      <div className="mt-3">
+                        <RecordYourView canCapture={!isViewer} record={programDecisionRecord} onRecord={openDecisionRecord} testId="analysis-results-record" />
+                      </div>
+                    ) : null}
                   </div>
                 )}
                 {/* U2 (provisional, pending Paul's design call): a program board with no Run shows CEE's served words only
