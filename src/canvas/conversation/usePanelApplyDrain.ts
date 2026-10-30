@@ -25,6 +25,7 @@
 import { useEffect, useRef } from 'react'
 
 import { buildFactorValueEditEvent } from './factorValueEdit'
+import { useSavedModelProgramState } from '../nodes/shared/savedModelProgram'
 import type { WireSystemEvent } from './types'
 import type { SendTurnOutcome } from './useConversation'
 import {
@@ -103,6 +104,8 @@ export function usePanelApplyDrain({
   sendSystemEvent,
   onApplied,
 }: PanelApplyDrainArgs): void {
+  // A program board's card takes a panel answer as the verified probability; CEE converts it (P1 S2). Unknown = not yet.
+  const programBoard = useSavedModelProgramState() === 'program'
   // Successful action identity, retained when localStorage removal itself is
   // unavailable so a fulfilled send cannot replay during this mount.
   const drainedFor = useRef<string | null>(null)
@@ -124,6 +127,7 @@ export function usePanelApplyDrain({
 
     const event = buildFactorValueEditEvent({
       nodeId: intent.target_id,
+      programCard: programBoard,
       typedValue: intent.value,
       nodeData,
       appliedFrom: {
@@ -178,5 +182,5 @@ export function usePanelApplyDrain({
         // sentence guesses at a server outcome.
         inFlightIntentKeys.delete(key)
       })
-  }, [scenarioId, graphReady, graphRevision, lookupNodeData, sendSystemEvent, onApplied])
+  }, [scenarioId, graphReady, graphRevision, lookupNodeData, sendSystemEvent, onApplied, programBoard])
 }

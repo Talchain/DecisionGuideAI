@@ -566,6 +566,11 @@ export interface FactorValueEditInput {
    * than dropping the field. That is why the CEE pin bump ships and deploys
    * first.
    */
+  /**
+   * The card is on a PROGRAM board (`useSavedModelProgramState() === 'program'`). With `appliedFrom`, the model-scale belt
+   * lets a unit-bearing card through: the event carries the 0–1 probability and no unit, and CEE converts it.
+   */
+  programCard?: boolean
   appliedFrom?: {
     round_id: string
     participant_id: string
@@ -621,8 +626,9 @@ export function buildFactorValueEditEvent(
     // boundary refuses one in `suggested_value`; this catches every OTHER way
     // a number can reach here — a clarification chip, or a future caller.
     if (typedValue < 0 || typedValue > 1) return null
-    // The £40,000 → £0.70 shape. See `isMagnitudeScaledFactor`.
-    if (isMagnitudeScaledFactor(nodeData)) return null
+    // The £40,000 → £0.70 shape. See `isMagnitudeScaledFactor`. Except a panel answer applied to a PROGRAM card: it goes
+    // as the verified 0–1 probability alone, and CEE converts it to that quantity's own unit (P1 S1/S2, 30 Oct).
+    if (isMagnitudeScaledFactor(nodeData) && !(appliedFrom !== undefined && input.programCard === true)) return null
   }
 
   const obs = getObservedState(nodeData)
