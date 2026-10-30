@@ -683,7 +683,10 @@ export async function createSharedSnapshot(
   // The model and its Run come from ONE scenario read, so the link can never pair one version's model with another's Run
   // (sm4 r1 review). Without that read the link carries the saved row's model, as before, and no Run.
   const shared = await sharedRunReadOf(scenarioId)
-  const analysis = shared === null ? brief : { ...(brief ?? {}), canonical_analysis_view: shared.view }
+  // A program scenario's analysis is its Run, never `scenarios.brief`: when its read fails the link carries the model
+  // alone, never an unrelated older brief (PL, 30 Oct).
+  const isProgram = isProgramRowGraph(row.graph)
+  const analysis = shared !== null ? { ...(brief ?? {}), canonical_analysis_view: shared.view } : isProgram ? null : brief
 
   const { data, error } = await supabase.rpc('create_shared_snapshot', {
     p_scenario_id: scenarioId,
@@ -723,6 +726,11 @@ async function sharedRunReadOf(scenarioId: string): Promise<{ graph: unknown; vi
   } catch {
     return null
   }
+}
+
+const isProgramRowGraph = (graph: unknown): boolean => {
+  const lm = (graph as { living_model?: unknown } | null)?.living_model
+  return lm !== null && typeof lm === 'object' && 'model_program' in (lm as object)
 }
 
 /** The link's own Run identity: it names no Run and no model version, and binds the view to itself on the page. */

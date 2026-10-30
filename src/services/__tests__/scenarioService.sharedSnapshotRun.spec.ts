@@ -66,6 +66,15 @@ describe('createSharedSnapshot: a program scenario', () => {
     expect(view.leader).toBeUndefined()
   })
 
+  it('a program scenario whose read fails shares the model with NO analysis, never its stale legacy brief', async () => {
+    mockSingle.mockResolvedValue({ data: { ...ROW, brief: { headline: 'An older brief', options: [] } }, error: null })
+    mockFetchScenarioGraph.mockRejectedValue(new Error('offline'))
+    const { createSharedSnapshot } = await import('../scenarioService')
+    await createSharedSnapshot('scenario-1')
+    expect(sent().p_analysis).toBeNull()
+    expect(sent().p_graph).toEqual(ROW.graph)
+  })
+
   it('NEGATIVE: a read that does not answer shares the model as before (p_analysis null), never a failed share', async () => {
     mockFetchScenarioGraph.mockRejectedValue(new Error('offline'))
     const { createSharedSnapshot } = await import('../scenarioService')
