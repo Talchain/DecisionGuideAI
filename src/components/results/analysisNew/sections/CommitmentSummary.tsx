@@ -526,11 +526,17 @@ export function PreRunCommitment({
   bullets,
   status,
   onAsk,
+  recordDoor,
   testId = 'analysis-new-commitment-pre-run',
 }: {
   bullets: ReadonlyArray<{ key: CommitmentBulletKey; label: string; text: string; source: string }>
   status: ReactNode
   onAsk: (ask: CommitmentAsk) => void
+  /**
+   * P1 S6: a program board's record door. Its Run never completes `results`, so the board stays "pre-run" here while it
+   * shows that Run's chances; the caller passes the door only then. Absent on every other board, as before.
+   */
+  recordDoor?: { canCapture: boolean; record: DecisionRecord | null; onRecord: () => void }
   testId?: string
 }) {
   const context = bullets.map((b) => `${b.label}: ${b.text}`).join('\n')
@@ -565,6 +571,12 @@ export function PreRunCommitment({
         </ul>
       ) : null}
       <div className="mt-2">{status}</div>
+      {/* The post-run zone's own door and read-back (`showRecord`'s rule), under the post-run door's test id. */}
+      {recordDoor !== undefined && (recordDoor.record !== null || recordDoor.canCapture) ? (
+        <div className="mt-3">
+          <RecordYourView {...recordDoor} testId="analysis-new-commitment-record" />
+        </div>
+      ) : null}
     </section>
   )
 }

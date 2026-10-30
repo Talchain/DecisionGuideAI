@@ -70,7 +70,9 @@ import {
   PRIMARY_BUTTON_CLASS,
   useModalToast,
 } from './ModalShell'
-import { selectAnalysedOptions, type AnalysedOption } from './analysedOptions'
+import { selectAnalysedOptions, selectProgramRunOptions, type AnalysedOption } from './analysedOptions'
+import { useProgramBoardShowsResult } from '../analysisNew/ViewOnlyRunChances'
+import { useCanonicalAnalysisViewStore } from '../../../canvas/stores/canonicalAnalysisViewStore'
 import { resolveScenarioKey } from './scenarioKey'
 import {
   isNotReadyRecord,
@@ -243,9 +245,15 @@ export function DecisionRecordModal() {
    * state. Restating the condition there would have been a hand-maintained
    * mirror (CLAUDE.md trap 12); both surfaces derive it from one function.
    */
+  // P1 S6: a program board showing its current Run records against THAT Run's options (CEE anchors the commit to the same
+  // stored Run, S5); a program Run never completes `results`. Every other board reads the set exactly as before.
+  const programShowsResult = useProgramBoardShowsResult()
+  const runOptions = useCanonicalAnalysisViewStore((s) => (s.scenarioId === currentScenarioId ? s.view?.options : undefined))
   const options = useMemo<AnalysedOption[]>(
-    () => selectAnalysedOptions(nodes, resultsStatus, numbering),
-    [nodes, resultsStatus, numbering],
+    () => programShowsResult && runOptions !== undefined
+      ? selectProgramRunOptions(nodes, runOptions.map((o) => o.option_id))
+      : selectAnalysedOptions(nodes, resultsStatus, numbering),
+    [programShowsResult, runOptions, nodes, resultsStatus, numbering],
   )
 
   const hasOptions = options.length > 0
