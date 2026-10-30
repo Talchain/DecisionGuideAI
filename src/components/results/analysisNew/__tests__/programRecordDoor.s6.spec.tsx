@@ -17,11 +17,12 @@ vi.mock('../../../../lib/supabase', () => ({
   supabase: {},
   getSessionIdentity: async () => ({ userId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', accessToken: 'test-access-token' }),
 }))
-/** The saved model as the graph route read it: a program (`model_program: 'v1'`) or, with null, no read (a legacy board). */
-const saved: { graph: unknown } = { graph: null }
+/** The saved model as the graph route read it: a program (`model_program: 'v1'`), with null no read (a legacy board), or a read
+ *  still pending (not yet known either way). */
+const saved: { graph: unknown; pending?: boolean } = { graph: null }
 vi.mock('../../../../canvas/nodes/shared/savedGraph', () => ({
-  useSavedGraph: () => saved.graph,
-  useSavedGraphRead: () => (saved.graph === null ? { status: 'none' } : { status: 'read', graph: saved.graph }),
+  useSavedGraph: () => (saved.pending ? null : saved.graph),
+  useSavedGraphRead: () => (saved.pending ? { status: 'pending' } : saved.graph === null ? { status: 'none' } : { status: 'read', graph: saved.graph }),
 }))
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
@@ -32,6 +33,7 @@ import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import { useCanonicalAnalysisViewStore } from '../../../../canvas/stores/canonicalAnalysisViewStore'
 import { parseCanonicalAnalysisView } from '../../../../canvas/runView/canonicalAnalysisView'
 import { setViewerScenario } from '../../../../lib/viewerMode'
+import { __resetProgramScenariosForTest } from '../../../../canvas/nodes/shared/savedModelProgram'
 import { openStrategicChallenge } from './analysisNewFixtures'
 import capacity from '../../../../canvas/runView/__tests__/fixtures/alpha2-capacity-r1-read.json'
 
@@ -57,6 +59,8 @@ afterEach(() => {
   act(() => setViewerScenario(null))
   useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null })
   saved.graph = null
+  saved.pending = false
+  __resetProgramScenariosForTest()
   vi.unstubAllGlobals()
 })
 
@@ -157,6 +161,50 @@ describe('S6: the decision record door on a program board opens on its own curre
     openAndFill()
     act(() => useCanvasStore.setState({ currentScenarioId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' } as never))
     expect(screen.queryByTestId(DOOR)).toBeNull()
+    await pressSave()
+    expect(commitsSent()).toBe(0)
+  })
+
+  it('(e3) PL 05:04Z: filled on A, the board moves to B with its OWN current view and the same option ids: nothing is sent, even after B’s view arrives, and A’s words never are', async () => {
+    board({ program: true })
+    draw()
+    openAndFill()
+    const B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+    act(() => {
+      useCanvasStore.setState({ currentScenarioId: B, nodes: read.graph.nodes.map(n => ({ id: n.id, type: n.kind, data: { label: n.label } })) } as never)
+      useCanonicalAnalysisViewStore.getState().adopt(B, parseCanonicalAnalysisView({ ...read.canonical_analysis_view, scenario_id: B }))
+    })
+    // B shows its own current Run (its door is offered), so the form's options could come back: only its scenario fences it.
+    expect(screen.getByTestId(DOOR)).toBeInTheDocument()
+    const save = screen.queryByTestId('decision-record-save')
+    if (save !== null) await act(async () => { fireEvent.click(save) })
+    expect(commitsSent()).toBe(0)
+    expect(fetchMock.mock.calls.some((c) => String((c[1] as RequestInit | undefined)?.body ?? '').includes('Weekly capacity reaches 100 tickets'))).toBe(false)
+  })
+
+  it('(f) PL 05:04Z: a known program whose Run is stale, with a legacy completed result held: no options, no Save (never the legacy set)', () => {
+    board({ program: true, view: { staleness: { ...(read.canonical_analysis_view.staleness as object), stale: true, reason: 'graph_changed' }, face_when_stale: STALE_FACE } })
+    act(() => useCanvasStore.setState({ results: { ...useCanvasStore.getState().results, status: 'complete', report: { run_id: 'legacy_run' }, hash: 'legacy_hash' } } as never))
+    draw()
+    act(() => openDecisionRecord())
+    expect(optionsOffered()).toEqual([])
+    expect(screen.getByTestId('decision-record-save')).toBeDisabled()
+  })
+
+  it('(f2) a board not yet known either way (its read pending), with a legacy completed result held: no options, never the legacy set', () => {
+    board({ program: true })
+    saved.pending = true
+    act(() => useCanvasStore.setState({ results: { ...useCanvasStore.getState().results, status: 'complete', report: { run_id: 'legacy_run' }, hash: 'legacy_hash' } } as never))
+    draw()
+    act(() => openDecisionRecord())
+    expect(optionsOffered()).toEqual([])
+  })
+
+  it('(g) PL 05:04Z: the session becomes a viewer while the form is open: no Save, nothing sent', async () => {
+    board({ program: true })
+    draw()
+    openAndFill()
+    act(() => setViewerScenario(read.scenario_id))
     await pressSave()
     expect(commitsSent()).toBe(0)
   })
