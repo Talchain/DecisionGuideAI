@@ -25,7 +25,8 @@
 import { useEffect, useRef } from 'react'
 
 import { buildFactorValueEditEvent } from './factorValueEdit'
-import { useSavedModelProgramState } from '../nodes/shared/savedModelProgram'
+import { programQuantityOf, useSavedModelProgramState } from '../nodes/shared/savedModelProgram'
+import { useSavedGraph } from '../nodes/shared/savedGraph'
 import type { WireSystemEvent } from './types'
 import type { SendTurnOutcome } from './useConversation'
 import {
@@ -56,7 +57,8 @@ export interface PanelApplyDrainArgs {
   /**
    * The node's `data` for the intent's target, read for its OWN cap/unit — the
    * builder needs it to decide the scale. `undefined` when the graph has not
-   * loaded yet, which DEFERS the drain rather than dropping it.
+   * loaded yet, which DEFERS the drain rather than dropping it. A legacy board's
+   * lookup only: a program board finds its target in the saved model (P1 S7).
    */
   lookupNodeData: (targetId: string) => unknown | undefined
   /** The one real turn sender, from the conversation context. */
@@ -106,6 +108,9 @@ export function usePanelApplyDrain({
 }: PanelApplyDrainArgs): void {
   // A program board's card takes a panel answer as the verified probability; CEE converts it (P1 S2). Unknown = not yet.
   const programBoard = useSavedModelProgramState() === 'program'
+  // P1 S7: a program board's target is a canonical quantity, which the board draws as a card, as a link's coefficient or
+  // not at all. It is found in the saved model the board reads, never as a canvas node, and waits while that read pends.
+  const savedGraph = useSavedGraph()
   // Successful action identity, retained when localStorage removal itself is
   // unavailable so a fulfilled send cannot replay during this mount.
   const drainedFor = useRef<string | null>(null)
@@ -122,7 +127,7 @@ export function usePanelApplyDrain({
     // DEFER, do not drop: the graph may still be loading. Returning without
     // stamping `drainedFor` leaves the intent in place for the next render,
     // and the handoff's own staleness bound stops it waiting forever.
-    const nodeData = lookupNodeData(intent.target_id)
+    const nodeData = programBoard ? programQuantityOf(savedGraph, intent.target_id) ?? undefined : lookupNodeData(intent.target_id)
     if (nodeData === undefined) return
 
     const event = buildFactorValueEditEvent({
@@ -182,5 +187,5 @@ export function usePanelApplyDrain({
         // sentence guesses at a server outcome.
         inFlightIntentKeys.delete(key)
       })
-  }, [scenarioId, graphReady, graphRevision, lookupNodeData, sendSystemEvent, onApplied, programBoard])
+  }, [scenarioId, graphReady, graphRevision, lookupNodeData, sendSystemEvent, onApplied, programBoard, savedGraph])
 }
