@@ -375,22 +375,26 @@ export default function PanelSetupPage(): JSX.Element {
     { id: prefill?.factorId ?? '', label: prefill?.label ?? '' },
   ])
   const [contextNote, setContextNote] = useState('')
-  // A model program's figures a panel can answer, by label (S4); null for any other scenario, which keeps the id field.
-  const [quantities, setQuantities] = useState<PanelQuantity[] | null>(null)
+  // Which figures a panel can be asked (S4), known only once the saved model is read: a program offers its figures by label;
+  // any other scenario keeps the id field. Until the read answers, or if it fails, nothing can be asked (S4 r1 review).
+  const [figures, setFigures] = useState<{ status: 'loading' | 'legacy' | 'failed' } | { status: 'program'; list: PanelQuantity[] }>({ status: 'loading' })
+  const quantities = figures.status === 'program' ? figures.list : null
   useEffect(() => {
     if (!scenarioId) return
     let live = true
+    setFigures({ status: 'loading' })
     loadScenario(scenarioId).then((row) => {
+      if (!live) return
       const listed = row === null ? null : panelAnswerableQuantities(row.graph)
-      if (!live || listed === null) return
-      setQuantities(listed)
+      if (listed === null) { setFigures({ status: 'legacy' }); return }
+      setFigures({ status: 'program', list: listed })
       // A prefilled card that is not a figure a panel can answer is not offered: the picker starts empty.
       const byId = new Map(listed.map((q) => [q.id, q]))
       setTargets((prev) => prev.map((t) => {
         const q = byId.get(t.id)
         return t.id === '' ? t : q === undefined ? { id: '', label: '' } : t.label === '' ? { id: t.id, label: q.label } : t
       }))
-    }).catch(() => undefined)
+    }).catch(() => { if (live) setFigures({ status: 'failed' }) })
     return () => { live = false }
   }, [scenarioId])
   const [names, setNames] = useState<string[]>(() => ['', ''])
@@ -780,7 +784,11 @@ export default function PanelSetupPage(): JSX.Element {
                           ? 'Which factor should they estimate?'
                           : `Factor ${i + 1}`}
                       </label>
-                      {quantities !== null ? (
+                      {figures.status === 'loading' || figures.status === 'failed' ? (
+                        <p data-testid={idTestId} className={`${typography.body} mt-2 ${figures.status === 'failed' ? 'text-warning' : 'text-text-light'}`}>
+                          {figures.status === 'failed' ? 'The figures couldn’t be loaded. Try again in a moment.' : 'Loading the figures in your model…'}
+                        </p>
+                      ) : quantities !== null ? (
                         <select
                           id={`${idTestId}-input`}
                           data-testid={idTestId}
@@ -804,7 +812,7 @@ export default function PanelSetupPage(): JSX.Element {
                         placeholder="factor-churn-risk"
                       />
                       )}
-                      {i === 0 && quantities === null && (
+                      {i === 0 && figures.status === 'legacy' && (
                         <p
                           id="panel-target-id-hint"
                           data-testid="panel-target-id-hint"
@@ -1000,7 +1008,7 @@ export default function PanelSetupPage(): JSX.Element {
                 <Button
                   data-testid="panel-mint"
                   onClick={handleMint}
-                  disabled={busyAction !== null || !anyTargetNamed}
+                  disabled={busyAction !== null || !anyTargetNamed || figures.status === 'loading' || figures.status === 'failed'}
                 >
                   Open the round
                 </Button>

@@ -21,6 +21,9 @@
  * ⚠ jsdom proves behaviour and presence, never visibility.
  */
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
+
+// S4: round setup reads the saved model; these rows are about a scenario that is not a program.
+vi.mock('../../services/scenarioService', async (importOriginal) => ({ ...(await importOriginal<object>()), loadScenario: async () => ({ id: 'legacy', graph: { nodes: [], edges: [] } }) }))
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
@@ -65,7 +68,7 @@ const EMPTY_REVEAL = {
   per_target: [],
 }
 
-function renderOwnerPanel(): void {
+async function renderOwnerPanel(): Promise<void> {
   render(
     <MemoryRouter initialEntries={[`/scenario/${SCENARIO_ID}/panel`]}>
       <Routes>
@@ -73,6 +76,8 @@ function renderOwnerPanel(): void {
       </Routes>
     </MemoryRouter>,
   )
+  // S4: the form appears once the saved model is read (here: not a program, so the id field).
+  await waitFor(() => expect(screen.getByTestId('panel-target-id').tagName).toBe('INPUT'))
 }
 
 function seedRecord(): void {
@@ -121,7 +126,7 @@ describe('minting writes a non-secret open-round record', () => {
       if (String(input) === '/bff/collab/rounds') return jsonResponse(MINT_RESPONSE, 201)
       return jsonResponse({ code: 'not_stubbed', message: String(input) }, 404)
     })
-    renderOwnerPanel()
+    await renderOwnerPanel()
     await mintARound()
 
     const record = recallOpenRound(SCENARIO_ID)
@@ -146,9 +151,9 @@ describe('minting writes a non-secret open-round record', () => {
 /* ══ Returning to the page with an open round on record ═══════════════════ */
 
 describe('the recovery banner', () => {
-  it('shows the recorded round — names on the banner, and the form still below it (the re-mint path)', () => {
+  it('shows the recorded round — names on the banner, and the form still below it (the re-mint path)', async () => {
     seedRecord()
-    renderOwnerPanel()
+    await renderOwnerPanel()
 
     const banner = screen.getByTestId('panel-resume')
     expect(within(banner).getByText(/Ada/)).toBeInTheDocument()
@@ -159,25 +164,25 @@ describe('the recovery banner', () => {
     expect(screen.getByTestId('panel-mint')).toBeInTheDocument()
   })
 
-  it('is honest that the old links cannot be shown again', () => {
+  it('is honest that the old links cannot be shown again', async () => {
     seedRecord()
-    renderOwnerPanel()
+    await renderOwnerPanel()
     expect(screen.getByTestId('panel-resume')).toHaveTextContent(/cannot be shown again/i)
   })
 
-  it('does not render without a record — the form is the positive control', () => {
-    renderOwnerPanel()
+  it('does not render without a record — the form is the positive control', async () => {
+    await renderOwnerPanel()
     expect(screen.queryByTestId('panel-resume')).toBeNull()
     expect(screen.getByTestId('panel-target-id')).toBeInTheDocument()
   })
 
-  it('DIFFERENT OBJECT: a record for ANOTHER scenario does not raise this page’s banner', () => {
+  it('DIFFERENT OBJECT: a record for ANOTHER scenario does not raise this page’s banner', async () => {
     rememberOpenRound({
       roundId: 'rnd-elsewhere-42',
       scenarioId: 'scn-some-other-scenario',
       participants: [{ participant_id: 'p-z', display_name: 'Zed' }],
     })
-    renderOwnerPanel()
+    await renderOwnerPanel()
     expect(screen.queryByTestId('panel-resume')).toBeNull()
   })
 })
@@ -198,7 +203,7 @@ describe('closing the recorded round', () => {
       return jsonResponse({ code: 'not_stubbed', message: url }, 404)
     })
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fireEvent.click(screen.getByTestId('panel-resume-close'))
 
     await waitFor(() => expect(screen.getByTestId('collab-reveal')).toBeInTheDocument())
@@ -228,7 +233,7 @@ describe('closing the recorded round', () => {
       return jsonResponse({ code: 'not_stubbed', message: url }, 404)
     })
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fireEvent.click(screen.getByTestId('panel-resume-close'))
 
     await waitFor(() => expect(screen.getByTestId('collab-reveal')).toBeInTheDocument())
@@ -254,7 +259,7 @@ describe('closing the recorded round', () => {
       return jsonResponse({ code: 'not_stubbed', message: url }, 404)
     })
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fireEvent.click(screen.getByTestId('panel-resume-close'))
 
     await waitFor(() => expect(screen.getByTestId('panel-error')).toBeInTheDocument())
@@ -286,7 +291,7 @@ describe('closing a round whose record has been superseded (two tabs)', () => {
       return jsonResponse({ code: 'not_stubbed', message: url }, 404)
     })
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     await mintARound() // this tab's round: MINTED_ROUND_ID (R1), record = R1
 
     // Tab B mints R2 for the same scenario — latest-wins overwrite.
@@ -316,7 +321,7 @@ describe('closing a round whose record has been superseded (two tabs)', () => {
       return jsonResponse({ code: 'not_stubbed', message: url }, 404)
     })
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     await mintARound() // record = R1, closing R1
     expect(recallOpenRound(SCENARIO_ID)?.round_id).toBe(MINTED_ROUND_ID)
 
@@ -332,7 +337,7 @@ describe('closing a round whose record has been superseded (two tabs)', () => {
 describe('forgetting the recorded round', () => {
   it('clears the reminder locally and sends NOTHING on the collab wire', async () => {
     seedRecord()
-    renderOwnerPanel()
+    await renderOwnerPanel()
 
     fireEvent.click(screen.getByTestId('panel-resume-forget'))
 
@@ -360,7 +365,7 @@ describe('closing from the fresh-mint state', () => {
       return jsonResponse({ code: 'not_stubbed', message: url }, 404)
     })
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     await mintARound()
     expect(recallOpenRound(SCENARIO_ID)?.round_id).toBe(MINTED_ROUND_ID)
 

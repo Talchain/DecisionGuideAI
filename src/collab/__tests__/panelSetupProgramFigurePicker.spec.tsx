@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import served from '../../pages/__tests__/fixtures/panel-quantities.json'
 
 vi.mock('../../lib/supabase', async (importOriginal) => {
@@ -97,6 +97,35 @@ describe('S4: a program scenario offers its panel-answerable figures by label', 
     expect(picker().value).toBe('')
     // The form holds no target either: the round cannot be opened on the worked-out figure.
     await waitFor(() => expect(screen.getByTestId('panel-mint')).toBeDisabled())
+  })
+
+  it('while the figures load: a loading line, no free-text field, and the round cannot be opened', async () => {
+    svc.loadScenario.mockReturnValue(new Promise(() => undefined))
+    renderPage('?factor=monthly_churn_rate')
+    expect(screen.getByTestId('panel-target-id').tagName).toBe('P')
+    expect(screen.getByTestId('panel-target-id').textContent).toBe('Loading the figures in your model…')
+    fireEvent.change(screen.getByTestId('panel-name-a'), { target: { value: 'Ana' } })
+    expect(screen.getByTestId('panel-mint')).toBeDisabled()
+  })
+
+  it('when the figures cannot be loaded: says so plainly, and the round cannot be opened', async () => {
+    svc.loadScenario.mockRejectedValue(new Error('offline'))
+    renderPage('?factor=monthly_churn')
+    await waitFor(() => expect(screen.getByTestId('panel-target-id').textContent).toBe('The figures couldn’t be loaded. Try again in a moment.'))
+    expect(screen.getByTestId('panel-mint')).toBeDisabled()
+  })
+
+  it('program A, then a legacy B in the same page (no remount): B gets the id field', async () => {
+    svc.loadScenario.mockImplementation(async (id: string) => (id === SCENARIO_ID ? programRow : { id, graph: { nodes: [], edges: [] } }))
+    function GoToB() { const go = useNavigate(); return <button data-testid="go-b" onClick={() => go('/scenario/legacy-b/panel')}>B</button> }
+    render(
+      <MemoryRouter initialEntries={[`/scenario/${SCENARIO_ID}/panel`]}>
+        <GoToB /><Routes><Route path="/scenario/:id/panel" element={<PanelSetupPage />} /></Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(picker().tagName).toBe('SELECT'))
+    fireEvent.click(screen.getByTestId('go-b'))
+    await waitFor(() => expect(screen.getByTestId('panel-target-id').tagName).toBe('INPUT'))
   })
 
   it('NEGATIVE: a scenario that is not a program keeps the id field', async () => {

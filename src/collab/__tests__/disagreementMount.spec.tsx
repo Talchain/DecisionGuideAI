@@ -25,6 +25,9 @@
  * absent twin.
  */
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
+
+// S4: round setup reads the saved model; these rows are about a scenario that is not a program.
+vi.mock('../../services/scenarioService', async (importOriginal) => ({ ...(await importOriginal<object>()), loadScenario: async () => ({ id: 'legacy', graph: { nodes: [], edges: [] } }) }))
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { readFileSync } from 'node:fs'

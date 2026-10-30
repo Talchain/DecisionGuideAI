@@ -22,6 +22,9 @@
  * smuggle one in.
  */
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
+
+// S4: round setup reads the saved model; these rows are about a scenario that is not a program.
+vi.mock('../../services/scenarioService', async (importOriginal) => ({ ...(await importOriginal<object>()), loadScenario: async () => ({ id: 'legacy', graph: { nodes: [], edges: [] } }) }))
 import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -55,7 +58,7 @@ function jsonResponse(body: unknown, status = 200): StubResponse {
   return { ok: status >= 200 && status < 300, status, json: async () => body }
 }
 
-function renderAt(search: string): void {
+async function renderAt(search: string): Promise<void> {
   render(
     <MemoryRouter initialEntries={[`/scenario/${SCENARIO_ID}/panel${search}`]}>
       <Routes>
@@ -63,6 +66,8 @@ function renderAt(search: string): void {
       </Routes>
     </MemoryRouter>,
   )
+  // S4: the form appears once the saved model is read (here: not a program, so the id field).
+  await waitFor(() => expect(screen.getByTestId('panel-target-id').tagName).toBe('INPUT'))
 }
 
 /** The one mint request's parsed JSON body, selected by its own URL. */
@@ -103,19 +108,19 @@ afterEach(() => {
 })
 
 describe('the prefill lands in the form', () => {
-  it('arriving with ?factor&label&unit pre-fills the target id and label inputs', () => {
-    renderAt(PREFILL_SEARCH)
+  it('arriving with ?factor&label&unit pre-fills the target id and label inputs', async () => {
+    await renderAt(PREFILL_SEARCH)
     expect(screen.getByTestId('panel-target-id')).toHaveValue(PREFILLED_FACTOR)
     expect(screen.getByTestId('panel-target-label')).toHaveValue(PREFILLED_LABEL)
   })
 
-  it('says the form was pre-filled from the model (and the owner may change it)', () => {
-    renderAt(PREFILL_SEARCH)
+  it('says the form was pre-filled from the model (and the owner may change it)', async () => {
+    await renderAt(PREFILL_SEARCH)
     expect(screen.getByTestId('panel-prefill-note')).toBeInTheDocument()
   })
 
-  it('BARE HASH UNCHANGED: no query → empty inputs, no prefill note (every existing caller)', () => {
-    renderAt('')
+  it('BARE HASH UNCHANGED: no query → empty inputs, no prefill note (every existing caller)', async () => {
+    await renderAt('')
     expect(screen.getByTestId('panel-target-id')).toHaveValue('')
     expect(screen.getByTestId('panel-target-label')).toHaveValue('')
     expect(screen.queryByTestId('panel-prefill-note')).toBeNull()
@@ -124,7 +129,7 @@ describe('the prefill lands in the form', () => {
 
 describe('the mint is bound to the prefill by IDENTITY', () => {
   it('DISCRIMINATING: prefill factor A → the minted round targets A, byte-exact, unit riding', async () => {
-    renderAt(PREFILL_SEARCH)
+    await renderAt(PREFILL_SEARCH)
     await mint()
 
     const body = mintBody()
@@ -140,7 +145,7 @@ describe('the mint is bound to the prefill by IDENTITY', () => {
   })
 
   it('RETARGET: editing the id to factor B mints B (the edit wins) and DROPS the unit (it described A)', async () => {
-    renderAt(PREFILL_SEARCH)
+    await renderAt(PREFILL_SEARCH)
     fireEvent.change(screen.getByTestId('panel-target-id'), {
       target: { value: RETARGETED_FACTOR },
     })
@@ -157,7 +162,7 @@ describe('the mint is bound to the prefill by IDENTITY', () => {
   })
 
   it('NO VALUE ANYWHERE: the prefilled mint body carries no value-bearing field (blindness inherited, not re-implemented)', async () => {
-    renderAt(PREFILL_SEARCH)
+    await renderAt(PREFILL_SEARCH)
     await mint()
 
     const raw = JSON.stringify(mintBody())
@@ -169,7 +174,7 @@ describe('the mint is bound to the prefill by IDENTITY', () => {
   })
 
   it('HAND-TYPED PATH UNCHANGED: bare hash + typed id mints exactly the typed id with unit null', async () => {
-    renderAt('')
+    await renderAt('')
     fireEvent.change(screen.getByTestId('panel-target-id'), {
       target: { value: RETARGETED_FACTOR },
     })
