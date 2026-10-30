@@ -1524,6 +1524,12 @@ export function AnalysisNewTabBody({
   /** DL (23 Oct): on a program board showing that Run's result, the slot offers no "Run the analysis" (the host runs it). */
   const programShowsResult = useProgramBoardShowsResult()
   /**
+   * P1 S6 (30 Oct): `canCaptureDecision` needs `results.status === 'complete'`, which a program Run never writes. A program
+   * board showing its own bound, current Run offers the door on THAT Run instead (CEE anchors the commit to it, S5); a viewer
+   * never. Every other board is unchanged.
+   */
+  const programCanCapture = programShowsResult && !isViewer
+  /**
    * U2, as the dock's Analysis slot does (OutputsDock): a board that may be a program (known one, or its read pending or
    * failed) says CEE's served words here or nothing, never the legacy lines ("No analysis has run yet for this model.").
    */
@@ -2894,6 +2900,7 @@ export function AnalysisNewTabBody({
             })}
             status={preRunStatus}
             onAsk={openAskOlumi}
+            recordDoor={programShowsResult ? { canCapture: programCanCapture, record: decisionRecord, onRecord: openDecisionRecord } : undefined}
           />
         ) : (
         <div className="space-y-2" data-testid="analysis-new-zone-answer-group">

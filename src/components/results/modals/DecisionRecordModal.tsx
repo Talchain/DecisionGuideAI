@@ -70,7 +70,11 @@ import {
   PRIMARY_BUTTON_CLASS,
   useModalToast,
 } from './ModalShell'
-import { selectAnalysedOptions, type AnalysedOption } from './analysedOptions'
+import { selectAnalysedOptions, selectProgramRunOptions, type AnalysedOption } from './analysedOptions'
+import { useProgramBoardShowsResult } from '../analysisNew/ViewOnlyRunChances'
+import { useCanonicalAnalysisViewStore } from '../../../canvas/stores/canonicalAnalysisViewStore'
+import { useSavedModelProgramState } from '../../../canvas/nodes/shared/savedModelProgram'
+import { useIsViewer } from '../../../lib/viewerMode'
 import { resolveScenarioKey } from './scenarioKey'
 import {
   isNotReadyRecord,
@@ -243,9 +247,21 @@ export function DecisionRecordModal() {
    * state. Restating the condition there would have been a hand-maintained
    * mirror (CLAUDE.md trap 12); both surfaces derive it from one function.
    */
+  // P1 S6: a program board records against its current Run's options (CEE anchors the commit to the same stored Run, S5);
+  // a program Run never completes `results`. r2 (PL 05:04Z): the saved model's program state decides the source. A known
+  // program offers only its bound, current Run's options, and never to a viewer; a board not yet known either way (its read
+  // pending or failed) offers none, never the legacy set; only a board known not to be a program reads it as before.
+  const programState = useSavedModelProgramState()
+  const isViewer = useIsViewer()
+  const programShowsResult = useProgramBoardShowsResult()
+  const runOptions = useCanonicalAnalysisViewStore((s) => (s.scenarioId === currentScenarioId ? s.view?.options : undefined))
   const options = useMemo<AnalysedOption[]>(
-    () => selectAnalysedOptions(nodes, resultsStatus, numbering),
-    [nodes, resultsStatus, numbering],
+    () => programState === 'not_program'
+      ? selectAnalysedOptions(nodes, resultsStatus, numbering)
+      : programState === 'program' && programShowsResult && !isViewer && runOptions !== undefined
+        ? selectProgramRunOptions(nodes, runOptions.map((o) => o.option_id))
+        : [],
+    [programState, programShowsResult, isViewer, runOptions, nodes, resultsStatus, numbering],
   )
 
   const hasOptions = options.length > 0
@@ -282,6 +298,8 @@ export function DecisionRecordModal() {
     assumption?: boolean
   }>({})
   const saveFiredRef = useRef(false)
+  /** The scenario this form was opened on (S6 r2): the only scenario it may be saved for. */
+  const openedForRef = useRef<string | null>(null)
 
   // Hydrate on open: an existing record for this scenario prefills the form
   // (its option only if still analysed); otherwise NO option is chosen. A
@@ -291,7 +309,8 @@ export function DecisionRecordModal() {
     if (!isOpen) return
     saveFiredRef.current = false
     setSaving(false)
-    const scenarioKey = resolveScenarioKey(useCanvasStore.getState().currentScenarioId)
+    openedForRef.current = useCanvasStore.getState().currentScenarioId
+    const scenarioKey = resolveScenarioKey(openedForRef.current)
     const saved = selectDecisionRecord(useDecisionRecordStore.getState(), scenarioKey)
     if (saved && isNotReadyRecord(saved)) {
       // A not-ready record has no option, confidence or expectation to
@@ -332,6 +351,13 @@ export function DecisionRecordModal() {
     // completing must not clobber the user's draft.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
+
+  // P1 S6 r2 (PL 05:04Z): the form belongs to the scenario it was opened on (set above, which runs first). A scenario change
+  // closes it, and Save refuses below unless the board is still that scenario: one scenario's words are never recorded
+  // against another scenario's Run, even when the new one offers the same option ids.
+  useEffect(() => {
+    if (isOpen && currentScenarioId !== openedForRef.current) close()
+  }, [isOpen, currentScenarioId, close])
 
   const parsedConfidence = parseConfidence(confidence)
   const confidenceValid =
@@ -379,6 +405,8 @@ export function DecisionRecordModal() {
       })
       return
     }
+    // S6 r2: the form's own scenario, or nothing is kept or sent.
+    if (useCanvasStore.getState().currentScenarioId !== openedForRef.current) { close(); return }
     if (saveFiredRef.current) return
     saveFiredRef.current = true
 

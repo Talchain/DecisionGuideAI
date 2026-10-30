@@ -118,3 +118,20 @@ export function selectAnalysedOptions(
     ? [...mapped].sort((a, b) => (a.number as number) - (b.number as number))
     : mapped
 }
+
+/**
+ * P1 S6 (30 Oct): a PROGRAM board's analysed set is its current Run's own options (`canonical_analysis_view.options`), in
+ * the Run's order, each named by its option node on the canvas. A program Run never completes `results`, so
+ * `selectAnalysedOptions` is empty there; the caller asks this only on a program board showing that Run
+ * (`useProgramBoardShowsResult`). An option with no node label is left out, never named by its id. No numbering: the
+ * program board numbers no option.
+ */
+export function selectProgramRunOptions(
+  nodes: ReadonlyArray<OptionCandidateNode> | undefined,
+  runOptionIds: ReadonlyArray<string>,
+): AnalysedOption[] {
+  return runOptionIds.flatMap((id) => {
+    const label = (nodes?.find((n) => n.id === id)?.data as Record<string, unknown> | undefined)?.label
+    return typeof label === 'string' && label.trim() !== '' ? [{ id, label, number: null }] : []
+  })
+}
