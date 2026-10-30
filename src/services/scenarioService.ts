@@ -762,8 +762,9 @@ export function publicGraphOf(graph: unknown): Record<string, unknown> {
       const e = (raw ?? {}) as Record<string, unknown>
       return pick({ id: str(e.id), from: str(e.from), to: str(e.to), source: str(e.source), target: str(e.target) })
     }),
-    living_model: lm === null || !('model_program' in lm) ? undefined : {
-      model_program: str(lm.model_program) ?? null,
+    // A legacy link keeps its notes too (the page reads them on every link); only a program carries the marker (p_graph r2).
+    living_model: lm === null ? undefined : pick({
+      model_program: 'model_program' in lm ? str(lm.model_program) ?? null : undefined,
       canonical: Object.fromEntries(NOTE_FAMILIES.map((family) => [family, (Array.isArray(canonical[family]) ? canonical[family] as unknown[] : [])
         .map((raw) => {
           const r = (raw ?? {}) as Record<string, unknown>
@@ -772,7 +773,7 @@ export function publicGraphOf(graph: unknown): Record<string, unknown> {
             concerns: Array.isArray(r.concerns) ? r.concerns.filter((c): c is string => typeof c === 'string') : undefined,
             author: r.author === 'olumi' || r.author === 'person' ? r.author : undefined })
         })])),
-    },
+    }),
   })
 }
 

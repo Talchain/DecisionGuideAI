@@ -59,5 +59,22 @@ describe('publicGraphOf: the model a share link carries', () => {
     expect(screen.getByTestId('shared-snapshot-run')).toBeTruthy()
     expect(screen.queryByTestId('shared-snapshot-analysis')).toBeNull()
     for (const o of run.canonical_analysis_view.options) expect(text).toContain(o.cell.face)
+    // Each option is named in the Run block by its snapshot card's label (p_graph r2, independent read).
+    const block = screen.getByTestId('shared-snapshot-run').textContent ?? ''
+    for (const o of run.canonical_analysis_view.options) {
+      const label = (run.nodes as Array<{ id: string; label?: string }>).find((n) => n.id === o.option_id)?.label
+      expect(label).toBeTruthy()
+      expect(block).toContain(label)
+    }
+  })
+
+  it('CONTRAST: a legacy link keeps its notes and stays legacy (p_graph r2: the page reads notes on every link)', async () => {
+    const legacy = { nodes: [{ id: 'o1', kind: 'option', label: 'Lease' }], edges: [],
+      living_model: { canonical: { assumptions: [{ id: 'a1', text: 'Rent stays flat.', author: 'olumi', concerns: ['o1'] }] } } }
+    const projected = publicGraphOf(legacy)
+    expect('model_program' in (projected.living_model as object)).toBe(false)
+    const whole = await pageText(legacy)
+    expect(await pageText(projected)).toBe(whole)
+    expect(whole).toContain('Rent stays flat.')
   })
 })
