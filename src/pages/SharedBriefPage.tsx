@@ -634,7 +634,7 @@ export default function SharedBriefPage() {
   const lm = data.graph !== null && typeof data.graph === 'object' ? (data.graph as { living_model?: unknown }).living_model : undefined
   const isProgram = lm !== null && typeof lm === 'object' && 'model_program' in (lm as object)
   const runChances = !isProgram ? null : viewOnlyRunChancesOf(null, parseCanonicalAnalysisView(
-    data.analysis !== null && typeof data.analysis === 'object' ? (data.analysis as Record<string, unknown>).canonical_analysis_view : undefined), true)
+    data.analysis !== null && typeof data.analysis === 'object' ? (data.analysis as Record<string, unknown>).public_run_view : undefined), true)
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 sm:p-8">

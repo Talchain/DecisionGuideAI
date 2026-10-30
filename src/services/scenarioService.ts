@@ -686,7 +686,7 @@ export async function createSharedSnapshot(
   const shared = isProgram ? await sharedRunReadOf(scenarioId) : null
   // A program scenario's analysis is its Run, never `scenarios.brief`: when its read fails the link carries the model
   // alone, never an unrelated older brief (PL, 30 Oct).
-  const analysis = !isProgram ? brief : shared === null ? null : { canonical_analysis_view: shared.view }
+  const analysis = !isProgram ? brief : shared === null ? null : { public_run_view: shared.view }
 
   const { data, error } = await supabase.rpc('create_shared_snapshot', {
     p_scenario_id: scenarioId,

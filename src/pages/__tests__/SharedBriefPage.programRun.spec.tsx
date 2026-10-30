@@ -28,7 +28,7 @@ describe('SharedBriefPage: a program scenario\'s Run', () => {
   beforeEach(() => mockGetSharedSnapshotBySlug.mockReset())
 
   it('says each option\'s chance, its driver reason and CEE\'s most-likely words, verbatim from the served view', async () => {
-    mockGetSharedSnapshotBySlug.mockResolvedValue(snapshot({ canonical_analysis_view: view }))
+    mockGetSharedSnapshotBySlug.mockResolvedValue(snapshot({ public_run_view: view }))
     renderPage()
     const run = await screen.findByTestId('shared-snapshot-run')
     for (const o of view.options) expect(run.textContent).toContain(o.cell.face)
@@ -38,7 +38,7 @@ describe('SharedBriefPage: a program scenario\'s Run', () => {
 
   it('a Run that is no longer current says CEE\'s not-current line first, never as a current result', async () => {
     const stale = { ...view, staleness: { ...view.staleness, stale: true }, face_when_stale: 'This result is from before the model changed. Run again to see the current result.' }
-    mockGetSharedSnapshotBySlug.mockResolvedValue(snapshot({ canonical_analysis_view: stale }))
+    mockGetSharedSnapshotBySlug.mockResolvedValue(snapshot({ public_run_view: stale }))
     renderPage()
     const run = await screen.findByTestId('shared-snapshot-run')
     expect(run.textContent?.startsWith('What the model says' + stale.face_when_stale)).toBe(true)
@@ -52,7 +52,7 @@ describe('SharedBriefPage: a program scenario\'s Run', () => {
       goal_chance: { ...view.goal_chance, waits_on: [{ id: 'w1', label: 'Staffing cost', answer: null }] },
       leader: undefined,
     }
-    mockGetSharedSnapshotBySlug.mockResolvedValue(snapshot({ canonical_analysis_view: withheld }))
+    mockGetSharedSnapshotBySlug.mockResolvedValue(snapshot({ public_run_view: withheld }))
     renderPage()
     const reason = await screen.findByTestId(`analysis-view-only-reason-${view.options[0].option_id}`)
     expect(reason.textContent).toBe('‘Keep current staffing’: Needs the staffing cost.')
@@ -60,7 +60,7 @@ describe('SharedBriefPage: a program scenario\'s Run', () => {
 
   it('a program link never falls through to a legacy analysis, even a stale Run with brief keys beside it', async () => {
     const stale = { ...view, staleness: { ...view.staleness, stale: true }, face_when_stale: 'This result is from an earlier version of the model.' }
-    mockGetSharedSnapshotBySlug.mockResolvedValue(snapshot({ headline: 'An older brief', options: [{ label: 'Old', rank: 1 }], canonical_analysis_view: stale }))
+    mockGetSharedSnapshotBySlug.mockResolvedValue(snapshot({ headline: 'An older brief', options: [{ label: 'Old', rank: 1 }], public_run_view: stale }))
     renderPage()
     const run = await screen.findByTestId('shared-snapshot-run')
     expect(run.textContent).toContain('This result is from an earlier version of the model.')
@@ -68,7 +68,7 @@ describe('SharedBriefPage: a program scenario\'s Run', () => {
   })
 
   it('NEGATIVE: a legacy link (no program) says its own analysis, never a Run block, even with a view beside it', async () => {
-    mockGetSharedSnapshotBySlug.mockResolvedValue({ ...snapshot({ options: [{ label: 'Lease in Leeds', rank: 1, win_probability: 0.8 }], canonical_analysis_view: view }),
+    mockGetSharedSnapshotBySlug.mockResolvedValue({ ...snapshot({ options: [{ label: 'Lease in Leeds', rank: 1, win_probability: 0.8 }], public_run_view: view }),
       graph: { nodes: served.nodes, edges: [] } })
     renderPage()
     await screen.findByTestId('shared-snapshot-analysis')
@@ -76,7 +76,7 @@ describe('SharedBriefPage: a program scenario\'s Run', () => {
   })
 
   it('shows no "Model hash" line', async () => {
-    mockGetSharedSnapshotBySlug.mockResolvedValue(snapshot({ canonical_analysis_view: view }))
+    mockGetSharedSnapshotBySlug.mockResolvedValue(snapshot({ public_run_view: view }))
     renderPage()
     await screen.findByTestId('shared-snapshot-run')
     expect(document.body.textContent).not.toContain('Model hash')
