@@ -69,10 +69,12 @@ vi.mock('../../../lib/supabase', () => ({
   getSessionIdentity: async () => ({ userId: null, accessToken: null }),
 }))
 vi.mock('../../../services/scenarioService', () => ({ loadScenario: async () => null }))
-// A1: the one recovery lookup goes out at once (served: 3 s after the notice), so its outcome is read in the same test.
+// A1: the one recovery lookup goes out at once (served: 3 s after the notice), so its outcome is read in the same test; a
+// row that acts during the delay lengthens it.
+const replayTiming = vi.hoisted(() => ({ delayMs: 0 }))
 vi.mock('../coreStillFinishing', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../coreStillFinishing')>()),
-  STILL_FINISHING_REPLAY_DELAY_MS: 0,
+  get STILL_FINISHING_REPLAY_DELAY_MS() { return replayTiming.delayMs },
 }))
 
 /** The served capacity scenario and its saved model, bound by identity. */
@@ -223,6 +225,45 @@ describe('A1 (PL 23:51Z): after the read-back, ONE replay_only lookup brings bac
     expect(contents).toContain('Recorded reply: check the specialist range first.')
     expect(contents).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
     expect(result.current.messages.filter((m) => m.role === 'user')).toHaveLength(1)
+  }, 30_000)
+
+  it.each([
+    ['a scenario switch', () => useCanvasStore.setState({ currentScenarioId: 'another-scenario' } as never)],
+    ['an edit to the saved model (a new revision)', () => useCanvasStore.setState({ lastServerGraphHash: 'a-newer-revision' } as never)],
+  ])('independent read r1: %s during the delay sends no lookup at all, and the recorded reply never lands', async (_name, happen) => {
+    stubGraphReads()
+    mockOpenStream.mockResolvedValue(silentAfterFirstBytes())
+    mockCallV5Turn.mockImplementation(async () => replayOf(useCanvasStore.getState().lastServerGraphHash ?? null))
+    replayTiming.delayMs = 300
+    try {
+      const result = await sendBrief()
+      act(() => { happen() })
+      await act(async () => { await new Promise((r) => setTimeout(r, 600)) })
+      expect(mockCallV5Turn, 'no lookup after something happened').toHaveBeenCalledTimes(0)
+      expect(result.current.messages.map((m) => m.content)).not.toContain('Recorded reply: check the specialist range first.')
+    } finally {
+      replayTiming.delayMs = 0
+    }
+  }, 30_000)
+
+  it('independent read r1: a message after the notice (a newer turn) means no lookup; the old reply is never adopted', async () => {
+    stubGraphReads()
+    mockOpenStream.mockResolvedValue(silentAfterFirstBytes())
+    // Any buffered call answers with the old turn's recorded reply, so adopting it anywhere would show.
+    mockCallV5Turn.mockImplementation(async () => replayOf(useCanvasStore.getState().lastServerGraphHash ?? null))
+    replayTiming.delayMs = 300
+    try {
+      const result = await sendBrief()
+      const briefTurn = turnIdOfStream()
+      mockOpenStream.mockResolvedValue(silentAfterFirstBytes())
+      await act(async () => { await result.current.sendMessage('A newer question') })
+      await act(async () => { await new Promise((r) => setTimeout(r, 600)) })
+      const lookups = mockCallV5Turn.mock.calls.map((c) => c[0] as Record<string, unknown>).filter((b) => b.replay_only === true)
+      expect(lookups.map((b) => b.turn_id), 'no lookup for the brief once a newer turn follows its notice').not.toContain(briefTurn)
+      expect(result.current.messages.filter((m) => m.role === 'user').map((m) => m.content)).toContain('A newer question')
+    } finally {
+      replayTiming.delayMs = 0
+    }
   }, 30_000)
 
   it.each([

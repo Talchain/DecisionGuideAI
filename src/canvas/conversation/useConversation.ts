@@ -664,6 +664,14 @@ export interface StreamedDraftTurnResult {
  *     same scenario's committed graph, or expose unresolved delivery with a
  *     read-only retry. Missing client frames cannot prove a missing commit.
  */
+/**
+ * A1 (independent read r1): nothing has happened since a stream-loss read-back: its recovered notice is still the last
+ * message, and the revision read back is still the canvas's. A newer turn, reply, notice or edit makes it false.
+ */
+function recoveryStillCurrent(messages: readonly ConversationMessage[], noticeId: string, revision: string | null): boolean {
+  return revision !== null && messages.at(-1)?.id === noticeId && (useCanvasStore.getState().lastServerGraphHash ?? null) === revision
+}
+
 async function runStreamedDraftTurn(args: {
   payload: Parameters<typeof callV5Turn>[0]
   turnClientId: string
@@ -5331,6 +5339,10 @@ export function useConversation(): UseConversationReturn {
             if (isOpenAiLane((v5Headers[AI_MODE_HEADER] ?? null) as AiComparisonMode | null)) {
               const revision = useCanvasStore.getState().lastServerGraphHash ?? null
               setTimeout(() => {
+                // Independent read r1 (A1): only while nothing has happened since: the notice is still the last thing said,
+                // on this scenario and the revision read back. A newer turn, edit or scenario switch ends the lookup unsent.
+                if (!recoveryStillCurrent(messagesRef.current, noticeId, revision)
+                  || !responseBelongsToDispatchingScenario(useCanvasStore.getState().currentScenarioId, scenarioIdAtDispatch)) return
                 void sendTurn({ ...opts, skipUserBubble: true, retryClientTurnId: turnClientId, stillFinishing: { noticeId, replayOnly: { revision } } })
               }, STILL_FINISHING_REPLAY_DELAY_MS)
             }
@@ -5461,11 +5473,12 @@ export function useConversation(): UseConversationReturn {
         if (stillFinishingReplay?.replayOnly !== undefined) {
           const replay = target.kind === 'typed_error' ? null : readCoreTurn(target.response)
           const canvasNow = useCanvasStore.getState()
+          // The re-send itself re-marks this turn active, so "this turn is still current" is the notice still being the last
+          // thing said (independent read r1): any newer message, turn or notice means something happened since.
           const adopt = replay !== null && replay.durability === 'replayed'
             && replay.model?.revision != null && replay.model.revision === stillFinishingReplay.replayOnly.revision
-            && canvasNow.lastServerGraphHash === stillFinishingReplay.replayOnly.revision
             && responseBelongsToDispatchingScenario(canvasNow.currentScenarioId, scenarioIdAtDispatch)
-            && activeV5TurnIdRef.current === turnClientId
+            && recoveryStillCurrent(messagesRef.current, stillFinishingReplay.noticeId, stillFinishingReplay.replayOnly.revision)
           if (!adopt) {
             logger.warn('draft_recovery.replay_not_adopted', { turnClientId, durability: replay?.durability ?? null, kind: target.kind })
             return
