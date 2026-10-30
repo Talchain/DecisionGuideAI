@@ -38,6 +38,9 @@
  * copy tests assert the OTHER one did not move.
  */
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
+
+// S4: round setup reads the saved model; these rows are about a scenario that is not a program.
+vi.mock('../../services/scenarioService', async (importOriginal) => ({ ...(await importOriginal<object>()), loadScenario: async () => ({ id: 'legacy', graph: { nodes: [], edges: [] } }) }))
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { readFileSync } from 'node:fs'
@@ -121,7 +124,7 @@ function renderParticipant(): void {
   )
 }
 
-function renderOwnerPanel(): void {
+async function renderOwnerPanel(): Promise<void> {
   render(
     <MemoryRouter initialEntries={[`/scenario/${SCENARIO_ID}/panel`]}>
       <Routes>
@@ -129,6 +132,8 @@ function renderOwnerPanel(): void {
       </Routes>
     </MemoryRouter>,
   )
+  // S4: the form appears once the saved model is read (here: not a program, so the id field).
+  await waitFor(() => expect(screen.getByTestId('panel-target-id').tagName).toBe('INPUT'))
 }
 
 async function mintARound(): Promise<void> {
@@ -227,7 +232,7 @@ describe('F2: a participant who mistypes their code is not trapped', () => {
 /* ══ F3 — "Continue" must not be a dead control ════════════════════════════ */
 
 describe('F3: the code entry form gives feedback instead of doing nothing', () => {
-  it('Continue is disabled until there is something to submit', () => {
+  it('Continue is disabled until there is something to submit', async () => {
     renderParticipant()
     const button = screen.getByTestId('packet-manual-continue')
     const field = screen.getByTestId('packet-manual-token')
@@ -239,7 +244,7 @@ describe('F3: the code entry form gives feedback instead of doing nothing', () =
     expect(button).toBeEnabled()
   })
 
-  it('a pasted link that lost its code is refused HERE, with the reason, and nothing is sent', () => {
+  it('a pasted link that lost its code is refused HERE, with the reason, and nothing is sent', async () => {
     renderParticipant()
     fireEvent.change(screen.getByTestId('packet-manual-token'), {
       target: { value: 'https://app.example.com/#/panel/rnd-abc' },
@@ -296,7 +301,7 @@ describe('F4: the owner sees that the round is being opened', () => {
       return jsonResponse({ code: 'not_stubbed', message: String(input) }, 404)
     })
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fireEvent.change(screen.getByTestId('panel-target-id'), { target: { value: 'factor-churn' } })
     fireEvent.change(screen.getByTestId('panel-name-a'), { target: { value: 'Ada' } })
     fireEvent.click(screen.getByTestId('panel-mint'))
@@ -316,7 +321,7 @@ describe('F4: the owner sees that the round is being opened', () => {
 describe('F4/F5: a failure is translated into human copy with a next step', () => {
   it('a credential refusal keeps the sentence AND offers the way to act on it', async () => {
     vi.mocked(getSessionIdentity).mockResolvedValue({ userId: null, accessToken: null })
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fireEvent.change(screen.getByTestId('panel-target-id'), { target: { value: 'factor-churn' } })
     fireEvent.click(screen.getByTestId('panel-mint'))
 
@@ -344,7 +349,7 @@ describe('F4/F5: a failure is translated into human copy with a next step', () =
       }
       return jsonResponse({ code: 'not_stubbed', message: String(input) }, 404)
     })
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fireEvent.change(screen.getByTestId('panel-target-id'), { target: { value: 'factor-churn' } })
     fireEvent.click(screen.getByTestId('panel-mint'))
 
@@ -367,7 +372,7 @@ describe('F4/F5: a failure is translated into human copy with a next step', () =
       }
       return jsonResponse({ code: 'not_stubbed', message: String(input) }, 404)
     })
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fireEvent.change(screen.getByTestId('panel-target-id'), { target: { value: 'factor-churn' } })
     fireEvent.click(screen.getByTestId('panel-mint'))
 
@@ -409,7 +414,7 @@ describe('F7: each one-shot link can be copied, and says it was', () => {
   })
 
   it("copies THAT participant's link — and leaves the other one alone", async () => {
-    renderOwnerPanel()
+    await renderOwnerPanel()
     await mintARound()
 
     fireEvent.click(screen.getByTestId('panel-copy-p-b'))
@@ -437,7 +442,7 @@ describe('F1: both surfaces carry the design system (NOT a claim about layout)',
    * carrying them is the one the deployed app mounts. The layout claim belongs
    * to the browser witness that follows the deploy.
    */
-  it('POSITIVE CONTROL: the token detector can tell applied from unapplied', () => {
+  it('POSITIVE CONTROL: the token detector can tell applied from unapplied', async () => {
     const el = document.createElement('div')
     el.className = 'bg-canvas min-h-screen'
     expect(carriesToken(el, 'bg-canvas')).toBe(true)
@@ -460,7 +465,7 @@ describe('F1: both surfaces carry the design system (NOT a claim about layout)',
     expect(carriesToken(heading, typography.h2)).toBe(true)
   })
 
-  it('the code entry form is styled too — it is the first thing a participant sees', () => {
+  it('the code entry form is styled too — it is the first thing a participant sees', async () => {
     renderParticipant()
     const root = screen.getByTestId('packet-token-entry')
     expect(carriesToken(root, 'bg-canvas')).toBe(true)
@@ -470,8 +475,8 @@ describe('F1: both surfaces carry the design system (NOT a claim about layout)',
     expect(field.className).toMatch(/\bpx-/)
   })
 
-  it('the owner page root is a styled surface, not a bare <main>', () => {
-    renderOwnerPanel()
+  it('the owner page root is a styled surface, not a bare <main>', async () => {
+    await renderOwnerPanel()
     const root = screen.getByTestId('panel-setup-page')
     expect(root.className.trim()).not.toBe('')
     expect(carriesToken(root, 'bg-canvas')).toBe(true)
@@ -480,8 +485,8 @@ describe('F1: both surfaces carry the design system (NOT a claim about layout)',
     expect(carriesToken(heading, typography.h2)).toBe(true)
   })
 
-  it("the owner's five fields are labelled controls, not a run-on wall", () => {
-    renderOwnerPanel()
+  it("the owner's five fields are labelled controls, not a run-on wall", async () => {
+    await renderOwnerPanel()
     // Each field is reachable BY ITS OWN accessible name. A label that merely
     // wraps an input satisfies nothing here if the association is lost.
     for (const name of [
@@ -495,7 +500,7 @@ describe('F1: both surfaces carry the design system (NOT a claim about layout)',
     }
   })
 
-  it('MOUNT PATH: the deployed app mounts exactly these two components at these two paths', () => {
+  it('MOUNT PATH: the deployed app mounts exactly these two components at these two paths', async () => {
     // Trap 3b: a green suite says nothing about a component the deployment
     // does not render. This binds the styling claim above to the real routes.
     const appSrc = readFileSync(resolve(process.cwd(), 'src/poc/AppPoC.tsx'), 'utf8')

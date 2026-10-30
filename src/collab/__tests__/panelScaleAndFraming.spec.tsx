@@ -27,6 +27,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
+// S4: round setup reads the saved model; these rows are about a scenario that is not a program.
+vi.mock('../../services/scenarioService', async (importOriginal) => ({ ...(await importOriginal<object>()), loadScenario: async () => ({ id: 'legacy', graph: { nodes: [], edges: [] } }) }))
+
 vi.mock('../../canvas/hooks/useBeliefElicitation', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../canvas/hooks/useBeliefElicitation')>()
   return {
@@ -85,7 +88,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-function renderSetup(): void {
+async function renderSetup(): Promise<void> {
   render(
     <MemoryRouter initialEntries={[`/scenario/${SCENARIO}/panel`]}>
       <Routes>
@@ -93,6 +96,8 @@ function renderSetup(): void {
       </Routes>
     </MemoryRouter>,
   )
+  // S4: the form appears once the saved model is read (here: not a program, so the id field).
+  await waitFor(() => expect(screen.getByTestId('panel-target-id').tagName).toBe('INPUT'))
 }
 
 /** The body of the mint POST, parsed. Null when no mint was sent. */
@@ -107,7 +112,7 @@ function mintBody(): Record<string, unknown> | null {
 
 describe('the setup form takes N factors and N people', () => {
   it('⭐ a THIRD participant reaches the wire', async () => {
-    renderSetup()
+    await renderSetup()
 
     fireEvent.change(screen.getByTestId('panel-target-id'), {
       target: { value: 'factor-churn' },
@@ -130,7 +135,7 @@ describe('the setup form takes N factors and N people', () => {
   })
 
   it('⭐ a SECOND factor reaches the wire, with its own label', async () => {
-    renderSetup()
+    await renderSetup()
 
     fireEvent.change(screen.getByTestId('panel-target-id'), {
       target: { value: 'factor-churn' },
@@ -168,7 +173,7 @@ describe('the setup form takes N factors and N people', () => {
   })
 
   it('an added-then-abandoned row is DROPPED, never minted empty', async () => {
-    renderSetup()
+    await renderSetup()
 
     fireEvent.change(screen.getByTestId('panel-target-id'), {
       target: { value: 'factor-churn' },
@@ -185,8 +190,8 @@ describe('the setup form takes N factors and N people', () => {
     expect(body?.participants).toEqual([{ display_name: 'Ada' }])
   })
 
-  it('an added row can be removed again', () => {
-    renderSetup()
+  it('an added row can be removed again', async () => {
+    await renderSetup()
 
     fireEvent.click(screen.getByTestId('panel-add-target'))
     expect(screen.getByTestId('panel-target-id-1')).toBeTruthy()
@@ -196,8 +201,8 @@ describe('the setup form takes N factors and N people', () => {
     expect(screen.queryByTestId('panel-target-remove-0')).toBeNull()
   })
 
-  it('the mint gate still requires at least one named factor', () => {
-    renderSetup()
+  it('the mint gate still requires at least one named factor', async () => {
+    await renderSetup()
 
     expect(screen.getByTestId('panel-mint')).toBeDisabled()
     fireEvent.click(screen.getByTestId('panel-add-target'))
@@ -224,12 +229,12 @@ describe('the product names itself on the surfaces an outsider reaches', () => {
    * pinned separately. A rename now has to change both, deliberately — which is
    * the point of a name a stranger reads.
    */
-  it('the constant is a real name, not an empty string', () => {
+  it('the constant is a real name, not an empty string', async () => {
     expect(COLLAB_PRODUCT_NAME).toBe('Olumi')
   })
 
-  it("the owner's setup page carries the product name", () => {
-    renderSetup()
+  it("the owner's setup page carries the product name", async () => {
+    await renderSetup()
     expect(document.body.textContent).toContain('Olumi')
   })
 })

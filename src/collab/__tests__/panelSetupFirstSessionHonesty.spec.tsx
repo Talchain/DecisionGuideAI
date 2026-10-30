@@ -45,6 +45,9 @@
  * proves the code agrees with itself.
  */
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
+
+// S4: round setup reads the saved model; these rows are about a scenario that is not a program.
+vi.mock('../../services/scenarioService', async (importOriginal) => ({ ...(await importOriginal<object>()), loadScenario: async () => ({ id: 'legacy', graph: { nodes: [], edges: [] } }) }))
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { readFileSync } from 'node:fs'
@@ -79,7 +82,7 @@ function jsonResponse(body: unknown, status = 200): StubResponse {
   return { ok: status >= 200 && status < 300, status, json: async () => body }
 }
 
-function renderOwnerPanel(): void {
+async function renderOwnerPanel(): Promise<void> {
   render(
     <MemoryRouter initialEntries={[`/scenario/${SCENARIO_ID}/panel`]}>
       <Routes>
@@ -87,6 +90,8 @@ function renderOwnerPanel(): void {
       </Routes>
     </MemoryRouter>,
   )
+  // S4: the form appears once the saved model is read (here: not a program, so the id field).
+  await waitFor(() => expect(screen.getByTestId('panel-target-id').tagName).toBe('INPUT'))
 }
 
 /** Exactly the witnessed interaction: fill the form, click "Open the round". */
@@ -124,7 +129,7 @@ describe('a visitor who never signed in is not told their session ended', () => 
     // all three, and may assert only what THIS CLIENT observed.
     vi.mocked(getSessionIdentity).mockResolvedValue({ userId: null, accessToken: null })
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fillFormAndOpen()
 
     await waitFor(() => expect(screen.getByTestId('panel-error')).toBeInTheDocument())
@@ -155,7 +160,7 @@ describe('a visitor who never signed in is not told their session ended', () => 
   it('the sign-in affordance is still rendered — this is an invitation, not a dead end', async () => {
     vi.mocked(getSessionIdentity).mockResolvedValue({ userId: null, accessToken: null })
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fillFormAndOpen()
 
     await waitFor(() => expect(screen.getByTestId('panel-error')).toBeInTheDocument())
@@ -167,7 +172,7 @@ describe('a visitor who never signed in is not told their session ended', () => 
   it('the promise the copy makes is kept: what was typed survives the refusal', async () => {
     vi.mocked(getSessionIdentity).mockResolvedValue({ userId: null, accessToken: null })
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fillFormAndOpen()
 
     await waitFor(() => expect(screen.getByTestId('panel-error')).toBeInTheDocument())
@@ -195,7 +200,7 @@ describe('DIFFERENT OBJECT: a wire 401 keeps the session-expired copy', () => {
         : jsonResponse({ code: 'not_stubbed', message: String(input) }, 404),
     )
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fillFormAndOpen()
 
     await waitFor(() => expect(screen.getByTestId('panel-error')).toBeInTheDocument())
@@ -221,7 +226,7 @@ describe('DIFFERENT OBJECT: a wire 401 keeps the session-expired copy', () => {
 describe('THE PAIR: the two answers are not the same answer', () => {
   it('the never-signed-in copy and the wire-401 copy differ, in headline and in guidance', async () => {
     vi.mocked(getSessionIdentity).mockResolvedValue({ userId: null, accessToken: null })
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fillFormAndOpen()
     await waitFor(() => expect(screen.getByTestId('panel-error')).toBeInTheDocument())
     const localTitle = screen.getByTestId('panel-error').textContent ?? ''
@@ -245,7 +250,7 @@ describe('THE PAIR: the two answers are not the same answer', () => {
           )
         : jsonResponse({ code: 'not_stubbed', message: String(input) }, 404),
     )
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fillFormAndOpen()
     await waitFor(() => expect(screen.getByTestId('panel-error')).toBeInTheDocument())
     const wireTitle = screen.getByTestId('panel-error').textContent ?? ''
@@ -456,7 +461,7 @@ const HARVESTED_CODE_BRANCHES: readonly string[] = [
 ].sort()
 
 describe('STRUCTURAL: no failure without a server answer may claim a session ended', () => {
-  it('COMPLETENESS: every err.code branch in describeOwnerFailure has a corpus member (harvested from source)', () => {
+  it('COMPLETENESS: every err.code branch in describeOwnerFailure has a corpus member (harvested from source)', async () => {
     // ── POSITIVE CONTROL: the harvest can see SOMETHING, at a plausible
     // magnitude. A count alone is not enough (trap 13e) — an extractor reading
     // the wrong bytes returns a clean, confident zero, and zero uncovered
@@ -490,7 +495,7 @@ describe('STRUCTURAL: no failure without a server answer may claim a session end
     ).toEqual([])
   })
 
-  it('POSITIVE CONTROL: the detector finds the claim in the exact sentences the deployed build emitted', () => {
+  it('POSITIVE CONTROL: the detector finds the claim in the exact sentences the deployed build emitted', async () => {
     // Without this, every negative assertion below could be passing because the
     // patterns match nothing at all. These two strings are the witness's own
     // capture from deployed `81b5c966`.
@@ -502,7 +507,7 @@ describe('STRUCTURAL: no failure without a server answer may claim a session end
     ).toBe(true)
   })
 
-  it('CONTRAST CONTROL: the detector does NOT fire on honest copy that merely says "try again"', () => {
+  it('CONTRAST CONTROL: the detector does NOT fire on honest copy that merely says "try again"', async () => {
     // The opposite direction, and the reason the patterns are phrases: a
     // detector that matched the bare word "again" would condemn every honest
     // retry sentence in this file, and a lane would then loosen it to nothing.
@@ -523,7 +528,7 @@ describe('STRUCTURAL: no failure without a server answer may claim a session end
     ).toBe(false)
   })
 
-  it('the domain corpus is non-empty and covers both non-answered provenances', () => {
+  it('the domain corpus is non-empty and covers both non-answered provenances', async () => {
     // An empty or single-provenance corpus would make the property vacuous.
     expect(DOMAIN.length).toBeGreaterThanOrEqual(15)
     expect(DOMAIN.filter((d) => d.truth === 'nothing-was-sent').length).toBeGreaterThanOrEqual(1)
@@ -572,7 +577,7 @@ describe('STRUCTURAL: no failure without a server answer may claim a session end
     },
   )
 
-  it('DISCRIMINATION: the invariant is not vacuous — the answered branches DO name a session', () => {
+  it('DISCRIMINATION: the invariant is not vacuous — the answered branches DO name a session', async () => {
     // If the property above held for every member, it would prove nothing about
     // the discrimination. The wire-401 branch must still say "again": that is
     // where the sentence is TRUE, and a fix that scrubbed it everywhere would

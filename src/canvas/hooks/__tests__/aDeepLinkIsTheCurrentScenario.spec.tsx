@@ -11,6 +11,9 @@
  * through the REAL `hydrateCanvasFromServer`. CLAIM TYPE: jsdom store + the real hook and hydration; no model calls.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+// S4: round setup reads the saved model; these rows are about a scenario that is not a program.
+vi.mock('../../../services/scenarioService', async (importOriginal) => ({ ...(await importOriginal<object>()), loadScenario: async () => ({ id: 'legacy', graph: { nodes: [], edges: [] } }) }))
 import { renderHook, waitFor } from '@testing-library/react'
 
 import served from './fixtures/served-deep-link-2d5982b5-b0d5ea2d.read.json'

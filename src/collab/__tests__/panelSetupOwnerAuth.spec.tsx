@@ -28,6 +28,9 @@
  * the mint assertion cannot be satisfied by the close request and vice versa.
  */
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
+
+// S4: round setup reads the saved model; these rows are about a scenario that is not a program.
+vi.mock('../../services/scenarioService', async (importOriginal) => ({ ...(await importOriginal<object>()), loadScenario: async () => ({ id: 'legacy', graph: { nodes: [], edges: [] } }) }))
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
@@ -156,7 +159,7 @@ function authorizationFor(url: string): string | null {
   return new Headers(calls[0][1].headers).get('authorization')
 }
 
-function renderOwnerPanel(): void {
+async function renderOwnerPanel(): Promise<void> {
   render(
     <MemoryRouter initialEntries={[`/scenario/${SCENARIO_ID}/panel`]}>
       <Routes>
@@ -164,6 +167,8 @@ function renderOwnerPanel(): void {
       </Routes>
     </MemoryRouter>,
   )
+  // S4: the form appears once the saved model is read (here: not a program, so the id field).
+  await waitFor(() => expect(screen.getByTestId('panel-target-id').tagName).toBe('INPUT'))
 }
 
 async function mintARound(): Promise<void> {
@@ -211,7 +216,7 @@ afterEach(() => {
 
 describe("the owner's panel page authenticates — the request carries a real bearer", () => {
   it('mint sends the access token the session seam returned, not an empty bearer', async () => {
-    renderOwnerPanel()
+    await renderOwnerPanel()
     await mintARound()
 
     // The positive outcome, named: the header carries THIS token. Not
@@ -220,7 +225,7 @@ describe("the owner's panel page authenticates — the request carries a real be
   })
 
   it('close and reveal both send the same real access token', async () => {
-    renderOwnerPanel()
+    await renderOwnerPanel()
     await mintARound()
 
     fireEvent.click(screen.getByTestId('panel-close'))
@@ -231,7 +236,7 @@ describe("the owner's panel page authenticates — the request carries a real be
   })
 
   it('one getSession round-trip per user action, even though closing issues two requests', async () => {
-    renderOwnerPanel()
+    await renderOwnerPanel()
     await mintARound()
     vi.mocked(getSessionIdentity).mockClear()
 
@@ -248,7 +253,7 @@ describe("the owner's panel page authenticates — the request carries a real be
 describe('a signed-out owner is told so, and NO request is issued', () => {
   it('issues no collab request at all and shows the sign-in sentence', async () => {
     vi.mocked(getSessionIdentity).mockResolvedValue({ userId: null, accessToken: null })
-    renderOwnerPanel()
+    await renderOwnerPanel()
 
     fireEvent.change(screen.getByTestId('panel-target-id'), { target: { value: 'factor-churn' } })
     fireEvent.click(screen.getByTestId('panel-mint'))
@@ -320,14 +325,14 @@ describe('the surface these tests bind to is the one the deployed app mounts', (
   const appSrc = readFileSync(resolve(process.cwd(), 'src/poc/AppPoC.tsx'), 'utf8')
   const pageSrc = readFileSync(resolve(process.cwd(), 'src/pages/PanelSetupPage.tsx'), 'utf8')
 
-  it('AppPoC declares exactly this path → this element (the constant these tests render)', () => {
+  it('AppPoC declares exactly this path → this element (the constant these tests render)', async () => {
     expect(appSrc).toContain(`path="${OWNER_ROUTE_PATH}" element={<PanelSetupPage />}`)
     // POSITIVE CONTROL: the detector fires on a route that really is declared,
     // so the assertion above is a finding rather than a lucky substring.
     expect(appSrc).toContain('path="/panel/:round_id" element={<ParticipantPacketPage />}')
   })
 
-  it('the page takes its token from the session seam, with no cast over useAuth', () => {
+  it('the page takes its token from the session seam, with no cast over useAuth', async () => {
     // ⚠ MEASURE THE CODE, NOT THE PROSE. The file's header explains the defect
     // and therefore SPELLS `useAuth()` and the cast; a bare substring check
     // fires on the explanation and reports a defect that is only a description
@@ -350,7 +355,7 @@ describe('the surface these tests bind to is the one the deployed app mounts', (
     expect(/\brequireOwnerAccessToken\s*\(/.test(code)).toBe(true)
   })
 
-  it('NO MODULE REACHABLE FROM collabService imports the Supabase client (relative-import graph, not a bundle claim)', () => {
+  it('NO MODULE REACHABLE FROM collabService imports the Supabase client (relative-import graph, not a bundle claim)', async () => {
     // ⚠ WHAT THIS DOES AND DOES NOT CLAIM. It walks the RELATIVE-IMPORT GRAPH
     // under src/ from collabService and asserts lib/supabase is not reachable.
     // It says NOTHING about what any bundle contains — an earlier version of
@@ -381,13 +386,13 @@ describe('the surface these tests bind to is the one the deployed app mounts', (
 describe('the owner Bearer has exactly one builder — the ratchets behind that claim', () => {
   const files = srcFiles()
 
-  it('POSITIVE CONTROL: the scanner sees a real source tree', () => {
+  it('POSITIVE CONTROL: the scanner sees a real source tree', async () => {
     // Without this, both assertions below could pass on an empty file list.
     expect(files.length).toBeGreaterThan(1000)
     expect(files).toContain('src/collab/collabService.ts')
   })
 
-  it('the collab seam base is referenced from collabService and nowhere else in src/', () => {
+  it('the collab seam base is referenced from collabService and nowhere else in src/', async () => {
     // This is what makes "no other call site can build an owner header" TRUE
     // rather than merely stated: a new caller cannot reach /bff/collab without
     // coming through this file, and inside it the only way to build the header
@@ -398,7 +403,7 @@ describe('the owner Bearer has exactly one builder — the ratchets behind that 
     expect(referencing).toEqual(['src/collab/collabService.ts'])
   })
 
-  it('collabService constructs exactly one Bearer value', () => {
+  it('collabService constructs exactly one Bearer value', async () => {
     const code = stripComments(
       readFileSync(resolve(process.cwd(), 'src/collab/collabService.ts'), 'utf8'),
     )

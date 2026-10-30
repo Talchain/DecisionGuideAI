@@ -34,6 +34,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+// S4: round setup reads the saved model; these rows are about a scenario that is not a program.
+vi.mock('../../../services/scenarioService', async (importOriginal) => ({ ...(await importOriginal<object>()), loadScenario: async () => ({ id: 'legacy', graph: { nodes: [], edges: [] } }) }))
 import { render, screen, act } from '@testing-library/react'
 import { RevealBody } from '../../../pages/ParticipantPacketPage'
 // RevealView lives on the SERVICE, not the page — the page re-exports the type it

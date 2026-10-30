@@ -27,6 +27,9 @@
  * defect rendered futilely.
  */
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
+
+// S4: round setup reads the saved model; these rows are about a scenario that is not a program.
+vi.mock('../../services/scenarioService', async (importOriginal) => ({ ...(await importOriginal<object>()), loadScenario: async () => ({ id: 'legacy', graph: { nodes: [], edges: [] } }) }))
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
@@ -59,7 +62,7 @@ const HEALTHY_REVEAL = {
   per_target: [],
 }
 
-function renderOwnerPanel(): void {
+async function renderOwnerPanel(): Promise<void> {
   render(
     <MemoryRouter initialEntries={[`/scenario/${SCENARIO_ID}/panel`]}>
       <Routes>
@@ -67,6 +70,8 @@ function renderOwnerPanel(): void {
       </Routes>
     </MemoryRouter>,
   )
+  // S4: the form appears once the saved model is read (here: not a program, so the id field).
+  await waitFor(() => expect(screen.getByTestId('panel-target-id').tagName).toBe('INPUT'))
 }
 
 function seedRecord(): void {
@@ -128,7 +133,7 @@ describe('a 403 is not a credential refusal (REVIEW-674 finding 1)', () => {
       reveal: jsonResponse(HEALTHY_REVEAL),
     })
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fireEvent.click(screen.getByTestId('panel-resume-close'))
 
     await waitFor(() => expect(screen.getByTestId('panel-error')).toBeInTheDocument())
@@ -163,7 +168,7 @@ describe('a 403 is not a credential refusal (REVIEW-674 finding 1)', () => {
       reveal: jsonResponse(HEALTHY_REVEAL),
     })
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fireEvent.click(screen.getByTestId('panel-resume-close'))
 
     await waitFor(() => expect(screen.getByTestId('panel-error')).toBeInTheDocument())
@@ -188,7 +193,7 @@ describe('a 403 is not a credential refusal (REVIEW-674 finding 1)', () => {
       reveal: jsonResponse(HEALTHY_REVEAL),
     })
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fireEvent.click(screen.getByTestId('panel-resume-close'))
 
     await waitFor(() => expect(screen.getByTestId('panel-error')).toBeInTheDocument())
@@ -206,7 +211,7 @@ describe('a 403 is not a credential refusal (REVIEW-674 finding 1)', () => {
       ),
     })
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fireEvent.change(screen.getByTestId('panel-target-id'), {
       target: { value: 'factor-churn-risk' },
     })
@@ -238,7 +243,7 @@ describe('a 403 is not a credential refusal (REVIEW-674 finding 1)', () => {
       reveal: jsonResponse(HEALTHY_REVEAL),
     })
 
-    renderOwnerPanel()
+    await renderOwnerPanel()
     fireEvent.click(screen.getByTestId('panel-resume-close'))
 
     await waitFor(() => expect(screen.getByTestId('panel-error')).toBeInTheDocument())
