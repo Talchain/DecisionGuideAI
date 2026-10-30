@@ -22,7 +22,7 @@ import { useCanvasStore } from '../../../canvas/store'
 import { useSavedModelIsProgram } from '../../../canvas/nodes/shared/savedModelProgram'
 import { useCanonicalAnalysisViewStore } from '../../../canvas/stores/canonicalAnalysisViewStore'
 import { optionChanceCell, runViewGoalChanceSentence, runViewOf } from '../../../canvas/runView/runView'
-import type { CanonicalAnalysisCell, CanonicalWaitsOn } from '../../../canvas/runView/canonicalAnalysisView'
+import type { CanonicalAnalysisCell, CanonicalAnalysisView, CanonicalWaitsOn } from '../../../canvas/runView/canonicalAnalysisView'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useValuePrefillStore } from '../../../canvas/graphChanges/valuePrefill'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
@@ -98,7 +98,11 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
   const scenarioId = useCanvasStore(s => s.currentScenarioId)
   const canonical = useCanonicalAnalysisViewStore(s => (s.scenarioId === scenarioId ? s.view : null))
   const program = useSavedModelIsProgram()
-  return useMemo(() => {
+  return useMemo(() => viewOnlyRunChancesOf(report, canonical, program), [report, canonical, program])
+}
+
+/** The hook's own derivation, store-free, so a page with no canvas (the shared link) says the same lines from the same view. */
+export function viewOnlyRunChancesOf(report: unknown, canonical: CanonicalAnalysisView | null, program: boolean): ViewOnlyRunChances | null {
     if (report != null || canonical === null) return null
     const view = runViewOf(null, canonical)
     if (!view.boundToCurrentCanonical()) {
@@ -143,7 +147,6 @@ export function useViewOnlyRunChances(): ViewOnlyRunChances | null {
     const notes = program ? [...(view.goalChanceDetail()?.notes ?? [])] : []
     return lines.length === 0 && sentence === null ? null
       : { sentence, lines, waitsOn, stale: false, allWithheld, mostLikely, notes, ...(program ? { program: true } : {}) }
-  }, [report, canonical, program])
 }
 
 /**

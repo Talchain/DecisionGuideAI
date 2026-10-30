@@ -47,6 +47,8 @@ import { Loader2, AlertTriangle, FileText } from 'lucide-react'
 import * as scenarioService from '../services/scenarioService'
 import type { SharedSnapshotRow } from '../types/scenario'
 import { formatRelativeTime } from '../utils/formatRelativeTime'
+import { parseCanonicalAnalysisView } from '../canvas/runView/canonicalAnalysisView'
+import { viewOnlyRunChancesOf, ViewOnlyRunChancesBlock } from '../components/results/analysisNew/ViewOnlyRunChances'
 import { noteLine, noteRecordsOf } from '../canvas/domain/noteRecordsModel'
 
 // ---------------------------------------------------------------------------
@@ -622,6 +624,8 @@ export default function SharedBriefPage() {
   const nodeTotal = readNodes(data.graph).length
   const edgeTotal = edgeCount(data.graph)
   const analysis = readAnalysis(data.analysis)
+  const runChances = viewOnlyRunChancesOf(null, parseCanonicalAnalysisView(
+    data.analysis !== null && typeof data.analysis === 'object' ? (data.analysis as Record<string, unknown>).canonical_analysis_view : undefined), true)
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 sm:p-8">
@@ -651,7 +655,14 @@ export default function SharedBriefPage() {
             supporting detail. Absent for most links — 39 of 14,252 scenarios
             carried a brief when this was written — and absence is silence, not
             an empty section. */}
-        {analysis && <AnalysisSection analysis={analysis} />}
+        {/* A model program's Run, as the canvas says it (SM4): the same view and the same block, frozen when the link was
+            made. Absent for a link made before it, or for a scenario with no Run. */}
+        {runChances !== null ? (
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-4" data-testid="shared-snapshot-run">
+            <h2 className="text-base font-semibold text-text-header mb-3">What the model says</h2>
+            <ViewOnlyRunChancesBlock chances={runChances} />
+          </div>
+        ) : analysis && <AnalysisSection analysis={analysis} />}
 
         {/* The model */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -666,9 +677,6 @@ export default function SharedBriefPage() {
             {nodeTotal === 1 ? 'element' : 'elements'} · {edgeTotal}{' '}
             {edgeTotal === 1 ? 'link' : 'links'}
           </p>
-          {data.graph_hash && (
-            <p className="font-mono">Model hash: {data.graph_hash.slice(0, 12)}…</p>
-          )}
           {data.expires_at && (
             <p>Expires: {new Date(data.expires_at).toLocaleDateString()}</p>
           )}

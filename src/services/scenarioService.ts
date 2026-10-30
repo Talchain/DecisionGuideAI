@@ -14,7 +14,8 @@
  */
 
 import type { Node, Edge } from '@xyflow/react'
-import { supabase } from '../lib/supabase'
+import { supabase, getSessionIdentity } from '../lib/supabase'
+import { fetchScenarioGraph } from '../adapters/cee/scenarioGraph'
 // P0 (2026-08-13). MAY this client write `scenarios.graph` at all? Pure predicate,
 // no React or store dependency, so it respects this module's stated constraints.
 import { clientCanWriteReadableGraph } from '../lib/clientGraphWritePolicy'
@@ -668,12 +669,18 @@ export async function createSharedSnapshot(
   // A shape that is not a JSON object degrades to null rather than failing the
   // share: `create_shared_snapshot` raises 22023 on a non-object p_analysis,
   // which would cost the recipient the MODEL as well as the analysis.
-  const analysis =
+  const brief =
     row.brief !== null &&
     typeof row.brief === 'object' &&
     !Array.isArray(row.brief)
-      ? row.brief
+      ? (row.brief as Record<string, unknown>)
       : null
+
+  // A model program's Run is never in `scenarios.brief`: it is the newest stored Run, which CEE serves on the scenario
+  // read as `canonical_analysis_view` (SM4, 30 Oct). The link carries it as it stands now, so a later Run needs a new
+  // share. A read that does not answer leaves the share as it was: the model, never a failed share.
+  const canonicalView = await sharedRunViewOf(scenarioId)
+  const analysis = canonicalView === null ? brief : { ...(brief ?? {}), canonical_analysis_view: canonicalView }
 
   const { data, error } = await supabase.rpc('create_shared_snapshot', {
     p_scenario_id: scenarioId,
@@ -694,6 +701,19 @@ export async function createSharedSnapshot(
   }
 
   return data as { id: string; slug: string }
+}
+
+/** The scenario read's `canonical_analysis_view`, with the same identity the canvas reads with; null when it does not answer. */
+async function sharedRunViewOf(scenarioId: string): Promise<unknown> {
+  try {
+    const identity = await getSessionIdentity()
+    const read = await fetchScenarioGraph(scenarioId, { userId: identity.userId, accessToken: identity.accessToken })
+    return read.status === 'graph' && read.canonicalAnalysisView != null && typeof read.canonicalAnalysisView === 'object'
+      ? read.canonicalAnalysisView
+      : null
+  } catch {
+    return null
+  }
 }
 
 export async function getSharedSnapshotBySlug(

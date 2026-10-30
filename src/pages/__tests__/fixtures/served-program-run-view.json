@@ -1,0 +1,128 @@
+{
+ "canonical_analysis_view": {
+  "run": {
+   "run_id": "mp_run_5_c1e90213fdfe",
+   "computed_at": "2026-10-29T23:33:01.576Z",
+   "graph_hash_at_run": "5ebfacf2dd6b8a882efbd6cfd77f6f3689bff1994f6de06dc73a74c39738dcd7"
+  },
+  "leader": {
+   "words": "In this model, \u2018Add one specialist\u2019 is the option most likely to achieve the goal: about 37% chance, against less than 1% for \u2018Keep current staffing\u2019, the next most likely. It rests on the same assumptions as each option\u2019s chance. Even so, in this model it is more likely to miss the goal than to meet it. Its chance is most sensitive to \u2018Weekly capacity per additional specialist\u2019 (your range).",
+   "licence": "permitted",
+   "option_id": null,
+   "goal_chance_leader": "add_one_specialist",
+   "similar_option_ids": []
+  },
+  "schema": "canonical_analysis_view.v1",
+  "source": "stored_run_facts",
+  "options": [
+   {
+    "cell": {
+     "face": "\u2018Keep current staffing\u2019: less than 1% chance of \u2018Weekly support capacity\u2019 being at least 100 tickets per week, in this model.",
+     "kind": "figure",
+     "detail": {
+      "draws": 10000,
+      "precision_95": [
+       0,
+       0.00038399837067659573
+      ],
+      "precision_words": "Simulation precision: 0% to 0%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+     },
+     "display": "less than 1%"
+    },
+    "option_id": "keep_current_staffing",
+    "main_driver": {
+     "kind": "none_licensed",
+     "reason": "Tested one at a time at each figure\u2019s low end, middle and high end, no figure moved this chance by more than 5 points."
+    }
+   },
+   {
+    "cell": {
+     "face": "\u2018Add one specialist\u2019: about 37% chance of \u2018Weekly support capacity\u2019 being at least 100 tickets per week, in this model.",
+     "kind": "figure",
+     "detail": {
+      "draws": 10000,
+      "precision_95": [
+       0.3648648852268735,
+       0.3838316519635146
+      ],
+      "precision_words": "Simulation precision: 36.5% to 38.4%, from 10,000 simulated draws. This is how exactly the simulation measured the chance, not a range the chance could take."
+     },
+     "display": "about 37%"
+    },
+    "option_id": "add_one_specialist",
+    "main_driver": {
+     "kind": "available",
+     "detail": "In this model, of the figures tested one at a time, the chance is most sensitive to \u2018Weekly capacity per additional specialist\u2019 (your range). With \u2018Weekly capacity per additional specialist\u2019 held at its low end (10 tickets per specialist per week), the chance is less than 1%; at its middle (20 tickets per specialist per week), about 31%; at its high end (30 tickets per specialist per week), about 98%. Each of these holds \u2018Weekly capacity per additional specialist\u2019 at one value. The overall chance, about 37%, allows for every value it can take.",
+     "driver": {
+      "low": {
+       "value": 10,
+       "display": "less than 1%"
+      },
+      "high": {
+       "value": 30,
+       "display": "about 98%"
+      },
+      "draws": 4000,
+      "author": "person",
+      "middle": {
+       "value": 20,
+       "display": "about 31%"
+      },
+      "quantity": "capacity_per_specialist",
+      "untested": [],
+      "swing_points": 98.2
+     }
+    }
+   }
+  ],
+  "staleness": {
+   "basis": "analysis_graph_hash_interim",
+   "stale": false,
+   "reason": "graph_hash_match",
+   "revision": null,
+   "limitation": "Hash equality cannot detect brief, framing or stage changes.",
+   "run_revision": null
+  },
+  "goal_chance": {
+   "notes": [
+    "Each assumes \u2018Weekly capacity per additional specialist\u2019 follows Olumi\u2019s provisional reading of your range, 10 to 30 tickets per specialist per week, held within those bounds: values near its middle are likelier than values near its ends. Each also assumes \u2018Staff absence\u2019 follows Olumi\u2019s provisional reading of your range, 5 to 15 tickets per week, with 10 tickets per week as the middle value, kept to Olumi\u2019s reading of what it can be (never below 0 tickets per week).",
+    "Olumi assumes each uncertain figure here can come out high or low on its own, unless the model links it to another. If two of them tend to rise or fall together, say so."
+   ],
+   "chance_words": "chance of \u2018Weekly support capacity\u2019 being at least 100 tickets per week"
+  },
+  "leader_licence": "permitted"
+ },
+ "nodes": [
+  {
+   "id": "support_capacity_goal",
+   "kind": "goal",
+   "label": "Weekly support capacity"
+  },
+  {
+   "id": "keep_current_staffing",
+   "kind": "option",
+   "label": "Keep current staffing"
+  },
+  {
+   "id": "add_one_specialist",
+   "kind": "option",
+   "label": "Add one specialist"
+  },
+  {
+   "id": "existing_capacity",
+   "kind": "factor",
+   "label": "Existing team capacity"
+  },
+  {
+   "id": "additional_specialists",
+   "kind": "factor",
+   "label": "Additional specialists"
+  },
+  {
+   "id": "staff_absence",
+   "kind": "factor",
+   "label": "Staff absence"
+  }
+ ],
+ "_source": "CEE staging graph read, verifier test account program board, 29 Oct 23:33Z run mp_run_5; option nodes only"
+}
