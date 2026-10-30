@@ -18,7 +18,9 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput, meaningfulUncertaintyDrivers } from '../utils/observedStateHelpers'
 import { NodeValueEditor, type NodeValueEditorProps } from './shared/NodeValueEditor'
-import { useSavedModelIsProgram } from './shared/savedModelProgram'
+import { programQuantityOf, teammateFigureWords, useSavedModelIsProgram } from './shared/savedModelProgram'
+import { useSavedGraph } from './shared/savedGraph'
+import { useIsViewer } from '../../lib/viewerMode'
 import { factorValueFieldUnit } from './shared/factorValueFieldUnit'
 import { FactorValueFigure, readoutIsBareModelScale } from './shared/FactorValueFigure'
 import { usePendingFactorEditValue } from '../hooks/usePendingFactorEdit'
@@ -421,7 +423,13 @@ export const FactorNode = memo((props: NodeProps) => {
   // neutral "no source" mark, never this one — see the range line below.) This supersedes R6's rest-only `est.` (the collapse above stays
   // rest-only; only the MARK now also shows in Detailed, where the full
   // "Moderate (0.5)" string otherwise read as unattributed).
-  const valueSourceMark = olumiUnknownFigure ? OLUMI_NO_FIGURE_MARK : personNoFigureMark ?? factorValueSourceMark(cleanedData)
+  // P1 S3: a teammate's figure the owner approved says whose it is, from the card's canonical record (savedModelProgram).
+  const savedGraph = useSavedGraph()
+  const isViewer = useIsViewer()
+  const teammateWords = savedIsProgram ? teammateFigureWords(programQuantityOf(savedGraph, props.id), isViewer) : null
+  const resolvedSourceMark = olumiUnknownFigure ? OLUMI_NO_FIGURE_MARK : personNoFigureMark ?? factorValueSourceMark(cleanedData)
+  const valueSourceMark = teammateWords !== null && resolvedSourceMark !== null && resolvedSourceMark.kind !== 'olumi'
+    ? { ...resolvedSourceMark, label: teammateWords } : resolvedSourceMark
   const servedBasisMark = valueSourceMark?.kind === 'basis' || valueSourceMark?.kind === 'asked' ? valueSourceMark : null
   const ServedBasisGlyph = servedBasisMark ? cardMark(`source-${servedBasisMark.kind}`).Icon : null
   // An ASKED figure on a program graph (CEE's `value_basis`: "Waiting for your answer") is typed where it is shown, in the

@@ -94,13 +94,30 @@ export interface ProgramQuantity {
   high: number | null
   author: string | null
   approval: string | null
+  /** Who gave the figure and who approved it (user/participant ids), and the giver's display name as written. */
+  author_id: string | null
+  approved_by: string | null
+  party: string | null
 }
 
 /** The canonical quantity behind a program card (a card's id is its quantity's id), or null off a program or for none. */
 export function programQuantityOf(graph: unknown, id: string): ProgramQuantity | null {
   const q = canonicalQuantity(graph, id)
   const str = (v: unknown): string | null => (typeof v === 'string' ? v : null)
-  return q ? { id, value: num(q.value), low: num(q.low), high: num(q.high), author: str(q.author), approval: str(q.approval) } : null
+  return q ? { id, value: num(q.value), low: num(q.low), high: num(q.high), author: str(q.author), approval: str(q.approval),
+    author_id: str(q.author_id), approved_by: str(q.approved_by), party: str(q.party) } : null
+}
+
+/**
+ * P1 S3: whose figure it is when the person who gave it is not the person who approved it (a teammate's panel answer the
+ * owner applied, CEE S1): "Grace’s figure · approved by you", or "a teammate’s figure" with no name. A viewer of a shared
+ * link did not approve it: "approved by the owner". Null when one person gave and approved it, or either is unknown.
+ * Never "verified", never an id.
+ */
+export function teammateFigureWords(q: ProgramQuantity | null, viewer: boolean): string | null {
+  if (q === null || q.author_id === null || q.approved_by === null || q.author_id === q.approved_by) return null
+  const name = q.party !== null && q.party.trim() !== '' ? `${q.party.trim()}’s` : 'a teammate’s'
+  return `${name} figure · approved by ${viewer ? 'the owner' : 'you'}`
 }
 
 /**
