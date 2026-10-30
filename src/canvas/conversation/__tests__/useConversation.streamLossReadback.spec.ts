@@ -31,6 +31,7 @@ import { useCanvasStore } from '../../store'
 import { useDraftStore } from '../../stores/draftStore'
 import { scenarioGraphUrl } from '../../../adapters/cee/scenarioGraph'
 import savedRead from './fixtures/capacity-001307-saved-read-20261012T004308Z.json'
+import { ADDITIVE_EXTENSIONS_KEY } from '../../../v5/responseParser'
 
 const mockOpenStream = vi.fn()
 const mockCallV5Turn = vi.fn()
@@ -68,6 +69,11 @@ vi.mock('../../../lib/supabase', () => ({
   getSessionIdentity: async () => ({ userId: null, accessToken: null }),
 }))
 vi.mock('../../../services/scenarioService', () => ({ loadScenario: async () => null }))
+// A1: the one recovery lookup goes out at once (served: 3 s after the notice), so its outcome is read in the same test.
+vi.mock('../coreStillFinishing', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../coreStillFinishing')>()),
+  STILL_FINISHING_REPLAY_DELAY_MS: 0,
+}))
 
 /** The served capacity scenario and its saved model, bound by identity. */
 const SCENARIO = '14b66c8e-5016-4414-807e-27412c92107a'
@@ -122,6 +128,19 @@ function stubGraphReads() {
   return { reads, other }
 }
 
+/** The payload of the Nth buffered call, and the streamed turn's own id. */
+const lookupOf = (n: number) => mockCallV5Turn.mock.calls[n]?.[0] as Record<string, unknown> | undefined
+const turnIdOfStream = () => (mockOpenStream.mock.calls[0]?.[0] as { turn_id?: string } | undefined)?.turn_id
+/** Lets the recovery lookup (delay 0 here) go out and settle. */
+async function settleLookup() {
+  await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
+}
+/** CEE's replay of the recorded turn (core-turn `replayed()`): its recorded reply on the given saved revision. */
+const replayOf = (revision: string | null, durability = 'replayed') => ({ kind: 'response' as const, response: {
+  response_version: 2, assistant_text: 'Recorded reply: check the specialist range first.', blocks: [], suggested_actions: [], insights: [], stage_indicator: 'frame',
+  [ADDITIVE_EXTENSIONS_KEY]: { _core_turn: { durability, model: { revision }, cards: [], notes: [], receipts: [] } },
+} })
+
 async function sendBrief() {
   const hook = renderHook(() => useConversation())
   await act(async () => {
@@ -170,6 +189,8 @@ describe('capacity 001307: the stream goes silent after its first bytes while CE
 
     const result = await sendBrief()
 
+    // No buffered re-send of the brief (and, off the core lane, no A1 lookup: only core records a reply to replay).
+    await settleLookup()
     expect(mockCallV5Turn, 'no buffered re-send of the brief').toHaveBeenCalledTimes(0)
     // The first read was ended by the adapter's own 8 s deadline; the second, 1 s later, was answered.
     expect(net.reads.map((r) => r.outcome)).toEqual(['aborted_by_deadline', 'answered'])
@@ -183,6 +204,46 @@ describe('capacity 001307: the stream goes silent after its first bytes while CE
     expect(contents.some((c) => /couldn.t confirm|cannot confirm/i.test(String(c))), 'no false "cannot confirm"').toBe(false)
     expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
     expect(result.current.messages.find((m) => m.role === 'user')?.deliveryState).toBe('sent')
+  }, 30_000)
+})
+
+describe('A1 (PL 23:51Z): after the read-back, ONE replay_only lookup brings back that turn\'s recorded reply, or nothing', () => {
+  // The core lane, as staging serves it (resolveAiComparisonMode: a staging host is core-route).
+  beforeEach(() => { window.history.replaceState(null, '', '/#/canvas?ai=core-route') })
+  afterEach(() => { window.history.replaceState(null, '', '/') })
+  it('the replay of that turn on the revision read back is adopted: its reply shows and the recovered notice goes', async () => {
+    stubGraphReads()
+    mockOpenStream.mockResolvedValue(silentAfterFirstBytes())
+    mockCallV5Turn.mockImplementation(async () => replayOf(useCanvasStore.getState().lastServerGraphHash ?? null))
+    const result = await sendBrief()
+    await settleLookup()
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(lookupOf(0)).toMatchObject({ replay_only: true, turn_id: turnIdOfStream() })
+    const contents = result.current.messages.map((m) => m.content)
+    expect(contents).toContain('Recorded reply: check the specialist range first.')
+    expect(contents).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(result.current.messages.filter((m) => m.role === 'user')).toHaveLength(1)
+  }, 30_000)
+
+  it.each([
+    ['a replay of another revision', replayOf('another-revision')],
+    ['a replay that names no revision', replayOf(null)],
+    ['a reply that is not a replay', replayOf('same', 'recorded')],
+    ['a typed miss (404 REPLAY_NOT_RECORDED)', { kind: 'parse_error', reason: 'http_404', http_status: 404, raw: { error: { code: 'REPLAY_NOT_RECORDED' } } }],
+  ])('CONTRAST: %s is not adopted; the recovered notice stays and nothing else is said', async (_name, reply) => {
+    stubGraphReads()
+    mockOpenStream.mockResolvedValue(silentAfterFirstBytes())
+    // 'same' stands for the revision read back, so only the durability differs in that row.
+    mockCallV5Turn.mockImplementation(async () => (JSON.stringify(reply).includes('"same"')
+      ? replayOf(useCanvasStore.getState().lastServerGraphHash ?? null, 'recorded') : reply))
+    const result = await sendBrief()
+    await settleLookup()
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(lookupOf(0)).toMatchObject({ replay_only: true })
+    const contents = result.current.messages.map((m) => m.content)
+    expect(contents).toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(contents).not.toContain('Recorded reply: check the specialist range first.')
+    expect(result.current.messages).toHaveLength(2)
   }, 30_000)
 })
 

@@ -2468,8 +2468,10 @@ export interface SendTurnOpts {
   skipUserBubble?: boolean
   /** Reuse a previous client_turn_id for idempotent retry */
   retryClientTurnId?: string
-  /** Set on the ONE re-send of a core turn that outran the stream budget: the notice it replaces when it settles. */
-  stillFinishing?: { noticeId: string }
+  /** Set on the ONE re-send of a core turn that outran the stream budget: the notice it replaces when it settles.
+   *  `replayOnly` (A1, PL 23:51Z): the ONE lookup after a stream-loss read-back recovered the saved model, sent with CEE's
+   *  `replay_only` so it never runs the turn again; adopted only as that turn's replay of the revision read back. */
+  stillFinishing?: { noticeId: string; replayOnly?: { revision: string | null } }
   source?: string
   sourceSurface?: string
   parentChainId?: string | null
@@ -5223,7 +5225,9 @@ export function useConversation(): UseConversationReturn {
           streamedUnsettledCause = streamed.unsettledCause
           missingGraphAfterFallback = streamed.missingGraphAfterFallback === true
         } else {
-          v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers,
+          // A1: the recovery lookup carries CEE's `replay_only`, so it can replay this turn and never run it again.
+          const sent = stillFinishingReplay?.replayOnly !== undefined ? Object.assign({}, build.payload, { replay_only: true as const }) : build.payload
+          v5Result = await callV5Turn(sent, { signal: controller.signal, headers: v5Headers,
             onRequestStarted,
             onResponseReceived: () => { responseReceived = true },
           })
@@ -5314,13 +5318,22 @@ export function useConversation(): UseConversationReturn {
           // The saved model is on the canvas and no reply was delivered: say the existing recovered notice, stop.
           if (userBubbleIdForTurn) updateMessage(userBubbleIdForTurn, { deliveryState: 'sent' })
           if (mode === 'user' && !hidden) {
+            const noticeId = crypto.randomUUID()
             addMessage({
-              id: crypto.randomUUID(),
+              id: noticeId,
               role: 'assistant',
               synthetic: true,
               content: DRAFT_DELIVERY_RECOVERED_NOTICE,
               timestamp: new Date(),
             })
+            // A1 (PL 23:51Z): CEE recorded this turn's reply and its held cards; ask for them ONCE, as a lookup that never runs
+            // the turn again (`replay_only`). The notice stays unless that exact replay of the revision read back arrives.
+            if (isOpenAiLane((v5Headers[AI_MODE_HEADER] ?? null) as AiComparisonMode | null)) {
+              const revision = useCanvasStore.getState().lastServerGraphHash ?? null
+              setTimeout(() => {
+                void sendTurn({ ...opts, skipUserBubble: true, retryClientTurnId: turnClientId, stillFinishing: { noticeId, replayOnly: { revision } } })
+              }, STILL_FINISHING_REPLAY_DELAY_MS)
+            }
           }
           return
         }
@@ -5442,6 +5455,22 @@ export function useConversation(): UseConversationReturn {
         }
 
         const target = routeV5Response(v5Result)
+        // A1 (PL 23:51Z): the recovery lookup is adopted only as THIS turn's replay of the revision read back, while that
+        // revision, this scenario and this turn are still the current ones; anything else (a miss, unreadable cards, another
+        // revision, a newer edit or turn, a scenario switch) keeps the recovered notice and applies nothing.
+        if (stillFinishingReplay?.replayOnly !== undefined) {
+          const replay = target.kind === 'typed_error' ? null : readCoreTurn(target.response)
+          const canvasNow = useCanvasStore.getState()
+          const adopt = replay !== null && replay.durability === 'replayed'
+            && replay.model?.revision != null && replay.model.revision === stillFinishingReplay.replayOnly.revision
+            && canvasNow.lastServerGraphHash === stillFinishingReplay.replayOnly.revision
+            && responseBelongsToDispatchingScenario(canvasNow.currentScenarioId, scenarioIdAtDispatch)
+            && activeV5TurnIdRef.current === turnClientId
+          if (!adopt) {
+            logger.warn('draft_recovery.replay_not_adopted', { turnClientId, durability: replay?.durability ?? null, kind: target.kind })
+            return
+          }
+        }
         // A canvas event can acknowledge its saved state without a chat reply. It must still enter the existing state /
         // receipt applicator; only a validated graph/hash/state acknowledgement may bypass the empty-reply failure.
         // Typed errors, ordinary empty chat replies and incomplete acknowledgements keep their existing failure paths.
