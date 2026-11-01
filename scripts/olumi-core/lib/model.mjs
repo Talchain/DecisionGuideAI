@@ -113,6 +113,8 @@ export function graphOf(form) {
     add({
       id: r.id, ref: `F${++f}`, kind: 'factor', label: r.label, provenance: prov(r), ...quote(r),
       display_value: r.measure ? `${CMP[r.measure.cmp]} ${fmt(bound)}` : 'Not yet measurable',
+      // The card shows the bound as its figure; the way it limits (at most, at least) is said here, where the card and the inspector read a description.
+      description: r.measure ? `A limit on ‘${nameOf(m, r.measure.quantity)}’: it stays ${CMP[r.measure.cmp]} ${fmt(bound)}.` : 'A limit that cannot be measured yet.',
       ...(v !== null ? { observed_state: { unit: bound.unit, value: v, raw_value: v, source: bySource,
         ...(interval ? { range: { low: interval.low, high: interval.high, source: bySource === 'brief_extraction' ? 'user_override' : 'cee_hypothesis', meaning: interval.range_kind } } : {}) } } : {}),
       analysis_participation: 'included',

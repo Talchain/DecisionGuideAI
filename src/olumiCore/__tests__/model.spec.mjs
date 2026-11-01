@@ -201,6 +201,9 @@ describe('the person\'s limit stays on the canvas and its results reach Analysis
     expect(n).toMatchObject({ kind: 'factor', label: 'Capacity ceiling', provenance: 'from_brief', source_quote: 'no more than 120', display_value: 'at most 120 ticket/week' })
     expect(n.observed_state).toMatchObject({ value: 120, raw_value: 120, unit: 'ticket/week', source: 'brief_extraction' })
   })
+  it('the card says which way it limits (the figure alone would read as a plain number)', () => {
+    expect(nodeOf(richGraph, 'ceiling').description).toBe('A limit on ‘total capacity’: it stays at most 120 ticket/week.')
+  })
   it('it hangs off what it limits, as the aim does, and the bound is not drawn a second time', () => {
     expect(edgeOf(richGraph, 'total_capacity__ceiling')).toMatchObject({ from: 'total_capacity', to: 'ceiling', provenance: { definitional: true } })
     expect(nodeOf(richGraph, 'cap')).toBeUndefined()
