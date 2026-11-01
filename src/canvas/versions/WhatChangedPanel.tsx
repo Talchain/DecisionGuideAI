@@ -330,7 +330,9 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
             sign-in required, and it says so honestly). Renders nothing when
             the scenario is not server-addressable. */}
         {/* No shared version history on the olumi-core lane: it needs a signed-in session, and there are no accounts there. */}
-        {coreLaneHasAccounts() && <ServerVersionsSection />}
+        {coreLaneHasAccounts() ? (
+          <ServerVersionsSection />
+        ) : null}
       </PanelShell>
     </div>
   )
