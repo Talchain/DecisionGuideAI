@@ -5,7 +5,7 @@
  * Facts are read by their structured `about` (API v1.4), never from their text.
  */
 import { byId, figure, nameOf, partsOf } from './words.mjs'
-import { rev16, rev64, runIdOf } from './ids.mjs'
+import { rev16, rev64, revSaved16, runIdOf } from './ids.mjs'
 
 const valueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? (q.assertion.low + q.assertion.high) / 2) : null)
 const fmt = (q) => (q ? figure(q.assertion, q.unit) : '')
@@ -116,9 +116,18 @@ export function sayFact(text, leaves) {
   return text.endsWith(tail) ? text.slice(0, -tail.length) : text
 }
 
-export function analysisViewOf(view, hash) {
+/** What each option's cell says while a change waits: the chances are those of the model before it, never the held model's. */
+const WAITING_FACE = 'A change is waiting for your confirmation. These results are for the model before it; confirm it and Olumi runs the new model.'
+
+/**
+ * The saved version's Run. Its facts are about the SAVED model, so the Run is stamped with that model's hash; while a change is
+ * waiting the canvas draws a different graph (the held one), so the Run is not current for it and says so. With nothing waiting
+ * the two hashes are the same and the Run is current.
+ */
+export function analysisViewOf(view) {
   const v = view.version
   if (!v || !v.facts?.length) return null
+  const waiting = !!view.pending
   const m = byId(v.form)
   const live = v.form.records.filter((r) => r.family === 'option' && r.status === 'live')
   const goal = v.form.records.find((r) => r.family === 'goal')
@@ -136,8 +145,9 @@ export function analysisViewOf(view, hash) {
   const notes = [...(leaves.length ? [`This leaves out: ${leaves.join('; ')}.`] : []), ...(whatIfs.length ? [`Olumi’s what-if figures, until you give your own: ${whatIfs.join('; ')}.`] : [])]
   return {
     schema: 'canonical_analysis_view.v1', source: 'stored_run_facts',
-    run: { run_id: runIdOf(v), graph_hash_at_run: hash, computed_at: v.at },
-    staleness: { stale: false, revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: null, limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
+    run: { run_id: runIdOf(v), graph_hash_at_run: revSaved16(view), computed_at: v.at },
+    staleness: { stale: waiting, revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: waiting ? 'A change is waiting for your confirmation; these results are for the model before it.' : null, limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
+    ...(waiting ? { face_when_stale: WAITING_FACE } : {}),
     leader_licence: 'withheld',
     options: live.map((o) => {
       const c = chance(o), r = range(o), d = driver(o), b = blocked(o)

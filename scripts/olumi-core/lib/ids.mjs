@@ -77,4 +77,6 @@ export const runIdOf = (version) => `mp_run_${version.n}_${hex(version.id, 12)}`
 /** The 16-hex freshness token and the 64-hex content identity of what is saved or held now. */
 const stamp = (view) => `${view.id}|${view.version?.id ?? 'none'}|${view.pending?.id ?? 'none'}`
 export const rev16 = (view) => hex(stamp(view), 16)
+/** The same token for the SAVED model alone, as it stands before any waiting change: the identity of what the Run was run on. */
+export const revSaved16 = (view) => hex(stamp({ ...view, pending: null }), 16)
 export const rev64 = (view) => hex(`${stamp(view)}|content`, 64)

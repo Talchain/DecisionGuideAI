@@ -208,7 +208,9 @@ export function makeShim({ core, log = () => {} }) {
       if (body.chip?.action_type === 'run_analysis') {
         if (!isSid(sid)) throw new CoreError(404, 'no such scenario')
         const v = await view(ctx, sid)
-        return { out: turnBody(v, { turnId, text: v.version ? 'Olumi runs the analysis every time the model changes, so what you see is already the latest.' : 'There is no confirmed model to analyse yet. Confirm the card first.', withCard: !!v.pending, receipt: !!v.version }) }
+        const text = v.pending ? 'A change is waiting for your confirmation. Confirm it, and Olumi runs the analysis on the new model.'
+          : v.version ? 'Olumi runs the analysis every time the model changes, so what you see is already the latest.' : 'There is no confirmed model to analyse yet. Confirm the card first.'
+        return { out: turnBody(v, { turnId, text, withCard: !!v.pending, receipt: !!v.version }) }
       }
       return await message(ctx, body, turnId, sid, uuid)
     } catch (e) {
@@ -230,7 +232,7 @@ export function makeShim({ core, log = () => {} }) {
     }
     const model = modelOf(v)
     if (!model) return { status: 200, body: empty }
-    const analysis = analysisViewOf(v, rev16(v))
+    const analysis = analysisViewOf(v)
     return {
       status: 200,
       body: {

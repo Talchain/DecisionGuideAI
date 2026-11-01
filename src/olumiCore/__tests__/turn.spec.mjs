@@ -187,6 +187,14 @@ describe('discussion and challenges (gap 6)', () => {
     expect(out.error).toBeNull(); expect(out.assistant_text).toMatch(/already the latest/)
     expect(out.run.run_id).toMatch(/^mp_run_/)
   })
+  it('a Run press while a change waits does not say the results are the latest (they are for the model before the change)', async () => {
+    const { ctx } = await started({ approve: true })
+    await shim.turn(ctx, msg('Add staff absence as a factor.'))
+    const out = (await shim.turn(ctx, msg('Run analysis', { source: 'chip_click', chip: { action_type: 'run_analysis' } }))).out
+    expect(out.assistant_text).toMatch(/waiting for your confirmation/)
+    expect(out.assistant_text).not.toMatch(/already the latest/)
+    expect(out.cards).toHaveLength(1)
+  })
 })
 
 describe('errors are visible, with the right words (gap 6)', () => {
@@ -257,6 +265,15 @@ describe('the saved-model read (reload, a second browser, a link)', () => {
     const derived = `00000000-0000-4000-8000-${sid.slice(2)}`
     expect((await shim.graphRead({ token: 'tok-bea', aliases: [] }, derived)).status).toBe(404)
     expect((await shim.graphRead({ token: null, aliases: [] }, derived)).status).toBe(401)
+  })
+  it('a model with a change waiting reads back with its Run NOT current (the old chances are never shown as the new model\'s)', async () => {
+    const { ctx } = await started({ approve: true })
+    await shim.turn(ctx, msg('Add staff absence as a factor.'))
+    const g = await shim.graphRead(ctx, U)
+    expect(g.body.proposal_fields.proposals).toHaveLength(1)
+    const view = g.body.canonical_analysis_view
+    expect(view.staleness.stale).toBe(true)
+    expect(view.run.graph_hash_at_run).not.toBe(g.body.graph_hash)
   })
   it('a UUID no one has made a scenario under is "no model yet", not an error', async () => {
     const g = await shim.graphRead({ token: 'tok-ada', aliases: [] }, '99999999-2222-4333-8444-555555555555')
