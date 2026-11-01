@@ -1,0 +1,936 @@
+{
+ "id": "s_50490414ca11",
+ "title": "Support capacity",
+ "brief": "Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing, add one specialist, or add two specialists? We need at least 100 tickets a week but no more than 120. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.",
+ "commit": "scripted-dev",
+ "members": [
+  {
+   "id": "10",
+   "name": "Cap31117"
+  }
+ ],
+ "you": "Ada",
+ "views": [],
+ "waiting": [
+  "Cap31117"
+ ],
+ "reveal": {
+  "state": "open",
+  "at": null
+ },
+ "commitments": [],
+ "evidence": [],
+ "version": null,
+ "pending": {
+  "id": 12,
+  "base": null,
+  "source": "draft",
+  "changes": {
+   "added": [
+    "existing_capacity",
+    "per_specialist",
+    "specialists",
+    "one_specialist",
+    "added_capacity",
+    "total_capacity",
+    "capacity_target",
+    "team_morale",
+    "added_def",
+    "total_def",
+    "morale_link",
+    "capacity_goal",
+    "hold",
+    "add_one",
+    "lead_doubt",
+    "morale_left_out",
+    "slump_chance",
+    "slump_keep",
+    "new_hire_slump",
+    "spend",
+    "hire_spend",
+    "cap",
+    "ceiling",
+    "two_specialists",
+    "add_two",
+    "infl_unknown"
+   ],
+   "changed": [],
+   "removed": [],
+   "top": []
+  },
+  "form": {
+   "question": "Keep current staffing or add one specialist?",
+   "title": "Support capacity",
+   "period": "week",
+   "records": [
+    {
+     "family": "quantity",
+     "id": "existing_capacity",
+     "label": "existing capacity",
+     "unit": "ticket/week",
+     "role": "fact",
+     "assertion": {
+      "kind": "point",
+      "value": 80,
+      "approximate": false
+     },
+     "domain": null,
+     "stated_time": null,
+     "direction": null,
+     "origin": {
+      "by": "person",
+      "quote": "our team resolves 80 tickets a week",
+      "party": null
+     }
+    },
+    {
+     "family": "quantity",
+     "id": "per_specialist",
+     "label": "per specialist",
+     "unit": "ticket/week/specialist",
+     "role": "coefficient",
+     "assertion": {
+      "kind": "interval",
+      "low": 10,
+      "high": 30,
+      "range_kind": "plausible",
+      "likely": 20
+     },
+     "domain": null,
+     "stated_time": null,
+     "direction": null,
+     "origin": {
+      "by": "person",
+      "quote": "each specialist adds about 20, somewhere between 10 and 30",
+      "party": null
+     }
+    },
+    {
+     "family": "quantity",
+     "id": "specialists",
+     "label": "specialists",
+     "unit": "specialist",
+     "role": "fact",
+     "assertion": {
+      "kind": "point",
+      "value": 0,
+      "approximate": false
+     },
+     "domain": null,
+     "stated_time": null,
+     "direction": null,
+     "origin": {
+      "by": "structure",
+      "basis": "carrying on adds no specialist"
+     }
+    },
+    {
+     "family": "quantity",
+     "id": "one_specialist",
+     "label": "one specialist",
+     "unit": "specialist",
+     "role": "fact",
+     "assertion": {
+      "kind": "point",
+      "value": 1,
+      "approximate": false
+     },
+     "domain": null,
+     "stated_time": null,
+     "direction": null,
+     "origin": {
+      "by": "person",
+      "quote": "add one specialist",
+      "party": null
+     }
+    },
+    {
+     "family": "quantity",
+     "id": "added_capacity",
+     "label": "added capacity",
+     "unit": "ticket/week",
+     "role": "derived",
+     "assertion": {
+      "kind": "derived"
+     },
+     "domain": null,
+     "stated_time": null,
+     "direction": null,
+     "origin": {
+      "by": "olumi",
+      "basis": "what the specialists add"
+     }
+    },
+    {
+     "family": "quantity",
+     "id": "total_capacity",
+     "label": "total capacity",
+     "unit": "ticket/week",
+     "role": "derived",
+     "assertion": {
+      "kind": "derived"
+     },
+     "domain": null,
+     "stated_time": null,
+     "direction": null,
+     "origin": {
+      "by": "olumi",
+      "basis": "today plus what is added"
+     }
+    },
+    {
+     "family": "quantity",
+     "id": "capacity_target",
+     "label": "capacity target",
+     "unit": "ticket/week",
+     "role": "fact",
+     "assertion": {
+      "kind": "point",
+      "value": 100,
+      "approximate": false
+     },
+     "domain": null,
+     "stated_time": null,
+     "direction": null,
+     "origin": {
+      "by": "person",
+      "quote": "at least 100 tickets a week",
+      "party": null
+     }
+    },
+    {
+     "family": "quantity",
+     "id": "team_morale",
+     "label": "team morale",
+     "unit": null,
+     "role": "fact",
+     "assertion": {
+      "kind": "unsupported",
+      "reason": "No one can measure how the team feels yet."
+     },
+     "domain": null,
+     "stated_time": null,
+     "direction": null,
+     "origin": {
+      "by": "olumi",
+      "basis": ""
+     }
+    },
+    {
+     "family": "relation",
+     "id": "added_def",
+     "form": "product",
+     "defines": "added_capacity",
+     "parts": [
+      {
+       "id": "specialists",
+       "power": 1
+      },
+      {
+       "id": "per_specialist",
+       "power": 1
+      }
+     ],
+     "origin": {
+      "by": "olumi",
+      "basis": "each specialist adds their weekly capacity"
+     }
+    },
+    {
+     "family": "relation",
+     "id": "total_def",
+     "form": "sum",
+     "defines": "total_capacity",
+     "parts": [
+      {
+       "id": "existing_capacity",
+       "sign": 1
+      },
+      {
+       "id": "added_capacity",
+       "sign": 1
+      }
+     ],
+     "origin": {
+      "by": "person",
+      "quote": "total is today plus the specialists",
+      "party": null
+     }
+    },
+    {
+     "family": "relation",
+     "id": "morale_link",
+     "form": "influence",
+     "from": "add_one",
+     "to": "team_morale",
+     "direction": "disputed",
+     "confidence": "unsure",
+     "basis": "the team lead thinks a new hire may unsettle the team",
+     "origin": {
+      "by": "person",
+      "quote": "a new hire may unsettle the team",
+      "party": "our team lead"
+     }
+    },
+    {
+     "family": "goal",
+     "id": "capacity_goal",
+     "label": "At least 100 a week",
+     "measure": {
+      "quantity": "total_capacity",
+      "per": null,
+      "cmp": ">=",
+      "target": "capacity_target",
+      "frame": "level",
+      "reference": null,
+      "aggregation": "end",
+      "window": null,
+      "measure_by": "person",
+      "assumptions": [],
+      "exclusions": [
+       "morale_left_out"
+      ]
+     },
+     "question": null,
+     "origin": {
+      "by": "person",
+      "quote": "at least 100 tickets a week",
+      "party": null
+     }
+    },
+    {
+     "family": "option",
+     "id": "hold",
+     "label": "Keep current staffing",
+     "status": "live",
+     "carry_on": true,
+     "developed_from": null,
+     "sets": [],
+     "origin": {
+      "by": "person",
+      "quote": "keep current staffing",
+      "party": null
+     }
+    },
+    {
+     "family": "option",
+     "id": "add_one",
+     "label": "Add one specialist",
+     "status": "live",
+     "carry_on": false,
+     "developed_from": null,
+     "sets": [
+      {
+       "quantity": "specialists",
+       "to": "one_specialist",
+       "starts_after": 0
+      },
+      {
+       "quantity": "spend",
+       "to": "hire_spend",
+       "starts_after": 0
+      }
+     ],
+     "origin": {
+      "by": "person",
+      "quote": "add one specialist",
+      "party": null
+     }
+    },
+    {
+     "family": "dissent",
+     "id": "lead_doubt",
+     "holder": "our team lead",
+     "position": "A new hire may unsettle the team.",
+     "concerns": [
+      "morale_link"
+     ],
+     "origin": {
+      "by": "person",
+      "quote": "a new hire may unsettle the team",
+      "party": "our team lead"
+     }
+    },
+    {
+     "family": "left_out",
+     "id": "morale_left_out",
+     "text": "How the team feels about a new hire",
+     "why": "No figure measures it yet.",
+     "question": "What would show you the team is coping?",
+     "concerns": [
+      "team_morale"
+     ],
+     "origin": {
+      "by": "olumi",
+      "basis": ""
+     }
+    },
+    {
+     "family": "quantity",
+     "id": "slump_chance",
+     "label": "slump chance",
+     "unit": "1",
+     "role": "coefficient",
+     "assertion": {
+      "kind": "interval",
+      "low": 0.1,
+      "high": 0.5,
+      "range_kind": "plausible",
+      "likely": 0.3
+     },
+     "domain": null,
+     "stated_time": null,
+     "direction": null,
+     "origin": {
+      "by": "olumi",
+      "basis": "no typical rate known"
+     }
+    },
+    {
+     "family": "quantity",
+     "id": "slump_keep",
+     "label": "slump keep",
+     "unit": "1",
+     "role": "coefficient",
+     "assertion": {
+      "kind": "interval",
+      "low": 0.5,
+      "high": 0.9,
+      "range_kind": "plausible",
+      "likely": 0.7
+     },
+     "domain": null,
+     "stated_time": null,
+     "direction": null,
+     "origin": {
+      "by": "olumi",
+      "basis": "no typical rate known"
+     }
+    },
+    {
+     "family": "risk",
+     "id": "new_hire_slump",
+     "label": "New hire output slump",
+     "effect_on": "per_specialist",
+     "direction": "down",
+     "occurrence": "slump_chance",
+     "severity": "slump_keep",
+     "mode": "multiply",
+     "starts_after": 0,
+     "origin": {
+      "by": "olumi",
+      "basis": "new hires often ramp slowly"
+     }
+    },
+    {
+     "family": "quantity",
+     "id": "spend",
+     "label": "spend",
+     "unit": "EUR",
+     "role": "fact",
+     "assertion": {
+      "kind": "point",
+      "value": 0,
+      "approximate": false
+     },
+     "domain": null,
+     "stated_time": null,
+     "direction": null,
+     "origin": {
+      "by": "structure",
+      "basis": "carrying on spends nothing"
+     }
+    },
+    {
+     "family": "quantity",
+     "id": "hire_spend",
+     "label": "hire spend",
+     "unit": "EUR",
+     "role": "fact",
+     "assertion": {
+      "kind": "interval",
+      "low": 30000,
+      "high": 60000,
+      "range_kind": "plausible",
+      "likely": null
+     },
+     "domain": null,
+     "stated_time": null,
+     "direction": null,
+     "origin": {
+      "by": "olumi",
+      "basis": "a typical salary band"
+     }
+    },
+    {
+     "family": "quantity",
+     "id": "cap",
+     "label": "cap",
+     "unit": "ticket/week",
+     "role": "fact",
+     "assertion": {
+      "kind": "point",
+      "value": 120,
+      "approximate": false
+     },
+     "domain": null,
+     "stated_time": null,
+     "direction": null,
+     "origin": {
+      "by": "person",
+      "quote": "no more than 120",
+      "party": null
+     }
+    },
+    {
+     "family": "limit",
+     "id": "ceiling",
+     "label": "Capacity ceiling",
+     "measure": {
+      "quantity": "total_capacity",
+      "per": null,
+      "cmp": "<=",
+      "bound": "cap",
+      "aggregation": "end",
+      "window": null
+     },
+     "question": null,
+     "origin": {
+      "by": "person",
+      "quote": "no more than 120",
+      "party": null
+     }
+    },
+    {
+     "family": "quantity",
+     "id": "two_specialists",
+     "label": "two specialists",
+     "unit": "specialist",
+     "role": "fact",
+     "assertion": {
+      "kind": "interval",
+      "low": 1,
+      "high": 3,
+      "range_kind": "plausible",
+      "likely": 2
+     },
+     "domain": null,
+     "stated_time": null,
+     "direction": null,
+     "origin": {
+      "by": "olumi",
+      "basis": "two is a common step"
+     }
+    },
+    {
+     "family": "option",
+     "id": "add_two",
+     "label": "Add two specialists",
+     "status": "live",
+     "carry_on": false,
+     "developed_from": null,
+     "sets": [
+      {
+       "quantity": "specialists",
+       "to": "two_specialists",
+       "starts_after": 0
+      }
+     ],
+     "origin": {
+      "by": "person",
+      "quote": "add two specialists",
+      "party": null
+     }
+    },
+    {
+     "family": "relation",
+     "id": "infl_unknown",
+     "form": "influence",
+     "from": "hold",
+     "to": "team_morale",
+     "direction": "unknown",
+     "confidence": "unknown",
+     "basis": null,
+     "origin": {
+      "by": "olumi",
+      "basis": "no basis to say"
+     }
+    }
+   ],
+   "coaching_questions": [
+    "What would show you the team is coping?"
+   ],
+   "decide_by": null
+  },
+  "timings": [],
+  "facts": [
+   {
+    "id": "F1",
+    "value": "0.1 to 0.5",
+    "text": "Olumi's what-if for 'slump chance', not their figure: 0.1 to 0.5. Basis: no typical rate known.",
+    "about": {
+     "kind": "input",
+     "quantity": "slump_chance",
+     "olumi": true,
+     "low": 0.1,
+     "high": 0.5,
+     "median": 0.3,
+     "unit": "1"
+    }
+   },
+   {
+    "id": "F2",
+    "value": "0.5 to 0.9",
+    "text": "Olumi's what-if for 'slump keep', not their figure: 0.5 to 0.9. Basis: no typical rate known.",
+    "about": {
+     "kind": "input",
+     "quantity": "slump_keep",
+     "olumi": true,
+     "low": 0.5,
+     "high": 0.9,
+     "median": 0.7,
+     "unit": "1"
+    }
+   },
+   {
+    "id": "F3",
+    "value": "30,000 to 60,000 EUR",
+    "text": "Olumi's what-if for 'hire spend', not their figure: 30,000 to 60,000 EUR. Basis: a typical salary band.",
+    "about": {
+     "kind": "input",
+     "quantity": "hire_spend",
+     "olumi": true,
+     "low": 30000,
+     "high": 60000,
+     "median": 42426.40687119283,
+     "unit": "EUR"
+    }
+   },
+   {
+    "id": "F4",
+    "value": "1 to 3 specialist",
+    "text": "Olumi's what-if for 'two specialists', not their figure: 1 to 3 specialist. Basis: two is a common step.",
+    "about": {
+     "kind": "input",
+     "quantity": "two_specialists",
+     "olumi": true,
+     "low": 1,
+     "high": 3,
+     "median": 2,
+     "unit": "specialist"
+    }
+   },
+   {
+    "id": "F5",
+    "value": "under 1%",
+    "text": "The chance that 'Keep current staffing' meets 'At least 100 a week', in this model on current information. None of the Run’s draws met it. It leaves out: How the team feels about a new hire.",
+    "about": {
+     "kind": "chance",
+     "option": "hold",
+     "goal": "capacity_goal",
+     "chance": 0,
+     "olumi": false,
+     "approx": false,
+     "rests": []
+    }
+   },
+   {
+    "id": "F6",
+    "value": "80 ticket/week",
+    "text": "Under 'Keep current staffing', 'total capacity' is this in at least 8 draws in 10. It leaves out: How the team feels about a new hire.",
+    "about": {
+     "kind": "range",
+     "option": "hold",
+     "goal": "capacity_goal",
+     "approx": false,
+     "low": 80,
+     "high": 80,
+     "median": 80,
+     "unit": "ticket/week",
+     "olumi": false,
+     "rests": []
+    }
+   },
+   {
+    "id": "F7",
+    "value": "about 40%",
+    "text": "If Olumi's estimates hold, the chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. It rests on Olumi's what-if ranges for 'slump chance', 'slump keep' until they give their own, mainly on 'slump keep': change it to see how much this chance moves. It leaves out: How the team feels about a new hire.",
+    "about": {
+     "kind": "chance",
+     "option": "add_one",
+     "goal": "capacity_goal",
+     "chance": 0.3979,
+     "olumi": true,
+     "approx": false,
+     "rests": []
+    }
+   },
+   {
+    "id": "F8",
+    "value": "between 87.9 and 108 ticket/week (middle 97.9)",
+    "text": "If Olumi's estimates hold, under 'Add one specialist', 'total capacity' is likely to be in this range (8 draws in 10). It rests on Olumi's what-if ranges for 'slump chance', 'slump keep' until they give their own, mainly on 'slump keep': change it to see how much this chance moves. It leaves out: How the team feels about a new hire.",
+    "about": {
+     "kind": "range",
+     "option": "add_one",
+     "goal": "capacity_goal",
+     "approx": false,
+     "low": 87.89317736904906,
+     "high": 108.49540871500295,
+     "median": 97.8513469243693,
+     "unit": "ticket/week",
+     "olumi": true,
+     "rests": []
+    }
+   },
+   {
+    "id": "F9",
+    "value": "about 74%",
+    "text": "If Olumi's estimates hold, the chance that 'Add two specialists' meets 'At least 100 a week', in this model on current information. It rests on Olumi's what-if ranges for 'slump chance', 'slump keep', 'two specialists' until they give their own, mainly on 'two specialists': change it to see how much this chance moves. It leaves out: How the team feels about a new hire.",
+    "about": {
+     "kind": "chance",
+     "option": "add_two",
+     "goal": "capacity_goal",
+     "chance": 0.7404,
+     "olumi": true,
+     "approx": false,
+     "rests": []
+    }
+   },
+   {
+    "id": "F10",
+    "value": "between 90.6 and 146 ticket/week (middle 112)",
+    "text": "If Olumi's estimates hold, under 'Add two specialists', 'total capacity' is likely to be in this range (8 draws in 10). It rests on Olumi's what-if ranges for 'slump chance', 'slump keep', 'two specialists' until they give their own, mainly on 'two specialists': change it to see how much this chance moves. It leaves out: How the team feels about a new hire.",
+    "about": {
+     "kind": "range",
+     "option": "add_two",
+     "goal": "capacity_goal",
+     "approx": false,
+     "low": 90.56286645698957,
+     "high": 145.8565579929061,
+     "median": 112.45666115411785,
+     "unit": "ticket/week",
+     "olumi": true,
+     "rests": []
+    }
+   },
+   {
+    "id": "F11",
+    "value": "'Add two specialists' is the option most likely to achieve 'At least 100 a week'",
+    "text": "If Olumi's estimates hold, the option most likely to achieve 'At least 100 a week' in this model (about 74%, against about 40% for 'Add one specialist'). It rests on Olumi's what-if ranges for 'slump chance', 'slump keep', 'two specialists' until they give their own, mainly on 'two specialists': change it to see how much this chance moves. It leaves out: How the team feels about a new hire.",
+    "about": {
+     "kind": "most_likely",
+     "option": "add_two",
+     "goal": "capacity_goal",
+     "rests": []
+    }
+   },
+   {
+    "id": "F12",
+    "value": "over 99%",
+    "text": "The chance that 'Keep current staffing' stays within 'Capacity ceiling', in this model.",
+    "about": {
+     "kind": "limit",
+     "option": "hold",
+     "limit": "ceiling",
+     "chance": 1,
+     "olumi": false
+    }
+   },
+   {
+    "id": "F13",
+    "value": "under 1%",
+    "text": "The chance that 'Keep current staffing' goes outside 'Capacity ceiling', in this model.",
+    "about": {
+     "kind": "outside",
+     "option": "hold",
+     "limit": "ceiling",
+     "chance": 0,
+     "olumi": false
+    }
+   },
+   {
+    "id": "F14",
+    "value": "over 99%",
+    "text": "If Olumi's estimates hold, the chance that 'Add one specialist' stays within 'Capacity ceiling', in this model.",
+    "about": {
+     "kind": "limit",
+     "option": "add_one",
+     "limit": "ceiling",
+     "chance": 0.997,
+     "olumi": true
+    }
+   },
+   {
+    "id": "F15",
+    "value": "under 1%",
+    "text": "If Olumi's estimates hold, the chance that 'Add one specialist' goes outside 'Capacity ceiling', in this model.",
+    "about": {
+     "kind": "outside",
+     "option": "add_one",
+     "limit": "ceiling",
+     "chance": 0.0030000000000000027,
+     "olumi": true
+    }
+   },
+   {
+    "id": "F16",
+    "value": "about 63%",
+    "text": "If Olumi's estimates hold, the chance that 'Add two specialists' stays within 'Capacity ceiling', in this model.",
+    "about": {
+     "kind": "limit",
+     "option": "add_two",
+     "limit": "ceiling",
+     "chance": 0.6258,
+     "olumi": true
+    }
+   },
+   {
+    "id": "F17",
+    "value": "about 37%",
+    "text": "If Olumi's estimates hold, the chance that 'Add two specialists' goes outside 'Capacity ceiling', in this model.",
+    "about": {
+     "kind": "outside",
+     "option": "add_two",
+     "limit": "ceiling",
+     "chance": 0.3742,
+     "olumi": true
+    }
+   },
+   {
+    "id": "F18",
+    "value": "under 1% if 'per specialist' is low, about 83% if it is high",
+    "text": "Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws.",
+    "about": {
+     "kind": "driver",
+     "option": "add_one",
+     "goal": "capacity_goal",
+     "low": 0,
+     "high": 0.8346834683468347
+    }
+   },
+   {
+    "id": "F19",
+    "value": "about 48% if 'two specialists' is low, about 92% if it is high",
+    "text": "Under 'Add two specialists', the chance of meeting 'At least 100 a week' moves most with 'two specialists': these are its chances over the lowest and highest third of that figure's draws.",
+    "about": {
+     "kind": "driver",
+     "option": "add_two",
+     "goal": "capacity_goal",
+     "low": 0.48124812481248125,
+     "high": 0.9186918691869187
+    }
+   },
+   {
+    "id": "F20",
+    "value": "80 ticket/week",
+    "text": "Their figure for 'existing capacity': 80 ticket/week.",
+    "about": {
+     "kind": "input",
+     "quantity": "existing_capacity",
+     "olumi": false,
+     "median": 80,
+     "unit": "ticket/week"
+    }
+   },
+   {
+    "id": "F21",
+    "value": "10 to 30 ticket/week/specialist",
+    "text": "Their figure for 'per specialist': 10 to 30 ticket/week/specialist.",
+    "about": {
+     "kind": "input",
+     "quantity": "per_specialist",
+     "olumi": false,
+     "low": 10,
+     "high": 30,
+     "median": 20,
+     "unit": "ticket/week/specialist"
+    }
+   },
+   {
+    "id": "F22",
+    "value": "1 specialist",
+    "text": "Their figure for 'one specialist': 1 specialist.",
+    "about": {
+     "kind": "input",
+     "quantity": "one_specialist",
+     "olumi": false,
+     "median": 1,
+     "unit": "specialist"
+    }
+   },
+   {
+    "id": "F23",
+    "value": "100 ticket/week",
+    "text": "Their figure for 'capacity target': 100 ticket/week.",
+    "about": {
+     "kind": "input",
+     "quantity": "capacity_target",
+     "olumi": false,
+     "median": 100,
+     "unit": "ticket/week"
+    }
+   },
+   {
+    "id": "F24",
+    "value": "120 ticket/week",
+    "text": "Their figure for 'cap': 120 ticket/week.",
+    "about": {
+     "kind": "input",
+     "quantity": "cap",
+     "olumi": false,
+     "median": 120,
+     "unit": "ticket/week"
+    }
+   }
+  ],
+  "coach": {
+   "answer": "In this model 30,000 to 60,000 EUR for adding a specialist. Also: under 1%.",
+   "why": [
+    "It turns on what a new specialist really adds."
+   ],
+   "next": {
+    "move": "pre_mortem",
+    "about": [
+     "per_specialist"
+    ],
+    "text": "Imagine it is three months on and the hire did not lift capacity enough. What went wrong?"
+   },
+   "words": 40,
+   "problems": []
+  },
+  "findings": [],
+  "blocked": null,
+  "stopped": null
+ },
+ "chat": [
+  {
+   "id": 12,
+   "at": "2026-11-01T16:58:51.222Z",
+   "by": "Cap31117",
+   "said": "Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing, add one specialist, or add two specialists? We need at least 100 tickets a week but no more than 120. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.",
+   "first": true,
+   "kind": "draft",
+   "proposal": 12,
+   "version": null,
+   "current": false,
+   "answer": {
+    "answer": "In this model 30,000 to 60,000 EUR for adding a specialist. Also: under 1%.",
+    "why": [
+     "It turns on what a new specialist really adds."
+    ],
+    "next": {
+     "move": "pre_mortem",
+     "about": [
+      "per_specialist"
+     ],
+     "text": "Imagine it is three months on and the hire did not lift capacity enough. What went wrong?"
+    },
+    "words": 40,
+    "problems": []
+   },
+   "status": "pending",
+   "problem": null,
+   "cited": {}
+  }
+ ]
+}
