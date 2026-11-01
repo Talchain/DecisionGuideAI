@@ -1,10 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
-import { afterEach } from 'vitest'
 import { chancePercentText } from '../chancePercent'
 import { percent } from '../../../../../scripts/olumi-core/lib/words.mjs'
-
-afterEach(cleanup)
 
 describe('a risk\'s chance is shown as stated, never rounded to a different figure', () => {
   it.each([
