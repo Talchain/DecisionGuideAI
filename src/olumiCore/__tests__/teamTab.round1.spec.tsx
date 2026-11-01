@@ -301,6 +301,16 @@ describe('design QA 3: the privacy promise is said once, and in the words of the
   })
 })
 
+describe('design QA 6: a range with one end says so plainly', () => {
+  it('an option that lands on one figure reads "land on 80", never "between 80 and 80"', async () => {
+    const base = scenario()
+    const s = scenario({ commitments: [commitment()], version: { ...base.version!, facts: [{ id: 'F2', value: '80 ticket/week', text: 'x', about: { kind: 'range', option: 'add_one', low: 80, high: 80, median: 80, unit: 'ticket/week' } }] } })
+    setTeamFetch(fakeApi(() => ({ json: s })).fetchImpl)
+    render(<TeamTab scenarioUuid={UUID} />)
+    expect((await screen.findByTestId('team-commitment-band-line-F2')).textContent).toBe('Under ‘Add one specialist’, 8 runs in 10 land on 80 ticket/week, in this model.')
+  })
+})
+
 describe('design QA 7: another member\'s approval reaches this person\'s canvas', () => {
   it('a read that finds a newer approved version tells the page, once, so the canvas reads the saved model again', async () => {
     const told: Array<[string, number]> = []

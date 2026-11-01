@@ -21,7 +21,7 @@ function BandRow({ band }: { band: ModelBand }): JSX.Element {
   const hasNumbers = band.low !== null && band.high !== null
   const unit = band.unit ? ` ${band.unit}` : ''
   const line = hasNumbers
-    ? `${band.option ? `Under ‘${band.option}’, ` : ''}8 runs in 10 land between ${bandNumber(band.low!)} and ${bandNumber(band.high!)}${unit}${band.measure ? ` of ‘${band.measure}’` : ''}, in this model.`
+    ? `${band.option ? `Under ‘${band.option}’, ` : ''}8 runs in 10 land ${bandNumber(band.low!) === bandNumber(band.high!) ? `on ${bandNumber(band.low!)}` : `between ${bandNumber(band.low!)} and ${bandNumber(band.high!)}`}${unit}${band.measure ? ` of ‘${band.measure}’` : ''}, in this model.`
     : `${band.option ? `Under ‘${band.option}’: ` : ''}${band.valueWords}, in this model.`
   return (
     <li className="grid gap-1" data-testid={`team-commitment-band-${band.id}`}>

@@ -232,3 +232,21 @@ describe('two held cards: the ghost is the card the person is looking at (served
     expect(previewOfLatestReply([coreReply(turn([challenge]), { id: 'r-later' })])?.proposalId).toBe(challenge.proposal_id)
   })
 })
+
+describe('design QA 4 (witness): a new figure with nothing to sit beside is drawn where it can be seen', () => {
+  const nodes = [
+    { id: 'a', position: { x: 0, y: 0 }, measured: { width: 300, height: 100 } },
+    { id: 'b', position: { x: 340, y: 0 }, measured: { width: 300, height: 100 } },
+    { id: 'c', position: { x: 0, y: 200 }, measured: { width: 300, height: 100 } },
+  ]
+  const preview = { proposalId: 'prop_x', ops: [{ op: 'add_node' as const, id: 'staff_absence', label: 'staff absence', kind: 'factor' }] }
+  it('without a panel on the right it is right of the drawing, as before', () => {
+    const [card] = proposalGhostGeometry(preview, nodes).cards
+    expect(card).toMatchObject({ x: 640 + 48, y: 0 })
+  })
+  it('with a panel covering the right it is below the drawing, inside what is seen, and covers nothing', () => {
+    const [card] = proposalGhostGeometry(preview, nodes, { visibleRight: 700 }).cards
+    expect(card!.x + card!.w).toBeLessThanOrEqual(700)
+    expect(card!.y).toBeGreaterThanOrEqual(300)   // under the lowest card
+  })
+})

@@ -200,10 +200,14 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
   // Measured, not guessed: a card's height and a band's size follow the counter-scaled text (so they change with the
   // zoom: re-render on zoom), and a band sits on the real edge's DRAWN path. Re-measure after every render; the values
   // depend on label, zoom and edge route only, so this settles in one pass.
-  useStore((s) => s.transform[2])
+  const transform = useStore((s) => s.transform)
   const layerRef = useRef<HTMLDivElement>(null)
   const [measures, setMeasures] = useState<GhostMeasures>({})
-  const geo = useMemo(() => (ghost ? proposalGhostGeometry(ghost, nodes, measures) : null), [ghost, nodes, measures])
+  // What the person can see: never under the outputs dock (a ghost with nothing to sit beside is not drawn where it cannot be seen).
+  const dockLeft = typeof document === 'undefined' ? null : (() => { const r = document.querySelector(DOCK_SELECTOR)?.getBoundingClientRect(); return r && r.width > 0 ? r.left : null })()
+  const visibleRight = dockLeft === null ? null : screenToFlowPosition({ x: dockLeft - GHOST_ACTIONS_DOCK_GAP, y: 0 }).x
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `transform` moves `visibleRight` (flow units) on every pan or zoom
+  const geo = useMemo(() => (ghost ? proposalGhostGeometry(ghost, nodes, { ...measures, visibleRight }) : null), [ghost, nodes, measures, visibleRight, transform])
   // eslint-disable-next-line react-hooks/exhaustive-deps -- after EVERY render by design; equal measures bail out
   useLayoutEffect(() => {
     const root = layerRef.current

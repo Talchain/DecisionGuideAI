@@ -19,6 +19,7 @@ import type { CoreTurn } from './coreTurnContract'
 import type { ApplyV5StateOptions, ApplyV5StateResult } from './applyV5State'
 import { isOlumiCoreLane } from '../olumiCore/lane'
 import { markNoteShown } from '../olumiCore/reloadNote'
+import { arrivalsOf, pulseWhenOnCanvas } from '../olumiCore/pulseArrivals'
 import { parseCanonicalAnalysisView } from '../canvas/runView/canonicalAnalysisView'
 import { useCanonicalAnalysisViewStore } from '../canvas/stores/canonicalAnalysisViewStore'
 
@@ -85,6 +86,12 @@ export function applyCoreTurnState(turn: CoreTurn, store: CoreTurnApplicatorStor
     } else {
       deferred.push({ reason: 'ui_directive_target_not_found', detail: note.element_id })
     }
+  }
+
+  // olumi-core lane: a card that arrives because a change was approved (a ghost made real) is pulsed on its arrival, with the camera brought to it.
+  if (isOlumiCoreLane() && turn.receipts.length > 0 && turn.error == null) {
+    const arrivals = arrivalsOf(graphNodes, store.nodes)
+    if (arrivals.length > 0) { pulseWhenOnCanvas(arrivals); applied.push(`pulse:${arrivals.join(',')}`) }
   }
 
   if (revision) {

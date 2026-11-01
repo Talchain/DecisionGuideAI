@@ -212,6 +212,7 @@ import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
 import { setOnModelMoved, useTeamStore } from '../../olumiCore/team/store'
 import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
+import { pulseWhenOnCanvas } from '../../olumiCore/pulseArrivals'
 import { getSessionIdentity } from '../../lib/supabase'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
 
@@ -806,7 +807,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     if (!isOlumiCoreLane()) return
     setOnModelMoved((uuid) => {
       if (useCanvasStore.getState().currentScenarioId !== uuid) return
-      void getSessionIdentity().then((id) => hydrateCanvasFromServer(uuid, { userId: id.userId, accessToken: id.accessToken }))
+      const before = useCanvasStore.getState().nodes.map((n) => n.id)
+      void getSessionIdentity().then((id) => hydrateCanvasFromServer(uuid, { userId: id.userId, accessToken: id.accessToken })).then(() => {
+        // What the other member's approval added is acknowledged on arrival, as it is for the person who approved it.
+        pulseWhenOnCanvas(useCanvasStore.getState().nodes.map((n) => n.id).filter((id) => !before.includes(id)))
+      })
     })
     return () => setOnModelMoved(null)
   }, [])

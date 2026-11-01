@@ -159,6 +159,11 @@ export interface GhostMeasures {
   readonly bandPaths?: ReadonlyMap<string, ReadonlyArray<{ readonly x: number; readonly y: number }>>
   /** The real edge's drawn path (`d`) by band key. */
   readonly bandEdgePaths?: ReadonlyMap<string, string>
+  /**
+   * The right edge of what the person can see, in flow units (a panel covering the canvas's right side), null when nothing covers it. A ghost
+   * with nothing to sit beside is put right of the drawing only while it is seen there; else below the drawing, never under the panel.
+   */
+  readonly visibleRight?: number | null
   /** Other drawn marks a ghost must not cover (the edges' own labels: sign, strength). */
   readonly obstacles?: ReadonlyArray<{ readonly x: number; readonly y: number; readonly w: number; readonly h: number }>
 }
@@ -198,7 +203,7 @@ export function proposalGhostGeometry(
   nodes: readonly GhostNodeInput[],
   measures: GhostMeasures = {},
 ): GhostGeometry {
-  const { heights, markSizes, bandPaths, bandEdgePaths, obstacles = [] } = measures
+  const { heights, markSizes, bandPaths, bandEdgePaths, obstacles = [], visibleRight = null } = measures
   const real = new Map(nodes.map((n) => [n.id, rectOf(n)] as const))
   const heightOf = (id: string) => {
     const h = heights?.get(id)
@@ -209,8 +214,12 @@ export function proposalGhostGeometry(
   // The drawing's right edge and top, for a ghost with no anchor on the canvas.
   let right = 0
   let top = Infinity
-  for (const r of real.values()) { right = Math.max(right, r.x + r.w); top = Math.min(top, r.y) }
+  let left = Infinity
+  let bottom = -Infinity
+  for (const r of real.values()) { right = Math.max(right, r.x + r.w); top = Math.min(top, r.y); left = Math.min(left, r.x); bottom = Math.max(bottom, r.y + r.h) }
   if (top === Infinity) top = 0
+  if (left === Infinity) left = 0
+  if (bottom === -Infinity) bottom = 0
 
   const cards: GhostCard[] = []
   // Nodes and cards: nothing may cover them and no line should cross them. Edge labels: nothing may cover them.
@@ -247,9 +256,16 @@ export function proposalGhostGeometry(
     const a = tie ? real.get(tie.fromId === op.id ? tie.toId : tie.fromId)! : null
     let slot = a ? (slotsBeside(a, h).find((s) => free(s.x, s.y, h)) ?? nearestFree(a, GHOST_CARD_WIDTH, h)) : undefined
     if (!slot) {
-      // Right of the drawing never meets a node; step down past any card already there.
+      // Right of the drawing never meets a node; step down past any card already there. Where a panel covers that side it would be
+      // drawn under it and never seen: below the drawing instead, along its foot from the left, within what is seen.
       slot = { x: right + GHOST_GAP_X, y: top }
-      while (!free(slot.x, slot.y, h)) slot = { x: slot.x, y: slot.y + GHOST_CARD_HEIGHT + GHOST_GAP_Y }
+      if (visibleRight !== null && slot.x + GHOST_CARD_WIDTH > visibleRight) {
+        slot = { x: left, y: bottom + GHOST_GAP_Y }
+        while (!free(slot.x, slot.y, h)) {
+          const nextX: number = slot.x + GHOST_CARD_WIDTH + GHOST_GAP_X
+          slot = nextX + GHOST_CARD_WIDTH <= visibleRight ? { x: nextX, y: slot.y } : { x: left, y: slot.y + h + GHOST_GAP_Y }
+        }
+      } else while (!free(slot.x, slot.y, h)) slot = { x: slot.x, y: slot.y + GHOST_CARD_HEIGHT + GHOST_GAP_Y }
     }
     const card = { id: op.id, label: op.label, kind: op.kind, x: slot.x, y: slot.y, w: GHOST_CARD_WIDTH, h,
       ...(op.value !== undefined ? { value: op.value } : {}), ...(op.source !== undefined ? { source: op.source } : {}) }
