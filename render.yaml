@@ -1,0 +1,68 @@
+# DecisionGuideAI on olumi-core, as ONE Render web service: a Node server (scripts/olumi-core/server.mjs) that serves DGAI's
+# production build (dist/) and answers its backend calls from olumi-core, and proxies the person's private link (/k/<token>), the
+# API (/api/*, never /api/admin/*) and the health check to the olumi-core service. One origin, so each browser's own `olumi` cookie
+# reaches core on every call and the server holds no identity. NOT deployed from here: creating it needs the DL's go (cost).
+#
+# Before the first deploy:
+#   1. Set OLUMI_CORE_URL to the olumi-core service's URL (its render.yaml's `olumi-core`, e.g. https://olumi-core.onrender.com).
+#   2. Make the people's private links with core's admin route against CORE, not this service: this origin does not expose it.
+#      Their links then open on this host: https://<this service>/k/<token> (add ?to=/s/<scenario> to land on one).
+#   3. The build is heavy. `vite build` peaked at about 4.9 GB resident on a laptop (69 s). The heap is capped below, but if Render
+#      reports an out-of-memory build, move to `pro plus` for the build or build `dist/` elsewhere and serve it (DIST_DIR).
+#   4. Core must serve over https and set its cookie with Secure only if you set that on core; this server passes Set-Cookie as core
+#      wrote it. Verify a real two-browser run (two private links) as the first gate: a cookie that does not survive Render's
+#      proxy shows as every browser landing on "Open your private link".
+services:
+  - type: web
+    name: olumi-dgai
+    runtime: node
+    plan: pro
+    region: frankfurt
+    healthCheckPath: /healthz
+    # --ignore-scripts: as the repo's CI does (the vendored @talchain/schemas tarball needs no install script).
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --ignore-scripts && pnpm run build
+    startCommand: node scripts/olumi-core/server.mjs
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=3584
+      # ── runtime ──
+      - key: OLUMI_CORE_URL
+        sync: false
+      # ── build time: the olumi-core lane (scripts/olumi-core/env.sh is the same list, for a local build) ──
+      - key: VITE_OLUMI_CORE
+        value: "1"
+      - key: VITE_V5_ENDPOINT
+        value: /bff/orchestrate/v2/turn
+      - key: VITE_ENABLE_V5_ORCHESTRATOR
+        value: "true"
+      - key: VITE_ENABLE_ORCHESTRATOR_V2
+        value: "true"
+      - key: VITE_AUTH_MODE
+        value: guest
+      - key: VITE_DISABLE_OPENAI
+        value: "1"
+      - key: VITE_POC_ONLY
+        value: "0"
+      - key: VITE_PLC_LAB
+        value: "1"
+      - key: VITE_APP_ENV
+        value: staging
+      - key: VITE_FEATURE_AI_PANEL_V2
+        value: "true"
+      - key: VITE_V5_CANONICAL_ANALYSIS
+        value: "true"
+      - key: VITE_FEATURE_GRAPH_LENS
+        value: "true"
+      - key: VITE_FEATURE_DECISION_OVERVIEW
+        value: "1"
+      - key: VITE_FEATURE_STRENGTHEN_PANEL
+        value: "1"
+      - key: VITE_FEATURE_PRE_ANALYSIS_V3
+        value: "1"
+      # No Supabase on this lane: guests only. The client is built against a dead address and a placeholder key, never contacted.
+      - key: VITE_SUPABASE_URL
+        value: http://127.0.0.1:1
+      - key: VITE_SUPABASE_ANON_KEY
+        value: olumi-core-lane-no-supabase
