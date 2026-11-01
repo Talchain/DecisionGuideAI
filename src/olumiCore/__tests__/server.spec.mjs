@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import net from 'node:net'
 import { startFakeCore } from './fakeCore.mjs'
 import { createServer, LINK_PAGE } from '../../../scripts/olumi-core/server.mjs'
 
@@ -90,6 +91,26 @@ describe('one origin: the app, the private link, the API and the health check', 
     expect((await post('/bff/orchestrate/v2/turn/stream', {}, 'olumi=tok-ada')).status).toBe(404)
     expect((await fetch(base + '/bff/cee/prompts/warm', { method: 'POST' })).status).toBe(404)
   })
+})
+
+/** One raw request line, sent as written (fetch would normalise a hostile target before it left the client). */
+const raw = (line) => new Promise((resolve, reject) => {
+  const sock = net.connect(Number(new URL(base).port), '127.0.0.1')
+  let data = ''
+  sock.on('data', (d) => { data += d }); sock.on('error', reject); sock.on('close', () => resolve(data))
+  sock.write(`${line} HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n`)
+})
+
+describe('a hostile request line cannot take the single origin down for everyone', () => {
+  for (const target of ['//', '//evil.example/x', 'http://evil.example/', '*', '/%E0%A4%A', '/assets/%E0%A4%A']) {
+    const must400 = !target.startsWith('/%') && !target.startsWith('/assets')
+    it(`GET ${target} is answered with a 4xx, and the server still answers the next person`, async () => {
+      const answer = await raw(`GET ${target}`)
+      expect(answer).toMatch(/^HTTP\/1\.1 4\d\d /)
+      if (must400) expect(answer).toMatch(/^HTTP\/1\.1 400 /)
+      expect((await fetch(base + '/healthz')).status).toBe(200)
+    })
+  }
 })
 
 describe('identity: each browser is its own person (gap 3)', () => {

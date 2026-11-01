@@ -92,7 +92,8 @@ export function createServer(opts = {}) {
   }
 
   async function serveStatic(req, res, pathname) {
-    const rel = decodeURIComponent(pathname).replace(/^\/+/, '')
+    let rel
+    try { rel = decodeURIComponent(pathname).replace(/^\/+/, '') } catch { return false }
     const file = path.resolve(dist, rel)
     if (!file.startsWith(dist + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return false
     const ext = path.extname(file)
@@ -103,7 +104,14 @@ export function createServer(opts = {}) {
   }
 
   async function app(req, res) {
-    const url = new URL(req.url ?? '/', 'http://x')
+    // The request target is the one thing a stranger fully controls, so it is checked before anything else runs and a bad one is
+    // a 400 for that stranger alone: `new URL('//', ...)` throws, and out here that would end the process for every person.
+    let url
+    try {
+      const target = req.url ?? '/'
+      if (!target.startsWith('/') || target.startsWith('//')) throw new Error('not a path on this server')
+      url = new URL(target, 'http://x')
+    } catch { return json(res, 400, { error: 'bad request' }) }
     // vite's dev proxy rewrites /bff/cee/* to /assist/v1/* and /bff/orchestrate/* to /orchestrate/*: accept both spellings.
     const p = url.pathname.replace(/^\/assist\/v1\//, '/bff/cee/').replace(/^\/orchestrate\//, '/bff/orchestrate/')
     const method = req.method ?? 'GET'
@@ -170,7 +178,13 @@ export function createServer(opts = {}) {
       else res.end()
     }
   }
-  return http.createServer((req, res) => { void app(req, res) })
+  // `app` answers its own failures; this is the last net, so one request that slips past it cannot end the process.
+  return http.createServer((req, res) => {
+    app(req, res).catch((e) => {
+      log('request failed outside the handler', String(e?.stack ?? e))
+      if (!res.headersSent) { try { json(res, 500, { error: 'something went wrong' }) } catch { res.destroy() } } else res.destroy()
+    })
+  })
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
