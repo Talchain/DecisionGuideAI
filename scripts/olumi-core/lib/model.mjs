@@ -4,38 +4,80 @@
  * Rules come from the served fixtures (src/canvas/nodes/__tests__/fixtures/served-*), so this is only as faithful as they are.
  * Facts are read by their structured `about` (API v1.4), never from their text.
  */
-import { byId, figure, nameOf, partsOf } from './words.mjs'
+import { byId, figure, nameOf, num, partsOf, CMP } from './words.mjs'
 import { rev16, rev64, revSaved16, runIdOf } from './ids.mjs'
 
 const valueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? (q.assertion.low + q.assertion.high) / 2) : null)
 const fmt = (q) => (q ? figure(q.assertion, q.unit) : '')
+/** The likeliest value the person or Olumi stated, and never a midpoint: null for a range with no likeliest value. */
+const statedValueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? q.assertion.likely : null)
+const pct = (x) => `${Math.round(x * 100)}%`
+
+/** An influence's direction as DGAI draws one: up and down are stated; disputed, conditional and unknown are NOT a direction (DGAI's own `unknown`). */
+const influenceDirection = (d) => (d === 'up' ? 'positive' : d === 'down' ? 'negative' : 'unknown')
+const INFLUENCE_WORDS = { disputed: 'People disagree about which way this goes.', conditional: 'Which way this goes depends on conditions.', unknown: 'Which way this goes is not known.' }
+
+/** A risk's chance and size, in the words a card shows: each with its range, and whose figure it is. */
+function riskWords(r, m) {
+  const occ = m.get(r.occurrence), sev = m.get(r.severity), target = nameOf(m, r.effect_on)
+  const chance = (a) => (a.kind === 'point' ? `${a.approximate ? 'about ' : ''}${pct(a.value)}`
+    : a.likely != null ? `about ${pct(a.likely)} (between ${pct(a.low)} and ${pct(a.high)})` : `between ${pct(a.low)} and ${pct(a.high)}`)
+  const size = (a) => (a.kind === 'point' ? `${num(a.value)}` : a.likely != null ? `${num(a.likely)} (between ${num(a.low)} and ${num(a.high)})` : `an amount between ${num(a.low)} and ${num(a.high)}`)
+  const usable = (q) => q && (q.assertion.kind === 'point' || q.assertion.kind === 'interval')
+  const verb = r.mode === 'multiply' ? 'multiplies' : r.mode === 'add' ? 'adds to' : 'moves'
+  const parts = [
+    usable(occ) ? `May happen: ${chance(occ.assertion)}.` : null,
+    usable(sev) ? `If it does, it ${verb} ‘${target}’ by ${size(sev.assertion)}.` : `If it happens, it pushes ‘${target}’ ${r.direction === 'unknown' ? 'either way' : r.direction}.`,
+    [occ, sev].some((q) => q?.origin?.by === 'olumi') ? 'Olumi’s what-if figures, until you give your own.' : null,
+  ].filter(Boolean)
+  return parts.join(' ')
+}
 
 export function graphOf(form) {
   const m = byId(form)
   const recs = form.records
   const goals = recs.filter((r) => r.family === 'goal')
+  const limits = recs.filter((r) => r.family === 'limit')
   const measured = new Set(recs.flatMap((r) => (r.family === 'goal' || r.family === 'limit') && r.measure ? [r.measure.target ?? r.measure.bound] : []))
   const setTo = new Set(recs.flatMap((r) => (r.family === 'option' ? r.sets.map((s) => s.to) : [])))
+  // A risk's chance and size are said on the risk's own card, not drawn a second time as loose factors.
+  const riskParts = new Set(recs.flatMap((r) => (r.family === 'risk' ? [r.occurrence, r.severity].filter(Boolean) : [])))
   const prov = (r) => (r.origin?.by === 'person' ? 'from_brief' : 'ai_inferred')
   const quote = (r) => (r.origin?.by === 'person' && r.origin.quote ? { source_quote: r.origin.quote } : {})
   const nodes = [], edges = [], seen = new Set()
   const add = (n) => { if (!seen.has(n.id)) { seen.add(n.id); nodes.push(n) } }
-  const link = (from, to, extra = {}) => edges.push({ id: `${from}__${to}`, from, to, origin: 'model_program:calculation', provenance: { source: 'brief_extraction' }, effect_direction: 'positive', exists_probability: 1, ...extra })
+  /** `exists_probability: null` leaves the existence of the link unstated (no certainty is made up for a link nobody called certain). */
+  const link = (from, to, extra = {}) => {
+    const e = { id: `${from}__${to}`, from, to, origin: 'model_program:calculation', provenance: { source: 'brief_extraction' }, effect_direction: 'positive', exists_probability: 1, ...extra }
+    if (e.exists_probability === null) delete e.exists_probability
+    edges.push(e)
+  }
   add({ id: 'mp:decision', ref: 'D1', kind: 'decision', label: form.question })
   let o = 0, f = 0, c = 0, g = 0
   for (const r of recs) {
     if (r.family === 'option' && r.status !== 'removed') {
+      // Each set figure is the FIGURE's own record: whose it is, and its range as stated (a midpoint is never worded as a figure).
+      // The number is the likeliest value; a range with none carries a midpoint only because the card needs a number to sit on, and the words say the range.
       const interventions = Object.fromEntries(r.sets.map((s) => {
         const qs = m.get(s.quantity), to = m.get(s.to), v = valueOf(to)
-        return [s.quantity, { unit: qs?.unit ?? null, value: v, source: r.origin.by === 'person' ? 'brief_extraction' : 'cee_hypothesis', display: `${v} ${qs?.unit ?? ''}`.trim(), from_period: typeof s.starts_after === 'number' ? s.starts_after : 0, source_words: `Set by ‘${r.label}’, ${r.origin.by === 'person' ? 'from your brief' : 'Olumi’s figure'}` }]
+        const by = to?.origin?.by
+        const mine = by === 'olumi' ? `Set by ‘${r.label}’ using Olumi’s what-if, until you give your own` : by === 'structure' ? `Set by ‘${r.label}’ to a figure fixed by how the model is built` : `Set by ‘${r.label}’, from your brief`
+        return [s.quantity, {
+          unit: qs?.unit ?? null, value: v, source: by === 'olumi' ? 'cee_hypothesis' : 'brief_extraction',
+          ...(to?.assertion?.kind === 'interval' ? { display_value: fmt(to) } : {}),
+          display: `${fmt(to)}`, from_period: typeof s.starts_after === 'number' ? s.starts_after : 0, source_words: mine,
+        }]
       }))
       add({ id: r.id, ref: `O${++o}`, kind: 'option', label: r.label, provenance: prov(r), ...quote(r), ...(r.origin.by === 'olumi' ? { proposed_by: 'olumi' } : {}), interventions, analysis_participation: r.status === 'live' ? 'included' : 'excluded' })
       link('mp:decision', r.id)
       for (const s of r.sets) link(r.id, s.quantity)
-    } else if (r.family === 'risk') add({ id: r.id, ref: `R${++c}`, kind: 'risk', label: r.label, provenance: prov(r), ...quote(r) })
+    } else if (r.family === 'risk') {
+      const occurrence = statedValueOf(m.get(r.occurrence))
+      add({ id: r.id, ref: `R${++c}`, kind: 'risk', label: r.label, provenance: prov(r), ...quote(r), description: riskWords(r, m), ...(typeof occurrence === 'number' && occurrence >= 0 && occurrence <= 1 ? { probability: occurrence } : {}) })
+    }
   }
   for (const r of recs) {
-    if (r.family !== 'quantity' || setTo.has(r.id) || measured.has(r.id)) continue
+    if (r.family !== 'quantity' || setTo.has(r.id) || measured.has(r.id) || riskParts.has(r.id)) continue
     const derived = r.role === 'derived' || r.assertion.kind === 'derived'
     const v = valueOf(r)
     const interval = r.assertion.kind === 'interval' ? r.assertion : null
@@ -53,15 +95,49 @@ export function graphOf(form) {
   }
   for (const r of goals) {
     const target = m.get(r.measure?.target)
-    add({ id: r.id, ref: `G${++g}`, kind: 'goal', label: r.label, provenance: prov(r), ...quote(r), display_value: r.measure ? `${r.measure.cmp} ${valueOf(target)} ${target?.unit ?? ''}`.trim() : r.label,
-      goal_direction: r.measure?.cmp, goal_threshold_raw: valueOf(target), goal_threshold_unit: target?.unit ?? null, goal_threshold_frame: r.measure?.frame ?? 'level', goal_measure_by: r.measure?.measure_by ?? 'person', analysis_participation: 'included' })
+    const a = target?.assertion
+    // A target that is a range is shown as one ("95 to 105"), never collapsed to a single figure nobody gave.
+    const rangeWords = a?.kind === 'interval' ? `${num(a.low)} to ${num(a.high)}${a.likely != null ? `, most likely ${num(a.likely)}` : ''}` : null
+    const raw = a?.kind === 'interval' ? (a.likely ?? `${num(a.low)} to ${num(a.high)}`) : valueOf(target)
+    add({ id: r.id, ref: `G${++g}`, kind: 'goal', label: r.label, provenance: prov(r), ...quote(r), display_value: r.measure ? `${r.measure.cmp} ${rangeWords ?? valueOf(target)} ${target?.unit ?? ''}`.trim() : r.label,
+      goal_direction: r.measure?.cmp, goal_threshold_raw: raw, goal_threshold_unit: target?.unit ?? null, goal_threshold_frame: r.measure?.frame ?? 'level', goal_measure_by: r.measure?.measure_by ?? 'person', analysis_participation: 'included' })
+    if (r.measure && seen.has(r.measure.quantity)) link(r.measure.quantity, r.id, { provenance: { source: 'brief_extraction', definitional: true } })
+  }
+  // A limit is a card of its own (the person's "no more than 120"), hung off what it limits as the aim is. DGAI has no limit node
+  // and says not to add one, so it is a factor: its name, the way it is measured and the bound as its figure.
+  for (const r of limits) {
+    const bound = m.get(r.measure?.bound)
+    const v = valueOf(bound)
+    const interval = bound?.assertion?.kind === 'interval' ? bound.assertion : null
+    const bySource = bound?.origin?.by === 'olumi' ? 'cee_hypothesis' : 'brief_extraction'
+    add({
+      id: r.id, ref: `F${++f}`, kind: 'factor', label: r.label, provenance: prov(r), ...quote(r),
+      display_value: r.measure ? `${CMP[r.measure.cmp]} ${fmt(bound)}` : 'Not yet measurable',
+      ...(v !== null ? { observed_state: { unit: bound.unit, value: v, raw_value: v, source: bySource,
+        ...(interval ? { range: { low: interval.low, high: interval.high, source: bySource === 'brief_extraction' ? 'user_override' : 'cee_hypothesis', meaning: interval.range_kind } } : {}) } } : {}),
+      analysis_participation: 'included',
+    })
     if (r.measure && seen.has(r.measure.quantity)) link(r.measure.quantity, r.id, { provenance: { source: 'brief_extraction', definitional: true } })
   }
   for (const r of recs) {
     if (r.family !== 'relation' || r.form === 'influence') continue
     for (const part of partsOf(recs, r.defines)) if (seen.has(part) && seen.has(r.defines)) link(part, r.defines, { provenance: { source: 'brief_extraction', definitional: true } })
   }
-  for (const r of recs) if (r.family === 'relation' && r.form === 'influence' && seen.has(r.from) && seen.has(r.to)) link(r.from, r.to, { id: r.id, effect_direction: r.direction === 'down' ? 'negative' : 'positive' })
+  // An influence is drawn the way it was stated. Up and down are directions; disputed, conditional and unknown are NOT, and none of
+  // them is a certain link: no direction and no certainty are made up for them.
+  for (const r of recs) {
+    if (r.family !== 'relation' || r.form !== 'influence' || !seen.has(r.from) || !seen.has(r.to)) continue
+    const reasoning = [INFLUENCE_WORDS[r.direction], r.basis ? `${r.basis.charAt(0).toUpperCase()}${r.basis.slice(1)}${/[.!?]$/.test(r.basis) ? '' : '.'}` : null].filter(Boolean).join(' ')
+    link(r.from, r.to, {
+      id: r.id, effect_direction: influenceDirection(r.direction), exists_probability: null,
+      provenance: { source: r.origin.by === 'person' ? 'brief_extraction' : 'cee_hypothesis', ...(reasoning ? { reasoning } : {}) },
+    })
+  }
+  // A risk acts on something: the edge says what, and which way.
+  for (const r of recs) {
+    if (r.family !== 'risk' || !seen.has(r.id) || !seen.has(r.effect_on)) continue
+    link(r.id, r.effect_on, { effect_direction: influenceDirection(r.direction), exists_probability: null, provenance: { source: r.origin.by === 'person' ? 'brief_extraction' : 'cee_hypothesis', reasoning: `${r.label} could push ‘${nameOf(m, r.effect_on)}’ ${r.direction === 'unknown' ? 'either way' : r.direction}.` } })
+  }
   const uniq = new Map(edges.map((e) => [e.id, e]))
   return { nodes, edges: [...uniq.values()] }
 }
@@ -142,7 +218,19 @@ export function analysisViewOf(view) {
   const waitsOn = [...new Set(waits)].map((id) => m.get(id)).filter(Boolean).map((r) => ({ id: r.id, label: nameOf(m, r.id), answer: r.family === 'quantity' && r.assertion.kind === 'asked' ? { quantity_id: r.id } : null, code: r.family === 'quantity' ? r.assertion.kind : 'waiting' }))
   // Olumi's what-if figures, from the structured input facts (API v1.4 `about.olumi`): said once, as the facts mark them, not read from their words.
   const whatIfs = [...new Set(v.facts.filter((f) => f.about?.kind === 'input' && f.about.olumi === true).map((f) => nameOf(m, f.about.quantity)))]
-  const notes = [...(leaves.length ? [`This leaves out: ${leaves.join('; ')}.`] : []), ...(whatIfs.length ? [`Olumi’s what-if figures, until you give your own: ${whatIfs.join('; ')}.`] : [])]
+  // The person's limits: what core found for each option, within the limit and outside it, from the structured limit / outside / blocker facts.
+  const limitNotes = v.form.records.filter((r) => r.family === 'limit').flatMap((l) => {
+    const of = (kind, o) => v.facts.find((x) => x.about?.kind === kind && x.about.limit === l.id && x.about.option === o.id)
+    const rows = live.flatMap((o) => {
+      const within = of('limit', o), outside = of('outside', o), blocked = of('blocker', o)
+      if (within) return [`‘${nameOf(m, o.id)}’ ${within.value}${outside ? ` within it, ${outside.value} outside` : ''}`]
+      return blocked ? [`‘${nameOf(m, o.id)}’ ${blocked.value}`] : []
+    })
+    const whole = v.facts.find((x) => x.about?.kind === 'blocker' && x.about.limit === l.id && !x.about.option)
+    if (whole) rows.unshift(whole.value)
+    return rows.length ? [`Your limit ‘${l.label}’: ${rows.join('; ')}.`] : []
+  })
+  const notes = [...(leaves.length ? [`This leaves out: ${leaves.join('; ')}.`] : []), ...limitNotes, ...(whatIfs.length ? [`Olumi’s what-if figures, until you give your own: ${whatIfs.join('; ')}.`] : [])]
   return {
     schema: 'canonical_analysis_view.v1', source: 'stored_run_facts',
     run: { run_id: runIdOf(v), graph_hash_at_run: revSaved16(view), computed_at: v.at },

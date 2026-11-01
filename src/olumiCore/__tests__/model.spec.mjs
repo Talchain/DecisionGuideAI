@@ -8,6 +8,10 @@ import { parseCanonicalAnalysisView } from '../../canvas/runView/canonicalAnalys
 import { runViewOf } from '../../canvas/runView/runView'
 import { resolveFactorStoredRangeLine } from '../../canvas/nodes/shared/factorStatedRange'
 import { programQuantityOf } from '../../canvas/nodes/shared/savedModelProgram'
+import { mapDraftEdgeToCanvas } from '../../canvas/utils/applyDraftResult'
+import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../../canvas/domain/edgeValueProvenance'
+import { getEdgeLabel } from '../../canvas/domain/edgeLabels'
+import { unwrapInterventionValue } from '../../canvas/utils/labelUtils'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const fx = (n) => JSON.parse(fs.readFileSync(path.join(here, 'fixtures', n), 'utf8'))
@@ -109,5 +113,163 @@ describe('the Run is current only for the model it was run on (finding 12)', () 
   })
   it('the Run keeps the saved version\'s identity while a change waits (it is that version\'s Run), so it is still the one the Analysis tab names', () => {
     expect(analysisViewOf(withChange).run.run_id).toBe(analysisViewOf(approved).run.run_id)
+  })
+})
+
+// ── the model-audit shapes (captured from the real olumi-core v1.4 with the scripted AI) ─────────────────────────────────────
+const rich = fx('view-rich-approved.json')
+const richForm = rich.version.form
+const richGraph = graphOf(richForm)
+const nodeOf = (g, id) => g.nodes.find((n) => n.id === id)
+const edgeOf = (g, id) => g.edges.find((e) => e.id === id)
+/** The edge as DGAI's program reader draws it, and the words its label says. */
+const drawn = (e) => {
+  const data = mapDraftEdgeToCanvas(e, 0, undefined, { program: true }).data
+  const direction = resolveEdgeDirectionDisplay(data)
+  return { data, direction, label: getEdgeLabel(resolveEdgeValueDisplay(data, 'weight'), resolveEdgeValueDisplay(data, 'beliefExists'), direction, 'human').label }
+}
+
+describe('an influence is drawn the way the person stated it (finding 2)', () => {
+  it('the capture holds a DISPUTED and an UNKNOWN influence, as core wrote them', () => {
+    const inf = richForm.records.filter((r) => r.family === 'relation' && r.form === 'influence')
+    expect(inf.map((r) => [r.id, r.direction, r.confidence])).toEqual([['morale_link', 'disputed', 'unsure'], ['infl_unknown', 'unknown', 'unknown']])
+  })
+  it('a disputed influence is not "up": its direction is undeclared, its existence is not made certain, and its words say it is disputed', () => {
+    const e = edgeOf(richGraph, 'morale_link')
+    expect(e.effect_direction).toBe('unknown')
+    expect(e).not.toHaveProperty('exists_probability')
+    expect(e.provenance.reasoning).toMatch(/disagree/i)
+    expect(e.provenance.reasoning).toMatch(/unsettle the team/)
+  })
+  it('DGAI then draws it with no direction and no "Boost", whatever else it says', () => {
+    const { direction, label } = drawn(edgeOf(richGraph, 'morale_link'))
+    expect(direction.show).toBe(false)
+    expect(label).not.toMatch(/Boost|Drag/)
+    expect(drawn(edgeOf(richGraph, 'infl_unknown')).label).not.toMatch(/Boost|Drag/)
+  })
+  it('an influence with a stated direction keeps it (up is a boost, down is a drag)', () => {
+    const form = JSON.parse(JSON.stringify(richForm))
+    const set = (id, direction, confidence) => { const r = form.records.find((x) => x.id === id); r.direction = direction; r.confidence = confidence }
+    set('morale_link', 'up', 'likely'); set('infl_unknown', 'down', 'likely')
+    const g = graphOf(form)
+    expect(drawn(edgeOf(g, 'morale_link')).label).toMatch(/Boost/)
+    expect(drawn(edgeOf(g, 'infl_unknown')).label).toMatch(/Drag/)
+  })
+  it('a conditional influence is not drawn as a direction either', () => {
+    const form = JSON.parse(JSON.stringify(richForm))
+    form.records.find((x) => x.id === 'morale_link').direction = 'conditional'
+    const e = edgeOf(graphOf(form), 'morale_link')
+    expect(e.effect_direction).toBe('unknown')
+    expect(e.provenance.reasoning).toMatch(/depends/i)
+  })
+})
+
+describe('a risk keeps its effect, its chance and its size (finding 2)', () => {
+  const risk = richForm.records.find((r) => r.family === 'risk')
+  it('the capture holds the risk: it pushes "per specialist" down, with an occurrence and a severity', () => {
+    expect(risk).toMatchObject({ id: 'new_hire_slump', effect_on: 'per_specialist', direction: 'down', occurrence: 'slump_chance', severity: 'slump_keep', mode: 'multiply' })
+  })
+  it('there is an edge from the risk to what it affects, drawn as a drag, with no certainty made up', () => {
+    const e = edgeOf(richGraph, 'new_hire_slump__per_specialist')
+    expect(e).toMatchObject({ from: 'new_hire_slump', to: 'per_specialist', effect_direction: 'negative' })
+    expect(e).not.toHaveProperty('exists_probability')
+    expect(drawn(e).label).toMatch(/Drag/)
+  })
+  it('the risk card carries how likely it is and what it does, as its own figures, with their ranges', () => {
+    const n = nodeOf(richGraph, 'new_hire_slump')
+    expect(n.probability).toBe(0.3)
+    expect(n.description).toMatch(/between 10% and 50%/)
+    expect(n.description).toMatch(/about 30%/)
+    expect(n.description).toMatch(/per specialist/)
+    expect(n.description).toMatch(/0\.7/)
+  })
+  it('its occurrence and severity are not left on the canvas as loose factors', () => {
+    expect(nodeOf(richGraph, 'slump_chance')).toBeUndefined()
+    expect(nodeOf(richGraph, 'slump_keep')).toBeUndefined()
+    // ...and the Model tab still holds them
+    expect(canonicalOf(richForm, true).quantities.map((q) => q.id)).toEqual(expect.arrayContaining(['slump_chance', 'slump_keep']))
+  })
+})
+
+describe('the person\'s limit stays on the canvas and its results reach Analysis (finding 3)', () => {
+  it('the capture holds the limit and the figure it is bounded by', () => {
+    expect(richForm.records.find((r) => r.family === 'limit')).toMatchObject({ id: 'ceiling', label: 'Capacity ceiling', measure: { quantity: 'total_capacity', cmp: '<=', bound: 'cap' } })
+    expect(richForm.records.find((r) => r.id === 'cap').assertion).toMatchObject({ kind: 'point', value: 120 })
+  })
+  it('the limit is a card: its name, its bound with the way it is measured, whose it is, and the words the person used', () => {
+    const n = nodeOf(richGraph, 'ceiling')
+    expect(n).toMatchObject({ kind: 'factor', label: 'Capacity ceiling', provenance: 'from_brief', source_quote: 'no more than 120', display_value: 'at most 120 ticket/week' })
+    expect(n.observed_state).toMatchObject({ value: 120, raw_value: 120, unit: 'ticket/week', source: 'brief_extraction' })
+  })
+  it('it hangs off what it limits, as the aim does, and the bound is not drawn a second time', () => {
+    expect(edgeOf(richGraph, 'total_capacity__ceiling')).toMatchObject({ from: 'total_capacity', to: 'ceiling', provenance: { definitional: true } })
+    expect(nodeOf(richGraph, 'cap')).toBeUndefined()
+  })
+  it('a limit with no measure yet is still a card, saying so', () => {
+    const form = JSON.parse(JSON.stringify(richForm))
+    form.records.find((r) => r.id === 'ceiling').measure = null
+    const n = nodeOf(graphOf(form), 'ceiling')
+    expect(n).toMatchObject({ kind: 'factor', label: 'Capacity ceiling' })
+    expect(n.display_value).toMatch(/not yet measurable/i)
+  })
+  const view = analysisViewOf(rich)
+  it('Core\'s limit results (within, and outside) are said beside the chance, per option, from the structured facts', () => {
+    const notes = view.goal_chance.notes
+    const line = notes.find((x) => /Capacity ceiling/.test(x) && /Add two specialists/.test(x))
+    expect(line).toBeDefined()
+    expect(line).toMatch(/about 63%/)
+    expect(line).toMatch(/about 37%/)
+    expect(notes.find((x) => /Capacity ceiling/.test(x) && /Keep current staffing/.test(x))).toMatch(/over 99%/)
+    expect(parseCanonicalAnalysisView(view)).not.toBeNull()
+  })
+  it('a limit core could not check yet is said as not checked, never left out', () => {
+    const v = JSON.parse(JSON.stringify(rich))
+    v.version.facts = v.version.facts.filter((f) => !['limit', 'outside'].includes(f.about?.kind))
+    v.version.facts.push({ id: 'F90', value: 'not checked yet', text: 'Capacity ceiling is not checked yet: the limit has no measure.', about: { kind: 'blocker', limit: 'ceiling' } })
+    const notes = analysisViewOf(v).goal_chance.notes
+    expect(notes.find((x) => /Capacity ceiling/.test(x))).toMatch(/not checked yet/)
+  })
+})
+
+describe('an option\'s set figure keeps whose it is and what it is (finding 4)', () => {
+  const add1 = nodeOf(richGraph, 'add_one'), add2 = nodeOf(richGraph, 'add_two')
+  it('a figure the person gave stays theirs: from the brief, and a plain number', () => {
+    expect(add1.interventions.specialists).toMatchObject({ value: 1, source: 'brief_extraction' })
+    expect(add1.interventions.specialists).not.toHaveProperty('display_value')
+    expect(add1.interventions.specialists.source_words).toMatch(/your brief/i)
+  })
+  it('Olumi\'s what-if range is Olumi\'s, and its range is what is said: no midpoint is ever worded as a figure', () => {
+    const spend = add1.interventions.spend
+    expect(spend.source).toBe('cee_hypothesis')
+    expect(spend.source_words).toMatch(/Olumi/)
+    expect(spend.source_words).not.toMatch(/your brief/i)
+    expect(spend.display_value).toBe('between 30,000 and 60,000 EUR')
+    expect(JSON.stringify(Object.values(add1.interventions).map((i) => [i.display_value, i.display, i.source_words]))).not.toMatch(/45,?000/)
+  })
+  it('an Olumi range with a likeliest value says both, and the number is the likeliest', () => {
+    const two = add2.interventions.specialists
+    expect(two).toMatchObject({ value: 2, source: 'cee_hypothesis' })
+    expect(two.display_value).toBe('between 1 and 3 specialist, most likely 2')
+  })
+  it('DGAI reads the intervention as written (a number it can use, and the words it shows)', () => {
+    const { value, displayValue, source } = unwrapInterventionValue(add1.interventions.spend)
+    expect(value).toEqual(expect.any(Number))
+    expect(displayValue).toBe('between 30,000 and 60,000 EUR')
+    expect(source).toBe('cee_hypothesis')
+  })
+  it('an aim\'s target that is a range is shown as a range, not collapsed to one figure', () => {
+    const form = JSON.parse(JSON.stringify(approved.version.form))
+    form.records.find((r) => r.id === 'capacity_target').assertion = { kind: 'interval', low: 95, high: 105, range_kind: 'plausible', likely: null }
+    const goal = nodeOf(graphOf(form), 'capacity_goal')
+    expect(goal.goal_threshold_raw).toBe('95 to 105')
+    expect(goal.display_value).toMatch(/95 to 105/)
+    expect(goal.goal_threshold_unit).toBe('ticket/week')
+  })
+  it('a target with a likeliest value keeps it as the figure, and still says the range', () => {
+    const form = JSON.parse(JSON.stringify(approved.version.form))
+    form.records.find((r) => r.id === 'capacity_target').assertion = { kind: 'interval', low: 95, high: 105, range_kind: 'plausible', likely: 100 }
+    const goal = nodeOf(graphOf(form), 'capacity_goal')
+    expect(goal.goal_threshold_raw).toBe(100)
+    expect(goal.display_value).toMatch(/95 to 105/)
   })
 })

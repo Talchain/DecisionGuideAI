@@ -64,6 +64,23 @@ describe('a typed figure never silently replaces a range (finding 8)', () => {
   })
 })
 
+describe('a limit\'s figure is edited as the figure it is bounded by (finding 3)', () => {
+  it('typing a new figure on the limit card edits the bound, and the limit keeps its name', async () => {
+    const uuid = seeded(fx('view-rich-approved.json'))
+    const before = fake.calls.length
+    const out = (await shim.turn(ADA, edit(uuid, 'ceiling', 130))).out
+    expect(out.error).toBeNull()
+    expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body).toMatchObject({ quantity: 'cap', value: { kind: 'point', value: 130 } })
+    expect(out.model.graph.nodes.find((n) => n.id === 'ceiling')).toMatchObject({ label: 'Capacity ceiling', observed_state: { value: 130 } })
+  })
+  it('a limit with no measure has no figure to change, and says so', async () => {
+    const view = fx('view-rich-approved.json')
+    view.version.form.records.find((r) => r.id === 'ceiling').measure = null
+    const out = (await shim.turn(ADA, edit(seeded(view), 'ceiling', 130))).out
+    expect(out.error).toMatchObject({ code: 'bad_request', nothing_saved: true })
+  })
+})
+
 describe('a write core kept is never reported as lost because the read after it failed (finding 11)', () => {
   const lost = { status: 502, message: 'could not read' }
   it('a saved figure whose follow-up read fails says it was saved (nothing_saved is false), so the screen is not rolled back', async () => {

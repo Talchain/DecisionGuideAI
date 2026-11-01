@@ -8,14 +8,18 @@
  */
 export const byId = (form) => new Map((form?.records ?? []).map((r) => [r.id, r]))
 export const nameOf = (m, id) => { const r = m.get(id); return r ? (r.label ?? r.text ?? r.position ?? r.id) : id }
-const CMP = { '>=': 'at least', '<=': 'at most', '>': 'more than', '<': 'less than' }
+export const CMP = { '>=': 'at least', '<=': 'at most', '>': 'more than', '<': 'less than' }
+
+/** A number as a person reads it: thousands separated, no float noise. */
+export const num = (n) => (typeof n === 'number' && Number.isFinite(n) ? new Intl.NumberFormat('en-GB', { maximumFractionDigits: 6 }).format(n) : String(n))
+const unitOf = (unit) => (unit && unit !== '1' ? ` ${unit}` : '')
 
 /** A figure in plain words, as the person stated it: a point, or a range with the likeliest value. */
 export function figure(a, unit) {
-  const u = unit ? ` ${unit}` : ''
+  const u = unitOf(unit)
   switch (a.kind) {
-    case 'point': return `${a.approximate ? 'about ' : ''}${a.value}${u}`
-    case 'interval': return `between ${a.low} and ${a.high}${u}${a.likely != null ? `, most likely ${a.likely}` : ''}`
+    case 'point': return `${a.approximate ? 'about ' : ''}${num(a.value)}${u}`
+    case 'interval': return `between ${num(a.low)} and ${num(a.high)}${u}${a.likely != null ? `, most likely ${num(a.likely)}` : ''}`
     case 'derived': return 'worked out from the other figures'
     case 'asked': return `still to be given: ${a.question}`
     default: return a.reason

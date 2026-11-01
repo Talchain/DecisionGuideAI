@@ -122,10 +122,17 @@ export function makeShim({ core, log = () => {} }) {
    * Core's edit takes a point or a low/high, never a likeliest value, so a figure typed over a RANGE would silently replace the
    * person's range with one number (and the Run with it). That edit is refused, in words, before anything is sent.
    */
-  async function editFigure(ctx, turnId, sid, quantity, value) {
+  async function editFigure(ctx, turnId, sid, quantityId, value) {
+    let quantity = quantityId
     const v = await view(ctx, sid)
     if (!v.version) throw new CoreError(409, 'there is no saved model to edit yet')
     if (typeof value !== 'number' || !Number.isFinite(value)) throw new CoreError(400, 'that is not a figure Olumi can use')
+    // A limit card shows its bound as its figure: typing on it edits that figure.
+    const limit = v.version.form.records.find((r) => r.id === quantity && r.family === 'limit')
+    if (limit) {
+      if (!limit.measure) throw new CoreError(400, 'that limit has no figure to change yet. Nothing was saved.')
+      quantity = limit.measure.bound
+    }
     const rec = v.version.form.records.find((r) => r.id === quantity)
     if (rec?.family === 'quantity' && rec.assertion.kind === 'interval') {
       throw new CoreError(400, `‘${rec.label}’ is a range (${figure(rec.assertion, rec.unit)}), and a typed figure would replace it with one number. Tell me the new range in the chat. Nothing was saved.`)
