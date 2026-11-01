@@ -208,6 +208,7 @@ import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer
 import { AssistantOpenedNotice } from './AssistantOpenedNotice'
 import { DefineSuccessModal, DecisionRecordModal, HowComputedModal, openDecisionRecord, useDecisionRecordForScenario } from '../../components/results/modals'
 import { useIsViewer } from '../../lib/viewerMode'
+import { coreLaneShowsSurface } from '../../olumiCore/lane'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
 
 /**
@@ -496,6 +497,8 @@ export function getOutputTabsForParity(): WorkspaceSurfaceDescriptor[] {
   // 'journey' in `tests/ci-guards/shell-conformance.spec.ts`, and
   // `OutputsDock.dom.spec.tsx` drives the whole dock with the flag forced ON.
   return presentedSurfaces().filter(surface => {
+    // The olumi-core lane has no Reasoning or Compare backend (CEE's): hidden there, never left to 404.
+    if (!coreLaneShowsSurface(surface.id)) return false
     if (surface.id === 'olumi') return isAiPanelV2Enabled()
     if (surface.id === 'compare') return isCompareTabEnabled()
     return true

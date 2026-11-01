@@ -28,6 +28,8 @@
 // defect class (both forms evaluate to the fallback under vitest).
 const CEE_BASE_URL = '/bff/cee'
 
+import { isOlumiCoreLane } from '../olumiCore/lane'
+
 /** Whether preload has been successfully completed */
 let preloadComplete = false
 
@@ -45,6 +47,9 @@ const PRELOAD_TIMEOUT_MS = 5000
  * @returns Promise that resolves when preload completes (success or failure)
  */
 export function preloadPrompts(): Promise<void> {
+  // The olumi-core lane has no CEE prompt cache to warm (the call would 404).
+  if (isOlumiCoreLane()) return Promise.resolve()
+
   // Already successfully preloaded
   if (preloadComplete) {
     return Promise.resolve()

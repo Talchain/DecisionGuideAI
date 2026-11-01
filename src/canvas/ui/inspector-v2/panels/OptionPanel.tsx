@@ -15,6 +15,7 @@ import type { NodeType, OptionNodeData } from '../../../domain/nodes'
 import { resolveNodeTypeLiteral } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { OptionStatusControl } from '../shared/OptionStatusControl'
+import { coreLaneAllows } from '../../../../olumiCore/lane'
 import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
 import { useNodeMutations } from '../useInspectorMutations'
@@ -586,7 +587,7 @@ export const OptionPanel = memo(function OptionPanel({
         <InspectorSummary sentence={summarySentence} chip={summaryChip} />
       </div>
       {summaryContext}
-      <OptionStatusControl optionId={nodeId} data={node.data} />
+      {coreLaneAllows('structure') && <OptionStatusControl optionId={nodeId} data={node.data} />}
       {/* ── Context group ─────────────────────────────────────── */}
       {(isBaselineOption || draftingNotes.length > 0 || descriptionBody) && (
       <PanelGroup kind="context" label={GROUP_LABELS.context}>

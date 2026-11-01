@@ -257,6 +257,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
         hasStoredValue={value !== undefined || rawValue !== undefined}
         sourceLabel={sourceLabel}
         summaryContext={summaryContext}
+        data={node.data}
       />
       {description.trim() && (
         <p className={`${typography.panelBody} text-text-body mt-2`}>{description}</p>

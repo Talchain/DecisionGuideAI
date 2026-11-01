@@ -1,0 +1,54 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('../../lib/supabase', () => ({ getUserId: async () => null, getSessionIdentity: async () => ({ userId: null, accessToken: null }) }))
+vi.mock('../../lib/posthog', () => ({ trackEvent: () => undefined }))
+
+import { coreLaneAllows, coreLaneShowsSurface, isOlumiCoreLane } from '../lane'
+import { resolveAiComparisonMode, aiComparisonHeaders } from '../../v5/aiComparisonMode'
+import { streamedDraftEligible } from '../../canvas/conversation/useConversation'
+import { preloadPrompts } from '../../lib/prompt-preloader'
+
+afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals() })
+
+describe('the olumi-core lane', () => {
+  it('is off unless the build says so, and then nothing is hidden or changed', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '')
+    expect(isOlumiCoreLane()).toBe(false)
+    expect(coreLaneAllows('structure')).toBe(true)
+    expect(coreLaneShowsSurface('compare')).toBe(true)
+    expect(coreLaneShowsSurface('analysisNew')).toBe(true)
+    expect(resolveAiComparisonMode('https://example.com/#/canvas')).toBeNull()
+  })
+
+  it('honours a typed figure and nothing structural (what olumi-core cannot honour is not offered)', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    expect(isOlumiCoreLane()).toBe(true)
+    expect(coreLaneAllows('figure')).toBe(true)
+    expect(coreLaneAllows('structure')).toBe(false)
+  })
+
+  it('hides the two dock surfaces that read CEE routes (Reasoning, Compare) and keeps Analysis, the model outline and the chat', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    expect(coreLaneShowsSurface('compare')).toBe(false)
+    expect(coreLaneShowsSurface('analysisNew')).toBe(false)
+    for (const keep of ['results', 'diagnostics', 'olumi']) expect(coreLaneShowsSurface(keep)).toBe(true)
+  })
+
+  it('is the core route on every host and whatever the link says, so no URL needs ?ai=core and none can pick another lane', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    for (const href of ['https://olumi-dgai.onrender.com/#/canvas', 'https://x.test/#/canvas?ai=openai', 'https://x.test/?ai=conventional#/scenario/abc']) expect(resolveAiComparisonMode(href)).toBe('core-route')
+    expect(aiComparisonHeaders('https://x.test/')).toEqual({ 'x-olumi-ai-mode': 'core-route' })
+  })
+
+  it('never opens the draft stream (olumi-core has none: the route would 404 first on every brief) and never warms CEE\'s prompt cache', async () => {
+    const fetchSpy = vi.fn(async () => new Response('{}', { status: 404 }))
+    vi.stubGlobal('fetch', fetchSpy)
+    const draft = { turnType: 'conversation' as const, derivedStage: 'frame', isSystemEvent: false, nodeCountAtDispatch: 0 }
+    vi.stubEnv('VITE_OLUMI_CORE', '')
+    expect(streamedDraftEligible(draft)).toBe(true)
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    expect(streamedDraftEligible(draft)).toBe(false)
+    await preloadPrompts()
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+})

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { typography } from '../../../../styles/typography'
 import { InspectorSummary } from '../shared/InspectorSummary'
 import type { ProvenanceKind } from '../shared/ProvenanceChip'
+import { resolveFactorStoredRangeLine } from '../../../nodes/shared/factorStatedRange'
 
 /** Translate the existing source words; unknown or named sources stay explicit in More. */
 function factorSummaryChip(sourceLabel: string): ProvenanceKind | null {
@@ -22,6 +23,7 @@ export function FactorAnatomySummary({
   sourceLabel,
   pending = false,
   summaryContext,
+  data,
 }: {
   label: string
   displayText: string | null
@@ -29,7 +31,10 @@ export function FactorAnatomySummary({
   sourceLabel: string
   pending?: boolean
   summaryContext?: ReactNode
+  /** The factor's node data: when it carries a stated range (`observedState.range`), the panel says it beside the figure, as the card does. */
+  data?: unknown
 }) {
+  const rangeLine = data === undefined ? null : resolveFactorStoredRangeLine(data)
   return (
     <>
       <InspectorSummary
@@ -44,6 +49,9 @@ export function FactorAnatomySummary({
         chip={displayText && !pending ? factorSummaryChip(sourceLabel) : null}
       />
       {summaryContext}
+      {rangeLine !== null && (
+        <p data-testid="factor-stated-range" className={`${typography.panelMeta} text-text-light mt-1`}>{rangeLine}</p>
+      )}
       {pending && (
         <p role="status" className={`${typography.panelMeta} text-text-light mt-1`}>
           Your edit — not saved to the model yet

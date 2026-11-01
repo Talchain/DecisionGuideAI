@@ -656,6 +656,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         sourceLabel={sourceLabel}
         pending={isValueEditPending}
         summaryContext={summaryContext}
+        data={node.data}
       />
       {description.trim() && (
         <p className={`${typography.panelBody} text-text-body mt-2`}>{description}</p>

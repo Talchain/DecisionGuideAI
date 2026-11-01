@@ -20,7 +20,7 @@
 
 import { Fragment, useState, useEffect, useId, useMemo, useRef } from 'react'
 import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Wrench } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import styles from '../Conversation.module.css'
 import { isV5Eligible } from '../../../v5/eligibility'
@@ -50,6 +50,18 @@ import {
 import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
 import { cardMark, type CardMarkIcon } from '../../nodes/shared/cardMarks'
 import { scrollWithinThread } from '../hooks/threadScroll'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
+
+/** A fixed part of how the model is built (a constant or a conversion: nobody's figure), marked as plumbing, never as the person's or Olumi's. */
+const PLUMBING_WORDS = 'Fixed by how the model is built'
+function PlumbingRowMark({ testId }: { testId: string }) {
+  return (
+    <span className="ml-1 inline-flex shrink-0 items-center self-center text-text-light" data-testid={testId} title={PLUMBING_WORDS}>
+      <Wrench size={12} aria-hidden="true" />
+      <span className="sr-only">{` · ${PLUMBING_WORDS}`}</span>
+    </span>
+  )
+}
 
 /** Olumi's row on the review card: the Olumi mark, its words on hover and in its name (Paul 24 Oct: no default text). */
 function OlumiRowMark({ testId }: { testId: string }) {
@@ -111,6 +123,7 @@ function ReadingChangeRow({ change: c, tick }: { change: ProposalChange; tick?: 
         {/* Open, the row's whole name shows, so its words below need not say it again (W8 c7.1). */}
         <span className={open ? 'min-w-0 break-words' : 'truncate'}>{c.label}</span>
         {changeIsOlumis(c) && <OlumiRowMark testId={`proposal-change-olumi-${key}`} />}
+        {c.structure === true && isOlumiCoreLane() && <PlumbingRowMark testId={`proposal-change-plumbing-${key}`} />}
       </button>
       {open && <p id={detailId} data-testid={`proposal-change-detail-${key}`}>{proposalRowDetail(c)}</p>}
     </li>
@@ -133,11 +146,15 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading, ticks }: { prop
   // grouped, every group's one-line rows show under the counted marks, "Also in the model" too (W12; Paul's D3: "one line
   // per item, with the detail on a tap"; acceptance run 2 found the grouped card showing its counts and no item at all).
   const [open, setOpen] = useState(reading)
-  const [otherOpen, setOtherOpen] = useState(grouped)
+  // On the olumi-core lane the model's composition rule is binding (Alpha V2 audit, 1 Nov): the person's own records first,
+  // Olumi's what-ifs grouped behind them, and the calculations and derived figures ("Also in the model") folded by default.
+  const personFirst = isOlumiCoreLane()
+  const [otherOpen, setOtherOpen] = useState(grouped && !personFirst)
   // W7 (PANEL-1P rule 3): with ticks, Olumi's additions and readings come first and the rows from their brief start folded
   // under "Also from your brief" (every row still reachable, none hidden for good). Folded is read only with ticks: the
   // program read can arrive after the first render, so the fold never depends on what that render knew.
   const [briefOpen, setBriefOpen] = useState(false)
+  const olumiFirst = ticks !== undefined && !personFirst
   const [scrollTo, setScrollTo] = useState<ReadingGroup | null>(null)
   const sections = useRef<Partial<Record<ReadingGroup, HTMLDivElement | null>>>({})
   const listId = useId()
@@ -195,13 +212,13 @@ function ChangeNotesPanel({ proposalId, notes, changes, reading, ticks }: { prop
         </div>
         {open && (
           <div id={listId}>
-            {(ticks === undefined ? READING_GROUP_MARKS : READING_GROUP_MARKS_OLUMI_FIRST).map(({ group, words, Icon }) => {
+            {(olumiFirst ? READING_GROUP_MARKS_OLUMI_FIRST : READING_GROUP_MARKS).map(({ group, words, Icon }) => {
               const rows = rowsOf(group)
               if (rows.length === 0) return null
-              const folded = ticks !== undefined && group === 'used' && !briefOpen
+              const folded = olumiFirst && group === 'used' && !briefOpen
               return <div key={group} ref={(el) => { sections.current[group] = el }} role="group" aria-label={words}
                 data-testid={`reading-group-section-${proposalId}-${group}`}>
-                {ticks !== undefined && group === 'used'
+                {olumiFirst && group === 'used'
                   ? <button type="button" className={`${styles.inlineDisclosureToggle} mt-2 inline-flex items-center gap-1`} aria-expanded={briefOpen}
                     onClick={() => setBriefOpen((v) => !v)} data-testid={`reading-also-from-brief-${proposalId}`}>
                     <Icon size={12} aria-hidden="true" />{READING_ALSO_FROM_BRIEF} {briefOpen ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}

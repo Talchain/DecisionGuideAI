@@ -29,6 +29,7 @@ import { addBreadcrumb } from '../../lib/monitoring'
 // is neither `useAuth()` nor a canvas-store field.
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { isThinClientSession } from '../thinClient/thinClient'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { useDraftStore, draftStreamPhaseFor, streamedPreviewStandingFor, canvasDraftPreviewFingerprint } from '../stores/draftStore'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { scenarioIdWrite } from '../stores/unboundModelBinding'
@@ -488,6 +489,8 @@ export interface StreamedDraftEligibility {
  * by `streamedDraftTurn.spec.ts`.
  */
 export function streamedDraftEligible(p: StreamedDraftEligibility): boolean {
+  // olumi-core has no draft stream: its first model arrives in the one buffered reply (the stream route would 404 first).
+  if (isOlumiCoreLane()) return false
   if (p.isSystemEvent) return false
   if (p.nodeCountAtDispatch !== 0) return false
   if (p.turnType === 'explicit_generate') return true
