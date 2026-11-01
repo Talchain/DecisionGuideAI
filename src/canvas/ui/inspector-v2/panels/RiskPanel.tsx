@@ -43,6 +43,7 @@ import { COACHING } from '../coachingConfig'
 import { RiskAdvancedEditor } from '../editors/RiskAdvancedEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { resolveElementLabel } from '../../../domain/elementLabel'
+import { chancePercentText } from '../../../nodes/shared/chancePercent'
 
 /** Impact enum options, ordered low → critical. Labels are the capitalised enum. */
 const IMPACT_OPTIONS: { value: RiskImpact; label: string }[] = [
@@ -102,7 +103,7 @@ export const RiskPanel = memo(function RiskPanel({
   const impactInput = RiskNodeDataSchema.shape.impact.safeParse(node?.data?.impact)
   const probability = probabilityInput.success ? probabilityInput.data : undefined
   const impact = impactInput.success ? impactInput.data : undefined
-  const probabilityPct = typeof probability === 'number' ? Math.round(probability * 100) : null
+  const probabilityPct = typeof probability === 'number' ? chancePercentText(probability) : null
   const severity = calculateRiskSeverity(probability, impact)
   const severityColors = getRiskSeverityColors(severity)
 
@@ -148,7 +149,7 @@ export const RiskPanel = memo(function RiskPanel({
   const assessmentAbsent = probability == null && impact == null
   const sentence = assessmentAbsent
     ? INSPECTOR_RISK_ABSENCE
-    : `Likelihood is ${probabilityPct != null ? `${probabilityPct}%` : 'not recorded'}; impact is ${impact != null ? IMPACT_LABEL[impact].toLowerCase() : 'not recorded'}.`
+    : `Likelihood is ${probabilityPct != null ? probabilityPct : 'not recorded'}; impact is ${impact != null ? IMPACT_LABEL[impact].toLowerCase() : 'not recorded'}.`
 
   return (
     <div>
@@ -182,7 +183,7 @@ export const RiskPanel = memo(function RiskPanel({
           <div>
             <div data-testid="risk-likelihood-row" className={inspectorDetailRow}>
               <span className="text-text-light">{INLINE_LABELS.riskLikelihood}</span>
-              <span className="text-right text-text-body">{probabilityPct != null ? `${probabilityPct}%` : 'Not recorded'}</span>
+              <span className="text-right text-text-body">{probabilityPct != null ? probabilityPct : 'Not recorded'}</span>
             </div>
             <div data-testid="risk-impact-row" className={inspectorDetailRow}>
               <span className="text-text-light">{INLINE_LABELS.riskImpact}</span>
@@ -214,7 +215,7 @@ export const RiskPanel = memo(function RiskPanel({
           <div>
             <div className={`${typography.panelMeta} text-text-light mb-1`}>{INLINE_LABELS.riskLikelihood}</div>
             <InlineNumberEditor
-              readout={probabilityPct != null ? `${probabilityPct}%` : null}
+              readout={probabilityPct}
               placeholder={INLINE_LABELS.riskNotSet}
               // Exact percent (unrounded) so opening + blurring a 0.376 (shown
               // "38%") is a no-op and preserves the entered precision (P1-4).

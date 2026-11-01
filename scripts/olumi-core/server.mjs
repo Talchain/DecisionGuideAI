@@ -24,7 +24,7 @@ import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { makeCore, CoreError, errorTurn, identityChangedTurn, IDENTITY_CHANGED_WORDS } from './lib/core.mjs'
+import { makeCore, CoreError, errorTurn, identityChangedTurn, identityUnconfirmedTurn, IDENTITY_CHANGED_WORDS } from './lib/core.mjs'
 import { makeShim } from './lib/turn.mjs'
 import { aliasesOfHeader, aliasHeader, parseCookies, uuidOfSid, isUuid } from './lib/ids.mjs'
 
@@ -94,10 +94,14 @@ export function createServer(opts = {}) {
     res.end(req.method === 'HEAD' ? undefined : buf)
   }
 
-  /** Is this browser's cookie a person core knows? Returns { me } or null. */
+  /**
+   * Who is this browser's cookie? `{ me }` is the person, `{ me: null }` is nobody (no cookie, or one core does not know: core
+   * answers /api/me 200 with `me: null`). `{ unknown: true }` is a lookup that FAILED (a dropped connection, a 5xx): that is not
+   * "nobody", and must never be read as "nothing to compare", or a write goes through unchecked.
+   */
   async function whoIs(ctx) {
-    if (!ctx.token) return null
-    try { const r = await core('GET', '/api/me', { token: ctx.token }); return r.me ?? null } catch { return null }
+    if (!ctx.token) return { me: null }
+    try { const r = await core('GET', '/api/me', { token: ctx.token }); return { me: r.me ?? null } } catch { return { unknown: true } }
   }
 
   /**
@@ -199,7 +203,7 @@ export function createServer(opts = {}) {
         if (body === null || typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { error: 'a turn is a JSON object' })
         const ctx = ctxOf(req)
         const no = await identityRefusal(ctx, { required: true })
-        if (no) { log('turn refused', no.changed ? 'page opened for another person' : `identity not verified (${no.error.status})`); return json(res, 200, no.changed ? identityChangedTurn(body.turn_id) : errorTurn(body.turn_id, no.error)) }
+        if (no) { log('turn refused', no.changed ? 'page opened for another person' : `identity not verified (${no.error.status})`); return json(res, 200, no.changed ? identityChangedTurn(body.turn_id) : no.error.status === 401 || no.error.status === 403 ? errorTurn(body.turn_id, no.error) : identityUnconfirmedTurn(body.turn_id)) }
         let r
         try { r = await shim.turn(ctx, body) } catch (e) { log('turn failed', String(e?.stack ?? e)); r = { out: errorTurn(body.turn_id, e) } }
         return json(res, 200, r.out, r.alias ? { 'x-olumi-alias': aliasHeader(r.alias) } : {})
@@ -225,7 +229,9 @@ export function createServer(opts = {}) {
       if (!isDoc && path.extname(p)) return json(res, 404, { error: 'not found' })
       // A document: DGAI, for a browser core knows; else the "open your link" page (a silent empty canvas would be a hidden failure).
       const ctx = ctxOf(req)
-      const me = await whoIs(ctx)
+      const who = await whoIs(ctx)
+      if (who.unknown) return html(res, 503, LINK_PAGE('Olumi could not be reached to check your private link just now. Reload this page in a moment.'))
+      const me = who.me
       if (!me) return html(res, 401, LINK_PAGE(ctx.token ? 'The link this browser holds is no longer valid.' : 'This browser has not opened one yet.'))
       if (sPath) { res.writeHead(302, { location: `/#/scenario/${uuidOfSid(sPath[1])}`, 'cache-control': 'no-store' }); return res.end() }
       let doc

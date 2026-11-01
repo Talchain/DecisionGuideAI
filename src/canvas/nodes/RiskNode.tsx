@@ -26,6 +26,7 @@ import { openNodeInspector } from './shared/openNodeInspector'
 import { readEventRisk } from '../domain/eventRisk'
 import { isRetainedExcludedFromAnalysis } from './shared/analysisParticipation'
 import { OLUMI_SUGGESTION_TAG, OLUMI_RISK_NOT_IN_CHANCE_SUFFIX } from '../../components/results/utils/notAnalysedCopy'
+import { chancePercentText } from './shared/chancePercent'
 
 /**
  * ⭐⭐⭐ A THIN CARD MUST SAY THAT THE MODEL IS THIN, NOT LOOK LIKE A THIN TOOL.
@@ -217,9 +218,9 @@ export const RiskNode = memo((props: NodeProps) => {
   // own size, and the alternative was to re-derive that from `probability` and
   // `impact` beside the chip — a second opinion about one question, which is how
   // two surfaces on one card come to disagree. One join, read twice.
-  const probabilityPct = typeof probability === 'number' ? Math.round(probability * 100) : null
+  const probabilityPct = typeof probability === 'number' ? chancePercentText(probability) : null
   const exposureReadout = [
-    probabilityPct != null ? `${probabilityPct}% likely` : null,
+    probabilityPct != null ? `${probabilityPct} likely` : null,
     impact ? `${impact.charAt(0).toUpperCase()}${impact.slice(1)} impact` : null,
   ].filter(Boolean).join(' · ')
   /**

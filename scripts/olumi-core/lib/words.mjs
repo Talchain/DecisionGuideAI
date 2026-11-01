@@ -20,6 +20,20 @@ export const num = (n) => {
 }
 const unitOf = (unit) => (unit && unit !== '1' ? ` ${unit}` : '')
 
+/**
+ * A chance as the percentage a person reads: exactly as stated (a stated 0.4% is "0.4%", 12.5% is "12.5%"), never rounded to a
+ * different figure. Under 0.01% it says so; "0%" is only ever an exact zero. Mirrored by `chancePercentText`
+ * (src/canvas/nodes/shared/chancePercent.ts), which words the same chance on the risk card.
+ */
+export function percent(x) {
+  const v = x * 100
+  if (v === 0) return '0%'
+  if (v === 100) return '100%'
+  if (v < 0.01) return 'under 0.01%'
+  if (v > 99.99) return 'over 99.99%'
+  return `${new Intl.NumberFormat('en-GB', { maximumFractionDigits: 2, useGrouping: false }).format(v)}%`
+}
+
 /** A figure in plain words, as the person stated it: a point, or a range with the likeliest value. */
 export function figure(a, unit) {
   const u = unitOf(unit)
@@ -167,6 +181,48 @@ export function rowFor(rec, action, form, before) {
   }
 }
 
+/** A decision date as a person reads it ("1 December 2026"); a date core has not resolved yet is said so. */
+export function dateWords(date) {
+  if (typeof date !== 'string' || date === '') return 'A date not worked out yet'
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
+  const d = m ? new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) : null
+  return d && !Number.isNaN(d.getTime()) && d.getUTCMonth() === Number(m[2]) - 1 ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(d) : date
+}
+/** The deadline in words, and whose it is: the person's own words, or Olumi's reason. */
+export function decideByWords(d) {
+  if (!d) return null
+  return `${dateWords(d.date)}.${d.origin?.by === 'person' ? (d.origin.quote ? ` You said: “${d.origin.quote}”` : '') : d.origin?.basis ? ` Olumi’s reason: ${d.origin.basis}` : ''}`
+}
+
+/**
+ * The changes to the model's top-level fields (core's `changes.top`): the question, its name, its time step, the questions to ask
+ * oneself, and the decision date. A proposal that changes only these has no changed record, and without these rows it would be a
+ * card with nothing listed and an approve button. Each says what it was and what it becomes; the deadline says whose it is.
+ * A first draft has nothing to compare with, so it lists only the deadline it proposes.
+ */
+export function topRows(view) {
+  const p = view.pending
+  const was = view.version?.form ?? null
+  const now = p.form
+  const rows = []
+  for (const field of p.changes.top ?? []) {
+    if (field === 'decide_by') {
+      const before = was?.decide_by ?? null, after = now.decide_by ?? null
+      if (!before && !after) continue
+      const mine = after?.origin?.by === 'person'
+      rows.push({ id: 'top:decide_by', kind: 'record', action: !after ? 'remove' : !before ? 'add' : 'change', label: 'Decide by', before: before ? dateWords(before.date) : null, after: decideByWords(after), author: after ? (mine ? 'person' : 'olumi') : 'olumi', group: mine ? 'used' : 'inferred' })
+      continue
+    }
+    if (!was) continue
+    const plain = (label, b, a) => { if (b !== a) rows.push({ id: `top:${field}`, kind: 'record', action: 'change', label, before: b ?? null, after: a ?? null, author: 'olumi', group: 'inferred' }) }
+    if (field === 'question') plain('The question', was.question, now.question)
+    else if (field === 'title') plain('The name', was.title, now.title)
+    else if (field === 'period') plain('Time step', was.period, now.period)
+    else if (field === 'coaching_questions') plain('Questions to ask yourself', (was.coaching_questions ?? []).join(' '), (now.coaching_questions ?? []).join(' '))
+  }
+  return rows
+}
+
 /** Every change the held proposal makes, as rows: person's records first within a section, stable otherwise. */
 export function changeRows(view) {
   const p = view.pending
@@ -175,9 +231,12 @@ export function changeRows(view) {
   for (const id of p.changes.added) if (now.has(id)) rows.push(rowFor(now.get(id), 'add', p.form))
   for (const id of p.changes.changed) if (now.has(id)) rows.push(rowFor(now.get(id), 'change', p.form, was.has(id) ? describe(was.get(id), view.version.form).after : null))
   for (const id of p.changes.removed) if (was.has(id)) rows.push(rowFor(was.get(id), 'remove', view.version.form, describe(was.get(id), view.version.form).after))
+  rows.push(...topRows(view))
   const order = { used: 0, inferred: 1, left_out: 2, other: 3 }
+  // What the decision is about (its date, its question) leads its section; then what is being decided, then the figures and reasoning.
+  const rank = (r) => (r.id === 'top:decide_by' ? -2 : r.id.startsWith('top:') ? -1 : FAMILY_RANK[r.family === 'claims' ? 'claim' : r.family === 'assumptions' ? 'assumption' : r.family === 'conditions' ? 'condition' : r.family] ?? 99)
   return rows
     .map((r, i) => ({ r, i }))
-    .sort((a, b) => (order[a.r.group] - order[b.r.group]) || ((FAMILY_RANK[a.r.family === 'claims' ? 'claim' : a.r.family === 'assumptions' ? 'assumption' : a.r.family === 'conditions' ? 'condition' : a.r.family] ?? 99) - (FAMILY_RANK[b.r.family === 'claims' ? 'claim' : b.r.family === 'assumptions' ? 'assumption' : b.r.family === 'conditions' ? 'condition' : b.r.family] ?? 99)) || a.i - b.i)
+    .sort((a, b) => (order[a.r.group] - order[b.r.group]) || (rank(a.r) - rank(b.r)) || a.i - b.i)
     .map((x) => x.r)
 }

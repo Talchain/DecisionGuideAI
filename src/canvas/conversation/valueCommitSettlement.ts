@@ -32,6 +32,8 @@ export type ValueCommitSettlementWord =
   | 'saving'
   | 'not_applied'
   | 'unconfirmed'
+  /** olumi-core kept the change; only the read that shows its result failed (nothing to confirm, a page to reload). */
+  | 'kept_unread'
   | 'local_only'
   | 'revision_conflict'
   | 'checking'
@@ -109,6 +111,11 @@ export const VALUE_COMMIT_SETTLEMENT_COPY: Record<
   },
   unconfirmed: {
     message: 'Could not confirm. It may not have reached the model.',
+    role: 'status',
+  },
+  /** olumi-core says the change was saved and only the answer was lost: the opposite of "may not have reached the model". */
+  kept_unread: {
+    message: 'Saved. Olumi could not show the result just now: reload to see it.',
     role: 'status',
   },
   /** The busy lock refused the send: nothing reached the server. */
@@ -293,7 +300,7 @@ export function valueCommitSettlementWord(
   detail: SystemEventSendSettlementDetail = {},
 ): ValueCommitSettlementWord | null {
   if (settlement === 'refused') return detail.conflictCategory === 'revision_conflict' ? 'revision_conflict' : 'refused'
-  if (settlement === 'unverified') return 'unconfirmed'
+  if (settlement === 'unverified') return detail.kept === true ? 'kept_unread' : 'unconfirmed'
   if (settlement === 'blocked') return 'local_only'
   if (settlement === 'queued') return null
   return didValueCommitRevert(beforeCommit, committedTo, readNow()) ? 'not_applied' : null

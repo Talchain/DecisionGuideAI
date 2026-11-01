@@ -382,3 +382,50 @@ describe('the API is held to the same rules as the /bff writes (security: a cros
     expect(html).toContain("url.pathname.indexOf('/api/') === 0")
   })
 })
+
+describe('the identity check fails closed when core cannot answer who the browser is (findings: /api/me blip let a stale page write as the cookie holder)', () => {
+  /** A second origin over the same fake core whose /api/me throws (a dropped connection) or answers 502 on the calls it is told to. */
+  async function withMeFault(fault) {
+    let armed = 0
+    const fetchImpl = async (url, init) => {
+      if (armed > 0 && String(url).endsWith('/api/me')) { armed--; if (fault === 'throw') throw new Error('blip'); return new Response('{"error":"bad gateway"}', { status: 502, headers: { 'content-type': 'application/json' } }) }
+      return fetch(url, init)
+    }
+    const s = createServer({ coreUrl: fake.url, distDir: dist, log: 'off', fetchImpl })
+    await new Promise((r) => s.listen(0, '127.0.0.1', r))
+    const b = `http://127.0.0.1:${s.address().port}`
+    return { b, arm: (n = 1) => { armed = n }, close: () => new Promise((r) => s.close(r)) }
+  }
+  const writesSince = (since) => fake.calls.slice(since).filter((c) => c.method === 'POST')
+  const turnAt = (b, cookie, person) => fetch(b + '/bff/orchestrate/v2/turn', { method: 'POST', headers: { 'content-type': 'application/json', cookie, ...(person ? { 'x-olumi-person': person } : {}) }, body: JSON.stringify({ kind: 'message', turn_id: crypto.randomUUID(), scenario_id: crypto.randomUUID(), stage: 'frame', message: BRIEF, source: 'composer' }) }).then((r) => r.json())
+
+  for (const fault of ['throw', '502']) {
+    it(`a write from a page opened for Ada, with the browser now on Bea's link and the identity lookup failing (${fault}), is refused and saves nothing`, async () => {
+      const s = await withMeFault(fault)
+      const before = fake.calls.length
+      s.arm()
+      const out = await turnAt(s.b, 'olumi=tok-bea', '1')
+      await s.close()
+      expect(out.model).toBeNull()
+      expect(out.error).toMatchObject({ code: 'identity_unconfirmed', retry_safe: true, nothing_saved: true })
+      expect(out.error.message).toMatch(/nothing was saved/i)
+      expect(writesSince(before)).toHaveLength(0)
+    })
+  }
+  it('the same turn without the blip is still refused as identity_changed, and with the right page it goes through once the lookup answers', async () => {
+    const s = await withMeFault('throw')
+    expect((await turnAt(s.b, 'olumi=tok-bea', '1')).error).toMatchObject({ code: 'identity_changed' })
+    s.arm()
+    expect((await turnAt(s.b, 'olumi=tok-bea', '2')).error).toMatchObject({ code: 'identity_unconfirmed' })
+    expect((await turnAt(s.b, 'olumi=tok-bea', '2')).error).toBeNull()
+    await s.close()
+  })
+  it('a read does not write, so a failing lookup does not turn it away; a document request says core could not be reached, not that the link is invalid', async () => {
+    const s = await withMeFault('throw')
+    s.arm()
+    const doc = await fetch(s.b + '/', { headers: { cookie: 'olumi=tok-ada' } })
+    expect(doc.status).toBe(503)
+    expect(await doc.text()).not.toMatch(/no longer valid/)
+    await s.close()
+  })
+})

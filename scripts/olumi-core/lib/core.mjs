@@ -3,12 +3,14 @@
  * Failures are thrown as `CoreError` and turned into words for the person in one place (`errorTurn`), never swallowed.
  */
 export class CoreError extends Error {
-  constructor(status, message, { retryAfter = null, op = null } = {}) {
+  constructor(status, message, { retryAfter = null, op = null, maybeSaved = false } = {}) {
     super(message)
     this.name = 'CoreError'
     this.status = status
     this.retryAfter = retryAfter
     this.op = op
+    /** A WRITE that went out and whose answer never came back: core may have kept it. Never set for a call that could not connect, nor for a read. */
+    this.maybeSaved = maybeSaved
   }
 }
 
@@ -25,6 +27,9 @@ export class WriteKept extends CoreError {
   }
 }
 
+/** Connection failures where nothing reached core at all. Every other break (a reset, "other side closed", a timeout) came after the request went out. */
+const NOT_SENT = new Set(['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'EHOSTUNREACH', 'ENETUNREACH', 'UND_ERR_CONNECT_TIMEOUT', 'ERR_INVALID_URL'])
+
 const PAID = /^\/api\/(scenarios$|scenarios\/s_[0-9a-f]+\/(messages|edit|challenge)$)/
 
 export function makeCore({ base, fetchImpl = fetch, paidTimeoutMs = 11 * 60_000, timeoutMs = 30_000 }) {
@@ -40,7 +45,11 @@ export function makeCore({ base, fetchImpl = fetch, paidTimeoutMs = 11 * 60_000,
         signal: AbortSignal.timeout(method === 'POST' && PAID.test(path) ? paidTimeoutMs : timeoutMs),
       })
     } catch (e) {
-      throw new CoreError(0, 'olumi-core is not reachable', { op: String(e?.cause?.code ?? e?.name ?? 'fetch') })
+      const code = String(e?.cause?.code ?? e?.code ?? '')
+      // A write that was sent and then broke may have been kept: only a call that never connected, or a read, saved nothing.
+      // fetch itself refuses some targets before anything is sent (a blocked port, a bad URL): an error with no code of its own.
+      const refusedBeforeSending = code === '' && /bad port|invalid url/i.test(String(e?.cause?.message ?? e?.message ?? ''))
+      throw new CoreError(0, 'olumi-core is not reachable', { op: code || String(e?.name ?? 'fetch'), maybeSaved: method !== 'GET' && !NOT_SENT.has(code) && !refusedBeforeSending })
     }
     const text = await res.text()
     let json = {}
@@ -64,6 +73,8 @@ const turnError = (turnId, code, message, retry_safe, nothing_saved = true) => (
  */
 export const IDENTITY_CHANGED_WORDS = 'This page was opened with a different private link from the one this browser holds now, so nothing was saved. Reload this page to continue as the person whose private link is open now.'
 export const identityChangedTurn = (turnId) => turnError(turnId, 'identity_changed', IDENTITY_CHANGED_WORDS, false)
+/** Core could not say whose private link the browser holds, so nothing was written: safe to send again once it can. */
+export const identityUnconfirmedTurn = (turnId) => turnError(turnId, 'identity_unconfirmed', 'Olumi could not check whose private link this browser holds just now, so nothing was saved. Try again in a moment.', true)
 
 export function errorTurn(turnId, e) {
   const status = e instanceof CoreError ? e.status : 500
@@ -76,8 +87,15 @@ export function errorTurn(turnId, e) {
   if (status === 429) return make('rate_limited', e.message, true)
   if (status === 400) return make('bad_request', e.message, false)
   if (status === 413) return make('too_long', 'That is too long for Olumi to take in one go. Shorten it and send it again.', false)
-  // Could not connect: nothing was sent. A timeout may have been after core saved, so it does not claim that.
-  if (status === 0 && (e.op === 'TimeoutError' || e.op === 'AbortError')) return make('olumi_timeout', 'Olumi did not answer in time. It may or may not have saved that: check the model before sending it again.', false, false)
+  // A write that went out and whose answer never came back (a timeout, a reset): core may have kept it, so this never claims nothing
+  // was saved, or the screen takes back a figure core holds. Could not connect, or a read that broke: nothing was saved.
+  const timedOut = e.op === 'TimeoutError' || e.op === 'AbortError'
+  if (status === 0 && e.maybeSaved) {
+    return timedOut
+      ? make('olumi_timeout', 'Olumi did not answer in time. It may or may not have saved that: check the model before sending it again.', false, false)
+      : make('olumi_unsure', 'The connection to Olumi broke while that was being saved. It may or may not have saved that. Reload this page to see the saved model before sending it again.', false, false)
+  }
+  if (status === 0 && timedOut) return make('olumi_timeout', 'Olumi did not answer in time. Nothing was saved. Try again in a moment.', true)
   if (status === 0) return make('olumi_unreachable', 'Olumi cannot be reached right now. Nothing was saved. Try again in a moment.', true)
   return make('olumi_core_error', 'Olumi could not finish that this time, and nothing was saved. Please try again in a moment.', true)
 }

@@ -4,7 +4,8 @@
    * is untouched. It does three things, all about knowing WHO this tab is and WHICH scenario a UUID names:
    *
    *   1. Another person's saved state is not this person's. When this browser last held someone else's private link, DGAI's saved
-   *      state (their scenario, thread, autosave) and every scenario pairing below are cleared.
+   *      state (their scenario, thread, autosave) and every scenario pairing below are cleared. Storage that already names THIS
+   *      person is theirs and is never cleared, whatever this tab was before (a reload of an old tab must not unpair their scenarios).
    *   2. Every call to the server's /bff/ routes says which person this tab was opened for (x-olumi-person). The server refuses a
    *      write when the browser's private link has since changed, so an open tab can never save as somebody else.
    *   3. DGAI mints a scenario's UUID before olumi-core knows the scenario. The pairing UUID -> core's scenario id is kept here, in
@@ -13,8 +14,9 @@
    *      x-olumi-alias. The server holds none of it.
    *
    *   4. A tab opened for Ada that is still running when another tab of this browser takes Bea's link must not leave Ada's work
-   *      for Bea: it learns of the change from the shared storage, says so, and stops writing to it. (Its own unload would
-   *      otherwise save Ada's model into the storage Bea's page then recovers as "Recovered unsaved changes".)
+   *      for Bea: it learns of the change from the shared storage (an event, on focus, and before EVERY write it makes), says so,
+   *      and stops writing to it. (Its own unload would otherwise save Ada's model into the storage Bea's page then recovers as
+   *      "Recovered unsaved changes".)
    *
    * Written as one plain function (no imports, no modern-only syntax) because the server inlines its source text into the page.
    */
@@ -28,16 +30,21 @@
   var read = function (k) { try { return store ? store.getItem(k) : null } catch (e) { return null } }
   var write = function (k, v) { try { if (store) store.setItem(k, v) } catch (e) { /* storage refused: the pairing is lost with it, as DGAI's own memory is */ } }
 
-  // 1. whose saved state is this? The shared storage names the person it belongs to, and so does this TAB's own session storage
-  // (it survives a reload): a tab that was another person's takes nothing of theirs into this page.
+  // 1. whose saved state is this? The shared storage names the person it belongs to. When it names someone else (or no one), it is
+  // not this person's, and nothing of it is taken into this page. The TAB's own session storage (it survives a reload) names who
+  // THIS TAB was: a tab that was another person's clears only its own session storage. It never clears the shared storage on that
+  // account: when the shared storage already names this person, it holds THEIR work (another tab of theirs wrote it), and wiping it
+  // would unpair their scenarios. What the old tab might still write to the shared storage is stopped at the write (step 4), not here.
   var TAB_KEY = 'olumi-core-tab-person'
   try {
     var tabWas = null
     try { tabWas = win.sessionStorage.getItem(TAB_KEY) } catch (e) { /* none */ }
-    if (read(PERSON_KEY) !== person.id || (tabWas !== null && tabWas !== person.id)) {
+    if (read(PERSON_KEY) !== person.id) {
       if (store) store.clear()
       try { win.sessionStorage.clear() } catch (e) { /* none */ }
       write(PERSON_KEY, person.id)
+    } else if (tabWas !== null && tabWas !== person.id) {
+      try { win.sessionStorage.clear() } catch (e) { /* none */ }
     }
     try { win.sessionStorage.setItem(TAB_KEY, person.id) } catch (e) { /* none */ }
   } catch (e) { /* none */ }
@@ -69,7 +76,9 @@
     if (proto && store) {
       ;['setItem', 'removeItem', 'clear'].forEach(function (name) {
         var real = proto[name]
-        proto[name] = function () { if (stale && this === store) return undefined; return real.apply(this, arguments) }
+        // Every write first asks whose storage this is, so a tab that heard nothing (a background tab, a restored session) still
+        // cannot put its person's work into the next person's.
+        proto[name] = function () { if (this === store) { checkPerson(); if (stale) return undefined } return real.apply(this, arguments) }
       })
     }
     if (win.addEventListener) {

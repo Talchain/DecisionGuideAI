@@ -209,7 +209,22 @@ export function makeShim({ core, log = () => {}, onlySupported }) {
       }
     }
     const value = range ? { kind: 'interval', low: figureIn.low, high: figureIn.high } : { kind: 'point', value: figureIn }
-    const saved = await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body: { base: v.version.id, quantity, value, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined } })
+    const body = { base: v.version.id, quantity, value, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined }
+    let saved
+    try { saved = await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body }) } catch (e) {
+      if (!(e instanceof CoreError && e.status === 0 && e.maybeSaved)) throw e
+      // The edit went out and its answer was lost. Core's own record says whether it landed: if the figure is now what was typed, on a
+      // later version, it was kept, and this is answered as a saved figure. If not, nobody knows (it may land after this read), so the
+      // original "may or may not have saved" stands, and the screen is not told that nothing was saved.
+      const after = await view(ctx, sid).catch(() => null)
+      const now = after?.version?.form.records.find((r) => r.id === quantity)?.assertion
+      const same = range ? now?.kind === 'interval' && now.low === value.low && now.high === value.high : now?.kind === 'point' && now.value === value.value
+      if (!after?.version || after.version.id === v.version.id || !same) throw e
+      return afterWrite(async () => {
+        const reply = replyOf(after.chat.find((c) => c.kind === 'edit' && isApprovalReply(c) && c.version === after.version.n), nodesOf(after))
+        return { out: turnBody(after, { turnId, text: [savedWords(after.version.n, after.version.by, 'edit'), reply.text].filter(Boolean).join('\n'), withCard: false, receipt: true, notes: reply.notes }) }
+      })
+    }
     return afterWrite(async () => {
       const after = await view(ctx, sid)
       const reply = replyOf(after.chat.find((c) => c.kind === 'edit' && isApprovalReply(c) && c.version === saved.n), nodesOf(after))

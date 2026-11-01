@@ -247,6 +247,18 @@ describe('errors are visible, with the right words (gap 6)', () => {
     const out = (await down.turn({ token: 'tok-ada', aliases: [] }, msg('hi'))).out
     expect(out.error).toMatchObject({ code: 'olumi_unreachable', retry_safe: true })
   })
+  it('a closed port is "nothing was saved" too (nothing was sent), unlike a connection that broke after the request went out', async () => {
+    const net = await import('node:net')
+    const port = await new Promise((r) => { const s = net.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => r(p)) }) })
+    const down = makeShim({ core: makeCore({ base: `http://127.0.0.1:${port}` }) })
+    const out = (await down.turn({ token: 'tok-ada', aliases: [] }, msg('hi'))).out
+    expect(out.error).toMatchObject({ code: 'olumi_unreachable', retry_safe: true, nothing_saved: true })
+  })
+  it('a read that times out saved nothing: it says so and offers the resend', async () => {
+    const slow = makeShim({ core: makeCore({ base: fake.url, timeoutMs: 1, fetchImpl: (url, init) => new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(Object.assign(new Error('timed out'), { name: 'TimeoutError' })))) }) })
+    const out = (await slow.turn({ token: 'tok-ada', aliases: [] }, { kind: 'system_event', turn_id: turnId(), scenario_id: '00000000-0000-4000-8000-abc000000001', stage: 'frame', event: { kind: 'factor_value_edit', target_id: 'x', value: 1 } })).out
+    expect(out.error).toMatchObject({ code: 'olumi_timeout', nothing_saved: true, retry_safe: true })
+  })
 })
 
 describe('the saved-model read (reload, a second browser, a link)', () => {

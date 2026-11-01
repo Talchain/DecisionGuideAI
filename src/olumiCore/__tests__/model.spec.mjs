@@ -7,7 +7,7 @@ import { rev16, revSaved16 } from '../../../scripts/olumi-core/lib/ids.mjs'
 import { parseCanonicalAnalysisView } from '../../canvas/runView/canonicalAnalysisView'
 import { runViewOf } from '../../canvas/runView/runView'
 import { resolveFactorStoredRangeLine } from '../../canvas/nodes/shared/factorStatedRange'
-import { programQuantityOf, programLimitsWithoutFigure } from '../../canvas/nodes/shared/savedModelProgram'
+import { programQuantityOf, programLimitsWithoutFigure, programLinkOperator, programFormulaWords } from '../../canvas/nodes/shared/savedModelProgram'
 import { resolveOptionIsBaseline } from '../../canvas/utils/baselineDetection'
 import { goalConstraintText } from '../../canvas/utils/goalConstraintText'
 import { mapDraftEdgeToCanvas } from '../../canvas/utils/applyDraftResult'
@@ -89,6 +89,45 @@ describe('the Run, from structured facts (API v1.4), read by DGAI\'s own parser'
   })
 })
 
+describe('with more than one aim, the Run is about the aim core ran, and the other aims\' chances are not dropped (finding: the first aim has no measure, so every option showed no chance)', () => {
+  const clone = (v) => JSON.parse(JSON.stringify(v))
+  /** The capture's one aim renamed g2, behind a first aim that has no measure yet. */
+  const unmeasurableFirst = () => {
+    const v = clone(approved)
+    const g = v.version.form.records.find((r) => r.id === 'capacity_goal')
+    g.id = 'g2'
+    v.version.form.records.splice(v.version.form.records.indexOf(g), 0, { family: 'goal', id: 'capacity_goal', label: 'Enough capacity', measure: null, question: 'What counts as enough?', origin: { by: 'person', quote: 'enough capacity', party: null } })
+    for (const f of v.version.facts) if (f.about?.goal === 'capacity_goal') f.about.goal = 'g2'
+    return v
+  }
+  it('the options\' chances come from the aim that has them, not from the first aim in the list', () => {
+    const view = analysisViewOf(unmeasurableFirst())
+    expect(view.options.map((o) => [o.option_id, o.cell.kind])).toEqual([['hold', 'figure'], ['add_one', 'figure']])
+    expect(view.options.find((o) => o.option_id === 'add_one').cell.display).toBe('about 50%')
+    expect(view.goal_chance.chance_words).toBe('chance of ‘At least 100 a week’')
+    expect(parseCanonicalAnalysisView(view)).not.toBeNull()
+  })
+  it('what the aim leaves out is that aim\'s, and the leader sentence is about it', () => {
+    const view = analysisViewOf(unmeasurableFirst())
+    expect(view.goal_chance.notes).toEqual(['This leaves out: How the team feels about a new hire.'])
+    expect(view.leader.words).toMatch(/most likely to achieve 'At least 100 a week'/)
+  })
+  it('two aims with chances: the first with results is the view; the other\'s chances are said in the notes, option by option', () => {
+    const v = clone(approved)
+    v.version.form.records.push({ family: 'goal', id: 'g2', label: 'At least 120 a week', measure: { ...v.version.form.records.find((r) => r.id === 'capacity_goal').measure, exclusions: [] }, question: null, origin: { by: 'person', quote: 'ideally 120', party: null } })
+    const second = (kind, option, value) => ({ id: `X-${kind}-${option}`, value, text: `${kind} ${option}`, about: { kind, option, goal: 'g2' } })
+    v.version.facts.push(second('chance', 'add_one', 'about 20%'), second('chance', 'hold', 'never met in this model'))
+    const view = analysisViewOf(v)
+    expect(view.goal_chance.chance_words).toBe('chance of ‘At least 100 a week’')
+    expect(view.options.find((o) => o.option_id === 'add_one').cell.display).toBe('about 50%')
+    expect(view.goal_chance.notes).toContain('For the aim ‘At least 120 a week’: ‘Keep current staffing’ never met in this model; ‘Add one specialist’ about 20%.')
+    expect(parseCanonicalAnalysisView(view)).not.toBeNull()
+  })
+  it('a single aim reads exactly as before (no extra note)', () => {
+    expect(analysisViewOf(approved).goal_chance.notes).toEqual(['This leaves out: How the team feels about a new hire.'])
+  })
+})
+
 describe('the Run is current only for the model it was run on (finding 12)', () => {
   const withChange = fx('view-approved-with-change.json')
   it('with nothing waiting, the Run is stamped with the graph shown and is current (so the turn\'s Run is adopted)', () => {
@@ -165,6 +204,91 @@ describe('an influence is drawn the way the person stated it (finding 2)', () =>
   })
 })
 
+describe('the decision date reaches the question\'s card (finding: decide_by was read nowhere)', () => {
+  const withDate = (decide_by) => { const f = JSON.parse(JSON.stringify(richForm)); f.decide_by = decide_by; return f }
+  it('Olumi\'s proposed date is on the question card as a date, marked as Olumi\'s reasoning', () => {
+    const d = graphOf(withDate({ date: '2026-12-01', origin: { by: 'olumi', basis: 'a new hire takes a month to start' } })).nodes.find((n) => n.id === 'mp:decision')
+    expect(d.description).toBe('Decide by 1 December 2026. Olumi’s reason: a new hire takes a month to start')
+    expect(d.label).toBe(richForm.question)
+  })
+  it('the person\'s own date is in their words', () => {
+    const d = graphOf(withDate({ date: '2026-12-01', origin: { by: 'person', quote: 'by the board meeting', party: null } })).nodes.find((n) => n.id === 'mp:decision')
+    expect(d.description).toBe('Decide by 1 December 2026. You said: “by the board meeting”')
+  })
+  it('no date, no description', () => {
+    expect(graphOf(withDate(null)).nodes.find((n) => n.id === 'mp:decision')).not.toHaveProperty('description')
+  })
+  it('an approved date is on the saved model\'s question card; a proposal\'s date is on the held one', () => {
+    const v = JSON.parse(JSON.stringify(fx('view-approved-with-change.json')))
+    v.pending.form.decide_by = { date: '2026-12-01', origin: { by: 'olumi', basis: 'b' } }
+    // With a saved model on screen a waiting change does not move it: its date is on the waiting card, not on the question's card.
+    expect(modelOf(v).graph.nodes.find((n) => n.id === 'mp:decision')).not.toHaveProperty('description')
+    const first = JSON.parse(JSON.stringify(fx('view-first-pending.json')))
+    first.pending.form.decide_by = v.pending.form.decide_by
+    expect(modelOf(first).graph.nodes.find((n) => n.id === 'mp:decision').description).toMatch(/^Decide by 1 December 2026/)
+    const approvedView = JSON.parse(JSON.stringify(v)); approvedView.version.form.decide_by = v.pending.form.decide_by; approvedView.pending = null
+    expect(modelOf(approvedView).graph.nodes.find((n) => n.id === 'mp:decision').description).toMatch(/^Decide by 1 December 2026/)
+  })
+})
+
+describe('a definition link says how its part enters the figure: a subtracted part is not a boost (finding: absence drawn as "+ Boost")', () => {
+  const clone = () => JSON.parse(JSON.stringify(richForm))
+  const withRelation = (mutate) => { const f = clone(); mutate(f); return f }
+  const programGraph = (form) => ({ ...graphOf(form), living_model: { model_program: 'v1', canonical: canonicalOf(form, true) } })
+  const subtract = withRelation((f) => { f.records.find((r) => r.id === 'total_def').parts[1].sign = -1 })
+  const divide = withRelation((f) => {
+    const d = f.records.find((r) => r.id === 'added_def'); d.parts[1].power = -1
+    // The direction is only stated when the other factors' sides are known (a figure that may be either side fixes none): both are given as single values above zero.
+    // (every option's setting of the specialists too, since the direction must hold under each)
+    for (const id of ['specialists', 'per_specialist', 'one_specialist', 'two_specialists']) f.records.find((r) => r.id === id).assertion = { kind: 'point', value: 4 }
+  })
+  const stock = withRelation((f) => {
+    f.records = f.records.filter((r) => r.id !== 'total_def')
+    f.records.push({ family: 'relation', id: 'total_stock', form: 'stock', defines: 'total_capacity', start: 'existing_capacity', inflows: ['added_capacity'], outflows: ['per_specialist'], origin: { by: 'olumi', basis: 'b' } })
+  })
+  it('a part with sign -1 is drawn as a drag, not a boost, and DGAI\'s own operator reader says minus', () => {
+    const g = programGraph(subtract)
+    const e = edgeOf(g, 'added_capacity__total_capacity')
+    expect(e.effect_direction).toBe('negative')
+    expect(drawn(e).label).toMatch(/Drag/)
+    expect(drawn(e).label).not.toMatch(/Boost/)
+    expect(programLinkOperator(g, 'added_capacity', 'total_capacity')).toBe('−')
+    expect(programLinkOperator(g, 'existing_capacity', 'total_capacity')).toBe('+')
+    expect(drawn(edgeOf(g, 'existing_capacity__total_capacity')).label).toMatch(/Boost/)
+  })
+  it('a part with power -1 (divided by) is a drag and a divide', () => {
+    const g = programGraph(divide)
+    expect(edgeOf(g, 'per_specialist__added_capacity').effect_direction).toBe('negative')
+    expect(edgeOf(g, 'specialists__added_capacity').effect_direction).toBe('positive')
+    expect(programLinkOperator(g, 'per_specialist', 'added_capacity')).toBe('÷')
+    expect(programLinkOperator(g, 'specialists', 'added_capacity')).toBe('×')
+  })
+  it('a stock\'s outflow is a drag and a minus; its start and inflows are a boost and a plus', () => {
+    const g = programGraph(stock)
+    expect(edgeOf(g, 'per_specialist__total_capacity').effect_direction).toBe('negative')
+    expect(edgeOf(g, 'added_capacity__total_capacity').effect_direction).toBe('positive')
+    expect(programLinkOperator(g, 'per_specialist', 'total_capacity')).toBe('−')
+    expect(programLinkOperator(g, 'added_capacity', 'total_capacity')).toBe('+')
+    expect(programLinkOperator(g, 'existing_capacity', 'total_capacity')).toBe('+')
+  })
+  it('the worked-out figure\'s formula is readable by DGAI, with the same signs', () => {
+    expect(programFormulaWords(programGraph(subtract), 'total_capacity')).toBe('existing capacity − added capacity')
+    expect(programFormulaWords(programGraph(divide), 'added_capacity')).toBe('specialists ÷ per specialist')
+  })
+  it('the canonical model carries the relations in the shape DGAI reads, with ids that exist', () => {
+    const rels = canonicalOf(subtract, true).relations
+    expect(rels.find((r) => r.defines === 'total_capacity')).toMatchObject({ id: 'total_def', form: 'definition', op: 'sum', parts: [{ id: 'existing_capacity', sign: 1 }, { id: 'added_capacity', sign: -1 }] })
+    expect(rels.find((r) => r.defines === 'added_capacity')).toMatchObject({ form: 'definition', op: 'product' })
+    expect(canonicalOf(stock, true).relations.find((r) => r.defines === 'total_capacity')).toMatchObject({ form: 'stock', start: 'existing_capacity', inflows: ['added_capacity'], outflows: ['per_specialist'] })
+    expect(canonicalOf(richForm, true).relations.some((r) => r.form === 'influence')).toBe(false)
+  })
+  it('an unchanged model still draws every definition link as a plus / times boost', () => {
+    const g = programGraph(richForm)
+    expect(programLinkOperator(g, 'added_capacity', 'total_capacity')).toBe('+')
+    expect(programLinkOperator(g, 'specialists', 'added_capacity')).toBe('×')
+  })
+})
+
 describe('a risk keeps its effect, its chance and its size (finding 2)', () => {
   const risk = richForm.records.find((r) => r.family === 'risk')
   it('the capture holds the risk: it pushes "per specialist" down, with an occurrence and a severity', () => {
@@ -183,6 +307,22 @@ describe('a risk keeps its effect, its chance and its size (finding 2)', () => {
     expect(n.description).toMatch(/about 30%/)
     expect(n.description).toMatch(/per specialist/)
     expect(n.description).toMatch(/0\.7/)
+  })
+  it('a stated chance is worded exactly, never rounded to a different figure: 0.4% is not "0%", 12.5% is not "13%" (finding)', () => {
+    const form = JSON.parse(JSON.stringify(richForm))
+    const set = (id, a) => { form.records.find((r) => r.id === id).assertion = a }
+    set('slump_chance', { kind: 'point', value: 0.004, approximate: false })
+    let n = nodeOf(graphOf(form), 'new_hire_slump')
+    expect(n.description).toMatch(/May happen: 0\.4%\./)
+    expect(n.description).not.toMatch(/May happen: 0%/)
+    expect(n.probability).toBe(0.004)
+    set('slump_chance', { kind: 'point', value: 0.125, approximate: false })
+    n = nodeOf(graphOf(form), 'new_hire_slump')
+    expect(n.description).toMatch(/May happen: 12\.5%\./)
+    set('slump_chance', { kind: 'interval', low: 0.001, high: 0.075, likely: 0.0125, range_kind: 'plausible' })
+    expect(nodeOf(graphOf(form), 'new_hire_slump').description).toMatch(/about 1\.25% \(between 0\.1% and 7\.5%\)/)
+    set('slump_chance', { kind: 'point', value: 0.00001, approximate: false })
+    expect(nodeOf(graphOf(form), 'new_hire_slump').description).toMatch(/May happen: under 0\.01%\./)
   })
   it('its occurrence and severity are not left on the canvas as loose factors', () => {
     expect(nodeOf(richGraph, 'slump_chance')).toBeUndefined()

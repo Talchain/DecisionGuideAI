@@ -229,3 +229,45 @@ describe('a write core kept is never reported as lost because the read after it 
     expect(out.error).toMatchObject({ code: 'olumi_core_error', nothing_saved: true })
   })
 })
+
+describe('a write whose answer was lost is not reported as unsaved (finding: a reset after /edit saved 80 to 90 rolled the canvas back to 80)', () => {
+  const reset = () => Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' }) })
+  const refused = () => Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) })
+  const valueOf = (view, id) => view.version.form.records.find((r) => r.id === id).assertion.value
+
+  it('the connection resets after core kept the figure: the shim reads the scenario, sees the version moved, and answers as the saved figure', async () => {
+    const uuid = seeded()
+    fake.dropNextAnswer()
+    const out = (await shim.turn(ADA, edit(uuid, 'existing_capacity', 90))).out
+    expect(out.error).toBeNull()
+    expect(out.receipts).toHaveLength(1)
+    const g = (await shim.graphRead(ADA, uuid)).body
+    expect(g.graph.nodes.find((n) => n.id === 'existing_capacity').observed_state.value).toBe(90)
+  })
+  it('the connection resets and the read afterwards shows nothing moved: still not "nothing was saved" (it may have landed after the read), so the canvas is not rolled back', async () => {
+    const view = fx('view-approved.json')
+    const sid = fake.seed('tok-ada', view)
+    const uuid = derivedUuidOfSid(sid)
+    const lossy = makeShim({ core: makeCore({ base: fake.url, fetchImpl: async (url, init) => { if (init?.method === 'POST' && String(url).endsWith('/edit')) throw reset(); return fetch(url, init) } }) })
+    const out = (await lossy.turn(ADA, edit(uuid, 'existing_capacity', 90))).out
+    expect(out.error).toMatchObject({ code: 'olumi_unsure', nothing_saved: false, retry_safe: false })
+    expect(out.error.message).toMatch(/may or may not have saved/)
+    expect(out.error.message).toMatch(/Reload/)
+    expect(valueOf(fake.scenarios.get(sid).view, 'existing_capacity')).toBe(80)
+  })
+  it('a chat message whose answer is lost is the same: core may have kept it', async () => {
+    const sid = fake.seed('tok-ada', fx('view-approved.json'))
+    const uuid = derivedUuidOfSid(sid)
+    fake.dropNextAnswer()
+    const out = (await shim.turn(ADA, { kind: 'message', turn_id: turnId(), scenario_id: uuid, stage: 'frame', message: 'Add staff absence.', source: 'composer' })).out
+    expect(out.error).toMatchObject({ code: 'olumi_unsure', nothing_saved: false })
+  })
+  it('a connection that never opened is still "nothing was saved" (nothing was sent), and a read that breaks saved nothing either', async () => {
+    const sid = fake.seed('tok-ada', fx('view-approved.json'))
+    const uuid = derivedUuidOfSid(sid)
+    const noConnect = makeShim({ core: makeCore({ base: fake.url, fetchImpl: async () => { throw refused() } }) })
+    expect((await noConnect.turn(ADA, edit(uuid, 'existing_capacity', 90))).out.error).toMatchObject({ code: 'olumi_unreachable', nothing_saved: true, retry_safe: true })
+    const readBreaks = makeShim({ core: makeCore({ base: fake.url, fetchImpl: async (url, init) => { if (init?.method === 'GET') throw reset(); return fetch(url, init) } }) })
+    expect((await readBreaks.turn(ADA, edit(uuid, 'existing_capacity', 90))).out.error).toMatchObject({ nothing_saved: true })
+  })
+})

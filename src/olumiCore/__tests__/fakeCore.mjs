@@ -18,6 +18,7 @@ export async function startFakeCore() {
   let problemNext = null
   let approveRefusal = null // armed: the next approve is refused (core's own 409 for a choice that needs something unchosen)
   let meDown = null // armed: `/api/me` fails with this status until cleared (the identity lookup, not the write)
+  let dropAnswer = false // armed: the next write is KEPT, but its answer never arrives (the connection is reset)
   let next = 1
   const server = http.createServer(async (req, res) => { try { await handle(req, res) } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) })) } })
   const handle = async (req, res) => {
@@ -27,7 +28,10 @@ export async function startFakeCore() {
     const token = /(?:^|;\s*)olumi=([^;]*)/.exec(req.headers.cookie ?? '')?.[1]
     const me = token ? people.get(decodeURIComponent(token)) : undefined
     calls.push({ method: req.method, path: url.pathname, token: token ? decodeURIComponent(token) : null, body, site: req.headers['sec-fetch-site'] ?? null })
-    const send = (s, o, h = {}) => { res.writeHead(s, { 'content-type': 'application/json', ...h }); res.end(JSON.stringify(o)) }
+    const send = (s, o, h = {}) => {
+      if (dropAnswer && req.method === 'POST' && s < 300) { dropAnswer = false; return req.socket.destroy() }
+      res.writeHead(s, { 'content-type': 'application/json', ...h }); res.end(JSON.stringify(o))
+    }
     // olumi-core's own rule (src/server/app.ts): a write is allowed with no Sec-Fetch-Site (a script), `same-origin` or `none`; any other value is refused (403).
     const site = req.headers['sec-fetch-site']
     if (req.method === 'POST' && site !== undefined && site !== 'same-origin' && site !== 'none') return send(403, { error: 'changes can only be made from the Olumi page' })
@@ -132,6 +136,8 @@ export async function startFakeCore() {
     meDown: (status) => { meDown = status },
     /** The next approve is refused with this status and core's words (the approve itself is checked first, so a bad `only` is still a 400). */
     refuseApprove: (status, message) => { approveRefusal = { status, message } },
+    /** The next write that succeeds is kept, and the connection is reset before its answer is sent. */
+    dropNextAnswer: () => { dropAnswer = true },
     close: () => new Promise((r) => server.close(r)),
   }
 }

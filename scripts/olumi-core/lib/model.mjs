@@ -4,15 +4,15 @@
  * Rules come from the served fixtures (src/canvas/nodes/__tests__/fixtures/served-*), so this is only as faithful as they are.
  * Facts are read by their structured `about` (API v1.4), never from their text.
  */
-import { byId, figure, nameOf, num, partsOf, signedPartsOf, CMP } from './words.mjs'
+import { byId, decideByWords, figure, nameOf, num, partsOf, percent, signedPartsOf, CMP } from './words.mjs'
 import { rev16, rev64, revSaved16, runIdOf } from './ids.mjs'
 
 const valueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? (q.assertion.low + q.assertion.high) / 2) : null)
 const fmt = (q) => (q ? figure(q.assertion, q.unit) : '')
 /** The likeliest value the person or Olumi stated, and never a midpoint: null for a range with no likeliest value. */
 const statedValueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? q.assertion.likely : null)
-/** A chance as a percentage, as it was given: 12.5% stays 12.5% and 0.4% is not "0%" (rounded only to clear float noise). */
-const pct = (x) => `${num(Math.round(x * 1e8) / 1e6)}%`
+/** A chance as the percentage a person reads: exactly as stated, never rounded to a different figure (see `percent`). */
+const pct = percent
 
 /**
  * Has the person's own figure been changed since they said it? Core's edit gives the changed figure an origin quote of its own
@@ -69,7 +69,9 @@ export function graphOf(form) {
     if (e.exists_probability === null) delete e.exists_probability
     edges.push(e)
   }
-  add({ id: 'mp:decision', ref: 'D1', kind: 'decision', label: form.question })
+  // The decision date reaches the canvas on the question's own card (the inspector reads its description): "Decide by 1 December 2026.
+  // Olumi’s reason: ..." or "You said: ...", so a deadline Olumi proposed is never mistaken for the person's.
+  add({ id: 'mp:decision', ref: 'D1', kind: 'decision', label: form.question, ...(form.decide_by ? { description: `Decide by ${decideByWords(form.decide_by)}` } : {}) })
   let o = 0, f = 0, c = 0, g = 0
   for (const r of recs) {
     if (r.family === 'option' && r.status !== 'removed') {
@@ -181,6 +183,13 @@ export function canonicalOf(form, approved) {
       const a = r.assertion
       return { kind: r.role === 'coefficient' ? 'coefficient' : 'fact', label: r.label, unit: r.unit, status: a.kind === 'point' || a.kind === 'interval' ? 'known' : a.kind, value: valueOf(r), low: a.kind === 'interval' ? a.low : null, high: a.kind === 'interval' ? a.high : null, range_kind: a.kind === 'interval' ? a.range_kind : null, question: a.kind === 'asked' ? a.question : null, basis: r.origin.basis ?? null, direction: r.direction, floor: r.domain?.lower ?? null, ceiling: r.domain?.upper ?? null, author_id: null }
     }),
+    // How a worked-out figure is worked out, in the shape DGAI's program reader draws + − × ÷ from (savedModelProgram.ts): a sum or
+    // product is a `definition` with its `op`; a stock and an effect keep their form. An influence is a link, not a definition.
+    relations: pick('relation', (r) => {
+      if (r.form === 'sum' || r.form === 'product') return { form: 'definition', op: r.form, defines: r.defines, parts: r.parts.map((p) => (r.form === 'sum' ? { id: p.id, sign: p.sign } : { id: p.id, power: p.power })) }
+      if (r.form === 'effect') return { form: 'effect', defines: r.defines, base: r.base, terms: r.terms.map((t) => ({ driver: t.driver, coefficient: t.coefficient })) }
+      return { form: 'stock', defines: r.defines, start: r.start, inflows: r.inflows, outflows: r.outflows }
+    }, (r) => r.form !== 'influence'),
     claims: pick('claim', (r) => ({ text: r.text, concerns: r.concerns })),
     assumptions: pick('assumption', (r) => ({ text: r.text, applied: r.applied, concerns: r.concerns })),
     conditions: pick('condition', (r) => ({ text: r.text, kind: r.kind, concerns: r.concerns })),
@@ -294,14 +303,24 @@ export function analysisViewOf(view) {
   if (!v || !v.facts?.length) return null
   const m = byId(v.form)
   const live = v.form.records.filter((r) => r.family === 'option' && r.status === 'live')
-  const goal = v.form.records.find((r) => r.family === 'goal')
+  // The Run view carries ONE aim's results. Core's facts name the aim they are about (`about.goal`), so the aim is the first one core
+  // has results for (else the first that can be measured, else the first): never just the first in the list, whose results may be
+  // none (no measure yet) while a later aim's are all there.
+  const goals = v.form.records.filter((r) => r.family === 'goal')
+  const AIM_FACTS = new Set(['chance', 'range', 'driver', 'blocker', 'most_likely', 'none_clearly'])
+  const goal = goals.find((g) => v.facts.some((f) => AIM_FACTS.has(f.about?.kind) && f.about.goal === g.id)) ?? goals.find((g) => g.measure) ?? goals[0]
   const leaves = leftOutOf(v.form, goal?.id)
   const about = (f, kind, o) => f.about?.kind === kind && f.about.option === o.id && (!goal || !f.about.goal || f.about.goal === goal.id)
   const chance = (o) => v.facts.find((f) => about(f, 'chance', o))
   const range = (o) => v.facts.find((f) => about(f, 'range', o))
   const driver = (o) => v.facts.find((f) => about(f, 'driver', o))
   const blocked = (o) => v.facts.find((f) => about(f, 'blocker', o))
-  const most = v.facts.find((f) => f.about?.kind === 'most_likely' || f.about?.kind === 'none_clearly')
+  const most = v.facts.find((f) => (f.about?.kind === 'most_likely' || f.about?.kind === 'none_clearly') && (!goal || !f.about.goal || f.about.goal === goal.id))
+  // The other aims' chances, said option by option: the view has room for one aim's cells, and the rest are not dropped.
+  const otherAims = goals.filter((g) => g !== goal).flatMap((g) => {
+    const rows = live.flatMap((o) => { const c = v.facts.find((f) => f.about?.kind === 'chance' && f.about.option === o.id && f.about.goal === g.id); return c ? [`‘${nameOf(m, o.id)}’ ${c.value}`] : [] })
+    return rows.length ? [`For the aim ‘${nameOf(m, g.id)}’: ${rows.join('; ')}.`] : []
+  })
   const waits = v.facts.filter((f) => f.about?.kind === 'waits' || f.about?.kind === 'blocker').flatMap((f) => (f.about.rests ?? []))
   const waitsOn = [...new Set(waits)].map((id) => m.get(id)).filter(Boolean).map((r) => ({ id: r.id, label: nameOf(m, r.id), answer: r.family === 'quantity' && r.assertion.kind === 'asked' ? { quantity_id: r.id } : null, code: r.family === 'quantity' ? r.assertion.kind : 'waiting' }))
   // Olumi's what-if figures, from the structured input facts (API v1.4 `about.olumi`): said once, as the facts mark them, not read from their words.
@@ -318,7 +337,7 @@ export function analysisViewOf(view) {
     if (whole) rows.unshift(whole.value)
     return rows.length ? [`Your limit ‘${l.label}’: ${rows.join('; ')}.`] : []
   })
-  const notes = [...(leaves.length ? [`This leaves out: ${leaves.join('; ')}.`] : []), ...limitNotes, ...(whatIfs.length ? [`Olumi’s what-if figures, until you give your own: ${whatIfs.join('; ')}.`] : [])]
+  const notes = [...(leaves.length ? [`This leaves out: ${leaves.join('; ')}.`] : []), ...otherAims, ...limitNotes, ...(whatIfs.length ? [`Olumi’s what-if figures, until you give your own: ${whatIfs.join('; ')}.`] : [])]
   return {
     schema: 'canonical_analysis_view.v1', source: 'stored_run_facts',
     run: { run_id: runIdOf(v), graph_hash_at_run: revSaved16(view), computed_at: v.at },
