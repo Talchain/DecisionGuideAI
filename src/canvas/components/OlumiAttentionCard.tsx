@@ -169,7 +169,7 @@ function drawnCardBoxes(note: HTMLElement | null, anchorId: string): Box[] {
  * The controls drawn over the canvas that a note must never sit under (the tool rail on the left, the zoom controls, the Olumi focus chip),
  * as boxes in the note's own frame. Measured from what is drawn, never guessed.
  */
-const CONTROL_SELECTORS = ['nav[aria-label="Canvas tools"]', 'nav[aria-label="Viewport controls"]', '[data-testid="assistant-focus-chip"]']
+const CONTROL_SELECTORS = ['nav[aria-label="Canvas tools"]', 'nav[aria-label="Viewport controls"]', '[data-testid="assistant-focus-chip"]', '[role="banner"]', '[role="radiogroup"][data-testid^="lens-bar"]']
 function controlBoxes(note: HTMLElement | null): Box[] {
   const frame = note?.offsetParent?.getBoundingClientRect()
   if (!note || !frame) return []
