@@ -12,6 +12,10 @@
    *      overwrite each other), sent for the one scenario a call names (x-olumi-scenario), and learned from the answer's
    *      x-olumi-alias. The server holds none of it.
    *
+   *   4. A tab opened for Ada that is still running when another tab of this browser takes Bea's link must not leave Ada's work
+   *      for Bea: it learns of the change from the shared storage, says so, and stops writing to it. (Its own unload would
+   *      otherwise save Ada's model into the storage Bea's page then recovers as "Recovered unsaved changes".)
+   *
    * Written as one plain function (no imports, no modern-only syntax) because the server inlines its source text into the page.
    */
   var PERSON_KEY = 'olumi-core-person'
@@ -24,15 +28,56 @@
   var read = function (k) { try { return store ? store.getItem(k) : null } catch (e) { return null } }
   var write = function (k, v) { try { if (store) store.setItem(k, v) } catch (e) { /* storage refused: the pairing is lost with it, as DGAI's own memory is */ } }
 
-  // 1. whose saved state is this?
+  // 1. whose saved state is this? The shared storage names the person it belongs to, and so does this TAB's own session storage
+  // (it survives a reload): a tab that was another person's takes nothing of theirs into this page.
+  var TAB_KEY = 'olumi-core-tab-person'
   try {
-    if (read(PERSON_KEY) !== person.id) {
+    var tabWas = null
+    try { tabWas = win.sessionStorage.getItem(TAB_KEY) } catch (e) { /* none */ }
+    if (read(PERSON_KEY) !== person.id || (tabWas !== null && tabWas !== person.id)) {
       if (store) store.clear()
       try { win.sessionStorage.clear() } catch (e) { /* none */ }
       write(PERSON_KEY, person.id)
     }
+    try { win.sessionStorage.setItem(TAB_KEY, person.id) } catch (e) { /* none */ }
   } catch (e) { /* none */ }
   win.__OLUMI_CORE__ = { person: person }
+
+  // 4. another tab of this browser has since taken someone else's private link: this tab says so and writes nothing more to the
+  // shared storage (what it would save is the previous person's work).
+  var stale = false
+  var markStale = function () {
+    if (stale) return
+    stale = true
+    var show = function () {
+      var d = win.document.createElement('div')
+      d.setAttribute('role', 'alert')
+      d.setAttribute('data-testid', 'olumi-core-page-for-someone-else')
+      d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#fff7ed;border-bottom:1px solid #fdba74;color:#7c2d12;font:15px/1.4 system-ui,sans-serif;padding:12px 16px;text-align:center'
+      d.innerHTML = 'This page was opened with a different private link from the one this browser holds now. Nothing you do here will be saved. <a href="" onclick="location.reload();return false" style="color:inherit">Reload this page</a> to continue as the person whose private link is open now.'
+      win.document.body.appendChild(d)
+    }
+    if (win.document.body) show()
+    else win.document.addEventListener('DOMContentLoaded', show)
+  }
+  var checkPerson = function () {
+    var now = read(PERSON_KEY)
+    if (now !== null && now !== person.id) markStale()
+  }
+  try {
+    var proto = win.Storage && win.Storage.prototype
+    if (proto && store) {
+      ;['setItem', 'removeItem', 'clear'].forEach(function (name) {
+        var real = proto[name]
+        proto[name] = function () { if (stale && this === store) return undefined; return real.apply(this, arguments) }
+      })
+    }
+    if (win.addEventListener) {
+      win.addEventListener('storage', function (ev) { if (ev.key === null || ev.key === PERSON_KEY) checkPerson() })
+      win.addEventListener('focus', checkPerson)
+      win.addEventListener('pageshow', checkPerson)
+    }
+  } catch (e) { /* none */ }
 
   // A browser landing on the bare address opens the canvas.
   try {

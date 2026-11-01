@@ -12,20 +12,29 @@ const install = vm.runInNewContext(SOURCE)
 const U = '11111111-2222-4333-8444-555555555555'
 const uuidN = (i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`
 
-function pageFor(person, { storage = new Map(), hash = '#/canvas', answer = () => new Response('{}', { status: 200 }), storageRefuses = false } = {}) {
+function pageFor(person, { storage = new Map(), session = new Map(), hash = '#/canvas', answer = () => new Response('{}', { status: 200 }), storageRefuses = false } = {}) {
   const sent = []
-  const store = storageRefuses
-    ? { getItem() { throw new Error('denied') }, setItem() { throw new Error('denied') }, clear() { throw new Error('denied') } }
-    : { getItem: (k) => (storage.has(k) ? storage.get(k) : null), setItem: (k, v) => { storage.set(k, String(v)) }, clear: () => storage.clear() }
+  // Its own Storage class per page, because the script patches the class's prototype (as it must in a browser, where assigning
+  // a property on a Storage instance would store an ITEM).
+  class FakeStorage {
+    constructor(map) { this.map = map }
+    getItem(k) { if (storageRefuses) throw new Error('denied'); return this.map.has(k) ? this.map.get(k) : null }
+    setItem(k, v) { if (storageRefuses) throw new Error('denied'); this.map.set(k, String(v)) }
+    removeItem(k) { this.map.delete(k) }
+    clear() { if (storageRefuses) throw new Error('denied'); this.map.clear() }
+  }
   const shown = []
+  const listeners = {}
   const win = {
-    localStorage: store, sessionStorage: { clear() {} }, URL, Headers, Request,
+    Storage: FakeStorage, localStorage: new FakeStorage(storage), sessionStorage: new FakeStorage(session), URL, Headers, Request,
     location: { hash, pathname: '/', search: '', origin: 'http://app.test', href: 'http://app.test/', replace(u) { win.location.replaced = u } },
-    document: { body: { appendChild: (el) => shown.push(el) }, createElement: () => ({ setAttribute() {}, style: {} }), addEventListener() {} },
+    document: { body: { appendChild: (el) => shown.push(el) }, createElement: () => ({ setAttribute(k, v) { this[k] = v }, style: {} }), addEventListener() {} },
+    addEventListener: (name, fn) => { (listeners[name] ??= []).push(fn) },
     fetch: async (input, init) => { const req = input instanceof Request ? input : null; sent.push({ url: req ? req.url : String(input), headers: new Headers(req ? req.headers : init?.headers), init }); return answer(sent.at(-1)) },
   }
   install(win, person)
-  return { win, sent, storage, shown }
+  const fire = (name, ev = {}) => (listeners[name] ?? []).forEach((fn) => fn(ev))
+  return { win, sent, storage, session, shown, fire }
 }
 const ADA = { id: '1', name: 'Ada' }
 const BEA = { id: '2', name: 'Bea' }
@@ -117,5 +126,53 @@ describe('an address that names a scenario this person cannot open says so', () 
     const { shown } = pageFor(ADA, { hash: '#/scenario/' + U })
     await new Promise((r) => setTimeout(r, 5))
     expect(shown).toHaveLength(0)
+  })
+})
+
+describe('a tab that was one person\'s leaves nothing of theirs for the next (the cross-person leak a reload revealed)', () => {
+  it('learns from another tab that the browser changed person: says so, and writes nothing more to the shared storage', () => {
+    const storage = new Map()
+    const ada = pageFor(ADA, { storage })
+    ada.win.localStorage.setItem('olumi-canvas-autosave', 'ada-before')
+    expect(ada.shown).toHaveLength(0)
+    // another tab (Bea's) clears the storage and names Bea in it
+    storage.clear(); storage.set('olumi-core-person', '2')
+    ada.fire('storage', { key: null }); ada.fire('storage', { key: 'olumi-core-person' })
+    expect(ada.shown).toHaveLength(1)
+    expect(ada.shown[0]['data-testid']).toBe('olumi-core-page-for-someone-else')
+    // Ada's page, being closed or reloaded, tries to save her model: it goes nowhere
+    ada.win.localStorage.setItem('olumi-canvas-autosave', 'ADA-MODEL')
+    ada.win.localStorage.removeItem('olumi-core-person')
+    ada.win.localStorage.clear()
+    expect(storage.get('olumi-canvas-autosave')).toBeUndefined()
+    expect(storage.get('olumi-core-person')).toBe('2')
+  })
+  it('does not mistake a clear by another tab of the SAME person for a change of person', () => {
+    const storage = new Map()
+    const ada = pageFor(ADA, { storage })
+    storage.clear()
+    ada.fire('storage', { key: null })
+    expect(ada.shown).toHaveLength(0)
+    ada.win.localStorage.setItem('x', '1')
+    expect(storage.get('x')).toBe('1')
+  })
+  it('a change of person is also noticed when the tab is next looked at (focus), not only by an event', () => {
+    const storage = new Map()
+    const ada = pageFor(ADA, { storage })
+    storage.set('olumi-core-person', '2')
+    ada.fire('focus')
+    expect(ada.shown).toHaveLength(1)
+  })
+  it('a tab that was Ada\'s and is reloaded as Bea clears whatever Ada\'s page saved on its way out, even if the person named in storage is already Bea', () => {
+    const storage = new Map(), session = new Map()
+    pageFor(ADA, { storage, session })
+    // Bea took the link in another tab (storage now names Bea), then Ada's old document saved its model while unloading
+    storage.set('olumi-core-person', '2'); storage.set('olumi-canvas-autosave', 'ADA-MODEL'); storage.set('olumi-canvas-current-scenario-id', 'ada-scenario')
+    // the same tab reloads, now opened for Bea
+    pageFor(BEA, { storage, session })
+    expect(storage.get('olumi-canvas-autosave')).toBeUndefined()
+    expect(storage.get('olumi-canvas-current-scenario-id')).toBeUndefined()
+    expect(storage.get('olumi-core-person')).toBe('2')
+    expect(session.get('olumi-core-tab-person')).toBe('2')
   })
 })
