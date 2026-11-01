@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -225,15 +225,25 @@ describe('the API is held to the same rules as the /bff writes (security: a cros
     expect(r.status).toBe(403)
     expect(upstream(before)).toHaveLength(0)
   })
-  it('a same-origin POST from the signed-in person passes, and core is told where it came from (Sec-Fetch-Site goes on unchanged)', async () => {
-    for (const site of ['same-origin', 'same-site']) {
+  it('a write from the Olumi page itself passes (same-origin, a browser address bar `none`, or no header at all), and core is told where it came from', async () => {
+    for (const site of ['same-origin', 'none', null]) {
       const before = fake.calls.length
-      const r = await apiPost('olumi=tok-ada', { 'sec-fetch-site': site })
+      const r = await apiPost('olumi=tok-ada', site ? { 'sec-fetch-site': site } : {})
       expect(r.status).toBe(201)
       const sent = upstream(before)
       expect(sent).toHaveLength(1)
       expect(sent[0]).toMatchObject({ path: '/api/scenarios', token: 'tok-ada', site })
     }
+  })
+  it('a SAME-SITE write is refused as core refuses it (only the Olumi page itself may change things), here and on the chat turn, and nothing reaches core', async () => {
+    const before = fake.calls.length
+    const r = await apiPost('olumi=tok-ada', { 'sec-fetch-site': 'same-site' })
+    expect(r.status).toBe(403)
+    expect((await turn(BRIEF, 'olumi=tok-ada', {}, { 'sec-fetch-site': 'same-site' })).status).toBe(403)
+    expect(upstream(before)).toHaveLength(0)
+    // and the fake is core's real rule: asked directly, it says the same
+    const direct = await fetch(fake.url + '/api/scenarios', { method: 'POST', headers: { 'content-type': 'application/json', cookie: 'olumi=tok-ada', 'sec-fetch-site': 'same-site' }, body: '{}' })
+    expect(direct.status).toBe(403)
   })
   it('a write from a page opened for someone else, or one that cannot say who it was opened for, is refused in words and never reaches core', async () => {
     const before = fake.calls.length
@@ -243,6 +253,49 @@ describe('the API is held to the same rules as the /bff writes (security: a cros
     const unsaid = await apiPost('olumi=tok-ada', { 'x-olumi-person': '' })
     expect(unsaid.status).toBe(409)
     expect(upstream(before)).toHaveLength(0)
+  })
+  describe('a write whose identity cannot be checked FAILS CLOSED (security: Ada\'s tab with Bea\'s cookie must not write as Bea because /api/me hiccuped)', () => {
+    afterEach(() => fake.meDown(null))
+    it('an API write is refused (503) and nothing reaches core but the identity question itself', async () => {
+      const before = fake.calls.length
+      fake.meDown(500)
+      // Ada's tab (x-olumi-person 1) while the browser holds Bea's cookie: the case the lookup exists to stop
+      const r = await apiPost('olumi=tok-bea', { 'x-olumi-person': '1' })
+      expect(r.status).toBe(503)
+      expect((await r.json()).error).toMatch(/Nothing was saved/)
+      expect(upstream(before)).toHaveLength(0)
+      expect(fake.calls.slice(before).every((c) => c.path === '/api/me')).toBe(true)
+    })
+    it('the same when core cannot be reached at all for the lookup, even for the right person', async () => {
+      const before = fake.calls.length
+      fake.meDown(503)
+      const r = await apiPost('olumi=tok-ada', {})
+      expect(r.status).toBe(503)
+      expect(upstream(before)).toHaveLength(0)
+    })
+    it('the chat turn is refused in words, saving nothing', async () => {
+      const before = fake.calls.length
+      fake.meDown(500)
+      const out = await (await turn(BRIEF, 'olumi=tok-bea', {}, { 'x-olumi-person': '1' })).json()
+      expect(out.error).toMatchObject({ nothing_saved: true })
+      expect(out.cards).toEqual([])
+      expect(upstream(before)).toHaveLength(0)
+    })
+    it('a saved-model read is not answered either, rather than shown to a page opened for someone else', async () => {
+      fake.meDown(500)
+      const r = await fetch(`${base}/bff/cee/scenarios/${U}/graph`, { method: 'POST', ...H('olumi=tok-bea', { 'x-olumi-person': '1' }), body: '{}' })
+      expect(r.status).toBe(503)
+    })
+    it('a link core does not recognise answers 401 and writes nothing; once the lookup works again the right person writes as before', async () => {
+      const before = fake.calls.length
+      const gone = await apiPost('olumi=tok-gone', { 'x-olumi-person': '1' })
+      expect(gone.status).toBe(401)
+      expect(upstream(before)).toHaveLength(0)
+      fake.meDown(500)
+      expect((await apiPost('olumi=tok-ada', {})).status).toBe(503)
+      fake.meDown(null)
+      expect((await apiPost('olumi=tok-ada', {})).status).toBe(201)
+    })
   })
   it('a read through /api needs no page identity (it is core\'s own cookie check), and the page script says who it is on /api calls too', async () => {
     expect((await fetch(base + '/api/me', { headers: { cookie: 'olumi=tok-ada' } })).status).toBe(200)

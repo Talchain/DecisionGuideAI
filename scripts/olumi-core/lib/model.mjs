@@ -44,8 +44,10 @@ export function graphOf(form) {
   const setTo = new Set(recs.flatMap((r) => (r.family === 'option' ? r.sets.map((s) => s.to) : [])))
   // A risk's chance and size are said on the risk's own card, not drawn a second time as loose factors.
   const riskParts = new Set(recs.flatMap((r) => (r.family === 'risk' ? [r.occurrence, r.severity].filter(Boolean) : [])))
-  const prov = (r) => (r.origin?.by === 'person' ? 'from_brief' : 'ai_inferred')
-  const quote = (r) => (r.origin?.by === 'person' && r.origin.quote ? { source_quote: r.origin.quote } : {})
+  // A card that shows a figure Olumi proposed (a goal's target, a limit's bound) is not the person's words, whoever wrote the card itself:
+  // `figure` is that quantity, and Olumi's own origin on it makes the card Olumi's, with no quote of the person's put against it.
+  const prov = (r, figure) => (r.origin?.by === 'person' && figure?.origin?.by !== 'olumi' ? 'from_brief' : 'ai_inferred')
+  const quote = (r, figure) => (r.origin?.by === 'person' && figure?.origin?.by !== 'olumi' && r.origin.quote ? { source_quote: r.origin.quote } : {})
   const nodes = [], edges = [], seen = new Set()
   const add = (n) => { if (!seen.has(n.id)) { seen.add(n.id); nodes.push(n) } }
   /** `exists_probability: null` leaves the existence of the link unstated (no certainty is made up for a link nobody called certain). */
@@ -103,7 +105,7 @@ export function graphOf(form) {
     // A target that is a range is shown as one ("95 to 105"), never collapsed to a single figure nobody gave.
     const rangeWords = a?.kind === 'interval' ? `${num(a.low)} to ${num(a.high)}${a.likely != null ? `, most likely ${num(a.likely)}` : ''}` : null
     const raw = a?.kind === 'interval' ? (a.likely ?? `${num(a.low)} to ${num(a.high)}`) : valueOf(target)
-    add({ id: r.id, ref: `G${++g}`, kind: 'goal', label: r.label, provenance: prov(r), ...quote(r), display_value: r.measure ? `${r.measure.cmp} ${rangeWords ?? valueOf(target)} ${target?.unit ?? ''}`.trim() : r.label,
+    add({ id: r.id, ref: `G${++g}`, kind: 'goal', label: r.label, provenance: prov(r, target), ...quote(r, target), display_value: r.measure ? `${r.measure.cmp} ${rangeWords ?? valueOf(target)} ${target?.unit ?? ''}`.trim() : r.label,
       goal_direction: r.measure?.cmp, goal_threshold_raw: raw, goal_threshold_unit: target?.unit ?? null, goal_threshold_frame: r.measure?.frame ?? 'level', goal_measure_by: r.measure?.measure_by ?? 'person', analysis_participation: 'included' })
     if (r.measure && seen.has(r.measure.quantity)) link(r.measure.quantity, r.id, { provenance: { source: 'brief_extraction', definitional: true } })
   }
@@ -115,7 +117,7 @@ export function graphOf(form) {
     const interval = bound?.assertion?.kind === 'interval' ? bound.assertion : null
     const bySource = bound?.origin?.by === 'olumi' ? 'cee_hypothesis' : 'brief_extraction'
     add({
-      id: r.id, ref: `F${++f}`, kind: 'factor', label: r.label, provenance: prov(r), ...quote(r),
+      id: r.id, ref: `F${++f}`, kind: 'factor', label: r.label, provenance: prov(r, bound), ...quote(r, bound),
       display_value: r.measure ? `${CMP[r.measure.cmp]} ${fmt(bound)}` : 'Not yet measurable',
       // The card shows the bound as its figure; the way it limits (at most, at least) is said here, where the card and the inspector read a description.
       description: r.measure ? `A limit on ‘${nameOf(m, r.measure.quantity)}’: it stays ${CMP[r.measure.cmp]} ${fmt(bound)}.` : 'A limit that cannot be measured yet.',
@@ -188,8 +190,11 @@ export function goalConstraintsOf(form) {
     const bound = me ? m.get(me.bound) : null
     if (!me || !['<=', '>='].includes(me.cmp) || me.aggregation !== 'end' || me.window !== null || me.per !== null) return []
     if (bound?.family !== 'quantity' || bound.assertion.kind !== 'point' || bound.assertion.approximate || typeof bound.assertion.value !== 'number') return []
-    const quote = r.origin?.by === 'person' && typeof r.origin.quote === 'string' && r.origin.quote ? { source_quote: r.origin.quote.slice(0, 200) } : {}
-    return [{ constraint_id: r.id, label: r.label, node_id: me.quantity, operator: me.cmp, value: bound.assertion.value, ...(bound.unit && bound.unit !== '1' ? { unit: bound.unit } : {}), ...quote, provenance: r.origin?.by === 'olumi' ? 'inferred' : 'explicit' }]
+    // Whose figure this is: the person's only when BOTH the limit and the bound are theirs. A bound Olumi proposed on a limit the person set
+    // is Olumi's figure, whatever the limit's own author: inferred, and the person's quote is not put against it.
+    const olumis = r.origin?.by === 'olumi' || bound.origin?.by === 'olumi'
+    const quote = !olumis && r.origin?.by === 'person' && typeof r.origin.quote === 'string' && r.origin.quote ? { source_quote: r.origin.quote.slice(0, 200) } : {}
+    return [{ constraint_id: r.id, label: r.label, node_id: me.quantity, operator: me.cmp, value: bound.assertion.value, ...(bound.unit && bound.unit !== '1' ? { unit: bound.unit } : {}), ...quote, provenance: olumis ? 'inferred' : 'explicit' }]
   })
 }
 

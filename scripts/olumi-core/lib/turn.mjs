@@ -6,7 +6,7 @@
  */
 import crypto from 'node:crypto'
 import { CoreError, WriteKept, errorTurn } from './core.mjs'
-import { changeRows, byId, figure } from './words.mjs'
+import { changeRows, byId, figure, num } from './words.mjs'
 import { analysisViewOf, modelOf, shownOf } from './model.mjs'
 import { fillCited, noteOf } from './note.mjs'
 import { propIdOf, rev16, rev64, runIdOf, sidOfUuid, turnIdOf, uuidOfSid, isSid } from './ids.mjs'
@@ -104,7 +104,7 @@ export function makeShim({ core, log = () => {} }) {
 
   /**
    * "Looks right" confirms the whole card; "Confirm selected" (the ticks on the reading card's rows, `approve_ids`) confirms exactly
-   * those rows, as core's `only` (API v1.4: record ids of the proposal's changes). When every row is ticked it is the whole card.
+   * those rows, as core's `only` (API v1.4: record ids of the proposal's changes). When every change is ticked, top-level ones included, it is the whole card.
    * Core decides what a selection needs: a choice that needs a record that was not chosen is refused with a 409 that names it, and
    * that refusal is shown in core's own words with the card still held, so the ticks can be changed. Core re-runs a part-approved
    * model with no reply from Olumi (`version.coach` is cleared, though the proposal's chat row still holds its answer), so what is
@@ -113,9 +113,13 @@ export function makeShim({ core, log = () => {} }) {
   async function approve(ctx, body, turnId, pid, sid) {
     const v = await view(ctx, sid)
     if (!v.pending || propIdOf(sid, v.pending.id) !== pid) return { out: errorTurn(turnId, new CoreError(409, 'that card is no longer waiting for an answer')) }
-    const rows = changeRows(v)
+    // The ticks are compared with the COMPLETE change set the proposal makes: its records (added, changed, removed) and its top-level
+    // fields (`top`: the question, the title, the period...), which have no row to tick. `only` is dropped, and the whole card approved,
+    // only when every one of them is ticked; any other selection is sent as it stands, so a change that was not ticked is not approved.
+    if (Array.isArray(body.approve_ids) && body.approve_ids.length === 0) return { out: errorTurn(turnId, new CoreError(400, 'Tick at least one change to confirm, or use “Looks right” to confirm them all. Nothing was saved.')) }
     const ticked = Array.isArray(body.approve_ids) ? [...new Set(body.approve_ids)].sort() : []
-    const only = ticked.length > 0 && !rows.every((r) => ticked.includes(r.id)) ? ticked : null
+    const every = [...v.pending.changes.added, ...v.pending.changes.changed, ...v.pending.changes.removed, ...(v.pending.changes.top ?? [])]
+    const only = ticked.length > 0 && !every.every((id) => ticked.includes(id)) ? ticked : null
     let r
     try {
       r = await core('POST', `/api/proposals/${v.pending.id}/approve`, { token: ctx.token, body: { base: v.pending.base, ...(only ? { only } : {}) } })
@@ -151,7 +155,8 @@ export function makeShim({ core, log = () => {} }) {
    * sent as what it is (a range is never flattened to one number). Core has no likeliest value on an edit, so a figure typed over
    * a RANGE would silently replace the person's range with one number (and the Run with it): that edit is refused, in words,
    * before anything is sent. A range set over a range is a range edit and is sent, unless the range being changed has a most likely
-   * figure: core would save the new ends with none, so that edit is refused too.
+   * figure: core would save the new ends with none, so that edit is refused too. So is a range over a single value that is not centred
+   * on it, since the card would then show the middle of the range as the person's figure.
    */
   async function editFigure(ctx, turnId, sid, quantityId, figureIn) {
     let quantity = quantityId
@@ -175,6 +180,15 @@ export function makeShim({ core, log = () => {} }) {
     // one would delete the person's figure: refused in words, before anything is sent.
     if (range && rec?.family === 'quantity' && rec.assertion.kind === 'interval' && rec.assertion.likely != null) {
       throw new CoreError(400, `‘${rec.label}’ is ${figure(rec.assertion, rec.unit)}, and changing its ends would lose the most likely figure you gave. Tell me the new range and the most likely figure in the chat. Nothing was saved.`)
+    }
+    // The same loss for a figure the person gave as ONE value: core saves the range with no value of its own, and the card then shows the
+    // middle of the range as the figure. That is only the person's figure when the range is centred on it (70 to 90 around 80); a range
+    // that is not (70 to 100 around 80) would turn their 80 into an 85, so it is refused in words before anything is sent.
+    if (range && rec?.family === 'quantity' && rec.assertion.kind === 'point') {
+      const middle = (figureIn.low + figureIn.high) / 2
+      if (Math.abs(middle - rec.assertion.value) > 1e-9 * Math.max(1, Math.abs(rec.assertion.value))) {
+        throw new CoreError(400, `‘${rec.label}’ is ${figure(rec.assertion, rec.unit)}, and a range of ${num(figureIn.low)} to ${num(figureIn.high)} would replace it with its middle, ${figure({ kind: 'point', value: middle }, rec.unit)}, which you did not give. Tell me the range and the most likely figure in the chat. Nothing was saved.`)
+      }
     }
     const value = range ? { kind: 'interval', low: figureIn.low, high: figureIn.high } : { kind: 'point', value: figureIn }
     const saved = await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body: { base: v.version.id, quantity, value, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined } })
@@ -274,6 +288,20 @@ export function makeShim({ core, log = () => {} }) {
     }
   }
 
+  /**
+   * Which reply a chat row may show on a reload: the live rule, for every version. A row that saved a version shows that version's
+   * own reply (`version.coach`, for the current one; for an older one its proposal's answer, only if core saved it whole), never the
+   * proposal's answer for a version core made from part of it and re-ran with no reply from Olumi (the answer still describes the
+   * whole proposal). A version that cannot be told is shown with no reply: nothing is restored as Olumi's that may not be.
+   */
+  async function answerRule(ctx, sid, v) {
+    let whole = new Set()
+    if (v.chat.some((c) => c.version != null && !c.current && c.answer)) {
+      try { whole = new Set(((await core('GET', `/api/scenarios/${sid}/versions`, { token: ctx.token })).versions ?? []).filter((x) => x.selected == null).map((x) => x.n)) } catch { /* unread: no older reply is restored */ }
+    }
+    return (c) => (c.version == null ? c.answer : c.current ? (v.version?.n === c.version ? v.version.coach ?? null : null) : whole.has(c.version) ? c.answer : null)
+  }
+
   async function graphRead(ctx, uuid) {
     const empty = { schema: 'scenario_graph.v1', scenario_id: uuid, graph_present: false, graph: null }
     const sid = sidOfUuid(uuid, ctx.aliases)
@@ -287,6 +315,7 @@ export function makeShim({ core, log = () => {} }) {
     const model = modelOf(v)
     if (!model) return { status: 200, body: empty }
     const analysis = analysisViewOf(v)
+    const answerOf = await answerRule(ctx, sid, v)
     return {
       status: 200,
       body: {
@@ -296,7 +325,8 @@ export function makeShim({ core, log = () => {} }) {
         // A reload: the thread (olumi-core's chat) and the card still held, so the person can still confirm it.
         conversation_turns: v.chat.map((c) => ({
           turn_id: turnIdOf(sid, c.id), created_at: c.at, user_message: c.said,
-          assistant_message: c.status === 'pending' ? (c.first ? DRAFT_LEAD : CHANGE_LEAD) : c.problem ? c.problem : c.answer ? coachText(c.answer, c.cited) : 'Noted.',
+          assistant_message: c.status === 'pending' ? (c.first ? DRAFT_LEAD : CHANGE_LEAD) : c.problem ? c.problem
+            : answerOf(c) ? coachText(answerOf(c), c.cited) : c.version != null ? `Saved as version ${c.version}.` : 'Noted.',
         })),
         ...(v.pending ? { proposal_fields: { version: 1, graph_hash: model.revision, proposals: [cardFor(v, turnIdOf(sid, v.pending.id))] } } : {}),
       },

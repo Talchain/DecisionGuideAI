@@ -9,7 +9,8 @@
  *   POST /bff/orchestrate/v2/turn          DGAI's chat turn, card press and canvas edit  -> core (the shim)
  *   GET  /bff/cee/scenarios/<uuid>/graph   DGAI's saved-model read                       -> core (the shim)
  *   ANY  /api/*, GET /healthz   proxied to core (the admin routes are NOT reachable from here); a write needs the page's x-olumi-person, as a /bff write does,
- *                               and a cross-site write is refused (403) here and by core (Sec-Fetch-Site goes on)
+ *                               and a write that is not from the Olumi page itself (Sec-Fetch-Site other than same-origin or none) is refused (403) here and by core;
+ *                               a write whose identity cannot be checked is refused too
  *
  * Identity is the browser's own `olumi` cookie, forwarded to core on every call: this server holds none. Nothing a person
  * has is kept here either: the shim derives ids from what it reads (lib/ids.mjs), and the one pairing it cannot derive
@@ -98,13 +99,23 @@ export function createServer(opts = {}) {
   }
 
   /**
-   * Was this page opened for someone other than the person whose private link the browser holds now? A page that cannot say who it
-   * was opened for is treated the same when `required` (a write): fail closed. No link at all is core's own 401, not this.
+   * May a call from this page go on? Null when it may; else why not. A write or read for a browser that holds a link is checked
+   * against core's own answer to "who is this?": a page that was opened for someone else (or, for a write, cannot say who it was
+   * opened for) is `changed`; an answer that cannot be had (core down, an error, no person in it) is `error`. Both FAIL CLOSED: a
+   * check that could not be made never lets a write through. No link at all is core's own 401, not this.
    */
-  async function pageIsForSomeoneElse(ctx, { required }) {
-    const me = await whoIs(ctx)
-    if (!me) return false
-    return ctx.person === null ? required : ctx.person !== String(me.id)
+  async function identityRefusal(ctx, { required }) {
+    if (!ctx.token) return null
+    let me
+    try { me = (await core('GET', '/api/me', { token: ctx.token })).me ?? null } catch (e) { return { error: e instanceof CoreError ? e : new CoreError(0, 'olumi-core is not reachable') } }
+    if (!me || me.id == null) return { error: new CoreError(401, 'the private link this browser holds is no longer valid') }
+    return (ctx.person === null ? required : ctx.person !== String(me.id)) ? { changed: true } : null
+  }
+  /** The HTTP answer for a refusal (the API and the saved-model read): 409 when the person changed, else 401 for a link core does not accept, else 503. */
+  const refusalHttp = (no) => {
+    if (no.changed) return { status: 409, body: { error: IDENTITY_CHANGED_WORDS } }
+    const status = no.error.status === 401 || no.error.status === 403 ? 401 : 503
+    return { status, body: { error: status === 401 ? 'open your private link first' : 'Olumi cannot check who this page is for right now. Nothing was saved. Try again in a moment.' } }
   }
 
   async function serveStatic(req, res, pathname) {
@@ -132,8 +143,10 @@ export function createServer(opts = {}) {
     const p = url.pathname.replace(/^\/assist\/v1\//, '/bff/cee/').replace(/^\/orchestrate\//, '/bff/orchestrate/')
     const method = req.method ?? 'GET'
     try {
-      // A write sent from another site's page is refused here, before anything is read or sent on (core refuses it too: the header goes on).
-      if (method !== 'GET' && method !== 'HEAD' && req.headers['sec-fetch-site'] === 'cross-site') return json(res, 403, { error: 'cross-site requests are not allowed' })
+      // A write is allowed only from the Olumi page itself, as core allows it (src/server/app.ts): no header (a script), `same-origin` or `none`.
+      // Anything else (`cross-site`, `same-site`) is refused here, before anything is read or sent on (core refuses it too: the header goes on).
+      const site = req.headers['sec-fetch-site']
+      if (method !== 'GET' && method !== 'HEAD' && site !== undefined && site !== 'same-origin' && site !== 'none') return json(res, 403, { error: 'changes can only be made from the Olumi page' })
       if (p === '/healthz') {
         try { const h = await core('GET', '/healthz'); return json(res, 200, { ok: true, server: 'dgai-on-olumi-core', core: h }) }
         catch (e) { return json(res, 503, { ok: false, server: 'dgai-on-olumi-core', core: 'unreachable' }) }
@@ -156,7 +169,10 @@ export function createServer(opts = {}) {
       if (p.startsWith('/api/admin/')) return json(res, 404, { error: 'not found' })
       if (p.startsWith('/api/')) {
         // A write through the API is held to the same identity check as a /bff write: the page must say who it was opened for, and it must still be the person this browser's link names.
-        if (method !== 'GET' && method !== 'HEAD' && await pageIsForSomeoneElse(ctxOf(req), { required: true })) { log('api write refused: page opened for another person'); return json(res, 409, { error: IDENTITY_CHANGED_WORDS }) }
+        if (method !== 'GET' && method !== 'HEAD') {
+          const no = await identityRefusal(ctxOf(req), { required: true })
+          if (no) { log('api write refused', no.changed ? 'page opened for another person' : `identity not verified (${no.error.status})`); const h = refusalHttp(no); return json(res, h.status, h.body) }
+        }
         return await proxy(req, res, p + url.search)
       }
 
@@ -164,7 +180,8 @@ export function createServer(opts = {}) {
         let body
         try { body = JSON.parse((await readBody(req)).toString('utf8') || '{}') } catch { return json(res, 400, { error: 'malformed JSON' }) }
         const ctx = ctxOf(req)
-        if (await pageIsForSomeoneElse(ctx, { required: true })) { log('turn refused: page opened for another person'); return json(res, 200, identityChangedTurn(body.turn_id)) }
+        const no = await identityRefusal(ctx, { required: true })
+        if (no) { log('turn refused', no.changed ? 'page opened for another person' : `identity not verified (${no.error.status})`); return json(res, 200, no.changed ? identityChangedTurn(body.turn_id) : errorTurn(body.turn_id, no.error)) }
         let r
         try { r = await shim.turn(ctx, body) } catch (e) { log('turn failed', String(e?.stack ?? e)); r = { out: errorTurn(body.turn_id, e) } }
         return json(res, 200, r.out, r.alias ? { 'x-olumi-alias': aliasHeader(r.alias) } : {})
@@ -175,7 +192,8 @@ export function createServer(opts = {}) {
         const uuid = decodeURIComponent(g[1])
         if (!isUuid(uuid)) return json(res, 404, { error: 'not found' })
         const ctx = ctxOf(req)
-        if (await pageIsForSomeoneElse(ctx, { required: false })) return json(res, 409, { error: IDENTITY_CHANGED_WORDS })
+        const no = await identityRefusal(ctx, { required: false })
+        if (no) { const h = refusalHttp(no); return json(res, h.status, h.body) }
         let r
         try { r = await shim.graphRead(ctx, uuid) } catch (e) { log('graph failed', String(e?.stack ?? e)); r = { status: 502, body: { error: 'Olumi cannot be reached right now.' } } }
         return json(res, r.status, r.body)

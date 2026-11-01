@@ -104,6 +104,26 @@ describe('a range the person sets is sent to core as a range (tier R step 0)', (
     expect(out.error).toBeNull()
     expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 70, high: 90 })
   })
+  it('a range over a single value that it is NOT centred on is refused: 80 with 70 to 100 would be saved as 85, a figure the person did not give', async () => {
+    const uuid = seeded()
+    const point = fx('view-approved.json').version.form.records.find((r) => r.id === 'existing_capacity').assertion
+    expect(point).toMatchObject({ kind: 'point', value: 80 })
+    const before = fake.calls.length
+    const out = (await shim.turn(ADA, range('existing_capacity', 70, 100, { uuid }))).out
+    expect(out.error).toMatchObject({ code: 'bad_request', nothing_saved: true })
+    expect(out.error.message).toMatch(/80/)
+    expect(out.error.message).toMatch(/85/)
+    expect(out.error.message).toMatch(/Nothing was saved/)
+    expect(post(fake.calls, before)).toHaveLength(0)
+    const g = (await shim.graphRead(ADA, uuid)).body.graph.nodes.find((n) => n.id === 'existing_capacity')
+    expect(g.observed_state.value).toBe(80)
+  })
+  it('a range centred on the value keeps it as the middle (nothing the person gave is changed), and floats do not trip the check', async () => {
+    const uuid = seeded()
+    const before = fake.calls.length
+    expect((await shim.turn(ADA, range('existing_capacity', 79.9, 80.1, { uuid }))).out.error).toBeNull()
+    expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 79.9, high: 80.1 })
+  })
   it('a range whose ends are the wrong way round, or not figures, is refused in words before anything is sent', async () => {
     const uuid = seeded()
     const before = fake.calls.length

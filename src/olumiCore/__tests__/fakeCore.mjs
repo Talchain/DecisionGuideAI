@@ -17,6 +17,7 @@ export async function startFakeCore() {
   let wrote = false
   let problemNext = null
   let approveRefusal = null // armed: the next approve is refused (core's own 409 for a choice that needs something unchosen)
+  let meDown = null // armed: `/api/me` fails with this status until cleared (the identity lookup, not the write)
   let next = 1
   const server = http.createServer(async (req, res) => { try { await handle(req, res) } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) })) } })
   const handle = async (req, res) => {
@@ -27,8 +28,9 @@ export async function startFakeCore() {
     const me = token ? people.get(decodeURIComponent(token)) : undefined
     calls.push({ method: req.method, path: url.pathname, token: token ? decodeURIComponent(token) : null, body, site: req.headers['sec-fetch-site'] ?? null })
     const send = (s, o, h = {}) => { res.writeHead(s, { 'content-type': 'application/json', ...h }); res.end(JSON.stringify(o)) }
-    // olumi-core's own rule: a write sent from another site is refused (403).
-    if (req.method === 'POST' && req.headers['sec-fetch-site'] === 'cross-site') return send(403, { error: 'cross-site' })
+    // olumi-core's own rule (src/server/app.ts): a write is allowed with no Sec-Fetch-Site (a script), `same-origin` or `none`; any other value is refused (403).
+    const site = req.headers['sec-fetch-site']
+    if (req.method === 'POST' && site !== undefined && site !== 'same-origin' && site !== 'none') return send(403, { error: 'changes can only be made from the Olumi page' })
     if (url.pathname === '/healthz') return send(200, { ok: true, commit: 'fake', store: 'readable' })
     if (url.pathname.startsWith('/k/')) {
       const t = decodeURIComponent(url.pathname.slice(3))
@@ -36,6 +38,7 @@ export async function startFakeCore() {
       const to = url.searchParams.get('to')
       res.writeHead(302, { location: to ?? '/', 'set-cookie': `olumi=${encodeURIComponent(t)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000` }); return res.end()
     }
+    if (url.pathname === '/api/me' && meDown) return send(meDown, { error: 'unavailable' })
     if (url.pathname === '/api/me') return send(200, { me: me ?? null, commit: 'fake', scenarios: [...scenarios].filter(([, s]) => s.owner === me?.id).map(([id]) => ({ id, title: 'Support capacity' })) })
     if (url.pathname.startsWith('/api/admin/')) return send(200, { admin: 'reachable' })
     if (!me) return send(401, { error: 'open your private link first' })
@@ -56,6 +59,13 @@ export async function startFakeCore() {
     }
     if ((m = url.pathname.match(/^\/api\/scenarios\/(s_[0-9a-f]+)$/)) && req.method === 'GET') {
       const s = scenarios.get(m[1]); return s && s.owner === me.id ? send(200, s.view) : send(404, { error: 'not found' })
+    }
+    if ((m = url.pathname.match(/^\/api\/scenarios\/(s_[0-9a-f]+)\/versions$/)) && req.method === 'GET') {
+      // API v1.7: the saved versions, each with `selected` (null: saved whole; a list: made from part of its proposal). Default: every version the chat names, whole.
+      const entry = scenarios.get(m[1]); if (!entry || entry.owner !== me.id) return send(404, { error: 'not found' })
+      if (entry.partVersions === 'down') return send(500, { error: 'versions unavailable' })
+      const ns = [...new Set([...entry.view.chat.map((c) => c.version), entry.view.version?.n].filter((n) => n != null))].sort((a, b) => a - b)
+      return send(200, { versions: ns.map((n) => ({ n, selected: entry.partVersions?.[n] ?? null })) })
     }
     if ((m = url.pathname.match(/^\/api\/proposals\/(\d+)\/approve$/))) {
       const entry = [...scenarios.values()].find((s) => s.owner === me.id && s.view.pending?.id === Number(m[1]))
@@ -116,6 +126,10 @@ export async function startFakeCore() {
     /** A scenario exactly as a real core served it (a captured view), owned by that person; `after.approve` is the view an approval turns it into, `after.edit` the view a figure edit turns it into. */
     seed: (token, view, after = {}) => { const v = structuredClone(view); scenarios.set(v.id, { owner: people.get(token).id, view: v, after }); return v.id },
     problemNext: (text) => { problemNext = text },
+    /** Version numbers of a scenario that core saved from PART of their proposal (`selected` lists the ids chosen), as `/versions` reports them; the string 'down' makes that read fail. */
+    partVersions: (sid, byN) => { scenarios.get(sid).partVersions = byN },
+    /** `/api/me` fails with this status (null: works again). */
+    meDown: (status) => { meDown = status },
     /** The next approve is refused with this status and core's words (the approve itself is checked first, so a bad `only` is still a 400). */
     refuseApprove: (status, message) => { approveRefusal = { status, message } },
     close: () => new Promise((r) => server.close(r)),

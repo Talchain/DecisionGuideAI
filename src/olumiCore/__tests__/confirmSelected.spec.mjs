@@ -72,11 +72,91 @@ describe('Confirm selected sends the ticked rows to core as `only`', () => {
     await press(uuid, card, { approve_ids: card.changes.map((r) => r.id) })
     expect(approves(fake.calls, before)[0].body).not.toHaveProperty('only')
   })
-  it('an empty tick list is the whole card too (Confirm whole card sends none at all)', async () => {
+  it('no `approve_ids` at all is the whole card ("Looks right")', async () => {
     const { uuid } = held()
     const card = await cardOf(uuid), before = fake.calls.length
-    await press(uuid, card, { approve_ids: [] })
+    await press(uuid, card)
     expect(approves(fake.calls, before)[0].body).not.toHaveProperty('only')
+  })
+  it('an explicit EMPTY tick list is nothing chosen: refused in words, never read as the whole card, and nothing is sent', async () => {
+    const { uuid } = held()
+    const card = await cardOf(uuid), before = fake.calls.length
+    const { out } = await press(uuid, card, { approve_ids: [] })
+    expect(out.error).toMatchObject({ code: 'bad_request', nothing_saved: true })
+    expect(out.error.message).toMatch(/Tick at least one change/)
+    expect(approves(fake.calls, before)).toHaveLength(0)
+  })
+})
+
+describe('a selection is compared with the COMPLETE change set, top-level changes included (review: ticking the rows approved an unticked question)', () => {
+  const withTop = () => {
+    const v = fx('view-first-pending.json')
+    v.pending.changes = { added: [], changed: ['existing_capacity'], removed: [], top: ['question'] }
+    return v
+  }
+  const heldTop = () => { const sid = fake.seed('tok-ada', withTop(), { approve: fx('view-approved.json') }); return { sid, uuid: derivedUuidOfSid(sid) } }
+  it('only `existing_capacity` ticked: `only` is sent, so the question is not approved', async () => {
+    const { uuid } = heldTop()
+    const card = await cardOf(uuid), before = fake.calls.length
+    expect(card.changes.map((r) => r.id)).toEqual(['existing_capacity'])   // the question has no row to tick
+    const { out } = await press(uuid, card, { approve_ids: ['existing_capacity'] })
+    const sent = approves(fake.calls, before)
+    expect(sent).toHaveLength(1)
+    expect(sent[0].body.only).toEqual(['existing_capacity'])
+    expect(out.error).toBeNull()
+  })
+  it('every change ticked, the top-level one too: the whole card, no `only`', async () => {
+    const { uuid } = heldTop()
+    const card = await cardOf(uuid), before = fake.calls.length
+    await press(uuid, card, { approve_ids: ['existing_capacity', 'question'] })
+    expect(approves(fake.calls, before)[0].body).not.toHaveProperty('only')
+  })
+  it('a proposal with no top-level change is still the whole card when every row is ticked', async () => {
+    const v = withTop(); v.pending.changes.top = []
+    const sid = fake.seed('tok-ada', v, { approve: fx('view-approved.json') })
+    const uuid = derivedUuidOfSid(sid), card = await cardOf(uuid), before = fake.calls.length
+    await press(uuid, card, { approve_ids: ['existing_capacity'] })
+    expect(approves(fake.calls, before)[0].body).not.toHaveProperty('only')
+  })
+})
+
+describe('a reload shows the same reply the live approval did (review: it restored the whole proposal\'s answer after a part-approval)', () => {
+  const HALF = /adding a specialist reaches your aim about half the time/
+  const saved = (partial) => { const v = fx('view-approved.json'); if (partial) v.version.coach = null; return v }
+  const thread = async (view, parts) => {
+    const sid = fake.seed('tok-ada', view)
+    if (parts) fake.partVersions(sid, parts)
+    return (await shim.graphRead(ADA, derivedUuidOfSid(sid))).body.conversation_turns
+  }
+  it('the current version core re-ran with no reply: the thread says it was saved, and the proposal\'s answer is not restored', async () => {
+    const v = saved(true)
+    expect(v.chat[0].answer.answer).toMatch(HALF)   // the row still holds the whole proposal's answer
+    const [first] = await thread(v)
+    expect(first.assistant_message).toBe('Saved as version 1.')
+    expect(first.assistant_message).not.toMatch(HALF)
+  })
+  it('and it is word for word what the live part-approval said', async () => {
+    const { uuid } = held({ approve: saved(true) })
+    const live = (await press(uuid, await cardOf(uuid), { approve_ids: ['add_one'] })).out
+    const after = (await shim.graphRead(ADA, uuid)).body.conversation_turns[0].assistant_message
+    expect(after).toBe(live.assistant_text)
+  })
+  it('a whole approval keeps its reply on reload, as live', async () => {
+    const [first] = await thread(saved(false))
+    expect(first.assistant_message).toMatch(HALF)
+  })
+  it('an OLDER version made from part of its proposal does not get the proposal\'s answer back either; one saved whole does', async () => {
+    const v2 = fx('view-markers-v2.json')
+    expect(v2.chat[0].current).toBe(false)
+    expect((await thread(v2))[0].assistant_message).toMatch(/In this model about 50% for adding a specialist/)
+    const part = (await thread(v2, { 1: ['add_one'] }))[0].assistant_message
+    expect(part).toBe('Saved as version 1.')
+  })
+  it('a version core cannot tell about (its version list is unreadable) is shown with no reply, never with one that may not be Olumi\'s', async () => {
+    const turns = await thread(fx('view-markers-v2.json'), 'down')
+    expect(turns[0].assistant_message).toBe('Saved as version 1.')
+    expect(turns[1].assistant_message).toMatch(/./)   // the current version still reads its own reply
+    expect(turns[1].assistant_message).not.toBe('Saved as version 2.')
   })
 })
 

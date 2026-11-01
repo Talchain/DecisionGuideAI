@@ -270,6 +270,17 @@ describe('an option\'s set figure keeps whose it is and what it is (finding 4)',
     expect(goal.display_value).toMatch(/95 to 105/)
     expect(goal.goal_threshold_unit).toBe('ticket/week')
   })
+  it('an aim the person set with a target OLUMI proposed is Olumi\'s card: inferred, with none of the person\'s words against the figure', () => {
+    const form = JSON.parse(JSON.stringify(approved.version.form))
+    const goal = form.records.find((r) => r.id === 'capacity_goal')
+    goal.origin = { by: 'person', quote: 'I want more capacity', party: null }
+    form.records.find((r) => r.id === 'capacity_target').origin = { by: 'olumi', basis: 'a round figure to test' }
+    const node = nodeOf(graphOf(form), 'capacity_goal')
+    expect(node.provenance).toBe('ai_inferred')
+    expect(node).not.toHaveProperty('source_quote')
+    form.records.find((r) => r.id === 'capacity_target').origin = { by: 'person', quote: 'a hundred a week', party: null }
+    expect(nodeOf(graphOf(form), 'capacity_goal')).toMatchObject({ provenance: 'from_brief', source_quote: 'I want more capacity' })
+  })
   it('a target with a likeliest value keeps it as the figure, and still says the range', () => {
     const form = JSON.parse(JSON.stringify(approved.version.form))
     form.records.find((r) => r.id === 'capacity_target').assertion = { kind: 'interval', low: 95, high: 105, range_kind: 'plausible', likely: 100 }
@@ -303,6 +314,7 @@ describe('a calculation\'s links bear on what they define the way the relation s
       const form = cloneForm()
       relation(form, 'added_def').parts[1].power = -1   // specialists / per_specialist
       relation(form, 'specialists').domain = numeratorDomain
+      relation(form, 'specialists').assertion = { kind: 'asked', question: 'How many?' }   // nothing stated: its side comes from its floor or ceiling alone
       return graphOf(form)
     }
     it('a numerator with a floor at or above zero: the divisor lowers it, drawn as a drag', () => {
@@ -311,14 +323,59 @@ describe('a calculation\'s links bear on what they define the way the relation s
       expect(drawn(edgeOf(g, 'per_specialist__added_capacity')).label).toMatch(/Drag/)
       expect(edgeOf(g, 'specialists__added_capacity').effect_direction).toBe('positive')
     })
-    it('a negative numerator (-100 / x rises as x rises): the divisor\'s side is not stated, never a drag', () => {
+    it('a negative numerator (-100 / x rises as x rises): the divisor raises it, never a drag (the numerator still raises it)', () => {
       const g = divide({ lower: null, upper: 0 })
-      expect(edgeOf(g, 'per_specialist__added_capacity').effect_direction).toBe('unknown')
-      expect(drawn(edgeOf(g, 'per_specialist__added_capacity')).direction.show).toBe(false)
+      expect(edgeOf(g, 'per_specialist__added_capacity').effect_direction).toBe('positive')
+      expect(drawn(edgeOf(g, 'per_specialist__added_capacity')).label).not.toMatch(/Drag/)
+      expect(edgeOf(g, 'specialists__added_capacity').effect_direction).toBe('positive')
     })
     it('a numerator whose sign nothing fixes, or one that straddles zero: not stated either', () => {
       expect(edgeOf(divide(null), 'per_specialist__added_capacity').effect_direction).toBe('unknown')
       expect(edgeOf(divide({ lower: -5, upper: 5 }), 'per_specialist__added_capacity').effect_direction).toBe('unknown')
+    })
+  })
+  describe('a PRODUCT part bears on the result with the sign of every other factor (review: a negative multiplier turns it round)', () => {
+    // specialists × per_specialist = added_capacity; the multiplier is per_specialist.
+    const times = (multiplier, specialists = { kind: 'point', value: 5, approximate: false }) => {
+      const form = cloneForm()
+      relation(form, 'per_specialist').assertion = multiplier
+      relation(form, 'specialists').assertion = specialists
+      return graphOf(form)
+    }
+    const dir = (g, from) => edgeOf(g, `${from}__added_capacity`).effect_direction
+    it('a positive multiplier: more specialists raise it', () => {
+      expect(dir(times({ kind: 'interval', low: 10, high: 30, range_kind: 'plausible', likely: 20 }), 'specialists')).toBe('positive')
+      expect(dir(times({ kind: 'point', value: 10, approximate: false }), 'specialists')).toBe('positive')
+    })
+    it('a NEGATIVE multiplier (specialists x -10): more specialists lower it, drawn as a drag, and the multiplier still raises it', () => {
+      const g = times({ kind: 'point', value: -10, approximate: false })
+      expect(dir(g, 'specialists')).toBe('negative')
+      expect(drawn(edgeOf(g, 'specialists__added_capacity')).label).toMatch(/Drag/)
+      expect(dir(g, 'per_specialist')).toBe('positive')
+    })
+    it('a multiplier whose range SPANS zero: which way it goes is not stated, never a rise', () => {
+      const g = times({ kind: 'interval', low: -5, high: 20, range_kind: 'plausible', likely: null })
+      expect(dir(g, 'specialists')).toBe('unknown')
+      expect(drawn(edgeOf(g, 'specialists__added_capacity')).direction.show).toBe(false)
+    })
+    it('a multiplier still to be given, or worked out from others, is not stated either', () => {
+      expect(dir(times({ kind: 'asked', question: 'How much does each add?' }), 'specialists')).toBe('unknown')
+      expect(dir(times({ kind: 'derived' }), 'specialists')).toBe('unknown')
+    })
+    it('a multiplier wholly below zero as a range lowers it', () => {
+      expect(dir(times({ kind: 'interval', low: -30, high: -10, range_kind: 'plausible', likely: null }), 'specialists')).toBe('negative')
+    })
+    it('a floor or ceiling fixes the side without a stated figure; the part itself counts when it is squared', () => {
+      const form = cloneForm()
+      relation(form, 'per_specialist').assertion = { kind: 'asked', question: 'x' }
+      relation(form, 'per_specialist').domain = { lower: null, upper: 0 }
+      relation(form, 'specialists').assertion = { kind: 'point', value: 5, approximate: false }
+      expect(dir(graphOf(form), 'specialists')).toBe('negative')
+      const sq = cloneForm()
+      relation(sq, 'added_def').parts[0].power = 2   // specialists squared x per_specialist
+      relation(sq, 'per_specialist').assertion = { kind: 'point', value: 3, approximate: false }
+      relation(sq, 'specialists').assertion = { kind: 'asked', question: 'x' }
+      expect(dir(graphOf(sq), 'specialists')).toBe('unknown')   // its own side decides, and nothing states it
     })
   })
   describe('a source that contributes more than once to one target keeps a side only if every contribution agrees', () => {
@@ -454,6 +511,33 @@ describe('a limit that states one figure reaches the Model list WITH the figure 
     const form = JSON.parse(JSON.stringify(richForm))
     form.records.find((r) => r.id === 'cap').assertion.approximate = true
     expect(goalConstraintsOf(form)).toEqual([])
+  })
+  describe('whose figure it is: the bound\'s own origin counts, not only the limit\'s (review: Olumi\'s bound looked like the person\'s)', () => {
+    const withOrigins = (limitBy, boundBy) => {
+      const form = JSON.parse(JSON.stringify(richForm))
+      const limit = form.records.find((r) => r.id === 'ceiling'), cap = form.records.find((r) => r.id === 'cap')
+      limit.origin = limitBy === 'person' ? { by: 'person', quote: 'no more than 120', party: null } : { by: 'olumi', basis: 'a ceiling worth checking' }
+      cap.origin = boundBy === 'person' ? { by: 'person', quote: 'no more than 120', party: null } : { by: 'olumi', basis: 'a plausible ceiling' }
+      return form
+    }
+    it('a person\'s limit with the person\'s own bound: explicit, with their words', () => {
+      expect(goalConstraintsOf(withOrigins('person', 'person'))[0]).toMatchObject({ provenance: 'explicit', source_quote: 'no more than 120' })
+    })
+    it('a person\'s limit with a bound OLUMI proposed: inferred, and the person\'s words are not put against Olumi\'s figure', () => {
+      const [row] = goalConstraintsOf(withOrigins('person', 'olumi'))
+      expect(row).toMatchObject({ provenance: 'inferred', value: 120 })
+      expect(row).not.toHaveProperty('source_quote')
+    })
+    it('an Olumi limit stays inferred whoever wrote the bound', () => {
+      expect(goalConstraintsOf(withOrigins('olumi', 'person'))[0].provenance).toBe('inferred')
+      expect(goalConstraintsOf(withOrigins('olumi', 'olumi'))[0].provenance).toBe('inferred')
+    })
+    it('the limit\'s own card follows: Olumi\'s bound makes it Olumi\'s card, with no quote of the person\'s', () => {
+      const card = nodeOf(graphOf(withOrigins('person', 'olumi')), 'ceiling')
+      expect(card.provenance).toBe('ai_inferred')
+      expect(card).not.toHaveProperty('source_quote')
+      expect(nodeOf(graphOf(withOrigins('person', 'person')), 'ceiling')).toMatchObject({ provenance: 'from_brief', source_quote: 'no more than 120' })
+    })
   })
   it('a model with no such limit leaves `goal_constraints` off (its absence is what clears the limits shown)', () => {
     const noLimit = modelOf({ version: { ...rich.version, form: { ...richForm, records: richForm.records.filter((r) => r.family !== 'limit') } }, pending: null, id: rich.id, chat: [] })

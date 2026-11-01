@@ -65,7 +65,7 @@ describe('a past coach reply, read back after the model moved on (finding 1)', (
 
   it('a reply on a row whose model is not saved yet still reads whole (nothing falls back to an empty marker)', async () => {
     const v = firstDraftHeld()
-    v.chat.push({ ...v1.chat[0], id: 99, proposal: null, kind: 'message', status: 'discussion', first: false, said: 'What matters most?' })
+    v.chat.push({ ...v1.chat[0], id: 99, proposal: null, version: null, current: false, kind: 'message', status: 'discussion', first: false, said: 'What matters most?' })
     const sid = fake.seed('tok-ada', v)
     const turns = (await shim.graphRead(ADA, derivedUuidOfSid(sid))).body.conversation_turns
     expect(turns[1].assistant_message).toContain(markerText)

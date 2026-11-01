@@ -34,20 +34,45 @@ export function partsOf(recs, id) {
         : [r.start, ...r.inflows, ...r.outflows] : []))
 }
 
+/** A quantity's known side from its own floor or ceiling: 1 (never below zero), -1 (never above zero) or 0 (not stated). Never a guess from its value. */
+const side = (q) => (typeof q?.domain?.lower === 'number' && q.domain.lower >= 0 ? 1 : typeof q?.domain?.upper === 'number' && q.domain.upper <= 0 ? -1 : 0)
+/** The sign of x to the power e, from x's known side: 1, -1, or 0 when it cannot be said (a negative base to a fractional power, or an odd power of a base that may be either). */
+/**
+ * A product factor's known side: its floor or ceiling if one fixes it, else the figure as stated (a point, or a range wholly on one side
+ * of zero); a range that spans zero, a figure still to be given and one worked out from others are not stated (0).
+ */
+const factorSide = (q) => {
+  const d = side(q), a = q?.assertion
+  if (d !== 0) return d
+  if (a?.kind === 'point' && typeof a.value === 'number') return a.value >= 0 ? 1 : -1
+  if (a?.kind === 'interval' && typeof a.low === 'number' && typeof a.high === 'number') return a.low >= 0 ? 1 : a.high <= 0 ? -1 : 0
+  return 0
+}
+const signOfPower = (s, e) => (e === 0 ? 1 : s === 1 ? 1 : !Number.isInteger(e) ? 0 : e % 2 === 0 ? 1 : s === -1 ? -1 : 0)
+
 /**
  * The same parts, each with the way it bears on what it defines, as the relation states it: 1 (raises it), -1 (lowers it) or 0
- * (the relation does not say). A subtracted sum part lowers it, and so does a product part with a negative power (a divisor) when every other factor is known to be positive (else its side is not stated); an outflow
+ * (the relation does not say). A subtracted sum part lowers it; a product part's side is in the comment below; an outflow
  * lowers a stock. An effect's term moves the result the way its coefficient does, and a coefficient moves it the way its driver
  * does; that side is stated only when the figure's own floor or ceiling fixes it, else 0 (never a guess from the number's value).
  */
 export function signedPartsOf(recs, id) {
   const m = new Map(recs.map((r) => [r.id, r]))
-  const side = (q) => (typeof q?.domain?.lower === 'number' && q.domain.lower >= 0 ? 1 : typeof q?.domain?.upper === 'number' && q.domain.upper <= 0 ? -1 : 0)
   return recs.flatMap((r) => {
     if (r.family !== 'relation' || r.form === 'influence' || r.defines !== id) return []
     if (r.form === 'sum') return r.parts.map((p) => ({ id: p.id, sign: p.sign < 0 ? -1 : 1 }))
-    // A divisor lowers the result only when every other factor is known to be positive (-100 / x rises as x rises); else its side is not stated.
-    if (r.form === 'product') return r.parts.map((p) => ({ id: p.id, sign: p.power < 0 ? (r.parts.every((o) => o === p || side(m.get(o.id)) === 1) ? -1 : 0) : 1 }))
+    // A product part moves the result with the sign of its power, times the sign of everything else in the product: it raises the result
+    // only when the rest is known to be non-negative, lowers it only when the rest is known to be non-positive (a negative multiplier
+    // turns it round); a factor is known by its floor or ceiling, else by its stated figure, and is not stated when the rest can be either (a multiplier that spans zero). The part's own sign counts too
+    // (x squared moves with x). A divisor is the same rule with a negative power (-100 / x rises as x rises).
+    if (r.form === 'product') {
+      const power = (p) => (typeof p.power === 'number' ? p.power : 1)
+      return r.parts.map((p) => {
+        const own = signOfPower(factorSide(m.get(p.id)), power(p) - 1)
+        const rest = r.parts.filter((o) => o !== p).map((o) => signOfPower(factorSide(m.get(o.id)), power(o)))
+        return { id: p.id, sign: (Math.sign(power(p)) * own * rest.reduce((x, y) => x * y, 1)) || 0 }
+      })
+    }
     if (r.form === 'effect') return [{ id: r.base, sign: 1 }, ...r.terms.flatMap((t) => [{ id: t.driver, sign: side(m.get(t.coefficient)) }, { id: t.coefficient, sign: side(m.get(t.driver)) }])]
     return [{ id: r.start, sign: 1 }, ...r.inflows.map((i) => ({ id: i, sign: 1 })), ...r.outflows.map((i) => ({ id: i, sign: -1 }))]
   })
