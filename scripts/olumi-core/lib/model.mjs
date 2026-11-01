@@ -4,7 +4,7 @@
  * Rules come from the served fixtures (src/canvas/nodes/__tests__/fixtures/served-*), so this is only as faithful as they are.
  * Facts are read by their structured `about` (API v1.4), never from their text.
  */
-import { byId, figure, nameOf, num, partsOf, CMP } from './words.mjs'
+import { byId, figure, nameOf, num, partsOf, signedPartsOf, CMP } from './words.mjs'
 import { rev16, rev64, revSaved16, runIdOf } from './ids.mjs'
 
 const valueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? (q.assertion.low + q.assertion.high) / 2) : null)
@@ -15,6 +15,8 @@ const pct = (x) => `${Math.round(x * 100)}%`
 
 /** An influence's direction as DGAI draws one: up and down are stated; disputed, conditional and unknown are NOT a direction (DGAI's own `unknown`). */
 const influenceDirection = (d) => (d === 'up' ? 'positive' : d === 'down' ? 'negative' : 'unknown')
+/** A calculation part's side, as DGAI draws a link: raises, lowers, or not stated (`unknown`). */
+const SIGN_DIRECTION = { 1: 'positive', [-1]: 'negative', 0: 'unknown' }
 const INFLUENCE_WORDS = { disputed: 'People disagree about which way this goes.', conditional: 'Which way this goes depends on conditions.', unknown: 'Which way this goes is not known.' }
 
 /** A risk's chance and size, in the words a card shows: each with its range, and whose figure it is. */
@@ -68,7 +70,9 @@ export function graphOf(form) {
           display: `${fmt(to)}`, from_period: typeof s.starts_after === 'number' ? s.starts_after : 0, source_words: mine,
         }]
       }))
-      add({ id: r.id, ref: `O${++o}`, kind: 'option', label: r.label, provenance: prov(r), ...quote(r), ...(r.origin.by === 'olumi' ? { proposed_by: 'olumi' } : {}), interventions, analysis_participation: r.status === 'live' ? 'included' : 'excluded' })
+      add({ id: r.id, ref: `O${++o}`, kind: 'option', label: r.label, provenance: prov(r), ...quote(r), ...(r.origin.by === 'olumi' ? { proposed_by: 'olumi' } : {}),
+        // Core says which option is carrying on as you are; DGAI then never guesses a baseline from the option's words.
+        is_baseline: r.carry_on === true, interventions, analysis_participation: r.status === 'live' ? 'included' : 'excluded' })
       link('mp:decision', r.id)
       for (const s of r.sets) link(r.id, s.quantity)
     } else if (r.family === 'risk') {
@@ -123,7 +127,11 @@ export function graphOf(form) {
   }
   for (const r of recs) {
     if (r.family !== 'relation' || r.form === 'influence') continue
-    for (const part of partsOf(recs, r.defines)) if (seen.has(part) && seen.has(r.defines)) link(part, r.defines, { provenance: { source: 'brief_extraction', definitional: true } })
+    // A calculation's link bears on what it defines the way the relation states: a subtracted part or a divisor lowers it, and a
+    // term whose side the relation does not fix is `unknown`, never a gain nobody stated.
+    for (const { id: part, sign } of signedPartsOf(recs, r.defines)) {
+      if (seen.has(part) && seen.has(r.defines)) link(part, r.defines, { effect_direction: SIGN_DIRECTION[sign], provenance: { source: 'brief_extraction', definitional: true } })
+    }
   }
   // An influence is drawn the way it was stated. Up and down are directions; disputed, conditional and unknown are NOT, and none of
   // them is a certain link: no direction and no certainty are made up for them.
@@ -158,6 +166,7 @@ export function canonicalOf(form, approved) {
     assumptions: pick('assumption', (r) => ({ text: r.text, applied: r.applied, concerns: r.concerns })),
     conditions: pick('condition', (r) => ({ text: r.text, kind: r.kind, concerns: r.concerns })),
     left_out: pick('left_out', (r) => ({ text: r.text, why: r.why, question: r.question, concerns: r.concerns })),
+    limits: pick('limit', (r) => ({ label: r.label, measure: r.measure ?? null })),
     preferences: pick('preference', (r) => ({ quantity: r.quantity, direction: r.direction })),
     dissent: pick('dissent', (r) => ({ holder: r.holder, position: r.position, concerns: r.concerns })),
     evidence: pick('evidence', (r) => ({ text: r.text, source: r.source, bears: r.bears, concerns: r.concerns })),
@@ -247,7 +256,8 @@ export function analysisViewOf(view) {
             : { kind: 'none' }
       return {
         option_id: o.id, cell,
-        main_driver: d ? { kind: 'available', driver: { id: d.id, ...(d.about ?? {}) }, detail: `${d.value}: ${sayFact(d.text, leaves)}` } : { kind: 'none_licensed', reason: 'No figure moves this option’s chance enough to name one.' },
+        // No driver fact is not a statement that nothing drives the chance (core may have withheld drivers or measured none): it is not recorded.
+        main_driver: d ? { kind: 'available', driver: { id: d.id, ...(d.about ?? {}) }, detail: `${d.value}: ${sayFact(d.text, leaves)}` } : { kind: 'not_recorded' },
       }
     }),
     goal_chance: { ...(goal ? { chance_words: `chance of ‘${goal.label}’` } : {}), ...(notes.length ? { notes } : {}), waits_on: waitsOn },

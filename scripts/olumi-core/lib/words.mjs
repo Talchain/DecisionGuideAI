@@ -34,6 +34,24 @@ export function partsOf(recs, id) {
         : [r.start, ...r.inflows, ...r.outflows] : []))
 }
 
+/**
+ * The same parts, each with the way it bears on what it defines, as the relation states it: 1 (raises it), -1 (lowers it) or 0
+ * (the relation does not say). A subtracted sum part and a product part with a negative power (a divisor) lower it; an outflow
+ * lowers a stock. An effect's term moves the result the way its coefficient does, and a coefficient moves it the way its driver
+ * does; that side is stated only when the figure's own floor or ceiling fixes it, else 0 (never a guess from the number's value).
+ */
+export function signedPartsOf(recs, id) {
+  const m = new Map(recs.map((r) => [r.id, r]))
+  const side = (q) => (typeof q?.domain?.lower === 'number' && q.domain.lower >= 0 ? 1 : typeof q?.domain?.upper === 'number' && q.domain.upper <= 0 ? -1 : 0)
+  return recs.flatMap((r) => {
+    if (r.family !== 'relation' || r.form === 'influence' || r.defines !== id) return []
+    if (r.form === 'sum') return r.parts.map((p) => ({ id: p.id, sign: p.sign < 0 ? -1 : 1 }))
+    if (r.form === 'product') return r.parts.map((p) => ({ id: p.id, sign: p.power < 0 ? -1 : 1 }))
+    if (r.form === 'effect') return [{ id: r.base, sign: 1 }, ...r.terms.flatMap((t) => [{ id: t.driver, sign: side(m.get(t.coefficient)) }, { id: t.coefficient, sign: side(m.get(t.driver)) }])]
+    return [{ id: r.start, sign: 1 }, ...r.inflows.map((i) => ({ id: i, sign: 1 })), ...r.outflows.map((i) => ({ id: i, sign: -1 }))]
+  })
+}
+
 const isDerived = (rec) => rec.family === 'quantity' && (rec.role === 'derived' || rec.assertion.kind === 'derived')
 
 export function describe(rec, form) {

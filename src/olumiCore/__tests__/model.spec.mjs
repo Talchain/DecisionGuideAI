@@ -7,7 +7,9 @@ import { rev16, revSaved16 } from '../../../scripts/olumi-core/lib/ids.mjs'
 import { parseCanonicalAnalysisView } from '../../canvas/runView/canonicalAnalysisView'
 import { runViewOf } from '../../canvas/runView/runView'
 import { resolveFactorStoredRangeLine } from '../../canvas/nodes/shared/factorStatedRange'
-import { programQuantityOf } from '../../canvas/nodes/shared/savedModelProgram'
+import { programQuantityOf, programLimitsWithoutFigure } from '../../canvas/nodes/shared/savedModelProgram'
+import { resolveOptionIsBaseline } from '../../canvas/utils/baselineDetection'
+import { goalConstraintText } from '../../canvas/utils/goalConstraintText'
 import { mapDraftEdgeToCanvas } from '../../canvas/utils/applyDraftResult'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../../canvas/domain/edgeValueProvenance'
 import { getEdgeLabel } from '../../canvas/domain/edgeLabels'
@@ -274,5 +276,125 @@ describe('an option\'s set figure keeps whose it is and what it is (finding 4)',
     const goal = nodeOf(graphOf(form), 'capacity_goal')
     expect(goal.goal_threshold_raw).toBe(100)
     expect(goal.display_value).toMatch(/95 to 105/)
+  })
+})
+
+// ── tier R step 0: the shim states nothing core never said ───────────────────────────────────────────────────────────────────
+const cloneForm = () => JSON.parse(JSON.stringify(richForm))
+const relation = (form, id) => form.records.find((r) => r.id === id)
+
+describe('a calculation\'s links bear on what they define the way the relation states (tier R step 0)', () => {
+  it('a plain sum and product raise what they define: the capture draws them positive', () => {
+    expect(edgeOf(richGraph, 'existing_capacity__total_capacity').effect_direction).toBe('positive')
+    expect(edgeOf(richGraph, 'specialists__added_capacity').effect_direction).toBe('positive')
+  })
+  it('a SUBTRACTED part lowers it: DGAI draws a drag, and the added part still raises', () => {
+    const form = cloneForm()
+    relation(form, 'total_def').parts[1].sign = -1
+    const g = graphOf(form)
+    const minus = edgeOf(g, 'added_capacity__total_capacity')
+    expect(minus.effect_direction).toBe('negative')
+    expect(drawn(minus).direction).toMatchObject({ show: true, direction: 'negative' })
+    expect(drawn(minus).label).toMatch(/Drag/)
+    expect(edgeOf(g, 'existing_capacity__total_capacity').effect_direction).toBe('positive')
+  })
+  it('a DIVISOR (a negative power) lowers it', () => {
+    const form = cloneForm()
+    relation(form, 'added_def').parts[1].power = -1
+    const g = graphOf(form)
+    expect(edgeOf(g, 'per_specialist__added_capacity').effect_direction).toBe('negative')
+    expect(drawn(edgeOf(g, 'per_specialist__added_capacity')).label).toMatch(/Drag/)
+    expect(edgeOf(g, 'specialists__added_capacity').effect_direction).toBe('positive')
+  })
+  it('a stock\'s outflow lowers it and its inflow raises it', () => {
+    const form = cloneForm()
+    form.records = form.records.filter((r) => r.id !== 'total_def')
+    form.records.push({ family: 'relation', id: 'stock', form: 'stock', defines: 'total_capacity', start: 'existing_capacity', inflows: ['added_capacity'], outflows: ['specialists'], origin: { by: 'olumi', basis: 'x' } })
+    const g = graphOf(form)
+    expect(edgeOf(g, 'added_capacity__total_capacity').effect_direction).toBe('positive')
+    expect(edgeOf(g, 'specialists__total_capacity').effect_direction).toBe('negative')
+  })
+  describe('an effect\'s coefficient: its side is unknown unless a floor or a ceiling fixes it', () => {
+    const effect = (coefficientDomain) => {
+      const form = cloneForm()
+      form.records = form.records.filter((r) => r.id !== 'added_def')
+      form.records.push({ family: 'relation', id: 'eff', form: 'effect', defines: 'added_capacity', base: 'existing_capacity', terms: [{ driver: 'specialists', coefficient: 'per_specialist' }], origin: { by: 'olumi', basis: 'x' } })
+      relation(form, 'per_specialist').domain = coefficientDomain
+      return graphOf(form)
+    }
+    it('with no floor or ceiling, neither the driver nor the coefficient is given a side', () => {
+      const g = effect(null)
+      expect(edgeOf(g, 'specialists__added_capacity').effect_direction).toBe('unknown')
+      expect(edgeOf(g, 'per_specialist__added_capacity').effect_direction).toBe('unknown')
+      expect(edgeOf(g, 'existing_capacity__added_capacity').effect_direction).toBe('positive')
+      expect(drawn(edgeOf(g, 'specialists__added_capacity')).direction.show).toBe(false)
+    })
+    it('a floor at or above zero fixes the driver\'s side as raising; a ceiling at or below zero as lowering', () => {
+      expect(edgeOf(effect({ lower: 0, upper: null }), 'specialists__added_capacity').effect_direction).toBe('positive')
+      expect(edgeOf(effect({ lower: null, upper: 0 }), 'specialists__added_capacity').effect_direction).toBe('negative')
+    })
+    it('a range that straddles zero fixes nothing', () => {
+      expect(edgeOf(effect({ lower: -5, upper: 5 }), 'specialists__added_capacity').effect_direction).toBe('unknown')
+    })
+  })
+})
+
+describe('carrying on as you are is the baseline, because core says so (tier R step 0)', () => {
+  it('the carry_on option is the baseline and the others are not, as typed booleans', () => {
+    expect(nodeOf(richGraph, 'hold').is_baseline).toBe(true)
+    expect(nodeOf(richGraph, 'add_one').is_baseline).toBe(false)
+  })
+  it('DGAI\'s one baseline resolver then takes core\'s word over the option\'s label', () => {
+    const resolve = (n) => resolveOptionIsBaseline({ is_baseline: n.is_baseline, label: n.label }, null)
+    expect(resolve(nodeOf(richGraph, 'hold'))).toBe(true)
+    const form = cloneForm()
+    relation(form, 'hold').carry_on = false
+    const hold = nodeOf(graphOf(form), 'hold')
+    // The label still says "Keep current staffing"; core says it is not carrying on, so no baseline is guessed from the words.
+    expect(hold.label).toMatch(/Keep/)
+    expect(resolve(hold)).toBe(false)
+  })
+})
+
+describe('the person\'s limits are in the canonical model DGAI reads (tier R step 0)', () => {
+  const canonical = canonicalOf(richForm, true)
+  it('each limit is listed with its name, what it measures, whose it is and the words used', () => {
+    expect(canonical.limits).toEqual([expect.objectContaining({ id: 'ceiling', label: 'Capacity ceiling', measure: expect.objectContaining({ quantity: 'total_capacity', cmp: '<=', bound: 'cap' }), author: 'person', quote: 'no more than 120', approval: 'approved' })])
+  })
+  it('DGAI\'s program reader finds the limit by its id and the quantity it limits', () => {
+    const rows = programLimitsWithoutFigure({ living_model: { model_program: 'v1', canonical }, nodes: [], edges: [] }, [])
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ constraint_id: 'ceiling', label: 'Capacity ceiling', node_id: 'total_capacity', operator: '<=', provenance: 'explicit' })
+  })
+  it('a held proposal\'s limit is "proposed" until it is approved', () => {
+    expect(canonicalOf(richForm, false).limits[0].approval).toBe('proposed')
+  })
+  it('the row DGAI then prints names the limit and states no figure it was not given', () => {
+    const [row] = programLimitsWithoutFigure({ living_model: { model_program: 'v1', canonical }, nodes: [], edges: [] }, [])
+    const words = goalConstraintText(row, [])
+    expect(words).toMatch(/Capacity ceiling/)
+    expect(words).not.toMatch(/NaN/)
+  })
+})
+
+describe('a change that waits is never read as a current Run (tier R step 0)', () => {
+  const waiting = fx('view-approved-with-change.json')
+  it('the Run is marked not current, says why in plain words, and DGAI shows no chance as the new model\'s', () => {
+    const view = analysisViewOf(waiting)
+    expect(view.staleness.stale).toBe(true)
+    expect(typeof view.face_when_stale).toBe('string')
+    expect(runViewOf(null, parseCanonicalAnalysisView(view)).boundToCurrentCanonical()).toBe(false)
+  })
+})
+
+describe('no driver in the Run is "not recorded", never "none moves it" (tier R step 0)', () => {
+  const view = JSON.parse(JSON.stringify(approved))
+  view.version.facts = view.version.facts.filter((f) => f.about?.kind !== 'driver')
+  const run = analysisViewOf(view)
+  it('every option\'s main driver is not_recorded, which DGAI reads and shows nothing for', () => {
+    expect(run.options.length).toBeGreaterThan(0)
+    for (const o of run.options) expect(o.main_driver).toEqual({ kind: 'not_recorded' })
+    expect(parseCanonicalAnalysisView(run)).not.toBeNull()
+    expect(JSON.stringify(run)).not.toMatch(/No figure moves/)
   })
 })

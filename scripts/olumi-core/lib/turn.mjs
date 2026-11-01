@@ -122,14 +122,19 @@ export function makeShim({ core, log = () => {} }) {
 
   /**
    * A figure the person changed on the canvas: core's own /edit, applied at once as their figure, Olumi replies.
-   * Core's edit takes a point or a low/high, never a likeliest value, so a figure typed over a RANGE would silently replace the
-   * person's range with one number (and the Run with it). That edit is refused, in words, before anything is sent.
+   * `figureIn` is the number they typed, or `{ low, high }` when they set a range: core takes a point OR an interval, so each is
+   * sent as what it is (a range is never flattened to one number). Core has no likeliest value on an edit, so a figure typed over
+   * a RANGE would silently replace the person's range with one number (and the Run with it): that edit is refused, in words,
+   * before anything is sent. A range set over a range is a range edit and is sent.
    */
-  async function editFigure(ctx, turnId, sid, quantityId, value) {
+  async function editFigure(ctx, turnId, sid, quantityId, figureIn) {
     let quantity = quantityId
+    const range = figureIn !== null && typeof figureIn === 'object'
     const v = await view(ctx, sid)
     if (!v.version) throw new CoreError(409, 'there is no saved model to edit yet')
-    if (typeof value !== 'number' || !Number.isFinite(value)) throw new CoreError(400, 'that is not a figure Olumi can use')
+    if (range) {
+      if (![figureIn.low, figureIn.high].every((x) => typeof x === 'number' && Number.isFinite(x)) || figureIn.low > figureIn.high) throw new CoreError(400, 'that is not a range Olumi can use')
+    } else if (typeof figureIn !== 'number' || !Number.isFinite(figureIn)) throw new CoreError(400, 'that is not a figure Olumi can use')
     // A limit card shows its bound as its figure: typing on it edits that figure.
     const limit = v.version.form.records.find((r) => r.id === quantity && r.family === 'limit')
     if (limit) {
@@ -137,23 +142,27 @@ export function makeShim({ core, log = () => {} }) {
       quantity = limit.measure.bound
     }
     const rec = v.version.form.records.find((r) => r.id === quantity)
-    if (rec?.family === 'quantity' && rec.assertion.kind === 'interval') {
+    if (!range && rec?.family === 'quantity' && rec.assertion.kind === 'interval') {
       throw new CoreError(400, `‘${rec.label}’ is a range (${figure(rec.assertion, rec.unit)}), and a typed figure would replace it with one number. Tell me the new range in the chat. Nothing was saved.`)
     }
-    const saved = await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body: { base: v.version.id, quantity, value: { kind: 'point', value }, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined } })
+    const value = range ? { kind: 'interval', low: figureIn.low, high: figureIn.high } : { kind: 'point', value: figureIn }
+    const saved = await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body: { base: v.version.id, quantity, value, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined } })
     return afterWrite(async () => {
       const after = await view(ctx, sid)
       return { out: turnBody(after, { turnId, text: replyOf(after.chat.find((c) => c.kind === 'edit' && c.version === saved.n)) || 'Saved.', withCard: false, receipt: true }) }
     })
   }
 
-  /** The canvas events core can honour are the two that are a figure: a factor's value, and an aim's target (which is a figure in core's model). */
+  /** The canvas events core can honour are the ones that are a figure: a factor's value or range, and an aim's target (which is a figure in core's model). */
   async function edit(ctx, body, turnId, sid) {
     const ev = body.event ?? {}
     if (ev.kind === 'factor_value_edit') {
       if (ev.intent === 'confirm_current') { const v = await view(ctx, sid); return { out: turnBody(v, { turnId, text: '', withCard: !!v.pending }) } }
       return editFigure(ctx, turnId, sid, ev.target_id, typeof ev.raw_value === 'number' ? ev.raw_value : ev.value)
     }
+    // A range the person set on a figure (the range editor's `prior_range_edit`): sent to core as an interval. Core's interval has no
+    // distribution shape, so the editor's `distribution` is not sent and is not claimed to have been kept.
+    if (ev.kind === 'prior_range_edit') return editFigure(ctx, turnId, sid, ev.target_id, { low: ev.range_min, high: ev.range_max })
     if (ev.kind === 'goal_target_edit') {
       const v = await view(ctx, sid)
       const goal = v.version?.form.records.find((r) => r.family === 'goal' && r.id === ev.goal_node_id)

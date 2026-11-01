@@ -118,7 +118,7 @@ describe('canvas writes (gap 1)', () => {
   it('any write core cannot honour is refused at once in words and never sent to core (no hang)', async () => {
     const { ctx } = await started({ approve: true })
     const before = fake.calls.length
-    for (const kind of ['structural_delete', 'structural_rename', 'structural_add', 'structural_add_edge', 'edge_strength_edit', 'option_status_edit', 'option_intervention_edit', 'prior_range_edit', 'direct_graph_edit']) {
+    for (const kind of ['structural_delete', 'structural_rename', 'structural_add', 'structural_add_edge', 'edge_strength_edit', 'option_status_edit', 'option_intervention_edit', 'direct_graph_edit']) {
       const out = (await shim.turn(ctx, { kind: 'system_event', turn_id: turnId(), scenario_id: U, stage: 'frame', event: { kind, target_id: 'x' } })).out
       expect(out.error, kind).toMatchObject({ nothing_saved: true })
       expect(out.error.message, kind).toBe(UNSUPPORTED_EDIT)

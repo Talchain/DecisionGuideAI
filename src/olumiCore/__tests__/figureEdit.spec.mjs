@@ -64,6 +64,50 @@ describe('a typed figure never silently replaces a range (finding 8)', () => {
   })
 })
 
+const range = (target, low, high, extra = {}) => ({ kind: 'system_event', turn_id: turnId(), scenario_id: extra.uuid, stage: 'frame', event: { kind: 'prior_range_edit', target_id: target, range_min: low, range_max: high, distribution: 'uniform' } })
+
+describe('a range the person sets is sent to core as a range (tier R step 0)', () => {
+  it('a range set over a range goes to /edit as an interval, not as a point', async () => {
+    const uuid = seeded()
+    const before = fake.calls.length
+    const out = (await shim.turn(ADA, range('per_specialist', 12, 28, { uuid }))).out
+    expect(out.error).toBeNull()
+    const sent = post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body
+    expect(sent).toMatchObject({ quantity: 'per_specialist', value: { kind: 'interval', low: 12, high: 28 } })
+    expect(sent.value).not.toHaveProperty('value')
+    expect(sent.value).not.toHaveProperty('distribution')
+  })
+  it('the model the turn returns holds the new range (nothing was flattened to one number)', async () => {
+    const uuid = seeded()
+    const out = (await shim.turn(ADA, range('per_specialist', 12, 28, { uuid }))).out
+    expect(out.model.graph.nodes.find((n) => n.id === 'per_specialist').observed_state.range).toMatchObject({ low: 12, high: 28 })
+    expect(out.run.run_id).toMatch(/^mp_run_2_/)
+  })
+  it('a range over a figure that was a point is a range edit too', async () => {
+    const uuid = seeded()
+    const before = fake.calls.length
+    const out = (await shim.turn(ADA, range('existing_capacity', 70, 90, { uuid }))).out
+    expect(out.error).toBeNull()
+    expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 70, high: 90 })
+  })
+  it('a range whose ends are the wrong way round, or not figures, is refused in words before anything is sent', async () => {
+    const uuid = seeded()
+    const before = fake.calls.length
+    for (const [lo, hi] of [[30, 10], [NaN, 5], ['1', 2]]) {
+      const out = (await shim.turn(ADA, range('per_specialist', lo, hi, { uuid }))).out
+      expect(out.error).toMatchObject({ code: 'bad_request', nothing_saved: true })
+    }
+    expect(post(fake.calls, before)).toHaveLength(0)
+  })
+  it('a range on a limit card is the range of the figure it is bounded by', async () => {
+    const uuid = seeded(fx('view-rich-approved.json'))
+    const before = fake.calls.length
+    const out = (await shim.turn(ADA, range('ceiling', 110, 130, { uuid }))).out
+    expect(out.error).toBeNull()
+    expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body).toMatchObject({ quantity: 'cap', value: { kind: 'interval', low: 110, high: 130 } })
+  })
+})
+
 describe('a limit\'s figure is edited as the figure it is bounded by (finding 3)', () => {
   it('typing a new figure on the limit card edits the bound, and the limit keeps its name', async () => {
     const uuid = seeded(fx('view-rich-approved.json'))
