@@ -16,6 +16,7 @@ import { bumpSavedGraphEpoch } from '../canvas/nodes/shared/savedGraphEpoch'
 import { ADDITIVE_EXTENSIONS_KEY } from './responseParser'
 import type { CoreTurn } from './coreTurnContract'
 import type { ApplyV5StateOptions, ApplyV5StateResult } from './applyV5State'
+import { isOlumiCoreLane } from '../olumiCore/lane'
 
 /** The core turn the parser kept beside the answer (`coreTurnResponse`), or null for any other answer. */
 export function readCoreTurn(response: unknown): CoreTurn | null {
@@ -26,6 +27,8 @@ export function readCoreTurn(response: unknown): CoreTurn | null {
 
 export interface CoreTurnApplicatorStore {
   nodes: Node[]
+  /** olumi-core lane: let go of the graph on the canvas (and the autosave a reload would recover) when core holds no model. */
+  withdrawGraph?: () => void
   setLastServerGraphHash?: (hash: string) => void
   setAnalysisStateV1?: (state: AnalysisStateV1 | null) => void
 }
@@ -40,6 +43,13 @@ export function applyCoreTurnState(turn: CoreTurn, store: CoreTurnApplicatorStor
   if (options?.turnClientId && options.currentClientTurnId && options.turnClientId !== options.currentClientTurnId) {
     deferred.push({ reason: 'stale_turn_all_writes_skipped', detail: `incoming=${options.turnClientId} active=${options.currentClientTurnId}` })
     return { applied, deferred }
+  }
+
+  // olumi-core holds NO model for this scenario (a first draft was set aside, and a draft is only ever held or saved): the canvas
+  // must not go on drawing it, or a figure edit there would answer "no saved model" and a reload would bring it back.
+  if (isOlumiCoreLane() && turn.model == null && store.nodes.length > 0 && store.withdrawGraph) {
+    store.withdrawGraph()
+    applied.push('graph:withdrawn')
   }
 
   const revision = turn.model?.revision ?? null

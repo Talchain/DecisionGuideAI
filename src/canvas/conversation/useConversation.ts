@@ -30,6 +30,7 @@ import { addBreadcrumb } from '../../lib/monitoring'
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { isThinClientSession } from '../thinClient/thinClient'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { withdrawGraphFromCanvas } from '../../olumiCore/withdrawGraph'
 import { useDraftStore, draftStreamPhaseFor, streamedPreviewStandingFor, canvasDraftPreviewFingerprint } from '../stores/draftStore'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { scenarioIdWrite } from '../stores/unboundModelBinding'
@@ -5908,7 +5909,7 @@ export function useConversation(): UseConversationReturn {
           useCanvasStore.getState().beginExternalGraphMutation?.('envelope_apply')
           let stateApply: ReturnType<typeof applyV5State>
           try {
-            stateApply = coreBody !== null ? applyCoreTurnState(coreBody, v5StoreSnapshot, {
+            stateApply = coreBody !== null ? applyCoreTurnState(coreBody, { ...v5StoreSnapshot, withdrawGraph: withdrawGraphFromCanvas }, {
               turnClientId,
               currentClientTurnId: activeV5TurnIdRef.current,
               turnScenarioId: scenarioIdAtDispatch,
