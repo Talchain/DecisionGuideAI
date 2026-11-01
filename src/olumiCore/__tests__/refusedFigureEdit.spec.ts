@@ -75,7 +75,14 @@ describe('a refused figure edit on the olumi-core lane (gap 1: nothing hangs, no
   })
 
   it('keeps the figure and says it could not confirm when a timeout leaves it unknown whether core saved it', async () => {
-    const out = await drive(errorTurn('t-2', Object.assign(new CoreError(0, 'olumi-core is not reachable'), { op: 'TimeoutError' })))
+    const out = await drive(errorTurn('t-2', Object.assign(new CoreError(0, 'olumi-core is not reachable', { maybeSaved: true }), { op: 'TimeoutError' })))
+    expect(out.settled).toEqual(['unverified'])
+    expect(out.target).toBe(30)
+    expect(out.notices).toEqual([OPTIMISTIC_FACTOR_EDIT_NOTICE.unconfirmed_server])
+  })
+
+  it('keeps the figure when the connection broke after the edit went out and the read could not settle it (a lost answer is not "nothing saved")', async () => {
+    const out = await drive(errorTurn('t-2b', Object.assign(new CoreError(0, 'olumi-core is not reachable', { maybeSaved: true }), { op: 'UND_ERR_SOCKET' })))
     expect(out.settled).toEqual(['unverified'])
     expect(out.target).toBe(30)
     expect(out.notices).toEqual([OPTIMISTIC_FACTOR_EDIT_NOTICE.unconfirmed_server])

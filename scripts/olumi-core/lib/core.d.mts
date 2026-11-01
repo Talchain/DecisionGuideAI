@@ -3,7 +3,8 @@ export class CoreError extends Error {
   status: number
   retryAfter: string | null
   op: string | null
-  constructor(status: number, message: string, options?: { retryAfter?: string | null; op?: string | null })
+  maybeSaved: boolean
+  constructor(status: number, message: string, options?: { retryAfter?: string | null; op?: string | null; maybeSaved?: boolean })
 }
 /** A failure after core had already kept a write: the write stands (nothing_saved is false). */
 export class WriteKept extends CoreError {

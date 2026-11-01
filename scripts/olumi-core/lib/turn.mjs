@@ -140,7 +140,18 @@ export function makeShim({ core, log = () => {} }) {
     if (rec?.family === 'quantity' && rec.assertion.kind === 'interval') {
       throw new CoreError(400, `‘${rec.label}’ is a range (${figure(rec.assertion, rec.unit)}), and a typed figure would replace it with one number. Tell me the new range in the chat. Nothing was saved.`)
     }
-    const saved = await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body: { base: v.version.id, quantity, value: { kind: 'point', value }, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined } })
+    const body = { base: v.version.id, quantity, value: { kind: 'point', value }, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined }
+    let saved
+    try { saved = await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body }) } catch (e) {
+      if (!(e instanceof CoreError && e.status === 0 && e.maybeSaved)) throw e
+      // The edit went out and its answer was lost. Core's own record says whether it landed: if the figure is now what was typed, on a
+      // later version, it was kept, and this is answered as a saved figure. If not, nobody knows (it may land after this read), so the
+      // original "may or may not have saved" stands, and the screen is not told that nothing was saved.
+      const after = await view(ctx, sid).catch(() => null)
+      const now = after?.version?.form.records.find((r) => r.id === quantity)?.assertion
+      if (!after?.version || after.version.id === v.version.id || now?.kind !== 'point' || now.value !== value) throw e
+      return afterWrite(async () => ({ out: turnBody(after, { turnId, text: replyOf(after.chat.find((c) => c.kind === 'edit' && c.version === after.version.n)) || 'Saved.', withCard: false, receipt: true }) }))
+    }
     return afterWrite(async () => {
       const after = await view(ctx, sid)
       return { out: turnBody(after, { turnId, text: replyOf(after.chat.find((c) => c.kind === 'edit' && c.version === saved.n)) || 'Saved.', withCard: false, receipt: true }) }
