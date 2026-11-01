@@ -129,7 +129,7 @@ describe('an address that names a scenario this person cannot open says so', () 
   })
 })
 
-describe('a tab that was one person\'s leaves nothing of theirs for the next (the cross-person leak a reload revealed)', () => {
+describe('a tab that was one person\'s leaves nothing of theirs for the next, and never takes the current person\'s (the cross-person leak a reload revealed, and the wipe its first fix caused)', () => {
   it('learns from another tab that the browser changed person: says so, and writes nothing more to the shared storage', () => {
     const storage = new Map()
     const ada = pageFor(ADA, { storage })
@@ -163,16 +163,43 @@ describe('a tab that was one person\'s leaves nothing of theirs for the next (th
     ada.fire('focus')
     expect(ada.shown).toHaveLength(1)
   })
-  it('a tab that was Ada\'s and is reloaded as Bea clears whatever Ada\'s page saved on its way out, even if the person named in storage is already Bea', () => {
+  it('a tab that was Ada\'s and is reloaded as Bea (Bea\'s page already holds the shared storage) leaves Bea\'s saved state alone: her scenario pairing and autosave survive (finding: a stale tab\'s reload wiped the current person\'s pairing)', () => {
     const storage = new Map(), session = new Map()
     pageFor(ADA, { storage, session })
-    // Bea took the link in another tab (storage now names Bea), then Ada's old document saved its model while unloading
-    storage.set('olumi-core-person', '2'); storage.set('olumi-canvas-autosave', 'ADA-MODEL'); storage.set('olumi-canvas-current-scenario-id', 'ada-scenario')
-    // the same tab reloads, now opened for Bea
+    // Bea took the link in another tab: storage now names Bea and holds HER scenario pairing and autosave
+    storage.set('olumi-core-person', '2'); storage.set('olumi-core-sc:' + U, 's_bea0000000001'); storage.set('olumi-canvas-autosave', 'BEA-MODEL')
+    // Ada's old tab reloads, now opened for Bea
     pageFor(BEA, { storage, session })
-    expect(storage.get('olumi-canvas-autosave')).toBeUndefined()
-    expect(storage.get('olumi-canvas-current-scenario-id')).toBeUndefined()
+    expect(storage.get('olumi-core-sc:' + U)).toBe('s_bea0000000001')
+    expect(storage.get('olumi-canvas-autosave')).toBe('BEA-MODEL')
     expect(storage.get('olumi-core-person')).toBe('2')
+    // the tab's own memory of who it was is Bea's now
     expect(session.get('olumi-core-tab-person')).toBe('2')
+  })
+  it('a tab that was Ada\'s and is restored under Bea\'s link when storage still names ADA starts clean (the shared storage was never Bea\'s)', () => {
+    const storage = new Map(), session = new Map()
+    pageFor(ADA, { storage, session })
+    storage.set('olumi-core-sc:' + U, 's_ada0000000001'); storage.set('olumi-canvas-autosave', 'ADA-MODEL')
+    pageFor(BEA, { storage, session })
+    expect(storage.get('olumi-core-sc:' + U)).toBeUndefined()
+    expect(storage.get('olumi-canvas-autosave')).toBeUndefined()
+    expect(storage.get('olumi-core-person')).toBe('2')
+  })
+  it('Ada\'s old document cannot save her model into Bea\'s storage even if no event or focus told it: each write first checks whose storage this is', () => {
+    const storage = new Map()
+    const ada = pageFor(ADA, { storage })
+    // Bea took the link in another tab; this tab was in the background and heard nothing
+    storage.clear(); storage.set('olumi-core-person', '2')
+    ada.win.localStorage.setItem('olumi-canvas-autosave', 'ADA-MODEL')   // its unload save
+    expect(storage.get('olumi-canvas-autosave')).toBeUndefined()
+    expect(ada.shown).toHaveLength(1)
+    expect(storage.get('olumi-core-person')).toBe('2')
+  })
+  it('a write by the person the storage names still goes through', () => {
+    const storage = new Map()
+    const ada = pageFor(ADA, { storage })
+    ada.win.localStorage.setItem('olumi-canvas-autosave', 'ADA-MODEL')
+    expect(storage.get('olumi-canvas-autosave')).toBe('ADA-MODEL')
+    expect(ada.shown).toHaveLength(0)
   })
 })
