@@ -124,6 +124,20 @@ describe('a range the person sets is sent to core as a range (tier R step 0)', (
     expect((await shim.turn(ADA, range('existing_capacity', 79.9, 80.1, { uuid }))).out.error).toBeNull()
     expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 79.9, high: 80.1 })
   })
+  it('the centre is compared EXACTLY, with no tolerance: a figure of 1,000,000,000,000 given a range 999,999,999,000 to 1,000,000,002,000 would be saved as 1,000,000,000,500 and is refused', async () => {
+    const view = fx('view-approved.json')
+    view.version.form.records.find((r) => r.id === 'existing_capacity').assertion = { kind: 'point', value: 1_000_000_000_000, approximate: false }
+    const uuid = seeded(view)
+    const before = fake.calls.length
+    const out = (await shim.turn(ADA, range('existing_capacity', 999_999_999_000, 1_000_000_002_000, { uuid }))).out
+    expect(out.error).toMatchObject({ code: 'bad_request', nothing_saved: true })
+    expect(out.error.message).toMatch(/1,000,000,000,500/)
+    expect(post(fake.calls, before)).toHaveLength(0)
+    // a range that IS centred on it, at the same scale, is still sent
+    const centred = (await shim.turn(ADA, range('existing_capacity', 999_999_999_000, 1_000_000_001_000, { uuid }))).out
+    expect(centred.error).toBeNull()
+    expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 999_999_999_000, high: 1_000_000_001_000 })
+  })
   it('a range whose ends are the wrong way round, or not figures, is refused in words before anything is sent', async () => {
     const uuid = seeded()
     const before = fake.calls.length
@@ -139,6 +153,25 @@ describe('a range the person sets is sent to core as a range (tier R step 0)', (
     const out = (await shim.turn(ADA, range('ceiling', 110, 130, { uuid }))).out
     expect(out.error).toBeNull()
     expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body).toMatchObject({ quantity: 'cap', value: { kind: 'interval', low: 110, high: 130 } })
+  })
+})
+
+describe('a figure the model works out, or one fixed by how it is built, is not typed over (sibling check)', () => {
+  it('a derived figure is refused in words and nothing is sent', async () => {
+    const uuid = seeded()
+    const before = fake.calls.length
+    const out = (await shim.turn(ADA, edit(uuid, 'added_capacity', 50))).out
+    expect(out.error).toMatchObject({ code: 'bad_request', nothing_saved: true })
+    expect(out.error.message).toMatch(/worked out from other figures/)
+    expect(post(fake.calls, before)).toHaveLength(0)
+  })
+  it('a constant fixed by the model\'s structure is refused in words and nothing is sent', async () => {
+    const uuid = seeded()
+    const before = fake.calls.length
+    const out = (await shim.turn(ADA, edit(uuid, 'specialists', 3))).out
+    expect(out.error).toMatchObject({ code: 'bad_request', nothing_saved: true })
+    expect(out.error.message).toMatch(/fixed by how the model is built/)
+    expect(post(fake.calls, before)).toHaveLength(0)
   })
 })
 

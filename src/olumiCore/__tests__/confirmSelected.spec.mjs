@@ -60,11 +60,30 @@ describe('Confirm selected sends the ticked rows to core as `only`', () => {
     expect(out.assistant_text).toMatch(/^Saved as version \d+\.$/)
     expect(out.assistant_text).not.toMatch(/half the time|Next \(/)
   })
-  it('a whole-card approval still shows core\'s reply on the new version (and its note)', async () => {
+  it('a whole-card approval still shows core\'s reply on the new version, its next step said once (in the chat, not again as a note)', async () => {
     const { uuid } = held()
     const { out } = await press(uuid, await cardOf(uuid))
     expect(out.assistant_text).toMatch(/adding a specialist reaches your aim about half the time/)
-    expect(out.notes).toHaveLength(1)
+    expect(out.assistant_text).toMatch(/Next \(/)
+    expect(out.notes).toEqual([])
+  })
+  it('an id that is not in the change is NOT dropped: every real change ticked plus an unknown one still sends `only` exactly as ticked, and core refuses it', async () => {
+    const { uuid, sid } = held()
+    const card = await cardOf(uuid), before = fake.calls.length
+    const ticks = [...card.changes.map((r) => r.id), 'no_such_record']
+    const { out } = await press(uuid, card, { approve_ids: ticks })
+    const sent = approves(fake.calls, before)
+    expect(sent).toHaveLength(1)
+    expect(sent[0].body.only).toEqual([...ticks].sort())
+    expect(out.error).toMatchObject({ code: 'bad_request', nothing_saved: true })
+    expect(fake.scenarios.get(sid).view.pending).not.toBeNull()   // nothing was approved
+  })
+  it('a selection that is not a list is refused in words and nothing is sent (never read as the whole card)', async () => {
+    const { uuid } = held()
+    const card = await cardOf(uuid), before = fake.calls.length
+    const { out } = await press(uuid, card, { approve_ids: 'all' })
+    expect(out.error).toMatchObject({ code: 'bad_request', nothing_saved: true })
+    expect(approves(fake.calls, before)).toHaveLength(0)
   })
   it('every row ticked is the whole card: no `only` is sent', async () => {
     const { uuid } = held()
@@ -157,6 +176,55 @@ describe('a reload shows the same reply the live approval did (review: it restor
     expect(turns[0].assistant_message).toBe('Saved as version 1.')
     expect(turns[1].assistant_message).toMatch(/./)   // the current version still reads its own reply
     expect(turns[1].assistant_message).not.toBe('Saved as version 2.')
+  })
+})
+
+describe('a DISCUSSION keeps its own answer on reload, whatever version it is about (review: it was replaced by the version\'s coach)', () => {
+  const ASKED = 'Why does it turn on that?'
+  const reply = (text) => ({ ...fx('view-approved.json').version.coach, answer: text })
+  /** A part-approved current version (core re-ran it with no coach), then a person's question and Olumi's answer about it. */
+  const afterPartThenQuestion = (answer) => {
+    const v = fx('view-approved.json')
+    v.version.coach = null
+    v.chat.push({ id: 91, at: v.version.at, by: 'Ada', said: ASKED, first: false, kind: 'message', proposal: v.chat[0].proposal, version: 1, current: true, answer, status: 'discussion', problem: null, cited: {} })
+    return v
+  }
+  const thread = async (view, parts) => {
+    const sid = fake.seed('tok-ada', view)
+    if (parts) fake.partVersions(sid, parts)
+    return (await shim.graphRead(ADA, derivedUuidOfSid(sid))).body.conversation_turns
+  }
+  it('after a partial approval, the approval row says it was saved and the discussion about that version still reads Olumi\'s answer to it', async () => {
+    const turns = await thread(afterPartThenQuestion(reply('It turns on what each specialist adds.')), { 1: ['add_one'] })
+    expect(turns[0].assistant_message).toBe('Saved as version 1.')
+    expect(turns[1].user_message).toBe(ASKED)
+    expect(turns[1].assistant_message).toMatch(/^It turns on what each specialist adds\./)
+    expect(turns[1].assistant_message).not.toBe('Saved as version 1.')
+  })
+  it('the same for a discussion about an OLDER version made from part of its proposal, and when the version list cannot be read', async () => {
+    const v = afterPartThenQuestion(reply('Older and still mine.'))
+    v.chat[1].current = false
+    v.version = { ...v.version, id: v.version.id + 100, n: 2 }
+    for (const parts of [{ 1: ['add_one'] }, 'down']) {
+      const turns = await thread(structuredClone(v), parts)
+      expect(turns[1].assistant_message).toMatch(/^Older and still mine\./)
+    }
+  })
+  it('a discussion with no stored answer is "Noted.", never "Saved as version N." (it saved nothing)', async () => {
+    const turns = await thread(afterPartThenQuestion(null), { 1: ['add_one'] })
+    expect(turns[1].assistant_message).toBe('Noted.')
+  })
+  it('live, a question after a part-approval is answered by its own row, and the approval\'s `cited` is not borrowed from the discussion', async () => {
+    const view = afterPartThenQuestion(reply('A live answer.'))
+    view.chat[0].cited = { F1: 'the approved row\'s finding' }
+    view.chat[1].cited = { F1: 'the discussion\'s finding' }
+    view.version.coach = fx('view-approved.json').version.coach
+    view.version.coach = { ...view.version.coach, answer: 'Approved: [F1].' }
+    const sid = fake.seed('tok-ada', fx('view-first-pending.json'), { approve: view })
+    const uuid = derivedUuidOfSid(sid)
+    const live = (await press(uuid, await cardOf(uuid))).out
+    expect(live.assistant_text).toContain('the approved row\'s finding')
+    expect(live.assistant_text).not.toContain('the discussion\'s finding')
   })
 })
 

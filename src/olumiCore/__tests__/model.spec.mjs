@@ -295,9 +295,12 @@ const cloneForm = () => JSON.parse(JSON.stringify(richForm))
 const relation = (form, id) => form.records.find((r) => r.id === id)
 
 describe('a calculation\'s links bear on what they define the way the relation states (tier R step 0)', () => {
-  it('a plain sum and product raise what they define: the capture draws them positive', () => {
+  it('a plain sum raises what it defines, and a product does only when its other factor is known to be non-negative', () => {
     expect(edgeOf(richGraph, 'existing_capacity__total_capacity').effect_direction).toBe('positive')
-    expect(edgeOf(richGraph, 'specialists__added_capacity').effect_direction).toBe('positive')
+    // The capture's multiplier is a PLAUSIBLE range (10 to 30): a rough span, not a bound, so it fixes no side and the link is not stated.
+    expect(relation(cloneForm(), 'per_specialist').assertion).toMatchObject({ kind: 'interval', range_kind: 'plausible' })
+    expect(relation(cloneForm(), 'per_specialist').domain ?? null).toBeNull()
+    expect(edgeOf(richGraph, 'specialists__added_capacity').effect_direction).toBe('unknown')
   })
   it('a SUBTRACTED part lowers it: DGAI draws a drag, and the added part still raises', () => {
     const form = cloneForm()
@@ -315,6 +318,7 @@ describe('a calculation\'s links bear on what they define the way the relation s
       relation(form, 'added_def').parts[1].power = -1   // specialists / per_specialist
       relation(form, 'specialists').domain = numeratorDomain
       relation(form, 'specialists').assertion = { kind: 'asked', question: 'How many?' }   // nothing stated: its side comes from its floor or ceiling alone
+      relation(form, 'per_specialist').assertion = { kind: 'interval', low: 10, high: 30, range_kind: 'bounds', likely: 20 }   // the divisor: hard bounds above zero
       return graphOf(form)
     }
     it('a numerator with a floor at or above zero: the divisor lowers it, drawn as a drag', () => {
@@ -328,6 +332,15 @@ describe('a calculation\'s links bear on what they define the way the relation s
       expect(edgeOf(g, 'per_specialist__added_capacity').effect_direction).toBe('positive')
       expect(drawn(edgeOf(g, 'per_specialist__added_capacity')).label).not.toMatch(/Drag/)
       expect(edgeOf(g, 'specialists__added_capacity').effect_direction).toBe('positive')
+    })
+    it('a divisor whose range is only PLAUSIBLE (a rough span that can still reach below zero) is not known to be positive: not stated', () => {
+      const form = cloneForm()
+      relation(form, 'added_def').parts[1].power = -1
+      relation(form, 'specialists').domain = { lower: 0, upper: null }
+      relation(form, 'specialists').assertion = { kind: 'asked', question: 'How many?' }
+      relation(form, 'per_specialist').assertion = { kind: 'interval', low: 10, high: 30, range_kind: 'plausible', likely: 20 }
+      expect(edgeOf(graphOf(form), 'specialists__added_capacity').effect_direction).toBe('unknown')   // the numerator rises only if the divisor is positive
+      expect(edgeOf(graphOf(form), 'per_specialist__added_capacity').effect_direction).toBe('negative')   // the divisor lowers it whatever its own side: the numerator is known non-negative
     })
     it('a numerator whose sign nothing fixes, or one that straddles zero: not stated either', () => {
       expect(edgeOf(divide(null), 'per_specialist__added_capacity').effect_direction).toBe('unknown')
@@ -344,7 +357,7 @@ describe('a calculation\'s links bear on what they define the way the relation s
     }
     const dir = (g, from) => edgeOf(g, `${from}__added_capacity`).effect_direction
     it('a positive multiplier: more specialists raise it', () => {
-      expect(dir(times({ kind: 'interval', low: 10, high: 30, range_kind: 'plausible', likely: 20 }), 'specialists')).toBe('positive')
+      expect(dir(times({ kind: 'interval', low: 10, high: 30, range_kind: 'bounds', likely: 20 }), 'specialists')).toBe('positive')
       expect(dir(times({ kind: 'point', value: 10, approximate: false }), 'specialists')).toBe('positive')
     })
     it('a NEGATIVE multiplier (specialists x -10): more specialists lower it, drawn as a drag, and the multiplier still raises it', () => {
@@ -353,8 +366,20 @@ describe('a calculation\'s links bear on what they define the way the relation s
       expect(drawn(edgeOf(g, 'specialists__added_capacity')).label).toMatch(/Drag/)
       expect(dir(g, 'per_specialist')).toBe('positive')
     })
+    it('a PLAUSIBLE range is a rough span, not a bound: [0, 2] still takes negative values, so with no domain the link is not stated; hard bounds, or a domain, state it', () => {
+      const plausible = { kind: 'interval', low: 0, high: 2, range_kind: 'plausible', likely: null }
+      expect(dir(times(plausible), 'specialists')).toBe('unknown')
+      expect(dir(times({ ...plausible, low: 10, high: 30, likely: 20 }), 'specialists')).toBe('unknown')
+      expect(dir(times({ ...plausible, low: -30, high: -10 }), 'specialists')).toBe('unknown')
+      expect(dir(times({ ...plausible, range_kind: 'bounds' }), 'specialists')).toBe('positive')
+      const form = cloneForm()
+      relation(form, 'per_specialist').assertion = plausible
+      relation(form, 'per_specialist').domain = { lower: 0, upper: null }
+      relation(form, 'specialists').assertion = { kind: 'point', value: 5, approximate: false }
+      expect(dir(graphOf(form), 'specialists')).toBe('positive')   // a declared floor does
+    })
     it('a multiplier whose range SPANS zero: which way it goes is not stated, never a rise', () => {
-      const g = times({ kind: 'interval', low: -5, high: 20, range_kind: 'plausible', likely: null })
+      const g = times({ kind: 'interval', low: -5, high: 20, range_kind: 'bounds', likely: null })
       expect(dir(g, 'specialists')).toBe('unknown')
       expect(drawn(edgeOf(g, 'specialists__added_capacity')).direction.show).toBe(false)
     })
@@ -363,7 +388,7 @@ describe('a calculation\'s links bear on what they define the way the relation s
       expect(dir(times({ kind: 'derived' }), 'specialists')).toBe('unknown')
     })
     it('a multiplier wholly below zero as a range lowers it', () => {
-      expect(dir(times({ kind: 'interval', low: -30, high: -10, range_kind: 'plausible', likely: null }), 'specialists')).toBe('negative')
+      expect(dir(times({ kind: 'interval', low: -30, high: -10, range_kind: 'bounds', likely: null }), 'specialists')).toBe('negative')
     })
     it('a floor or ceiling fixes the side without a stated figure; the part itself counts when it is squared', () => {
       const form = cloneForm()
@@ -539,6 +564,36 @@ describe('a limit that states one figure reaches the Model list WITH the figure 
       expect(nodeOf(graphOf(withOrigins('person', 'person')), 'ceiling')).toMatchObject({ provenance: 'from_brief', source_quote: 'no more than 120' })
     })
   })
+  describe('an EDITED limit shows its saved figure, never the old quote of it (review: "at most 4%" beside a saved 5%)', () => {
+    const edited = (value) => {
+      const form = JSON.parse(JSON.stringify(richForm))
+      const cap = form.records.find((r) => r.id === 'cap'), ceiling = form.records.find((r) => r.id === 'ceiling')
+      cap.unit = '%'; cap.assertion = { kind: 'point', value, approximate: false }
+      ceiling.origin = { by: 'person', quote: 'keep churn under 4%', party: null }
+      if (value !== 4) cap.origin = { by: 'person', quote: `Set "Cap" to ${value} %.`, party: null }   // what core writes for an edit: the limit record is untouched
+      return form
+    }
+    it('the figure unchanged keeps the person\'s words', () => {
+      expect(goalConstraintsOf(edited(4))[0]).toMatchObject({ value: 4, source_quote: 'keep churn under 4%' })
+    })
+    it('the figure changed to 5: the row holds 5 and no quote of 4, on the list, the card and the canonical limit', () => {
+      const form = edited(5)
+      const row = goalConstraintsOf(form)[0]
+      expect(row).toMatchObject({ value: 5, operator: '<=' })
+      expect(row).not.toHaveProperty('source_quote')
+      expect(nodeOf(graphOf(form), 'ceiling')).not.toHaveProperty('source_quote')
+      expect(canonicalOf(form, true).limits[0].quote).toBeNull()
+    })
+    it('the aim\'s card is held to the same rule: a target changed since the person\'s words drops the old quote', () => {
+      const form = JSON.parse(JSON.stringify(richForm))
+      const goal = form.records.find((r) => r.family === 'goal'), target = form.records.find((r) => r.id === goal.measure.target)
+      goal.origin = { by: 'person', quote: 'reach 100 tickets a week', party: null }
+      target.assertion = { kind: 'point', value: 100, approximate: false }
+      expect(nodeOf(graphOf(form), goal.id)).toMatchObject({ source_quote: 'reach 100 tickets a week' })
+      target.assertion = { kind: 'point', value: 120, approximate: false }
+      expect(nodeOf(graphOf(form), goal.id)).not.toHaveProperty('source_quote')
+    })
+  })
   it('a model with no such limit leaves `goal_constraints` off (its absence is what clears the limits shown)', () => {
     const noLimit = modelOf({ version: { ...rich.version, form: { ...richForm, records: richForm.records.filter((r) => r.family !== 'limit') } }, pending: null, id: rich.id, chat: [] })
     expect(noLimit.graph).not.toHaveProperty('goal_constraints')
@@ -570,5 +625,19 @@ describe('no driver in the Run is "not recorded", never "none moves it" (tier R 
     for (const o of run.options) expect(o.main_driver).toEqual({ kind: 'not_recorded' })
     expect(parseCanonicalAnalysisView(run)).not.toBeNull()
     expect(JSON.stringify(run)).not.toMatch(/No figure moves/)
+  })
+})
+
+describe('a chance is shown as it was given (sibling check)', () => {
+  it('12.5% is not rounded to 13%, and 0.4% is not "0%"', () => {
+    const form = JSON.parse(JSON.stringify(richForm))
+    const risk = form.records.find((r) => r.family === 'risk')
+    const occ = form.records.find((r) => r.id === risk.occurrence)
+    occ.assertion = { kind: 'point', value: 0.125, approximate: false }
+    expect(nodeOf(graphOf(form), risk.id).description).toContain('May happen: 12.5%.')
+    occ.assertion = { kind: 'point', value: 0.004, approximate: false }
+    expect(nodeOf(graphOf(form), risk.id).description).toContain('May happen: 0.4%.')
+    occ.assertion = { kind: 'point', value: 0.07, approximate: false }
+    expect(nodeOf(graphOf(form), risk.id).description).toContain('May happen: 7%.')
   })
 })

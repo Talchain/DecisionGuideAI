@@ -77,7 +77,9 @@ export function createServer(opts = {}) {
       r = await (opts.fetchImpl ?? fetch)(coreUrl + pathAndQuery, {
         method: req.method, redirect: 'manual',
         // `Sec-Fetch-Site` goes on unchanged: core refuses a cross-site write itself (403), so the proxy must not hide where it came from.
-        headers: { ...(req.headers.cookie ? { cookie: req.headers.cookie } : {}), ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}), ...(req.headers['sec-fetch-site'] ? { 'sec-fetch-site': req.headers['sec-fetch-site'] } : {}) },
+        // The ONE olumi cookie this server read (the one the identity check was made on), not the browser's raw header: a header with two
+        // `olumi=` values must not be judged on one and acted on as the other.
+        headers: { ...(parseCookies(req.headers.cookie).olumi ? { cookie: `olumi=${encodeURIComponent(parseCookies(req.headers.cookie).olumi)}` } : {}), ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}), ...(req.headers['sec-fetch-site'] ? { 'sec-fetch-site': req.headers['sec-fetch-site'] } : {}) },
         body, signal: AbortSignal.timeout(11 * 60_000),
       })
     } catch (e) { return json(res, 502, { error: 'Olumi cannot be reached right now. Try again in a moment.' }) }
@@ -147,6 +149,14 @@ export function createServer(opts = {}) {
       // Anything else (`cross-site`, `same-site`) is refused here, before anything is read or sent on (core refuses it too: the header goes on).
       const site = req.headers['sec-fetch-site']
       if (method !== 'GET' && method !== 'HEAD' && site !== undefined && site !== 'same-origin' && site !== 'none') return json(res, 403, { error: 'changes can only be made from the Olumi page' })
+      // Every write path takes JSON only, as core does (src/server/app.ts): a body sent as anything else (text/plain, a form) is refused
+      // here with 415, BEFORE anything is read, checked or sent upstream. This shim re-issues a body to core as application/json, so
+      // without this a cross-site form post could ride in as a JSON write. The saved-model read (POST .../graph) writes nothing, so it is
+      // not a write path; the private link (/k/) and the API are, for every method but a read (the admin routes are a 404 here and never go on).
+      const isRead = method === 'GET' || method === 'HEAD'
+      const adminPath = /^\/api\/+admin(\/|$)/i.test(p)
+      const writePath = (p.startsWith('/api/') && !adminPath) || p.startsWith('/k/') || p.startsWith('/bff/orchestrate/')
+      if (!isRead && writePath && !/^application\/json\b/i.test(req.headers['content-type'] ?? '')) return json(res, 415, { error: 'send the request as JSON' })
       if (p === '/healthz') {
         try { const h = await core('GET', '/healthz'); return json(res, 200, { ok: true, server: 'dgai-on-olumi-core', core: h }) }
         catch (e) { return json(res, 503, { ok: false, server: 'dgai-on-olumi-core', core: 'unreachable' }) }
@@ -166,7 +176,7 @@ export function createServer(opts = {}) {
           },
         }).then(() => undefined)
       }
-      if (p.startsWith('/api/admin/')) return json(res, 404, { error: 'not found' })
+      if (adminPath) return json(res, 404, { error: 'not found' })   // however it is spelled (`/api/admin`, `/api//admin/...`): never reaches core from here
       if (p.startsWith('/api/')) {
         // A write through the API is held to the same identity check as a /bff write: the page must say who it was opened for, and it must still be the person this browser's link names.
         if (method !== 'GET' && method !== 'HEAD') {
@@ -179,6 +189,8 @@ export function createServer(opts = {}) {
       if (p === '/bff/orchestrate/v2/turn' && method === 'POST') {
         let body
         try { body = JSON.parse((await readBody(req)).toString('utf8') || '{}') } catch { return json(res, 400, { error: 'malformed JSON' }) }
+        // A turn is a JSON object: `null`, a list or a bare value would fail below as a server error, not as the refusal it is.
+        if (body === null || typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { error: 'a turn is a JSON object' })
         const ctx = ctxOf(req)
         const no = await identityRefusal(ctx, { required: true })
         if (no) { log('turn refused', no.changed ? 'page opened for another person' : `identity not verified (${no.error.status})`); return json(res, 200, no.changed ? identityChangedTurn(body.turn_id) : errorTurn(body.turn_id, no.error)) }

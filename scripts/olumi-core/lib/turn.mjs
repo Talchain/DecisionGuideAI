@@ -8,7 +8,7 @@ import crypto from 'node:crypto'
 import { CoreError, WriteKept, errorTurn } from './core.mjs'
 import { changeRows, byId, figure, num } from './words.mjs'
 import { analysisViewOf, modelOf, shownOf } from './model.mjs'
-import { fillCited, noteOf } from './note.mjs'
+import { fillCited } from './note.mjs'
 import { propIdOf, rev16, rev64, runIdOf, sidOfUuid, turnIdOf, uuidOfSid, isSid } from './ids.mjs'
 
 const DRAFT_LEAD = 'Here is your situation as I understood it. Check it, then confirm or tell me what to change.'
@@ -25,20 +25,17 @@ export function coachText(coach, cited = {}) {
 }
 
 /**
- * A reply on one chat row, with the note it points with: Olumi's next step (core's `next.text`, the same words the thread's
- * `Next (...)` line carries) beside the card `next.about` names. The thread keeps its line whether or not a note is made: a note is
- * borne by this turn only and can be dismissed, and the thread is the same live and after a reload. `known` are the cards the
- * page already holds, so a note is never aimed at one it does not.
+ * A reply on one chat row, as the thread's words. Olumi's next step is said ONCE, in the thread (core's `next.text` in the
+ * `Next (...)` line), and is not also sent as a note beside a card: that said the same question twice. A note beside the card would
+ * need the thread to drop the line, but the thread must read the same live and after a reload, and a note is borne by its turn only
+ * (gone on reload, or once dismissed), so dropping the line would lose the question from the thread. So the question stays in the chat
+ * only, and `notes` is always empty (`noteOf` is kept in note.mjs, unused, for the day the thread can carry it beside the card).
  */
-function replyWithNote(view, row, known) {
-  const nodes = modelOf(view)?.graph.nodes ?? []
-  const note = row?.answer ? noteOf(row.answer, row.cited, nodes, known) : null
-  return { text: coachText(row?.answer, row?.cited), notes: note ? [note] : [] }
-}
-/** The ids of the cards a view draws (what the page holds once it has applied that view). */
-const cardsOf = (view) => new Set((modelOf(view)?.graph.nodes ?? []).map((n) => n.id))
+const replyOf = (row) => ({ text: coachText(row?.answer, row?.cited), notes: [] })
+/** A chat row that IS an approval reply: it saved a version. A discussion row never is, even when it is about a version. */
+const isApprovalReply = (c) => c.status !== 'discussion' && c.version != null
 
-const heldWithProblem = (problem) => `Olumi could not finish checking that change, so it cannot be confirmed: ${problem.charAt(0).toLowerCase()}${problem.slice(1).replace(/[.!?]$/, '')}. Set it aside with “Not now”, or tell me what to change. Nothing has been saved.`
+const heldWithProblem = (problem) => `Olumi could not finish checking that change, so it cannot be confirmed: ${problem.replace(/[.!?]$/, '')}. Set it aside with “Not now”, or tell me what to change. Nothing has been saved.`
 /** What olumi-core's turn could not finish, in words (a row with a `problem`): a visible failure, never an empty reply. */
 const problemTurn = (turnId, text) => ({ turn_id: turnId, assistant_text: '', model: null, cards: [], notes: [], run: null, receipts: [], error: { code: 'olumi_could_not_finish', message: `Olumi could not finish that. ${text.charAt(0).toUpperCase()}${text.slice(1)}${/[.!?]$/.test(text) ? '' : '.'} Nothing was saved.`, retry_safe: true, nothing_saved: true } })
 
@@ -116,10 +113,14 @@ export function makeShim({ core, log = () => {} }) {
     // The ticks are compared with the COMPLETE change set the proposal makes: its records (added, changed, removed) and its top-level
     // fields (`top`: the question, the title, the period...), which have no row to tick. `only` is dropped, and the whole card approved,
     // only when every one of them is ticked; any other selection is sent as it stands, so a change that was not ticked is not approved.
+    // A selection that is not a list is garbage, not "no selection": it is refused, never read as the whole card.
+    if (body.approve_ids != null && !Array.isArray(body.approve_ids)) return { out: errorTurn(turnId, new CoreError(400, 'That selection is not a list of changes. Nothing was saved.')) }
     if (Array.isArray(body.approve_ids) && body.approve_ids.length === 0) return { out: errorTurn(turnId, new CoreError(400, 'Tick at least one change to confirm, or use “Looks right” to confirm them all. Nothing was saved.')) }
     const ticked = Array.isArray(body.approve_ids) ? [...new Set(body.approve_ids)].sort() : []
     const every = [...v.pending.changes.added, ...v.pending.changes.changed, ...v.pending.changes.removed, ...(v.pending.changes.top ?? [])]
-    const only = ticked.length > 0 && !every.every((id) => ticked.includes(id)) ? ticked : null
+    // An id that is not in the change (an unknown one) is never dropped: the whole card is approved only when the ticks are exactly the
+    // change set, so core is sent exactly what was ticked and refuses an id it does not know (400) rather than approving everything.
+    const only = ticked.length > 0 && !(every.every((id) => ticked.includes(id)) && ticked.every((id) => every.includes(id))) ? ticked : null
     let r
     try {
       r = await core('POST', `/api/proposals/${v.pending.id}/approve`, { token: ctx.token, body: { base: v.pending.base, ...(only ? { only } : {}) } })
@@ -132,11 +133,11 @@ export function makeShim({ core, log = () => {} }) {
     }
     return afterWrite(async () => {
       const after = await view(ctx, sid)
-      const row = after.chat.find((c) => c.proposal === v.pending.id) ?? after.chat.find((c) => c.version === r.n)
+      const row = after.chat.find((c) => c.status !== 'discussion' && c.proposal === v.pending.id) ?? after.chat.find((c) => isApprovalReply(c) && c.version === r.n)
       // The reply is the one core holds on the version it just saved (`version.coach`), never the proposal's own chat answer: after a
       // part-approval that answer still describes the whole proposal. No coach on the new version: nothing from Olumi, and no note.
       const coach = after.version?.n === r.n ? after.version.coach ?? null : null
-      const reply = replyWithNote(after, { answer: coach, cited: row?.cited }, cardsOf(v))
+      const reply = replyOf({ answer: coach, cited: row?.cited })
       // Whatever core left waiting after a part-approval stays on screen as a card, so it can still be answered or set aside.
       return { out: turnBody(after, { turnId, text: reply.text || `Saved as version ${r.n}.`, withCard: !!after.pending, receipt: true, notes: reply.notes }) }
     })
@@ -173,6 +174,10 @@ export function makeShim({ core, log = () => {} }) {
       quantity = limit.measure.bound
     }
     const rec = v.version.form.records.find((r) => r.id === quantity)
+    // A figure the model works out from others, or one fixed by how the model is built (a unit conversion, a switch), is nobody's figure to
+    // overwrite: core would save the typed number over the calculation or the constant and make it the person's. Refused, in words.
+    if (rec?.family === 'quantity' && (rec.role === 'derived' || rec.assertion.kind === 'derived')) throw new CoreError(400, `‘${rec.label}’ is worked out from other figures, so it cannot be typed over. Change the figures it is worked out from, or tell me in the chat. Nothing was saved.`)
+    if (rec?.family === 'quantity' && rec.origin?.by === 'structure') throw new CoreError(400, `‘${rec.label}’ is fixed by how the model is built, not a figure anyone gave, so it cannot be changed here. Tell me in the chat if it is wrong. Nothing was saved.`)
     if (!range && rec?.family === 'quantity' && rec.assertion.kind === 'interval') {
       throw new CoreError(400, `‘${rec.label}’ is a range (${figure(rec.assertion, rec.unit)}), and a typed figure would replace it with one number. Tell me the new range in the chat. Nothing was saved.`)
     }
@@ -186,7 +191,7 @@ export function makeShim({ core, log = () => {} }) {
     // that is not (70 to 100 around 80) would turn their 80 into an 85, so it is refused in words before anything is sent.
     if (range && rec?.family === 'quantity' && rec.assertion.kind === 'point') {
       const middle = (figureIn.low + figureIn.high) / 2
-      if (Math.abs(middle - rec.assertion.value) > 1e-9 * Math.max(1, Math.abs(rec.assertion.value))) {
+      if (middle !== rec.assertion.value) {
         throw new CoreError(400, `‘${rec.label}’ is ${figure(rec.assertion, rec.unit)}, and a range of ${num(figureIn.low)} to ${num(figureIn.high)} would replace it with its middle, ${figure({ kind: 'point', value: middle }, rec.unit)}, which you did not give. Tell me the range and the most likely figure in the chat. Nothing was saved.`)
       }
     }
@@ -194,7 +199,7 @@ export function makeShim({ core, log = () => {} }) {
     const saved = await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body: { base: v.version.id, quantity, value, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined } })
     return afterWrite(async () => {
       const after = await view(ctx, sid)
-      const reply = replyWithNote(after, after.chat.find((c) => c.kind === 'edit' && c.version === saved.n), cardsOf(v))
+      const reply = replyOf(after.chat.find((c) => c.kind === 'edit' && isApprovalReply(c) && c.version === saved.n))
       return { out: turnBody(after, { turnId, text: reply.text || 'Saved.', withCard: false, receipt: true, notes: reply.notes }) }
     })
   }
@@ -255,7 +260,7 @@ export function makeShim({ core, log = () => {} }) {
         return { out: problemTurn(turnId, row.problem) }
       }
       if (r.discussion) {
-        const reply = replyWithNote(v, row, cardsOf(before))
+        const reply = replyOf(row)
         return { out: turnBody(v, { turnId, text: reply.text || 'Noted. Nothing in the model changes.', withCard: !!v.pending, notes: reply.notes }) }
       }
       return { out: turnBody(v, { turnId, text: CHANGE_LEAD, withCard: true }) }
@@ -289,17 +294,19 @@ export function makeShim({ core, log = () => {} }) {
   }
 
   /**
-   * Which reply a chat row may show on a reload: the live rule, for every version. A row that saved a version shows that version's
-   * own reply (`version.coach`, for the current one; for an older one its proposal's answer, only if core saved it whole), never the
-   * proposal's answer for a version core made from part of it and re-ran with no reply from Olumi (the answer still describes the
-   * whole proposal). A version that cannot be told is shown with no reply: nothing is restored as Olumi's that may not be.
+   * Which reply a chat row may show on a reload. A DISCUSSION row (a person's message and Olumi's answer to it) always keeps its own
+   * stored answer, whatever version it is about: it saved nothing, so no version's coach has any bearing on it. Only a row that IS an
+   * approval reply for a version follows the live rule: it shows that version's own reply (`version.coach`, for the current one; for
+   * an older one its proposal's answer, only if core saved it whole), never the proposal's answer for a version core made from part of
+   * it and re-ran with no reply from Olumi (the answer still describes the whole proposal). A version that cannot be told is shown
+   * with no reply: nothing is restored as Olumi's that may not be.
    */
   async function answerRule(ctx, sid, v) {
     let whole = new Set()
-    if (v.chat.some((c) => c.version != null && !c.current && c.answer)) {
+    if (v.chat.some((c) => isApprovalReply(c) && !c.current && c.answer)) {
       try { whole = new Set(((await core('GET', `/api/scenarios/${sid}/versions`, { token: ctx.token })).versions ?? []).filter((x) => x.selected == null).map((x) => x.n)) } catch { /* unread: no older reply is restored */ }
     }
-    return (c) => (c.version == null ? c.answer : c.current ? (v.version?.n === c.version ? v.version.coach ?? null : null) : whole.has(c.version) ? c.answer : null)
+    return (c) => (!isApprovalReply(c) ? c.answer : c.current ? (v.version?.n === c.version ? v.version.coach ?? null : null) : whole.has(c.version) ? c.answer : null)
   }
 
   async function graphRead(ctx, uuid) {
@@ -326,7 +333,7 @@ export function makeShim({ core, log = () => {} }) {
         conversation_turns: v.chat.map((c) => ({
           turn_id: turnIdOf(sid, c.id), created_at: c.at, user_message: c.said,
           assistant_message: c.status === 'pending' ? (c.first ? DRAFT_LEAD : CHANGE_LEAD) : c.problem ? c.problem
-            : answerOf(c) ? coachText(answerOf(c), c.cited) : c.version != null ? `Saved as version ${c.version}.` : 'Noted.',
+            : answerOf(c) ? coachText(answerOf(c), c.cited) : isApprovalReply(c) ? `Saved as version ${c.version}.` : 'Noted.',
         })),
         ...(v.pending ? { proposal_fields: { version: 1, graph_hash: model.revision, proposals: [cardFor(v, turnIdOf(sid, v.pending.id))] } } : {}),
       },

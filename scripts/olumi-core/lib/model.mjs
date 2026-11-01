@@ -4,14 +4,15 @@
  * Rules come from the served fixtures (src/canvas/nodes/__tests__/fixtures/served-*), so this is only as faithful as they are.
  * Facts are read by their structured `about` (API v1.4), never from their text.
  */
-import { byId, figure, nameOf, num, partsOf, signedPartsOf, CMP } from './words.mjs'
+import { byId, figure, nameOf, num, partsOf, quoteAgrees, signedPartsOf, CMP } from './words.mjs'
 import { rev16, rev64, revSaved16, runIdOf } from './ids.mjs'
 
 const valueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? (q.assertion.low + q.assertion.high) / 2) : null)
 const fmt = (q) => (q ? figure(q.assertion, q.unit) : '')
 /** The likeliest value the person or Olumi stated, and never a midpoint: null for a range with no likeliest value. */
 const statedValueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? q.assertion.likely : null)
-const pct = (x) => `${Math.round(x * 100)}%`
+/** A chance as a percentage, as it was given: 12.5% stays 12.5% and 0.4% is not "0%" (rounded only to clear float noise). */
+const pct = (x) => `${num(Math.round(x * 1e8) / 1e6)}%`
 
 /** An influence's direction as DGAI draws one: up and down are stated; disputed, conditional and unknown are NOT a direction (DGAI's own `unknown`). */
 const influenceDirection = (d) => (d === 'up' ? 'positive' : d === 'down' ? 'negative' : 'unknown')
@@ -47,7 +48,9 @@ export function graphOf(form) {
   // A card that shows a figure Olumi proposed (a goal's target, a limit's bound) is not the person's words, whoever wrote the card itself:
   // `figure` is that quantity, and Olumi's own origin on it makes the card Olumi's, with no quote of the person's put against it.
   const prov = (r, figure) => (r.origin?.by === 'person' && figure?.origin?.by !== 'olumi' ? 'from_brief' : 'ai_inferred')
-  const quote = (r, figure) => (r.origin?.by === 'person' && figure?.origin?.by !== 'olumi' && r.origin.quote ? { source_quote: r.origin.quote } : {})
+  // The person's words are put against a card only while they still say its figure: a limit or an aim whose figure was changed since
+  // (4% edited to 5%) would otherwise show the old figure in its own quote beside the saved one.
+  const quote = (r, figure) => (r.origin?.by === 'person' && figure?.origin?.by !== 'olumi' && r.origin.quote && (!figure || quoteAgrees(r.origin.quote, figure.assertion)) ? { source_quote: r.origin.quote } : {})
   const nodes = [], edges = [], seen = new Set()
   const add = (n) => { if (!seen.has(n.id)) { seen.add(n.id); nodes.push(n) } }
   /** `exists_probability: null` leaves the existence of the link unstated (no certainty is made up for a link nobody called certain). */
@@ -159,7 +162,9 @@ export function graphOf(form) {
 /** The canonical model beside the graph (`living_model.canonical`): `approved` is the approval stamp every record carries. */
 export function canonicalOf(form, approved) {
   const approval = approved ? 'approved' : 'proposed'
-  const pick = (f, shape) => form.records.filter((r) => r.family === f).map((r) => ({ id: r.id, ...shape(r), author: r.origin.by === 'person' ? 'person' : r.origin.by, party: r.origin.party ?? null, quote: r.origin.by === 'person' ? r.origin.quote : null, approval }))
+  const m = byId(form)
+  // A limit's words are its own only while they still say the figure it is bounded by (see `goalConstraintsOf`).
+  const pick = (f, shape) => form.records.filter((r) => r.family === f).map((r) => ({ id: r.id, ...shape(r), author: r.origin.by === 'person' ? 'person' : r.origin.by, party: r.origin.party ?? null, quote: r.origin.by === 'person' && !(f === 'limit' && r.measure && !quoteAgrees(r.origin.quote, m.get(r.measure.bound)?.assertion)) ? r.origin.quote : null, approval }))
   return {
     version: 'canonical.v1',
     quantities: pick('quantity', (r) => {
@@ -193,7 +198,9 @@ export function goalConstraintsOf(form) {
     // Whose figure this is: the person's only when BOTH the limit and the bound are theirs. A bound Olumi proposed on a limit the person set
     // is Olumi's figure, whatever the limit's own author: inferred, and the person's quote is not put against it.
     const olumis = r.origin?.by === 'olumi' || bound.origin?.by === 'olumi'
-    const quote = !olumis && r.origin?.by === 'person' && typeof r.origin.quote === 'string' && r.origin.quote ? { source_quote: r.origin.quote.slice(0, 200) } : {}
+    // ...and only while those words still say the saved figure: a limit edited from 4% to 5% keeps its old quote on the limit record, and
+    // DGAI's formatter prefers the quote, so it would print "at most 4%" beside a saved 5%. Withheld, the formatter shows the saved figure.
+    const quote = !olumis && r.origin?.by === 'person' && typeof r.origin.quote === 'string' && r.origin.quote && quoteAgrees(r.origin.quote, bound.assertion) ? { source_quote: r.origin.quote.slice(0, 200) } : {}
     return [{ constraint_id: r.id, label: r.label, node_id: me.quantity, operator: me.cmp, value: bound.assertion.value, ...(bound.unit && bound.unit !== '1' ? { unit: bound.unit } : {}), ...quote, provenance: olumis ? 'inferred' : 'explicit' }]
   })
 }

@@ -11,7 +11,13 @@ export const nameOf = (m, id) => { const r = m.get(id); return r ? (r.label ?? r
 export const CMP = { '>=': 'at least', '<=': 'at most', '>': 'more than', '<': 'less than' }
 
 /** A number as a person reads it: thousands separated, no float noise. */
-export const num = (n) => (typeof n === 'number' && Number.isFinite(n) ? new Intl.NumberFormat('en-GB', { maximumFractionDigits: 6 }).format(n) : String(n))
+const SIX_PLACES = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 6 }), TWELVE_DIGITS = new Intl.NumberFormat('en-GB', { maximumSignificantDigits: 12 })
+export const num = (n) => {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return String(n)
+  const shown = SIX_PLACES.format(n)
+  // Six places only while they keep the figure: 0.0000001 would read as "0" and a figure the person gave would be lost.
+  return Math.abs(Number(shown.replace(/,/g, '')) - n) <= 1e-9 * Math.abs(n) ? shown : TWELVE_DIGITS.format(n)
+}
 const unitOf = (unit) => (unit && unit !== '1' ? ` ${unit}` : '')
 
 /** A figure in plain words, as the person stated it: a point, or a range with the likeliest value. */
@@ -26,6 +32,33 @@ export function figure(a, unit) {
   }
 }
 
+const SCALES = { k: 1e3, thousand: 1e3, m: 1e6, million: 1e6, bn: 1e9, billion: 1e9 }
+/** Every number a sentence could be stating, as the values it may mean: "4%" is 4 or 0.04, "20k" is 20 or 20000, "1,200" is 1200. */
+function figuresIn(text) {
+  const out = []
+  for (const m of String(text ?? '').matchAll(/(\d[\d,]*(?:\.\d+)?|\.\d+)\s*(%|per\s?cent|thousand|million|billion|bn|k|m)?(?![a-z])/gi)) {
+    const n = Number(m[1].replace(/,/g, ''))
+    if (!Number.isFinite(n)) continue
+    const unit = (m[2] ?? '').toLowerCase().replace(/\s/g, '')
+    out.push([n, ...(unit === '%' || unit === 'percent' ? [n / 100] : unit in SCALES ? [n * SCALES[unit]] : [])])
+  }
+  return out
+}
+const same = (a, b) => a === b || Math.abs(a - b) <= 1e-9 * Math.max(Math.abs(a), Math.abs(b))
+/**
+ * Do the person's own words still say the figure the model now holds? Their quote of a limit or an aim is theirs, but once the figure
+ * has been changed (a limit edited from 4% to 5%) a formatter that prefers the quote would print the OLD figure beside the saved one.
+ * It is kept only when it cannot contradict the saved figure: the quote states no figure at all, or one of the figures it states is
+ * the saved one (a point, or either end or the likeliest value of a range). A quote is never rewritten, only withheld.
+ */
+export function quoteAgrees(quote, assertion) {
+  const said = figuresIn(quote)
+  if (said.length === 0) return true
+  const held = assertion?.kind === 'point' ? [assertion.value] : assertion?.kind === 'interval' ? [assertion.low, assertion.high, assertion.likely].filter((x) => typeof x === 'number') : null
+  if (held === null) return true   // nothing numeric is saved (still to be given, worked out): the quote claims nothing against it
+  return said.some((cands) => cands.some((c) => held.some((h) => typeof h === 'number' && same(c, h))))
+}
+
 /** What defines a derived quantity (the parts a calculation uses), by record id. */
 export function partsOf(recs, id) {
   return recs.flatMap((r) => (r.family === 'relation' && r.form !== 'influence' && r.defines === id
@@ -36,18 +69,23 @@ export function partsOf(recs, id) {
 
 /** A quantity's known side from its own floor or ceiling: 1 (never below zero), -1 (never above zero) or 0 (not stated). Never a guess from its value. */
 const side = (q) => (typeof q?.domain?.lower === 'number' && q.domain.lower >= 0 ? 1 : typeof q?.domain?.upper === 'number' && q.domain.upper <= 0 ? -1 : 0)
-/** The sign of x to the power e, from x's known side: 1, -1, or 0 when it cannot be said (a negative base to a fractional power, or an odd power of a base that may be either). */
 /**
- * A product factor's known side: its floor or ceiling if one fixes it, else the figure as stated (a point, or a range wholly on one side
- * of zero); a range that spans zero, a figure still to be given and one worked out from others are not stated (0).
+ * A product factor's known side: its floor or ceiling (a declared domain) if one fixes it, else the figure as stated: an exact point
+ * (the person's one value; an "about" point is a band of a tenth of its size either way, which puts zero a dozen spreads from the
+ * value in the sampler's law, so its sign does not change), or a range whose ends are HARD BOUNDS (`range_kind: 'bounds'`: the ruled
+ * law is conditioned on them and never leaves them) lying wholly on one side of zero. A PLAUSIBLE range is a rough span, not a
+ * bound: the law reads it so that it falls below its low end one time in ten and above its high end one time in ten, so [0, 2] still
+ * takes negative values and fixes no side. A range that spans zero, a figure still to be given and one worked out from others are
+ * not stated (0).
  */
 const factorSide = (q) => {
   const d = side(q), a = q?.assertion
   if (d !== 0) return d
   if (a?.kind === 'point' && typeof a.value === 'number') return a.value >= 0 ? 1 : -1
-  if (a?.kind === 'interval' && typeof a.low === 'number' && typeof a.high === 'number') return a.low >= 0 ? 1 : a.high <= 0 ? -1 : 0
+  if (a?.kind === 'interval' && a.range_kind === 'bounds' && typeof a.low === 'number' && typeof a.high === 'number') return a.low >= 0 ? 1 : a.high <= 0 ? -1 : 0
   return 0
 }
+/** The sign of x to the power e, from x's known side: 1, -1, or 0 when it cannot be said (a negative base to a fractional power, or an odd power of a base that may be either). */
 const signOfPower = (s, e) => (e === 0 ? 1 : s === 1 ? 1 : !Number.isInteger(e) ? 0 : e % 2 === 0 ? 1 : s === -1 ? -1 : 0)
 
 /**
@@ -133,7 +171,8 @@ export function rowFor(rec, action, form, before) {
   return {
     id: rec.id, kind: d.kind, action, label: (d.label || rec.id).slice(0, 200),
     before: before ?? null,
-    after: d.after === null ? null : `${d.after}.${quote}${basis}${plumbing}`.replace(/\.\./g, '.'),
+    // The seam between the sentence and what follows it is made one full stop; the words themselves (a quote, a name, an ellipsis) are never edited.
+    after: d.after === null ? null : `${d.after.replace(/\.$/, '')}.${quote}${basis}${plumbing}`,
     author: by === 'person' ? 'person' : 'olumi', group: groupOf(rec), family: d.family,
     ...(by === 'structure' ? { structure: true } : {}),
     ...(rec.family === 'quantity' && rec.assertion.kind === 'asked' ? { asked: true } : {}),

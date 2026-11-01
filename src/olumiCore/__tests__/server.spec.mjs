@@ -82,6 +82,26 @@ describe('one origin: the app, the private link, the API and the health check', 
     expect(r.status).toBe(404)
     expect(fake.calls.slice(before).some((c) => c.path.startsWith('/api/admin'))).toBe(false)
   })
+  it('the admin routes are not reachable however they are spelled', async () => {
+    const before = fake.calls.length
+    for (const p of ['/api/admin', '/api/admin/', '/api//admin/people', '/api/ADMIN/people']) {
+      for (const method of ['GET', 'POST']) {
+        const r = await fetch(base + p, { method, headers: { 'content-type': 'application/json', cookie: 'olumi=tok-ada', 'x-olumi-person': '1' }, ...(method === 'POST' ? { body: '{}' } : {}) })
+        expect(r.status, `${method} ${p}`).toBe(404)
+      }
+    }
+    expect(fake.calls.slice(before).some((c) => /admin/i.test(c.path))).toBe(false)
+  })
+  it('core is sent the ONE olumi cookie the identity was checked on, never the browser\'s raw header', async () => {
+    const seen = []
+    const spy = createServer({ coreUrl: fake.url, distDir: dist, log: 'off', fetchImpl: (url, init) => { seen.push({ url: String(url), cookie: init?.headers?.cookie }); return fetch(url, init) } })
+    await new Promise((r) => spy.listen(0, '127.0.0.1', r))
+    const r = await fetch(`http://127.0.0.1:${spy.address().port}/api/scenarios`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-olumi-person': '1', cookie: 'olumi=tok-ada; olumi=tok-bea; other=1' }, body: JSON.stringify({ brief: BRIEF }) })
+    expect(r.status).toBe(201)
+    const sent = seen.find((x) => x.url.endsWith('/api/scenarios') && x.cookie !== undefined)
+    expect(sent.cookie).toBe('olumi=tok-ada')
+    await new Promise((r2) => spy.close(r2))
+  })
   it('the health check reports this server and core, and is 503 when core is down', async () => {
     expect(await (await fetch(base + '/healthz')).json()).toMatchObject({ ok: true, core: { ok: true } })
     const down = createServer({ coreUrl: 'http://127.0.0.1:1', distDir: dist, log: 'off' })
@@ -170,8 +190,12 @@ describe('identity: each browser is its own person (gap 3)', () => {
     expect(html).toMatch(/That scenario is not available to you/)
   })
   it('a malformed turn body is a 400, not a crash', async () => {
-    const r = await fetch(base + '/bff/orchestrate/v2/turn', { method: 'POST', headers: { cookie: 'olumi=tok-ada' }, body: '{nope' })
+    const r = await fetch(base + '/bff/orchestrate/v2/turn', { method: 'POST', headers: { 'content-type': 'application/json', cookie: 'olumi=tok-ada' }, body: '{nope' })
     expect(r.status).toBe(400)
+    for (const body of ['null', '[]', '"a turn"', '7']) {
+      const bad = await fetch(base + '/bff/orchestrate/v2/turn', { method: 'POST', headers: { 'content-type': 'application/json', cookie: 'olumi=tok-ada', 'x-olumi-person': '1' }, body })
+      expect(bad.status, body).toBe(400)
+    }
   })
 })
 
@@ -207,6 +231,49 @@ describe('an open tab cannot write as somebody else (the browser\'s private link
   it('a browser with no valid link still gets "open your private link", not the identity message', async () => {
     const out = await (await turn(BRIEF, 'olumi=tok-gone', {}, { 'x-olumi-person': '1' })).json()
     expect(out.error).toMatchObject({ code: 'unauthorised' })
+  })
+})
+
+describe('every write path takes JSON only, as core does: anything else is a 415 here, and NOTHING reaches core (security)', () => {
+  const asType = (p, type, body, extra = {}) => fetch(base + p, { method: 'POST', headers: { ...(type ? { 'content-type': type } : {}), cookie: 'olumi=tok-ada', 'x-olumi-person': '1', ...extra }, body })
+  const TURN = JSON.stringify({ kind: 'message', turn_id: crypto.randomUUID(), scenario_id: U, stage: 'frame', message: BRIEF, source: 'composer' })
+  it('the chat turn sent as text/plain with valid JSON and the right identity is refused with 415 and nothing goes upstream', async () => {
+    const before = fake.calls.length
+    const r = await asType('/bff/orchestrate/v2/turn', 'text/plain', TURN)
+    expect(r.status).toBe(415)
+    expect((await r.json()).error).toMatch(/JSON/)
+    expect(fake.calls.length).toBe(before)   // not even the identity check was made
+  })
+  it('so is every other type that is not JSON, or no type at all, on the turn, the API and the private link', async () => {
+    const before = fake.calls.length
+    for (const type of ['text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data; boundary=x', 'application/jsonp', 'application/xml', '']) {
+      for (const p of ['/bff/orchestrate/v2/turn', '/api/scenarios', '/api/scenarios/s_abc123/messages', '/api/proposals/5/approve', '/k/tok-ada']) {
+        expect((await asType(p, type, TURN)).status, `${type || '(none)'} ${p}`).toBe(415)
+      }
+    }
+    expect(fake.calls.length).toBe(before)
+  })
+  it('a write by another method (PUT, PATCH, DELETE) is held to it too', async () => {
+    const before = fake.calls.length
+    for (const method of ['PUT', 'PATCH', 'DELETE']) {
+      const r = await fetch(base + '/api/scenarios/s_abc123', { method, headers: { 'content-type': 'text/plain', cookie: 'olumi=tok-ada', 'x-olumi-person': '1' }, body: '{}' })
+      expect(r.status, method).toBe(415)
+    }
+    expect(fake.calls.length).toBe(before)
+  })
+  it('JSON still goes through, with or without a charset', async () => {
+    for (const type of ['application/json', 'application/json; charset=utf-8', 'Application/JSON']) {
+      const before = fake.calls.length
+      const r = await asType('/api/scenarios', type, JSON.stringify({ brief: BRIEF }))
+      expect(r.status, type).toBe(201)
+      expect(fake.calls.slice(before).filter((c) => c.method === 'POST')).toHaveLength(1)
+    }
+    const out = await (await asType('/bff/orchestrate/v2/turn', 'application/json; charset=utf-8', TURN)).json()
+    expect(out.error).toBeNull()
+  })
+  it('a read is not a write: the saved-model read and GETs need no body type', async () => {
+    expect((await fetch(`${base}/bff/cee/scenarios/${U}/graph`, { method: 'POST', headers: { cookie: 'olumi=tok-ada', 'x-olumi-person': '1' } })).status).not.toBe(415)
+    expect((await fetch(base + '/api/me', { headers: { cookie: 'olumi=tok-ada' } })).status).toBe(200)
   })
 })
 
