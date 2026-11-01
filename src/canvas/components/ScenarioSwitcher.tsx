@@ -25,6 +25,7 @@ import { exportScenario } from '../export/exportScenario'
 import { useToast } from '../ToastContext'
 import { typography } from '../../styles/typography'
 import { SCENARIO_RENAME_REQUEST_EVENT } from './scenarioRenameEvent'
+import { coreLaneAllows } from '../../olumiCore/lane'
 
 /** Matches the character budget the removed TopBar title input enforced. */
 const MAX_NAME_LENGTH = 60
@@ -137,6 +138,8 @@ export function ScenarioSwitcher({
    */
   const resolvedName = (displayName ?? currentScenario?.name ?? '').trim() || UNTITLED_MODEL
 
+  // On the olumi-core lane a new name would show and be lost: core has no route for it, so no rename control is offered.
+  const canRename = coreLaneAllows('structure')
   const [isRenaming, setIsRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
 
@@ -183,7 +186,7 @@ export function ScenarioSwitcher({
   // The kebab menu's "Rename" item reaches us through this. Only the authority
   // mount answers: a non-authoritative switcher opening an editor would write
   // to a different place than the one the user is looking at.
-  const isNameAuthority = onRename != null
+  const isNameAuthority = onRename != null && canRename
   useEffect(() => {
     if (!isNameAuthority) return
     const handler = () => startRename()
@@ -400,7 +403,9 @@ export function ScenarioSwitcher({
         >
           <Folder className="w-4 h-4 shrink-0 text-text-body" aria-hidden="true" />
 
-          {isRenaming ? (
+          {!canRename ? (
+            <span className="max-w-[360px] truncate px-0.5 text-left" data-testid="scenario-name-text">{resolvedName}</span>
+          ) : isRenaming ? (
             <input
               type="text"
               value={renameValue}
@@ -505,15 +510,17 @@ export function ScenarioSwitcher({
                       >
                         <Copy className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={startRename}
-                        className={`px-3 py-2 ${typography.body} text-gray-700 hover:bg-gray-100 rounded transition-colors`}
-                        type="button"
-                        role="menuitem"
-                        title="Rename"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
+                      {canRename && (
+                        <button
+                          onClick={startRename}
+                          className={`px-3 py-2 ${typography.body} text-gray-700 hover:bg-gray-100 rounded transition-colors`}
+                          type="button"
+                          role="menuitem"
+                          title="Rename"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      )}
                       {/* Deletes a localStorage RECORD. On a persisted session
                           that is not the user's decision — see `isPersisted`.
                           The Decisions page owns delete there. */}

@@ -36,6 +36,7 @@ import { SnapshotManager } from '../../canvas/components/SnapshotManager'
 import { useSettingsStore } from '../../canvas/settingsStore'
 import { useCanvasStore } from '../../canvas/store'
 import styles from './TopBar.module.css'
+import { coreLaneAllows } from '../../olumiCore/lane'
 
 interface KebabMenuProps {
   isOpen: boolean
@@ -132,15 +133,17 @@ export function KebabMenu({
           <div className={styles.dropdownMenu} role="menu">
             {/* Model group (Paul, 14 Aug 2026: "decision" -> "model") */}
             <div className={styles.dropdownMenuLabel}>Model</div>
-            <button
-              type="button"
-              role="menuitem"
-              className={styles.dropdownMenuButton}
-              onClick={onStartRename}
-            >
-              <Pencil size={14} aria-hidden="true" />
-              <span>Rename</span>
-            </button>
+            {coreLaneAllows('structure') && (
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.dropdownMenuButton}
+                onClick={onStartRename}
+              >
+                <Pencil size={14} aria-hidden="true" />
+                <span>Rename</span>
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"
