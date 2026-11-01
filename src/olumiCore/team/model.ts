@@ -121,3 +121,9 @@ export function spreadsOf(s: Pick<TeamScenario, 'views' | 'version'>): readonly 
   }
   return out
 }
+
+// ── the model's band, for the commitment ──────────────────────────────────────────────────────────────────────────────────
+
+/** The Run's range findings of the approved model, as stored (their `text` is shown as written; nothing is composed or rounded here). */
+export const modelBandOf = (s: Pick<TeamScenario, 'version'>): ReadonlyArray<{ id: string; text: string }> =>
+  (s.version?.facts ?? []).filter((f) => f.about?.kind === 'range').map((f) => ({ id: f.id, text: f.text }))

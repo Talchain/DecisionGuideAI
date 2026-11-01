@@ -67,6 +67,9 @@ export interface TeamRecord {
   readonly origin?: { readonly by: string; readonly quote?: string; readonly party?: string | null }
 }
 
+/** One of the Run's findings, as stored: its `text` is the plain finding and is shown as written. */
+export interface TeamFact { readonly id: string; readonly value: string; readonly text: string; readonly about?: { readonly kind?: string } }
+
 export interface TeamScenario {
   readonly id: string
   readonly title?: string
@@ -77,6 +80,6 @@ export interface TeamScenario {
   readonly reveal: { readonly state: 'open' | 'ready' | 'revealed'; readonly at: string | null }
   readonly commitments: readonly TeamCommitmentRow[]
   readonly evidence: readonly TeamEvidenceRow[]
-  readonly version: null | { readonly id: number; readonly n: number; readonly form: { readonly records: readonly TeamRecord[] } }
+  readonly version: null | { readonly id: number; readonly n: number; readonly form: { readonly records: readonly TeamRecord[] }; readonly facts?: readonly TeamFact[] }
   readonly pending: null | { readonly id: number }
 }
