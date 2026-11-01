@@ -18,6 +18,7 @@ export async function startFakeCore() {
   let problemNext = null
   let approveRefusal = null // armed: the next approve is refused (core's own 409 for a choice that needs something unchosen)
   let meDown = null // armed: `/api/me` fails with this status until cleared (the identity lookup, not the write)
+  let truncateAnswer = false // armed: the next write is KEPT and its answer starts (status and a part of the body) and then breaks
   let dropAnswer = false // armed: the next write is KEPT, but its answer never arrives (the connection is reset)
   let next = 1
   const server = http.createServer(async (req, res) => { try { await handle(req, res) } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) })) } })
@@ -30,6 +31,13 @@ export async function startFakeCore() {
     calls.push({ method: req.method, path: url.pathname, token: token ? decodeURIComponent(token) : null, body, site: req.headers['sec-fetch-site'] ?? null })
     const send = (s, o, h = {}) => {
       if (dropAnswer && req.method === 'POST' && s < 300) { dropAnswer = false; return req.socket.destroy() }
+      if (truncateAnswer && req.method === 'POST' && s < 300) {
+        truncateAnswer = false
+        const whole = JSON.stringify(o)
+        res.writeHead(s, { 'content-type': 'application/json', 'content-length': String(whole.length) })
+        res.write(whole.slice(0, Math.max(1, Math.floor(whole.length / 2))))
+        return setTimeout(() => req.socket.destroy(), 20)
+      }
       res.writeHead(s, { 'content-type': 'application/json', ...h }); res.end(JSON.stringify(o))
     }
     // olumi-core's own rule (src/server/app.ts): a write is allowed with no Sec-Fetch-Site (a script), `same-origin` or `none`; any other value is refused (403).
@@ -138,6 +146,8 @@ export async function startFakeCore() {
     refuseApprove: (status, message) => { approveRefusal = { status, message } },
     /** The next write that succeeds is kept, and the connection is reset before its answer is sent. */
     dropNextAnswer: () => { dropAnswer = true },
+    /** The next write that succeeds is kept, and its answer is cut off half way (the status arrived, the body did not). */
+    truncateNextAnswer: () => { truncateAnswer = true },
     close: () => new Promise((r) => server.close(r)),
   }
 }

@@ -51,9 +51,21 @@ export function makeCore({ base, fetchImpl = fetch, paidTimeoutMs = 11 * 60_000,
       const refusedBeforeSending = code === '' && /bad port|invalid url/i.test(String(e?.cause?.message ?? e?.message ?? ''))
       throw new CoreError(0, 'olumi-core is not reachable', { op: code || String(e?.name ?? 'fetch'), maybeSaved: method !== 'GET' && !NOT_SENT.has(code) && !refusedBeforeSending })
     }
-    const text = await res.text()
+    // The answer can break AFTER its status arrived (a truncated body, a reset mid-answer). A write that was answered `ok` and whose answer
+    // is cut or unreadable was KEPT or may have been: it is never "nothing was saved", or the screen takes back a figure core holds.
+    let text
+    try { text = await res.text() } catch (e) {
+      if (!res.ok) text = ''
+      else {
+        const code = String(e?.cause?.code ?? e?.code ?? '')
+        throw new CoreError(0, 'olumi-core is not reachable', { op: code || String(e?.name ?? 'body'), maybeSaved: method !== 'GET' })
+      }
+    }
     let json = {}
-    try { json = text ? JSON.parse(text) : {} } catch { json = {} }
+    try { json = text ? JSON.parse(text) : {} } catch {
+      json = {}
+      if (res.ok && method !== 'GET' && text) throw new CoreError(0, 'olumi-core is not reachable', { op: 'unreadable_answer', maybeSaved: true })
+    }
     if (!res.ok) throw new CoreError(res.status, typeof json.error === 'string' ? json.error : `olumi-core answered ${res.status}`, { retryAfter: res.headers.get('retry-after') })
     return json
   }

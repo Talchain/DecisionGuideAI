@@ -271,3 +271,34 @@ describe('a write whose answer was lost is not reported as unsaved (finding: a r
     expect((await readBreaks.turn(ADA, edit(uuid, 'existing_capacity', 90))).out.error).toMatchObject({ nothing_saved: true })
   })
 })
+
+describe('an answer cut off half way is not "nothing was saved" (finding: a truncated answer after a kept edit rolled the canvas back)', () => {
+  const valueOf = (view, id) => view.version.form.records.find((r) => r.id === id).assertion.value
+  /** An answer whose status arrived and whose body broke part way, as the browser's fetch sees a cut connection. */
+  const cutAnswer = () => new Response(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('{"version":')); c.error(Object.assign(new TypeError('terminated'), { cause: Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' }) })) } }), { status: 201, headers: { 'content-type': 'application/json' } })
+
+  it('core kept the figure and its answer was cut: the shim sees the figure moved and answers it as saved, never "nothing was saved"', async () => {
+    const sid = fake.seed('tok-ada', fx('view-approved.json'))
+    const uuid = derivedUuidOfSid(sid)
+    fake.truncateNextAnswer()
+    const out = (await shim.turn(ADA, edit(uuid, 'existing_capacity', 90))).out
+    expect(out.error?.nothing_saved).not.toBe(true)
+    expect(out.error).toBeNull()
+    expect(valueOf(fake.scenarios.get(sid).view, 'existing_capacity')).toBe(90)
+  })
+  it('the answer was cut and the read afterwards cannot show the figure: "may or may not have saved, reload to see", and the canvas is not rolled back', async () => {
+    const sid = fake.seed('tok-ada', fx('view-approved.json'))
+    const uuid = derivedUuidOfSid(sid)
+    const cut = makeShim({ core: makeCore({ base: fake.url, fetchImpl: async (url, init) => (init?.method === 'POST' && String(url).endsWith('/edit') ? cutAnswer() : fetch(url, init)) }) })
+    const out = (await cut.turn(ADA, edit(uuid, 'existing_capacity', 90))).out
+    expect(out.error).toMatchObject({ code: 'olumi_unsure', nothing_saved: false, retry_safe: false })
+    expect(out.error.message).toMatch(/may or may not have saved/)
+    expect(out.error.message).toMatch(/Reload/)
+  })
+  it('a cut answer to a failing status is still that failure (an error status is all-or-nothing), and a read that is cut saved nothing', async () => {
+    const core = makeCore({ base: 'http://x', fetchImpl: async () => new Response(new ReadableStream({ start(c) { c.error(new TypeError('terminated')) } }), { status: 502 }) })
+    await expect(core('POST', '/api/scenarios/s_1/edit', { body: {} })).rejects.toMatchObject({ status: 502, maybeSaved: false })
+    const read = makeCore({ base: 'http://x', fetchImpl: async () => cutAnswer() })
+    await expect(read('GET', '/api/scenarios/s_1')).rejects.toMatchObject({ status: 0, maybeSaved: false })
+  })
+})
