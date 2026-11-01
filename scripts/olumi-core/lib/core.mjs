@@ -64,6 +64,8 @@ const turnError = (turnId, code, message, retry_safe, nothing_saved = true) => (
  */
 export const IDENTITY_CHANGED_WORDS = 'This page was opened with a different private link from the one this browser holds now, so nothing was saved. Reload this page to continue as the person whose private link is open now.'
 export const identityChangedTurn = (turnId) => turnError(turnId, 'identity_changed', IDENTITY_CHANGED_WORDS, false)
+/** Core could not say whose private link the browser holds, so nothing was written: safe to send again once it can. */
+export const identityUnconfirmedTurn = (turnId) => turnError(turnId, 'identity_unconfirmed', 'Olumi could not check whose private link this browser holds just now, so nothing was saved. Try again in a moment.', true)
 
 export function errorTurn(turnId, e) {
   const status = e instanceof CoreError ? e.status : 500

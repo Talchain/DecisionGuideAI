@@ -22,7 +22,7 @@ import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { makeCore, CoreError, errorTurn, identityChangedTurn, IDENTITY_CHANGED_WORDS } from './lib/core.mjs'
+import { makeCore, CoreError, errorTurn, identityChangedTurn, identityUnconfirmedTurn, IDENTITY_CHANGED_WORDS } from './lib/core.mjs'
 import { makeShim } from './lib/turn.mjs'
 import { aliasesOfHeader, aliasHeader, parseCookies, uuidOfSid, isUuid } from './lib/ids.mjs'
 
@@ -89,20 +89,26 @@ export function createServer(opts = {}) {
     res.end(req.method === 'HEAD' ? undefined : buf)
   }
 
-  /** Is this browser's cookie a person core knows? Returns { me } or null. */
+  /**
+   * Who is this browser's cookie? `{ me }` is the person, `{ me: null }` is nobody (no cookie, or one core does not know: core
+   * answers /api/me 200 with `me: null`). `{ unknown: true }` is a lookup that FAILED (a dropped connection, a 5xx): that is not
+   * "nobody", and must never be read as "nothing to compare", or a write goes through unchecked.
+   */
   async function whoIs(ctx) {
-    if (!ctx.token) return null
-    try { const r = await core('GET', '/api/me', { token: ctx.token }); return r.me ?? null } catch { return null }
+    if (!ctx.token) return { me: null }
+    try { const r = await core('GET', '/api/me', { token: ctx.token }); return { me: r.me ?? null } } catch { return { unknown: true } }
   }
 
   /**
-   * Was this page opened for someone other than the person whose private link the browser holds now? A page that cannot say who it
-   * was opened for is treated the same when `required` (a write): fail closed. No link at all is core's own 401, not this.
+   * Was this page opened for someone other than the person whose private link the browser holds now? Returns 'yes', 'no', or
+   * 'unknown' (the lookup failed, so the answer cannot be had). A page that cannot say who it was opened for is treated the same
+   * when `required` (a write): fail closed. No link at all is core's own 401, not this.
    */
   async function pageIsForSomeoneElse(ctx, { required }) {
-    const me = await whoIs(ctx)
-    if (!me) return false
-    return ctx.person === null ? required : ctx.person !== String(me.id)
+    const who = await whoIs(ctx)
+    if (who.unknown) return 'unknown'
+    if (!who.me) return 'no'
+    return (ctx.person === null ? required : ctx.person !== String(who.me.id)) ? 'yes' : 'no'
   }
 
   async function serveStatic(req, res, pathname) {
@@ -156,7 +162,10 @@ export function createServer(opts = {}) {
         let body
         try { body = JSON.parse((await readBody(req)).toString('utf8') || '{}') } catch { return json(res, 400, { error: 'malformed JSON' }) }
         const ctx = ctxOf(req)
-        if (await pageIsForSomeoneElse(ctx, { required: true })) { log('turn refused: page opened for another person'); return json(res, 200, identityChangedTurn(body.turn_id)) }
+        // A write is only made once it is known whose it is: a failed lookup refuses it (nothing saved, safe to send again), it does not wave it through.
+        const forOther = await pageIsForSomeoneElse(ctx, { required: true })
+        if (forOther === 'unknown') { log('turn refused: could not confirm who the browser is'); return json(res, 200, identityUnconfirmedTurn(body.turn_id)) }
+        if (forOther === 'yes') { log('turn refused: page opened for another person'); return json(res, 200, identityChangedTurn(body.turn_id)) }
         let r
         try { r = await shim.turn(ctx, body) } catch (e) { log('turn failed', String(e?.stack ?? e)); r = { out: errorTurn(body.turn_id, e) } }
         return json(res, 200, r.out, r.alias ? { 'x-olumi-alias': aliasHeader(r.alias) } : {})
@@ -167,7 +176,8 @@ export function createServer(opts = {}) {
         const uuid = decodeURIComponent(g[1])
         if (!isUuid(uuid)) return json(res, 404, { error: 'not found' })
         const ctx = ctxOf(req)
-        if (await pageIsForSomeoneElse(ctx, { required: false })) return json(res, 409, { error: IDENTITY_CHANGED_WORDS })
+        // A read writes nothing: only a lookup that SAYS the page is someone else's turns it away.
+        if ((await pageIsForSomeoneElse(ctx, { required: false })) === 'yes') return json(res, 409, { error: IDENTITY_CHANGED_WORDS })
         let r
         try { r = await shim.graphRead(ctx, uuid) } catch (e) { log('graph failed', String(e?.stack ?? e)); r = { status: 502, body: { error: 'Olumi cannot be reached right now.' } } }
         return json(res, r.status, r.body)
@@ -181,7 +191,9 @@ export function createServer(opts = {}) {
       if (!isDoc && path.extname(p)) return json(res, 404, { error: 'not found' })
       // A document: DGAI, for a browser core knows; else the "open your link" page (a silent empty canvas would be a hidden failure).
       const ctx = ctxOf(req)
-      const me = await whoIs(ctx)
+      const who = await whoIs(ctx)
+      if (who.unknown) return html(res, 503, LINK_PAGE('Olumi could not be reached to check your private link just now. Reload this page in a moment.'))
+      const me = who.me
       if (!me) return html(res, 401, LINK_PAGE(ctx.token ? 'The link this browser holds is no longer valid.' : 'This browser has not opened one yet.'))
       if (sPath) { res.writeHead(302, { location: `/#/scenario/${uuidOfSid(sPath[1])}`, 'cache-control': 'no-store' }); return res.end() }
       let doc
