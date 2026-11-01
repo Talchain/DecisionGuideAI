@@ -244,7 +244,7 @@ import {
   type OptimisticEdgeEdit,
 } from './ownOptimisticWrite'
 import { beginModelEditDelivery } from '../registration/editDeliveryHold'
-import { isProvenNoWriteConflict, isProvenNoWriteReason } from '../../v5/provenNoWriteConflict'
+import { isProvenNoWriteConflict, isProvenNoWriteReason, CORE_NO_WRITE_REASON } from '../../v5/provenNoWriteConflict'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
 import {
@@ -6896,7 +6896,12 @@ export function useConversation(): UseConversationReturn {
                 // every caller as an unknown.
                 ...(target.boundaryError && extractV5ErrorReason(target.boundaryError)
                   ? { reason: extractV5ErrorReason(target.boundaryError) }
-                  : {}),
+                  // olumi-core's own no-write statement (`nothing_saved: true`: it saves a change and its Run together or not
+                  // at all) is the producer's guarantee that this send wrote nothing, so the card says "Not saved. The model
+                  // kept its previous value." rather than "Could not confirm. It may not have reached the model."
+                  : coreNothingSavedOf(v5Headers, target.rawBody ?? target.boundaryError).coreNothingSaved !== undefined
+                    ? { reason: CORE_NO_WRITE_REASON }
+                    : {}),
                 // The same resolved marker the Try-again chip is gated on,
                 // carried so the deferral queue can tell a futile replay from a
                 // retry that may still land (`flushDeferredSystemSends`).

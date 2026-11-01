@@ -13,6 +13,7 @@ import { __resetPendingEdgeEditsForTest } from '../../canvas/conversation/pendin
 import { useConversation } from '../../canvas/conversation/useConversation'
 import { useCanvasStore } from '../../canvas/store'
 import { OPTIMISTIC_FACTOR_EDIT_NOTICE, type OptimisticFactorEdit } from '../../canvas/conversation/optimisticFactorEdit'
+import { settleSystemEventSend } from '../../canvas/conversation/settleSystemEventSend'
 import { errorTurn, CoreError, WriteKept } from '../../../scripts/olumi-core/lib/core.mjs'
 
 vi.mock('../../canvas/conversation/turnService', () => ({
@@ -42,15 +43,21 @@ function stubShimAnswer(answer: unknown) {
 }
 
 async function drive(answer: unknown) {
+  const sends: Promise<unknown>[] = []
   stubShimAnswer(answer)
   useCanvasStore.setState({ currentScenarioId: SCENARIO_ID, nodes: [factor(TARGET, 30), factor(BYSTANDER, 80)], edges: [], results: { status: 'idle' } as never, analysisFreshnessDirty: false, currentScenarioLastResultHash: null, selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } } as never)
   const { result } = renderHook(() => useConversation())
+  const settled: string[] = []
   await act(async () => {
-    await result.current.sendSystemEvent({ type: 'factor_value_edit', payload: { target_id: TARGET, value: 30, raw_value: 30, field: 'value' } } as never, { optimisticFactorEdit: snapshot() }).catch(() => undefined)
+    const send = result.current.sendSystemEvent({ type: 'factor_value_edit', payload: { target_id: TARGET, value: 30, raw_value: 30, field: 'value' } } as never, { optimisticFactorEdit: snapshot() })
+    settleSystemEventSend(send as never, (word) => { settled.push(word) })
+    sends.push(send)
+    await send.catch(() => undefined)
+    await new Promise((r) => setTimeout(r, 0))
   })
   const nodes = useCanvasStore.getState().nodes
   const read = (id: string) => ((nodes.find((n) => n.id === id)?.data as Record<string, unknown>)?.observedState ?? {}) as Record<string, unknown>
-  return { target: read(TARGET).value, bystander: read(BYSTANDER).value, notices: result.current.messages.filter((m) => m.role === 'assistant' && m.synthetic === true).map((m) => m.content) }
+  return { settled, target: read(TARGET).value, bystander: read(BYSTANDER).value, notices: result.current.messages.filter((m) => m.role === 'assistant' && m.synthetic === true).map((m) => m.content) }
 }
 
 beforeEach(() => { vi.clearAllMocks(); vi.stubEnv('VITE_OLUMI_CORE', '1'); __resetPendingFactorEditsForTest(); __resetPendingEdgeEditsForTest() })
@@ -59,6 +66,8 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs() })
 describe('a refused figure edit on the olumi-core lane (gap 1: nothing hangs, nothing lies)', () => {
   it('takes the figure back and says why in core\'s words, when core states nothing was saved', async () => {
     const out = await drive(errorTurn('t-1', new CoreError(409, 'approve or set aside the pending change first')))
+    // ...and the card is told so ("Not saved. The model kept its previous value."), not "Could not confirm. It may not have reached the model."
+    expect(out.settled).toEqual(['refused'])
     expect(out.target).toBe(20)
     expect(out.bystander).toBe(80)
     expect(out.notices).toEqual(['Approve or set aside the pending change first. Nothing was saved. Your figure is back as it was.'])
@@ -66,6 +75,7 @@ describe('a refused figure edit on the olumi-core lane (gap 1: nothing hangs, no
 
   it('keeps the figure and says it could not confirm when a timeout leaves it unknown whether core saved it', async () => {
     const out = await drive(errorTurn('t-2', Object.assign(new CoreError(0, 'olumi-core is not reachable'), { op: 'TimeoutError' })))
+    expect(out.settled).toEqual(['unverified'])
     expect(out.target).toBe(30)
     expect(out.notices).toEqual([OPTIMISTIC_FACTOR_EDIT_NOTICE.unconfirmed_server])
   })
@@ -85,6 +95,7 @@ describe('a refused figure edit on the olumi-core lane (gap 1: nothing hangs, no
 
   it('a figure core KEPT whose follow-up read failed stays on the canvas (it is not rolled back to a value the model no longer holds)', async () => {
     const out = await drive(errorTurn('t-5', new WriteKept(new CoreError(502, 'could not read'))))
+    expect(out.settled).toEqual(['unverified'])
     expect(out.target).toBe(30)
     expect(out.notices).toEqual([OPTIMISTIC_FACTOR_EDIT_NOTICE.unconfirmed_server])
   })

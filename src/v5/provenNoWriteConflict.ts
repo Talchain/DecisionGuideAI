@@ -155,6 +155,12 @@ export const PROVEN_NO_WRITE_REASONS: ReadonlySet<string> = new Set([
 ])
 
 /**
+ * The producer's own typed no-write reason, which olumi-core's `nothing_saved: true` stands for: a change and its Run are saved
+ * together or not at all, so a failure that says so wrote nothing. It is a member of the set above, not a second vocabulary.
+ */
+export const CORE_NO_WRITE_REASON = 'system_event_refused_no_write'
+
+/**
  * Is this `details.reason` one the producer guarantees wrote nothing? Fail
  * CLOSED: absent, empty, or unknown → false.
  */
