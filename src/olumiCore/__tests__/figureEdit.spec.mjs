@@ -302,3 +302,31 @@ describe('an answer cut off half way is not "nothing was saved" (finding: a trun
     await expect(read('GET', '/api/scenarios/s_1')).rejects.toMatchObject({ status: 0, maybeSaved: false })
   })
 })
+
+describe('an edit from a page that is behind the saved model is refused, not written over a newer figure (finding: a stale tab silently overwrote a newer figure)', () => {
+  const STALE = 'abcdef0123456789'
+  it('the page says it last read another model than core holds now: refused in words, and nothing reaches core', async () => {
+    const uuid = seeded()
+    const before = fake.calls.length
+    const out = (await shim.turn({ ...ADA, revision: STALE }, edit(uuid, 'existing_capacity', 90))).out
+    expect(out.error).toMatchObject({ code: 'revision_conflict', nothing_saved: true })
+    expect(out.error.message).toBe('This page is out of date; reload to edit. Nothing was saved.')
+    expect(post(fake.calls, before)).toHaveLength(0)
+  })
+  it('a page that read the current saved model edits as before, and a page that has read none is not refused', async () => {
+    const sid = fake.seed('tok-ada', fx('view-approved.json'))
+    const uuid = derivedUuidOfSid(sid)
+    const current = (await shim.graphRead(ADA, uuid)).body.graph_hash
+    expect((await shim.turn({ ...ADA, revision: current }, edit(uuid, 'existing_capacity', 90))).out.error).toBeNull()
+    const other = fake.seed('tok-ada', fx('view-approved.json'))
+    expect((await shim.turn(ADA, edit(derivedUuidOfSid(other), 'existing_capacity', 90))).out.error).toBeNull()
+  })
+  it('a goal figure edited from a stale page is refused the same way', async () => {
+    const uuid = seeded()
+    const before = fake.calls.length
+    const goal = fx('view-approved.json').version.form.records.find((r) => r.family === 'goal' && r.measure)
+    const out = (await shim.turn({ ...ADA, revision: STALE }, { kind: 'system_event', turn_id: turnId(), scenario_id: uuid, stage: 'frame', event: { kind: 'goal_target_edit', goal_node_id: goal.id, raw_value: 150, value: 150 } })).out
+    expect(out.error?.message).toMatch(/out of date; reload to edit/)
+    expect(post(fake.calls, before)).toHaveLength(0)
+  })
+})

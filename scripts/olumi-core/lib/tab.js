@@ -107,12 +107,17 @@
     return null
   }
 
+  // 5. The model this page last read, per scenario (the `x-olumi-revision` the server put on its last saved-model read or turn). A figure
+  // edit says it, so the server can refuse an edit made from a page that is behind the saved model, instead of overwriting a newer figure.
+  var seen = {}
+
   // 2 and 3. say who this tab is and which scenario a UUID is, on every call to the server's /bff/ and /api/ routes; learn new pairings.
   var realFetch = win.fetch
   if (typeof realFetch === 'function') {
     win.fetch = function (input, init) {
       var next = input
       var nextInit = init
+      var named = null
       try {
         var raw = typeof input === 'string' ? input : (input && input.url) || String(input)
         var url = new win.URL(raw, win.location.href)
@@ -120,8 +125,10 @@
           var headers = new win.Headers((init && init.headers) || (typeof input !== 'string' && input && input.headers) || undefined)
           headers.set('x-olumi-person', person.id)
           var uuid = scenarioOf(url.pathname, init)
+          named = uuid
           var sid = uuid ? read(SCENARIO_KEY + uuid) : null
           if (uuid && sid) headers.set('x-olumi-scenario', uuid + '=' + sid)
+          if (uuid && seen[uuid]) headers.set('x-olumi-revision', seen[uuid])
           var copy = {}
           for (var k in init) copy[k] = init[k]
           copy.headers = headers
@@ -134,6 +141,8 @@
           var said = res.headers.get('x-olumi-alias')
           var pair = said ? ALIAS.exec(said) : null
           if (pair) write(SCENARIO_KEY + pair[1], pair[2])
+          var rev = res.headers.get('x-olumi-revision')
+          if (named && rev) seen[named] = rev
         } catch (e) { /* none */ }
         return res
       })

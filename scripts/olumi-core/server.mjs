@@ -59,7 +59,8 @@ export function createServer(opts = {}) {
   const ctxOf = (req) => {
     const c = parseCookies(req.headers.cookie)
     const person = req.headers['x-olumi-person']
-    return { token: c.olumi || null, aliases: aliasesOfHeader(req.headers['x-olumi-scenario']), person: typeof person === 'string' && person !== '' ? person : null }
+    const revision = req.headers['x-olumi-revision']
+    return { token: c.olumi || null, aliases: aliasesOfHeader(req.headers['x-olumi-scenario']), person: typeof person === 'string' && person !== '' ? person : null, revision: typeof revision === 'string' && /^[0-9a-f]{16}$/.test(revision) ? revision : null }
   }
   const readBody = async (req, limit = 1_000_000) => {
     const chunks = []; let n = 0
@@ -206,7 +207,7 @@ export function createServer(opts = {}) {
         if (no) { log('turn refused', no.changed ? 'page opened for another person' : `identity not verified (${no.error.status})`); return json(res, 200, no.changed ? identityChangedTurn(body.turn_id) : no.error.status === 401 || no.error.status === 403 ? errorTurn(body.turn_id, no.error) : identityUnconfirmedTurn(body.turn_id)) }
         let r
         try { r = await shim.turn(ctx, body) } catch (e) { log('turn failed', String(e?.stack ?? e)); r = { out: errorTurn(body.turn_id, e) } }
-        return json(res, 200, r.out, r.alias ? { 'x-olumi-alias': aliasHeader(r.alias) } : {})
+        return json(res, 200, r.out, { ...(r.alias ? { 'x-olumi-alias': aliasHeader(r.alias) } : {}), ...(typeof r.out?.model?.revision === 'string' ? { 'x-olumi-revision': r.out.model.revision } : {}) })
       }
       if (p.startsWith('/bff/orchestrate/')) return json(res, 404, { error: 'not available on Olumi' })   // incl. the draft stream: DGAI falls back to the buffered turn
       const g = /^\/bff\/cee\/scenarios\/([^/]+)\/graph$/.exec(p)
@@ -218,7 +219,7 @@ export function createServer(opts = {}) {
         if (no) { const h = refusalHttp(no); return json(res, h.status, h.body) }
         let r
         try { r = await shim.graphRead(ctx, uuid) } catch (e) { log('graph failed', String(e?.stack ?? e)); r = { status: 502, body: { error: 'Olumi cannot be reached right now.' } } }
-        return json(res, r.status, r.body)
+        return json(res, r.status, r.body, typeof r.body?.graph_hash === 'string' ? { 'x-olumi-revision': r.body.graph_hash } : {})
       }
       if (p.startsWith('/bff/')) { log('bff not served', method, p); return json(res, 404, { error: 'not available on Olumi' }) }
 

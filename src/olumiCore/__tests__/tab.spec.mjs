@@ -203,3 +203,14 @@ describe('a tab that was one person\'s leaves nothing of theirs for the next, an
     expect(ada.shown).toHaveLength(0)
   })
 })
+
+describe('the page says which model it last read, so a stale tab cannot overwrite a newer figure', () => {
+  it('the revision the server put on an answer for a scenario is sent back on the calls that name that scenario, and only those', async () => {
+    const answer = (s) => new Response('{}', { status: 200, headers: s.url.includes('/graph') ? { 'x-olumi-revision': '0123456789abcdef' } : {} })
+    const { win, sent } = pageFor(ADA, { answer })
+    await win.fetch('/bff/cee/scenarios/' + U + '/graph', { method: 'POST', body: '{}' })
+    await win.fetch('/bff/orchestrate/v2/turn', turnTo(U))
+    await win.fetch('/bff/orchestrate/v2/turn', turnTo('99999999-2222-4333-8444-555555555555'))
+    expect(sent.map((s) => s.headers.get('x-olumi-revision'))).toEqual([null, '0123456789abcdef', null])
+  })
+})

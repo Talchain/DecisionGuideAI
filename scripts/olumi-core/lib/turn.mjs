@@ -9,7 +9,7 @@ import { CoreError, WriteKept, errorTurn } from './core.mjs'
 import { changeRows, byId, figure, num } from './words.mjs'
 import { analysisViewOf, ghostAddsOf, modelOf, shownOf } from './model.mjs'
 import { fillCited, noteOf } from './note.mjs'
-import { propIdOf, rev16, rev64, runIdOf, sidOfUuid, turnIdOf, uuidOfSid, isSid } from './ids.mjs'
+import { propIdOf, rev16, rev64, revSaved16, runIdOf, sidOfUuid, turnIdOf, uuidOfSid, isSid } from './ids.mjs'
 
 const DRAFT_LEAD = 'Here is your situation as I understood it. Check it, then confirm or tell me what to change.'
 const CHANGE_LEAD = 'Here is what I would change. Check it, then confirm.'
@@ -177,6 +177,9 @@ export function makeShim({ core, log = () => {}, onlySupported }) {
     const range = figureIn !== null && typeof figureIn === 'object'
     const v = await view(ctx, sid)
     if (!v.version) throw new CoreError(409, 'there is no saved model to edit yet')
+    // Core's /edit takes the version it was made on (`base`), and the shim reads that fresh, so it cannot tell that the PAGE is behind. The page
+    // says which saved model it last read (`x-olumi-revision`): an edit from a page that is behind the saved model would overwrite a newer figure.
+    if (ctx.revision && ctx.revision !== revSaved16(v)) throw new CoreError(409, 'This page is out of date; reload to edit')
     if (range) {
       if (![figureIn.low, figureIn.high].every((x) => typeof x === 'number' && Number.isFinite(x)) || figureIn.low > figureIn.high) throw new CoreError(400, 'that is not a range Olumi can use')
     } else if (typeof figureIn !== 'number' || !Number.isFinite(figureIn)) throw new CoreError(400, 'that is not a figure Olumi can use')

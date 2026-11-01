@@ -16,7 +16,7 @@ const card = () => {
   const shim = makeShim({ core: async () => ({}) })
   const view = structuredClone(firstPending) as never as { id: string }
   view.id = SID
-  return shim.cardFor(view, '5b2f3d3e-0000-4000-8000-000000000001') as { proposal_id: string }
+  return (shim.cardFor as (v: unknown, t: string) => { proposal_id: string })(view, '5b2f3d3e-0000-4000-8000-000000000001')
 }
 const fields = () => { const c = card(); return { version: 1, graph_hash: 'a'.repeat(16), proposals: [{ ...c, issued_turn_id: 'derived-by-the-read' }] } }
 const at = new Date()
@@ -30,7 +30,7 @@ const thread = (): ConversationMessage[] => [
 const offersConfirm = (m: ConversationMessage) => (m.actionChips ?? []).some((c) => c.id === consentChipIdFor(card().proposal_id))
 
 beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1') })
-afterEach(() => vi.unstubAllEnvs())
+afterEach(() => { vi.unstubAllEnvs() })
 
 describe('a failed Confirm followed by a reload still shows the first model as waiting', () => {
   it('the held card comes back on the reply that offered it, though a press follows it', () => {

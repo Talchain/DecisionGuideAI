@@ -429,3 +429,14 @@ describe('the identity check fails closed when core cannot answer who the browse
     await s.close()
   })
 })
+
+describe('the server names the model each answer shows (x-olumi-revision), and reads the page\'s back on an edit', () => {
+  it('a turn that carries a model, and the saved-model read, each carry the revision the page then holds', async () => {
+    const r = await turn(BRIEF, 'olumi=tok-ada')
+    const out = await r.json()
+    expect(out.model.revision).toMatch(/^[0-9a-f]{16}$/)
+    expect(r.headers.get('x-olumi-revision')).toBe(out.model.revision)
+    const g = await fetch(`${base}/bff/cee/scenarios/${U}/graph`, { method: 'POST', ...H('olumi=tok-ada'), body: '{}', headers: { ...H('olumi=tok-ada').headers, 'x-olumi-scenario': r.headers.get('x-olumi-alias') } })
+    expect(g.headers.get('x-olumi-revision')).toBe((await g.json()).graph_hash)
+  })
+})
