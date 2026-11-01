@@ -106,7 +106,7 @@ const afterWrite = async (build, extra) => {
   try { return await build() } catch (e) { throw new WriteKept(e, extra) }
 }
 
-export function makeShim({ core, log = () => {} }) {
+export function makeShim({ core, log = () => {}, onlySupported }) {
   const view = (ctx, sid) => core('GET', `/api/scenarios/${sid}`, { token: ctx.token })
 
   /**
@@ -131,6 +131,9 @@ export function makeShim({ core, log = () => {} }) {
     // An id that is not in the change (an unknown one) is never dropped: the whole card is approved only when the ticks are exactly the
     // change set, so core is sent exactly what was ticked and refuses an id it does not know (400) rather than approving everything.
     const only = ticked.length > 0 && !(every.every((id) => ticked.includes(id)) && ticked.every((id) => every.includes(id))) ? ticked : null
+    // A core without selective approval (served `candidate` before API v1.4's `only`) ignores `only` and would approve every change,
+    // so a part-selection is refused here unless the core is declared to support it (OLUMI_CORE_ONLY=1).
+    if (only && !(onlySupported ?? process.env.OLUMI_CORE_ONLY === '1')) return { out: errorTurn(turnId, new CoreError(409, 'Confirming only some changes is not available yet: use “Looks right” to confirm them all, or set the card aside. Nothing was saved.')) }
     let r
     try {
       r = await core('POST', `/api/proposals/${v.pending.id}/approve`, { token: ctx.token, body: { base: v.pending.base, ...(only ? { only } : {}) } })

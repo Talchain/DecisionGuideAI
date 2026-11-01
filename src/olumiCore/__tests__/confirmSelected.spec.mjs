@@ -16,7 +16,7 @@ const turnId = () => crypto.randomUUID()
 const approves = (calls, since) => calls.slice(since).filter((c) => c.method === 'POST' && c.path.endsWith('/approve'))
 
 let fake, shim
-beforeAll(async () => { fake = await startFakeCore(); fake.addPerson('tok-ada', '1', 'Ada'); shim = turnModule.makeShim({ core: makeCore({ base: fake.url }) }) })
+beforeAll(async () => { fake = await startFakeCore(); fake.addPerson('tok-ada', '1', 'Ada'); shim = turnModule.makeShim({ core: makeCore({ base: fake.url }), onlySupported: true }) })
 afterAll(async () => { await fake.close() })
 
 const held = (after = { approve: fx('view-approved.json') }) => { const sid = fake.seed('tok-ada', fx('view-first-pending.json'), after); return { sid, uuid: derivedUuidOfSid(sid) } }
@@ -274,6 +274,28 @@ describe('core refuses a selection that needs what was not chosen', () => {
 describe('the stale "due on 5 November" refusal is gone', () => {
   it('the shim no longer carries it, and does not export it', () => {
     expect(turnModule.PARTIAL_REFUSAL).toBeUndefined()
-    expect(fs.readFileSync(path.join(here, '../../../scripts/olumi-core/lib/turn.mjs'), 'utf8')).not.toMatch(/5 November|not available yet/)
+    expect(fs.readFileSync(path.join(here, '../../../scripts/olumi-core/lib/turn.mjs'), 'utf8')).not.toMatch(/5 November/)
+  })
+})
+
+describe('a core without selective approval (served `candidate`): a part-selection is refused, never approved whole', () => {
+  it('ticking some rows sends nothing to core and says to confirm all or set aside; the card stays held', async () => {
+    const plain = turnModule.makeShim({ core: makeCore({ base: fake.url }), onlySupported: false })
+    const { uuid, sid } = held()
+    const card = (await plain.graphRead(ADA, uuid)).body.proposal_fields.proposals[0], before = fake.calls.length
+    const { out } = await plain.turn(ADA, { kind: 'message', turn_id: turnId(), scenario_id: uuid, stage: 'frame', message: 'Looks right.', source: 'chip_click', chip: { id: card.approve_action.id }, approve_ids: ['add_one'] })
+    expect(approves(fake.calls, before)).toHaveLength(0)
+    expect(out.error?.message ?? out.assistant_text).toMatch(/only some changes is not available yet.*Nothing was saved/)
+    expect(fake.scenarios.get(sid).view.pending).toBeTruthy()
+  })
+  it('ticking every row is the whole card and is approved', async () => {
+    const plain = turnModule.makeShim({ core: makeCore({ base: fake.url }), onlySupported: false })
+    const { uuid, sid } = held()
+    const card = (await plain.graphRead(ADA, uuid)).body.proposal_fields.proposals[0], before = fake.calls.length
+    const p = fake.scenarios.get(sid).view.pending.changes
+    const all = [...p.added, ...p.changed, ...p.removed, ...(p.top ?? [])]
+    const { out } = await plain.turn(ADA, { kind: 'message', turn_id: turnId(), scenario_id: uuid, stage: 'frame', message: 'Looks right.', source: 'chip_click', chip: { id: card.approve_action.id }, approve_ids: all })
+    expect(approves(fake.calls, before)).toHaveLength(1)
+    expect(out.error).toBeNull()
   })
 })
