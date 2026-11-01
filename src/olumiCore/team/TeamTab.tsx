@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button'
 import { heldOf, heldWords } from './model'
 import { TeamMembers } from './TeamMembers'
 import { CommitmentPanel } from './CommitmentPanel'
+import { DissentPanel } from './DissentConfirm'
 import { EvidencePanel } from './EvidencePanel'
 import { RevealPanel } from './RevealPanel'
 import { ViewComposer } from './ViewComposer'
@@ -52,6 +53,7 @@ export function TeamTab({ scenarioUuid, onAskOlumi }: { scenarioUuid: string | n
           <ViewComposer sid={sid} scenario={scenario} onWrote={refresh} />
           {held && held.given > 0 && <p className={META} data-testid="team-held-count">{heldWords(held)}</p>}
           <RevealPanel sid={sid} scenario={scenario} onWrote={refresh} onAskOlumi={onAskOlumi} />
+          <DissentPanel scenario={scenario} />
           <EvidencePanel sid={sid} scenario={scenario} onWrote={refresh} onAskOlumi={onAskOlumi} />
           <CommitmentPanel sid={sid} scenario={scenario} onWrote={refresh} />
         </>
