@@ -156,6 +156,31 @@ describe('discussion and challenges (gap 6)', () => {
     const out = (await shim.turn(ctx, msg('What matters most?'))).out
     expect(out.error).toMatchObject({ code: 'olumi_could_not_finish', message: 'Olumi could not finish that. Olumi could not check that against the model. Nothing was saved.', retry_safe: true })
   })
+  it('a change core kept but could not check stays on screen as a card to set aside (else it is invisible and blocks every figure edit)', async () => {
+    const { ctx } = await started({ approve: true })
+    fake.problemNext('the coach could not check it')
+    const out = (await shim.turn(ctx, msg('Add staff absence as a factor.'))).out
+    expect(out.error).toBeNull()
+    expect(out.cards).toHaveLength(1)
+    expect(out.assistant_text).toMatch(/cannot be confirmed: the coach could not check it\. Set it aside with “Not now”/)
+    const declined = (await shim.turn(ctx, msg('Not now.', { source: 'chip_click', chip: { id: out.cards[0].decline_action.id } }))).out
+    expect(declined.error).toBeNull(); expect(declined.cards).toHaveLength(0)
+  })
+  it('a first draft core kept but could not check keeps its card (to set aside) and says why it cannot be confirmed', async () => {
+    fake.problemNext('2 findings remain after the one repair')
+    const first = await shim.turn({ token: 'tok-ada', aliases: [] }, msg('Keep staffing or add one specialist? We need at least 100 a week.'))
+    expect(first.out.error).toBeNull(); expect(first.out.cards).toHaveLength(1)
+    expect(first.out.assistant_text).toMatch(/cannot be confirmed: 2 findings remain after the one repair\./)
+    expect(first.aliases).toHaveLength(1)
+  })
+  it('a scenario whose only draft was set aside starts again from the next brief, under the same UUID', async () => {
+    const { ctx, r } = await started()
+    await shim.turn(ctx, msg('Not now.', { source: 'chip_click', chip: { id: r.out.cards[0].decline_action.id } }))
+    const again = await shim.turn(ctx, msg('a better brief'))
+    expect(again.out.error).toBeNull(); expect(again.out.cards).toHaveLength(1)
+    expect(again.aliases.filter(([u]) => u === U)).toHaveLength(1)
+    expect(again.aliases.find(([u]) => u === U)[1]).not.toBe(ctx.aliases.find(([u]) => u === U)[1])
+  })
   it('a Run press has nothing to start: core runs on every change, and the turn says so with the Run it has', async () => {
     const { ctx } = await started({ approve: true })
     const out = (await shim.turn(ctx, msg('Run analysis', { source: 'chip_click', chip: { action_type: 'run_analysis' } }))).out

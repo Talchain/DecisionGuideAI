@@ -22,6 +22,7 @@ export function coachText(coach, facts = []) {
   return [fill(coach.answer), ...coach.why.map(fill), `Next (${coach.next.move.replace(/_/g, ' ')}): ${fill(coach.next.text)}`].filter(Boolean).join('\n')
 }
 
+const heldWithProblem = (problem) => `Olumi could not finish checking that change, so it cannot be confirmed: ${problem.charAt(0).toLowerCase()}${problem.slice(1).replace(/[.!?]$/, '')}. Set it aside with “Not now”, or tell me what to change. Nothing has been saved.`
 /** What olumi-core's turn could not finish, in words (a row with a `problem`): a visible failure, never an empty reply. */
 const problemTurn = (turnId, text) => ({ turn_id: turnId, assistant_text: '', model: null, cards: [], notes: [], run: null, receipts: [], error: { code: 'olumi_could_not_finish', message: `Olumi could not finish that. ${text.charAt(0).toUpperCase()}${text.slice(1)}${/[.!?]$/.test(text) ? '' : '.'} Nothing was saved.`, retry_safe: true, nothing_saved: true } })
 
@@ -126,22 +127,31 @@ export function makeShim({ core, log = () => {} }) {
     const text = String(body.message ?? '').trim()
     if (text.length === 0) return { out: errorTurn(turnId, new CoreError(400, 'Say what you are deciding.')) }
     const op = String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined
+    // A scenario with no model at all (its first draft was set aside) starts again from the brief, under the same UUID.
+    let before = sid ? await view(ctx, sid) : null
+    if (before && !before.version && !before.pending) { before = null; sid = null }
     if (!sid) {
       const made = await core('POST', '/api/scenarios', { token: ctx.token, body: { brief: text, op } })
       const v = await view(ctx, made.scenario)
       const problem = v.chat.find((c) => c.id === made.proposal)?.problem
-      if (problem) return { out: problemTurn(turnId, problem), aliases: withAlias(ctx.aliases, uuid, made.scenario) }
-      return { out: turnBody(v, { turnId, text: DRAFT_LEAD, withCard: true }), aliases: withAlias(ctx.aliases, uuid, made.scenario) }
+      const aliases = withAlias(ctx.aliases, uuid, made.scenario)
+      // The draft was kept but could not be checked: its card stays on screen so it can be set aside ("Not now"); core refuses to confirm it.
+      if (problem && v.pending) return { out: turnBody(v, { turnId, text: heldWithProblem(problem), withCard: true }), aliases }
+      if (problem) return { out: problemTurn(turnId, problem), aliases }
+      return { out: turnBody(v, { turnId, text: DRAFT_LEAD, withCard: true }), aliases }
     }
-    const before = await view(ctx, sid)
     const ch = challengeOf(body, before)
     const r = ch
       ? await core('POST', `/api/scenarios/${sid}/challenge`, { token: ctx.token, body: { ...ch, op } })
       : await core('POST', `/api/scenarios/${sid}/messages`, { token: ctx.token, body: { text, op } })
     const v = await view(ctx, sid)
     const row = v.chat.find((c) => c.id === r.proposal) ?? [...v.chat].reverse().find((c) => c.answer || c.problem)
-    // A reply that did not complete (core records why on the row): say so, never an empty bubble.
-    if (row?.problem) return { out: problemTurn(turnId, row.problem) }
+    if (row?.problem) {
+      // A change core kept but could not check is a held proposal with a reason it cannot be confirmed: its card stays on screen so
+      // it can be set aside (otherwise it is invisible and blocks every figure edit). A reply to a question is a plain failure.
+      if (!r.discussion && v.pending) return { out: turnBody(v, { turnId, text: heldWithProblem(row.problem), withCard: true }) }
+      return { out: problemTurn(turnId, row.problem) }
+    }
     if (r.discussion) return { out: turnBody(v, { turnId, text: coachText(row?.answer, v.version?.facts) || 'Noted. Nothing in the model changes.', withCard: !!v.pending }) }
     return { out: turnBody(v, { turnId, text: CHANGE_LEAD, withCard: true }) }
   }

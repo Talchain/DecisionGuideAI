@@ -40,6 +40,7 @@ export async function startFakeCore() {
       const sid = `s_${(0xabc000000000 + next++).toString(16)}`
       const view = fx('view-first-pending.json'); view.id = sid; view.you = me.name
       const pid = 1000 + next; view.pending.id = pid; view.chat[0].id = pid; view.chat[0].proposal = pid
+      view.chat[0].problem = problemNext; problemNext = null
       scenarios.set(sid, { owner: me.id, view })
       return send(201, { scenario: sid, proposal: view.pending.id })
     }
@@ -66,7 +67,10 @@ export async function startFakeCore() {
         problemNext = null
         return send(201, { proposal: entry.view.chat.at(-1).id, discussion: true })
       }
-      const withChange = fx('view-approved-with-change.json'); withChange.id = entry.view.id; withChange.you = me.name; withChange.pending.id = 2000 + next++; withChange.version.id = entry.view.version?.id ?? withChange.version.id; entry.view = withChange
+      const withChange = fx('view-approved-with-change.json'); withChange.id = entry.view.id; withChange.you = me.name; withChange.pending.id = 2000 + next++; withChange.version.id = entry.view.version?.id ?? withChange.version.id
+      withChange.chat = [...withChange.chat.slice(0, -1), { ...withChange.chat.at(-1), id: withChange.pending.id, proposal: withChange.pending.id, problem: problemNext }]
+      problemNext = null
+      entry.view = withChange
       return send(201, { proposal: withChange.pending.id, discussion: false })
     }
     if ((m = url.pathname.match(/^\/api\/scenarios\/(s_[0-9a-f]+)\/edit$/))) {
