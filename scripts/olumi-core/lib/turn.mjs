@@ -8,6 +8,7 @@ import crypto from 'node:crypto'
 import { CoreError, WriteKept, errorTurn } from './core.mjs'
 import { changeRows, byId, figure } from './words.mjs'
 import { analysisViewOf, modelOf, shownOf } from './model.mjs'
+import { fillCited, noteOf } from './note.mjs'
 import { propIdOf, rev16, rev64, runIdOf, sidOfUuid, turnIdOf, uuidOfSid, isSid } from './ids.mjs'
 
 const DRAFT_LEAD = 'Here is your situation as I understood it. Check it, then confirm or tell me what to change.'
@@ -15,24 +16,28 @@ const CHANGE_LEAD = 'Here is what I would change. Check it, then confirm.'
 export const PARTIAL_REFUSAL = (n, total) => `Confirming only some rows (${n} of ${total}) is not available yet; it needs an update to Olumi that is due on 5 November. Nothing has been saved. Use “Confirm whole card”, or tell me what to change.`
 export const UNSUPPORTED_EDIT = 'Olumi cannot make that kind of change on the canvas yet. Tell me in the chat what to change, or change a figure. Nothing was saved.'
 
-/** What a marker reads as when core did not explain it (its own page's fallback for a finding it has no sentence for). */
-const UNEXPLAINED = 'a finding from the Run'
-
 /**
  * Olumi's reply, as words for the thread: the answer, why, and the next move. A finding the reply cites by marker (`[F5]`) is
- * written in from that reply's OWN `cited` map (API.md: `chat[].cited`). Fact ids belong to one Run and a later change renumbers
- * them, so a marker is never looked up in the current Run's facts: the same reply must read the same live and on every reload.
+ * written in from that reply's OWN `cited` map (`fillCited`): the same reply must read the same live and on every reload.
  */
 export function coachText(coach, cited = {}) {
   if (!coach) return ''
-  const fill = (t) => t.replace(/\[(F\d+)\](\.?)/g, (_, id, dot) => {
-    const said = typeof cited?.[id] === 'string' && cited[id].trim() !== '' ? cited[id].trim() : UNEXPLAINED
-    return /[.!?]$/.test(said) ? said : `${said}${dot}`
-  })
-  return [fill(coach.answer), ...coach.why.map(fill), `Next (${coach.next.move.replace(/_/g, ' ')}): ${fill(coach.next.text)}`].filter(Boolean).join('\n')
+  return [fillCited(coach.answer, cited), ...coach.why.map((t) => fillCited(t, cited)), `Next (${coach.next.move.replace(/_/g, ' ')}): ${fillCited(coach.next.text, cited)}`].filter(Boolean).join('\n')
 }
-/** The words of the reply written on one chat row. */
-const replyOf = (row) => coachText(row?.answer, row?.cited)
+
+/**
+ * A reply on one chat row, with the note it points with: Olumi's next step (core's `next.text`, the same words the thread's
+ * `Next (...)` line carries) beside the card `next.about` names. The thread keeps its line whether or not a note is made: a note is
+ * borne by this turn only and can be dismissed, and the thread is the same live and after a reload. `known` are the cards the
+ * page already holds, so a note is never aimed at one it does not.
+ */
+function replyWithNote(view, row, known) {
+  const nodes = modelOf(view)?.graph.nodes ?? []
+  const note = row?.answer ? noteOf(row.answer, row.cited, nodes, known) : null
+  return { text: coachText(row?.answer, row?.cited), notes: note ? [note] : [] }
+}
+/** The ids of the cards a view draws (what the page holds once it has applied that view). */
+const cardsOf = (view) => new Set((modelOf(view)?.graph.nodes ?? []).map((n) => n.id))
 
 const heldWithProblem = (problem) => `Olumi could not finish checking that change, so it cannot be confirmed: ${problem.charAt(0).toLowerCase()}${problem.slice(1).replace(/[.!?]$/, '')}. Set it aside with “Not now”, or tell me what to change. Nothing has been saved.`
 /** What olumi-core's turn could not finish, in words (a row with a `problem`): a visible failure, never an empty reply. */
@@ -55,7 +60,7 @@ function cardFor(view, issuedTurnId) {
 }
 
 /** The turn's body. `receipt`: this turn saved a version, so it names the Run its results belong to (DGAI adopts a Run's view only then). */
-function turnBody(view, { turnId, text, withCard, receipt }) {
+function turnBody(view, { turnId, text, withCard, receipt, notes = [] }) {
   const shown = modelOf(view)
   // The Run view rides with the model it belongs to (the page adopts it as a read does): without it the Analysis tab keeps the view
   // of the last read, which is the saved model's chances shown as current beside a held change, or beside its absence after "Not now".
@@ -63,7 +68,7 @@ function turnBody(view, { turnId, text, withCard, receipt }) {
   return {
     turn_id: turnId, assistant_text: text, model,
     cards: withCard && view.pending ? [cardFor(view, turnId)] : [],
-    notes: [],
+    notes,
     run: receipt && view.version ? { run_key: runIdOf(view.version), run_id: runIdOf(view.version), computed_against: rev16(view), state: { kind: 'current', computed_at: view.version.at } } : null,
     analysis_result: null, analysis_state: null,
     model_program: { version: 'v1' },
@@ -109,7 +114,8 @@ export function makeShim({ core, log = () => {} }) {
     return afterWrite(async () => {
       const after = await view(ctx, sid)
       const row = after.chat.find((c) => c.proposal === v.pending.id) ?? after.chat.find((c) => c.version === r.n)
-      return { out: turnBody(after, { turnId, text: replyOf(row) || `Saved as version ${r.n}.`, withCard: false, receipt: true }) }
+      const reply = replyWithNote(after, row, cardsOf(v))
+      return { out: turnBody(after, { turnId, text: reply.text || `Saved as version ${r.n}.`, withCard: false, receipt: true, notes: reply.notes }) }
     })
   }
 
@@ -149,7 +155,8 @@ export function makeShim({ core, log = () => {} }) {
     const saved = await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body: { base: v.version.id, quantity, value, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined } })
     return afterWrite(async () => {
       const after = await view(ctx, sid)
-      return { out: turnBody(after, { turnId, text: replyOf(after.chat.find((c) => c.kind === 'edit' && c.version === saved.n)) || 'Saved.', withCard: false, receipt: true }) }
+      const reply = replyWithNote(after, after.chat.find((c) => c.kind === 'edit' && c.version === saved.n), cardsOf(v))
+      return { out: turnBody(after, { turnId, text: reply.text || 'Saved.', withCard: false, receipt: true, notes: reply.notes }) }
     })
   }
 
@@ -208,7 +215,10 @@ export function makeShim({ core, log = () => {} }) {
         if (!r.discussion && v.pending) return { out: turnBody(v, { turnId, text: heldWithProblem(row.problem), withCard: true }) }
         return { out: problemTurn(turnId, row.problem) }
       }
-      if (r.discussion) return { out: turnBody(v, { turnId, text: replyOf(row) || 'Noted. Nothing in the model changes.', withCard: !!v.pending }) }
+      if (r.discussion) {
+        const reply = replyWithNote(v, row, cardsOf(before))
+        return { out: turnBody(v, { turnId, text: reply.text || 'Noted. Nothing in the model changes.', withCard: !!v.pending, notes: reply.notes }) }
+      }
       return { out: turnBody(v, { turnId, text: CHANGE_LEAD, withCard: true }) }
     })
   }

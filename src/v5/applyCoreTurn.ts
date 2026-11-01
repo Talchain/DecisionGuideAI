@@ -12,6 +12,7 @@
 import { AnalysisStateV1Schema, type AnalysisStateV1 } from '@talchain/schemas/boundary'
 import type { Node } from '@xyflow/react'
 import { requestOlumiAttention } from '../canvas/utils/olumiAttention'
+import { focusAssistantTarget } from '../canvas/utils/assistantFocusCamera'
 import { bumpSavedGraphEpoch } from '../canvas/nodes/shared/savedGraphEpoch'
 import { ADDITIVE_EXTENSIONS_KEY } from './responseParser'
 import type { CoreTurn } from './coreTurnContract'
@@ -37,6 +38,8 @@ export interface CoreTurnApplicatorStore {
 
 /** The card kinds a note sits beside (CEE `NOTE_NODE_KINDS`); the question itself is never a card to note. */
 const NOTE_KINDS = new Set(['factor', 'option', 'goal', 'risk', 'constraint', 'outcome'])
+/** The cards Olumi's pointer (focus halo and camera) can land on; a note on any other kind is held beside its card without it. */
+const POINTER_KINDS = new Set(['factor', 'option', 'goal', 'risk', 'outcome'])
 
 export function applyCoreTurnState(turn: CoreTurn, store: CoreTurnApplicatorStore, options?: ApplyV5StateOptions): ApplyV5StateResult {
   const applied: string[] = []
@@ -70,6 +73,13 @@ export function applyCoreTurnState(turn: CoreTurn, store: CoreTurnApplicatorStor
     if (store.nodes.some((n) => n.id === note.element_id)) {
       requestOlumiAttention({ nodeIds: [note.element_id], edgeIds: [], note: { body: note.text.trim() }, ...(revision ? { modelVersion: revision } : {}) })
       applied.push(`note:${note.element_id}`)
+      // olumi-core lane: Olumi points at the card its next step is about (the assistant-focus halo, and the camera if the card is
+      // off screen), the way a CEE `focus` directive does. A note on any other kind of card is held without the pointer.
+      const card = graphNodes.find((g) => g.id === note.element_id)
+      if (isOlumiCoreLane() && typeof card?.kind === 'string' && POINTER_KINDS.has(card.kind) && typeof card.label === 'string') {
+        focusAssistantTarget({ id: note.element_id, kind: 'node', label: card.label, scenarioId: options?.turnScenarioId ?? null })
+        applied.push(`focus:${note.element_id}`)
+      }
     } else {
       deferred.push({ reason: 'ui_directive_target_not_found', detail: note.element_id })
     }

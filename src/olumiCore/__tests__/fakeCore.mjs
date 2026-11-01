@@ -85,6 +85,7 @@ export async function startFakeCore() {
       const entry = scenarios.get(m[1]); if (!entry || entry.owner !== me.id) return send(404, { error: 'not found' })
       if (entry.view.pending) return send(409, { error: 'approve or set aside the pending change first' })
       if (body.base !== entry.view.version.id) return send(409, { error: 'this figure was edited on a different version' })
+      if (entry.after?.edit) { entry.view = structuredClone(entry.after.edit); return send(201, { version: entry.view.version.id, n: entry.view.version.n, receipt: 'edit' }) }
       const rec = entry.view.version.form.records.find((r) => r.id === body.quantity)
       if (!rec) return send(404, { error: 'no such figure' })
       rec.assertion = body.value.kind === 'interval'
@@ -103,7 +104,7 @@ export async function startFakeCore() {
     failNext: (status, message, headers = {}) => { fail = { status, message, headers } },
     /** The next write succeeds and is kept, but the read that follows it fails (a lost answer, not a lost write). */
     failReadAfterWrite: (status, message) => { failReadAfterWrite = { status, message }; wrote = false },
-    /** A scenario exactly as a real core served it (a captured view), owned by that person; `after.approve` is the view an approval turns it into. */
+    /** A scenario exactly as a real core served it (a captured view), owned by that person; `after.approve` is the view an approval turns it into, `after.edit` the view a figure edit turns it into. */
     seed: (token, view, after = {}) => { const v = structuredClone(view); scenarios.set(v.id, { owner: people.get(token).id, view: v, after }); return v.id },
     problemNext: (text) => { problemNext = text },
     close: () => new Promise((r) => server.close(r)),
