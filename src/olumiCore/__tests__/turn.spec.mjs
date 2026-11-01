@@ -127,6 +127,29 @@ describe('canvas writes (gap 1)', () => {
   })
 })
 
+describe('the turn carries the Run view for the model it shows (so the Analysis tab agrees with the canvas at once)', () => {
+  it('a first draft still held has no Run: the view is null, which clears whatever the page held', async () => {
+    const { r } = await started()
+    expect(r.out.model.canonical_analysis_view).toBeNull()
+  })
+  it('an approval carries the current Run, the very one the turn names', async () => {
+    const { a } = await started({ approve: true })
+    const view = parseCanonicalAnalysisView(a.out.model.canonical_analysis_view)
+    expect(view).not.toBeNull()
+    expect(view.staleness.stale).toBe(false)
+    expect(view.run.run_id).toBe(a.out.run.run_id)
+  })
+  it('a change held beside the saved model carries that model\'s Run as NOT current; setting it aside makes it current again', async () => {
+    const { ctx } = await started({ approve: true })
+    const held = (await shim.turn(ctx, msg('Add staff absence as a factor.'))).out
+    expect(held.model.canonical_analysis_view.staleness.stale).toBe(true)
+    expect(held.model.canonical_analysis_view.run.graph_hash_at_run).not.toBe(held.model.revision)
+    const declined = (await shim.turn(ctx, msg('Not now.', { source: 'chip_click', chip: { id: held.cards[0].decline_action.id } }))).out
+    expect(declined.model.canonical_analysis_view.staleness.stale).toBe(false)
+    expect(declined.model.canonical_analysis_view.run.graph_hash_at_run).toBe(declined.model.revision)
+  })
+})
+
 describe('discussion and challenges (gap 6)', () => {
   it('a question gets Olumi\'s reply and no card: it renders as a reply, not a change', async () => {
     const { ctx } = await started({ approve: true })

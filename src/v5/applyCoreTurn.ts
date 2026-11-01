@@ -17,6 +17,8 @@ import { ADDITIVE_EXTENSIONS_KEY } from './responseParser'
 import type { CoreTurn } from './coreTurnContract'
 import type { ApplyV5StateOptions, ApplyV5StateResult } from './applyV5State'
 import { isOlumiCoreLane } from '../olumiCore/lane'
+import { parseCanonicalAnalysisView } from '../canvas/runView/canonicalAnalysisView'
+import { useCanonicalAnalysisViewStore } from '../canvas/stores/canonicalAnalysisViewStore'
 
 /** The core turn the parser kept beside the answer (`coreTurnResponse`), or null for any other answer. */
 export function readCoreTurn(response: unknown): CoreTurn | null {
@@ -50,6 +52,13 @@ export function applyCoreTurnState(turn: CoreTurn, store: CoreTurnApplicatorStor
   if (isOlumiCoreLane() && turn.model == null && turn.error == null && store.nodes.length > 0 && store.withdrawGraph) {
     store.withdrawGraph()
     applied.push('graph:withdrawn')
+  }
+
+  // olumi-core lane: the turn carries the Run view for the model it shows (as a read does), so the Analysis tab agrees with the canvas
+  // at once: not current beside a held change, current again once it is set aside. Without it the view of the last read stands.
+  if (isOlumiCoreLane() && turn.model != null && 'canonical_analysis_view' in turn.model && options?.turnScenarioId) {
+    useCanonicalAnalysisViewStore.getState().adopt(options.turnScenarioId, parseCanonicalAnalysisView(turn.model.canonical_analysis_view))
+    applied.push('canonical_analysis_view:adopted')
   }
 
   const revision = turn.model?.revision ?? null

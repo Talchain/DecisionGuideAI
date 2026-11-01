@@ -56,7 +56,10 @@ function cardFor(view, issuedTurnId) {
 
 /** The turn's body. `receipt`: this turn saved a version, so it names the Run its results belong to (DGAI adopts a Run's view only then). */
 function turnBody(view, { turnId, text, withCard, receipt }) {
-  const model = modelOf(view)
+  const shown = modelOf(view)
+  // The Run view rides with the model it belongs to (the page adopts it as a read does): without it the Analysis tab keeps the view
+  // of the last read, which is the saved model's chances shown as current beside a held change, or beside its absence after "Not now".
+  const model = shown ? { ...shown, canonical_analysis_view: analysisViewOf(view) } : null
   return {
     turn_id: turnId, assistant_text: text, model,
     cards: withCard && view.pending ? [cardFor(view, turnId)] : [],
