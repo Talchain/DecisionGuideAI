@@ -198,4 +198,39 @@ describe('where the note sits (Paul\'s pre-flight, 22 Oct: on the left it covere
     const wall = { x: 0, y: 0, w: 1100, h: 2000 }
     expect(attentionCardSpot(O2, { w: 268, h: 110 }, [wall], 0, 1066, 0), 'nothing free').toEqual({ left: 272, top: 320 })
   })
+  describe('design QA 8: the note stays on screen and clear of the controls drawn over the canvas', () => {
+    const card = { w: 268, h: 110 }
+    const hits = (a: { left: number; top: number }, b: { x: number; y: number; w: number; h: number }) =>
+      a.left < b.x + b.w && a.left + card.w > b.x && a.top < b.y + b.h && a.top + card.h > b.y
+    // 1280x800 witness (state 15): Per specialist sits in a dense row; its free spot was far down on the left, under the zoom controls.
+    const per = { x: 285, y: 378, w: 190, h: 85 }
+    const row = [{ x: 70, y: 380, w: 190, h: 83 }, { x: 500, y: 378, w: 190, h: 85 }, { x: 715, y: 378, w: 190, h: 85 }]
+    const lower = [{ x: 265, y: 515, w: 210, h: 68 }, { x: 500, y: 515, w: 212, h: 68 }, { x: 312, y: 620, w: 380, h: 77 }]
+    const upper = [{ x: 312, y: 130, w: 380, h: 76 }, { x: 263, y: 244, w: 212, h: 98 }, { x: 500, y: 244, w: 212, h: 98 }]
+    const zoom = { x: 8, y: 612, w: 52, h: 160 }, rail = { x: 8, y: 74, w: 52, h: 150 }
+    it('with the controls as obstacles the note is never under them, and the room keeps it inside the canvas', () => {
+      const room = { left: 14, right: 905, top: 14, bottom: 786 }
+      const spot = attentionCardSpot(per, card, [...row, ...lower, ...upper, zoom, rail], room.left, room.right, room.top, room.bottom)
+      expect(hits(spot, zoom)).toBe(false)
+      expect(hits(spot, rail)).toBe(false)
+      expect(spot.left).toBeGreaterThanOrEqual(room.left)
+      expect(spot.left + card.w).toBeLessThanOrEqual(room.right)
+      expect(spot.top).toBeGreaterThanOrEqual(room.top)
+      expect(spot.top + card.h).toBeLessThanOrEqual(room.bottom)
+    })
+    it('CONTRAST: without them (the old room) the same board put it at the bottom left, under the zoom controls', () => {
+      const spot = attentionCardSpot(per, card, [...row, ...lower, ...upper], 0, 905, 0)
+      expect(hits(spot, zoom)).toBe(true)
+    })
+    it('a spot below the room is not taken: a note never hangs off the bottom of the canvas', () => {
+      const wall = { x: 0, y: 0, w: 1000, h: 700 }
+      const spot = attentionCardSpot({ x: 400, y: 300, w: 100, h: 50 }, card, [wall], 14, 905, 14, 760)
+      expect(spot.top + card.h).toBeLessThanOrEqual(760)
+    })
+    it('where no spot is inside the room at all it is clamped into it, never left off an edge', () => {
+      const spot = attentionCardSpot({ x: 50, y: 50, w: 100, h: 50 }, { w: 268, h: 110 }, [], 14, 200, 14, 100)
+      expect(spot.left).toBeGreaterThanOrEqual(14)
+      expect(spot.top).toBeGreaterThanOrEqual(14)
+    })
+  })
 })

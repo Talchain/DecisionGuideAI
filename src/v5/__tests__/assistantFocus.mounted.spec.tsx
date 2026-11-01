@@ -106,7 +106,7 @@ describe('ui_directive focus — mounted browser surface', () => {
     const chip = screen.getByTestId('assistant-focus-chip')
     expect(chip).toHaveAttribute('data-focus-id', ASSISTANT_NODE.id)
     // Live canvas identity/copy wins over the producer's potentially stale label.
-    expect(chip).toHaveTextContent('Olumi focus: Assistant target')
+    expect(chip).toHaveTextContent('Olumi is looking at Assistant target')
     expect(result.applied).toContain(`ui_directive:focus:${ASSISTANT_NODE.id}`)
 
     const canvas = useCanvasStore.getState()
