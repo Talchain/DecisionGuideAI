@@ -190,6 +190,11 @@ describe('errors are visible, with the right words (gap 6)', () => {
     expect(out.error).toMatchObject({ code: 'olumi_core_error', retry_safe: true, nothing_saved: true })
     expect(out.error.message).not.toMatch(/OpenAI|secret/)
   })
+  it('a timeout does not claim nothing was saved (core may have saved before the reply was lost)', async () => {
+    const slow = makeShim({ core: makeCore({ base: fake.url, timeoutMs: 1, paidTimeoutMs: 1, fetchImpl: (url, init) => new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(Object.assign(new Error('timed out'), { name: 'TimeoutError' })))) }) })
+    const out = (await slow.turn({ token: 'tok-ada', aliases: [] }, msg('hi'))).out
+    expect(out.error).toMatchObject({ code: 'olumi_timeout', nothing_saved: false, retry_safe: false })
+  })
   it('core unreachable is a visible failure too', async () => {
     const down = makeShim({ core: makeCore({ base: 'http://127.0.0.1:1' }) })
     const out = (await down.turn({ token: 'tok-ada', aliases: [] }, msg('hi'))).out

@@ -32,8 +32,12 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 /** The page for a browser with no valid private link: plain words, nothing of DGAI loads. */
 export const LINK_PAGE = (note) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Open your private link</title></head><body style="font:16px/1.5 system-ui,sans-serif;max-width:520px;margin:72px auto;padding:0 16px;color:#1f2937"><h1 style="font-size:22px;margin:0 0 12px">Open your private link</h1><p>Olumi opens from a private link that was sent to you. Open that link in this browser to continue.</p><p style="color:#6b7280">${esc(note)}</p></body></html>`
 
-/** Runs before DGAI starts: when this browser last held someone else's link, DGAI's saved state (their scenario, thread and autosave) is cleared. */
-const bootstrap = (person) => `<script>(function(){try{var p=${JSON.stringify(person.id)};var k='olumi-core-person';var had=localStorage.getItem(k);if(had!==p){localStorage.clear();sessionStorage.clear();localStorage.setItem(k,p)}window.__OLUMI_CORE__={person:${JSON.stringify(person)}};if(!location.hash||location.hash==='#'||location.hash==='#/'){location.replace(location.pathname+location.search+'#/canvas')}}catch(e){}})()</script>`
+/**
+ * Runs before DGAI starts. (1) When this browser last held someone else's link, DGAI's saved state (their scenario, thread and
+ * autosave) is cleared. (2) When the address names a scenario this person cannot open (someone else's, or none), DGAI would
+ * show a blank canvas and say nothing: this says so, with the way out.
+ */
+const bootstrap = (person) => `<script>(function(){try{var p=${JSON.stringify(person.id)};var k='olumi-core-person';var had=localStorage.getItem(k);if(had!==p){localStorage.clear();sessionStorage.clear();localStorage.setItem(k,p)}window.__OLUMI_CORE__={person:${JSON.stringify(person)}};if(!location.hash||location.hash==='#'||location.hash==='#/'){location.replace(location.pathname+location.search+'#/canvas')}var m=/^#\\/scenario\\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i.exec(location.hash);if(m){fetch('/bff/cee/scenarios/'+m[1]+'/graph',{method:'POST',headers:{'content-type':'application/json'},body:'{}'}).then(function(r){if(r.status!==404&&r.status!==401)return;var d=document.createElement('div');d.setAttribute('role','alert');d.setAttribute('data-testid','olumi-core-scenario-unavailable');d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#fff7ed;border-bottom:1px solid #fdba74;color:#7c2d12;font:15px/1.4 system-ui,sans-serif;padding:12px 16px;text-align:center';d.innerHTML='That scenario is not available to you: it may belong to someone else. Open it from your own private link, or <a href="#/canvas" style="color:inherit">start a new one</a>.';document.body.appendChild(d)}).catch(function(){})}}catch(e){}})()</script>`
 
 export function createServer(opts = {}) {
   const coreUrl = (opts.coreUrl ?? process.env.OLUMI_CORE_URL ?? '').replace(/\/$/, '')
@@ -75,7 +79,7 @@ export function createServer(opts = {}) {
     const setCookie = r.headers.getSetCookie?.() ?? []
     if (setCookie.length) headers['set-cookie'] = setCookie
     const loc = r.headers.get('location')
-    if (loc) headers.location = rewriteLocation ? rewriteLocation(loc, setCookie) : loc
+    if (loc) headers.location = rewriteLocation ? await rewriteLocation(loc, setCookie) : loc
     const buf = Buffer.from(await r.arrayBuffer())
     res.writeHead(r.status, headers)
     res.end(req.method === 'HEAD' ? undefined : buf)
@@ -111,11 +115,16 @@ export function createServer(opts = {}) {
       if (p.startsWith('/k/')) {
         const ctx = ctxOf(req)
         return await proxy(req, res, p + url.search, {
-          rewriteLocation: (loc, setCookie) => {
-            const m = /^\/s\/(s_[0-9a-f]+)$/.exec(loc)
+          // Core redirects to /s/<id> (the link names a scenario) or to / (it does not). Both land in DGAI: the named scenario, or the
+          // person's most recent one (a link opened on a new device must open their work, not a blank canvas), else the canvas.
+          rewriteLocation: async (loc, setCookie) => {
             const newToken = /(?:^|;\s*)olumi=([^;]*)/.exec(setCookie.find((c) => c.startsWith('olumi=')) ?? '')?.[1]
-            const sameBrowser = !newToken || decodeURIComponent(newToken) === ctx.token
-            return m ? `/#/scenario/${uuidOfSid(m[1], sameBrowser ? ctx.aliases : [])}` : '/#/canvas'
+            const token = newToken ? decodeURIComponent(newToken) : ctx.token
+            const aliases = !token || token === ctx.token ? ctx.aliases : []
+            const named = /^\/s\/(s_[0-9a-f]+)$/.exec(loc)?.[1]
+            let sid = named
+            if (!sid && token) { try { sid = (await core('GET', '/api/me', { token })).scenarios?.at(-1)?.id } catch { /* the canvas, then */ } }
+            return sid ? `/#/scenario/${uuidOfSid(sid, aliases)}` : '/#/canvas'
           },
         }).then(() => undefined)
       }

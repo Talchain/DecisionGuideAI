@@ -3970,10 +3970,12 @@ export function useConversation(): UseConversationReturn {
    * surface, well outside this lane.
    */
   const resolveFailedOptimisticFactorEdit = useCallback(
-    (edit: OptimisticFactorEdit, conflictCategory: string | undefined) => {
+    (edit: OptimisticFactorEdit, conflictCategory: string | undefined, coreNothingSaved?: { readonly words: string | null }) => {
       let notice: OptimisticFactorEditNoticeKey
 
-      if (isProvenNoWriteConflict(conflictCategory)) {
+      // The core route states its own no-write guarantee (`nothing_saved: true`, as the structural writers read it): olumi-core
+      // saves a figure and its Run together or not at all, so a refusal there is proven and the canvas holds what the model holds.
+      if (isProvenNoWriteConflict(conflictCategory) || coreNothingSaved !== undefined) {
         // A newer queued edit may request the SAME number. Value equality alone
         // cannot license A's rollback over that distinct optimistic gesture.
         if (deferredSystemSendsRef.current.some(entry =>
@@ -4013,6 +4015,8 @@ export function useConversation(): UseConversationReturn {
         // which is false about a turn the user stopped.
         content:
           (notice === 'proven_no_write' ? fenceRefusalCopyForCategory(conflictCategory) : null) ??
+          (notice === 'proven_no_write' && coreNothingSaved !== undefined && !isProvenNoWriteConflict(conflictCategory)
+            ? `${coreNothingSaved.words ?? 'Nothing was saved.'} Your figure is back as it was.` : null) ??
           OPTIMISTIC_FACTOR_EDIT_NOTICE[notice],
         timestamp: new Date(),
       })
@@ -5693,6 +5697,7 @@ export function useConversation(): UseConversationReturn {
             resolveFailedOptimisticFactorEdit(
               optimisticEdit,
               conflictCategory,
+              coreNothingSavedOf(v5Headers, target.rawBody ?? target.boundaryError).coreNothingSaved,
             )
           } else {
             const applied = responseAppliedFactorEdit(target.response, optimisticEdit.nodeId, optimisticEdit.sentValue)

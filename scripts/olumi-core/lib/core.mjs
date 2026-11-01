@@ -45,13 +45,15 @@ export function makeCore({ base, fetchImpl = fetch, paidTimeoutMs = 11 * 60_000,
  */
 export function errorTurn(turnId, e) {
   const status = e instanceof CoreError ? e.status : 500
-  const make = (code, message, retry_safe) => ({ turn_id: turnId ?? null, assistant_text: '', model: null, cards: [], notes: [], run: null, receipts: [], error: { code, message, retry_safe, nothing_saved: true } })
+  const make = (code, message, retry_safe, nothing_saved = true) => ({ turn_id: turnId ?? null, assistant_text: '', model: null, cards: [], notes: [], run: null, receipts: [], error: { code, message, retry_safe, nothing_saved } })
   if (status === 401 || status === 403) return make('unauthorised', 'Open your private link to continue. This browser is not signed in to Olumi, or your link has expired.', false)
   if (status === 404) return make('not_found', 'That scenario is not available to you. Open it from your own private link.', false)
   if (status === 409) return make('revision_conflict', `${e.message.charAt(0).toUpperCase()}${e.message.slice(1)}${/[.!?]$/.test(e.message) ? '' : '.'} Nothing was saved.`, true)
   if (status === 429) return make('rate_limited', e.message, true)
   if (status === 400) return make('bad_request', e.message, false)
   if (status === 413) return make('too_long', 'That is too long for Olumi to take in one go. Shorten it and send it again.', false)
+  // Could not connect: nothing was sent. A timeout may have been after core saved, so it does not claim that.
+  if (status === 0 && (e.op === 'TimeoutError' || e.op === 'AbortError')) return make('olumi_timeout', 'Olumi did not answer in time. It may or may not have saved that: check the model before sending it again.', false, false)
   if (status === 0) return make('olumi_unreachable', 'Olumi cannot be reached right now. Nothing was saved. Try again in a moment.', true)
   return make('olumi_core_error', 'Olumi could not finish that this time, and nothing was saved. Please try again in a moment.', true)
 }

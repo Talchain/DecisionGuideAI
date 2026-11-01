@@ -126,6 +126,20 @@ describe('identity: each browser is its own person (gap 3)', () => {
     expect(land.headers.get('location')).toBe(`/#/scenario/${derived}`)
     expect(land.headers.get('set-cookie')).toMatch(/olumi=tok-bea/)
   })
+  it('a link that names no scenario lands on the person\'s most recent one (a new device opens their work, not a blank canvas); with none it lands on the canvas', async () => {
+    const mine = [...fake.scenarios].filter(([, s]) => s.owner === '1').map(([id]) => id)
+    expect(mine.length).toBeGreaterThan(1)
+    const land = await fetch(base + '/k/tok-ada', { redirect: 'manual' })
+    expect(land.headers.get('location')).toBe(`/#/scenario/00000000-0000-4000-8000-${mine.at(-1).slice(2)}`)
+    fake.addPerson('tok-new', '9', 'Nia')
+    expect((await fetch(base + '/k/tok-new', { redirect: 'manual' })).headers.get('location')).toBe('/#/canvas')
+  })
+  it('a scenario address this person cannot open is said, not shown as a blank canvas: the page carries the notice and the check', async () => {
+    const html = await (await fetch(base + '/', { headers: { cookie: 'olumi=tok-ada' } })).text()
+    expect(html).toContain('olumi-core-scenario-unavailable')
+    expect(html).toContain("/bff/cee/scenarios/'+m[1]+'/graph")
+    expect(html).toMatch(/That scenario is not available to you/)
+  })
   it('a malformed turn body is a 400, not a crash', async () => {
     const r = await fetch(base + '/bff/orchestrate/v2/turn', { method: 'POST', headers: { cookie: 'olumi=tok-ada' }, body: '{nope' })
     expect(r.status).toBe(400)
