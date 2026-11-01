@@ -47,7 +47,7 @@ export function applyCoreTurnState(turn: CoreTurn, store: CoreTurnApplicatorStor
 
   // olumi-core holds NO model for this scenario (a first draft was set aside, and a draft is only ever held or saved): the canvas
   // must not go on drawing it, or a figure edit there would answer "no saved model" and a reload would bring it back.
-  if (isOlumiCoreLane() && turn.model == null && store.nodes.length > 0 && store.withdrawGraph) {
+  if (isOlumiCoreLane() && turn.model == null && turn.error == null && store.nodes.length > 0 && store.withdrawGraph) {
     store.withdrawGraph()
     applied.push('graph:withdrawn')
   }

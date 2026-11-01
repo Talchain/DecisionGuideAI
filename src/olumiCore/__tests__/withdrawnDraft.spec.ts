@@ -37,6 +37,17 @@ describe('a core turn that says there is no model lets go of the draft on the ca
     applyCoreTurnState(stillThere(), store)
     expect(withdrawGraph).not.toHaveBeenCalled()
   })
+  it('a turn that failed (it carries no model either) never blanks the canvas, least of all one whose write core KEPT', () => {
+    for (const error of [
+      { code: 'rate_limited', message: 'Try again later.', retry_safe: true, nothing_saved: true },
+      { code: 'saved_not_shown', message: 'Your change was saved.', retry_safe: false, nothing_saved: false },
+      { code: 'identity_changed', message: 'Reload.', retry_safe: false, nothing_saved: true },
+    ]) {
+      const { store, withdrawGraph } = storeWith(nodes)
+      applyCoreTurnState(parseCoreTurn(turnBodyForTest({ model: null, error }))!, store)
+      expect(withdrawGraph, error.code).not.toHaveBeenCalled()
+    }
+  })
   it('an empty canvas has nothing to let go of', () => {
     const { store, withdrawGraph } = storeWith([])
     applyCoreTurnState(declined(), store)
