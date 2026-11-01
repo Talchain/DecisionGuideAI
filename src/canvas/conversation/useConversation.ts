@@ -6782,6 +6782,10 @@ export function useConversation(): UseConversationReturn {
           } else if (coreError?.error === 'legacy_scenario') {
             // The core route refuses a scenario saved before the living model (CEE 409); no resend can change that (DL 22 Oct).
             content = LEGACY_SCENARIO_COPY
+          } else if (isOlumiCoreLane() && typeof coreError?.detail === 'string' && coreError.detail.trim() !== '') {
+            // olumi-core's own words for the failure: the server writes them for the person (open your private link, wait this long,
+            // what moved, that nothing was saved), so no generic "something went wrong" stands in for them.
+            content = coreError.detail.trim()
           } else if (coreError?.error === 'PROVIDER_CAPACITY') {
             content = "Olumi's AI service is temporarily out of capacity. "
               + (coreError.nothing_saved === true ? 'Nothing was saved. ' : '')
