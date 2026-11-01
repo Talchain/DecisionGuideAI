@@ -41,13 +41,13 @@ const BEA = { id: '2', name: 'Bea' }
 const turnTo = (uuid) => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'message', scenario_id: uuid, message: 'hi' }) })
 
 describe('the page says who it was opened for (finding: an open tab must not write as somebody else)', () => {
-  it('every call to the server\'s /bff/ routes carries the person this tab was opened for; other addresses are left alone', async () => {
+  it('every call to the server\'s /bff/ and /api/ routes carries the person this tab was opened for; other addresses are left alone', async () => {
     const { win, sent } = pageFor(ADA)
     await win.fetch('/bff/orchestrate/v2/turn', turnTo(U))
     await win.fetch('/bff/cee/scenarios/' + U + '/graph', { method: 'POST', body: '{}' })
     await win.fetch('/api/me')
     await win.fetch('https://elsewhere.test/bff/x')
-    expect(sent.map((s) => s.headers.get('x-olumi-person'))).toEqual(['1', '1', null, null])
+    expect(sent.map((s) => s.headers.get('x-olumi-person'))).toEqual(['1', '1', '1', null])
     expect(sent[0].headers.get('content-type')).toBe('application/json')
     expect(sent[0].init.body).toContain('"message":"hi"')
   })

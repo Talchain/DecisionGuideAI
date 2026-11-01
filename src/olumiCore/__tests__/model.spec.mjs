@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { graphOf, canonicalOf, analysisViewOf, leftOutOf, sayFact } from '../../../scripts/olumi-core/lib/model.mjs'
+import { graphOf, canonicalOf, analysisViewOf, leftOutOf, sayFact, modelOf, goalConstraintsOf } from '../../../scripts/olumi-core/lib/model.mjs'
 import { rev16, revSaved16 } from '../../../scripts/olumi-core/lib/ids.mjs'
 import { parseCanonicalAnalysisView } from '../../canvas/runView/canonicalAnalysisView'
 import { runViewOf } from '../../canvas/runView/runView'
@@ -298,13 +298,61 @@ describe('a calculation\'s links bear on what they define the way the relation s
     expect(drawn(minus).label).toMatch(/Drag/)
     expect(edgeOf(g, 'existing_capacity__total_capacity').effect_direction).toBe('positive')
   })
-  it('a DIVISOR (a negative power) lowers it', () => {
-    const form = cloneForm()
-    relation(form, 'added_def').parts[1].power = -1
-    const g = graphOf(form)
-    expect(edgeOf(g, 'per_specialist__added_capacity').effect_direction).toBe('negative')
-    expect(drawn(edgeOf(g, 'per_specialist__added_capacity')).label).toMatch(/Drag/)
-    expect(edgeOf(g, 'specialists__added_capacity').effect_direction).toBe('positive')
+  describe('a DIVISOR lowers the result only when every other factor is known to be positive', () => {
+    const divide = (numeratorDomain) => {
+      const form = cloneForm()
+      relation(form, 'added_def').parts[1].power = -1   // specialists / per_specialist
+      relation(form, 'specialists').domain = numeratorDomain
+      return graphOf(form)
+    }
+    it('a numerator with a floor at or above zero: the divisor lowers it, drawn as a drag', () => {
+      const g = divide({ lower: 0, upper: null })
+      expect(edgeOf(g, 'per_specialist__added_capacity').effect_direction).toBe('negative')
+      expect(drawn(edgeOf(g, 'per_specialist__added_capacity')).label).toMatch(/Drag/)
+      expect(edgeOf(g, 'specialists__added_capacity').effect_direction).toBe('positive')
+    })
+    it('a negative numerator (-100 / x rises as x rises): the divisor\'s side is not stated, never a drag', () => {
+      const g = divide({ lower: null, upper: 0 })
+      expect(edgeOf(g, 'per_specialist__added_capacity').effect_direction).toBe('unknown')
+      expect(drawn(edgeOf(g, 'per_specialist__added_capacity')).direction.show).toBe(false)
+    })
+    it('a numerator whose sign nothing fixes, or one that straddles zero: not stated either', () => {
+      expect(edgeOf(divide(null), 'per_specialist__added_capacity').effect_direction).toBe('unknown')
+      expect(edgeOf(divide({ lower: -5, upper: 5 }), 'per_specialist__added_capacity').effect_direction).toBe('unknown')
+    })
+  })
+  describe('a source that contributes more than once to one target keeps a side only if every contribution agrees', () => {
+    it('x + x - x: the contributions disagree, so the link is not given a side (not the last term\'s drag)', () => {
+      const form = cloneForm()
+      relation(form, 'total_def').parts = [{ id: 'existing_capacity', sign: 1 }, { id: 'existing_capacity', sign: 1 }, { id: 'existing_capacity', sign: -1 }, { id: 'added_capacity', sign: 1 }]
+      const g = graphOf(form)
+      expect(g.edges.filter((e) => e.id === 'existing_capacity__total_capacity')).toHaveLength(1)
+      expect(edgeOf(g, 'existing_capacity__total_capacity').effect_direction).toBe('unknown')
+      expect(edgeOf(g, 'added_capacity__total_capacity').effect_direction).toBe('positive')
+    })
+    it('x + x: the same known side twice keeps it', () => {
+      const form = cloneForm()
+      relation(form, 'total_def').parts = [{ id: 'existing_capacity', sign: 1 }, { id: 'existing_capacity', sign: 1 }]
+      expect(edgeOf(graphOf(form), 'existing_capacity__total_capacity').effect_direction).toBe('positive')
+    })
+    it('future = current + rate × current with a negative rate: the base raises and the term lowers, so the link has no side', () => {
+      for (const domain of [{ lower: null, upper: 0 }, null]) {   // a ceiling at zero fixes the term as lowering; no domain states nothing
+        const form = cloneForm()
+        form.records = form.records.filter((r) => r.id !== 'added_def')
+        form.records.push({ family: 'relation', id: 'eff', form: 'effect', defines: 'added_capacity', base: 'existing_capacity', terms: [{ driver: 'existing_capacity', coefficient: 'per_specialist' }], origin: { by: 'olumi', basis: 'x' } })
+        relation(form, 'per_specialist').domain = domain
+        const e = edgeOf(graphOf(form), 'existing_capacity__added_capacity')
+        expect(e.effect_direction).toBe('unknown')
+      }
+    })
+    it('current + rate × current with a rate known to be at or above zero: every contribution raises, so the link raises', () => {
+      const form = cloneForm()
+      form.records = form.records.filter((r) => r.id !== 'added_def')
+      form.records.push({ family: 'relation', id: 'eff', form: 'effect', defines: 'added_capacity', base: 'existing_capacity', terms: [{ driver: 'existing_capacity', coefficient: 'per_specialist' }], origin: { by: 'olumi', basis: 'x' } })
+      relation(form, 'per_specialist').domain = { lower: 0, upper: null }
+      relation(form, 'existing_capacity').domain = { lower: 0, upper: null }
+      expect(edgeOf(graphOf(form), 'existing_capacity__added_capacity').effect_direction).toBe('positive')
+    })
   })
   it('a stock\'s outflow lowers it and its inflow raises it', () => {
     const form = cloneForm()
@@ -369,11 +417,53 @@ describe('the person\'s limits are in the canonical model DGAI reads (tier R ste
   it('a held proposal\'s limit is "proposed" until it is approved', () => {
     expect(canonicalOf(richForm, false).limits[0].approval).toBe('proposed')
   })
-  it('the row DGAI then prints names the limit and states no figure it was not given', () => {
-    const [row] = programLimitsWithoutFigure({ living_model: { model_program: 'v1', canonical }, nodes: [], edges: [] }, [])
+  it('a limit that states no single figure is listed without one, and no number is made up for it', () => {
+    const form = JSON.parse(JSON.stringify(richForm))
+    form.records.find((r) => r.id === 'cap').assertion = { kind: 'interval', low: 100, high: 130, range_kind: 'plausible', likely: null }
+    expect(goalConstraintsOf(form)).toEqual([])
+    const [row] = programLimitsWithoutFigure({ living_model: { model_program: 'v1', canonical: canonicalOf(form, true) }, nodes: [], edges: [] }, [])
     const words = goalConstraintText(row, [])
     expect(words).toMatch(/Capacity ceiling/)
-    expect(words).not.toMatch(/NaN/)
+    expect(words).not.toMatch(/NaN|120/)
+  })
+})
+
+describe('a limit that states one figure reaches the Model list WITH the figure (goal_constraints)', () => {
+  const graph = modelOf({ version: rich.version, pending: null, id: rich.id, chat: [] }).graph
+  it('the graph carries it as DGAI\'s own limit row: its name, what it limits, the way, the figure, the unit and the person\'s words', () => {
+    expect(graph.goal_constraints).toEqual([{ constraint_id: 'ceiling', label: 'Capacity ceiling', node_id: 'total_capacity', operator: '<=', value: 120, unit: 'ticket/week', source_quote: 'no more than 120', provenance: 'explicit' }])
+  })
+  it('the row is said with its figure, and the list does not repeat it as a limit with none', () => {
+    const [row] = graph.goal_constraints
+    expect(goalConstraintText(row, graph.nodes)).toMatch(/120/)
+    expect(goalConstraintText(row, graph.nodes)).not.toMatch(/not captured/)
+    expect(programLimitsWithoutFigure(graph, graph.goal_constraints)).toEqual([])
+  })
+  it('a limit with another way to be stated (strict, a total over a span, per something, approximate) is not turned into a plain "at most"', () => {
+    const variants = [
+      (r) => { r.measure.cmp = '<' },
+      (r) => { r.measure.aggregation = 'sum' },
+      (r) => { r.measure.window = { origin_event: null, origin_offset: null, start: 0, periods: 'p' } },
+      (r) => { r.measure.per = 'specialists' },
+    ]
+    for (const change of variants) {
+      const form = JSON.parse(JSON.stringify(richForm))
+      change(form.records.find((r) => r.id === 'ceiling'))
+      expect(goalConstraintsOf(form)).toEqual([])
+    }
+    const form = JSON.parse(JSON.stringify(richForm))
+    form.records.find((r) => r.id === 'cap').assertion.approximate = true
+    expect(goalConstraintsOf(form)).toEqual([])
+  })
+  it('a model with no such limit leaves `goal_constraints` off (its absence is what clears the limits shown)', () => {
+    const noLimit = modelOf({ version: { ...rich.version, form: { ...richForm, records: richForm.records.filter((r) => r.family !== 'limit') } }, pending: null, id: rich.id, chat: [] })
+    expect(noLimit.graph).not.toHaveProperty('goal_constraints')
+  })
+  it('a limit not yet measurable is still listed (without a figure), as before', () => {
+    const form = JSON.parse(JSON.stringify(richForm))
+    form.records.find((r) => r.id === 'ceiling').measure = null
+    expect(goalConstraintsOf(form)).toEqual([])
+    expect(canonicalOf(form, true).limits).toHaveLength(1)
   })
 })
 

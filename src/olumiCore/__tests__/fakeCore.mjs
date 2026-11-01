@@ -25,8 +25,10 @@ export async function startFakeCore() {
     const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}
     const token = /(?:^|;\s*)olumi=([^;]*)/.exec(req.headers.cookie ?? '')?.[1]
     const me = token ? people.get(decodeURIComponent(token)) : undefined
-    calls.push({ method: req.method, path: url.pathname, token: token ? decodeURIComponent(token) : null, body })
+    calls.push({ method: req.method, path: url.pathname, token: token ? decodeURIComponent(token) : null, body, site: req.headers['sec-fetch-site'] ?? null })
     const send = (s, o, h = {}) => { res.writeHead(s, { 'content-type': 'application/json', ...h }); res.end(JSON.stringify(o)) }
+    // olumi-core's own rule: a write sent from another site is refused (403).
+    if (req.method === 'POST' && req.headers['sec-fetch-site'] === 'cross-site') return send(403, { error: 'cross-site' })
     if (url.pathname === '/healthz') return send(200, { ok: true, commit: 'fake', store: 'readable' })
     if (url.pathname.startsWith('/k/')) {
       const t = decodeURIComponent(url.pathname.slice(3))

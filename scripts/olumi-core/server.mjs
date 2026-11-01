@@ -8,7 +8,8 @@
  *   GET  /s/<id>                that scenario, in DGAI
  *   POST /bff/orchestrate/v2/turn          DGAI's chat turn, card press and canvas edit  -> core (the shim)
  *   GET  /bff/cee/scenarios/<uuid>/graph   DGAI's saved-model read                       -> core (the shim)
- *   ANY  /api/*, GET /healthz   proxied to core (the admin routes are NOT reachable from here)
+ *   ANY  /api/*, GET /healthz   proxied to core (the admin routes are NOT reachable from here); a write needs the page's x-olumi-person, as a /bff write does,
+ *                               and a cross-site write is refused (403) here and by core (Sec-Fetch-Site goes on)
  *
  * Identity is the browser's own `olumi` cookie, forwarded to core on every call: this server holds none. Nothing a person
  * has is kept here either: the shim derives ids from what it reads (lib/ids.mjs), and the one pairing it cannot derive
@@ -74,7 +75,8 @@ export function createServer(opts = {}) {
     try {
       r = await (opts.fetchImpl ?? fetch)(coreUrl + pathAndQuery, {
         method: req.method, redirect: 'manual',
-        headers: { ...(req.headers.cookie ? { cookie: req.headers.cookie } : {}), ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}) },
+        // `Sec-Fetch-Site` goes on unchanged: core refuses a cross-site write itself (403), so the proxy must not hide where it came from.
+        headers: { ...(req.headers.cookie ? { cookie: req.headers.cookie } : {}), ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}), ...(req.headers['sec-fetch-site'] ? { 'sec-fetch-site': req.headers['sec-fetch-site'] } : {}) },
         body, signal: AbortSignal.timeout(11 * 60_000),
       })
     } catch (e) { return json(res, 502, { error: 'Olumi cannot be reached right now. Try again in a moment.' }) }
@@ -130,6 +132,8 @@ export function createServer(opts = {}) {
     const p = url.pathname.replace(/^\/assist\/v1\//, '/bff/cee/').replace(/^\/orchestrate\//, '/bff/orchestrate/')
     const method = req.method ?? 'GET'
     try {
+      // A write sent from another site's page is refused here, before anything is read or sent on (core refuses it too: the header goes on).
+      if (method !== 'GET' && method !== 'HEAD' && req.headers['sec-fetch-site'] === 'cross-site') return json(res, 403, { error: 'cross-site requests are not allowed' })
       if (p === '/healthz') {
         try { const h = await core('GET', '/healthz'); return json(res, 200, { ok: true, server: 'dgai-on-olumi-core', core: h }) }
         catch (e) { return json(res, 503, { ok: false, server: 'dgai-on-olumi-core', core: 'unreachable' }) }
@@ -150,7 +154,11 @@ export function createServer(opts = {}) {
         }).then(() => undefined)
       }
       if (p.startsWith('/api/admin/')) return json(res, 404, { error: 'not found' })
-      if (p.startsWith('/api/')) return await proxy(req, res, p + url.search)
+      if (p.startsWith('/api/')) {
+        // A write through the API is held to the same identity check as a /bff write: the page must say who it was opened for, and it must still be the person this browser's link names.
+        if (method !== 'GET' && method !== 'HEAD' && await pageIsForSomeoneElse(ctxOf(req), { required: true })) { log('api write refused: page opened for another person'); return json(res, 409, { error: IDENTITY_CHANGED_WORDS }) }
+        return await proxy(req, res, p + url.search)
+      }
 
       if (p === '/bff/orchestrate/v2/turn' && method === 'POST') {
         let body

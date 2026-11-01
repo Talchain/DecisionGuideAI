@@ -125,12 +125,14 @@ export function graphOf(form) {
     })
     if (r.measure && seen.has(r.measure.quantity)) link(r.measure.quantity, r.id, { provenance: { source: 'brief_extraction', definitional: true } })
   }
-  for (const r of recs) {
-    if (r.family !== 'relation' || r.form === 'influence') continue
-    // A calculation's link bears on what it defines the way the relation states: a subtracted part or a divisor lowers it, and a
-    // term whose side the relation does not fix is `unknown`, never a gain nobody stated.
-    for (const { id: part, sign } of signedPartsOf(recs, r.defines)) {
-      if (seen.has(part) && seen.has(r.defines)) link(part, r.defines, { effect_direction: SIGN_DIRECTION[sign], provenance: { source: 'brief_extraction', definitional: true } })
+  // One link per source and target. A source that contributes more than once to the same target (`x + x - x`, or `current + rate × current`)
+  // keeps a side only when every contribution has the same known one; otherwise its side is not stated (never the last term's).
+  for (const target of new Set(recs.flatMap((r) => (r.family === 'relation' && r.form !== 'influence' ? [r.defines] : [])))) {
+    const sides = new Map()
+    for (const { id, sign } of signedPartsOf(recs, target)) sides.set(id, [...(sides.get(id) ?? []), sign])
+    for (const [part, list] of sides) {
+      const sign = list.every((x) => x === list[0]) ? list[0] : 0
+      if (seen.has(part) && seen.has(target)) link(part, target, { effect_direction: SIGN_DIRECTION[sign], provenance: { source: 'brief_extraction', definitional: true } })
     }
   }
   // An influence is drawn the way it was stated. Up and down are directions; disputed, conditional and unknown are NOT, and none of
@@ -173,6 +175,24 @@ export function canonicalOf(form, approved) {
   }
 }
 
+/**
+ * The limits DGAI's Model list can state with their figure (`goal_constraints`): those whose bound is one exact figure, "at most" or
+ * "at least", at the end of the period over no span or share. DGAI's row has an operator of `<=` or `>=` and a number and nothing else
+ * (no strictness, window, sum or per-unit), so any other limit is not stated there as if it were that: it stays in `canonical.limits`,
+ * where the list says its figure is not captured.
+ */
+export function goalConstraintsOf(form) {
+  const m = byId(form)
+  return form.records.flatMap((r) => {
+    const me = r.family === 'limit' ? r.measure : null
+    const bound = me ? m.get(me.bound) : null
+    if (!me || !['<=', '>='].includes(me.cmp) || me.aggregation !== 'end' || me.window !== null || me.per !== null) return []
+    if (bound?.family !== 'quantity' || bound.assertion.kind !== 'point' || bound.assertion.approximate || typeof bound.assertion.value !== 'number') return []
+    const quote = r.origin?.by === 'person' && typeof r.origin.quote === 'string' && r.origin.quote ? { source_quote: r.origin.quote.slice(0, 200) } : {}
+    return [{ constraint_id: r.id, label: r.label, node_id: me.quantity, operator: me.cmp, value: bound.assertion.value, ...(bound.unit && bound.unit !== '1' ? { unit: bound.unit } : {}), ...quote, provenance: r.origin?.by === 'olumi' ? 'inferred' : 'explicit' }]
+  })
+}
+
 /** What is shown now: the held proposal if there is one, else the saved version. */
 export const shownOf = (view) => view.pending ?? view.version ?? null
 
@@ -180,8 +200,10 @@ export function modelOf(view) {
   const shown = shownOf(view)
   if (!shown) return null
   const { nodes, edges } = graphOf(shown.form)
+  const limits = goalConstraintsOf(shown.form)
   return {
-    graph: { nodes, edges, living_model: { model_program: 'v1', canonical: canonicalOf(shown.form, shown === view.version) } },
+    // `goal_constraints` is left off when there are none: a core turn's absence of it clears the limits shown (`constraintsComplete`).
+    graph: { nodes, edges, ...(limits.length ? { goal_constraints: limits } : {}), living_model: { model_program: 'v1', canonical: canonicalOf(shown.form, shown === view.version) } },
     revision: rev16(view), scenario_revision: rev64(view),
   }
 }

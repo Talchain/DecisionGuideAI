@@ -49,12 +49,22 @@ describe('Confirm selected sends the ticked rows to core as `only`', () => {
     expect(body.run.run_id).toMatch(/^mp_run_\d+_[0-9a-f]{12}$/)
     expect(body.receipts).toHaveLength(1)
   })
-  it('core re-runs a part-approved model with no reply from Olumi: the plain saved line, and no note', async () => {
-    const v = fx('view-approved.json'); v.chat[0].answer = null; v.version.coach = null
+  it('core re-runs a part-approved model with no reply from Olumi: the plain saved line, no note, and the proposal\'s own answer is not replayed', async () => {
+    // The real core shape: the version has no coach, but the proposal's chat row STILL holds its answer (about the whole proposal).
+    const v = fx('view-approved.json'); v.version.coach = null
+    const stale = v.chat.find((c) => c.proposal != null)
+    expect(stale.answer.answer).toMatch(/adding a specialist reaches your aim about half the time/)
     const { uuid } = held({ approve: v })
     const { out } = await press(uuid, await cardOf(uuid), { approve_ids: ['add_one'] })
     expect(out.notes).toEqual([])
     expect(out.assistant_text).toMatch(/^Saved as version \d+\.$/)
+    expect(out.assistant_text).not.toMatch(/half the time|Next \(/)
+  })
+  it('a whole-card approval still shows core\'s reply on the new version (and its note)', async () => {
+    const { uuid } = held()
+    const { out } = await press(uuid, await cardOf(uuid))
+    expect(out.assistant_text).toMatch(/adding a specialist reaches your aim about half the time/)
+    expect(out.notes).toHaveLength(1)
   })
   it('every row ticked is the whole card: no `only` is sent', async () => {
     const { uuid } = held()

@@ -209,3 +209,44 @@ describe('an open tab cannot write as somebody else (the browser\'s private link
     expect(out.error).toMatchObject({ code: 'unauthorised' })
   })
 })
+
+describe('the API is held to the same rules as the /bff writes (security: a cross-site or other person\'s write never reaches core)', () => {
+  const upstream = (since) => fake.calls.slice(since).filter((c) => c.method === 'POST')
+  const apiPost = (cookie, headers = {}) => fetch(base + '/api/scenarios', { method: 'POST', ...H(cookie, headers), body: JSON.stringify({ brief: BRIEF }) })
+  it('a cross-site POST to /api is refused with a 403 before it reaches core', async () => {
+    const before = fake.calls.length
+    const r = await apiPost('olumi=tok-ada', { 'sec-fetch-site': 'cross-site' })
+    expect(r.status).toBe(403)
+    expect(upstream(before)).toHaveLength(0)
+  })
+  it('a cross-site POST to the chat turn is refused the same way', async () => {
+    const before = fake.calls.length
+    const r = await turn(BRIEF, 'olumi=tok-ada', {}, { 'sec-fetch-site': 'cross-site' })
+    expect(r.status).toBe(403)
+    expect(upstream(before)).toHaveLength(0)
+  })
+  it('a same-origin POST from the signed-in person passes, and core is told where it came from (Sec-Fetch-Site goes on unchanged)', async () => {
+    for (const site of ['same-origin', 'same-site']) {
+      const before = fake.calls.length
+      const r = await apiPost('olumi=tok-ada', { 'sec-fetch-site': site })
+      expect(r.status).toBe(201)
+      const sent = upstream(before)
+      expect(sent).toHaveLength(1)
+      expect(sent[0]).toMatchObject({ path: '/api/scenarios', token: 'tok-ada', site })
+    }
+  })
+  it('a write from a page opened for someone else, or one that cannot say who it was opened for, is refused in words and never reaches core', async () => {
+    const before = fake.calls.length
+    const other = await apiPost('olumi=tok-bea', { 'x-olumi-person': '1' })
+    expect(other.status).toBe(409)
+    expect((await other.json()).error).toMatch(/different private link/)
+    const unsaid = await apiPost('olumi=tok-ada', { 'x-olumi-person': '' })
+    expect(unsaid.status).toBe(409)
+    expect(upstream(before)).toHaveLength(0)
+  })
+  it('a read through /api needs no page identity (it is core\'s own cookie check), and the page script says who it is on /api calls too', async () => {
+    expect((await fetch(base + '/api/me', { headers: { cookie: 'olumi=tok-ada' } })).status).toBe(200)
+    const html = await (await fetch(base + '/', { headers: { cookie: 'olumi=tok-ada' } })).text()
+    expect(html).toContain("url.pathname.indexOf('/api/') === 0")
+  })
+})

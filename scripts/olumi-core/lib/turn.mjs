@@ -107,7 +107,8 @@ export function makeShim({ core, log = () => {} }) {
    * those rows, as core's `only` (API v1.4: record ids of the proposal's changes). When every row is ticked it is the whole card.
    * Core decides what a selection needs: a choice that needs a record that was not chosen is refused with a 409 that names it, and
    * that refusal is shown in core's own words with the card still held, so the ticks can be changed. Core re-runs a part-approved
-   * model with no reply from Olumi, so there is no coach reply (and no note) on that turn.
+   * model with no reply from Olumi (`version.coach` is cleared, though the proposal's chat row still holds its answer), so what is
+   * shown is only `version.coach`: none means no coach reply and no note on that turn.
    */
   async function approve(ctx, body, turnId, pid, sid) {
     const v = await view(ctx, sid)
@@ -128,7 +129,10 @@ export function makeShim({ core, log = () => {} }) {
     return afterWrite(async () => {
       const after = await view(ctx, sid)
       const row = after.chat.find((c) => c.proposal === v.pending.id) ?? after.chat.find((c) => c.version === r.n)
-      const reply = replyWithNote(after, row, cardsOf(v))
+      // The reply is the one core holds on the version it just saved (`version.coach`), never the proposal's own chat answer: after a
+      // part-approval that answer still describes the whole proposal. No coach on the new version: nothing from Olumi, and no note.
+      const coach = after.version?.n === r.n ? after.version.coach ?? null : null
+      const reply = replyWithNote(after, { answer: coach, cited: row?.cited }, cardsOf(v))
       // Whatever core left waiting after a part-approval stays on screen as a card, so it can still be answered or set aside.
       return { out: turnBody(after, { turnId, text: reply.text || `Saved as version ${r.n}.`, withCard: !!after.pending, receipt: true, notes: reply.notes }) }
     })
@@ -146,7 +150,8 @@ export function makeShim({ core, log = () => {} }) {
    * `figureIn` is the number they typed, or `{ low, high }` when they set a range: core takes a point OR an interval, so each is
    * sent as what it is (a range is never flattened to one number). Core has no likeliest value on an edit, so a figure typed over
    * a RANGE would silently replace the person's range with one number (and the Run with it): that edit is refused, in words,
-   * before anything is sent. A range set over a range is a range edit and is sent.
+   * before anything is sent. A range set over a range is a range edit and is sent, unless the range being changed has a most likely
+   * figure: core would save the new ends with none, so that edit is refused too.
    */
   async function editFigure(ctx, turnId, sid, quantityId, figureIn) {
     let quantity = quantityId
@@ -165,6 +170,11 @@ export function makeShim({ core, log = () => {} }) {
     const rec = v.version.form.records.find((r) => r.id === quantity)
     if (!range && rec?.family === 'quantity' && rec.assertion.kind === 'interval') {
       throw new CoreError(400, `‘${rec.label}’ is a range (${figure(rec.assertion, rec.unit)}), and a typed figure would replace it with one number. Tell me the new range in the chat. Nothing was saved.`)
+    }
+    // Core's /edit takes a low and a high only and saves the range with no most-likely figure, so changing the ends of a range that has
+    // one would delete the person's figure: refused in words, before anything is sent.
+    if (range && rec?.family === 'quantity' && rec.assertion.kind === 'interval' && rec.assertion.likely != null) {
+      throw new CoreError(400, `‘${rec.label}’ is ${figure(rec.assertion, rec.unit)}, and changing its ends would lose the most likely figure you gave. Tell me the new range and the most likely figure in the chat. Nothing was saved.`)
     }
     const value = range ? { kind: 'interval', low: figureIn.low, high: figureIn.high } : { kind: 'point', value: figureIn }
     const saved = await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body: { base: v.version.id, quantity, value, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined } })

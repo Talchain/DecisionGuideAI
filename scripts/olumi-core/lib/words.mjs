@@ -36,7 +36,7 @@ export function partsOf(recs, id) {
 
 /**
  * The same parts, each with the way it bears on what it defines, as the relation states it: 1 (raises it), -1 (lowers it) or 0
- * (the relation does not say). A subtracted sum part and a product part with a negative power (a divisor) lower it; an outflow
+ * (the relation does not say). A subtracted sum part lowers it, and so does a product part with a negative power (a divisor) when every other factor is known to be positive (else its side is not stated); an outflow
  * lowers a stock. An effect's term moves the result the way its coefficient does, and a coefficient moves it the way its driver
  * does; that side is stated only when the figure's own floor or ceiling fixes it, else 0 (never a guess from the number's value).
  */
@@ -46,7 +46,8 @@ export function signedPartsOf(recs, id) {
   return recs.flatMap((r) => {
     if (r.family !== 'relation' || r.form === 'influence' || r.defines !== id) return []
     if (r.form === 'sum') return r.parts.map((p) => ({ id: p.id, sign: p.sign < 0 ? -1 : 1 }))
-    if (r.form === 'product') return r.parts.map((p) => ({ id: p.id, sign: p.power < 0 ? -1 : 1 }))
+    // A divisor lowers the result only when every other factor is known to be positive (-100 / x rises as x rises); else its side is not stated.
+    if (r.form === 'product') return r.parts.map((p) => ({ id: p.id, sign: p.power < 0 ? (r.parts.every((o) => o === p || side(m.get(o.id)) === 1) ? -1 : 0) : 1 }))
     if (r.form === 'effect') return [{ id: r.base, sign: 1 }, ...r.terms.flatMap((t) => [{ id: t.driver, sign: side(m.get(t.coefficient)) }, { id: t.coefficient, sign: side(m.get(t.driver)) }])]
     return [{ id: r.start, sign: 1 }, ...r.inflows.map((i) => ({ id: i, sign: 1 })), ...r.outflows.map((i) => ({ id: i, sign: -1 }))]
   })

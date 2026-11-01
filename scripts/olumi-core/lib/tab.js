@@ -98,7 +98,7 @@
     return null
   }
 
-  // 2 and 3. say who this tab is and which scenario a UUID is, on every call to the server's /bff/ routes; learn new pairings.
+  // 2 and 3. say who this tab is and which scenario a UUID is, on every call to the server's /bff/ and /api/ routes; learn new pairings.
   var realFetch = win.fetch
   if (typeof realFetch === 'function') {
     win.fetch = function (input, init) {
@@ -107,7 +107,7 @@
       try {
         var raw = typeof input === 'string' ? input : (input && input.url) || String(input)
         var url = new win.URL(raw, win.location.href)
-        if (url.origin === win.location.origin && url.pathname.indexOf('/bff/') === 0) {
+        if (url.origin === win.location.origin && (url.pathname.indexOf('/bff/') === 0 || url.pathname.indexOf('/api/') === 0)) {
           var headers = new win.Headers((init && init.headers) || (typeof input !== 'string' && input && input.headers) || undefined)
           headers.set('x-olumi-person', person.id)
           var uuid = scenarioOf(url.pathname, init)
