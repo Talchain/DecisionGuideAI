@@ -10,6 +10,7 @@ import { resolveFactorStoredRangeLine } from '../../canvas/nodes/shared/factorSt
 import { programQuantityOf, programLimitsWithoutFigure, programLinkOperator, programFormulaWords } from '../../canvas/nodes/shared/savedModelProgram'
 import { resolveOptionIsBaseline } from '../../canvas/utils/baselineDetection'
 import { goalConstraintText } from '../../canvas/utils/goalConstraintText'
+import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { mapDraftEdgeToCanvas } from '../../canvas/utils/applyDraftResult'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../../canvas/domain/edgeValueProvenance'
 import { getEdgeLabel } from '../../canvas/domain/edgeLabels'
@@ -864,5 +865,34 @@ describe('a chance is shown as it was given (sibling check)', () => {
     expect(nodeOf(graphOf(form), risk.id).description).toContain('May happen: 0.4%.')
     occ.assertion = { kind: 'point', value: 0.07, approximate: false }
     expect(nodeOf(graphOf(form), risk.id).description).toContain('May happen: 7%.')
+  })
+})
+
+// ── finishing pass (a): a range nobody gave a likeliest value for is shown as that range, never as its middle ─────────────────
+describe('a range with no likeliest value is shown as a range on the card and in the inspector, never as an exact figure nobody gave', () => {
+  const noLikeliest = () => {
+    const f = cloneForm()
+    f.records.find((r) => r.id === 'per_specialist').assertion = { kind: 'interval', low: 10, high: 30, range_kind: 'plausible' }
+    return f
+  }
+  // The canvas reads the node's `observed_state` as `observedState` (the card, `FactorNode`, and the inspector both go through `factorDisplayText`).
+  const cardOf = (form) => { const n = graphOf(form).nodes.find((x) => x.id === 'per_specialist'); return { ...n, observedState: n.observed_state } }
+  it('the card says "between 10 and 30", not 20', () => {
+    const text = factorDisplayText(cardOf(noLikeliest()))
+    expect(text).toMatch(/between 10 and 30/)
+    expect(text).not.toMatch(/\b20\b/)
+  })
+  it('no number is sent as the figure: neither the node\'s value nor its raw value, and not the canonical model\'s value', () => {
+    const n = graphOf(noLikeliest()).nodes.find((x) => x.id === 'per_specialist')
+    expect(n.observed_state.value ?? null).toBeNull()
+    expect(n.observed_state.raw_value ?? null).toBeNull()
+    expect(n.observed_state.range).toMatchObject({ low: 10, high: 30 })
+    const q = canonicalOf(noLikeliest(), true).quantities.find((x) => x.id === 'per_specialist')
+    expect(q.value).toBeNull()
+    expect(q).toMatchObject({ low: 10, high: 30 })
+  })
+  it('a range WITH a likeliest value still shows that value as the figure', () => {
+    const n = graphOf(cloneForm()).nodes.find((x) => x.id === 'per_specialist')
+    expect(n.observed_state).toMatchObject({ value: 20, raw_value: 20 })
   })
 })

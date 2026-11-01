@@ -10,7 +10,19 @@ import { rev16, rev64, revSaved16, runIdOf } from './ids.mjs'
 const valueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? (q.assertion.low + q.assertion.high) / 2) : null)
 const fmt = (q) => (q ? figure(q.assertion, q.unit) : '')
 /** The likeliest value the person or Olumi stated, and never a midpoint: null for a range with no likeliest value. */
-const statedValueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? q.assertion.likely : null)
+const statedValueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? null) : null)
+/**
+ * A figure's `observed_state` for the card and the inspector: its unit, the stated value and the range as stated. The value (and raw value)
+ * is the person's or Olumi's single figure only: a range with no likeliest value sends none, so the card says the range ("between 10 and 30")
+ * and never its middle as if somebody had given it. Null when there is neither a value nor a range to say.
+ */
+const observedOf = (q, source, rangeSource) => {
+  const stated = statedValueOf(q), a = q?.assertion
+  const interval = a?.kind === 'interval' ? a : null
+  if (stated === null && !interval) return null
+  return { unit: q.unit, ...(stated !== null ? { value: stated, raw_value: stated } : {}), source,
+    ...(interval ? { range: { low: interval.low, high: interval.high, source: rangeSource, meaning: interval.range_kind } } : {}) }
+}
 /** A chance as the percentage a person reads: exactly as stated, never rounded to a different figure (see `percent`). */
 const pct = percent
 
@@ -100,8 +112,7 @@ export function graphOf(form) {
   for (const r of recs) {
     if (r.family !== 'quantity' || setTo.has(r.id) || measured.has(r.id) || riskParts.has(r.id)) continue
     const derived = r.role === 'derived' || r.assertion.kind === 'derived'
-    const v = valueOf(r)
-    const interval = r.assertion.kind === 'interval' ? r.assertion : null
+    const observed = observedOf(r, r.origin.by === 'person' ? 'brief_extraction' : 'cee_hypothesis', r.origin.by === 'person' ? 'user_override' : 'cee_hypothesis')
     const parts = derived ? partsOf(recs, r.id) : []
     add({
       id: r.id, ref: `${derived ? 'OC' : 'F'}${++f}`, kind: derived ? 'outcome' : 'factor', label: r.label, provenance: prov(r), ...quote(r),
@@ -109,8 +120,7 @@ export function graphOf(form) {
         : derived ? { value_basis: { kind: 'worked_out', from: parts, words: `Worked out from ${parts.map((i) => nameOf(m, i)).join(' and ')}` } } : {}),
       display_value: derived ? `Worked out from ${parts.map((i) => nameOf(m, i)).join(' and ')}` : fmt(r),
       // The person's stated range, as DGAI's own range line reads it (`factorStatedRange.ts`): the likeliest value stays the figure.
-      ...(v !== null ? { observed_state: { unit: r.unit, value: v, raw_value: v, source: r.origin.by === 'person' ? 'brief_extraction' : 'cee_hypothesis',
-        ...(interval ? { range: { low: interval.low, high: interval.high, source: r.origin.by === 'person' ? 'user_override' : 'cee_hypothesis', meaning: interval.range_kind } } : {}) } } : {}),
+      ...(observed ? { observed_state: observed } : {}),
       analysis_participation: 'included',
     })
   }
@@ -128,16 +138,14 @@ export function graphOf(form) {
   // and says not to add one, so it is a factor: its name, the way it is measured and the bound as its figure.
   for (const r of limits) {
     const bound = m.get(r.measure?.bound)
-    const v = valueOf(bound)
-    const interval = bound?.assertion?.kind === 'interval' ? bound.assertion : null
     const bySource = bound?.origin?.by === 'olumi' ? 'cee_hypothesis' : 'brief_extraction'
+    const observed = bound ? observedOf(bound, bySource, bySource === 'brief_extraction' ? 'user_override' : 'cee_hypothesis') : null
     add({
       id: r.id, ref: `F${++f}`, kind: 'factor', label: nameFor(r, bound, m, 'Limit on'), provenance: prov(r, bound), ...quote(r, bound),
       display_value: r.measure ? `${CMP[r.measure.cmp]} ${fmt(bound)}` : 'Not yet measurable',
       // The card shows the bound as its figure; the way it limits (at most, at least) is said here, where the card and the inspector read a description.
       description: r.measure ? `A limit on ‘${nameOf(m, r.measure.quantity)}’: it stays ${CMP[r.measure.cmp]} ${fmt(bound)}.` : 'A limit that cannot be measured yet.',
-      ...(v !== null ? { observed_state: { unit: bound.unit, value: v, raw_value: v, source: bySource,
-        ...(interval ? { range: { low: interval.low, high: interval.high, source: bySource === 'brief_extraction' ? 'user_override' : 'cee_hypothesis', meaning: interval.range_kind } } : {}) } } : {}),
+      ...(observed ? { observed_state: observed } : {}),
       analysis_participation: 'included',
     })
     if (r.measure && seen.has(r.measure.quantity)) link(r.measure.quantity, r.id, { provenance: { source: 'brief_extraction', definitional: true } })
@@ -181,7 +189,7 @@ export function canonicalOf(form, approved) {
     version: 'canonical.v1',
     quantities: pick('quantity', (r) => {
       const a = r.assertion
-      return { kind: r.role === 'coefficient' ? 'coefficient' : 'fact', label: r.label, unit: r.unit, status: a.kind === 'point' || a.kind === 'interval' ? 'known' : a.kind, value: valueOf(r), low: a.kind === 'interval' ? a.low : null, high: a.kind === 'interval' ? a.high : null, range_kind: a.kind === 'interval' ? a.range_kind : null, question: a.kind === 'asked' ? a.question : null, basis: r.origin.basis ?? null, direction: r.direction, floor: r.domain?.lower ?? null, ceiling: r.domain?.upper ?? null, author_id: null }
+      return { kind: r.role === 'coefficient' ? 'coefficient' : 'fact', label: r.label, unit: r.unit, status: a.kind === 'point' || a.kind === 'interval' ? 'known' : a.kind, value: statedValueOf(r), low: a.kind === 'interval' ? a.low : null, high: a.kind === 'interval' ? a.high : null, range_kind: a.kind === 'interval' ? a.range_kind : null, question: a.kind === 'asked' ? a.question : null, basis: r.origin.basis ?? null, direction: r.direction, floor: r.domain?.lower ?? null, ceiling: r.domain?.upper ?? null, author_id: null }
     }),
     // How a worked-out figure is worked out, in the shape DGAI's program reader draws + − × ÷ from (savedModelProgram.ts): a sum or
     // product is a `definition` with its `op`; a stock and an effect keep their form. An influence is a link, not a definition.
