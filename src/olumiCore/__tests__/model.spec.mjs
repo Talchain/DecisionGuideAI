@@ -7,7 +7,7 @@ import { rev16, revSaved16 } from '../../../scripts/olumi-core/lib/ids.mjs'
 import { parseCanonicalAnalysisView } from '../../canvas/runView/canonicalAnalysisView'
 import { runViewOf } from '../../canvas/runView/runView'
 import { resolveFactorStoredRangeLine } from '../../canvas/nodes/shared/factorStatedRange'
-import { programQuantityOf } from '../../canvas/nodes/shared/savedModelProgram'
+import { programQuantityOf, programLinkOperator, programFormulaWords } from '../../canvas/nodes/shared/savedModelProgram'
 import { mapDraftEdgeToCanvas } from '../../canvas/utils/applyDraftResult'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../../canvas/domain/edgeValueProvenance'
 import { getEdgeLabel } from '../../canvas/domain/edgeLabels'
@@ -200,6 +200,61 @@ describe('an influence is drawn the way the person stated it (finding 2)', () =>
     const e = edgeOf(graphOf(form), 'morale_link')
     expect(e.effect_direction).toBe('unknown')
     expect(e.provenance.reasoning).toMatch(/depends/i)
+  })
+})
+
+describe('a definition link says how its part enters the figure: a subtracted part is not a boost (finding: absence drawn as "+ Boost")', () => {
+  const clone = () => JSON.parse(JSON.stringify(richForm))
+  const withRelation = (mutate) => { const f = clone(); mutate(f); return f }
+  const programGraph = (form) => ({ ...graphOf(form), living_model: { model_program: 'v1', canonical: canonicalOf(form, true) } })
+  const subtract = withRelation((f) => { f.records.find((r) => r.id === 'total_def').parts[1].sign = -1 })
+  const divide = withRelation((f) => {
+    const d = f.records.find((r) => r.id === 'added_def'); d.parts[1].power = -1
+  })
+  const stock = withRelation((f) => {
+    f.records = f.records.filter((r) => r.id !== 'total_def')
+    f.records.push({ family: 'relation', id: 'total_stock', form: 'stock', defines: 'total_capacity', start: 'existing_capacity', inflows: ['added_capacity'], outflows: ['per_specialist'], origin: { by: 'olumi', basis: 'b' } })
+  })
+  it('a part with sign -1 is drawn as a drag, not a boost, and DGAI\'s own operator reader says minus', () => {
+    const g = programGraph(subtract)
+    const e = edgeOf(g, 'added_capacity__total_capacity')
+    expect(e.effect_direction).toBe('negative')
+    expect(drawn(e).label).toMatch(/Drag/)
+    expect(drawn(e).label).not.toMatch(/Boost/)
+    expect(programLinkOperator(g, 'added_capacity', 'total_capacity')).toBe('−')
+    expect(programLinkOperator(g, 'existing_capacity', 'total_capacity')).toBe('+')
+    expect(drawn(edgeOf(g, 'existing_capacity__total_capacity')).label).toMatch(/Boost/)
+  })
+  it('a part with power -1 (divided by) is a drag and a divide', () => {
+    const g = programGraph(divide)
+    expect(edgeOf(g, 'per_specialist__added_capacity').effect_direction).toBe('negative')
+    expect(edgeOf(g, 'specialists__added_capacity').effect_direction).toBe('positive')
+    expect(programLinkOperator(g, 'per_specialist', 'added_capacity')).toBe('÷')
+    expect(programLinkOperator(g, 'specialists', 'added_capacity')).toBe('×')
+  })
+  it('a stock\'s outflow is a drag and a minus; its start and inflows are a boost and a plus', () => {
+    const g = programGraph(stock)
+    expect(edgeOf(g, 'per_specialist__total_capacity').effect_direction).toBe('negative')
+    expect(edgeOf(g, 'added_capacity__total_capacity').effect_direction).toBe('positive')
+    expect(programLinkOperator(g, 'per_specialist', 'total_capacity')).toBe('−')
+    expect(programLinkOperator(g, 'added_capacity', 'total_capacity')).toBe('+')
+    expect(programLinkOperator(g, 'existing_capacity', 'total_capacity')).toBe('+')
+  })
+  it('the worked-out figure\'s formula is readable by DGAI, with the same signs', () => {
+    expect(programFormulaWords(programGraph(subtract), 'total_capacity')).toBe('existing capacity − added capacity')
+    expect(programFormulaWords(programGraph(divide), 'added_capacity')).toBe('specialists ÷ per specialist')
+  })
+  it('the canonical model carries the relations in the shape DGAI reads, with ids that exist', () => {
+    const rels = canonicalOf(subtract, true).relations
+    expect(rels.find((r) => r.defines === 'total_capacity')).toMatchObject({ id: 'total_def', form: 'definition', op: 'sum', parts: [{ id: 'existing_capacity', sign: 1 }, { id: 'added_capacity', sign: -1 }] })
+    expect(rels.find((r) => r.defines === 'added_capacity')).toMatchObject({ form: 'definition', op: 'product' })
+    expect(canonicalOf(stock, true).relations.find((r) => r.defines === 'total_capacity')).toMatchObject({ form: 'stock', start: 'existing_capacity', inflows: ['added_capacity'], outflows: ['per_specialist'] })
+    expect(canonicalOf(richForm, true).relations.some((r) => r.form === 'influence')).toBe(false)
+  })
+  it('an unchanged model still draws every definition link as a plus / times boost', () => {
+    const g = programGraph(richForm)
+    expect(programLinkOperator(g, 'added_capacity', 'total_capacity')).toBe('+')
+    expect(programLinkOperator(g, 'specialists', 'added_capacity')).toBe('×')
   })
 })
 

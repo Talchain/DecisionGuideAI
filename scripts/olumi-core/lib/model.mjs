@@ -4,7 +4,7 @@
  * Rules come from the served fixtures (src/canvas/nodes/__tests__/fixtures/served-*), so this is only as faithful as they are.
  * Facts are read by their structured `about` (API v1.4), never from their text.
  */
-import { byId, figure, nameOf, num, partsOf, CMP } from './words.mjs'
+import { byId, figure, nameOf, num, partsOf, signedPartsOf, CMP } from './words.mjs'
 import { rev16, rev64, revSaved16, runIdOf } from './ids.mjs'
 
 const valueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? (q.assertion.low + q.assertion.high) / 2) : null)
@@ -123,7 +123,8 @@ export function graphOf(form) {
   }
   for (const r of recs) {
     if (r.family !== 'relation' || r.form === 'influence') continue
-    for (const part of partsOf(recs, r.defines)) if (seen.has(part) && seen.has(r.defines)) link(part, r.defines, { provenance: { source: 'brief_extraction', definitional: true } })
+    // A definition link is drawn the way the part enters: a subtracted part, a divisor or an outflow DRAGS the figure it is taken from.
+    for (const { id: part, takenAway } of signedPartsOf(r)) if (seen.has(part) && seen.has(r.defines)) link(part, r.defines, { effect_direction: takenAway ? 'negative' : 'positive', provenance: { source: 'brief_extraction', definitional: true } })
   }
   // An influence is drawn the way it was stated. Up and down are directions; disputed, conditional and unknown are NOT, and none of
   // them is a certain link: no direction and no certainty are made up for them.
@@ -147,13 +148,20 @@ export function graphOf(form) {
 /** The canonical model beside the graph (`living_model.canonical`): `approved` is the approval stamp every record carries. */
 export function canonicalOf(form, approved) {
   const approval = approved ? 'approved' : 'proposed'
-  const pick = (f, shape) => form.records.filter((r) => r.family === f).map((r) => ({ id: r.id, ...shape(r), author: r.origin.by === 'person' ? 'person' : r.origin.by, party: r.origin.party ?? null, quote: r.origin.by === 'person' ? r.origin.quote : null, approval }))
+  const pick = (f, shape, keep = () => true) => form.records.filter((r) => r.family === f && keep(r)).map((r) => ({ id: r.id, ...shape(r), author: r.origin.by === 'person' ? 'person' : r.origin.by, party: r.origin.party ?? null, quote: r.origin.by === 'person' ? r.origin.quote : null, approval }))
   return {
     version: 'canonical.v1',
     quantities: pick('quantity', (r) => {
       const a = r.assertion
       return { kind: r.role === 'coefficient' ? 'coefficient' : 'fact', label: r.label, unit: r.unit, status: a.kind === 'point' || a.kind === 'interval' ? 'known' : a.kind, value: valueOf(r), low: a.kind === 'interval' ? a.low : null, high: a.kind === 'interval' ? a.high : null, range_kind: a.kind === 'interval' ? a.range_kind : null, question: a.kind === 'asked' ? a.question : null, basis: r.origin.basis ?? null, direction: r.direction, floor: r.domain?.lower ?? null, ceiling: r.domain?.upper ?? null, author_id: null }
     }),
+    // How a worked-out figure is worked out, in the shape DGAI's program reader draws + − × ÷ from (savedModelProgram.ts): a sum or
+    // product is a `definition` with its `op`; a stock and an effect keep their form. An influence is a link, not a definition.
+    relations: pick('relation', (r) => {
+      if (r.form === 'sum' || r.form === 'product') return { form: 'definition', op: r.form, defines: r.defines, parts: r.parts.map((p) => (r.form === 'sum' ? { id: p.id, sign: p.sign } : { id: p.id, power: p.power })) }
+      if (r.form === 'effect') return { form: 'effect', defines: r.defines, base: r.base, terms: r.terms.map((t) => ({ driver: t.driver, coefficient: t.coefficient })) }
+      return { form: 'stock', defines: r.defines, start: r.start, inflows: r.inflows, outflows: r.outflows }
+    }, (r) => r.form !== 'influence'),
     claims: pick('claim', (r) => ({ text: r.text, concerns: r.concerns })),
     assumptions: pick('assumption', (r) => ({ text: r.text, applied: r.applied, concerns: r.concerns })),
     conditions: pick('condition', (r) => ({ text: r.text, kind: r.kind, concerns: r.concerns })),

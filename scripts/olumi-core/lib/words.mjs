@@ -34,6 +34,19 @@ export function partsOf(recs, id) {
         : [r.start, ...r.inflows, ...r.outflows] : []))
 }
 
+/**
+ * The parts of ONE definition, each with whether it is taken away: a sum part with sign -1 is subtracted, a product part with a
+ * negative power is divided by, a stock's outflows are taken out; everything else (a start, an inflow, an effect's base, driver and
+ * coefficient) is added or multiplied in. This is what a definition link is drawn from.
+ */
+export function signedPartsOf(r) {
+  if (r.family !== 'relation' || r.form === 'influence') return []
+  if (r.form === 'sum') return r.parts.map((p) => ({ id: p.id, takenAway: p.sign < 0 }))
+  if (r.form === 'product') return r.parts.map((p) => ({ id: p.id, takenAway: p.power < 0 }))
+  if (r.form === 'effect') return [r.base, ...r.terms.flatMap((t) => [t.driver, t.coefficient])].map((id) => ({ id, takenAway: false }))
+  return [{ id: r.start, takenAway: false }, ...r.inflows.map((id) => ({ id, takenAway: false })), ...r.outflows.map((id) => ({ id, takenAway: true }))]
+}
+
 const isDerived = (rec) => rec.family === 'quantity' && (rec.role === 'derived' || rec.assertion.kind === 'derived')
 
 export function describe(rec, form) {
