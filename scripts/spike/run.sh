@@ -14,7 +14,7 @@ case "${1:-ui}" in
   core)
     cd "$CORE_DIR"
     cp -n /private/tmp/olumi-core-ui-dev/scripts/scripted-core.ts scripts/scripted-core.ts || true
-    OLUMI_DB="$DATA/ui.db" OLUMI_ADMIN_KEY="$ADMIN_KEY" PORT=3948 exec pnpm -s tsx scripts/scripted-core.ts ;;
+    OLUMI_BURST_LIMIT=1000 OLUMI_DB="$DATA/ui.db" OLUMI_ADMIN_KEY="$ADMIN_KEY" PORT=3948 exec pnpm -s tsx scripts/scripted-core.ts ;;
   shim)
     # one private link for the shim to hold (the browser never sees it)
     if [ ! -s "$DATA/token.txt" ]; then
