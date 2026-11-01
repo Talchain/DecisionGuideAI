@@ -37,7 +37,7 @@ export function DissentPanel({ scenario }: { scenario: Pick<TeamScenario, 'versi
             <p className={`${META}`} data-testid={`team-dissent-state-${d.id}`}>In the model: yes. Confirmed by its holder: not yet.</p>
             <DissentNotConfirmed holder={d.holder ?? null} />
             <div>
-              <Button size="sm" variant="secondary" disabled data-testid={`team-dissent-confirm-${d.id}`} title="Opens when Olumi can store a holder’s confirmation">Confirm these words (holder)</Button>
+              <Button size="sm" variant="secondary" disabled data-testid={`team-dissent-confirm-${d.id}`} title="Opens when Olumi can store a holder’s confirmation">Confirm these words</Button>
             </div>
           </li>
         ))}

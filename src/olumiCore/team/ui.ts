@@ -16,6 +16,8 @@ export const ERR = `${typography.panelMeta} text-danger m-0`
 /** The mark of a person: a small circle with an initial (the v10 board's `tb-ic`). */
 export const AVATAR = `inline-grid h-[22px] w-[22px] flex-none place-items-center rounded-full border border-panel-border bg-canvas ${typography.panelMeta} text-text-body`
 
-/** The two privacy promises, said once and in exactly these words wherever a view or a figure is entered or read. They differ, so they are two. */
-export const PRIVACY_VIEW = 'Your view is private until the reveal. After it, everyone, Olumi included, reads the words.'
+/** The privacy promise, said once and in the words of the moment: before the reveal, and after it. While figures cannot be entered, nothing is promised about them. */
+export const PRIVACY_BEFORE = 'Your view is private until the reveal.'
+export const PRIVACY_AFTER = 'Revealed to everyone, Olumi included.'
+/** Said only where a figure can be entered (`TEAM_FIGURES_SERVED`). */
 export const PRIVACY_FIGURES = 'Olumi never reads your figures, and they never change the model.'

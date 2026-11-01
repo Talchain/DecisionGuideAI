@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { newOp, teamApi, TeamApiError } from './api'
+import { useDraft } from './drafts'
 import { wordsOfRecord } from './model'
 import { BODY, CARD, ERR, FIELD, LABEL, META } from './ui'
 import type { OutcomeVersus, TeamCommitmentRow, TeamScenario } from './types'
 
+interface OutcomeDraft { open: boolean; happened: string; versus: OutcomeVersus | null; triggered: boolean | null; note: string; op: string }
+const EMPTY: OutcomeDraft = { open: false, happened: '', versus: null, triggered: null, note: '', op: '' }
 export const VERSUS: ReadonlyArray<{ value: OutcomeVersus; words: string }> = [
   { value: 'as_expected', words: 'As expected' },
   { value: 'better', words: 'Better than expected' },
@@ -20,26 +23,32 @@ const versusWords = (v: OutcomeVersus): string => VERSUS.find((x) => x.value ===
  * judged by Olumi. The team's verdict on each kept disagreement is the team's to give, and core does not store one yet, so it is drawn
  * disabled: humans stay the authors.
  */
-export function OutcomePanel({ sid, scenario, commitment, onWrote }: { sid: string; scenario: TeamScenario; commitment: TeamCommitmentRow; onWrote: () => Promise<void> }): JSX.Element {
-  const [open, setOpen] = useState(false)
-  const [happened, setHappened] = useState('')
-  const [versus, setVersus] = useState<OutcomeVersus | null>(null)
-  const [triggered, setTriggered] = useState<boolean | null>(null)
-  const [note, setNote] = useState('')
+export function OutcomePanel({ sid, scenario, commitment, onWrote }: { sid: string; scenario: TeamScenario; commitment: TeamCommitmentRow; onWrote: () => Promise<boolean> }): JSX.Element {
+  const c = commitment
+  // What is typed is kept while the tab is away (`drafts.ts`); `op` is one per attempt, so a send whose answer was lost is never recorded twice.
+  const [d, setD, dropDraft] = useDraft<OutcomeDraft>(`${sid}:outcome:${c.id}`, EMPTY)
+  const { open, happened, versus, triggered, note } = d
+  const setOpen = (v: boolean) => setD((p) => ({ ...p, open: v }))
+  const setHappened = (v: string) => setD((p) => ({ ...p, happened: v }))
+  const setVersus = (v: OutcomeVersus) => setD((p) => ({ ...p, versus: v }))
+  const setTriggered = (v: boolean) => setD((p) => ({ ...p, triggered: v }))
+  const setNote = (v: string) => setD((p) => ({ ...p, note: v }))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [op, setOp] = useState(newOp)
-  const c = commitment
   const ready = happened.trim() !== '' && versus !== null && triggered !== null
 
   const save = async () => {
     if (!ready || versus === null || triggered === null) return
     setBusy(true); setError(null)
+    const sendOp = d.op !== '' ? d.op : newOp()
+    if (d.op === '') setD((p) => ({ ...p, op: sendOp }))
     try {
-      await teamApi.addOutcome(sid, c.id, { happened, versus, reconsider_triggered: triggered, note: note.trim() === '' ? null : note }, op)
-      setHappened(''); setVersus(null); setTriggered(null); setNote(''); setOp(newOp()); setOpen(false)
+      await teamApi.addOutcome(sid, c.id, { happened, versus, reconsider_triggered: triggered, note: note.trim() === '' ? null : note }, sendOp)
+      dropDraft()
       await onWrote()
-    } catch (e) { setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.') } finally { setBusy(false) }
+    } catch (e) {
+      setError(e instanceof TeamApiError && e.uncertain ? 'Olumi may not have received that. Send it again: it will not be recorded twice.' : e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
+    } finally { setBusy(false) }
   }
   const name = `team-o-${c.id}`
 
@@ -58,11 +67,11 @@ export function OutcomePanel({ sid, scenario, commitment, onWrote }: { sid: stri
       </ul>
       {c.keeps.length > 0 && (
         <div className="grid gap-1" data-testid={`team-verdicts-${c.id}`}>
-          <p className={META}>The team’s verdict on each disagreement it kept. Not stored by Olumi yet; the team will give it, not Olumi.</p>
+          <p className={META}>The team’s verdict on each disagreement it kept is the team’s to give, not Olumi’s. It comes when Olumi can store it.</p>
           {c.keeps.map((id) => (
             <label key={id} className={`${META} grid gap-0.5`}>
               <span>{wordsOfRecord(scenario, id) ?? 'A disagreement the model no longer holds'}</span>
-              <select className={FIELD} disabled aria-label={`Verdict on ${wordsOfRecord(scenario, id) ?? id}`}><option>Not stored by Olumi yet</option></select>
+              <select className={FIELD} disabled aria-label={`Verdict on ${wordsOfRecord(scenario, id) ?? id}`}><option value="" /></select>
             </label>
           ))}
         </div>

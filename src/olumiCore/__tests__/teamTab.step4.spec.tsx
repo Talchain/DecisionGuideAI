@@ -2,12 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { TeamTab } from '../team/TeamTab'
 import { useTeamStore } from '../team/store'
+import { resetDrafts } from '../team/drafts'
 import { setTeamFetch } from '../team/api'
 import { fakeApi, scenario } from './teamFixtures'
 import type { TeamCommitmentRow, TeamScenario } from '../team/types'
 
 const UUID = '00000000-0000-4000-8000-75ba67edc0e5'
-const reset = () => useTeamStore.setState({ uuid: null, sid: null, scenario: null, status: 'none', error: null })
+const reset = () => { useTeamStore.setState({ uuid: null, sid: null, scenario: null, status: 'none', error: null }); resetDrafts() }
 beforeEach(reset)
 afterEach(() => { cleanup(); setTeamFetch(null); reset() })
 
@@ -17,7 +18,7 @@ const commitment = (over: Partial<TeamCommitmentRow> = {}): TeamCommitmentRow =>
 })
 const withFacts = (s: TeamScenario): TeamScenario => ({ ...s, version: { ...s.version!, facts: [
   { id: 'F3', value: 'about 50%', text: 'The chance that ‘Add one specialist’ meets ‘At least 100 a week’, in this model on current information.', about: { kind: 'chance' } },
-  { id: 'F4', value: 'between 89.7 and 110 ticket/week (middle 99.9)', text: 'Under ‘Add one specialist’, ‘total capacity’ is likely to be in this range (8 draws in 10).', about: { kind: 'range' } },
+  { id: 'F4', value: 'between 89.7 and 110 ticket/week (middle 99.9)', text: 'Under ‘Add one specialist’, ‘total capacity’ is likely to be in this range (8 draws in 10). It leaves out: How the team feels about a new hire.', about: { kind: 'range', option: 'add_one', goal: 'capacity_goal', low: 89.6795181966731, high: 109.91851476864522, median: 99.93, unit: 'ticket/week' } },
 ] } })
 
 describe('Team tab, step 4: the commitment that keeps dissent open', () => {
@@ -69,10 +70,15 @@ describe('Team tab, step 4: the commitment that keeps dissent open', () => {
     render(<TeamTab scenarioUuid={UUID} />)
     const band = await screen.findByTestId('team-commitment-band')
     expect(band.textContent).toContain('The model’s range, version 1 (Olumi’s')
-    expect(band.textContent).toContain('is likely to be in this range (8 draws in 10)')
+    // Design QA 6 and Codex 5: the band keeps its two figures in plain words, with no jargon and no raw fact sentence, and says what it leaves out quietly.
+    expect(screen.getByTestId('team-commitment-band-line-F4').textContent).toBe('Under ‘Add one specialist’, 8 runs in 10 land between 89.7 and 110 ticket/week, in this model.')
+    expect(screen.getByTestId('team-commitment-band-low-F4').textContent).toBe('89.7')
+    expect(screen.getByTestId('team-commitment-band-high-F4').textContent).toBe('110')
+    expect(screen.getByTestId('team-commitment-band-leaves-F4').textContent).toBe('Leaves out: How the team feels about a new hire')
+    expect(band.textContent).not.toMatch(/draws|likely to be in this range/)
     expect(band.textContent).not.toContain('about 50%')   // a chance is not a range
     fireEvent.click(screen.getByTestId('team-commitment-open'))
-    expect(screen.getByTestId('team-commitment-form').textContent).not.toContain('8 draws in 10')
+    expect(screen.getByTestId('team-commitment-form').textContent).not.toMatch(/8 runs in 10|8 draws in 10/)
     expect(screen.getByTestId('team-commitment-form').textContent).toContain('Write what you expect first; the model’s range appears after you save.')
   })
 

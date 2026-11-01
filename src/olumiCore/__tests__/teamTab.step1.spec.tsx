@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { TeamTab } from '../team/TeamTab'
 import { useTeamStore } from '../team/store'
+import { resetDrafts } from '../team/drafts'
 import { setTeamFetch } from '../team/api'
 import { fakeApi, scenario } from './teamFixtures'
 import type { TeamScenario } from '../team/types'
@@ -9,7 +10,7 @@ import type { TeamScenario } from '../team/types'
 const UUID = '00000000-0000-4000-8000-75ba67edc0e5'
 let state: TeamScenario
 let api: ReturnType<typeof fakeApi>
-const reset = () => useTeamStore.setState({ uuid: null, sid: null, scenario: null, status: 'none', error: null })
+const reset = () => { useTeamStore.setState({ uuid: null, sid: null, scenario: null, status: 'none', error: null }); resetDrafts() }
 
 beforeEach(() => {
   reset()
@@ -33,8 +34,10 @@ describe('Team tab, step 1: members, your view, the held count', () => {
     expect(screen.getByTestId('team-member-1').textContent).toContain('Ada (you)')
     expect(screen.getByTestId('team-member-1').getAttribute('data-state')).toBe('waiting')
     expect(screen.getByTestId('team-member-5').textContent).toContain('Bea')
-    expect(screen.getByTestId('team-privacy-view').textContent).toBe('Your view is private until the reveal. After it, everyone, Olumi included, reads the words.')
-    expect(screen.getByTestId('team-privacy-figures').textContent).toBe('Olumi never reads your figures, and they never change the model.')
+    // Design QA 3: the promise is shown once, before the reveal, and says nothing about figures nobody can enter yet.
+    expect(screen.getAllByTestId('team-privacy')).toHaveLength(1)
+    expect(screen.getByTestId('team-privacy-view').textContent).toBe('Your view is private until the reveal.')
+    expect(screen.queryByTestId('team-privacy-figures')).toBeNull()
   })
 
   it('reads the scenario by core\'s id, derived from the DGAI uuid, with nothing sent that is not the page\'s own', async () => {
@@ -55,7 +58,7 @@ describe('Team tab, step 1: members, your view, the held count', () => {
     expect(screen.queryByTestId('team-view-text')).toBeNull()
     expect(screen.queryByRole('button', { name: /edit/i })).toBeNull()
     expect(screen.getByTestId('team-member-1').getAttribute('data-state')).toBe('held')
-    expect(screen.getByTestId('team-held-count').textContent).toBe('1 of 2 views held')
+    expect(screen.getByTestId('team-held-count').textContent).toBe('1 of 2 in')
   })
 
   it('can say "I would rather not answer this", which counts as given and sends no words', async () => {
@@ -81,7 +84,7 @@ describe('Team tab, step 1: members, your view, the held count', () => {
     await screen.findByTestId('team-members')
     expect(screen.getByTestId('team-member-5').getAttribute('data-state')).toBe('held')
     expect(screen.queryByTestId('team-view-held')).toBeNull()
-    expect(screen.getByTestId('team-held-count').textContent).toBe('1 of 2 views held')
+    expect(screen.getByTestId('team-held-count').textContent).toBe('1 of 2 in')
   })
 
   it('has nothing to read before core knows the scenario', async () => {

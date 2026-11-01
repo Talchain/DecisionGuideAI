@@ -24,7 +24,9 @@ describe('the Team tab talks to core through the /api proxy', () => {
     setTeamFetch(fakeApi(() => ({ status: 409, json: { error: 'there are not two members who have each given a view yet' } })).fetchImpl)
     await expect(teamApi.reveal('s_a1')).rejects.toMatchObject({ name: 'TeamApiError', status: 409, message: 'there are not two members who have each given a view yet' })
     setTeamFetch((async () => { throw new TypeError('network') }) as typeof fetch)
-    await expect(teamApi.reveal('s_a1')).rejects.toMatchObject({ status: 0, message: expect.stringContaining('cannot be reached') })
+    // A write whose answer never came may have been saved: it is never worded as "nothing was sent", and it is marked uncertain.
+    await expect(teamApi.reveal('s_a1')).rejects.toMatchObject({ status: 0, uncertain: true, message: expect.stringContaining('may have been saved') })
+    await expect(teamApi.read('s_a1')).rejects.toMatchObject({ status: 0, uncertain: false, message: expect.stringContaining('could not be read') })
     expect(new TeamApiError(0, 'x')).toBeInstanceOf(Error)
   })
   it('makes an op core accepts (8 to 64 letters, digits and hyphens)', () => {

@@ -12,7 +12,11 @@ import type { TeamEvidenceRow } from './types'
 
 type CanvasNode = Parameters<typeof noteRecordsOf>[1][number]
 
-export const evidenceNoteId = (id: number): string => `evidence_${id}`
+/**
+ * The team's evidence has an identity space of its own, apart from the saved model's record ids: a canonical record called `evidence_11`
+ * and the team's eleventh row are two notes, never one. (The prefix holds a character no record id of core's uses.)
+ */
+export const evidenceNoteId = (id: number): string => `team-evidence:${id}`
 
 export function teamEvidenceNotes(evidence: readonly TeamEvidenceRow[] | undefined, nodes: readonly CanvasNode[]): ReadonlyMap<string, NoteRecord> {
   if (!evidence || evidence.length === 0) return new Map()
@@ -20,7 +24,7 @@ export function teamEvidenceNotes(evidence: readonly TeamEvidenceRow[] | undefin
   return noteRecordsOf({ living_model: { canonical: { evidence: rows } } }, nodes)
 }
 
-/** The notes the saved graph gives, then the team's evidence beside them. A team note never replaces a graph note of the same id. */
+/** The notes the saved graph gives, then the team's evidence beside them. The two identity spaces cannot meet, but a team note still never replaces a graph note of the same id. */
 export function withTeamEvidence(base: ReadonlyMap<string, NoteRecord>, evidence: readonly TeamEvidenceRow[] | undefined, nodes: readonly CanvasNode[]): ReadonlyMap<string, NoteRecord> {
   const team = teamEvidenceNotes(evidence, nodes)
   if (team.size === 0) return base

@@ -19,7 +19,7 @@ export function projectPercent(value: number, low: number, high: number): number
 }
 
 /** A figure as it was given, with its unit; no rounding beyond float noise. */
-export const figureText = (v: number, unit: string | null): string => `${Number(v.toPrecision(12))}${unit ? ` ${unit}` : ''}`
+export const figureText = (v: number, unit: string | null): string => `${Number(v.toPrecision(15))}${unit ? ` ${unit}` : ''}`
 
 const ends = (p: Position | SpreadFor['model']): number[] => (p === null ? [] : p.kind === 'point' ? [p.value!] : [p.low!, p.high!])
 

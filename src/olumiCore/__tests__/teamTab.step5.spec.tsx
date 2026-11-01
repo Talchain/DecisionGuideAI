@@ -2,12 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { TeamTab } from '../team/TeamTab'
 import { useTeamStore } from '../team/store'
+import { resetDrafts } from '../team/drafts'
 import { setTeamFetch } from '../team/api'
 import { fakeApi, scenario } from './teamFixtures'
 import type { TeamCommitmentRow, TeamScenario } from '../team/types'
 
 const UUID = '00000000-0000-4000-8000-75ba67edc0e5'
-const reset = () => useTeamStore.setState({ uuid: null, sid: null, scenario: null, status: 'none', error: null })
+const reset = () => { useTeamStore.setState({ uuid: null, sid: null, scenario: null, status: 'none', error: null }); resetDrafts() }
 beforeEach(reset)
 afterEach(() => { cleanup(); setTeamFetch(null); reset() })
 
@@ -52,7 +53,7 @@ describe('Team tab, step 5: the outcome review', () => {
     setTeamFetch(fakeApi(() => ({ json: scenario({ commitments: [commitment()] }) })).fetchImpl)
     render(<TeamTab scenarioUuid={UUID} />)
     const v = await screen.findByTestId('team-verdicts-12')
-    expect(v.textContent).toContain('the team will give it, not Olumi')
+    expect(v.textContent).toContain('is the team’s to give, not Olumi’s')
     expect(v.textContent).toContain('our team lead: A new hire may unsettle the team.')
     expect((v.querySelector('select') as HTMLSelectElement).disabled).toBe(true)
   })

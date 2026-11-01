@@ -5,12 +5,13 @@ import { RevealPanel, askAboutViews, MAX_ASK_CHARS } from '../team/RevealPanel'
 import { TeamSpreadStrip, projectPercent } from '../team/TeamSpreadStrip'
 import { spreadsOf } from '../team/model'
 import { useTeamStore } from '../team/store'
+import { resetDrafts } from '../team/drafts'
 import { setTeamFetch } from '../team/api'
 import { fakeApi, scenario } from './teamFixtures'
 import type { TeamScenario, TeamViewRow } from '../team/types'
 
 const UUID = '00000000-0000-4000-8000-75ba67edc0e5'
-const reset = () => useTeamStore.setState({ uuid: null, sid: null, scenario: null, status: 'none', error: null })
+const reset = () => { useTeamStore.setState({ uuid: null, sid: null, scenario: null, status: 'none', error: null }); resetDrafts() }
 beforeEach(reset)
 afterEach(() => { cleanup(); setTeamFetch(null); reset() })
 
@@ -46,9 +47,13 @@ describe('Team tab, step 2: reveal together', () => {
     expect(screen.getByTestId('team-revealed-8').textContent).toContain('Chose not to answer.')
     // After the reveal the control is gone: the round is shared.
     expect(screen.queryByTestId('team-reveal-go')).toBeNull()
-    // The promises, as the plan words them, are said beside the revealed words.
-    expect(screen.getByTestId('team-privacy-view-reveal').textContent).toBe('Your view is private until the reveal. After it, everyone, Olumi included, reads the words.')
-    expect(screen.getByTestId('team-privacy-figures-reveal').textContent).toBe('Olumi never reads your figures, and they never change the model.')
+    // Design QA 2 and 3: the empty composer is gone, replaced by what Ada gave; the promise is said once, in the words of after the reveal.
+    expect(screen.queryByTestId('team-view-composer')).toBeNull()
+    expect(screen.getByTestId('team-view-revealed').textContent).toContain('Views revealed together')
+    expect(screen.getByTestId('team-view-revealed-text').textContent).toBe('add one, but ask  Bea')
+    expect(screen.getAllByTestId('team-privacy')).toHaveLength(1)
+    expect(screen.getByTestId('team-privacy-view').textContent).toBe('Revealed to everyone, Olumi included.')
+    expect(screen.queryByTestId('team-privacy-figures')).toBeNull()
     // The CEE page's "Use X's N" apply is not here: a change to the model goes through Olumi's proposal.
     expect(screen.queryByRole('button', { name: /^use /i })).toBeNull()
   })
@@ -81,7 +86,7 @@ describe('asking Olumi where we differ sends the words and never the figures', (
   it('the button sends it', () => {
     const asked = vi.fn()
     const s = scenario({ views: two, reveal: { state: 'revealed', at: 'x' } })
-    render(<RevealPanel sid="s_a" scenario={s} onWrote={async () => undefined} onAskOlumi={asked} />)
+    render(<RevealPanel sid="s_a" scenario={s} onWrote={async () => true} onAskOlumi={asked} />)
     fireEvent.click(screen.getByTestId('team-ask-differ'))
     expect(asked).toHaveBeenCalledWith(askAboutViews(two))
   })
@@ -128,7 +133,11 @@ describe('where you differ: each person\'s own figure, ends and all', () => {
   it('draws nothing for one person\'s figure (there is nothing to compare), and reads honestly when no figures came', () => {
     const one = scenario({ reveal: { state: 'revealed', at: 'x' }, views: [view({ id: 1, by: 'Ada', text: 'hire', figures: [{ kind: 'point', quantity: 'q', value: 1 }] }), view({ id: 2, by: 'Bea', text: 'wait' })] })
     expect(spreadsOf(one)).toEqual([])
-    render(<RevealPanel sid="s_a" scenario={one} onWrote={async () => undefined} />)
+    render(<RevealPanel sid="s_a" scenario={one} onWrote={async () => true} />)
+    // one person's figure exists, so it is not said that none came
+    expect(screen.getByTestId('team-differ-empty').textContent).toContain('Fewer than two people gave a figure')
+    cleanup()
+    render(<RevealPanel sid="s_a" scenario={scenario({ reveal: { state: 'revealed', at: 'x' }, views: [view({ id: 1, by: 'Ada', text: 'hire' }), view({ id: 2, by: 'Bea', text: 'wait' })] })} onWrote={async () => true} />)
     expect(screen.getByTestId('team-differ-empty').textContent).toContain('No figures came with these views')
   })
   it('refuses a malformed range rather than drawing one (low above high)', () => {

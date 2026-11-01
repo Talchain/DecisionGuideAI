@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDraft } from './drafts'
 import { MessageSquareQuote } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { newOp, teamApi, TeamApiError } from './api'
@@ -13,15 +14,36 @@ const STANCES: ReadonlyArray<{ value: Stance; words: string }> = [
   { value: 'unclear', words: 'Not clear yet' },
 ]
 const NONE = '__none__'
+interface EvidenceDraft { open: boolean; text: string; source: string; bears: string; stance: Stance | null; op: string }
+const EMPTY: EvidenceDraft = { open: false, text: '', source: '', bears: '', stance: null, op: '' }
 
-/** A source is a link only when it is an http(s) address with no spaces (core's own rule); anything else is shown as plain text. */
+/**
+ * A source is a link only when it is an http(s) address with no spaces (core's own rule) that the browser reads as an address with NO sign-in
+ * details in it: the address is parsed and judged as the browser reads it (`https:///user:pw@host/` reads as a username and password, whatever
+ * its spelling). Anything else is shown as plain text. The link is the parsed address, never the raw string.
+ */
 export function linkOf(source: string | null): string | null {
-  if (source === null) return null
-  return /^https?:\/\/\S+$/.test(source) && !/^https?:\/\/[^/\s@]*@/.test(source) ? source : null
+  if (source === null || !/^https?:\/\/\S+$/i.test(source)) return null
+  try {
+    const u = new URL(source)
+    return (u.protocol === 'http:' || u.protocol === 'https:') && u.hostname !== '' && u.username === '' && u.password === '' ? u.href : null
+  } catch { return null }
 }
 
-/** The question the person asks Olumi about a piece of evidence: its words, quoted exactly (design plan 7b, v10 board 18). */
-export const askAboutEvidence = (e: Pick<TeamEvidenceRow, 'text'>): string => `What does this change? ${e.text}`
+/** What the chat takes in one message (core's 4,000-character cap on a message, less a margin). */
+export const MAX_ASK_CHARS = 3900
+const ASK_LEAD = 'What does this change? '
+const CUT = ' [the evidence goes on; this is the first part]'
+/**
+ * The question the person asks Olumi about a piece of evidence: its words, quoted exactly (design plan 7b, v10 board 18). Evidence may be as
+ * long as 4,000 characters and a message is capped, so a long one is sent as its opening words with the cut said in the message: never
+ * a quote that looks whole and is not, and never a message core refuses.
+ */
+export function askAboutEvidence(e: Pick<TeamEvidenceRow, 'text'>): string {
+  const whole = `${ASK_LEAD}${e.text}`
+  if (whole.length <= MAX_ASK_CHARS) return whole
+  return `${ASK_LEAD}${e.text.slice(0, MAX_ASK_CHARS - ASK_LEAD.length - CUT.length)}${CUT}`
+}
 
 /**
  * EVIDENCE (design plan steps 7, 7a and 7b). The participant packet's attach form, narrowed to the dock and allowed at any time: it is
@@ -29,18 +51,19 @@ export const askAboutEvidence = (e: Pick<TeamEvidenceRow, 'text'>): string => `W
  * The person says which record it bears on (not "nothing in particular" by default) and has no default stance.
  * Olumi's coach does not read evidence yet (olumi-core API v1.7): to put it to Olumi the person asks in the chat, quoting it.
  */
-export function EvidencePanel({ sid, scenario, onWrote, onAskOlumi }: { sid: string; scenario: TeamScenario; onWrote: () => Promise<void>; onAskOlumi?: (q: string) => void }): JSX.Element {
+export function EvidencePanel({ sid, scenario, onWrote, onAskOlumi }: { sid: string; scenario: TeamScenario; onWrote: () => Promise<boolean>; onAskOlumi?: (q: string) => void }): JSX.Element {
   const choices = recordChoices(scenario)
   const approved = scenario.version !== null
-  const [open, setOpen] = useState(false)
-  const [text, setText] = useState('')
-  const [source, setSource] = useState('')
-  const [bears, setBears] = useState<string>('')
-  const [stance, setStance] = useState<Stance | null>(null)
+  // What is typed is kept while the tab is away (`drafts.ts`). `op` is one per attempt, so a retry after a lost answer never adds a second row.
+  const [d, setD, dropDraft] = useDraft<EvidenceDraft>(`${sid}:evidence`, EMPTY)
+  const { open, text, source, bears, stance } = d
+  const setOpen = (v: boolean) => setD((p) => ({ ...p, open: v }))
+  const setText = (v: string) => setD((p) => ({ ...p, text: v }))
+  const setSource = (v: string) => setD((p) => ({ ...p, source: v }))
+  const setBears = (v: string) => setD((p) => ({ ...p, bears: v }))
+  const setStance = (v: Stance) => setD((p) => ({ ...p, stance: v }))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // One op per attempt, so a retry after a lost answer never adds a second row.
-  const [op, setOp] = useState(newOp)
 
   // Before a model is approved only "nothing in the model yet" is accepted by core.
   const effectiveBears = approved ? bears : NONE
@@ -49,11 +72,16 @@ export function EvidencePanel({ sid, scenario, onWrote, onAskOlumi }: { sid: str
   const add = async () => {
     if (!ready || stance === null) return
     setBusy(true); setError(null)
+    const sendOp = d.op !== '' ? d.op : newOp()
+    if (d.op === '') setD((p) => ({ ...p, op: sendOp }))
     try {
-      await teamApi.addEvidence(sid, { text, source: source.trim() === '' ? null : source, concerns: effectiveBears === NONE ? [] : [effectiveBears], stance }, op)
-      setText(''); setSource(''); setBears(''); setStance(null); setOp(newOp()); setOpen(false)
+      await teamApi.addEvidence(sid, { text, source: source.trim() === '' ? null : source, concerns: effectiveBears === NONE ? [] : [effectiveBears], stance }, sendOp)
+      dropDraft()
       await onWrote()
-    } catch (e) { setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.') } finally { setBusy(false) }
+    } catch (e) {
+      // The same op goes with the next press, so a send whose answer was lost is never added twice.
+      setError(e instanceof TeamApiError && e.uncertain ? 'Olumi may not have received that. Send it again: it will not be added twice.' : e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
+    } finally { setBusy(false) }
   }
 
   return (
@@ -64,11 +92,14 @@ export function EvidencePanel({ sid, scenario, onWrote, onAskOlumi }: { sid: str
         {scenario.evidence.map((e) => {
           const link = linkOf(e.source)
           const about = e.concerns.map((id) => wordsOfRecord(scenario, id) ?? 'a part of the model that has since changed')
+          // The ids were checked against the version the evidence was added to; a later version may word the same card differently.
+          const then = e.version !== null && scenario.version !== null && e.version !== scenario.version.n ? e.version : null
           return (
             <li key={e.id} data-testid={`team-evidence-${e.id}`} data-stance={e.stance} className={CARD}>
               <p className={`${META} text-text-header`}>{e.by} · {STANCES.find((s) => s.value === e.stance)?.words.toLowerCase()}</p>
               <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid={`team-evidence-text-${e.id}`}>{e.text}</p>
               <p className={META}>{about.length > 0 ? `Bears on: ${about.join('; ')}` : 'Nothing in the model yet'}</p>
+              {then !== null && about.length > 0 && <p className={META} data-testid={`team-evidence-version-${e.id}`}>Added when the model was version {then}; it is version {scenario.version!.n} now, so these words may have changed.</p>}
               {e.source !== null && (
                 <p className={`${META} break-all`} data-testid={`team-evidence-source-${e.id}`}>
                   Source: {link ? <a href={link} target="_blank" rel="noopener noreferrer" className="text-info underline underline-offset-2">{e.source}</a> : e.source}
@@ -100,7 +131,7 @@ export function EvidencePanel({ sid, scenario, onWrote, onAskOlumi }: { sid: str
             <option value={NONE}>Nothing in the model yet</option>
             {choices.map((c) => <option key={c.id} value={c.id}>{c.familyWords}: {c.words}</option>)}
           </select>
-          {!approved && <p className={META} data-testid="team-evidence-unapproved">There is no confirmed model yet, so evidence is kept now and can be tied to a card once the model is confirmed.</p>}
+          {!approved && <p className={META} data-testid="team-evidence-unapproved">There is no confirmed model yet, so this is kept with the question. It cannot be tied to a card afterwards.</p>}
           <fieldset className="m-0 grid gap-1 border-0 p-0" data-testid="team-evidence-stance">
             <legend className={LABEL}>It…</legend>
             {STANCES.map((s) => (

@@ -2,11 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { TeamTab } from '../team/TeamTab'
 import { useTeamStore } from '../team/store'
+import { resetDrafts } from '../team/drafts'
 import { setTeamFetch } from '../team/api'
 import { fakeApi, scenario } from './teamFixtures'
 
 const UUID = '00000000-0000-4000-8000-75ba67edc0e5'
-const reset = () => useTeamStore.setState({ uuid: null, sid: null, scenario: null, status: 'none', error: null })
+const reset = () => { useTeamStore.setState({ uuid: null, sid: null, scenario: null, status: 'none', error: null }); resetDrafts() }
 beforeEach(reset)
 afterEach(() => { cleanup(); setTeamFetch(null); reset() })
 

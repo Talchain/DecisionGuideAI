@@ -3,14 +3,43 @@ import { Lock } from 'lucide-react'
 import { OlumiAiIcon } from '../../components/results/analysisNew/OlumiAiIcon'
 import { Button } from '../../components/ui/Button'
 import { teamApi, TeamApiError } from './api'
-import { dissentsOf, modelBandOf, recordWords, wordsOfRecord } from './model'
+import { useDraft } from './drafts'
+import { bandNumber, dissentsOf, modelBandOf, recordWords, wordsOfRecord, type ModelBand } from './model'
+import { NOT_SAVED, settleUncertain, UNKNOWN_SAVED } from './settle'
 import { DissentNotConfirmed } from './DissentConfirm'
 import { OutcomePanel } from './OutcomePanel'
 import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
 import type { TeamCommitmentRow, TeamScenario } from './types'
 
 /** The ids of the kept disagreements, as the commitment reads them back: their words in the approved model, else a plain note. */
+interface CommitmentDraft { open: boolean; action: string; owner: string; expect: string; reconsider: string; keeps: readonly string[] }
+const EMPTY: CommitmentDraft = { open: false, action: '', owner: '', expect: '', reconsider: '', keeps: [] }
 const keptWords = (s: TeamScenario, id: string): string => wordsOfRecord(s, id) ?? 'a disagreement the model no longer holds'
+
+/** One range of the model, drawn as a band between its two ends, with one plain line and one quiet "Leaves out" line. No middle is drawn. */
+function BandRow({ band }: { band: ModelBand }): JSX.Element {
+  const hasNumbers = band.low !== null && band.high !== null
+  const unit = band.unit ? ` ${band.unit}` : ''
+  const line = hasNumbers
+    ? `${band.option ? `Under ‘${band.option}’, ` : ''}8 runs in 10 land between ${bandNumber(band.low!)} and ${bandNumber(band.high!)}${unit}${band.measure ? ` of ‘${band.measure}’` : ''}, in this model.`
+    : `${band.option ? `Under ‘${band.option}’: ` : ''}${band.valueWords}, in this model.`
+  return (
+    <li className="grid gap-1" data-testid={`team-commitment-band-${band.id}`}>
+      {hasNumbers && (
+        <div aria-hidden="true" className="grid gap-0.5">
+          <div className="relative mx-1 h-4 rounded-full bg-canvas">
+            <span className="absolute inset-y-1 left-[6%] right-[6%] rounded-full bg-info/25" />
+            <span className="absolute top-0 h-4 w-0.5 bg-info" style={{ left: '6%' }} />
+            <span className="absolute top-0 h-4 w-0.5 bg-info" style={{ right: '6%' }} />
+          </div>
+          <div className={`${META} flex justify-between tabular-nums`}><span data-testid={`team-commitment-band-low-${band.id}`}>{bandNumber(band.low!)}</span><span data-testid={`team-commitment-band-high-${band.id}`}>{bandNumber(band.high!)}</span></div>
+        </div>
+      )}
+      <p className={META} data-testid={`team-commitment-band-line-${band.id}`}>{line}</p>
+      {band.leavesOut && <p className={`${META} opacity-80`} data-testid={`team-commitment-band-leaves-${band.id}`}>Leaves out: {band.leavesOut}</p>}
+    </li>
+  )
+}
 
 function Band({ scenario }: { scenario: TeamScenario }): JSX.Element | null {
   const band = modelBandOf(scenario)
@@ -18,7 +47,7 @@ function Band({ scenario }: { scenario: TeamScenario }): JSX.Element | null {
   return (
     <div className="grid gap-1" data-testid="team-commitment-band">
       <p className={`${META} flex items-center gap-1.5 text-text-header`}><OlumiAiIcon aria-hidden="true" className="h-3.5 w-3.5 flex-none" />The model’s range, version {scenario.version?.n} (Olumi’s, from the model as confirmed)</p>
-      <ul className="m-0 grid list-none gap-1 p-0">{band.map((f) => <li key={f.id} className={META}>{f.text}</li>)}</ul>
+      <ul className="m-0 grid list-none gap-2 p-0">{band.map((b) => <BandRow key={b.id} band={b} />)}</ul>
     </div>
   )
 }
@@ -30,17 +59,21 @@ function Band({ scenario }: { scenario: TeamScenario }): JSX.Element | null {
  *
  * Fields core does not store yet (which option, a review date, the holder's own tell) are drawn and cannot be used, and say so.
  */
-export function CommitmentPanel({ sid, scenario, onWrote }: { sid: string; scenario: TeamScenario; onWrote: () => Promise<void> }): JSX.Element {
+export function CommitmentPanel({ sid, scenario, onWrote }: { sid: string; scenario: TeamScenario; onWrote: () => Promise<boolean> }): JSX.Element {
   const approved = scenario.version !== null
   const dissents = dissentsOf(scenario)
-  const [open, setOpen] = useState(false)
-  const [action, setAction] = useState('')
-  const [owner, setOwner] = useState('')
-  const [expect, setExpect] = useState('')
-  const [reconsider, setReconsider] = useState('')
-  const [keeps, setKeeps] = useState<readonly string[]>([])
+  // What is typed is kept while the tab is away (`drafts.ts`).
+  const [d, setD, dropDraft] = useDraft<CommitmentDraft>(`${sid}:commitment`, EMPTY)
+  const { open, action, owner, expect, reconsider, keeps } = d
+  const setOpen = (v: boolean) => setD((p) => ({ ...p, open: v }))
+  const setAction = (v: string) => setD((p) => ({ ...p, action: v }))
+  const setOwner = (v: string) => setD((p) => ({ ...p, owner: v }))
+  const setExpect = (v: string) => setD((p) => ({ ...p, expect: v }))
+  const setReconsider = (v: string) => setD((p) => ({ ...p, reconsider: v }))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // A save whose outcome could not be read back: no second save is offered until Olumi has said what it holds (a commitment has no retry key).
+  const [unverified, setUnverified] = useState(false)
   const ready = [action, expect, reconsider].every((t) => t.trim() !== '') && owner !== ''
 
   const save = async () => {
@@ -48,11 +81,23 @@ export function CommitmentPanel({ sid, scenario, onWrote }: { sid: string; scena
     setBusy(true); setError(null)
     try {
       await teamApi.addCommitment(sid, { action, owner, expect, reconsider, keeps })
-      setAction(''); setOwner(''); setExpect(''); setReconsider(''); setKeeps([]); setOpen(false)
+      dropDraft()
       await onWrote()
-    } catch (e) { setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.') } finally { setBusy(false) }
+    } catch (e) {
+      if (e instanceof TeamApiError && e.uncertain) { await check(); return }
+      setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
+    } finally { setBusy(false) }
   }
-  const toggle = (id: string) => setKeeps((k) => (k.includes(id) ? k.filter((x) => x !== id) : [...k, id]))
+  /** Is this commitment in what Olumi holds? Core has no retry key for it, so a second save would be a second commitment. */
+  const landed = (s: TeamScenario) => s.commitments.some((c) => c.by === s.you && c.action === action && c.owner_id === owner && c.expect === expect && c.reconsider === reconsider)
+  const check = async () => {
+    setBusy(true)
+    const r = await settleUncertain(onWrote, landed)
+    setBusy(false)
+    if (r === 'saved') { dropDraft(); setUnverified(false); setError(null) }
+    else if (r === 'not_saved') { setUnverified(false); setError(NOT_SAVED) } else { setUnverified(true); setError(UNKNOWN_SAVED) }
+  }
+  const toggle = (id: string) => setD((p) => ({ ...p, keeps: p.keeps.includes(id) ? p.keeps.filter((x) => x !== id) : [...p.keeps, id] }))
 
   return (
     <section data-testid="team-commitments" aria-label="Commitment" className="grid gap-2">
@@ -90,7 +135,7 @@ export function CommitmentPanel({ sid, scenario, onWrote }: { sid: string; scena
           <textarea id="team-c-action" data-testid="team-c-action" className={`${FIELD} min-h-[64px]`} value={action} disabled={busy} onChange={(e) => setAction(e.target.value)} />
 
           <label htmlFor="team-c-option" className={LABEL}>Which option</label>
-          <select id="team-c-option" data-testid="team-c-option" className={FIELD} disabled aria-describedby="team-c-notyet"><option>Not stored by Olumi yet</option></select>
+          <select id="team-c-option" data-testid="team-c-option" className={FIELD} disabled aria-describedby="team-c-notyet"><option value="" /></select>
 
           <label htmlFor="team-c-owner" className={LABEL}>Who owns it</label>
           <select id="team-c-owner" data-testid="team-c-owner" className={FIELD} value={owner} disabled={busy} onChange={(e) => setOwner(e.target.value)}>
@@ -105,8 +150,8 @@ export function CommitmentPanel({ sid, scenario, onWrote }: { sid: string; scena
           <textarea id="team-c-reconsider" data-testid="team-c-reconsider" className={`${FIELD} min-h-[56px]`} value={reconsider} disabled={busy} onChange={(e) => setReconsider(e.target.value)} />
 
           <label htmlFor="team-c-review" className={LABEL}>Review on</label>
-          <input id="team-c-review" data-testid="team-c-review" className={FIELD} disabled placeholder="Not stored by Olumi yet" aria-describedby="team-c-notyet" />
-          <p id="team-c-notyet" className={META} data-testid="team-c-notyet">Which option and a review date are drawn here and open when Olumi can store them.</p>
+          <input id="team-c-review" data-testid="team-c-review" className={FIELD} disabled aria-describedby="team-c-notyet" />
+          <p id="team-c-notyet" className={META} data-testid="team-c-notyet">Option, review date and the holder’s own words come when Olumi can store them.</p>
 
           <fieldset className="m-0 grid gap-1.5 border-0 p-0" data-testid="team-c-keeps">
             <legend className={LABEL}>Keep these disagreements open</legend>
@@ -120,14 +165,16 @@ export function CommitmentPanel({ sid, scenario, onWrote }: { sid: string; scena
             {dissents.length > 0 && (
               <div className="grid gap-0.5" data-testid="team-c-tell">
                 <label htmlFor="team-c-tell-input" className={`${META} flex items-center gap-1`}><Lock aria-hidden="true" className="h-3 w-3" />What would change their mind, in the holder’s own words</label>
-                <textarea id="team-c-tell-input" className={`${FIELD} min-h-[48px]`} disabled placeholder="Only the holder can write this. Not stored by Olumi yet." />
+                <textarea id="team-c-tell-input" className={`${FIELD} min-h-[48px]`} disabled aria-describedby="team-c-notyet" placeholder="Only the holder can write this." />
               </div>
             )}
           </fieldset>
 
           {error && <p role="alert" data-testid="team-commitment-error" className={ERR}>{error}</p>}
           <div className="flex gap-2">
-            <Button size="sm" data-testid="team-commitment-save" disabled={!ready || busy} onClick={() => void save()}>Save commitment</Button>
+            {unverified
+              ? <Button size="sm" data-testid="team-commitment-check" disabled={busy} onClick={() => void check()}>Check whether it was saved</Button>
+              : <Button size="sm" data-testid="team-commitment-save" disabled={!ready || busy} onClick={() => void save()}>Save commitment</Button>}
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => setOpen(false)}>Cancel</Button>
           </div>
         </div>

@@ -5,12 +5,13 @@ import { askAboutEvidence, linkOf } from '../team/EvidencePanel'
 import { teamEvidenceNotes, withTeamEvidence } from '../team/evidenceNotes'
 import { noteLine } from '../../canvas/domain/noteRecordsModel'
 import { useTeamStore } from '../team/store'
+import { resetDrafts } from '../team/drafts'
 import { setTeamFetch } from '../team/api'
 import { fakeApi, scenario } from './teamFixtures'
 import type { TeamEvidenceRow, TeamScenario } from '../team/types'
 
 const UUID = '00000000-0000-4000-8000-75ba67edc0e5'
-const reset = () => useTeamStore.setState({ uuid: null, sid: null, scenario: null, status: 'none', error: null })
+const reset = () => { useTeamStore.setState({ uuid: null, sid: null, scenario: null, status: 'none', error: null }); resetDrafts() }
 beforeEach(reset)
 afterEach(() => { cleanup(); setTeamFetch(null); reset() })
 
@@ -91,19 +92,19 @@ describe('the canvas counts what the team brought (the lane\'s evidence adapter 
   ]
   it('anchors evidence on the first visible card it concerns, in the member\'s words, with its source', () => {
     const notes = teamEvidenceNotes([ev()], nodes)
-    const n = notes.get('evidence_11')!
+    const n = notes.get('team-evidence:11')!
     expect(n).toMatchObject({ family: 'evidence', anchorId: 'per_specialist', author: 'person', text: 'Our October export: 2 in 100 unsubscribed. Source: https://example.com/x' })
     expect(noteLine(n)).toBe('Evidence: Our October export: 2 in 100 unsubscribed. Source: https://example.com/x')
   })
   it('falls back to the question card when its record is not a card (a link, or a record a later version dropped)', () => {
-    expect(teamEvidenceNotes([ev({ concerns: ['morale_link'] }), ev({ id: 12, concerns: [] })], nodes).get('evidence_11')!.anchorId).toBe('q')
-    expect(teamEvidenceNotes([ev({ id: 12, concerns: [] })], nodes).get('evidence_12')!.anchorId).toBe('q')
+    expect(teamEvidenceNotes([ev({ concerns: ['morale_link'] }), ev({ id: 12, concerns: [] })], nodes).get('team-evidence:11')!.anchorId).toBe('q')
+    expect(teamEvidenceNotes([ev({ id: 12, concerns: [] })], nodes).get('team-evidence:12')!.anchorId).toBe('q')
   })
   it('joins the notes beside the saved graph\'s own and never replaces one', () => {
     const base = new Map([['evidence_11', { id: 'evidence_11', family: 'evidence' as const, text: 'mine', author: null, anchorId: 'q' }]])
     const merged = withTeamEvidence(base, [ev(), ev({ id: 12 })], nodes)
     expect(merged.get('evidence_11')!.text).toBe('mine')
-    expect(merged.has('evidence_12')).toBe(true)
+    expect(merged.has('team-evidence:12')).toBe(true)
     expect(withTeamEvidence(base, undefined, nodes)).toBe(base)
   })
 })

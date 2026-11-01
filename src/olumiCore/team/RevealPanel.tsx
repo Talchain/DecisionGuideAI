@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { Eye, Hourglass } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { teamApi, TeamApiError } from './api'
-import { PrivacyNote } from './PrivacyNote'
 import { TeamSpreadStrip, figureText } from './TeamSpreadStrip'
-import { revealedViews, spreadsOf } from './model'
+import { revealedViews, spreadsOf, waitingNames } from './model'
+import { settleUncertain } from './settle'
 import { AVATAR, BODY, CARD, ERR, H, META } from './ui'
 import type { TeamFigure, TeamScenario, TeamViewRow } from './types'
 
@@ -25,7 +25,7 @@ const figureLine = (f: TeamFigure, label: (id: string) => string): string =>
  * without its "Use X's N" apply: a change to the model goes through Olumi's proposal, never through a button here. Anyone in the team
  * can reveal; the reveal is one write and everyone sees it on their next read.
  */
-export function RevealPanel({ sid, scenario, onWrote, onAskOlumi }: { sid: string; scenario: TeamScenario; onWrote: () => Promise<void>; onAskOlumi?: (q: string) => void }): JSX.Element | null {
+export function RevealPanel({ sid, scenario, onWrote, onAskOlumi }: { sid: string; scenario: TeamScenario; onWrote: () => Promise<boolean>; onAskOlumi?: (q: string) => void }): JSX.Element | null {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const views = revealedViews(scenario)
@@ -37,7 +37,13 @@ export function RevealPanel({ sid, scenario, onWrote, onAskOlumi }: { sid: strin
 
   const reveal = async () => {
     setBusy(true); setError(null)
-    try { await teamApi.reveal(sid); await onWrote() } catch (e) { setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was revealed.') } finally { setBusy(false) }
+    try { await teamApi.reveal(sid); await onWrote() } catch (e) {
+      // A reveal whose answer was lost may have happened: read before saying anything about it.
+      if (e instanceof TeamApiError && e.uncertain) {
+        const r = await settleUncertain(onWrote, (s) => s.reveal.state === 'revealed')
+        setError(r === 'saved' ? null : r === 'not_saved' ? 'That did not reach Olumi, so nothing was revealed. You can try again.' : 'We could not tell whether the views were revealed. Check for new views before trying again.')
+      } else setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was revealed.')
+    } finally { setBusy(false) }
   }
 
   if (!showReveal && views.length === 0) return null
@@ -51,7 +57,7 @@ export function RevealPanel({ sid, scenario, onWrote, onAskOlumi }: { sid: strin
           ) : (
             <p className={`${META} flex items-center gap-1.5`} data-testid="team-reveal-wait">
               <Hourglass aria-hidden="true" className="h-3 w-3 flex-none" />
-              {scenario.members.length < 2 ? 'The reveal opens when two or more people have each given a view.' : scenario.waiting.length > 0 ? `Waiting for ${scenario.waiting.map((n) => (n === scenario.you ? 'you' : n)).join(', ')}.` : 'Waiting for the others.'}
+              {scenario.members.length < 2 ? 'The reveal opens when two or more people have each given a view.' : scenario.waiting.length > 0 ? `Waiting for ${waitingNames(scenario).join(', ') || 'the others'}.` : 'Waiting for the others.'}
             </p>
           )}
           <div>
@@ -81,7 +87,6 @@ export function RevealPanel({ sid, scenario, onWrote, onAskOlumi }: { sid: strin
               </li>
             ))}
           </ul>
-          <PrivacyNote scope="reveal" />
           {onAskOlumi && ask !== null && (
             <div>
               <Button size="sm" variant="secondary" data-testid="team-ask-differ" onClick={() => onAskOlumi(ask)}>Ask Olumi where we differ</Button>
@@ -94,7 +99,9 @@ export function RevealPanel({ sid, scenario, onWrote, onAskOlumi }: { sid: strin
         <h3 className={H}>Where you differ</h3>
         {spreads.length > 0 ? spreads.map((sp) => <TeamSpreadStrip key={sp.quantity} spread={sp} />) : (
           <p className={META} data-testid="team-differ-empty">
-            {views.length === 0 ? 'Once views are revealed, where they differ shows here, in each person’s own words.' : 'No figures came with these views, so there is nothing to place side by side. Read the words above, or ask Olumi where they differ.'}
+            {views.length === 0 ? 'Once views are revealed, where they differ shows here, in each person’s own words.' : views.some((v) => (v.figures?.length ?? 0) > 0)
+              ? 'Fewer than two people gave a figure for the same thing, so nothing is placed side by side. Read the words above, or ask Olumi where they differ.'
+              : 'No figures came with these views, so there is nothing to place side by side. Read the words above, or ask Olumi where they differ.'}
           </p>
         )}
       </div>

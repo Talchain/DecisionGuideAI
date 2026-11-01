@@ -210,7 +210,9 @@ import { DefineSuccessModal, DecisionRecordModal, HowComputedModal, openDecision
 import { useIsViewer } from '../../lib/viewerMode'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
-import { useTeamStore } from '../../olumiCore/team/store'
+import { setOnModelMoved, useTeamStore } from '../../olumiCore/team/store'
+import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
+import { getSessionIdentity } from '../../lib/supabase'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
 
 /**
@@ -798,6 +800,16 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const teamUse = useTeamStore(s => s.use)
   const teamCardCount = useCanvasStore(s => s.nodes.length)
   useEffect(() => { if (isOlumiCoreLane()) void teamUse(currentScenarioIdForRun ?? null) }, [currentScenarioIdForRun, teamCardCount, teamUse])
+  // Another member approved a change: a read of the team shows the approved model has moved on, so the canvas reads the saved model again
+  // (design QA 7: Bea's canvas must not stay on version 1 while her Team tab shows version 2).
+  useEffect(() => {
+    if (!isOlumiCoreLane()) return
+    setOnModelMoved((uuid) => {
+      if (useCanvasStore.getState().currentScenarioId !== uuid) return
+      void getSessionIdentity().then((id) => hydrateCanvasFromServer(uuid, { userId: id.userId, accessToken: id.accessToken }))
+    })
+    return () => setOnModelMoved(null)
+  }, [])
   const runOnRecord = runOnRecordLocally || savedRunUnconfirmed
   const runStateKindForStatus = useCanvasStore(s => s.analysisStateV1?.run_state.kind ?? null)
 

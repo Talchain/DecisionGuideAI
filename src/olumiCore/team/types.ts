@@ -65,10 +65,18 @@ export interface TeamRecord {
   readonly holder?: string
   readonly position?: string
   readonly origin?: { readonly by: string; readonly quote?: string; readonly party?: string | null }
+  /** A goal's or limit's measure: what it measures (a record id). */
+  readonly measure?: { readonly quantity?: string } | null
 }
 
 /** One of the Run's findings, as stored: its `text` is the plain finding and is shown as written. */
-export interface TeamFact { readonly id: string; readonly value: string; readonly text: string; readonly about?: { readonly kind?: string } }
+export interface TeamFact {
+  readonly id: string
+  readonly value: string
+  readonly text: string
+  /** A range finding carries its band as numbers (`low`, `median`, `high`: 8 runs in 10), with its `unit` and the `option` and `goal` it is about. */
+  readonly about?: { readonly kind?: string; readonly option?: string; readonly goal?: string; readonly low?: number; readonly median?: number; readonly high?: number; readonly unit?: string | null }
+}
 
 export interface TeamScenario {
   readonly id: string
