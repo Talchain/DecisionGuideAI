@@ -208,14 +208,24 @@ export function analysisViewOf(view) {
   const waiting = !!view.pending
   const m = byId(v.form)
   const live = v.form.records.filter((r) => r.family === 'option' && r.status === 'live')
-  const goal = v.form.records.find((r) => r.family === 'goal')
+  // The Run view carries ONE aim's results. Core's facts name the aim they are about (`about.goal`), so the aim is the first one core
+  // has results for (else the first that can be measured, else the first): never just the first in the list, whose results may be
+  // none (no measure yet) while a later aim's are all there.
+  const goals = v.form.records.filter((r) => r.family === 'goal')
+  const AIM_FACTS = new Set(['chance', 'range', 'driver', 'blocker', 'most_likely', 'none_clearly'])
+  const goal = goals.find((g) => v.facts.some((f) => AIM_FACTS.has(f.about?.kind) && f.about.goal === g.id)) ?? goals.find((g) => g.measure) ?? goals[0]
   const leaves = leftOutOf(v.form, goal?.id)
   const about = (f, kind, o) => f.about?.kind === kind && f.about.option === o.id && (!goal || !f.about.goal || f.about.goal === goal.id)
   const chance = (o) => v.facts.find((f) => about(f, 'chance', o))
   const range = (o) => v.facts.find((f) => about(f, 'range', o))
   const driver = (o) => v.facts.find((f) => about(f, 'driver', o))
   const blocked = (o) => v.facts.find((f) => about(f, 'blocker', o))
-  const most = v.facts.find((f) => f.about?.kind === 'most_likely' || f.about?.kind === 'none_clearly')
+  const most = v.facts.find((f) => (f.about?.kind === 'most_likely' || f.about?.kind === 'none_clearly') && (!goal || !f.about.goal || f.about.goal === goal.id))
+  // The other aims' chances, said option by option: the view has room for one aim's cells, and the rest are not dropped.
+  const otherAims = goals.filter((g) => g !== goal).flatMap((g) => {
+    const rows = live.flatMap((o) => { const c = v.facts.find((f) => f.about?.kind === 'chance' && f.about.option === o.id && f.about.goal === g.id); return c ? [`‘${nameOf(m, o.id)}’ ${c.value}`] : [] })
+    return rows.length ? [`For the aim ‘${nameOf(m, g.id)}’: ${rows.join('; ')}.`] : []
+  })
   const waits = v.facts.filter((f) => f.about?.kind === 'waits' || f.about?.kind === 'blocker').flatMap((f) => (f.about.rests ?? []))
   const waitsOn = [...new Set(waits)].map((id) => m.get(id)).filter(Boolean).map((r) => ({ id: r.id, label: nameOf(m, r.id), answer: r.family === 'quantity' && r.assertion.kind === 'asked' ? { quantity_id: r.id } : null, code: r.family === 'quantity' ? r.assertion.kind : 'waiting' }))
   // Olumi's what-if figures, from the structured input facts (API v1.4 `about.olumi`): said once, as the facts mark them, not read from their words.
@@ -232,7 +242,7 @@ export function analysisViewOf(view) {
     if (whole) rows.unshift(whole.value)
     return rows.length ? [`Your limit ‘${l.label}’: ${rows.join('; ')}.`] : []
   })
-  const notes = [...(leaves.length ? [`This leaves out: ${leaves.join('; ')}.`] : []), ...limitNotes, ...(whatIfs.length ? [`Olumi’s what-if figures, until you give your own: ${whatIfs.join('; ')}.`] : [])]
+  const notes = [...(leaves.length ? [`This leaves out: ${leaves.join('; ')}.`] : []), ...otherAims, ...limitNotes, ...(whatIfs.length ? [`Olumi’s what-if figures, until you give your own: ${whatIfs.join('; ')}.`] : [])]
   return {
     schema: 'canonical_analysis_view.v1', source: 'stored_run_facts',
     run: { run_id: runIdOf(v), graph_hash_at_run: revSaved16(view), computed_at: v.at },

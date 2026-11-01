@@ -87,6 +87,45 @@ describe('the Run, from structured facts (API v1.4), read by DGAI\'s own parser'
   })
 })
 
+describe('with more than one aim, the Run is about the aim core ran, and the other aims\' chances are not dropped (finding: the first aim has no measure, so every option showed no chance)', () => {
+  const clone = (v) => JSON.parse(JSON.stringify(v))
+  /** The capture's one aim renamed g2, behind a first aim that has no measure yet. */
+  const unmeasurableFirst = () => {
+    const v = clone(approved)
+    const g = v.version.form.records.find((r) => r.id === 'capacity_goal')
+    g.id = 'g2'
+    v.version.form.records.splice(v.version.form.records.indexOf(g), 0, { family: 'goal', id: 'capacity_goal', label: 'Enough capacity', measure: null, question: 'What counts as enough?', origin: { by: 'person', quote: 'enough capacity', party: null } })
+    for (const f of v.version.facts) if (f.about?.goal === 'capacity_goal') f.about.goal = 'g2'
+    return v
+  }
+  it('the options\' chances come from the aim that has them, not from the first aim in the list', () => {
+    const view = analysisViewOf(unmeasurableFirst())
+    expect(view.options.map((o) => [o.option_id, o.cell.kind])).toEqual([['hold', 'figure'], ['add_one', 'figure']])
+    expect(view.options.find((o) => o.option_id === 'add_one').cell.display).toBe('about 50%')
+    expect(view.goal_chance.chance_words).toBe('chance of ‘At least 100 a week’')
+    expect(parseCanonicalAnalysisView(view)).not.toBeNull()
+  })
+  it('what the aim leaves out is that aim\'s, and the leader sentence is about it', () => {
+    const view = analysisViewOf(unmeasurableFirst())
+    expect(view.goal_chance.notes).toEqual(['This leaves out: How the team feels about a new hire.'])
+    expect(view.leader.words).toMatch(/most likely to achieve 'At least 100 a week'/)
+  })
+  it('two aims with chances: the first with results is the view; the other\'s chances are said in the notes, option by option', () => {
+    const v = clone(approved)
+    v.version.form.records.push({ family: 'goal', id: 'g2', label: 'At least 120 a week', measure: { ...v.version.form.records.find((r) => r.id === 'capacity_goal').measure, exclusions: [] }, question: null, origin: { by: 'person', quote: 'ideally 120', party: null } })
+    const second = (kind, option, value) => ({ id: `X-${kind}-${option}`, value, text: `${kind} ${option}`, about: { kind, option, goal: 'g2' } })
+    v.version.facts.push(second('chance', 'add_one', 'about 20%'), second('chance', 'hold', 'never met in this model'))
+    const view = analysisViewOf(v)
+    expect(view.goal_chance.chance_words).toBe('chance of ‘At least 100 a week’')
+    expect(view.options.find((o) => o.option_id === 'add_one').cell.display).toBe('about 50%')
+    expect(view.goal_chance.notes).toContain('For the aim ‘At least 120 a week’: ‘Keep current staffing’ never met in this model; ‘Add one specialist’ about 20%.')
+    expect(parseCanonicalAnalysisView(view)).not.toBeNull()
+  })
+  it('a single aim reads exactly as before (no extra note)', () => {
+    expect(analysisViewOf(approved).goal_chance.notes).toEqual(['This leaves out: How the team feels about a new hire.'])
+  })
+})
+
 describe('the Run is current only for the model it was run on (finding 12)', () => {
   const withChange = fx('view-approved-with-change.json')
   it('with nothing waiting, the Run is stamped with the graph shown and is current (so the turn\'s Run is adopted)', () => {
