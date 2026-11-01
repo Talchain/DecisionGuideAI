@@ -50,7 +50,7 @@ import {
   DEFAULT_WORKSPACE_SURFACE,
   UNFLAGGED_FALLBACK_SURFACE,
   SHELL_CONTAINER_NAME,
-  presentedSurfaces,
+  presentedSurfacesWithLane,
   shellBodyClassName,
   surfaceFor,
   type WorkspaceSurfaceDescriptor,
@@ -208,7 +208,9 @@ import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer
 import { AssistantOpenedNotice } from './AssistantOpenedNotice'
 import { DefineSuccessModal, DecisionRecordModal, HowComputedModal, openDecisionRecord, useDecisionRecordForScenario } from '../../components/results/modals'
 import { useIsViewer } from '../../lib/viewerMode'
-import { coreLaneShowsSurface } from '../../olumiCore/lane'
+import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
+import { TeamTab } from '../../olumiCore/team/TeamTab'
+import { useTeamStore } from '../../olumiCore/team/store'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
 
 /**
@@ -276,7 +278,7 @@ export function readPersistedActiveDockTab(): OutputsDockTab | null {
     // 'altview' is deliberately absent: the retired V7 comparison tab must not
     // rehydrate from a session persisted before its retirement — an unknown id
     // falls through to null and the dock opens on its default tab.
-    if (tab === 'results' || tab === 'analysisNew' || tab === 'compare' || tab === 'diagnostics' || tab === 'journey' || tab === 'olumi') {
+    if (tab === 'results' || tab === 'analysisNew' || tab === 'compare' || tab === 'diagnostics' || tab === 'journey' || tab === 'olumi' || (tab === 'team' && isOlumiCoreLane())) {
       return tab
     }
     return null
@@ -496,8 +498,8 @@ export function getOutputTabsForParity(): WorkspaceSurfaceDescriptor[] {
   // to correct. `presentedSurfaces().map(s => s.id)` is asserted not to contain
   // 'journey' in `tests/ci-guards/shell-conformance.spec.ts`, and
   // `OutputsDock.dom.spec.tsx` drives the whole dock with the flag forced ON.
-  return presentedSurfaces().filter(surface => {
-    // The olumi-core lane has no Reasoning or Compare backend (CEE's): hidden there, never left to 404.
+  return presentedSurfacesWithLane().filter(surface => {
+    // The olumi-core lane has no Reasoning or Compare backend (CEE's): hidden there, never left to 404. Its Team tab is shown there and nowhere else.
     if (!coreLaneShowsSurface(surface.id)) return false
     if (surface.id === 'olumi') return isAiPanelV2Enabled()
     if (surface.id === 'compare') return isCompareTabEnabled()
@@ -607,6 +609,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     }
     if (state.activeTab === 'olumi' && !isAiPanelV2Enabled()) {
       setState(prev => ({ ...prev, activeTab: UNFLAGGED_FALLBACK_SURFACE }))
+    }
+    if (state.activeTab === 'team' && !isOlumiCoreLane()) {
+      setState(prev => ({ ...prev, activeTab: landing }))
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- one-time init guard
 
@@ -788,6 +793,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const declinedSavedRun = useDeclinedSavedRunStore(s => s.declined)
   const currentScenarioIdForRun = useCanvasStore(s => s.currentScenarioId)
   const savedRunUnconfirmed = selectSavedRunUnconfirmed(declinedSavedRun, currentScenarioIdForRun, runOnRecordLocally)
+  // The olumi-core lane's team (Team tab, question-card held count): pointed at this scenario, read once core knows it. A model
+  // change can be the moment a new scenario is first paired with core's id, so the card count is part of the dependencies.
+  const teamUse = useTeamStore(s => s.use)
+  const teamCardCount = useCanvasStore(s => s.nodes.length)
+  useEffect(() => { if (isOlumiCoreLane()) void teamUse(currentScenarioIdForRun ?? null) }, [currentScenarioIdForRun, teamCardCount, teamUse])
   const runOnRecord = runOnRecordLocally || savedRunUnconfirmed
   const runStateKindForStatus = useCanvasStore(s => s.analysisStateV1?.run_state.kind ?? null)
 
@@ -4314,6 +4324,17 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             {effectiveActiveTab === 'diagnostics' && <ViewComparisonPointer />}
             {effectiveActiveTab === 'journey' && (
               <JourneyTabBody />
+            )}
+            {effectiveActiveTab === 'team' && (
+              // The olumi-core lane only (`laneOnly` in the shell contract): the team's panels, read from and written to core.
+              <TeamTab
+                scenarioUuid={currentScenarioIdForRun}
+                onAskOlumi={(question) => {
+                  // Evidence does not reach Olumi yet (core's coach does not read it): the person asks in the chat, quoting it.
+                  useUIStore.getState().forceActivateOutputTab('olumi')
+                  void sendMessage(question)
+                }}
+              />
             )}
             {/* Olumi: keep mounted across tab switches so ChatThread's scroll
                 position and useSmartScroll state survive. Visibility toggled

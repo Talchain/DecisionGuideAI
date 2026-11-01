@@ -34,8 +34,10 @@ export const CORE_LANE_USE_THE_CHAT = 'Tell Olumi in the chat what to change; it
  * read CEE routes that do not exist here. Analysis (`results`), the model outline (`diagnostics`) and the chat (`olumi`) stay.
  */
 const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['analysisNew', 'compare'])
+/** The surfaces only this lane has: the team's panels (`team`), which read olumi-core's scenario view. */
+const LANE_ONLY_SURFACES: ReadonlySet<string> = new Set(['team'])
 export function coreLaneShowsSurface(surfaceId: string): boolean {
-  return !isOlumiCoreLane() || !CEE_ONLY_SURFACES.has(surfaceId)
+  return isOlumiCoreLane() ? !CEE_ONLY_SURFACES.has(surfaceId) : !LANE_ONLY_SURFACES.has(surfaceId)
 }
 
 /**

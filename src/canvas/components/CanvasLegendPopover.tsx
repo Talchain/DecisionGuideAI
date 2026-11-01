@@ -60,6 +60,7 @@ import { EVIDENCE_RAIL_GLYPH, NODE_RAIL_TONE_CLASS } from '../nodes/shared/NodeR
 import { NODE_RAIL_BEHAVIOUR_TONE_CLASS } from '../nodes/shared/nodeCardRailStyles'
 import { BIAS_SIGNAL_REGISTRY } from '../shared/biasSignalTitles'
 import { RENDERED_CARD_MARKS } from '../nodes/shared/cardMarks'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { CardMarkShape } from '../nodes/shared/CardMark'
 import { COACHING_ICON_GLYPH } from '../nodes/shared/NodeCoachingIcon'
 import { NODE_RAIL_GLYPH_PX } from '../nodes/shared/nodeCardRailStyles'
@@ -681,7 +682,7 @@ export const POST_RUN_CARD_MARKS: ReadonlySet<string> = new Set(['driver', 'driv
  * picture twice.
  */
 export function cardMarkKeyRows(isPostAnalysis: boolean): { mark: typeof RENDERED_CARD_MARKS[number]; label: string }[] {
-  const shown = RENDERED_CARD_MARKS.filter(m => isPostAnalysis || !POST_RUN_CARD_MARKS.has(m.id))
+  const shown = RENDERED_CARD_MARKS.filter(m => (isPostAnalysis || !POST_RUN_CARD_MARKS.has(m.id)) && (!('coreLaneOnly' in m && m.coreLaneOnly) || isOlumiCoreLane()))
   const shapeOf = (m: typeof shown[number]) => ('visual' in m && m.visual ? m.visual : m.Icon)
   return shown
     .filter((m, i) => shown.findIndex(o => shapeOf(o) === shapeOf(m)) === i)

@@ -28,6 +28,8 @@ import { BottomCardMark, BottomMarksBand, BottomMarksProvider, CardMark, useBott
 import { AnsweredMark } from './shared/AnsweredMark'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { NodeNotesMark } from './shared/NodeNotesMark'
+import { TeamHeldMark } from '../../olumiCore/team/TeamHeldMark'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { EditPencilCue } from './shared/EditPencilCue'
@@ -2454,6 +2456,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         {livingOnly === null && <NodeBiasMarks nodeId={id} label={label} reasons={attention.reasons} />}
         {/* Olumi's notes on this card (the question card also holds the board's unanchored notes), `noteRecords.ts`. */}
         {livingOnly === null && <NodeNotesMark nodeId={id} />}
+        {/* The team's round in progress, on the question card only (olumi-core lane): "2 of 3 views held". */}
+        {nodeType === 'decision' && isOlumiCoreLane() && <TeamHeldMark />}
       </div>
 
       {/* ⭐ THE TYPE GLYPH SITS ON THE TOP CONNECTOR, NOT IN THE TITLE ROW.
