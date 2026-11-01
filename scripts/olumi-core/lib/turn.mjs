@@ -15,12 +15,24 @@ const CHANGE_LEAD = 'Here is what I would change. Check it, then confirm.'
 export const PARTIAL_REFUSAL = (n, total) => `Confirming only some rows (${n} of ${total}) is not available yet; it needs an update to Olumi that is due on 5 November. Nothing has been saved. Use “Confirm whole card”, or tell me what to change.`
 export const UNSUPPORTED_EDIT = 'Olumi cannot make that kind of change on the canvas yet. Tell me in the chat what to change, or change a figure. Nothing was saved.'
 
-/** Olumi's reply, as words for the thread: the answer, why, and the next move. Facts it cites by marker get their value. */
-export function coachText(coach, facts = []) {
+/** What a marker reads as when core did not explain it (its own page's fallback for a finding it has no sentence for). */
+const UNEXPLAINED = 'a finding from the Run'
+
+/**
+ * Olumi's reply, as words for the thread: the answer, why, and the next move. A finding the reply cites by marker (`[F5]`) is
+ * written in from that reply's OWN `cited` map (API.md: `chat[].cited`). Fact ids belong to one Run and a later change renumbers
+ * them, so a marker is never looked up in the current Run's facts: the same reply must read the same live and on every reload.
+ */
+export function coachText(coach, cited = {}) {
   if (!coach) return ''
-  const fill = (t) => t.replace(/\[(F\d+)\]/g, (_, id) => facts.find((f) => f.id === id)?.value ?? '')
+  const fill = (t) => t.replace(/\[(F\d+)\](\.?)/g, (_, id, dot) => {
+    const said = typeof cited?.[id] === 'string' && cited[id].trim() !== '' ? cited[id].trim() : UNEXPLAINED
+    return /[.!?]$/.test(said) ? said : `${said}${dot}`
+  })
   return [fill(coach.answer), ...coach.why.map(fill), `Next (${coach.next.move.replace(/_/g, ' ')}): ${fill(coach.next.text)}`].filter(Boolean).join('\n')
 }
+/** The words of the reply written on one chat row. */
+const replyOf = (row) => coachText(row?.answer, row?.cited)
 
 const heldWithProblem = (problem) => `Olumi could not finish checking that change, so it cannot be confirmed: ${problem.charAt(0).toLowerCase()}${problem.slice(1).replace(/[.!?]$/, '')}. Set it aside with “Not now”, or tell me what to change. Nothing has been saved.`
 /** What olumi-core's turn could not finish, in words (a row with a `problem`): a visible failure, never an empty reply. */
@@ -84,7 +96,8 @@ export function makeShim({ core, log = () => {} }) {
     }
     const r = await core('POST', `/api/proposals/${v.pending.id}/approve`, { token: ctx.token, body: { base: v.pending.base } })
     const after = await view(ctx, sid)
-    return { out: turnBody(after, { turnId, text: coachText(after.version?.coach, after.version?.facts) || `Saved as version ${r.n}.`, withCard: false, receipt: true }) }
+    const row = after.chat.find((c) => c.proposal === v.pending.id) ?? after.chat.find((c) => c.version === r.n)
+    return { out: turnBody(after, { turnId, text: replyOf(row) || `Saved as version ${r.n}.`, withCard: false, receipt: true }) }
   }
 
   async function decline(ctx, turnId, pid, sid) {
@@ -99,9 +112,9 @@ export function makeShim({ core, log = () => {} }) {
     const v = await view(ctx, sid)
     if (!v.version) throw new CoreError(409, 'there is no saved model to edit yet')
     if (typeof value !== 'number' || !Number.isFinite(value)) throw new CoreError(400, 'that is not a figure Olumi can use')
-    await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body: { base: v.version.id, quantity, value: { kind: 'point', value }, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined } })
+    const saved = await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body: { base: v.version.id, quantity, value: { kind: 'point', value }, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined } })
     const after = await view(ctx, sid)
-    return { out: turnBody(after, { turnId, text: coachText(after.version?.coach, after.version?.facts) || 'Saved.', withCard: false, receipt: true }) }
+    return { out: turnBody(after, { turnId, text: replyOf(after.chat.find((c) => c.kind === 'edit' && c.version === saved.n)) || 'Saved.', withCard: false, receipt: true }) }
   }
 
   /** The canvas events core can honour are the two that are a figure: a factor's value, and an aim's target (which is a figure in core's model). */
@@ -152,7 +165,7 @@ export function makeShim({ core, log = () => {} }) {
       if (!r.discussion && v.pending) return { out: turnBody(v, { turnId, text: heldWithProblem(row.problem), withCard: true }) }
       return { out: problemTurn(turnId, row.problem) }
     }
-    if (r.discussion) return { out: turnBody(v, { turnId, text: coachText(row?.answer, v.version?.facts) || 'Noted. Nothing in the model changes.', withCard: !!v.pending }) }
+    if (r.discussion) return { out: turnBody(v, { turnId, text: replyOf(row) || 'Noted. Nothing in the model changes.', withCard: !!v.pending }) }
     return { out: turnBody(v, { turnId, text: CHANGE_LEAD, withCard: true }) }
   }
 
@@ -202,7 +215,7 @@ export function makeShim({ core, log = () => {} }) {
         // A reload: the thread (olumi-core's chat) and the card still held, so the person can still confirm it.
         conversation_turns: v.chat.map((c) => ({
           turn_id: turnIdOf(sid, c.id), created_at: c.at, user_message: c.said,
-          assistant_message: c.status === 'pending' ? (c.first ? DRAFT_LEAD : CHANGE_LEAD) : c.problem ? c.problem : c.answer ? coachText(c.answer, v.version?.facts) : 'Noted.',
+          assistant_message: c.status === 'pending' ? (c.first ? DRAFT_LEAD : CHANGE_LEAD) : c.problem ? c.problem : c.answer ? coachText(c.answer, c.cited) : 'Noted.',
         })),
         ...(v.pending ? { proposal_fields: { version: 1, graph_hash: model.revision, proposals: [cardFor(v, turnIdOf(sid, v.pending.id))] } } : {}),
       },

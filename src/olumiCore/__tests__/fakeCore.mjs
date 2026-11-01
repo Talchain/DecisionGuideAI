@@ -13,6 +13,8 @@ export async function startFakeCore() {
   const scenarios = new Map() // sid -> { owner, view }
   const calls = []
   let fail = null
+  let failReadAfterWrite = null // armed: the first read of a scenario AFTER a write fails (the write itself is kept)
+  let wrote = false
   let problemNext = null
   let next = 1
   const server = http.createServer(async (req, res) => { try { await handle(req, res) } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) })) } })
@@ -35,6 +37,11 @@ export async function startFakeCore() {
     if (url.pathname.startsWith('/api/admin/')) return send(200, { admin: 'reachable' })
     if (!me) return send(401, { error: 'open your private link first' })
     if (fail) { const f = fail; fail = null; return send(f.status, { error: f.message }, f.headers) }
+    if (failReadAfterWrite && wrote && req.method === 'GET' && /^\/api\/scenarios\/s_/.test(url.pathname)) {
+      const f = failReadAfterWrite; failReadAfterWrite = null; wrote = false
+      return send(f.status, { error: f.message })
+    }
+    if (failReadAfterWrite && req.method === 'POST') wrote = true
     let m
     if (req.method === 'POST' && url.pathname === '/api/scenarios') {
       const sid = `s_${(0xabc000000000 + next++).toString(16)}`
@@ -50,6 +57,7 @@ export async function startFakeCore() {
     if ((m = url.pathname.match(/^\/api\/proposals\/(\d+)\/approve$/))) {
       const entry = [...scenarios.values()].find((s) => s.owner === me.id && s.view.pending?.id === Number(m[1]))
       if (!entry) return send(409, { error: 'this change is not pending and cannot be approved' })
+      if (entry.after?.approve) { entry.view = structuredClone(entry.after.approve); return send(200, { version: entry.view.version.id, n: entry.view.version.n, receipt: `approve:${m[1]}` }) }
       const approved = fx('view-approved.json'); approved.id = entry.view.id; approved.you = me.name; approved.version.id = entry.view.pending.id + 1; approved.chat[0].id = entry.view.pending.id; entry.view = approved
       return send(200, { version: approved.version.id, n: approved.version.n, receipt: `approve:${m[1]}` })
     }
@@ -79,7 +87,9 @@ export async function startFakeCore() {
       if (body.base !== entry.view.version.id) return send(409, { error: 'this figure was edited on a different version' })
       const rec = entry.view.version.form.records.find((r) => r.id === body.quantity)
       if (!rec) return send(404, { error: 'no such figure' })
-      rec.assertion = { kind: 'point', value: body.value.value, approximate: false }
+      rec.assertion = body.value.kind === 'interval'
+        ? { kind: 'interval', low: body.value.low, high: body.value.high, range_kind: 'plausible', likely: null }
+        : { kind: 'point', value: body.value.value, approximate: false }
       entry.view.version = { ...entry.view.version, id: entry.view.version.id + 100, n: entry.view.version.n + 1 }
       return send(201, { version: entry.view.version.id, n: entry.view.version.n, receipt: 'edit' })
     }
@@ -91,6 +101,10 @@ export async function startFakeCore() {
     url, calls, scenarios,
     addPerson: (token, id, name) => people.set(token, { id, name }),
     failNext: (status, message, headers = {}) => { fail = { status, message, headers } },
+    /** The next write succeeds and is kept, but the read that follows it fails (a lost answer, not a lost write). */
+    failReadAfterWrite: (status, message) => { failReadAfterWrite = { status, message }; wrote = false },
+    /** A scenario exactly as a real core served it (a captured view), owned by that person; `after.approve` is the view an approval turns it into. */
+    seed: (token, view, after = {}) => { const v = structuredClone(view); scenarios.set(v.id, { owner: people.get(token).id, view: v, after }); return v.id },
     problemNext: (text) => { problemNext = text },
     close: () => new Promise((r) => server.close(r)),
   }
