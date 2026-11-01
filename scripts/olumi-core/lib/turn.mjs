@@ -7,8 +7,8 @@
 import crypto from 'node:crypto'
 import { CoreError, WriteKept, errorTurn } from './core.mjs'
 import { changeRows, byId, figure, num } from './words.mjs'
-import { analysisViewOf, modelOf, shownOf } from './model.mjs'
-import { fillCited } from './note.mjs'
+import { analysisViewOf, ghostAddsOf, modelOf, shownOf } from './model.mjs'
+import { fillCited, noteOf } from './note.mjs'
 import { propIdOf, rev16, rev64, runIdOf, sidOfUuid, turnIdOf, uuidOfSid, isSid } from './ids.mjs'
 
 const DRAFT_LEAD = 'Here is your situation as I understood it. Check it, then confirm or tell me what to change.'
@@ -25,13 +25,23 @@ export function coachText(coach, cited = {}) {
 }
 
 /**
- * A reply on one chat row, as the thread's words. Olumi's next step is said ONCE, in the thread (core's `next.text` in the
- * `Next (...)` line), and is not also sent as a note beside a card: that said the same question twice. A note beside the card would
- * need the thread to drop the line, but the thread must read the same live and after a reload, and a note is borne by its turn only
- * (gone on reload, or once dismissed), so dropping the line would lose the question from the thread. So the question stays in the chat
- * only, and `notes` is always empty (`noteOf` is kept in note.mjs, unused, for the day the thread can carry it beside the card).
+ * A reply on one chat row: the thread's words, and Olumi's next step as a note beside the card it is about (`noteOf`: core's own
+ * `coach.next`, the first card in `next.about` that the model drawn has). The thread keeps its `Next (...)` line too, so it reads the same
+ * live and on every reload; the note is derived from the same stored row on a reload (`graphRead`'s `olumi_note`), so it survives one too.
+ * `nodes` are the cards of the model the turn shows.
  */
-const replyOf = (row) => ({ text: coachText(row?.answer, row?.cited), notes: [] })
+const replyOf = (row, nodes = []) => {
+  const note = noteOf(row?.answer, row?.cited, nodes)
+  return { text: coachText(row?.answer, row?.cited), notes: note ? [note] : [] }
+}
+const nodesOf = (view) => modelOf(view)?.graph.nodes ?? []
+/**
+ * The receipt of a saved version, said in the thread: which version, and whose hand. Core records who saved the CURRENT version only
+ * (`version.by`), so an older version's receipt says it was saved and no more, on a reload; nothing is guessed for it.
+ */
+const savedWords = (n, by, kind) => `Version ${n} saved.${by ? ` ${kind === 'edit' ? 'Changed' : 'Approved'} by ${by}.` : ''}`
+/** Is `x` the same figure as `y`, to float noise (a relative 1e-9)? */
+const closeTo = (x, y) => x === y || Math.abs(x - y) <= 1e-9 * Math.max(Math.abs(x), Math.abs(y))
 /** A chat row that IS an approval reply: it saved a version. A discussion row never is, even when it is about a version. */
 const isApprovalReply = (c) => c.status !== 'discussion' && c.version != null
 
@@ -49,7 +59,7 @@ function cardFor(view, issuedTurnId) {
     digest: crypto.createHash('sha256').update(`${pid}|${JSON.stringify(p.changes)}`).digest('hex').slice(0, 32),
     approve_action: { id: `agent-approve-proposal:${pid}`, label: 'Looks right', message: 'Looks right. Confirm it.' },
     decline_action: { id: `agent-decline-proposal:${pid}`, label: 'Not now', message: 'Not now.' },
-    fields: [], missing: [], adds: [],
+    fields: [], missing: [], adds: ghostAddsOf(view),
     reading: p.source === 'draft',
     changes: rows,
   }
@@ -137,9 +147,9 @@ export function makeShim({ core, log = () => {} }) {
       // The reply is the one core holds on the version it just saved (`version.coach`), never the proposal's own chat answer: after a
       // part-approval that answer still describes the whole proposal. No coach on the new version: nothing from Olumi, and no note.
       const coach = after.version?.n === r.n ? after.version.coach ?? null : null
-      const reply = replyOf({ answer: coach, cited: row?.cited })
+      const reply = replyOf({ answer: coach, cited: row?.cited }, nodesOf(after))
       // Whatever core left waiting after a part-approval stays on screen as a card, so it can still be answered or set aside.
-      return { out: turnBody(after, { turnId, text: reply.text || `Saved as version ${r.n}.`, withCard: !!after.pending, receipt: true, notes: reply.notes }) }
+      return { out: turnBody(after, { turnId, text: [savedWords(r.n, after.version?.n === r.n ? after.version.by : null, 'approve'), reply.text].filter(Boolean).join('\n'), withCard: !!after.pending, receipt: true, notes: reply.notes }) }
     })
   }
 
@@ -191,7 +201,7 @@ export function makeShim({ core, log = () => {} }) {
     // that is not (70 to 100 around 80) would turn their 80 into an 85, so it is refused in words before anything is sent.
     if (range && rec?.family === 'quantity' && rec.assertion.kind === 'point') {
       const middle = (figureIn.low + figureIn.high) / 2
-      if (middle !== rec.assertion.value) {
+      if (!closeTo(middle, rec.assertion.value)) {
         throw new CoreError(400, `‘${rec.label}’ is ${figure(rec.assertion, rec.unit)}, and a range of ${num(figureIn.low)} to ${num(figureIn.high)} would replace it with its middle, ${figure({ kind: 'point', value: middle }, rec.unit)}, which you did not give. Tell me the range and the most likely figure in the chat. Nothing was saved.`)
       }
     }
@@ -199,8 +209,8 @@ export function makeShim({ core, log = () => {} }) {
     const saved = await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body: { base: v.version.id, quantity, value, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined } })
     return afterWrite(async () => {
       const after = await view(ctx, sid)
-      const reply = replyOf(after.chat.find((c) => c.kind === 'edit' && isApprovalReply(c) && c.version === saved.n))
-      return { out: turnBody(after, { turnId, text: reply.text || 'Saved.', withCard: false, receipt: true, notes: reply.notes }) }
+      const reply = replyOf(after.chat.find((c) => c.kind === 'edit' && isApprovalReply(c) && c.version === saved.n), nodesOf(after))
+      return { out: turnBody(after, { turnId, text: [savedWords(saved.n, after.version?.n === saved.n ? after.version.by : null, 'edit'), reply.text].filter(Boolean).join('\n'), withCard: false, receipt: true, notes: reply.notes }) }
     })
   }
 
@@ -260,7 +270,7 @@ export function makeShim({ core, log = () => {} }) {
         return { out: problemTurn(turnId, row.problem) }
       }
       if (r.discussion) {
-        const reply = replyOf(row)
+        const reply = replyOf(row, nodesOf(v))
         return { out: turnBody(v, { turnId, text: reply.text || 'Noted. Nothing in the model changes.', withCard: !!v.pending, notes: reply.notes }) }
       }
       return { out: turnBody(v, { turnId, text: CHANGE_LEAD, withCard: true }) }
@@ -323,6 +333,9 @@ export function makeShim({ core, log = () => {} }) {
     if (!model) return { status: 200, body: empty }
     const analysis = analysisViewOf(v)
     const answerOf = await answerRule(ctx, sid, v)
+    const lastReply = [...v.chat].reverse().find((c) => c.status !== 'pending' && !c.problem && answerOf(c))
+    const note = lastReply ? noteOf(answerOf(lastReply), lastReply.cited, model.graph.nodes) : null
+    const lastNote = note ? { ...note, turn_id: turnIdOf(sid, lastReply.id) } : null
     return {
       status: 200,
       body: {
@@ -333,8 +346,11 @@ export function makeShim({ core, log = () => {} }) {
         conversation_turns: v.chat.map((c) => ({
           turn_id: turnIdOf(sid, c.id), created_at: c.at, user_message: c.said,
           assistant_message: c.status === 'pending' ? (c.first ? DRAFT_LEAD : CHANGE_LEAD) : c.problem ? c.problem
-            : answerOf(c) ? coachText(answerOf(c), c.cited) : isApprovalReply(c) ? `Saved as version ${c.version}.` : 'Noted.',
+            : isApprovalReply(c) ? [savedWords(c.version, c.current && v.version?.n === c.version ? v.version.by : null, c.kind), answerOf(c) ? coachText(answerOf(c), c.cited) : ''].filter(Boolean).join('\n')
+              : answerOf(c) ? coachText(answerOf(c), c.cited) : 'Noted.',
         })),
+        // Olumi's last next step, as the note it was beside its card live: the same row's reply, through the same `noteOf`.
+        ...(lastNote ? { olumi_note: lastNote } : {}),
         ...(v.pending ? { proposal_fields: { version: 1, graph_hash: model.revision, proposals: [cardFor(v, turnIdOf(sid, v.pending.id))] } } : {}),
       },
     }

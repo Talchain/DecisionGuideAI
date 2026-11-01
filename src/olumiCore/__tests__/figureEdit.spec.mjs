@@ -124,14 +124,14 @@ describe('a range the person sets is sent to core as a range (tier R step 0)', (
     expect((await shim.turn(ADA, range('existing_capacity', 79.9, 80.1, { uuid }))).out.error).toBeNull()
     expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 79.9, high: 80.1 })
   })
-  it('the centre is compared EXACTLY, with no tolerance: a figure of 1,000,000,000,000 given a range 999,999,999,000 to 1,000,000,002,000 would be saved as 1,000,000,000,500 and is refused', async () => {
+  it('the centre is compared to a relative 1e-9: a figure of 1,000,000,000,000 given a range 999,999,000,000 to 1,000,001,000,000 would be saved as 1,000,000,000,000 +/- a millionth and is refused; one a billionth out is the same figure', async () => {
     const view = fx('view-approved.json')
     view.version.form.records.find((r) => r.id === 'existing_capacity').assertion = { kind: 'point', value: 1_000_000_000_000, approximate: false }
     const uuid = seeded(view)
     const before = fake.calls.length
-    const out = (await shim.turn(ADA, range('existing_capacity', 999_999_999_000, 1_000_000_002_000, { uuid }))).out
+    const out = (await shim.turn(ADA, range('existing_capacity', 999_999_000_000, 1_000_002_000_000, { uuid }))).out
     expect(out.error).toMatchObject({ code: 'bad_request', nothing_saved: true })
-    expect(out.error.message).toMatch(/1,000,000,000,500/)
+    expect(out.error.message).toMatch(/1,000,000,500,000/)
     expect(post(fake.calls, before)).toHaveLength(0)
     // a range that IS centred on it, at the same scale, is still sent
     const centred = (await shim.turn(ADA, range('existing_capacity', 999_999_999_000, 1_000_000_001_000, { uuid }))).out

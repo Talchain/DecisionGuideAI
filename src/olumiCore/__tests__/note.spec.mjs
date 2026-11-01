@@ -58,25 +58,25 @@ describe('noteOf: core\'s next step, as a note beside the card it is about', () 
   })
 })
 
-// Olumi's next step is said ONCE, in the chat. A note beside the card would be a second copy of the same question, and the thread (which must
-// read the same live and after a reload, when a note is gone) cannot drop its line, so no turn carries a note: `noteOf` stays for the day it can.
-describe('the turns that carry a coach reply say its next step once, in the chat, and carry no note', () => {
+// Olumi's next step is the chat's `Next (...)` line AND a note beside the card it is about. The thread keeps its line, so it reads the same live
+// and after a reload; the note is derived from the same stored reply on a reload (`olumi_note`), so it is there live and after one.
+describe('the turns that carry a coach reply carry its next step as a note beside its card, and the thread keeps the line', () => {
   const seeded = (view, after) => derivedUuidOfSid(fake.seed('tok-ada', view, after))
   const card = async (uuid) => (await shim.graphRead(ADA, uuid)).body.proposal_fields.proposals[0]
   const approveTurn = (uuid, c) => shim.turn(ADA, { kind: 'message', turn_id: turnId(), scenario_id: uuid, stage: 'frame', message: 'Looks right.', source: 'chip_click', chip: { id: c.approve_action.id } })
   const approvedWith = (replaceCoach) => { const v = fx('view-approved.json'); replaceCoach(v.chat[0].answer); replaceCoach(v.version.coach); return v }
 
-  it('an approved model: the next step is in the thread in core\'s words, and no note repeats it', async () => {
+  it('R5: a real shim reply naming a card in `coach.next.about` produces the note (an approved model)', async () => {
     const uuid = seeded(fx('view-first-pending.json'), { approve: fx('view-approved.json') })
     const { out } = await approveTurn(uuid, await card(uuid))
     const body = parseCoreTurn(out)
     expect(body.error).toBeNull()
-    expect(body.notes).toEqual([])
-    expect(out.assistant_text.split(NEXT)).toHaveLength(2)   // once
+    expect(body.notes).toEqual([{ element_id: 'per_specialist', text: NEXT }])
+    expect(out.assistant_text.split(NEXT)).toHaveLength(2)   // the chat line
     expect(out.model.graph.nodes.find((n) => n.id === 'per_specialist')).toMatchObject({ kind: 'factor' })
     // The thread is the same live and after a reload, so it keeps its own `Next (...)` line.
     const said = fx('view-approved.json').chat[0].answer
-    expect(out.assistant_text).toBe(`${said.answer}\n${said.why[0]}\nNext (pre mortem): ${NEXT}`)
+    expect(out.assistant_text).toBe(`Version 1 saved. Approved by Ada.\n${said.answer}\n${said.why[0]}\nNext (pre mortem): ${NEXT}`)
   })
   it('a next step about a record with no card has no note (it is in the chat in full)', async () => {
     const v = approvedWith((a) => { a.next.about = ['lead_doubt'] })
@@ -92,16 +92,16 @@ describe('the turns that carry a coach reply say its next step once, in the chat
     expect(out.notes).toEqual([])
     expect(out.assistant_text).toContain(NEXT)
   })
-  it('a card the page cannot hold yet (it exists only in the model just approved) gets no note', async () => {
+  it('a card that exists only in the model just approved is still named (the page holds the turn\'s model before it points; if it cannot, the chat has the step in full)', async () => {
     const v = approvedWith((a) => { a.next.about = ['slump_chance', 'new_hire_slump'] })
     v.version.form.records.push({ ...fx('view-rich-approved.json').version.form.records.find((r) => r.id === 'new_hire_slump') })
     const uuid = seeded(fx('view-first-pending.json'), { approve: v })
     const { out } = await approveTurn(uuid, await card(uuid))
     expect(out.model.graph.nodes.some((n) => n.id === 'new_hire_slump')).toBe(true)
-    expect(out.notes).toEqual([])
+    expect(out.notes).toEqual([{ element_id: 'new_hire_slump', text: NEXT }])
     expect(out.assistant_text).toContain(NEXT)
   })
-  it('a figure the person changed: the reply core wrote for that edit is in the chat, with no note', async () => {
+  it('a figure the person changed: the reply core wrote for that edit is in the chat, and its next step is a note on the card it names', async () => {
     const edited = fx('view-approved.json')
     edited.version = { ...edited.version, id: edited.version.id + 100, n: edited.version.n + 1 }
     edited.chat.push({ id: 90, at: edited.version.at, by: 'Ada', said: '', first: false, kind: 'edit', proposal: null, version: edited.version.n, current: true, status: 'approved', problem: null, cited: {},
@@ -109,22 +109,36 @@ describe('the turns that carry a coach reply say its next step once, in the chat
     const uuid = seeded(fx('view-approved.json'), { edit: edited })
     const { out } = await shim.turn(ADA, { kind: 'system_event', turn_id: turnId(), scenario_id: uuid, stage: 'frame', event: { kind: 'factor_value_edit', target_id: 'existing_capacity', value: 90, raw_value: 90 } })
     expect(out.error).toBeNull()
-    expect(out.notes).toEqual([])
-    expect(out.assistant_text).toBe('Capacity moves.\nNext (what would change your mind): What would make you change this figure back?')
+    expect(out.notes).toEqual([{ element_id: 'existing_capacity', text: 'What would make you change this figure back?' }])
+    expect(out.assistant_text).toMatch(/^Version 2 saved\. Changed by Ada\.\nCapacity moves\.\nNext \(what would change your mind\): What would make you change this figure back\?$/)
   })
-  it('a discussion reply says its next step in the chat too; a change proposed to the person (a card to confirm) has none', async () => {
+  it('a discussion reply says its next step in the chat and as a note; a change proposed to the person (a card to confirm) has none', async () => {
     const uuid = seeded(fx('view-approved.json'))
     const asked = (await shim.turn(ADA, { kind: 'message', turn_id: turnId(), scenario_id: uuid, stage: 'frame', message: 'Why does it turn on that?', source: 'composer' })).out
-    expect(asked.notes).toEqual([])
+    expect(asked.notes).toEqual([{ element_id: 'per_specialist', text: NEXT }])
     expect(asked.assistant_text).toBe(`A reply that changes nothing.\nIt turns on what a new specialist really adds.\nNext (pre mortem): ${NEXT}`)
     const changed = (await shim.turn(ADA, { kind: 'message', turn_id: turnId(), scenario_id: seeded(fx('view-approved.json')), stage: 'frame', message: 'Add an absence risk.', source: 'composer' })).out
     expect(changed.cards).toHaveLength(1)
     expect(changed.notes).toEqual([])
   })
-  it('a reload has no note; the thread read back says the same next step', async () => {
-    const uuid = seeded(fx('view-approved.json'))
+  it('R5: a reload carries the same note, derived from the same stored reply: live and reload match, and the thread keeps its line', async () => {
+    const uuid = seeded(fx('view-first-pending.json'), { approve: fx('view-approved.json') })
+    const live = (await approveTurn(uuid, await card(uuid))).out
     const g = (await shim.graphRead(ADA, uuid)).body
     expect(g.conversation_turns.at(-1).assistant_message).toContain(`Next (pre mortem): ${NEXT}`)
-    expect(g).not.toHaveProperty('notes')
+    expect(g.olumi_note).toEqual({ ...live.notes[0], turn_id: expect.stringMatching(/^[0-9a-f-]{36}$/) })
+    expect(g.conversation_turns.at(-1).turn_id).toBe(g.olumi_note.turn_id)
+  })
+  it('a reload has a note only for a reply whose next step names a card the model draws, and none when core flagged problems with it', async () => {
+    const none = approvedWith((a) => { a.next.about = ['lead_doubt'] })
+    expect((await shim.graphRead(ADA, seeded(none))).body).not.toHaveProperty('olumi_note')
+    const flagged = approvedWith((a) => { a.problems = ['it cited a figure it does not hold'] })
+    expect((await shim.graphRead(ADA, seeded(flagged))).body).not.toHaveProperty('olumi_note')
+  })
+  it('a reload\'s note is from the LAST reply, and a change still waiting for an answer (its row has no coach reply of its own) is not it', async () => {
+    const v = fx('view-approved-with-change.json')
+    const g = (await shim.graphRead(ADA, seeded(v))).body
+    expect(g.olumi_note?.element_id).toBe('per_specialist')
+    expect(g.olumi_note.turn_id).toBe(g.conversation_turns[0].turn_id)   // the approved row's, not the pending row after it
   })
 })

@@ -32,12 +32,12 @@ beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1'); useCanonicalAnalysisViewS
 afterEach(() => { vi.unstubAllEnvs() })
 
 describe('a core turn carries the Run view and the page adopts it', () => {
-  it('a change held beside the saved model: the page now holds the view as NOT current', () => {
+  it('a change held beside the saved model: the model on screen is the saved one, so the page holds its view as current', () => {
     const r = apply(analysisViewOf(view))
     expect(r.applied).toContain('canonical_analysis_view:adopted')
     const held = useCanonicalAnalysisViewStore.getState()
     expect(held.scenarioId).toBe(SCENARIO)
-    expect(held.view?.staleness.stale).toBe(true)
+    expect(held.view?.staleness.stale).toBe(false)
   })
   it('then the change is set aside: the view is current again', () => {
     apply(analysisViewOf(view))
@@ -53,7 +53,7 @@ describe('a core turn carries the Run view and the page adopts it', () => {
   it('a turn with no view in it leaves the page\'s view alone, and with no scenario to name nothing is adopted', () => {
     apply(analysisViewOf(view))
     applyCoreTurnState(parseCoreTurn(turnBodyForTest({}))!, { nodes: [] }, { turnScenarioId: SCENARIO })
-    expect(useCanonicalAnalysisViewStore.getState().view?.staleness.stale).toBe(true)
+    expect(useCanonicalAnalysisViewStore.getState().view?.staleness.stale).toBe(false)
     useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null })
     apply(analysisViewOf(view), null)
     expect(useCanonicalAnalysisViewStore.getState().view).toBeNull()

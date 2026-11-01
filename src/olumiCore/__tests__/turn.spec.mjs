@@ -128,11 +128,13 @@ describe('the turn carries the Run view for the model it shows (so the Analysis 
     expect(view.staleness.stale).toBe(false)
     expect(view.run.run_id).toBe(a.out.run.run_id)
   })
-  it('a change held beside the saved model carries that model\'s Run as NOT current; setting it aside makes it current again', async () => {
+  it('a change held beside the saved model: the canvas keeps the saved model and its Run is current for it (the new figure is a ghost on the card, not a drawn card); setting it aside changes nothing drawn', async () => {
     const { ctx } = await started({ approve: true })
     const held = (await shim.turn(ctx, msg('Add staff absence as a factor.'))).out
-    expect(held.model.canonical_analysis_view.staleness.stale).toBe(true)
-    expect(held.model.canonical_analysis_view.run.graph_hash_at_run).not.toBe(held.model.revision)
+    expect(held.model.canonical_analysis_view.staleness.stale).toBe(false)
+    expect(held.model.canonical_analysis_view.run.graph_hash_at_run).toBe(held.model.revision)
+    expect(held.model.graph.nodes.some((n) => n.id === 'staff_absence')).toBe(false)
+    expect(held.cards[0].adds).toEqual([expect.objectContaining({ kind: 'factor_add', node_id: 'staff_absence' })])
     const declined = (await shim.turn(ctx, msg('Not now.', { source: 'chip_click', chip: { id: held.cards[0].decline_action.id } }))).out
     expect(declined.model.canonical_analysis_view.staleness.stale).toBe(false)
     expect(declined.model.canonical_analysis_view.run.graph_hash_at_run).toBe(declined.model.revision)
@@ -278,14 +280,16 @@ describe('the saved-model read (reload, a second browser, a link)', () => {
     expect((await shim.graphRead({ token: 'tok-bea', aliases: [] }, derived)).status).toBe(404)
     expect((await shim.graphRead({ token: null, aliases: [] }, derived)).status).toBe(401)
   })
-  it('a model with a change waiting reads back with its Run NOT current (the old chances are never shown as the new model\'s)', async () => {
+  it('a model with a change waiting reads back as the saved model, its Run current, and the held card with its ghost', async () => {
     const { ctx } = await started({ approve: true })
     await shim.turn(ctx, msg('Add staff absence as a factor.'))
     const g = await shim.graphRead(ctx, U)
     expect(g.body.proposal_fields.proposals).toHaveLength(1)
     const view = g.body.canonical_analysis_view
-    expect(view.staleness.stale).toBe(true)
-    expect(view.run.graph_hash_at_run).not.toBe(g.body.graph_hash)
+    expect(view.staleness.stale).toBe(false)
+    expect(view.run.graph_hash_at_run).toBe(g.body.graph_hash)
+    expect(g.body.graph.nodes.some((n) => n.id === 'staff_absence')).toBe(false)
+    expect(g.body.proposal_fields.proposals[0].adds).toEqual([expect.objectContaining({ kind: 'factor_add', node_id: 'staff_absence' })])
   })
   it('a UUID no one has made a scenario under is "no model yet", not an error', async () => {
     const g = await shim.graphRead({ token: 'tok-ada', aliases: [] }, '99999999-2222-4333-8444-555555555555')

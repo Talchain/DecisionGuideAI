@@ -4,7 +4,7 @@
  * Rules come from the served fixtures (src/canvas/nodes/__tests__/fixtures/served-*), so this is only as faithful as they are.
  * Facts are read by their structured `about` (API v1.4), never from their text.
  */
-import { byId, figure, nameOf, num, partsOf, quoteAgrees, signedPartsOf, CMP } from './words.mjs'
+import { byId, figure, nameOf, num, partsOf, signedPartsOf, CMP } from './words.mjs'
 import { rev16, rev64, revSaved16, runIdOf } from './ids.mjs'
 
 const valueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? (q.assertion.low + q.assertion.high) / 2) : null)
@@ -13,6 +13,17 @@ const fmt = (q) => (q ? figure(q.assertion, q.unit) : '')
 const statedValueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? q.assertion.likely : null)
 /** A chance as a percentage, as it was given: 12.5% stays 12.5% and 0.4% is not "0%" (rounded only to clear float noise). */
 const pct = (x) => `${num(Math.round(x * 1e8) / 1e6)}%`
+
+/**
+ * Has the person's own figure been changed since they said it? Core's edit gives the changed figure an origin quote of its own
+ * ("Set ... to ...") and leaves the limit's or aim's record with the words it was made with, so the two say the same thing only
+ * while nothing was edited. When they differ, nothing of the person's old words is put beside the figure: not their quote and not a
+ * label that may carry the old number ("Churn <= 4%"). The card then shows the saved figure with the saved unit, and nothing else
+ * that could contradict it. No text of a quote is read for numbers.
+ */
+const figureEdited = (r, fig) => fig?.origin?.by === 'person' && fig.origin.quote !== r.origin?.quote
+/** A limit's or an aim's name: its own label while its figure is the one the person said, else a plain name from what it measures. */
+const nameFor = (r, fig, m, lead) => (r.measure && figureEdited(r, fig) ? `${lead} ‘${nameOf(m, r.measure.quantity)}’` : r.label)
 
 /** An influence's direction as DGAI draws one: up and down are stated; disputed, conditional and unknown are NOT a direction (DGAI's own `unknown`). */
 const influenceDirection = (d) => (d === 'up' ? 'positive' : d === 'down' ? 'negative' : 'unknown')
@@ -48,9 +59,8 @@ export function graphOf(form) {
   // A card that shows a figure Olumi proposed (a goal's target, a limit's bound) is not the person's words, whoever wrote the card itself:
   // `figure` is that quantity, and Olumi's own origin on it makes the card Olumi's, with no quote of the person's put against it.
   const prov = (r, figure) => (r.origin?.by === 'person' && figure?.origin?.by !== 'olumi' ? 'from_brief' : 'ai_inferred')
-  // The person's words are put against a card only while they still say its figure: a limit or an aim whose figure was changed since
-  // (4% edited to 5%) would otherwise show the old figure in its own quote beside the saved one.
-  const quote = (r, figure) => (r.origin?.by === 'person' && figure?.origin?.by !== 'olumi' && r.origin.quote && (!figure || quoteAgrees(r.origin.quote, figure.assertion)) ? { source_quote: r.origin.quote } : {})
+  // The person's words are put against a card only while its figure is the one they said (`figureEdited`).
+  const quote = (r, figure) => (r.origin?.by === 'person' && figure?.origin?.by !== 'olumi' && r.origin.quote && (!figure || !figureEdited(r, figure)) ? { source_quote: r.origin.quote } : {})
   const nodes = [], edges = [], seen = new Set()
   const add = (n) => { if (!seen.has(n.id)) { seen.add(n.id); nodes.push(n) } }
   /** `exists_probability: null` leaves the existence of the link unstated (no certainty is made up for a link nobody called certain). */
@@ -108,7 +118,7 @@ export function graphOf(form) {
     // A target that is a range is shown as one ("95 to 105"), never collapsed to a single figure nobody gave.
     const rangeWords = a?.kind === 'interval' ? `${num(a.low)} to ${num(a.high)}${a.likely != null ? `, most likely ${num(a.likely)}` : ''}` : null
     const raw = a?.kind === 'interval' ? (a.likely ?? `${num(a.low)} to ${num(a.high)}`) : valueOf(target)
-    add({ id: r.id, ref: `G${++g}`, kind: 'goal', label: r.label, provenance: prov(r, target), ...quote(r, target), display_value: r.measure ? `${r.measure.cmp} ${rangeWords ?? valueOf(target)} ${target?.unit ?? ''}`.trim() : r.label,
+    add({ id: r.id, ref: `G${++g}`, kind: 'goal', label: nameFor(r, target, m, 'Aim for'), provenance: prov(r, target), ...quote(r, target), display_value: r.measure ? `${r.measure.cmp} ${rangeWords ?? valueOf(target)} ${target?.unit ?? ''}`.trim() : r.label,
       goal_direction: r.measure?.cmp, goal_threshold_raw: raw, goal_threshold_unit: target?.unit ?? null, goal_threshold_frame: r.measure?.frame ?? 'level', goal_measure_by: r.measure?.measure_by ?? 'person', analysis_participation: 'included' })
     if (r.measure && seen.has(r.measure.quantity)) link(r.measure.quantity, r.id, { provenance: { source: 'brief_extraction', definitional: true } })
   }
@@ -120,7 +130,7 @@ export function graphOf(form) {
     const interval = bound?.assertion?.kind === 'interval' ? bound.assertion : null
     const bySource = bound?.origin?.by === 'olumi' ? 'cee_hypothesis' : 'brief_extraction'
     add({
-      id: r.id, ref: `F${++f}`, kind: 'factor', label: r.label, provenance: prov(r, bound), ...quote(r, bound),
+      id: r.id, ref: `F${++f}`, kind: 'factor', label: nameFor(r, bound, m, 'Limit on'), provenance: prov(r, bound), ...quote(r, bound),
       display_value: r.measure ? `${CMP[r.measure.cmp]} ${fmt(bound)}` : 'Not yet measurable',
       // The card shows the bound as its figure; the way it limits (at most, at least) is said here, where the card and the inspector read a description.
       description: r.measure ? `A limit on ‘${nameOf(m, r.measure.quantity)}’: it stays ${CMP[r.measure.cmp]} ${fmt(bound)}.` : 'A limit that cannot be measured yet.',
@@ -163,8 +173,8 @@ export function graphOf(form) {
 export function canonicalOf(form, approved) {
   const approval = approved ? 'approved' : 'proposed'
   const m = byId(form)
-  // A limit's words are its own only while they still say the figure it is bounded by (see `goalConstraintsOf`).
-  const pick = (f, shape) => form.records.filter((r) => r.family === f).map((r) => ({ id: r.id, ...shape(r), author: r.origin.by === 'person' ? 'person' : r.origin.by, party: r.origin.party ?? null, quote: r.origin.by === 'person' && !(f === 'limit' && r.measure && !quoteAgrees(r.origin.quote, m.get(r.measure.bound)?.assertion)) ? r.origin.quote : null, approval }))
+  // A limit's words are its own only while its figure is the one the person said (`figureEdited`).
+  const pick = (f, shape) => form.records.filter((r) => r.family === f).map((r) => ({ id: r.id, ...shape(r), author: r.origin.by === 'person' ? 'person' : r.origin.by, party: r.origin.party ?? null, quote: r.origin.by === 'person' && !(f === 'limit' && r.measure && figureEdited(r, m.get(r.measure.bound))) ? r.origin.quote : null, approval }))
   return {
     version: 'canonical.v1',
     quantities: pick('quantity', (r) => {
@@ -175,7 +185,7 @@ export function canonicalOf(form, approved) {
     assumptions: pick('assumption', (r) => ({ text: r.text, applied: r.applied, concerns: r.concerns })),
     conditions: pick('condition', (r) => ({ text: r.text, kind: r.kind, concerns: r.concerns })),
     left_out: pick('left_out', (r) => ({ text: r.text, why: r.why, question: r.question, concerns: r.concerns })),
-    limits: pick('limit', (r) => ({ label: r.label, measure: r.measure ?? null })),
+    limits: pick('limit', (r) => ({ label: nameFor(r, m.get(r.measure?.bound), m, 'Limit on'), measure: r.measure ?? null })),
     preferences: pick('preference', (r) => ({ quantity: r.quantity, direction: r.direction })),
     dissent: pick('dissent', (r) => ({ holder: r.holder, position: r.position, concerns: r.concerns })),
     evidence: pick('evidence', (r) => ({ text: r.text, source: r.source, bears: r.bears, concerns: r.concerns })),
@@ -198,25 +208,63 @@ export function goalConstraintsOf(form) {
     // Whose figure this is: the person's only when BOTH the limit and the bound are theirs. A bound Olumi proposed on a limit the person set
     // is Olumi's figure, whatever the limit's own author: inferred, and the person's quote is not put against it.
     const olumis = r.origin?.by === 'olumi' || bound.origin?.by === 'olumi'
-    // ...and only while those words still say the saved figure: a limit edited from 4% to 5% keeps its old quote on the limit record, and
-    // DGAI's formatter prefers the quote, so it would print "at most 4%" beside a saved 5%. Withheld, the formatter shows the saved figure.
-    const quote = !olumis && r.origin?.by === 'person' && typeof r.origin.quote === 'string' && r.origin.quote && quoteAgrees(r.origin.quote, bound.assertion) ? { source_quote: r.origin.quote.slice(0, 200) } : {}
-    return [{ constraint_id: r.id, label: r.label, node_id: me.quantity, operator: me.cmp, value: bound.assertion.value, ...(bound.unit && bound.unit !== '1' ? { unit: bound.unit } : {}), ...quote, provenance: olumis ? 'inferred' : 'explicit' }]
+    // ...and only while that figure has not been edited: an edited limit keeps its old quote and label on the limit record, and DGAI's
+    // formatter prefers a quote (or a label with a number in it), so it would print "at most 4%" beside a saved 5%. Withheld (and the
+    // label made a plain name), the formatter prints the saved bound with the saved unit. A quote is never cut short beside a figure.
+    const quote = !olumis && r.origin?.by === 'person' && typeof r.origin.quote === 'string' && r.origin.quote && !figureEdited(r, bound) ? { source_quote: r.origin.quote } : {}
+    return [{ constraint_id: r.id, label: nameFor(r, bound, m, 'Limit on'), node_id: me.quantity, operator: me.cmp, value: bound.assertion.value, ...(bound.unit && bound.unit !== '1' ? { unit: bound.unit } : {}), ...quote, provenance: olumis ? 'inferred' : 'explicit' }]
   })
 }
 
-/** What is shown now: the held proposal if there is one, else the saved version. */
+/** What a held change is about: the held proposal if there is one, else the saved version. */
 export const shownOf = (view) => view.pending ?? view.version ?? null
+/**
+ * What the canvas DRAWS: the saved model whenever there is one. A change that waits for approval is not part of the model yet, so it is
+ * not drawn as if it were (a solid card nobody has approved, counted by "Rests on", with every option's result gone blank because the
+ * Run is of the model before it): it waits on the chat card, and what it ADDS is a ghost (`ghostAddsOf`). Only a first draft, which has
+ * no saved model, is drawn as it stands, held for the person to confirm.
+ */
+export const drawnOf = (view) => view.version ?? view.pending ?? null
+
+/**
+ * What a waiting change adds, as the held card hands it to the canvas (`adds`): a new figure the canvas would draw as a factor is a ghost
+ * (`factor_add`: its name, its one figure when it has one, and whose it is); every other change (a new option, risk or aim, a changed or
+ * removed card) is said in words (`change_note`), which also keeps the ghost from offering an approval that would write changes it does
+ * not show. Empty for a first draft, which is drawn as it stands, and when nothing waits.
+ */
+export function ghostAddsOf(view) {
+  const p = view.pending
+  if (!p || !view.version) return []
+  const m = byId(p.form)
+  const factors = new Set(graphOf(p.form).nodes.filter((n) => n.kind === 'factor').map((n) => n.id))
+  const was = byId(view.version.form)
+  const source = (r) => (r?.origin?.by === 'olumi' ? 'estimate' : 'yours')
+  const out = []
+  const note = (verb, r, id) => out.push({ field_id: `change_note:record:${id}`, kind: 'change_note', text: `${verb} ‘${nameOf(m.has(id) ? m : was, id)}’`, source: source(r), editable: false })
+  for (const id of p.changes.added) {
+    const r = m.get(id)
+    if (r?.family === 'quantity' && factors.has(id)) {
+      const a = r.assertion
+      const value = a.kind === 'point' ? a.value : a.kind === 'interval' ? a.likely : null
+      out.push({ field_id: `factor_add:${id}`, kind: 'factor_add', node_id: id, label: r.label, value: typeof value === 'number' && r.unit && r.unit !== '1' ? { value, unit: r.unit } : null, source: source(r) })
+    } else note('Adds', r, id)
+  }
+  for (const id of p.changes.changed) note('Changes', m.get(id), id)
+  for (const id of p.changes.removed) note('Removes', was.get(id), id)
+  return out
+}
 
 export function modelOf(view) {
-  const shown = shownOf(view)
+  const shown = drawnOf(view)
   if (!shown) return null
+  // The identity of what is drawn: with a saved model on screen, that model alone (a waiting change does not move it).
+  const drawnView = shown === view.version ? { ...view, pending: null } : view
   const { nodes, edges } = graphOf(shown.form)
   const limits = goalConstraintsOf(shown.form)
   return {
     // `goal_constraints` is left off when there are none: a core turn's absence of it clears the limits shown (`constraintsComplete`).
     graph: { nodes, edges, ...(limits.length ? { goal_constraints: limits } : {}), living_model: { model_program: 'v1', canonical: canonicalOf(shown.form, shown === view.version) } },
-    revision: rev16(view), scenario_revision: rev64(view),
+    revision: rev16(drawnView), scenario_revision: rev64(drawnView),
   }
 }
 
@@ -237,18 +285,13 @@ export function sayFact(text, leaves) {
   return text.endsWith(tail) ? text.slice(0, -tail.length) : text
 }
 
-/** What each option's cell says while a change waits: the chances are those of the model before it, never the held model's. */
-const WAITING_FACE = 'A change is waiting for your confirmation. These results are for the model before it; confirm it and Olumi runs the new model.'
-
 /**
- * The saved version's Run. Its facts are about the SAVED model, so the Run is stamped with that model's hash; while a change is
- * waiting the canvas draws a different graph (the held one), so the Run is not current for it and says so. With nothing waiting
- * the two hashes are the same and the Run is current.
+ * The saved version's Run. Its facts are about the SAVED model, which is what the canvas draws while a change waits (`drawnOf`), so
+ * the Run is stamped with that model's hash and is current for it: the options keep their results until a new Run lands.
  */
 export function analysisViewOf(view) {
   const v = view.version
   if (!v || !v.facts?.length) return null
-  const waiting = !!view.pending
   const m = byId(v.form)
   const live = v.form.records.filter((r) => r.family === 'option' && r.status === 'live')
   const goal = v.form.records.find((r) => r.family === 'goal')
@@ -279,8 +322,7 @@ export function analysisViewOf(view) {
   return {
     schema: 'canonical_analysis_view.v1', source: 'stored_run_facts',
     run: { run_id: runIdOf(v), graph_hash_at_run: revSaved16(view), computed_at: v.at },
-    staleness: { stale: waiting, revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: waiting ? 'A change is waiting for your confirmation; these results are for the model before it.' : null, limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
-    ...(waiting ? { face_when_stale: WAITING_FACE } : {}),
+    staleness: { stale: false, revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: null, limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
     leader_licence: 'withheld',
     options: live.map((o) => {
       const c = chance(o), r = range(o), d = driver(o), b = blocked(o)

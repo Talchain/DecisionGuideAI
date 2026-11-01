@@ -56,13 +56,14 @@ describe('a limit the person edited shows the figure now saved, never the quote 
   afterAll(async () => { await fake.close() })
 
   /** The churn ceiling as the person stated it ("keep churn under 4%"), and as core saves it after an edit to 5: only the bound moves. */
-  const churn = (value: number, edited: boolean) => {
+  const churn = (value: number, edited: boolean, label = 'Capacity ceiling') => {
     const v = JSON.parse(JSON.stringify(rich))
     const cap = v.version.form.records.find((r: { id: string }) => r.id === 'cap')
     const ceiling = v.version.form.records.find((r: { id: string }) => r.id === 'ceiling')
     cap.unit = '%'; cap.assertion = { kind: 'point', value, approximate: false }
     cap.origin = edited ? { by: 'person', quote: `Set "${cap.label}" to ${value} %.`, party: null } : { by: 'person', quote: 'keep churn under 4%', party: null }
     ceiling.origin = { by: 'person', quote: 'keep churn under 4%', party: null }
+    ceiling.label = label
     return v
   }
 
@@ -81,9 +82,38 @@ describe('a limit the person edited shows the figure now saved, never the quote 
       expect(graph.goal_constraints![0]).not.toHaveProperty('source_quote')
       render(<GoalConstraintsSection constraints={graph.goal_constraints as never} nodes={graph.nodes.map((n: { id: string }) => ({ id: n.id, data: n }))} />)
       const text = screen.getByTestId(GOAL_CONSTRAINT_ROW_TESTID('ceiling')).textContent ?? ''
-      expect(text).toBe('Capacity ceiling ≤ 5%')   // DGAI's "at most" operator: the saved figure, as the formatter prints it
+      // The saved figure and unit, as the formatter prints it; the limit is named by what it measures, since its own label (the person's words) may carry the old number.
+      expect(text).toBe('Limit on ‘total capacity’ ≤ 5%')
       expect(text).not.toMatch(/4\s*%/)
       cleanup()
     }
+  })
+
+  it('R3: a limit labelled "Churn <= 4%" and edited to 5% is listed as 5%, through the real formatter (a numeric label is not authoritative once the figure was edited)', async () => {
+    const edited = churn(5, true, 'Churn <= 4%')
+    const sid = fake.seed('tok-ada', churn(4, false, 'Churn <= 4%'), { edit: { ...edited, version: { ...edited.version, id: rich.version.id + 100, n: rich.version.n + 1 } } })
+    const uuid = derivedUuidOfSid(sid)!
+    const shim = makeShim({ core: makeCore({ base: fake.url }) })
+    const { out } = await shim.turn({ token: 'tok-ada', aliases: [] }, { kind: 'system_event', turn_id: crypto.randomUUID(), scenario_id: uuid, stage: 'frame', event: { kind: 'factor_value_edit', target_id: 'ceiling', value: 5, raw_value: 5 } })
+    expect(out.error).toBeNull()
+    const graph = out.model!.graph
+    render(<GoalConstraintsSection constraints={graph.goal_constraints as never} nodes={graph.nodes.map((n: { id: string }) => ({ id: n.id, data: n }))} />)
+    const text = screen.getByTestId(GOAL_CONSTRAINT_ROW_TESTID('ceiling')).textContent ?? ''
+    expect(text).toMatch(/5%/)
+    expect(text).not.toMatch(/4\s*%/)
+    cleanup()
+  })
+  it('R1: edited from 4% to 0.04%, the row says 0.04% and never "under 4%" (the formatter would print the old, hundred-times-larger limit)', async () => {
+    const edited = churn(0.04, true)
+    const sid = fake.seed('tok-ada', churn(4, false), { edit: { ...edited, version: { ...edited.version, id: rich.version.id + 100, n: rich.version.n + 1 } } })
+    const uuid = derivedUuidOfSid(sid)!
+    const shim = makeShim({ core: makeCore({ base: fake.url }) })
+    const { out } = await shim.turn({ token: 'tok-ada', aliases: [] }, { kind: 'system_event', turn_id: crypto.randomUUID(), scenario_id: uuid, stage: 'frame', event: { kind: 'factor_value_edit', target_id: 'ceiling', value: 0.04, raw_value: 0.04 } })
+    expect(out.error).toBeNull()
+    const graph = out.model!.graph
+    render(<GoalConstraintsSection constraints={graph.goal_constraints as never} nodes={graph.nodes.map((n: { id: string }) => ({ id: n.id, data: n }))} />)
+    expect(screen.getByTestId(GOAL_CONSTRAINT_ROW_TESTID('ceiling')).textContent ?? '').toMatch(/0\.04\s*%/)
+    expect(screen.getByTestId(GOAL_CONSTRAINT_ROW_TESTID('ceiling')).textContent ?? '').not.toMatch(/(^|[^.0-9])4\s*%/)
+    cleanup()
   })
 })

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { changeRows, groupOf, figure, num, quoteAgrees } from '../../../scripts/olumi-core/lib/words.mjs'
+import { changeRows, groupOf, figure, num } from '../../../scripts/olumi-core/lib/words.mjs'
 import { readProposalFields, cardCannotBeShownInFull, changeIsOlumis } from '../../canvas/conversation/proposalFields'
 import { makeShim } from '../../../scripts/olumi-core/lib/turn.mjs'
 
@@ -69,27 +69,5 @@ describe('a stored figure or word is never changed on its way to the card (sibli
     expect(row.after.startsWith('A claim in the model. You said:')).toBe(true)
     const dotted = changeRows({ version: null, pending: { form: { records: [{ ...rec, family: 'left_out', why: 'Not modelled.', text: 'Morale...' }] }, changes: { added: ['c'], changed: [], removed: [] } } })[0]
     expect(dotted.after.startsWith('Not modelled. You said:')).toBe(true)
-  })
-})
-
-describe('the person\'s words are put against a figure only while they still say it (quoteAgrees)', () => {
-  const point = (value) => ({ kind: 'point', value, approximate: false })
-  it('a figure the quote states, in any way it is written, agrees', () => {
-    expect(quoteAgrees('keep churn under 4%', point(4))).toBe(true)
-    expect(quoteAgrees('keep churn under 4%', point(0.04))).toBe(true)
-    expect(quoteAgrees('no more than 120', point(120))).toBe(true)
-    expect(quoteAgrees('at most £20k a month', point(20000))).toBe(true)
-    expect(quoteAgrees('up to 1,200 tickets', point(1200))).toBe(true)
-    expect(quoteAgrees('between 3 and 5 percent', { kind: 'interval', low: 3, high: 5, range_kind: 'bounds', likely: null })).toBe(true)
-  })
-  it('a quote of a figure that has since changed does not', () => {
-    expect(quoteAgrees('keep churn under 4%', point(5))).toBe(false)
-    expect(quoteAgrees('no more than 120', point(130))).toBe(false)
-    expect(quoteAgrees('no more than 120', { kind: 'interval', low: 100, high: 130, range_kind: 'plausible', likely: null })).toBe(false)
-  })
-  it('a quote that states no figure, or a figure that is not saved as a number, cannot contradict it', () => {
-    expect(quoteAgrees('I want more capacity', point(130))).toBe(true)
-    expect(quoteAgrees('under 4%', { kind: 'asked', question: 'how much?' })).toBe(true)
-    expect(quoteAgrees('', point(1))).toBe(true)
   })
 })

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { graphOf, canonicalOf, analysisViewOf, leftOutOf, sayFact, modelOf, goalConstraintsOf } from '../../../scripts/olumi-core/lib/model.mjs'
+import { graphOf, canonicalOf, analysisViewOf, leftOutOf, sayFact, modelOf, goalConstraintsOf, ghostAddsOf } from '../../../scripts/olumi-core/lib/model.mjs'
 import { rev16, revSaved16 } from '../../../scripts/olumi-core/lib/ids.mjs'
 import { parseCanonicalAnalysisView } from '../../canvas/runView/canonicalAnalysisView'
 import { runViewOf } from '../../canvas/runView/runView'
@@ -98,20 +98,19 @@ describe('the Run is current only for the model it was run on (finding 12)', () 
     expect(view.staleness.stale).toBe(false)
     expect(runViewOf(null, parseCanonicalAnalysisView(view)).boundToCurrentCanonical()).toBe(true)
   })
-  it('with a change waiting, the results are those of the saved model: stamped with ITS hash, not the held graph\'s, and not current', () => {
+  it('with a change waiting, the canvas draws the saved model, so its Run is stamped with that model\'s hash and is CURRENT for it (design QA 5: the options keep their results)', () => {
     const view = analysisViewOf(withChange)
     expect(rev16(withChange)).not.toBe(revSaved16(withChange))
     expect(view.run.graph_hash_at_run).toBe(revSaved16(withChange))
-    expect(view.run.graph_hash_at_run).not.toBe(rev16(withChange))
-    expect(view.staleness.stale).toBe(true)
-    expect(view.staleness.reason).toMatch(/waiting for your confirmation/)
-    expect(view.face_when_stale).toMatch(/model before/)
+    expect(modelOf(withChange).revision).toBe(revSaved16(withChange))   // the graph drawn is the saved model's, and says so
+    expect(view.staleness.stale).toBe(false)
+    expect(view).not.toHaveProperty('face_when_stale')
   })
-  it('DGAI then shows no chance as current: each option\'s cell says the results are for the model before the change', () => {
+  it('DGAI then keeps every option\'s chance as current while the change waits', () => {
     const run = runViewOf(null, parseCanonicalAnalysisView(analysisViewOf(withChange)))
-    expect(run.chancesNotCurrent()).toBe(true)
-    expect(run.boundToCurrentCanonical()).toBe(false)
-    expect(run.chanceCellOf('add_one', {}).text).toMatch(/model before/)
+    expect(run.chancesNotCurrent()).toBe(false)
+    expect(run.boundToCurrentCanonical()).toBe(true)
+    expect(run.chanceCellOf('add_one', {}).text).not.toMatch(/model before/)
   })
   it('the Run keeps the saved version\'s identity while a change waits (it is that version\'s Run), so it is still the one the Analysis tab names', () => {
     expect(analysisViewOf(withChange).run.run_id).toBe(analysisViewOf(approved).run.run_id)
@@ -279,7 +278,12 @@ describe('an option\'s set figure keeps whose it is and what it is (finding 4)',
     expect(node.provenance).toBe('ai_inferred')
     expect(node).not.toHaveProperty('source_quote')
     form.records.find((r) => r.id === 'capacity_target').origin = { by: 'person', quote: 'a hundred a week', party: null }
-    expect(nodeOf(graphOf(form), 'capacity_goal')).toMatchObject({ provenance: 'from_brief', source_quote: 'I want more capacity' })
+    // The goal's words and its target's differ, so nothing says the target is still the one the person said: no quote, and the aim is named by what it measures.
+    expect(nodeOf(graphOf(form), 'capacity_goal')).toMatchObject({ provenance: 'from_brief', label: 'Aim for ‘total capacity’' })
+    expect(nodeOf(graphOf(form), 'capacity_goal')).not.toHaveProperty('source_quote')
+    // The same words on both: never edited, so the person's words and the aim's own label stand.
+    form.records.find((r) => r.id === 'capacity_target').origin = { by: 'person', quote: 'I want more capacity', party: null }
+    expect(nodeOf(graphOf(form), 'capacity_goal')).toMatchObject({ provenance: 'from_brief', source_quote: 'I want more capacity', label: 'At least 100 a week' })
   })
   it('a target with a likeliest value keeps it as the figure, and still says the range', () => {
     const form = JSON.parse(JSON.stringify(approved.version.form))
@@ -353,6 +357,7 @@ describe('a calculation\'s links bear on what they define the way the relation s
       const form = cloneForm()
       relation(form, 'per_specialist').assertion = multiplier
       relation(form, 'specialists').assertion = specialists
+      relation(form, 'two_specialists').assertion = { kind: 'point', value: 2, approximate: false }   // the options' own settings are one-signed figures here
       return graphOf(form)
     }
     const dir = (g, from) => edgeOf(g, `${from}__added_capacity`).effect_direction
@@ -365,6 +370,33 @@ describe('a calculation\'s links bear on what they define the way the relation s
       expect(dir(g, 'specialists')).toBe('negative')
       expect(drawn(edgeOf(g, 'specialists__added_capacity')).label).toMatch(/Drag/)
       expect(dir(g, 'per_specialist')).toBe('positive')
+    })
+    it('R2: an option that turns the multiplier\'s sign round makes the direction depend on the option: not stated (baseline y = -10, an option sets y = +10)', () => {
+      const form = cloneForm()
+      relation(form, 'per_specialist').assertion = { kind: 'point', value: -10, approximate: false }
+      relation(form, 'specialists').assertion = { kind: 'point', value: 5, approximate: false }
+      relation(form, 'two_specialists').assertion = { kind: 'point', value: 2, approximate: false }
+      // add_one sets `specialists` to one_specialist (1) and `spend`; make an option set the MULTIPLIER to +10 instead
+      const flip = form.records.find((r) => r.id === 'add_two')
+      form.records.push({ family: 'quantity', id: 'ten', label: 'ten', unit: 'ticket/week/specialist', role: 'fact', assertion: { kind: 'point', value: 10, approximate: false }, domain: null, stated_time: null, direction: null, origin: { by: 'person', quote: 'ten each', party: null } })
+      flip.sets = [...flip.sets, { quantity: 'per_specialist', to: 'ten', starts_after: 0 }]
+      expect(edgeOf(graphOf(form), 'specialists__added_capacity').effect_direction).toBe('unknown')
+    })
+    it('R2: when the baseline and every option agree on the sign, it is stated (an option that sets the multiplier to another negative figure)', () => {
+      const form = cloneForm()
+      relation(form, 'per_specialist').assertion = { kind: 'point', value: -10, approximate: false }
+      relation(form, 'specialists').assertion = { kind: 'point', value: 5, approximate: false }
+      relation(form, 'two_specialists').assertion = { kind: 'point', value: 2, approximate: false }
+      form.records.push({ family: 'quantity', id: 'minus_twenty', label: 'minus twenty', unit: 'ticket/week/specialist', role: 'fact', assertion: { kind: 'point', value: -20, approximate: false }, domain: null, stated_time: null, direction: null, origin: { by: 'person', quote: 'minus twenty', party: null } })
+      const o = form.records.find((r) => r.id === 'add_two')
+      o.sets = [...o.sets, { quantity: 'per_specialist', to: 'minus_twenty', starts_after: 0 }]
+      expect(edgeOf(graphOf(form), 'specialists__added_capacity').effect_direction).toBe('negative')
+    })
+    it('R2: an option whose setting fixes no sign (a plausible range) makes the direction not stated, even though the baseline fixes it', () => {
+      const form = cloneForm()
+      relation(form, 'per_specialist').assertion = { kind: 'point', value: 10, approximate: false }
+      relation(form, 'specialists').assertion = { kind: 'point', value: 5, approximate: false }
+      expect(edgeOf(graphOf(form), 'per_specialist__added_capacity').effect_direction).toBe('unknown')   // add_two sets `specialists` to a plausible 1 to 3
     })
     it('a PLAUSIBLE range is a rough span, not a bound: [0, 2] still takes negative values, so with no domain the link is not stated; hard bounds, or a domain, state it', () => {
       const plausible = { kind: 'interval', low: 0, high: 2, range_kind: 'plausible', likely: null }
@@ -570,7 +602,8 @@ describe('a limit that states one figure reaches the Model list WITH the figure 
       const cap = form.records.find((r) => r.id === 'cap'), ceiling = form.records.find((r) => r.id === 'ceiling')
       cap.unit = '%'; cap.assertion = { kind: 'point', value, approximate: false }
       ceiling.origin = { by: 'person', quote: 'keep churn under 4%', party: null }
-      if (value !== 4) cap.origin = { by: 'person', quote: `Set "Cap" to ${value} %.`, party: null }   // what core writes for an edit: the limit record is untouched
+      // Unedited, the bound carries the very words the limit was made from; core's edit gives it a quote of its own and leaves the limit record untouched.
+      cap.origin = value === 4 ? { by: 'person', quote: 'keep churn under 4%', party: null } : { by: 'person', quote: `Set "Cap" to ${value} %.`, party: null }
       return form
     }
     it('the figure unchanged keeps the person\'s words', () => {
@@ -588,10 +621,44 @@ describe('a limit that states one figure reaches the Model list WITH the figure 
       const form = JSON.parse(JSON.stringify(richForm))
       const goal = form.records.find((r) => r.family === 'goal'), target = form.records.find((r) => r.id === goal.measure.target)
       goal.origin = { by: 'person', quote: 'reach 100 tickets a week', party: null }
+      target.origin = { by: 'person', quote: 'reach 100 tickets a week', party: null }
       target.assertion = { kind: 'point', value: 100, approximate: false }
       expect(nodeOf(graphOf(form), goal.id)).toMatchObject({ source_quote: 'reach 100 tickets a week' })
       target.assertion = { kind: 'point', value: 120, approximate: false }
+      target.origin = { by: 'person', quote: 'Set "target" to 120 ticket/week.', party: null }
       expect(nodeOf(graphOf(form), goal.id)).not.toHaveProperty('source_quote')
+    })
+    it('R1: an edit from 4% to 0.04% keeps no "under 4%" (the scale of a quote is never matched against the saved figure); the card is the saved figure alone', () => {
+      const form = edited(0.04)
+      const row = goalConstraintsOf(form)[0]
+      expect(row).toMatchObject({ value: 0.04, unit: '%' })
+      expect(row).not.toHaveProperty('source_quote')
+    })
+    it('R1: a quote with more in it ("under 4% across 5 regions") does not survive an edit to 5%, and a negative figure keeps no sign-less quote', () => {
+      const form = edited(5)
+      form.records.find((r) => r.id === 'ceiling').origin = { by: 'person', quote: 'under 4% across 5 regions', party: null }
+      expect(goalConstraintsOf(form)[0]).not.toHaveProperty('source_quote')
+      const neg = edited(-5)
+      neg.records.find((r) => r.id === 'ceiling').origin = { by: 'person', quote: 'no lower than 5', party: null }
+      expect(goalConstraintsOf(neg)[0]).not.toHaveProperty('source_quote')
+    })
+    it('R3: a label that carries the old number ("Churn <= 4%") is not kept once the figure is edited: the limit is named by what it measures, in the list, the card and the record', () => {
+      const form = edited(5)
+      form.records.find((r) => r.id === 'ceiling').label = 'Churn <= 4%'
+      expect(goalConstraintsOf(form)[0]).toMatchObject({ label: 'Limit on ‘total capacity’', value: 5 })
+      expect(nodeOf(graphOf(form), 'ceiling').label).toBe('Limit on ‘total capacity’')
+      expect(canonicalOf(form, true).limits[0].label).toBe('Limit on ‘total capacity’')
+      const same = edited(4)
+      same.records.find((r) => r.id === 'ceiling').label = 'Churn <= 4%'
+      expect(goalConstraintsOf(same)[0]).toMatchObject({ label: 'Churn <= 4%', source_quote: 'keep churn under 4%' })
+    })
+    it('R4: a quote is never cut short beside a figure: one whose figure comes after 200 characters is whole, or absent, never truncated', () => {
+      const form = edited(4)
+      const long = `${'keeping the monthly churn of our subscribers down matters a great deal to us, because '.repeat(3)}so under 4%`
+      expect(long.length).toBeGreaterThan(200)
+      form.records.find((r) => r.id === 'ceiling').origin = { by: 'person', quote: long, party: null }
+      form.records.find((r) => r.id === 'cap').origin = { by: 'person', quote: long, party: null }
+      expect(goalConstraintsOf(form)[0].source_quote).toBe(long)
     })
   })
   it('a model with no such limit leaves `goal_constraints` off (its absence is what clears the limits shown)', () => {
@@ -606,13 +673,31 @@ describe('a limit that states one figure reaches the Model list WITH the figure 
   })
 })
 
-describe('a change that waits is never read as a current Run (tier R step 0)', () => {
+describe('a change that waits is not drawn as part of the model (design QA 4 and 5)', () => {
   const waiting = fx('view-approved-with-change.json')
-  it('the Run is marked not current, says why in plain words, and DGAI shows no chance as the new model\'s', () => {
-    const view = analysisViewOf(waiting)
-    expect(view.staleness.stale).toBe(true)
-    expect(typeof view.face_when_stale).toBe('string')
-    expect(runViewOf(null, parseCanonicalAnalysisView(view)).boundToCurrentCanonical()).toBe(false)
+  it('the canvas draws the saved model: the held change\'s new figure is not a card, and the model\'s identity does not move', () => {
+    const drawn = modelOf(waiting)
+    expect(drawn.graph.nodes.some((n) => n.id === 'staff_absence')).toBe(false)
+    expect(drawn.graph.nodes.map((n) => n.id).sort()).toEqual(modelOf({ ...waiting, pending: null }).graph.nodes.map((n) => n.id).sort())
+    expect(drawn.revision).toBe(modelOf({ ...waiting, pending: null }).revision)
+    expect(drawn.graph.living_model.canonical.quantities.some((q) => q.id === 'staff_absence')).toBe(false)
+  })
+  it('a first draft, which has no saved model, is still drawn as it stands', () => {
+    const draft = fx('view-first-pending.json')
+    expect(draft.version).toBeNull()
+    expect(modelOf(draft).graph.nodes.length).toBeGreaterThan(3)
+  })
+  it('what the change adds goes to the canvas as a ghost: the new figure by its name and its one figure, whose it is; nothing else is drawn', () => {
+    expect(ghostAddsOf(waiting)).toEqual([{ field_id: 'factor_add:staff_absence', kind: 'factor_add', node_id: 'staff_absence', label: 'staff absence', value: { value: 5, unit: 'ticket/week' }, source: 'estimate' }])
+  })
+  it('every other change is said in words, which keeps a ghost from offering an approval that would write what it does not show', () => {
+    const more = JSON.parse(JSON.stringify(waiting))
+    more.pending.changes.changed = ['add_one']
+    const adds = ghostAddsOf(more)
+    expect(adds.map((a) => a.kind)).toEqual(['factor_add', 'change_note'])
+    expect(adds[1]).toMatchObject({ field_id: 'change_note:record:add_one', text: 'Changes ‘Add one specialist’', editable: false })
+    expect(ghostAddsOf({ ...waiting, version: null })).toEqual([])
+    expect(ghostAddsOf({ ...waiting, pending: null })).toEqual([])
   })
 })
 

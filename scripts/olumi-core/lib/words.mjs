@@ -32,33 +32,6 @@ export function figure(a, unit) {
   }
 }
 
-const SCALES = { k: 1e3, thousand: 1e3, m: 1e6, million: 1e6, bn: 1e9, billion: 1e9 }
-/** Every number a sentence could be stating, as the values it may mean: "4%" is 4 or 0.04, "20k" is 20 or 20000, "1,200" is 1200. */
-function figuresIn(text) {
-  const out = []
-  for (const m of String(text ?? '').matchAll(/(\d[\d,]*(?:\.\d+)?|\.\d+)\s*(%|per\s?cent|thousand|million|billion|bn|k|m)?(?![a-z])/gi)) {
-    const n = Number(m[1].replace(/,/g, ''))
-    if (!Number.isFinite(n)) continue
-    const unit = (m[2] ?? '').toLowerCase().replace(/\s/g, '')
-    out.push([n, ...(unit === '%' || unit === 'percent' ? [n / 100] : unit in SCALES ? [n * SCALES[unit]] : [])])
-  }
-  return out
-}
-const same = (a, b) => a === b || Math.abs(a - b) <= 1e-9 * Math.max(Math.abs(a), Math.abs(b))
-/**
- * Do the person's own words still say the figure the model now holds? Their quote of a limit or an aim is theirs, but once the figure
- * has been changed (a limit edited from 4% to 5%) a formatter that prefers the quote would print the OLD figure beside the saved one.
- * It is kept only when it cannot contradict the saved figure: the quote states no figure at all, or one of the figures it states is
- * the saved one (a point, or either end or the likeliest value of a range). A quote is never rewritten, only withheld.
- */
-export function quoteAgrees(quote, assertion) {
-  const said = figuresIn(quote)
-  if (said.length === 0) return true
-  const held = assertion?.kind === 'point' ? [assertion.value] : assertion?.kind === 'interval' ? [assertion.low, assertion.high, assertion.likely].filter((x) => typeof x === 'number') : null
-  if (held === null) return true   // nothing numeric is saved (still to be given, worked out): the quote claims nothing against it
-  return said.some((cands) => cands.some((c) => held.some((h) => typeof h === 'number' && same(c, h))))
-}
-
 /** What defines a derived quantity (the parts a calculation uses), by record id. */
 export function partsOf(recs, id) {
   return recs.flatMap((r) => (r.family === 'relation' && r.form !== 'influence' && r.defines === id
@@ -88,6 +61,13 @@ const factorSide = (q) => {
 /** The sign of x to the power e, from x's known side: 1, -1, or 0 when it cannot be said (a negative base to a fractional power, or an odd power of a base that may be either). */
 const signOfPower = (s, e) => (e === 0 ? 1 : s === 1 ? 1 : !Number.isInteger(e) ? 0 : e % 2 === 0 ? 1 : s === -1 ? -1 : 0)
 
+/** The settings to read a direction under: the baseline (nothing set), then each option that sets figures, as {figure id -> the figure it sets it to}. */
+const settingsOf = (recs, m) => [new Map(), ...recs.flatMap((o) => {
+  if (o.family !== 'option' || o.status === 'removed') return []
+  const set = new Map((o.sets ?? []).flatMap((s) => (m.get(s.to)?.assertion ? [[s.quantity, m.get(s.to).assertion]] : [])))
+  return set.size > 0 ? [set] : []
+})]
+
 /**
  * The same parts, each with the way it bears on what it defines, as the relation states it: 1 (raises it), -1 (lowers it) or 0
  * (the relation does not say). A subtracted sum part lowers it; a product part's side is in the comment below; an outflow
@@ -105,10 +85,18 @@ export function signedPartsOf(recs, id) {
     // (x squared moves with x). A divisor is the same rule with a negative power (-100 / x rises as x rises).
     if (r.form === 'product') {
       const power = (p) => (typeof p.power === 'number' ? p.power : 1)
+      // The direction is stated only when it is the same at the baseline AND under every option's settings: each context reads each factor's
+      // side (its floor or ceiling, else its stated figure) with that option's own settings put over the baseline's. Where they disagree
+      // (an option that turns a multiplier's sign round) the direction is not stated (0): it depends on the option.
+      const signIn = (setting, p) => {
+        const sideOf = (id) => factorSide(setting.has(id) ? { ...m.get(id), assertion: setting.get(id) } : m.get(id))
+        const own = signOfPower(sideOf(p.id), power(p) - 1)
+        const rest = r.parts.filter((o) => o !== p).map((o) => signOfPower(sideOf(o.id), power(o)))
+        return (Math.sign(power(p)) * own * rest.reduce((x, y) => x * y, 1)) || 0
+      }
       return r.parts.map((p) => {
-        const own = signOfPower(factorSide(m.get(p.id)), power(p) - 1)
-        const rest = r.parts.filter((o) => o !== p).map((o) => signOfPower(factorSide(m.get(o.id)), power(o)))
-        return { id: p.id, sign: (Math.sign(power(p)) * own * rest.reduce((x, y) => x * y, 1)) || 0 }
+        const signs = settingsOf(recs, m).map((setting) => signIn(setting, p))
+        return { id: p.id, sign: signs.every((x) => x === signs[0]) ? signs[0] : 0 }
       })
     }
     if (r.form === 'effect') return [{ id: r.base, sign: 1 }, ...r.terms.flatMap((t) => [{ id: t.driver, sign: side(m.get(t.coefficient)) }, { id: t.coefficient, sign: side(m.get(t.driver)) }])]

@@ -57,7 +57,7 @@ describe('Confirm selected sends the ticked rows to core as `only`', () => {
     const { uuid } = held({ approve: v })
     const { out } = await press(uuid, await cardOf(uuid), { approve_ids: ['add_one'] })
     expect(out.notes).toEqual([])
-    expect(out.assistant_text).toMatch(/^Saved as version \d+\.$/)
+    expect(out.assistant_text).toMatch(/^Version \d+ saved\. Approved by Ada\.$/)
     expect(out.assistant_text).not.toMatch(/half the time|Next \(/)
   })
   it('a whole-card approval still shows core\'s reply on the new version, its next step said once (in the chat, not again as a note)', async () => {
@@ -65,7 +65,8 @@ describe('Confirm selected sends the ticked rows to core as `only`', () => {
     const { out } = await press(uuid, await cardOf(uuid))
     expect(out.assistant_text).toMatch(/adding a specialist reaches your aim about half the time/)
     expect(out.assistant_text).toMatch(/Next \(/)
-    expect(out.notes).toEqual([])
+    // ...and the same next step is also a note beside its card (the thread keeps it too, so it reads the same after a reload)
+    expect(out.notes).toEqual([{ element_id: 'per_specialist', text: expect.stringMatching(/three months on/) }])
   })
   it('an id that is not in the change is NOT dropped: every real change ticked plus an unknown one still sends `only` exactly as ticked, and core refuses it', async () => {
     const { uuid, sid } = held()
@@ -151,7 +152,7 @@ describe('a reload shows the same reply the live approval did (review: it restor
     const v = saved(true)
     expect(v.chat[0].answer.answer).toMatch(HALF)   // the row still holds the whole proposal's answer
     const [first] = await thread(v)
-    expect(first.assistant_message).toBe('Saved as version 1.')
+    expect(first.assistant_message).toBe('Version 1 saved. Approved by Ada.')
     expect(first.assistant_message).not.toMatch(HALF)
   })
   it('and it is word for word what the live part-approval said', async () => {
@@ -169,13 +170,13 @@ describe('a reload shows the same reply the live approval did (review: it restor
     expect(v2.chat[0].current).toBe(false)
     expect((await thread(v2))[0].assistant_message).toMatch(/In this model about 50% for adding a specialist/)
     const part = (await thread(v2, { 1: ['add_one'] }))[0].assistant_message
-    expect(part).toBe('Saved as version 1.')
+    expect(part).toBe('Version 1 saved.')
   })
   it('a version core cannot tell about (its version list is unreadable) is shown with no reply, never with one that may not be Olumi\'s', async () => {
     const turns = await thread(fx('view-markers-v2.json'), 'down')
-    expect(turns[0].assistant_message).toBe('Saved as version 1.')
+    expect(turns[0].assistant_message).toBe('Version 1 saved.')
     expect(turns[1].assistant_message).toMatch(/./)   // the current version still reads its own reply
-    expect(turns[1].assistant_message).not.toBe('Saved as version 2.')
+    expect(turns[1].assistant_message).not.toBe('Version 2 saved.')
   })
 })
 
@@ -196,10 +197,10 @@ describe('a DISCUSSION keeps its own answer on reload, whatever version it is ab
   }
   it('after a partial approval, the approval row says it was saved and the discussion about that version still reads Olumi\'s answer to it', async () => {
     const turns = await thread(afterPartThenQuestion(reply('It turns on what each specialist adds.')), { 1: ['add_one'] })
-    expect(turns[0].assistant_message).toBe('Saved as version 1.')
+    expect(turns[0].assistant_message).toBe('Version 1 saved. Approved by Ada.')
     expect(turns[1].user_message).toBe(ASKED)
     expect(turns[1].assistant_message).toMatch(/^It turns on what each specialist adds\./)
-    expect(turns[1].assistant_message).not.toBe('Saved as version 1.')
+    expect(turns[1].assistant_message).not.toMatch(/saved\./)
   })
   it('the same for a discussion about an OLDER version made from part of its proposal, and when the version list cannot be read', async () => {
     const v = afterPartThenQuestion(reply('Older and still mine.'))

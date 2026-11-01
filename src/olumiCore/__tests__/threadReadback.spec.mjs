@@ -60,7 +60,9 @@ describe('a past coach reply, read back after the model moved on (finding 1)', (
     // later, a change adds an option and the Run is renumbered
     fake.seed('tok-ada', v2)
     const after = (await shim.graphRead(ADA, uuid)).body.conversation_turns[0].assistant_message
-    expect(after).toBe(live.assistant_text)
+    // Core records who saved the CURRENT version only, so once a later version exists the old receipt says it was saved and not by whom; the reply itself is word for word.
+    expect(after).toBe(live.assistant_text.replace(/ Approved by [^.\n]+\./, ''))
+    expect(after).toMatch(/^Version 1 saved\.\n/)
   })
 
   it('a reply on a row whose model is not saved yet still reads whole (nothing falls back to an empty marker)', async () => {
