@@ -9,11 +9,12 @@ unset GH_TOKEN GITHUB_TOKEN
 CORE_DIR="${CORE_DIR:-/private/tmp/spike-core}"
 DATA="${DATA:-/private/tmp/spike-core-data}"
 ADMIN_KEY="${OLUMI_ADMIN_KEY:-spike-admin-key-0123456789abcdef}"
+HERE="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$DATA"
 case "${1:-ui}" in
   core)
     cd "$CORE_DIR"
-    cp -n /private/tmp/olumi-core-ui-dev/scripts/scripted-core.ts scripts/scripted-core.ts || true
+    cp -n "$HERE/scripted-core.ts" scripts/scripted-core.ts || true   # olumi-core script (scripted AI, no provider calls); belongs in the olumi-core clone, kept here for the spike
     OLUMI_BURST_LIMIT=1000 OLUMI_DB="$DATA/ui.db" OLUMI_ADMIN_KEY="$ADMIN_KEY" PORT=3948 exec pnpm -s tsx scripts/scripted-core.ts ;;
   shim)
     # one private link for the shim to hold (the browser never sees it)
