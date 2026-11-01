@@ -100,7 +100,8 @@ export function createServer(opts = {}) {
 
   async function app(req, res) {
     const url = new URL(req.url ?? '/', 'http://x')
-    const p = url.pathname
+    // vite's dev proxy rewrites /bff/cee/* to /assist/v1/* and /bff/orchestrate/* to /orchestrate/*: accept both spellings.
+    const p = url.pathname.replace(/^\/assist\/v1\//, '/bff/cee/').replace(/^\/orchestrate\//, '/bff/orchestrate/')
     const method = req.method ?? 'GET'
     try {
       if (p === '/healthz') {
