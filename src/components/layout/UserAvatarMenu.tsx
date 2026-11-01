@@ -12,6 +12,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import { sanitiseUserId } from '../../lib/guestIdentity'
+import { coreLanePerson, isOlumiCoreLane } from '../../olumiCore/lane'
 
 function getInitial(profile: { display_name?: string | null; email?: string | null } | null, user: { email?: string } | null): string {
   const name = profile?.display_name || user?.email || ''
@@ -27,7 +28,33 @@ interface UserAvatarMenuProps {
   size?: 'default' | 'compact'
 }
 
-export function UserAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
+/**
+ * On the olumi-core lane the person is who their private link says, and there is no account behind this build: no sign in, no
+ * profile to save, no account to delete (the Supabase address is dead on purpose, so each of them would hang or fail). The
+ * avatar is then a plain mark that says whose private link this page was opened with, and opens nothing.
+ */
+function PrivateLinkMark({ size }: { size: 'default' | 'compact' }) {
+  const person = coreLanePerson()
+  const initial = (person?.name ?? '').charAt(0).toUpperCase() || '?'
+  const words = person ? `You are using Olumi through ${person.name}’s private link` : 'You are using Olumi through your private link'
+  return (
+    <div
+      role="img"
+      aria-label={words}
+      title={words}
+      data-testid="olumi-core-person-mark"
+      className={`flex ${size === 'compact' ? 'h-[26px] w-[26px]' : 'h-8 w-8'} items-center justify-center rounded-full bg-primary text-text-on-color`}
+    >
+      <span className={size === 'compact' ? 'text-[11px] font-medium font-sans leading-none' : typography.button}>{initial}</span>
+    </div>
+  )
+}
+
+export function UserAvatarMenu(props: UserAvatarMenuProps = {}) {
+  return isOlumiCoreLane() ? <PrivateLinkMark size={props.size ?? 'default'} /> : <AccountAvatarMenu {...props} />
+}
+
+function AccountAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
   const { user, profile, signOut } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)

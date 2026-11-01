@@ -10,6 +10,7 @@ import { simulateTokens, getJSON } from './adapters/StreamAdapter'
 import { feature } from '../lib/pocFlags'
 import DevRoutesGuard from '../components/auth/DevRoutesGuard'
 import { isE2EEnabled } from '../flags'
+import { coreLaneHasAccounts } from '../olumiCore/lane'
 import { fetchFlow as fetchFlowEngine, openSSE } from '../lib/pocEngine'
 import { initMonitoring } from '../lib/monitoring'
 import GraphCanvas from '../components/GraphCanvas'
@@ -941,6 +942,12 @@ export default function AppPoC() {
           </div>
   )
 
+  // The olumi-core lane has no accounts, no scenario list, no shared pages and no sign in behind it (a person is who their private
+  // link says): a typed or remembered address for any of them lands on the canvas, never on a page that cannot work.
+  const accountsExist = coreLaneHasAccounts()
+  const toCanvas = <Navigate to="/canvas" replace />
+  const unlessLane = (page: JSX.Element): JSX.Element => (accountsExist ? page : toCanvas)
+
   return (
     <StrictMode>
       {/* @ts-expect-error POC: stub may not match exact QueryClientProvider API */}
@@ -968,30 +975,30 @@ export default function AppPoC() {
               <CanvasErrorBoundary>
                 <Routes>
                 {/* Public routes */}
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/auth/confirm" element={<AuthConfirmPage />} />
-                <Route path="/brief/:slug" element={<SharedBriefPage />} />
+                <Route path="/login" element={unlessLane(<LoginPage />)} />
+                <Route path="/auth/callback" element={unlessLane(<AuthCallback />)} />
+                <Route path="/auth/confirm" element={unlessLane(<AuthConfirmPage />)} />
+                <Route path="/brief/:slug" element={unlessLane(<SharedBriefPage />)} />
                 {/* COLLAB — the participant's panel page. OUTSIDE AuthGuard,
                     DELIBERATELY: a participant holds no Supabase session, and
                     the guard would bounce every one of them to /login while
                     every test stayed green. Same reason /brief/:slug sits here.
                     `collabParticipantRouteIsPublic.spec.tsx` asserts the mount
                     PATH itself, so moving it inside the guard fails loud. */}
-                <Route path="/panel/:round_id" element={<ParticipantPacketPage />} />
+                <Route path="/panel/:round_id" element={unlessLane(<ParticipantPacketPage />)} />
 
                 {/* Auth-guarded routes */}
                 <Route element={<AuthGuard />}>
-                  <Route path="/" element={<ScenarioListPage />} />
-                  <Route path="/scenarios" element={<ScenarioListPage />} />
+                  <Route path="/" element={unlessLane(<ScenarioListPage />)} />
+                  <Route path="/scenarios" element={unlessLane(<ScenarioListPage />)} />
                   <Route path="/scenario/:id" element={<RouteContent><CanvasMVP /></RouteContent>} />
-                  <Route path="/scenario/:id/compare" element={<RouteContent><ScenarioComparePage /></RouteContent>} />
+                  <Route path="/scenario/:id/compare" element={unlessLane(<RouteContent><ScenarioComparePage /></RouteContent>)} />
                   {/* COLLAB — the owner's side. INSIDE AuthGuard: minting a
                       round pins a version of the owner's model and names real
                       people, so it requires a verified session. */}
-                  <Route path="/scenario/:id/panel" element={<PanelSetupPage />} />
+                  <Route path="/scenario/:id/panel" element={unlessLane(<PanelSetupPage />)} />
                   <Route path="/canvas" element={<RouteContent><CanvasMVP /></RouteContent>} />
-                  <Route path="/profile" element={<ProfileSettingsPage />} />
+                  <Route path="/profile" element={unlessLane(<ProfileSettingsPage />)} />
                 </Route>
 
                 {/* Dev/POC routes — ALL behind the `devRoutes` flag, declared

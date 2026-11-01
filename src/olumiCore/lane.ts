@@ -37,3 +37,20 @@ const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['analysisNew', 'compare'
 export function coreLaneShowsSurface(surfaceId: string): boolean {
   return !isOlumiCoreLane() || !CEE_ONLY_SURFACES.has(surfaceId)
 }
+
+/**
+ * Accounts. On this lane a person is who their private link says (olumi-core's own, opened at `/k/<token>`), and the page was
+ * opened for exactly one of them. There is no Supabase behind this build (its address is dead on purpose), so the account chrome
+ * (sign in, sign out, profile settings, delete account, "My scenarios", shared versions that need a signed-in session) cannot work:
+ * it is not offered, and the routes that lead to it go to the canvas.
+ */
+export function coreLaneHasAccounts(): boolean {
+  return !isOlumiCoreLane()
+}
+
+/** Who this page was opened for (set by the server before DGAI starts, `lib/tab.js`), or null off the lane / before it is set. */
+export function coreLanePerson(): { readonly id: string; readonly name: string } | null {
+  if (!isOlumiCoreLane() || typeof window === 'undefined') return null
+  const person = (window as unknown as { __OLUMI_CORE__?: { person?: { id?: unknown; name?: unknown } } }).__OLUMI_CORE__?.person
+  return person && typeof person.id === 'string' && typeof person.name === 'string' ? { id: person.id, name: person.name } : null
+}

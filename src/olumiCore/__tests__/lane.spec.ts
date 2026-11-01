@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../lib/supabase', () => ({ getUserId: async () => null, getSessionIdentity: async () => ({ userId: null, accessToken: null }) }))
 vi.mock('../../lib/posthog', () => ({ trackEvent: () => undefined }))
 
-import { coreLaneAllows, coreLaneShowsSurface, isOlumiCoreLane } from '../lane'
+import { coreLaneAllows, coreLaneShowsSurface, coreLaneHasAccounts, coreLanePerson, isOlumiCoreLane } from '../lane'
 import { resolveAiComparisonMode, aiComparisonHeaders } from '../../v5/aiComparisonMode'
 import { streamedDraftEligible } from '../../canvas/conversation/useConversation'
 import { preloadPrompts } from '../../lib/prompt-preloader'
@@ -50,5 +50,17 @@ describe('the olumi-core lane', () => {
     expect(streamedDraftEligible(draft)).toBe(false)
     await preloadPrompts()
     expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('has no accounts: the sign-in, profile and delete-account chrome (nothing is behind it) is not offered, and the person is who their link says', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '')
+    expect(coreLaneHasAccounts()).toBe(true)
+    expect(coreLanePerson()).toBeNull()
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    expect(coreLaneHasAccounts()).toBe(false)
+    vi.stubGlobal('window', { ...window, __OLUMI_CORE__: { person: { id: '1', name: 'Ada' } } })
+    expect(coreLanePerson()).toEqual({ id: '1', name: 'Ada' })
+    vi.stubGlobal('window', { ...window, __OLUMI_CORE__: { person: { id: 1 } } })
+    expect(coreLanePerson()).toBeNull()
   })
 })
