@@ -72,7 +72,8 @@ describe('VALUE_COMMIT_SETTLEMENT_COPY', () => {
     // Seven words since recovery Batch B added the moved-base read ('checking' and 'saved'); eight since Batch R3 split
     // the no-reply refusal ('refused') from the 200 that wrote nothing ('not_applied').
     // The failed-read state retains the server's no-write guarantee, separately from an unknown send.
-    expect(said.size).toBe(9)
+    // Ten with the olumi-core lane's kept write whose answer was lost ('kept_unread': saved, reload to see it).
+    expect(said.size).toBe(10)
   })
 
   it('role=alert on a confirmed refusal, never the uncertain states', () => {

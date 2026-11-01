@@ -536,6 +536,16 @@ function coreNothingSavedOf(headers: Record<string, string>, errorBody: unknown)
   return { coreNothingSaved: { words } }
 }
 
+/**
+ * The core lane's statement that the change WAS saved and only the answer was lost (`code: saved_not_shown`, `nothing_saved: false`),
+ * with core's words, or nothing: the opposite of `coreNothingSavedOf`. The canvas then keeps the figure and says it was saved.
+ */
+function coreKeptOf(headers: Record<string, string>, errorBody: unknown): { coreKept?: { readonly words: string | null } } {
+  if (!isOpenAiLane((headers[AI_MODE_HEADER] ?? null) as AiComparisonMode | null)) return {}
+  if (!isRecord(errorBody) || errorBody.nothing_saved !== false || errorBody.error !== 'saved_not_shown') return {}
+  return { coreKept: { words: typeof errorBody.detail === 'string' && errorBody.detail.trim() !== '' ? errorBody.detail.trim() : null } }
+}
+
 function resultCarriesDraftGraph(result: V5CallResult): boolean {
   if (result.kind !== 'response') return false
   const graph = (result.response as { draft_graph?: { nodes?: unknown[] } }).draft_graph
@@ -2684,11 +2694,13 @@ export class SystemEventSendError extends Error {
    * wrote records this id as its `source_turn_id`: it is how a later read tells this send's write from another tab's.
    */
   readonly turnId?: string
+  /** olumi-core lane: the server says the change WAS saved (`nothing_saved: false`, code `saved_not_shown`) and only the read after it failed. */
+  readonly coreKept?: boolean
   /** Recovery wake-up after a carrier has completed its refusal rollback/copy. Never wire data. */
   onRefusedGraphSettled?: () => void
   constructor(
     kind: 'transport' | 'server',
-    options?: { cause?: unknown; code?: string; conflictCategory?: string; reason?: string; retryable?: boolean; turnId?: string },
+    options?: { cause?: unknown; code?: string; conflictCategory?: string; reason?: string; retryable?: boolean; turnId?: string; coreKept?: boolean },
   ) {
     super(`System event send failed (${kind})`)
     this.name = 'SystemEventSendError'
@@ -2698,6 +2710,7 @@ export class SystemEventSendError extends Error {
     if (options?.reason !== undefined) this.reason = options.reason
     if (options?.retryable !== undefined) this.retryable = options.retryable
     if (options?.turnId !== undefined) this.turnId = options.turnId
+    if (options?.coreKept === true) this.coreKept = true
     if (options?.cause !== undefined) {
       ;(this as Error & { cause?: unknown }).cause = options.cause
     }
@@ -3971,7 +3984,7 @@ export function useConversation(): UseConversationReturn {
    * surface, well outside this lane.
    */
   const resolveFailedOptimisticFactorEdit = useCallback(
-    (edit: OptimisticFactorEdit, conflictCategory: string | undefined, coreNothingSaved?: { readonly words: string | null }) => {
+    (edit: OptimisticFactorEdit, conflictCategory: string | undefined, coreNothingSaved?: { readonly words: string | null }, coreKept?: { readonly words: string | null }) => {
       let notice: OptimisticFactorEditNoticeKey
 
       // The core route states its own no-write guarantee (`nothing_saved: true`, as the structural writers read it): olumi-core
@@ -4018,6 +4031,8 @@ export function useConversation(): UseConversationReturn {
           (notice === 'proven_no_write' ? fenceRefusalCopyForCategory(conflictCategory) : null) ??
           (notice === 'proven_no_write' && coreNothingSaved !== undefined && !isProvenNoWriteConflict(conflictCategory)
             ? `${coreNothingSaved.words ?? 'Nothing was saved.'} Your figure is back as it was.` : null) ??
+          (notice === 'unconfirmed_server' && coreKept !== undefined && coreKept.words !== null
+            ? `${coreKept.words} Your figure is still on the canvas.` : null) ??
           OPTIMISTIC_FACTOR_EDIT_NOTICE[notice],
         timestamp: new Date(),
       })
@@ -5699,6 +5714,7 @@ export function useConversation(): UseConversationReturn {
               optimisticEdit,
               conflictCategory,
               coreNothingSavedOf(v5Headers, target.rawBody ?? target.boundaryError).coreNothingSaved,
+              coreKeptOf(v5Headers, target.rawBody ?? target.boundaryError).coreKept,
             )
           } else {
             const applied = responseAppliedFactorEdit(target.response, optimisticEdit.nodeId, optimisticEdit.sentValue)
@@ -6902,6 +6918,7 @@ export function useConversation(): UseConversationReturn {
                   : coreNothingSavedOf(v5Headers, target.rawBody ?? target.boundaryError).coreNothingSaved !== undefined
                     ? { reason: CORE_NO_WRITE_REASON }
                     : {}),
+                ...(coreKeptOf(v5Headers, target.rawBody ?? target.boundaryError).coreKept !== undefined ? { coreKept: true } : {}),
                 // The same resolved marker the Try-again chip is gated on,
                 // carried so the deferral queue can tell a futile replay from a
                 // retry that may still land (`flushDeferredSystemSends`).

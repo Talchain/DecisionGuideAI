@@ -14,6 +14,7 @@ import { useConversation } from '../../canvas/conversation/useConversation'
 import { useCanvasStore } from '../../canvas/store'
 import { OPTIMISTIC_FACTOR_EDIT_NOTICE, type OptimisticFactorEdit } from '../../canvas/conversation/optimisticFactorEdit'
 import { settleSystemEventSend } from '../../canvas/conversation/settleSystemEventSend'
+import { valueCommitSettlementWord, VALUE_COMMIT_SETTLEMENT_COPY } from '../../canvas/conversation/valueCommitSettlement'
 import { errorTurn, CoreError, WriteKept } from '../../../scripts/olumi-core/lib/core.mjs'
 
 vi.mock('../../canvas/conversation/turnService', () => ({
@@ -50,7 +51,7 @@ async function drive(answer: unknown) {
   const settled: string[] = []
   await act(async () => {
     const send = result.current.sendSystemEvent({ type: 'factor_value_edit', payload: { target_id: TARGET, value: 30, raw_value: 30, field: 'value' } } as never, { optimisticFactorEdit: snapshot() })
-    settleSystemEventSend(send as never, (word) => { settled.push(word) })
+    settleSystemEventSend(send as never, (word, detail) => { settled.push(detail?.kept ? `${word}:kept` : word) })
     sends.push(send)
     await send.catch(() => undefined)
     await new Promise((r) => setTimeout(r, 0))
@@ -93,10 +94,21 @@ describe('a refused figure edit on the olumi-core lane (gap 1: nothing hangs, no
     expect(out.notices[0]).toMatch(/Your figure is back as it was\.$/)
   })
 
-  it('a figure core KEPT whose follow-up read failed stays on the canvas (it is not rolled back to a value the model no longer holds)', async () => {
+  it('a figure core KEPT whose follow-up read failed stays on the canvas and is said to be SAVED, with the way to see it (not "may not have reached the model")', async () => {
     const out = await drive(errorTurn('t-5', new WriteKept(new CoreError(502, 'could not read'))))
-    expect(out.settled).toEqual(['unverified'])
+    expect(out.settled).toEqual(['unverified:kept'])
     expect(out.target).toBe(30)
-    expect(out.notices).toEqual([OPTIMISTIC_FACTOR_EDIT_NOTICE.unconfirmed_server])
+    expect(out.notices).toHaveLength(1)
+    expect(out.notices[0]).toMatch(/was saved/)
+    expect(out.notices[0]).toMatch(/Reload/)
+    expect(out.notices[0]).toMatch(/Your figure is still on the canvas\.$/)
+    expect(out.notices[0]).not.toMatch(/couldn't confirm|may not have reached/i)
+  })
+  it('the card says the same: saved, reload to see it', () => {
+    const word = valueCommitSettlementWord('unverified', 20, 30, () => 30, { kept: true })
+    expect(word).toBe('kept_unread')
+    expect(VALUE_COMMIT_SETTLEMENT_COPY[word!].message).toBe('Saved. Olumi could not show the result just now: reload to see it.')
+    // a timeout (nobody knows whether core saved it) is still "could not confirm"
+    expect(valueCommitSettlementWord('unverified', 20, 30, () => 30, {})).toBe('unconfirmed')
   })
 })
