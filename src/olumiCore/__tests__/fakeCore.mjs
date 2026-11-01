@@ -16,6 +16,7 @@ export async function startFakeCore() {
   let failReadAfterWrite = null // armed: the first read of a scenario AFTER a write fails (the write itself is kept)
   let wrote = false
   let problemNext = null
+  let approveRefusal = null // armed: the next approve is refused (core's own 409 for a choice that needs something unchosen)
   let next = 1
   const server = http.createServer(async (req, res) => { try { await handle(req, res) } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) })) } })
   const handle = async (req, res) => {
@@ -57,6 +58,12 @@ export async function startFakeCore() {
     if ((m = url.pathname.match(/^\/api\/proposals\/(\d+)\/approve$/))) {
       const entry = [...scenarios.values()].find((s) => s.owner === me.id && s.view.pending?.id === Number(m[1]))
       if (!entry) return send(409, { error: 'this change is not pending and cannot be approved' })
+      if (body.only !== undefined) {
+        // API v1.4 `only`: record ids or top-level field names of `pending.changes`; `[]` and unknown ids are 400.
+        const c = entry.view.pending.changes, known = new Set([...c.added, ...c.changed, ...c.removed, ...c.top])
+        if (!Array.isArray(body.only) || body.only.length === 0 || !body.only.every((id) => known.has(id))) return send(400, { error: 'only names nothing in this change, or something not in it' })
+      }
+      if (approveRefusal) { const f = approveRefusal; approveRefusal = null; return send(f.status, { error: f.message }) }
       if (entry.after?.approve) { entry.view = structuredClone(entry.after.approve); return send(200, { version: entry.view.version.id, n: entry.view.version.n, receipt: `approve:${m[1]}` }) }
       const approved = fx('view-approved.json'); approved.id = entry.view.id; approved.you = me.name; approved.version.id = entry.view.pending.id + 1; approved.chat[0].id = entry.view.pending.id; entry.view = approved
       return send(200, { version: approved.version.id, n: approved.version.n, receipt: `approve:${m[1]}` })
@@ -107,6 +114,8 @@ export async function startFakeCore() {
     /** A scenario exactly as a real core served it (a captured view), owned by that person; `after.approve` is the view an approval turns it into, `after.edit` the view a figure edit turns it into. */
     seed: (token, view, after = {}) => { const v = structuredClone(view); scenarios.set(v.id, { owner: people.get(token).id, view: v, after }); return v.id },
     problemNext: (text) => { problemNext = text },
+    /** The next approve is refused with this status and core's words (the approve itself is checked first, so a bad `only` is still a 400). */
+    refuseApprove: (status, message) => { approveRefusal = { status, message } },
     close: () => new Promise((r) => server.close(r)),
   }
 }

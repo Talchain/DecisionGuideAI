@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { startFakeCore } from './fakeCore.mjs'
 import { makeCore } from '../../../scripts/olumi-core/lib/core.mjs'
-import { makeShim, PARTIAL_REFUSAL, UNSUPPORTED_EDIT } from '../../../scripts/olumi-core/lib/turn.mjs'
+import { makeShim, UNSUPPORTED_EDIT } from '../../../scripts/olumi-core/lib/turn.mjs'
 import { sidOfUuid } from '../../../scripts/olumi-core/lib/ids.mjs'
 import { parseCoreTurn, coreTurnToClientBody } from '../../v5/coreTurnContract'
 import { parseCanonicalAnalysisView } from '../../canvas/runView/canonicalAnalysisView'
@@ -37,17 +37,6 @@ describe('the turn, as DGAI\'s CoreTurn reader takes it', () => {
     expect(r.alias).toEqual([U, expect.stringMatching(/^s_[0-9a-f]{12}$/)])
     expect(body.model.revision).toMatch(/^[0-9a-f]{16}$/)
     expect(coreTurnToClientBody(body)._proposal_fields.proposals).toHaveLength(1)
-  })
-
-  it('a partial tick is refused with a clear message, nothing is approved, and the card stays held', async () => {
-    const { ctx, r } = await started()
-    const card = r.out.cards[0], before = fake.calls.length
-    const out = (await shim.turn(ctx, msg('Looks right.', { source: 'chip_click', chip: { id: card.approve_action.id }, approve_ids: [card.changes[0].id] }))).out
-    expect(out.error).toBeNull()
-    expect(out.assistant_text).toBe(PARTIAL_REFUSAL(1, card.changes.length))
-    expect(out.assistant_text).toMatch(/5 November/)
-    expect(out.cards).toHaveLength(1)
-    expect(fake.calls.slice(before).some((c) => c.path.includes('/approve'))).toBe(false)
   })
 
   it('confirming the whole card saves it and names the Run, so the Analysis tab adopts it (gap 5)', async () => {

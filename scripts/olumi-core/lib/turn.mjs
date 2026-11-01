@@ -13,7 +13,6 @@ import { propIdOf, rev16, rev64, runIdOf, sidOfUuid, turnIdOf, uuidOfSid, isSid 
 
 const DRAFT_LEAD = 'Here is your situation as I understood it. Check it, then confirm or tell me what to change.'
 const CHANGE_LEAD = 'Here is what I would change. Check it, then confirm.'
-export const PARTIAL_REFUSAL = (n, total) => `Confirming only some rows (${n} of ${total}) is not available yet; it needs an update to Olumi that is due on 5 November. Nothing has been saved. Use “Confirm whole card”, or tell me what to change.`
 export const UNSUPPORTED_EDIT = 'Olumi cannot make that kind of change on the canvas yet. Tell me in the chat what to change, or change a figure. Nothing was saved.'
 
 /**
@@ -103,19 +102,35 @@ const afterWrite = async (build, extra) => {
 export function makeShim({ core, log = () => {} }) {
   const view = (ctx, sid) => core('GET', `/api/scenarios/${sid}`, { token: ctx.token })
 
+  /**
+   * "Looks right" confirms the whole card; "Confirm selected" (the ticks on the reading card's rows, `approve_ids`) confirms exactly
+   * those rows, as core's `only` (API v1.4: record ids of the proposal's changes). When every row is ticked it is the whole card.
+   * Core decides what a selection needs: a choice that needs a record that was not chosen is refused with a 409 that names it, and
+   * that refusal is shown in core's own words with the card still held, so the ticks can be changed. Core re-runs a part-approved
+   * model with no reply from Olumi, so there is no coach reply (and no note) on that turn.
+   */
   async function approve(ctx, body, turnId, pid, sid) {
     const v = await view(ctx, sid)
     if (!v.pending || propIdOf(sid, v.pending.id) !== pid) return { out: errorTurn(turnId, new CoreError(409, 'that card is no longer waiting for an answer')) }
     const rows = changeRows(v)
-    if (Array.isArray(body.approve_ids) && body.approve_ids.length > 0 && !rows.every((r) => body.approve_ids.includes(r.id))) {
-      return { out: turnBody(v, { turnId, text: PARTIAL_REFUSAL(body.approve_ids.length, rows.length), withCard: true }) }
+    const ticked = Array.isArray(body.approve_ids) ? [...new Set(body.approve_ids)].sort() : []
+    const only = ticked.length > 0 && !rows.every((r) => ticked.includes(r.id)) ? ticked : null
+    let r
+    try {
+      r = await core('POST', `/api/proposals/${v.pending.id}/approve`, { token: ctx.token, body: { base: v.pending.base, ...(only ? { only } : {}) } })
+    } catch (e) {
+      if (only && e instanceof CoreError && e.status === 409) {
+        const now = await view(ctx, sid)
+        if (now.pending && propIdOf(sid, now.pending.id) === pid) return { out: turnBody(now, { turnId, text: `${e.message.charAt(0).toUpperCase()}${e.message.slice(1)}`, withCard: true }) }
+      }
+      throw e
     }
-    const r = await core('POST', `/api/proposals/${v.pending.id}/approve`, { token: ctx.token, body: { base: v.pending.base } })
     return afterWrite(async () => {
       const after = await view(ctx, sid)
       const row = after.chat.find((c) => c.proposal === v.pending.id) ?? after.chat.find((c) => c.version === r.n)
       const reply = replyWithNote(after, row, cardsOf(v))
-      return { out: turnBody(after, { turnId, text: reply.text || `Saved as version ${r.n}.`, withCard: false, receipt: true, notes: reply.notes }) }
+      // Whatever core left waiting after a part-approval stays on screen as a card, so it can still be answered or set aside.
+      return { out: turnBody(after, { turnId, text: reply.text || `Saved as version ${r.n}.`, withCard: !!after.pending, receipt: true, notes: reply.notes }) }
     })
   }
 
