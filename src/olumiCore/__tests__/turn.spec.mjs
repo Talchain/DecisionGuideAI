@@ -19,7 +19,7 @@ afterAll(async () => { await fake.close() })
 /** A first model, created and (optionally) approved: returns the ctx the browser would now hold. */
 async function started({ approve = false } = {}) {
   const r = await shim.turn({ ...ADA }, msg('a brief'))
-  const ctx = { ...ADA, aliases: r.aliases }
+  const ctx = { ...ADA, aliases: [r.alias] }
   if (!approve) return { ctx, r }
   const card = r.out.cards[0]
   const a = await shim.turn(ctx, msg('Looks right.', { source: 'chip_click', chip: { id: card.approve_action.id } }))
@@ -34,7 +34,7 @@ describe('the turn, as DGAI\'s CoreTurn reader takes it', () => {
     expect(body.error).toBeNull()
     expect(body.cards).toHaveLength(1)
     expect(body.cards[0].reading).toBe(true)
-    expect(r.aliases).toEqual([[U, expect.stringMatching(/^s_[0-9a-f]{12}$/)]])
+    expect(r.alias).toEqual([U, expect.stringMatching(/^s_[0-9a-f]{12}$/)])
     expect(body.model.revision).toMatch(/^[0-9a-f]{16}$/)
     expect(coreTurnToClientBody(body)._proposal_fields.proposals).toHaveLength(1)
   })
@@ -171,15 +171,15 @@ describe('discussion and challenges (gap 6)', () => {
     const first = await shim.turn({ token: 'tok-ada', aliases: [] }, msg('Keep staffing or add one specialist? We need at least 100 a week.'))
     expect(first.out.error).toBeNull(); expect(first.out.cards).toHaveLength(1)
     expect(first.out.assistant_text).toMatch(/cannot be confirmed: 2 findings remain after the one repair\./)
-    expect(first.aliases).toHaveLength(1)
+    expect(first.alias).toEqual([U, expect.stringMatching(/^s_[0-9a-f]{12}$/)])
   })
   it('a scenario whose only draft was set aside starts again from the next brief, under the same UUID', async () => {
     const { ctx, r } = await started()
     await shim.turn(ctx, msg('Not now.', { source: 'chip_click', chip: { id: r.out.cards[0].decline_action.id } }))
     const again = await shim.turn(ctx, msg('a better brief'))
     expect(again.out.error).toBeNull(); expect(again.out.cards).toHaveLength(1)
-    expect(again.aliases.filter(([u]) => u === U)).toHaveLength(1)
-    expect(again.aliases.find(([u]) => u === U)[1]).not.toBe(ctx.aliases.find(([u]) => u === U)[1])
+    expect(again.alias[0]).toBe(U)
+    expect(again.alias[1]).not.toBe(ctx.aliases.find(([u]) => u === U)[1])
   })
   it('a Run press has nothing to start: core runs on every change, and the turn says so with the Run it has', async () => {
     const { ctx } = await started({ approve: true })

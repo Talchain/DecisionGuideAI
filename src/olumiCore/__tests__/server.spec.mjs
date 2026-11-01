@@ -8,10 +8,12 @@ import { createServer, LINK_PAGE } from '../../../scripts/olumi-core/server.mjs'
 
 let fake, server, base, dist
 const BRIEF = 'a brief'
-const H = (cookie, extra = {}) => ({ headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}), ...extra }, redirect: 'manual' })
-const post = (p, body, cookie) => fetch(base + p, { method: 'POST', ...H(cookie), body: JSON.stringify(body) })
+// The page says who it was opened for on every /bff/ call (lib/tab.js): by default the person whose cookie the browser sends.
+const PERSON_OF = { 'olumi=tok-ada': '1', 'olumi=tok-bea': '2' }
+const H = (cookie, extra = {}) => ({ headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}), ...(PERSON_OF[cookie] ? { 'x-olumi-person': PERSON_OF[cookie] } : {}), ...extra }, redirect: 'manual' })
+const post = (p, body, cookie, extra) => fetch(base + p, { method: 'POST', ...H(cookie, extra), body: JSON.stringify(body) })
 const U = '11111111-2222-4333-8444-555555555555'
-const turn = (message, cookie, extra = {}) => post('/bff/orchestrate/v2/turn', { kind: 'message', turn_id: crypto.randomUUID(), scenario_id: U, stage: 'frame', message, source: 'composer', ...extra }, cookie)
+const turn = (message, cookie, extra = {}, headers) => post('/bff/orchestrate/v2/turn', { kind: 'message', turn_id: crypto.randomUUID(), scenario_id: U, stage: 'frame', message, source: 'composer', ...extra }, cookie, headers)
 
 beforeAll(async () => {
   fake = await startFakeCore(); fake.addPerson('tok-ada', '1', 'Ada'); fake.addPerson('tok-bea', '2', 'Bea')
@@ -51,7 +53,8 @@ describe('one origin: the app, the private link, the API and the health check', 
     expect(r.status).toBe(200)
     const html = await r.text()
     expect(html).toContain('the app')
-    expect(html).toContain('window.__OLUMI_CORE__={person:{"id":"1","name":"Ada"}}')
+    expect(html).toContain('{"id":"1","name":"Ada"})</script>')
+    expect(html).toContain('olumi-core-person')
     expect(html.indexOf('olumi-core-person')).toBeLessThan(html.indexOf('<title>'))
   })
   it('an expired or revoked cookie is the same page as none', async () => {
@@ -128,16 +131,21 @@ describe('identity: each browser is its own person (gap 3)', () => {
     const out = await (await turn(BRIEF, null)).json()
     expect(out.error).toMatchObject({ code: 'unauthorised' })
   })
-  it('a scenario started in a browser is found again by that browser alone (its own alias cookie), and not by another person', async () => {
+  it('a scenario started in a browser is paired with its UUID by the page, not the server: the answer names the pairing, and a call that brings it back finds the scenario (another person cannot)', async () => {
     const r = await turn(BRIEF, 'olumi=tok-ada')
-    const alias = (r.headers.getSetCookie().find((c) => c.startsWith('olumi_sc=')) ?? '').split(';')[0]
-    expect(alias).toMatch(/^olumi_sc=/)
-    const own = await (await fetch(`${base}/bff/cee/scenarios/${U}/graph`, { method: 'POST', ...H(`olumi=tok-ada; ${alias}`), body: '{}' })).json()
+    const alias = r.headers.get('x-olumi-alias')
+    expect(alias).toMatch(new RegExp(`^${U}=s_[0-9a-f]+$`))
+    expect(r.headers.get('set-cookie')).toBeNull()   // no cookie, so nothing capped and nothing one tab overwrites for another
+    const read = (cookie, extra) => fetch(`${base}/bff/cee/scenarios/${U}/graph`, { method: 'POST', ...H(cookie, extra), body: '{}' })
+    const own = await (await read('olumi=tok-ada', { 'x-olumi-scenario': alias })).json()
     expect(own.graph_present).toBe(true)
-    const nobody = await (await fetch(`${base}/bff/cee/scenarios/${U}/graph`, { method: 'POST', ...H('olumi=tok-ada'), body: '{}' })).json()
+    const nobody = await (await read('olumi=tok-ada')).json()
     expect(nobody.graph_present).toBe(false)
-    const other = await fetch(`${base}/bff/cee/scenarios/${U}/graph`, { method: 'POST', ...H(`olumi=tok-bea; ${alias}`), body: '{}' })
-    expect(other.status).toBe(404)
+    expect((await read('olumi=tok-bea', { 'x-olumi-scenario': alias })).status).toBe(404)
+  })
+  it('a pairing header that is not a UUID and a core scenario id names nothing', async () => {
+    const r = await fetch(`${base}/bff/cee/scenarios/${U}/graph`, { method: 'POST', ...H('olumi=tok-ada', { 'x-olumi-scenario': `${U}=../../etc` }), body: '{}' })
+    expect((await r.json()).graph_present).toBe(false)
   })
   it('a second person landing through a link that adds them to a scenario opens it by its derived UUID, with their own cookie', async () => {
     const sid = [...fake.scenarios.keys()].at(-1)
@@ -158,11 +166,46 @@ describe('identity: each browser is its own person (gap 3)', () => {
   it('a scenario address this person cannot open is said, not shown as a blank canvas: the page carries the notice and the check', async () => {
     const html = await (await fetch(base + '/', { headers: { cookie: 'olumi=tok-ada' } })).text()
     expect(html).toContain('olumi-core-scenario-unavailable')
-    expect(html).toContain("/bff/cee/scenarios/'+m[1]+'/graph")
+    expect(html).toContain("'/bff/cee/scenarios/' + named[1] + '/graph'")
     expect(html).toMatch(/That scenario is not available to you/)
   })
   it('a malformed turn body is a 400, not a crash', async () => {
     const r = await fetch(base + '/bff/orchestrate/v2/turn', { method: 'POST', headers: { cookie: 'olumi=tok-ada' }, body: '{nope' })
     expect(r.status).toBe(400)
+  })
+})
+
+describe('an open tab cannot write as somebody else (the browser\'s private link changed since the tab was opened)', () => {
+  const writes = (since) => fake.calls.slice(since).filter((c) => c.method === 'POST')
+  it('a turn from a tab opened for Ada, while the browser now holds Bea\'s link, saves nothing and says to reload', async () => {
+    const before = fake.calls.length
+    const out = await (await turn(BRIEF, 'olumi=tok-bea', {}, { 'x-olumi-person': '1' })).json()
+    expect(out.error).toMatchObject({ code: 'identity_changed', retry_safe: false, nothing_saved: true })
+    expect(out.error.message).toMatch(/different private link/)
+    expect(out.error.message).toMatch(/Reload/)
+    expect(writes(before)).toHaveLength(0)
+  })
+  it('the same turn from a tab opened for Bea goes through, as Bea', async () => {
+    const before = fake.calls.length
+    const out = await (await turn(BRIEF, 'olumi=tok-bea')).json()
+    expect(out.error).toBeNull()
+    expect(writes(before).map((c) => c.token)).toEqual(['tok-bea'])
+  })
+  it('a page that does not say who it was opened for (an old tab, a script) cannot write either: it fails closed', async () => {
+    const before = fake.calls.length
+    const out = await (await post('/bff/orchestrate/v2/turn', { kind: 'message', turn_id: crypto.randomUUID(), scenario_id: U, stage: 'frame', message: BRIEF, source: 'composer' }, 'olumi=tok-ada', { 'x-olumi-person': '' })).json()
+    const bare = await fetch(base + '/bff/orchestrate/v2/turn', { method: 'POST', headers: { 'content-type': 'application/json', cookie: 'olumi=tok-ada' }, body: JSON.stringify({ kind: 'message', scenario_id: U, message: BRIEF }) })
+    expect((await bare.json()).error).toMatchObject({ code: 'identity_changed', nothing_saved: true })
+    expect(out.error).toMatchObject({ code: 'identity_changed' })
+    expect(writes(before)).toHaveLength(0)
+  })
+  it('a read from a tab opened for someone else is refused in words, not answered with the new person\'s scenarios', async () => {
+    const r = await fetch(`${base}/bff/cee/scenarios/${U}/graph`, { method: 'POST', ...H('olumi=tok-bea', { 'x-olumi-person': '1' }), body: '{}' })
+    expect(r.status).toBe(409)
+    expect((await r.json()).error).toMatch(/different private link/)
+  })
+  it('a browser with no valid link still gets "open your private link", not the identity message', async () => {
+    const out = await (await turn(BRIEF, 'olumi=tok-gone', {}, { 'x-olumi-person': '1' })).json()
+    expect(out.error).toMatchObject({ code: 'unauthorised' })
   })
 })

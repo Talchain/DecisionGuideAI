@@ -37,20 +37,16 @@ export function uuidOfSid(sid, aliases = []) {
   return found ? found[0] : derivedUuidOfSid(sid)
 }
 
-export const MAX_ALIASES = 12
-export function withAlias(aliases, uuid, sid) {
-  const rest = aliases.filter(([u, s]) => u !== uuid && s !== sid)
-  return [...rest, [uuid, sid]].slice(-MAX_ALIASES)
+/**
+ * The pairing a call brings (`x-olumi-scenario: <uuid>=<core scenario id>`, from the page's own storage, for the ONE scenario that
+ * call names), as an alias list. Anything that is not a UUID and a core scenario id names nothing. The server keeps no pairings.
+ */
+export function aliasesOfHeader(raw) {
+  const m = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})=(s_[0-9a-f]+)$/i.exec(String(raw ?? ''))
+  return m ? [[m[1], m[2]]] : []
 }
-
-/** The cookie value for an alias map, and back. Anything malformed is an empty map. */
-export const encodeAliases = (aliases) => Buffer.from(JSON.stringify(aliases), 'utf8').toString('base64url')
-export function decodeAliases(raw) {
-  try {
-    const v = JSON.parse(Buffer.from(String(raw ?? ''), 'base64url').toString('utf8'))
-    return Array.isArray(v) ? v.filter((p) => Array.isArray(p) && isUuid(p[0]) && isSid(p[1])).map((p) => [p[0], p[1]]).slice(-MAX_ALIASES) : []
-  } catch { return [] }
-}
+/** The pairing the answer hands the page to keep (`x-olumi-alias`). */
+export const aliasHeader = ([uuid, sid]) => `${uuid}=${sid}`
 
 /** Parse a Cookie header into a plain object (first value wins). */
 export function parseCookies(header) {

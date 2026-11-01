@@ -8,7 +8,7 @@ import crypto from 'node:crypto'
 import { CoreError, WriteKept, errorTurn } from './core.mjs'
 import { changeRows, byId, figure } from './words.mjs'
 import { analysisViewOf, modelOf, shownOf } from './model.mjs'
-import { propIdOf, rev16, rev64, runIdOf, sidOfUuid, turnIdOf, uuidOfSid, withAlias, isSid } from './ids.mjs'
+import { propIdOf, rev16, rev64, runIdOf, sidOfUuid, turnIdOf, uuidOfSid, isSid } from './ids.mjs'
 
 const DRAFT_LEAD = 'Here is your situation as I understood it. Check it, then confirm or tell me what to change.'
 const CHANGE_LEAD = 'Here is what I would change. Check it, then confirm.'
@@ -172,16 +172,16 @@ export function makeShim({ core, log = () => {} }) {
     if (before && !before.version && !before.pending) { before = null; sid = null }
     if (!sid) {
       const made = await core('POST', '/api/scenarios', { token: ctx.token, body: { brief: text, op } })
-      const aliases = withAlias(ctx.aliases, uuid, made.scenario)
-      // The scenario exists now: whatever happens next, the browser must be told which scenario its UUID is (`aliases` rides on the error too).
+      const alias = [uuid, made.scenario]
+      // The scenario exists now: whatever happens next, the page must be told which scenario its UUID is (`alias` rides on the error too).
       return afterWrite(async () => {
         const v = await view(ctx, made.scenario)
         const problem = v.chat.find((c) => c.id === made.proposal)?.problem
         // The draft was kept but could not be checked: its card stays on screen so it can be set aside ("Not now"); core refuses to confirm it.
-        if (problem && v.pending) return { out: turnBody(v, { turnId, text: heldWithProblem(problem), withCard: true }), aliases }
-        if (problem) return { out: problemTurn(turnId, problem), aliases }
-        return { out: turnBody(v, { turnId, text: DRAFT_LEAD, withCard: true }), aliases }
-      }, { aliases })
+        if (problem && v.pending) return { out: turnBody(v, { turnId, text: heldWithProblem(problem), withCard: true }), alias }
+        if (problem) return { out: problemTurn(turnId, problem), alias }
+        return { out: turnBody(v, { turnId, text: DRAFT_LEAD, withCard: true }), alias }
+      }, { alias })
     }
     const ch = challengeOf(body, before)
     const r = ch
@@ -223,7 +223,7 @@ export function makeShim({ core, log = () => {} }) {
     } catch (e) {
       if (!(e instanceof CoreError)) throw e
       log('turn error', { status: e.status, message: e.message, kept: e instanceof WriteKept })
-      return { out: errorTurn(turnId, e), ...(e.aliases ? { aliases: e.aliases } : {}) }
+      return { out: errorTurn(turnId, e), ...(e.alias ? { alias: e.alias } : {}) }
     }
   }
 
@@ -256,5 +256,5 @@ export function makeShim({ core, log = () => {} }) {
     }
   }
 
-  return { turn, graphRead, cardFor, uuidOfSid, withAlias, shownOf }
+  return { turn, graphRead, cardFor, uuidOfSid, shownOf }
 }

@@ -56,9 +56,18 @@ export function makeCore({ base, fetchImpl = fetch, paidTimeoutMs = 11 * 60_000,
  * 401 sends them to their private link; 409 says what moved; 429 says when to come back; 5xx and an unreachable core are a
  * visible failure, never a silent wait.
  */
+const turnError = (turnId, code, message, retry_safe, nothing_saved = true) => ({ turn_id: turnId ?? null, assistant_text: '', model: null, cards: [], notes: [], run: null, receipts: [], error: { code, message, retry_safe, nothing_saved } })
+
+/**
+ * The page was opened for one person and the browser's private link now names another (or the page cannot say who it was opened
+ * for): a write from it would be saved as the wrong person, so it is refused, nothing saved, with the way out.
+ */
+export const IDENTITY_CHANGED_WORDS = 'This page was opened with a different private link from the one this browser holds now, so nothing was saved. Reload this page to continue as the person whose private link is open now.'
+export const identityChangedTurn = (turnId) => turnError(turnId, 'identity_changed', IDENTITY_CHANGED_WORDS, false)
+
 export function errorTurn(turnId, e) {
   const status = e instanceof CoreError ? e.status : 500
-  const make = (code, message, retry_safe, nothing_saved = true) => ({ turn_id: turnId ?? null, assistant_text: '', model: null, cards: [], notes: [], run: null, receipts: [], error: { code, message, retry_safe, nothing_saved } })
+  const make = (code, message, retry_safe, nothing_saved = true) => turnError(turnId, code, message, retry_safe, nothing_saved)
   // Core kept the write and only the answer was lost: the saved model is the truth, and the person is sent to it.
   if (e instanceof WriteKept) return make('saved_not_shown', 'Your change was saved, but Olumi could not show you the result just now. Reload this page to see the saved model, and check it before changing anything else.', false, false)
   if (status === 401 || status === 403) return make('unauthorised', 'Open your private link to continue. This browser is not signed in to Olumi, or your link has expired.', false)

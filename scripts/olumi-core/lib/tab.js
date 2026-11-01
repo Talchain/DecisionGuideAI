@@ -1,0 +1,109 @@
+(function (win, person) {
+  /*
+   * THE PAGE'S SIDE of the one-origin server. Injected into DGAI's index.html before DGAI starts (server.mjs), so DGAI's own source
+   * is untouched. It does three things, all about knowing WHO this tab is and WHICH scenario a UUID names:
+   *
+   *   1. Another person's saved state is not this person's. When this browser last held someone else's private link, DGAI's saved
+   *      state (their scenario, thread, autosave) and every scenario pairing below are cleared.
+   *   2. Every call to the server's /bff/ routes says which person this tab was opened for (x-olumi-person). The server refuses a
+   *      write when the browser's private link has since changed, so an open tab can never save as somebody else.
+   *   3. DGAI mints a scenario's UUID before olumi-core knows the scenario. The pairing UUID -> core's scenario id is kept here, in
+   *      the same storage as DGAI's own memory of that UUID (one key per scenario, so nothing is capped and two tabs cannot
+   *      overwrite each other), sent for the one scenario a call names (x-olumi-scenario), and learned from the answer's
+   *      x-olumi-alias. The server holds none of it.
+   *
+   * Written as one plain function (no imports, no modern-only syntax) because the server inlines its source text into the page.
+   */
+  var PERSON_KEY = 'olumi-core-person'
+  var SCENARIO_KEY = 'olumi-core-sc:'
+  var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  var ALIAS = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})=(s_[0-9a-f]+)$/i
+
+  var store = null
+  try { store = win.localStorage } catch (e) { store = null }
+  var read = function (k) { try { return store ? store.getItem(k) : null } catch (e) { return null } }
+  var write = function (k, v) { try { if (store) store.setItem(k, v) } catch (e) { /* storage refused: the pairing is lost with it, as DGAI's own memory is */ } }
+
+  // 1. whose saved state is this?
+  try {
+    if (read(PERSON_KEY) !== person.id) {
+      if (store) store.clear()
+      try { win.sessionStorage.clear() } catch (e) { /* none */ }
+      write(PERSON_KEY, person.id)
+    }
+  } catch (e) { /* none */ }
+  win.__OLUMI_CORE__ = { person: person }
+
+  // A browser landing on the bare address opens the canvas.
+  try {
+    var h = win.location.hash
+    if (!h || h === '#' || h === '#/') win.location.replace(win.location.pathname + win.location.search + '#/canvas')
+  } catch (e) { /* none */ }
+
+  // Which scenario UUID does this call name? A turn names it in its body, a saved-model read in its path.
+  var scenarioOf = function (pathname, init) {
+    var m = /^\/bff\/cee\/scenarios\/([^/]+)\/graph$/.exec(pathname)
+    if (m && UUID.test(m[1])) return m[1]
+    try {
+      if (init && typeof init.body === 'string') {
+        var id = JSON.parse(init.body).scenario_id
+        if (typeof id === 'string' && UUID.test(id)) return id
+      }
+    } catch (e) { /* not JSON */ }
+    return null
+  }
+
+  // 2 and 3. say who this tab is and which scenario a UUID is, on every call to the server's /bff/ routes; learn new pairings.
+  var realFetch = win.fetch
+  if (typeof realFetch === 'function') {
+    win.fetch = function (input, init) {
+      var next = input
+      var nextInit = init
+      try {
+        var raw = typeof input === 'string' ? input : (input && input.url) || String(input)
+        var url = new win.URL(raw, win.location.href)
+        if (url.origin === win.location.origin && url.pathname.indexOf('/bff/') === 0) {
+          var headers = new win.Headers((init && init.headers) || (typeof input !== 'string' && input && input.headers) || undefined)
+          headers.set('x-olumi-person', person.id)
+          var uuid = scenarioOf(url.pathname, init)
+          var sid = uuid ? read(SCENARIO_KEY + uuid) : null
+          if (uuid && sid) headers.set('x-olumi-scenario', uuid + '=' + sid)
+          var copy = {}
+          for (var k in init) copy[k] = init[k]
+          copy.headers = headers
+          if (typeof input === 'string') nextInit = copy
+          else { next = new win.Request(input, copy); nextInit = undefined }
+        }
+      } catch (e) { next = input; nextInit = init }
+      return realFetch.call(win, next, nextInit).then(function (res) {
+        try {
+          var said = res.headers.get('x-olumi-alias')
+          var pair = said ? ALIAS.exec(said) : null
+          if (pair) write(SCENARIO_KEY + pair[1], pair[2])
+        } catch (e) { /* none */ }
+        return res
+      })
+    }
+  }
+
+  // An address that names a scenario this person cannot open (someone else's, or none) would show a blank canvas and say nothing:
+  // this says so, with the way out.
+  try {
+    var named = /^#\/scenario\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i.exec(win.location.hash)
+    if (named && typeof win.fetch === 'function') {
+      win.fetch('/bff/cee/scenarios/' + named[1] + '/graph', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }).then(function (r) {
+        if (r.status !== 404 && r.status !== 401) return
+        var show = function () {
+          var d = win.document.createElement('div')
+          d.setAttribute('role', 'alert')
+          d.setAttribute('data-testid', 'olumi-core-scenario-unavailable')
+          d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#fff7ed;border-bottom:1px solid #fdba74;color:#7c2d12;font:15px/1.4 system-ui,sans-serif;padding:12px 16px;text-align:center'
+          d.innerHTML = 'That scenario is not available to you: it may belong to someone else. Open it from your own private link, or <a href="#/canvas" style="color:inherit">start a new one</a>.'
+          win.document.body.appendChild(d)
+        }
+        if (win.document.body) show()
+        else win.document.addEventListener('DOMContentLoaded', show)
+      }).catch(function () { /* none */ })
+    }
+  } catch (e) { /* none */ }
+})

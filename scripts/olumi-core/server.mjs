@@ -12,7 +12,9 @@
  *
  * Identity is the browser's own `olumi` cookie, forwarded to core on every call: this server holds none. Nothing a person
  * has is kept here either: the shim derives ids from what it reads (lib/ids.mjs), and the one pairing it cannot derive
- * (the UUID DGAI minted before core knew the scenario) rides in the browser's own `olumi_sc` cookie.
+ * (the UUID DGAI minted before core knew the scenario) is kept by the PAGE (lib/tab.js) in its own storage, sent back on the calls
+ * that name that scenario (`x-olumi-scenario`) and handed out when a scenario is made (`x-olumi-alias`). The page also says who it
+ * was opened for (`x-olumi-person`); a write from a page whose person is not the one the browser's link names now is refused.
  *
  * Env: OLUMI_CORE_URL (core's base URL, required), PORT (default 3952), DIST_DIR (default ../../dist), OLUMI_LOG (off to silence).
  */
@@ -20,9 +22,9 @@ import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { makeCore, CoreError, errorTurn } from './lib/core.mjs'
+import { makeCore, CoreError, errorTurn, identityChangedTurn, IDENTITY_CHANGED_WORDS } from './lib/core.mjs'
 import { makeShim } from './lib/turn.mjs'
-import { decodeAliases, encodeAliases, isSid, parseCookies, uuidOfSid, isUuid } from './lib/ids.mjs'
+import { aliasesOfHeader, aliasHeader, parseCookies, uuidOfSid, isUuid } from './lib/ids.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.map': 'application/json', '.txt': 'text/plain; charset=utf-8', '.webmanifest': 'application/manifest+json' }
@@ -33,11 +35,13 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 export const LINK_PAGE = (note) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Open your private link</title></head><body style="font:16px/1.5 system-ui,sans-serif;max-width:520px;margin:72px auto;padding:0 16px;color:#1f2937"><h1 style="font-size:22px;margin:0 0 12px">Open your private link</h1><p>Olumi opens from a private link that was sent to you. Open that link in this browser to continue.</p><p style="color:#6b7280">${esc(note)}</p></body></html>`
 
 /**
- * Runs before DGAI starts. (1) When this browser last held someone else's link, DGAI's saved state (their scenario, thread and
- * autosave) is cleared. (2) When the address names a scenario this person cannot open (someone else's, or none), DGAI would
- * show a blank canvas and say nothing: this says so, with the way out.
+ * The page's side (lib/tab.js), inlined and run before DGAI starts with the person this page is opened for. Its source is read
+ * once here, as text, so it reaches the browser exactly as it is tested.
  */
-const bootstrap = (person) => `<script>(function(){try{var p=${JSON.stringify(person.id)};var k='olumi-core-person';var had=localStorage.getItem(k);if(had!==p){localStorage.clear();sessionStorage.clear();localStorage.setItem(k,p)}window.__OLUMI_CORE__={person:${JSON.stringify(person)}};if(!location.hash||location.hash==='#'||location.hash==='#/'){location.replace(location.pathname+location.search+'#/canvas')}var m=/^#\\/scenario\\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i.exec(location.hash);if(m){fetch('/bff/cee/scenarios/'+m[1]+'/graph',{method:'POST',headers:{'content-type':'application/json'},body:'{}'}).then(function(r){if(r.status!==404&&r.status!==401)return;var d=document.createElement('div');d.setAttribute('role','alert');d.setAttribute('data-testid','olumi-core-scenario-unavailable');d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#fff7ed;border-bottom:1px solid #fdba74;color:#7c2d12;font:15px/1.4 system-ui,sans-serif;padding:12px 16px;text-align:center';d.innerHTML='That scenario is not available to you: it may belong to someone else. Open it from your own private link, or <a href="#/canvas" style="color:inherit">start a new one</a>.';document.body.appendChild(d)}).catch(function(){})}}catch(e){}})()</script>`
+const TAB = fs.readFileSync(path.join(here, 'lib/tab.js'), 'utf8').trim()
+/** JSON that is safe inside an inline <script>: nothing in a person's name can close the tag or break the line. */
+const scriptJson = (v) => JSON.stringify(v).replace(/[<>&\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)
+const bootstrap = (person) => `<script>(${TAB})(window,${scriptJson(person)})</script>`
 
 export function createServer(opts = {}) {
   const coreUrl = (opts.coreUrl ?? process.env.OLUMI_CORE_URL ?? '').replace(/\/$/, '')
@@ -49,12 +53,12 @@ export function createServer(opts = {}) {
   const shim = makeShim({ core, log })
   const indexHtml = () => fs.readFileSync(path.join(dist, 'index.html'), 'utf8')
 
-  const secure = (req) => req.headers['x-forwarded-proto'] === 'https'
+  /** Who is calling: the browser's private link, the one scenario pairing this call brings, and who the page says it was opened for. */
   const ctxOf = (req) => {
     const c = parseCookies(req.headers.cookie)
-    return { token: c.olumi || null, aliases: decodeAliases(c.olumi_sc) }
+    const person = req.headers['x-olumi-person']
+    return { token: c.olumi || null, aliases: aliasesOfHeader(req.headers['x-olumi-scenario']), person: typeof person === 'string' && person !== '' ? person : null }
   }
-  const aliasCookie = (req, aliases) => `olumi_sc=${encodeAliases(aliases)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000${secure(req) ? '; Secure' : ''}`
   const readBody = async (req, limit = 1_000_000) => {
     const chunks = []; let n = 0
     for await (const c of req) { n += c.length; if (n > limit) throw Object.assign(new Error('too large'), { status: 413 }); chunks.push(c) }
@@ -89,6 +93,16 @@ export function createServer(opts = {}) {
   async function whoIs(ctx) {
     if (!ctx.token) return null
     try { const r = await core('GET', '/api/me', { token: ctx.token }); return r.me ?? null } catch { return null }
+  }
+
+  /**
+   * Was this page opened for someone other than the person whose private link the browser holds now? A page that cannot say who it
+   * was opened for is treated the same when `required` (a write): fail closed. No link at all is core's own 401, not this.
+   */
+  async function pageIsForSomeoneElse(ctx, { required }) {
+    const me = await whoIs(ctx)
+    if (!me) return false
+    return ctx.person === null ? required : ctx.person !== String(me.id)
   }
 
   async function serveStatic(req, res, pathname) {
@@ -128,11 +142,10 @@ export function createServer(opts = {}) {
           rewriteLocation: async (loc, setCookie) => {
             const newToken = /(?:^|;\s*)olumi=([^;]*)/.exec(setCookie.find((c) => c.startsWith('olumi=')) ?? '')?.[1]
             const token = newToken ? decodeURIComponent(newToken) : ctx.token
-            const aliases = !token || token === ctx.token ? ctx.aliases : []
             const named = /^\/s\/(s_[0-9a-f]+)$/.exec(loc)?.[1]
             let sid = named
             if (!sid && token) { try { sid = (await core('GET', '/api/me', { token })).scenarios?.at(-1)?.id } catch { /* the canvas, then */ } }
-            return sid ? `/#/scenario/${uuidOfSid(sid, aliases)}` : '/#/canvas'
+            return sid ? `/#/scenario/${uuidOfSid(sid)}` : '/#/canvas'
           },
         }).then(() => undefined)
       }
@@ -143,18 +156,20 @@ export function createServer(opts = {}) {
         let body
         try { body = JSON.parse((await readBody(req)).toString('utf8') || '{}') } catch { return json(res, 400, { error: 'malformed JSON' }) }
         const ctx = ctxOf(req)
+        if (await pageIsForSomeoneElse(ctx, { required: true })) { log('turn refused: page opened for another person'); return json(res, 200, identityChangedTurn(body.turn_id)) }
         let r
         try { r = await shim.turn(ctx, body) } catch (e) { log('turn failed', String(e?.stack ?? e)); r = { out: errorTurn(body.turn_id, e) } }
-        const extra = r.aliases ? { 'set-cookie': aliasCookie(req, r.aliases) } : {}
-        return json(res, 200, r.out, extra)
+        return json(res, 200, r.out, r.alias ? { 'x-olumi-alias': aliasHeader(r.alias) } : {})
       }
       if (p.startsWith('/bff/orchestrate/')) return json(res, 404, { error: 'not available on Olumi' })   // incl. the draft stream: DGAI falls back to the buffered turn
       const g = /^\/bff\/cee\/scenarios\/([^/]+)\/graph$/.exec(p)
       if (g && (method === 'GET' || method === 'POST')) {
         const uuid = decodeURIComponent(g[1])
         if (!isUuid(uuid)) return json(res, 404, { error: 'not found' })
+        const ctx = ctxOf(req)
+        if (await pageIsForSomeoneElse(ctx, { required: false })) return json(res, 409, { error: IDENTITY_CHANGED_WORDS })
         let r
-        try { r = await shim.graphRead(ctxOf(req), uuid) } catch (e) { log('graph failed', String(e?.stack ?? e)); r = { status: 502, body: { error: 'Olumi cannot be reached right now.' } } }
+        try { r = await shim.graphRead(ctx, uuid) } catch (e) { log('graph failed', String(e?.stack ?? e)); r = { status: 502, body: { error: 'Olumi cannot be reached right now.' } } }
         return json(res, r.status, r.body)
       }
       if (p.startsWith('/bff/')) { log('bff not served', method, p); return json(res, 404, { error: 'not available on Olumi' }) }
@@ -168,7 +183,7 @@ export function createServer(opts = {}) {
       const ctx = ctxOf(req)
       const me = await whoIs(ctx)
       if (!me) return html(res, 401, LINK_PAGE(ctx.token ? 'The link this browser holds is no longer valid.' : 'This browser has not opened one yet.'))
-      if (sPath) { res.writeHead(302, { location: `/#/scenario/${uuidOfSid(sPath[1], ctx.aliases)}`, 'cache-control': 'no-store' }); return res.end() }
+      if (sPath) { res.writeHead(302, { location: `/#/scenario/${uuidOfSid(sPath[1])}`, 'cache-control': 'no-store' }); return res.end() }
       let doc
       try { doc = indexHtml() } catch { return json(res, 503, { error: 'The app has not been built (no dist/index.html).' }) }
       return html(res, 200, doc.replace(/<head>/i, `<head>${bootstrap(me)}`))

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { derivedUuidOfSid, sidOfUuid, uuidOfSid, withAlias, encodeAliases, decodeAliases, propIdOf, turnIdOf, runIdOf, rev16, rev64, parseCookies, MAX_ALIASES } from '../../../scripts/olumi-core/lib/ids.mjs'
+import { derivedUuidOfSid, sidOfUuid, uuidOfSid, aliasesOfHeader, aliasHeader, propIdOf, turnIdOf, runIdOf, rev16, rev64, parseCookies } from '../../../scripts/olumi-core/lib/ids.mjs'
 import { isCeeAddressableScenarioId } from '../../canvas/hydrate/bootGraphRead'
 import { isUnversionedSaveReceipt } from '../../v5/saveReceipts'
 
@@ -10,21 +10,17 @@ describe('ids: derived, never remembered', () => {
     expect(isCeeAddressableScenarioId(uuid)).toBe(true)
     expect(sidOfUuid(uuid)).toBe('s_437f3c107bdd')
   })
-  it('a UUID DGAI minted first is paired in the browser\'s own alias list, and wins both ways', () => {
+  it('a UUID DGAI minted first is paired by the page, and the pairing wins both ways', () => {
     const minted = '11111111-2222-4333-8444-555555555555'
-    const aliases = withAlias([], minted, 's_437f3c107bdd')
+    const aliases = aliasesOfHeader(aliasHeader([minted, 's_437f3c107bdd']))
+    expect(aliases).toEqual([[minted, 's_437f3c107bdd']])
     expect(sidOfUuid(minted, aliases)).toBe('s_437f3c107bdd')
     expect(uuidOfSid('s_437f3c107bdd', aliases)).toBe(minted)
     expect(uuidOfSid('s_437f3c107bdd', [])).toBe('00000000-0000-4000-8000-437f3c107bdd')
     expect(sidOfUuid(minted, [])).toBeNull()
   })
-  it('the alias cookie round-trips, caps its size, and treats anything malformed as empty', () => {
-    let a = []
-    for (let i = 0; i < MAX_ALIASES + 5; i++) a = withAlias(a, `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`, `s_${String(i).padStart(12, '0')}`)
-    expect(a).toHaveLength(MAX_ALIASES)
-    expect(decodeAliases(encodeAliases(a))).toEqual(a)
-    expect(decodeAliases('not base64 json')).toEqual([])
-    expect(decodeAliases(encodeAliases([['x', 'y']]))).toEqual([])
+  it('the pairing header names a UUID and a core scenario id, and anything else names nothing', () => {
+    for (const bad of [undefined, '', 'nonsense', '11111111-2222-4333-8444-555555555555=../x', '11111111-2222-4333-8444-555555555555=s_zz', 'x=s_1', '11111111-2222-4333-8444-555555555555=s_1;extra']) expect(aliasesOfHeader(bad), String(bad)).toEqual([])
   })
   it('a held card, a turn and a Run are stable for what they name and differ for what else they could name', () => {
     expect(propIdOf('s_a', 7)).toMatch(/^prop_[0-9a-f]{32}$/)
