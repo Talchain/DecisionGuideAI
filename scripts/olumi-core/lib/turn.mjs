@@ -5,8 +5,8 @@
  * `ctx` is { token, aliases }: the browser's own olumi cookie and its scenario aliases. Nothing is remembered here.
  */
 import crypto from 'node:crypto'
-import { CoreError, errorTurn } from './core.mjs'
-import { changeRows, byId } from './words.mjs'
+import { CoreError, WriteKept, errorTurn } from './core.mjs'
+import { changeRows, byId, figure } from './words.mjs'
 import { analysisViewOf, modelOf, shownOf } from './model.mjs'
 import { propIdOf, rev16, rev64, runIdOf, sidOfUuid, turnIdOf, uuidOfSid, withAlias, isSid } from './ids.mjs'
 
@@ -84,6 +84,14 @@ export function challengeOf(body, view) {
   return typeof picked === 'string' && ids.has(picked) ? { kind, record: picked } : null
 }
 
+/**
+ * What follows a write core has KEPT (re-reading the scenario, building the answer from it): if it fails, the write still stands,
+ * so the failure is `WriteKept`, never "nothing was saved". `extra` is handed on with it (a new scenario's pairing).
+ */
+const afterWrite = async (build, extra) => {
+  try { return await build() } catch (e) { throw new WriteKept(e, extra) }
+}
+
 export function makeShim({ core, log = () => {} }) {
   const view = (ctx, sid) => core('GET', `/api/scenarios/${sid}`, { token: ctx.token })
 
@@ -95,26 +103,38 @@ export function makeShim({ core, log = () => {} }) {
       return { out: turnBody(v, { turnId, text: PARTIAL_REFUSAL(body.approve_ids.length, rows.length), withCard: true }) }
     }
     const r = await core('POST', `/api/proposals/${v.pending.id}/approve`, { token: ctx.token, body: { base: v.pending.base } })
-    const after = await view(ctx, sid)
-    const row = after.chat.find((c) => c.proposal === v.pending.id) ?? after.chat.find((c) => c.version === r.n)
-    return { out: turnBody(after, { turnId, text: replyOf(row) || `Saved as version ${r.n}.`, withCard: false, receipt: true }) }
+    return afterWrite(async () => {
+      const after = await view(ctx, sid)
+      const row = after.chat.find((c) => c.proposal === v.pending.id) ?? after.chat.find((c) => c.version === r.n)
+      return { out: turnBody(after, { turnId, text: replyOf(row) || `Saved as version ${r.n}.`, withCard: false, receipt: true }) }
+    })
   }
 
   async function decline(ctx, turnId, pid, sid) {
     const v = await view(ctx, sid)
     if (!v.pending || propIdOf(sid, v.pending.id) !== pid) return { out: errorTurn(turnId, new CoreError(409, 'that card is no longer waiting for an answer')) }
     await core('POST', `/api/proposals/${v.pending.id}/discard`, { token: ctx.token })
-    return { out: turnBody(await view(ctx, sid), { turnId, text: 'Okay, I have left it as it was.', withCard: false }) }
+    return afterWrite(async () => ({ out: turnBody(await view(ctx, sid), { turnId, text: 'Okay, I have left it as it was.', withCard: false }) }))
   }
 
-  /** A figure the person changed on the canvas: core's own /edit, applied at once as their figure, Olumi replies. */
+  /**
+   * A figure the person changed on the canvas: core's own /edit, applied at once as their figure, Olumi replies.
+   * Core's edit takes a point or a low/high, never a likeliest value, so a figure typed over a RANGE would silently replace the
+   * person's range with one number (and the Run with it). That edit is refused, in words, before anything is sent.
+   */
   async function editFigure(ctx, turnId, sid, quantity, value) {
     const v = await view(ctx, sid)
     if (!v.version) throw new CoreError(409, 'there is no saved model to edit yet')
     if (typeof value !== 'number' || !Number.isFinite(value)) throw new CoreError(400, 'that is not a figure Olumi can use')
+    const rec = v.version.form.records.find((r) => r.id === quantity)
+    if (rec?.family === 'quantity' && rec.assertion.kind === 'interval') {
+      throw new CoreError(400, `‘${rec.label}’ is a range (${figure(rec.assertion, rec.unit)}), and a typed figure would replace it with one number. Tell me the new range in the chat. Nothing was saved.`)
+    }
     const saved = await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body: { base: v.version.id, quantity, value: { kind: 'point', value }, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined } })
-    const after = await view(ctx, sid)
-    return { out: turnBody(after, { turnId, text: replyOf(after.chat.find((c) => c.kind === 'edit' && c.version === saved.n)) || 'Saved.', withCard: false, receipt: true }) }
+    return afterWrite(async () => {
+      const after = await view(ctx, sid)
+      return { out: turnBody(after, { turnId, text: replyOf(after.chat.find((c) => c.kind === 'edit' && c.version === saved.n)) || 'Saved.', withCard: false, receipt: true }) }
+    })
   }
 
   /** The canvas events core can honour are the two that are a figure: a factor's value, and an aim's target (which is a figure in core's model). */
@@ -145,28 +165,33 @@ export function makeShim({ core, log = () => {} }) {
     if (before && !before.version && !before.pending) { before = null; sid = null }
     if (!sid) {
       const made = await core('POST', '/api/scenarios', { token: ctx.token, body: { brief: text, op } })
-      const v = await view(ctx, made.scenario)
-      const problem = v.chat.find((c) => c.id === made.proposal)?.problem
       const aliases = withAlias(ctx.aliases, uuid, made.scenario)
-      // The draft was kept but could not be checked: its card stays on screen so it can be set aside ("Not now"); core refuses to confirm it.
-      if (problem && v.pending) return { out: turnBody(v, { turnId, text: heldWithProblem(problem), withCard: true }), aliases }
-      if (problem) return { out: problemTurn(turnId, problem), aliases }
-      return { out: turnBody(v, { turnId, text: DRAFT_LEAD, withCard: true }), aliases }
+      // The scenario exists now: whatever happens next, the browser must be told which scenario its UUID is (`aliases` rides on the error too).
+      return afterWrite(async () => {
+        const v = await view(ctx, made.scenario)
+        const problem = v.chat.find((c) => c.id === made.proposal)?.problem
+        // The draft was kept but could not be checked: its card stays on screen so it can be set aside ("Not now"); core refuses to confirm it.
+        if (problem && v.pending) return { out: turnBody(v, { turnId, text: heldWithProblem(problem), withCard: true }), aliases }
+        if (problem) return { out: problemTurn(turnId, problem), aliases }
+        return { out: turnBody(v, { turnId, text: DRAFT_LEAD, withCard: true }), aliases }
+      }, { aliases })
     }
     const ch = challengeOf(body, before)
     const r = ch
       ? await core('POST', `/api/scenarios/${sid}/challenge`, { token: ctx.token, body: { ...ch, op } })
       : await core('POST', `/api/scenarios/${sid}/messages`, { token: ctx.token, body: { text, op } })
-    const v = await view(ctx, sid)
-    const row = v.chat.find((c) => c.id === r.proposal) ?? [...v.chat].reverse().find((c) => c.answer || c.problem)
-    if (row?.problem) {
-      // A change core kept but could not check is a held proposal with a reason it cannot be confirmed: its card stays on screen so
-      // it can be set aside (otherwise it is invisible and blocks every figure edit). A reply to a question is a plain failure.
-      if (!r.discussion && v.pending) return { out: turnBody(v, { turnId, text: heldWithProblem(row.problem), withCard: true }) }
-      return { out: problemTurn(turnId, row.problem) }
-    }
-    if (r.discussion) return { out: turnBody(v, { turnId, text: replyOf(row) || 'Noted. Nothing in the model changes.', withCard: !!v.pending }) }
-    return { out: turnBody(v, { turnId, text: CHANGE_LEAD, withCard: true }) }
+    return afterWrite(async () => {
+      const v = await view(ctx, sid)
+      const row = v.chat.find((c) => c.id === r.proposal) ?? [...v.chat].reverse().find((c) => c.answer || c.problem)
+      if (row?.problem) {
+        // A change core kept but could not check is a held proposal with a reason it cannot be confirmed: its card stays on screen so
+        // it can be set aside (otherwise it is invisible and blocks every figure edit). A reply to a question is a plain failure.
+        if (!r.discussion && v.pending) return { out: turnBody(v, { turnId, text: heldWithProblem(row.problem), withCard: true }) }
+        return { out: problemTurn(turnId, row.problem) }
+      }
+      if (r.discussion) return { out: turnBody(v, { turnId, text: replyOf(row) || 'Noted. Nothing in the model changes.', withCard: !!v.pending }) }
+      return { out: turnBody(v, { turnId, text: CHANGE_LEAD, withCard: true }) }
+    })
   }
 
   async function turn(ctx, body) {
@@ -188,8 +213,8 @@ export function makeShim({ core, log = () => {} }) {
       return await message(ctx, body, turnId, sid, uuid)
     } catch (e) {
       if (!(e instanceof CoreError)) throw e
-      log('turn error', { status: e.status, message: e.message })
-      return { out: errorTurn(turnId, e) }
+      log('turn error', { status: e.status, message: e.message, kept: e instanceof WriteKept })
+      return { out: errorTurn(turnId, e), ...(e.aliases ? { aliases: e.aliases } : {}) }
     }
   }
 

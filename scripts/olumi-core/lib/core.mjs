@@ -12,6 +12,19 @@ export class CoreError extends Error {
   }
 }
 
+/**
+ * A failure AFTER olumi-core had already kept a write (the read that follows, or building the answer from it). The write stands,
+ * so the turn must not say "nothing was saved": the screen would take back a figure core holds, or ask for a resend of a change
+ * core already applied. `extra` carries what the caller still has to hand on (a new scenario's pairing).
+ */
+export class WriteKept extends CoreError {
+  constructor(cause, extra = {}) {
+    super(cause instanceof CoreError ? cause.status : 500, cause?.message ?? 'the answer could not be built', { retryAfter: cause?.retryAfter ?? null, op: cause?.op ?? null })
+    this.name = 'WriteKept'
+    Object.assign(this, extra)
+  }
+}
+
 const PAID = /^\/api\/(scenarios$|scenarios\/s_[0-9a-f]+\/(messages|edit|challenge)$)/
 
 export function makeCore({ base, fetchImpl = fetch, paidTimeoutMs = 11 * 60_000, timeoutMs = 30_000 }) {
@@ -46,6 +59,8 @@ export function makeCore({ base, fetchImpl = fetch, paidTimeoutMs = 11 * 60_000,
 export function errorTurn(turnId, e) {
   const status = e instanceof CoreError ? e.status : 500
   const make = (code, message, retry_safe, nothing_saved = true) => ({ turn_id: turnId ?? null, assistant_text: '', model: null, cards: [], notes: [], run: null, receipts: [], error: { code, message, retry_safe, nothing_saved } })
+  // Core kept the write and only the answer was lost: the saved model is the truth, and the person is sent to it.
+  if (e instanceof WriteKept) return make('saved_not_shown', 'Your change was saved, but Olumi could not show you the result just now. Reload this page to see the saved model, and check it before changing anything else.', false, false)
   if (status === 401 || status === 403) return make('unauthorised', 'Open your private link to continue. This browser is not signed in to Olumi, or your link has expired.', false)
   if (status === 404) return make('not_found', 'That scenario is not available to you. Open it from your own private link.', false)
   if (status === 409) return make('revision_conflict', `${e.message.charAt(0).toUpperCase()}${e.message.slice(1)}${/[.!?]$/.test(e.message) ? '' : '.'} Nothing was saved.`, true)

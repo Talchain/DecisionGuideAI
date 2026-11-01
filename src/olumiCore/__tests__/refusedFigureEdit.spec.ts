@@ -13,7 +13,7 @@ import { __resetPendingEdgeEditsForTest } from '../../canvas/conversation/pendin
 import { useConversation } from '../../canvas/conversation/useConversation'
 import { useCanvasStore } from '../../canvas/store'
 import { OPTIMISTIC_FACTOR_EDIT_NOTICE, type OptimisticFactorEdit } from '../../canvas/conversation/optimisticFactorEdit'
-import { errorTurn, CoreError } from '../../../scripts/olumi-core/lib/core.mjs'
+import { errorTurn, CoreError, WriteKept } from '../../../scripts/olumi-core/lib/core.mjs'
 
 vi.mock('../../canvas/conversation/turnService', () => ({
   callOrchestratorTurn: vi.fn(), streamOrchestratorTurn: vi.fn(),
@@ -74,5 +74,18 @@ describe('a refused figure edit on the olumi-core lane (gap 1: nothing hangs, no
     const out = await drive(errorTurn('t-3', new CoreError(400, 'that is not a figure Olumi can use')))
     expect(out.target).toBe(20)
     expect(out.notices[0]).toMatch(/not a figure Olumi can use/)
+  })
+
+  it('a figure typed over a range is taken back, in words that name the range (the range is never replaced by one number)', async () => {
+    const out = await drive(errorTurn('t-4', new CoreError(400, '‘per specialist’ is a range (between 10 and 30 ticket/week/specialist, most likely 20), and a typed figure would replace it with one number. Tell me the new range in the chat. Nothing was saved.')))
+    expect(out.target).toBe(20)
+    expect(out.notices[0]).toMatch(/between 10 and 30/)
+    expect(out.notices[0]).toMatch(/Your figure is back as it was\.$/)
+  })
+
+  it('a figure core KEPT whose follow-up read failed stays on the canvas (it is not rolled back to a value the model no longer holds)', async () => {
+    const out = await drive(errorTurn('t-5', new WriteKept(new CoreError(502, 'could not read'))))
+    expect(out.target).toBe(30)
+    expect(out.notices).toEqual([OPTIMISTIC_FACTOR_EDIT_NOTICE.unconfirmed_server])
   })
 })

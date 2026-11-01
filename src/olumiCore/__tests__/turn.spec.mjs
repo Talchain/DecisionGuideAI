@@ -83,14 +83,14 @@ describe('canvas writes (gap 1)', () => {
   it('a figure typed on the canvas goes to core\'s own /edit against the saved version, and the turn names the new Run', async () => {
     const { ctx } = await started({ approve: true })
     const before = fake.calls.length
-    const out = (await shim.turn(ctx, edit('per_specialist', 30))).out
+    const out = (await shim.turn(ctx, edit('existing_capacity', 90))).out
     const call = fake.calls.slice(before).find((c) => c.path.endsWith('/edit'))
-    expect(call.body).toMatchObject({ quantity: 'per_specialist', value: { kind: 'point', value: 30 } })
+    expect(call.body).toMatchObject({ quantity: 'existing_capacity', value: { kind: 'point', value: 90 } })
     expect(call.body.base).toEqual(expect.any(Number))
     expect(out.error).toBeNull()
     expect(out.run.run_id).toMatch(/^mp_run_2_/)
     expect(out.receipts).toHaveLength(1)
-    expect(out.model.graph.nodes.find((n) => n.id === 'per_specialist').observed_state.value).toBe(30)
+    expect(out.model.graph.nodes.find((n) => n.id === 'existing_capacity').observed_state.value).toBe(90)
     expect(out.assistant_text.length).toBeGreaterThan(0)
   })
   it('confirming the current figure changes nothing and sends nothing to core', async () => {
@@ -112,7 +112,7 @@ describe('canvas writes (gap 1)', () => {
   })
   it('an edit while a change is waiting is refused by core and said in words (nothing saved)', async () => {
     const { ctx } = await started()
-    const out = (await shim.turn(ctx, edit('per_specialist', 30))).out
+    const out = (await shim.turn(ctx, edit('existing_capacity', 90))).out
     expect(out.error).toMatchObject({ nothing_saved: true })
   })
   it('any write core cannot honour is refused at once in words and never sent to core (no hang)', async () => {
