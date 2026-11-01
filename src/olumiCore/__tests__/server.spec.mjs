@@ -321,6 +321,18 @@ describe('the API is held to the same rules as the /bff writes (security: a cros
     expect(unsaid.status).toBe(409)
     expect(upstream(before)).toHaveLength(0)
   })
+  it('Codex 1: a READ from a page opened for Ada, while the browser holds Bea\'s link, is refused and never reaches core (Bea\'s private view must not reach Ada\'s tab)', async () => {
+    const before = fake.calls.length
+    const r = await fetch(`${base}/api/scenarios/s_abc123`, { method: 'GET', headers: { cookie: 'olumi=tok-bea', 'x-olumi-person': '1' } })
+    expect(r.status).toBe(409)
+    expect((await r.json()).error).toMatch(/different private link/)
+    expect(upstream(before)).toHaveLength(0)
+    // the right person's tab, and a read from no page at all, go through to core as before
+    const mine = await fetch(`${base}/api/scenarios/s_abc123`, { method: 'GET', headers: { cookie: 'olumi=tok-ada', 'x-olumi-person': '1' } })
+    expect(mine.status).not.toBe(409)
+    const noPage = await fetch(`${base}/api/me`, { method: 'GET', headers: { cookie: 'olumi=tok-bea' } })
+    expect(noPage.status).toBe(200)
+  })
   describe('a write whose identity cannot be checked FAILS CLOSED (security: Ada\'s tab with Bea\'s cookie must not write as Bea because /api/me hiccuped)', () => {
     afterEach(() => fake.meDown(null))
     it('an API write is refused (503) and nothing reaches core but the identity question itself', async () => {

@@ -8,7 +8,7 @@
  *   GET  /s/<id>                that scenario, in DGAI
  *   POST /bff/orchestrate/v2/turn          DGAI's chat turn, card press and canvas edit  -> core (the shim)
  *   GET  /bff/cee/scenarios/<uuid>/graph   DGAI's saved-model read                       -> core (the shim)
- *   ANY  /api/*, GET /healthz   proxied to core (the admin routes are NOT reachable from here); a write needs the page's x-olumi-person, as a /bff write does,
+ *   ANY  /api/*, GET /healthz   proxied to core (the admin routes are NOT reachable from here); a write needs the page's x-olumi-person, as a /bff write does, and a read from a page that names a person other than the browser's link is refused (409),
  *                               and a write that is not from the Olumi page itself (Sec-Fetch-Site other than same-origin or none) is refused (403) here and by core;
  *                               a write whose identity cannot be checked is refused too
  *
@@ -182,6 +182,12 @@ export function createServer(opts = {}) {
         if (method !== 'GET' && method !== 'HEAD') {
           const no = await identityRefusal(ctxOf(req), { required: true })
           if (no) { log('api write refused', no.changed ? 'page opened for another person' : `identity not verified (${no.error.status})`); const h = refusalHttp(no); return json(res, h.status, h.body) }
+        } else {
+          // A READ is held to the same check when the page says who it was opened for (as the saved-model read is): a tab opened for Ada, while the
+          // browser's private link has since become Bea's, must not be handed Bea's private views. A read from no page (no `x-olumi-person`) is core's own.
+          const readCtx = ctxOf(req)
+          const no = readCtx.person === null ? null : await identityRefusal(readCtx, { required: false })
+          if (no) { log('api read refused', no.changed ? 'page opened for another person' : `identity not verified (${no.error.status})`); const h = refusalHttp(no); return json(res, h.status, h.body) }
         }
         return await proxy(req, res, p + url.search)
       }

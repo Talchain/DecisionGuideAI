@@ -8,10 +8,16 @@
  */
 export class TeamApiError extends Error {
   readonly status: number
-  constructor(status: number, message: string) {
+  /**
+   * A write whose outcome is not known: the connection dropped or the server failed after the request may have been processed. It may
+   * have been saved. Never worded as "nothing was sent"; the caller reads the scenario again to find out before it offers a second send.
+   */
+  readonly uncertain: boolean
+  constructor(status: number, message: string, uncertain = false) {
     super(message)
     this.name = 'TeamApiError'
     this.status = status
+    this.uncertain = uncertain
   }
 }
 
@@ -20,8 +26,10 @@ let fetchImpl: Fetch | null = null
 /** For specs only. */
 export function setTeamFetch(f: Fetch | null): void { fetchImpl = f }
 
+export const READ_FAILED = 'Olumi could not be read just now. Try again in a moment.'
+/** A write whose answer never came back: it may have been saved. */
+export const UNCERTAIN_WRITE = 'The connection dropped before Olumi answered, so this may have been saved. Olumi is being asked what it holds.'
 const WORDS: Readonly<Record<number, string>> = {
-  0: 'Olumi cannot be reached right now. Nothing was sent. Try again in a moment.',
   401: 'Open your private link to continue. This browser is not signed in to Olumi, or your link has expired.',
   404: 'That scenario is not available to you. Open it from your own private link.',
   413: 'That is too long for Olumi to take. Shorten it and send it again.',
@@ -46,17 +54,22 @@ async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Pr
       body: body === undefined ? undefined : JSON.stringify(body),
     })
   } catch {
-    throw new TeamApiError(0, WORDS[0]!)
+    // Not reaching Olumi at all is not the same as not being heard: a request that left may have been saved before the answer was lost.
+    throw method === 'GET' ? new TeamApiError(0, READ_FAILED) : new TeamApiError(0, UNCERTAIN_WRITE, true)
   }
   let json: unknown = {}
-  try { json = await res.json() } catch { json = {} }
+  let readable = true
+  try { json = await res.json() } catch { json = {}; readable = false }
   if (!res.ok) {
     const said = (json as { error?: unknown } | null)?.error
     // The person's own words from core (a 400/409 says what to change); a fixed sentence when core gave none or the server failed.
     const message = res.status >= 500 ? (typeof said === 'string' ? said : 'Olumi could not do that this time. Try again in a moment.')
       : typeof said === 'string' && said !== '' ? said : WORDS[res.status] ?? 'That did not go through. Nothing was saved.'
-    throw new TeamApiError(res.status, message)
+    // A server failure on a write may have come after the save.
+    throw new TeamApiError(res.status, message, method === 'POST' && res.status >= 500)
   }
+  // A read whose body did not arrive whole is a failed read, never an empty scenario. (A write that was answered 2xx was saved, whatever its body.)
+  if (method === 'GET' && !readable) throw new TeamApiError(0, READ_FAILED)
   return json as T
 }
 
