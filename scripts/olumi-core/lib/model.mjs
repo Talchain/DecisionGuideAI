@@ -4,14 +4,14 @@
  * Rules come from the served fixtures (src/canvas/nodes/__tests__/fixtures/served-*), so this is only as faithful as they are.
  * Facts are read by their structured `about` (API v1.4), never from their text.
  */
-import { byId, figure, nameOf, num, partsOf, signedPartsOf, CMP } from './words.mjs'
+import { byId, figure, nameOf, num, partsOf, percent, signedPartsOf, CMP } from './words.mjs'
 import { rev16, rev64, revSaved16, runIdOf } from './ids.mjs'
 
 const valueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? (q.assertion.low + q.assertion.high) / 2) : null)
 const fmt = (q) => (q ? figure(q.assertion, q.unit) : '')
 /** The likeliest value the person or Olumi stated, and never a midpoint: null for a range with no likeliest value. */
 const statedValueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? q.assertion.likely : null)
-const pct = (x) => `${Math.round(x * 100)}%`
+const pct = percent
 
 /** An influence's direction as DGAI draws one: up and down are stated; disputed, conditional and unknown are NOT a direction (DGAI's own `unknown`). */
 const influenceDirection = (d) => (d === 'up' ? 'positive' : d === 'down' ? 'negative' : 'unknown')

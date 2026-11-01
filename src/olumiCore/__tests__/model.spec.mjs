@@ -277,6 +277,22 @@ describe('a risk keeps its effect, its chance and its size (finding 2)', () => {
     expect(n.description).toMatch(/per specialist/)
     expect(n.description).toMatch(/0\.7/)
   })
+  it('a stated chance is worded exactly, never rounded to a different figure: 0.4% is not "0%", 12.5% is not "13%" (finding)', () => {
+    const form = JSON.parse(JSON.stringify(richForm))
+    const set = (id, a) => { form.records.find((r) => r.id === id).assertion = a }
+    set('slump_chance', { kind: 'point', value: 0.004, approximate: false })
+    let n = nodeOf(graphOf(form), 'new_hire_slump')
+    expect(n.description).toMatch(/May happen: 0\.4%\./)
+    expect(n.description).not.toMatch(/May happen: 0%/)
+    expect(n.probability).toBe(0.004)
+    set('slump_chance', { kind: 'point', value: 0.125, approximate: false })
+    n = nodeOf(graphOf(form), 'new_hire_slump')
+    expect(n.description).toMatch(/May happen: 12\.5%\./)
+    set('slump_chance', { kind: 'interval', low: 0.001, high: 0.075, likely: 0.0125, range_kind: 'plausible' })
+    expect(nodeOf(graphOf(form), 'new_hire_slump').description).toMatch(/about 1\.25% \(between 0\.1% and 7\.5%\)/)
+    set('slump_chance', { kind: 'point', value: 0.00001, approximate: false })
+    expect(nodeOf(graphOf(form), 'new_hire_slump').description).toMatch(/May happen: under 0\.01%\./)
+  })
   it('its occurrence and severity are not left on the canvas as loose factors', () => {
     expect(nodeOf(richGraph, 'slump_chance')).toBeUndefined()
     expect(nodeOf(richGraph, 'slump_keep')).toBeUndefined()

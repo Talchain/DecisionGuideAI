@@ -14,6 +14,20 @@ export const CMP = { '>=': 'at least', '<=': 'at most', '>': 'more than', '<': '
 export const num = (n) => (typeof n === 'number' && Number.isFinite(n) ? new Intl.NumberFormat('en-GB', { maximumFractionDigits: 6 }).format(n) : String(n))
 const unitOf = (unit) => (unit && unit !== '1' ? ` ${unit}` : '')
 
+/**
+ * A chance as the percentage a person reads: exactly as stated (a stated 0.4% is "0.4%", 12.5% is "12.5%"), never rounded to a
+ * different figure. Under 0.01% it says so; "0%" is only ever an exact zero. Mirrored by `chancePercentText`
+ * (src/canvas/nodes/shared/chancePercent.ts), which words the same chance on the risk card.
+ */
+export function percent(x) {
+  const v = x * 100
+  if (v === 0) return '0%'
+  if (v === 100) return '100%'
+  if (v < 0.01) return 'under 0.01%'
+  if (v > 99.99) return 'over 99.99%'
+  return `${new Intl.NumberFormat('en-GB', { maximumFractionDigits: 2, useGrouping: false }).format(v)}%`
+}
+
 /** A figure in plain words, as the person stated it: a point, or a range with the likeliest value. */
 export function figure(a, unit) {
   const u = unitOf(unit)
