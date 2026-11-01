@@ -108,6 +108,7 @@ import { RunChangePencilLayer } from './graphChanges/RunChangePencilLayer'
 import { DirectionNeededLayer } from './nodes/DirectionNeededLayer'
 import { coreSwitchOptionOf, withoutCoreSwitches } from './domain/coreSwitch'
 import { NoteRecordsPublisher } from './components/NoteRecordsPublisher'
+import { ReloadNoteApplier } from '../olumiCore/ReloadNoteApplier'
 import { useDrawnLivingModel } from './hooks/useDrawnLivingModel'
 import { livingOnlyOf } from './domain/livingModelCanvas'
 import { fitBoundsFor, CANVAS_MOUNT_FIT_OPTIONS } from './utils/zoomLegibility'
@@ -2655,6 +2656,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             // node/edge components vs the handlers
           >
             <NoteRecordsPublisher />
+            <ReloadNoteApplier />
             <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} color={showGrid ? CANVAS_GRID_DOT_COLOUR : undefined} />
             {/* MiniMap temporarily disabled for layout debugging */}
             {/* <MiniMap style={miniMapStyle} /> */}
@@ -2852,6 +2854,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             proOptions={{ hideAttribution: true }} /* contract v3.1 DESIGN-GAP #29: no "React Flow" link on the canvas (MIT; the option MiniCanvas already uses) */
           >
             <NoteRecordsPublisher />
+            <ReloadNoteApplier />
             <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} color={showGrid ? CANVAS_GRID_DOT_COLOUR : undefined} />
             {/* Vision spec §3 (23 Oct): no lane labels. Card colour and glyph carry the type. */}
             {/* Suggestion preview: the ghost of the proposal the latest reply offers (render-only; see the file). */}

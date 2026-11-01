@@ -270,6 +270,8 @@ export type ScenarioGraphResult =
       actionBar?: unknown
       /** §15 projection, present only on the conversation opt-in. */
       proposalFields?: unknown
+      /** olumi-core lane: Olumi's last next step as a note beside its card, derived from the stored reply (`olumiCore/reloadNote.ts` reads it). */
+      olumiNote?: unknown
       /** P48: CEE `changed_since_run`, raw (conversation opt-in only); the ONE reader is `canvas/changes/changedSinceRun.ts`. */
       changedSinceRun?: unknown
       requestId: string | null
@@ -528,6 +530,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     // Carried raw; the ONE reader is `parseActionBar` (canvas/conversation/actionBar/actionBarContract.ts).
     actionBar: b.action_bar,
     proposalFields: b.proposal_fields,
+    olumiNote: b.olumi_note,
     changedSinceRun: b.changed_since_run,
     requestId,
   }

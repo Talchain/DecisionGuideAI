@@ -18,6 +18,7 @@ import { ADDITIVE_EXTENSIONS_KEY } from './responseParser'
 import type { CoreTurn } from './coreTurnContract'
 import type { ApplyV5StateOptions, ApplyV5StateResult } from './applyV5State'
 import { isOlumiCoreLane } from '../olumiCore/lane'
+import { markNoteShown } from '../olumiCore/reloadNote'
 import { parseCanonicalAnalysisView } from '../canvas/runView/canonicalAnalysisView'
 import { useCanonicalAnalysisViewStore } from '../canvas/stores/canonicalAnalysisViewStore'
 
@@ -72,6 +73,7 @@ export function applyCoreTurnState(turn: CoreTurn, store: CoreTurnApplicatorStor
   if (note !== undefined) {
     if (store.nodes.some((n) => n.id === note.element_id)) {
       requestOlumiAttention({ nodeIds: [note.element_id], edgeIds: [], note: { body: note.text.trim() }, ...(revision ? { modelVersion: revision } : {}) })
+      markNoteShown(note)
       applied.push(`note:${note.element_id}`)
       // olumi-core lane: Olumi points at the card its next step is about (the assistant-focus halo, and the camera if the card is
       // off screen), the way a CEE `focus` directive does. A note on any other kind of card is held without the pointer.

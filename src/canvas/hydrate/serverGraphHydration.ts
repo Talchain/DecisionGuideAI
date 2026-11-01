@@ -36,6 +36,8 @@ import { declinedSavedRunKindOf, useDeclinedSavedRunStore } from '../stores/decl
 import { logger } from '../../lib/logger'
 import { fetchScenarioGraph, type FetchScenarioGraphOptions } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
+import { offerReloadNote } from '../../olumiCore/reloadNote'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { isProgramGraph } from '../nodes/shared/savedModelProgram'
 import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, applyScenarioAnalysisRead, isBootRestorableRunState } from './applyScenarioAnalysisRead'
 import { readProvisionalApplyStore } from './provisionalApplyStore'
@@ -388,6 +390,10 @@ async function readAndMergeServerGraph(
   if (result.scenarioId === scenarioId) {
     useCanonicalAnalysisViewStore.getState().adopt(scenarioId,
       parseCanonicalAnalysisView(authoritativeRead && result.graphHash !== null ? result.canonicalAnalysisView : undefined))
+  }
+  // olumi-core lane: Olumi's last next step comes back as the note it was beside its card (held until that card is on the canvas).
+  if (opts.includeConversationTurns === true && result.scenarioId === scenarioId && isOlumiCoreLane()) {
+    offerReloadNote(scenarioId, result.olumiNote, typeof result.graphHash === 'string' ? result.graphHash : null)
   }
   const serverTurns = readServerConversationTurns(result.conversationTurns)
   if (opts.includeConversationTurns === true || serverTurns !== null) {
