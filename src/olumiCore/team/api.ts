@@ -38,7 +38,10 @@ async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Pr
   try {
     res = await (fetchImpl ?? fetch)(path, {
       method,
+      // Same origin only: the browser then sends `Sec-Fetch-Site: same-origin`, the one value (with `none`) the server and core accept for a write,
+      // and the page's own side (lib/tab.js) stamps `x-olumi-person` on every `/api/` call, so a write can never be saved as somebody else.
       credentials: 'same-origin',
+      mode: 'same-origin',
       headers: { 'content-type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     })

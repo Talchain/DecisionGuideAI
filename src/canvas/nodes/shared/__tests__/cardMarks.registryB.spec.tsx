@@ -67,7 +67,7 @@ it('the Key draws every registered visual and glyph beside its existing words', 
   fireEvent.click(screen.getByTestId('btn-canvas-legend'))
   // Every registered mark's words are in the key, in the row of the picture it draws (a shared glyph is one row).
   // The team's held mark is the olumi-core lane's and is listed in the Key there only (`teamTabRegistration.spec.ts`).
-  const everywhere = RENDERED_CARD_MARKS.filter(m => !('coreLaneOnly' in m && m.coreLaneOnly))
+  const everywhere = RENDERED_CARD_MARKS.filter(m => !('coreLaneOnly' in m && m.coreLaneOnly) || import.meta.env.VITE_OLUMI_CORE === '1')
   for (const mark of everywhere) {
     const rows = screen.getAllByTestId(/^legend-card-mark-/).filter(r => (r.textContent ?? '').includes(mark.keyText.trim()))
     expect(rows.length, mark.id).toBeGreaterThan(0)
