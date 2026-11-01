@@ -23,7 +23,7 @@ export function coachText(coach, facts = []) {
 }
 
 /** What olumi-core's turn could not finish, in words (a row with a `problem`): a visible failure, never an empty reply. */
-const problemTurn = (turnId, text) => ({ turn_id: turnId, assistant_text: '', model: null, cards: [], notes: [], run: null, receipts: [], error: { code: 'olumi_could_not_finish', message: text, retry_safe: true, nothing_saved: true } })
+const problemTurn = (turnId, text) => ({ turn_id: turnId, assistant_text: '', model: null, cards: [], notes: [], run: null, receipts: [], error: { code: 'olumi_could_not_finish', message: `Olumi could not finish that. ${text.charAt(0).toUpperCase()}${text.slice(1)}${/[.!?]$/.test(text) ? '' : '.'} Nothing was saved.`, retry_safe: true, nothing_saved: true } })
 
 function cardFor(view, issuedTurnId) {
   const p = view.pending

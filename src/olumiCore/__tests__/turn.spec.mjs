@@ -154,7 +154,7 @@ describe('discussion and challenges (gap 6)', () => {
     const { ctx } = await started({ approve: true })
     fake.problemNext('Olumi could not check that against the model.')
     const out = (await shim.turn(ctx, msg('What matters most?'))).out
-    expect(out.error).toMatchObject({ code: 'olumi_could_not_finish', message: 'Olumi could not check that against the model.', retry_safe: true })
+    expect(out.error).toMatchObject({ code: 'olumi_could_not_finish', message: 'Olumi could not finish that. Olumi could not check that against the model. Nothing was saved.', retry_safe: true })
   })
   it('a Run press has nothing to start: core runs on every change, and the turn says so with the Run it has', async () => {
     const { ctx } = await started({ approve: true })

@@ -70,6 +70,14 @@ describe('the Run, from structured facts (API v1.4), read by DGAI\'s own parser'
     expect(cell).toMatchObject({ kind: 'range', detail: { low: expect.any(Number), median: expect.any(Number), high: expect.any(Number), unit: 'ticket/week', olumi: false } })
     expect(parseCanonicalAnalysisView(analysisViewOf(v, rev16(v)))).not.toBeNull()
   })
+  it('names Olumi\'s what-if figures once, from the structured input facts (about.olumi), and only when there are some', () => {
+    expect(view.goal_chance.notes).toHaveLength(1)
+    const v = JSON.parse(JSON.stringify(approved))
+    v.version.facts.push({ id: 'F99', value: '2 to 10 ticket/week', text: 'Olumi\'s what-if for staff absence, not their figure: 2 to 10 ticket/week.', about: { kind: 'input', quantity: 'per_specialist', olumi: true, low: 2, high: 10, unit: 'ticket/week' } })
+    const notes = analysisViewOf(v, rev16(v)).goal_chance.notes
+    expect(notes).toEqual(['This leaves out: How the team feels about a new hire.', 'Olumi’s what-if figures, until you give your own: per specialist.'])
+    expect(parseCanonicalAnalysisView(analysisViewOf(v, rev16(v)))).not.toBeNull()
+  })
   it('has no Run view before there is an approved version', () => {
     expect(analysisViewOf(fx('view-first-pending.json'), 'x')).toBeNull()
   })

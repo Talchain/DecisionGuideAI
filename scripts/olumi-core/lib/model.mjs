@@ -131,6 +131,9 @@ export function analysisViewOf(view, hash) {
   const most = v.facts.find((f) => f.about?.kind === 'most_likely' || f.about?.kind === 'none_clearly')
   const waits = v.facts.filter((f) => f.about?.kind === 'waits' || f.about?.kind === 'blocker').flatMap((f) => (f.about.rests ?? []))
   const waitsOn = [...new Set(waits)].map((id) => m.get(id)).filter(Boolean).map((r) => ({ id: r.id, label: nameOf(m, r.id), answer: r.family === 'quantity' && r.assertion.kind === 'asked' ? { quantity_id: r.id } : null, code: r.family === 'quantity' ? r.assertion.kind : 'waiting' }))
+  // Olumi's what-if figures, from the structured input facts (API v1.4 `about.olumi`): said once, as the facts mark them, not read from their words.
+  const whatIfs = [...new Set(v.facts.filter((f) => f.about?.kind === 'input' && f.about.olumi === true).map((f) => nameOf(m, f.about.quantity)))]
+  const notes = [...(leaves.length ? [`This leaves out: ${leaves.join('; ')}.`] : []), ...(whatIfs.length ? [`Olumi’s what-if figures, until you give your own: ${whatIfs.join('; ')}.`] : [])]
   return {
     schema: 'canonical_analysis_view.v1', source: 'stored_run_facts',
     run: { run_id: runIdOf(v), graph_hash_at_run: hash, computed_at: v.at },
@@ -147,7 +150,7 @@ export function analysisViewOf(view, hash) {
         main_driver: d ? { kind: 'available', driver: { id: d.id, ...(d.about ?? {}) }, detail: `${d.value}: ${sayFact(d.text, leaves)}` } : { kind: 'none_licensed', reason: 'No figure moves this option’s chance enough to name one.' },
       }
     }),
-    goal_chance: { ...(goal ? { chance_words: `chance of ‘${goal.label}’` } : {}), ...(leaves.length ? { notes: [`This leaves out: ${leaves.join('; ')}.`] } : {}), waits_on: waitsOn },
+    goal_chance: { ...(goal ? { chance_words: `chance of ‘${goal.label}’` } : {}), ...(notes.length ? { notes } : {}), waits_on: waitsOn },
     leader: { licence: 'withheld', option_id: null, ...(most ? { words: sayFact(sentence(most.text), leaves) } : {}) },
   }
 }

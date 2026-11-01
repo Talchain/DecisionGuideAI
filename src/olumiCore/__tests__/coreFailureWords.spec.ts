@@ -61,7 +61,7 @@ describe('a failed chat turn, in olumi-core\'s own words (gap 6)', () => {
     expect(out.chips).toContain('retry')
   })
   it('a reply core could not finish (a chat row with a problem) is said as it is', async () => {
-    const out = await say({ turn_id: 't-5', assistant_text: '', model: null, cards: [], notes: [], run: null, receipts: [], error: { code: 'olumi_could_not_finish', message: 'Olumi could not check that against the model.', retry_safe: true, nothing_saved: true } })
-    expect(out.content).toBe('Olumi could not check that against the model.')
+    const out = await say({ turn_id: 't-5', assistant_text: '', model: null, cards: [], notes: [], run: null, receipts: [], error: { code: 'olumi_could_not_finish', message: 'Olumi could not finish that. Olumi could not check that against the model. Nothing was saved.', retry_safe: true, nothing_saved: true } })
+    expect(out.content).toBe('Olumi could not finish that. Olumi could not check that against the model. Nothing was saved.')
   })
 })
