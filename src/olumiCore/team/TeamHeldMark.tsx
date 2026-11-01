@@ -12,5 +12,5 @@ export function TeamHeldMark(): JSX.Element | null {
   if (!scenario) return null
   const held = heldOf(scenario)
   if (!held || held.given === 0) return null
-  return <CardMark id="views-held" testId="views-held-mark" words={heldWords(held)} description="Each view stays private until the team reveals them together." />
+  return <CardMark id="views-held" testId="views-held-mark" words={heldWords(held)} caption={`${held.given}/${held.of}`} description="Each view stays private until the team reveals them together." />
 }

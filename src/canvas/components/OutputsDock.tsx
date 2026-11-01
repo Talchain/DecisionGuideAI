@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useLayoutEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
-import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle, FlaskConical, Loader2 } from 'lucide-react'
+import { BarChart3, Shuffle, Activity, Users, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle, FlaskConical, Loader2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
@@ -3305,6 +3305,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 ? Clock
                 : tab.id === 'olumi'
                 ? MessageSquare
+                : tab.id === 'team'
+                ? Users
                 : Activity
             return (
               <button
