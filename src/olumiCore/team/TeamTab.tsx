@@ -3,6 +3,7 @@ import { Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { heldOf, heldWords } from './model'
 import { TeamMembers } from './TeamMembers'
+import { RevealPanel } from './RevealPanel'
 import { ViewComposer } from './ViewComposer'
 import { useTeamStore } from './store'
 import { BODY, ERR, H, META } from './ui'
@@ -18,7 +19,6 @@ export function TeamTab({ scenarioUuid, onAskOlumi }: { scenarioUuid: string | n
   const use = useTeamStore((s) => s.use)
   const refresh = useTeamStore((s) => s.refresh)
   useEffect(() => { void use(scenarioUuid).then(() => refresh()) }, [scenarioUuid, use, refresh])
-  void onAskOlumi
 
   const held = scenario ? heldOf(scenario) : null
   return (
@@ -49,6 +49,7 @@ export function TeamTab({ scenarioUuid, onAskOlumi }: { scenarioUuid: string | n
           <TeamMembers scenario={scenario} />
           <ViewComposer sid={sid} scenario={scenario} onWrote={refresh} />
           {held && held.given > 0 && <p className={META} data-testid="team-held-count">{heldWords(held)}</p>}
+          <RevealPanel sid={sid} scenario={scenario} onWrote={refresh} onAskOlumi={onAskOlumi} />
         </>
       )}
     </div>
