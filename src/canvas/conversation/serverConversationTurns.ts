@@ -17,6 +17,7 @@ import { ActionSchema } from '@talchain/schemas/boundary'
 import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
 import { AMEND_PROPOSAL_ACTION, readProposalFields } from './proposalFields'
 import type { ConversationMessage } from './types'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 
 export const CONVERSATION_TURNS_READ_KEY = 'conversation_turns' as const
 export const RESTORED_HISTORY_DIVIDER = 'Earlier in this conversation'
@@ -188,8 +189,10 @@ export function reconcileRestoredProposalFields(
   // (CEE now offers every waiting card at once, not the oldest first). Its continuity copy there is relabelled (buddy r2).
   // A restore's "Session resumed" divider is not a reply: the card goes on the reply before it, as ChatThread
   // hosts chips there (served E1c, 7 Oct: the divider was last, so the card never came back).
+  // On the olumi-core lane the read's list IS what core still holds, so a person's press after the card (a "Looks right" that failed and
+  // saved nothing is kept in the thread) does not retire it: the card goes on the last reply before it, and the first model still waits.
   let last = out.length - 1
-  while (last >= 0 && typeof out[last].sessionDivider === 'string') last--
+  while (last >= 0 && (typeof out[last].sessionDivider === 'string' || (isOlumiCoreLane() && out[last].role === 'user'))) last--
   const reply = out[last]
   if (unmatched.length > 0 && reply !== undefined && isReply(reply)) for (const held of unmatched) place(last, held, true)
   for (const [index, group] of onReply) attach(index, group.held, !group.issuedHere)
