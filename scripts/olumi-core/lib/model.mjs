@@ -4,7 +4,7 @@
  * Rules come from the served fixtures (src/canvas/nodes/__tests__/fixtures/served-*), so this is only as faithful as they are.
  * Facts are read by their structured `about` (API v1.4), never from their text.
  */
-import { byId, figure, nameOf, num, partsOf, percent, signedPartsOf, CMP } from './words.mjs'
+import { byId, decideByWords, figure, nameOf, num, partsOf, percent, signedPartsOf, CMP } from './words.mjs'
 import { rev16, rev64, revSaved16, runIdOf } from './ids.mjs'
 
 const valueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? (q.assertion.low + q.assertion.high) / 2) : null)
@@ -52,7 +52,9 @@ export function graphOf(form) {
     if (e.exists_probability === null) delete e.exists_probability
     edges.push(e)
   }
-  add({ id: 'mp:decision', ref: 'D1', kind: 'decision', label: form.question })
+  // The decision date reaches the canvas on the question's own card (the inspector reads its description): "Decide by 1 December 2026.
+  // Olumi’s reason: ..." or "You said: ...", so a deadline Olumi proposed is never mistaken for the person's.
+  add({ id: 'mp:decision', ref: 'D1', kind: 'decision', label: form.question, ...(form.decide_by ? { description: `Decide by ${decideByWords(form.decide_by)}` } : {}) })
   let o = 0, f = 0, c = 0, g = 0
   for (const r of recs) {
     if (r.family === 'option' && r.status !== 'removed') {

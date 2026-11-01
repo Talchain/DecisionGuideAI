@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { graphOf, canonicalOf, analysisViewOf, leftOutOf, sayFact } from '../../../scripts/olumi-core/lib/model.mjs'
+import { graphOf, canonicalOf, analysisViewOf, leftOutOf, modelOf, sayFact } from '../../../scripts/olumi-core/lib/model.mjs'
 import { rev16, revSaved16 } from '../../../scripts/olumi-core/lib/ids.mjs'
 import { parseCanonicalAnalysisView } from '../../canvas/runView/canonicalAnalysisView'
 import { runViewOf } from '../../canvas/runView/runView'
@@ -200,6 +200,29 @@ describe('an influence is drawn the way the person stated it (finding 2)', () =>
     const e = edgeOf(graphOf(form), 'morale_link')
     expect(e.effect_direction).toBe('unknown')
     expect(e.provenance.reasoning).toMatch(/depends/i)
+  })
+})
+
+describe('the decision date reaches the question\'s card (finding: decide_by was read nowhere)', () => {
+  const withDate = (decide_by) => { const f = JSON.parse(JSON.stringify(richForm)); f.decide_by = decide_by; return f }
+  it('Olumi\'s proposed date is on the question card as a date, marked as Olumi\'s reasoning', () => {
+    const d = graphOf(withDate({ date: '2026-12-01', origin: { by: 'olumi', basis: 'a new hire takes a month to start' } })).nodes.find((n) => n.id === 'mp:decision')
+    expect(d.description).toBe('Decide by 1 December 2026. Olumi’s reason: a new hire takes a month to start')
+    expect(d.label).toBe(richForm.question)
+  })
+  it('the person\'s own date is in their words', () => {
+    const d = graphOf(withDate({ date: '2026-12-01', origin: { by: 'person', quote: 'by the board meeting', party: null } })).nodes.find((n) => n.id === 'mp:decision')
+    expect(d.description).toBe('Decide by 1 December 2026. You said: “by the board meeting”')
+  })
+  it('no date, no description', () => {
+    expect(graphOf(withDate(null)).nodes.find((n) => n.id === 'mp:decision')).not.toHaveProperty('description')
+  })
+  it('an approved date is on the saved model\'s question card; a proposal\'s date is on the held one', () => {
+    const v = JSON.parse(JSON.stringify(fx('view-approved-with-change.json')))
+    v.pending.form.decide_by = { date: '2026-12-01', origin: { by: 'olumi', basis: 'b' } }
+    expect(modelOf(v).graph.nodes.find((n) => n.id === 'mp:decision').description).toMatch(/^Decide by 1 December 2026/)
+    const approvedView = JSON.parse(JSON.stringify(v)); approvedView.version.form.decide_by = v.pending.form.decide_by; approvedView.pending = null
+    expect(modelOf(approvedView).graph.nodes.find((n) => n.id === 'mp:decision').description).toMatch(/^Decide by 1 December 2026/)
   })
 })
 
