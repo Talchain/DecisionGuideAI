@@ -1,41 +1,35 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { Edge, Node } from '@xyflow/react'
 import { useCanvasStore } from '../../canvas/store'
 import { PresentationProvider } from '../v10'
-import { V10ChangeMarks, v10ChangeMarkIds } from '../V10ChangeLens'
+import { V10ChangeMarks } from '../V10ChangeLens'
 
 // The lens flag is on where lenses are offered; the rest of flags stays real.
 vi.mock('../../flags', async () => ({ ...await vi.importActual<object>('../../flags'), isGraphLensEnabled: () => true }))
 
+const SENTENCE = 'Its chance falls to about 12% when Extra books stays low.'
 // CEE's served driver words for one option only; the other has none. The badge must say them verbatim, or nothing.
 vi.mock('../../canvas/runView/runView', async () => ({
   ...await vi.importActual<object>('../../canvas/runView/runView'),
-  runViewOf: () => ({ mainDriverDetailOf: (id: string) => (id === 'opt-a' ? 'Its chance falls to about 12% when Extra books stays low.' : null) }),
+  runViewOf: () => ({ mainDriverDetailOf: (id: string) => (id === 'opt-a' ? SENTENCE : null) }),
 }))
 
 const UNCHECKED = { observedState: { value: 0.5, source: 'cee_inference', extractionType: 'inferred' } }
-const YOURS = { observedState: { value: 0.7, source: 'user_override' } }
 const node = (id: string, type: string, data: Record<string, unknown> = {}): Node => ({ id, type, position: { x: 0, y: 0 }, data: { label: id, ...data } })
 const edge = (id: string, source: string, target: string): Edge => ({ id, source, target, data: {} })
+const NODES = [node('f-fragile', 'factor', UNCHECKED), node('f-big', 'factor', UNCHECKED), node('opt-a', 'option'), node('opt-b', 'option'), node('g', 'goal')]
+const EDGES = [edge('e1', 'f-fragile', 'g'), edge('e2', 'f-big', 'g')]
+// f-big moves the Run most and is Olumi's, unchecked; e1 is fragile. Neither may put anything on a figure card.
+const REPORT = { enrichment: { sensitivity_analysis: { factors: [{ factor_id: 'f-big', elasticity: 0.8 }, { factor_id: 'f-fragile', elasticity: 0.5 }] } } }
 
-// f-big: Olumi's, unchecked, moves the Run most. f-mine: the person's own, moves it more (never "worth finding out").
-// f-small: Olumi's, unchecked, moves it least. f-fragile: Olumi's, unchecked, has a fragile link, moves it second.
-const NODES = [node('f-big', 'factor', UNCHECKED), node('f-mine', 'factor', YOURS), node('f-small', 'factor', UNCHECKED), node('f-fragile', 'factor', UNCHECKED), node('opt-a', 'option'), node('opt-b', 'option'), node('g', 'goal')]
-const EDGES = [edge('e1', 'f-big', 'g'), edge('e2', 'f-mine', 'g'), edge('e3', 'f-small', 'g'), edge('e4', 'f-fragile', 'g')]
-const REPORT = {
-  enrichment: { sensitivity_analysis: { factors: [
-    { factor_id: 'f-mine', elasticity: 0.9 }, { factor_id: 'f-big', elasticity: 0.8 }, { factor_id: 'f-fragile', elasticity: 0.5 }, { factor_id: 'f-small', elasticity: 0.1 },
-  ] } },
-}
-
-function seed(active: 'what_changes' | 'full', fragile: string[] = ['e4']) {
+function seed(active: 'what_changes' | 'full', lodRung: string = 'full') {
   const state = useCanvasStore.getState()
   useCanvasStore.setState({
-    nodes: NODES, edges: EDGES, outcomeNodeId: 'g',
+    nodes: NODES, edges: EDGES, outcomeNodeId: 'g', lodRung,
     results: { ...state.results, status: 'complete', report: REPORT as never },
-    lens: { ...state.lens, active, _fragileEdgeIds: new Set(fragile) },
+    lens: { ...state.lens, active, _fragileEdgeIds: new Set(['e1']) },
   } as never)
 }
 function mount(id: string, type: string, presentation: 'v10' | 'current' = 'v10') {
@@ -43,41 +37,46 @@ function mount(id: string, type: string, presentation: 'v10' | 'current' = 'v10'
 }
 const before = useCanvasStore.getState()
 beforeEach(() => seed('what_changes'))
-afterEach(() => { cleanup(); useCanvasStore.setState({ nodes: before.nodes, edges: before.edges, results: before.results, lens: before.lens, outcomeNodeId: before.outcomeNodeId } as never) })
+afterEach(() => { cleanup(); useCanvasStore.setState({ nodes: before.nodes, edges: before.edges, results: before.results, lens: before.lens, outcomeNodeId: before.outcomeNodeId, lodRung: before.lodRung } as never) })
 
-describe('v10 "What would change": marks on the cards', () => {
-  it('marks the lens\'s own fragile figure, and the one unchecked figure the Run moves most with (never the person\'s own)', () => {
-    const ids = v10ChangeMarkIds(useCanvasStore.getState() as never)
-    expect([...ids.canChange]).toEqual(['f-fragile'])
-    expect(ids.worth, 'f-mine moves it most but is the person\'s own, so it is not worth finding out').toBe('f-big')
-  })
-
-  it('draws the marks on the right cards and no others', () => {
-    mount('f-fragile', 'factor')
-    expect(screen.getByTestId('v10-change-flip-f-fragile').textContent).toBe('can change the comparison')
-    expect(screen.queryByTestId('v10-change-worth-f-fragile')).toBeNull()
-    cleanup()
-    mount('f-big', 'factor')
-    expect(screen.getByTestId('v10-change-worth-f-big').textContent).toBe('worth finding out')
-    cleanup()
-    // CONTRAST: the person's own figure and a small mover carry nothing.
-    for (const id of ['f-mine', 'f-small']) { const { unmount } = mount(id, 'factor'); expect(screen.queryByTestId(`v10-change-worth-${id}`)).toBeNull(); expect(screen.queryByTestId(`v10-change-flip-${id}`)).toBeNull(); unmount() }
-  })
-
-  it('an option card gets a driver badge saying CEE\'s own words verbatim; one with none served draws nothing', () => {
+describe('v10 "What would change": the option driver badge', () => {
+  it('rests as an icon only; CEE\'s sentence arrives verbatim on hover (described by, not labelled), and never as default text', async () => {
     mount('opt-a', 'option')
-    expect(screen.getByTestId('v10-change-driver-opt-a').getAttribute('aria-label')).toBe('Its main driver: Its chance falls to about 12% when Extra books stays low.')
-    cleanup()
+    const badge = screen.getByTestId('v10-change-driver-opt-a')
+    expect(badge.textContent, 'no words at rest').toBe('')
+    expect(document.body.textContent).not.toContain(SENTENCE)
+    expect(badge.getAttribute('aria-label')).toBe('Its main driver')
+    await act(async () => { fireEvent.mouseEnter(badge) })
+    const said = await screen.findByText(SENTENCE, {}, { timeout: 2000 })
+    expect(said.textContent).toBe(SENTENCE)
+    expect(badge.getAttribute('aria-describedby'), 'the tooltip describes the badge').toBe(said.id)
+  })
+
+  it('an option CEE served no sentence for draws nothing', () => {
     mount('opt-b', 'option')
     expect(screen.queryByTestId('v10-change-driver-opt-b')).toBeNull()
   })
 
-  it('draws nothing in the current design, in another lens, or on a goal card', () => {
-    mount('f-fragile', 'factor', 'current'); expect(screen.queryByTestId('v10-change-flip-f-fragile')).toBeNull(); cleanup()
+  it('draws nothing at the line rung, where the card\'s own marks drop', () => {
+    seed('what_changes', 'line')
+    mount('opt-a', 'option')
+    expect(screen.queryByTestId('v10-change-driver-opt-a')).toBeNull()
+  })
+
+  it('draws nothing in the current design, or in another lens', () => {
     mount('opt-a', 'option', 'current'); expect(screen.queryByTestId('v10-change-driver-opt-a')).toBeNull(); cleanup()
     seed('full')
-    mount('f-fragile', 'factor'); expect(screen.queryByTestId('v10-change-flip-f-fragile')).toBeNull(); cleanup()
-    seed('what_changes')
-    mount('g', 'goal'); expect(document.body.querySelector('[data-testid^="v10-change-"]')).toBeNull()
+    mount('opt-a', 'option'); expect(screen.queryByTestId('v10-change-driver-opt-a')).toBeNull()
+  })
+})
+
+describe('v10 "What would change": nothing on figure cards', () => {
+  it('a fragile figure and the figure the Run moves most with carry no chip and no "worth finding out" words', () => {
+    for (const id of ['f-fragile', 'f-big']) {
+      const { container, unmount } = mount(id, 'factor')
+      expect(container.querySelector('[data-testid^="v10-change-"]'), id).toBeNull()
+      expect(document.body.textContent).not.toMatch(/worth finding out|can change the comparison/)
+      unmount()
+    }
   })
 })
