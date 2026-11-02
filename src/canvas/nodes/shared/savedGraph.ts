@@ -10,6 +10,7 @@ import { isOpenAiLane, resolveAiComparisonMode } from '../../../v5/aiComparisonM
 import { isCeeAddressableScenarioId } from '../../hydrate/bootGraphRead'
 import { useCanvasStore } from '../../store'
 import { savedGraphEpoch, subscribeSavedGraphEpoch } from './savedGraphEpoch'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
 
 let last: { key: string; read: Promise<unknown> } | null = null
 /** The saved graph IS the one on screen: same scenario, same saved hash (one may be the other's 16-hex prefix). */
@@ -54,7 +55,8 @@ export function useSavedGraphRead(): SavedGraphRead {
   const [read, setRead] = useState<{ key: string; graph: unknown } | null>(null)
   // CEE serves the core lane under the default `openai` mode too (`laneModeFor`): reading only on `?ai=core` left every
   // living-model reader dark on the default path. A legacy graph carries no living model, so its readers show nothing.
-  const saved = isOpenAiLane(resolveAiComparisonMode()) && isCeeAddressableScenarioId(scenarioId)
+  // The olumi-core lane has no saved graph to read: its canvas is the View's, and /bff is not there (canvas A S1, B1c).
+  const saved = !isOlumiCoreLane() && isOpenAiLane(resolveAiComparisonMode()) && isCeeAddressableScenarioId(scenarioId)
   const applies = saved && graphHash !== null
   useEffect(() => {
     if (!applies || !isCeeAddressableScenarioId(scenarioId) || graphHash === null) return

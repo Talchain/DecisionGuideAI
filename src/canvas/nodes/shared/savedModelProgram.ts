@@ -27,7 +27,9 @@ export function isProgramGraph(graph: unknown): boolean {
 }
 
 export function useSavedModelIsProgram(): boolean {
-  return isProgramGraph(useSavedGraph())
+  const graph = useSavedGraph()
+  // The olumi-core lane's model is always a program, as for useSavedModelProgramState below (canvas A S1, B1b).
+  return isOlumiCoreLane() || isProgramGraph(graph)
 }
 
 /**

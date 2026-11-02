@@ -67,6 +67,7 @@ import {
 } from '../hydrate/bootGraphRead'
 import { identityFromCanvasGraph } from '../utils/graphIdentity'
 import { isViewerSession } from '../../lib/viewerMode'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 
 /**
  * Why a registration attempt did not end in an acknowledgement.
@@ -245,6 +246,8 @@ export function useImportRegistration(): void {
   useEffect(() => {
     if (!pending) return
     if (isViewerSession()) return
+    // The olumi-core lane writes only to core (src/olumiView/): no graph is registered over /bff (canvas A S1, A16).
+    if (isOlumiCoreLane()) return
     // ONE WRITER: stand down BEFORE the attempt key is spent, so the same
     // model can still be offered once delivery settles.
     {
