@@ -13,7 +13,7 @@ import { generate } from '../../../scripts/olumi-view/gen-types.mjs'
 const here = (f: string) => new URL(f, import.meta.url)
 const json = (f: string) => JSON.parse(readFileSync(here(f), 'utf8'))
 const schema = json('../view.v2.json')
-const GOLDEN = ['pricing', 'studio', 'bakery', 'european', 'app-launch', 's_ce285b3617bb'] as const
+const GOLDEN = ['pricing', 'studio', 'bakery', 'european', 'app-launch', 's_ce285b3617bb', 'proposal'] as const
 
 afterEach(() => setTeamFetch(null))
 

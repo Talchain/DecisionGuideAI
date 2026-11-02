@@ -17,8 +17,8 @@ const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
 const at = (v: unknown, p: string): unknown => p.split('.').reduce<unknown>((x, k) => (x === null || x === undefined ? undefined : (x as Record<string, unknown>)[k]), v)
 
-describe('the conversation is drawn exactly as the View holds it', () => {
-  const view = golden('s_ce285b3617bb')
+describe.each(['s_ce285b3617bb', 'proposal'])('the conversation is drawn exactly as the View holds it (%s)', (name) => {
+  const view = golden(name)
   it('every drawn string is the View\'s own at its path, and every word of every turn is drawn', () => {
     const { container } = render(<ViewTurns chat={view.chat} />)
     for (const el of container.querySelectorAll<HTMLElement>('[data-view]')) expect(el.textContent, el.dataset['view']).toBe(at(view, el.dataset['view']!))
@@ -84,21 +84,24 @@ describe('the writes go straight to core, and the View is read again', () => {
     expect((posts[1]!.body as { op: string }).op).toBe((posts[0]!.body as { op: string }).op)
   })
 
-  it('the change card approves on its base and sets aside, each straight to core', async () => {
-    useViewStore.setState({ view: { ...view, proposal: { id: 9, base: 3, heading: 'Olumi proposes 1 change', on: 'on version 3', removed: null, problem: null, marks: [] } } })
+  it('the change card draws core\'s proposal by identity, approves on its base and sets aside, each straight to core', async () => {
+    const held = golden('proposal'), p = held.proposal!
+    useViewStore.setState({ view: held })
     answer(() => new Response(JSON.stringify({}), { status: 200 }))
     const { container } = render(<ViewChat />)
-    expect(container.querySelector('[data-view="proposal.heading"]')!.textContent).toBe('Olumi proposes 1 change')
-    await act(async () => { fireEvent.click([...container.querySelectorAll('button')].find((b) => b.textContent === 'Approve')!) })
-    await waitFor(() => expect(posts[0]).toEqual({ url: '/api/proposals/9/approve', body: { base: 3 } }))
-    useViewStore.setState({ view: { ...view, proposal: { id: 9, base: 3, heading: 'Olumi proposes 1 change', on: 'on version 3', removed: null, problem: null, marks: [] } } })
+    const card = container.querySelector<HTMLElement>('[data-testid="view-chat-proposal"]')!
+    for (const el of card.querySelectorAll<HTMLElement>('[data-view]')) expect(el.textContent, el.dataset['view']).toBe(at(held, el.dataset['view']!))
+    for (const k of ['heading', 'on'] as const) expect(card.querySelector(`[data-view="proposal.${k}"]`)?.textContent).toBe(p[k])
+    await act(async () => { fireEvent.click([...card.querySelectorAll('button')].find((b) => b.textContent === 'Approve')!) })
+    await waitFor(() => expect(posts[0]).toEqual({ url: `/api/proposals/${p.id}/approve`, body: { base: p.base } }))
+    useViewStore.setState({ view: held })
     const { container: again } = render(<ViewChat />)
     await act(async () => { fireEvent.click([...again.querySelectorAll('button')].find((b) => b.textContent === 'Set aside')!) })
-    await waitFor(() => expect(posts[1]).toEqual({ url: '/api/proposals/9/discard', body: {} }))
+    await waitFor(() => expect(posts[1]).toEqual({ url: `/api/proposals/${p.id}/discard`, body: {} }))
   })
 
   it('after an approval no chance from before it is current until the new View lands', async () => {
-    useViewStore.setState({ view: { ...view, proposal: { id: 9, base: 3, heading: 'Olumi proposes 1 change', on: 'on version 3', removed: null, problem: null, marks: [] } } })
+    useViewStore.setState({ view: golden('proposal') })
     let answer!: (r: Response) => void
     setTeamFetch((async (url: string, init?: RequestInit) => {
       if (init?.method === 'POST') { posts.push({ url, body: JSON.parse(String(init.body)) }); return new Response('{}', { status: 200 }) }
@@ -107,7 +110,7 @@ describe('the writes go straight to core, and the View is read again', () => {
     }) as unknown as typeof fetch)
     const { container } = render(<ViewChat />)
     await act(async () => { fireEvent.click([...container.querySelectorAll('button')].find((b) => b.textContent === 'Approve')!) })
-    await waitFor(() => expect(posts[0]?.url).toBe('/api/proposals/9/approve'))
+    await waitFor(() => expect(posts[0]?.url).toBe(`/api/proposals/${golden('proposal').proposal!.id}/approve`))
     await waitFor(() => expect(useViewStore.getState().stale).toBe(true))
     expect(currentModel(useViewStore.getState())).toBeNull()
     await act(async () => { answer(new Response(JSON.stringify(view), { status: 200 })) })

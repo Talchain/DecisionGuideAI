@@ -17,7 +17,7 @@ import { useViewStore } from '../store'
 // Paths from the repository root (vitest's working directory): jsdom gives this module no file: URL to resolve against.
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
-const GOLDEN = ['pricing', 'studio', 'bakery', 'european', 'app-launch', 's_ce285b3617bb'] as const
+const GOLDEN = ['pricing', 'studio', 'bakery', 'european', 'app-launch', 's_ce285b3617bb', 'proposal'] as const
 
 /** The View string a `data-view` path names: `<card id>.<field>…` under the model's cards. */
 function at(model: ViewModel, path: string): unknown {
