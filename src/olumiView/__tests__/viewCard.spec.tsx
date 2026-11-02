@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { render } from '@testing-library/react'
 import type { View, ViewModel } from '../client'
-import { ViewCard } from '../ViewCardNode'
+import { ViewCard } from '../../canvas/nodes/ViewCardNode'
 
 const DIR = path.resolve('src/olumiView')
 const GOLDEN = ['pricing', 'studio', 'bakery', 'european', 'app-launch', 's_ce285b3617bb', 'proposal'] as const

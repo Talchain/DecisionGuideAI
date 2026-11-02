@@ -24,7 +24,7 @@ import { ActionNode } from './ActionNode'
 import { GhostOptionNode } from './GhostOptionNode'
 import { GhostTierNode } from './GhostTierNode'
 import { withNodeKeyboardScope } from './nodeKeyboardScope'
-import { ViewCardNode } from '../../olumiView/ViewCardNode'
+import { ViewCardNode } from './ViewCardNode'
 
 /**
  * The renderers, before the keyboard scope is applied.
