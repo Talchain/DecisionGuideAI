@@ -17,7 +17,7 @@ import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/typ
 import type { ReportV1 } from '../../adapters/plot/types'
 import { buildPersistedGraph, type PersistedGraph } from '../utils/persistedGraph'
 import { isThinClientSession, saveThinLayout } from '../thinClient/thinClient'
-import { withoutViewCards } from '../domain/migrations'
+import { withoutViewCards } from '../domain/viewCards'
 
 export interface ScenarioFraming {
   title?: string          // Decision or question
