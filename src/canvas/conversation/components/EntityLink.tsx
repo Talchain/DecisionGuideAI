@@ -1,5 +1,6 @@
 import { memo, useCallback } from 'react'
 import { focusByTarget } from '../../utils/focusHelpers'
+import { usePresentation, setV10Lit } from '../../../presentation/v10'
 
 // EntityLink renders a clickable entity label that pans/highlights the
 // referenced node or edge on the canvas (brief §9.2 click-to-highlight,
@@ -30,10 +31,20 @@ export const EntityLink = memo(function EntityLink({ id, label, kind = 'node' }:
     focusByTarget(id, targetType)
   }, [id, kind])
 
+  // v10 (#/canvas2): naming a record in the chat rings its card while hovered or focused. Nothing dims.
+  const presentation = usePresentation()
+  const lit = presentation === 'v10' && kind !== 'edge'
+  const light = useCallback(() => { if (lit) setV10Lit(id) }, [lit, id])
+  const unlight = useCallback(() => { if (lit) setV10Lit(null) }, [lit])
+
   return (
     <button
       type="button"
       onClick={handleClick}
+      onMouseEnter={light}
+      onMouseLeave={unlight}
+      onFocus={light}
+      onBlur={unlight}
       className="text-info hover:underline focus:outline-none focus-visible:underline focus-visible:ring-2 focus-visible:ring-info rounded-sm px-0.5 cursor-pointer"
       data-testid={`entity-link-${id}`}
       aria-label={`Highlight ${label} on the canvas`}

@@ -943,3 +943,7 @@
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
+
+/* v10 presentation (#/canvas2, src/presentation/v10.tsx): a card named in the chat is ringed in Olumi's colour while
+   hovered. Nothing else dims. */
+[data-presentation="v10"] .react-flow__node.v10-lit { outline: 2px solid var(--info, #277A9D); outline-offset: 3px; border-radius: 12px; }
