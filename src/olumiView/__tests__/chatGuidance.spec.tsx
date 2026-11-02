@@ -85,7 +85,7 @@ describe('the canvas\'s asks reach core through the Olumi tab (00054 #3)', () =>
 })
 
 describe('an ask made while Olumi is still answering is kept, never lost (00055)', () => {
-  it('the words wait in the composer, which says so, and nothing is sent twice', async () => {
+  it('the words wait in the composer, each kept after the last (00056 #1), which says so, and nothing is sent twice', async () => {
     let done!: (r: Response) => void
     answer(() => new Promise<Response>((r) => { done = r }))
     const { container } = render(<><ViewChat /><ViewComposer /></>)
@@ -94,10 +94,29 @@ describe('an ask made while Olumi is still answering is kept, never lost (00055)
     act(() => { useGuidanceStore.getState()._sendMessage!('Set rent to £7,500') })
     act(() => { useGuidanceStore.getState()._dispatchAction!({ id: 'ask:challenge', label: 'Challenge', message: 'Challenge this', source: 'chip' }) })
     expect(posts).toHaveLength(1)
-    expect((container.querySelector('#view-chat-text') as HTMLTextAreaElement).value).toBe('Challenge this')
+    expect((container.querySelector('#view-chat-text') as HTMLTextAreaElement).value).toBe('Set rent to £7,500\nChallenge this')
     expect(said(container)).toBe(STILL_ANSWERING)
     await act(async () => { done(new Response('{}', { status: 201 })) })
     expect(posts).toHaveLength(1)
+  })
+})
+
+describe('a send from the canvas that core refuses keeps its words (00056 #2)', () => {
+  it('the words go to the composer with core\'s own sentence, so the person can send them again', async () => {
+    answer(() => new Response(JSON.stringify({ error: 'text is too long (at most 4,000 characters)' }), { status: 413 }))
+    const { container } = render(<><ViewChat /><ViewComposer /></>)
+    act(() => { useViewChat.setState({ text: 'My draft' }) })
+    await act(async () => { useGuidanceStore.getState()._sendMessage!('Set rent to £7,500') })
+    await waitFor(() => expect(said(container)).toBe('text is too long (at most 4,000 characters)'))
+    expect((container.querySelector('#view-chat-text') as HTMLTextAreaElement).value).toBe('My draft\nSet rent to £7,500')
+  })
+
+  it('a press whose answer never came keeps its words too', async () => {
+    answer(() => { throw new TypeError('network') })
+    const { container } = render(<><ViewChat /><ViewComposer /></>)
+    await act(async () => { useGuidanceStore.getState()._dispatchAction!({ id: 'ask:challenge', label: 'Challenge', message: 'Challenge the brief', source: 'chip' }) })
+    await waitFor(() => expect(said(container)).toBe(UNCERTAIN_WRITE))
+    expect((container.querySelector('#view-chat-text') as HTMLTextAreaElement).value).toBe('Challenge the brief')
   })
 })
 
