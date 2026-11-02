@@ -80,6 +80,7 @@ import { livingOnlyOf, NOT_IN_CALCULATION_TEST_ID, notInCalculationWords } from 
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCornerOlumi } from './shared/NodeCornerOlumi'
 import { usePresentation } from '../../presentation/v10'
+import { V10ChangeMarks } from '../../presentation/V10ChangeLens'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { openOptionValueInput } from '../utils/openOptionValueInput'
@@ -2539,6 +2540,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           className="absolute left-3 top-0 z-10 -translate-y-1/2"
         />
       )}
+
+      {/* v10 only (#/canvas2): the "What would change" lens's marks, out of flow. */}
+      {isV10 && livingOnly === null && <V10ChangeMarks nodeId={id} nodeType={nodeType} />}
 
       {/* Node header — shape + title on same row (spec Section 3.2) */}
       <div
