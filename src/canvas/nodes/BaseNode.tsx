@@ -530,8 +530,12 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // ⭐ A LINK-ONLY CHANGE SUBDUES TOO (audit 5942900903 (a)): the rule is the edges' — anything marked subdues what is
   // not — bar the cards at the ends of a marked link, which are the link's context. A projection that marks nothing
   // still subdues nothing.
+  // v10 (#/canvas2), Paul 24 Oct ruling "nothing dims": the three dims below read false there, and the emphasis
+  // each one sat beside (the changed card's outline + word, the lit ring, the selection ring) is what shows.
+  const noDim = usePresentation() === 'v10'
   const isRunChangeSubdued = useCanvasStore(
     s =>
+      !noDim &&
       s.analysisHighlight?.source === 'run_changes' &&
       (s.analysisHighlight.nodeIds?.size ?? 0) + (s.analysisHighlight.edgeIds?.size ?? 0) > 0 &&
       s.analysisHighlight.nodeIds.has(id) === false &&
@@ -612,12 +616,12 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
 
   // Graph Interaction P1: Node dimming for path highlighting
   // Nodes not on the highlighted path are dimmed (opacity ~0.4)
-  const isDimmed = useCanvasStore(s => s.dimmedNodeIds.has(id))
+  const isDimmed = useCanvasStore(s => !noDim && s.dimmedNodeIds.has(id))
 
   // Graph Lens: lens-mode dimming (20% opacity for inactive nodes in option mode)
   // Uses primitive boolean selector (React #185 pattern) to avoid re-render loops
   const isLensDimmed = useCanvasStore(s =>
-    isGraphLensEnabled() && s.lens._dimmedNodeIds.has(id)
+    !noDim && isGraphLensEnabled() && s.lens._dimmedNodeIds.has(id)
   )
 
   /**
