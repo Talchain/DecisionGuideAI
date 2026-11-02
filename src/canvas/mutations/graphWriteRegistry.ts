@@ -21,6 +21,7 @@ export const GRAPH_WRITE_REGISTRY: GraphWriteRegistryEntry[] = [
   { file: 'src/v5/applyV5State.ts', mutators: ['updateNode', 'updateEdgeData'], class: 'reply_apply' },
   { file: 'src/canvas/utils/applyDraftResult.ts', mutators: ['batchUpdateNodes', 'setState.nodes', 'setState.edges'], class: 'reply_apply' },
   { file: 'src/canvas/utils/mergeAppliedGraph.ts', mutators: ['setState.nodes', 'setState.edges'], class: 'reply_apply' },
+  { file: 'src/olumiView/canvas.ts', mutators: ['setState.nodes', 'setState.edges'], class: 'reply_apply' },
   { file: 'src/canvas/utils/mergeServerGraph.ts', mutators: ['setState.nodes', 'setState.edges'], class: 'reply_apply' },
   { file: 'src/canvas/conversation/utils/applyPatch.ts', mutators: ['setState.nodes', 'setState.edges'], class: 'reply_apply' },
   { file: 'src/hooks/useScenario.ts', mutators: ['hydrateGraphSlice'], class: 'reply_apply' },

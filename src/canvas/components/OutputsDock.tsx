@@ -211,14 +211,12 @@ import { useIsViewer } from '../../lib/viewerMode'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
 import { setOnModelMoved, useTeamStore } from '../../olumiCore/team/store'
-import { modelKeyOf } from '../../olumiView/modelKey'
 import { currentModel, useViewStore } from '../../olumiView/store'
 import { useViewFollows } from '../../olumiView/follow'
+import { drawViewCanvas, useViewCanvas } from '../../olumiView/canvas'
 import { ViewChancesBlock } from '../../olumiView/ViewChances'
 import { ViewChat, ViewComposer } from '../../olumiView/ViewChat'
-import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
 import { pulseWhenOnCanvas } from '../../olumiCore/pulseArrivals'
-import { getSessionIdentity } from '../../lib/supabase'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
 
 /**
@@ -806,11 +804,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const teamUse = useTeamStore(s => s.use)
   const teamCardCount = useCanvasStore(s => s.nodes.length)
   useEffect(() => { if (isOlumiCoreLane()) void teamUse(currentScenarioIdForRun ?? null) }, [currentScenarioIdForRun, teamCardCount, teamUse])
-  // The olumi-core lane's View (olumi.view/2): read for this scenario, and again when the canvas's model changes or core's approved
-  // version moves (src/olumiView/follow.ts). Never on a drag (`modelKeyOf`).
-  const viewModelOnCanvas = useCanvasStore(s => modelKeyOf(s.nodes, s.edges))
+  // The olumi-core lane's View (olumi.view/2): read for this scenario and again when core's approved version moves
+  // (src/olumiView/follow.ts); the canvas is drawn from it (src/olumiView/canvas.ts), so the canvas never re-triggers the read.
   const coreView = useViewStore(currentModel)
-  useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null, viewModelOnCanvas)
+  useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null, '')
+  useViewCanvas(isOlumiCoreLane())
   // Another member approved a change: a read of the team shows the approved model has moved on, so the canvas reads the saved model again
   // (design QA 7: Bea's canvas must not stay on version 1 while her Team tab shows version 2).
   useEffect(() => {
@@ -818,10 +816,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     setOnModelMoved(async (uuid) => {
       if (useCanvasStore.getState().currentScenarioId !== uuid) return false
       const before = useCanvasStore.getState().nodes.map((n) => n.id)
-      const id = await getSessionIdentity()
-      const outcome = await hydrateCanvasFromServer(uuid, { userId: id.userId, accessToken: id.accessToken })
+      // The canvas is the View's: the approved model is read from core's View and drawn (src/olumiView/canvas.ts), never from /bff.
       // Only a read that was adopted counts: a failed one is asked for again on the team's next read.
-      if (outcome !== 'merged' && outcome !== 'unchanged') return false
+      if (useViewStore.getState().uuid !== uuid || !(await useViewStore.getState().modelChanged())) return false
+      const model = useViewStore.getState().view?.model
+      if (model) drawViewCanvas(model)
       // What the other member's approval added is acknowledged on arrival, as it is for the person who approved it.
       pulseWhenOnCanvas(useCanvasStore.getState().nodes.map((n) => n.id).filter((nid) => !before.includes(nid)))
       return true

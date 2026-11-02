@@ -50,6 +50,7 @@ import { coldLoadClaimedRoute } from '../hydrate/coldLoadDeepLink'
 import { logger } from '../../lib/logger'
 import { getSessionIdentity } from '../../lib/supabase'
 import { isThinClientSession } from '../thinClient/thinClient'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 
 /**
  * The scenario id this hook last ADOPTED from a route (see the adoption effect). Module-level, not a ref: a remounted
@@ -136,6 +137,8 @@ export function useServerGraphHydration(
   useEffect(() => {
     if (!enabled) return
     if (!scenarioId) return
+    // The olumi-core lane's canvas is drawn from core's View (src/olumiView/canvas.ts), never read from /bff.
+    if (isOlumiCoreLane()) return
     const attemptKey = `${scenarioId}\u0000${readEpoch}`
     if (attemptedRef.current === attemptKey) return
     attemptedRef.current = attemptKey

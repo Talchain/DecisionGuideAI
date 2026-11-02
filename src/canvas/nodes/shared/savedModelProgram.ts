@@ -14,6 +14,7 @@ import type { ValueProvenanceKind } from '../../domain/valueProvenance'
 import { readLinkWords, type LinkWords } from '../../domain/linkWords'
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
 import { answeredProgram } from './programScenarios'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
 
 type Rec = Record<string, unknown>
 const rec = (v: unknown): Rec | null => (v !== null && typeof v === 'object' && !Array.isArray(v) ? (v as Rec) : null)
@@ -40,6 +41,8 @@ export function useSavedModelIsProgram(): boolean {
 export function useSavedModelProgramState(): 'program' | 'not_program' | 'unknown' {
   const read = useSavedGraphRead()
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
+  // The olumi-core lane's model is always a program (the adapter served `model_program: 'v1'` for every model); its canvas is the View's.
+  if (isOlumiCoreLane()) return 'program'
   if (read.status === 'none') return 'not_program'
   if (read.status === 'read') {
     const program = isProgramGraph(read.graph)
