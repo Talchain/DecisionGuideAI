@@ -26,6 +26,9 @@ import {
 import { isUnsettled } from './RestsOnMarker'
 import { FigureCard } from './FigureCard'
 import { useNoteRecords } from '../domain/noteRecords'
+import { usePresentation } from '../../presentation/v10'
+import { V10RestsOnLegend, V10RestsOnReliance } from '../../presentation/V10RestsOn'
+import { relianceByOption, relianceTotals } from '../../presentation/restsOnReliance'
 
 export const RESTS_ON_KEY_TESTID = 'rests-on-key'
 
@@ -104,6 +107,9 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
     for (const item of items) out[item.column] += 1
     return out
   }, [items])
+  // v10 (#/canvas2) only: the key counts figures by author, and each option shows what it stands on.
+  const isV10 = usePresentation() === 'v10'
+  const reliance = useMemo(() => (isV10 ? relianceByOption(nodes, edges, items, map.hasGoal) : []), [isV10, nodes, edges, items, map.hasGoal])
   const picked = usePickedKey()
   const settledJustNow = useSettledJustNow(items)
   const light = useCanvasLight()
@@ -149,6 +155,7 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
           type="button"
           data-testid={`${RESTS_ON_KEY_TESTID}-row`}
           data-target={key}
+          data-column={item.column}
           aria-label={name}
           title={name}
           className={`${typography.panelMeta} inline-flex h-7 min-w-[28px] items-center justify-center rounded-full border px-2 tabular-nums transition-colors duration-200 ${
@@ -174,10 +181,12 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
       {!map.hasGoal && !folded ? <p className={`${typography.panelMeta} text-text-light`}>{ASSUMPTION_MAP_COPY.noGoal}</p> : null}
     </div>
   )
-  if (folded) return <div data-testid={RESTS_ON_KEY_TESTID} data-folded="">{headline}</div>
+  const v10Legend = isV10 ? <V10RestsOnLegend totals={relianceTotals(items)} /> : null
+  if (folded) return <div data-testid={RESTS_ON_KEY_TESTID} data-folded="" className={isV10 ? 'space-y-2' : undefined}>{headline}{v10Legend}</div>
   return (
     <div data-testid={RESTS_ON_KEY_TESTID} className="space-y-3">
       {headline}
+      {pickedItem ? null : v10Legend}
       {pickedItem ? (
         <div data-testid={`${RESTS_ON_KEY_TESTID}-picked`} className="rounded-xl border border-panel-border px-3 pb-2 pt-2.5">
           <div className="flex items-start gap-2">
@@ -246,6 +255,7 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
               )
             })}
           </div>
+          {isV10 ? <V10RestsOnReliance rows={reliance} /> : null}
           <p className={`${typography.panelMeta} text-text-light`}>{RESTS_ON_COPY.pick} {ASSUMPTION_MAP_COPY.optionsNote}</p>
           {assumptionList}
         </>
