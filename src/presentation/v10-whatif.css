@@ -1,0 +1,3 @@
+/* v10 (#/canvas2) What if: the held value drawn on its card is the PERSON's try, so it is ink, never Olumi's blue. */
+[data-presentation="v10"] [data-what-if-mark] { border-color: var(--text-header, #262626); }
+[data-presentation="v10"] [data-what-if-line] { stroke: var(--text-header, #262626); }
