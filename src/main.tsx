@@ -1,6 +1,8 @@
 // src/main.tsx
 import './index.css';
 import { captureParticipantTokenFromUrl } from './collab/participantToken';
+import { isOlumiCoreLane } from './olumiCore/lane';
+import { guardBff } from './olumiCore/bffGuard';
 import { Suspense } from 'react';
 import { InputModality } from './components/InputModality';
 import { createRoot } from 'react-dom/client';
@@ -144,6 +146,8 @@ const AppPoC = lazyWithStallBound(async () => { await runLapseBoundaryIfNeeded()
     // mounted yet. See src/collab/participantToken.ts for why the URL fragment
     // is not a hiding place in a HashRouter app.
     captureParticipantTokenFromUrl();
+    // The olumi-core lane sends nothing to /bff: refused here before anything can fetch (src/olumiCore/bffGuard.ts).
+    if (isOlumiCoreLane()) guardBff(window);
 
     log('boot:start', { href: location.href, token: ENTRY_PROOF_TOKEN });
 
