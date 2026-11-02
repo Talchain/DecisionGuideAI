@@ -81,6 +81,7 @@ import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCornerOlumi } from './shared/NodeCornerOlumi'
 import { usePresentation } from '../../presentation/v10'
 import { V10StoryDiscs } from '../../presentation/V10StoryNumbers'
+import { V10ChangeMarks } from '../../presentation/V10ChangeLens'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { openOptionValueInput } from '../utils/openOptionValueInput'
@@ -2548,6 +2549,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       {/* v10 "If it failed": the numbers of the failure stories that rest on this card, at its top-left corner. Unmounted at the
           low-detail rung, with the rest of the card's marks. */}
       {isV10 && !lodBodyHidden && <V10StoryDiscs nodeId={id} />}
+
+      {/* v10 only (#/canvas2): the "What would change" lens's marks, out of flow. */}
+      {isV10 && livingOnly === null && <V10ChangeMarks nodeId={id} nodeType={nodeType} />}
 
       {/* Node header — shape + title on same row (spec Section 3.2) */}
       <div
