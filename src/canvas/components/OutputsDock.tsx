@@ -216,6 +216,7 @@ import { useViewFollows } from '../../olumiView/follow'
 import { drawViewCanvas, useViewCanvas } from '../../olumiView/canvas'
 import { ViewChancesBlock } from '../../olumiView/ViewChances'
 import { ViewChat, ViewComposer } from '../../olumiView/ViewChat'
+import { focusDockedOlumi } from '../conversation/dockedOlumiFocus'
 import { pulseWhenOnCanvas } from '../../olumiCore/pulseArrivals'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
 
@@ -1089,6 +1090,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     if (isOlumiCoreLane()) {
       setState((prev) => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
       useUIStore.getState().setActiveOutputTab('olumi' as OutputTab)
+      // Once the tab has drawn its composer, the person is in it (review 00066 ledger).
+      if (typeof window !== 'undefined') window.requestAnimationFrame(() => { focusDockedOlumi() })
       return
     }
     if (state.activeTab === 'olumi') {

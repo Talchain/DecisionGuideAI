@@ -7,6 +7,8 @@ import '@testing-library/jest-dom/vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 
 const lane = vi.hoisted(() => ({ on: true }))
 vi.mock('../../../olumiCore/lane', async (real) => ({ ...(await real<object>()), isOlumiCoreLane: () => lane.on }))
@@ -109,6 +111,45 @@ describe('on the lane every way to Olumi leads to the dock\'s Olumi tab (review 
     await dock()
     expect(document.activeElement?.id).not.toBe('view-chat-text')
     await act(async () => { useViewChat.setState({ busy: false }) })
+    expect(document.activeElement?.id).toBe('view-chat-text')
+  })
+})
+
+describe('on the lane nothing opens a floating panel, an empty scenario included (review 00066)', () => {
+  beforeEach(() => { lane.on = true; useFloatingPanelState.setState({ isOpen: false, isMinimised: false } as never) })
+  afterEach(() => useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null }))
+
+  it('an empty scenario, then another tab: the footer offers "Open Olumi", which fronts the Olumi tab with its brief box focused', async () => {
+    await dock()
+    expect(fronted()).toBe('outputs-dock-tab-olumi')
+    await act(async () => { fireEvent.click(screen.getByTestId('outputs-dock-tab-results')) })
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
+    expect(useFloatingPanelState.getState().isOpen).toBe(false)
+    expect(screen.queryByTestId('persistent-strip-status')).toBeNull()
+    await act(async () => { fireEvent.click(screen.getByTestId('persistent-strip-composer-redirect')) })
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
+    expect(fronted()).toBe('outputs-dock-tab-olumi')
+    expect(document.activeElement?.id).toBe('view-chat-text')
+  })
+
+  it('the floating panel\'s own open and toggle do nothing on the lane, and open it off the lane', () => {
+    useFloatingPanelState.getState().open('user')
+    expect(useFloatingPanelState.getState().isOpen).toBe(false)
+    useFloatingPanelState.getState().toggle()
+    expect(useFloatingPanelState.getState().isOpen).toBe(false)
+    lane.on = false
+    useFloatingPanelState.getState().open('user')
+    expect(useFloatingPanelState.getState().isOpen).toBe(true)
+  })
+
+  it('"Open Olumi" on a scenario with a model focuses the message box', async () => {
+    const view = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
+    useViewStore.setState({ uuid: UUID, sid: 's_000000000001', view: { ...view, proposal: null }, error: null, status: 'ready' })
+    sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'results' }))
+    useCanvasStore.setState({ nodes: [{ id: 'goal-1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } }] } as never)
+    await dock()
+    await act(async () => { fireEvent.click(screen.getByTestId('persistent-strip-composer-redirect')) })
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
     expect(document.activeElement?.id).toBe('view-chat-text')
   })
 })
