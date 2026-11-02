@@ -17,6 +17,7 @@ import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/typ
 import type { ReportV1 } from '../../adapters/plot/types'
 import { buildPersistedGraph, type PersistedGraph } from '../utils/persistedGraph'
 import { isThinClientSession, saveThinLayout } from '../thinClient/thinClient'
+import { withoutViewCards } from '../domain/migrations'
 
 export interface ScenarioFraming {
   title?: string          // Decision or question
@@ -871,6 +872,8 @@ function showAutosaveFenceToast(reason: IdentityWriteBlockReason, epoch?: string
 
 /** Returns whether the slot now holds this write (an identical payload already does). `false` = nothing was written. */
 export function saveAutosave(data: AutosaveData): boolean {
+  // Every writer comes through here: on the olumi-core lane a viewCard is never written (see `withoutViewCards`).
+  data = { ...data, ...withoutViewCards(data.nodes, data.edges) }
   if (!isLocalStorageAvailable()) {
     if (!isThinClientSession()) showAutosaveFenceToast('unreadable')
     return false
@@ -969,7 +972,9 @@ export function loadAutosave(): AutosaveData | null {
     // CAN-F2w: a slot written under another identity is not this one's (see `IDENTITY_EPOCH_KEY`).
     if (!belongsToThisIdentity(data.identityEpoch)) return null
 
-    return data
+    // An autosave written before the olumi-core lane kept no viewCards may hold some: they are dropped, so an old card never
+    // shows before the View answers (see `withoutViewCards`).
+    return { ...data, ...withoutViewCards(data.nodes, data.edges) }
   } catch (error) {
     console.error('[scenarios] Failed to load autosave:', error)
     return null
