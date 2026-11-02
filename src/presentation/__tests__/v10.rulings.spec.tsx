@@ -10,6 +10,7 @@ import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPortal } from 'react-dom'
 import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -204,5 +205,50 @@ describe('v10 ruling 2: blue means Olumi only', () => {
       const outside = mount(`<button ${marker}="true" style="opacity:.3">x</button>`, 'current')
       expect(importantRule(outside, 'opacity', '1'), `${marker} outside v10`).toBe(false)
     }
+  })
+})
+
+describe('v10 scope reaches roots portalled into document.body', () => {
+  afterEach(() => { cleanup(); document.body.innerHTML = ''; document.getElementById('v10-sheet')?.remove() })
+
+  const Portalled = () => createPortal(<button className="bg-primary" data-testid="portalled-send">Send</button>, document.body)
+  const mountProvider = (value: 'current' | 'v10') =>
+    render(<MemoryRouter><PresentationProvider value={value}><Portalled /></PresentationProvider></MemoryRouter>)
+  const v10Rules = () => {
+    const sheet = document.createElement('style')
+    sheet.id = 'v10-sheet'
+    sheet.textContent = CSS
+    document.head.appendChild(sheet)
+    return Array.from(sheet.sheet!.cssRules).filter((r): r is CSSStyleRule => 'selectorText' in r)
+  }
+
+  it('a button portalled into document.body under the v10 provider is matched by the v10 primary-button rule', () => {
+    mountProvider('v10')
+    const send = screen.getByTestId('portalled-send')
+    expect(send.closest('[data-presentation="v10"]')).not.toBeNull() // it is outside the wrapper div, so this is <html>
+    expect(v10Rules().some((r) => send.matches(r.selectorText) && r.style.getPropertyValue('background-color') === '#262626')).toBe(true)
+  })
+
+  it('CONTRAST: the same portalled button under the current design is not matched', () => {
+    mountProvider('current')
+    const send = screen.getByTestId('portalled-send')
+    expect(v10Rules().some((r) => send.matches(r.selectorText))).toBe(false)
+  })
+
+  it('the attribute leaves <html> when the provider unmounts, and #/canvas never carries it', () => {
+    const { unmount } = mountProvider('v10')
+    expect(document.documentElement.dataset.presentation).toBe('v10')
+    unmount()
+    expect(document.documentElement.dataset.presentation).toBeUndefined()
+    const current = mountProvider('current')
+    expect(document.documentElement.dataset.presentation).toBeUndefined()
+    current.unmount()
+  })
+
+  it('the expanded legacy draft button, whose label carries the keyboard hint, gets the disabled ink', () => {
+    mountProvider('v10')
+    document.body.insertAdjacentHTML('beforeend', '<button disabled aria-label="Generate draft (Enter to send, Shift+Enter for new line)"></button>')
+    const el = document.body.querySelector('button[aria-label^="Generate draft"]')!
+    expect(v10Rules().some((r) => el.matches(r.selectorText) && r.style.getPropertyValue('opacity') === '0.35')).toBe(true)
   })
 })

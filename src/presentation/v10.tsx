@@ -3,7 +3,7 @@
  * Paul can compare the two side by side (2 Nov 2026). Components read `usePresentation()` and change only what v10
  * changes; everything else is the current app. Design source: claude.ai/artifact/DMUcdVX5nMX89C4fD8hBVn.
  */
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { typography } from '../styles/typography'
 import './v10.css'
@@ -20,6 +20,13 @@ export function usePresentation(): Presentation {
 
 export function PresentationProvider({ value, children }: { value: Presentation; children: ReactNode }) {
   const { id } = useParams<{ id: string }>()
+  // Some roots portal into document.body (FirstUseComposer, FloatingOlumiPanel), outside the wrapper below. The same
+  // attribute on <html> lets every [data-presentation="v10"] rule in v10.css reach them. #/canvas never carries it.
+  useEffect(() => {
+    if (value !== 'v10') return undefined
+    document.documentElement.dataset.presentation = 'v10'
+    return () => { delete document.documentElement.dataset.presentation }
+  }, [value])
   return (
     <PresentationContext.Provider value={value}>
       <div data-presentation={value} className="contents">

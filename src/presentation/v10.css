@@ -43,8 +43,8 @@
 [data-presentation="v10"] button:is(.bg-primary, .bg-info, .bg-info-500, .bg-info-600):disabled,
 [data-presentation="v10"] button[class*="graphPatchAccept"]:disabled,
 [data-presentation="v10"] .send-btn:disabled,
-[data-presentation="v10"] button[aria-label="Generate draft"]:disabled,
-[data-presentation="v10"] button[aria-label="Rebuild model"]:disabled {
+[data-presentation="v10"] button[aria-label^="Generate draft"]:disabled,
+[data-presentation="v10"] button[aria-label^="Rebuild model"]:disabled {
   background-color: #262626 !important;
   border-color: transparent !important;
   color: #fff !important;
