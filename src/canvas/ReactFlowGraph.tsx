@@ -3358,7 +3358,12 @@ export function MaybeConversationProvider({ children }: { children: import('reac
  */
 export function RightEdgeChat({ showStarters }: { showStarters?: boolean }) {
   if (isOlumiCoreLane()) return null
-  return isAiPanelV2Enabled() ? <FloatingOlumiPanelHost showStarters={showStarters} /> : <DraftChat />
+  return (
+    <>
+      {!isAiPanelV2Enabled() && <DraftChat />}
+      {isAiPanelV2Enabled() && <FloatingOlumiPanelHost showStarters={showStarters} />}
+    </>
+  )
 }
 
 /**
