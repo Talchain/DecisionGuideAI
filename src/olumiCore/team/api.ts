@@ -41,7 +41,7 @@ export function newOp(): string {
   return c?.randomUUID ? c.randomUUID() : `op-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+export async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   let res: Response
   try {
     res = await (fetchImpl ?? fetch)(path, {

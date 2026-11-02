@@ -1,0 +1,1539 @@
+{
+ "schema": "olumi.view/2",
+ "id": "s_000000000004",
+ "title": "European expansion: growth, retention and investment",
+ "commit": "golden",
+ "signature": "[1,null,[],[],[],[],[\"p_1\"]]",
+ "you": "Paul",
+ "members": [
+  {
+   "id": "p_1",
+   "name": "Paul"
+  }
+ ],
+ "version": {
+  "id": 1,
+  "n": 1,
+  "label": "version 1"
+ },
+ "model": {
+  "question": {
+   "text": "Should we expand into the European market in the next 6–12 months?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": {
+    "records": [
+     "horizon",
+     "profitability",
+     "churn_profit_warning",
+     "churn_profit_influence",
+     "profit_gap"
+    ],
+    "text": "● ❝ ↝ +5",
+    "title": "quantity: Proposed comparison horizon\nquantity: Profitability\nclaim: Monthly churn beyond 12% creates a danger of losing money; this does not establish that churn at or below 12% guarantees profitability.\nrelation: Monthly customer churn → Profitability\nleft out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated.",
+    "label": "Expand 5 reasoning records",
+    "open": false,
+    "proposed": false,
+    "change": ""
+   }
+  },
+  "whole": false,
+  "cards": [
+   {
+    "id": "starting_customers",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Current customer base",
+    "typed": false,
+    "detail": "Current customer base · quantity · Theirs: “Our current customer base is 400.” · 400 customers",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "400 customers",
+     "title": "400 customers",
+     "edit": {
+      "prompt": "New figure for “Current customer base” (customer): one number, or a range like 150 to 400",
+      "ask": "For “Current customer base”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null
+   },
+   {
+    "id": "customer_target",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Customer target",
+    "typed": false,
+    "detail": "Customer target · quantity · Theirs: “The target is 800.” · 800 customers",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "800 customers",
+     "title": "800 customers",
+     "edit": {
+      "prompt": "New figure for “Customer target” (customer): one number, or a range like 150 to 400",
+      "ask": "For “Customer target”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null
+   },
+   {
+    "id": "entry_delay",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Expansion start after now",
+    "typed": false,
+    "detail": "Expansion start after now · quantity · Theirs: “expand into the European market in the next 6-12 months” · Hard bounds: 6 to 12 months",
+    "col": 1,
+    "h": 116,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "6 to 12 months",
+     "title": "Hard bounds: 6 to 12 months",
+     "edit": {
+      "prompt": "New figure for “Expansion start after now” (month): one number, or a range like 150 to 400",
+      "ask": "For “Expansion start after now”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "regulatory_complexity",
+      "ramp_gap"
+     ],
+     "text": "❝ ○ +2",
+     "title": "claim: Multiple complex country regulations are a consideration.\nleft out: The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision.",
+     "label": "Expand 2 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "entry_interpretation",
+    "family": "assumption",
+    "glyph": "◇",
+    "heading": "assumption",
+    "typed": true,
+    "detail": "Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply. · assumption · Proposed by Olumi: The phrase could instead mean deciding, completing setup or achieving meaningful scale in that window. This provisional reading makes timing explicit rather than assuming immediate entry. · Applied in the calculation",
+    "col": 1,
+    "h": 112,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: The phrase could instead mean deciding, completing setup or achieving meaningful scale in that window. This provisional reading makes timing explicit rather than assuming immediate entry."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": "Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply.",
+    "badge": null
+   },
+   {
+    "id": "churn_danger_threshold",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Churn danger threshold",
+    "typed": false,
+    "detail": "Churn danger threshold · quantity · Theirs: “If it goes beyond 12%, we're in danger of losing money.” · 12%",
+    "col": 1,
+    "h": 116,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "12%",
+     "title": "12%",
+     "edit": {
+      "prompt": "New figure for “Churn danger threshold” (%): one number, or a range like 150 to 400",
+      "ask": "For “Churn danger threshold”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "churn_profit_warning",
+      "profit_gap"
+     ],
+     "text": "❝ ○ +2",
+     "title": "claim: Monthly churn beyond 12% creates a danger of losing money; this does not establish that churn at or below 12% guarantees profitability.\nleft out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated.",
+     "label": "Expand 2 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "broad_entry_acquisitions",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Broader-entry acquisition what-if",
+    "typed": false,
+    "detail": "Broader-entry acquisition what-if · quantity · Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated incremental acquisition what-if after entry: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No demand, funnel or country data was supplied. · Plausible range: 10 to 160 customers/month",
+    "col": 1,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated incremental acquisition what-if after entry: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No demand, funnel or country data was supplied."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "10 to 160 customers/month",
+     "title": "Plausible range: 10 to 160 customers/month",
+     "edit": {
+      "prompt": "New figure for “Broader-entry acquisition what-if” (customer/month): one number, or a range like 150 to 400",
+      "ask": "For “Broader-entry acquisition what-if”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "competition_varies",
+      "validate_acquisition_cost_pairings"
+     ],
+     "text": "❝ ! +2",
+     "title": "claim: Competition intensity varies; countries should not be treated as interchangeable demand environments.\nchallenge: Replace the independent acquisition and investment what-ifs with internally consistent country-and-channel plans; higher spending is not currently linked to higher acquisition in this model.",
+     "label": "Expand 2 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "pilot_acquisitions",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Single-country test acquisition what-if",
+    "typed": false,
+    "detail": "Single-country test acquisition what-if · quantity · Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated average monthly acquisition what-if: an initial 5–20 guess widened twofold on a ratio scale to 2.5–40. The smaller scale is a proposed test design, not evidence of country demand. · Plausible range: 2.5 to 40 customers/month",
+    "col": 1,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated average monthly acquisition what-if: an initial 5–20 guess widened twofold on a ratio scale to 2.5–40. The smaller scale is a proposed test design, not evidence of country demand."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "2.5 to 40 customers/month",
+     "title": "Plausible range: 2.5 to 40 customers/month",
+     "edit": {
+      "prompt": "New figure for “Single-country test acquisition what-if” (customer/month): one number, or a range like 150 to 400",
+      "ask": "For “Single-country test acquisition what-if”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "competition_varies",
+      "validate_acquisition_cost_pairings"
+     ],
+     "text": "❝ ! +2",
+     "title": "claim: Competition intensity varies; countries should not be treated as interchangeable demand environments.\nchallenge: Replace the independent acquisition and investment what-ifs with internally consistent country-and-channel plans; higher spending is not currently linked to higher acquisition in this model.",
+     "label": "Expand 2 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "expansion_churn",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Post-entry churn what-if",
+    "typed": false,
+    "detail": "Post-entry churn what-if · quantity · Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated stress range, not a prediction of expansion's effect: an initial 6–13.5% guess widened twofold on a ratio scale to 4–20.25%. The supplied subscription-business benchmark is not applied because the business model is unspecified. · Plausible range: 4 to 20.25%",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated stress range, not a prediction of expansion's effect: an initial 6–13.5% guess widened twofold on a ratio scale to 4–20.25%. The supplied subscription-business benchmark is not applied because the business model is unspecified."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "4 to 20.25%",
+     "title": "Plausible range: 4 to 20.25%",
+     "edit": {
+      "prompt": "New figure for “Post-entry churn what-if” (%): one number, or a range like 150 to 400",
+      "ask": "For “Post-entry churn what-if”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null
+   },
+   {
+    "id": "shared_churn_stress",
+    "family": "assumption",
+    "glyph": "◇",
+    "heading": "assumption",
+    "typed": true,
+    "detail": "Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption. · assumption · Proposed by Olumi: Avoids claiming that a smaller entry automatically protects retention. The current observation is not evidence that future churn will stay constant. · Applied in the calculation",
+    "col": 1,
+    "h": 112,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Avoids claiming that a smaller entry automatically protects retention. The current observation is not evidence that future churn will stay constant."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": "Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.",
+    "badge": null
+   },
+   {
+    "id": "customers",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Customer base",
+    "typed": false,
+    "detail": "Customer base · quantity · Proposed by Olumi: Customer stock starts at 400 and changes with acquisitions and customer losses each month. · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Customer stock starts at 400 and changes with acquisitions and customer losses each month."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Enter multiple European countries: 318 to 1,540 customers · Test one country before broader commitment: 261 to 1,400 customers · No new European entry during this window: 254 to 1,410 customers",
+     "title": "Modelled range at the end of month 12: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. It rests on figures Olumi proposed. Enter multiple European countries: 318 to 1,540 customers; Test one country before broader commitment: 261 to 1,400 customers; No new European entry during this window: 254 to 1,410 customers. Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "churn_rate",
+      "percent_conversion",
+      "churn_fraction",
+      "existing_market_acquisitions",
+      "europe_acquisitions",
+      "total_acquisitions",
+      "customer_losses",
+      "convert_churn",
+      "add_acquisitions",
+      "calculate_losses",
+      "customer_stock",
+      "churn_profit_warning",
+      "churn_profit_influence",
+      "test_geographic_explanation",
+      "profit_gap",
+      "monthly_churn_frequency"
+     ],
+     "text": "● = ❝ +16",
+     "title": "quantity: Monthly customer churn\nquantity: Percentage to fraction\nquantity: Monthly churn fraction\nquantity: New customers from existing markets\nquantity: Incremental European customer acquisitions\nquantity: Total monthly new customers\nquantity: Monthly customers lost\nrelation: how Monthly churn fraction is worked out\nrelation: how Total monthly new customers is worked out\nrelation: how Monthly customers lost is worked out\nrelation: how Customer base is worked out\nclaim: Monthly churn beyond 12% creates a danger of losing money; this does not establish that churn at or below 12% guarantees profitability.\nrelation: Monthly customer churn → Profitability\nchallenge: Test whether the main barrier to reaching 800 is insufficient market access or retention and acquisition economics in the existing market. Expansion could add customers without resolving the underlying growth constraint.\nleft out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated.\nquantity: Monthly churn application frequency",
+     "label": "Expand 16 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "investment_cap",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Investment budget ceiling",
+    "typed": false,
+    "detail": "Investment budget ceiling · quantity · Theirs: “The investment budget is up to £500k.” · 500,000 GBP",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "500,000 GBP",
+     "title": "500,000 GBP",
+     "edit": {
+      "prompt": "New figure for “Investment budget ceiling” (GBP): one number, or a range like 150 to 400",
+      "ask": "For “Investment budget ceiling”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null
+   },
+   {
+    "id": "broad_entry_investment",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Broader-entry investment what-if",
+    "typed": false,
+    "detail": "Broader-entry investment what-if · quantity · Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated total commitment what-if including setup, localisation, compliance and launch activity: an initial £100,000–£400,000 guess widened twofold on a ratio scale to £50,000–£800,000. The stated budget is a ceiling, not evidence of actual cost. · Plausible range: 50,000 to 800,000 GBP",
+    "col": 1,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated total commitment what-if including setup, localisation, compliance and launch activity: an initial £100,000–£400,000 guess widened twofold on a ratio scale to £50,000–£800,000. The stated budget is a ceiling, not evidence of actual cost."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "50,000 to 800,000 GBP",
+     "title": "Plausible range: 50,000 to 800,000 GBP",
+     "edit": {
+      "prompt": "New figure for “Broader-entry investment what-if” (GBP): one number, or a range like 150 to 400",
+      "ask": "For “Broader-entry investment what-if”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "validate_acquisition_cost_pairings"
+     ],
+     "text": "! +1",
+     "title": "challenge: Replace the independent acquisition and investment what-ifs with internally consistent country-and-channel plans; higher spending is not currently linked to higher acquisition in this model.",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "pilot_investment",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Single-country test investment what-if",
+    "typed": false,
+    "detail": "Single-country test investment what-if · quantity · Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated total commitment for a deliberately narrower test: an initial £25,000–£100,000 guess widened twofold on a ratio scale to £12,500–£200,000. This is not a supplier quote or a spending recommendation. · Plausible range: 12,500 to 200,000 GBP",
+    "col": 1,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated total commitment for a deliberately narrower test: an initial £25,000–£100,000 guess widened twofold on a ratio scale to £12,500–£200,000. This is not a supplier quote or a spending recommendation."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "12,500 to 200,000 GBP",
+     "title": "Plausible range: 12,500 to 200,000 GBP",
+     "edit": {
+      "prompt": "New figure for “Single-country test investment what-if” (GBP): one number, or a range like 150 to 400",
+      "ask": "For “Single-country test investment what-if”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "validate_acquisition_cost_pairings"
+     ],
+     "text": "! +1",
+     "title": "challenge: Replace the independent acquisition and investment what-ifs with internally consistent country-and-channel plans; higher spending is not currently linked to higher acquisition in this model.",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "reach_customer_target",
+    "family": "goal",
+    "glyph": "◆",
+    "heading": "Reach 800 customers",
+    "typed": false,
+    "detail": "Reach 800 customers · goal · Theirs: “The target is 800.”",
+    "col": 3,
+    "h": 130,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": {
+     "text": "at least 800 customers",
+     "title": "Does 800 mean total customers across all markets, and by when should that target be reached?",
+     "olumi": null,
+     "measured": true
+    },
+    "reason": null,
+    "badge": {
+     "records": [
+      "test_geographic_explanation",
+      "profit_gap",
+      "ramp_gap"
+     ],
+     "text": "! ○ +3",
+     "title": "challenge: Test whether the main barrier to reaching 800 is insufficient market access or retention and acquisition economics in the existing market. Expansion could add customers without resolving the underlying growth constraint.\nleft out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated.\nleft out: The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision.",
+     "label": "Expand 3 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "target_interpretation",
+    "family": "assumption",
+    "glyph": "◇",
+    "heading": "assumption",
+    "typed": true,
+    "detail": "Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter. · assumption · Proposed by Olumi: Supplies a testable reading while leaving target scope and deadline open for correction. · Applied in the calculation",
+    "col": 3,
+    "h": 112,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Supplies a testable reading while leaving target scope and deadline open for correction."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": "Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter.",
+    "badge": null
+   },
+   {
+    "id": "customer_flow_assumptions",
+    "family": "assumption",
+    "glyph": "◇",
+    "heading": "assumption",
+    "typed": true,
+    "detail": "Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets. · assumption · Proposed by Olumi: Minimal stock-flow conventions. The brief does not specify revenue churn, cohort behaviour, cannibalisation or management-capacity effects. · Applied in the calculation",
+    "col": 3,
+    "h": 112,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Minimal stock-flow conventions. The brief does not specify revenue churn, cohort behaviour, cannibalisation or management-capacity effects."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": "Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
+    "badge": null
+   },
+   {
+    "id": "investment_limit",
+    "family": "limit",
+    "glyph": "□",
+    "heading": "Stay within £500k investment budget",
+    "typed": false,
+    "detail": "Stay within £500k investment budget · limit · Theirs: “The investment budget is up to £500k.”",
+    "col": 3,
+    "h": 130,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": {
+     "text": "at most 500,000 GBP",
+     "title": "Does the £500k cover the full expansion commitment, including compliance, localisation, staffing and working capital?",
+     "olumi": null,
+     "measured": true
+    },
+    "reason": null,
+    "badge": {
+     "records": [
+      "expansion_investment",
+      "regulatory_complexity",
+      "profit_gap"
+     ],
+     "text": "● ❝ ○ +3",
+     "title": "quantity: Total investment committed to expansion\nclaim: Multiple complex country regulations are a consideration.\nleft out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated.",
+     "label": "Expand 3 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "proposed_churn_guardrail",
+    "family": "limit",
+    "glyph": "□",
+    "heading": "Proposed guardrail: churn no higher than 12%",
+    "typed": false,
+    "detail": "Proposed guardrail: churn no higher than 12% · limit · Proposed by Olumi: Proposes turning the person's unchanged 12% danger threshold into a monthly guardrail. This decision rule is not yet agreed and does not replace a profitability test.",
+    "col": 3,
+    "h": 130,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Proposes turning the person's unchanged 12% danger threshold into a monthly guardrail. This decision rule is not yet agreed and does not replace a profitability test."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": {
+     "text": "at most 12%",
+     "title": "Should exceeding 12% churn rule out or pause expansion, or is it a warning that needs a separate profitability test?",
+     "olumi": null,
+     "measured": true
+    },
+    "reason": null,
+    "badge": {
+     "records": [
+      "churn_rate",
+      "churn_profit_warning",
+      "churn_profit_influence",
+      "test_geographic_explanation",
+      "profit_gap"
+     ],
+     "text": "● ❝ ↝ +5",
+     "title": "quantity: Monthly customer churn\nclaim: Monthly churn beyond 12% creates a danger of losing money; this does not establish that churn at or below 12% guarantees profitability.\nrelation: Monthly customer churn → Profitability\nchallenge: Test whether the main barrier to reaching 800 is insufficient market access or retention and acquisition economics in the existing market. Expansion could add customers without resolving the underlying growth constraint.\nleft out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated.",
+     "label": "Expand 5 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "broader_entry",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Enter multiple European countries",
+    "typed": false,
+    "detail": "Enter multiple European countries · option · Proposed by Olumi: Concrete interpretation of European expansion for comparison, not an assertion that multiple-country entry is intended. Total investment is treated as a commitment when the option is adopted, not a cash-payment schedule.",
+    "col": 0,
+    "h": 218,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Concrete interpretation of European expansion for comparison, not an assertion that multiple-country entry is intended. Total investment is treated as a commitment when the option is adopted, not a cash-payment schedule."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "⊢",
+      "text": "For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
+      "title": "For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met. · prerequisite · Proposed by Olumi: Makes the stated country-regulation concern actionable without assuming Europe means the EU or that particular rules apply to this unspecified business."
+     },
+     {
+      "glyph": "!",
+      "text": "Test whether the main barrier to reaching 800 is insufficient market access or retention and acquisition economics in the existing market. Expansion could add customers without resolving the underlying growth constraint.",
+      "title": "Test whether the main barrier to reaching 800 is insufficient market access or retention and acquisition economics in the existing market. Expansion could add customers without resolving the underlying growth constraint. · challenge · Proposed by Olumi: A different explanation for the growth gap: the supplied churn rate makes retention material, while evidence that geography is the binding constraint is absent."
+     },
+     {
+      "glyph": "!",
+      "text": "Replace the independent acquisition and investment what-ifs with internally consistent country-and-channel plans; higher spending is not currently linked to higher acquisition in this model.",
+      "title": "Replace the independent acquisition and investment what-ifs with internally consistent country-and-channel plans; higher spending is not currently linked to higher acquisition in this model. · challenge · Proposed by Olumi: The brief provides no cost-to-acquisition relationship. The ranges enable exploration but cannot establish spending efficiency or a preferred option."
+     }
+    ],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "about 41% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": {
+       "glyph": "◉",
+       "title": "If Olumi's estimates hold, the option most likely to achieve 'Reach 800 customers' in this model (about 41%, against about 33% for 'Test one country before broader commitment'). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'New customers from existing markets', 'Broader-entry acquisition what-if', 'Post-entry churn what-if'. It rests on: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter; Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets; Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply; Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption; For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met. It leaves out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated; The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision."
+      },
+      "aim": "Reach 800 customers",
+      "aim_id": "reach_customer_target",
+      "title": "If Olumi's estimates hold, the chance that 'Enter multiple European countries' meets 'Reach 800 customers', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'New customers from existing markets', 'Broader-entry acquisition what-if', 'Post-entry churn what-if'. It rests on: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter; Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets; Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply; Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption; For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met. It leaves out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated; The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision.",
+      "band": {
+       "from": 0.003355117785978994,
+       "mid": 0.2481491072444789,
+       "to": 1,
+       "aim_at": 0.3571391783445531,
+       "labels": {
+        "from": "386 customers",
+        "to": "1,550 customers",
+        "aim": "800 customers"
+       },
+       "low": 385.5223869967669,
+       "median": 672.3120978393197,
+       "high": 1553.1470423861333,
+       "target": 800,
+       "unit": "customer",
+       "axis": {
+        "min": 381.59168076573525,
+        "max": 1553.1470423861333
+       }
+      },
+      "swing": {
+       "label": "about 4% if 'New customers from existing markets' is low, about 97% if it is high",
+       "title": "about 4% if 'New customers from existing markets' is low, about 97% if it is high. Under 'Enter multiple European countries', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
+       "low": 0.0429042904290429,
+       "high": 0.9738973897389739
+      }
+     },
+     {
+      "kind": "limit",
+      "value": "about 75%",
+      "aim": "Stay within £500k investment budget",
+      "title": "If Olumi's estimates hold, the chance that 'Enter multiple European countries' stays within 'Stay within £500k investment budget', in this model."
+     },
+     {
+      "kind": "limit",
+      "value": "about 64%",
+      "aim": "Proposed guardrail: churn no higher than 12%",
+      "title": "If Olumi's estimates hold, the chance that 'Enter multiple European countries' stays within 'Proposed guardrail: churn no higher than 12%', in this model."
+     }
+    ],
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "competition_varies",
+      "regulatory_complexity",
+      "test_geographic_explanation",
+      "ramp_gap"
+     ],
+     "text": "❝ ! ○ +4",
+     "title": "claim: Competition intensity varies; countries should not be treated as interchangeable demand environments.\nclaim: Multiple complex country regulations are a consideration.\nchallenge: Test whether the main barrier to reaching 800 is insufficient market access or retention and acquisition economics in the existing market. Expansion could add customers without resolving the underlying growth constraint.\nleft out: The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision.",
+     "label": "Expand 4 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "country_readiness",
+    "family": "condition",
+    "glyph": "⊢",
+    "heading": "prerequisite",
+    "typed": true,
+    "detail": "For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met. · prerequisite · Proposed by Olumi: Makes the stated country-regulation concern actionable without assuming Europe means the EU or that particular rules apply to this unspecified business.",
+    "col": 0,
+    "h": 112,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Makes the stated country-regulation concern actionable without assuming Europe means the EU or that particular rules apply to this unspecified business."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "status": null,
+    "bound": null,
+    "reason": "For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
+    "badge": null
+   },
+   {
+    "id": "single_country_test",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Test one country before broader commitment",
+    "typed": false,
+    "detail": "Test one country before broader commitment · option · Proposed by Olumi: Alternative mechanism: use a narrower entry to learn about demand and regulatory execution before any wider commitment. No automatic second-stage rollout is included.",
+    "col": 0,
+    "h": 200,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Alternative mechanism: use a narrower entry to learn about demand and regulatory execution before any wider commitment. No automatic second-stage rollout is included."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "⊢",
+      "text": "For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
+      "title": "For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met. · prerequisite · Proposed by Olumi: Makes the stated country-regulation concern actionable without assuming Europe means the EU or that particular rules apply to this unspecified business."
+     },
+     {
+      "glyph": "!",
+      "text": "Replace the independent acquisition and investment what-ifs with internally consistent country-and-channel plans; higher spending is not currently linked to higher acquisition in this model.",
+      "title": "Replace the independent acquisition and investment what-ifs with internally consistent country-and-channel plans; higher spending is not currently linked to higher acquisition in this model. · challenge · Proposed by Olumi: The brief provides no cost-to-acquisition relationship. The ranges enable exploration but cannot establish spending efficiency or a preferred option."
+     }
+    ],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "about 33% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Reach 800 customers",
+      "aim_id": "reach_customer_target",
+      "title": "If Olumi's estimates hold, the chance that 'Test one country before broader commitment' meets 'Reach 800 customers', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'New customers from existing markets', 'Single-country test acquisition what-if', 'Post-entry churn what-if'. It rests on: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter; Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets; Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply; Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption; For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met. It leaves out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated; The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision.",
+      "band": {
+       "from": 0.00020098668776115253,
+       "mid": 0.12522067324409386,
+       "to": 0.8887869650620732,
+       "aim_at": 0.3571391783445531,
+       "labels": {
+        "from": "382 customers",
+        "to": "1,420 customers",
+        "aim": "800 customers"
+       },
+       "low": 381.82714779739615,
+       "median": 528.2946318905693,
+       "high": 1422.8548150225286,
+       "target": 800,
+       "unit": "customer",
+       "axis": {
+        "min": 381.59168076573525,
+        "max": 1553.1470423861333
+       }
+      },
+      "swing": {
+       "label": "under 1% if 'New customers from existing markets' is low, about 95% if it is high",
+       "title": "under 1% if 'New customers from existing markets' is low, about 95% if it is high. Under 'Test one country before broader commitment', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
+       "low": 0,
+       "high": 0.9531953195319532
+      }
+     },
+     {
+      "kind": "limit",
+      "value": "over 99%",
+      "aim": "Stay within £500k investment budget",
+      "title": "If Olumi's estimates hold, the chance that 'Test one country before broader commitment' stays within 'Stay within £500k investment budget', in this model."
+     },
+     {
+      "kind": "limit",
+      "value": "about 64%",
+      "aim": "Proposed guardrail: churn no higher than 12%",
+      "title": "If Olumi's estimates hold, the chance that 'Test one country before broader commitment' stays within 'Proposed guardrail: churn no higher than 12%', in this model."
+     }
+    ],
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "competition_varies",
+      "regulatory_complexity",
+      "ramp_gap"
+     ],
+     "text": "❝ ○ +3",
+     "title": "claim: Competition intensity varies; countries should not be treated as interchangeable demand environments.\nclaim: Multiple complex country regulations are a consideration.\nleft out: The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision.",
+     "label": "Expand 3 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "no_new_european_entry",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "No new European entry during this window",
+    "typed": false,
+    "detail": "No new European entry during this window · option · Proposed by Olumi: Comparison option isolates what existing-market acquisition and present churn could achieve without the proposed new expansion. It is not labelled continuation because the current strategic plan is unspecified.",
+    "col": 0,
+    "h": 182,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Comparison option isolates what existing-market acquisition and present churn could achieve without the proposed new expansion. It is not labelled continuation because the current strategic plan is unspecified."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "!",
+      "text": "Test whether the main barrier to reaching 800 is insufficient market access or retention and acquisition economics in the existing market. Expansion could add customers without resolving the underlying growth constraint.",
+      "title": "Test whether the main barrier to reaching 800 is insufficient market access or retention and acquisition economics in the existing market. Expansion could add customers without resolving the underlying growth constraint. · challenge · Proposed by Olumi: A different explanation for the growth gap: the supplied churn rate makes retention material, while evidence that geography is the binding constraint is absent."
+     }
+    ],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "about 33% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Reach 800 customers",
+      "aim_id": "reach_customer_target",
+      "title": "If Olumi's estimates hold, the chance that 'No new European entry during this window' meets 'Reach 800 customers', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'New customers from existing markets'. It rests on: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter; Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets; Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply; Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption. It leaves out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated; The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision.",
+      "band": {
+       "from": 0,
+       "mid": 0.07693927186685169,
+       "to": 0.8769355137421478,
+       "aim_at": 0.3571391783445531,
+       "labels": {
+        "from": "382 customers",
+        "to": "1,410 customers",
+        "aim": "800 customers"
+       },
+       "low": 381.59168076573525,
+       "median": 471.7302972405148,
+       "high": 1408.9701836856868,
+       "target": 800,
+       "unit": "customer",
+       "axis": {
+        "min": 381.59168076573525,
+        "max": 1553.1470423861333
+       }
+      },
+      "swing": {
+       "label": "under 1% if 'New customers from existing markets' is low, about 99% if it is high",
+       "title": "under 1% if 'New customers from existing markets' is low, about 99% if it is high. Under 'No new European entry during this window', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
+       "low": 0,
+       "high": 0.9936993699369937
+      }
+     },
+     {
+      "kind": "limit",
+      "value": "always within in this model",
+      "aim": "Stay within £500k investment budget",
+      "title": "With the model's figures, 'No new European entry during this window' always stays within 'Stay within £500k investment budget': nothing uncertain reaches it, so this is fixed by the model, not a forecast."
+     },
+     {
+      "kind": "limit",
+      "value": "always within in this model",
+      "aim": "Proposed guardrail: churn no higher than 12%",
+      "title": "With the model's figures, 'No new European entry during this window' always stays within 'Proposed guardrail: churn no higher than 12%': nothing uncertain reaches it, so this is fixed by the model, not a forecast."
+     }
+    ],
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "test_geographic_explanation"
+     ],
+     "text": "! +1",
+     "title": "challenge: Test whether the main barrier to reaching 800 is insufficient market access or retention and acquisition economics in the existing market. Expansion could add customers without resolving the underlying growth constraint.",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   }
+  ],
+  "links": [
+   {
+    "from": "customers",
+    "to": "customers",
+    "kind": "through",
+    "sign": "?",
+    "label": "?",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Monthly customers lost · Proposed by Olumi: Multiplies the opening customer stock by the monthly churn fraction and its once-per-month application frequency to express customer losses in customer/month. This makes the existing monthly timing convention explicit without changing its numerical meaning. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "records": [
+     "calculate_losses",
+     "customer_stock"
+    ],
+    "via": [
+     "customer_losses"
+    ]
+   },
+   {
+    "from": "starting_customers",
+    "to": "customers",
+    "kind": "plain",
+    "sign": "+",
+    "label": "+",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "starts at · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "records": [
+     "customer_stock"
+    ],
+    "via": []
+   },
+   {
+    "from": "customers",
+    "to": "reach_customer_target",
+    "kind": "plain",
+    "sign": "",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "customer_target",
+    "to": "reach_customer_target",
+    "kind": "plain",
+    "sign": "",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "investment_cap",
+    "to": "investment_limit",
+    "kind": "plain",
+    "sign": "",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "bound",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "churn_danger_threshold",
+    "to": "proposed_churn_guardrail",
+    "kind": "plain",
+    "sign": "",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "bound",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "broader_entry",
+    "to": "broad_entry_acquisitions",
+    "kind": "plain",
+    "sign": "",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "broad_entry_acquisitions",
+    "to": "customers",
+    "kind": "through",
+    "sign": "+",
+    "label": "+",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Incremental European customer acquisitions, Total monthly new customers · Proposed by Olumi: Arithmetic identity for monthly new customers. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "records": [
+     "add_acquisitions",
+     "customer_stock"
+    ],
+    "via": [
+     "europe_acquisitions",
+     "total_acquisitions"
+    ]
+   },
+   {
+    "from": "broader_entry",
+    "to": "expansion_churn",
+    "kind": "plain",
+    "sign": "",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "expansion_churn",
+    "to": "customers",
+    "kind": "through",
+    "sign": "−",
+    "label": "−",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Monthly customer churn, Monthly churn fraction, Monthly customers lost · Proposed by Olumi: Percentage conversion for the stock-flow calculation. · Proposed by Olumi: Multiplies the opening customer stock by the monthly churn fraction and its once-per-month application frequency to express customer losses in customer/month. This makes the existing monthly timing convention explicit without changing its numerical meaning. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "records": [
+     "convert_churn",
+     "calculate_losses",
+     "customer_stock"
+    ],
+    "via": [
+     "churn_rate",
+     "churn_fraction",
+     "customer_losses"
+    ]
+   },
+   {
+    "from": "expansion_churn",
+    "to": "proposed_churn_guardrail",
+    "kind": "through",
+    "sign": "",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Monthly customer churn",
+    "records": [],
+    "via": [
+     "churn_rate"
+    ]
+   },
+   {
+    "from": "broader_entry",
+    "to": "broad_entry_investment",
+    "kind": "plain",
+    "sign": "",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "broad_entry_investment",
+    "to": "investment_limit",
+    "kind": "through",
+    "sign": "",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Total investment committed to expansion",
+    "records": [],
+    "via": [
+     "expansion_investment"
+    ]
+   },
+   {
+    "from": "single_country_test",
+    "to": "pilot_acquisitions",
+    "kind": "plain",
+    "sign": "",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "pilot_acquisitions",
+    "to": "customers",
+    "kind": "through",
+    "sign": "+",
+    "label": "+",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Incremental European customer acquisitions, Total monthly new customers · Proposed by Olumi: Arithmetic identity for monthly new customers. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "records": [
+     "add_acquisitions",
+     "customer_stock"
+    ],
+    "via": [
+     "europe_acquisitions",
+     "total_acquisitions"
+    ]
+   },
+   {
+    "from": "single_country_test",
+    "to": "expansion_churn",
+    "kind": "plain",
+    "sign": "",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "single_country_test",
+    "to": "pilot_investment",
+    "kind": "plain",
+    "sign": "",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "pilot_investment",
+    "to": "investment_limit",
+    "kind": "through",
+    "sign": "",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Total investment committed to expansion",
+    "records": [],
+    "via": [
+     "expansion_investment"
+    ]
+   },
+   {
+    "from": "country_readiness",
+    "to": "broader_entry",
+    "kind": "reason",
+    "sign": "",
+    "label": "⊢",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "prerequisite: For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "country_readiness",
+    "to": "single_country_test",
+    "kind": "reason",
+    "sign": "",
+    "label": "⊢",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "prerequisite: For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "country_readiness",
+    "to": "entry_delay",
+    "kind": "reason",
+    "sign": "",
+    "label": "⊢",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "prerequisite: For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "country_readiness",
+    "to": "investment_limit",
+    "kind": "reason",
+    "sign": "",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Total investment committed to expansion",
+    "records": [],
+    "via": [
+     "expansion_investment"
+    ]
+   },
+   {
+    "from": "target_interpretation",
+    "to": "reach_customer_target",
+    "kind": "reason",
+    "sign": "",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter.",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "target_interpretation",
+    "to": "page:question",
+    "kind": "reason",
+    "sign": "",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter.",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "entry_interpretation",
+    "to": "entry_delay",
+    "kind": "reason",
+    "sign": "",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply.",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "entry_interpretation",
+    "to": "broader_entry",
+    "kind": "reason",
+    "sign": "",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply.",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "entry_interpretation",
+    "to": "single_country_test",
+    "kind": "reason",
+    "sign": "",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply.",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "entry_interpretation",
+    "to": "reach_customer_target",
+    "kind": "reason",
+    "sign": "",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply.",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "customer_flow_assumptions",
+    "to": "page:question",
+    "kind": "reason",
+    "sign": "",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "customer_flow_assumptions",
+    "to": "customers",
+    "kind": "reason",
+    "sign": "",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through New customers from existing markets, Total monthly new customers · Proposed by Olumi: Arithmetic identity for monthly new customers. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "records": [
+     "add_acquisitions",
+     "customer_stock"
+    ],
+    "via": [
+     "existing_market_acquisitions",
+     "total_acquisitions"
+    ]
+   },
+   {
+    "from": "customer_flow_assumptions",
+    "to": "reach_customer_target",
+    "kind": "reason",
+    "sign": "",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "shared_churn_stress",
+    "to": "expansion_churn",
+    "kind": "reason",
+    "sign": "",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "shared_churn_stress",
+    "to": "broader_entry",
+    "kind": "reason",
+    "sign": "",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "shared_churn_stress",
+    "to": "single_country_test",
+    "kind": "reason",
+    "sign": "",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.",
+    "records": [],
+    "via": []
+   },
+   {
+    "from": "shared_churn_stress",
+    "to": "no_new_european_entry",
+    "kind": "reason",
+    "sign": "",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.",
+    "records": [],
+    "via": []
+   }
+  ],
+  "edit_base": 1
+ },
+ "proposal": null,
+ "collab": {
+  "alone": true,
+  "heading": "Your private views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own private view",
+  "can_reveal": false,
+  "waiting": null,
+  "commitments": [],
+  "owners": [
+   {
+    "id": "p_1",
+    "name": "Paul"
+   }
+  ]
+ },
+ "evidence": [],
+ "chat": []
+}
