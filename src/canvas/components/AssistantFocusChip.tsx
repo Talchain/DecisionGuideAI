@@ -16,6 +16,7 @@ import {
 } from '../stores/assistantFocusStore'
 import { ICON_STANDALONE } from '../conversation/panelIcons'
 import { OlumiAiIcon } from '../../components/results/analysisNew/OlumiAiIcon'
+import { usePresentation } from '../../presentation/v10'
 
 export const AssistantFocusChip = memo(function AssistantFocusChip() {
   const target = useAssistantFocusStore((state) => state.target)
@@ -38,11 +39,14 @@ export const AssistantFocusChip = memo(function AssistantFocusChip() {
   }, [target, targetExists, scenarioMatches])
 
   const wants = Boolean(target) && targetExists && scenarioMatches
+  // v10 says the same focus beside the card itself (`V10FocusNote`); the pill in the band is the current design's.
+  const v10 = usePresentation() === 'v10'
+  const inBand = wants && !v10
   // `target` already names this component's focus target, so the cell's portal
   // target is aliased rather than shadowed.
-  const { granted, target: cell } = useOverlayCell('bottom-centre', 'assistant-focus-chip', wants)
+  const { granted, target: cell } = useOverlayCell('bottom-centre', 'assistant-focus-chip', inBand)
 
-  if (!wants || !target || !granted) return null
+  if (!inBand || !target || !granted) return null
 
   const body = (
     <div

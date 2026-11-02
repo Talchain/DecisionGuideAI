@@ -13,6 +13,7 @@
  * the link's midpoint) with the same reason, the same press and the same "Not now", never a strip at the canvas foot.
  * It steps aside while the assistant's own note is open, so Olumi speaks from one place.
  */
+import { useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useOverlayCell } from './CanvasOverlayBand'
 import { useScenarioActionBar } from '../conversation/actionBar/useScenarioActionBar'
@@ -25,6 +26,8 @@ import { useCanvasStore } from '../store'
 import { useIsViewer } from '../../lib/viewerMode'
 import { OlumiAttentionCard } from './OlumiAttentionCard'
 import type { OlumiAttention } from '../utils/olumiAttention'
+import { usePresentation } from '../../presentation/v10'
+import { useKeepInView } from '../../presentation/v10Note'
 
 export const ARTEFACT_OFFER_TESTID = 'artefact-offer'
 export const ARTEFACT_OFFER_COPY = { notNow: 'Not now' } as const
@@ -46,6 +49,10 @@ export function ArtefactOffer() {
   })
   const assistantNoteOpen = useCanvasStore((s) => s.olumiAttention?.note != null)
   const { granted, target } = useOverlayCell('bottom-right', 'artefact-offer', wants && linkId === null)
+  // v10: a note about no record keeps its place in the band, in Olumi's blue, and is never left outside the visible canvas.
+  const v10 = usePresentation() === 'v10'
+  const noteRef = useRef<HTMLDivElement>(null)
+  const keepInView = useKeepInView(noteRef, v10 && wants && linkId === null && granted)
   if (!wants || offer === null || bar === null) return null
   const press = () => {
     // Never a dead press: with no conversation to send it to, say so (the bar's own words).
@@ -75,9 +82,12 @@ export function ArtefactOffer() {
 
   const body = (
     <div
+      ref={noteRef}
       data-testid={ARTEFACT_OFFER_TESTID}
       data-action-id={offer.action_id}
-      className="pointer-events-auto flex max-w-full items-center gap-2 rounded-2xl border border-panel-border bg-panel px-3 py-1.5 shadow-2"
+      {...(v10 ? { 'data-v10-note': 'unanchored' } : {})}
+      style={keepInView}
+      className={`pointer-events-auto flex max-w-full items-center gap-2 rounded-2xl border ${v10 ? 'border-info' : 'border-panel-border'} bg-panel px-3 py-1.5 shadow-2`}
     >
       {/* Olumi's reason is never cut mid-word: up to two lines, then the tooltip (it read "There is only one option besides doing nothi…", 20 Oct 2026). */}
       <span className={`${typography.panelBody} min-w-0 line-clamp-2 text-text-body`} title={offer.why_now}>{offer.why_now}</span>

@@ -53,6 +53,8 @@ import { useAnsweredQuestionsStore } from '../stores/answeredQuestionsStore'
 import { useCurrentGoalWaitsOn, WaitsOnList } from '../../components/results/analysisNew/ViewOnlyRunChances'
 import { goalTargetLine } from '../domain/goalTargetLine'
 import type { GoalTargetSource } from '../domain/goalTarget'
+import { usePresentation } from '../../presentation/v10'
+import { V10_NOTE_WIDTH, boundsInFrame, connectorBetween, measureVisibleCanvas, placeNoteBeside, useRelayoutOnResize } from '../../presentation/v10Note'
 
 /** The closed grammar. Every intervention is one of these four moves. */
 const MOVE_LABEL: Record<string, string> = {
@@ -143,6 +145,15 @@ const SLIDE_STEPS = 24
 
 const OlumiMark = COACHING_ICON_GLYPH.Icon
 
+/** v10: the short line from the note to the record it is about, drawn from inside the note so it moves with it. */
+function V10Connector({ line, origin }: { line: { x1: number; y1: number; x2: number; y2: number }; origin: { x: number; y: number } }) {
+  return (
+    <svg aria-hidden="true" data-testid="v10-note-connector" className="pointer-events-none absolute overflow-visible" style={{ left: 0, top: 0, width: 1, height: 1 }}>
+      <line x1={line.x1 - origin.x} y1={line.y1 - origin.y} x2={line.x2 - origin.x} y2={line.y2 - origin.y} stroke="var(--info)" strokeWidth={1.5} strokeLinecap="round" />
+    </svg>
+  )
+}
+
 /**
  * Every card React Flow has drawn except the anchor, as boxes in the note's own frame (its offset parent). Measured, not
  * guessed: the store's nodes can lack `measured`, and the 240 × 80 fallback is narrower and shorter than a real card.
@@ -159,7 +170,7 @@ function drawnCardBoxes(note: HTMLElement | null, anchorId: string): Box[] {
 }
 
 /** A link's anchor, in flow units: the midpoint along its drawn path (where its label sits), else between its cards. */
-function linkMidpoint(edgeId: string): { x: number; y: number } | null {
+export function linkMidpoint(edgeId: string): { x: number; y: number } | null {
   if (typeof document === 'undefined') return null
   const path = document.querySelector<SVGPathElement>(`.react-flow__edge[data-id="${CSS.escape(edgeId)}"] path.react-flow__edge-path`)
   const length = path && typeof path.getTotalLength === 'function' ? path.getTotalLength() : 0
@@ -195,6 +206,8 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
     if (p?.x !== linkPoint?.x || p?.y !== linkPoint?.y) setLinkPoint(p)
   })
   const viewer = useIsViewer()
+  // v10 (#/canvas2): the note is pinned beside its record, clear of the controls, in Olumi's blue; #/canvas is unchanged.
+  const v10 = usePresentation() === 'v10'
   const waitsOn = useCurrentGoalWaitsOn()
   const [answer, setAnswer] = useState('')
   // The card's own height, for a spot that covers no other card (`attentionCardSpot`); 0 until measured.
@@ -202,6 +215,8 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   const [cardHeight, setCardHeight] = useState(0)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal height bails out
   useLayoutEffect(() => { const h = cardRef.current?.offsetHeight ?? 0; if (h !== cardHeight) setCardHeight(h) })
+  // v10: the window, the canvas or the dock changing size re-places the note (it reads the visible canvas while rendering).
+  useRelayoutOnResize(cardRef.current?.offsetParent ?? null, v10 && attention != null)
 
   /*
    * ⭐ ESCAPE RELEASES THE HOLD, AND IT IS DELIBERATELY ABOVE THE EARLY RETURN.
@@ -260,7 +275,18 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   const anchorBox: Box = anchor
     ? { ...screenBox(anchor as never), w: w * zoom }
     : { x: point!.x * zoom + tx, y: point!.y * zoom + ty, w: 0, h: 0 }
-  const { left, top } = attentionCardSpot(anchorBox, { w: CARD_WIDTH, h: cardHeight }, others, 0, roomRight, 0)
+  const cardWidth = v10 ? V10_NOTE_WIDTH : CARD_WIDTH
+  let { left, top } = attentionCardSpot(anchorBox, { w: CARD_WIDTH, h: cardHeight }, others, 0, roomRight, 0)
+  let connector: ReturnType<typeof connectorBetween> = null
+  const frameEl = cardRef.current?.offsetParent ?? null
+  if (v10 && cardHeight > 0 && frameEl) {
+    // The side with the most room, wholly inside the visible canvas (never under the rails, zoom controls, dock or band).
+    const origin = frameEl.getBoundingClientRect()
+    const bounds = boundsInFrame(measureVisibleCanvas(frameEl), origin)
+    const spot = placeNoteBeside(anchorBox, { w: cardWidth, h: cardHeight }, others, bounds)
+    ;({ left, top } = spot)
+    connector = connectorBetween(anchorBox, { x: left, y: top, w: cardWidth, h: cardHeight })
+  }
 
   const note = attention.note
   const caveat = attention.caveat
@@ -296,11 +322,13 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
       data-anchor-id={anchorId}
       {...(link ? { 'data-anchor-kind': 'link' } : {})}
       {...(note ? { 'data-move': note.move } : {})}
-      style={{ position: 'absolute', left, top, width: CARD_WIDTH, zIndex: 95 }}
-      className="pointer-events-auto rounded-lg border border-panel-border bg-panel shadow-panel p-3"
+      style={{ position: 'absolute', left, top, width: cardWidth, zIndex: 95, ...(v10 ? { borderRadius: 14 } : {}) }}
+      className={`pointer-events-auto rounded-lg border ${v10 ? 'border-info' : 'border-panel-border'} bg-panel shadow-panel p-3`}
+      {...(v10 ? { 'data-v10-note': 'anchored' } : {})}
       role="complementary"
       aria-label={`Olumi on ${anchorId}`}
     >
+      {connector ? <V10Connector line={connector} origin={{ x: left, y: top }} /> : null}
       <div className="flex items-start gap-2">
         <span title={ATTENTION_CARD_COPY.olumi} className="mt-0.5 flex-none">
           <OlumiMark size={16} aria-hidden="true" />

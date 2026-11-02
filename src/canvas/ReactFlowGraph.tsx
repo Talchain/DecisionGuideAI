@@ -63,6 +63,7 @@ import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { CanvasViewportControls } from '../components/layout/CanvasViewportControls'
 import { FirstModelNotice } from './components/FirstModelNotice'
 import { OlumiAttentionCard } from './components/OlumiAttentionCard'
+import { V10FocusNote } from '../presentation/V10FocusNote'
 import { RightPanel } from '../components/layout/RightPanel'
 import { AlignmentGuides } from './components/AlignmentGuides'
 import { InspectorModal } from './components/InspectorModal'
@@ -2968,6 +2969,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           under the canvas legibility floor. A coaching card is read, so it
           holds a constant size and tracks its anchor by arithmetic instead. */}
       <OlumiAttentionCard />
+      <V10FocusNote />
 
       {/* ⭐ THE CANVAS OVERLAY BAND — one slot, one occupant, never over a node.
           Every notice below draws through this element rather than positioning
