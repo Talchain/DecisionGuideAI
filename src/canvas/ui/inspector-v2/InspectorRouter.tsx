@@ -26,6 +26,11 @@ import { FactorExternalPanel } from './panels/FactorExternalPanel'
 import { OutcomePanel, INSPECTOR_OUTCOME_REASON } from './panels/OutcomePanel'
 import { RiskPanel, INSPECTOR_RISK_REASON } from './panels/RiskPanel'
 import { GenericNodePanel } from './panels/GenericNodePanel'
+import { ViewCardPanel } from './panels/ViewCardPanel'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
+import { VIEW_CARD, VIEW_QUESTION } from '../../../olumiView/canvas'
+import type { ViewCardData } from '../../nodes/ViewCardNode'
+import type { ViewQuestionData } from '../../nodes/ViewQuestionNode'
 import { InspectorQuickActions } from './shared/InspectorQuickActions'
 import { InspectorCoaching } from './shared/InspectorCoaching'
 import { InspectorAgencyNote } from './shared/InspectorAgencyNote'
@@ -72,7 +77,7 @@ const INSPECTOR_EDGE_STRUCTURAL_REASON =
  * type without an arm here fails the typecheck instead of silently rendering
  * nothing.
  */
-const NODE_PANELS: Record<Exclude<NonNullable<PanelType>, 'edge'>, ComponentType<import('./types').InspectorPanelProps>> = {
+const NODE_PANELS: Record<Exclude<NonNullable<PanelType>, 'edge' | 'view'>, ComponentType<import('./types').InspectorPanelProps>> = {
   'goal':                 GoalPanel,
   'decision':             DecisionPanel,
   'option':               OptionPanel,
@@ -108,6 +113,8 @@ type PanelType =
    * inspector silently refused to appear.
    */
   | 'generic'
+  /** On the olumi-core lane: a View card or the question, drawn from what core wrote (canvas A B6). */
+  | 'view'
   | null
 
 function resolvePanelType(
@@ -120,6 +127,8 @@ function resolvePanelType(
 
   const node = nodes.find(n => n.id === nodeId)
   if (!node) return null
+
+  if (isOlumiCoreLane() && (node.type === VIEW_CARD || node.type === VIEW_QUESTION)) return 'view'
 
   const type = ((node.type || node.data?.kind || 'decision') as string) as NodeType
 
@@ -379,6 +388,12 @@ export const InspectorRouter = memo(function InspectorRouter({
   if (!nodeId) return null
   const node = nodes.find(n => n.id === nodeId)
   if (!node) return null
+
+  // On the olumi-core lane a View card or the question shows what core wrote for it, never the generic panel's "Untitled" (00057 #2).
+  if (panelType === 'view') {
+    const subject = node.type === VIEW_CARD ? { card: (node.data as unknown as ViewCardData).card } : { question: (node.data as unknown as ViewQuestionData).question }
+    return <ViewCardPanel subject={subject} onClose={onClose} dragHandlers={dragHandlers} />
+  }
 
   const nodeType = (node.type || node.data?.kind || 'decision') as NodeType
   const category = node.data?.category as FactorCategory | undefined

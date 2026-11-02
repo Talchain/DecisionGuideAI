@@ -65,6 +65,8 @@ import { ModelAdjustments } from './model-tab/ModelAdjustments'
 // are retained UNCHANGED — the design's §7 KEEP/CUT removals await Paul's
 // verdict and are deliberately not executed in this train.
 import { ModelTabV2Panel } from '../model-tab-v2/ModelTabV2Panel'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { ViewOutline } from '../../olumiView/ViewOutline'
 import { type ModelGroupId } from '../model-tab-v2/types'
 // THE ONE hand-off for affordances that terminate in a conversation. Built here
 // because this file is the Model tab's only live-app seam; the v2 directory
@@ -870,8 +872,10 @@ export const ModelTabBody = memo(function ModelTabBody({
       {/* ── The Model Editor v2 (mounted 16 Aug 2026, no flag) ─────────────── */}
       {/* One filterable outline of the model, editable in place where the
           canonical transaction exists. ADDITIVE: the v1 sections below are
-          unchanged — §7's removals await Paul's KEEP/CUT verdict. */}
-      <ModelTabV2Panel
+          unchanged — §7's removals await Paul's KEEP/CUT verdict.
+          On the olumi-core lane every canvas node is a View card, which this
+          outline cannot read: there the outline is the View's (canvas A B7). */}
+      {isOlumiCoreLane() ? <ViewOutline /> : <ModelTabV2Panel
         openGroupRequest={openGroupRequest}
         nodes={displayNodes}
         edges={edges}
@@ -886,7 +890,7 @@ export const ModelTabBody = memo(function ModelTabBody({
         onToggleExpert={onToggleExpert}
         onRenameRow={updateNodeLabel}
         openOptionValueRequest={openOptionValueRequest}
-      />
+      />}
 
       {/* ── The model's constraints, READ-ONLY ───────────────────────────────
           Answers "where can the user view the constraints?" with a surface that

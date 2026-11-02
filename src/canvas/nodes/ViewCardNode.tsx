@@ -11,25 +11,25 @@ import { typography } from '../../styles/typography'
 
 export type ViewCardData = { card: Card }
 
-const Mark = ({ at, mark }: { at: string; mark: { glyph: string; title: string } | null }) => (
+export const Mark = ({ at, mark }: { at: string; mark: { glyph: string; title: string } | null }) => (
   mark === null ? null : <span title={mark.title} aria-label={mark.title} data-view={`${at}.glyph`}>{mark.glyph}</span>
 )
 
-/** One row of an option card, as core wrote it: a chance, a limit, a route, or why there is none yet. */
-function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
+/** One row of an option card, as core wrote it: a chance, a limit, a route, or why there is none yet. `value` styles a figure. */
+function Row({ id, row, i, value }: { id: string; row: ViewRow; i: number; value: string }) {
   const at = `${id}.rows.${i}`
   switch (row.kind) {
     case 'chance':
       return (
         <p className="flex flex-wrap items-baseline gap-x-1" title={row.title} data-view-row={at}>
           <span data-view={`${at}.aim`}>{row.aim}</span>
-          <span className={typography.nodeValue}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
+          <span className={value}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
           <Mark at={`${at}.olumi`} mark={row.olumi} />
           <Mark at={`${at}.likely`} mark={row.likely} />
         </p>
       )
     case 'limit':
-      return <p title={row.title} data-view-row={at}><span data-view={`${at}.aim`}>{row.aim}</span> <span className={typography.nodeValue} data-view={`${at}.value`}>{row.value}</span></p>
+      return <p title={row.title} data-view-row={at}><span data-view={`${at}.aim`}>{row.aim}</span> <span className={value} data-view={`${at}.value`}>{row.value}</span></p>
     case 'route':
       return <p title={row.title} data-view-row={at}><span data-view={`${at}.glyph`}>{row.glyph}</span> <span data-view={`${at}.aim`}>{row.aim}</span></p>
     case 'none':
@@ -38,6 +38,31 @@ function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
         ? <p data-view-row={at}><span data-view={`${at}.title`}>{row.title}</span></p>
         : <p title={row.title} data-view-row={at}><span data-view={`${at}.text`}>{row.text}</span></p>
   }
+}
+
+/**
+ * Everything a card says under its heading, as core wrote it, each string at its `data-view` path. The canvas card draws these, and so
+ * does the inspector's View card panel (canvas A B6): one renderer, so the two cannot disagree. `value` styles a figure.
+ */
+export function ViewCardLines({ card, value }: { card: Card; value: string }) {
+  const id = card.id
+  return (
+    <>
+      {card.detail === '' ? null : <p data-view={`${id}.detail`}>{card.detail}</p>}
+      {card.status === null ? null : <p data-view={`${id}.status`}>{card.status}</p>}
+      {card.reason === null ? null : <p data-view={`${id}.reason`}>{card.reason}</p>}
+      {card.figure === null ? null : <p className={value} title={card.figure.title} data-view={`${id}.figure.text`}>{card.figure.text}</p>}
+      {card.bound === null ? null : (
+        <p title={card.bound.title}><span data-view={`${id}.bound.text`}>{card.bound.text}</span>
+          {card.bound.olumi === null ? null : <> <Mark at={`${id}.bound.olumi`} mark={card.bound.olumi} /></>}</p>
+      )}
+      {card.premises.map((p, j) => (
+        <p key={j} title={p.title}><span data-view={`${id}.premises.${j}.glyph`}>{p.glyph}</span> <span data-view={`${id}.premises.${j}.text`}>{p.text}</span></p>
+      ))}
+      {card.rows.map((row, i) => <Row key={i} id={id} row={row} i={i} value={value} />)}
+      {card.badge === null ? null : <p title={card.badge.title} aria-label={card.badge.label} data-view={`${id}.badge.text`}>{card.badge.text}</p>}
+    </>
+  )
 }
 
 /** One View card, pure: a test draws it from a golden View. */
@@ -55,19 +80,7 @@ export function ViewCard({ card }: ViewCardData) {
         <Mark at={`${id}.olumi`} mark={card.olumi} />
         <Mark at={`${id}.change`} mark={card.change} />
       </div>
-      {card.detail === '' ? null : <p data-view={`${id}.detail`}>{card.detail}</p>}
-      {card.status === null ? null : <p data-view={`${id}.status`}>{card.status}</p>}
-      {card.reason === null ? null : <p data-view={`${id}.reason`}>{card.reason}</p>}
-      {card.figure === null ? null : <p className={typography.nodeValue} title={card.figure.title} data-view={`${id}.figure.text`}>{card.figure.text}</p>}
-      {card.bound === null ? null : (
-        <p title={card.bound.title}><span data-view={`${id}.bound.text`}>{card.bound.text}</span>
-          {card.bound.olumi === null ? null : <> <Mark at={`${id}.bound.olumi`} mark={card.bound.olumi} /></>}</p>
-      )}
-      {card.premises.map((p, j) => (
-        <p key={j} title={p.title}><span data-view={`${id}.premises.${j}.glyph`}>{p.glyph}</span> <span data-view={`${id}.premises.${j}.text`}>{p.text}</span></p>
-      ))}
-      {card.rows.map((row, i) => <Row key={i} id={id} row={row} i={i} />)}
-      {card.badge === null ? null : <p title={card.badge.title} aria-label={card.badge.label} data-view={`${id}.badge.text`}>{card.badge.text}</p>}
+      <ViewCardLines card={card} value={typography.nodeValue} />
     </div>
   )
 }
