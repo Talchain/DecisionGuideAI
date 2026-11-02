@@ -33,6 +33,8 @@ import { typography } from '../../../styles/typography'
 import type { ScenarioStage } from '../../../types/scenario'
 import { ICON_DENSE, ICON_STANDALONE, ICON_STROKE } from '../panelIcons'
 import { useSavedModelIsProgram } from '../../nodes/shared/savedModelProgram'
+import { usePresentation } from '../../../presentation/v10'
+import { V10MethodChips } from '../../../presentation/V10MethodChips'
 
 // ChatTopBar is removed (Tranche 1 item 30); GenerateState now lives here.
 export type GenerateState = 'disabled' | 'active' | 'loading'
@@ -135,6 +137,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
       [sendMessage],
     )
 
+    const presentation = usePresentation()
     const composer = useComposerState({
       onSend: handleSend,
       onCollapse,
@@ -290,6 +293,11 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             onScrollToPatch={onScrollToPatch}
             onOpenInspector={onOpenInspector}
           />
+        )}
+
+        {/* v10 (#/canvas2): ways to test the model fill the box; nothing is sent. */}
+        {presentation === 'v10' && !isFramingStage(stage) && (
+          <V10MethodChips value={composer.value} onReplace={composer.replaceText} />
         )}
 
         {/* 5. Input container — Claude-pattern composer row:
