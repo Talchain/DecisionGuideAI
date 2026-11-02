@@ -162,7 +162,15 @@ describe('the Run is current only for the model it was run on (finding 12)', () 
 // ── the model-audit shapes (captured from the real olumi-core v1.4 with the scripted AI) ─────────────────────────────────────
 const rich = fx('view-rich-approved.json')
 const richForm = rich.version.form
-const richGraph = graphOf(richForm)
+// Tests about the side of a calculation's link need its parts drawn, and a structure constant is not a card (plumbingNotDrawn.spec.mjs): here the
+// fixture's `specialists` is the person's own figure.
+const asDrawn = (f) => {
+  const g = JSON.parse(JSON.stringify(f))
+  const sp = g.records.find((r) => r.id === 'specialists')
+  if (sp?.origin?.by === 'structure') sp.origin = { by: 'person', quote: 'no specialist today', party: null }
+  return g
+}
+const richGraph = graphOf(asDrawn(richForm))
 const nodeOf = (g, id) => g.nodes.find((n) => n.id === id)
 const edgeOf = (g, id) => g.edges.find((e) => e.id === id)
 /** The edge as DGAI's program reader draws it, and the words its label says. */
@@ -237,7 +245,7 @@ describe('the decision date reaches the question\'s card (finding: decide_by was
 describe('a definition link says how its part enters the figure: a subtracted part is not a boost (finding: absence drawn as "+ Boost")', () => {
   const clone = () => JSON.parse(JSON.stringify(richForm))
   const withRelation = (mutate) => { const f = clone(); mutate(f); return f }
-  const programGraph = (form) => ({ ...graphOf(form), living_model: { model_program: 'v1', canonical: canonicalOf(form, true) } })
+  const programGraph = (form) => ({ ...graphOf(asDrawn(form)), living_model: { model_program: 'v1', canonical: canonicalOf(form, true) } })
   const subtract = withRelation((f) => { f.records.find((r) => r.id === 'total_def').parts[1].sign = -1 })
   const divide = withRelation((f) => {
     const d = f.records.find((r) => r.id === 'added_def'); d.parts[1].power = -1
@@ -438,7 +446,9 @@ describe('an option\'s set figure keeps whose it is and what it is (finding 4)',
 })
 
 // ── tier R step 0: the shim states nothing core never said ───────────────────────────────────────────────────────────────────
-const cloneForm = () => JSON.parse(JSON.stringify(richForm))
+// These tests are about the side of a calculation's link, and a link is drawn only between drawn cards. The fixture's `specialists` is a structure
+// constant (not drawn, see plumbingNotDrawn.spec.mjs), so here it is the person's own figure and stays a card.
+const cloneForm = () => asDrawn(richForm)
 const relation = (form, id) => form.records.find((r) => r.id === id)
 
 describe('a calculation\'s links bear on what they define the way the relation states (tier R step 0)', () => {

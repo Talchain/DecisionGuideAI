@@ -68,6 +68,10 @@ export function graphOf(form) {
   const goals = recs.filter((r) => r.family === 'goal')
   const limits = recs.filter((r) => r.family === 'limit')
   const measured = new Set(recs.flatMap((r) => (r.family === 'goal' || r.family === 'limit') && r.measure ? [r.measure.target ?? r.measure.bound] : []))
+  // A constant fixed by how the model is built ("Whole share 1") is plumbing, nobody's figure: olumi-core's page folds it (4930f83: only structure
+  // constants and option levers fold), and this canvas has no fold, so it is not drawn. It stays in the model and in "Also in the model" on the
+  // reading card; the person's figures and Olumi's own stay drawn. Edges into or out of it are dropped from the drawing only.
+  const plumbing = new Set(recs.filter((r) => r.family === 'quantity' && r.origin?.by === 'structure').map((r) => r.id))
   const setTo = new Set(recs.flatMap((r) => (r.family === 'option' ? r.sets.map((s) => s.to) : [])))
   // A risk's chance and size are said on the risk's own card, not drawn a second time as loose factors.
   const riskParts = new Set(recs.flatMap((r) => (r.family === 'risk' ? [r.occurrence, r.severity].filter(Boolean) : [])))
@@ -113,7 +117,7 @@ export function graphOf(form) {
     }
   }
   for (const r of recs) {
-    if (r.family !== 'quantity' || setTo.has(r.id) || measured.has(r.id) || riskParts.has(r.id)) continue
+    if (r.family !== 'quantity' || plumbing.has(r.id) || setTo.has(r.id) || measured.has(r.id) || riskParts.has(r.id)) continue
     const derived = r.role === 'derived' || r.assertion.kind === 'derived'
     const observed = observedOf(r, r.origin.by === 'person' ? 'brief_extraction' : 'cee_hypothesis', r.origin.by === 'person' ? 'user_override' : 'cee_hypothesis')
     const parts = derived ? partsOf(recs, r.id) : []
@@ -179,7 +183,7 @@ export function graphOf(form) {
     if (r.family !== 'risk' || !seen.has(r.id) || !seen.has(r.effect_on)) continue
     link(r.id, r.effect_on, { effect_direction: influenceDirection(r.direction), exists_probability: null, provenance: { source: r.origin.by === 'person' ? 'brief_extraction' : 'cee_hypothesis', reasoning: `${r.label} could push ‘${nameOf(m, r.effect_on)}’ ${r.direction === 'unknown' ? 'either way' : r.direction}.` } })
   }
-  const uniq = new Map(edges.map((e) => [e.id, e]))
+  const uniq = new Map(edges.filter((e) => !plumbing.has(e.from) && !plumbing.has(e.to)).map((e) => [e.id, e]))
   return { nodes, edges: [...uniq.values()] }
 }
 
