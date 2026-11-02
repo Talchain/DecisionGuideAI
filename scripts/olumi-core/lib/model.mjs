@@ -6,7 +6,7 @@
  */
 import { byId, changeSetOf, decideByWords, figure, nameOf, num, partsOf, percent, shownNumber, signedPartsOf, theirs, CMP } from './words.mjs'
 import { rev16, rev64, revSaved16, runIdOf } from './ids.mjs'
-import { MODULE_KINDS, blockerWords, chanceWords, driverWords, holdNote, isLabels, leaderWords, limitWords, moduleNote, rangeWords, silenceNote, unusedWords, waitsOnIds, whatIfWords } from './labels.mjs'
+import { MODULE_KINDS, blockerWords, chanceWords, driverWords, holdNote, isLabels, leaderWords, leftOutWords, limitWords, moduleNote, rangeWords, silenceNote, unusedWords, waitsOnIds, whatIfWords } from './labels.mjs'
 
 const valueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? (q.assertion.low + q.assertion.high) / 2) : null)
 /** A figure in words: the person's own exactly as they gave it, anyone else's to 3 significant figures. */
@@ -356,7 +356,8 @@ export function analysisViewOf(view) {
   // option and aim, passed through as stored: code puts no analytical claim of its own beside them.
   const otherAims = goals.filter((g) => g !== goal).flatMap((g) => live.flatMap((o) => {
     const c = v.facts.find((f) => f.about?.kind === 'chance' && f.about.option === o.id && f.about.goal === g.id)
-    return c ? [isLabels(c) ? chanceWords(c, m).face : `${c.value}: ${sayFact(c.text, leaves)}`] : []
+    // A labelled fact has no "It leaves out" tail: this aim's own exclusions are its block's `leaves`, said beside its chance.
+    return c ? [isLabels(c) ? [chanceWords(c, m).face, leftOutWords(c.about, m)].filter(Boolean).join(' ') : `${c.value}: ${sayFact(c.text, leaves)}`] : []
   }))
   // A labelled wait or blocker waits on the questions it asks (`asks`, and the `asked` reasons' figures), not on the premises it rests on; the
   // legacy fact's `rests` is read as it always was.

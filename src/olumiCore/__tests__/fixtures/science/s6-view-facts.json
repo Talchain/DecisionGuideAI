@@ -1,5 +1,5 @@
 {
- "source": "olumi-core wip/science-step-s6 54cc570: viewFindings facts (OLUMI_D7), from src/run/__tests__/views.test.ts scenarios T1, T2 plus a refused and a stale figure",
+ "source": "olumi-core 739b7e8: viewFindings (OLUMI_D7) on the hand models of src/run/__tests__/views.test.ts, seed 7, 10000 draws",
  "facts": {
   "same": [
    {
@@ -13,6 +13,7 @@
      "holder_id": "p2",
      "quantity": "x",
      "contribution": 5,
+     "figure_unit": "job/week",
      "version": 1,
      "reveal": 9,
      "given_against": 1,
@@ -103,6 +104,7 @@
      "holder_id": "p2",
      "quantity": "tool_gain",
      "contribution": 5,
+     "figure_unit": "job/week",
      "version": 1,
      "reveal": 9,
      "given_against": 1,
@@ -204,6 +206,7 @@
      "holder_id": "p2",
      "quantity": "nope",
      "contribution": 5,
+     "figure_unit": null,
      "version": 1,
      "reveal": 9,
      "given_against": 1,
@@ -225,6 +228,7 @@
      "holder_id": "p2",
      "quantity": "x",
      "contribution": 5,
+     "figure_unit": "job/week",
      "version": 1,
      "reveal": 9,
      "given_against": 0,
@@ -232,6 +236,128 @@
      "code": "version_moved"
     },
     "id": "V1"
+   }
+  ],
+  "no_range_kind": [
+   {
+    "value": "not run: no range kind",
+    "text": "holder: 'Priya'; figure: 'x', 20 to 40 job/week; not run: no range kind",
+    "about": {
+     "kind": "view",
+     "form": "labels",
+     "status": "refused",
+     "holder": "Priya",
+     "holder_id": "p2",
+     "quantity": "x",
+     "contribution": 5,
+     "figure_unit": "job/week",
+     "version": 1,
+     "reveal": 9,
+     "given_against": 1,
+     "olumi": false,
+     "code": "no_range_kind"
+    },
+    "id": "V1"
+   }
+  ],
+  "olumi_x": [
+   {
+    "value": "leader: same",
+    "text": "holder: 'Priya'; figure: 'x', 20 to 40 job/week; model figure: 'x', 10 to 30 job/week; aim: 'reach 100'; leader on view: 'add'; leader on model: 'add'; leader change: same; option: 'add'; on the model: about 50%; on the view: about 90%; gap: 40 points; interval: 39 to 41 points; exactness: sampled; same draws: yes",
+    "about": {
+     "kind": "view",
+     "form": "labels",
+     "status": "ran",
+     "holder": "Priya",
+     "holder_id": "p2",
+     "quantity": "x",
+     "contribution": 5,
+     "figure_unit": "job/week",
+     "version": 1,
+     "reveal": 9,
+     "given_against": 1,
+     "olumi": true,
+     "goal": "reach_100",
+     "leader": "add",
+     "model_leader": "add",
+     "leader_change": "same",
+     "options": [
+      {
+       "option": "add",
+       "model": 0.5003,
+       "view": 0.9003,
+       "gap": 0.4,
+       "gap_low": 0.3903545925463845,
+       "gap_high": 0.4095619265431633,
+       "exact": false,
+       "model_exact": false,
+       "view_exact": false
+      },
+      {
+       "option": "carry_on",
+       "model": 0,
+       "view": 0,
+       "gap": 0,
+       "gap_low": 0,
+       "gap_high": 0,
+       "exact": true,
+       "model_exact": true,
+       "view_exact": true
+      }
+     ],
+     "figure_by": "person",
+     "model_figure_by": "olumi",
+     "model_side": {
+      "olumi": true,
+      "olumi_reading": false,
+      "olumi_figures": [
+       {
+        "id": "x",
+        "approval": "proposed"
+       }
+      ],
+      "olumi_links": [],
+      "olumi_mechanisms": [],
+      "approx_figures": [],
+      "target": "target",
+      "target_by": "person",
+      "target_approval": "proposed",
+      "target_read": true,
+      "rests": [],
+      "leaves": [],
+      "shown": {
+       "x": "10 to 30 job/week"
+      }
+     },
+     "view_side": {
+      "olumi": false,
+      "olumi_reading": false,
+      "olumi_figures": [],
+      "olumi_links": [],
+      "olumi_mechanisms": [],
+      "approx_figures": [],
+      "target": "target",
+      "target_by": "person",
+      "target_approval": "proposed",
+      "target_read": true,
+      "rests": [],
+      "leaves": [],
+      "shown": {}
+     }
+    },
+    "id": "V1"
+   }
+  ]
+ },
+ "science": {
+  "flags": [
+   "OLUMI_D7"
+  ],
+  "modules": [
+   {
+    "module": "views",
+    "status": "spoke",
+    "reason": null
    }
   ]
  }

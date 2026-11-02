@@ -42,7 +42,7 @@ const arr = (x) => (Array.isArray(x) ? x : [])
 // ── reasons ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /**
- * Every code the compiler (step 5a) and the engine give, in DGAI's words. `n` is the records the reason is about, named ('' when none).
+ * Every code the compiler (step 5a) and the engine give (32 values in all, `unlisted` included), in DGAI's words. `n` is the records the reason is about, named ('' when none).
  * Nothing here is a number or a verdict: each says what is missing or why a result is not given.
  */
 const REASONS = {
@@ -52,6 +52,7 @@ const REASONS = {
   unmeasured: (n) => (n ? `${n} has no unit, so it cannot be measured.` : 'A figure has no unit, so it cannot be measured.'),
   figure_unknown: (n) => (n ? `${n} has no value yet.` : 'A figure has no value yet.'),
   figure_unsupported: (n) => (n ? `Nothing yet supports a value for ${n}.` : 'Nothing yet supports a value for a figure.'),
+  figure_not_applicable: (n) => (n ? `${n} is marked not applicable here, so it has no value to use.` : 'A figure is marked not applicable here, so it has no value to use.'),
   needs_reading: (n) => (n ? `Olumi needs to know how to read ${n}: as firm ends or as a rough estimate.` : 'Olumi needs to know how to read a range: as firm ends or as a rough estimate.'),
   bounds_leave_nothing: (n) => (n ? `The bounds given for ${n} leave no possible value.` : 'The bounds given for a figure leave no possible value.'),
   outside_bounds: (n) => (n ? `${n} lies outside the bounds given for it.` : 'A figure lies outside the bounds given for it.'),
@@ -113,8 +114,12 @@ export function restsWords(a, m) {
     const unapproved = figs.some((x) => x.approval !== 'approved')
     parts.push(`Olumi's what-if figures for ${list(figs.map((x) => figureName(m, x.id)))}${unapproved ? ' (not yet approved)' : ''}`)
   }
-  if (arr(a?.olumi_links).length) parts.push('links Olumi proposed')
-  if (arr(a?.olumi_mechanisms).length) parts.push('calculations that Olumi proposed')
+  // What Olumi proposed is said with where it stands: one still proposed is "not yet approved", one the model now holds as approved is "approved".
+  for (const [key, noun] of [['olumi_links', 'links'], ['olumi_mechanisms', 'calculations']]) {
+    const got = arr(a?.[key]).filter((x) => x && typeof x === 'object')
+    if (got.some((x) => x.approval !== 'approved')) parts.push(`${noun} Olumi proposed (not yet approved)`)
+    if (got.some((x) => x.approval === 'approved')) parts.push(`${noun} Olumi proposed (approved)`)
+  }
   if (a?.olumi_reading === true) parts.push("Olumi's reading of the aim")
   if (a?.target_by === 'olumi') parts.push(`a target Olumi proposed${a.target_approval === 'approved' ? '' : ' (not yet approved)'}`)
   const approx = arr(a?.approx_figures).filter((x) => typeof x === 'string')
@@ -124,6 +129,11 @@ export function restsWords(a, m) {
   return parts.length ? `It rests on ${list(parts)}.` : ''
 }
 const sentence = (...bits) => bits.filter(Boolean).join(' ')
+/** What a finding's aim leaves out, from the left-out records its provenance block names (`about.leaves`): the records' own stored text, or ''. */
+export function leftOutWords(a, m) {
+  const left = arr(a?.leaves).map((id) => m.get(id)).filter((r) => r?.family === 'left_out' && typeof r.text === 'string').map((r) => r.text.replace(/\.$/, ''))
+  return left.length ? `It leaves out: ${left.join('; ')}.` : ''
+}
 
 // ── the Run's own facts ──────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -188,21 +198,33 @@ export function whatIfWords(f, m) {
   return sentence(`Olumi's what-if for ${nameQ(m, a.quantity)}, not their figure: ${f.value}.`, typeof basis === 'string' && basis.trim() ? `Basis: ${basis.trim().replace(/[.!?]$/, '')}.` : '')
 }
 
-/** The leader: most_likely or none_clearly, from option, chances, next, separated_by and leads_when. */
+/**
+ * The leader: most_likely or none_clearly, as a LABEL and core's own labels beside it, never a sentence of ours (spec §3.0: the words of a comparison are the
+ * AI's; review 00008 #2). `Most likely: ‘A’, about 50%` (or `Most likely: none separated`), then, only for what the fact states, `Next`, `Top two`, how the
+ * two were told apart, the swing figure and the option that leads at each end of it, and the options not compared. Chances are made by `chancePct` and `apart`.
+ */
 export function leaderWords(f, m, notCompared = []) {
   const a = f.about
-  const [first, second] = typeof a.chance === 'number' && typeof a.next_chance === 'number' ? apart(a.chance, a.next_chance) : [null, null]
-  const goal = goalQ(m, a)
-  const held = notCompared.length ? `${namesQ(m, notCompared)} could not be compared, so ${notCompared.length === 1 ? 'it is' : 'they are'} not part of this.` : ''
-  const swing = a.leads_when && typeof a.leads_when === 'object'
-    ? `Which option leads depends on Olumi's estimate of ${nameQ(m, a.leads_when.quantity)}: ${nameQ(m, a.leads_when.low_leader)} leads when it is low, ${nameQ(m, a.leads_when.high_leader)} when it is high.` : ''
+  const both = typeof a.chance === 'number' && typeof a.next_chance === 'number'
+  const [first, second] = both ? apart(a.chance, a.next_chance)
+    : [typeof a.chance === 'number' ? chancePct(a.chance) : null, typeof a.next_chance === 'number' ? chancePct(a.next_chance) : null]
+  const withChance = (name, chance) => (chance ? `${name}, ${chance}` : name)
+  const pairs = []
   if (a.kind === 'most_likely') {
-    const against = a.next && second ? `, against ${second} for ${nameQ(m, a.next)}` : ''
-    const how = a.separated_by === 'paired' ? 'The two were compared on the same draws.' : a.separated_by === 'intervals' ? 'They were told apart by the uncertainty around each chance, not on the same draws.' : ''
-    return sentence(`${optionQ(m, a)} is the option most likely to achieve ${goal} in this model${first ? ` (${first}${against})` : ''}.`, how, held, swing, restsWords(a, m))
+    pairs.push(['Most likely', withChance(optionQ(m, a), first)])
+    if (a.next) pairs.push(['Next', withChance(nameQ(m, a.next), second)])
+  } else {
+    pairs.push(['Most likely', 'none separated'])
+    if (a.top) pairs.push(['Top two', [withChance(nameQ(m, a.top), first), a.next ? withChance(nameQ(m, a.next), second) : null].filter(Boolean).join(', ')])
   }
-  const top = a.top && first ? `${nameQ(m, a.top)} is ahead at ${first}, but ${a.next ? `${nameQ(m, a.next)} at ${second}` : 'the next option'} is too close to separate.` : 'The options are too close to separate.'
-  return sentence(`No option is clearly ahead on ${goal}.`, top, held, swing, restsWords(a, m))
+  if (a.separated_by === 'paired') pairs.push(['Compared', 'on the same draws'])
+  else if (a.separated_by === 'intervals') pairs.push(['Compared', 'by the uncertainty around each chance'])
+  if (a.leads_when && typeof a.leads_when === 'object') {
+    const w = a.leads_when
+    pairs.push(['Swing figure', nameQ(m, w.quantity)], ['Leads when low', nameQ(m, w.low_leader)], ['Leads when high', nameQ(m, w.high_leader)])
+  }
+  if (notCompared.length) pairs.push(['Not compared', namesQ(m, notCompared)])
+  return sentence(`${pairs.map(([label, item]) => `${label}: ${item}`).join('; ')}.`, restsWords(a, m))
 }
 
 /** A blocker or wait: its short phrase, then each reason in DGAI's words, the draws it happened in and the figures it was about. */
@@ -235,11 +257,34 @@ export function holdNote(f, m) {
 
 /** The module facts that are markers: `value` is the marker and everything else is in `about`. */
 export const MODULE_KINDS = new Set(['direction', 'worth', 'failure', 'tipping', 'reliance'])
-/** A marker beside the names it is about (option, aim or limit, figure): the value as stored, no sentence of our own. */
+/**
+ * A marker beside the names it is about (option, aim or limit, figure): the value as stored first, then the conditions it holds under, each a `label: item`
+ * pair from core's structure and never a sentence of ours (review 00008 #3). A tipping threshold holds for the figure's range (`about.shown['tips:range']`), with
+ * the other figures held at their middles (`held`, each printed in `shown['tips:held:<id>']`) and, when a risk was read, only for the states of it that
+ * `when` names (`risk: ‘Oven repair’, happened`): drop those and a threshold that holds under one state reads as holding always. A string core did not print is
+ * never made here: a held figure without one is named with no number. Worth and failure say what they did not cover.
+ */
 export function moduleNote(f, m) {
   const a = f.about
   const names = [a.option, a.goal ?? a.limit, a.figure ?? a.quantity].filter((id) => typeof id === 'string' && id).map((id) => nameQ(m, id))
-  return sentence(`${names.join(', ')} — ${f.value}`, restsWords(a, m))
+  const printed = (key) => (typeof a.shown?.[key] === 'string' && a.shown[key] !== '' ? a.shown[key] : null)
+  const pairs = []
+  if (a.kind === 'tipping') {
+    const range = printed('tips:range')
+    if (range) pairs.push(['range', range])
+    for (const h of arr(a.held).filter((x) => x && typeof x.quantity === 'string')) {
+      const p = printed(`tips:held:${h.quantity}`)
+      pairs.push(['held at middle', p ? `${nameQ(m, h.quantity)}, ${p}` : nameQ(m, h.quantity)])
+    }
+    for (const w of arr(a.when).filter((x) => x && typeof x.risk === 'string')) {
+      pairs.push(['risk', `${nameQ(m, w.risk)}, ${w.fired === true ? 'happened' : w.fired === false ? 'not happened' : 'state not given'}`])
+    }
+  }
+  const notCovered = [...arr(a.excluded_limits), ...arr(a.omitted_limits)].filter((id) => typeof id === 'string')
+  if (notCovered.length) pairs.push(['not covered', namesQ(m, notCovered)])
+  const notCompared = arr(a.excluded_options).filter((id) => typeof id === 'string')
+  if (notCompared.length) pairs.push(['options not compared', namesQ(m, notCompared)])
+  return sentence(`${names.join(', ')} — ${f.value}${pairs.map(([label, item]) => `; ${label}: ${item}`).join('')}.`, restsWords(a, m))
 }
 const MODULE_WORDS = { routes: 'direction', worth: 'worth finding out', failure: 'what failure looks like', reliance: 'reliance on Olumi\'s ranges', tipping: 'where it tips', views: 'differing views' }
 /** The stored `science` record: the modules that said nothing, with their reason. Silence is by rule and never evidence that there is nothing to find. */

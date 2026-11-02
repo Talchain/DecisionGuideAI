@@ -4,15 +4,17 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { analysisViewOf } from '../../../scripts/olumi-core/lib/model.mjs'
 import { coachText, makeShim } from '../../../scripts/olumi-core/lib/turn.mjs'
-import { apart, chancePct } from '../../../scripts/olumi-core/lib/labels.mjs'
+import { apart, chancePct, REASON_CODES } from '../../../scripts/olumi-core/lib/labels.mjs'
 import { noteOf, fillCited, UNEXPLAINED } from '../../../scripts/olumi-core/lib/note.mjs'
 import { derivedUuidOfSid } from '../../../scripts/olumi-core/lib/ids.mjs'
 import * as team from '../team/model'
 import { parseCanonicalAnalysisView } from '../../canvas/runView/canonicalAnalysisView'
 
 /**
- * Science step 4, DGAI's consumers (change list STEP4-DGAI-CHANGE-LIST.md, one test per bullet). Fixtures are olumi-core's own producer output
- * (wip/science-step-s5 c52948e, wip/science-step-s6 54cc570) copied into fixtures/science; the science module kinds are hand stubs (see below).
+ * Science step 4, DGAI's consumers (change list STEP4-DGAI-CHANGE-LIST.md, one test per bullet). Fixtures are olumi-core's own producer output copied
+ * into fixtures/science: the labelled Runs (s5-labels-facts.json, wip/science-step-s5 c52948e) and D7's facts (s6-view-facts.json, olumi-core staging
+ * 739b7e8, OLUMI_D7). The marker-only stubs below (bullet 8) are hand stubs for the kinds' markers; the real D6 and module facts, with their
+ * conditions, are in scienceR2.spec.mjs (s7-module-facts.json, 739b7e8).
  */
 const here = path.dirname(fileURLToPath(import.meta.url))
 const fx = (n) => JSON.parse(fs.readFileSync(path.join(here, 'fixtures', n), 'utf8'))
@@ -110,32 +112,51 @@ describe('fixed chance or limit: the shim says it itself from about.chance (bull
   })
 })
 
-describe('most_likely and none_clearly (bullets 4 and 5)', () => {
-  it('most_likely: leader.words from option, chance, next, next_chance and separated_by', () => {
+describe('most_likely and none_clearly: the leader is a label, never a sentence DGAI composes (bullets 4 and 5; review 00008 #2)', () => {
+  // The words of a comparison belong to the AI. The shim says only `Most likely: <name>` and, beside it, core's own labels with the items core states.
+  const SENTENCE = /is the option most likely|is clearly ahead|too close to separate|could not be compared, so|depends on Olumi's estimate|leads when it is|were told apart|were compared on the same draws/
+  it('most_likely reads "Most likely: ‘A’" first, with the labels core states beside it, from option, chance, next, next_chance and separated_by', () => {
     const w = analysisViewOf(viewOf('capacity')).leader.words
-    expect(w).toMatch(/‘Add one specialist’ is the option most likely to achieve ‘At least 100 a week’/)
-    expect(w).toContain('about 50%')
-    expect(w).toContain('under 1%')
-    expect(w).toMatch(/‘Keep current staffing’/)
-    expect(w).toMatch(/same draws/)
-    expect(analysisViewOf(viewOf('limits')).leader.words).toMatch(/not on the same draws|intervals/)
+    expect(w.startsWith('Most likely: ‘Add one specialist’, about 50%')).toBe(true)
+    expect(w).toContain('Next: ‘Keep current staffing’, under 1%')
+    expect(w).toContain('Compared: on the same draws')
+    expect(w).not.toMatch(SENTENCE)
+    const limits = analysisViewOf(viewOf('limits')).leader.words
+    expect(limits).toContain('Compared: by the uncertainty around each chance')
+    expect(limits).not.toContain('on the same draws')
   })
-  it('an option that could not be compared is named beside the leader, not left out of it silently', () => {
-    expect(analysisViewOf(viewOf('agency_withheld')).leader.words).toMatch(/‘Use an agency’ could not be compared, so it is not part of this\./)
-    expect(analysisViewOf(viewOf('capacity')).leader.words).not.toMatch(/could not be compared/)
+  it('every labelled Run\'s leader starts "Most likely: " and holds none of the sentences DGAI used to compose', () => {
+    for (const name of Object.keys(S5)) {
+      const w = analysisViewOf(viewOf(name)).leader.words
+      if (w === undefined) continue
+      expect(w, name).toMatch(/^Most likely: /)
+      expect(w, name).not.toMatch(SENTENCE)
+    }
   })
-  it('a leader that turns on an Olumi range says which option leads at each end (leads_when) and rests on both options\' premises', () => {
+  it('an option that could not be compared is a label beside the leader ("Not compared"), not left out of it silently', () => {
+    expect(analysisViewOf(viewOf('agency_withheld')).leader.words).toContain('Not compared: ‘Use an agency’')
+    expect(analysisViewOf(viewOf('capacity')).leader.words).not.toMatch(/Not compared/)
+  })
+  it('a leader that turns on an Olumi range names the swing figure and the option that leads at each end as labels (leads_when), and rests on both options\' premises', () => {
     const w = analysisViewOf(viewOf('leader_turns')).leader.words
-    expect(w).toMatch(/depends on Olumi's estimate of ‘per specialist’: ‘Keep current staffing’ leads when it is low, ‘Add one specialist’ when it is high/)
+    expect(w).toContain('Swing figure: ‘per specialist’')
+    expect(w).toContain('Leads when low: ‘Keep current staffing’')
+    expect(w).toContain('Leads when high: ‘Add one specialist’')
+    expect(w).not.toMatch(SENTENCE)
     const v = viewOf('capacity', (fs) => fs.map((f) => (f.about.kind === 'most_likely' ? { ...f, about: { ...f.about, rests: ['lead_doubt'] } } : f)))
     expect(analysisViewOf(v).leader.words).toMatch(/lead_doubt|A new hire may unsettle the team/)
   })
-  it('none_clearly: uses top, next, the two chances and leads_when; never the marker', () => {
+  it('none_clearly: "Most likely: none separated" with the top two as labels, from top, next and the two chances; never the marker alone, never a sentence', () => {
     const w = analysisViewOf(viewOf('none_separated')).leader.words
-    expect(w).toMatch(/No option is clearly ahead on ‘At least 100 a week’/)
-    expect(w).toMatch(/‘Add one specialist’.*about 41%.*‘Keep current staffing’.*about 40%/)
-    expect(w).toMatch(/depends on Olumi's estimate of ‘per specialist’/)
-    expect(w).not.toMatch(/most likely: none separated/)
+    expect(w.startsWith('Most likely: none separated')).toBe(true)
+    expect(w).toMatch(/Top two: ‘Add one specialist’, about 41%, ‘Keep current staffing’, about 40%/)
+    expect(w).toContain('Swing figure: ‘per specialist’')
+    expect(w).not.toMatch(SENTENCE)
+    expect(w).not.toMatch(/No option/)
+  })
+  it('the leader is stored text passed through as labels: scrambling core\'s text changes nothing, and the leader still carries no licence of its own', () => {
+    const v = analysisViewOf(viewOf('capacity'))
+    expect(v.leader).toMatchObject({ licence: 'withheld', option_id: null })
   })
 })
 
@@ -173,7 +194,7 @@ describe('input (bullet 6)', () => {
 describe('blocker and waits: every reason code is a plain DGAI message (bullet 7)', () => {
   const CODES = ['no_measure', 'no_aim_measure', 'asked', 'unmeasured', 'figure_unknown', 'figure_unsupported', 'needs_reading', 'bounds_leave_nothing', 'outside_bounds', 'timing_unsupported', 'range_unreadable',
     'link_in_words', 'risk_read_once', 'risk_unsized', 'needs_deadline', 'window_unmeasured', 'window_not_known', 'window_is_range', 'change_in_rate', 'change_from_changing_option', 'change_under_risk',
-    'ruled_out', 'removed', 'waits_on_aim', 'waits_on_limit', 'model_errors', 'schema', 'out_of_domain', 'no_goals', 'no_option_change', 'unlisted']
+    'ruled_out', 'removed', 'waits_on_aim', 'waits_on_limit', 'model_errors', 'schema', 'out_of_domain', 'no_goals', 'no_option_change', 'figure_not_applicable', 'unlisted']
   const withReasons = (reasons) => viewOf('agency_withheld', (fs) => fs.map((f) => (f.about.kind === 'blocker' ? { ...f, about: { ...f.about, reasons } } : f)))
   const reasonsOf = (v) => analysisViewOf(v).options.find((o) => o.option_id === 'agency').cell.reasons
   // What each message must say (its meaning, not its shape): a mapping to the wrong explanation fails here.
@@ -185,7 +206,14 @@ describe('blocker and waits: every reason code is a plain DGAI message (bullet 7
     change_in_rate: /change in a rate/, change_from_changing_option: /option itself changes/, change_under_risk: /change that depends on a risk/, ruled_out: /ruled out/, removed: /removed/,
     waits_on_aim: /waits until the aim/, waits_on_limit: /waits until the limit/, model_errors: /errors/, schema: /not in a shape/, out_of_domain: /not possible for it, so this cannot be worked out/,
     no_goals: /no aim to measure/, no_option_change: /No option changes anything/, unlisted: /no plain reason/,
+    figure_not_applicable: /not applicable/,
   }
+  it('there are 32 reason codes in all (the compiler\'s, with figure_unknown, figure_unsupported and figure_not_applicable; out_of_domain, no_goals and no_option_change from the engine and guard; and `unlisted`), and the shim words every one', () => {
+    expect(CODES).toHaveLength(32)
+    expect(new Set(CODES).size).toBe(32)
+    expect([...REASON_CODES].sort()).toEqual([...CODES].sort())
+    for (const c of ['figure_unknown', 'figure_unsupported', 'figure_not_applicable', 'unlisted']) expect(CODES, c).toContain(c)
+  })
   it('every code has its meaning pinned, and the messages are all different', () => {
     expect(Object.keys(MEANING).sort()).toEqual([...CODES].sort())
     expect(new Set(CODES.map((c) => reasonsOf(withReasons([{ code: c, ids: [] }]))[0].message)).size).toBe(CODES.length)
@@ -259,7 +287,7 @@ describe('science module kinds are markers (bullet 8)', () => {
   it('each is shown as its marker beside the names it is about, never as a sentence, and an unknown kind is ignored', () => {
     const notes = analysisViewOf(v).goal_chance.notes
     for (const [value, name] of [['direction: up', 'Add one specialist'], ['worth: a little', 'per specialist'], ['missed: about 51%', 'Add one specialist'], ['tips at: >= 71.5%', 'per specialist'], ["Olumi's ranges: about 73%", 'Add one specialist']]) {
-      expect(notes.find((n) => n.endsWith(value)), value).toContain(`‘${name}’`)
+      expect(notes.find((n) => n.includes(` — ${value}`)), value).toContain(`‘${name}’`)
     }
     expect(notes.join('\n')).not.toContain('a: b')
     expect(parseCanonicalAnalysisView(analysisViewOf(v))).not.toBeNull()
@@ -391,28 +419,95 @@ describe('Team tab: labels facts and D7 (bullets 1 and 10)', () => {
       expect(r.rows).toBeUndefined()
       expect(r.words).toMatch(/out of date|has changed|again/i)
     }
+    // each code its own words
+    const words = ['version_moved', 'reveal_moved', 'a_code_later'].map((code) => team.viewFindingsOf(scenario({ view_findings: { status: 'stale', code } })).words)
+    expect(new Set(words).size).toBe(3)
+    expect(words[0]).toMatch(/approved model has changed/)
+    expect(words[1]).toMatch(/revealed again/)
   })
-  it('D7: a current comparison is one row per figure and aim, worded from about: same, reversed, and a refused figure', () => {
+  // The words of a comparison belong to the AI: a D7 row is core's labels (`leader: reversed`) and the names core gives, never a sentence of DGAI's.
+  const SENTENCE = / leads | still leads|instead of|where no option led|clearly leads/
+  const pair = (row, label) => row.pairs.find((p) => p.label === label)?.item
+  it('D7: a current comparison is one row per figure and aim, as labels from about: same, reversed, and a refused figure', () => {
     const r = team.viewFindingsOf(scenario({ view_findings: findings([...S6.same, ...S6.reversed, ...S6.refused]) }))
     expect(r.status).toBe('current')
     expect(r.rows).toHaveLength(3)
-    expect(r.rows[0].words).toMatch(/Priya.*‘x’.*‘add’ still leads ‘reach 100’/)
-    expect(r.rows[1].words).toMatch(/‘tool’ leads ‘reach 100’ instead of ‘add’/)
-    expect(r.rows[0].options.find((o) => o.option === 'add').words).toMatch(/about 50%.*about 90%/)
-    expect(r.rows[2].words).toMatch(/Priya.*not run/i)
-    expect(r.rows.map((x) => x.words).join(' ')).not.toMatch(/leader:|holder:|not run: /)
-  })
-  it('D7: each refusal code has its own words, and an unknown one is generic', () => {
-    const codes = ['unknown_figure', 'derived_figure', 'structure_figure', 'no_figure', 'no_unit', 'unit_mismatch', 'not_a_figure', 'outside_range', 'no_range_kind', 'version_moved', 'capped', 'model_not_run', 'option_left_out',
-      'view_cannot_compile', 'different_draws', 'view_not_run', 'draws_differ', 'no_aim_compared', 'a_code_later']
-    const seen = new Set()
-    for (const code of codes) {
-      const f = { ...S6.refused[0], value: `not run: ${code.replace(/_/g, ' ')}`, about: { ...S6.refused[0].about, code } }
-      const [row] = team.viewFindingsOf(scenario({ view_findings: findings([f]) })).rows
-      expect(row.words, code).not.toContain('_')
-      seen.add(row.words)
+    const [same, reversed, refused] = r.rows
+    expect(pair(same, 'figure')).toBe('‘x’, Priya’s')
+    expect(pair(same, 'aim')).toBe('‘reach 100’')
+    expect(pair(same, 'leader')).toBe('same')
+    expect(pair(same, 'most likely on the model')).toBe('‘add’')
+    expect(pair(same, 'most likely on Priya’s figure')).toBe('‘add’')
+    expect(pair(reversed, 'leader')).toBe('reversed')
+    expect(pair(reversed, 'most likely on the model')).toBe('‘add’')
+    expect(pair(reversed, 'most likely on Priya’s figure')).toBe('‘tool’')
+    expect(reversed.change).toBe('reversed')
+    expect(same.change).toBe('same')
+    expect(same.options.find((o) => o.option === 'add').words).toMatch(/about 50%.*about 90%/)
+    expect(refused.status).toBe('refused')
+    expect(pair(refused, 'not run')).toBeDefined()
+    for (const row of r.rows) {
+      expect(row.words).toBe(row.pairs.map((p) => `${p.label}: ${p.item}`).join('; '))
+      expect(row.words).not.toMatch(SENTENCE)
+      expect(row.words).not.toMatch(/holder:|unknown figure|leader on view|leader on model|gap:/)   // core\'s own text pairs are never read
     }
-    expect(seen.size).toBe(codes.length - 1 + 1)
+  })
+  it('D7: a leader that appears or disappears is core\'s own word for it, and a null leader reads "none separated"', () => {
+    const f = (change, leader, model) => ({ ...S6.same[0], about: { ...S6.same[0].about, leader, model_leader: model, leader_change: change } })
+    const rows = team.viewFindingsOf(scenario({ view_findings: findings([f('now named', 'add', null), f('now unnamed', null, 'add')]) })).rows
+    expect(pair(rows[0], 'leader')).toBe('now named')
+    expect(pair(rows[0], 'most likely on the model')).toBe('none separated')
+    expect(pair(rows[1], 'leader')).toBe('now unnamed')
+    expect(pair(rows[1], 'most likely on Priya’s figure')).toBe('none separated')
+    expect(rows.map((r) => r.words).join(' ')).not.toMatch(SENTENCE)
+  })
+  // Review 00008 #5: the old test checked that the messages differed, so swapping two of them passed. Each code now has its own meaning pinned,
+  // and each message must match its own meaning and no other code's.
+  const REFUSAL_MEANING = {
+    unknown_figure: /does not hold that figure/, derived_figure: /worked out from others/, structure_figure: /fixed by how the model is built/, no_figure: /no figure was given/,
+    no_unit: /figure has no unit/, unit_mismatch: /different unit/, not_a_figure: /not a figure Olumi can use/, outside_range: /outside what is possible/, no_range_kind: /firm or a rough estimate/,
+    version_moved: /approved model has changed/, capped: /too many figures were revealed/, model_not_run: /no result to compare with/, option_left_out: /option could not be compared/,
+    view_cannot_compile: /with that figure cannot be worked out/, different_draws: /could not be put on the same draws/, view_not_run: /with that figure did not run/,
+    draws_differ: /did not use the same draws/, no_aim_compared: /no aim to compare on/, view_error: /went wrong running it/,
+  }
+  const GENERIC = /cannot yet say why/
+  const refusalWords = (code) => {
+    const f = { ...S6.refused[0], value: `not run: ${String(code).replace(/_/g, ' ')}`, about: { ...S6.refused[0].about, code } }
+    const [row] = team.viewFindingsOf(scenario({ view_findings: findings([f]) })).rows
+    return pair(row, 'not run')
+  }
+  it('D7: all 19 refusal codes core can give are named, each with its own meaning', () => {
+    expect(Object.keys(REFUSAL_MEANING)).toHaveLength(19)
+    for (const [code, meaning] of Object.entries(REFUSAL_MEANING)) {
+      const words = refusalWords(code)
+      expect(words, code).toMatch(meaning)
+      expect(words, code).not.toContain('_')
+      expect(words, code).not.toMatch(GENERIC)
+      // and it is not the meaning of any other code: two messages swapped would fail here
+      expect(Object.entries(REFUSAL_MEANING).filter(([, m]) => m.test(words)).map(([c]) => c), code).toEqual([code])
+    }
+  })
+  it('D7: a code core adds later gets the generic honest words, never a crash or a silent drop', () => {
+    const words = refusalWords('a_code_later')
+    expect(words).toMatch(GENERIC)
+    expect(Object.values(REFUSAL_MEANING).filter((m) => m.test(words))).toEqual([])
+    expect(refusalWords(undefined)).toMatch(GENERIC)
+  })
+  it('D7: two close sampled chances are told apart, not both rounded to "about 1%" (core\'s apart rule)', () => {
+    const f = { ...S6.same[0], about: { ...S6.same[0].about, options: [
+      { option: 'add', model: 0.0133, view: 0.0089, gap: -0.0044, exact: false, model_exact: false, view_exact: false },
+      { option: 'carry_on', model: 0.5, view: 0.5, gap: 0, exact: false, model_exact: false, view_exact: false }] } }
+    const [row] = team.viewFindingsOf(scenario({ view_findings: findings([f]) })).rows
+    expect(row.options[0].words).toBe('‘add’: about 1.3% on the model, about 0.9% on Priya’s figure.')
+    expect(row.options[0].words).not.toContain('about 1%')
+    // equal chances stay equal; they are not given invented decimals to differ
+    expect(row.options[1].words).toBe('‘carry on’: about 50% on the model, about 50% on Priya’s figure.')
+    // and the client's formatter is the shim's (core's) over the whole range: same strings for the same two chances
+    for (const [a, b] of [[0.0133, 0.0089], [0.0049, 0.0051], [0.994, 0.996], [0.5003, 0.5004], [0.5, 0.5], [0, 0.0004], [0.9996, 1], [0.123456, 0.123789]]) {
+      const [x, y] = team.apartPct(a, b)
+      expect([x, y], `${a} ${b}`).toEqual(a === b ? [chancePct(a), chancePct(b)] : apart(a, b))
+    }
+    for (let c = 0; c <= 1.0001; c += 0.0007) expect(team.chancePct(c)).toBe(chancePct(c))
   })
   it('D7: a sampled chance at either end is never certain, an exact one says it is fixed, and a null leader does not leave a gap', () => {
     const f = { ...S6.same[0], about: { ...S6.same[0].about, leader: null, model_leader: null, options: [
@@ -423,10 +518,27 @@ describe('Team tab: labels facts and D7 (bullets 1 and 10)', () => {
     expect(row.options[1].words).toBe('‘carry on’: never meets on the model, always meets on Priya’s figure.')
     expect(row.words).not.toMatch(/,\s{2}|, still/)
   })
-  it('D7: a figure\'s range_kind is carried to the spread, firm ends or a rough range', () => {
+  it('D7: both provenance blocks are kept, apart: what the model rests on and what the model with the member\'s figure rests on', () => {
+    // core: the model's x is Olumi's range, so the model rests on it; Priya's figure is hers, so the view side does not.
+    const [row] = team.viewFindingsOf(scenario({ view_findings: findings(S6.olumi_x) })).rows
+    expect(row.sides).not.toBeNull()
+    expect(row.sides.model.olumi).toBe(true)
+    expect(row.sides.model.lines.join(' ')).toMatch(/Olumi's what-if figures for ‘x’ \(not yet approved\)/)
+    expect(row.sides.view.olumi).toBe(false)
+    expect(row.sides.view.lines.join(' ')).not.toMatch(/what-if figures/)
+    // each side is read from its own block: flip one and only that side changes
+    const flipped = clone(S6.olumi_x); flipped[0].about.view_side = { ...flipped[0].about.view_side, olumi: true, olumi_mechanisms: [{ id: 'x', approval: 'approved' }] }
+    const [again] = team.viewFindingsOf(scenario({ view_findings: findings(flipped) })).rows
+    expect(again.sides.model).toEqual(row.sides.model)
+    expect(again.sides.view.olumi).toBe(true)
+    expect(again.sides.view.lines.join(' ')).toMatch(/calculations Olumi proposed \(approved\)/)
+    // a refused figure has no model run, so no blocks
+    expect(team.viewFindingsOf(scenario({ view_findings: findings(S6.refused) })).rows[0].sides).toBeNull()
+  })
+  it('D7: a figure\'s range_kind is carried to the spread, firm ends or a rough range, on core\'s own figure shape (no `kind`)', () => {
     const s = scenario({ views: [
-      { id: 1, by: 'Priya', mine: false, revealed: true, text: 'a', skip: false, figures: [{ kind: 'interval', quantity: 'x', low: 1, high: 2, range_kind: 'bounds' }] },
-      { id: 2, by: 'Sam', mine: false, revealed: true, text: 'b', skip: false, figures: [{ kind: 'interval', quantity: 'x', low: 2, high: 4, range_kind: 'plausible' }] }] })
-    expect(team.spreadsOf(s)[0].positions.map((p) => p.rangeKind)).toEqual(['bounds', 'plausible'])
+      { id: 1, by: 'Priya', mine: false, revealed: true, text: 'a', skip: false, figures: [{ quantity: 'x', unit: 'job/week', version: 1, low: 1, high: 2, range_kind: 'bounds' }] },
+      { id: 2, by: 'Sam', mine: false, revealed: true, text: 'b', skip: false, figures: [{ quantity: 'x', unit: 'job/week', version: 1, low: 2, high: 4, range_kind: 'plausible' }] }] })
+    expect(team.spreadsOf(s)[0].positions.map((p) => [p.kind, p.rangeKind])).toEqual([['interval', 'bounds'], ['interval', 'plausible']])
   })
 })

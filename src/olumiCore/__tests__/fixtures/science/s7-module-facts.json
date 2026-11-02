@@ -1,0 +1,2187 @@
+{
+ "source": "olumi-core 739b7e8: runOnly(capacity hand fixture of src/run/__tests__/science-pipeline.test.ts) with OLUMI_LABELS, ROUTES, WORTH, FAILURE, RELIANCE and TIPPING on (seed/draws as the pipeline)",
+ "form": {
+  "question": "Hand fixture",
+  "title": "Capacity",
+  "period": "week",
+  "records": [
+   {
+    "family": "quantity",
+    "id": "base_sales",
+    "label": "base sales",
+    "unit": "loaf/week",
+    "role": "fact",
+    "assertion": {
+     "kind": "point",
+     "value": 300,
+     "approximate": false
+    },
+    "domain": null,
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "quantity",
+    "id": "sales_target",
+    "label": "sales target",
+    "unit": "loaf/week",
+    "role": "fact",
+    "assertion": {
+     "kind": "point",
+     "value": 360,
+     "approximate": false
+    },
+    "domain": null,
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "quantity",
+    "id": "ovens_added",
+    "label": "ovens added",
+    "unit": "oven",
+    "role": "fact",
+    "assertion": {
+     "kind": "point",
+     "value": 0,
+     "approximate": false
+    },
+    "domain": null,
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "quantity",
+    "id": "one_oven",
+    "label": "one oven",
+    "unit": "oven",
+    "role": "fact",
+    "assertion": {
+     "kind": "point",
+     "value": 1,
+     "approximate": false
+    },
+    "domain": null,
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "quantity",
+    "id": "hours_on",
+    "label": "hours on",
+    "unit": "1",
+    "role": "fact",
+    "assertion": {
+     "kind": "point",
+     "value": 0,
+     "approximate": false
+    },
+    "domain": null,
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "quantity",
+    "id": "hours_switched_on",
+    "label": "hours switched on",
+    "unit": "1",
+    "role": "fact",
+    "assertion": {
+     "kind": "point",
+     "value": 1,
+     "approximate": false
+    },
+    "domain": null,
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "quantity",
+    "id": "repair_chance",
+    "label": "repair chance",
+    "unit": "1",
+    "role": "fact",
+    "assertion": {
+     "kind": "point",
+     "value": 0.2,
+     "approximate": false
+    },
+    "domain": null,
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "quantity",
+    "id": "half_capacity",
+    "label": "half capacity",
+    "unit": "1",
+    "role": "fact",
+    "assertion": {
+     "kind": "point",
+     "value": 0.5,
+     "approximate": false
+    },
+    "domain": null,
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "quantity",
+    "id": "budget",
+    "label": "budget",
+    "unit": "GBP",
+    "role": "fact",
+    "assertion": {
+     "kind": "point",
+     "value": 3000,
+     "approximate": false
+    },
+    "domain": null,
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "quantity",
+    "id": "fitting",
+    "label": "fitting",
+    "unit": "GBP/oven",
+    "role": "fact",
+    "assertion": {
+     "kind": "point",
+     "value": 400,
+     "approximate": false
+    },
+    "domain": null,
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "quantity",
+    "id": "extra_sold_per_oven",
+    "label": "extra sold per oven",
+    "unit": "loaf/week/oven",
+    "role": "coefficient",
+    "assertion": {
+     "kind": "interval",
+     "low": 60,
+     "high": 90,
+     "range_kind": "plausible",
+     "likely": 75
+    },
+    "domain": {
+     "lower": 0,
+     "upper": 100
+    },
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "olumi",
+     "basis": "Hand-checked provisional range"
+    }
+   },
+   {
+    "family": "quantity",
+    "id": "extra_hours_sold",
+    "label": "extra hours sold",
+    "unit": "loaf/week",
+    "role": "coefficient",
+    "assertion": {
+     "kind": "interval",
+     "low": 40,
+     "high": 80,
+     "range_kind": "plausible",
+     "likely": 60
+    },
+    "domain": {
+     "lower": 0,
+     "upper": null
+    },
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "quantity",
+    "id": "oven_price",
+    "label": "oven price",
+    "unit": "GBP/oven",
+    "role": "fact",
+    "assertion": {
+     "kind": "asked",
+     "question": "What would the oven cost?"
+    },
+    "domain": {
+     "lower": 0,
+     "upper": null
+    },
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "quantity",
+    "id": "sales",
+    "label": "sales",
+    "unit": "loaf/week",
+    "role": "derived",
+    "assertion": {
+     "kind": "derived"
+    },
+    "domain": null,
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "olumi",
+     "basis": "Hand-checked provisional range"
+    }
+   },
+   {
+    "family": "quantity",
+    "id": "oven_cost",
+    "label": "oven cost",
+    "unit": "GBP/oven",
+    "role": "derived",
+    "assertion": {
+     "kind": "derived"
+    },
+    "domain": null,
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "olumi",
+     "basis": "Hand-checked provisional range"
+    }
+   },
+   {
+    "family": "quantity",
+    "id": "spend",
+    "label": "spend",
+    "unit": "GBP",
+    "role": "derived",
+    "assertion": {
+     "kind": "derived"
+    },
+    "domain": null,
+    "stated_time": null,
+    "direction": null,
+    "origin": {
+     "by": "olumi",
+     "basis": "Hand-checked provisional range"
+    }
+   },
+   {
+    "family": "relation",
+    "id": "sales_rel",
+    "form": "effect",
+    "defines": "sales",
+    "base": "base_sales",
+    "terms": [
+     {
+      "driver": "ovens_added",
+      "coefficient": "extra_sold_per_oven"
+     },
+     {
+      "driver": "hours_on",
+      "coefficient": "extra_hours_sold"
+     }
+    ],
+    "origin": {
+     "by": "olumi",
+     "basis": "Hand-checked provisional range"
+    }
+   },
+   {
+    "family": "relation",
+    "id": "oven_cost_rel",
+    "form": "sum",
+    "defines": "oven_cost",
+    "parts": [
+     {
+      "id": "oven_price",
+      "sign": 1
+     },
+     {
+      "id": "fitting",
+      "sign": 1
+     }
+    ],
+    "origin": {
+     "by": "olumi",
+     "basis": "Hand-checked provisional range"
+    }
+   },
+   {
+    "family": "relation",
+    "id": "spend_rel",
+    "form": "product",
+    "defines": "spend",
+    "parts": [
+     {
+      "id": "oven_cost",
+      "power": 1
+     },
+     {
+      "id": "ovens_added",
+      "power": 1
+     }
+    ],
+    "origin": {
+     "by": "olumi",
+     "basis": "Hand-checked provisional range"
+    }
+   },
+   {
+    "family": "goal",
+    "id": "sell_360",
+    "label": "Sell 360 loaves a week",
+    "measure": {
+     "quantity": "sales",
+     "per": null,
+     "cmp": ">=",
+     "target": "sales_target",
+     "frame": "level",
+     "reference": null,
+     "aggregation": "end",
+     "window": null,
+     "measure_by": "person",
+     "assumptions": [],
+     "exclusions": []
+    },
+    "question": null,
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "limit",
+    "id": "within_budget",
+    "label": "Within budget",
+    "measure": {
+     "quantity": "spend",
+     "per": null,
+     "cmp": "<=",
+     "bound": "budget",
+     "aggregation": "end",
+     "window": null
+    },
+    "question": null,
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "option",
+    "id": "second_oven",
+    "label": "second oven",
+    "status": "live",
+    "carry_on": false,
+    "developed_from": null,
+    "sets": [
+     {
+      "quantity": "ovens_added",
+      "to": "one_oven",
+      "starts_after": 0
+     }
+    ],
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "option",
+    "id": "longer_hours",
+    "label": "longer hours",
+    "status": "live",
+    "carry_on": false,
+    "developed_from": null,
+    "sets": [
+     {
+      "quantity": "hours_on",
+      "to": "hours_switched_on",
+      "starts_after": 0
+     }
+    ],
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "option",
+    "id": "carry_on",
+    "label": "carry on",
+    "status": "live",
+    "carry_on": true,
+    "developed_from": null,
+    "sets": [],
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   },
+   {
+    "family": "risk",
+    "id": "oven_repair",
+    "label": "Oven repair",
+    "effect_on": "extra_sold_per_oven",
+    "direction": "down",
+    "occurrence": "repair_chance",
+    "severity": "half_capacity",
+    "mode": "multiply",
+    "starts_after": 0,
+    "origin": {
+     "by": "person",
+     "quote": "Hand fixture",
+     "party": null
+    }
+   }
+  ],
+  "coaching_questions": [],
+  "decide_by": null
+ },
+ "facts": [
+  {
+   "id": "F1",
+   "value": "60 to 90 loaf/week/oven",
+   "text": "figure: 'extra sold per oven'; range: “60 to 90 loaf/week/oven”; most likely: “75 loaf/week/oven”; used: yes",
+   "about": {
+    "kind": "input",
+    "quantity": "extra_sold_per_oven",
+    "olumi": true,
+    "low": 60,
+    "high": 90,
+    "likely": 75,
+    "unit": "loaf/week/oven",
+    "shape": "range",
+    "used": true,
+    "olumi_reading": false,
+    "olumi_figures": [
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "olumi_links": [],
+    "olumi_mechanisms": [],
+    "approx_figures": [],
+    "target": null,
+    "target_by": null,
+    "target_approval": null,
+    "target_read": false,
+    "rests": [],
+    "leaves": [],
+    "shown": {
+     "extra_sold_per_oven": "60 to 90 loaf/week/oven"
+    },
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F2",
+   "value": "waiting on an answer",
+   "text": "limit: 'Within budget'; waits on: 'oven price'",
+   "about": {
+    "limit": "within_budget",
+    "asks": [
+     "oven_price"
+    ],
+    "reasons": [
+     {
+      "code": "asked",
+      "ids": [
+       "oven_price"
+      ]
+     }
+    ],
+    "olumi": false,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [],
+    "approx_figures": [],
+    "target": "budget",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {},
+    "kind": "waits",
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F3",
+   "value": "about 72%",
+   "text": "option: 'second oven'; aim: 'Sell 360 loaves a week'; chance: about 72%",
+   "about": {
+    "kind": "chance",
+    "option": "second_oven",
+    "goal": "sell_360",
+    "chance": 0.7162,
+    "olumi": true,
+    "approx": false,
+    "rests": [],
+    "olumi_reading": false,
+    "olumi_figures": [
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "leaves": [],
+    "shown": {
+     "extra_sold_per_oven": "60 to 90 loaf/week/oven"
+    },
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F4",
+   "value": "between 337 and 387 loaf/week (middle 371)",
+   "text": "option: 'second oven'; aim: 'Sell 360 loaves a week'; 10th to 90th percentile: 337 to 387 loaf/week; median: 371 loaf/week",
+   "about": {
+    "kind": "range",
+    "option": "second_oven",
+    "goal": "sell_360",
+    "approx": false,
+    "low": 337.35351391429873,
+    "high": 387.4929236112236,
+    "median": 371.0818928806284,
+    "unit": "loaf/week",
+    "olumi": true,
+    "rests": [],
+    "olumi_reading": false,
+    "olumi_figures": [
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "leaves": [],
+    "shown": {
+     "extra_sold_per_oven": "60 to 90 loaf/week/oven"
+    },
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F5",
+   "value": "about 50%",
+   "text": "option: 'longer hours'; aim: 'Sell 360 loaves a week'; chance: about 50%",
+   "about": {
+    "kind": "chance",
+    "option": "longer_hours",
+    "goal": "sell_360",
+    "chance": 0.4999,
+    "olumi": true,
+    "approx": false,
+    "rests": [],
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_hours_sold",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F6",
+   "value": "between 339 and 380 loaf/week (middle 360)",
+   "text": "option: 'longer hours'; aim: 'Sell 360 loaves a week'; 10th to 90th percentile: 339 to 380 loaf/week; median: 360 loaf/week",
+   "about": {
+    "kind": "range",
+    "option": "longer_hours",
+    "goal": "sell_360",
+    "approx": false,
+    "low": 339.4744945801455,
+    "high": 379.7323179658307,
+    "median": 359.9971077421209,
+    "unit": "loaf/week",
+    "olumi": true,
+    "rests": [],
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_hours_sold",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F7",
+   "value": "under 1%",
+   "text": "option: 'carry on'; aim: 'Sell 360 loaves a week'; chance: under 1%",
+   "about": {
+    "kind": "chance",
+    "option": "carry_on",
+    "goal": "sell_360",
+    "chance": 0,
+    "olumi": true,
+    "approx": false,
+    "rests": [],
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F8",
+   "value": "300 loaf/week",
+   "text": "option: 'carry on'; aim: 'Sell 360 loaves a week'; median: 300 loaf/week",
+   "about": {
+    "kind": "range",
+    "option": "carry_on",
+    "goal": "sell_360",
+    "approx": false,
+    "low": 300,
+    "high": 300,
+    "median": 300,
+    "unit": "loaf/week",
+    "olumi": true,
+    "rests": [],
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F9",
+   "value": "most likely: 'second oven'",
+   "text": "aim: 'Sell 360 loaves a week'; most likely: 'second oven', about 72%; next: 'longer hours', about 50%; separated: intervals",
+   "about": {
+    "kind": "most_likely",
+    "option": "second_oven",
+    "goal": "sell_360",
+    "rests": [],
+    "chance": 0.7162,
+    "next": "longer_hours",
+    "next_chance": 0.4999,
+    "separated_by": "intervals",
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_hours_sold",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "leaves": [],
+    "shown": {
+     "extra_sold_per_oven": "60 to 90 loaf/week/oven"
+    },
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F10",
+   "value": "about 53% if 'extra sold per oven' is low, about 81% if it is high",
+   "text": "option: 'second oven'; aim: 'Sell 360 loaves a week'; figure: 'extra sold per oven'; lowest third: about 53%; highest third: about 81%",
+   "about": {
+    "kind": "driver",
+    "option": "second_oven",
+    "goal": "sell_360",
+    "low": 0.5346534653465347,
+    "high": 0.8067806780678067,
+    "quantity": "extra_sold_per_oven",
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {
+     "extra_sold_per_oven": "60 to 90 loaf/week/oven"
+    },
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F11",
+   "value": "under 1% if 'extra hours sold' is low, over 99% if it is high",
+   "text": "option: 'longer hours'; aim: 'Sell 360 loaves a week'; figure: 'extra hours sold'; lowest third: under 1%; highest third: over 99%",
+   "about": {
+    "kind": "driver",
+    "option": "longer_hours",
+    "goal": "sell_360",
+    "low": 0,
+    "high": 1,
+    "quantity": "extra_hours_sold",
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_hours_sold",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F12",
+   "value": "300 loaf/week",
+   "text": "figure: 'base sales'; value: “300 loaf/week”; used: yes",
+   "about": {
+    "kind": "input",
+    "quantity": "base_sales",
+    "olumi": false,
+    "likely": 300,
+    "unit": "loaf/week",
+    "shape": "point",
+    "used": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [],
+    "approx_figures": [],
+    "target": null,
+    "target_by": null,
+    "target_approval": null,
+    "target_read": false,
+    "rests": [],
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F13",
+   "value": "360 loaf/week",
+   "text": "figure: 'sales target'; value: “360 loaf/week”; used: yes",
+   "about": {
+    "kind": "input",
+    "quantity": "sales_target",
+    "olumi": false,
+    "likely": 360,
+    "unit": "loaf/week",
+    "shape": "point",
+    "used": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [],
+    "approx_figures": [],
+    "target": null,
+    "target_by": null,
+    "target_approval": null,
+    "target_read": false,
+    "rests": [],
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F14",
+   "value": "0 oven",
+   "text": "figure: 'ovens added'; value: “0 oven”; used: yes",
+   "about": {
+    "kind": "input",
+    "quantity": "ovens_added",
+    "olumi": false,
+    "likely": 0,
+    "unit": "oven",
+    "shape": "point",
+    "used": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [],
+    "approx_figures": [],
+    "target": null,
+    "target_by": null,
+    "target_approval": null,
+    "target_read": false,
+    "rests": [],
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F15",
+   "value": "1 oven",
+   "text": "figure: 'one oven'; value: “1 oven”; used: yes",
+   "about": {
+    "kind": "input",
+    "quantity": "one_oven",
+    "olumi": false,
+    "likely": 1,
+    "unit": "oven",
+    "shape": "point",
+    "used": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [],
+    "approx_figures": [],
+    "target": null,
+    "target_by": null,
+    "target_approval": null,
+    "target_read": false,
+    "rests": [],
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F16",
+   "value": "0%",
+   "text": "figure: 'hours on'; value: “0%”; used: yes",
+   "about": {
+    "kind": "input",
+    "quantity": "hours_on",
+    "olumi": false,
+    "likely": 0,
+    "unit": "1",
+    "shape": "point",
+    "used": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [],
+    "approx_figures": [],
+    "target": null,
+    "target_by": null,
+    "target_approval": null,
+    "target_read": false,
+    "rests": [],
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F17",
+   "value": "100%",
+   "text": "figure: 'hours switched on'; value: “100%”; used: yes",
+   "about": {
+    "kind": "input",
+    "quantity": "hours_switched_on",
+    "olumi": false,
+    "likely": 1,
+    "unit": "1",
+    "shape": "point",
+    "used": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [],
+    "approx_figures": [],
+    "target": null,
+    "target_by": null,
+    "target_approval": null,
+    "target_read": false,
+    "rests": [],
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F18",
+   "value": "20%",
+   "text": "figure: 'repair chance'; value: “20%”; used: yes",
+   "about": {
+    "kind": "input",
+    "quantity": "repair_chance",
+    "olumi": false,
+    "likely": 0.2,
+    "unit": "1",
+    "shape": "point",
+    "used": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [],
+    "approx_figures": [],
+    "target": null,
+    "target_by": null,
+    "target_approval": null,
+    "target_read": false,
+    "rests": [],
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F19",
+   "value": "50%",
+   "text": "figure: 'half capacity'; value: “50%”; used: yes",
+   "about": {
+    "kind": "input",
+    "quantity": "half_capacity",
+    "olumi": false,
+    "likely": 0.5,
+    "unit": "1",
+    "shape": "point",
+    "used": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [],
+    "approx_figures": [],
+    "target": null,
+    "target_by": null,
+    "target_approval": null,
+    "target_read": false,
+    "rests": [],
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F20",
+   "value": "3,000 GBP",
+   "text": "figure: 'budget'; value: “3,000 GBP”; used: yes",
+   "about": {
+    "kind": "input",
+    "quantity": "budget",
+    "olumi": false,
+    "likely": 3000,
+    "unit": "GBP",
+    "shape": "point",
+    "used": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [],
+    "approx_figures": [],
+    "target": null,
+    "target_by": null,
+    "target_approval": null,
+    "target_read": false,
+    "rests": [],
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F21",
+   "value": "400 GBP/oven",
+   "text": "figure: 'fitting'; value: “400 GBP/oven”; used: yes",
+   "about": {
+    "kind": "input",
+    "quantity": "fitting",
+    "olumi": false,
+    "likely": 400,
+    "unit": "GBP/oven",
+    "shape": "point",
+    "used": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [],
+    "approx_figures": [],
+    "target": null,
+    "target_by": null,
+    "target_approval": null,
+    "target_read": false,
+    "rests": [],
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "id": "F22",
+   "value": "40 to 80 loaf/week",
+   "text": "figure: 'extra hours sold'; range: “40 to 80 loaf/week”; most likely: “60 loaf/week”; used: yes",
+   "about": {
+    "kind": "input",
+    "quantity": "extra_hours_sold",
+    "olumi": false,
+    "low": 40,
+    "high": 80,
+    "likely": 60,
+    "unit": "loaf/week",
+    "shape": "range",
+    "used": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [],
+    "approx_figures": [],
+    "target": null,
+    "target_by": null,
+    "target_approval": null,
+    "target_read": false,
+    "rests": [],
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   }
+  },
+  {
+   "value": "'second oven' works toward 'Sell 360 loaves a week'",
+   "text": "In this model, 'second oven' raises 'sales', which works toward 'Sell 360 loaves a week', along one path: second oven → ovens added → sales → Sell 360 loaves a week. Its weakest link is likely. What would change our mind: 'ovens added' moving 'sales' the other way (that link is likely).",
+   "about": {
+    "kind": "direction",
+    "option": "second_oven",
+    "goal": "sell_360",
+    "direction": "up",
+    "toward": true,
+    "pivot": {
+     "from": "ovens_added",
+     "to": "sales",
+     "kind": "reverse"
+    }
+   },
+   "id": "F23"
+  },
+  {
+   "value": "which way 'second oven' moves 'Within budget' is unclear",
+   "text": "In this model, which way 'second oven' moves 'Within budget' is unclear: second oven → ovens added → spend → Within budget has a link whose direction is not given. What would settle it: which way 'ovens added' moves 'spend'.",
+   "about": {
+    "kind": "direction",
+    "option": "second_oven",
+    "limit": "within_budget",
+    "direction": "unclear",
+    "toward": null,
+    "pivot": {
+     "from": "ovens_added",
+     "to": "spend",
+     "kind": "settle"
+    }
+   },
+   "id": "F24"
+  },
+  {
+   "value": "'longer hours' works toward 'Sell 360 loaves a week'",
+   "text": "In this model, 'longer hours' raises 'sales', which works toward 'Sell 360 loaves a week', along one path: longer hours → hours on → sales → Sell 360 loaves a week. Its weakest link is likely. What would change our mind: 'hours on' moving 'sales' the other way (that link is likely).",
+   "about": {
+    "kind": "direction",
+    "option": "longer_hours",
+    "goal": "sell_360",
+    "direction": "up",
+    "toward": true,
+    "pivot": {
+     "from": "hours_on",
+     "to": "sales",
+     "kind": "reverse"
+    }
+   },
+   "id": "F25"
+  },
+  {
+   "value": "'longer hours' has no link to 'Within budget' in this model",
+   "text": "In this model, nothing 'longer hours' changes reaches 'Within budget', through a figure or a link in words.",
+   "about": {
+    "kind": "direction",
+    "option": "longer_hours",
+    "limit": "within_budget",
+    "direction": "none",
+    "toward": null,
+    "pivot": null
+   },
+   "id": "F26"
+  },
+  {
+   "value": "worth: a little",
+   "text": "figure: 'extra sold per oven'; aim: 'Sell 360 loaves a week'; worth finding out: a little; not covered: 'Within budget'",
+   "about": {
+    "kind": "worth",
+    "goal": "sell_360",
+    "quantity": "extra_sold_per_oven",
+    "basis": "olumi_estimate",
+    "band": "a little",
+    "points": 4.99,
+    "paired_p": 4.1349687433268494e-53,
+    "family_size": 2,
+    "limits": [],
+    "excluded_limits": [
+     "within_budget"
+    ],
+    "options": [
+     "second_oven",
+     "longer_hours",
+     "carry_on"
+    ],
+    "excluded_options": [],
+    "set_by": [],
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_hours_sold",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {
+     "extra_sold_per_oven": "60 to 90 loaf/week/oven"
+    },
+    "form": "labels"
+   },
+   "id": "F27"
+  },
+  {
+   "value": "worth: a fair amount",
+   "text": "figure: 'extra hours sold'; aim: 'Sell 360 loaves a week'; worth finding out: a fair amount; not covered: 'Within budget'",
+   "about": {
+    "kind": "worth",
+    "goal": "sell_360",
+    "quantity": "extra_hours_sold",
+    "basis": "person_range",
+    "band": "a fair amount",
+    "points": 14.180000000000001,
+    "paired_p": 7.181591163640316e-201,
+    "family_size": 2,
+    "limits": [],
+    "excluded_limits": [
+     "within_budget"
+    ],
+    "options": [
+     "second_oven",
+     "longer_hours",
+     "carry_on"
+    ],
+    "excluded_options": [],
+    "set_by": [],
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_hours_sold",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {
+     "extra_sold_per_oven": "60 to 90 loaf/week/oven"
+    },
+    "form": "labels"
+   },
+   "id": "F28"
+  },
+  {
+   "value": "missed: about 28%",
+   "text": "option: 'second oven'; aim: 'Sell 360 loaves a week'; covered limits: none; missed: 2838 of 10000; not covered: 'Within budget'; shortfall: 'Sell 360 loaves a week', mean, 17.4 loaf/week; figure: 'extra sold per oven', low third, 55% of misses, 25% of met; risk: 'Oven repair', happened, 69% of misses, 0% of met; comparison: compared; looked at: 2; named: 2",
+   "about": {
+    "kind": "failure",
+    "option": "second_oven",
+    "goal": "sell_360",
+    "limits": [],
+    "omitted_limits": [
+     "within_budget"
+    ],
+    "draws": 10000,
+    "missed_draws": 2838,
+    "miss_rate": 0.2838,
+    "comparison": "compared",
+    "met_draws": 7162,
+    "looked_at": 2,
+    "tests": 3,
+    "alpha": 0.016666666666666666,
+    "conditions": [
+     {
+      "goal": "sell_360",
+      "failed_draws": 2838,
+      "share_of_misses": 1,
+      "mean_shortfall": 17.41466904251794,
+      "unit": "loaf/week"
+     }
+    ],
+    "figures": [
+     {
+      "quantity": "extra_sold_per_oven",
+      "third": "low",
+      "draws": 3333,
+      "in_misses": 1551,
+      "share_of_misses": 0.5465116279069767,
+      "overall": 0.3333,
+      "in_met": 1782,
+      "share_of_met": 0.2488131806757889,
+      "lift": 0.2976984472311878,
+      "p": 1.5608546279471218e-172,
+      "log_p": -395.59940248529546
+     }
+    ],
+    "risks": [
+     {
+      "risk": "oven_repair",
+      "in_misses": 1952,
+      "share_of_misses": 0.6878083157152924,
+      "overall": 0.1952,
+      "in_met": 0,
+      "share_of_met": 0,
+      "lift": 0.6878083157152924,
+      "p": 0,
+      "log_p": -3174.331700697483
+     }
+    ],
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {
+     "extra_sold_per_oven": "60 to 90 loaf/week/oven"
+    },
+    "form": "labels"
+   },
+   "id": "F29"
+  },
+  {
+   "value": "missed: about 50%",
+   "text": "option: 'longer hours'; aim: 'Sell 360 loaves a week'; covered limits: none; missed: 5001 of 10000; not covered: 'Within budget'; shortfall: 'Sell 360 loaves a week', mean, 12.7 loaf/week; figure: 'extra hours sold', low third, 67% of misses, 0% of met; comparison: compared; looked at: 1; named: 1",
+   "about": {
+    "kind": "failure",
+    "option": "longer_hours",
+    "goal": "sell_360",
+    "limits": [],
+    "omitted_limits": [
+     "within_budget"
+    ],
+    "draws": 10000,
+    "missed_draws": 5001,
+    "miss_rate": 0.5001,
+    "comparison": "compared",
+    "met_draws": 4999,
+    "looked_at": 1,
+    "tests": 2,
+    "alpha": 0.025,
+    "conditions": [
+     {
+      "goal": "sell_360",
+      "failed_draws": 5001,
+      "share_of_misses": 1,
+      "mean_shortfall": 12.66026090030003,
+      "unit": "loaf/week"
+     }
+    ],
+    "figures": [
+     {
+      "quantity": "extra_hours_sold",
+      "third": "low",
+      "draws": 3333,
+      "in_misses": 3333,
+      "share_of_misses": 0.6664667066586683,
+      "overall": 0.3333,
+      "in_met": 0,
+      "share_of_met": 0,
+      "lift": 0.6664667066586683,
+      "p": 0,
+      "log_p": -3180.664286320767
+     }
+    ],
+    "risks": [],
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_hours_sold",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   },
+   "id": "F30"
+  },
+  {
+   "value": "missed: over 99%",
+   "text": "option: 'carry on'; aim: 'Sell 360 loaves a week'; covered limits: none; missed: 10000 of 10000; not covered: 'Within budget'; shortfall: 'Sell 360 loaves a week', mean, 60 loaf/week; comparison: nothing to compare",
+   "about": {
+    "kind": "failure",
+    "option": "carry_on",
+    "goal": "sell_360",
+    "limits": [],
+    "omitted_limits": [
+     "within_budget"
+    ],
+    "draws": 10000,
+    "missed_draws": 10000,
+    "miss_rate": 1,
+    "comparison": "nothing_to_compare",
+    "met_draws": 0,
+    "looked_at": 0,
+    "tests": 0,
+    "alpha": null,
+    "conditions": [
+     {
+      "goal": "sell_360",
+      "failed_draws": 10000,
+      "share_of_misses": 1,
+      "mean_shortfall": 60,
+      "unit": "loaf/week"
+     }
+    ],
+    "figures": [],
+    "risks": [],
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {},
+    "form": "labels"
+   },
+   "id": "F31"
+  },
+  {
+   "value": "Olumi's ranges: about 29%",
+   "text": "option: 'second oven'; aim: 'Sell 360 loaves a week'; first-order share, Olumi's ranges: about 29%; their ranges: under 1%; not assigned: about 71%",
+   "about": {
+    "kind": "reliance",
+    "option": "second_oven",
+    "goal": "sell_360",
+    "olumi_share": 0.29284119238249123,
+    "person_share": 0,
+    "unassigned": 0.7071588076175088,
+    "figures": [
+     {
+      "quantity": "extra_sold_per_oven",
+      "author": "olumi",
+      "author_id": null,
+      "share": 0.29284119238249123,
+      "nu": 49
+     },
+     {
+      "quantity": "extra_hours_sold",
+      "author": "person",
+      "author_id": null,
+      "share": -0.0008825290607522205,
+      "nu": 49
+     }
+    ],
+    "groups": [
+     {
+      "author": "olumi",
+      "author_id": null,
+      "quantities": [
+       "extra_sold_per_oven"
+      ],
+      "share": 0.29284119238249123
+     },
+     {
+      "author": "person",
+      "author_id": null,
+      "quantities": [
+       "extra_hours_sold"
+      ],
+      "share": -0.0008825290607522205
+     }
+    ],
+    "nu": 49,
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {
+     "extra_sold_per_oven": "60 to 90 loaf/week/oven",
+     "olumi_share": "about 29%",
+     "person_share": "under 1%",
+     "unassigned": "about 71%"
+    },
+    "form": "labels"
+   },
+   "id": "F32"
+  },
+  {
+   "value": "Olumi's ranges: under 1%",
+   "text": "option: 'longer hours'; aim: 'Sell 360 loaves a week'; first-order share, Olumi's ranges: under 1%; their ranges: over 99%; not assigned: under 1%",
+   "about": {
+    "kind": "reliance",
+    "option": "longer_hours",
+    "goal": "sell_360",
+    "olumi_share": 0,
+    "person_share": 0.9996000399840024,
+    "unassigned": 0.00039996001599762465,
+    "figures": [
+     {
+      "quantity": "extra_sold_per_oven",
+      "author": "olumi",
+      "author_id": null,
+      "share": -0.0004447091635170049,
+      "nu": 49
+     },
+     {
+      "quantity": "extra_hours_sold",
+      "author": "person",
+      "author_id": null,
+      "share": 0.9996000399840024,
+      "nu": 49
+     }
+    ],
+    "groups": [
+     {
+      "author": "olumi",
+      "author_id": null,
+      "quantities": [
+       "extra_sold_per_oven"
+      ],
+      "share": -0.0004447091635170049
+     },
+     {
+      "author": "person",
+      "author_id": null,
+      "quantities": [
+       "extra_hours_sold"
+      ],
+      "share": 0.9996000399840024
+     }
+    ],
+    "nu": 49,
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_hours_sold",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {
+     "olumi_share": "under 1%",
+     "person_share": "over 99%",
+     "unassigned": "under 1%"
+    },
+    "form": "labels"
+   },
+   "id": "F33"
+  },
+  {
+   "value": "tips at: >= 0.8 oven",
+   "text": "option: 'second oven'; aim: 'Sell 360 loaves a week'; figure: 'one oven'; threshold: >= 0.8 oven; status: threshold; held at middle: 'extra sold per oven', 75 loaf/week/oven; risk: 'Oven repair', not happened",
+   "about": {
+    "kind": "tipping",
+    "option": "second_oven",
+    "goal": "sell_360",
+    "quantity": "one_oven",
+    "unit": "oven",
+    "status": "threshold",
+    "at": 0.8,
+    "direction": ">=",
+    "cases": 2,
+    "unreported": 0,
+    "held": [
+     {
+      "quantity": "extra_sold_per_oven",
+      "value": 75,
+      "by": "olumi"
+     }
+    ],
+    "figure_range": {
+     "low": 1,
+     "high": 1,
+     "median": 1,
+     "unit": "oven"
+    },
+    "when": [
+     {
+      "risk": "oven_repair",
+      "fired": false
+     }
+    ],
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {
+     "extra_sold_per_oven": "60 to 90 loaf/week/oven",
+     "tips:threshold": ">= 0.8 oven",
+     "tips:range": "1 oven",
+     "tips:held:extra_sold_per_oven": "75 loaf/week/oven"
+    },
+    "form": "labels"
+   },
+   "id": "F34"
+  },
+  {
+   "value": "tips at: >= 1.6 oven",
+   "text": "option: 'second oven'; aim: 'Sell 360 loaves a week'; figure: 'one oven'; threshold: >= 1.6 oven; status: threshold; held at middle: 'extra sold per oven', 75 loaf/week/oven; risk: 'Oven repair', happened",
+   "about": {
+    "kind": "tipping",
+    "option": "second_oven",
+    "goal": "sell_360",
+    "quantity": "one_oven",
+    "unit": "oven",
+    "status": "threshold",
+    "at": 1.6,
+    "direction": ">=",
+    "cases": 2,
+    "unreported": 0,
+    "held": [
+     {
+      "quantity": "extra_sold_per_oven",
+      "value": 75,
+      "by": "olumi"
+     }
+    ],
+    "figure_range": {
+     "low": 1,
+     "high": 1,
+     "median": 1,
+     "unit": "oven"
+    },
+    "when": [
+     {
+      "risk": "oven_repair",
+      "fired": true
+     }
+    ],
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {
+     "extra_sold_per_oven": "60 to 90 loaf/week/oven",
+     "tips:threshold": ">= 1.6 oven",
+     "tips:range": "1 oven",
+     "tips:held:extra_sold_per_oven": "75 loaf/week/oven"
+    },
+    "form": "labels"
+   },
+   "id": "F35"
+  },
+  {
+   "value": "tips at: >= 60 loaf/week/oven",
+   "text": "option: 'second oven'; aim: 'Sell 360 loaves a week'; figure: 'extra sold per oven'; threshold: >= 60 loaf/week/oven; status: threshold; risk: 'Oven repair', not happened",
+   "about": {
+    "kind": "tipping",
+    "option": "second_oven",
+    "goal": "sell_360",
+    "quantity": "extra_sold_per_oven",
+    "unit": "loaf/week/oven",
+    "status": "threshold",
+    "at": 60,
+    "direction": ">=",
+    "cases": 2,
+    "unreported": 0,
+    "held": [],
+    "figure_range": {
+     "low": 60,
+     "high": 90,
+     "median": 75,
+     "unit": "loaf/week/oven"
+    },
+    "when": [
+     {
+      "risk": "oven_repair",
+      "fired": false
+     }
+    ],
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {
+     "extra_sold_per_oven": "60 to 90 loaf/week/oven",
+     "tips:threshold": ">= 60 loaf/week/oven",
+     "tips:range": "60 to 90 loaf/week/oven"
+    },
+    "form": "labels"
+   },
+   "id": "F36"
+  },
+  {
+   "value": "tips: never",
+   "text": "option: 'second oven'; aim: 'Sell 360 loaves a week'; figure: 'extra sold per oven'; status: never; risk: 'Oven repair', happened",
+   "about": {
+    "kind": "tipping",
+    "option": "second_oven",
+    "goal": "sell_360",
+    "quantity": "extra_sold_per_oven",
+    "unit": "loaf/week/oven",
+    "status": "never",
+    "at": 120,
+    "direction": ">=",
+    "cases": 2,
+    "unreported": 0,
+    "held": [],
+    "figure_range": {
+     "low": 60,
+     "high": 90,
+     "median": 75,
+     "unit": "loaf/week/oven"
+    },
+    "when": [
+     {
+      "risk": "oven_repair",
+      "fired": true
+     }
+    ],
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_sold_per_oven",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {
+     "extra_sold_per_oven": "60 to 90 loaf/week/oven",
+     "tips:range": "60 to 90 loaf/week/oven"
+    },
+    "form": "labels"
+   },
+   "id": "F37"
+  },
+  {
+   "value": "tips at: >= 100%",
+   "text": "option: 'longer hours'; aim: 'Sell 360 loaves a week'; figure: 'hours switched on'; threshold: >= 100%; status: threshold; held at middle: 'extra hours sold', 60 loaf/week",
+   "about": {
+    "kind": "tipping",
+    "option": "longer_hours",
+    "goal": "sell_360",
+    "quantity": "hours_switched_on",
+    "unit": "1",
+    "status": "threshold",
+    "at": 1,
+    "direction": ">=",
+    "cases": 1,
+    "unreported": 0,
+    "held": [
+     {
+      "quantity": "extra_hours_sold",
+      "value": 60,
+      "by": "person"
+     }
+    ],
+    "figure_range": {
+     "low": 1,
+     "high": 1,
+     "median": 1,
+     "unit": "1"
+    },
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_hours_sold",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {
+     "tips:threshold": ">= 100%",
+     "tips:range": "100%",
+     "tips:held:extra_hours_sold": "60 loaf/week"
+    },
+    "form": "labels"
+   },
+   "id": "F38"
+  },
+  {
+   "value": "tips at: >= 60 loaf/week",
+   "text": "option: 'longer hours'; aim: 'Sell 360 loaves a week'; figure: 'extra hours sold'; threshold: >= 60 loaf/week; status: threshold",
+   "about": {
+    "kind": "tipping",
+    "option": "longer_hours",
+    "goal": "sell_360",
+    "quantity": "extra_hours_sold",
+    "unit": "loaf/week",
+    "status": "threshold",
+    "at": 60,
+    "direction": ">=",
+    "cases": 1,
+    "unreported": 0,
+    "held": [],
+    "figure_range": {
+     "low": 40,
+     "high": 80,
+     "median": 60,
+     "unit": "loaf/week"
+    },
+    "olumi": true,
+    "olumi_reading": false,
+    "olumi_figures": [],
+    "olumi_links": [],
+    "olumi_mechanisms": [
+     {
+      "id": "sales_rel",
+      "approval": "proposed"
+     },
+     {
+      "id": "extra_hours_sold",
+      "approval": "proposed"
+     }
+    ],
+    "approx_figures": [],
+    "target": "sales_target",
+    "target_by": "person",
+    "target_approval": "proposed",
+    "target_read": true,
+    "rests": [],
+    "leaves": [],
+    "shown": {
+     "tips:threshold": ">= 60 loaf/week",
+     "tips:range": "40 to 80 loaf/week"
+    },
+    "form": "labels"
+   },
+   "id": "F39"
+  }
+ ],
+ "science": {
+  "flags": [
+   "OLUMI_LABELS",
+   "OLUMI_ROUTES",
+   "OLUMI_WORTH",
+   "OLUMI_FAILURE",
+   "OLUMI_RELIANCE",
+   "OLUMI_TIPPING"
+  ],
+  "modules": [
+   {
+    "module": "routes",
+    "status": "spoke",
+    "reason": null
+   },
+   {
+    "module": "worth",
+    "status": "spoke",
+    "reason": null
+   },
+   {
+    "module": "failure",
+    "status": "spoke",
+    "reason": null
+   },
+   {
+    "module": "reliance",
+    "status": "spoke",
+    "reason": null
+   },
+   {
+    "module": "tipping",
+    "status": "spoke",
+    "reason": null
+   }
+  ]
+ }
+}

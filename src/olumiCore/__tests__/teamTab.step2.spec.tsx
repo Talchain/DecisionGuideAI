@@ -69,8 +69,8 @@ describe('Team tab, step 2: reveal together', () => {
 
 describe('asking Olumi where we differ sends the words and never the figures', () => {
   const two = [
-    view({ id: 1, by: 'Ada', text: 'hire now', figures: [{ kind: 'interval', quantity: 'per_specialist', low: 10, high: 30 }] }),
-    view({ id: 2, by: 'Bea', text: 'wait a quarter', figures: [{ kind: 'point', quantity: 'per_specialist', value: 17.5 }] }),
+    view({ id: 1, by: 'Ada', text: 'hire now', figures: [{ quantity: 'per_specialist', low: 10, high: 30 }] }),
+    view({ id: 2, by: 'Bea', text: 'wait a quarter', figures: [{ quantity: 'per_specialist', value: 17.5 }] }),
   ]
   it('quotes each person\'s words verbatim and contains no figure', () => {
     const q = askAboutViews(two)!
@@ -97,8 +97,8 @@ describe('where you differ: each person\'s own figure, ends and all', () => {
     reveal: { state: 'revealed', at: 'x' },
     version: { id: 4, n: 1, form: { records: [{ id: 'per_specialist', family: 'quantity', label: 'Tickets added per specialist', unit: 'ticket/week', assertion: { kind: 'interval', low: 10, high: 30 } } as never] } },
     views: [
-      view({ id: 1, by: 'Ada', text: 'hire', figures: [{ kind: 'interval', quantity: 'per_specialist', low: 10, high: 40 }] }),
-      view({ id: 2, by: 'Bea', text: 'wait', figures: [{ kind: 'point', quantity: 'per_specialist', value: 17.5 }] }),
+      view({ id: 1, by: 'Ada', text: 'hire', figures: [{ quantity: 'per_specialist', low: 10, high: 40 }] }),
+      view({ id: 2, by: 'Bea', text: 'wait', figures: [{ quantity: 'per_specialist', value: 17.5 }] }),
     ],
   })
   it('lists a quantity once two people gave a figure for it, in the order views came, with the model drawn apart', () => {
@@ -131,7 +131,7 @@ describe('where you differ: each person\'s own figure, ends and all', () => {
     expect(projectPercent(5, 5, 5)).toBe(50)
   })
   it('draws nothing for one person\'s figure (there is nothing to compare), and reads honestly when no figures came', () => {
-    const one = scenario({ reveal: { state: 'revealed', at: 'x' }, views: [view({ id: 1, by: 'Ada', text: 'hire', figures: [{ kind: 'point', quantity: 'q', value: 1 }] }), view({ id: 2, by: 'Bea', text: 'wait' })] })
+    const one = scenario({ reveal: { state: 'revealed', at: 'x' }, views: [view({ id: 1, by: 'Ada', text: 'hire', figures: [{ quantity: 'q', value: 1 }] }), view({ id: 2, by: 'Bea', text: 'wait' })] })
     expect(spreadsOf(one)).toEqual([])
     render(<RevealPanel sid="s_a" scenario={one} onWrote={async () => true} />)
     // one person's figure exists, so it is not said that none came
@@ -142,8 +142,8 @@ describe('where you differ: each person\'s own figure, ends and all', () => {
   })
   it('refuses a malformed range rather than drawing one (low above high)', () => {
     const bad = scenario({ reveal: { state: 'revealed', at: 'x' }, views: [
-      view({ id: 1, by: 'Ada', text: 'a', figures: [{ kind: 'interval', quantity: 'q', low: 9, high: 1 }] }),
-      view({ id: 2, by: 'Bea', text: 'b', figures: [{ kind: 'point', quantity: 'q', value: 4 }] }),
+      view({ id: 1, by: 'Ada', text: 'a', figures: [{ quantity: 'q', low: 9, high: 1 }] }),
+      view({ id: 2, by: 'Bea', text: 'b', figures: [{ quantity: 'q', value: 4 }] }),
     ] })
     expect(spreadsOf(bad)).toEqual([])
   })

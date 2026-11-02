@@ -2,7 +2,7 @@
  * What the Team tab shows, derived from the olumi-core scenario view by pure functions (no component, no store).
  * Every number and word here is read from the view; nothing is composed, averaged or ranked.
  */
-import type { TeamFigure, TeamMember, TeamRecord, TeamScenario, TeamViewFact, TeamViewRow } from './types'
+import type { TeamMember, TeamProvenanceBlock, TeamRecord, TeamScenario, TeamViewFact, TeamViewRow } from './types'
 
 /**
  * Are figures served with a view? FALSE at olumi-core 2b84912: `POST views` ignores `figures` (app.ts reads `text` or `skip` only),
@@ -167,7 +167,31 @@ export interface SpreadFor {
 }
 
 const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
-const validFigure = (f: TeamFigure): boolean => f.kind === 'point' ? finite(f.value) : f.kind === 'interval' ? finite(f.low) && finite(f.high) && f.low <= f.high : false
+
+/** A figure as this page reads it: a point, or a range by its two ends (with the member's own reading of it when they gave one). */
+export type ReadFigure =
+  | { readonly kind: 'point'; readonly quantity: string; readonly value: number; readonly unit?: string }
+  | { readonly kind: 'interval'; readonly quantity: string; readonly low: number; readonly high: number; readonly rangeKind?: 'bounds' | 'plausible'; readonly unit?: string }
+
+/**
+ * Read one figure of a view the way olumi-core serves it, which has no `kind`: a figure with a `value` is a point, one with `low` and `high` is a
+ * range (API.md "Figures on a private view"). Anything else is NOT drawn and never throws: neither of the two, both at once, a number that is not
+ * finite, or a range whose low end is above its high end. (Core never sends such a figure; a page that is shown one must not break on it.)
+ */
+export function readFigure(f: unknown): ReadFigure | null {
+  if (f === null || typeof f !== 'object') return null
+  const g = f as { quantity?: unknown; unit?: unknown; value?: unknown; low?: unknown; high?: unknown; range_kind?: unknown }
+  if (typeof g.quantity !== 'string' || g.quantity === '') return null
+  // The unit it was GIVEN in, which core keeps with the figure (a later version that changes the quantity's unit never changes what it meant).
+  const unit = typeof g.unit === 'string' && g.unit !== '' && g.unit !== '1' ? { unit: g.unit } : {}
+  const ranged = g.low !== undefined || g.high !== undefined
+  if (g.value !== undefined && !ranged) return finite(g.value) ? { kind: 'point', quantity: g.quantity, value: g.value, ...unit } : null
+  if (ranged && g.value === undefined) {
+    if (!finite(g.low) || !finite(g.high) || g.low > g.high) return null
+    return { kind: 'interval', quantity: g.quantity, low: g.low, high: g.high, ...(g.range_kind === 'bounds' || g.range_kind === 'plausible' ? { rangeKind: g.range_kind } : {}), ...unit }
+  }
+  return null
+}
 
 /**
  * One spread per quantity that at least TWO people gave a figure for in revealed views, with each person's own figure kept as
@@ -177,10 +201,11 @@ const validFigure = (f: TeamFigure): boolean => f.kind === 'point' ? finite(f.va
 export function spreadsOf(s: Pick<TeamScenario, 'views' | 'version'>): readonly SpreadFor[] {
   const by = new Map<string, Position[]>()
   for (const v of revealedViews(s)) {
-    for (const f of v.figures ?? []) {
-      if (!validFigure(f)) continue
+    for (const raw of v.figures ?? []) {
+      const f = readFigure(raw)
+      if (f === null) continue
       const list = by.get(f.quantity) ?? []
-      list.push(f.kind === 'point' ? { holder: v.by, kind: 'point', value: f.value } : { holder: v.by, kind: 'interval', low: f.low, high: f.high, ...(f.range_kind ? { rangeKind: f.range_kind } : {}) })
+      list.push(f.kind === 'point' ? { holder: v.by, kind: 'point', value: f.value } : { holder: v.by, kind: 'interval', low: f.low, high: f.high, ...(f.rangeKind ? { rangeKind: f.rangeKind } : {}) })
       by.set(f.quantity, list)
     }
   }
@@ -247,9 +272,29 @@ export function modelBandOf(s: Pick<TeamScenario, 'version'>): readonly ModelBan
 }
 
 // ── D7: where the model and a member's figure disagree (OLUMI_D7) ─────────────────────────────────────────────────────────
+//
+// The words of a comparison belong to the AI (spec §3.0): nothing here says who leads, who is ahead or what a difference means. A row is core's own
+// labels (`leader: reversed`), the names of the records, the chances each side gives and, apart, what each side rests on.
 
-/** A sampled chance as core writes it (never certain), so the words here agree with the Run's own. */
-const chancePct = (c: number): string => (c >= 1 ? 'over 99%' : c <= 0 ? 'under 1%' : c < 0.005 ? 'under 1%' : c > 0.995 ? 'over 99%' : `about ${Math.round(c * 100)}%`)
+/**
+ * A sampled chance as core writes it (never certain), so the words here agree with the Run's own. Held equal to the shim's (`labels.mjs` `chancePct`,
+ * core's `pct`) by scienceConsumers.spec.mjs over the whole range.
+ */
+export const chancePct = (c: number): string => (c >= 1 ? 'over 99%' : c <= 0 ? 'under 1%' : c < 0.005 ? 'under 1%' : c > 0.995 ? 'over 99%' : `about ${Math.round(c * 100)}%`)
+
+/**
+ * Two chances a comparison names, with enough decimals to differ (up to three), as core's `apart`: 1.33% and 0.89% are "about 1.3%" and "about 0.9%",
+ * never both "about 1%". Chances that are equal stay equal: they are not given invented decimals to differ.
+ */
+export function apartPct(a: number, b: number): [string, string] {
+  if (a === b) return [chancePct(a), chancePct(b)]
+  const at = (c: number, d: number): string => { const p = c * 100, step = 10 ** -d; return p < step ? `under ${step}%` : p > 100 - step ? `over ${+(100 - step).toFixed(d)}%` : `about ${p.toFixed(d)}%` }
+  let x = chancePct(a), y = chancePct(b)
+  for (let d = 1; x === y && d <= 3; d++) { x = at(a, d); y = at(b, d) }
+  return [x, y]
+}
+
+/** Every reason core can give for a figure it did not run (`code`, API.md), in DGAI's words. A code it adds later gets the generic words below. */
 const REFUSALS: Readonly<Record<string, string>> = {
   unknown_figure: 'the model does not hold that figure',
   derived_figure: 'that figure is worked out from others, so there is nothing to replace',
@@ -269,16 +314,66 @@ const REFUSALS: Readonly<Record<string, string>> = {
   view_not_run: 'the model with that figure did not run',
   draws_differ: 'the two runs did not use the same draws',
   no_aim_compared: 'there was no aim to compare on',
+  view_error: 'something went wrong running it',
 }
 const GENERIC_REFUSAL = 'Olumi could not run it and cannot yet say why in plain words'
-export interface ViewFindingRow { readonly id: string; readonly status: string; readonly holder: string; readonly words: string; readonly options: readonly { readonly option: string; readonly words: string }[] }
+export type LeaderChange = 'same' | 'reversed' | 'now named' | 'now unnamed'
+const LEADER_CHANGES: readonly string[] = ['same', 'reversed', 'now named', 'now unnamed']
+/** What one side of a comparison rests on that is Olumi's or approximate: the Olumi mark is drawn when `olumi`, the lines are behind a disclosure. */
+export interface ViewFindingSide { readonly olumi: boolean; readonly lines: readonly string[] }
+export interface ViewFindingRow {
+  readonly id: string
+  readonly status: string
+  readonly holder: string
+  /** Core's word for what the figure did to the leader (`leader_change`); null when the figure was not run. */
+  readonly change: LeaderChange | null
+  /** The row as `label: item` pairs, in the order shown; `words` is the same joined as core's text is. */
+  readonly pairs: readonly { readonly label: string; readonly item: string }[]
+  readonly words: string
+  readonly options: readonly { readonly option: string; readonly words: string }[]
+  /** The provenance blocks of the unchanged model and of the model with the member's figure, read apart; null when the figure was not run. */
+  readonly sides: { readonly model: ViewFindingSide; readonly view: ViewFindingSide } | null
+}
 export type ViewFindingsView =
   | { readonly status: 'stale'; readonly words: string }
   | { readonly status: 'current'; readonly rows: readonly ViewFindingRow[] }
 
+/** What a block rests on, one plain line for each thing (no sentence of analysis): Olumi's figures, links and calculations with their approval, its reading of the aim, a target it proposed, approximate figures and premises. */
+function sideOf(block: TeamProvenanceBlock | undefined, records: readonly TeamRecord[]): ViewFindingSide | null {
+  if (!block || typeof block !== 'object') return null
+  const q = (id: string): string => { const r = records.find((x) => x.id === id); const w = r ? recordWords(r) : null; return `‘${w ?? id.replace(/_/g, ' ')}’` }
+  // An Olumi option's own setting of a figure is `<option>__<quantity>`.
+  const figureName = (id: string): string => {
+    if (records.some((r) => r.id === id)) return q(id)
+    const at = id.indexOf('__')
+    return at > 0 && records.some((r) => r.id === id.slice(0, at)) && records.some((r) => r.id === id.slice(at + 2)) ? `${q(id.slice(at + 2))} as ${q(id.slice(0, at))} sets it` : q(id)
+  }
+  const list = (xs: readonly string[]): string => (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`)
+  const byApproval = (xs: readonly { id: string; approval?: string }[] | undefined) => {
+    const all = Array.isArray(xs) ? xs.filter((x) => x && typeof x.id === 'string') : []
+    return { approved: all.filter((x) => x.approval === 'approved'), proposed: all.filter((x) => x.approval !== 'approved') }
+  }
+  const lines: string[] = []
+  const figs = byApproval(block.olumi_figures)
+  if (figs.proposed.length) lines.push(`Olumi's what-if figures for ${list(figs.proposed.map((x) => figureName(x.id)))} (not yet approved)`)
+  if (figs.approved.length) lines.push(`Olumi's what-if figures for ${list(figs.approved.map((x) => figureName(x.id)))} (approved)`)
+  for (const [key, noun] of [['olumi_links', 'links'], ['olumi_mechanisms', 'calculations']] as const) {
+    const got = byApproval(block[key])
+    if (got.proposed.length) lines.push(`${noun} Olumi proposed (not yet approved)`)
+    if (got.approved.length) lines.push(`${noun} Olumi proposed (approved)`)
+  }
+  if (block.olumi_reading === true) lines.push('Olumi\'s reading of the aim')
+  if (block.target_by === 'olumi') lines.push(`a target Olumi proposed${block.target_approval === 'approved' ? ' (approved)' : ' (not yet approved)'}`)
+  const approx = (block.approx_figures ?? []).filter((x): x is string => typeof x === 'string')
+  if (approx.length) lines.push(`${list(approx.map(figureName))}, which they gave as approximate and Olumi reads as within 10% either way`)
+  const premises = (block.rests ?? []).filter((x): x is string => typeof x === 'string')
+  if (premises.length) lines.push(`the premises ${list(premises.map(q))}`)
+  return { olumi: block.olumi === true, lines }
+}
+
 /**
  * What D7 says about the revealed figures, or null when it says nothing. Null when `view_findings` is absent or null (the flag is off, or no comparison
- * yet). A stale comparison shows its status and nothing else, however much it carries. A current one is a row for each fact, worded from `about` only
+ * yet). A stale comparison shows its status and nothing else, however much it carries. A current one is a row for each fact, built from `about` only
  * (never `text`): a labelled rerun of the model with the member's figure, never an average and never a recommendation.
  */
 export function viewFindingsOf(s: Pick<TeamScenario, 'view_findings' | 'version'>): ViewFindingsView | null {
@@ -292,24 +387,33 @@ export function viewFindingsOf(s: Pick<TeamScenario, 'view_findings' | 'version'
   if (vf.status !== 'current' || !Array.isArray(vf.facts)) return null
   const records = s.version?.form.records ?? []
   const name = (id: string | null | undefined): string => { if (!id) return ''; const r = records.find((x) => x.id === id); const w = r ? recordWords(r) : null; return `‘${w ?? id.replace(/_/g, ' ')}’` }
-  const sayChance = (c: number, exact: boolean | undefined) => (exact && c === 1 ? 'always meets' : exact && c === 0 ? 'never meets' : chancePct(c))
+  const sayChance = (c: number, exact: boolean | undefined): string => (exact && c === 1 ? 'always meets' : exact && c === 0 ? 'never meets' : chancePct(c))
   const rows = vf.facts.flatMap((f: TeamViewFact): ViewFindingRow[] => {
     const a = f.about
     if (a?.kind !== 'view') return []
     const holder = a.holder ?? 'A member'
-    const figure = name(a.quantity)
-    const who = `${holder}’s figure for ${figure}`
+    const join = (pairs: readonly { label: string; item: string }[]) => pairs.map((p) => `${p.label}: ${p.item}`).join('; ')
+    const figure = { label: 'figure', item: `${name(a.quantity)}, ${holder}’s` }
     if (a.status !== 'ran') {
-      const why = a.code && Object.prototype.hasOwnProperty.call(REFUSALS, a.code) ? REFUSALS[a.code] : GENERIC_REFUSAL
-      return [{ id: f.id, status: a.status ?? 'refused', holder, words: `${who} was not run, because ${why}.`, options: [] }]
+      const why = a.code && Object.prototype.hasOwnProperty.call(REFUSALS, a.code) ? REFUSALS[a.code]! : GENERIC_REFUSAL
+      const pairs = [figure, { label: 'not run', item: why }]
+      return [{ id: f.id, status: a.status ?? 'refused', holder, change: null, pairs, words: join(pairs), options: [], sides: null }]
     }
-    const aim = name(a.goal), lead = name(a.leader), was = name(a.model_leader)
-    const words = a.leader_change === 'reversed' ? `With ${who}, ${lead} leads ${aim} instead of ${was}.`
-      : a.leader_change === 'now named' ? `With ${who}, ${lead} leads ${aim}, where no option led on the model’s own figure.`
-        : a.leader_change === 'now unnamed' ? `With ${who}, no option clearly leads ${aim}, where ${was} led on the model’s own figure.`
-          : lead ? `With ${who}, ${lead} still leads ${aim}.` : `With ${who}, no option clearly leads ${aim}, as on the model’s own figure.`
-    const options = (a.options ?? []).map((o) => ({ option: o.option, words: `${name(o.option)}: ${sayChance(o.model, o.model_exact)} on the model, ${sayChance(o.view, o.view_exact)} on ${holder}’s figure.` }))
-    return [{ id: f.id, status: 'ran', holder, words, options }]
+    const change = LEADER_CHANGES.includes(a.leader_change as string) ? a.leader_change as LeaderChange : null
+    const replaces = a.model_figure_by === 'olumi' ? 'Olumi’s figure' : a.model_figure_by === 'person' ? 'a person’s figure' : null
+    const pairs = [figure, { label: 'aim', item: name(a.goal) },
+      ...(change ? [{ label: 'leader', item: change }] : []),
+      { label: 'most likely on the model', item: a.model_leader ? name(a.model_leader) : 'none separated' },
+      { label: `most likely on ${holder}’s figure`, item: a.leader ? name(a.leader) : 'none separated' },
+      ...(replaces ? [{ label: 'replaces', item: replaces }] : [])]
+    const options = (a.options ?? []).map((o) => {
+      // Two sampled chances that would read the same are told apart (core's `apart`); a fixed one says so.
+      const both = !o.model_exact && !o.view_exact
+      const [m, v] = both ? apartPct(o.model, o.view) : [sayChance(o.model, o.model_exact), sayChance(o.view, o.view_exact)]
+      return { option: o.option, words: `${name(o.option)}: ${m} on the model, ${v} on ${holder}’s figure.` }
+    })
+    const model = sideOf(a.model_side, records), view = sideOf(a.view_side, records)
+    return [{ id: f.id, status: 'ran', holder, change, pairs, words: join(pairs), options, sides: model && view ? { model, view } : null }]
   })
   return { status: 'current', rows }
 }

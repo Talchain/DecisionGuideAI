@@ -3,10 +3,11 @@ import { Eye, Hourglass } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { teamApi, TeamApiError } from './api'
 import { TeamSpreadStrip, figureText } from './TeamSpreadStrip'
-import { revealedViews, spreadsOf, waitingNames } from './model'
+import { ViewFindings } from './ViewFindings'
+import { readFigure, revealedViews, spreadsOf, waitingNames, type ReadFigure } from './model'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked } from './writes'
 import { AVATAR, BODY, CARD, ERR, H, META } from './ui'
-import type { TeamFigure, TeamScenario, TeamViewRow } from './types'
+import type { TeamScenario, TeamViewRow } from './types'
 
 /** Olumi is asked about the revealed WORDS only: a view's figures are never put in the question (Olumi never reads them). */
 export const MAX_ASK_CHARS = 3900
@@ -17,8 +18,10 @@ export function askAboutViews(views: readonly TeamViewRow[]): string | null {
   return text.length <= MAX_ASK_CHARS ? text : null
 }
 
-const figureLine = (f: TeamFigure, label: (id: string) => string): string =>
-  `${label(f.quantity)}: ${f.kind === 'point' ? figureText(f.value, null) : `${figureText(f.low, null)} to ${figureText(f.high, null)}`}`
+/** The figures of a view this page can read (core's shape has no `kind`; `readFigure` tells a point from a range). One it cannot read is not drawn. */
+const figuresOf = (v: TeamViewRow): ReadFigure[] => (v.figures ?? []).flatMap((f) => { const r = readFigure(f); return r ? [r] : [] })
+const figureLine = (f: ReadFigure, label: (id: string) => string): string =>
+  `${label(f.quantity)}: ${f.kind === 'point' ? figureText(f.value, f.unit ?? null) : `${figureText(f.low, null)} to ${figureText(f.high, f.unit ?? null)}`}`
 
 /**
  * REVEAL TOGETHER, then WHERE YOU DIFFER (design plan steps 4 and 5). `RevealBody`'s attributed answers without the page chrome and
@@ -76,9 +79,9 @@ export function RevealPanel({ sid, scenario, onWrote, onAskOlumi }: { sid: strin
                 <div className="grid min-w-0 gap-1">
                   <p className={`${BODY} text-text-header`}>{v.by}{v.mine ? <span className="text-text-light"> (you)</span> : null}</p>
                   {v.skip ? <p className={META}>Chose not to answer.</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
-                  {(v.figures?.length ?? 0) > 0 && (
+                  {figuresOf(v).length > 0 && (
                     <ul className={`${META} m-0 grid list-none gap-0.5 p-0`} data-testid={`team-revealed-figures-${v.id}`}>
-                      {v.figures!.map((f, i) => <li key={i}>{v.by}’s own figure: {figureLine(f, labelOf)}</li>)}
+                      {figuresOf(v).map((f, i) => <li key={i}>{v.by}’s own figure: {figureLine(f, labelOf)}</li>)}
                     </ul>
                   )}
                 </div>
@@ -97,11 +100,12 @@ export function RevealPanel({ sid, scenario, onWrote, onAskOlumi }: { sid: strin
         <h3 className={H}>Where you differ</h3>
         {spreads.length > 0 ? spreads.map((sp) => <TeamSpreadStrip key={sp.quantity} spread={sp} />) : (
           <p className={META} data-testid="team-differ-empty">
-            {views.length === 0 ? 'Once views are revealed, where they differ shows here, in each person’s own words.' : views.some((v) => (v.figures?.length ?? 0) > 0)
+            {views.length === 0 ? 'Once views are revealed, where they differ shows here, in each person’s own words.' : views.some((v) => figuresOf(v).length > 0)
               ? 'Fewer than two people gave a figure for the same thing, so nothing is placed side by side. Read the words above, or ask Olumi where they differ.'
               : 'No figures came with these views, so there is nothing to place side by side. Read the words above, or ask Olumi where they differ.'}
           </p>
         )}
+        <ViewFindings scenario={scenario} />
       </div>
     </section>
   )

@@ -4,10 +4,15 @@
  */
 export interface TeamMember { readonly id: string; readonly name: string }
 
-/** A figure a member gave with a view: one number, or a range given by its two ends. Served only when core preserves it. */
-export type TeamFigure =
-  | { readonly kind: 'point'; readonly quantity: string; readonly value: number }
-  | { readonly kind: 'interval'; readonly quantity: string; readonly low: number; readonly high: number; readonly range_kind?: 'bounds' | 'plausible' }
+/**
+ * A figure a member gave with a view, as olumi-core serves it (API.md "Figures on a private view", behind OLUMI_D7): `{ quantity, unit, version, value }`
+ * for one number, `{ quantity, unit, version, low, high, range_kind? }` for a range. There is NO `kind`: a point is told from a range by `value`
+ * versus `low` and `high` (`readFigure`, model.ts). `unit` and `version` are the unit it was given in and the approved version (`n`) it was given against.
+ * `range_kind` is the member's own reading of their range, `bounds` (the ends are hard) or `plausible` (a rough span); a range without it is optional here.
+ */
+export interface TeamPointFigure { readonly quantity: string; readonly unit?: string | null; readonly version?: number; readonly value: number }
+export interface TeamRangeFigure { readonly quantity: string; readonly unit?: string | null; readonly version?: number; readonly low: number; readonly high: number; readonly range_kind?: 'bounds' | 'plausible' }
+export type TeamFigure = TeamPointFigure | TeamRangeFigure
 
 export interface TeamViewRow {
   readonly id: number
@@ -86,6 +91,22 @@ export interface TeamFact {
   }
 }
 
+/**
+ * The §3.3 provenance block of a finding (API.md science fields): what the finding rests on that is Olumi's or approximate. D7 carries two, apart: the
+ * unchanged model's (`model_side`) and the model with the member's figure (`view_side`). Only what the Team tab reads is typed.
+ */
+export interface TeamProvenanceBlock {
+  readonly olumi?: boolean
+  readonly olumi_reading?: boolean
+  readonly olumi_figures?: readonly { readonly id: string; readonly approval?: string }[]
+  readonly olumi_links?: readonly { readonly id: string; readonly approval?: string }[]
+  readonly olumi_mechanisms?: readonly { readonly id: string; readonly approval?: string }[]
+  readonly approx_figures?: readonly string[]
+  readonly target_by?: string | null
+  readonly target_approval?: string | null
+  readonly rests?: readonly string[]
+}
+
 /** One of D7's facts (API.md "Disagreement as what-ifs"): a member's figure run in the model, one per figure and aim. Read by `about`, never `text`. */
 export interface TeamViewFact {
   readonly id: string
@@ -95,7 +116,10 @@ export interface TeamViewFact {
     readonly kind?: string; readonly form?: string; readonly status?: 'ran' | 'refused' | 'capped' | 'stale'
     readonly holder?: string; readonly quantity?: string; readonly goal?: string; readonly leader?: string | null; readonly model_leader?: string | null
     readonly leader_change?: 'same' | 'reversed' | 'now named' | 'now unnamed'
-    readonly options?: readonly { readonly option: string; readonly model: number; readonly view: number; readonly exact?: boolean; readonly model_exact?: boolean; readonly view_exact?: boolean }[]
+    readonly options?: readonly { readonly option: string; readonly model: number; readonly view: number; readonly gap?: number; readonly exact?: boolean; readonly model_exact?: boolean; readonly view_exact?: boolean }[]
+    readonly figure_by?: string; readonly model_figure_by?: string
+    readonly model_side?: TeamProvenanceBlock; readonly view_side?: TeamProvenanceBlock
+    readonly olumi?: boolean
     readonly code?: string
   }
 }
