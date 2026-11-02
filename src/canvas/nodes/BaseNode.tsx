@@ -80,6 +80,7 @@ import { livingOnlyOf, NOT_IN_CALCULATION_TEST_ID, notInCalculationWords } from 
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCornerOlumi } from './shared/NodeCornerOlumi'
 import { usePresentation } from '../../presentation/v10'
+import { V10StoryDiscs } from '../../presentation/V10StoryNumbers'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { openOptionValueInput } from '../utils/openOptionValueInput'
@@ -2543,6 +2544,10 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           className="absolute left-3 top-0 z-10 -translate-y-1/2"
         />
       )}
+
+      {/* v10 "If it failed": the numbers of the failure stories that rest on this card, at its top-left corner. Unmounted at the
+          low-detail rung, with the rest of the card's marks. */}
+      {isV10 && !lodBodyHidden && <V10StoryDiscs nodeId={id} />}
 
       {/* Node header — shape + title on same row (spec Section 3.2) */}
       <div
