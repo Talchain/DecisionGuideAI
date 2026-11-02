@@ -77,6 +77,7 @@ import {
 import { getEdgeLabel, labelCarriesDirection } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { useCanvasStore } from '../store'
+import { usePresentation } from '../../presentation/v10'
 import { useModelChangedSinceRunLight } from '../hooks/useModelChangedSinceRun'
 import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
 import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
@@ -442,6 +443,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // #2747 r2: the "chance rests most on this" tag reads the scenario's held canonical view through the gate.
   const heldCanonical = useCanonicalAnalysisViewStore(s => s.view)
   const heldCanonicalScenarioId = useCanonicalAnalysisViewStore(s => s.scenarioId)
+  // v10 (#/canvas2), Paul 24 Oct ruling "nothing dims": the run-change subdue, the selection dim and the lens dim read
+  // false there; the marks they sat beside (changed link glow, selected stroke, highlight glow) are what shows.
+  const noDim = usePresentation() === 'v10'
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
   const { ceeReview, resultsStatus, report, currentScenarioId, isHighlightedEdge, isAnalysisFragileEdge, isRunChangedEdge, isRunChangeSubduedEdge, isSelectionDimmed, viewMode, isLodBodyHidden, canvasOnlyLink, isGoalChanceDriverEdge } = useCanvasStore(
@@ -459,6 +463,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // while anything is marked — every other link subdued. A projection that marks nothing subdues nothing.
       isRunChangedEdge: s.analysisHighlight?.source === 'run_changes' && s.analysisHighlight?.edgeIds?.has(edgeIdKey) === true,
       isRunChangeSubduedEdge:
+        !noDim &&
         s.analysisHighlight?.source === 'run_changes' &&
         (s.analysisHighlight.edgeIds?.size ?? 0) + (s.analysisHighlight.nodeIds?.size ?? 0) > 0 &&
         s.analysisHighlight.edgeIds?.has(edgeIdKey) !== true &&
@@ -467,7 +472,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // 6A (selection focus): this edge is outside the selected element's
       // neighbourhood. Primitive boolean (React #185) and optional-chained so
       // store doubles without the slice stay safe.
-      isSelectionDimmed: s.dimmedEdgeIds?.has(edgeIdKey) === true,
+      isSelectionDimmed: !noDim && s.dimmedEdgeIds?.has(edgeIdKey) === true,
       viewMode: s.viewMode,
       // The far rung of the semantic-zoom ladder, read through THE shared
       // predicate the cards blank their bodies on (`selectLodBodyHidden`), so
@@ -506,7 +511,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       const active = s.lens.active
       const changes = active === 'what_changes'
       return {
-        isLensDimmed: s.lens._dimmedEdgeIds.has(id),
+        isLensDimmed: !noDim && s.lens._dimmedEdgeIds.has(id),
         lensSensWeight: changes ? (s.lens._sensitivityWeights.get(id) ?? null) : null,
         lensQ25: changes ? (s.lens._sensitivityQuartiles?.q25 ?? null) : null,
         lensQ75: changes ? (s.lens._sensitivityQuartiles?.q75 ?? null) : null,
