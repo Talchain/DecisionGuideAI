@@ -69,6 +69,15 @@ describe('PersistentInputStrip', () => {
   })
 
   describe('composer mode — floating closed', () => {
+    it('on the olumi-core lane draws the composer it is given, with the run control, in place of the /bff input bar (review 00052 #3)', () => {
+      const run = { onRun: () => {}, canRun: true, isRunning: false, label: 'Re-run analysis' }
+      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} analysisAction={run}
+        composer={(a) => <button type="button" data-testid="core-composer">{a?.label}</button>} />, { wrapper: Wrapper })
+      expect(screen.getByTestId('persistent-strip-composer')).toContainElement(screen.getByTestId('core-composer'))
+      expect(screen.getByTestId('core-composer').textContent).toBe('Re-run analysis')
+      expect(screen.queryByRole('textbox')).toBeNull()
+    })
+
     it('renders a textarea when floating is closed (composer mode)', () => {
       render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} />, {
         wrapper: Wrapper,

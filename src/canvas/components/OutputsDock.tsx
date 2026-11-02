@@ -214,7 +214,7 @@ import { setOnModelMoved, useTeamStore } from '../../olumiCore/team/store'
 import { modelKeyOf } from '../../olumiView/modelKey'
 import { currentModel, useViewStore } from '../../olumiView/store'
 import { ViewChancesBlock } from '../../olumiView/ViewChances'
-import { ViewChat } from '../../olumiView/ViewChat'
+import { ViewChat, ViewComposer } from '../../olumiView/ViewChat'
 import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
 import { pulseWhenOnCanvas } from '../../olumiCore/pulseArrivals'
 import { getSessionIdentity } from '../../lib/supabase'
@@ -4534,6 +4534,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
               isOlumiTabActive={effectiveActiveTab === 'olumi'}
               onOpenFloating={floatOutToWindow}
               onFocusFloating={focusFloating}
+              /* The olumi-core lane writes to core from its own composer, keeping this run control (review 00052 #3). */
+              composer={isOlumiCoreLane() ? (run) => <ViewComposer analysisAction={run} /> : undefined}
               /* ⭐ THE AI TAB'S RUN CONTROL, AND THE GAP IT CLOSES.
                  `AnalysisReadinessBar` — the bar this surface declares in
                  `shellContract.ts` — returns null the moment the pre-run window

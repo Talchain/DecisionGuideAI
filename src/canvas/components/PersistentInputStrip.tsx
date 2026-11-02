@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useRef, type ReactNode } from 'react'
 import { ChevronUp } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
@@ -31,6 +31,8 @@ interface PersistentInputStripProps {
    * "click me to go somewhere else" would be a second meaning for one click.
    */
   analysisAction?: AIInputBarProps['analysisAction']
+  /** The olumi-core lane's composer, which writes to core, in place of the /bff conversation's input bar (review 00052 #3). */
+  composer?: (analysisAction: AIInputBarProps['analysisAction']) => ReactNode
 }
 
 /**
@@ -57,6 +59,7 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
   onOpenFloating,
   onFocusFloating,
   analysisAction,
+  composer,
 }: PersistentInputStripProps) {
   const floatingIsOpen = useFloatingPanelState((s) => s.isOpen)
   // Round-15: when the floating panel is collapsed to a pill, isOpen
@@ -151,11 +154,13 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
   // conversation.
   return (
     <div className="bg-panel" data-testid="persistent-strip-composer">
-      <AIInputBar
-        ref={inputBarRef}
-        variant="strip"
-        analysisAction={analysisAction}
-      />
+      {composer ? composer(analysisAction) : (
+        <AIInputBar
+          ref={inputBarRef}
+          variant="strip"
+          analysisAction={analysisAction}
+        />
+      )}
     </div>
   )
 })
