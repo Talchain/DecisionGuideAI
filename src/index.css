@@ -947,3 +947,30 @@
 /* v10 presentation (#/canvas2, src/presentation/v10.tsx): a card named in the chat is ringed in Olumi's colour while
    hovered. Nothing else dims. */
 [data-presentation="v10"] .react-flow__node.v10-lit { outline: 2px solid var(--info, #277A9D); outline-offset: 3px; border-radius: 12px; }
+
+/* v10 "Rests on" (#/canvas2): figures are told apart by AUTHOR. Blue is Olumi's only (an unchecked estimate solid, one you
+   accepted outlined), ink is the person's, a dash is a figure not set or of unknown origin. Provenance sits on the figure,
+   never the card: the card is untouched, and an unchecked Olumi figure already wears its dotted info underline
+   (FactorValueFigure). Nothing dims. */
+[data-presentation="v10"] :is([data-testid="rests-on-marker"], [data-testid="rests-on-key-row"])[data-column="unchecked"] {
+  border-color: var(--info);
+  background-color: var(--info-light);
+  color: var(--text-header);
+}
+[data-presentation="v10"] :is([data-testid="rests-on-marker"], [data-testid="rests-on-key-row"])[data-column="accepted"] {
+  border-color: var(--info);
+  background-color: var(--bg-panel);
+  color: var(--text-header);
+}
+[data-presentation="v10"] :is([data-testid="rests-on-marker"], [data-testid="rests-on-key-row"])[data-column="yours"] {
+  border-color: var(--text-header);
+  background-color: var(--bg-panel);
+  color: var(--text-header);
+}
+[data-presentation="v10"] :is([data-testid="rests-on-marker"], [data-testid="rests-on-key-row"])[data-column="missing"],
+[data-presentation="v10"] :is([data-testid="rests-on-marker"], [data-testid="rests-on-key-row"])[data-column="unknown"] {
+  border-style: dashed;
+  border-color: var(--text-light);
+  background-color: var(--bg-panel);
+  color: var(--text-body);
+}
