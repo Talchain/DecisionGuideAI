@@ -33,7 +33,7 @@ function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
     case 'route':
       return <p title={row.title} data-view-row={at}><span data-view={`${at}.glyph`}>{row.glyph}</span> <span data-view={`${at}.aim`}>{row.aim}</span></p>
     case 'none':
-      return <p data-view-row={at}><span data-view={`${at}.title`}>{row.title}</span></p>
+      return <p title={row.title} data-view-row={at}><span data-view={`${at}.text`}>{row.text}</span></p>
   }
 }
 
