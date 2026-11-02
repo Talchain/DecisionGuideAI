@@ -5,6 +5,7 @@ import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useShowToastSafe } from '../../ToastContext'
 import { askAI, buildAskAIPrompt, CHALLENGE_KINDS } from '../../contextMenu/actions'
 import { requestAsk } from '../../ui/inspector-v2/askSemantic'
+import { usePresentation } from '../../../presentation/v10'
 import type { NodeType } from '../../domain/nodes'
 import Tooltip from '../../../components/Tooltip'
 import {
@@ -178,6 +179,8 @@ export const NodeQuickActions = memo(function NodeQuickActions({
   placement = 'inset',
 }: NodeQuickActionsProps) {
   const coachingChip = useCoachingIconChip(nodeId, coaching)
+  // v10 (#/canvas2): the Olumi door moves to the card's bottom-right corner (`NodeCornerOlumi`), so the rail does not draw it too.
+  const olumiInCorner = usePresentation() === 'v10'
   // Keep the rail reachable on legacy send hosts while the dispatcher
   // registers. askAI polls for that chip carrier; it never uses the composer
   // for product-authored text. A prefill-only host cannot send the Ask turn.
@@ -537,7 +540,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
     </div>
     {/* Paul, 24 Oct: the Olumi mark rests in the card's bottom-right corner, and a click puts a prompt about THIS card
         into the chat. It is the one door that stays visible; Challenge and More still show on selection or focus. */}
-    <div className={`flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-auto`} data-testid={`node-olumi-door-${nodeId}`} data-node-tooltip="true">
+    {!olumiInCorner && <div className={`flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-auto`} data-testid={`node-olumi-door-${nodeId}`} data-node-tooltip="true">
       {coachingChip !== null && <NodeCoachingIcon nodeId={nodeId} chips={coaching} />}
       {canAsk && coachingChip === null && (
         <Tooltip asChild delay={300} content="Ask Olumi">
@@ -555,7 +558,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           </button>
         </Tooltip>
       )}
-    </div>
+    </div>}
     {restingIcons && (
       <div
         className={`flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-auto`}
