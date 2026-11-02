@@ -191,13 +191,21 @@ function press(opts: Press): Promise<boolean> {
   return say(opts.message)
 }
 
+/** An ask made while a write is in flight: its words wait in the composer, never lost or sent twice (review 00055). */
+export const STILL_ANSWERING = 'Olumi is still answering. Your words are in the message box: send them once it has.'
+const keptWhileBusy = (text: string): boolean => {
+  if (!useViewChat.getState().busy) return false
+  useViewChat.setState({ text, said: STILL_ANSWERING })
+  return true
+}
+
 /** While the tab is on the page it answers the canvas's asks (the coaching icons need one), as the /bff Olumi tab did (00054 #3). */
 function useAnswersAsks(): void {
   useEffect(() => {
     const mine = {
-      _sendMessage: withOlumiReveal((text: string) => { void say(text) }),
+      _sendMessage: withOlumiReveal((text: string) => { if (!keptWhileBusy(text)) void say(text) }),
       _prefillChat: withOlumiReveal((text: string) => { useViewChat.setState({ text }) }),
-      _dispatchAction: withOlumiReveal((opts: Press) => { void press(opts) }),
+      _dispatchAction: withOlumiReveal((opts: Press) => { if (!keptWhileBusy(opts.message)) void press(opts) }),
       _isConversationBusy: () => useViewChat.getState().busy,
     }
     useGuidanceStore.setState(mine)
