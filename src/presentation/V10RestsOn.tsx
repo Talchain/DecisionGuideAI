@@ -6,7 +6,7 @@
  * Counts only. No share of an option's uncertainty by author is served, so none is drawn: the note says so in words.
  */
 import type { CSSProperties } from 'react'
-import { Sparkles, User } from 'lucide-react'
+import { cardMark } from '../canvas/nodes/shared/cardMarks'
 import { typography } from '../styles/typography'
 import type { AssumptionColumn } from '../canvas/artefacts/assumptionMapModel'
 import type { OptionReliance, RelianceCounts } from './restsOnReliance'
@@ -34,10 +34,22 @@ const SEGMENTS: ReadonlyArray<{ id: 'unchecked' | 'accepted' | 'yours' | 'unset'
 const countOf = (counts: RelianceCounts, columns: readonly AssumptionColumn[]): number =>
   columns.reduce((sum, c) => sum + counts[c], 0)
 
+/**
+ * The author's glyph, from the one card-mark owner (`cardMarks.ts`): the Olumi mark for Olumi's figures, the person's
+ * own mark for theirs. Olumi's unchecked estimate is the mark alone (solid); one you accepted is the same mark ringed
+ * (outlined), the same solid-or-outlined distinction the numbered markers use.
+ */
 function Glyph({ id }: { id: 'unchecked' | 'accepted' | 'yours' | 'unset' }) {
-  if (id === 'yours') return <User aria-hidden="true" className="h-3 w-3 flex-none" style={{ color: 'var(--text-header)' }} />
+  if (id === 'yours') {
+    const Person = cardMark('source-you').Icon
+    return <Person aria-hidden="true" className="h-3 w-3 flex-none" style={{ color: 'var(--text-header)' }} />
+  }
   if (id === 'unset') return <span aria-hidden="true" className="inline-block h-0 w-3 flex-none border-t border-dashed" style={{ borderColor: 'var(--text-light)' }} />
-  return <Sparkles aria-hidden="true" className="h-3 w-3 flex-none" style={{ color: 'var(--info)' }} />
+  const Olumi = cardMark('source-olumi').Icon
+  const mark = <Olumi aria-hidden="true" className="h-3 w-3 flex-none" />
+  return id === 'accepted'
+    ? <span data-glyph="accepted" className="inline-flex flex-none rounded-full p-0.5 ring-1 ring-info">{mark}</span>
+    : <span data-glyph="unchecked" className="inline-flex flex-none">{mark}</span>
 }
 
 /** The key: each author's glyph once, with its model-wide count. Shown folded and open. */
