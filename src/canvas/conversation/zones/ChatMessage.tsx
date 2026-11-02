@@ -24,6 +24,8 @@
 import { memo } from 'react'
 import { ownershipRefusalRetryable } from '../../../v5/ownershipRefusalCopy'
 import { MessageBubble } from '../MessageBubble'
+import { usePresentation } from '../../../presentation/v10'
+import { ModelVersionChip } from './ModelVersionStamp'
 import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
 import { MessageMenu } from './MessageMenu'
 
@@ -110,6 +112,7 @@ export const ChatMessage = memo(function ChatMessage({
   isLatestAssistantTurn = false,
 }: ChatMessageProps) {
   const category = getMessageCategory(message)
+  const isV10 = usePresentation() === 'v10'
   const borderClass = CATEGORY_BORDER[category]
 
   return (
@@ -148,6 +151,9 @@ export const ChatMessage = memo(function ChatMessage({
         onRetryFailedSend={showFailedSendRetry ? onRetry : undefined}
         isLatestAssistantTurn={isLatestAssistantTurn}
       />
+
+      {/* v10: which model version this reply read. No version known, no chip. */}
+      {isV10 && message.role === 'assistant' && <ModelVersionChip message={message} />}
 
       {/*
         One quiet overflow control per message, in the message's OWN flow —
