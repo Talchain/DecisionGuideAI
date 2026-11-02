@@ -211,6 +211,7 @@ import { useIsViewer } from '../../lib/viewerMode'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
 import { setOnModelMoved, useTeamStore } from '../../olumiCore/team/store'
+import { modelKeyOf } from '../../olumiView/modelKey'
 import { useViewStore } from '../../olumiView/store'
 import { ViewChancesBlock } from '../../olumiView/ViewChances'
 import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
@@ -804,8 +805,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const teamCardCount = useCanvasStore(s => s.nodes.length)
   useEffect(() => { if (isOlumiCoreLane()) void teamUse(currentScenarioIdForRun ?? null) }, [currentScenarioIdForRun, teamCardCount, teamUse])
   // The olumi-core lane's View (olumi.view/2): read for this scenario, and again whenever the canvas's model changes (a saved change,
-  // another member's approval), so what the dock draws from it is the model on screen.
-  const viewModelOnCanvas = useCanvasStore(s => s.nodes)
+  // another member's approval), so what the dock draws from it is the model on screen. Never on a drag (`modelKeyOf`).
+  const viewModelOnCanvas = useCanvasStore(s => modelKeyOf(s.nodes, s.edges))
   const coreView = useViewStore(s => s.view?.model ?? null)
   useEffect(() => {
     if (!isOlumiCoreLane()) return
