@@ -8,7 +8,7 @@ import path from 'node:path'
 import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import { setTeamFetch, UNCERTAIN_WRITE } from '../../olumiCore/team/api'
 import type { View } from '../client'
-import { useViewStore } from '../store'
+import { currentModel, useViewStore } from '../store'
 import { coreScenarioIdOf } from '../../olumiCore/team/sid'
 import { useCanvasStore } from '../../canvas/store'
 import { ViewChat, ViewTurns } from '../ViewChat'
@@ -95,6 +95,23 @@ describe('the writes go straight to core, and the View is read again', () => {
     const { container: again } = render(<ViewChat />)
     await act(async () => { fireEvent.click([...again.querySelectorAll('button')].find((b) => b.textContent === 'Set aside')!) })
     await waitFor(() => expect(posts[1]).toEqual({ url: '/api/proposals/9/discard', body: {} }))
+  })
+
+  it('after an approval no chance from before it is current until the new View lands', async () => {
+    useViewStore.setState({ view: { ...view, proposal: { id: 9, base: 3, heading: 'Olumi proposes 1 change', on: 'on version 3', removed: null, problem: null, marks: [] } } })
+    let answer!: (r: Response) => void
+    setTeamFetch((async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') { posts.push({ url, body: JSON.parse(String(init.body)) }); return new Response('{}', { status: 200 }) }
+      if (url.includes('/view')) return new Promise<Response>((done) => { answer = done })
+      return new Response(JSON.stringify({ error: 'no team here' }), { status: 404 })
+    }) as unknown as typeof fetch)
+    const { container } = render(<ViewChat />)
+    await act(async () => { fireEvent.click([...container.querySelectorAll('button')].find((b) => b.textContent === 'Approve')!) })
+    await waitFor(() => expect(posts[0]?.url).toBe('/api/proposals/9/approve'))
+    await waitFor(() => expect(useViewStore.getState().stale).toBe(true))
+    expect(currentModel(useViewStore.getState())).toBeNull()
+    await act(async () => { answer(new Response(JSON.stringify(view), { status: 200 })) })
+    await waitFor(() => expect(currentModel(useViewStore.getState())).not.toBeNull())
   })
 
   describe('a brief starts the scenario in core', () => {

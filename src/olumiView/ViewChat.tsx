@@ -66,7 +66,7 @@ export function ViewTurns({ chat }: { chat: View['chat'] }) {
 }
 
 /** The change card for the proposal Olumi holds, with core's words and marks, and the two acts on it. */
-function Proposal({ p, act, busy }: { p: NonNullable<View['proposal']>; act: (f: () => Promise<unknown>) => void; busy: boolean }) {
+function Proposal({ p, act, busy }: { p: NonNullable<View['proposal']>; act: (f: () => Promise<unknown>, changesModel?: boolean) => void; busy: boolean }) {
   return (
     <div className={`${typography.panelBody} rounded border border-border p-3 space-y-2`} data-testid="view-chat-proposal">
       <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span> <span data-view="proposal.on">{p.on}</span>
@@ -74,7 +74,7 @@ function Proposal({ p, act, busy }: { p: NonNullable<View['proposal']>; act: (f:
       {p.problem === null ? null : <p role="alert" data-view="proposal.problem">{p.problem}</p>}
       {p.marks.map((m, j) => <p key={j} title={m.title}><span data-view={`proposal.marks.${j}.what`}>{m.what}</span>: <span data-view={`proposal.marks.${j}.status`}>{m.status}</span></p>)}
       <div className="flex gap-2">
-        <button type="button" disabled={busy} className="rounded px-3 py-2 bg-primary text-text-on-color disabled:opacity-50" onClick={() => act(() => writes.approve(p.id, p.base))}>Approve</button>
+        <button type="button" disabled={busy} className="rounded px-3 py-2 bg-primary text-text-on-color disabled:opacity-50" onClick={() => act(() => writes.approve(p.id, p.base), true)}>Approve</button>
         <button type="button" disabled={busy} className="rounded px-3 py-2 border border-border disabled:opacity-50" onClick={() => act(() => writes.discard(p.id))}>Set aside</button>
       </div>
     </div>
@@ -106,12 +106,14 @@ export function ViewChat() {
   const ops = useRef(new Map<string, string>())
   if (sid !== null && view === null && error === null) return null
 
-  const act = async (f: () => Promise<unknown>): Promise<boolean> => {
+  // An approval changes the model: the View held is stale until the new one lands, so no old chance is shown as current (review 00051).
+  const act = async (f: () => Promise<unknown>, changesModel = false): Promise<boolean> => {
     if (busy) return false
     setBusy(true); setSaid(null)
     try {
       await f()
-      await Promise.all([useViewStore.getState().refresh(), useTeamStore.getState().refresh()])
+      const views = useViewStore.getState()
+      await Promise.all([changesModel ? views.modelChanged() : views.refresh(), useTeamStore.getState().refresh()])
       return true
     } catch (e) {
       setSaid(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
@@ -129,7 +131,7 @@ export function ViewChat() {
     <div className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
         {view === null ? (error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>) : <ViewTurns chat={view.chat} />}
-        {view?.proposal ? <Proposal p={view.proposal} act={(f) => void act(f)} busy={busy} /> : null}
+        {view?.proposal ? <Proposal p={view.proposal} act={(f, changesModel) => void act(f, changesModel)} busy={busy} /> : null}
       </div>
       {sid !== null && view === null ? null : (
         <div className={`${typography.panelBody} border-t border-border p-3 space-y-2`}>
