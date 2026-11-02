@@ -24,7 +24,7 @@ import { useCanvasStore } from '../../canvas/store'
 import { useWhatIfStore } from '../../canvas/stores/whatIfStore'
 import { WhatIfKey } from '../../canvas/artefacts/WhatIfKey'
 import { PresentationProvider } from '../v10'
-import { courseStateOf, readCoursePoint, readDisplayedPercent } from '../V10WhatIf'
+import { readCoursePoint } from '../V10WhatIf'
 
 const SID = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
 const PRICE = { id: 'fac_price', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Price rise', observed_state: { value: 0.4, raw_value: 40, cap: 100, unit: '%' } } }
@@ -60,17 +60,8 @@ async function tryIt(value = '60') {
   await waitFor(() => expect(screen.getByTestId('what-if-result')).toBeTruthy())
 }
 
-describe('the change-course check reads only the figure CEE displayed', () => {
-  it('a single figure is below or not; a range answers only when all of it is on one side; no figure is no answer', () => {
-    expect(readDisplayedPercent('30%')).toEqual({ lo: 30, hi: 30 })
-    expect(readDisplayedPercent('60–70%')).toEqual({ lo: 60, hi: 70 })
-    expect(readDisplayedPercent('about 30%')).toBeNull()
-    expect(courseStateOf(cell('22%'), 30)).toBe('reached')
-    expect(courseStateOf(cell('30%'), 30)).toBe('not_reached')
-    expect(courseStateOf(cell('60–70%'), 30)).toBe('not_reached')
-    expect(courseStateOf(cell('10–20%'), 30)).toBe('reached')
-    expect(courseStateOf(cell('20–40%'), 30)).toBe('cannot_tell')
-    expect(courseStateOf(cell(null), 30)).toBe('no_figure')
+describe('the change-course point is the person\'s own number', () => {
+  it('reads a typed percentage from 0 to 100, and nothing else', () => {
     expect(readCoursePoint('')).toBeNull()
     expect(readCoursePoint('120')).toBeNull()
     expect(readCoursePoint('30')).toBe(30)
@@ -91,8 +82,10 @@ describe('v10 What if', () => {
     expect(screen.getByTestId('what-if-not-saved').textContent).toBe('Not saved')
     // Bound by option id: Sell online's what-if is 22%, below 30.
     expect(screen.getByTestId('what-if-row-opt_b').textContent).toContain('What if: 22%')
-    expect(screen.getByTestId('what-if-course-row').textContent).toContain('Change course below 30% for Sell online')
-    expect(screen.getByTestId('what-if-course-state').textContent).toBe('Reached')
+    // ⛔ No verdict: the person's own point sits beside CEE's cell, with no judgement word.
+    expect(screen.getByTestId('what-if-row-opt_b').textContent).toContain('What if: 22%Your change-course point: below 30%')
+    expect(screen.getByTestId('what-if-row-opt_a').textContent).not.toContain('change-course point')
+    expect(screen.getByTestId('what-if-result').textContent).not.toMatch(/Reached|Not reached|can't tell/i)
     expect(screen.getByTestId('what-if-keep-bar').textContent).toContain('You set the change-course point before this result. Keep it to make 60% your figure, or let it go to go back to 40%.')
     expect(useCanvasStore.getState().nodes[0]).toBe(PRICE)
   })
@@ -101,7 +94,6 @@ describe('v10 What if', () => {
     v10()
     await tryIt('60')
     expect(screen.getByTestId('what-if-course-row').textContent).toContain('No change-course point set')
-    expect(screen.queryByTestId('what-if-course-state')).toBeNull()
     expect(screen.getByTestId('what-if-keep-bar').textContent).not.toContain('change-course point before')
   })
 
@@ -114,23 +106,98 @@ describe('v10 What if', () => {
     expect(proposeMock).not.toHaveBeenCalled()
   })
 
-  it('Keep it sends the held figure by the saved path\'s own writer, on the held factor, then clears the what-if', async () => {
+  /** Keep it through the writer's real settlement callback: the test plays the optimistic write and CEE's answer. */
+  function pressKeep() {
     proposeMock.mockReturnValue('dispatched')
-    v10()
-    await tryIt('60')
     fireEvent.click(screen.getByTestId('what-if-keep'))
     expect(proposeMock).toHaveBeenCalledTimes(1)
-    expect(proposeMock).toHaveBeenCalledWith('fac_price', 60, undefined)
-    expect(useWhatIfStore.getState().held).toBeNull()
-    expect(screen.getByTestId('what-if-kept').textContent).toBe('Sent as your figure: Price rise is now 60%. The chat says when it is saved.')
+    const [id, value, opts] = proposeMock.mock.calls[0]
+    expect([id, value]).toEqual(['fac_price', 60])
+    return opts.onSendSettled as (s: string, d?: Record<string, unknown>) => void
+  }
+  const setPrice = (raw: number) => act(() => {
+    useCanvasStore.setState({ nodes: [{ ...PRICE, data: { ...PRICE.data, observed_state: { value: raw / 100, raw_value: raw, cap: 100, unit: '%' } } }, OPT_A, OPT_B] as never })
   })
 
-  it('a figure that cannot be sent is not reported as kept', async () => {
-    proposeMock.mockReturnValue('not_encodable')
+  it('Keep it says only "Sent" until the edit settles, never that the figure changed, and keeps the what-if held', async () => {
     v10()
     await tryIt('60')
+    pressKeep()
+    expect(screen.getByTestId('what-if-kept').textContent).toBe('Sent. The chat says when it is saved.')
+    expect(screen.getByTestId('what-if-kept').textContent).not.toMatch(/is now/)
+    expect(useWhatIfStore.getState().held).not.toBeNull()
+    expect(screen.queryByTestId('what-if-keep')).toBeNull()
+  })
+
+  it('⛔ an asynchronous refusal that restores 40% is "Couldn\'t keep it", with the what-if still held to retry', async () => {
+    v10()
+    await tryIt('60')
+    const settle = pressKeep()
+    setPrice(60)                      // the optimistic write lands
+    await Promise.resolve()
+    setPrice(40)                      // CEE refused and the model went back to its own value
+    act(() => settle('sent'))         // a 200 that wrote nothing
+    expect(screen.getByTestId('what-if-kept').textContent).toBe("Couldn't keep it. Nothing was saved.")
+    expect(screen.getByTestId('what-if-kept').textContent).not.toMatch(/is now|Kept\./)
+    expect(useWhatIfStore.getState().held).toMatchObject({ nodeId: 'fac_price', whatIf: 60 })
+    expect(screen.getByTestId('what-if-keep')).toBeTruthy()
+  })
+
+  it('a refused send is also "Couldn\'t keep it" and keeps the what-if held', async () => {
+    v10()
+    await tryIt('60')
+    const settle = pressKeep()
+    act(() => settle('refused', {}))
+    expect(screen.getByTestId('what-if-kept').textContent).toBe("Couldn't keep it. Nothing was saved.")
+    expect(useWhatIfStore.getState().held).not.toBeNull()
+  })
+
+  it('only once the model holds the figure does it say so, and then the what-if is cleared', async () => {
+    v10()
+    await tryIt('60')
+    const settle = pressKeep()
+    setPrice(60)
+    act(() => settle('sent'))
+    expect(screen.getByTestId('what-if-kept').textContent).toBe('Kept. Price rise is now 60%.')
+    expect(useWhatIfStore.getState().held).toBeNull()
+  })
+
+  it('an unconfirmed send stays at the neutral "Sent" wording, with the what-if held', async () => {
+    v10()
+    await tryIt('60')
+    const settle = pressKeep()
+    act(() => settle('unverified', {}))
+    expect(screen.getByTestId('what-if-kept').textContent).toBe('Sent. The chat says when it is saved.')
+    expect(useWhatIfStore.getState().held).not.toBeNull()
+  })
+
+  it('a figure that cannot be encoded is not reported as sent or kept', async () => {
+    v10()
+    await tryIt('60')
+    proposeMock.mockReturnValue('not_encodable')
     fireEvent.click(screen.getByTestId('what-if-keep'))
     expect(screen.getByTestId('what-if-kept').textContent).toBe("Couldn't keep it. Nothing was saved.")
+    expect(useWhatIfStore.getState().held).not.toBeNull()
+  })
+
+  it('⛔ a change-course point does not move to another option when its option leaves the model, and a model change clears it', async () => {
+    v10()
+    fireEvent.click(screen.getByTestId('what-if-course-on'))
+    fireEvent.change(screen.getByTestId('what-if-course-option'), { target: { value: 'opt_b' } })
+    fireEvent.change(screen.getByTestId('what-if-course-pct'), { target: { value: '30' } })
+    act(() => { useCanvasStore.setState({ nodes: [PRICE, OPT_A] as never }) })
+    expect((screen.getByTestId('what-if-course-on') as HTMLInputElement).checked).toBe(false)
+    expect((screen.getByTestId('what-if-course-pct') as HTMLInputElement).value).toBe('')
+    act(() => { useCanvasStore.setState({ nodes: [PRICE, OPT_A, OPT_B] as never }) })
+    await tryIt('60')
+    expect(screen.queryByTestId('what-if-course-point')).toBeNull()
+    expect(screen.getByTestId('what-if-course-row').textContent).toContain('No change-course point set')
+    // And a model change (new hash) clears a point that was set.
+    fireEvent.click(screen.getByTestId('what-if-let-go'))
+    fireEvent.click(screen.getByTestId('what-if-course-on'))
+    fireEvent.change(screen.getByTestId('what-if-course-pct'), { target: { value: '30' } })
+    act(() => { useCanvasStore.setState({ lastServerGraphHash: 'h2' } as never) })
+    expect((screen.getByTestId('what-if-course-pct') as HTMLInputElement).value).toBe('')
   })
 
   it('folded, the lens bar line is marked Not saved and offers Keep it / Let it go only once there is a result', () => {

@@ -26,7 +26,7 @@ import { getObservedState } from '../utils/observedStateHelpers'
 import { useWhatIfStore, type HeldWhatIf } from '../stores/whatIfStore'
 import { useSavedGraph } from '../nodes/shared/savedGraph'
 import { usePresentation } from '../../presentation/v10'
-import { NO_COURSE, V10Legend, V10WhatIfBody, type CourseDraft } from '../../presentation/V10WhatIf'
+import { NO_COURSE, V10Legend, V10WhatIfBody, type CourseDraft, type KeepNote } from '../../presentation/V10WhatIf'
 
 export const WHAT_IF_COPY = {
   nothingSaved: 'What-if, nothing saved',
@@ -141,19 +141,24 @@ export function WhatIfKey({ folded }: { folded: boolean }) {
   const run = useWhatIfStore((s) => s.run)
   // v10 (#/canvas2) only: the change-course point set before a result, and the line said after Keep it. Unused in the current design.
   const [course, setCourse] = useState<CourseDraft>(NO_COURSE)
-  const [keptNote, setKeptNote] = useState<string | null>(null)
+  const [keptNote, setKeptNote] = useState<KeepNote>(null)
   const savedGraph = useSavedGraph()
   const choices = useMemo(() => whatIfFactorChoices(nodes, savedGraph), [nodes, savedGraph])
   const [pickedId, setPickedId] = useState<string | null>(held?.nodeId ?? null)
   const picked = choices.find((c) => c.id === pickedId) ?? choices[0] ?? null
   const [typed, setTyped] = useState<string>(held ? String(held.whatIf) : '')
   // A draft belongs to the model it was typed on: a scenario switch or a saved change starts it afresh.
-  useEffect(() => { setPickedId(null); setTyped('') }, [scenarioId, hash])
+  useEffect(() => { setPickedId(null); setTyped(''); setCourse(NO_COURSE) }, [scenarioId, hash])
+  // v10: a change-course point belongs to the option it was set for; when that option leaves the model the point is cleared.
+  const optionIds = useMemo(() => nodes.filter((n) => n.type === 'option').map((n) => n.id).join('\u0000'), [nodes])
+  useEffect(() => {
+    setCourse((c) => (c.optionId !== null && !optionIds.split('\u0000').includes(c.optionId) ? NO_COURSE : c))
+  }, [optionIds])
   // Any edit makes the shown result no longer the answer to what is on screen: drop it (a late answer is dropped too).
   const edit = (next: () => void) => { next(); setKeptNote(null); if (useWhatIfStore.getState().held !== null || useWhatIfStore.getState().run.kind !== 'idle') useWhatIfStore.getState().clear() }
 
   if (folded && v10) {
-    return <V10Legend held={held} hasResult={run.kind === 'done' && run.outcome.status === 'ran'} keptNote={keptNote} onKept={setKeptNote} />
+    return <V10Legend held={held} hasResult={run.kind === 'done' && run.outcome.status === 'ran'} note={keptNote} onNote={setKeptNote} />
   }
   if (folded) {
     return (
@@ -212,8 +217,8 @@ export function WhatIfKey({ folded }: { folded: boolean }) {
           ? { ...(outcome.nextStep !== undefined ? { nextStep: outcome.nextStep } : {}), ...(outcome.questions !== undefined ? { questions: outcome.questions } : {}) }
           : null}
         result={outcome?.status === 'ran' && rows !== null ? { paired: outcome.paired, notPairedWords: WHAT_IF_COPY.notPaired, rows } : null}
-        keptNote={keptNote}
-        onKept={setKeptNote}
+        note={keptNote}
+        onNote={setKeptNote}
       />
     )
   }

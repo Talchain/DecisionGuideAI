@@ -9,8 +9,11 @@
  *     own writer (`useModelEditAuthority.proposeFactorValue`, the call the factor card's editor makes), so a kept figure is
  *     an ordinary edit with an ordinary receipt in the chat. Let it go discards the held value.
  *
- * ⛔ No number is invented. Results are CEE's cells verbatim. The change-course check reads only the percentage CEE
- *   displayed, and says "can't tell" when a range straddles the point or when there is no figure.
+ * ⛔ No number is invented and no verdict is composed. Results are CEE's cells verbatim. The change-course point is the
+ *   person's own, shown BESIDE CEE's figure with no judgement word: the person compares them, the host never decides
+ *   "reached" for them.
+ * ⛔ Keep it never says the figure changed until the edit's own settlement says the model holds it (`valueCommitSettlementWord`,
+ *   the factor card's reading). A refusal restores the old value, so it says "Couldn't keep it" and keeps the what-if held.
  * ⛔ Ink is the person, blue is Olumi: nothing here is blue. Nothing dims: a control that cannot be pressed is greyed
  *   text on a plain ground, never a faded one. "What-if" names a variant; Olumi never says which to choose.
  */
@@ -22,6 +25,9 @@ import { action, ACTION_FOCUS } from '../components/results/analysisNew/panelSur
 import { useModelEditAuthority } from '../canvas/hooks/useModelEditAuthority'
 import { useIsViewer } from '../lib/viewerMode'
 import { figureText } from '../canvas/nodes/ProposalGhostLayer'
+import { resolveValueInputSeed } from '../canvas/conversation/factorValueEdit'
+import { needsSavedModelRead, valueCommitSettlementWord } from '../canvas/conversation/valueCommitSettlement'
+import { useCanvasStore } from '../canvas/store'
 import { useWhatIfStore, type HeldWhatIf } from '../canvas/stores/whatIfStore'
 import { typography } from '../styles/typography'
 
@@ -42,42 +48,15 @@ export const V10_WHAT_IF_COPY = {
   coursePercent: 'Change-course chance, percent',
   courseUnset: 'No change-course point set',
   courseSetFirst: 'You set the change-course point before this result.',
-  courseBelow: (label: string, pct: number) => `Change course below ${pct}% for ${label}`,
-  reached: 'Reached',
-  notReached: 'Not reached',
-  cannotTell: "Can't tell from this range",
-  noFigure: 'No figure to compare',
+  yourPoint: (pct: number) => `Your change-course point: below ${pct}%`,
   keepSentence: (figure: string, saved: string) => `Keep it to make ${figure} your figure, or let it go to go back to ${saved}.`,
-  kept: (label: string, figure: string) => `Sent as your figure: ${label} is now ${figure}. The chat says when it is saved.`,
+  sent: 'Sent. The chat says when it is saved.',
+  kept: (label: string, figure: string) => `Kept. ${label} is now ${figure}.`,
   keptDeviceOnly: 'Kept on this device only. It was not sent to your model.',
   keepFailed: "Couldn't keep it. Nothing was saved.",
   saved: 'Saved',
   whatIf: 'What if',
 } as const
-
-export type CourseState = 'reached' | 'not_reached' | 'cannot_tell' | 'no_figure'
-
-/** A percentage from CEE's displayed chance ("30%" or "60–70%"); null for anything else. Never inferred from other text. */
-export function readDisplayedPercent(display: string | null): { lo: number; hi: number } | null {
-  if (display === null) return null
-  const m = /^\s*(\d+(?:\.\d+)?)\s*(?:[–-]\s*(\d+(?:\.\d+)?))?\s*%\s*$/.exec(display)
-  if (m === null) return null
-  const lo = Number(m[1])
-  const hi = m[2] === undefined ? lo : Number(m[2])
-  return Number.isFinite(lo) && Number.isFinite(hi) && lo <= hi ? { lo, hi } : null
-}
-
-/**
- * Has the what-if chance fallen below the person's point? "Below" is strict. A range answers only when the whole range is on
- * one side of the point; a range that straddles it is "can't tell", never rounded to a side.
- */
-export function courseStateOf(cell: WhatIfCell, point: number): CourseState {
-  const shown = readDisplayedPercent(cell.display)
-  if (shown === null) return 'no_figure'
-  if (shown.hi < point) return 'reached'
-  if (shown.lo >= point) return 'not_reached'
-  return 'cannot_tell'
-}
 
 /** The person's typed point as a percentage, or null when it is empty or not a number from 0 to 100. */
 export function readCoursePoint(typed: string): number | null {
@@ -88,13 +67,6 @@ export function readCoursePoint(typed: string): number | null {
 
 export interface CourseDraft { readonly on: boolean; readonly optionId: string | null; readonly pct: string }
 export const NO_COURSE: CourseDraft = { on: false, optionId: null, pct: '' }
-
-const COURSE_WORDS: Record<CourseState, string> = {
-  reached: V10_WHAT_IF_COPY.reached,
-  not_reached: V10_WHAT_IF_COPY.notReached,
-  cannot_tell: V10_WHAT_IF_COPY.cannotTell,
-  no_figure: V10_WHAT_IF_COPY.noFigure,
-}
 
 const INK_BUTTON = `${typography.panelBody} inline-flex min-h-[24px] items-center rounded-full px-3 py-1 bg-text-header text-text-on-color hover:bg-text-body ${ACTION_FOCUS}`
 const INK_BUTTON_OFF = `${typography.panelBody} inline-flex min-h-[24px] cursor-not-allowed items-center rounded-full px-3 py-1 bg-panel-hover text-text-light ${ACTION_FOCUS}`
@@ -110,28 +82,54 @@ function Cell({ cell }: { cell: WhatIfCell }) {
   )
 }
 
-/** Keep it / Let it go. Mounted only while a result is on screen; Keep it is the saved path's own writer. */
-export function V10KeepBar({ held, onKept, sentence }: { held: HeldWhatIf; onKept: (note: string) => void; sentence?: ReactNode }) {
+/** What Keep it last said. `sent` is neutral and permanent until the model moves; only `kept` may say the figure changed. */
+export type KeepNote = { readonly kind: 'sent' | 'kept' | 'failed'; readonly text: string } | null
+
+const SENT: KeepNote = { kind: 'sent', text: V10_WHAT_IF_COPY.sent }
+const FAILED: KeepNote = { kind: 'failed', text: V10_WHAT_IF_COPY.keepFailed }
+
+/**
+ * Keep it / Let it go. Mounted only while a result is on screen; Keep it is the saved path's own writer. The what-if stays
+ * held until the edit's settlement says the model holds the figure (then it is cleared), so a refusal leaves it to retry.
+ */
+export function V10KeepBar({ held, note, onNote, sentence }: { held: HeldWhatIf; note: KeepNote; onNote: (note: KeepNote) => void; sentence?: ReactNode }) {
   const authority = useModelEditAuthority(held.nodeId)
   const viewer = useIsViewer()
   const keep = () => {
-    const outcome = authority.proposeFactorValue(held.whatIf, held.level ? { unit: held.unit } : undefined)
-    useWhatIfStore.getState().clear()
-    if (outcome === 'dispatched') onKept(V10_WHAT_IF_COPY.kept(held.label, figureText({ value: held.whatIf, unit: held.unit })))
-    else if (outcome === 'local_only') onKept(V10_WHAT_IF_COPY.keptDeviceOnly)
-    else onKept(V10_WHAT_IF_COPY.keepFailed)
+    onNote(SENT)
+    const readNow = () => {
+      const node = useCanvasStore.getState().nodes.find((n) => n.id === held.nodeId)
+      return node ? resolveValueInputSeed(node.data).seed ?? null : null
+    }
+    const outcome = authority.proposeFactorValue(held.whatIf, {
+      ...(held.level ? { unit: held.unit } : {}),
+      onSendSettled: (settlement, detail) => {
+        // A refusal on a moved base may still have landed (lost reply): say nothing more than "Sent".
+        if (needsSavedModelRead(settlement, detail)) return
+        // A goal's today level has no card value to read back, so it can only be refused or left neutral.
+        if (held.level) { if (settlement === 'refused') onNote(FAILED); return }
+        const word = valueCommitSettlementWord(settlement, held.saved, held.whatIf, readNow, detail)
+        if (word === 'refused' || word === 'not_applied' || word === 'revision_conflict' || word === 'refused_unread') { onNote(FAILED); return }
+        if (word === null && settlement === 'sent') {
+          useWhatIfStore.getState().clear()
+          onNote({ kind: 'kept', text: V10_WHAT_IF_COPY.kept(held.label, figureText({ value: held.whatIf, unit: held.unit })) })
+        }
+      },
+    })
+    if (outcome === 'local_only') onNote({ kind: 'sent', text: V10_WHAT_IF_COPY.keptDeviceOnly })
+    else if (outcome === 'not_encodable') onNote(FAILED)
   }
   return (
     <div className="space-y-2" data-testid="what-if-keep-bar">
       {sentence}
       <div className="flex items-center gap-2">
-        {!viewer && (
+        {!viewer && note?.kind !== 'sent' && (
           <button type="button" data-testid="what-if-keep" onClick={keep} className={INK_BUTTON}>{V10_WHAT_IF_COPY.keepIt}</button>
         )}
         <button
           type="button"
           data-testid="what-if-let-go"
-          onClick={() => useWhatIfStore.getState().clear()}
+          onClick={() => { useWhatIfStore.getState().clear(); onNote(null) }}
           className={`${typography.panelBody} ${action('secondary')} rounded-full px-3 py-1`}
         >
           {V10_WHAT_IF_COPY.letGo}
@@ -141,8 +139,17 @@ export function V10KeepBar({ held, onKept, sentence }: { held: HeldWhatIf; onKep
   )
 }
 
+function NoteLine({ note }: { note: NonNullable<KeepNote> }) {
+  return (
+    <p data-testid="what-if-kept" role="status" className={`${typography.panelBody} flex items-start gap-2 text-text-body`}>
+      {note.kind === 'kept' && <Check aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-text-light" />}
+      <span>{note.text}</span>
+    </p>
+  )
+}
+
 /** Folded, the lens bar's one line: what is being tried, marked "Not saved", with Keep it / Let it go once there is a result. */
-export function V10Legend({ held, hasResult, keptNote, onKept }: { held: HeldWhatIf | null; hasResult: boolean; keptNote: string | null; onKept: (note: string) => void }) {
+export function V10Legend({ held, hasResult, note, onNote }: { held: HeldWhatIf | null; hasResult: boolean; note: KeepNote; onNote: (note: KeepNote) => void }) {
   return (
     <div className="space-y-2" data-testid="what-if-legend">
       <p className={`${typography.panelBody} flex flex-wrap items-center gap-2 text-text-body`}>
@@ -151,8 +158,8 @@ export function V10Legend({ held, hasResult, keptNote, onKept }: { held: HeldWha
         </span>
         {held && <span className={PILL}>{V10_WHAT_IF_COPY.notSaved}</span>}
       </p>
-      {held && hasResult && <V10KeepBar held={held} onKept={onKept} />}
-      {keptNote !== null && <p data-testid="what-if-kept" role="status" className={`${typography.panelBody} text-text-body`}>{keptNote}</p>}
+      {held && hasResult && <V10KeepBar held={held} note={note} onNote={onNote} />}
+      {note !== null && <NoteLine note={note} />}
     </div>
   )
 }
@@ -178,25 +185,21 @@ export interface V10BodyProps {
     readonly notPairedWords: string
     readonly rows: readonly { id: string; label: string; saved: WhatIfCell; whatIf: WhatIfCell; variationWords: string | null }[]
   } | null
-  readonly keptNote: string | null
-  readonly onKept: (note: string) => void
+  readonly note: KeepNote
+  readonly onNote: (note: KeepNote) => void
 }
 
 export function V10WhatIfBody(p: V10BodyProps) {
   const savedFigure = figureText({ value: p.picked.saved, unit: p.picked.unit })
   const point = p.course.on ? readCoursePoint(p.course.pct) : null
-  const courseOptionId = p.options.find((o) => o.id === p.course.optionId)?.id ?? p.options[0]?.id ?? null
+  // The point belongs to the option the person chose; if that option is gone there is no point (never moved to another).
+  const courseOptionId = p.options.find((o) => o.id === p.course.optionId)?.id ?? null
   const courseRow = point !== null && courseOptionId !== null ? p.result?.rows.find((r) => r.id === courseOptionId) ?? null : null
   const field = `${typography.panelBody} rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body ${ACTION_FOCUS}`
   return (
     <div data-testid="what-if-key" className="space-y-3">
       <p className={`${typography.panelBody} text-text-body`}>{V10_WHAT_IF_COPY.what}</p>
-      {p.keptNote !== null && (
-        <p data-testid="what-if-kept" role="status" className={`${typography.panelBody} flex items-start gap-2 text-text-body`}>
-          <Check aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-text-light" />
-          <span>{p.keptNote}</span>
-        </p>
-      )}
+      {p.note !== null && <NoteLine note={p.note} />}
       <div className="flex flex-col gap-2">
         <label className={`${typography.panelMeta} flex flex-col gap-1 text-text-light`}>
           Factor
@@ -227,7 +230,7 @@ export function V10WhatIfBody(p: V10BodyProps) {
                 type="checkbox"
                 data-testid="what-if-course-on"
                 checked={p.course.on}
-                onChange={(e) => p.onCourse({ ...p.course, on: e.target.checked })}
+                onChange={(e) => p.onCourse(e.target.checked ? { ...p.course, on: true, optionId: p.course.optionId ?? p.options[0]?.id ?? null } : { ...p.course, on: false })}
                 className="h-3.5 w-3.5 accent-text-header"
               />
               <span>{V10_WHAT_IF_COPY.courseOn}</span>
@@ -236,7 +239,7 @@ export function V10WhatIfBody(p: V10BodyProps) {
               aria-label={V10_WHAT_IF_COPY.courseOption}
               data-testid="what-if-course-option"
               disabled={!p.course.on}
-              value={courseOptionId ?? ''}
+              value={p.course.optionId ?? p.options[0]?.id ?? ''}
               onChange={(e) => p.onCourse({ ...p.course, optionId: e.target.value })}
               className={`${field} max-w-[11rem] disabled:text-text-light`}
             >
@@ -284,24 +287,26 @@ export function V10WhatIfBody(p: V10BodyProps) {
                 <p className="text-text-header">{row.label}</p>
                 <p><span className="text-text-light">{V10_WHAT_IF_COPY.saved}: </span><Cell cell={row.saved} /></p>
                 <p><span className="text-text-light">{V10_WHAT_IF_COPY.whatIf}: </span><Cell cell={row.whatIf} /></p>
+                {courseRow !== null && courseRow.id === row.id && point !== null && (
+                  <p data-testid="what-if-course-point" className="inline-flex items-center gap-1 text-text-body">
+                    <Flag aria-hidden="true" className="h-3 w-3 text-text-light" />
+                    {V10_WHAT_IF_COPY.yourPoint(point)}
+                  </p>
+                )}
                 {row.variationWords !== null && <p className={`${typography.panelMeta} text-text-light`}>{row.variationWords}</p>}
               </li>
             ))}
           </ul>
-          <div className={`${typography.panelBody} flex flex-wrap items-center justify-between gap-2 text-text-body`} data-testid="what-if-course-row">
-            <span className="inline-flex items-center gap-2">
+          {courseRow === null && (
+            <p className={`${typography.panelBody} inline-flex items-center gap-2 text-text-body`} data-testid="what-if-course-row">
               <Flag aria-hidden="true" className="h-3.5 w-3.5 text-text-light" />
-              {courseRow !== null && point !== null
-                ? V10_WHAT_IF_COPY.courseBelow(courseRow.label, point)
-                : V10_WHAT_IF_COPY.courseUnset}
-            </span>
-            {courseRow !== null && point !== null && (
-              <span data-testid="what-if-course-state" className={PILL}>{COURSE_WORDS[courseStateOf(courseRow.whatIf, point)]}</span>
-            )}
-          </div>
+              {V10_WHAT_IF_COPY.courseUnset}
+            </p>
+          )}
           <V10KeepBar
             held={p.held}
-            onKept={p.onKept}
+            note={p.note}
+            onNote={p.onNote}
             sentence={(
               <p className={`${typography.panelBody} text-text-body`}>
                 {courseRow !== null && `${V10_WHAT_IF_COPY.courseSetFirst} `}
