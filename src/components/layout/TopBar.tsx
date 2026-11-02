@@ -8,6 +8,7 @@ import { ScenarioSwitcher } from '../../canvas/components/ScenarioSwitcher'
 import { SCENARIO_RENAME_REQUEST_EVENT } from '../../canvas/components/scenarioRenameEvent'
 import { VersionsTrigger } from '../../canvas/versions/VersionsTrigger'
 import { DecisionBriefTrigger } from '../../canvas/decisionBrief/DecisionBriefTrigger'
+import { coreLaneShowsSurface } from '../../olumiCore/lane'
 import { ownerPanelHash } from '../../collab/panelRoute'
 import { useCanvasStore } from '../../canvas/store'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
@@ -447,9 +448,11 @@ export const TopBar = ({
 
         {/* DECISION BRIEF — the saved model and its latest Run as one shareable page (self-contained; renders
             nothing for a scenario CEE cannot read). */}
-        <Tooltip content="Summary: the saved model and its latest Run, to print or share">
-          <DecisionBriefTrigger className={styles.iconButton} />
-        </Tooltip>
+        {coreLaneShowsSurface('summary') && (
+          <Tooltip content="Summary: the saved model and its latest Run, to print or share">
+            <DecisionBriefTrigger className={styles.iconButton} />
+          </Tooltip>
+        )}
 
         {/* Kebab menu */}
         <KebabMenu

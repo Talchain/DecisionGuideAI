@@ -37,8 +37,35 @@ export function drawViewCanvas(model: ViewModel): boolean {
   return true
 }
 
-/** On the core lane, the canvas follows the View: each View that lands for the scenario on screen is drawn. */
+const isViewNode = (type: string | undefined) => type === VIEW_CARD || type === VIEW_QUESTION
+
+/** Core holds no model (its first draft set aside): the View's cards, question and links leave the canvas (gap D4). True when they did. */
+export function withdrawViewCanvas(): boolean {
+  const store = useCanvasStore.getState()
+  if (!store.nodes.some((n) => isViewNode(n.type))) return false
+  store.beginExternalGraphMutation?.('envelope_apply')
+  try {
+    useCanvasStore.setState({ nodes: [], edges: [] })
+  } finally {
+    useCanvasStore.getState().endExternalGraphMutation?.()
+  }
+  return true
+}
+
+/** Auto-arrange on the core lane (gap B5): every View card back where core's page places it; the person's moves are let go. */
+export function placeViewCards(model: ViewModel): boolean {
+  const store = useCanvasStore.getState()
+  useCanvasStore.setState({ nodes: store.nodes.filter((n) => !isViewNode(n.type)) })
+  return drawViewCanvas(model)
+}
+
+/** On the core lane, the canvas follows the View: each View that lands for the scenario on screen is drawn, and one with no model withdraws it. */
 export function useViewCanvas(on: boolean): void {
-  const model = useViewStore((s) => s.view?.model ?? null)
-  useEffect(() => { if (on && model !== null) drawViewCanvas(model) }, [on, model])
+  const view = useViewStore((s) => s.view)
+  const model = view?.model ?? null
+  useEffect(() => {
+    if (!on || view === null) return
+    if (model === null) withdrawViewCanvas()
+    else drawViewCanvas(model)
+  }, [on, view, model])
 }

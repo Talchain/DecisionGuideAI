@@ -109,6 +109,9 @@ import { DirectionNeededLayer } from './nodes/DirectionNeededLayer'
 import { coreSwitchOptionOf, withoutCoreSwitches } from './domain/coreSwitch'
 import { NoteRecordsPublisher } from './components/NoteRecordsPublisher'
 import { ViewLinkEdge } from './edges/ViewLinkEdge'
+import { isOlumiCoreLane } from '../olumiCore/lane'
+import { useViewStore } from '../olumiView/store'
+import { placeViewCards } from '../olumiView/canvas'
 import { ReloadNoteApplier } from '../olumiCore/ReloadNoteApplier'
 import { useDrawnLivingModel } from './hooks/useDrawnLivingModel'
 import { livingOnlyOf } from './domain/livingModelCanvas'
@@ -1766,6 +1769,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [])
 
   const handleAutoArrange = useCallback(() => {
+    // The olumi-core lane's cards are placed by core: Auto-arrange puts them back there, never an ELK layout (canvas A S6, B5).
+    const viewModel = isOlumiCoreLane() ? useViewStore.getState().view?.model ?? null : null
+    if (viewModel) {
+      placeViewCards(viewModel)
+      return
+    }
     if (nodesRef.current.length === 0) {
       showToast('No nodes to arrange.', 'info')
       return
