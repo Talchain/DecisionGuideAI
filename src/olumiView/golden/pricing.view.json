@@ -246,26 +246,6 @@
       "aim": "Make £7,000 a month",
       "aim_id": "profit_goal",
       "title": "If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change'.",
-      "band": {
-       "from": 0,
-       "mid": 0.4888569862948455,
-       "to": 1,
-       "aim_at": 0.497564415175382,
-       "labels": {
-        "from": "6,190 GBP/month",
-        "to": "7,820 GBP/month",
-        "aim": "7,000 GBP/month"
-       },
-       "low": 6187.801740508874,
-       "median": 6985.7864462053185,
-       "high": 7820.149703344684,
-       "target": 7000,
-       "unit": "GBP/month",
-       "axis": {
-        "min": 6187.801740508874,
-        "max": 7820.149703344684
-       }
-      },
       "swing": {
        "label": "under 1% if 'cups change' is low, over 99% if it is high",
        "title": "under 1% if 'cups change' is low, over 99% if it is high. Under 'Raise the price by 45p', the chance of meeting 'Make £7,000 a month' moves most with 'cups change': these are its chances over the lowest and highest third of that figure's draws.",
@@ -309,26 +289,6 @@
       "aim": "Make £7,000 a month",
       "aim_id": "profit_goal",
       "title": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's what-if ranges for 'cups change'.",
-      "band": {
-       "from": 0.007472830406780723,
-       "mid": 0.007472830406780723,
-       "to": 0.007472830406780723,
-       "aim_at": 0.497564415175382,
-       "labels": {
-        "from": "6,200 GBP/month",
-        "to": "6,200 GBP/month",
-        "aim": "7,000 GBP/month"
-       },
-       "low": 6200,
-       "median": 6200,
-       "high": 6200,
-       "target": 7000,
-       "unit": "GBP/month",
-       "axis": {
-        "min": 6187.801740508874,
-        "max": 7820.149703344684
-       }
-      },
       "swing": null
      }
     ],
@@ -343,8 +303,7 @@
     "from": "cups_now",
     "to": "profit",
     "kind": "through",
-    "sign": "+",
-    "label": "+",
+    "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
@@ -361,7 +320,6 @@
     "from": "profit",
     "to": "profit_goal",
     "kind": "plain",
-    "sign": "",
     "label": "",
     "doubt": false,
     "alert": false,
@@ -374,7 +332,6 @@
     "from": "profit_target",
     "to": "profit_goal",
     "kind": "plain",
-    "sign": "",
     "label": "",
     "doubt": false,
     "alert": false,
@@ -387,7 +344,6 @@
     "from": "raise_price",
     "to": "margin_raised",
     "kind": "plain",
-    "sign": "",
     "label": "",
     "doubt": false,
     "alert": false,
@@ -400,8 +356,7 @@
     "from": "margin_raised",
     "to": "profit",
     "kind": "through",
-    "sign": "+",
-    "label": "+",
+    "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
@@ -417,7 +372,6 @@
     "from": "raise_price",
     "to": "rise_switched_on",
     "kind": "plain",
-    "sign": "",
     "label": "",
     "doubt": false,
     "alert": false,
@@ -430,8 +384,7 @@
     "from": "rise_switched_on",
     "to": "profit",
     "kind": "through",
-    "sign": "−",
-    "label": "−",
+    "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,

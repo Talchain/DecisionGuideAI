@@ -332,7 +332,18 @@
     "rows": [
      {
       "kind": "none",
-      "title": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure. The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure. The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated."
+      "aim_id": "boss_discussion",
+      "title": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure."
+     },
+     {
+      "kind": "none",
+      "aim_id": "protect_user_trust",
+      "title": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure."
+     },
+     {
+      "kind": "none",
+      "aim_id": "allow_readiness_work",
+      "title": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated."
      }
     ],
     "status": null,
@@ -422,7 +433,18 @@
     "rows": [
      {
       "kind": "none",
-      "title": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure. The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure. The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated."
+      "aim_id": "boss_discussion",
+      "title": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure."
+     },
+     {
+      "kind": "none",
+      "aim_id": "protect_user_trust",
+      "title": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure."
+     },
+     {
+      "kind": "none",
+      "aim_id": "allow_readiness_work",
+      "title": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated."
      }
     ],
     "status": null,
@@ -508,7 +530,18 @@
     "rows": [
      {
       "kind": "none",
-      "title": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure. The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure. The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated."
+      "aim_id": "boss_discussion",
+      "title": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure."
+     },
+     {
+      "kind": "none",
+      "aim_id": "protect_user_trust",
+      "title": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure."
+     },
+     {
+      "kind": "none",
+      "aim_id": "allow_readiness_work",
+      "title": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated."
      }
     ],
     "status": null,
@@ -539,8 +572,7 @@
     "from": "option_isolate",
     "to": "protect_user_trust",
     "kind": "plain",
-    "sign": "?",
-    "label": "?",
+    "label": "",
     "doubt": true,
     "alert": false,
     "proposed": false,
@@ -554,8 +586,7 @@
     "from": "option_isolate",
     "to": "readiness_margin",
     "kind": "through",
-    "sign": "?",
-    "label": "?",
+    "label": "",
     "doubt": true,
     "alert": false,
     "proposed": false,
@@ -572,22 +603,18 @@
     "from": "negative_reviews",
     "to": "protect_user_trust",
     "kind": "plain",
-    "sign": "−",
-    "label": "−",
+    "label": "",
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "may change · Theirs: “if we launch broken apps people will give us 1 star reviews”",
-    "records": [
-     "negative_reviews"
-    ],
+    "title": "may change",
+    "records": [],
     "via": []
    },
    {
     "from": "readiness_margin",
     "to": "allow_readiness_work",
     "kind": "plain",
-    "sign": "",
     "label": "",
     "doubt": false,
     "alert": false,
@@ -600,7 +627,6 @@
     "from": "zero_schedule_shortfall",
     "to": "allow_readiness_work",
     "kind": "plain",
-    "sign": "",
     "label": "",
     "doubt": false,
     "alert": false,
@@ -613,7 +639,6 @@
     "from": "schedule_assumptions",
     "to": "page:question",
     "kind": "reason",
-    "sign": "",
     "label": "◇",
     "doubt": true,
     "alert": false,
@@ -626,7 +651,6 @@
     "from": "schedule_assumptions",
     "to": "option_delay",
     "kind": "reason",
-    "sign": "",
     "label": "◇",
     "doubt": true,
     "alert": false,
@@ -639,7 +663,6 @@
     "from": "option_delay",
     "to": "delayed_release_offset",
     "kind": "plain",
-    "sign": "",
     "label": "",
     "doubt": false,
     "alert": false,
@@ -652,8 +675,7 @@
     "from": "delayed_release_offset",
     "to": "readiness_margin",
     "kind": "through",
-    "sign": "+",
-    "label": "+",
+    "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,

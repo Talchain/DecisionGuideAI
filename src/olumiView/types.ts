@@ -85,26 +85,6 @@ export type View = {
         aim: string
         aim_id: string
         title: string
-        band: {
-          from: number
-          mid: number
-          to: number
-          aim_at: number | null
-          labels: {
-            from: string
-            to: string
-            aim: string | null
-          }
-          low: number
-          median: number
-          high: number
-          target: number | null
-          unit: string | null
-          axis: {
-            min: number
-            max: number
-          }
-        } | null
         swing: {
           label: string
           title: string
@@ -115,14 +95,17 @@ export type View = {
         kind: "limit"
         value: string
         aim: string
+        aim_id: string
         title: string
       } | {
         kind: "route"
         glyph: string
         aim: string
+        aim_id: string
         title: string
       } | {
         kind: "none"
+        aim_id: string | null
         title: string
       }>
       status: string | null
@@ -150,7 +133,6 @@ export type View = {
       from: string
       to: string
       kind: "plain" | "replaces" | "reason" | "through"
-      sign: "+" | "−" | "?" | ""
       label: string
       doubt: boolean
       alert: boolean

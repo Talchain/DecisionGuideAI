@@ -472,6 +472,11 @@
     "premises": [],
     "rows": [
      {
+      "kind": "none",
+      "aim_id": "within_budget",
+      "title": "'Within the £3,000' waits on the answers to: 'oven price'."
+     },
+     {
       "kind": "chance",
       "value": "about 72% chance",
       "fixed": false,
@@ -487,26 +492,6 @@
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
       "title": "If Olumi's estimates hold, the chance that 'A second oven' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'.",
-      "band": {
-       "from": 0.4204082031132383,
-       "mid": 0.8032970197141605,
-       "to": 1,
-       "aim_at": 0.6889104014160347,
-       "labels": {
-        "from": "337 loafs/week",
-        "to": "387 loafs/week",
-        "aim": "360 loafs/week"
-       },
-       "low": 336.6150549257873,
-       "median": 369.96239436039934,
-       "high": 387.0940544324368,
-       "target": 360,
-       "unit": "loaf/week",
-       "axis": {
-        "min": 300,
-        "max": 387.0940544324368
-       }
-      },
       "swing": {
        "label": "about 53% if 'extra sold per oven' is low, about 81% if it is high",
        "title": "about 53% if 'extra sold per oven' is low, about 81% if it is high. Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are its chances over the lowest and highest third of that figure's draws.",
@@ -538,6 +523,11 @@
     "premises": [],
     "rows": [
      {
+      "kind": "none",
+      "aim_id": "within_budget",
+      "title": "'Within the £3,000' waits on the answers to: 'oven price'."
+     },
+     {
       "kind": "chance",
       "value": "about 50% chance",
       "fixed": false,
@@ -550,26 +540,6 @@
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
       "title": "If Olumi's estimates hold, the chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'.",
-      "band": {
-       "from": 0.45323983178171884,
-       "mid": 0.6888771929737595,
-       "to": 0.9154737195945223,
-       "aim_at": 0.6889104014160347,
-       "labels": {
-        "from": "339 loafs/week",
-        "to": "380 loafs/week",
-        "aim": "360 loafs/week"
-       },
-       "low": 339.4744945801455,
-       "median": 359.9971077421209,
-       "high": 379.7323179658307,
-       "target": 360,
-       "unit": "loaf/week",
-       "axis": {
-        "min": 300,
-        "max": 387.0940544324368
-       }
-      },
       "swing": {
        "label": "under 1% if 'extra hours sold' is low, over 99% if it is high",
        "title": "under 1% if 'extra hours sold' is low, over 99% if it is high. Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are its chances over the lowest and highest third of that figure's draws.",
@@ -601,6 +571,11 @@
     "premises": [],
     "rows": [
      {
+      "kind": "none",
+      "aim_id": "within_budget",
+      "title": "'Within the £3,000' waits on the answers to: 'oven price'."
+     },
+     {
       "kind": "chance",
       "value": "under 1% chance",
       "fixed": false,
@@ -613,26 +588,6 @@
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
       "title": "If Olumi's estimates hold, the chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'.",
-      "band": {
-       "from": 0,
-       "mid": 0,
-       "to": 0,
-       "aim_at": 0.6889104014160347,
-       "labels": {
-        "from": "300 loafs/week",
-        "to": "300 loafs/week",
-        "aim": "360 loafs/week"
-       },
-       "low": 300,
-       "median": 300,
-       "high": 300,
-       "target": 360,
-       "unit": "loaf/week",
-       "axis": {
-        "min": 300,
-        "max": 387.0940544324368
-       }
-      },
       "swing": null
      }
     ],
@@ -669,8 +624,7 @@
     "from": "base_sales",
     "to": "sales",
     "kind": "plain",
-    "sign": "+",
-    "label": "+",
+    "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
@@ -684,7 +638,6 @@
     "from": "extra_hours_sold",
     "to": "sales",
     "kind": "plain",
-    "sign": "",
     "label": "",
     "doubt": false,
     "alert": false,
@@ -699,8 +652,7 @@
     "from": "oven_price",
     "to": "spend",
     "kind": "through",
-    "sign": "+",
-    "label": "+",
+    "label": "",
     "doubt": true,
     "alert": false,
     "proposed": false,
@@ -717,8 +669,7 @@
     "from": "fitting",
     "to": "spend",
     "kind": "through",
-    "sign": "+",
-    "label": "+",
+    "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
@@ -735,7 +686,6 @@
     "from": "sales",
     "to": "sell_360",
     "kind": "plain",
-    "sign": "",
     "label": "",
     "doubt": false,
     "alert": false,
@@ -748,7 +698,6 @@
     "from": "sales_target",
     "to": "sell_360",
     "kind": "plain",
-    "sign": "",
     "label": "",
     "doubt": false,
     "alert": false,
@@ -761,7 +710,6 @@
     "from": "spend",
     "to": "within_budget",
     "kind": "plain",
-    "sign": "",
     "label": "",
     "doubt": false,
     "alert": false,
@@ -774,7 +722,6 @@
     "from": "budget",
     "to": "within_budget",
     "kind": "plain",
-    "sign": "",
     "label": "",
     "doubt": false,
     "alert": false,
@@ -787,7 +734,6 @@
     "from": "second_oven",
     "to": "one_oven",
     "kind": "plain",
-    "sign": "",
     "label": "",
     "doubt": false,
     "alert": false,
@@ -800,8 +746,7 @@
     "from": "one_oven",
     "to": "sales",
     "kind": "through",
-    "sign": "+",
-    "label": "+",
+    "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
@@ -817,8 +762,7 @@
     "from": "one_oven",
     "to": "spend",
     "kind": "through",
-    "sign": "+",
-    "label": "+",
+    "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
@@ -834,7 +778,6 @@
     "from": "longer_hours",
     "to": "hours_switched_on",
     "kind": "plain",
-    "sign": "",
     "label": "",
     "doubt": false,
     "alert": false,
@@ -847,8 +790,7 @@
     "from": "hours_switched_on",
     "to": "sales",
     "kind": "through",
-    "sign": "+",
-    "label": "+",
+    "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
@@ -864,15 +806,13 @@
     "from": "oven_repair",
     "to": "sales",
     "kind": "through",
-    "sign": "−",
-    "label": "−",
+    "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through extra sold per oven · Proposed by Olumi: Olumi's estimate · Theirs: “1 in 5 new ovens need a repair in the first months”",
+    "title": "worked out through extra sold per oven · Proposed by Olumi: Olumi's estimate",
     "records": [
-     "sales_rel",
-     "oven_repair"
+     "sales_rel"
     ],
     "via": [
      "extra_sold_per_oven"

@@ -399,107 +399,6 @@
               "title": {
                "type": "string"
               },
-              "band": {
-               "anyOf": [
-                {
-                 "type": "object",
-                 "properties": {
-                  "from": {
-                   "type": "number"
-                  },
-                  "mid": {
-                   "type": "number"
-                  },
-                  "to": {
-                   "type": "number"
-                  },
-                  "aim_at": {
-                   "type": [
-                    "number",
-                    "null"
-                   ]
-                  },
-                  "labels": {
-                   "type": "object",
-                   "properties": {
-                    "from": {
-                     "type": "string"
-                    },
-                    "to": {
-                     "type": "string"
-                    },
-                    "aim": {
-                     "type": [
-                      "string",
-                      "null"
-                     ]
-                    }
-                   },
-                   "required": [
-                    "from",
-                    "to",
-                    "aim"
-                   ],
-                   "additionalProperties": false
-                  },
-                  "low": {
-                   "type": "number"
-                  },
-                  "median": {
-                   "type": "number"
-                  },
-                  "high": {
-                   "type": "number"
-                  },
-                  "target": {
-                   "type": [
-                    "number",
-                    "null"
-                   ]
-                  },
-                  "unit": {
-                   "type": [
-                    "string",
-                    "null"
-                   ]
-                  },
-                  "axis": {
-                   "type": "object",
-                   "properties": {
-                    "min": {
-                     "type": "number"
-                    },
-                    "max": {
-                     "type": "number"
-                    }
-                   },
-                   "required": [
-                    "min",
-                    "max"
-                   ],
-                   "additionalProperties": false
-                  }
-                 },
-                 "required": [
-                  "from",
-                  "mid",
-                  "to",
-                  "aim_at",
-                  "labels",
-                  "low",
-                  "median",
-                  "high",
-                  "target",
-                  "unit",
-                  "axis"
-                 ],
-                 "additionalProperties": false
-                },
-                {
-                 "type": "null"
-                }
-               ]
-              },
               "swing": {
                "anyOf": [
                 {
@@ -542,7 +441,6 @@
               "aim",
               "aim_id",
               "title",
-              "band",
               "swing"
              ],
              "additionalProperties": false
@@ -560,6 +458,9 @@
               "aim": {
                "type": "string"
               },
+              "aim_id": {
+               "type": "string"
+              },
               "title": {
                "type": "string"
               }
@@ -568,6 +469,7 @@
               "kind",
               "value",
               "aim",
+              "aim_id",
               "title"
              ],
              "additionalProperties": false
@@ -585,6 +487,9 @@
               "aim": {
                "type": "string"
               },
+              "aim_id": {
+               "type": "string"
+              },
               "title": {
                "type": "string"
               }
@@ -593,6 +498,7 @@
               "kind",
               "glyph",
               "aim",
+              "aim_id",
               "title"
              ],
              "additionalProperties": false
@@ -604,12 +510,19 @@
                "type": "string",
                "const": "none"
               },
+              "aim_id": {
+               "type": [
+                "string",
+                "null"
+               ]
+              },
               "title": {
                "type": "string"
               }
              },
              "required": [
               "kind",
+              "aim_id",
               "title"
              ],
              "additionalProperties": false
@@ -772,15 +685,6 @@
            "through"
           ]
          },
-         "sign": {
-          "type": "string",
-          "enum": [
-           "+",
-           "−",
-           "?",
-           ""
-          ]
-         },
          "label": {
           "type": "string"
          },
@@ -813,7 +717,6 @@
          "from",
          "to",
          "kind",
-         "sign",
          "label",
          "doubt",
          "alert",
