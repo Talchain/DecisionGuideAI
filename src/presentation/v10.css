@@ -1,0 +1,57 @@
+/*
+ * v10 presentation (#/canvas2): two of Paul's 24 Oct rulings. Everything is scoped to [data-presentation="v10"]
+ * (src/presentation/v10.tsx), so #/canvas is unchanged.
+ *
+ * 1. NOTHING DIMS. BaseNode and StyledEdge already read their dims as false under usePresentation() === 'v10'; the
+ *    first block is the backstop for anything that still carries a dim marker, so no card or link is ever left
+ *    below full strength. What matters is shown by emphasis (the changed card's outline and word, the lit ring).
+ *
+ * 2. BLUE MEANS OLUMI ONLY. The person's own primary actions (Run analysis, Save, Confirm, Send) are ink #262626
+ *    with white text; hover #3F3F3E; disabled is ink at 35%. Olumi's own elements keep --info: its mark, the
+ *    pointing ring, chips naming records and notes. Only buttons are targeted, never every .bg-info.
+ */
+
+/* ── 1. Nothing dims ─────────────────────────────────────────────────────────────────────────────────────────── */
+[data-presentation="v10"] [data-run-change-subdued="true"],
+[data-presentation="v10"] [data-selection-dimmed="true"] {
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+/* ── 2. Blue means Olumi only ────────────────────────────────────────────────────────────────────────────────── */
+/* Classed buttons: the Button component's primary variant (bg-primary) and the older filled-info recipes. */
+[data-presentation="v10"] button:is(.bg-primary, .bg-info, .bg-info-500, .bg-info-600),
+[data-presentation="v10"] button[class*="graphPatchAccept"],
+/* Inline-styled buttons that paint var(--primary): the composer's send and Generate model, the draft box's submit. */
+[data-presentation="v10"] button[style*="var(--primary"] {
+  background-color: #262626 !important;
+  border-color: transparent;
+  color: #fff;
+}
+
+[data-presentation="v10"] button:is(.bg-primary, .bg-info, .bg-info-500, .bg-info-600):hover:not(:disabled),
+[data-presentation="v10"] button:is(.bg-primary, .bg-info, .bg-info-500, .bg-info-600):focus-visible:not(:disabled),
+[data-presentation="v10"] button[class*="graphPatchAccept"]:hover:not(:disabled),
+[data-presentation="v10"] button[style*="var(--primary"]:hover:not(:disabled),
+[data-presentation="v10"] .send-btn:not(:disabled):hover,
+[data-presentation="v10"] .inline-gen-btn[data-active]:hover {
+  background-color: #3F3F3E !important;
+  opacity: 1;
+}
+
+/* Disabled: the same ink at about 35%, whichever recipe the button came in. */
+[data-presentation="v10"] button:is(.bg-primary, .bg-info, .bg-info-500, .bg-info-600):disabled,
+[data-presentation="v10"] button[class*="graphPatchAccept"]:disabled,
+[data-presentation="v10"] .send-btn:disabled,
+[data-presentation="v10"] button[aria-label^="Generate draft"]:disabled,
+[data-presentation="v10"] button[aria-label^="Rebuild model"]:disabled {
+  background-color: #262626 !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  opacity: 0.35;
+}
+
+/* The send arrow and the draft box's glyph are inline-stroked in grey while disabled; keep them white on the ink. */
+[data-presentation="v10"] .send-btn:disabled svg {
+  stroke: #fff !important;
+}
