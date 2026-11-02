@@ -811,7 +811,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   useEffect(() => {
     if (!isOlumiCoreLane()) return
     const v = useViewStore.getState(), uuid = currentScenarioIdForRun ?? null
-    void (v.uuid === uuid && v.status !== 'none' ? v.refresh() : v.use(uuid))
+    void (v.uuid === uuid && v.status !== 'none' ? v.modelChanged() : v.use(uuid))
   }, [currentScenarioIdForRun, viewModelOnCanvas])
   // Another member approved a change: a read of the team shows the approved model has moved on, so the canvas reads the saved model again
   // (design QA 7: Bea's canvas must not stay on version 1 while her Team tab shows version 2).

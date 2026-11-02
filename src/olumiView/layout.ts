@@ -5,5 +5,8 @@
  */
 import type { ViewCard, ViewModel } from './client'
 
-/** The option cards, in the View's own order: what the chances block draws. */
-export const optionCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.family === 'option')
+/**
+ * The option cards core compares, in the View's own order: what the chances block draws. An option core does not compare carries its
+ * status on its card ("removed", "ruled out"); it has no chance to show, and the block leaves it out as the base does (review 00051).
+ */
+export const optionCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.family === 'option' && c.status === null)

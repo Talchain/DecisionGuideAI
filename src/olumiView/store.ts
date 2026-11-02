@@ -20,10 +20,14 @@ interface ViewState {
   readonly opened: Opened
   readonly status: ViewStatus
   readonly error: string | null
+  /** The canvas's model changed after this View was read: until a new one lands, none of its lines is current. */
+  readonly stale: boolean
   /** Point the store at a DGAI scenario; reads its View when core knows it. */
   readonly use: (uuid: string | null) => Promise<void>
   /** Read the View again. True when a whole, current answer was read. */
   readonly refresh: () => Promise<boolean>
+  /** The canvas's model changed (a saved change, an approval): the View held is stale until the read this starts lands. */
+  readonly modelChanged: () => Promise<boolean>
   /** Open or close a badge (its card id and the records the View said it holds), or every figure: a new read. */
   readonly setOpened: (opened: Opened) => Promise<boolean>
 }
@@ -32,13 +36,13 @@ let seq = 0
 
 /**
  * The model whose lines may be drawn beside the canvas: the View's, only while it is the approved model (no proposal held, whose lines
- * would be the proposal's) and only while the last read succeeded (older lines are never shown as current). Otherwise null, and the
- * dock keeps its earlier block (review 00049).
+ * would be the proposal's), only while the last read succeeded (older lines are never shown as current), and never while the canvas's
+ * model has changed since it was read (review 00051). Otherwise null, and the dock keeps its earlier block (review 00049).
  */
-export const currentModel = (s: { view: View | null; error: string | null }) => (s.error === null && s.view !== null && s.view.proposal === null ? s.view.model : null)
+export const currentModel = (s: { view: View | null; error: string | null; stale: boolean }) => (s.error === null && !s.stale && s.view !== null && s.view.proposal === null ? s.view.model : null)
 
 export const useViewStore = create<ViewState>()((set, get) => ({
-  uuid: null, sid: null, view: null, opened: { open: new Map(), all: false }, status: 'none', error: null,
+  uuid: null, sid: null, view: null, opened: { open: new Map(), all: false }, status: 'none', error: null, stale: false,
   use: async (uuid) => {
     const sid = coreScenarioIdOf(uuid)
     if (get().uuid === uuid && get().sid === sid && get().status !== 'none' && get().status !== 'error') return
@@ -56,13 +60,17 @@ export const useViewStore = create<ViewState>()((set, get) => ({
     try {
       const view = await readView(sid, get().opened)
       if (mine !== seq) return false
-      set({ view, status: 'ready', error: null })
+      set({ view, status: 'ready', error: null, stale: false })
       return true
     } catch (e) {
       if (mine !== seq) return false
       set({ status: get().view ? 'ready' : 'error', error: e instanceof TeamApiError ? e.message : READ_FAILED })
       return false
     }
+  },
+  modelChanged: async () => {
+    set({ stale: true })
+    return get().refresh()
   },
   setOpened: async (opened) => {
     const was = get().opened

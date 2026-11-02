@@ -38,12 +38,21 @@ describe('the chances block draws the View exactly (design §3)', () => {
         expect(typeof want, el.dataset['view']).toBe('string')
         expect(el.textContent, el.dataset['view']).toBe(want)
       }
-      for (const card of model.cards.filter((c) => c.family === 'option')) {
+      for (const card of model.cards.filter((c) => c.family === 'option' && c.status === null)) {
         expect(container.querySelector(`[data-view="${card.id}.heading"]`), card.id).not.toBeNull()
         card.rows.forEach((_, i) => expect(container.querySelector(`[data-view-row="${card.id}.rows.${i}"]`), `${card.id} row ${i}`).not.toBeNull())
       }
     })
   }
+
+  it('an option core does not compare (its card says "removed" or "ruled out") draws no chance line, as the base leaves it out (review 00051 P2)', () => {
+    const model = structuredClone(golden('pricing').model!)
+    const [kept, out] = model.cards.filter((c) => c.family === 'option')
+    out!.status = 'removed'
+    const { container } = render(<ViewChances model={model} />)
+    expect(container.querySelector(`[data-view-card="${out!.id}"]`)).toBeNull()
+    expect(container.querySelector(`[data-view-card="${kept!.id}"]`)).not.toBeNull()
+  })
 
   it('a View whose two options\' chances are swapped draws differently for each option (identity, not a value somewhere)', () => {
     const model = golden('pricing').model!, swapped = structuredClone(model)
@@ -77,7 +86,7 @@ describe('nothing the View says on a line is dropped (review 00049)', () => {
     it(`${n}: every word and mark on every option line is drawn, and each line carries core's hover`, () => {
       const model = golden(n).model!
       const { container } = render(<ViewChances model={model} />)
-      for (const card of model.cards.filter((c) => c.family === 'option')) card.rows.forEach((row, i) => {
+      for (const card of model.cards.filter((c) => c.family === 'option' && c.status === null)) card.rows.forEach((row, i) => {
         const at = `${card.id}.rows.${i}`
         for (const path of shownStrings(row as unknown as Record<string, unknown>, at)) expect(container.querySelector(`[data-view="${path}"]`), path).not.toBeNull()
         if (row.kind !== 'none') expect(container.querySelector(`[data-view-row="${at}"]`)?.getAttribute('title'), at).toBe(row.title)

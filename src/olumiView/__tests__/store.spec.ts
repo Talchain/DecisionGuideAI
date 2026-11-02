@@ -4,7 +4,7 @@
  */
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { setTeamFetch } from '../../olumiCore/team/api'
-import { useViewStore } from '../store'
+import { currentModel, useViewStore } from '../store'
 
 const SID = 's_0123456789ab', UUID = '00000000-0000-4000-8000-0123456789ab'
 const view = (title: string) => ({ schema: 'olumi.view/2', id: SID, title, commit: 't', signature: title, you: 'Paul', members: [], version: null, model: null, proposal: null,
@@ -43,4 +43,26 @@ it('a read that fails keeps the last good View, says why, and puts back what was
   expect(useViewStore.getState()).toMatchObject({ status: 'ready', error: 'the server is busy' })
   expect(useViewStore.getState().view?.title).toBe('first')
   expect(useViewStore.getState().opened.open.size).toBe(0)
+})
+
+it('after the canvas model changes, no chance is current until the new View lands (review 00051 P1)', async () => {
+  const withModel = (title: string) => new Response(JSON.stringify({ ...view(title), model: { cards: [] } }), { status: 200 })
+  setTeamFetch((async () => withModel('before')) as unknown as typeof fetch)
+  await useViewStore.getState().use(UUID)
+  expect(currentModel(useViewStore.getState())).not.toBeNull()
+  let answer!: (r: Response) => void
+  setTeamFetch((() => new Promise<Response>((done) => { answer = done })) as unknown as typeof fetch)
+  const read = useViewStore.getState().modelChanged()
+  expect(currentModel(useViewStore.getState())).toBeNull()
+  answer(withModel('after')); await read
+  expect(useViewStore.getState().view?.title).toBe('after')
+  expect(currentModel(useViewStore.getState())).not.toBeNull()
+})
+
+it('a read after a model change that fails shows no chance as current', async () => {
+  setTeamFetch((async () => new Response(JSON.stringify({ ...view('before'), model: { cards: [] } }), { status: 200 })) as unknown as typeof fetch)
+  await useViewStore.getState().use(UUID)
+  setTeamFetch((async () => new Response(JSON.stringify({ error: 'the server is busy' }), { status: 503 })) as unknown as typeof fetch)
+  expect(await useViewStore.getState().modelChanged()).toBe(false)
+  expect(currentModel(useViewStore.getState())).toBeNull()
 })
