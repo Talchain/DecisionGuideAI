@@ -26,6 +26,8 @@ import {
 import { isUnsettled } from './RestsOnMarker'
 import { FigureCard } from './FigureCard'
 import { useNoteRecords } from '../domain/noteRecords'
+import { usePresentation } from '../../presentation/v10'
+import { V10AuthorGlyph, V10RestsOnLegend } from '../../presentation/V10RestsOn'
 
 export const RESTS_ON_KEY_TESTID = 'rests-on-key'
 
@@ -104,6 +106,8 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
     for (const item of items) out[item.column] += 1
     return out
   }, [items])
+  // v10 (#/canvas2) only: figures are told apart by author (colour on the numbers, the card marks' glyphs).
+  const isV10 = usePresentation() === 'v10'
   const picked = usePickedKey()
   const settledJustNow = useSettledJustNow(items)
   const light = useCanvasLight()
@@ -149,6 +153,7 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
           type="button"
           data-testid={`${RESTS_ON_KEY_TESTID}-row`}
           data-target={key}
+          data-column={item.column}
           aria-label={name}
           title={name}
           className={`${typography.panelMeta} inline-flex h-7 min-w-[28px] items-center justify-center rounded-full border px-2 tabular-nums transition-colors duration-200 ${
@@ -174,7 +179,8 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
       {!map.hasGoal && !folded ? <p className={`${typography.panelMeta} text-text-light`}>{ASSUMPTION_MAP_COPY.noGoal}</p> : null}
     </div>
   )
-  if (folded) return <div data-testid={RESTS_ON_KEY_TESTID} data-folded="">{headline}</div>
+  // v10: folded, the legend names each author once. Open, the groups below already name them, so they only gain the glyph.
+  if (folded) return <div data-testid={RESTS_ON_KEY_TESTID} data-folded="" className={isV10 ? 'space-y-2' : undefined}>{headline}{isV10 ? <V10RestsOnLegend counts={counts} /> : null}</div>
   return (
     <div data-testid={RESTS_ON_KEY_TESTID} className="space-y-3">
       {headline}
@@ -240,7 +246,10 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
               if (group.length === 0) return null
               return (
                 <section key={column} data-testid={`${RESTS_ON_KEY_TESTID}-group-${column}`} className="flex items-start gap-2">
-                  <h3 className={`${typography.panelMeta} w-[104px] flex-none pt-1.5 text-text-light`}>{ASSUMPTION_MAP_COPY.columns[column]}</h3>
+                  <h3 className={`${typography.panelMeta} w-[104px] flex-none pt-1.5 text-text-light`}>
+                    {isV10 ? <span className="mr-1 inline-flex align-middle"><V10AuthorGlyph column={column} /></span> : null}
+                    {ASSUMPTION_MAP_COPY.columns[column]}
+                  </h3>
                   <ul className="flex min-w-0 flex-1 flex-wrap gap-1">{group.map(chip)}</ul>
                 </section>
               )
