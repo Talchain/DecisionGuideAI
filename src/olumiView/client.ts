@@ -16,6 +16,7 @@ export type ViewCard = ViewModel['cards'][number]
 export type ViewLink = ViewModel['links'][number]
 export type ViewRow = ViewCard['rows'][number]
 export type ViewTurn = View['chat'][number]
+export type ViewRun = NonNullable<ViewModel['run']>
 
 /** What the person has opened: badges (card id → the records it holds) and every figure on or off. */
 export interface Opened { readonly open: ReadonlyMap<string, readonly string[]>; readonly all: boolean }

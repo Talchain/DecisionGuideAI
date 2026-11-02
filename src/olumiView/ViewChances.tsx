@@ -7,7 +7,7 @@
  * Each drawn View string carries `data-view`, the path to the exact string it shows, so a test can bind every element to its own
  * value by identity (design §3).
  */
-import type { ViewCard, ViewModel, ViewRow } from './client'
+import type { ViewCard, ViewModel, ViewRow, ViewRun } from './client'
 import { optionCards } from './layout'
 import { currentModel, useViewStore } from './store'
 import { typography } from '../styles/typography'
@@ -47,10 +47,40 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
   }
 }
 
-/** The lines for one View model: pure, so a test draws it from a golden View. */
+type WaitsOn = NonNullable<ViewRun['waits_on']>
+
+/** What the chances wait on, each item core's `‘label’` with its hover; a figure no one can size yet says so in the headline only. */
+function WaitsOnItems({ w, unknown }: { w: WaitsOn; unknown: boolean }) {
+  return (
+    <>
+      {w.items.map((it, i) => (
+        <span key={it.id} title={it.title}>
+          <span data-view={`run.waits_on.items.${i}.text`}>{it.text}</span>
+          {unknown && it.unknown !== null ? <span data-view={`run.waits_on.items.${i}.unknown`}>{it.unknown}</span> : null}
+          {i < w.items.length - 1 ? ', ' : null}
+        </span>
+      ))}
+    </>
+  )
+}
+
+/**
+ * The lines for one View model: pure, so a test draws it from a golden View. As the base dock (ViewOnlyRunChancesBlock): the Run's lead,
+ * then, when every option waits (`all_withheld`), the waits-on headline; each option with its lines and what moves its chance most; the
+ * most likely option; the notes; and, when not every option waits, what the chances wait on. Every word is the View's.
+ */
 export function ViewChances({ model }: { model: ViewModel }) {
+  const run = model.run
+  const headline = run !== null && run.all_withheld && run.waits_on !== null
   return (
     <div className={`${typography.panelBody} space-y-3`} data-testid="view-chances">
+      {run?.lead == null ? null : <p data-view="run.lead">{run.lead}</p>}
+      {!headline ? null : (
+        <div data-testid="view-run-waits-headline">
+          <p className={typography.panelMeta} data-view="run.waits_on.head">{run.waits_on!.head}</p>
+          <p><span data-view="run.waits_on.text">{run.waits_on!.text}</span>{': '}<WaitsOnItems w={run.waits_on!} unknown /></p>
+        </div>
+      )}
       {optionCards(model).map((card) => (
         <div key={card.id} data-view-card={card.id}>
           <div className={typography.panelHeader} data-view={`${card.id}.heading`}>{card.heading}</div>
@@ -58,6 +88,15 @@ export function ViewChances({ model }: { model: ViewModel }) {
           {card.driver === null ? null : <p className={typography.panelMeta} title={card.driver.title} data-view={`${card.id}.driver.text`}>{card.driver.text}</p>}
         </div>
       ))}
+      {run?.most_likely == null ? null : <p title={run.most_likely.title} data-view="run.most_likely.text">{run.most_likely.text}</p>}
+      {run === null || run.notes.length === 0 ? null : (
+        <div data-testid="view-run-notes">
+          {run.notes.map((n, i) => <p key={i} className={typography.panelMeta} title={n.title} data-view={`run.notes.${i}.text`}>{n.text}</p>)}
+        </div>
+      )}
+      {run === null || run.waits_on === null || headline ? null : (
+        <p data-testid="view-run-waits-on"><span data-view="run.waits_on.label">{run.waits_on.label}</span>{' '}<WaitsOnItems w={run.waits_on} unknown={false} /></p>
+      )}
     </div>
   )
 }

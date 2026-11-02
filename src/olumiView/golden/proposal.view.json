@@ -430,6 +430,8 @@
   ],
   "run": {
    "aim": "chance of ‘At least 100 a week’",
+   "lead": "In this model, on current information, each option’s chance of ‘At least 100 a week’:",
+   "all_withheld": false,
    "most_likely": {
     "text": "The option most likely to achieve 'At least 100 a week' in this model (about 74%, against under 1% for 'Keep current staffing').",
     "title": "The option most likely to achieve 'At least 100 a week' in this model (about 74%, against under 1% for 'Keep current staffing'). It leaves out: How the team feels about a new hire."

@@ -716,7 +716,19 @@
          "type": "object",
          "properties": {
           "aim": {
-           "type": "string"
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "lead": {
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "all_withheld": {
+           "type": "boolean"
           },
           "most_likely": {
            "anyOf": [
@@ -746,6 +758,12 @@
             {
              "type": "object",
              "properties": {
+              "head": {
+               "type": "string"
+              },
+              "label": {
+               "type": "string"
+              },
               "text": {
                "type": "string"
               },
@@ -785,6 +803,8 @@
               }
              },
              "required": [
+              "head",
+              "label",
               "text",
               "items"
              ],
@@ -817,6 +837,8 @@
          },
          "required": [
           "aim",
+          "lead",
+          "all_withheld",
           "most_likely",
           "waits_on",
           "notes"

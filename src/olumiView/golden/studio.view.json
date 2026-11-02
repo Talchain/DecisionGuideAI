@@ -609,6 +609,8 @@
   ],
   "run": {
    "aim": "chance of ‘Take £2,640 a month’",
+   "lead": "In this model, on current information, each option’s chance of ‘Take £2,640 a month’:",
+   "all_withheld": false,
    "most_likely": {
     "text": "The option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops').",
     "title": "The option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops')."

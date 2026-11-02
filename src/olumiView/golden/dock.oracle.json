@@ -2,6 +2,8 @@
  "note": "The chances dock DGAI draws today, as its adapter makes it: scripts/olumi-core/lib/model.mjs analysisViewOf at DGAI 6928d8e03 (poc/science-consumers, the base DGAI's step 2 builds on), run on each golden input with no AI (legacy Run facts: candidate core has no labels grammar). waits_on.text is DGAI's waitsOnCountWords. The View must say the same, word for word. The proposal golden is not here: while a change waits the adapter reads the saved version, the View the proposal.",
  "pricing": {
   "aim": "chance of ‘Make £7,000 a month’",
+  "lead": "In this model, on current information, each option’s chance of ‘Make £7,000 a month’:",
+  "all_withheld": false,
   "drivers": {
    "raise_price": "under 1% if 'cups change' is low, over 99% if it is high: Under 'Raise the price by 45p', the chance of meeting 'Make £7,000 a month' moves most with 'cups change': these are its chances over the lowest and highest third of that figure's draws.",
    "carry_on": null
@@ -15,6 +17,8 @@
  },
  "studio": {
   "aim": "chance of ‘Take £2,640 a month’",
+  "lead": "In this model, on current information, each option’s chance of ‘Take £2,640 a month’:",
+  "all_withheld": false,
   "drivers": {
    "evening_classes": "about 68% if 'evening extra' is low, over 99% if it is high: Under 'Evening classes', the chance of meeting 'Take £2,640 a month' moves most with 'evening extra': these are its chances over the lowest and highest third of that figure's draws.",
    "weekend_workshops": null,
@@ -27,6 +31,8 @@
  },
  "bakery": {
   "aim": "chance of ‘Sell at least 360 loaves a week’",
+  "lead": "In this model, on current information, each option’s chance of ‘Sell at least 360 loaves a week’:",
+  "all_withheld": false,
   "drivers": {
    "second_oven": "about 53% if 'extra sold per oven' is low, about 81% if it is high: Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are its chances over the lowest and highest third of that figure's draws.",
    "longer_hours": "under 1% if 'extra hours sold' is low, over 99% if it is high: Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are its chances over the lowest and highest third of that figure's draws.",
@@ -41,6 +47,8 @@
  },
  "european": {
   "aim": "chance of ‘Reach 800 customers’",
+  "lead": "In this model, on current information, each option’s chance of ‘Reach 800 customers’:",
+  "all_withheld": false,
   "drivers": {
    "broader_entry": "about 4% if 'New customers from existing markets' is low, about 97% if it is high: Under 'Enter multiple European countries', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
    "single_country_test": "under 1% if 'New customers from existing markets' is low, about 95% if it is high: Under 'Test one country before broader commitment', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
@@ -71,6 +79,8 @@
  },
  "app-launch": {
   "aim": "chance of ‘Explain the release decision without unfair team blame’",
+  "lead": "In this model, on current information, each option’s chance of ‘Explain the release decision without unfair team blame’:",
+  "all_withheld": false,
   "drivers": {
    "option_scheduled": null,
    "option_delay": null,
@@ -98,6 +108,8 @@
  },
  "s_ce285b3617bb": {
   "aim": "chance of ‘Secure funding within the funding window’",
+  "lead": "In this model, on current information, each option’s chance of ‘Secure funding within the funding window’:",
+  "all_withheld": false,
   "drivers": {
    "continue_outreach": null,
    "add_angel_bridge": null,

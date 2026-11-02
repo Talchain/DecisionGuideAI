@@ -376,6 +376,8 @@
   ],
   "run": {
    "aim": "chance of ‘Make £7,000 a month’",
+   "lead": "In this model, on current information, each option’s chance of ‘Make £7,000 a month’:",
+   "all_withheld": false,
    "most_likely": {
     "text": "If Olumi's estimates hold, the option most likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'). It rests on Olumi's what-if ranges for 'cups change'.",
     "title": "If Olumi's estimates hold, the option most likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'). It rests on Olumi's what-if ranges for 'cups change'."

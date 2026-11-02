@@ -682,8 +682,12 @@
   ],
   "run": {
    "aim": "chance of ‘Explain the release decision without unfair team blame’",
+   "lead": "In this model, on current information, each option’s chance of ‘Explain the release decision without unfair team blame’:",
+   "all_withheld": false,
    "most_likely": null,
    "waits_on": {
+    "head": "Chance of meeting the goal",
+    "label": "Waits on:",
     "text": "waits on 1 thing",
     "items": [
      {

@@ -139,12 +139,16 @@ export type View = {
       title: string
     }>
     run: {
-      aim: string
+      aim: string | null
+      lead: string | null
+      all_withheld: boolean
       most_likely: {
         text: string
         title: string
       } | null
       waits_on: {
+        head: string
+        label: string
         text: string
         items: Array<{
           id: string

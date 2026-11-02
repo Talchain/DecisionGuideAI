@@ -19,10 +19,10 @@ const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
 const GOLDEN = ['pricing', 'studio', 'bakery', 'european', 'app-launch', 's_ce285b3617bb', 'proposal'] as const
 
-/** The View string a `data-view` path names: `<card id>.<field>…` under the model's cards. */
+/** The View string a `data-view` path names: `run.<field>…` under the model's Run, else `<card id>.<field>…` under its cards. */
 function at(model: ViewModel, path: string): unknown {
   const [id, ...rest] = path.split('.')
-  let x: unknown = model.cards.find((c) => c.id === id)
+  let x: unknown = id === 'run' ? model.run : model.cards.find((c) => c.id === id)
   for (const k of rest) x = x === null || x === undefined ? undefined : (x as Record<string, unknown>)[k]
   return x
 }
@@ -130,4 +130,38 @@ describe('each option says what moves its chance most, as the base dock did (000
       }
     })
   }
+})
+
+describe('the Run beside the chances says what the base dock said, word for word (core wip/view-dock-words dock.oracle.json)', () => {
+  type Oracle = { lead: string | null; most_likely: string | null; notes: string[]; waits_on: { text: string; items: { id: string }[] } | null }
+  const oracle = JSON.parse(readFileSync(path.join(DIR, 'golden', 'dock.oracle.json'), 'utf8')) as Record<string, Oracle>
+  const texts = (c: Element, sel: string) => [...c.querySelectorAll(sel)].map((e) => e.textContent)
+  for (const n of GOLDEN.filter((g) => g !== 'proposal')) {
+    it(`${n}: lead, most likely, notes in order, and what the chances wait on`, () => {
+      const model = golden(n).model!, o = oracle[n]!
+      const { container } = render(<ViewChances model={model} />)
+      expect(container.querySelector('[data-view="run.lead"]')?.textContent ?? null).toBe(o.lead)
+      expect(container.querySelector('[data-view="run.most_likely.text"]')?.textContent ?? null).toBe(o.most_likely)
+      expect(texts(container, '[data-view^="run.notes."]')).toEqual(o.notes)
+      if (o.waits_on === null) expect(container.querySelector('[data-testid="view-run-waits-on"]')).toBeNull()
+      else {
+        expect(container.querySelector('[data-view="run.waits_on.label"]')?.textContent).toBe(model.run!.waits_on!.label)
+        expect(texts(container, '[data-view^="run.waits_on.items."][data-view$=".text"]')).toEqual(model.run!.waits_on!.items.map((i) => i.text))
+        expect(model.run!.waits_on!.items.map((i) => i.id)).toEqual(o.waits_on.items.map((i) => i.id))
+        expect(model.run!.waits_on!.text).toBe(o.waits_on.text)
+      }
+    })
+  }
+
+  it('when every option waits, the dock heads with what they wait on, each unsized figure saying so, and no second waits-on line', () => {
+    const model = structuredClone(golden('app-launch').model!)
+    model.run!.all_withheld = true
+    model.run!.waits_on!.items[0]!.unknown = ', which no one can size yet (no data)'
+    const { container } = render(<ViewChances model={model} />)
+    const head = container.querySelector('[data-testid="view-run-waits-headline"]')!
+    expect(head.querySelector('[data-view="run.waits_on.head"]')?.textContent).toBe(model.run!.waits_on!.head)
+    expect(head.querySelector('[data-view="run.waits_on.text"]')?.textContent).toBe(model.run!.waits_on!.text)
+    expect(head.querySelector('[data-view="run.waits_on.items.0.unknown"]')?.textContent).toBe(', which no one can size yet (no data)')
+    expect(container.querySelector('[data-testid="view-run-waits-on"]')).toBeNull()
+  })
 })

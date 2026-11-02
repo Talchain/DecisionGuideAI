@@ -777,6 +777,8 @@
   ],
   "run": {
    "aim": "chance of ‘Sell at least 360 loaves a week’",
+   "lead": "In this model, on current information, each option’s chance of ‘Sell at least 360 loaves a week’:",
+   "all_withheld": false,
    "most_likely": {
     "text": "If Olumi's estimates hold, the option most likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'). It rests on Olumi's what-if ranges for 'extra sold per oven'.",
     "title": "If Olumi's estimates hold, the option most likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'). It rests on Olumi's what-if ranges for 'extra sold per oven'."
