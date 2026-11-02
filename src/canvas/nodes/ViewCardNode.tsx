@@ -41,7 +41,11 @@ function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
 export function ViewCard({ card }: ViewCardData) {
   const id = card.id
   return (
-    <div className={`${typography.nodeLabel} rounded-lg border border-border bg-panel p-3 space-y-1 w-64`} data-view-card={id}>
+    // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
+    <div
+      className={`${typography.nodeLabel} rounded-lg border bg-panel p-3 space-y-1 w-64 ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : ''}`}
+      data-view-card={id} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
+    >
       <div className="flex items-baseline gap-1">
         <span data-view={`${id}.glyph`}>{card.glyph}</span>
         <span className={typography.nodeTitle} data-view={`${id}.heading`}>{card.heading}</span>

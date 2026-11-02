@@ -6,10 +6,10 @@
 import { useEffect } from 'react'
 import { useCanvasStore } from '../canvas/store'
 import type { ViewModel } from './client'
-import { cardLinks, cardPlaces } from './layout'
+import { cardLinks, cardPlaces, QUESTION, questionPlace } from './layout'
 import { useViewStore } from './store'
 
-export const VIEW_CARD = 'viewCard'
+export const VIEW_CARD = 'viewCard', VIEW_QUESTION = 'viewQuestion', VIEW_LINK = 'viewLink'
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
@@ -17,12 +17,15 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 export function drawViewCanvas(model: ViewModel): boolean {
   const store = useCanvasStore.getState()
   const held = new Map(store.nodes.map((n) => [n.id, n]))
-  const places = cardPlaces(model)
-  const nodes = model.cards.map((card) => ({
-    id: card.id, type: VIEW_CARD, data: { card },
-    position: held.get(card.id)?.type === VIEW_CARD ? held.get(card.id)!.position : places.get(card.id)!,
-  }))
-  const edges = cardLinks(model).map((l) => ({ id: `${l.from}->${l.to}`, source: l.from, target: l.to, type: 'default', data: { link: l } }))
+  const places = cardPlaces(model), q = questionPlace(model)
+  const kept = (id: string, type: string, at: { x: number; y: number }) => (held.get(id)?.type === type ? held.get(id)!.position : at)
+  // The question first, as core's page draws it (00057 #1): its text, its date, its badge, and the links to the question as a whole.
+  const nodes = [
+    { id: QUESTION, type: VIEW_QUESTION, data: { question: model.question, width: q.width }, position: kept(QUESTION, VIEW_QUESTION, { x: q.x, y: q.y }) },
+    ...model.cards.map((card) => ({ id: card.id, type: VIEW_CARD, data: { card }, position: kept(card.id, VIEW_CARD, places.get(card.id)!) })),
+  ]
+  // Each link keeps its meaning (00057 #3): its kind, sign, doubt, challenge and proposal, drawn by the View link edge.
+  const edges = cardLinks(model).map(({ link, i }) => ({ id: `${link.from}->${link.to}:${link.kind}`, source: link.from, target: link.to, type: VIEW_LINK, data: { link, i } }))
   if (same(store.nodes.map((n) => [n.id, n.type, n.data]), nodes.map((n) => [n.id, n.type, n.data])) && same(store.edges.map((e) => [e.id, e.data]), edges.map((e) => [e.id, e.data]))) return false
   store.beginExternalGraphMutation?.('envelope_apply')
   try {

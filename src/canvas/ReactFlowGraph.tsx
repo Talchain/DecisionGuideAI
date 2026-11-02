@@ -108,6 +108,7 @@ import { RunChangePencilLayer } from './graphChanges/RunChangePencilLayer'
 import { DirectionNeededLayer } from './nodes/DirectionNeededLayer'
 import { coreSwitchOptionOf, withoutCoreSwitches } from './domain/coreSwitch'
 import { NoteRecordsPublisher } from './components/NoteRecordsPublisher'
+import { ViewLinkEdge } from './edges/ViewLinkEdge'
 import { ReloadNoteApplier } from '../olumiCore/ReloadNoteApplier'
 import { useDrawnLivingModel } from './hooks/useDrawnLivingModel'
 import { livingOnlyOf } from './domain/livingModelCanvas'
@@ -2003,7 +2004,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const showAlignmentGuides = useSettingsStore(s => s.showAlignmentGuides)
   const loadSettings = useSettingsStore(s => s.loadSettings)
   const snapGridValue = useMemo<[number, number]>(() => [gridSize, gridSize], [gridSize])
-  const edgeTypes = useMemo(() => ({ styled: StyledEdge as any }), [])
+  const edgeTypes = useMemo(() => ({ styled: StyledEdge as any, viewLink: ViewLinkEdge }), [])
   const defaultEdgeOpts = useMemo(() => ({ type: 'styled' as const, animated: false }), [])
   const miniMapStyle = useMemo(() => ({ width: 120, height: 80 }), [])
 

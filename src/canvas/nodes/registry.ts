@@ -25,6 +25,7 @@ import { GhostOptionNode } from './GhostOptionNode'
 import { GhostTierNode } from './GhostTierNode'
 import { withNodeKeyboardScope } from './nodeKeyboardScope'
 import { ViewCardNode } from './ViewCardNode'
+import { ViewQuestionNode } from './ViewQuestionNode'
 
 /**
  * The renderers, before the keyboard scope is applied.
@@ -51,6 +52,7 @@ export const rawNodeTypes: NodeTypes = {
   'ghost-tier': GhostTierNode,
   // The olumi-core lane's one card for every View card (decision A, src/olumiView/canvas.ts).
   viewCard: ViewCardNode,
+  viewQuestion: ViewQuestionNode,
 }
 
 /**

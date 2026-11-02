@@ -10,8 +10,8 @@ import { renderHook } from '@testing-library/react'
 import type { View } from '../client'
 import { useCanvasStore } from '../../canvas/store'
 import { useViewStore } from '../store'
-import { drawViewCanvas, useViewCanvas, VIEW_CARD } from '../canvas'
-import { cardPlaces } from '../layout'
+import { drawViewCanvas, useViewCanvas, VIEW_CARD, VIEW_LINK, VIEW_QUESTION } from '../canvas'
+import { cardPlaces, QUESTION, questionPlace } from '../layout'
 
 const lane = vi.hoisted(() => ({ on: true }))
 vi.mock('../../olumiCore/lane', async (real) => ({ ...(await real<object>()), isOlumiCoreLane: () => lane.on }))
@@ -22,7 +22,7 @@ vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId
 vi.mock('../../canvas/nodes/shared/savedGraph', () => ({ useSavedGraphRead: () => ({ status: 'none' }), useSavedGraph: () => null }))
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
-const ids = () => useCanvasStore.getState().nodes.map((n) => n.id)
+const ids = () => useCanvasStore.getState().nodes.slice(1).map((n) => n.id)
 
 beforeEach(() => { lane.on = true; hydrate.mockClear(); useCanvasStore.setState({ nodes: [], edges: [], pendingLayout: true, currentScenarioId: null }) })
 afterEach(() => useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }))
@@ -32,9 +32,9 @@ describe('the View draws the canvas', () => {
     const model = golden('pricing').model!
     expect(drawViewCanvas(model)).toBe(true)
     const { nodes, edges } = useCanvasStore.getState()
-    const places = cardPlaces(model)
-    expect(nodes.map((n) => [n.id, n.type, n.position])).toEqual(model.cards.map((c) => [c.id, VIEW_CARD, places.get(c.id)]))
-    expect(nodes.every((n, i) => (n.data as { card: unknown }).card === model.cards[i])).toBe(true)
+    const places = cardPlaces(model), cards = nodes.slice(1)
+    expect(cards.map((n) => [n.id, n.type, n.position])).toEqual(model.cards.map((c) => [c.id, VIEW_CARD, places.get(c.id)]))
+    expect(cards.every((n, i) => (n.data as { card: unknown }).card === model.cards[i])).toBe(true)
     expect(edges.map((e) => [e.source, e.target])).toEqual(model.links.map((l) => [l.from, l.to]))
   })
 
@@ -71,6 +71,28 @@ describe('the View draws the canvas', () => {
     useViewStore.setState({ view: golden('pricing') })
     renderHook(() => useViewCanvas(false))
     expect(ids()).toEqual([])
+  })
+})
+
+describe('the canvas keeps what core\'s page shows (00057)', () => {
+  it('#1 the question is drawn first, where core\'s page places it, with the links about the question as a whole', () => {
+    const model = golden('s_ce285b3617bb').model!
+    drawViewCanvas(model)
+    const { nodes, edges } = useCanvasStore.getState(), q = questionPlace(model)
+    expect([nodes[0]!.id, nodes[0]!.type, nodes[0]!.position]).toEqual([QUESTION, VIEW_QUESTION, { x: q.x, y: q.y }])
+    expect((nodes[0]!.data as { question: unknown }).question).toBe(model.question)
+    const toQuestion = model.links.filter((l) => l.to === QUESTION)
+    expect(toQuestion.length).toBeGreaterThan(0)
+    expect(edges.filter((e) => e.target === QUESTION).map((e) => e.source)).toEqual(toQuestion.map((l) => l.from))
+  })
+
+  it('#3 every link is a View link edge carrying that link and its place in the View', () => {
+    const model = golden('european').model!
+    drawViewCanvas(model)
+    const { edges } = useCanvasStore.getState()
+    expect(edges.every((e) => e.type === VIEW_LINK)).toBe(true)
+    expect(edges.map((e) => (e.data as unknown as { link: unknown }).link)).toEqual(model.links)
+    expect(edges.map((e) => (e.data as unknown as { i: number }).i)).toEqual(model.links.map((_, i) => i))
   })
 })
 

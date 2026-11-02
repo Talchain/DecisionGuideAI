@@ -29,8 +29,17 @@ export function cardPlaces(model: ViewModel): Map<string, { x: number; y: number
   return places
 }
 
-/** The View's links between two of its cards, in its order: the canvas draws a link only where both its ends are drawn. */
-export const cardLinks = (model: ViewModel): ViewModel['links'] => {
-  const ids = new Set(model.cards.map((c) => c.id))
-  return model.links.filter((l) => ids.has(l.from) && ids.has(l.to))
+/** The question's card on core's page (olumi-core src/view/model.ts QUESTION): what a link to the question as a whole ends at. */
+export const QUESTION = 'page:question'
+
+/** Where the question sits, as core's page places it (`drawModel`): across the top, as wide as the columns, at most 900px. */
+export function questionPlace(model: ViewModel): { x: number; y: number; width: number } {
+  const cols = Math.max(0, ...model.cards.map((c) => c.col)) + 1
+  return { x: 16, y: 12, width: Math.min(Math.max(740, 48 + cols * (W + GAP_X) - GAP_X) - 40, 900) }
+}
+
+/** The View's links whose both ends are drawn (a card or the question), each with its place in the View's list, in its order. */
+export const cardLinks = (model: ViewModel): { link: ViewModel['links'][number]; i: number }[] => {
+  const ids = new Set([QUESTION, ...model.cards.map((c) => c.id)])
+  return model.links.map((link, i) => ({ link, i })).filter(({ link }) => ids.has(link.from) && ids.has(link.to))
 }
