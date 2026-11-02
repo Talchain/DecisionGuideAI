@@ -211,6 +211,8 @@ import { useIsViewer } from '../../lib/viewerMode'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
 import { setOnModelMoved, useTeamStore } from '../../olumiCore/team/store'
+import { useViewStore } from '../../olumiView/store'
+import { ViewChancesBlock } from '../../olumiView/ViewChances'
 import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
 import { pulseWhenOnCanvas } from '../../olumiCore/pulseArrivals'
 import { getSessionIdentity } from '../../lib/supabase'
@@ -801,6 +803,15 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const teamUse = useTeamStore(s => s.use)
   const teamCardCount = useCanvasStore(s => s.nodes.length)
   useEffect(() => { if (isOlumiCoreLane()) void teamUse(currentScenarioIdForRun ?? null) }, [currentScenarioIdForRun, teamCardCount, teamUse])
+  // The olumi-core lane's View (olumi.view/2): read for this scenario, and again whenever the canvas's model changes (a saved change,
+  // another member's approval), so what the dock draws from it is the model on screen.
+  const viewModelOnCanvas = useCanvasStore(s => s.nodes)
+  const coreView = useViewStore(s => s.view?.model ?? null)
+  useEffect(() => {
+    if (!isOlumiCoreLane()) return
+    const v = useViewStore.getState(), uuid = currentScenarioIdForRun ?? null
+    void (v.uuid === uuid && v.status !== 'none' ? v.refresh() : v.use(uuid))
+  }, [currentScenarioIdForRun, viewModelOnCanvas])
   // Another member approved a change: a read of the team shows the approved model has moved on, so the canvas reads the saved model again
   // (design QA 7: Bea's canvas must not stay on version 1 while her Team tab shows version 2).
   useEffect(() => {
@@ -3746,9 +3757,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 {/* DL ruling A (23 Oct): on a program board, a bound, current view-only Run says its served words here
                     instead of the pre-analysis panel, whose lines ("No goal selected", "Analyse anyway") say no result
                     exists. */}
-                {isPreRun && nodes.length > 0 && viewOnlyChances !== null && (
+                {/* The olumi-core lane draws each option's lines from core's View (src/olumiView/), never from the adapter's CEE shape. */}
+                {isPreRun && nodes.length > 0 && (isOlumiCoreLane() ? coreView !== null : viewOnlyChances !== null) && (
                   <div className="px-4 py-3" data-testid="outputs-pre-run-view-only">
-                    <ViewOnlyRunChancesBlock chances={viewOnlyChances} />
+                    {isOlumiCoreLane() || viewOnlyChances === null ? <ViewChancesBlock /> : <ViewOnlyRunChancesBlock chances={viewOnlyChances} />}
                     {programShowsResult && (programDecisionRecord !== null || !isViewer) ? (
                       <div className="mt-3">
                         <RecordYourView canCapture={!isViewer} record={programDecisionRecord} onRecord={openDecisionRecord} testId="analysis-results-record" />
