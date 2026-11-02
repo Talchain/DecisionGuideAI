@@ -32,6 +32,7 @@ import {
 import { isModelChangingSystemEvent } from '../conversation/types'
 import { captureAgentTurnForUndo, readAgentTurnReceipts } from './captureAgentTurnForUndo'
 import { noteCanvasLocalCommit } from '../analysis/useAnalyseAfterCommittedChange'
+import { plainChangeWords, noteSavedVersion, readReceiptSequence } from '../versions/modelVersionStamp'
 
 export const useUndoJournalStore = create<{ journal: UndoJournalState }>(() => ({
   journal: EMPTY_UNDO_JOURNAL,
@@ -164,6 +165,11 @@ export function captureTurnForUndo(input: {
     if (next !== journal && next.head?.versionId === receipt.versionId) {
       useUndoJournalStore.setState({ journal: next })
       noteCanvasLocalCommit(receipt.versionId)
+      // v10 chat: the person's own saved edit, by CEE's receipt, is a version the chat can name ("Version N saved").
+      const sequence = readReceiptSequence(input.response)
+      if (sequence !== null) {
+        noteSavedVersion({ scenarioId: input.scenarioId, versionId: receipt.versionId, number: sequence, what: plainChangeWords(event) })
+      }
       return
     }
   } else if (event !== undefined && UNDOABLE_NEVER_KINDS.has(event.type)) {
