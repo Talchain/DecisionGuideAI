@@ -4,7 +4,7 @@
  *
  * Every block carries its CONTRAST: the same surface in the current presentation, or the same card not named by a story.
  */
-import type { ComponentProps, ReactNode } from 'react'
+import { useEffect, useState, type ComponentProps, type ReactNode } from 'react'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -19,9 +19,18 @@ import { readPremortemWorksheet } from '../../v5/readPremortemWorksheet'
 import { worksheetFixture } from '../../v5/__tests__/premortemFixture'
 import { PresentationProvider } from '../v10'
 import { premortemNumbersOnCards, premortemStoryNumbers } from '../V10StoryNumbers'
+import { V10WriteMineFirst, writeMineDraft } from '../V10WriteMineFirst'
+import { revealOlumiSurface } from '../../canvas/conversation/revealOlumi'
 
 vi.mock('../../flags', async (importOriginal) => ({ ...await importOriginal<Record<string, unknown>>(), isGraphLensEnabled: () => true }))
 vi.mock('../../canvas/conversation/askAi', async (importOriginal) => ({ ...await importOriginal<Record<string, unknown>>(), askAiStage: () => 'ran-current' as never }))
+vi.mock('../../canvas/conversation/revealOlumi', () => ({ revealOlumiSurface: vi.fn(() => true) }))
+// The composer's draft lives in the conversation context; the specs below give it a real owner (see `ComposerHost`).
+const composer = vi.hoisted(() => ({ draft: '' }))
+vi.mock('../../canvas/conversation/ConversationContext', async (importOriginal) => ({
+  ...await importOriginal<Record<string, unknown>>(),
+  useOptionalConversationContext: () => ({ draft: composer.draft }),
+}))
 vi.mock('../../canvas/nodes/shared/useNodeAttention', () => ({
   useNodeAttention: () => ({ reasons: [], marked: false, markedCount: 0, candidateCount: 0 }),
 }))
@@ -47,6 +56,8 @@ const prefill = vi.fn()
 beforeEach(() => {
   expect(read.status, 'POSITIVE CONTROL: the two-story worksheet parses').toBe('available')
   prefill.mockReset()
+  vi.mocked(revealOlumiSurface).mockClear()
+  composer.draft = ''
   useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: () => {}, _dispatchAction: () => {} } as never)
   useCanvasStore.setState({
     currentScenarioId: base.scenario_id, nodes: NODES, edges: EDGES, lodRung: 'full', analysisFreshnessDirty: false,
@@ -151,5 +162,90 @@ describe('"Write mine first"', () => {
     render(current(<LensInfoPanel />))
     expect(screen.queryByTestId('premortem-write-mine')).toBeNull()
     expect(screen.getByTestId('premortem-ask').textContent).toBe('Ask Olumi to imagine it failed')
+  })
+})
+
+/**
+ * A real composer owner: the draft is state, and the REAL guidance store's `registerConversationCallbacks` is given the
+ * host's replace-the-text prefill, exactly as `ConversationPanel` and `OlumiTabBody` do. `_prefillChat` is not mocked.
+ */
+function ComposerHost({ start = '' }: { start?: string }) {
+  const [draft, setDraft] = useState(start)
+  composer.draft = draft
+  useEffect(() => useGuidanceStore.getState().registerConversationCallbacks(
+    () => {}, () => {}, () => {}, () => {}, (text: string) => setDraft(text), () => {}, () => false,
+  ), [])
+  return <><output data-testid="draft">{draft}</output><V10WriteMineFirst /></>
+}
+const press = () => fireEvent.click(screen.getByTestId('premortem-write-mine'))
+const draftNow = () => screen.getByTestId('draft').textContent
+
+describe('"Write mine first" never erases what the person has typed', () => {
+  const TYPED = 'Hiring slips if the £4,800 aim moves, 12 weeks at 3%'
+
+  it('empty composer: the opening of the person’s own sentence is set (REAL guidance store)', () => {
+    render(<ComposerHost />)
+    press()
+    expect(draftNow()).toBe('My reasons it failed: ')
+  })
+
+  it('existing text is kept character for character, with the opening put in front, once (REAL guidance store)', () => {
+    render(<ComposerHost start={TYPED} />)
+    press()
+    expect(draftNow()).toBe(`My reasons it failed: ${TYPED}`)
+  })
+
+  it('repeated presses change nothing after the first, and erase nothing', () => {
+    render(<ComposerHost start={TYPED} />)
+    press(); press(); press()
+    expect(draftNow()).toBe(`My reasons it failed: ${TYPED}`)
+  })
+
+  it('text the person typed after the opening survives further presses', () => {
+    render(<ComposerHost start="My reasons it failed: readers drift, 3% fewer" />)
+    press()
+    expect(draftNow()).toBe('My reasons it failed: readers drift, 3% fewer')
+  })
+
+  it('an unchanged draft is not written back at all (nothing is replaced, not even with itself)', () => {
+    useGuidanceStore.setState({ _prefillChat: prefill } as never)
+    composer.draft = 'My reasons it failed: x'
+    render(<V10WriteMineFirst />)
+    press()
+    expect(prefill).not.toHaveBeenCalled()
+  })
+
+  it('the composer may be on a hidden surface: every press fronts and focuses it, even when the text is unchanged', () => {
+    render(<ComposerHost start={TYPED} />)
+    press() // writes the opening (the store also reveals on a write), then the button reveals
+    const afterFirst = vi.mocked(revealOlumiSurface).mock.calls.length
+    expect(afterFirst).toBeGreaterThanOrEqual(1)
+    press() // nothing to write: only the button's own reveal can have fired
+    expect(vi.mocked(revealOlumiSurface).mock.calls.length).toBe(afterFirst + 1)
+  })
+
+  it('the older chat composer keeps its text in its own textarea: that text is kept too', () => {
+    composer.draft = ''
+    useGuidanceStore.setState({ _prefillChat: prefill } as never)
+    render(<div data-testid="chat-composer"><textarea defaultValue="typed in the older composer" /><V10WriteMineFirst /></div>)
+    press()
+    expect(prefill).toHaveBeenCalledWith('My reasons it failed: typed in the older composer')
+  })
+
+  it('writeMineDraft: pure rule', () => {
+    expect(writeMineDraft('')).toBe('My reasons it failed: ')
+    expect(writeMineDraft('a')).toBe('My reasons it failed: a')
+    expect(writeMineDraft('My reasons it failed:')).toBe('My reasons it failed:')
+    expect(writeMineDraft('  spaced')).toBe('My reasons it failed:   spaced')
+  })
+})
+
+describe('the numbers are heard as well as seen', () => {
+  it('v10: a story’s number in the key card and on its card carry the same words, so they can be matched', () => {
+    render(v10(<PreMortemWorksheet />))
+    expect(screen.getAllByTestId('v10-story-no').map((el) => el.getAttribute('aria-label'))).toEqual(['Failure story 1', 'Failure story 2'])
+    cleanup()
+    const view = card('factor', 'factor', v10)
+    expect(within(view.container).getByTestId('v10-story-discs').getAttribute('aria-label')).toBe('Failure story 2 rests on this card')
   })
 })

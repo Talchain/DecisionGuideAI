@@ -58,10 +58,13 @@ export function premortemNumbersOnCards(
 const DISC_CLASS = `${typography.edgeLabel} inline-grid flex-none place-items-center rounded-full font-bold tabular-nums`
 const DISC_STYLE = { background: 'var(--text-header, #262626)', color: 'var(--text-on-color, #FFFFFF)' } as const
 
+/** What a screen reader hears for a number: the same words in the key card and on the card, so the two can be matched. */
+export const storyLabel = (n: number): string => `Failure story ${n}`
+
 /** The number that leads a story in the key card. */
 export function V10StoryNo({ n }: { n: number }) {
   return (
-    <span data-testid="v10-story-no" data-n={n} aria-hidden="true" className={DISC_CLASS} style={{ ...DISC_STYLE, width: 18, height: 18 }}>
+    <span data-testid="v10-story-no" data-n={n} role="img" aria-label={storyLabel(n)} className={DISC_CLASS} style={{ ...DISC_STYLE, width: 18, height: 18 }}>
       {n}
     </span>
   )
@@ -80,12 +83,12 @@ function Discs({ nodeId }: { nodeId: string }) {
     <span
       data-testid="v10-story-discs"
       role="img"
-      aria-label={numbers.length === 1 ? `Failure story ${numbers[0]} rests on this card` : `Failure stories ${numbers.join(' and ')} rest on this card`}
+      aria-label={`${numbers.map(storyLabel).join(' and ')} ${numbers.length > 1 ? 'rest' : 'rests'} on this card`}
       className="pointer-events-none absolute z-10 flex gap-1"
       style={{ left: -10, top: -10 }}
     >
       {numbers.map((n) => (
-        <span key={n} className={DISC_CLASS} style={{ ...DISC_STYLE, width: 20, height: 20 }}>{n}</span>
+        <span key={n} aria-hidden="true" className={DISC_CLASS} style={{ ...DISC_STYLE, width: 20, height: 20 }}>{n}</span>
       ))}
     </span>
   )
