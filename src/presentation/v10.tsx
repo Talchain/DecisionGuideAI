@@ -6,6 +6,7 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { typography } from '../styles/typography'
+import './v10.css'
 
 export type Presentation = 'current' | 'v10'
 
