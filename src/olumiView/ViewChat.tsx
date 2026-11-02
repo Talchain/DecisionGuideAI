@@ -202,8 +202,9 @@ function useAnswersAsks(): void {
     }
     useGuidanceStore.setState(mine)
     return () => {
-      const now = useGuidanceStore.getState()
-      useGuidanceStore.setState(Object.fromEntries(Object.entries(mine).filter(([k, f]) => now[k as keyof typeof mine] === f).map(([k]) => [k, null])))
+      const now = useGuidanceStore.getState(), gone: Record<string, null> = {}
+      for (const [k, f] of Object.entries(mine)) if (now[k as keyof typeof mine] === f) gone[k] = null
+      useGuidanceStore.setState(gone)
     }
   }, [])
 }
