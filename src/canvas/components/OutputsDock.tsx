@@ -212,7 +212,7 @@ import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
 import { setOnModelMoved, useTeamStore } from '../../olumiCore/team/store'
 import { modelKeyOf } from '../../olumiView/modelKey'
-import { useViewStore } from '../../olumiView/store'
+import { currentModel, useViewStore } from '../../olumiView/store'
 import { ViewChancesBlock } from '../../olumiView/ViewChances'
 import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
 import { pulseWhenOnCanvas } from '../../olumiCore/pulseArrivals'
@@ -807,7 +807,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // The olumi-core lane's View (olumi.view/2): read for this scenario, and again whenever the canvas's model changes (a saved change,
   // another member's approval), so what the dock draws from it is the model on screen. Never on a drag (`modelKeyOf`).
   const viewModelOnCanvas = useCanvasStore(s => modelKeyOf(s.nodes, s.edges))
-  const coreView = useViewStore(s => s.view?.model ?? null)
+  const coreView = useViewStore(currentModel)
   useEffect(() => {
     if (!isOlumiCoreLane()) return
     const v = useViewStore.getState(), uuid = currentScenarioIdForRun ?? null
@@ -3759,9 +3759,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                     instead of the pre-analysis panel, whose lines ("No goal selected", "Analyse anyway") say no result
                     exists. */}
                 {/* The olumi-core lane draws each option's lines from core's View (src/olumiView/), never from the adapter's CEE shape. */}
-                {isPreRun && nodes.length > 0 && (isOlumiCoreLane() ? coreView !== null : viewOnlyChances !== null) && (
+                {isPreRun && nodes.length > 0 && ((isOlumiCoreLane() && coreView !== null) || viewOnlyChances !== null) && (
                   <div className="px-4 py-3" data-testid="outputs-pre-run-view-only">
-                    {isOlumiCoreLane() || viewOnlyChances === null ? <ViewChancesBlock /> : <ViewOnlyRunChancesBlock chances={viewOnlyChances} />}
+                    {/* The View's lines only while they are the approved model's and current (`currentModel`); else the earlier block. */}
+                    {isOlumiCoreLane() && coreView !== null ? <ViewChancesBlock /> : viewOnlyChances === null ? null : <ViewOnlyRunChancesBlock chances={viewOnlyChances} />}
                     {programShowsResult && (programDecisionRecord !== null || !isViewer) ? (
                       <div className="mt-3">
                         <RecordYourView canCapture={!isViewer} record={programDecisionRecord} onRecord={openDecisionRecord} testId="analysis-results-record" />

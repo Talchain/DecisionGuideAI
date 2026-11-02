@@ -30,6 +30,13 @@ interface ViewState {
 
 let seq = 0
 
+/**
+ * The model whose lines may be drawn beside the canvas: the View's, only while it is the approved model (no proposal held, whose lines
+ * would be the proposal's) and only while the last read succeeded (older lines are never shown as current). Otherwise null, and the
+ * dock keeps its earlier block (review 00049).
+ */
+export const currentModel = (s: { view: View | null; error: string | null }) => (s.error === null && s.view !== null && s.view.proposal === null ? s.view.model : null)
+
 export const useViewStore = create<ViewState>()((set, get) => ({
   uuid: null, sid: null, view: null, opened: { open: new Map(), all: false }, status: 'none', error: null,
   use: async (uuid) => {

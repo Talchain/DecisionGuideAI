@@ -1,7 +1,7 @@
 /**
  * Each option's lines from the Run, drawn from the View (olumi.view/2) on the olumi-core lane, in place of the adapter-fed
  * `ViewOnlyRunChancesBlock`. Every word is core's, drawn exactly as it arrives: the option's heading, then each row (a chance with its
- * aim and Olumi's marks, a limit, a route, or why there is nothing yet), with core's hover. Nothing is composed, rounded or reordered
+ * aim, its approximate mark and Olumi's marks, a limit, a route, or why there is nothing yet), with core's hover. Nothing is composed, rounded or reordered
  * here, and the band is not drawn yet (a v10 slice).
  *
  * Each drawn View string carries `data-view`, the path to the exact string it shows, so a test can bind every element to its own
@@ -9,7 +9,7 @@
  */
 import type { ViewCard, ViewModel, ViewRow } from './client'
 import { optionCards } from './layout'
-import { useViewStore } from './store'
+import { currentModel, useViewStore } from './store'
 import { typography } from '../styles/typography'
 
 function Mark({ at, mark }: { at: string; mark: { glyph: string; title: string } | null }) {
@@ -23,7 +23,7 @@ function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number }) {
       return (
         <div className="flex flex-wrap items-baseline gap-x-2" title={row.title} data-view-row={at}>
           <span data-view={`${at}.aim`}>{row.aim}</span>
-          <span className={typography.panelTabular} data-view={`${at}.value`}>{row.value}</span>
+          <span className={typography.panelTabular}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
           <Mark at={`${at}.olumi`} mark={row.olumi} />
           <Mark at={`${at}.likely`} mark={row.likely} />
         </div>
@@ -61,8 +61,8 @@ export function ViewChances({ model }: { model: ViewModel }) {
   )
 }
 
-/** The block on the olumi-core lane: the page's View for this scenario, or nothing until one is read. */
+/** The block on the olumi-core lane: the page's View of the approved model, or nothing while none is current (`currentModel`). */
 export function ViewChancesBlock() {
-  const model = useViewStore((s) => s.view?.model ?? null)
+  const model = useViewStore(currentModel)
   return model === null ? null : <ViewChances model={model} />
 }

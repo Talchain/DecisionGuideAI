@@ -6,12 +6,13 @@
  * - a mutant that swaps two options' rows fails;
  * - the lint: outside the one layout module, src/olumiView/ formats, sorts, filters and reduces nothing, and reads no CEE shape.
  */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { render } from '@testing-library/react'
 import type { View, ViewModel } from '../client'
-import { ViewChances } from '../ViewChances'
+import { ViewChances, ViewChancesBlock } from '../ViewChances'
+import { useViewStore } from '../store'
 
 // Paths from the repository root (vitest's working directory): jsdom gives this module no file: URL to resolve against.
 const DIR = path.resolve('src/olumiView')
@@ -65,4 +66,43 @@ describe('the lint over the View render chain (design §3)', () => {
       for (const cee of ['canonicalAnalysisView', 'runView', 'adapters/cee', 'scripts/olumi-core']) expect(src.includes(cee), `${f}: ${cee}`).toBe(false)
     })
   }
+})
+
+describe('nothing the View says on a line is dropped (review 00049)', () => {
+  /** Every visible string a row carries: its words and marks, never its hovers (`title`), its kind or its aim's id. */
+  const shownStrings = (row: Record<string, unknown>, at: string): string[] => Object.entries(row).flatMap(([k, v]) =>
+    typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'aim_id' && (k !== 'title' || row['kind'] === 'none') ? [`${at}.${k}`] : [])
+    : v !== null && typeof v === 'object' ? shownStrings(v as Record<string, unknown>, `${at}.${k}`) : [])
+  for (const n of GOLDEN) {
+    it(`${n}: every word and mark on every option line is drawn, and each line carries core's hover`, () => {
+      const model = golden(n).model!
+      const { container } = render(<ViewChances model={model} />)
+      for (const card of model.cards.filter((c) => c.family === 'option')) card.rows.forEach((row, i) => {
+        const at = `${card.id}.rows.${i}`
+        for (const path of shownStrings(row as unknown as Record<string, unknown>, at)) expect(container.querySelector(`[data-view="${path}"]`), path).not.toBeNull()
+        if (row.kind !== 'none') expect(container.querySelector(`[data-view-row="${at}"]`)?.getAttribute('title'), at).toBe(row.title)
+      })
+    })
+  }
+})
+
+describe('the block draws only a current View of the approved model (review 00049)', () => {
+  const view = golden('pricing')
+  const block = () => render(<ViewChancesBlock />).container.querySelector('[data-testid="view-chances"]')
+  afterEach(() => useViewStore.setState({ view: null, error: null, status: 'none' }))
+
+  it('draws the approved model\'s lines when the last read succeeded', () => {
+    useViewStore.setState({ view, error: null, status: 'ready' })
+    expect(block()).not.toBeNull()
+  })
+
+  it('draws nothing from a View that holds a proposal: its lines are the proposal\'s, not the approved model the canvas shows', () => {
+    useViewStore.setState({ view: { ...view, proposal: { id: 9, base: 1, heading: 'Olumi proposes 1 change', on: 'on version 1', removed: null, problem: null, marks: [] } }, error: null, status: 'ready' })
+    expect(block()).toBeNull()
+  })
+
+  it('draws nothing when the last read failed: older lines are never shown as current', () => {
+    useViewStore.setState({ view, error: 'Olumi could not be read just now. Try again in a moment.', status: 'ready' })
+    expect(block()).toBeNull()
+  })
 })
