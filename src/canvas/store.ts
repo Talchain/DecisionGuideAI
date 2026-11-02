@@ -261,6 +261,7 @@ function createDefaultLensState() {
     _fragileEdgeIds: new Set<string>(),
     _restsOn: new Map<string, RestsOnMark>(),
     _emphasisEdgeIds: new Set<string>(),
+    _routeEffects: new Map<string, 'gains' | 'gives_up' | 'none'>(),
   }
 }
 
@@ -1325,6 +1326,8 @@ interface CanvasState {
     _restsOn: Map<string, RestsOnMark>
     /** Links a lens puts in front with the canvas's emphasis glow (option routes, "If it failed" links). Nothing dims. */
     _emphasisEdgeIds: Set<string>
+    /** Trade-offs: each link on the picked option's routes, with the colour v10 draws or `none`. Empty when the option has no routes. Read by the v10 canvas only. */
+    _routeEffects: Map<string, 'gains' | 'gives_up' | 'none'>
   }
   // M5: Grounding & Provenance
   documents: Document[]
@@ -2078,6 +2081,7 @@ interface CanvasState {
     fragileEdgeIds: Set<string>
     restsOn?: Map<string, RestsOnMark>
     emphasisEdgeIds?: Set<string>
+    routeEffects?: Map<string, 'gains' | 'gives_up' | 'none'>
   }) => void
   // M5: Provenance actions
   addDocument: (document: Omit<Document, 'id' | 'uploadedAt'>) => string
@@ -8243,6 +8247,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const { lens } = get()
     const EMPTY_MARKS = new Map<string, RestsOnMark>()
     const EMPTY_EDGES = new Set<string>()
+    const EMPTY_EFFECTS = new Map<string, 'gains' | 'gives_up' | 'none'>()
     // Skip no-op updates to avoid re-renders (use setsEqual/mapsEqual for collection comparison)
     if (
       setsEqual(lens._dimmedNodeIds, visuals.dimmedNodeIds) &&
@@ -8252,7 +8257,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       lens._sensitivityQuartiles?.q25 === visuals.sensitivityQuartiles?.q25 &&
       lens._sensitivityQuartiles?.q75 === visuals.sensitivityQuartiles?.q75 &&
       mapsEqual(lens._restsOn, visuals.restsOn ?? EMPTY_MARKS) &&
-      setsEqual(lens._emphasisEdgeIds, visuals.emphasisEdgeIds ?? EMPTY_EDGES)
+      setsEqual(lens._emphasisEdgeIds, visuals.emphasisEdgeIds ?? EMPTY_EDGES) &&
+      mapsEqual(lens._routeEffects ?? EMPTY_EFFECTS, visuals.routeEffects ?? EMPTY_EFFECTS)
     ) {
       return
     }
@@ -8266,6 +8272,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         _fragileEdgeIds: visuals.fragileEdgeIds,
         _restsOn: visuals.restsOn ?? EMPTY_MARKS,
         _emphasisEdgeIds: visuals.emphasisEdgeIds ?? EMPTY_EDGES,
+        _routeEffects: visuals.routeEffects ?? EMPTY_EFFECTS,
       },
     })
   },

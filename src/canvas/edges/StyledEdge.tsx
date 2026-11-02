@@ -77,11 +77,12 @@ import {
 import { getEdgeLabel, labelCarriesDirection } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { useCanvasStore } from '../store'
-import { usePresentation } from '../../presentation/v10'
 import { useModelChangedSinceRunLight } from '../hooks/useModelChangedSinceRun'
 import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
 import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
 import { isGraphLensEnabled } from '../../flags'
+import { usePresentation } from '../../presentation/v10'
+import { v10TradeOffsStroke } from './v10TradeOffsStroke'
 import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdgeCopy'
 import type { RestsOnMark } from '../artefacts/assumptionMapModel'
 import { RestsOnMarker } from '../artefacts/RestsOnMarker'
@@ -443,9 +444,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // #2747 r2: the "chance rests most on this" tag reads the scenario's held canonical view through the gate.
   const heldCanonical = useCanonicalAnalysisViewStore(s => s.view)
   const heldCanonicalScenarioId = useCanonicalAnalysisViewStore(s => s.scenarioId)
-  // v10 (#/canvas2), Paul 24 Oct ruling "nothing dims": the run-change subdue, the selection dim and the lens dim read
-  // false there; the marks they sat beside (changed link glow, selected stroke, highlight glow) are what shows.
-  const noDim = usePresentation() === 'v10'
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
   const { ceeReview, resultsStatus, report, currentScenarioId, isHighlightedEdge, isAnalysisFragileEdge, isRunChangedEdge, isRunChangeSubduedEdge, isSelectionDimmed, viewMode, isLodBodyHidden, canvasOnlyLink, isGoalChanceDriverEdge } = useCanvasStore(
@@ -463,7 +461,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // while anything is marked — every other link subdued. A projection that marks nothing subdues nothing.
       isRunChangedEdge: s.analysisHighlight?.source === 'run_changes' && s.analysisHighlight?.edgeIds?.has(edgeIdKey) === true,
       isRunChangeSubduedEdge:
-        !noDim &&
         s.analysisHighlight?.source === 'run_changes' &&
         (s.analysisHighlight.edgeIds?.size ?? 0) + (s.analysisHighlight.nodeIds?.size ?? 0) > 0 &&
         s.analysisHighlight.edgeIds?.has(edgeIdKey) !== true &&
@@ -472,7 +469,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // 6A (selection focus): this edge is outside the selected element's
       // neighbourhood. Primitive boolean (React #185) and optional-chained so
       // store doubles without the slice stay safe.
-      isSelectionDimmed: !noDim && s.dimmedEdgeIds?.has(edgeIdKey) === true,
+      isSelectionDimmed: s.dimmedEdgeIds?.has(edgeIdKey) === true,
       viewMode: s.viewMode,
       // The far rung of the semantic-zoom ladder, read through THE shared
       // predicate the cards blank their bodies on (`selectLodBodyHidden`), so
@@ -495,7 +492,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // and marks its fragile ones; "Rests on" numbers the link's strength.
   const lensEnabled = isGraphLensEnabled()
   const {
-    isLensDimmed, lensSensWeight, lensQ25, lensQ75, isLensFragile, restsOn, isLensEmphasis,
+    isLensDimmed, lensSensWeight, lensQ25, lensQ75, isLensFragile, restsOn, isLensEmphasis, tradeOffsDrawing,
   } = useCanvasStore(
     useShallow(s => {
       if (!lensEnabled) {
@@ -506,12 +503,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           isLensFragile: false,
           restsOn: null as RestsOnMark | null,
           isLensEmphasis: false,
+          tradeOffsDrawing: undefined as 'gains' | 'gives_up' | 'none' | null | undefined,
         }
       }
       const active = s.lens.active
       const changes = active === 'what_changes'
       return {
-        isLensDimmed: !noDim && s.lens._dimmedEdgeIds.has(id),
+        isLensDimmed: s.lens._dimmedEdgeIds.has(id),
         lensSensWeight: changes ? (s.lens._sensitivityWeights.get(id) ?? null) : null,
         lensQ25: changes ? (s.lens._sensitivityQuartiles?.q25 ?? null) : null,
         lensQ75: changes ? (s.lens._sensitivityQuartiles?.q75 ?? null) : null,
@@ -521,6 +519,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         restsOn: active === 'rests_on' || active === 'tradeoffs' || changes ? (s.lens._restsOn?.get(`edge:${id}`) ?? null) : null,
         // Option routes and "If it failed" links: the canvas's one emphasis glow; nothing else changes.
         isLensEmphasis: s.lens._emphasisEdgeIds?.has(id) === true,
+        // v10 Trade-offs: undefined outside that lens or with no routes to draw; null for a link on none of the picked option's routes.
+        tradeOffsDrawing: active === 'tradeoffs' && (s.lens._routeEffects?.size ?? 0) > 0 ? (s.lens._routeEffects.get(id) ?? null) : undefined,
       }
     }),
   )
@@ -2253,6 +2253,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     isHighlightedEdge, directionStroke, existenceDash, edgeData, identityExact, strengthIsDefinitional,
   ])
   const edgeStroke = useMemo(() => resolveEdgeStroke(presentationState), [presentationState])
+  // v10 only (#/canvas2): the Trade-offs lens changes the stroke COLOUR alone (never width or dash).
+  const presentation = usePresentation()
+  const v10Trade = useMemo(
+    () => (tradeOffsDrawing === undefined ? null : v10TradeOffsStroke({ presentation, lens: 'tradeoffs', drawing: tradeOffsDrawing, structural: isStructuralEdge, disputed: edgeStroke.rule === 'contested_direction_disputed' })),
+    [presentation, tradeOffsDrawing, isStructuralEdge, edgeStroke.rule],
+  )
 
   // ⭐ THE UNCERTAINTY RIBBON (see `uncertaintyBandHalfWidth`). `strengthStd`
   // reached the store, the inspector and the user's own edit control, and never
@@ -2678,7 +2684,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // Existence dashes keep butt caps; strength dots need round caps.
           // The presentation decision owns both the pattern and its caps.
           strokeLinecap: edgeDash.linecap,
-          stroke: edgeStroke.value,
+          stroke: v10Trade?.stroke ?? edgeStroke.value,
           // Opacity is a lens-only channel now. exists_probability is a SINGLE
           // encoding — the dash (existenceDash above), which stays
           // legible at every zoom level and doesn't fight the analysis halo.
