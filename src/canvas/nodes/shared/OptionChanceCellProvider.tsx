@@ -2,6 +2,8 @@ import { createContext, useMemo, type ReactNode } from 'react'
 import { useResultsSectionData } from '../../../components/results/useResultsSectionData'
 import type { OptionResult } from '../../../components/results/types'
 import { optionChanceCell, runViewOf, type OptionChanceCell } from '../../runView/runView'
+import { usePresentation } from '../../../presentation/v10'
+import { V10OptionBandContext, buildV10OptionBands } from '../../../presentation/V10OptionBand'
 
 export type CanvasOptionChanceCell = OptionChanceCell &
   Pick<OptionResult, 'goalFitBaseCaveat' | 'goalFitIsModelledBasis'> & {
@@ -52,5 +54,12 @@ export function OptionChanceCellProvider({ children }: { children: ReactNode }) 
     }
     return NONE
   }, [view])
-  return <CanvasOptionChanceContext.Provider value={servedCellOf}>{children}</CanvasOptionChanceContext.Provider>
+  // v10 (#/canvas2) only: the outcome band on each card, from the same projection the Analysis tab reads.
+  const isV10 = usePresentation() === 'v10'
+  const bandOf = useMemo(() => (isV10 ? buildV10OptionBands(data.recommendation) : () => null), [isV10, data.recommendation])
+  return (
+    <CanvasOptionChanceContext.Provider value={servedCellOf}>
+      <V10OptionBandContext.Provider value={bandOf}>{children}</V10OptionBandContext.Provider>
+    </CanvasOptionChanceContext.Provider>
+  )
 }
