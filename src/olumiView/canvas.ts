@@ -6,7 +6,7 @@
 import { useEffect } from 'react'
 import { useCanvasStore } from '../canvas/store'
 import type { ViewModel } from './client'
-import { cardLinks, cardPlaces, QUESTION, questionPlace } from './layout'
+import { cardLinks, cardPlaces, holdsViewNodes, QUESTION, questionPlace, withoutViewNodes } from './layout'
 import { useViewStore } from './store'
 
 export const VIEW_CARD = 'viewCard', VIEW_QUESTION = 'viewQuestion', VIEW_LINK = 'viewLink'
@@ -37,12 +37,10 @@ export function drawViewCanvas(model: ViewModel): boolean {
   return true
 }
 
-const isViewNode = (type: string | undefined) => type === VIEW_CARD || type === VIEW_QUESTION
-
 /** Core holds no model (its first draft set aside): the View's cards, question and links leave the canvas (gap D4). True when they did. */
 export function withdrawViewCanvas(): boolean {
   const store = useCanvasStore.getState()
-  if (!store.nodes.some((n) => isViewNode(n.type))) return false
+  if (!holdsViewNodes(store.nodes, [VIEW_CARD, VIEW_QUESTION])) return false
   store.beginExternalGraphMutation?.('envelope_apply')
   try {
     useCanvasStore.setState({ nodes: [], edges: [] })
@@ -55,7 +53,7 @@ export function withdrawViewCanvas(): boolean {
 /** Auto-arrange on the core lane (gap B5): every View card back where core's page places it; the person's moves are let go. */
 export function placeViewCards(model: ViewModel): boolean {
   const store = useCanvasStore.getState()
-  useCanvasStore.setState({ nodes: store.nodes.filter((n) => !isViewNode(n.type)) })
+  useCanvasStore.setState({ nodes: withoutViewNodes(store.nodes, [VIEW_CARD, VIEW_QUESTION]) })
   return drawViewCanvas(model)
 }
 

@@ -43,3 +43,9 @@ export const cardLinks = (model: ViewModel): { link: ViewModel['links'][number];
   const ids = new Set([QUESTION, ...model.cards.map((c) => c.id)])
   return model.links.map((link, i) => ({ link, i })).filter(({ link }) => ids.has(link.from) && ids.has(link.to))
 }
+
+/** Whether the canvas holds any node the View drew (of one of the View's node types). */
+export const holdsViewNodes = (nodes: readonly { type?: string }[], types: readonly string[]): boolean => nodes.some((n) => types.includes(n.type ?? ''))
+
+/** The canvas's nodes the View did not draw. */
+export const withoutViewNodes = <N extends { type?: string }>(nodes: readonly N[], types: readonly string[]): N[] => nodes.filter((n) => !types.includes(n.type ?? ''))

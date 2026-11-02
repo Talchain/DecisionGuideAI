@@ -905,7 +905,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // narrowing) is WITHDRAWN as of 17 Aug: it bought no legibility at any dock
   // width and cost 35% of the panel's content budget. This VISIBILITY rule is
   // untouched by that. See the predicate's own header for the full record.
-  const isFirstUse = shouldRenderFirstUseRail({
+  // The olumi-core lane mounts no first-use composer (its one chat is this dock's Olumi tab, canvas A S6 D6): no first-use rail.
+  const isFirstUse = !isOlumiCoreLane() && shouldRenderFirstUseRail({
     aiPanelV2On,
     hasModelContent: hasGraphContent,
     analysisActive,
@@ -920,6 +921,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // the rail). Defined once here and reused by the docked-Olumi close-effect
   // below, the --dock-right-offset effect, and render.
   const effectiveIsOpen = isFirstUse ? false : state.isOpen
+  // On the lane an empty scenario opens on the Olumi tab, where its brief is typed, so the empty canvas never looks dead (D6).
+  useEffect(() => {
+    if (isOlumiCoreLane() && !hasGraphContent) setState((prev) => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
+  }, [hasGraphContent]) // eslint-disable-line react-hooks/exhaustive-deps -- setState is stable
   // ACCOUNTS viewer mode (PANEL 5947736451): a viewer keeps the results and loses the
   // readiness / re-analyse bars and the Run action. Only the owner can run.
   const isViewer = useIsViewer()

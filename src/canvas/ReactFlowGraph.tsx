@@ -3248,10 +3248,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             single useConversation() singleton lives at the canvas root when
             FF is on. */}
       <OutputsDock />
-      {!isAiPanelV2Enabled() && <DraftChat />}
-      {isAiPanelV2Enabled() && (
-        <FloatingOlumiPanelHost showStarters={showStarters} />
-      )}
+      <RightEdgeChat showStarters={showStarters} />
 
       {/* Lenses on the model: the bar that switches them, and the key card of the one on screen */}
       <LensBar />
@@ -3352,6 +3349,16 @@ export function MaybeConversationProvider({ children }: { children: import('reac
     )
   }
   return <>{children}</>
+}
+
+/**
+ * The chat beside the canvas: DraftChat (aiPanelV2 off) or the floating Olumi panel with the first-use composer and starters (on).
+ * On the olumi-core lane neither: they send to /bff, and the lane's one chat is the dock's Olumi tab (ViewChat), which opens with
+ * the brief box when the scenario is empty (DL 2 Nov, canvas A S6 D6). The floating chat comes back on the View after switch-on.
+ */
+export function RightEdgeChat({ showStarters }: { showStarters?: boolean }) {
+  if (isOlumiCoreLane()) return null
+  return isAiPanelV2Enabled() ? <FloatingOlumiPanelHost showStarters={showStarters} /> : <DraftChat />
 }
 
 /**

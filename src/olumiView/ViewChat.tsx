@@ -10,7 +10,7 @@
  * closing the dock loses neither (review 00052).
  */
 import { create } from 'zustand'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { newOp, TeamApiError } from '../olumiCore/team/api'
 import { useTeamStore } from '../olumiCore/team/store'
 import { writes, type View, type ViewTurn } from './client'
@@ -173,14 +173,17 @@ export function ViewChat() {
 export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarProps['analysisAction'] }): ReactNode {
   const sid = useViewStore((s) => s.sid), view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
   const { text, busy, said } = useViewChat()
-  if (sid !== null && view === null && error === null) return null
+  const box = useRef<HTMLTextAreaElement>(null)
   const brief = takesBrief(sid, view)
+  // A scenario waiting for its brief puts the person in the brief box (canvas A S6 D6).
+  useEffect(() => { if (brief) box.current?.focus() }, [brief])
+  if (sid !== null && view === null && error === null) return null
   const blocked = analysisAction !== undefined && !analysisAction.canRun && !analysisAction.isRunning
   return (
     <div className={`${typography.panelBody} border-t border-border p-3 space-y-2`} data-testid="view-composer">
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
       <label className={brief ? typography.panelHeader : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
-      <textarea id="view-chat-text" className="w-full rounded border border-border p-2" rows={brief ? 6 : 3} value={text} disabled={busy} onChange={(e) => useViewChat.setState({ text: e.target.value })} />
+      <textarea ref={box} id="view-chat-text" className="w-full rounded border border-border p-2" rows={brief ? 6 : 3} value={text} disabled={busy} onChange={(e) => useViewChat.setState({ text: e.target.value })} />
       <div className="flex gap-2">
         <button type="button" disabled={busy || text.trim() === ''} className="rounded px-3 py-2 bg-primary text-text-on-color disabled:opacity-50" onClick={() => void send()}>Send</button>
         {analysisAction === undefined ? null : (
