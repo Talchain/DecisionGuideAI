@@ -167,7 +167,7 @@ export function makeShim({ core, log = () => {}, onlySupported }) {
    * `figureIn` is the number they typed, or `{ low, high }` when they set a range: core takes a point OR an interval, so each is
    * sent as what it is (a range is never flattened to one number). A figure typed over a RANGE would replace the person's range with one
    * number (and the Run with it), so it is refused in words before anything is sent. A range set over a range, or over a single value, is
-   * sent with the figure the person stated (a most likely, or the one value they gave) when it still lies inside the new range; it is
+   * sent with the figure the person stated (a most likely, or the one value they gave) when it lies strictly inside the new range; it is
    * dropped only when the new range excludes it.
    */
   async function editFigure(ctx, turnId, sid, quantityId, figureIn) {
@@ -198,7 +198,9 @@ export function makeShim({ core, log = () => {}, onlySupported }) {
     // A range edit keeps the figure the person stated (a most likely, or the one value they gave) while it lies inside the new range: sent
     // as `likely`, and core keeps it too, so a correction never deletes a figure that was supplied.
     const stated = rec?.family === 'quantity' ? (rec.assertion.kind === 'interval' ? rec.assertion.likely : rec.assertion.kind === 'point' ? rec.assertion.value : null) : null
-    const keep = range && typeof stated === 'number' && stated >= figureIn.low && stated <= figureIn.high ? stated : null
+    // Only the person's own figure is kept, and only strictly inside the new range: core keeps exactly that (its compiler refuses a most
+    // likely at an end), and Olumi's figure is never re-sent as theirs.
+    const keep = range && rec?.origin?.by === 'person' && typeof stated === 'number' && stated > figureIn.low && stated < figureIn.high ? stated : null
     const value = range ? { kind: 'interval', low: figureIn.low, high: figureIn.high, ...(keep !== null ? { likely: keep } : {}) } : { kind: 'point', value: figureIn }
     const body = { base: v.version.id, quantity, value, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined }
     // The edit carries an operation id, so core de-duplicates it: when the answer is lost the SAME request is sent again with the same id, and

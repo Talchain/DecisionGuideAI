@@ -116,6 +116,20 @@ describe('a range the person sets is sent to core as a range (tier R step 0)', (
     expect((await shim.turn(ADA, range('existing_capacity', 90, 100, { uuid }))).out.error).toBeNull()
     expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 90, high: 100 })
   })
+  it('a stated figure at an end of the new range is not sent (core refuses a most likely at an end): 80 with 80 to 100 sends no likely', async () => {
+    const uuid = seeded()
+    const before = fake.calls.length
+    expect((await shim.turn(ADA, range('existing_capacity', 80, 100, { uuid }))).out.error).toBeNull()
+    expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 80, high: 100 })
+  })
+  it("Olumi's figure is never re-sent as the person's: an Olumi point under a new range sends no likely", async () => {
+    const view = fx('view-approved.json')
+    view.version.form.records.find((r) => r.id === 'existing_capacity').origin = { by: 'olumi', quote: null, party: null }
+    const uuid = seeded(view)
+    const before = fake.calls.length
+    expect((await shim.turn(ADA, range('existing_capacity', 70, 90, { uuid }))).out.error).toBeNull()
+    expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 70, high: 90 })
+  })
   it('the same at a trillion: no tolerance is applied, the stated figure is sent as it was', async () => {
     const view = fx('view-approved.json')
     view.version.form.records.find((r) => r.id === 'existing_capacity').assertion = { kind: 'point', value: 1_000_000_000_000, approximate: false }
