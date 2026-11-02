@@ -11,7 +11,7 @@
  */
 import { create } from 'zustand'
 import { useEffect, useRef, type ReactNode } from 'react'
-import { newOp, TeamApiError } from '../olumiCore/team/api'
+import { newOp, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
 import { useTeamStore } from '../olumiCore/team/store'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
 import { writes, type View, type ViewTurn } from './client'
@@ -21,6 +21,8 @@ import { useCanvasStore } from '../canvas/store'
 import { setCurrentScenarioId } from '../canvas/store/scenarios'
 import { scenarioIdWrite } from '../canvas/stores/unboundModelBinding'
 import { typography } from '../styles/typography'
+import { useGuidanceStore, withOlumiReveal } from '../canvas/stores/guidanceStore'
+import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding'
 import type { AIInputBarProps } from '../canvas/components/AIInputBar'
 
 type Said = NonNullable<ViewTurn['answer']>['answer']
@@ -92,7 +94,10 @@ export const SAVED_NOT_SHOWN = 'Saved, but Olumi could not show it just now. Rel
 interface ViewChatState {
   /** What is typed in the composer. */
   readonly text: string
-  /** One op id per message as typed: the same words sent again after a dropped connection are saved once. */
+  /**
+   * One op id per write: the same words sent again after a dropped connection are saved once. Keyed by the scenario, the kind of write
+   * and the words (`opKey`), so one scenario's op is never reused for another's (review 00054 #5).
+   */
   readonly ops: ReadonlyMap<string, string>
   readonly busy: boolean
   /** Core's words for the last write that did not go through, or SAVED_NOT_SHOWN. */
@@ -124,6 +129,8 @@ async function act(f: () => Promise<unknown>, changesModel = false): Promise<boo
  */
 async function startScenario(brief: string, op: string, uuid: string | null): Promise<void> {
   const made = await writes.create(brief, op)
+  // A 201 whose body could not be read names no scenario: it may have been saved, so it is said so and sent again with its op (00054 #4).
+  if (typeof made.scenario !== 'string' || !/^s_[0-9a-f]+$/.test(made.scenario)) throw new TeamApiError(0, UNCERTAIN_WRITE, true)
   const views = useViewStore.getState()
   if (uuid !== null && pairCoreScenario(uuid, made.scenario)) {
     if (views.uuid === uuid) await views.use(uuid)
@@ -140,21 +147,70 @@ async function startScenario(brief: string, op: string, uuid: string | null): Pr
 /** Core holds no model and no proposal for this scenario (none yet, or its first draft was set aside): a message is a new brief (00052 #6). */
 const takesBrief = (sid: string | null, view: View | null) => sid === null || (view !== null && view.version === null && view.proposal === null)
 
-async function send(): Promise<void> {
-  const { text, ops } = useViewChat.getState()
-  if (text.trim() === '') return
+const opKey = (uuid: string | null, kind: string, text: string) => `${uuid ?? '-'}\u0000${kind}\u0000${text}`
+
+/** One write of `text`, with its op id kept until core has it; true when it went through. */
+async function write(kind: string, text: string, f: (op: string) => Promise<unknown>, changesModel = false): Promise<boolean> {
+  const key = opKey(useViewStore.getState().uuid, kind, text)
+  const op = useViewChat.getState().ops.get(key) ?? newOp()
+  useViewChat.setState({ ops: new Map(useViewChat.getState().ops).set(key, op) })
+  const sent = await act(() => f(op), changesModel)
+  if (sent) { const left = new Map(useViewChat.getState().ops); left.delete(key); useViewChat.setState({ ops: left }) }
+  return sent
+}
+
+/** Words to core: a new brief while it holds no model for this scenario, else a message. */
+function say(text: string): Promise<boolean> {
   const { uuid, sid, view } = useViewStore.getState()
-  const op = ops.get(text) ?? newOp()
-  useViewChat.setState({ ops: new Map(ops).set(text, op) })
-  const sent = await act(() => (takesBrief(sid, view) ? startScenario(text, op, uuid) : writes.message(sid!, text, op)))
-  if (!sent) return
-  const left = new Map(useViewChat.getState().ops)
-  left.delete(text)
-  useViewChat.setState({ ops: left, text: useViewChat.getState().text === text ? '' : useViewChat.getState().text })
+  return takesBrief(sid, view) ? write('brief', text, (op) => startScenario(text, op, uuid)) : write('message', text, (op) => writes.message(sid!, text, op))
+}
+
+async function send(): Promise<void> {
+  const { text } = useViewChat.getState()
+  if (text.trim() === '' || !(await say(text))) return
+  if (useViewChat.getState().text === text) useViewChat.setState({ text: '' })
+}
+
+/** core's four challenges, by the press's chip id (as the adapter page routed them, scripts/olumi-core/lib/turn.mjs CHALLENGE_KINDS). */
+const CHALLENGES: Readonly<Record<string, string>> = { 'ask:challenge': 'assumption', 'ask:method-opposite': 'opposite', 'ask:falsify': 'disconfirming', 'ask:method-outside-view': 'outside' }
+
+type Press = { id?: string; parameters?: Record<string, unknown>; message: string }
+
+/**
+ * A press on the canvas (a coaching icon, a chip). A challenge on exactly one card of the model goes to core's challenge route for that
+ * card; anything else is its words, said to core. The card is the ask's own target, else the canvas's selection.
+ */
+function press(opts: Press): Promise<boolean> {
+  const chip = opts.id ?? (typeof opts.parameters?.['chip_id'] === 'string' ? opts.parameters['chip_id'] as string : '')
+  const kind = CHALLENGES[chip]
+  const { sid, view } = useViewStore.getState()
+  const target = takeAskTargetBinding(opts.message)?.nodeIds ?? useCanvasStore.getState().selection.nodeIds
+  const ids = [...target]
+  const record = ids.length === 1 && view?.model?.cards.some((c) => c.id === ids[0]) ? ids[0]! : null
+  if (kind !== undefined && record !== null && sid !== null) return write(`challenge:${kind}:${record}`, opts.message, (op) => writes.challenge(sid, kind, record, op))
+  return say(opts.message)
+}
+
+/** While the tab is on the page it answers the canvas's asks (the coaching icons need one), as the /bff Olumi tab did (00054 #3). */
+function useAnswersAsks(): void {
+  useEffect(() => {
+    const mine = {
+      _sendMessage: withOlumiReveal((text: string) => { void say(text) }),
+      _prefillChat: withOlumiReveal((text: string) => { useViewChat.setState({ text }) }),
+      _dispatchAction: withOlumiReveal((opts: Press) => { void press(opts) }),
+      _isConversationBusy: () => useViewChat.getState().busy,
+    }
+    useGuidanceStore.setState(mine)
+    return () => {
+      const now = useGuidanceStore.getState()
+      useGuidanceStore.setState(Object.fromEntries(Object.entries(mine).filter(([k, f]) => now[k as keyof typeof mine] === f).map(([k]) => [k, null])))
+    }
+  }, [])
 }
 
 /** The tab on the core lane: the conversation and the proposal from the View (the composer is the dock's footer, `ViewComposer`). */
 export function ViewChat() {
+  useAnswersAsks()
   const view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
   const busy = useViewChat((s) => s.busy)
   return (
