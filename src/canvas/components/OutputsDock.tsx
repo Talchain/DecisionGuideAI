@@ -809,7 +809,6 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // another member's approval), so what the dock draws from it is the model on screen. Never on a drag (`modelKeyOf`).
   const viewModelOnCanvas = useCanvasStore(s => modelKeyOf(s.nodes, s.edges))
   const coreView = useViewStore(currentModel)
-  const coreHasView = useViewStore(s => s.view !== null)
   useEffect(() => {
     if (!isOlumiCoreLane()) return
     const v = useViewStore.getState(), uuid = currentScenarioIdForRun ?? null
@@ -4387,8 +4386,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 data-testid="olumi-tab-wrapper"
                 aria-hidden={effectiveActiveTab !== 'olumi'}
               >
-                {/* The olumi-core lane talks to core itself once core holds this scenario's View; before then (a new brief), the adapter. */}
-                {isOlumiCoreLane() && coreHasView ? <ViewChat /> : <OlumiTabBody onFloatOut={floatOutToWindow} />}
+                {/* The olumi-core lane talks to core itself (src/olumiView/ViewChat), the brief included; never through /bff. */}
+                {isOlumiCoreLane() ? <ViewChat /> : <OlumiTabBody onFloatOut={floatOutToWindow} />}
               </div>
             )}
           </div>

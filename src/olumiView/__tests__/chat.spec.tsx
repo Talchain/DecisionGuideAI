@@ -9,6 +9,8 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import { setTeamFetch, UNCERTAIN_WRITE } from '../../olumiCore/team/api'
 import type { View } from '../client'
 import { useViewStore } from '../store'
+import { coreScenarioIdOf } from '../../olumiCore/team/sid'
+import { useCanvasStore } from '../../canvas/store'
 import { ViewChat, ViewTurns } from '../ViewChat'
 
 const DIR = path.resolve('src/olumiView')
@@ -93,5 +95,42 @@ describe('the writes go straight to core, and the View is read again', () => {
     const { container: again } = render(<ViewChat />)
     await act(async () => { fireEvent.click([...again.querySelectorAll('button')].find((b) => b.textContent === 'Set aside')!) })
     await waitFor(() => expect(posts[1]).toEqual({ url: '/api/proposals/9/discard', body: {} }))
+  })
+
+  describe('a brief starts the scenario in core', () => {
+    const MADE = 's_0000000000ab'
+    beforeEach(() => { try { localStorage.clear() } catch { /* none */ } })
+
+    it('posts the brief, keeps core\'s id against the page\'s scenario, and reads its View', async () => {
+      const uuid = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
+      useViewStore.setState({ uuid, sid: null, view: null, error: null, status: 'none' })
+      answer(() => new Response(JSON.stringify({ scenario: MADE, proposal: 1 }), { status: 201 }))
+      const { container } = render(<ViewChat />)
+      type(container, 'Should we raise the price of our pastries?')
+      await send(container)
+      await waitFor(() => expect(reads).toContain(`/api/scenarios/${MADE}/view`))
+      expect(posts).toEqual([{ url: '/api/scenarios', body: { brief: 'Should we raise the price of our pastries?', op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } }])
+      expect(coreScenarioIdOf(uuid)).toBe(MADE)
+    })
+
+    it('a canvas with no scenario yet moves to core\'s id\'s own UUID', async () => {
+      useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' })
+      answer(() => new Response(JSON.stringify({ scenario: MADE, proposal: 1 }), { status: 201 }))
+      const { container } = render(<ViewChat />)
+      type(container, 'Should we raise the price of our pastries?')
+      await send(container)
+      await waitFor(() => expect(useCanvasStore.getState().currentScenarioId).toBe('00000000-0000-4000-8000-0000000000ab'))
+      await waitFor(() => expect(reads).toContain(`/api/scenarios/${MADE}/view`))
+    })
+
+    it('a refused brief keeps what was typed and says core\'s own words', async () => {
+      useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' })
+      answer(() => new Response(JSON.stringify({ error: 'brief is too long (at most 20,000 characters)' }), { status: 413 }))
+      const { container } = render(<ViewChat />)
+      type(container, 'A brief')
+      await send(container)
+      await waitFor(() => expect(container.querySelector('[data-testid="view-chat-said"]')?.textContent).toBe('brief is too long (at most 20,000 characters)'))
+      expect((container.querySelector('#view-chat-text') as HTMLTextAreaElement).value).toBe('A brief')
+    })
   })
 })

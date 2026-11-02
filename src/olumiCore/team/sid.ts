@@ -20,3 +20,14 @@ export function coreScenarioIdOf(uuid: string | null | undefined, read: (uuid: s
   const derived = DERIVED.exec(uuid)
   return derived ? `s_${derived[1]!.toLowerCase()}` : null
 }
+
+/** The UUID form of core's scenario id (the same rule as scripts/olumi-core/lib/ids.mjs `derivedUuidOfSid`), or null for another id. */
+export function derivedUuidOf(sid: string): string | null {
+  const m = /^s_([0-9a-f]{12})$/.exec(sid)
+  return m ? `00000000-0000-4000-8000-${m[1]}` : null
+}
+
+/** Keep, in the page's storage, that this page's scenario UUID is core's `sid` (a brief this page sent made it). False when it cannot be kept. */
+export function pairCoreScenario(uuid: string, sid: string): boolean {
+  try { if (typeof localStorage === 'undefined') return false; localStorage.setItem(PAIRING_KEY + uuid, sid); return true } catch { return false }
+}

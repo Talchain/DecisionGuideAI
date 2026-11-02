@@ -3,7 +3,7 @@
  * conversation exactly as core wrote it, the change card for a proposal Olumi holds, and the composer. Every word is core's; each
  * drawn View string carries `data-view`, the path to the string it shows. Nothing is composed here.
  *
- * One write at a time. After a write the View, and the team's read (which moves the canvas to a newly approved model), are read again.
+ * Before core holds the scenario the tab takes the brief, which starts it (`startScenario`). One write at a time. After a write the View, and the team's read (which moves the canvas to a newly approved model), are read again.
  * A write that fails keeps what was typed and says core's own words; one whose answer never came may have been saved, and is sent again
  * only with the same op id, so core saves it once.
  */
@@ -12,6 +12,10 @@ import { newOp, TeamApiError } from '../olumiCore/team/api'
 import { useTeamStore } from '../olumiCore/team/store'
 import { writes, type View, type ViewTurn } from './client'
 import { useViewStore } from './store'
+import { derivedUuidOf, pairCoreScenario } from '../olumiCore/team/sid'
+import { useCanvasStore } from '../canvas/store'
+import { setCurrentScenarioId } from '../canvas/store/scenarios'
+import { scenarioIdWrite } from '../canvas/stores/unboundModelBinding'
 import { typography } from '../styles/typography'
 
 type Said = NonNullable<ViewTurn['answer']>['answer']
@@ -77,15 +81,30 @@ function Proposal({ p, act, busy }: { p: NonNullable<View['proposal']>; act: (f:
   )
 }
 
-/** The tab on the core lane: the page's View of this scenario, or nothing until one is read. */
+/**
+ * A brief starts a scenario in core. Its id is kept against the page's scenario UUID, as the adapter page kept it from `x-olumi-alias`
+ * (sid.ts reads it back); a canvas with no scenario yet, or a page that cannot keep the pairing, moves to core's id's own UUID form.
+ */
+async function startScenario(brief: string, op: string): Promise<void> {
+  const made = await writes.create(brief, op)
+  const uuid = useViewStore.getState().uuid
+  if (uuid !== null && pairCoreScenario(uuid, made.scenario)) return
+  const derived = derivedUuidOf(made.scenario)
+  if (derived === null) throw new TeamApiError(502, 'Olumi made the scenario but named it in a way this page cannot open. Reload the page.')
+  useCanvasStore.setState(scenarioIdWrite(useCanvasStore.getState().currentScenarioId, derived))
+  setCurrentScenarioId(derived)
+  await useViewStore.getState().use(derived)
+}
+
+/** The tab on the core lane: a brief before core holds the scenario, then the conversation and the proposal from its View. */
 export function ViewChat() {
-  const view = useViewStore((s) => s.view), sid = useViewStore((s) => s.sid)
+  const view = useViewStore((s) => s.view), sid = useViewStore((s) => s.sid), error = useViewStore((s) => s.error)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [said, setSaid] = useState<string | null>(null)
   // One op id per message as typed: the same words sent again after a dropped connection are saved once.
   const ops = useRef(new Map<string, string>())
-  if (view === null || sid === null) return null
+  if (sid !== null && view === null && error === null) return null
 
   const act = async (f: () => Promise<unknown>): Promise<boolean> => {
     if (busy) return false
@@ -103,21 +122,23 @@ export function ViewChat() {
     if (text.trim() === '') return
     const op = ops.current.get(text) ?? newOp()
     ops.current.set(text, op)
-    if (await act(() => writes.message(sid, text, op))) { ops.current.delete(text); setText('') }
+    if (await act(() => (sid === null ? startScenario(text, op) : writes.message(sid, text, op)))) { ops.current.delete(text); setText('') }
   }
 
   return (
     <div className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-        <ViewTurns chat={view.chat} />
-        {view.proposal === null ? null : <Proposal p={view.proposal} act={(f) => void act(f)} busy={busy} />}
+        {view === null ? (error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>) : <ViewTurns chat={view.chat} />}
+        {view?.proposal ? <Proposal p={view.proposal} act={(f) => void act(f)} busy={busy} /> : null}
       </div>
-      <div className={`${typography.panelBody} border-t border-border p-3 space-y-2`}>
-        {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
-        <label className="sr-only" htmlFor="view-chat-text">Message Olumi</label>
-        <textarea id="view-chat-text" className="w-full rounded border border-border p-2" rows={3} value={text} disabled={busy} onChange={(e) => setText(e.target.value)} />
-        <button type="button" disabled={busy || text.trim() === ''} className="rounded px-3 py-2 bg-primary text-text-on-color disabled:opacity-50" onClick={() => void send()}>Send</button>
-      </div>
+      {sid !== null && view === null ? null : (
+        <div className={`${typography.panelBody} border-t border-border p-3 space-y-2`}>
+          {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
+          <label className={sid === null ? typography.panelHeader : 'sr-only'} htmlFor="view-chat-text">{sid === null ? 'Your brief' : 'Message Olumi'}</label>
+          <textarea id="view-chat-text" className="w-full rounded border border-border p-2" rows={sid === null ? 6 : 3} value={text} disabled={busy} onChange={(e) => setText(e.target.value)} />
+          <button type="button" disabled={busy || text.trim() === ''} className="rounded px-3 py-2 bg-primary text-text-on-color disabled:opacity-50" onClick={() => void send()}>Send</button>
+        </div>
+      )}
     </div>
   )
 }

@@ -45,6 +45,7 @@ export async function readView(sid: string, opened: Opened = NOTHING_OPENED): Pr
  */
 const scenarioPath = (sid: string) => `/api/scenarios/${encodeURIComponent(sid)}`
 export const writes = {
+  create: (brief: string, op: string) => call<{ scenario: string; proposal: number | null }>('POST', '/api/scenarios', { brief, op }),
   message: (sid: string, text: string, op: string) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/messages`, { text, op }),
   approve: (proposal: number, base: number | null) => call<unknown>('POST', `/api/proposals/${proposal}/approve`, { base }),
   discard: (proposal: number) => call<unknown>('POST', `/api/proposals/${proposal}/discard`, {}),
