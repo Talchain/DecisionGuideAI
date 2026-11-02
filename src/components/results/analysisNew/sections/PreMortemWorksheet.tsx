@@ -11,6 +11,8 @@ import type { PremortemWorksheetV1 } from '../../../../v5/readPremortemWorksheet
 import { typography } from '../../../../styles/typography'
 import { action, ACTION_FOCUS } from '../panelSurfaces'
 import { Eye, Plus, ShieldCheck } from 'lucide-react'
+import { usePresentation } from '../../../../presentation/v10'
+import { V10StoryNo, premortemStoryNumbers } from '../../../../presentation/V10StoryNumbers'
 
 type Row = PremortemWorksheetV1['rows'][number]
 export interface PreMortemWorksheetProps {
@@ -39,6 +41,10 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
   const busy = isBusy || conversation?.isThinking === true
   const worksheet = read?.status === 'available' && read.worksheet.scenario_id === scenarioId ? read.worksheet : null
   const light = useCanvasLight()
+  // v10 (#/canvas2): each story carries the number that stands beside the cards it rests on, and Olumi's "Mitigate" line is
+  // not drawn (the v10 board shows stories and first signs only: Olumi names what could go wrong, it does not advise).
+  const isV10 = usePresentation() === 'v10'
+  const storyNo = worksheet && isV10 ? premortemStoryNumbers([worksheet], nodes) : null
   const target = (id: string) => resolveModelTarget(id, nodes, edges, { endpointFallback: false })
   const stale = !!worksheet && (isStale || dirty || graphHash !== worksheet.run.graph_hash_at_run ||
     !samePremortemRun(heldRun, { scenarioId: worksheet.scenario_id, graphHashAtRun: worksheet.run.graph_hash_at_run, computedAt: worksheet.run.computed_at }) ||
@@ -107,14 +113,16 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
             {rows.length === 0 ? <p className={`${typography.panelMeta} text-text-light`}>Not stress-tested</p> : null}
           </div>
           {rows.map(row => <article key={row.row_id} data-row-id={row.row_id} className="space-y-3">
-            <p className={`${typography.panelQuestion} text-text-header`}>{row.failure_way}</p>
+            {storyNo?.has(row)
+              ? <div className="flex items-start gap-2"><V10StoryNo n={storyNo.get(row)!} /><p className={`${typography.panelQuestion} text-text-header`}>{row.failure_way}</p></div>
+              : <p className={`${typography.panelQuestion} text-text-header`}>{row.failure_way}</p>}
             {row.source === 'server_built' ? <p className={`${typography.panelMeta} text-text-light`}>{PREMORTEM_COPY.serverBuilt}</p> : null}
             <div className="space-y-2">
               <div className="flex items-start gap-2">
                 <Eye aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-text-light" />
                 <p className={`${typography.panelBody} text-text-body`}>{PREMORTEM_COPY.warning}: {row.early_warning}</p>
               </div>
-              {row.mitigation ? <div className="flex items-start gap-2">
+              {row.mitigation && !isV10 ? <div className="flex items-start gap-2">
                 <ShieldCheck aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-text-light" />
                 <p className={`${typography.panelBody} text-text-body`} data-testid="premortem-mitigation">{PREMORTEM_COPY.mitigate}: {row.mitigation}</p>
               </div> : null}

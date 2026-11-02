@@ -61,6 +61,8 @@ import { RestsOnKey, usePickedKey } from '../artefacts/RestsOnKey'
 import { TradeOffsKey } from '../artefacts/TradeOffsKey'
 import { WhatIfKey } from '../artefacts/WhatIfKey'
 import { LENS_COPY, LENS_ICON, useCurrentPremortemWorksheet } from '../artefacts/lenses'
+import { usePresentation } from '../../presentation/v10'
+import { V10WriteMineFirst, V10_WRITE_MINE_COPY } from '../../presentation/V10WriteMineFirst'
 import { resolveAiComparisonMode } from '../../v5/aiComparisonMode'
 import type { GraphChangeTarget } from '../graphChanges/graphChangesView'
 import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
@@ -100,6 +102,8 @@ function PremortemKey({ folded }: { folded: boolean }) {
   // The pre-mortem press exists only on a Run it can read (`actionRegistry.ts`): before one, the ask would reach Olumi as
   // a chat question and no worksheet could come back (verifier, staging fe4e4b9d), so the lens says why instead.
   const canAsk = useCanvasStore(s => typedPressIdOf('pre_mortem', askAiStage(s)) !== undefined)
+  // v10 (#/canvas2): "Imagine it failed" beside "Write mine first", so the person can name their own reasons before reading Olumi's.
+  const isV10 = usePresentation() === 'v10'
   if (worksheet) return folded
     ? <p data-testid="premortem-legend" className={`${typography.panelBody} text-text-body`}>{LENS_KEY_COPY.premortemLegend}</p>
     : <PreMortemWorksheet />
@@ -110,7 +114,7 @@ function PremortemKey({ folded }: { folded: boolean }) {
       {resolveAiComparisonMode() === 'core-route'
         ? <p data-testid="premortem-in-chat" className={`${typography.panelQuestion} text-text-header`}>{LENS_KEY_COPY.premortemInChat}</p>
         : <p className={`${typography.panelQuestion} text-text-header`}>{LENS_KEY_COPY.premortemEmpty}</p>}
-      <p className={`${typography.panelBody} text-text-body`}>{LENS_KEY_COPY.premortemWhat}</p>
+      <p className={`${typography.panelBody} text-text-body`}>{isV10 ? V10_WRITE_MINE_COPY.intro : LENS_KEY_COPY.premortemWhat}</p>
       {viewer ? null : !canAsk ? (
         <p data-testid="premortem-needs-run" className={`${typography.panelBody} text-text-light`}>{LENS_KEY_COPY.premortemNeedsRun}</p>
       ) : (
@@ -120,9 +124,10 @@ function PremortemKey({ folded }: { folded: boolean }) {
           className={`${typography.panelBody} ${action('primary')} rounded-full px-3`}
           onClick={() => askAndReveal({ intent: 'pre-mortem' })}
         >
-          {LENS_KEY_COPY.premortemAsk}
+          {isV10 ? V10_WRITE_MINE_COPY.imagine : LENS_KEY_COPY.premortemAsk}
         </button>
       )}
+      {isV10 && !viewer ? <div><V10WriteMineFirst /></div> : null}
     </div>
   )
 }
