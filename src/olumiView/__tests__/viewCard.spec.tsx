@@ -22,9 +22,10 @@ function at(model: ViewModel, p: string): unknown {
 
 /**
  * Every visible string a card carries: never a hover (`title`), an aria label, an id or kind, the badge's record ids or its change
- * key, or the figure editor's words (`edit`, drawn when the figure is edited, canvas A2).
+ * key, the figure editor's words (`edit`, drawn when the figure is edited, canvas A2), or an option's driver line, which the chances dock
+ * draws as the base did (its canvas node never showed it).
  */
-const SKIP = new Set(['id', 'family', 'title', 'label', 'kind', 'aim_id', 'records', 'edit'])
+const SKIP = new Set(['id', 'family', 'title', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver'])
 const shown = (x: unknown, p: string): string[] => typeof x === 'string' ? (x !== '' ? [p] : [])
   : Array.isArray(x) ? x.flatMap((y, i) => shown(y, `${p}.${i}`))
   : x !== null && typeof x === 'object' ? Object.entries(x).flatMap(([k, y]) => (SKIP.has(k) || (k === 'change' && typeof y === 'string') ? [] : shown(y, `${p}.${k}`))) : []

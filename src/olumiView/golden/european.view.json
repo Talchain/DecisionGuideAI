@@ -64,6 +64,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -93,6 +94,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -122,6 +124,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -158,6 +161,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": "Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply.",
@@ -187,6 +191,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -230,6 +235,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -273,6 +279,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -316,6 +323,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -341,6 +349,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": "Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.",
@@ -370,6 +379,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -424,6 +434,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -456,6 +467,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -498,6 +510,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -530,6 +543,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": {
      "text": "at least 800 customers",
@@ -572,6 +586,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": "Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter.",
@@ -597,6 +612,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": "Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
@@ -619,6 +635,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": {
      "text": "at most 500,000 GBP",
@@ -661,6 +678,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": {
      "text": "at most 12%",
@@ -753,6 +771,10 @@
       "title": "If Olumi's estimates hold, the chance that 'Enter multiple European countries' stays within 'Proposed guardrail: churn no higher than 12%', in this model."
      }
     ],
+    "driver": {
+     "text": "about 4% if 'New customers from existing markets' is low, about 97% if it is high: Under 'Enter multiple European countries', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "about 4% if 'New customers from existing markets' is low, about 97% if it is high: Under 'Enter multiple European countries', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws."
+    },
     "status": null,
     "bound": null,
     "reason": null,
@@ -791,6 +813,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": "For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
@@ -856,6 +879,10 @@
       "title": "If Olumi's estimates hold, the chance that 'Test one country before broader commitment' stays within 'Proposed guardrail: churn no higher than 12%', in this model."
      }
     ],
+    "driver": {
+     "text": "under 1% if 'New customers from existing markets' is low, about 95% if it is high: Under 'Test one country before broader commitment', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "under 1% if 'New customers from existing markets' is low, about 95% if it is high: Under 'Test one country before broader commitment', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws."
+    },
     "status": null,
     "bound": null,
     "reason": null,
@@ -928,6 +955,10 @@
       "title": "With the model's figures, 'No new European entry during this window' always stays within 'Proposed guardrail: churn no higher than 12%': nothing uncertain reaches it, so this is fixed by the model, not a forecast."
      }
     ],
+    "driver": {
+     "text": "under 1% if 'New customers from existing markets' is low, about 99% if it is high: Under 'No new European entry during this window', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "under 1% if 'New customers from existing markets' is low, about 99% if it is high: Under 'No new European entry during this window', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws."
+    },
     "status": null,
     "bound": null,
     "reason": null,
@@ -1296,6 +1327,84 @@
     "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption."
    }
   ],
+  "run": {
+   "aim": "chance of ‘Reach 800 customers’",
+   "most_likely": {
+    "text": "If Olumi's estimates hold, the option most likely to achieve 'Reach 800 customers' in this model (about 41%, against about 33% for 'Test one country before broader commitment'). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'New customers from existing markets', 'Broader-entry acquisition what-if', 'Post-entry churn what-if'. It rests on: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter; Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets; Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply; Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption; For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
+    "title": "If Olumi's estimates hold, the option most likely to achieve 'Reach 800 customers' in this model (about 41%, against about 33% for 'Test one country before broader commitment'). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'New customers from existing markets', 'Broader-entry acquisition what-if', 'Post-entry churn what-if'. It rests on: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter; Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets; Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply; Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption; For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met. It leaves out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated; The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision."
+   },
+   "waits_on": null,
+   "notes": [
+    {
+     "text": "This leaves out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated; The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision.",
+     "title": "This leaves out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated; The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision."
+    },
+    {
+     "text": "about 75%: If Olumi's estimates hold, the chance that 'Enter multiple European countries' stays within 'Stay within £500k investment budget', in this model.",
+     "title": "about 75%: If Olumi's estimates hold, the chance that 'Enter multiple European countries' stays within 'Stay within £500k investment budget', in this model."
+    },
+    {
+     "text": "about 25%: If Olumi's estimates hold, the chance that 'Enter multiple European countries' goes outside 'Stay within £500k investment budget', in this model.",
+     "title": "about 25%: If Olumi's estimates hold, the chance that 'Enter multiple European countries' goes outside 'Stay within £500k investment budget', in this model."
+    },
+    {
+     "text": "over 99%: If Olumi's estimates hold, the chance that 'Test one country before broader commitment' stays within 'Stay within £500k investment budget', in this model.",
+     "title": "over 99%: If Olumi's estimates hold, the chance that 'Test one country before broader commitment' stays within 'Stay within £500k investment budget', in this model."
+    },
+    {
+     "text": "under 1%: If Olumi's estimates hold, the chance that 'Test one country before broader commitment' goes outside 'Stay within £500k investment budget', in this model.",
+     "title": "under 1%: If Olumi's estimates hold, the chance that 'Test one country before broader commitment' goes outside 'Stay within £500k investment budget', in this model."
+    },
+    {
+     "text": "always within in this model: With the model's figures, 'No new European entry during this window' always stays within 'Stay within £500k investment budget': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
+     "title": "always within in this model: With the model's figures, 'No new European entry during this window' always stays within 'Stay within £500k investment budget': nothing uncertain reaches it, so this is fixed by the model, not a forecast."
+    },
+    {
+     "text": "about 64%: If Olumi's estimates hold, the chance that 'Enter multiple European countries' stays within 'Proposed guardrail: churn no higher than 12%', in this model.",
+     "title": "about 64%: If Olumi's estimates hold, the chance that 'Enter multiple European countries' stays within 'Proposed guardrail: churn no higher than 12%', in this model."
+    },
+    {
+     "text": "about 36%: If Olumi's estimates hold, the chance that 'Enter multiple European countries' goes outside 'Proposed guardrail: churn no higher than 12%', in this model.",
+     "title": "about 36%: If Olumi's estimates hold, the chance that 'Enter multiple European countries' goes outside 'Proposed guardrail: churn no higher than 12%', in this model."
+    },
+    {
+     "text": "about 64%: If Olumi's estimates hold, the chance that 'Test one country before broader commitment' stays within 'Proposed guardrail: churn no higher than 12%', in this model.",
+     "title": "about 64%: If Olumi's estimates hold, the chance that 'Test one country before broader commitment' stays within 'Proposed guardrail: churn no higher than 12%', in this model."
+    },
+    {
+     "text": "about 36%: If Olumi's estimates hold, the chance that 'Test one country before broader commitment' goes outside 'Proposed guardrail: churn no higher than 12%', in this model.",
+     "title": "about 36%: If Olumi's estimates hold, the chance that 'Test one country before broader commitment' goes outside 'Proposed guardrail: churn no higher than 12%', in this model."
+    },
+    {
+     "text": "always within in this model: With the model's figures, 'No new European entry during this window' always stays within 'Proposed guardrail: churn no higher than 12%': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
+     "title": "always within in this model: With the model's figures, 'No new European entry during this window' always stays within 'Proposed guardrail: churn no higher than 12%': nothing uncertain reaches it, so this is fixed by the model, not a forecast."
+    },
+    {
+     "text": "Olumi's what-if for 'New customers from existing markets', not their figure: 10 to 160 customer/month. Basis: no typical rate known; replace with your figure. Uncalibrated what-if, not a forecast: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No sector or acquisition history was supplied.",
+     "title": "Olumi's what-if for 'New customers from existing markets', not their figure: 10 to 160 customer/month. Basis: no typical rate known; replace with your figure. Uncalibrated what-if, not a forecast: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No sector or acquisition history was supplied."
+    },
+    {
+     "text": "Olumi's what-if for 'Broader-entry acquisition what-if', not their figure: 10 to 160 customer/month. Basis: no typical rate known; replace with your figure. Uncalibrated incremental acquisition what-if after entry: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No demand, funnel or country data was supplied.",
+     "title": "Olumi's what-if for 'Broader-entry acquisition what-if', not their figure: 10 to 160 customer/month. Basis: no typical rate known; replace with your figure. Uncalibrated incremental acquisition what-if after entry: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No demand, funnel or country data was supplied."
+    },
+    {
+     "text": "Olumi's what-if for 'Single-country test acquisition what-if', not their figure: 2.5 to 40 customer/month. Basis: no typical rate known; replace with your figure. Uncalibrated average monthly acquisition what-if: an initial 5–20 guess widened twofold on a ratio scale to 2.5–40. The smaller scale is a proposed test design, not evidence of country demand.",
+     "title": "Olumi's what-if for 'Single-country test acquisition what-if', not their figure: 2.5 to 40 customer/month. Basis: no typical rate known; replace with your figure. Uncalibrated average monthly acquisition what-if: an initial 5–20 guess widened twofold on a ratio scale to 2.5–40. The smaller scale is a proposed test design, not evidence of country demand."
+    },
+    {
+     "text": "Olumi's what-if for 'Post-entry churn what-if', not their figure: 4 to 20.3 %. Basis: no typical rate known; replace with your figure. Uncalibrated stress range, not a prediction of expansion's effect: an initial 6–13.5% guess widened twofold on a ratio scale to 4–20.25%. The supplied subscription-business benchmark is not applied because the business model is unspecified.",
+     "title": "Olumi's what-if for 'Post-entry churn what-if', not their figure: 4 to 20.3 %. Basis: no typical rate known; replace with your figure. Uncalibrated stress range, not a prediction of expansion's effect: an initial 6–13.5% guess widened twofold on a ratio scale to 4–20.25%. The supplied subscription-business benchmark is not applied because the business model is unspecified."
+    },
+    {
+     "text": "Olumi's what-if for 'Broader-entry investment what-if', not their figure: 50,000 to 800,000 GBP. Basis: no typical rate known; replace with your figure. Uncalibrated total commitment what-if including setup, localisation, compliance and launch activity: an initial £100,000–£400,000 guess widened twofold on a ratio scale to £50,000–£800,000. The stated budget is a ceiling, not evidence of actual cost.",
+     "title": "Olumi's what-if for 'Broader-entry investment what-if', not their figure: 50,000 to 800,000 GBP. Basis: no typical rate known; replace with your figure. Uncalibrated total commitment what-if including setup, localisation, compliance and launch activity: an initial £100,000–£400,000 guess widened twofold on a ratio scale to £50,000–£800,000. The stated budget is a ceiling, not evidence of actual cost."
+    },
+    {
+     "text": "Olumi's what-if for 'Single-country test investment what-if', not their figure: 12,500 to 200,000 GBP. Basis: no typical rate known; replace with your figure. Uncalibrated total commitment for a deliberately narrower test: an initial £25,000–£100,000 guess widened twofold on a ratio scale to £12,500–£200,000. This is not a supplier quote or a spending recommendation.",
+     "title": "Olumi's what-if for 'Single-country test investment what-if', not their figure: 12,500 to 200,000 GBP. Basis: no typical rate known; replace with your figure. Uncalibrated total commitment for a deliberately narrower test: an initial £25,000–£100,000 guess widened twofold on a ratio scale to £12,500–£200,000. This is not a supplier quote or a spending recommendation."
+    }
+   ]
+  },
   "edit_base": 1
  },
  "proposal": null,

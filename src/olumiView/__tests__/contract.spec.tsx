@@ -80,7 +80,7 @@ describe('the lint over the View render chain (design §3)', () => {
 describe('nothing the View says on a line is dropped (review 00049)', () => {
   /** Every visible string a row carries: its words and marks, never its hovers (`title`), its kind or its aim's id. */
   const shownStrings = (row: Record<string, unknown>, at: string): string[] => Object.entries(row).flatMap(([k, v]) =>
-    typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'aim_id' && (k !== 'title' || row['kind'] === 'none') ? [`${at}.${k}`] : [])
+    typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'aim_id' && k !== 'title' ? [`${at}.${k}`] : [])
     : v !== null && typeof v === 'object' ? shownStrings(v as Record<string, unknown>, `${at}.${k}`) : [])
   for (const n of GOLDEN) {
     it(`${n}: every word and mark on every option line is drawn, and each line carries core's hover`, () => {
@@ -89,7 +89,7 @@ describe('nothing the View says on a line is dropped (review 00049)', () => {
       for (const card of model.cards.filter((c) => c.family === 'option' && c.status === null)) card.rows.forEach((row, i) => {
         const at = `${card.id}.rows.${i}`
         for (const path of shownStrings(row as unknown as Record<string, unknown>, at)) expect(container.querySelector(`[data-view="${path}"]`), path).not.toBeNull()
-        if (row.kind !== 'none') expect(container.querySelector(`[data-view-row="${at}"]`)?.getAttribute('title'), at).toBe(row.title)
+        expect(container.querySelector(`[data-view-row="${at}"]`)?.getAttribute('title'), at).toBe(row.title)
       })
     })
   }
@@ -114,4 +114,20 @@ describe('the block draws only a current View of the approved model (review 0004
     useViewStore.setState({ view, error: 'Olumi could not be read just now. Try again in a moment.', status: 'ready' })
     expect(block()).toBeNull()
   })
+})
+
+describe('each option says what moves its chance most, as the base dock did (00053 #2; core wip/view-dock dock.oracle.json)', () => {
+  const oracle = JSON.parse(readFileSync(path.join(DIR, 'golden', 'dock.oracle.json'), 'utf8')) as Record<string, { drivers: Record<string, string | null> }>
+  for (const n of GOLDEN.filter((g) => g !== 'proposal')) {
+    it(`${n}: every option's driver line is the base dock's words, drawn under that option with core's hover`, () => {
+      const model = golden(n).model!
+      const { container } = render(<ViewChances model={model} />)
+      for (const [id, words] of Object.entries(oracle[n]!.drivers)) {
+        const line = container.querySelector<HTMLElement>(`[data-view-card="${id}"] [data-view="${id}.driver.text"]`)
+        if (words === null) { expect(line, id).toBeNull(); continue }
+        expect(line?.textContent, id).toBe(words)
+        expect(line?.getAttribute('title'), id).toBe(model.cards.find((c) => c.id === id)!.driver!.title)
+      }
+    })
+  }
 })

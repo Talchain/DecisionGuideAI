@@ -43,7 +43,7 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
         </div>
       )
     case 'none':
-      return <div data-view-row={at}><span data-view={`${at}.title`}>{row.title}</span></div>
+      return <div title={row.title} data-view-row={at}><span data-view={`${at}.text`}>{row.text}</span></div>
   }
 }
 
@@ -55,6 +55,7 @@ export function ViewChances({ model }: { model: ViewModel }) {
         <div key={card.id} data-view-card={card.id}>
           <div className={typography.panelHeader} data-view={`${card.id}.heading`}>{card.heading}</div>
           {card.rows.map((row, i) => <Row key={i} card={card} row={row} i={i} />)}
+          {card.driver === null ? null : <p className={typography.panelMeta} title={card.driver.title} data-view={`${card.id}.driver.text`}>{card.driver.text}</p>}
         </div>
       ))}
     </div>

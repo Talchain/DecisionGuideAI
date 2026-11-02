@@ -60,6 +60,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -89,6 +90,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -115,6 +117,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -144,6 +147,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -183,6 +187,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -205,6 +210,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": {
      "text": "at least 100 tickets/week",
@@ -244,6 +250,7 @@
       "title": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It leaves out: How the team feels about a new hire."
      }
     ],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -281,6 +288,10 @@
       "title": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. It leaves out: How the team feels about a new hire."
      }
     ],
+    "driver": {
+     "text": "about 22% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "about 22% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws."
+    },
     "status": null,
     "bound": null,
     "reason": null,
@@ -318,6 +329,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -347,6 +359,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -415,6 +428,20 @@
     "title": "worked out through specialists, added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”"
    }
   ],
+  "run": {
+   "aim": "chance of ‘At least 100 a week’",
+   "most_likely": {
+    "text": "The option most likely to achieve 'At least 100 a week' in this model (about 74%, against under 1% for 'Keep current staffing').",
+    "title": "The option most likely to achieve 'At least 100 a week' in this model (about 74%, against under 1% for 'Keep current staffing'). It leaves out: How the team feels about a new hire."
+   },
+   "waits_on": null,
+   "notes": [
+    {
+     "text": "This leaves out: How the team feels about a new hire.",
+     "title": "This leaves out: How the team feels about a new hire."
+    }
+   ]
+  },
   "edit_base": null
  },
  "proposal": {

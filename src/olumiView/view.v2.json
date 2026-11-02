@@ -484,6 +484,9 @@
                 "null"
                ]
               },
+              "text": {
+               "type": "string"
+              },
               "title": {
                "type": "string"
               }
@@ -491,12 +494,36 @@
              "required": [
               "kind",
               "aim_id",
+              "text",
               "title"
              ],
              "additionalProperties": false
             }
            ]
           }
+         },
+         "driver": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "text": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "text",
+             "title"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
          },
          "status": {
           "type": [
@@ -625,6 +652,7 @@
          "figure",
          "premises",
          "rows",
+         "driver",
          "status",
          "bound",
          "reason",
@@ -682,6 +710,124 @@
         "additionalProperties": false
        }
       },
+      "run": {
+       "anyOf": [
+        {
+         "type": "object",
+         "properties": {
+          "aim": {
+           "type": "string"
+          },
+          "most_likely": {
+           "anyOf": [
+            {
+             "type": "object",
+             "properties": {
+              "text": {
+               "type": "string"
+              },
+              "title": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "text",
+              "title"
+             ],
+             "additionalProperties": false
+            },
+            {
+             "type": "null"
+            }
+           ]
+          },
+          "waits_on": {
+           "anyOf": [
+            {
+             "type": "object",
+             "properties": {
+              "text": {
+               "type": "string"
+              },
+              "items": {
+               "type": "array",
+               "items": {
+                "type": "object",
+                "properties": {
+                 "id": {
+                  "type": "string"
+                 },
+                 "text": {
+                  "type": "string"
+                 },
+                 "title": {
+                  "type": "string"
+                 },
+                 "answer": {
+                  "type": "boolean"
+                 },
+                 "unknown": {
+                  "type": [
+                   "string",
+                   "null"
+                  ]
+                 }
+                },
+                "required": [
+                 "id",
+                 "text",
+                 "title",
+                 "answer",
+                 "unknown"
+                ],
+                "additionalProperties": false
+               }
+              }
+             },
+             "required": [
+              "text",
+              "items"
+             ],
+             "additionalProperties": false
+            },
+            {
+             "type": "null"
+            }
+           ]
+          },
+          "notes": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "properties": {
+             "text": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "text",
+             "title"
+            ],
+            "additionalProperties": false
+           }
+          }
+         },
+         "required": [
+          "aim",
+          "most_likely",
+          "waits_on",
+          "notes"
+         ],
+         "additionalProperties": false
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
       "edit_base": {
        "type": [
         "number",
@@ -694,6 +840,7 @@
       "whole",
       "cards",
       "links",
+      "run",
       "edit_base"
      ],
      "additionalProperties": false

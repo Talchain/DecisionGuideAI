@@ -50,6 +50,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -83,6 +84,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -117,6 +119,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": {
      "text": "What decision or commitment do you need from your boss, and what evidence would they consider credible?",
@@ -158,6 +161,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": {
      "text": "What user-visible failures would make this release unacceptable: lost changes, stale data, duplicate actions, or something else?",
@@ -204,6 +208,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -259,6 +264,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -284,6 +290,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": {
      "text": "at least 0 weeks",
@@ -333,19 +340,23 @@
      {
       "kind": "none",
       "aim_id": "boss_discussion",
+      "text": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure.",
       "title": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure."
      },
      {
       "kind": "none",
       "aim_id": "protect_user_trust",
+      "text": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure.",
       "title": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure."
      },
      {
       "kind": "none",
       "aim_id": "allow_readiness_work",
+      "text": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated.",
       "title": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated."
      }
     ],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -393,6 +404,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -434,19 +446,23 @@
      {
       "kind": "none",
       "aim_id": "boss_discussion",
+      "text": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure.",
       "title": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure."
      },
      {
       "kind": "none",
       "aim_id": "protect_user_trust",
+      "text": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure.",
       "title": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure."
      },
      {
       "kind": "none",
       "aim_id": "allow_readiness_work",
+      "text": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated.",
       "title": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated."
      }
     ],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -492,6 +508,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": "For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
@@ -531,19 +548,23 @@
      {
       "kind": "none",
       "aim_id": "boss_discussion",
+      "text": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure.",
       "title": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure."
      },
      {
       "kind": "none",
       "aim_id": "protect_user_trust",
+      "text": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure.",
       "title": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure."
      },
      {
       "kind": "none",
       "aim_id": "allow_readiness_work",
+      "text": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated.",
       "title": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated."
      }
     ],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -659,6 +680,40 @@
     "title": "worked out through Time available before release · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration."
    }
   ],
+  "run": {
+   "aim": "chance of ‘Explain the release decision without unfair team blame’",
+   "most_likely": null,
+   "waits_on": {
+    "text": "waits on 1 thing",
+    "items": [
+     {
+      "id": "schedule_assumptions",
+      "text": "‘For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.’",
+      "title": "For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
+      "answer": false,
+      "unknown": null
+     }
+    ]
+   },
+   "notes": [
+    {
+     "text": "Olumi's what-if for 'Time available before release', not their figure: 0.5 to 4 week. Basis: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure.",
+     "title": "Olumi's what-if for 'Time available before release', not their figure: 0.5 to 4 week. Basis: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure."
+    },
+    {
+     "text": "Olumi's what-if for 'Time to implement the sync fix', not their figure: 2 to 12 week. Basis: Sarah's 'weeks' does not supply numerical endpoints. This deliberately widened ratio-scale what-if is not her estimate or an industry forecast. Open-source bug-resolution averages do not fit this defect; no typical rate known; replace with your figure.",
+     "title": "Olumi's what-if for 'Time to implement the sync fix', not their figure: 2 to 12 week. Basis: Sarah's 'weeks' does not supply numerical endpoints. This deliberately widened ratio-scale what-if is not her estimate or an industry forecast. Open-source bug-resolution averages do not fit this defect; no typical rate known; replace with your figure."
+    },
+    {
+     "text": "Olumi's what-if for 'Validation time after implementing the fix', not their figure: 0.25 to 2 week. Basis: Separate allowance for reproducer-based verification, regression checks and release validation. Deliberately widened on a ratio scale, not calibrated to this team; no typical rate known; replace with your figure. Remove this separate allowance if Sarah's estimate already includes it.",
+     "title": "Olumi's what-if for 'Validation time after implementing the fix', not their figure: 0.25 to 2 week. Basis: Separate allowance for reproducer-based verification, regression checks and release validation. Deliberately widened on a ratio scale, not calibrated to this team; no typical rate known; replace with your figure. Remove this separate allowance if Sarah's estimate already includes it."
+    },
+    {
+     "text": "Olumi's what-if for 'Postponed release time from now', not their figure: 4 to 16 week. Basis: An exploratory postponed-release window, measured from now rather than added to the original date. Deliberately widened on a ratio scale; no typical rate known; replace with your figure. It is neither a recommendation nor a commitment that the defect will be resolved by then.",
+     "title": "Olumi's what-if for 'Postponed release time from now', not their figure: 4 to 16 week. Basis: An exploratory postponed-release window, measured from now rather than added to the original date. Deliberately widened on a ratio scale; no typical rate known; replace with your figure. It is neither a recommendation nor a commitment that the defect will be resolved by then."
+    }
+   ]
+  },
   "edit_base": 1
  },
  "proposal": null,

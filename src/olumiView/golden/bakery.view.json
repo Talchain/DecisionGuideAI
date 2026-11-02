@@ -50,6 +50,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -79,6 +80,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -108,6 +110,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -137,6 +140,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -166,6 +170,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -195,6 +200,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -237,6 +243,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -266,6 +273,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -295,6 +303,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -324,6 +333,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -353,6 +363,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -382,6 +393,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -417,6 +429,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": {
      "text": "at least 360 loafs/week",
@@ -444,6 +457,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": {
      "text": "at most 3,000 GBP",
@@ -474,6 +488,7 @@
      {
       "kind": "none",
       "aim_id": "within_budget",
+      "text": "'Within the £3,000' waits on the answers to: 'oven price'.",
       "title": "'Within the £3,000' waits on the answers to: 'oven price'."
      },
      {
@@ -494,6 +509,10 @@
       "title": "If Olumi's estimates hold, the chance that 'A second oven' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'."
      }
     ],
+    "driver": {
+     "text": "about 53% if 'extra sold per oven' is low, about 81% if it is high: Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "about 53% if 'extra sold per oven' is low, about 81% if it is high: Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are its chances over the lowest and highest third of that figure's draws."
+    },
     "status": null,
     "bound": null,
     "reason": null,
@@ -519,6 +538,7 @@
      {
       "kind": "none",
       "aim_id": "within_budget",
+      "text": "'Within the £3,000' waits on the answers to: 'oven price'.",
       "title": "'Within the £3,000' waits on the answers to: 'oven price'."
      },
      {
@@ -536,6 +556,10 @@
       "title": "If Olumi's estimates hold, the chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'."
      }
     ],
+    "driver": {
+     "text": "under 1% if 'extra hours sold' is low, over 99% if it is high: Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "under 1% if 'extra hours sold' is low, over 99% if it is high: Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are its chances over the lowest and highest third of that figure's draws."
+    },
     "status": null,
     "bound": null,
     "reason": null,
@@ -561,6 +585,7 @@
      {
       "kind": "none",
       "aim_id": "within_budget",
+      "text": "'Within the £3,000' waits on the answers to: 'oven price'.",
       "title": "'Within the £3,000' waits on the answers to: 'oven price'."
      },
      {
@@ -578,6 +603,7 @@
       "title": "If Olumi's estimates hold, the chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'."
      }
     ],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -600,6 +626,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -748,6 +775,20 @@
     "title": "worked out through extra sold per oven · Proposed by Olumi: Olumi's estimate"
    }
   ],
+  "run": {
+   "aim": "chance of ‘Sell at least 360 loaves a week’",
+   "most_likely": {
+    "text": "If Olumi's estimates hold, the option most likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'). It rests on Olumi's what-if ranges for 'extra sold per oven'.",
+    "title": "If Olumi's estimates hold, the option most likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'). It rests on Olumi's what-if ranges for 'extra sold per oven'."
+   },
+   "waits_on": null,
+   "notes": [
+    {
+     "text": "Olumi's what-if for 'extra sold per oven', not their figure: 60 to 90 loaf/week/oven. Basis: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes.",
+     "title": "Olumi's what-if for 'extra sold per oven', not their figure: 60 to 90 loaf/week/oven. Basis: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes."
+    }
+   ]
+  },
   "edit_base": 1
  },
  "proposal": null,

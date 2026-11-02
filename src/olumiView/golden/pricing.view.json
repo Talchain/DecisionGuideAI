@@ -50,6 +50,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -79,6 +80,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -108,6 +110,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -137,6 +140,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -181,6 +185,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -203,6 +208,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": {
      "text": "at least 7,000 GBP/month",
@@ -248,6 +254,10 @@
       "title": "If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change'."
      }
     ],
+    "driver": {
+     "text": "under 1% if 'cups change' is low, over 99% if it is high: Under 'Raise the price by 45p', the chance of meeting 'Make £7,000 a month' moves most with 'cups change': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "under 1% if 'cups change' is low, over 99% if it is high: Under 'Raise the price by 45p', the chance of meeting 'Make £7,000 a month' moves most with 'cups change': these are its chances over the lowest and highest third of that figure's draws."
+    },
     "status": null,
     "bound": null,
     "reason": null,
@@ -285,6 +295,7 @@
       "title": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's what-if ranges for 'cups change'."
      }
     ],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -363,6 +374,20 @@
     "title": "worked out through rise on, cups · Proposed by Olumi: Olumi's estimate"
    }
   ],
+  "run": {
+   "aim": "chance of ‘Make £7,000 a month’",
+   "most_likely": {
+    "text": "If Olumi's estimates hold, the option most likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'). It rests on Olumi's what-if ranges for 'cups change'.",
+    "title": "If Olumi's estimates hold, the option most likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'). It rests on Olumi's what-if ranges for 'cups change'."
+   },
+   "waits_on": null,
+   "notes": [
+    {
+     "text": "Olumi's what-if for 'cups change', not their figure: -900 to -100 cup/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month.",
+     "title": "Olumi's what-if for 'cups change', not their figure: -900 to -100 cup/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
+    }
+   ]
+  },
   "edit_base": 1
  },
  "proposal": null,

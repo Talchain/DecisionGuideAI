@@ -50,6 +50,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -79,6 +80,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -108,6 +110,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -140,6 +143,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -169,6 +173,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -211,6 +216,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -240,6 +246,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -283,6 +290,7 @@
     },
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -305,6 +313,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": {
      "text": "at least 2,640 GBP/month",
@@ -332,6 +341,7 @@
     "figure": null,
     "premises": [],
     "rows": [],
+    "driver": null,
     "status": null,
     "bound": {
      "text": "at least 140 members",
@@ -362,6 +372,7 @@
      {
       "kind": "none",
       "aim_id": "keep_members",
+      "text": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated.",
       "title": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated."
      },
      {
@@ -379,6 +390,10 @@
       "title": "The chance that 'Evening classes' meets 'Take £2,640 a month', in this model on current information."
      }
     ],
+    "driver": {
+     "text": "about 68% if 'evening extra' is low, over 99% if it is high: Under 'Evening classes', the chance of meeting 'Take £2,640 a month' moves most with 'evening extra': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "about 68% if 'evening extra' is low, over 99% if it is high: Under 'Evening classes', the chance of meeting 'Take £2,640 a month' moves most with 'evening extra': these are its chances over the lowest and highest third of that figure's draws."
+    },
     "status": null,
     "bound": null,
     "reason": null,
@@ -417,6 +432,7 @@
      {
       "kind": "none",
       "aim_id": "keep_members",
+      "text": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated.",
       "title": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated."
      },
      {
@@ -431,6 +447,7 @@
       "title": "With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance."
      }
     ],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -456,6 +473,7 @@
      {
       "kind": "none",
       "aim_id": "keep_members",
+      "text": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated.",
       "title": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated."
      },
      {
@@ -470,6 +488,7 @@
       "title": "With the model's figures, 'Carry on as now' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance."
      }
     ],
+    "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
@@ -588,6 +607,15 @@
     "title": "worked out through extra classes, classes · Proposed by Olumi: Olumi's estimate"
    }
   ],
+  "run": {
+   "aim": "chance of ‘Take £2,640 a month’",
+   "most_likely": {
+    "text": "The option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops').",
+    "title": "The option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops')."
+   },
+   "waits_on": null,
+   "notes": []
+  },
   "edit_base": 1
  },
  "proposal": null,

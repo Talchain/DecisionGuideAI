@@ -100,8 +100,13 @@ export type View = {
       } | {
         kind: "none"
         aim_id: string | null
+        text: string
         title: string
       }>
+      driver: {
+        text: string
+        title: string
+      } | null
       status: string | null
       bound: {
         text: string
@@ -133,6 +138,27 @@ export type View = {
       proposed: boolean
       title: string
     }>
+    run: {
+      aim: string
+      most_likely: {
+        text: string
+        title: string
+      } | null
+      waits_on: {
+        text: string
+        items: Array<{
+          id: string
+          text: string
+          title: string
+          answer: boolean
+          unknown: string | null
+        }>
+      } | null
+      notes: Array<{
+        text: string
+        title: string
+      }>
+    } | null
     edit_base: number | null
   } | null
   proposal: {
