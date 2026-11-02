@@ -68,8 +68,13 @@ export function memberStates(s: Pick<TeamScenario, 'members' | 'waiting' | 'reve
   const count = (names: readonly string[]) => names.reduce((m, n) => m.set(n, (m.get(n) ?? 0) + 1), new Map<string, number>())
   const members = count(s.members.map((m) => m.name))
   const waiting = count(s.waiting)
-  // Am I still to give a view this round? By name when my name is mine alone; else by whether I have one open.
-  const iWaiting = me === undefined ? false : (members.get(me.name) === 1 ? waiting.has(me.name) : mine === null)
+  // Am I still to give a view this round? Core lists who is waiting by name only. When my name is mine alone, that is exact. When another
+  // member shares it, the list settles me whenever it can: nobody of that name waiting means I am in; every one of that name waiting means I
+  // am too (so a view I gave before the other joined does not count, and I can still give this round's). Only a list that waits for some of
+  // them and not all leaves my own open view to decide.
+  const sharing = me === undefined ? 0 : members.get(me.name) ?? 0
+  const waitingMine = me === undefined ? 0 : waiting.get(me.name) ?? 0
+  const iWaiting = me === undefined ? false : sharing === 1 ? waitingMine === 1 : waitingMine === 0 ? false : waitingMine >= sharing ? true : mine === null
   return s.members.map((member) => {
     const you = member.id === youId
     if (s.reveal.state === 'revealed') return { member, state: 'in' as const, you }
@@ -201,8 +206,10 @@ export interface ModelBand {
   readonly low: number | null
   readonly high: number | null
   readonly unit: string | null
-  /** Core's own `value` words, kept only for a range that carries no numbers. */
+  /** Core's own `value` words, as stored: the figure of a range that carries no numbers. */
   readonly valueWords: string
+  /** Core's own finding for this range, as stored, without the closing "It leaves out" which is shown apart. Nothing is composed here. */
+  readonly words: string
   /** What the range leaves out, from the end of core's sentence; null when it says none. */
   readonly leavesOut: string | null
 }
@@ -212,7 +219,7 @@ const LEAVES = /\s+It leaves out:\s*(.+?)\.?\s*$/
 export const bandNumber = (n: number): string => Number(n.toPrecision(3)).toLocaleString('en-GB', { maximumFractionDigits: 6 })
 
 /**
- * The Run's range findings of the approved model: the band as its two numbers (`about.low`, `about.high`: 8 runs in 10), the option and the
+ * The Run's range findings of the approved model: the band as its two numbers (`about.low`, `about.high`), the option and the
  * measure it is under, and what it leaves out. Nothing is rounded beyond three digits, composed or averaged; the middle is not drawn.
  */
 export function modelBandOf(s: Pick<TeamScenario, 'version'>): readonly ModelBand[] {
@@ -226,7 +233,7 @@ export function modelBandOf(s: Pick<TeamScenario, 'version'>): readonly ModelBan
       id: f.id, option: labelOf(a.option), measure: labelOf(goal?.measure?.quantity),
       low: finiteBand ? a.low! : null, high: finiteBand ? a.high! : null,
       unit: typeof a.unit === 'string' && a.unit !== '' && a.unit !== '1' ? a.unit : null,
-      valueWords: f.value, leavesOut: LEAVES.exec(f.text)?.[1] ?? null,
+      valueWords: f.value, words: f.text.replace(LEAVES, '').trim() || f.value, leavesOut: LEAVES.exec(f.text)?.[1] ?? null,
     }
   })
 }

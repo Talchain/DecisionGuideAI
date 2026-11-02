@@ -82,7 +82,7 @@ describe('the Run, from structured facts (API v1.4), read by DGAI\'s own parser'
     const v = JSON.parse(JSON.stringify(approved))
     v.version.facts.push({ id: 'F99', value: '2 to 10 ticket/week', text: 'Olumi\'s what-if for staff absence, not their figure: 2 to 10 ticket/week.', about: { kind: 'input', quantity: 'per_specialist', olumi: true, low: 2, high: 10, unit: 'ticket/week' } })
     const notes = analysisViewOf(v).goal_chance.notes
-    expect(notes).toEqual(['This leaves out: How the team feels about a new hire.', 'Olumi’s what-if figures, until you give your own: per specialist.'])
+    expect(notes).toEqual(['This leaves out: How the team feels about a new hire.', 'Olumi\'s what-if for staff absence, not their figure: 2 to 10 ticket/week.'])
     expect(parseCanonicalAnalysisView(analysisViewOf(v))).not.toBeNull()
   })
   it('has no Run view before there is an approved version', () => {
@@ -121,7 +121,9 @@ describe('with more than one aim, the Run is about the aim core ran, and the oth
     const view = analysisViewOf(v)
     expect(view.goal_chance.chance_words).toBe('chance of ‘At least 100 a week’')
     expect(view.options.find((o) => o.option_id === 'add_one').cell.display).toBe('about 50%')
-    expect(view.goal_chance.notes).toContain('For the aim ‘At least 120 a week’: ‘Keep current staffing’ never met in this model; ‘Add one specialist’ about 20%.')
+    // core's own sentence for each option on the other aim, as stored: code composes no comparison of its own
+    expect(view.goal_chance.notes).toContain('never met in this model: chance hold')
+    expect(view.goal_chance.notes).toContain('about 20%: chance add_one')
     expect(parseCanonicalAnalysisView(view)).not.toBeNull()
   })
   it('a single aim reads exactly as before (no extra note)', () => {
@@ -362,9 +364,9 @@ describe('the person\'s limit stays on the canvas and its results reach Analysis
     const notes = view.goal_chance.notes
     const line = notes.find((x) => /Capacity ceiling/.test(x) && /Add two specialists/.test(x))
     expect(line).toBeDefined()
-    expect(line).toMatch(/about 63%/)
-    expect(line).toMatch(/about 37%/)
-    expect(notes.find((x) => /Capacity ceiling/.test(x) && /Keep current staffing/.test(x))).toMatch(/over 99%/)
+    expect(line).toMatch(/^about 63%: /)
+    expect(notes.some((x) => /^about 37%: /.test(x) && /Capacity ceiling/.test(x))).toBe(true)
+    expect(notes.find((x) => /Capacity ceiling/.test(x) && /Keep current staffing/.test(x))).toMatch(/^over 99%: /)
     expect(parseCanonicalAnalysisView(view)).not.toBeNull()
   })
   it('a limit core could not check yet is said as not checked, never left out', () => {
@@ -829,7 +831,7 @@ describe('a change that waits is not drawn as part of the model (design QA 4 and
     expect(modelOf(draft).graph.nodes.length).toBeGreaterThan(3)
   })
   it('what the change adds goes to the canvas as a ghost: the new figure by its name and its one figure, whose it is; nothing else is drawn', () => {
-    expect(ghostAddsOf(waiting)).toEqual([{ field_id: 'factor_add:staff_absence', kind: 'factor_add', node_id: 'staff_absence', label: 'staff absence', value: { value: 5, unit: 'ticket/week' }, source: 'estimate' }])
+    expect(ghostAddsOf(waiting)).toEqual([{ field_id: 'factor_add:staff_absence', kind: 'factor_add', node_id: 'staff_absence', label: 'staff absence', value: { low: 2, high: 10, likely: 5, unit: 'ticket/week' }, source: 'estimate' }])
   })
   it('every other change is said in words, which keeps a ghost from offering an approval that would write what it does not show', () => {
     const more = JSON.parse(JSON.stringify(waiting))

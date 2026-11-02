@@ -114,16 +114,23 @@ export async function startFakeCore() {
     }
     if ((m = url.pathname.match(/^\/api\/scenarios\/(s_[0-9a-f]+)\/edit$/))) {
       const entry = scenarios.get(m[1]); if (!entry || entry.owner !== me.id) return send(404, { error: 'not found' })
+      // Core de-duplicates an edit by its operation id: the same request again returns the first save's receipt.
+      const done = typeof body.op === 'string' ? entry.ops?.get(body.op) : undefined
+      if (done) return send(201, done)
+      const answer = (r) => { if (typeof body.op === 'string') (entry.ops ??= new Map()).set(body.op, r); return send(201, r) }
       if (entry.view.pending) return send(409, { error: 'approve or set aside the pending change first' })
       if (body.base !== entry.view.version.id) return send(409, { error: 'this figure was edited on a different version' })
-      if (entry.after?.edit) { entry.view = structuredClone(entry.after.edit); return send(201, { version: entry.view.version.id, n: entry.view.version.n, receipt: 'edit' }) }
+      if (entry.after?.edit) { entry.view = structuredClone(entry.after.edit); return answer({ version: entry.view.version.id, n: entry.view.version.n, receipt: 'edit' }) }
       const rec = entry.view.version.form.records.find((r) => r.id === body.quantity)
       if (!rec) return send(404, { error: 'no such figure' })
+      // Core keeps the figure the person stated while it lies inside the new range (an offered `likely` wins).
+      const was = rec.assertion.kind === 'point' ? rec.assertion.value : rec.assertion.kind === 'interval' ? rec.assertion.likely : null
+      const kept = body.value.kind !== 'interval' ? null : body.value.likely != null ? body.value.likely : typeof was === 'number' && was >= body.value.low && was <= body.value.high ? was : null
       rec.assertion = body.value.kind === 'interval'
-        ? { kind: 'interval', low: body.value.low, high: body.value.high, range_kind: 'plausible', likely: null }
+        ? { kind: 'interval', low: body.value.low, high: body.value.high, range_kind: 'plausible', likely: kept }
         : { kind: 'point', value: body.value.value, approximate: false }
       entry.view.version = { ...entry.view.version, id: entry.view.version.id + 100, n: entry.view.version.n + 1 }
-      return send(201, { version: entry.view.version.id, n: entry.view.version.n, receipt: 'edit' })
+      return answer({ version: entry.view.version.id, n: entry.view.version.n, receipt: 'edit' })
     }
     return send(404, { error: 'not found' })
   }

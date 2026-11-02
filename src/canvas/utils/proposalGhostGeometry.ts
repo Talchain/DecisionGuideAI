@@ -48,13 +48,18 @@ export interface GhostNodeInput {
   readonly height?: number
 }
 
+/** A new factor's proposed figure as it is stated: one value, or a range (its two ends, and the most likely when one is stated). An empty unit is a plain number. */
+export type GhostFigure =
+  | { readonly value: number; readonly unit: string }
+  | { readonly low: number; readonly high: number; readonly likely?: number; readonly unit: string }
+
 interface Rect { readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 export interface GhostCard extends Rect {
   readonly id: string
   readonly label: string
   readonly kind: string | null
   /** Core only: the new factor's point level, and whose item it is. */
-  readonly value?: { readonly value: number; readonly unit: string } | null
+  readonly value?: GhostFigure | null
   readonly source?: 'estimate' | 'yours'
 }
 export interface GhostLine { readonly key: string; readonly x1: number; readonly y1: number; readonly x2: number; readonly y2: number }

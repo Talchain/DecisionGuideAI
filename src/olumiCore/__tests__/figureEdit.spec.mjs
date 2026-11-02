@@ -85,58 +85,44 @@ describe('a range the person sets is sent to core as a range (tier R step 0)', (
     expect(out.model.graph.nodes.find((n) => n.id === 'per_specialist').observed_state.range).toMatchObject({ low: 12, high: 28 })
     expect(out.run.run_id).toMatch(/^mp_run_2_/)
   })
-  it('changing the ends of a range that has a most-likely figure is refused, not saved with the figure gone (10 to 30, most likely 20, changed to 12 to 29)', async () => {
+  it('changing the ends of a range that has a most-likely figure keeps the figure (10 to 30, most likely 20, changed to 12 to 29)', async () => {
     const uuid = seeded()
     const before = fake.calls.length
     const out = (await shim.turn(ADA, range('per_specialist', 12, 29, { uuid }))).out
-    expect(out.error).toMatchObject({ code: 'bad_request', nothing_saved: true })
-    expect(out.error.message).toMatch(/between 10 and 30/)
-    expect(out.error.message).toMatch(/most likely 20/)
-    expect(out.error.message).toMatch(/lose the most likely figure/)
-    expect(post(fake.calls, before)).toHaveLength(0)
+    expect(out.error).toBeNull()
+    expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 12, high: 29, likely: 20 })
     const g = (await shim.graphRead(ADA, uuid)).body.graph.nodes.find((n) => n.id === 'per_specialist')
-    expect(g.observed_state).toMatchObject({ value: 20, range: { low: 10, high: 30 } })
+    expect(g.observed_state).toMatchObject({ value: 20, range: { low: 12, high: 29 } })
   })
-  it('a range over a figure that was a point is a range edit too', async () => {
+  it('a range over a figure that was a point is a range edit that keeps the point (80 stays the stated figure)', async () => {
     const uuid = seeded()
     const before = fake.calls.length
     const out = (await shim.turn(ADA, range('existing_capacity', 70, 90, { uuid }))).out
     expect(out.error).toBeNull()
-    expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 70, high: 90 })
+    expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 70, high: 90, likely: 80 })
   })
-  it('a range over a single value that it is NOT centred on is refused: 80 with 70 to 100 would be saved as 85, a figure the person did not give', async () => {
+  it('a range that is NOT centred on the stated value keeps it all the same: 80 with 70 to 100 stays 80, never turned into 85', async () => {
     const uuid = seeded()
-    const point = fx('view-approved.json').version.form.records.find((r) => r.id === 'existing_capacity').assertion
-    expect(point).toMatchObject({ kind: 'point', value: 80 })
     const before = fake.calls.length
     const out = (await shim.turn(ADA, range('existing_capacity', 70, 100, { uuid }))).out
-    expect(out.error).toMatchObject({ code: 'bad_request', nothing_saved: true })
-    expect(out.error.message).toMatch(/80/)
-    expect(out.error.message).toMatch(/85/)
-    expect(out.error.message).toMatch(/Nothing was saved/)
-    expect(post(fake.calls, before)).toHaveLength(0)
+    expect(out.error).toBeNull()
+    expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 70, high: 100, likely: 80 })
     const g = (await shim.graphRead(ADA, uuid)).body.graph.nodes.find((n) => n.id === 'existing_capacity')
-    expect(g.observed_state.value).toBe(80)
+    expect(g.observed_state).toMatchObject({ value: 80, range: { low: 70, high: 100 } })
   })
-  it('a range centred on the value keeps it as the middle (nothing the person gave is changed), and floats do not trip the check', async () => {
+  it('a range that leaves the stated value outside it sends no most likely (the value is dropped only because the range excludes it)', async () => {
     const uuid = seeded()
     const before = fake.calls.length
-    expect((await shim.turn(ADA, range('existing_capacity', 79.9, 80.1, { uuid }))).out.error).toBeNull()
-    expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 79.9, high: 80.1 })
+    expect((await shim.turn(ADA, range('existing_capacity', 90, 100, { uuid }))).out.error).toBeNull()
+    expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 90, high: 100 })
   })
-  it('the centre is compared to a relative 1e-9: a figure of 1,000,000,000,000 given a range 999,999,000,000 to 1,000,001,000,000 would be saved as 1,000,000,000,000 +/- a millionth and is refused; one a billionth out is the same figure', async () => {
+  it('the same at a trillion: no tolerance is applied, the stated figure is sent as it was', async () => {
     const view = fx('view-approved.json')
     view.version.form.records.find((r) => r.id === 'existing_capacity').assertion = { kind: 'point', value: 1_000_000_000_000, approximate: false }
     const uuid = seeded(view)
     const before = fake.calls.length
-    const out = (await shim.turn(ADA, range('existing_capacity', 999_999_000_000, 1_000_002_000_000, { uuid }))).out
-    expect(out.error).toMatchObject({ code: 'bad_request', nothing_saved: true })
-    expect(out.error.message).toMatch(/1,000,000,500,000/)
-    expect(post(fake.calls, before)).toHaveLength(0)
-    // a range that IS centred on it, at the same scale, is still sent
-    const centred = (await shim.turn(ADA, range('existing_capacity', 999_999_999_000, 1_000_000_001_000, { uuid }))).out
-    expect(centred.error).toBeNull()
-    expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 999_999_999_000, high: 1_000_000_001_000 })
+    expect((await shim.turn(ADA, range('existing_capacity', 999_999_000_000, 1_000_002_000_000, { uuid }))).out.error).toBeNull()
+    expect(post(fake.calls, before).find((c) => c.path.endsWith('/edit')).body.value).toEqual({ kind: 'interval', low: 999_999_000_000, high: 1_000_002_000_000, likely: 1_000_000_000_000 })
   })
   it('a range whose ends are the wrong way round, or not figures, is refused in words before anything is sent', async () => {
     const uuid = seeded()
@@ -235,7 +221,7 @@ describe('a write whose answer was lost is not reported as unsaved (finding: a r
   const refused = () => Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) })
   const valueOf = (view, id) => view.version.form.records.find((r) => r.id === id).assertion.value
 
-  it('the connection resets after core kept the figure: the shim reads the scenario, sees the version moved, and answers as the saved figure', async () => {
+  it('the connection resets after core kept the figure: the same request goes again with the same operation id, and the receipt core gives is the answer', async () => {
     const uuid = seeded()
     fake.dropNextAnswer()
     const out = (await shim.turn(ADA, edit(uuid, 'existing_capacity', 90))).out
@@ -277,7 +263,7 @@ describe('an answer cut off half way is not "nothing was saved" (finding: a trun
   /** An answer whose status arrived and whose body broke part way, as the browser's fetch sees a cut connection. */
   const cutAnswer = () => new Response(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('{"version":')); c.error(Object.assign(new TypeError('terminated'), { cause: Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' }) })) } }), { status: 201, headers: { 'content-type': 'application/json' } })
 
-  it('core kept the figure and its answer was cut: the shim sees the figure moved and answers it as saved, never "nothing was saved"', async () => {
+  it('core kept the figure and its answer was cut: the same request goes again, core answers with the receipt of the first save, never "nothing was saved"', async () => {
     const sid = fake.seed('tok-ada', fx('view-approved.json'))
     const uuid = derivedUuidOfSid(sid)
     fake.truncateNextAnswer()

@@ -70,12 +70,11 @@ describe('Team tab, step 4: the commitment that keeps dissent open', () => {
     render(<TeamTab scenarioUuid={UUID} />)
     const band = await screen.findByTestId('team-commitment-band')
     expect(band.textContent).toContain('The model’s range, version 1 (Olumi’s')
-    // Design QA 6 and Codex 5: the band keeps its two figures in plain words, with no jargon and no raw fact sentence, and says what it leaves out quietly.
-    expect(screen.getByTestId('team-commitment-band-line-F4').textContent).toBe('Under ‘Add one specialist’, 8 runs in 10 land between 89.7 and 110 ticket/week, in this model.')
-    expect(screen.getByTestId('team-commitment-band-low-F4').textContent).toBe('89.7')
-    expect(screen.getByTestId('team-commitment-band-high-F4').textContent).toBe('110')
+    // The band keeps its two figures as labelled values, and the finding is core's own sentence as stored: code composes no claim of its own.
+    expect(screen.getByTestId('team-commitment-band-line-F4').textContent).toBe('Under ‘Add one specialist’, ‘total capacity’ is likely to be in this range (8 draws in 10).')
+    expect(screen.getByTestId('team-commitment-band-low-F4').textContent).toBe('89.7 ticket/week')
+    expect(screen.getByTestId('team-commitment-band-high-F4').textContent).toBe('110 ticket/week')
     expect(screen.getByTestId('team-commitment-band-leaves-F4').textContent).toBe('Leaves out: How the team feels about a new hire')
-    expect(band.textContent).not.toMatch(/draws|likely to be in this range/)
     expect(band.textContent).not.toContain('about 50%')   // a chance is not a range
     fireEvent.click(screen.getByTestId('team-commitment-open'))
     expect(screen.getByTestId('team-commitment-form').textContent).not.toMatch(/8 runs in 10|8 draws in 10/)

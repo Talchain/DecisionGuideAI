@@ -805,13 +805,16 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // (design QA 7: Bea's canvas must not stay on version 1 while her Team tab shows version 2).
   useEffect(() => {
     if (!isOlumiCoreLane()) return
-    setOnModelMoved((uuid) => {
-      if (useCanvasStore.getState().currentScenarioId !== uuid) return
+    setOnModelMoved(async (uuid) => {
+      if (useCanvasStore.getState().currentScenarioId !== uuid) return false
       const before = useCanvasStore.getState().nodes.map((n) => n.id)
-      void getSessionIdentity().then((id) => hydrateCanvasFromServer(uuid, { userId: id.userId, accessToken: id.accessToken })).then(() => {
-        // What the other member's approval added is acknowledged on arrival, as it is for the person who approved it.
-        pulseWhenOnCanvas(useCanvasStore.getState().nodes.map((n) => n.id).filter((id) => !before.includes(id)))
-      })
+      const id = await getSessionIdentity()
+      const outcome = await hydrateCanvasFromServer(uuid, { userId: id.userId, accessToken: id.accessToken })
+      // Only a read that was adopted counts: a failed one is asked for again on the team's next read.
+      if (outcome !== 'merged' && outcome !== 'unchanged') return false
+      // What the other member's approval added is acknowledged on arrival, as it is for the person who approved it.
+      pulseWhenOnCanvas(useCanvasStore.getState().nodes.map((n) => n.id).filter((nid) => !before.includes(nid)))
+      return true
     })
     return () => setOnModelMoved(null)
   }, [])

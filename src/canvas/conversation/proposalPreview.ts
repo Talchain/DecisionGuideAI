@@ -20,6 +20,7 @@
  */
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { CONSENT_CHIP_PREFIX } from './messageComposition'
+import type { GhostFigure } from '../utils/proposalGhostGeometry'
 import { cardCannotBeShownInFull, readProposalFields, type Band, type Proposal, changeNotesOf, otherChangeCountOf } from './proposalFields'
 
 const DECLINE_CHIP_PREFIX = 'agent-decline-proposal:'
@@ -38,7 +39,7 @@ export type ProposalPreviewOp =
       readonly label: string
       readonly kind: string | null
       /** Core only (`adds`): its point level, when it has one, and whose item it is. */
-      readonly value?: { readonly value: number; readonly unit: string } | null
+      readonly value?: GhostFigure | null
       readonly source?: 'estimate' | 'yours'
     }
   | {

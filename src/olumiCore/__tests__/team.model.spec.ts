@@ -135,7 +135,7 @@ describe('design QA 6 and Codex 5: the model\'s range keeps its figures', () => 
   it('the two ends as numbers, the option it is under and what it leaves out', () => {
     const base = withBand(range)
     const s = { ...base, version: { ...base.version!, form: { records: [...base.version!.form.records, { id: 'capacity_goal', family: 'goal', label: 'At least 100 a week', measure: { quantity: 'per_specialist' } }] } } }
-    expect(modelBandOf(s)).toEqual([{ id: 'F4', option: 'Add one specialist', measure: 'Tickets added per specialist', low: 89.6795181966731, high: 109.91851476864522, unit: 'ticket/week', valueWords: 'between 89.7 and 110 ticket/week (middle 99.9)', leavesOut: 'How the team feels about a new hire' }])
+    expect(modelBandOf(s)).toEqual([{ id: 'F4', option: 'Add one specialist', measure: 'Tickets added per specialist', low: 89.6795181966731, high: 109.91851476864522, unit: 'ticket/week', valueWords: 'between 89.7 and 110 ticket/week (middle 99.9)', words: 'Under \'Add one specialist\', \'total capacity\' is likely to be in this range (8 draws in 10).', leavesOut: 'How the team feels about a new hire' }])
     expect(bandNumber(89.6795181966731)).toBe('89.7')
     expect(bandNumber(109.91851476864522)).toBe('110')
   })

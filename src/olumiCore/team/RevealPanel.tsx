@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/Button'
 import { teamApi, TeamApiError } from './api'
 import { TeamSpreadStrip, figureText } from './TeamSpreadStrip'
 import { revealedViews, spreadsOf, waitingNames } from './model'
-import { settleUncertain } from './settle'
+import { MAY_HAVE_SAVED, runWrite, useWriteLocked } from './writes'
 import { AVATAR, BODY, CARD, ERR, H, META } from './ui'
 import type { TeamFigure, TeamScenario, TeamViewRow } from './types'
 
@@ -35,14 +35,12 @@ export function RevealPanel({ sid, scenario, onWrote, onAskOlumi }: { sid: strin
   const labelOf = (id: string) => scenario.version?.form.records.find((r) => r.id === id)?.label ?? id
   const ask = askAboutViews(views)
 
+  // A reveal has no operation id in core: one whose answer was lost may have happened, and is not sent again from this page (`writes.ts`).
+  const locked = useWriteLocked(`${sid}:reveal`)
   const reveal = async () => {
     setBusy(true); setError(null)
-    try { await teamApi.reveal(sid); await onWrote() } catch (e) {
-      // A reveal whose answer was lost may have happened: read before saying anything about it.
-      if (e instanceof TeamApiError && e.uncertain) {
-        const r = await settleUncertain(onWrote, (s) => s.reveal.state === 'revealed')
-        setError(r === 'saved' ? null : r === 'not_saved' ? 'That did not reach Olumi, so nothing was revealed. You can try again.' : 'We could not tell whether the views were revealed. Check for new views before trying again.')
-      } else setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was revealed.')
+    try { await runWrite(`${sid}:reveal`, { op: false }, null, () => teamApi.reveal(sid)); await onWrote() } catch (e) {
+      setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was revealed.')
     } finally { setBusy(false) }
   }
 
@@ -61,11 +59,11 @@ export function RevealPanel({ sid, scenario, onWrote, onAskOlumi }: { sid: strin
             </p>
           )}
           <div>
-            <Button size="sm" data-testid="team-reveal-go" disabled={!ready || busy} onClick={() => void reveal()}>
+            <Button size="sm" data-testid="team-reveal-go" disabled={!ready || busy || locked} onClick={() => void reveal()}>
               <span className="inline-flex items-center gap-1.5"><Eye aria-hidden="true" className="h-3.5 w-3.5" />Reveal together</span>
             </Button>
           </div>
-          {error && <p role="alert" data-testid="team-reveal-error" className={ERR}>{error}</p>}
+          {locked ? <p role="alert" data-testid="team-reveal-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="team-reveal-error" className={ERR}>{error}</p>}
         </div>
       )}
 

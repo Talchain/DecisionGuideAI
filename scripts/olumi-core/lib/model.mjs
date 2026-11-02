@@ -4,7 +4,7 @@
  * Rules come from the served fixtures (src/canvas/nodes/__tests__/fixtures/served-*), so this is only as faithful as they are.
  * Facts are read by their structured `about` (API v1.4), never from their text.
  */
-import { byId, decideByWords, figure, nameOf, num, partsOf, percent, signedPartsOf, CMP } from './words.mjs'
+import { byId, changeSetOf, decideByWords, figure, nameOf, num, partsOf, percent, signedPartsOf, CMP } from './words.mjs'
 import { rev16, rev64, revSaved16, runIdOf } from './ids.mjs'
 
 const valueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? (q.assertion.low + q.assertion.high) / 2) : null)
@@ -252,23 +252,42 @@ export const drawnOf = (view) => view.version ?? view.pending ?? null
 export function ghostAddsOf(view) {
   const p = view.pending
   if (!p || !view.version) return []
+  const set = changeSetOf(view)
   const m = byId(p.form)
   const factors = new Set(graphOf(p.form).nodes.filter((n) => n.kind === 'factor').map((n) => n.id))
   const was = byId(view.version.form)
   const source = (r) => (r?.origin?.by === 'olumi' ? 'estimate' : 'yours')
   const out = []
   const note = (verb, r, id) => out.push({ field_id: `change_note:record:${id}`, kind: 'change_note', text: `${verb} ‘${nameOf(m.has(id) ? m : was, id)}’`, source: source(r), editable: false })
-  for (const id of p.changes.added) {
+  for (const id of set.added) {
     const r = m.get(id)
     if (r?.family === 'quantity' && factors.has(id)) {
-      const a = r.assertion
-      const value = a.kind === 'point' ? a.value : a.kind === 'interval' ? a.likely : null
-      out.push({ field_id: `factor_add:${id}`, kind: 'factor_add', node_id: id, label: r.label, value: typeof value === 'number' && r.unit && r.unit !== '1' ? { value, unit: r.unit } : null, source: source(r) })
+      out.push({ field_id: `factor_add:${id}`, kind: 'factor_add', node_id: id, label: r.label, value: ghostFigureOf(r), source: source(r) })
     } else note('Adds', r, id)
   }
-  for (const id of p.changes.changed) note('Changes', m.get(id), id)
-  for (const id of p.changes.removed) note('Removes', was.get(id), id)
+  for (const id of set.changed) note('Changes', m.get(id), id)
+  for (const id of set.removed) note('Removes', was.get(id), id)
+  // The top-level changes (the deadline, the question, its name, the time step, the questions to ask) are changes too: said before the approval.
+  for (const field of set.top) {
+    const label = TOP_LABELS[field] ?? field
+    out.push({ field_id: `change_note:top:${field}`, kind: 'change_note', text: `Changes ‘${label}’`, source: field === 'decide_by' ? (p.form.decide_by?.origin?.by === 'person' ? 'yours' : 'estimate') : 'estimate', editable: false })
+  }
   return out
+}
+
+const TOP_LABELS = { decide_by: 'Decide by', question: 'The question', title: 'The name', period: 'Time step', coaching_questions: 'Questions to ask yourself' }
+
+/**
+ * A new factor's proposed figure exactly as it is stated: a point as a point, a range as its two ends (with the most likely when one is
+ * stated). Null when the figure is asked for or not a number. A unitless figure carries an empty unit.
+ */
+export function ghostFigureOf(r) {
+  const a = r.assertion
+  const unit = r.unit && r.unit !== '1' ? r.unit : ''
+  const ok = (n) => typeof n === 'number' && Number.isFinite(n)
+  if (a.kind === 'point') return ok(a.value) ? { value: a.value, unit } : null
+  if (a.kind === 'interval' && ok(a.low) && ok(a.high)) return { low: a.low, high: a.high, ...(ok(a.likely) ? { likely: a.likely } : {}), unit }
+  return null
 }
 
 export function modelOf(view) {
@@ -324,28 +343,23 @@ export function analysisViewOf(view) {
   const driver = (o) => v.facts.find((f) => about(f, 'driver', o))
   const blocked = (o) => v.facts.find((f) => about(f, 'blocker', o))
   const most = v.facts.find((f) => (f.about?.kind === 'most_likely' || f.about?.kind === 'none_clearly') && (!goal || !f.about.goal || f.about.goal === goal.id))
-  // The other aims' chances, said option by option: the view has room for one aim's cells, and the rest are not dropped.
-  const otherAims = goals.filter((g) => g !== goal).flatMap((g) => {
-    const rows = live.flatMap((o) => { const c = v.facts.find((f) => f.about?.kind === 'chance' && f.about.option === o.id && f.about.goal === g.id); return c ? [`‘${nameOf(m, o.id)}’ ${c.value}`] : [] })
-    return rows.length ? [`For the aim ‘${nameOf(m, g.id)}’: ${rows.join('; ')}.`] : []
-  })
+  // The other aims' chances: the view has room for one aim's cells, and the rest are not dropped. Each is core's own sentence for that
+  // option and aim, passed through as stored: code puts no analytical claim of its own beside them.
+  const otherAims = goals.filter((g) => g !== goal).flatMap((g) => live.flatMap((o) => {
+    const c = v.facts.find((f) => f.about?.kind === 'chance' && f.about.option === o.id && f.about.goal === g.id)
+    return c ? [`${c.value}: ${sayFact(c.text, leaves)}`] : []
+  }))
   const waits = v.facts.filter((f) => f.about?.kind === 'waits' || f.about?.kind === 'blocker').flatMap((f) => (f.about.rests ?? []))
   const waitsOn = [...new Set(waits)].map((id) => m.get(id)).filter(Boolean).map((r) => ({ id: r.id, label: nameOf(m, r.id), answer: r.family === 'quantity' && r.assertion.kind === 'asked' ? { quantity_id: r.id } : null, code: r.family === 'quantity' ? r.assertion.kind : 'waiting' }))
-  // Olumi's what-if figures, from the structured input facts (API v1.4 `about.olumi`): said once, as the facts mark them, not read from their words.
-  const whatIfs = [...new Set(v.facts.filter((f) => f.about?.kind === 'input' && f.about.olumi === true).map((f) => nameOf(m, f.about.quantity)))]
-  // The person's limits: what core found for each option, within the limit and outside it, from the structured limit / outside / blocker facts.
+  // Olumi's what-if figures, from the structured input facts (API v1.4 `about.olumi`): core's own sentence for each, once per figure, as stored.
+  const whatIfs = [...new Map(v.facts.filter((f) => f.about?.kind === 'input' && f.about.olumi === true).map((f) => [f.about.quantity, sayFact(f.text, leaves)])).values()]
+  // The person's limits: core's own sentences for each option (within the limit, outside it, blocked), passed through as stored.
   const limitNotes = v.form.records.filter((r) => r.family === 'limit').flatMap((l) => {
     const of = (kind, o) => v.facts.find((x) => x.about?.kind === kind && x.about.limit === l.id && x.about.option === o.id)
-    const rows = live.flatMap((o) => {
-      const within = of('limit', o), outside = of('outside', o), blocked = of('blocker', o)
-      if (within) return [`‘${nameOf(m, o.id)}’ ${within.value}${outside ? ` within it, ${outside.value} outside` : ''}`]
-      return blocked ? [`‘${nameOf(m, o.id)}’ ${blocked.value}`] : []
-    })
     const whole = v.facts.find((x) => x.about?.kind === 'blocker' && x.about.limit === l.id && !x.about.option)
-    if (whole) rows.unshift(whole.value)
-    return rows.length ? [`Your limit ‘${l.label}’: ${rows.join('; ')}.`] : []
+    return [...(whole ? [whole] : []), ...live.flatMap((o) => [of('limit', o), of('outside', o), of('blocker', o)].filter(Boolean))].map((f) => `${f.value}: ${sayFact(f.text, leaves)}`)
   })
-  const notes = [...(leaves.length ? [`This leaves out: ${leaves.join('; ')}.`] : []), ...otherAims, ...limitNotes, ...(whatIfs.length ? [`Olumi’s what-if figures, until you give your own: ${whatIfs.join('; ')}.`] : [])]
+  const notes = [...(leaves.length ? [`This leaves out: ${leaves.join('; ')}.`] : []), ...otherAims, ...limitNotes, ...whatIfs]
   return {
     schema: 'canonical_analysis_view.v1', source: 'stored_run_facts',
     run: { run_id: runIdOf(v), graph_hash_at_run: revSaved16(view), computed_at: v.at },

@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { Button } from '../../components/ui/Button'
-import { newOp, teamApi, TeamApiError } from './api'
+import { teamApi, TeamApiError } from './api'
+import { runWrite } from './writes'
 import { useDraft } from './drafts'
 import { wordsOfRecord } from './model'
 import { BODY, CARD, ERR, FIELD, LABEL, META } from './ui'
 import type { OutcomeVersus, TeamCommitmentRow, TeamScenario } from './types'
 
-interface OutcomeDraft { open: boolean; happened: string; versus: OutcomeVersus | null; triggered: boolean | null; note: string; op: string }
-const EMPTY: OutcomeDraft = { open: false, happened: '', versus: null, triggered: null, note: '', op: '' }
+interface OutcomeDraft { open: boolean; happened: string; versus: OutcomeVersus | null; triggered: boolean | null; note: string }
+const EMPTY: OutcomeDraft = { open: false, happened: '', versus: null, triggered: null, note: '' }
 export const VERSUS: ReadonlyArray<{ value: OutcomeVersus; words: string }> = [
   { value: 'as_expected', words: 'As expected' },
   { value: 'better', words: 'Better than expected' },
@@ -25,7 +26,7 @@ const versusWords = (v: OutcomeVersus): string => VERSUS.find((x) => x.value ===
  */
 export function OutcomePanel({ sid, scenario, commitment, onWrote }: { sid: string; scenario: TeamScenario; commitment: TeamCommitmentRow; onWrote: () => Promise<boolean> }): JSX.Element {
   const c = commitment
-  // What is typed is kept while the tab is away (`drafts.ts`); `op` is one per attempt, so a send whose answer was lost is never recorded twice.
+  // What is typed is kept while the tab is away (`drafts.ts`).
   const [d, setD, dropDraft] = useDraft<OutcomeDraft>(`${sid}:outcome:${c.id}`, EMPTY)
   const { open, happened, versus, triggered, note } = d
   const setOpen = (v: boolean) => setD((p) => ({ ...p, open: v }))
@@ -40,14 +41,13 @@ export function OutcomePanel({ sid, scenario, commitment, onWrote }: { sid: stri
   const save = async () => {
     if (!ready || versus === null || triggered === null) return
     setBusy(true); setError(null)
-    const sendOp = d.op !== '' ? d.op : newOp()
-    if (d.op === '') setD((p) => ({ ...p, op: sendOp }))
+    const input = { happened, versus, reconsider_triggered: triggered, note: note.trim() === '' ? null : note }
     try {
-      await teamApi.addOutcome(sid, c.id, { happened, versus, reconsider_triggered: triggered, note: note.trim() === '' ? null : note }, sendOp)
+      await runWrite(`${sid}:outcome:${c.id}`, { op: true }, input, (op) => teamApi.addOutcome(sid, c.id, input, op!))
       dropDraft()
       await onWrote()
     } catch (e) {
-      setError(e instanceof TeamApiError && e.uncertain ? 'Olumi may not have received that. Send it again: it will not be recorded twice.' : e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
+      setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
     } finally { setBusy(false) }
   }
   const name = `team-o-${c.id}`

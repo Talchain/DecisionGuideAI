@@ -5,7 +5,7 @@ import { teamApi, TeamApiError } from './api'
 import { useDraft } from './drafts'
 import { myOpenView, myRevealedView, viewPhaseOf } from './model'
 import { PrivacyNote } from './PrivacyNote'
-import { NOT_SAVED, settleUncertain, UNKNOWN_SAVED } from './settle'
+import { MAY_HAVE_SAVED, runWrite, useWriteLocked } from './writes'
 import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
 import type { TeamScenario } from './types'
 
@@ -22,25 +22,16 @@ export function ViewComposer({ sid, scenario, onWrote }: { sid: string; scenario
   const [text, setText, dropText] = useDraft(`${sid}:view`, '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // A write whose outcome could not be read back: no second send is offered until Olumi has said what it holds.
-  const [unverified, setUnverified] = useState(false)
+  // A view has no operation id in core, so one whose answer was lost may have been saved and is not sent again from this page. The lock is in the
+  // store (`writes.ts`), so it outlives this component: changing tabs does not give the send back.
+  const locked = useWriteLocked(`${sid}:view`)
   const phase = viewPhaseOf(scenario)
   const open = myOpenView(scenario)
 
-  /** I am no longer to give a view this round: the write is in. */
-  const landed = (s: TeamScenario) => viewPhaseOf(s) !== 'compose'
-  const check = async () => {
-    setBusy(true)
-    const r = await settleUncertain(onWrote, landed)
-    setBusy(false)
-    if (r === 'saved') { dropText(); setUnverified(false); setError(null) }
-    else if (r === 'not_saved') { setUnverified(false); setError(NOT_SAVED) } else { setUnverified(true); setError(UNKNOWN_SAVED) }
-  }
   const run = async (write: () => Promise<unknown>) => {
     setBusy(true); setError(null)
-    try { await write(); dropText(); await onWrote(); setBusy(false) } catch (e) {
+    try { await runWrite(`${sid}:view`, { op: false }, null, write); dropText(); await onWrote(); setBusy(false) } catch (e) {
       setBusy(false)
-      if (e instanceof TeamApiError && e.uncertain) { await check(); return }
       setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
     }
   }
@@ -83,24 +74,18 @@ export function ViewComposer({ sid, scenario, onWrote }: { sid: string; scenario
         )}
         <label htmlFor="team-view-text" className={LABEL}>What do you think, in your own words?</label>
         <textarea
-          id="team-view-text" data-testid="team-view-text" className={`${FIELD} min-h-[88px]`} value={text} disabled={busy || unverified}
+          id="team-view-text" data-testid="team-view-text" className={`${FIELD} min-h-[88px]`} value={text} disabled={busy || locked}
           onChange={(e) => { setText(e.target.value); if (error) setError(null) }}
         />
         <div className="flex flex-wrap items-center gap-3">
-          {unverified ? (
-            <Button size="sm" data-testid="team-view-check" disabled={busy} onClick={() => void check()}>Check whether it was saved</Button>
-          ) : (
-            <>
-              <Button size="sm" data-testid="team-view-give" disabled={busy || text.trim() === ''} onClick={() => void run(() => teamApi.giveView(sid, text))}>Hold my view</Button>
-              <button
-                type="button" data-testid="team-view-skip" disabled={busy}
-                className={`${META} cursor-pointer underline underline-offset-2 hover:text-text-body disabled:opacity-50`}
-                onClick={() => void run(() => teamApi.skipView(sid))}
-              >I would rather not answer this</button>
-            </>
-          )}
+          <Button size="sm" data-testid="team-view-give" disabled={busy || locked || text.trim() === ''} onClick={() => void run(() => teamApi.giveView(sid, text))}>Hold my view</Button>
+          <button
+            type="button" data-testid="team-view-skip" disabled={busy || locked}
+            className={`${META} cursor-pointer underline underline-offset-2 hover:text-text-body disabled:opacity-50`}
+            onClick={() => void run(() => teamApi.skipView(sid))}
+          >I would rather not answer this</button>
         </div>
-        {error && <p role="alert" data-testid="team-view-error" className={ERR}>{error}</p>}
+        {locked ? <p role="alert" data-testid="team-view-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="team-view-error" className={ERR}>{error}</p>}
       </div>
       <PrivacyNote phase="before" />
     </section>

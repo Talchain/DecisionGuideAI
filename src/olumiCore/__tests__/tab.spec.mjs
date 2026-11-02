@@ -59,7 +59,7 @@ describe('the page says who it was opened for (finding: an open tab must not wri
   })
   it('exposes the person to DGAI, and sends a bare address to the canvas', () => {
     const { win } = pageFor(ADA, { hash: '' })
-    expect(win.__OLUMI_CORE__).toEqual({ person: ADA })
+    expect(win.__OLUMI_CORE__.person).toEqual(ADA)
     expect(win.location.replaced).toBe('/#/canvas')
     expect(pageFor(ADA, { hash: '#/scenario/' + U }).win.location.replaced).toBeUndefined()
   })
@@ -205,12 +205,23 @@ describe('a tab that was one person\'s leaves nothing of theirs for the next, an
 })
 
 describe('the page says which model it last read, so a stale tab cannot overwrite a newer figure', () => {
-  it('the revision the server put on an answer for a scenario is sent back on the calls that name that scenario, and only those', async () => {
+  it('a revision the server offered is sent back only once the page has ADOPTED that saved model, and only on the calls that name that scenario', async () => {
     const answer = (s) => new Response('{}', { status: 200, headers: s.url.includes('/graph') ? { 'x-olumi-revision': '0123456789abcdef' } : {} })
     const { win, sent } = pageFor(ADA, { answer })
     await win.fetch('/bff/cee/scenarios/' + U + '/graph', { method: 'POST', body: '{}' })
+    await win.fetch('/bff/orchestrate/v2/turn', turnTo(U)) // offered, not yet adopted: the page claims nothing
+    win.__OLUMI_CORE__.adopted('0123456789abcdef')          // the canvas took that model in
     await win.fetch('/bff/orchestrate/v2/turn', turnTo(U))
     await win.fetch('/bff/orchestrate/v2/turn', turnTo('99999999-2222-4333-8444-555555555555'))
-    expect(sent.map((s) => s.headers.get('x-olumi-revision'))).toEqual([null, '0123456789abcdef', null])
+    expect(sent.map((s) => s.headers.get('x-olumi-revision'))).toEqual([null, null, '0123456789abcdef', null])
+  })
+  it('an offered revision whose model never reached the canvas (a cut body, a refused merge) never moves what the page says it has seen', async () => {
+    const { win, sent } = pageFor(ADA, { answer: (s) => new Response('{}', { status: 200, headers: s.url.includes('/graph') ? { 'x-olumi-revision': 'aaaaaaaaaaaaaaaa' } : { 'x-olumi-revision': 'bbbbbbbbbbbbbbbb' } }) })
+    win.__OLUMI_CORE__.adopted('aaaaaaaaaaaaaaaa')              // v1 adopted before it was offered again: unknown to the page, so nothing happens
+    await win.fetch('/bff/cee/scenarios/' + U + '/graph', { method: 'POST', body: '{}' })
+    win.__OLUMI_CORE__.adopted('aaaaaaaaaaaaaaaa')              // v1 adopted
+    await win.fetch('/bff/orchestrate/v2/turn', turnTo(U))       // the answer offers v2; its body is never adopted
+    await win.fetch('/bff/orchestrate/v2/turn', turnTo(U))
+    expect(sent.map((s) => s.headers.get('x-olumi-revision'))).toEqual([null, 'aaaaaaaaaaaaaaaa', 'aaaaaaaaaaaaaaaa'])
   })
 })

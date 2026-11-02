@@ -6,7 +6,7 @@
  */
 import crypto from 'node:crypto'
 import { CoreError, WriteKept, errorTurn } from './core.mjs'
-import { changeRows, byId, figure, num } from './words.mjs'
+import { changeRows, changeSetOf, byId, figure, num } from './words.mjs'
 import { analysisViewOf, ghostAddsOf, modelOf, shownOf } from './model.mjs'
 import { fillCited, noteOf } from './note.mjs'
 import { propIdOf, rev16, rev64, revSaved16, runIdOf, sidOfUuid, turnIdOf, uuidOfSid, isSid } from './ids.mjs'
@@ -40,8 +40,6 @@ const nodesOf = (view) => modelOf(view)?.graph.nodes ?? []
  * (`version.by`), so an older version's receipt says it was saved and no more, on a reload; nothing is guessed for it.
  */
 const savedWords = (n, by, kind) => `Version ${n} saved.${by ? ` ${kind === 'edit' ? 'Changed' : 'Approved'} by ${by}.` : ''}`
-/** Is `x` the same figure as `y`, to float noise (a relative 1e-9)? */
-const closeTo = (x, y) => x === y || Math.abs(x - y) <= 1e-9 * Math.max(Math.abs(x), Math.abs(y))
 /** A chat row that IS an approval reply: it saved a version. A discussion row never is, even when it is about a version. */
 const isApprovalReply = (c) => c.status !== 'discussion' && c.version != null
 
@@ -126,8 +124,9 @@ export function makeShim({ core, log = () => {}, onlySupported }) {
     // A selection that is not a list is garbage, not "no selection": it is refused, never read as the whole card.
     if (body.approve_ids != null && !Array.isArray(body.approve_ids)) return { out: errorTurn(turnId, new CoreError(400, 'That selection is not a list of changes. Nothing was saved.')) }
     if (Array.isArray(body.approve_ids) && body.approve_ids.length === 0) return { out: errorTurn(turnId, new CoreError(400, 'Tick at least one change to confirm, or use “Looks right” to confirm them all. Nothing was saved.')) }
-    const ticked = Array.isArray(body.approve_ids) ? [...new Set(body.approve_ids)].sort() : []
-    const every = [...v.pending.changes.added, ...v.pending.changes.changed, ...v.pending.changes.removed, ...(v.pending.changes.top ?? [])]
+    // A top-level row is ticked as `top:<field>`; core names that change by the field alone.
+    const ticked = Array.isArray(body.approve_ids) ? [...new Set(body.approve_ids.map((id) => (typeof id === 'string' && id.startsWith('top:') ? id.slice(4) : id)))].sort() : []
+    const set = changeSetOf(v), every = [...set.added, ...set.changed, ...set.removed, ...set.top]
     // An id that is not in the change (an unknown one) is never dropped: the whole card is approved only when the ticks are exactly the
     // change set, so core is sent exactly what was ticked and refuses an id it does not know (400) rather than approving everything.
     const only = ticked.length > 0 && !(every.every((id) => ticked.includes(id)) && ticked.every((id) => every.includes(id))) ? ticked : null
@@ -166,11 +165,10 @@ export function makeShim({ core, log = () => {}, onlySupported }) {
   /**
    * A figure the person changed on the canvas: core's own /edit, applied at once as their figure, Olumi replies.
    * `figureIn` is the number they typed, or `{ low, high }` when they set a range: core takes a point OR an interval, so each is
-   * sent as what it is (a range is never flattened to one number). Core has no likeliest value on an edit, so a figure typed over
-   * a RANGE would silently replace the person's range with one number (and the Run with it): that edit is refused, in words,
-   * before anything is sent. A range set over a range is a range edit and is sent, unless the range being changed has a most likely
-   * figure: core would save the new ends with none, so that edit is refused too. So is a range over a single value that is not centred
-   * on it, since the card would then show the middle of the range as the person's figure.
+   * sent as what it is (a range is never flattened to one number). A figure typed over a RANGE would replace the person's range with one
+   * number (and the Run with it), so it is refused in words before anything is sent. A range set over a range, or over a single value, is
+   * sent with the figure the person stated (a most likely, or the one value they gave) when it still lies inside the new range; it is
+   * dropped only when the new range excludes it.
    */
   async function editFigure(ctx, turnId, sid, quantityId, figureIn) {
     let quantity = quantityId
@@ -197,36 +195,18 @@ export function makeShim({ core, log = () => {}, onlySupported }) {
     if (!range && rec?.family === 'quantity' && rec.assertion.kind === 'interval') {
       throw new CoreError(400, `‘${rec.label}’ is a range (${figure(rec.assertion, rec.unit)}), and a typed figure would replace it with one number. Tell me the new range in the chat. Nothing was saved.`)
     }
-    // Core's /edit takes a low and a high only and saves the range with no most-likely figure, so changing the ends of a range that has
-    // one would delete the person's figure: refused in words, before anything is sent.
-    if (range && rec?.family === 'quantity' && rec.assertion.kind === 'interval' && rec.assertion.likely != null) {
-      throw new CoreError(400, `‘${rec.label}’ is ${figure(rec.assertion, rec.unit)}, and changing its ends would lose the most likely figure you gave. Tell me the new range and the most likely figure in the chat. Nothing was saved.`)
-    }
-    // The same loss for a figure the person gave as ONE value: core saves the range with no value of its own, and the card then shows the
-    // middle of the range as the figure. That is only the person's figure when the range is centred on it (70 to 90 around 80); a range
-    // that is not (70 to 100 around 80) would turn their 80 into an 85, so it is refused in words before anything is sent.
-    if (range && rec?.family === 'quantity' && rec.assertion.kind === 'point') {
-      const middle = (figureIn.low + figureIn.high) / 2
-      if (!closeTo(middle, rec.assertion.value)) {
-        throw new CoreError(400, `‘${rec.label}’ is ${figure(rec.assertion, rec.unit)}, and a range of ${num(figureIn.low)} to ${num(figureIn.high)} would replace it with its middle, ${figure({ kind: 'point', value: middle }, rec.unit)}, which you did not give. Tell me the range and the most likely figure in the chat. Nothing was saved.`)
-      }
-    }
-    const value = range ? { kind: 'interval', low: figureIn.low, high: figureIn.high } : { kind: 'point', value: figureIn }
+    // A range edit keeps the figure the person stated (a most likely, or the one value they gave) while it lies inside the new range: sent
+    // as `likely`, and core keeps it too, so a correction never deletes a figure that was supplied.
+    const stated = rec?.family === 'quantity' ? (rec.assertion.kind === 'interval' ? rec.assertion.likely : rec.assertion.kind === 'point' ? rec.assertion.value : null) : null
+    const keep = range && typeof stated === 'number' && stated >= figureIn.low && stated <= figureIn.high ? stated : null
+    const value = range ? { kind: 'interval', low: figureIn.low, high: figureIn.high, ...(keep !== null ? { likely: keep } : {}) } : { kind: 'point', value: figureIn }
     const body = { base: v.version.id, quantity, value, op: String(turnId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 64) || undefined }
+    // The edit carries an operation id, so core de-duplicates it: when the answer is lost the SAME request is sent again with the same id, and
+    // core's answer is the truth (the receipt of the first save, or the save itself). Nothing is guessed from a later read.
     let saved
     try { saved = await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body }) } catch (e) {
       if (!(e instanceof CoreError && e.status === 0 && e.maybeSaved)) throw e
-      // The edit went out and its answer was lost. Core's own record says whether it landed: if the figure is now what was typed, on a
-      // later version, it was kept, and this is answered as a saved figure. If not, nobody knows (it may land after this read), so the
-      // original "may or may not have saved" stands, and the screen is not told that nothing was saved.
-      const after = await view(ctx, sid).catch(() => null)
-      const now = after?.version?.form.records.find((r) => r.id === quantity)?.assertion
-      const same = range ? now?.kind === 'interval' && now.low === value.low && now.high === value.high : now?.kind === 'point' && now.value === value.value
-      if (!after?.version || after.version.id === v.version.id || !same) throw e
-      return afterWrite(async () => {
-        const reply = replyOf(after.chat.find((c) => c.kind === 'edit' && isApprovalReply(c) && c.version === after.version.n), nodesOf(after))
-        return { out: turnBody(after, { turnId, text: [savedWords(after.version.n, after.version.by, 'edit'), reply.text].filter(Boolean).join('\n'), withCard: false, receipt: true, notes: reply.notes }) }
-      })
+      saved = await core('POST', `/api/scenarios/${sid}/edit`, { token: ctx.token, body })
     }
     return afterWrite(async () => {
       const after = await view(ctx, sid)

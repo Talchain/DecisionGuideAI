@@ -5,15 +5,16 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { TeamTab } from '../team/TeamTab'
 import { askAboutEvidence, linkOf, MAX_ASK_CHARS } from '../team/EvidencePanel'
-import { NOT_FOR_THIS_PAGE, setOnModelMoved, useTeamStore } from '../team/store'
+import { NOT_FOR_THIS_PAGE, resetCanvasSync, setOnModelMoved, useTeamStore } from '../team/store'
 import { draftOf, resetDrafts } from '../team/drafts'
+import { MAY_HAVE_SAVED, NOT_CONFIRMED, resetWrites } from '../team/writes'
 import { setTeamFetch } from '../team/api'
 import { teamEvidenceNotes, withTeamEvidence } from '../team/evidenceNotes'
 import { fakeApi, scenario } from './teamFixtures'
 import type { TeamCommitmentRow, TeamEvidenceRow, TeamScenario } from '../team/types'
 
 const UUID = '00000000-0000-4000-8000-75ba67edc0e5'
-const reset = () => { useTeamStore.setState({ uuid: null, sid: null, scenario: null, status: 'none', error: null }); resetDrafts() }
+const reset = () => { useTeamStore.setState({ uuid: null, sid: null, scenario: null, status: 'none', error: null }); resetDrafts(); resetWrites(); resetCanvasSync() }
 const asPage = (id: string | null) => { (globalThis as { __OLUMI_CORE__?: unknown }).__OLUMI_CORE__ = id === null ? undefined : { person: { id } } }
 beforeEach(reset)
 afterEach(() => { cleanup(); setTeamFetch(null); setOnModelMoved(null); asPage(null); reset() })
@@ -62,85 +63,102 @@ describe('Codex 2: a view given before someone joined does not hide the composer
   })
 })
 
-describe('Codex 3: a write whose answer was lost is never called unsent, and is not sent twice', () => {
-  const lose = (state: () => TeamScenario, after: (path: string, body: unknown) => void, readFails = () => false) => {
+describe('Codex 3: a write whose answer was lost is never guessed from a later read', () => {
+  /** A network that loses the answer to every write (`savedByCore` says what core did with it), and answers reads from `state`. */
+  const lose = (state: () => TeamScenario, after: (path: string, body: unknown) => void, lost: (nth: number) => boolean = () => true) => {
     const calls: Array<{ method: string; path: string; body: unknown }> = []
+    let posts = 0
     const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input), method = init?.method ?? 'GET', body = init?.body ? JSON.parse(String(init.body)) : undefined
       calls.push({ method, path, body })
-      if (method === 'POST') { after(path, body); throw new TypeError('connection dropped after the save') }
-      if (readFails()) throw new TypeError('down')
+      if (method === 'POST') { posts += 1; after(path, body); if (lost(posts)) throw new TypeError('connection dropped after the save'); return { ok: true, status: 201, json: async () => ({ evidence: 1, outcome: 1 }) } as Response }
       return { ok: true, status: 200, json: async () => state() } as Response
     }) as typeof fetch
     return { calls, fetchImpl }
   }
-  it('a view that WAS saved: the tab reads back, shows it held, and never says nothing was sent', async () => {
-    let state = scenario({ waiting: ['Ada', 'Bea'] })
-    const net = lose(() => state, () => { state = { ...state, waiting: ['Bea'], views: [view({ text: 'saved words' })] } })
-    setTeamFetch(net.fetchImpl)
-    render(<TeamTab scenarioUuid={UUID} />)
-    fireEvent.change(await screen.findByTestId('team-view-text'), { target: { value: 'saved words' } })
-    fireEvent.click(screen.getByTestId('team-view-give'))
-    await screen.findByTestId('team-view-held')
-    expect(screen.getByTestId('team-view-held-text').textContent).toBe('saved words')
-    expect(document.body.textContent).not.toMatch(/nothing was sent/i)
-    expect(net.calls.filter((c) => c.method === 'POST')).toHaveLength(1)
-  })
-  it('a view that was NOT saved (read back ok): said so, and it can be sent again', async () => {
-    const state = scenario({ waiting: ['Ada', 'Bea'] })
+  const fillView = async (text: string) => { fireEvent.change(await screen.findByTestId('team-view-text'), { target: { value: text } }); fireEvent.click(screen.getByTestId('team-view-give')) }
+  it('a view has no operation id in core: after a lost answer it is locked, whatever a read shows, and is never sent again', async () => {
+    const state = scenario({ waiting: ['Ada', 'Bea'] })   // a read made right now shows nothing, yet the write may still land: that proves nothing
     const net = lose(() => state, () => undefined)
     setTeamFetch(net.fetchImpl)
     render(<TeamTab scenarioUuid={UUID} />)
-    fireEvent.change(await screen.findByTestId('team-view-text'), { target: { value: 'words' } })
-    fireEvent.click(screen.getByTestId('team-view-give'))
-    expect((await screen.findByTestId('team-view-error')).textContent).toContain('nothing was saved')
-    expect((screen.getByTestId('team-view-give') as HTMLButtonElement).disabled).toBe(false)
-    expect((screen.getByTestId('team-view-text') as HTMLTextAreaElement).value).toBe('words')
-  })
-  it('when what Olumi holds cannot be read either, nothing is known and a second send is NOT offered', async () => {
-    const state = scenario({ waiting: ['Ada', 'Bea'] })
-    let down = false
-    const net = lose(() => state, () => { down = true }, () => down)
-    setTeamFetch(net.fetchImpl)
-    render(<TeamTab scenarioUuid={UUID} />)
-    fireEvent.change(await screen.findByTestId('team-view-text'), { target: { value: 'words' } })
-    fireEvent.click(screen.getByTestId('team-view-give'))
-    expect((await screen.findByTestId('team-view-error')).textContent).toContain('could not tell whether')
-    expect(screen.queryByTestId('team-view-give')).toBeNull()
-    expect(screen.queryByTestId('team-view-skip')).toBeNull()
-    expect(screen.getByTestId('team-view-check')).toBeTruthy()
+    await fillView('words')
+    expect((await screen.findByTestId('team-view-error')).textContent).toBe(MAY_HAVE_SAVED)
+    expect(document.body.textContent).not.toMatch(/nothing was saved/i)
+    expect((screen.getByTestId('team-view-give') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByTestId('team-view-skip') as HTMLButtonElement).disabled).toBe(true)
     expect(net.calls.filter((c) => c.method === 'POST')).toHaveLength(1)
   })
-  it('a commitment that WAS saved is not saved again: it is found in what Olumi holds', async () => {
+  it('the lock is in the store, not the component: Team, Model, Team again gives the send back to nobody', async () => {
+    const state = scenario({ waiting: ['Ada', 'Bea'] })
+    const net = lose(() => state, () => undefined)
+    setTeamFetch(net.fetchImpl)
+    const first = render(<TeamTab scenarioUuid={UUID} />)
+    await fillView('words')
+    await screen.findByTestId('team-view-error')
+    first.unmount()
+    useTeamStore.setState({ uuid: null, sid: null, scenario: null, status: 'none', error: null })
+    render(<TeamTab scenarioUuid={UUID} />)
+    expect((await screen.findByTestId('team-view-error')).textContent).toBe(MAY_HAVE_SAVED)
+    expect((screen.getByTestId('team-view-give') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByTestId('team-view-text') as HTMLTextAreaElement).value).toBe('words')
+    expect(net.calls.filter((c) => c.method === 'POST')).toHaveLength(1)
+  })
+  it('a commitment is locked the same way, and what core trimmed does not matter: no read is compared with what was typed', async () => {
     let state = scenario()
-    const net = lose(() => state, (_p, b) => { const x = b as { action: string; owner: string; expect: string; reconsider: string }; state = { ...state, commitments: [commitment({ action: x.action, owner_id: x.owner, expect: x.expect, reconsider: x.reconsider })] } })
+    const net = lose(() => state, (_p, b) => { const x = b as { action: string; owner: string; expect: string; reconsider: string }; state = { ...state, commitments: [commitment({ action: x.action.trim(), owner_id: x.owner, expect: x.expect, reconsider: x.reconsider })] } })
     setTeamFetch(net.fetchImpl)
     render(<TeamTab scenarioUuid={UUID} />)
     fireEvent.click(await screen.findByTestId('team-commitment-open'))
-    fireEvent.change(screen.getByTestId('team-c-action'), { target: { value: 'hire' } })
+    fireEvent.change(screen.getByTestId('team-c-action'), { target: { value: '  hire  ' } })
     fireEvent.change(screen.getByTestId('team-c-expect'), { target: { value: 'x' } })
     fireEvent.change(screen.getByTestId('team-c-reconsider'), { target: { value: 'y' } })
     fireEvent.change(screen.getByTestId('team-c-owner'), { target: { value: '5' } })
     fireEvent.click(screen.getByTestId('team-commitment-save'))
-    await screen.findByTestId('team-commitment-12')
+    expect((await screen.findByTestId('team-commitment-error')).textContent).toBe(MAY_HAVE_SAVED)
+    expect((screen.getByTestId('team-commitment-save') as HTMLButtonElement).disabled).toBe(true)
     expect(net.calls.filter((c) => c.method === 'POST')).toHaveLength(1)
-    expect(screen.queryByTestId('team-commitment-save')).toBeNull()
   })
-  it('evidence retried after a lost answer carries the SAME op, so core adds one row; the message says so', async () => {
-    const state = scenario()
-    const net = lose(() => state, () => undefined)
-    setTeamFetch(net.fetchImpl)
-    render(<TeamTab scenarioUuid={UUID} />)
+  const openEvidence = async () => {
     fireEvent.click(await screen.findByTestId('team-evidence-open'))
     fireEvent.change(screen.getByTestId('team-evidence-body'), { target: { value: 'export' } })
     fireEvent.change(screen.getByTestId('team-evidence-bears'), { target: { value: 'per_specialist' } })
     fireEvent.click(screen.getByLabelText('Supports it'))
     fireEvent.click(screen.getByTestId('team-evidence-add'))
-    expect((await screen.findByTestId('team-evidence-error')).textContent).toContain('will not be added twice')
-    fireEvent.click(screen.getByTestId('team-evidence-add'))
+  }
+  it('evidence has an operation id: a lost answer sends the SAME request with the SAME op at once, and core\'s answer is the truth', async () => {
+    const net = lose(() => scenario(), () => undefined, (n) => n === 1)
+    setTeamFetch(net.fetchImpl)
+    render(<TeamTab scenarioUuid={UUID} />)
+    await openEvidence()
     await waitFor(() => expect(net.calls.filter((c) => c.method === 'POST')).toHaveLength(2))
+    const posts = net.calls.filter((c) => c.method === 'POST')
+    expect(posts[1]!.body).toEqual(posts[0]!.body)
+    expect((posts[0]!.body as { op: string }).op).toMatch(/^[A-Za-z0-9-]{8,64}$/)
+    await waitFor(() => expect(screen.queryByTestId('team-evidence-error')).toBeNull())
+  })
+  it('when the resend is lost too, the person is told it was not confirmed, and the next press still carries that op', async () => {
+    const net = lose(() => scenario(), () => undefined, (n) => n <= 2)
+    setTeamFetch(net.fetchImpl)
+    render(<TeamTab scenarioUuid={UUID} />)
+    await openEvidence()
+    expect((await screen.findByTestId('team-evidence-error')).textContent).toBe(NOT_CONFIRMED)
+    fireEvent.click(screen.getByTestId('team-evidence-add'))
+    await waitFor(() => expect(net.calls.filter((c) => c.method === 'POST')).toHaveLength(3))
     const ops = net.calls.filter((c) => c.method === 'POST').map((c) => (c.body as { op: string }).op)
-    expect(ops[0]).toBe(ops[1])
+    expect(new Set(ops).size).toBe(1)
+  })
+  it('an op belongs to its content: evidence edited after a lost answer is a new request with a new op', async () => {
+    const net = lose(() => scenario(), () => undefined, (n) => n <= 2)
+    setTeamFetch(net.fetchImpl)
+    render(<TeamTab scenarioUuid={UUID} />)
+    await openEvidence()
+    await screen.findByTestId('team-evidence-error')
+    fireEvent.change(screen.getByTestId('team-evidence-body'), { target: { value: 'export, corrected' } })
+    fireEvent.click(screen.getByTestId('team-evidence-add'))
+    await waitFor(() => expect(net.calls.filter((c) => c.method === 'POST')).toHaveLength(3))
+    const ops = net.calls.filter((c) => c.method === 'POST').map((c) => (c.body as { op: string }).op)
+    expect(ops[2]).not.toBe(ops[0])
   })
 })
 
@@ -301,20 +319,23 @@ describe('design QA 3: the privacy promise is said once, and in the words of the
   })
 })
 
-describe('design QA 6: a range with one end says so plainly', () => {
-  it('an option that lands on one figure reads "land on 80", never "between 80 and 80"', async () => {
+describe('design QA 6 and Codex 10: a range is never turned into a point by rounding, and code states no finding of its own', () => {
+  it('two ends that differ by a hair are both shown as they are; no sentence says the runs "land on" one figure', async () => {
     const base = scenario()
-    const s = scenario({ commitments: [commitment()], version: { ...base.version!, facts: [{ id: 'F2', value: '80 ticket/week', text: 'x', about: { kind: 'range', option: 'add_one', low: 80, high: 80, median: 80, unit: 'ticket/week' } }] } })
+    const s = scenario({ commitments: [commitment()], version: { ...base.version!, facts: [{ id: 'F2', value: '99.96 to 100.04 ticket/week', text: 'Core says this in its own words.', about: { kind: 'range', option: 'add_one', low: 99.96, high: 100.04, median: 100, unit: 'ticket/week' } }] } })
     setTeamFetch(fakeApi(() => ({ json: s })).fetchImpl)
     render(<TeamTab scenarioUuid={UUID} />)
-    expect((await screen.findByTestId('team-commitment-band-line-F2')).textContent).toBe('Under ‘Add one specialist’, 8 runs in 10 land on 80 ticket/week, in this model.')
+    expect((await screen.findByTestId('team-commitment-band-line-F2')).textContent).toBe('Core says this in its own words.')
+    expect(screen.getByTestId('team-commitment-band-low-F2').textContent).toBe('100 ticket/week')
+    expect(screen.getByTestId('team-commitment-band-high-F2').textContent).toBe('100 ticket/week')
+    expect(screen.getByTestId('team-commitment-band').textContent).not.toMatch(/land on|runs in 10|between 100 and 100/)
   })
 })
 
-describe('design QA 7: another member\'s approval reaches this person\'s canvas', () => {
+describe('design QA 7: another member\'s approval reaches this person\'s canvas, and a failed read of it is tried again', () => {
   it('a read that finds a newer approved version tells the page, once, so the canvas reads the saved model again', async () => {
     const told: Array<[string, number]> = []
-    setOnModelMoved((uuid, n) => told.push([uuid, n]))
+    setOnModelMoved(async (uuid, n) => { told.push([uuid, n]); return true })
     const base = scenario()
     let version = 1
     setTeamFetch(fakeApi(() => ({ json: scenario({ version: { ...base.version!, n: version } }) })).fetchImpl)
@@ -327,5 +348,26 @@ describe('design QA 7: another member\'s approval reaches this person\'s canvas'
     fireEvent.click(screen.getByTestId('team-check'))
     await waitFor(() => expect(useTeamStore.getState().status).toBe('ready'))
     expect(told).toHaveLength(1)
+  })
+  it('the canvas could not read the newer model: the next read asks again, until the canvas has it', async () => {
+    const told: number[] = []
+    let canvasWorks = false
+    setOnModelMoved(async (_uuid, n) => { told.push(n); return canvasWorks })
+    const base = scenario()
+    let version = 1
+    setTeamFetch(fakeApi(() => ({ json: scenario({ version: { ...base.version!, n: version } }) })).fetchImpl)
+    render(<TeamTab scenarioUuid={UUID} />)
+    await screen.findByTestId('team-members')
+    version = 2
+    fireEvent.click(screen.getByTestId('team-check'))
+    await waitFor(() => expect(told).toEqual([2]))              // failed: the Team tab shows 2, the canvas still 1
+    fireEvent.click(screen.getByTestId('team-check'))
+    await waitFor(() => expect(told).toEqual([2, 2]))           // the same version again, though the tab already shows it
+    canvasWorks = true
+    fireEvent.click(screen.getByTestId('team-check'))
+    await waitFor(() => expect(told).toEqual([2, 2, 2]))
+    fireEvent.click(screen.getByTestId('team-check'))
+    await waitFor(() => expect(useTeamStore.getState().status).toBe('ready'))
+    expect(told).toHaveLength(3)                                // adopted: no more asking
   })
 })

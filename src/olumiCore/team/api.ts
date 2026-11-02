@@ -10,7 +10,7 @@ export class TeamApiError extends Error {
   readonly status: number
   /**
    * A write whose outcome is not known: the connection dropped or the server failed after the request may have been processed. It may
-   * have been saved. Never worded as "nothing was sent"; the caller reads the scenario again to find out before it offers a second send.
+   * have been saved. Never worded as "nothing was sent", and never settled by a later read: `writes.ts` sends the same request again with the same op id, or locks the write.
    */
   readonly uncertain: boolean
   constructor(status: number, message: string, uncertain = false) {
@@ -28,7 +28,7 @@ export function setTeamFetch(f: Fetch | null): void { fetchImpl = f }
 
 export const READ_FAILED = 'Olumi could not be read just now. Try again in a moment.'
 /** A write whose answer never came back: it may have been saved. */
-export const UNCERTAIN_WRITE = 'The connection dropped before Olumi answered, so this may have been saved. Olumi is being asked what it holds.'
+export const UNCERTAIN_WRITE = 'The connection dropped before Olumi answered, so this may have been saved.'
 const WORDS: Readonly<Record<number, string>> = {
   401: 'Open your private link to continue. This browser is not signed in to Olumi, or your link has expired.',
   404: 'That scenario is not available to you. Open it from your own private link.',

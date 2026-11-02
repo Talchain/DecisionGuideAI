@@ -195,6 +195,20 @@ export function decideByWords(d) {
 }
 
 /**
+ * THE COMPLETE CHANGE SET of a held proposal, built once: what a person approves is exactly this, and every surface that discloses it
+ * (the card's rows, the ghost's notes, the check on which ids may be approved) reads it from here and nowhere else.
+ * `top` is core's `changes.top`, and for a first draft (which core gives an empty `top`, having nothing to compare with) the deadline the
+ * draft itself proposes: approving the draft saves it.
+ */
+export function changeSetOf(view) {
+  const p = view.pending
+  const c = p?.changes ?? {}
+  const top = [...(c.top ?? [])]
+  if (p && !view.version && p.form?.decide_by && !top.includes('decide_by')) top.push('decide_by')
+  return { added: [...(c.added ?? [])], changed: [...(c.changed ?? [])], removed: [...(c.removed ?? [])], top }
+}
+
+/**
  * The changes to the model's top-level fields (core's `changes.top`): the question, its name, its time step, the questions to ask
  * oneself, and the decision date. A proposal that changes only these has no changed record, and without these rows it would be a
  * card with nothing listed and an approve button. Each says what it was and what it becomes; the deadline says whose it is.
@@ -205,7 +219,7 @@ export function topRows(view) {
   const was = view.version?.form ?? null
   const now = p.form
   const rows = []
-  for (const field of p.changes.top ?? []) {
+  for (const field of changeSetOf(view).top) {
     if (field === 'decide_by') {
       const before = was?.decide_by ?? null, after = now.decide_by ?? null
       if (!before && !after) continue
@@ -228,9 +242,10 @@ export function changeRows(view) {
   const p = view.pending
   const now = byId(p.form), was = byId(view.version?.form)
   const rows = []
-  for (const id of p.changes.added) if (now.has(id)) rows.push(rowFor(now.get(id), 'add', p.form))
-  for (const id of p.changes.changed) if (now.has(id)) rows.push(rowFor(now.get(id), 'change', p.form, was.has(id) ? describe(was.get(id), view.version.form).after : null))
-  for (const id of p.changes.removed) if (was.has(id)) rows.push(rowFor(was.get(id), 'remove', view.version.form, describe(was.get(id), view.version.form).after))
+  const set = changeSetOf(view)
+  for (const id of set.added) if (now.has(id)) rows.push(rowFor(now.get(id), 'add', p.form))
+  for (const id of set.changed) if (now.has(id)) rows.push(rowFor(now.get(id), 'change', p.form, was.has(id) ? describe(was.get(id), view.version.form).after : null))
+  for (const id of set.removed) if (was.has(id)) rows.push(rowFor(was.get(id), 'remove', view.version.form, describe(was.get(id), view.version.form).after))
   rows.push(...topRows(view))
   const order = { used: 0, inferred: 1, left_out: 2, other: 3 }
   // What the decision is about (its date, its question) leads its section; then what is being decided, then the figures and reasoning.

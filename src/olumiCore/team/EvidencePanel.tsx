@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useDraft } from './drafts'
 import { MessageSquareQuote } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
-import { newOp, teamApi, TeamApiError } from './api'
+import { teamApi, TeamApiError } from './api'
+import { runWrite } from './writes'
 import { recordChoices, wordsOfRecord } from './model'
 import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
 import type { TeamEvidenceRow, TeamScenario } from './types'
@@ -14,8 +15,8 @@ const STANCES: ReadonlyArray<{ value: Stance; words: string }> = [
   { value: 'unclear', words: 'Not clear yet' },
 ]
 const NONE = '__none__'
-interface EvidenceDraft { open: boolean; text: string; source: string; bears: string; stance: Stance | null; op: string }
-const EMPTY: EvidenceDraft = { open: false, text: '', source: '', bears: '', stance: null, op: '' }
+interface EvidenceDraft { open: boolean; text: string; source: string; bears: string; stance: Stance | null }
+const EMPTY: EvidenceDraft = { open: false, text: '', source: '', bears: '', stance: null }
 
 /**
  * A source is a link only when it is an http(s) address with no spaces (core's own rule) that the browser reads as an address with NO sign-in
@@ -54,7 +55,7 @@ export function askAboutEvidence(e: Pick<TeamEvidenceRow, 'text'>): string {
 export function EvidencePanel({ sid, scenario, onWrote, onAskOlumi }: { sid: string; scenario: TeamScenario; onWrote: () => Promise<boolean>; onAskOlumi?: (q: string) => void }): JSX.Element {
   const choices = recordChoices(scenario)
   const approved = scenario.version !== null
-  // What is typed is kept while the tab is away (`drafts.ts`). `op` is one per attempt, so a retry after a lost answer never adds a second row.
+  // What is typed is kept while the tab is away (`drafts.ts`).
   const [d, setD, dropDraft] = useDraft<EvidenceDraft>(`${sid}:evidence`, EMPTY)
   const { open, text, source, bears, stance } = d
   const setOpen = (v: boolean) => setD((p) => ({ ...p, open: v }))
@@ -72,15 +73,13 @@ export function EvidencePanel({ sid, scenario, onWrote, onAskOlumi }: { sid: str
   const add = async () => {
     if (!ready || stance === null) return
     setBusy(true); setError(null)
-    const sendOp = d.op !== '' ? d.op : newOp()
-    if (d.op === '') setD((p) => ({ ...p, op: sendOp }))
+    const input = { text, source: source.trim() === '' ? null : source, concerns: effectiveBears === NONE ? [] : [effectiveBears], stance }
     try {
-      await teamApi.addEvidence(sid, { text, source: source.trim() === '' ? null : source, concerns: effectiveBears === NONE ? [] : [effectiveBears], stance }, sendOp)
+      await runWrite(`${sid}:evidence`, { op: true }, input, (op) => teamApi.addEvidence(sid, input, op!))
       dropDraft()
       await onWrote()
     } catch (e) {
-      // The same op goes with the next press, so a send whose answer was lost is never added twice.
-      setError(e instanceof TeamApiError && e.uncertain ? 'Olumi may not have received that. Send it again: it will not be added twice.' : e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
+      setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
     } finally { setBusy(false) }
   }
 

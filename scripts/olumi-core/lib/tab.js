@@ -109,7 +109,17 @@
 
   // 5. The model this page last read, per scenario (the `x-olumi-revision` the server put on its last saved-model read or turn). A figure
   // edit says it, so the server can refuse an edit made from a page that is behind the saved model, instead of overwriting a newer figure.
+  // A revision the server OFFERED is not a revision the page HAS: it counts only once the page has adopted that saved model (`adopted`, called
+  // by the canvas store when it takes the hash into the model it shows). A read whose body was cut short, or one the canvas refused, never
+  // moves what the page claims to have seen, so its next edit is still checked against the model it really shows.
   var seen = {}
+  var offered = {}
+  win.__OLUMI_CORE__.adopted = function (rev) {
+    try {
+      var uuid = offered[rev]
+      if (uuid) { seen[uuid] = rev; delete offered[rev] }
+    } catch (e) { /* none */ }
+  }
 
   // 2 and 3. say who this tab is and which scenario a UUID is, on every call to the server's /bff/ and /api/ routes; learn new pairings.
   var realFetch = win.fetch
@@ -142,7 +152,7 @@
           var pair = said ? ALIAS.exec(said) : null
           if (pair) write(SCENARIO_KEY + pair[1], pair[2])
           var rev = res.headers.get('x-olumi-revision')
-          if (named && rev) seen[named] = rev
+          if (named && rev) offered[rev] = named
         } catch (e) { /* none */ }
         return res
       })

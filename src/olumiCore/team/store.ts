@@ -33,10 +33,29 @@ let seq = 0
 
 /**
  * Told when a read shows the approved model has moved on (another member approved a change): the page reads the saved model again so the
- * canvas shows it too (registered by the dock; the store knows nothing of the canvas).
+ * canvas shows it too (registered by the dock; the store knows nothing of the canvas). It answers whether the canvas now shows that model.
+ * The store keeps the version the CANVAS last confirmed, apart from the version the Team tab shows, and asks again on every read until they agree:
+ * a read of the saved model that failed is tried again on the next read, never given up with the Team tab alone on the newer version.
  */
-let onModelMoved: ((uuid: string, version: number) => void) | null = null
-export function setOnModelMoved(fn: ((uuid: string, version: number) => void) | null): void { onModelMoved = fn }
+let onModelMoved: ((uuid: string, version: number) => Promise<boolean>) | null = null
+export function setOnModelMoved(fn: ((uuid: string, version: number) => Promise<boolean>) | null): void { onModelMoved = fn }
+
+let canvasAt: { uuid: string; n: number } | null = null
+let syncing = false
+async function syncCanvas(uuid: string, n: number, current: () => number | null): Promise<void> {
+  if (syncing || onModelMoved === null) return
+  syncing = true
+  let adopted = false
+  try {
+    adopted = await onModelMoved(uuid, n) === true
+    if (adopted) canvasAt = { uuid, n }
+  } catch { /* the canvas stays where it was: the next read asks again */ } finally { syncing = false }
+  // A newer version arrived while the canvas was reading this one. (A failed read is not asked again here, only on the next read.)
+  const now = current()
+  if (adopted && now !== null && now !== n) void syncCanvas(uuid, now, current)
+}
+/** For specs. */
+export function resetCanvasSync(): void { canvasAt = null; syncing = false }
 
 export const useTeamStore = create<TeamState>()((set, get) => ({
   uuid: null, sid: null, scenario: null, status: 'none', error: null,
@@ -58,11 +77,14 @@ export const useTeamStore = create<TeamState>()((set, get) => ({
       if (mine !== seq) return false
       if (!isTeamScenario(scenario)) throw new TeamApiError(0, READ_FAILED)
       if (!isForThisPage(scenario)) throw new TeamApiError(409, NOT_FOR_THIS_PAGE)
-      const had = get().scenario
       set({ scenario, status: 'ready', error: null })
       const now = scenario.version?.n ?? null
       const uuid = get().uuid
-      if (had !== null && now !== null && now !== (had.version?.n ?? null) && uuid) onModelMoved?.(uuid, now)
+      if (uuid && now !== null) {
+        // The first read of a scenario is the model the canvas booted from; after that the canvas must agree with what the tab shows.
+        if (canvasAt === null || canvasAt.uuid !== uuid) canvasAt = { uuid, n: now }
+        else if (canvasAt.n !== now) void syncCanvas(uuid, now, () => get().scenario?.version?.n ?? null)
+      }
       return true
     } catch (e) {
       if (mine !== seq) return false
