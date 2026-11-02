@@ -14,7 +14,8 @@ import { useCanvasStore } from '../../store'
 import { TradeOffsKey } from '../TradeOffsKey'
 import { useLensFilter } from '../../hooks/useLensFilter'
 import { PresentationProvider } from '../../../presentation/v10'
-import { v10TradeOffsStroke } from '../../edges/v10TradeOffsStroke'
+import { v10TradeOffsStroke, type V10RouteDrawing } from '../../edges/v10TradeOffsStroke'
+import { tradeOffRouteDrawing, type OptionTradeOffs } from '../tradeOffsModel'
 
 type WireEdge = Record<string, unknown> & { from: string; to: string }
 const WIRE = (fixture as unknown as { draft: { edges: WireEdge[] } }).draft.edges
@@ -84,11 +85,28 @@ describe('v10 Trade-offs key card', () => {
     assert.ok(givesUp.every((m) => m.dataset.effect === 'gives_up' && m.textContent?.startsWith('−')))
   })
 
-  it('the legend names only the colours the option’s routes use, and the grey for every other link', () => {
+  it('the legend names only what is drawn: both colours, and grey only when a link is left to rest', () => {
     const view = inV10(<TradeOffsKey folded />)
-    const text = view.getByTestId('trade-offs-key-swatches').textContent
-    assert.equal(text, 'helps reach the goalworks against itother links')
-    assert.doesNotMatch(text ?? '', /direction not set/)
+    // All four links sit on this option's routes, so no link rests in grey and "other links" is not named.
+    assert.equal(view.getByTestId('trade-offs-key-swatches').textContent, 'helps reach the goalworks against it')
+    cleanup()
+    // CONTRAST: a link on none of the option's routes rests in grey, and the legend then names it.
+    useCanvasStore.setState({
+      nodes: [...useCanvasStore.getState().nodes, node('unrelated', 'factor')],
+      edges: [...useCanvasStore.getState().edges, { id: 'unrelated>mrr', source: 'unrelated', target: 'mrr', data: { direction: 'positive' } }],
+    } as never)
+    const view2 = inV10(<TradeOffsKey folded />)
+    assert.equal(view2.getByTestId('trade-offs-key-swatches').textContent, 'helps reach the goalworks against itother links')
+  })
+
+  it('never names "direction not set" or a colour no link wears: where the options disagree on every link, only the grey is named', () => {
+    // p54 now LOWERS the price while p59 raises it: every link on p59's routes moves the goal the other way under p54.
+    useCanvasStore.setState({
+      nodes: [...useCanvasStore.getState().nodes.map((n) => n.id === 'p54' ? { ...n, data: { ...n.data, interventions: { pro_plan_price: { value: 0.2 } } } } : n), node('unrelated', 'factor')],
+      edges: [...useCanvasStore.getState().edges, { id: 'unrelated>mrr', source: 'unrelated', target: 'mrr', data: { direction: 'positive' } }],
+    } as never)
+    const view = inV10(<TradeOffsKey folded />)
+    assert.equal(view.getByTestId('trade-offs-key-swatches').textContent, 'other links')
   })
 
   it('an option that changes nothing gets no colour legend: its sentence says why, the card is not blank', () => {
@@ -99,37 +117,77 @@ describe('v10 Trade-offs key card', () => {
   })
 })
 
+const routeStep = (edgeId: string | null) => ({ nodeId: edgeId ?? 'f', label: edgeId ?? 'f', move: null, edgeId, link: null })
+const optionWith = (optionId: string, routes: Array<{ effect: 'gains' | 'gives_up' | 'not_set'; edges: string[] }>): OptionTradeOffs => ({
+  optionId, label: optionId, againstLabel: null, changes: 1,
+  routes: routes.map((r, i) => ({ key: `${optionId}:${i}`, effect: r.effect, steps: [routeStep(null), ...r.edges.map(routeStep)] })),
+})
+
 describe('v10 Trade-offs on the canvas', () => {
-  it('the lens hands the canvas each route link with the way its route moves the goal; none for a link off the routes', () => {
-    function Filter() { useLensFilter(); return null }
+  function Filter() { useLensFilter(); return null }
+  const effectsFor = (picked: string) => {
     useCanvasStore.getState().setLens('full')
     render(<Filter />)
-    act(() => useCanvasStore.getState().setLens('tradeoffs'))
-    const effects = useCanvasStore.getState().lens._routeEffects
+    act(() => useCanvasStore.getState().setLens('tradeoffs', picked))
+    return useCanvasStore.getState().lens._routeEffects
+  }
+
+  it('hands the canvas a colour only for links whose sign every option agrees on; none for a link off the routes', () => {
+    const effects = effectsFor('p59')
     assert.equal(effects.get('pro_plan_price>mrr'), 'gains')
     assert.equal(effects.get('pro_plan_price>monthly_new_pro_subscribers'), 'gives_up')
+    assert.equal(effects.has('unrelated>mrr'), false)
     // CONTRAST: another lens clears them.
     act(() => useCanvasStore.getState().setLens('rests_on'))
     assert.equal(useCanvasStore.getState().lens._routeEffects.size, 0)
   })
 
-  it('colours a route by its effect, rests every other cause-and-effect link in grey at full strength, and leaves structural links alone', () => {
-    const at = (routeEffect: 'gains' | 'gives_up' | 'not_set' | null, structural = false) =>
-      v10TradeOffsStroke({ presentation: 'v10', lens: 'tradeoffs', routeEffect, structural })
-    assert.equal(at('gains')?.stroke, 'var(--edge-positive)')
-    assert.equal(at('gives_up')?.stroke, 'var(--edge-negative)')
-    assert.deepEqual(at('not_set'), { stroke: 'var(--edge-neutral)', strokeWidth: null, dash: '1 5' })
-    assert.deepEqual(at(null), { stroke: 'var(--edge-neutral)', strokeWidth: 1, dash: null })
+  it('a link the options disagree on gets no colour (helps under one option, works against the goal under another)', () => {
+    useCanvasStore.setState({
+      nodes: useCanvasStore.getState().nodes.map((n) => n.id === 'p54' ? { ...n, data: { ...n.data, interventions: { pro_plan_price: { value: 0.2 } } } } : n),
+    } as never)
+    const effects = effectsFor('p59')
+    assert.ok(effects.size > 0, 'precondition: the routes are still there, so the lens still rests the other links')
+    assert.ok([...effects.values()].every((d) => d === 'none'), `every shared link is left uncoloured: ${JSON.stringify([...effects])}`)
+  })
+
+  it('a link shared by a helpful route and a harmful route is uncoloured, and so is one on a route with an undirected link', () => {
+    const drawing = tradeOffRouteDrawing([optionWith('o', [
+      { effect: 'gains', edges: ['shared', 'a'] },
+      { effect: 'gives_up', edges: ['shared', 'b'] },
+      { effect: 'not_set', edges: ['c'] },
+      { effect: 'gains', edges: ['d'] },
+    ])], optionWith('o', [
+      { effect: 'gains', edges: ['shared', 'a'] },
+      { effect: 'gives_up', edges: ['shared', 'b'] },
+      { effect: 'not_set', edges: ['c'] },
+      { effect: 'gains', edges: ['d'] },
+    ]))
+    assert.deepEqual(Object.fromEntries(drawing), { shared: 'none', a: 'gains', b: 'gives_up', c: 'none', d: 'gains' })
+    // A sign held under one option only is not held under every option.
+    const pickedOnly = optionWith('p', [{ effect: 'gains', edges: ['x'] }])
+    const other = optionWith('q', [{ effect: 'gives_up', edges: ['x'] }])
+    assert.equal(tradeOffRouteDrawing([pickedOnly, other], pickedOnly).get('x'), 'none')
+    assert.equal(tradeOffRouteDrawing([pickedOnly], pickedOnly).get('x'), 'gains')
+  })
+
+  it('the stroke helper changes colour only: green, rose or grey; nothing for a mixed link, no routes, or a structural link', () => {
+    const at = (drawing: V10RouteDrawing, structural = false) => v10TradeOffsStroke({ presentation: 'v10', lens: 'tradeoffs', drawing, structural })
+    assert.deepEqual(at('gains'), { stroke: 'var(--edge-positive)' })
+    assert.deepEqual(at('gives_up'), { stroke: 'var(--edge-negative)' })
+    assert.deepEqual(at(null), { stroke: 'var(--edge-neutral)' })
+    assert.equal(at('none'), null)
+    assert.equal(at(undefined), null)
     assert.equal(at('gains', true), null)
     assert.equal(at(null, true), null)
-    // Nothing in the result dims: no opacity field exists to set.
-    assert.ok(!('opacity' in (at(null) ?? {})))
+    // No width, no dash and no opacity are in its vocabulary: widths show strength, dashes show doubt, nothing dims.
+    assert.deepEqual(Object.keys(at(null) ?? {}), ['stroke'])
   })
 
   it('CONTRAST: the current design and every other lens draw as they always did', () => {
-    for (const routeEffect of ['gains', 'gives_up', 'not_set', null] as const) {
-      assert.equal(v10TradeOffsStroke({ presentation: 'current', lens: 'tradeoffs', routeEffect, structural: false }), null)
-      assert.equal(v10TradeOffsStroke({ presentation: 'v10', lens: 'rests_on', routeEffect, structural: false }), null)
+    for (const drawing of ['gains', 'gives_up', 'none', null, undefined] as const) {
+      assert.equal(v10TradeOffsStroke({ presentation: 'current', lens: 'tradeoffs', drawing, structural: false }), null)
+      assert.equal(v10TradeOffsStroke({ presentation: 'v10', lens: 'rests_on', drawing, structural: false }), null)
     }
   })
 })

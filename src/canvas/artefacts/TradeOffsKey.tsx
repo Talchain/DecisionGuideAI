@@ -25,7 +25,8 @@ import { canvasLinkOfTarget, useCanvasLight } from '../graphChanges/rowCanvasLin
 import { ASSUMPTION_MAP_COPY, RESTS_ON_ORDER, type AssumptionColumn, type AssumptionItem, type RestsOnMark } from './assumptionMapModel'
 import { isUnsettled, restsOnMarkerLabel } from './RestsOnMarker'
 import { FigureCard } from './FigureCard'
-import { tradeOffLinkMarks, tradeOffsForState, type ModelRisk, type Move, type OptionTradeOffs, type RouteEffect, type RouteStep, type TradeOffRoute } from './tradeOffsModel'
+import { linkIsStructural } from '../edges/edgePresentation'
+import { tradeOffLinkMarks, tradeOffRouteDrawing, tradeOffsForState, type ModelRisk, type Move, type OptionTradeOffs, type RouteEffect, type RouteStep, type TradeOffRoute } from './tradeOffsModel'
 
 export const TRADE_OFFS_KEY_TESTID = 'trade-offs-key'
 
@@ -55,7 +56,7 @@ export const TRADE_OFFS_COPY = {
   /** v10: the options as one segmented control (the stepper's ‹ › stay in the current design). */
   optionGroup: 'Option to read the trade-offs of',
   /** v10: what the route colours on the canvas mean, and what the grey is. */
-  swatch: { gains: 'helps reach the goal', gives_up: 'works against it', not_set: 'direction not set yet', rest: 'other links' },
+  swatch: { gains: 'helps reach the goal', gives_up: 'works against it', rest: 'other links' },
   /** v10: the mark before each route, said to a screen reader. */
   sign: { gains: 'Helps reach the goal', gives_up: 'Works against the goal', not_set: 'Direction not set yet' } satisfies Record<RouteEffect, string>,
   previous: 'Previous option',
@@ -250,23 +251,25 @@ function OptionPicker({ options, at, onPick }: { options: readonly OptionTradeOf
   )
 }
 
-/** v10: what the colours on the canvas mean, only for the kinds of route the option has; the rest are grey. */
-function RouteSwatches({ effects }: { effects: ReadonlySet<RouteEffect> }) {
-  const line = (effect: RouteEffect, stroke: string, dash?: string) => effects.has(effect) ? (
-    <span key={effect} className="inline-flex items-center gap-1.5">
-      <svg aria-hidden="true" width="30" height="12" viewBox="0 0 40 12"><path d="M2 6 L38 6" fill="none" stroke={stroke} strokeWidth="3" strokeLinecap="round" strokeDasharray={dash} /></svg>
-      {TRADE_OFFS_COPY.swatch[effect]}
+/** v10: what the colours on the canvas mean. It names only what is drawn: a colour no link wears, or grey with no link left to wear it, is not listed. */
+function RouteSwatches({ drawn, rest }: { drawn: ReadonlySet<'gains' | 'gives_up'>; rest: boolean }) {
+  const line = (key: 'gains' | 'gives_up', stroke: string) => drawn.has(key) ? (
+    <span key={key} className="inline-flex items-center gap-1.5">
+      <svg aria-hidden="true" width="30" height="12" viewBox="0 0 40 12"><path d="M2 6 L38 6" fill="none" stroke={stroke} strokeWidth="3" strokeLinecap="round" /></svg>
+      {TRADE_OFFS_COPY.swatch[key]}
     </span>
   ) : null
+  if (drawn.size === 0 && !rest) return null
   return (
     <p data-testid={`${TRADE_OFFS_KEY_TESTID}-swatches`} className={`${typography.panelMeta} flex flex-wrap gap-x-3 gap-y-1 text-text-body`}>
       {line('gains', 'var(--edge-positive)')}
       {line('gives_up', 'var(--edge-negative)')}
-      {line('not_set', 'var(--edge-neutral)', '1 6')}
-      <span className="inline-flex items-center gap-1.5">
-        <svg aria-hidden="true" width="30" height="12" viewBox="0 0 40 12"><path d="M2 6 L38 6" fill="none" stroke="var(--edge-neutral)" strokeWidth="1.5" strokeLinecap="round" /></svg>
-        {TRADE_OFFS_COPY.swatch.rest}
-      </span>
+      {rest ? (
+        <span className="inline-flex items-center gap-1.5">
+          <svg aria-hidden="true" width="30" height="12" viewBox="0 0 40 12"><path d="M2 6 L38 6" fill="none" stroke="var(--edge-neutral)" strokeWidth="1.5" strokeLinecap="round" /></svg>
+          {TRADE_OFFS_COPY.swatch.rest}
+        </span>
+      ) : null}
     </p>
   )
 }
@@ -393,7 +396,14 @@ export function TradeOffsKey({ folded = false }: { folded?: boolean }) {
       {option.changes > 0 ? TRADE_OFFS_COPY.noRoute(goal) : TRADE_OFFS_COPY.noChange}
     </p>
   ) : null
-  const swatches = v10 && option.routes.length > 0 ? <RouteSwatches effects={new Set(option.routes.map((r) => r.effect))} /> : null
+  // The same drawing the canvas reads (`useLensFilter`): the legend lists only the colours it actually paints.
+  const drawing = v10 ? tradeOffRouteDrawing(read.options, option) : null
+  const swatches = drawing !== null && drawing.size > 0 ? (
+    <RouteSwatches
+      drawn={new Set([...drawing.values()].filter((d): d is 'gains' | 'gives_up' => d !== 'none'))}
+      rest={edges.some((e) => !drawing.has(e.id) && !linkIsStructural(nodes.find((n) => n.id === e.source)?.type, nodes.find((n) => n.id === e.target)?.type, e.data))}
+    />
+  ) : null
   if (folded) {
     // A legend only for routes that are there: an option with none says why, folded or not (A/B 21 Oct).
     return (

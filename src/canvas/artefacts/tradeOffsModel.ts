@@ -270,18 +270,34 @@ export function tradeOffLinkMarks(option: OptionTradeOffs): Map<string, RestsOnM
 }
 
 
+/** What v10 draws on a link of the picked option's routes: a colour, or `none` (left in its normal rendering). */
+export type RouteDrawing = 'gains' | 'gives_up' | 'none'
+
 /**
- * Each link on the option's routes, with the way its route moves the goal (v10 colours the route by it). A link two
- * routes share that disagree is "not set": it is never coloured as a gain or a give-up when the model says both.
+ * v10 colours a link only when every route that uses it, under EVERY option, agrees it moves the goal the way the user
+ * wants (green) or the other way (rose), and each of those routes is fully directed. A link two routes (or two options)
+ * disagree on, or a link on a route with an undirected link, is `none`: no colour and no "not set" mark, because the
+ * canvas states no sign it was not given. A link on none of the picked option's routes is absent from the map.
  */
-export function tradeOffRouteEffects(option: OptionTradeOffs): Map<string, RouteEffect> {
-  const effects = new Map<string, RouteEffect>()
-  for (const route of option.routes) {
-    for (const step of route.steps) {
-      if (step.edgeId === null) continue
-      const held = effects.get(step.edgeId)
-      effects.set(step.edgeId, held === undefined || held === route.effect ? route.effect : 'not_set')
+export function tradeOffRouteDrawing(options: readonly OptionTradeOffs[], picked: OptionTradeOffs): Map<string, RouteDrawing> {
+  const everywhere = new Map<string, Set<RouteEffect>>()
+  for (const option of options) {
+    for (const route of option.routes) {
+      for (const step of route.steps) {
+        if (step.edgeId === null) continue
+        const held = everywhere.get(step.edgeId)
+        if (held) held.add(route.effect)
+        else everywhere.set(step.edgeId, new Set([route.effect]))
+      }
     }
   }
-  return effects
+  const drawing = new Map<string, RouteDrawing>()
+  for (const route of picked.routes) {
+    for (const step of route.steps) {
+      if (step.edgeId === null) continue
+      const effects = everywhere.get(step.edgeId)
+      drawing.set(step.edgeId, effects?.size === 1 && effects.has('gains') ? 'gains' : effects?.size === 1 && effects.has('gives_up') ? 'gives_up' : 'none')
+    }
+  }
+  return drawing
 }

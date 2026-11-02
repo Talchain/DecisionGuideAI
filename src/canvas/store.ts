@@ -261,7 +261,7 @@ function createDefaultLensState() {
     _fragileEdgeIds: new Set<string>(),
     _restsOn: new Map<string, RestsOnMark>(),
     _emphasisEdgeIds: new Set<string>(),
-    _routeEffects: new Map<string, 'gains' | 'gives_up' | 'not_set'>(),
+    _routeEffects: new Map<string, 'gains' | 'gives_up' | 'none'>(),
   }
 }
 
@@ -1326,8 +1326,8 @@ interface CanvasState {
     _restsOn: Map<string, RestsOnMark>
     /** Links a lens puts in front with the canvas's emphasis glow (option routes, "If it failed" links). Nothing dims. */
     _emphasisEdgeIds: Set<string>
-    /** Trade-offs: each link on the picked option's routes, with the way its route moves the goal. Read by the v10 canvas only. */
-    _routeEffects: Map<string, 'gains' | 'gives_up' | 'not_set'>
+    /** Trade-offs: each link on the picked option's routes, with the colour v10 draws or `none`. Empty when the option has no routes. Read by the v10 canvas only. */
+    _routeEffects: Map<string, 'gains' | 'gives_up' | 'none'>
   }
   // M5: Grounding & Provenance
   documents: Document[]
@@ -2081,7 +2081,7 @@ interface CanvasState {
     fragileEdgeIds: Set<string>
     restsOn?: Map<string, RestsOnMark>
     emphasisEdgeIds?: Set<string>
-    routeEffects?: Map<string, 'gains' | 'gives_up' | 'not_set'>
+    routeEffects?: Map<string, 'gains' | 'gives_up' | 'none'>
   }) => void
   // M5: Provenance actions
   addDocument: (document: Omit<Document, 'id' | 'uploadedAt'>) => string
@@ -8247,7 +8247,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const { lens } = get()
     const EMPTY_MARKS = new Map<string, RestsOnMark>()
     const EMPTY_EDGES = new Set<string>()
-    const EMPTY_EFFECTS = new Map<string, 'gains' | 'gives_up' | 'not_set'>()
+    const EMPTY_EFFECTS = new Map<string, 'gains' | 'gives_up' | 'none'>()
     // Skip no-op updates to avoid re-renders (use setsEqual/mapsEqual for collection comparison)
     if (
       setsEqual(lens._dimmedNodeIds, visuals.dimmedNodeIds) &&
