@@ -13,6 +13,7 @@ import { create } from 'zustand'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { newOp, TeamApiError } from '../olumiCore/team/api'
 import { useTeamStore } from '../olumiCore/team/store'
+import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
 import { writes, type View, type ViewTurn } from './client'
 import { useViewStore } from './store'
 import { derivedUuidOf, pairCoreScenario } from '../olumiCore/team/sid'
@@ -175,8 +176,10 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
   const { text, busy, said } = useViewChat()
   const box = useRef<HTMLTextAreaElement>(null)
   const brief = takesBrief(sid, view)
-  // A scenario waiting for its brief puts the person in the brief box (canvas A S6 D6).
-  useEffect(() => { if (brief) box.current?.focus() }, [brief])
+  // A scenario waiting for its brief puts the person in the brief box (canvas A S6 D6), once no write holds it disabled (00065).
+  useEffect(() => { if (brief && !busy) box.current?.focus() }, [brief, busy])
+  // The dock's focus channel reaches this composer (review 00065 ledger).
+  useEffect(() => registerDockedOlumiFocus(() => box.current?.focus()), [])
   if (sid !== null && view === null && error === null) return null
   const blocked = analysisAction !== undefined && !analysisAction.canRun && !analysisAction.isRunning
   return (

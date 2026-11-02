@@ -4,7 +4,7 @@
  * the first-use rail keeps the dock collapsed, as before.
  */
 import '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -27,6 +27,9 @@ import { useCanvasStore } from '../../store'
 import { useUIStore } from '../../../stores/uiStore'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { useViewStore } from '../../../olumiView/store'
+import { useViewChat } from '../../../olumiView/ViewChat'
+import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
+import { focusDockedOlumi } from '../../conversation/dockedOlumiFocus'
 
 const UUID = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
 
@@ -68,5 +71,44 @@ describe('an empty scenario on the lane opens on the brief', () => {
     lane.on = false
     await dock()
     expect(document.querySelector('#view-chat-text')).toBeNull()
+  })
+})
+
+describe('on the lane every way to Olumi leads to the dock\'s Olumi tab (review 00065)', () => {
+  beforeEach(() => { lane.on = true; useFloatingPanelState.setState({ isOpen: false, isMinimised: false } as never) })
+  afterEach(() => useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null }))
+
+  it('"Open Olumi" from another tab fronts the Olumi tab with its composer focused, and opens no floating panel', async () => {
+    sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'results' }))
+    useCanvasStore.setState({ nodes: [{ id: 'a', type: 'viewCard', position: { x: 0, y: 0 }, data: { label: 'A' } }] } as never)
+    await dock()
+    expect(fronted()).toBe('outputs-dock-tab-results')
+    await act(async () => { fireEvent.click(screen.getByTestId('persistent-strip-composer-redirect')) })
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
+    expect(fronted()).toBe('outputs-dock-tab-olumi')
+    expect(useFloatingPanelState.getState().isOpen).toBe(false)
+    expect(document.activeElement?.id).toBe('view-chat-text')
+  })
+
+  it('a floating panel this session left open never puts "Olumi is open" in place of the composer', async () => {
+    useFloatingPanelState.setState({ isOpen: true, isMinimised: false } as never)
+    await dock()
+    expect(screen.queryByTestId('persistent-strip-status')).toBeNull()
+    expect(document.querySelector('#view-chat-text')).not.toBeNull()
+  })
+
+  it('the docked focus channel focuses the composer', async () => {
+    await dock()
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    expect(focusDockedOlumi()).toBe(true)
+    expect(document.activeElement?.id).toBe('view-chat-text')
+  })
+
+  it('the brief box takes focus once Olumi has answered, when it was waiting on a write', async () => {
+    useViewChat.setState({ busy: true })
+    await dock()
+    expect(document.activeElement?.id).not.toBe('view-chat-text')
+    await act(async () => { useViewChat.setState({ busy: false }) })
+    expect(document.activeElement?.id).toBe('view-chat-text')
   })
 })

@@ -91,9 +91,10 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
    */
   const isComposerMode = isOlumiTabActive && (!floatingIsOpen || floatingIsMinimised)
   useEffect(() => {
-    if (!isComposerMode) return
+    // A custom composer (the core lane's) registers its own focus: this ref never reaches its textarea (review 00065 ledger).
+    if (!isComposerMode || composer) return
     return registerDockedOlumiFocus(() => inputBarRef.current?.focus())
-  }, [isComposerMode])
+  }, [isComposerMode, composer])
 
   const handleFocus = useCallback(() => {
     onFocusFloating?.()

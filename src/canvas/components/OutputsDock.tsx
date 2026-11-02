@@ -1085,6 +1085,12 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // write would land too late). When activeTab is not 'olumi', the
   // swap is skipped — just opens the panel.
   const floatOutToWindow = () => {
+    // The olumi-core lane mounts no floating panel: every way to Olumi fronts this dock's Olumi tab, with its composer (review 00065).
+    if (isOlumiCoreLane()) {
+      setState((prev) => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
+      useUIStore.getState().setActiveOutputTab('olumi' as OutputTab)
+      return
+    }
     if (state.activeTab === 'olumi') {
       const fallback = lastNonOlumiTabRef.current
       try {
