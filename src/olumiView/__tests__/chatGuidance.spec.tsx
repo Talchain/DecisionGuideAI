@@ -14,7 +14,7 @@ import { canReceiveAsk } from '../../canvas/ui/inspector-v2/askSemantic'
 import { useCanvasStore } from '../../canvas/store'
 import type { View } from '../client'
 import { useViewStore } from '../store'
-import { ViewChat, ViewComposer, useViewChat } from '../ViewChat'
+import { STILL_ANSWERING, ViewChat, ViewComposer, useViewChat } from '../ViewChat'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
 const card = view.model!.cards.find((c) => c.family === 'quantity')!
@@ -81,6 +81,23 @@ describe('the canvas\'s asks reach core through the Olumi tab (00054 #3)', () =>
     await waitFor(() => expect(useGuidanceStore.getState()._isConversationBusy!()).toBe(true))
     await act(async () => { done(new Response('{}', { status: 201 })) })
     await waitFor(() => expect(useGuidanceStore.getState()._isConversationBusy!()).toBe(false))
+  })
+})
+
+describe('an ask made while Olumi is still answering is kept, never lost (00055)', () => {
+  it('the words wait in the composer, which says so, and nothing is sent twice', async () => {
+    let done!: (r: Response) => void
+    answer(() => new Promise<Response>((r) => { done = r }))
+    const { container } = render(<><ViewChat /><ViewComposer /></>)
+    act(() => { useGuidanceStore.getState()._sendMessage!('Hello') })
+    await waitFor(() => expect(useGuidanceStore.getState()._isConversationBusy!()).toBe(true))
+    act(() => { useGuidanceStore.getState()._sendMessage!('Set rent to £7,500') })
+    act(() => { useGuidanceStore.getState()._dispatchAction!({ id: 'ask:challenge', label: 'Challenge', message: 'Challenge this', source: 'chip' }) })
+    expect(posts).toHaveLength(1)
+    expect((container.querySelector('#view-chat-text') as HTMLTextAreaElement).value).toBe('Challenge this')
+    expect(said(container)).toBe(STILL_ANSWERING)
+    await act(async () => { done(new Response('{}', { status: 201 })) })
+    expect(posts).toHaveLength(1)
   })
 })
 
