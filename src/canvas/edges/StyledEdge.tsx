@@ -81,6 +81,8 @@ import { useModelChangedSinceRunLight } from '../hooks/useModelChangedSinceRun'
 import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
 import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
 import { isGraphLensEnabled } from '../../flags'
+import { usePresentation } from '../../presentation/v10'
+import { v10TradeOffsStroke } from './v10TradeOffsStroke'
 import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdgeCopy'
 import type { RestsOnMark } from '../artefacts/assumptionMapModel'
 import { RestsOnMarker } from '../artefacts/RestsOnMarker'
@@ -490,7 +492,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // and marks its fragile ones; "Rests on" numbers the link's strength.
   const lensEnabled = isGraphLensEnabled()
   const {
-    isLensDimmed, lensSensWeight, lensQ25, lensQ75, isLensFragile, restsOn, isLensEmphasis,
+    isLensDimmed, lensSensWeight, lensQ25, lensQ75, isLensFragile, restsOn, isLensEmphasis, tradeOffsRouteEffect,
   } = useCanvasStore(
     useShallow(s => {
       if (!lensEnabled) {
@@ -501,6 +503,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           isLensFragile: false,
           restsOn: null as RestsOnMark | null,
           isLensEmphasis: false,
+          tradeOffsRouteEffect: undefined as 'gains' | 'gives_up' | 'not_set' | null | undefined,
         }
       }
       const active = s.lens.active
@@ -516,6 +519,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         restsOn: active === 'rests_on' || active === 'tradeoffs' || changes ? (s.lens._restsOn?.get(`edge:${id}`) ?? null) : null,
         // Option routes and "If it failed" links: the canvas's one emphasis glow; nothing else changes.
         isLensEmphasis: s.lens._emphasisEdgeIds?.has(id) === true,
+        // v10 Trade-offs: undefined outside that lens, null for a link on none of the picked option's routes.
+        tradeOffsRouteEffect: active === 'tradeoffs' ? (s.lens._routeEffects?.get(id) ?? null) : undefined,
       }
     }),
   )
@@ -2248,6 +2253,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     isHighlightedEdge, directionStroke, existenceDash, edgeData, identityExact, strengthIsDefinitional,
   ])
   const edgeStroke = useMemo(() => resolveEdgeStroke(presentationState), [presentationState])
+  // v10 only (#/canvas2): the Trade-offs lens colours the picked option's routes and rests every other link in grey.
+  const presentation = usePresentation()
+  const v10Trade = useMemo(
+    () => (tradeOffsRouteEffect === undefined ? null : v10TradeOffsStroke({ presentation, lens: 'tradeoffs', routeEffect: tradeOffsRouteEffect, structural: isStructuralEdge })),
+    [presentation, tradeOffsRouteEffect, isStructuralEdge],
+  )
 
   // ⭐ THE UNCERTAINTY RIBBON (see `uncertaintyBandHalfWidth`). `strengthStd`
   // reached the store, the inspector and the user's own edit control, and never
@@ -2624,7 +2635,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         style={{
           // `lineStrokeWidth` (above the `return`): the ladder, hoisted so the
           // keyboard focus ring reads the same width.
-          strokeWidth: lineStrokeWidth,
+          strokeWidth: v10Trade?.strokeWidth ?? lineStrokeWidth,
           /*
            * ⭐ THE WIDTHS ABOVE ARE FLOW-SPACE UNTIL THIS LINE, AND THE CANVAS
            * SPENDS MOST OF ITS LIFE ZOOMED OUT.
@@ -2665,15 +2676,15 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // asserted against those arrays in `edgePresentation.spec.ts`. Adding
           // a branch here again — rather than a rule there — is the regression
           // this refactor exists to make impossible to do quietly.
-          strokeDasharray: edgeDash.value,
+          strokeDasharray: v10Trade?.dash ?? edgeDash.value,
           // contract v3.1 (E13): `.edge-visual{stroke-linecap:round}` — but only
           // on a SOLID line. A round cap adds half the stroke width to each end
           // of every dash, so on a 3-4px line the contract's own `6 4` pattern
           // closes its gap and the existence-doubt dash stops reading as a dash.
           // Existence dashes keep butt caps; strength dots need round caps.
           // The presentation decision owns both the pattern and its caps.
-          strokeLinecap: edgeDash.linecap,
-          stroke: edgeStroke.value,
+          strokeLinecap: v10Trade?.dash ? 'round' : edgeDash.linecap,
+          stroke: v10Trade?.stroke ?? edgeStroke.value,
           // Opacity is a lens-only channel now. exists_probability is a SINGLE
           // encoding — the dash (existenceDash above), which stays
           // legible at every zoom level and doesn't fight the analysis halo.

@@ -24,7 +24,7 @@ import type { FragileEdgeCandidate } from '../utils/fragileEdgeMatch'
 import { resolveActiveGoalNodeId } from './goalThresholdResolvers'
 import { ASSUMPTION_MAP_COPY, assumptionMapOf, restsOnKey, restsOnNumbered, type AssumptionColumn, type RestsOnMark } from '../artefacts/assumptionMapModel'
 import { useCurrentPremortemWorksheet } from '../artefacts/lenses'
-import { tradeOffsForState, tradeOffLinkMarks } from '../artefacts/tradeOffsModel'
+import { tradeOffsForState, tradeOffLinkMarks, tradeOffRouteEffects, type RouteEffect } from '../artefacts/tradeOffsModel'
 import type { PremortemWorksheetV1 } from '../../v5/readPremortemWorksheet'
 
 // ─── Sensitivity helpers ─────────────────────────────────────────────────────
@@ -105,6 +105,8 @@ interface LensVisuals {
   restsOn?: Map<string, RestsOnMark>
   /** Links a lens puts in front with the canvas's one emphasis glow (option routes, the stories' links). */
   emphasisEdgeIds?: Set<string>
+  /** Trade-offs: the picked option's route links, each with the way its route moves the goal (drawn by v10 only). */
+  routeEffects?: Map<string, RouteEffect>
 }
 
 const EMPTY_SET = new Set<string>()
@@ -214,7 +216,7 @@ export function useLensFilter(): void {
       // Each route link carries its "Rests on" state as the key's numbered pill (Paul 22 Oct: marks over sentences).
       const restsOn = new Map<string, RestsOnMark>()
       tradeOffLinkMarks(option).forEach((mark, edgeId) => restsOn.set(restsOnKey({ kind: 'edge', id: edgeId }), mark))
-      return { ...EMPTY_VISUALS, restsOn }
+      return { ...EMPTY_VISUALS, restsOn, routeEffects: tradeOffRouteEffects(option) }
     }
 
     // ── If it failed: the links the stories rest on take the emphasis glow (no Run needed). It used to grey every card

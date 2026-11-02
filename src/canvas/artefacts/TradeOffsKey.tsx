@@ -17,6 +17,7 @@ import { useCanvasStore } from '../store'
 import { useIsViewer } from '../../lib/viewerMode'
 import { typography } from '../../styles/typography'
 import { action, ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
+import { usePresentation } from '../../presentation/v10'
 import { askAi } from '../conversation/askAi'
 import { revealOlumiSurface } from '../conversation/revealOlumi'
 import { ACTION_BAR_COPY } from '../conversation/actionBar/ActionBar'
@@ -51,6 +52,12 @@ export const TRADE_OFFS_COPY = {
     accepted: (n: number) => `${n} Olumi ${n === 1 ? 'estimate' : 'estimates'} you accepted`,
     yours: (n: number) => `${n} yours`,
   } satisfies Record<AssumptionColumn, (n: number) => string>,
+  /** v10: the options as one segmented control (the stepper's ‹ › stay in the current design). */
+  optionGroup: 'Option to read the trade-offs of',
+  /** v10: what the route colours on the canvas mean, and what the grey is. */
+  swatch: { gains: 'helps reach the goal', gives_up: 'works against it', not_set: 'direction not set yet', rest: 'other links' },
+  /** v10: the mark before each route, said to a screen reader. */
+  sign: { gains: 'Helps reach the goal', gives_up: 'Works against the goal', not_set: 'Direction not set yet' } satisfies Record<RouteEffect, string>,
   previous: 'Previous option',
   next: 'Next option',
   alsoInModel: 'Also in your model, whichever option',
@@ -191,8 +198,83 @@ function AlsoInModel({ risks, limits }: { risks: readonly ModelRisk[]; limits: r
   )
 }
 
-function RouteGroup({ heading, routes, picked, onPick, effect, flag = null, marks }: {
+/** v10: the route's mark, drawn as its colour on the canvas does: + helps, − works against, ? has no direction yet. */
+const SIGN_GLYPH: Record<RouteEffect, { text: string; ring: string }> = {
+  gains: { text: '+', ring: 'var(--edge-positive)' },
+  gives_up: { text: '−', ring: 'var(--edge-negative)' },
+  not_set: { text: '?', ring: 'var(--edge-neutral)' },
+}
+
+function RouteSign({ effect }: { effect: RouteEffect }) {
+  const glyph = SIGN_GLYPH[effect]
+  return (
+    <span
+      data-testid={`${TRADE_OFFS_KEY_TESTID}-sign`}
+      data-effect={effect}
+      title={TRADE_OFFS_COPY.sign[effect]}
+      className={`${typography.panelMeta} inline-flex h-[18px] w-[18px] flex-none items-center justify-center rounded-full bg-panel text-text-header`}
+      style={{ border: `1.5px ${effect === 'not_set' ? 'dotted' : 'solid'} ${glyph.ring}` }}
+    >
+      <span aria-hidden="true">{glyph.text}</span>
+      <span className="sr-only">{TRADE_OFFS_COPY.sign[effect]}</span>
+    </span>
+  )
+}
+
+/** v10: the options side by side. Ink marks the pressed one (the person's pick); the key never ranks them. */
+function OptionPicker({ options, at, onPick }: { options: readonly OptionTradeOffs[]; at: number; onPick: (optionId: string) => void }) {
+  return (
+    <div
+      role="group"
+      aria-label={TRADE_OFFS_COPY.optionGroup}
+      data-testid={`${TRADE_OFFS_KEY_TESTID}-options`}
+      className="grid gap-px overflow-hidden rounded-[10px] border border-panel-border bg-panel-border"
+      style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(88px, 1fr))' }}
+    >
+      {options.map((o, i) => (
+        <button
+          key={o.optionId}
+          type="button"
+          data-testid={`${TRADE_OFFS_KEY_TESTID}-pick`}
+          data-option={o.optionId}
+          aria-pressed={i === at}
+          title={o.label}
+          className={`${typography.panelMeta} min-w-0 break-words px-2 py-2 text-center ${i === at ? 'bg-panel-hover text-text-header' : 'bg-panel text-text-body hover:bg-panel-hover'} ${ACTION_FOCUS}`}
+          style={i === at ? { boxShadow: 'inset 0 0 0 1.5px var(--text-header)' } : undefined}
+          onClick={() => onPick(o.optionId)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** v10: what the colours on the canvas mean, only for the kinds of route the option has; the rest are grey. */
+function RouteSwatches({ effects }: { effects: ReadonlySet<RouteEffect> }) {
+  const line = (effect: RouteEffect, stroke: string, dash?: string) => effects.has(effect) ? (
+    <span key={effect} className="inline-flex items-center gap-1.5">
+      <svg aria-hidden="true" width="30" height="12" viewBox="0 0 40 12"><path d="M2 6 L38 6" fill="none" stroke={stroke} strokeWidth="3" strokeLinecap="round" strokeDasharray={dash} /></svg>
+      {TRADE_OFFS_COPY.swatch[effect]}
+    </span>
+  ) : null
+  return (
+    <p data-testid={`${TRADE_OFFS_KEY_TESTID}-swatches`} className={`${typography.panelMeta} flex flex-wrap gap-x-3 gap-y-1 text-text-body`}>
+      {line('gains', 'var(--edge-positive)')}
+      {line('gives_up', 'var(--edge-negative)')}
+      {line('not_set', 'var(--edge-neutral)', '1 6')}
+      <span className="inline-flex items-center gap-1.5">
+        <svg aria-hidden="true" width="30" height="12" viewBox="0 0 40 12"><path d="M2 6 L38 6" fill="none" stroke="var(--edge-neutral)" strokeWidth="1.5" strokeLinecap="round" /></svg>
+        {TRADE_OFFS_COPY.swatch.rest}
+      </span>
+    </p>
+  )
+}
+
+function RouteGroup({ heading, routes, picked, onPick, effect, flag = null, marks, v10 = false }: {
   heading: string
+  /** v10: each route wears its mark. */
+  v10?: boolean
   marks: ReadonlyMap<string, RestsOnMark>
   /** A mark beside the heading, its words on hover (Paul 22 Oct: icons over static text). */
   flag?: { testId: string; text: string } | null
@@ -226,8 +308,17 @@ function RouteGroup({ heading, routes, picked, onPick, effect, flag = null, mark
                 className={`${typography.panelBody} w-full rounded-xl px-2 py-1.5 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}
                 onClick={() => onPick(open ? null : route.key)}
               >
-                <Chain steps={route.steps} />
-                <RouteMarks route={route} marks={marks} />
+                {v10 ? (
+                  <span className="flex items-start gap-2">
+                    <RouteSign effect={route.effect} />
+                    <span className="min-w-0 flex-1"><Chain steps={route.steps} /><RouteMarks route={route} marks={marks} /></span>
+                  </span>
+                ) : (
+                  <>
+                    <Chain steps={route.steps} />
+                    <RouteMarks route={route} marks={marks} />
+                  </>
+                )}
               </button>
               {open ? <div className="px-2"><RouteLinks route={route} marks={marks} /></div> : null}
             </li>
@@ -249,6 +340,7 @@ export function TradeOffsKey({ folded = false }: { folded?: boolean }) {
   const servedBaselineOptions = useCanvasStore((s) => s.servedBaselineOptions)
   const pickedOptionId = useCanvasStore((s) => s.lens.selectedOptionId)
   const viewer = useIsViewer()
+  const v10 = usePresentation() === 'v10'
   const [pickedRoute, setPickedRoute] = useState<string | null>(null)
   const read = useMemo(
     () => tradeOffsForState({ nodes, edges, ceeAnalysisReady, lastServerGraphHash, outcomeNodeId, goalConstraints, servedBaselineOptions }),
@@ -262,24 +354,25 @@ export function TradeOffsKey({ folded = false }: { folded?: boolean }) {
   const at = Math.max(0, read.options.findIndex((o) => o.optionId === pickedOptionId))
   const option: OptionTradeOffs = read.options[at]
   // The lens's own option pick (the canvas numbers its route links); the route pick is this card's.
-  const step = (by: 1 | -1) => {
-    const next = read.options[(at + by + read.options.length) % read.options.length]
+  const pick = (optionId: string) => {
     setPickedRoute(null)
-    useCanvasStore.getState().setLens('tradeoffs', next.optionId)
+    useCanvasStore.getState().setLens('tradeoffs', optionId)
   }
+  const step = (by: 1 | -1) => pick(read.options[(at + by + read.options.length) % read.options.length].optionId)
   const of = (effect: RouteEffect) => option.routes.filter((r) => r.effect === effect)
   const marks = tradeOffLinkMarks(option)
   const unsorted = read.goalWants === null
 
   const header = (
-      <div className="flex items-start gap-2">
+      <div className={v10 ? 'space-y-2' : 'flex items-start gap-2'}>
+        {v10 && read.options.length > 1 ? <OptionPicker options={read.options} at={at} onPick={pick} /> : null}
         <div className="min-w-0 flex-1">
           <p data-testid={`${TRADE_OFFS_KEY_TESTID}-option`} className={`${typography.panelQuestion} text-text-header`}>{option.label}</p>
           <p className={`${typography.panelMeta} text-text-light`}>
             {option.againstLabel ? TRADE_OFFS_COPY.against(option.againstLabel) : TRADE_OFFS_COPY.againstToday}
           </p>
         </div>
-        {read.options.length > 1 ? (
+        {read.options.length > 1 && !v10 ? (
           <div className="flex flex-none items-center">
             <button type="button" data-testid={`${TRADE_OFFS_KEY_TESTID}-previous`} aria-label={TRADE_OFFS_COPY.previous} title={TRADE_OFFS_COPY.previous}
               className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body ${ACTION_FOCUS}`}
@@ -300,12 +393,14 @@ export function TradeOffsKey({ folded = false }: { folded?: boolean }) {
       {option.changes > 0 ? TRADE_OFFS_COPY.noRoute(goal) : TRADE_OFFS_COPY.noChange}
     </p>
   ) : null
+  const swatches = v10 && option.routes.length > 0 ? <RouteSwatches effects={new Set(option.routes.map((r) => r.effect))} /> : null
   if (folded) {
     // A legend only for routes that are there: an option with none says why, folded or not (A/B 21 Oct).
     return (
       <div data-testid={TRADE_OFFS_KEY_TESTID} data-option={option.optionId} data-folded="" className="space-y-2">
         {header}
         {empty ?? <p data-testid={`${TRADE_OFFS_KEY_TESTID}-legend`} className={`${typography.panelBody} text-text-body`}>{TRADE_OFFS_COPY.legend(goal)}</p>}
+        {swatches}
       </div>
     )
   }
@@ -313,15 +408,16 @@ export function TradeOffsKey({ folded = false }: { folded?: boolean }) {
   return (
     <div data-testid={TRADE_OFFS_KEY_TESTID} data-option={option.optionId} className="space-y-3">
       {header}
+      {swatches}
 
       {empty !== null ? empty : unsorted ? (
-        <RouteGroup marks={marks} heading={TRADE_OFFS_COPY.unsorted(goal)} routes={option.routes} picked={pickedRoute} onPick={setPickedRoute} effect="unsorted" />
+        <RouteGroup v10={v10} marks={marks} heading={TRADE_OFFS_COPY.unsorted(goal)} routes={option.routes} picked={pickedRoute} onPick={setPickedRoute} effect="unsorted" />
       ) : (
         <div className="space-y-2.5">
-          <RouteGroup marks={marks} heading={TRADE_OFFS_COPY.group.gains(goal)} routes={of('gains')} picked={pickedRoute} onPick={setPickedRoute} effect="gains"
+          <RouteGroup v10={v10} marks={marks} heading={TRADE_OFFS_COPY.group.gains(goal)} routes={of('gains')} picked={pickedRoute} onPick={setPickedRoute} effect="gains"
             flag={of('gives_up').length === 0 ? { testId: `${TRADE_OFFS_KEY_TESTID}-nothing-given-up`, text: TRADE_OFFS_COPY.nothingGivenUp } : null} />
-          <RouteGroup marks={marks} heading={TRADE_OFFS_COPY.group.gives_up(goal)} routes={of('gives_up')} picked={pickedRoute} onPick={setPickedRoute} effect="gives_up" />
-          <RouteGroup marks={marks} heading={TRADE_OFFS_COPY.group.not_set} routes={of('not_set')} picked={pickedRoute} onPick={setPickedRoute} effect="not_set" />
+          <RouteGroup v10={v10} marks={marks} heading={TRADE_OFFS_COPY.group.gives_up(goal)} routes={of('gives_up')} picked={pickedRoute} onPick={setPickedRoute} effect="gives_up" />
+          <RouteGroup v10={v10} marks={marks} heading={TRADE_OFFS_COPY.group.not_set} routes={of('not_set')} picked={pickedRoute} onPick={setPickedRoute} effect="not_set" />
         </div>
       )}
 

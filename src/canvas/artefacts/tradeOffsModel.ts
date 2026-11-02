@@ -269,3 +269,19 @@ export function tradeOffLinkMarks(option: OptionTradeOffs): Map<string, RestsOnM
   return marks
 }
 
+
+/**
+ * Each link on the option's routes, with the way its route moves the goal (v10 colours the route by it). A link two
+ * routes share that disagree is "not set": it is never coloured as a gain or a give-up when the model says both.
+ */
+export function tradeOffRouteEffects(option: OptionTradeOffs): Map<string, RouteEffect> {
+  const effects = new Map<string, RouteEffect>()
+  for (const route of option.routes) {
+    for (const step of route.steps) {
+      if (step.edgeId === null) continue
+      const held = effects.get(step.edgeId)
+      effects.set(step.edgeId, held === undefined || held === route.effect ? route.effect : 'not_set')
+    }
+  }
+  return effects
+}
