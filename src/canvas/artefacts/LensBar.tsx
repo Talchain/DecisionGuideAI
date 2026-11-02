@@ -13,6 +13,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
+import { coreLaneShowsSurface } from '../../olumiCore/lane'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 import { measureDockInset } from '../components/FloatingOlumiPanel'
@@ -129,7 +130,8 @@ export function LensBar() {
     buttons.current.get(next)?.focus()
   }
 
-  if (!enabled || !hasModel) return null
+  // A View card draws no lens: the olumi-core lane offers none (canvas A, review 00057 #2).
+  if (!enabled || !hasModel || !coreLaneShowsSurface('lenses')) return null
   return (
     <div
       ref={setBar}

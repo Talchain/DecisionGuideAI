@@ -14,20 +14,43 @@ export const optionCards = (model: ViewModel): ViewCard[] => model.cards.filter(
 /** Core's own page geometry (olumi-core src/page/graph.ts): card width and the gaps between columns and cards, and the top margin. */
 const W = 232, GAP_X = 48, GAP_Y = 14, TOP = 112
 
+/** A View card's width on the canvas: core's page card (review 00063 #4). */
+export const CARD_WIDTH = W
+
+type At = { x: number; y: number }
 /**
  * Where each card sits on the canvas, as core's page places it (olumi-core src/page/main.ts `drawModel`): in its column (`col`), stacked
- * down that column in the View's order, each card its height (`h`) below the last; the first column starts lower when the model has
- * reasoning about the whole question (`whole`). Nothing is measured here and no card is moved by another rule.
+ * down that column in the View's order; the first column starts lower when the model has reasoning about the whole question (`whole`).
+ * Each card takes its drawn height (`drawn`, what the canvas measured), never less than core's `h`, so a long card pushes the next one
+ * down (review 00063 #4). A card in `kept` (one the person moved) stays where it is, and no other card is put on it: a card that
+ * would overlap it goes below it, and the rest of its column after (00063 #1).
  */
-export function cardPlaces(model: ViewModel): Map<string, { x: number; y: number }> {
-  const ys = new Map<number, number>(), places = new Map<string, { x: number; y: number }>()
+export function cardPlaces(model: ViewModel, drawn: ReadonlyMap<string, number> = new Map(), kept: ReadonlyMap<string, At> = new Map()): Map<string, At> {
+  const height = (id: string, h: number) => Math.max(h, drawn.get(id) ?? 0)
+  const held = model.cards.flatMap((c) => (kept.has(c.id) ? [{ ...kept.get(c.id)!, h: height(c.id, c.h) }] : []))
+  const ys = new Map<number, number>(), places = new Map<string, At>()
   for (const c of model.cards) {
-    const y = ys.get(c.col) ?? TOP + (c.col === 0 && model.whole ? 20 : 0)
-    places.set(c.id, { x: 16 + c.col * (W + GAP_X), y })
-    ys.set(c.col, y + c.h + GAP_Y)
+    if (kept.has(c.id)) { places.set(c.id, kept.get(c.id)!); continue }
+    const x = 16 + c.col * (W + GAP_X), h = height(c.id, c.h)
+    let y = ys.get(c.col) ?? TOP + (c.col === 0 && model.whole ? 20 : 0)
+    for (let hit = held.find((k) => k.x < x + W && x < k.x + W && k.y < y + h && y < k.y + k.h); hit !== undefined; hit = held.find((k) => k.x < x + W && x < k.x + W && k.y < y + h && y < k.y + k.h)) y = hit.y + hit.h + GAP_Y
+    places.set(c.id, { x, y })
+    ys.set(c.col, y + h + GAP_Y)
   }
   return places
 }
+
+/** The heights the canvas measured for the nodes it drew, by id (React Flow's `measured`). */
+export const drawnHeights = (nodes: readonly { id: string; measured?: { height?: number } }[]): Map<string, number> =>
+  new Map(nodes.flatMap((n) => (typeof n.measured?.height === 'number' ? [[n.id, n.measured.height] as const] : [])))
+
+/** A key that changes when any measured height does: the canvas re-places its cards then. */
+export const drawnHeightsKey = (nodes: readonly { id: string; measured?: { height?: number } }[]): string =>
+  nodes.map((n) => `${n.id}:${n.measured?.height ?? ''}`).join('|')
+
+/** The canvas kind a View card's Olumi controls ask as (its family is core's id, never shown): every card can be challenged, as on core's page. */
+export const askKindOf = (family: string): 'factor' | 'risk' | 'goal' | 'option' | 'constraint' =>
+  family === 'risk' || family === 'goal' || family === 'option' ? family : family === 'limit' ? 'constraint' : 'factor'
 
 /** The question's card on core's page (olumi-core src/view/model.ts QUESTION): what a link to the question as a whole ends at. */
 export const QUESTION = 'page:question'

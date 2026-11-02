@@ -35,8 +35,8 @@ export const CORE_LANE_USE_THE_CHAT = 'Tell Olumi in the chat what to change; it
  */
 // `legend` explains marks a View card never draws (each mark carries core's own hover); `summary` builds the brief from the
 // adapter's saved model, which this lane does not read (canvas A S6, gaps B8 and C7); `versions` snapshot and restore View cards
-// locally, which core never sees (lane audit 7.5).
-const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['analysisNew', 'compare', 'legend', 'summary', 'versions'])
+// locally, which core never sees (lane audit 7.5); `lenses` colour cards a View card never draws (review 00057 #2).
+const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['analysisNew', 'compare', 'legend', 'summary', 'versions', 'lenses'])
 /** The surfaces only this lane has: the team's panels (`team`), which read olumi-core's scenario view. */
 const LANE_ONLY_SURFACES: ReadonlySet<string> = new Set(['team'])
 export function coreLaneShowsSurface(surfaceId: string): boolean {

@@ -8,6 +8,9 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { ViewCard as Card, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
+import { askKindOf, CARD_WIDTH } from '../../olumiView/layout'
+import { NodeQuickActions } from './shared/NodeQuickActions'
+import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 
 export type ViewCardData = { card: Card }
 
@@ -46,7 +49,8 @@ export function ViewCard({ card }: ViewCardData) {
   return (
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
     <div
-      className={`${typography.nodeLabel} rounded-lg border bg-panel p-3 space-y-1 w-64 ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : ''}`}
+      style={{ width: CARD_WIDTH }}
+      className={`${typography.nodeLabel} rounded-lg border bg-panel p-3 space-y-1 ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : ''}`}
       data-view-card={id} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
     >
       <div className="flex items-baseline gap-1">
@@ -72,13 +76,20 @@ export function ViewCard({ card }: ViewCardData) {
   )
 }
 
-/** The React Flow node: the card, with the handles its links attach to. */
-export function ViewCardNode({ data }: NodeProps) {
+/**
+ * The React Flow node: the card, with the handles its links attach to, and the Olumi controls every canvas card carries (review 00063
+ * #3): Ask Olumi and Challenge (which on this lane reach core: a challenge on core's own challenge route for this card, through the
+ * Olumi tab, src/olumiView/ViewChat.tsx), and the card's coaching marker.
+ */
+export function ViewCardNode({ id, data, selected }: NodeProps) {
+  const { card } = data as ViewCardData
   return (
-    <>
+    <div className="relative">
       <Handle type="target" position={Position.Left} isConnectable={false} />
-      <ViewCard card={(data as ViewCardData).card} />
+      <ViewCard card={card} />
+      <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
+      <NodeQuickActions nodeId={id} nodeType={askKindOf(card.family)} label={card.heading} placement="below" alwaysVisible={selected === true} />
       <Handle type="source" position={Position.Right} isConnectable={false} />
-    </>
+    </div>
   )
 }
