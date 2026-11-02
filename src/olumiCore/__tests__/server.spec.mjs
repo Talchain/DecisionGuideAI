@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import net from 'node:net'
+import http from 'node:http'
 import { startFakeCore } from './fakeCore.mjs'
 import { createServer, LINK_PAGE } from '../../../scripts/olumi-core/server.mjs'
 
@@ -438,5 +439,31 @@ describe('the server names the model each answer shows (x-olumi-revision), and r
     expect(r.headers.get('x-olumi-revision')).toBe(out.model.revision)
     const g = await fetch(`${base}/bff/cee/scenarios/${U}/graph`, { method: 'POST', ...H('olumi=tok-ada'), body: '{}', headers: { ...H('olumi=tok-ada').headers, 'x-olumi-scenario': r.headers.get('x-olumi-alias') } })
     expect(g.headers.get('x-olumi-revision')).toBe((await g.json()).graph_hash)
+  })
+})
+
+describe('localhost is never served: its sign-in cookie would be shared with another local Olumi app', () => {
+  const asHost = (host, p, method = 'GET', cookie) => new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port: server.address().port, path: p, method, headers: { host, ...(cookie ? { cookie } : {}), ...(method !== 'GET' ? { 'content-type': 'application/json' } : {}) } }, (res) => { res.resume(); res.on('end', () => resolve(res)) })
+    req.on('error', reject); req.end(method !== 'GET' ? '{}' : undefined)
+  })
+  it('a read on localhost is sent to 127.0.0.1 on the same port and path, before any sign-in is read or proxied', async () => {
+    const port = server.address().port
+    const before = fake.calls.length
+    const r = await asHost(`localhost:${port}`, '/k/tok-ada?to=/s/s_abc000000001')
+    expect(r.statusCode).toBe(308)
+    expect(r.headers.location).toBe(`http://127.0.0.1:${port}/k/tok-ada?to=/s/s_abc000000001`)
+    expect(r.headers['set-cookie']).toBeUndefined()
+    expect(fake.calls.length).toBe(before)
+  })
+  it('a write on localhost is refused and reaches nothing', async () => {
+    const before = fake.calls.length
+    const r = await asHost(`localhost:${server.address().port}`, '/bff/orchestrate/v2/turn', 'POST', 'olumi=tok-ada')
+    expect(r.statusCode).toBe(403)
+    expect(fake.calls.length).toBe(before)
+  })
+  it('127.0.0.1 is served as before', async () => {
+    const r = await asHost(`127.0.0.1:${server.address().port}`, '/k/tok-ada')
+    expect(r.statusCode).toBe(302)
   })
 })

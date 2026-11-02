@@ -150,6 +150,15 @@ export function createServer(opts = {}) {
     const p = url.pathname.replace(/^\/assist\/v1\//, '/bff/cee/').replace(/^\/orchestrate\//, '/bff/orchestrate/')
     const method = req.method ?? 'GET'
     try {
+      // Served locally beside another Olumi app, "localhost" is shared by both and browsers do not separate cookies by port, so the two
+      // `olumi` sign-ins would overwrite each other. Every request on a localhost name is sent to 127.0.0.1 before identity is read: a read
+      // is redirected, anything else is refused.
+      const hostName = (req.headers.host ?? '').replace(/:\d+$/, '').toLowerCase()
+      if (hostName === 'localhost' || hostName.endsWith('.localhost')) {
+        const port = (req.headers.host ?? '').match(/:(\d+)$/)?.[1]
+        if (method !== 'GET' && method !== 'HEAD') return json(res, 403, { error: 'open Olumi at 127.0.0.1, not localhost' })
+        res.writeHead(308, { location: `http://127.0.0.1${port ? `:${port}` : ''}${req.url ?? '/'}` }); return res.end()
+      }
       // A write is allowed only from the Olumi page itself, as core allows it (src/server/app.ts): no header (a script), `same-origin` or `none`.
       // Anything else (`cross-site`, `same-site`) is refused here, before anything is read or sent on (core refuses it too: the header goes on).
       const site = req.headers['sec-fetch-site']
