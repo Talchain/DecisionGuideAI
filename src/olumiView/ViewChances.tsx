@@ -16,7 +16,7 @@ function Mark({ at, mark }: { at: string; mark: { glyph: string; title: string }
   return mark === null ? null : <span data-view={`${at}.glyph`} title={mark.title} aria-label={mark.title}>{mark.glyph}</span>
 }
 
-function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number }) {
+export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number }) {
   const at = `${card.id}.rows.${i}`
   switch (row.kind) {
     case 'chance':
