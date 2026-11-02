@@ -373,14 +373,16 @@ export function analysisViewOf(view) {
     return [...(whole ? [whole] : []), ...live.flatMap((o) => [of('limit', o), of('outside', o), of('blocker', o)].filter(Boolean))].map(say)
   })
   // The aim's own holds (labels only): an aim with no measure, or one that waits, is not an option's cell; its reasons are said once, as notes.
-  const aimHolds = v.facts.filter((f) => isLabels(f) && (f.about.kind === 'blocker' || f.about.kind === 'waits') && !f.about.option && !f.about.limit && (!goal || !f.about.goal || f.about.goal === goal.id)).map((f) => holdNote(f, m))
+  const aimHolds = v.facts.filter((f) => isLabels(f) && (f.about.kind === 'blocker' || f.about.kind === 'waits') && !f.about.option && !f.about.limit).map((f) => holdNote(f, m))
   // The science modules' markers (labels only): their value as stored beside the names they are about; a kind this code does not know is left alone.
-  const markers = v.facts.filter((f) => isLabels(f) && MODULE_KINDS.has(f.about.kind) && (!goal || !f.about.goal || f.about.goal === goal.id)).map((f) => moduleNote(f, m))
+  const markers = v.facts.filter((f) => isLabels(f) && MODULE_KINDS.has(f.about.kind)).map((f) => moduleNote(f, m))
   const silence = silenceNote(v.science)
   // Figures given that no result used (labels only: `used`).
   const unused = v.facts.filter((f) => isLabels(f) && f.about.kind === 'input' && f.about.used === false)
   const unusedNote = unused.length ? [`Not used by this result: ${unused.map((f) => unusedWords(f, m)).join('; ')}.`] : []
-  const notes = [...(leaves.length ? [`This leaves out: ${leaves.join('; ')}.`] : []), ...otherAims, ...limitNotes, ...aimHolds, ...whatIfs, ...unusedNote, ...markers, ...(silence ? [silence] : [])]
+  // An option whose chance could not be worked out but whose range is shown keeps the reason beside it (labels only), never hidden by the range.
+  const heldBack = live.flatMap((o) => { const b = blocked(o); return b && isLabels(b) && !chance(o) && range(o) ? [holdNote(b, m)] : [] })
+  const notes = [...(leaves.length ? [`This leaves out: ${leaves.join('; ')}.`] : []), ...otherAims, ...limitNotes, ...aimHolds, ...heldBack, ...whatIfs, ...unusedNote, ...markers, ...(silence ? [silence] : [])]
   return {
     schema: 'canonical_analysis_view.v1', source: 'stored_run_facts',
     run: { run_id: runIdOf(v), graph_hash_at_run: revSaved16(view), computed_at: v.at },
@@ -399,6 +401,6 @@ export function analysisViewOf(view) {
       }
     }),
     goal_chance: { ...(goal ? { chance_words: `chance of ‘${goal.label}’` } : {}), ...(notes.length ? { notes } : {}), waits_on: waitsOn },
-    leader: { licence: 'withheld', option_id: null, ...(most ? { words: isLabels(most) ? leaderWords(most, m) : sayFact(sentence(most.text), leaves) } : {}) },
+    leader: { licence: 'withheld', option_id: null, ...(most ? { words: isLabels(most) ? leaderWords(most, m, live.map((o) => o.id).filter((id) => v.facts.some((f) => isLabels(f) && f.about.kind === 'blocker' && f.about.option === id && !f.about.limit && (!f.about.goal || !goal || f.about.goal === goal.id)))) : sayFact(sentence(most.text), leaves) } : {}) },
   }
 }

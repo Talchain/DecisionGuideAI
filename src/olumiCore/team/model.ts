@@ -236,8 +236,11 @@ export function modelBandOf(s: Pick<TeamScenario, 'version'>): readonly ModelBan
     if (a.form === 'labels') {
       const left = (a.leaves ?? []).map((id) => wordsOfRecord(s, id)).filter((w): w is string => w !== null)
       const under = base.option ? `Under ‘${base.option}’, ` : ''
-      const what = base.measure ? `‘${base.measure}’` : 'the result'
-      return { ...base, words: `${under}${what} is likely to be in this range (8 draws in 10).`, leavesOut: left.length ? left.join('; ') : null }
+      const me = goal?.measure
+      const how = [me?.frame && me.frame !== 'level' ? `as a ${me.frame.replace(/_/g, ' ')}` : '', me?.aggregation && me.aggregation !== 'end' ? `${me.aggregation.replace(/_/g, ' ')} over its period` : '', me?.per ? `per ${labelOf(me.per) ?? me.per}` : ''].filter(Boolean)
+      const what = base.measure ? `‘${base.measure}’${how.length ? ` (${how.join(', ')})` : ''}` : 'the result'
+      const rests = a.olumi === true ? ' This rests partly on what Olumi proposed.' : ''
+      return { ...base, words: `${under}${what} is likely to be in this range (8 draws in 10).${rests}`, leavesOut: left.length ? left.join('; ') : null }
     }
     return { ...base, words: f.text.replace(LEAVES, '').trim() || f.value, leavesOut: LEAVES.exec(f.text)?.[1] ?? null }
   })
@@ -304,7 +307,7 @@ export function viewFindingsOf(s: Pick<TeamScenario, 'view_findings' | 'version'
     const words = a.leader_change === 'reversed' ? `With ${who}, ${lead} leads ${aim} instead of ${was}.`
       : a.leader_change === 'now named' ? `With ${who}, ${lead} leads ${aim}, where no option led on the model’s own figure.`
         : a.leader_change === 'now unnamed' ? `With ${who}, no option clearly leads ${aim}, where ${was} led on the model’s own figure.`
-          : `With ${who}, ${lead} still leads ${aim}.`
+          : lead ? `With ${who}, ${lead} still leads ${aim}.` : `With ${who}, no option clearly leads ${aim}, as on the model’s own figure.`
     const options = (a.options ?? []).map((o) => ({ option: o.option, words: `${name(o.option)}: ${sayChance(o.model, o.model_exact)} on the model, ${sayChance(o.view, o.view_exact)} on ${holder}’s figure.` }))
     return [{ id: f.id, status: 'ran', holder, words, options }]
   })

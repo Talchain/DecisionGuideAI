@@ -66,7 +66,7 @@ export interface TeamRecord {
   readonly position?: string
   readonly origin?: { readonly by: string; readonly quote?: string; readonly party?: string | null }
   /** A goal's or limit's measure: what it measures (a record id). */
-  readonly measure?: { readonly quantity?: string } | null
+  readonly measure?: { readonly quantity?: string; readonly frame?: string; readonly aggregation?: string; readonly per?: string | null } | null
 }
 
 /** One of the Run's findings, as stored: its `text` is the plain finding and is shown as written. */
@@ -81,6 +81,8 @@ export interface TeamFact {
     readonly form?: string
     /** The ids of what the aim leaves out (a labels fact's provenance block). */
     readonly leaves?: readonly string[]
+    /** The block's Olumi flag: true when the finding rests on anything Olumi proposed. */
+    readonly olumi?: boolean
   }
 }
 

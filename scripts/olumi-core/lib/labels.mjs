@@ -73,7 +73,7 @@ const REASONS = {
   waits_on_limit: () => 'This waits until the limit can be worked out.',
   model_errors: () => 'The model has errors that need fixing before it can be run.',
   schema: () => 'The model is not in a shape Olumi can check.',
-  out_of_domain: (n) => (n ? `In some draws ${n} took a value that is not possible for it, so those draws were left out.` : 'In some draws a figure took a value that is not possible for it, so those draws were left out.'),
+  out_of_domain: (n) => (n ? `In some draws ${n} took a value that is not possible for it, so this cannot be worked out.` : 'In some draws a figure took a value that is not possible for it, so this cannot be worked out.'),
   no_goals: () => 'There is no aim to measure against yet.',
   no_option_change: () => 'No option changes anything this aim measures, so there is nothing to compare.',
   unlisted: () => 'Olumi could not work this out, and has no plain reason to give for it.',
@@ -147,9 +147,19 @@ export function chanceWords(f, m) {
   return { display: f.value, face: `${f.value}: ${sentence(`The chance that ${optionQ(m, a)} meets ${goalQ(m, a)}, in this model on current information.`, restsWords(a, m))}` }
 }
 /** A range of the aim's measure under an option. */
+/** How the aim measures its quantity, when it is not the plain level at the end: a change, a share per something, a total or an average over a window. */
+export function measureWords(goal, m) {
+  const me = goal?.measure
+  if (!me?.quantity) return null
+  const bits = []
+  if (me.frame && me.frame !== 'level') bits.push(`as a ${String(me.frame).replace(/_/g, ' ')}`)
+  if (me.aggregation && me.aggregation !== 'end') bits.push(`${String(me.aggregation).replace(/_/g, ' ')} over its period`)
+  if (me.per) bits.push(`per ${nameQ(m, me.per)}`)
+  return `${nameQ(m, me.quantity)}${bits.length ? ` (${bits.join(', ')})` : ''}`
+}
 export function rangeWords(f, m, goal) {
   const a = f.about
-  const measure = goal?.measure?.quantity ? nameQ(m, goal.measure.quantity) : goalQ(m, a)
+  const measure = measureWords(goal, m) ?? goalQ(m, a)
   const lead = a.low === a.high ? `Under ${optionQ(m, a)}, ${measure} is this in at least 8 draws in 10.` : `Under ${optionQ(m, a)}, ${measure} is likely to be in this range (8 draws in 10).`
   return `${f.value}: ${sentence(lead, restsWords(a, m))}`
 }
@@ -179,19 +189,20 @@ export function whatIfWords(f, m) {
 }
 
 /** The leader: most_likely or none_clearly, from option, chances, next, separated_by and leads_when. */
-export function leaderWords(f, m) {
+export function leaderWords(f, m, notCompared = []) {
   const a = f.about
   const [first, second] = typeof a.chance === 'number' && typeof a.next_chance === 'number' ? apart(a.chance, a.next_chance) : [null, null]
   const goal = goalQ(m, a)
+  const held = notCompared.length ? `${namesQ(m, notCompared)} could not be compared, so ${notCompared.length === 1 ? 'it is' : 'they are'} not part of this.` : ''
   const swing = a.leads_when && typeof a.leads_when === 'object'
     ? `Which option leads depends on Olumi's estimate of ${nameQ(m, a.leads_when.quantity)}: ${nameQ(m, a.leads_when.low_leader)} leads when it is low, ${nameQ(m, a.leads_when.high_leader)} when it is high.` : ''
   if (a.kind === 'most_likely') {
     const against = a.next && second ? `, against ${second} for ${nameQ(m, a.next)}` : ''
     const how = a.separated_by === 'paired' ? 'The two were compared on the same draws.' : a.separated_by === 'intervals' ? 'They were told apart by the uncertainty around each chance, not on the same draws.' : ''
-    return sentence(`${optionQ(m, a)} is the option most likely to achieve ${goal} in this model${first ? ` (${first}${against})` : ''}.`, how, swing, restsWords(a, m))
+    return sentence(`${optionQ(m, a)} is the option most likely to achieve ${goal} in this model${first ? ` (${first}${against})` : ''}.`, how, held, swing, restsWords(a, m))
   }
   const top = a.top && first ? `${nameQ(m, a.top)} is ahead at ${first}, but ${a.next ? `${nameQ(m, a.next)} at ${second}` : 'the next option'} is too close to separate.` : 'The options are too close to separate.'
-  return sentence(`No option is clearly ahead on ${goal}.`, top, swing, restsWords(a, m))
+  return sentence(`No option is clearly ahead on ${goal}.`, top, held, swing, restsWords(a, m))
 }
 
 /** A blocker or wait: its short phrase, then each reason in DGAI's words, the draws it happened in and the figures it was about. */
@@ -214,9 +225,10 @@ export function waitsOnIds(f, m) {
 /** A whole-aim or whole-limit blocker or wait, as a note: the short phrase, what it is about, and why. */
 export function holdNote(f, m) {
   const a = f.about
-  const about = a.limit ? nameQ(m, a.limit) : a.goal ? nameQ(m, a.goal) : ''
+  const target = a.limit ?? a.goal
+  const about = a.option ? (target ? `${nameQ(m, a.option)} against ${nameQ(m, target)}` : nameQ(m, a.option)) : target ? nameQ(m, target) : ''
   const { why } = blockerWords(f, m)
-  return `${f.value}: ${sentence(about && a.kind === 'waits' ? `${about} is waiting.` : about ? `${about} cannot be checked yet.` : '', why)}`
+  return `${f.value}: ${sentence(about && a.kind === 'waits' ? `${about} is waiting.` : about ? `${about} cannot be ${a.limit ? 'checked' : 'worked out'} yet.` : '', why)}`
 }
 
 // ── the science modules (markers) ───────────────────────────────────────────────────────────────────────────────────────
@@ -227,7 +239,7 @@ export const MODULE_KINDS = new Set(['direction', 'worth', 'failure', 'tipping',
 export function moduleNote(f, m) {
   const a = f.about
   const names = [a.option, a.goal ?? a.limit, a.figure ?? a.quantity].filter((id) => typeof id === 'string' && id).map((id) => nameQ(m, id))
-  return `${names.join(', ')} — ${f.value}`
+  return sentence(`${names.join(', ')} — ${f.value}`, restsWords(a, m))
 }
 const MODULE_WORDS = { routes: 'direction', worth: 'worth finding out', failure: 'what failure looks like', reliance: 'reliance on Olumi\'s ranges', tipping: 'where it tips', views: 'differing views' }
 /** The stored `science` record: the modules that said nothing, with their reason. Silence is by rule and never evidence that there is nothing to find. */

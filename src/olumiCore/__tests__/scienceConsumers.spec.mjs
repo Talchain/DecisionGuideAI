@@ -68,6 +68,12 @@ describe('sampled chance, range, limit, outside, driver (bullet 2)', () => {
     expect(c).toMatchObject({ kind: 'range', display: r.value, detail: { low: r.about.low, median: r.about.median, high: r.about.high, unit: 'ticket/week', olumi: r.about.olumi, rests: [] } })
     expect(c.face).toMatch(/‘Add one specialist’.*‘total capacity’/)
   })
+  it('a range says how the aim measures its quantity when that is not the plain level at the end', () => {
+    const v = viewOf('capacity', (fs) => fs.filter((f) => f.about.kind !== 'chance'))
+    v.version.form.records.find((r) => r.id === 'capacity_goal').measure.frame = 'change'
+    v.version.form.records.find((r) => r.id === 'capacity_goal').measure.aggregation = 'sum'
+    expect(analysisViewOf(v).options.find((o) => o.option_id === 'add_one').cell.face).toMatch(/‘total capacity’ \(as a change, sum over its period\)/)
+  })
   it('a driver names its figure from about.quantity', () => {
     expect(add.main_driver).toMatchObject({ kind: 'available', driver: { kind: 'driver', quantity: 'per_specialist' } })
     expect(add.main_driver.detail).toMatch(/‘per specialist’/)
@@ -113,6 +119,10 @@ describe('most_likely and none_clearly (bullets 4 and 5)', () => {
     expect(w).toMatch(/‘Keep current staffing’/)
     expect(w).toMatch(/same draws/)
     expect(analysisViewOf(viewOf('limits')).leader.words).toMatch(/not on the same draws|intervals/)
+  })
+  it('an option that could not be compared is named beside the leader, not left out of it silently', () => {
+    expect(analysisViewOf(viewOf('agency_withheld')).leader.words).toMatch(/‘Use an agency’ could not be compared, so it is not part of this\./)
+    expect(analysisViewOf(viewOf('capacity')).leader.words).not.toMatch(/could not be compared/)
   })
   it('a leader that turns on an Olumi range says which option leads at each end (leads_when) and rests on both options\' premises', () => {
     const w = analysisViewOf(viewOf('leader_turns')).leader.words
@@ -166,7 +176,22 @@ describe('blocker and waits: every reason code is a plain DGAI message (bullet 7
     'ruled_out', 'removed', 'waits_on_aim', 'waits_on_limit', 'model_errors', 'schema', 'out_of_domain', 'no_goals', 'no_option_change', 'unlisted']
   const withReasons = (reasons) => viewOf('agency_withheld', (fs) => fs.map((f) => (f.about.kind === 'blocker' ? { ...f, about: { ...f.about, reasons } } : f)))
   const reasonsOf = (v) => analysisViewOf(v).options.find((o) => o.option_id === 'agency').cell.reasons
+  // What each message must say (its meaning, not its shape): a mapping to the wrong explanation fails here.
+  const MEANING = {
+    no_measure: /no way of being measured/, no_aim_measure: /aim has no way of being measured/, asked: /waiting for your answer/i, unmeasured: /no unit/, figure_unknown: /no value yet/,
+    figure_unsupported: /nothing yet supports a value/i, needs_reading: /firm ends or as a rough estimate/, bounds_leave_nothing: /leave no possible value/, outside_bounds: /lies outside the bounds/,
+    timing_unsupported: /timing .* not something the model can use/, range_unreadable: /cannot be read as it stands/, link_in_words: /stated only in words/, risk_read_once: /counts once as written/,
+    risk_unsized: /cannot size/, needs_deadline: /no deadline/, window_unmeasured: /period .* no way of being measured/, window_not_known: /period .* not known/, window_is_range: /period .* a range/,
+    change_in_rate: /change in a rate/, change_from_changing_option: /option itself changes/, change_under_risk: /change that depends on a risk/, ruled_out: /ruled out/, removed: /removed/,
+    waits_on_aim: /waits until the aim/, waits_on_limit: /waits until the limit/, model_errors: /errors/, schema: /not in a shape/, out_of_domain: /not possible for it, so this cannot be worked out/,
+    no_goals: /no aim to measure/, no_option_change: /No option changes anything/, unlisted: /no plain reason/,
+  }
+  it('every code has its meaning pinned, and the messages are all different', () => {
+    expect(Object.keys(MEANING).sort()).toEqual([...CODES].sort())
+    expect(new Set(CODES.map((c) => reasonsOf(withReasons([{ code: c, ids: [] }]))[0].message)).size).toBe(CODES.length)
+  })
   it.each(CODES)('%s has a plain message of its own', (code) => {
+    expect(reasonsOf(withReasons([{ code, ids: ['agency_staff'] }]))[0].message, code).toMatch(MEANING[code])
     const [r] = reasonsOf(withReasons([{ code, ids: ['agency_staff'] }]))
     expect(r.code).toBe(code)
     expect(r.message.length).toBeGreaterThan(10)
@@ -175,7 +200,8 @@ describe('blocker and waits: every reason code is a plain DGAI message (bullet 7
   })
   it('an unknown code (or none at all) gets a generic honest message, never a crash or a silent drop', () => {
     const [r] = reasonsOf(withReasons([{ code: 'a_code_core_adds_later', ids: [] }]))
-    expect(r.message).toMatch(/could not work this out/i)
+    expect(r.message).toBe('Olumi could not work this out, and cannot yet say why in plain words.')
+    expect(r.message).not.toMatch(/meets|always|never|\d/)
     expect(r.code).toBe('a_code_core_adds_later')
     expect(reasonsOf(withReasons([]))).toHaveLength(1)
     expect(reasonsOf(withReasons(undefined))[0].message).toMatch(/could not work this out/i)
@@ -186,6 +212,22 @@ describe('blocker and waits: every reason code is a plain DGAI message (bullet 7
     expect(c.why).toMatch(/‘per specialist’/)
     expect(c.why).toMatch(/120/)
     expect(c.reasons[0]).toMatchObject({ code: 'out_of_domain' })
+  })
+  it('a range does not hide why a chance was withheld: the reason stays beside it', () => {
+    const v = viewOf('out_of_domain')
+    expect(cell(v, 'add_one').kind).toBe('range')
+    const n = analysisViewOf(v).goal_chance.notes.find((x) => /^not worked out: /.test(x))
+    expect(n).toMatch(/‘Add one specialist’ against ‘At least 100 a week’ cannot be worked out yet/)
+    expect(n).toMatch(/‘per specialist’/)
+    expect(n).toMatch(/120 of the Run's draws/)
+    expect(n).not.toMatch(/left out/)
+  })
+  it('a hold on a second aim is not lost, and a limit blocker names the option it blocks', () => {
+    const second = viewOf('capacity', (fs) => [...fs, { id: 'F30', value: 'cannot be worked out yet', text: 'x', about: { kind: 'blocker', goal: 'morale_goal', reasons: [{ code: 'no_measure', ids: ['morale_goal'] }], figures_out: [], olumi: false, olumi_figures: [], olumi_links: [], olumi_mechanisms: [], approx_figures: [], rests: [], leaves: [], form: 'labels' } }])
+    second.version.form.records.push({ family: 'goal', id: 'morale_goal', label: 'Team morale up', question: null, origin: { by: 'person', quote: 'morale' }, measure: null })
+    expect(analysisViewOf(second).goal_chance.notes.find((x) => /‘Team morale up’/.test(x))).toMatch(/^cannot be worked out yet: ‘Team morale up’ cannot be worked out yet\. ‘Team morale up’ has no way of being measured yet\./)
+    const lim = viewOf('limits', (fs) => [...fs, { id: 'F31', value: 'not worked out', text: 'x', about: { kind: 'blocker', option: 'add_one', limit: 'ceiling', reasons: [{ code: 'out_of_domain', ids: ['total_capacity'] }], draws: 12, figures_out: ['total_capacity'], olumi: false, olumi_figures: [], olumi_links: [], olumi_mechanisms: [], approx_figures: [], rests: [], leaves: [], form: 'labels' } }])
+    expect(analysisViewOf(lim).goal_chance.notes.find((x) => /^not worked out: /.test(x))).toMatch(/‘Add one specialist’ against ‘Capacity ceiling’ cannot be checked yet/)
   })
   it('an aim with no measure is noted with its reason; an aim that waits names what it waits on, and an answer can be given', () => {
     expect(analysisViewOf(viewOf('no_measure')).goal_chance.notes.join('\n')).toMatch(/cannot be worked out yet: .*‘At least 100 a week’/)
@@ -221,6 +263,11 @@ describe('science module kinds are markers (bullet 8)', () => {
     }
     expect(notes.join('\n')).not.toContain('a: b')
     expect(parseCanonicalAnalysisView(analysisViewOf(v))).not.toBeNull()
+  })
+  it('a marker that rests on an unapproved Olumi estimate says so', () => {
+    const f = { ...stubs[0], id: 'F40', about: { ...stubs[0].about, olumi: true, olumi_figures: [{ id: 'per_specialist', approval: 'proposed' }] } }
+    const n = analysisViewOf(viewOf('capacity', (fs) => [...fs, f])).goal_chance.notes.find((x) => x.endsWith('not yet approved).') && /direction: up/.test(x))
+    expect(n).toMatch(/Olumi's what-if figures for ‘per specialist’ \(not yet approved\)/)
   })
   it('none of them is ever spliced into a reply', () => {
     const cf = stubs.map((s) => ({ id: s.id, kind: s.about.kind, value: s.value, text: s.text, about: s.about }))
@@ -366,6 +413,15 @@ describe('Team tab: labels facts and D7 (bullets 1 and 10)', () => {
       seen.add(row.words)
     }
     expect(seen.size).toBe(codes.length - 1 + 1)
+  })
+  it('D7: a sampled chance at either end is never certain, an exact one says it is fixed, and a null leader does not leave a gap', () => {
+    const f = { ...S6.same[0], about: { ...S6.same[0].about, leader: null, model_leader: null, options: [
+      { option: 'add', model: 0, view: 1, gap: 1, exact: false, model_exact: false, view_exact: false },
+      { option: 'carry_on', model: 0, view: 1, gap: 1, exact: true, model_exact: true, view_exact: true }] } }
+    const [row] = team.viewFindingsOf(scenario({ view_findings: findings([f]) })).rows
+    expect(row.options[0].words).toBe('‘add’: under 1% on the model, over 99% on Priya’s figure.')
+    expect(row.options[1].words).toBe('‘carry on’: never meets on the model, always meets on Priya’s figure.')
+    expect(row.words).not.toMatch(/,\s{2}|, still/)
   })
   it('D7: a figure\'s range_kind is carried to the spread, firm ends or a rough range', () => {
     const s = scenario({ views: [
