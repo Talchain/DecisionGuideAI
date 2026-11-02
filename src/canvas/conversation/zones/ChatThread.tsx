@@ -6,7 +6,7 @@
  * Custom scrollbar: 4px, themed. Smart scroll via useSmartScroll.
  */
 
-import { memo, useState, useEffect } from 'react'
+import { Fragment, memo, useState, useEffect } from 'react'
 import { ArrowDown } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useSmartScroll } from '../hooks/useSmartScroll'
@@ -15,6 +15,9 @@ import { EmptyState } from './EmptyState'
 import { ChatMessage } from './ChatMessage'
 import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
 import { SessionDivider } from '../primitives/SessionDivider'
+import { usePresentation } from '../../../presentation/v10'
+import type { SavedVersionReceipt } from '../../versions/modelVersionStamp'
+import { ModelVersionStampSeed, SavedVersionReceiptLine, useSavedVersionReceipts } from './ModelVersionStamp'
 import { ThinkingDots, waitingPhaseOf } from './ThinkingDots'
 
 /** The real stage name while request 2 runs: `inferLoadingHint`'s own words for an explanation. */
@@ -217,6 +220,21 @@ export const ChatThread = memo(function ChatThread({
   const [openedProposal, setOpenedProposal] = useState<{ scenarioId: string | null; id: string } | null>(null)
   useEffect(() => { setOpenedProposal(null) }, [scenarioId])
   // Has the conversation produced any finalized (non-streaming) assistant messages?
+  // v10: a one-line receipt for each saved edit, placed by when it happened. Nothing is shown on load: receipts only
+  // come from a save made in this session.
+  const isV10 = usePresentation() === 'v10'
+  const savedReceipts = useSavedVersionReceipts()
+  // A receipt follows the last message that had arrived when the edit was saved (-1: before every message).
+  const receiptAnchors = new Map<number, SavedVersionReceipt[]>()
+  if (isV10) {
+    for (const r of savedReceipts) {
+      let anchor = -1
+      messages.forEach((m, i) => { if (m.timestamp instanceof Date && m.timestamp.getTime() <= r.at) anchor = i })
+      receiptAnchors.set(anchor, [...(receiptAnchors.get(anchor) ?? []), r])
+    }
+  }
+  const receiptLines = (anchor: number) =>
+    (receiptAnchors.get(anchor) ?? []).map(r => <SavedVersionReceiptLine key={r.id} receipt={r} />)
   const hasFinalizedAssistant = messages.some(m => m.role === 'assistant' && !m.isStreaming)
 
   // EmptyState stays visible when no graph nodes exist and no finalized assistant
@@ -347,13 +365,19 @@ export const ChatThread = memo(function ChatThread({
         />
       )}
 
-      {messages.map((msg) => {
+      {isV10 && <ModelVersionStampSeed />}
+      {receiptLines(-1)}
+
+      {messages.map((msg, index) => {
+        // v10: the saved-edit receipts that follow this message sit right after it. The Fragment is the same for every
+        // message, in every presentation, so a reply is never remounted when a receipt appears beside it.
+        const withReceipts = (node: React.ReactNode) => <Fragment key={msg.id}>{node}{receiptLines(index)}</Fragment>
         // Hide user messages and the streaming placeholder while EmptyState is the loading hub.
         // Same predicate the scroll trigger counts with — derived, never restated.
-        if (!isRendered(msg)) return null
+        if (!isRendered(msg)) return withReceipts(null)
         const isLastAssistant = msg === lastReplyMsg
         if (msg.sessionDivider) {
-          return <SessionDivider key={msg.id} text={msg.sessionDivider} />
+          return withReceipts(<SessionDivider text={msg.sessionDivider} />)
         }
         const chatMsg = (
           <ChatMessage
@@ -387,7 +411,7 @@ export const ChatThread = memo(function ChatThread({
         // assistant reply now keeps the same `div` for its whole life; only what
         // it holds changes. User messages never carry chips, so they stay bare.
         // Pinned by `ChatThread.pendingTurnStable.spec.tsx`.
-        if (msg.role !== 'assistant') return chatMsg
+        if (msg.role !== 'assistant') return withReceipts(chatMsg)
         // Attach suggested chips directly below their owning reply
         // so they read as one visual unit rather than floating orphans.
         // The ids are read from the reply's chips, live or restored (buddy r1 P2), never the scalar `heldProposalId`.
@@ -408,9 +432,8 @@ export const ChatThread = memo(function ChatThread({
           return ownedIds.has(chip.id.slice(chip.id.indexOf(':') + 1))
         })
         const chipGroup = replyChips.length > 0
-        return (
+        return withReceipts(
           <div
-            key={msg.id}
             className={chipGroup ? 'response-chip-group' : undefined}
             data-testid={chipGroup ? 'response-chip-group' : undefined}
           >

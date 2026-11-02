@@ -199,6 +199,8 @@ import {
 import { NodeRailIcon } from './shared/NodeRailIcons'
 import { OPTION_RESULT_COPY } from './shared/metricVocabulary'
 import { useOptionChanceCell } from './shared/useOptionChanceCell'
+import { usePresentation } from '../../presentation/v10'
+import { V10OptionBand } from '../../presentation/V10OptionBand'
 import { optionTakenOutLine } from '../domain/optionStatus'
 import { useRunCurrency, optionResultCaption, optionResultCurrencyNote } from './shared/runCurrency'
 import { olumiSuppliedFiguresDisclosure } from '../../components/results/analysisNew/analysisNewCopy'
@@ -1450,6 +1452,7 @@ export const OptionNode = memo((props: NodeProps) => {
 
   // The canvas provider carries Results' chance and basis metadata for this option.
   const chanceCell = useOptionChanceCell(props.id)
+  const isV10 = usePresentation() === 'v10'
 
   // "Behind:" reason for non-winner options (including status quo).
   // Computed via the pure helper so this option's reason can be compared
@@ -2822,6 +2825,8 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
         </div>
+        {/* v10 only (#/canvas2): the outcome band under the headline, on the axis every option card shares. */}
+        {isV10 && displayMetadata.isResultsMode && takenOutLine === null && <V10OptionBand optionId={props.id} />}
         {olumiSuppliedFigures !== null && (
           <p
             className={`${typography.edgeLabel} text-text-body mt-1 mb-0`}

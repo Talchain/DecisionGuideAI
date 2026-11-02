@@ -5,6 +5,7 @@
  */
 import { createContext, useContext, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
+import { typography } from '../styles/typography'
 
 export type Presentation = 'current' | 'v10'
 
@@ -25,8 +26,8 @@ export function PresentationProvider({ value, children }: { value: Presentation;
         {value === 'v10' && (
           <a
             href={id ? `#/scenario/${id}` : '#/canvas'}
-            className="fixed z-50 inline-flex items-center rounded-full bg-panel text-text-body hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
-            style={{ left: 72, bottom: 16, gap: 6, padding: '5px 12px', border: '1px solid var(--border-default, #EEE6D8)', fontSize: 12, fontWeight: 500, boxShadow: '0 1px 3px rgba(0,0,0,.08)' }}
+            className={`${typography.panelBody} fixed z-50 inline-flex items-center rounded-full bg-panel text-text-body hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            style={{ left: 72, bottom: 16, gap: 6, padding: '5px 12px', border: '1px solid var(--border-default, #EEE6D8)', boxShadow: '0 1px 3px rgba(0,0,0,.08)' }}
             data-testid="v10-compare-link"
           >
             Design v10 · Open in the current design

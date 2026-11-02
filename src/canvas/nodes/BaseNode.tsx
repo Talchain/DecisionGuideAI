@@ -78,6 +78,8 @@ import {
 } from './shared/analysisParticipation'
 import { livingOnlyOf, NOT_IN_CALCULATION_TEST_ID, notInCalculationWords } from '../domain/livingModelCanvas'
 import { NodeQuickActions } from './shared/NodeQuickActions'
+import { NodeCornerOlumi } from './shared/NodeCornerOlumi'
+import { usePresentation } from '../../presentation/v10'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { openOptionValueInput } from '../utils/openOptionValueInput'
@@ -664,6 +666,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    * alone never qualifies (spec §2).
    */
   const attention = useNodeAttention(id)
+  const isV10 = usePresentation() === 'v10'
   /**
    * Provenance at rest = EXCEPTIONS to the board's default (spec §6; ED 11:52Z
    * point 8). Detailed shows every mark ("Detailed adds information").
@@ -2139,6 +2142,13 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             ) : undefined
           }
         />
+      )}
+
+      {/* v10 (#/canvas2): the Olumi mark is a badge on the card's bottom-right corner, not part of the rail
+          (`NodeQuickActions` withholds its door in v10). Shown on hover, focus and selection, and at rest where Olumi has
+          a note or attention here. Same mount gate as the rail, so no rung that hides the rail draws it. */}
+      {isV10 && showQuickActions && livingOnly === null && (
+        <NodeCornerOlumi nodeId={id} selected={selected === true} hasAttention={attention.reasons.length > 0} />
       )}
 
       {/* ⭐ ONE POINTING HALO (vision spec §3, 23 Oct): assistant focus and a method result that names this option draw

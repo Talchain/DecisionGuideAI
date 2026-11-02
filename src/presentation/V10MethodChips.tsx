@@ -5,6 +5,7 @@
 import { memo } from 'react'
 import { Zap, ArrowLeftRight, Search, Globe } from 'lucide-react'
 import { ICON_STROKE } from '../canvas/conversation/panelIcons'
+import { typography } from '../styles/typography'
 
 const MOVES = [
   { key: 'assumption', label: 'Challenge it', prefix: 'Challenge it: ', Icon: Zap },
@@ -29,8 +30,8 @@ export const V10MethodChips = memo(function V10MethodChips({ value, onReplace }:
           key={key}
           type="button"
           onClick={() => onReplace(withMethodPrefix(prefix, value))}
-          className="inline-flex items-center rounded-full bg-panel text-text-body hover:bg-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
-          style={{ gap: 5, padding: '4px 10px', border: '1px solid var(--border-default, #EEE6D8)', fontSize: 12, lineHeight: '16px', fontWeight: 500 }}
+          className={`${typography.panelBody} inline-flex items-center rounded-full bg-panel text-text-body hover:bg-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2`}
+          style={{ gap: 5, padding: '4px 10px', border: '1px solid var(--border-default, #EEE6D8)' }}
           data-testid={`v10-method-${key}`}
         >
           <Icon aria-hidden="true" size={13} strokeWidth={ICON_STROKE} />
