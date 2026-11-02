@@ -6,6 +6,8 @@
  *
  * ⛔ No saved-write path is reachable from here BY CONSTRUCTION (Codex AMEND risk 1): the value is typed in this card,
  *   never in a card's own value editor, so no editor opens, prefills or commits on blur.
+ *   The v10 view (`presentation/V10WhatIf.tsx`, mounted when `usePresentation() === 'v10'`) draws this same state and has no
+ *   write path either: no "keep", no edit authority, no value editor. A figure is changed only by the canvas's own edit.
  * ⛔ One scale rule (risk 2): the input shows what the card's editor shows (`resolveValueInputSeed`) and the gesture is
  *   built by the saved path's own builder (`buildFactorValueEditEvent`) and wire adapter (`adaptFactorValueEdit`).
  * ⛔ Results are CEE's words verbatim (its displays, its withheld sentences, its variation sentence). This card composes
@@ -25,6 +27,8 @@ import { useCanvasStore } from '../store'
 import { getObservedState } from '../utils/observedStateHelpers'
 import { useWhatIfStore, type HeldWhatIf } from '../stores/whatIfStore'
 import { useSavedGraph } from '../nodes/shared/savedGraph'
+import { usePresentation } from '../../presentation/v10'
+import { NO_COURSE, V10Legend, V10WhatIfBody, type CourseDraft } from '../../presentation/V10WhatIf'
 
 export const WHAT_IF_COPY = {
   nothingSaved: 'What-if, nothing saved',
@@ -134,18 +138,29 @@ export function WhatIfKey({ folded }: { folded: boolean }) {
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
   const hash = useCanvasStore((s) => s.lastServerGraphHash)
   const viewer = useIsViewer()
+  const v10 = usePresentation() === 'v10'
   const held = useWhatIfStore((s) => s.held)
   const run = useWhatIfStore((s) => s.run)
+  // v10 (#/canvas2) only: the change-course point set before a result. Unused in the current design.
+  const [course, setCourse] = useState<CourseDraft>(NO_COURSE)
   const savedGraph = useSavedGraph()
   const choices = useMemo(() => whatIfFactorChoices(nodes, savedGraph), [nodes, savedGraph])
   const [pickedId, setPickedId] = useState<string | null>(held?.nodeId ?? null)
   const picked = choices.find((c) => c.id === pickedId) ?? choices[0] ?? null
   const [typed, setTyped] = useState<string>(held ? String(held.whatIf) : '')
   // A draft belongs to the model it was typed on: a scenario switch or a saved change starts it afresh.
-  useEffect(() => { setPickedId(null); setTyped('') }, [scenarioId, hash])
+  useEffect(() => { setPickedId(null); setTyped(''); setCourse(NO_COURSE) }, [scenarioId, hash])
+  // v10: a change-course point belongs to the option it was set for; when that option leaves the model the point is cleared.
+  const optionIds = useMemo(() => nodes.filter((n) => n.type === 'option').map((n) => n.id).join('\u0000'), [nodes])
+  useEffect(() => {
+    setCourse((c) => (c.optionId !== null && !optionIds.split('\u0000').includes(c.optionId) ? NO_COURSE : c))
+  }, [optionIds])
   // Any edit makes the shown result no longer the answer to what is on screen: drop it (a late answer is dropped too).
   const edit = (next: () => void) => { next(); if (useWhatIfStore.getState().held !== null || useWhatIfStore.getState().run.kind !== 'idle') useWhatIfStore.getState().clear() }
 
+  if (folded && v10) {
+    return <V10Legend held={held} />
+  }
   if (folded) {
     return (
       <p data-testid="what-if-legend" className={`${typography.panelBody} text-text-body`}>
@@ -175,6 +190,37 @@ export function WhatIfKey({ folded }: { folded: boolean }) {
   const optionLabel = (id: string) => labelOf(nodes.find((n) => n.id === id && n.type === 'option')?.data) || null
   const outcome = run.kind === 'done' ? run.outcome : null
   const notice = outcome === null ? null : whatIfNotice(outcome)
+
+  if (v10) {
+    const rows = outcome?.status === 'ran'
+      ? outcome.options.flatMap((row) => {
+        const label = optionLabel(row.option_id)
+        return label === null ? [] : [{ id: row.option_id, label, saved: row.saved, whatIf: row.what_if, variationWords: row.variation_words }]
+      })
+      : null
+    return (
+      <V10WhatIfBody
+        choices={choices}
+        picked={picked}
+        typed={typed}
+        placeholder={String(picked.saved)}
+        canRun={canRun}
+        running={run.kind === 'running'}
+        onPick={(id) => edit(() => { setPickedId(id); setTyped('') })}
+        onType={(v) => edit(() => setTyped(v))}
+        onTry={() => { void press() }}
+        options={nodes.filter((n) => n.type === 'option').map((n) => ({ id: n.id, label: labelOf(n.data) })).filter((o) => o.label !== '')}
+        course={course}
+        onCourse={(next) => edit(() => setCourse(next))}
+        held={held}
+        notice={notice}
+        why={outcome?.status === 'refused' && (outcome.nextStep !== undefined || outcome.questions !== undefined)
+          ? { ...(outcome.nextStep !== undefined ? { nextStep: outcome.nextStep } : {}), ...(outcome.questions !== undefined ? { questions: outcome.questions } : {}) }
+          : null}
+        result={outcome?.status === 'ran' && rows !== null ? { paired: outcome.paired, notPairedWords: WHAT_IF_COPY.notPaired, rows } : null}
+      />
+    )
+  }
 
   return (
     <div data-testid="what-if-key" className="space-y-3">
