@@ -64,3 +64,18 @@ describe('a proposed change is seen on the card it changes, before approval (can
     })
   }
 })
+
+describe('a none row from a core before view-dock (no `text`) still says why (00058 P1)', () => {
+  it('each such row draws its title', () => {
+    let seen = 0
+    for (const n of GOLDEN) for (const card of golden(n).model?.cards ?? []) card.rows.forEach((r, i) => {
+      if (r.kind !== 'none') return
+      const old = structuredClone(card) as unknown as { rows: Record<string, unknown>[] }
+      delete old.rows[i]!['text']
+      const c = render(<ViewCard card={old as unknown as typeof card} />).container
+      expect(c.querySelector(`[data-view="${card.id}.rows.${i}.title"]`)?.textContent).toBe(r.title)
+      seen++
+    })
+    expect(seen).toBeGreaterThan(0)
+  })
+})

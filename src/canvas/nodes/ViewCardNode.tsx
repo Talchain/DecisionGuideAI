@@ -33,7 +33,10 @@ function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
     case 'route':
       return <p title={row.title} data-view-row={at}><span data-view={`${at}.glyph`}>{row.glyph}</span> <span data-view={`${at}.aim`}>{row.aim}</span></p>
     case 'none':
-      return <p title={row.title} data-view-row={at}><span data-view={`${at}.text`}>{row.text}</span></p>
+      // a core before view-dock serves no `text`: the row says its title, as before (00058 P1)
+      return row.text == null
+        ? <p data-view-row={at}><span data-view={`${at}.title`}>{row.title}</span></p>
+        : <p title={row.title} data-view-row={at}><span data-view={`${at}.text`}>{row.text}</span></p>
   }
 }
 

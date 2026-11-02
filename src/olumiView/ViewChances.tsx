@@ -43,7 +43,10 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
         </div>
       )
     case 'none':
-      return <div title={row.title} data-view-row={at}><span data-view={`${at}.text`}>{row.text}</span></div>
+      // a core before view-dock serves no `text`: the row says its title, as the base dock did (00058 P1)
+      return row.text == null
+        ? <div data-view-row={at}><span data-view={`${at}.title`}>{row.title}</span></div>
+        : <div title={row.title} data-view-row={at}><span data-view={`${at}.text`}>{row.text}</span></div>
   }
 }
 
@@ -70,7 +73,7 @@ function WaitsOnItems({ w, unknown }: { w: WaitsOn; unknown: boolean }) {
  * most likely option; the notes; and, when not every option waits, what the chances wait on. Every word is the View's.
  */
 export function ViewChances({ model }: { model: ViewModel }) {
-  const run = model.run
+  const run = model.run ?? null // absent from a core before view-dock (00058 P1)
   const headline = run !== null && run.all_withheld && run.waits_on !== null
   return (
     <div className={`${typography.panelBody} space-y-3`} data-testid="view-chances">
@@ -85,7 +88,7 @@ export function ViewChances({ model }: { model: ViewModel }) {
         <div key={card.id} data-view-card={card.id}>
           <div className={typography.panelHeader} data-view={`${card.id}.heading`}>{card.heading}</div>
           {card.rows.map((row, i) => <Row key={i} card={card} row={row} i={i} />)}
-          {card.driver === null ? null : <p className={typography.panelMeta} title={card.driver.title} data-view={`${card.id}.driver.text`}>{card.driver.text}</p>}
+          {card.driver == null ? null : <p className={typography.panelMeta} title={card.driver.title} data-view={`${card.id}.driver.text`}>{card.driver.text}</p>}
         </div>
       ))}
       {run?.most_likely == null ? null : <p title={run.most_likely.title} data-view="run.most_likely.text">{run.most_likely.text}</p>}

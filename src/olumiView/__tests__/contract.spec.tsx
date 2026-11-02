@@ -165,3 +165,27 @@ describe('the Run beside the chances says what the base dock said, word for word
     expect(container.querySelector('[data-testid="view-run-waits-on"]')).toBeNull()
   })
 })
+
+describe('a View from a core without the dock fields still draws (00058 P1)', () => {
+  /** The same golden as an olumi.view/2 core before view-dock serves it: no `run`, no `driver`, `none` rows with no `text`. */
+  const older = (n: string): ViewModel => {
+    const model = structuredClone(golden(n).model!) as unknown as Record<string, unknown> & { cards: Record<string, unknown>[] }
+    delete model['run']
+    for (const c of model.cards) {
+      delete c['driver']
+      for (const r of c['rows'] as Record<string, unknown>[]) if (r['kind'] === 'none') delete r['text']
+    }
+    return model as unknown as ViewModel
+  }
+  for (const n of GOLDEN) {
+    it(`${n}: no run block, no driver line, and each none row says its title`, () => {
+      const model = older(n)
+      const { container } = render(<ViewChances model={model} />)
+      expect(container.querySelector('[data-view^="run."]')).toBeNull()
+      expect(container.querySelector('[data-view$=".driver.text"]')).toBeNull()
+      for (const c of model.cards) c.rows.forEach((r, i) => {
+        if (r.kind === 'none') expect(container.querySelector(`[data-view="${c.id}.rows.${i}.title"]`)?.textContent).toBe(r.title)
+      })
+    })
+  }
+})
