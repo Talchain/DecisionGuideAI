@@ -6,7 +6,7 @@
  */
 import crypto from 'node:crypto'
 import { CoreError, WriteKept, errorTurn } from './core.mjs'
-import { changeRows, changeSetOf, byId, figure, num } from './words.mjs'
+import { changeRows, changeSetOf, byId, figure, num, theirs } from './words.mjs'
 import { analysisViewOf, ghostAddsOf, modelOf, shownOf } from './model.mjs'
 import { fillCited, noteOf } from './note.mjs'
 import { propIdOf, rev16, rev64, revSaved16, runIdOf, sidOfUuid, turnIdOf, uuidOfSid, isSid } from './ids.mjs'
@@ -193,7 +193,7 @@ export function makeShim({ core, log = () => {}, onlySupported }) {
     if (rec?.family === 'quantity' && (rec.role === 'derived' || rec.assertion.kind === 'derived')) throw new CoreError(400, `‘${rec.label}’ is worked out from other figures, so it cannot be typed over. Change the figures it is worked out from, or tell me in the chat. Nothing was saved.`)
     if (rec?.family === 'quantity' && rec.origin?.by === 'structure') throw new CoreError(400, `‘${rec.label}’ is fixed by how the model is built, not a figure anyone gave, so it cannot be changed here. Tell me in the chat if it is wrong. Nothing was saved.`)
     if (!range && rec?.family === 'quantity' && rec.assertion.kind === 'interval') {
-      throw new CoreError(400, `‘${rec.label}’ is a range (${figure(rec.assertion, rec.unit)}), and a typed figure would replace it with one number. Tell me the new range in the chat. Nothing was saved.`)
+      throw new CoreError(400, `‘${rec.label}’ is a range (${figure(rec.assertion, rec.unit, theirs(rec))}), and a typed figure would replace it with one number. Tell me the new range in the chat. Nothing was saved.`)
     }
     // A range edit keeps the figure the person stated (a most likely, or the one value they gave) while it lies inside the new range: sent
     // as `likely`, and core keeps it too, so a correction never deletes a figure that was supplied.

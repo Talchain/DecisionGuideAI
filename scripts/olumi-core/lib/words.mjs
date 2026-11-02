@@ -10,14 +10,25 @@ export const byId = (form) => new Map((form?.records ?? []).map((r) => [r.id, r]
 export const nameOf = (m, id) => { const r = m.get(id); return r ? (r.label ?? r.text ?? r.position ?? r.id) : id }
 export const CMP = { '>=': 'at least', '<=': 'at most', '>': 'more than', '<': 'less than' }
 
-/** A number as a person reads it: thousands separated, no float noise. */
+/**
+ * A number as a person reads it: thousands separated, no float noise.
+ * A figure the model or Olumi supplies shows at most 3 significant figures when it is not a whole number (13/3 is "4.33"); the size of a
+ * large one is never cut (1,234,567.5 is "1,234,568"), and a small one is never rounded to 0 (0.0000001 stays). `exact` is for a figure the
+ * person typed: it is shown as they gave it (float noise past 12 significant figures tidied), never rounded to fewer.
+ */
 const SIX_PLACES = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 6 }), TWELVE_DIGITS = new Intl.NumberFormat('en-GB', { maximumSignificantDigits: 12 })
-export const num = (n) => {
+const THREE_DIGITS = new Intl.NumberFormat('en-GB', { maximumSignificantDigits: 3 }), WHOLE = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
+export const num = (n, exact = false) => {
   if (typeof n !== 'number' || !Number.isFinite(n)) return String(n)
+  if (!exact && !Number.isInteger(n)) return Math.abs(n) >= 1000 ? WHOLE.format(n) : THREE_DIGITS.format(n)
   const shown = SIX_PLACES.format(n)
   // Six places only while they keep the figure: 0.0000001 would read as "0" and a figure the person gave would be lost.
   return Math.abs(Number(shown.replace(/,/g, '')) - n) <= 1e-9 * Math.abs(n) ? shown : TWELVE_DIGITS.format(n)
 }
+/** The same rule as a number, for a value sent to be read as a figure (the card reads `observed_state.value` itself): 3 significant figures, whole numbers and large sizes untouched. */
+export const shownNumber = (n) => (typeof n !== 'number' || !Number.isFinite(n) || Number.isInteger(n) ? n : Math.abs(n) >= 1000 ? Math.round(n) : Number(n.toPrecision(3)))
+/** Is this the person's own figure (typed by them, or edited by them)? Only theirs is shown exactly as given. */
+export const theirs = (rec) => rec?.origin?.by === 'person'
 const unitOf = (unit) => (unit && unit !== '1' ? ` ${unit}` : '')
 
 /**
@@ -25,21 +36,23 @@ const unitOf = (unit) => (unit && unit !== '1' ? ` ${unit}` : '')
  * different figure. Under 0.01% it says so; "0%" is only ever an exact zero. Mirrored by `chancePercentText`
  * (src/canvas/nodes/shared/chancePercent.ts), which words the same chance on the risk card.
  */
-export function percent(x) {
+export function percent(x, exact = false) {
   const v = x * 100
   if (v === 0) return '0%'
   if (v === 100) return '100%'
   if (v < 0.01) return 'under 0.01%'
   if (v > 99.99) return 'over 99.99%'
+  // Three significant figures for a chance Olumi or the model supplies (33.3%); never "100%" for a chance short of certain; a person's is as stated.
+  if (!exact && v < 99.95) return `${new Intl.NumberFormat('en-GB', { maximumSignificantDigits: 3, useGrouping: false }).format(v)}%`
   return `${new Intl.NumberFormat('en-GB', { maximumFractionDigits: 2, useGrouping: false }).format(v)}%`
 }
 
 /** A figure in plain words, as the person stated it: a point, or a range with the likeliest value. */
-export function figure(a, unit) {
-  const u = unitOf(unit)
+export function figure(a, unit, exact = false) {
+  const u = unitOf(unit), n = (x) => num(x, exact)
   switch (a.kind) {
-    case 'point': return `${a.approximate ? 'about ' : ''}${num(a.value)}${u}`
-    case 'interval': return `between ${num(a.low)} and ${num(a.high)}${u}${a.likely != null ? `, most likely ${num(a.likely)}` : ''}`
+    case 'point': return `${a.approximate ? 'about ' : ''}${n(a.value)}${u}`
+    case 'interval': return `between ${n(a.low)} and ${n(a.high)}${u}${a.likely != null ? `, most likely ${n(a.likely)}` : ''}`
     case 'derived': return 'worked out from the other figures'
     case 'asked': return `still to be given: ${a.question}`
     default: return a.reason
@@ -126,7 +139,7 @@ export function describe(rec, form) {
   switch (rec.family) {
     case 'quantity': return {
       label: rec.label, kind: 'quantity', family: 'quantity',
-      after: isDerived(rec) ? `Worked out from ${partsOf(form.records, rec.id).map(N).join(' and ') || 'the other figures'}` : figure(rec.assertion, rec.unit),
+      after: isDerived(rec) ? `Worked out from ${partsOf(form.records, rec.id).map(N).join(' and ') || 'the other figures'}` : figure(rec.assertion, rec.unit, theirs(rec)),
     }
     case 'relation': {
       if (rec.form === 'influence') return { label: `${N(rec.from)} and ${N(rec.to)}`, after: `${N(rec.from)} ${rec.direction === 'up' ? 'pushes up' : rec.direction === 'down' ? 'pushes down' : rec.direction === 'conditional' ? 'sometimes moves' : rec.direction === 'disputed' ? 'is disputed as moving' : 'may move'} ${N(rec.to)} (${rec.confidence})`, kind: 'relation', family: 'relation' }

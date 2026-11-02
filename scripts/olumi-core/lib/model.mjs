@@ -4,11 +4,12 @@
  * Rules come from the served fixtures (src/canvas/nodes/__tests__/fixtures/served-*), so this is only as faithful as they are.
  * Facts are read by their structured `about` (API v1.4), never from their text.
  */
-import { byId, changeSetOf, decideByWords, figure, nameOf, num, partsOf, percent, signedPartsOf, CMP } from './words.mjs'
+import { byId, changeSetOf, decideByWords, figure, nameOf, num, partsOf, percent, shownNumber, signedPartsOf, theirs, CMP } from './words.mjs'
 import { rev16, rev64, revSaved16, runIdOf } from './ids.mjs'
 
 const valueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? (q.assertion.low + q.assertion.high) / 2) : null)
-const fmt = (q) => (q ? figure(q.assertion, q.unit) : '')
+/** A figure in words: the person's own exactly as they gave it, anyone else's to 3 significant figures. */
+const fmt = (q) => (q ? figure(q.assertion, q.unit, theirs(q)) : '')
 /** The likeliest value the person or Olumi stated, and never a midpoint: null for a range with no likeliest value. */
 const statedValueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? null) : null)
 /**
@@ -20,8 +21,10 @@ const observedOf = (q, source, rangeSource) => {
   const stated = statedValueOf(q), a = q?.assertion
   const interval = a?.kind === 'interval' ? a : null
   if (stated === null && !interval) return null
-  return { unit: q.unit, ...(stated !== null ? { value: stated, raw_value: stated } : {}), source,
-    ...(interval ? { range: { low: interval.low, high: interval.high, source: rangeSource, meaning: interval.range_kind } } : {}) }
+  // The card prints these numbers as they come, so a figure that is not the person's is tidied to 3 significant figures here (theirs is sent as given).
+  const tidy = theirs(q) ? (x) => x : shownNumber
+  return { unit: q.unit, ...(stated !== null ? { value: tidy(stated), raw_value: tidy(stated) } : {}), source,
+    ...(interval ? { range: { low: tidy(interval.low), high: tidy(interval.high), source: rangeSource, meaning: interval.range_kind } } : {}) }
 }
 /** A chance as the percentage a person reads: exactly as stated, never rounded to a different figure (see `percent`). */
 const pct = percent
@@ -46,14 +49,14 @@ const INFLUENCE_WORDS = { disputed: 'People disagree about which way this goes.'
 /** A risk's chance and size, in the words a card shows: each with its range, and whose figure it is. */
 function riskWords(r, m) {
   const occ = m.get(r.occurrence), sev = m.get(r.severity), target = nameOf(m, r.effect_on)
-  const chance = (a) => (a.kind === 'point' ? `${a.approximate ? 'about ' : ''}${pct(a.value)}`
-    : a.likely != null ? `about ${pct(a.likely)} (between ${pct(a.low)} and ${pct(a.high)})` : `between ${pct(a.low)} and ${pct(a.high)}`)
-  const size = (a) => (a.kind === 'point' ? `${num(a.value)}` : a.likely != null ? `${num(a.likely)} (between ${num(a.low)} and ${num(a.high)})` : `an amount between ${num(a.low)} and ${num(a.high)}`)
+  const chance = (a, ex) => (a.kind === 'point' ? `${a.approximate ? 'about ' : ''}${pct(a.value, ex)}`
+    : a.likely != null ? `about ${pct(a.likely, ex)} (between ${pct(a.low, ex)} and ${pct(a.high, ex)})` : `between ${pct(a.low, ex)} and ${pct(a.high, ex)}`)
+  const size = (a, ex) => (a.kind === 'point' ? `${num(a.value, ex)}` : a.likely != null ? `${num(a.likely, ex)} (between ${num(a.low, ex)} and ${num(a.high, ex)})` : `an amount between ${num(a.low, ex)} and ${num(a.high, ex)}`)
   const usable = (q) => q && (q.assertion.kind === 'point' || q.assertion.kind === 'interval')
   const verb = r.mode === 'multiply' ? 'multiplies' : r.mode === 'add' ? 'adds to' : 'moves'
   const parts = [
-    usable(occ) ? `May happen: ${chance(occ.assertion)}.` : null,
-    usable(sev) ? `If it does, it ${verb} ‘${target}’ by ${size(sev.assertion)}.` : `If it happens, it pushes ‘${target}’ ${r.direction === 'unknown' ? 'either way' : r.direction}.`,
+    usable(occ) ? `May happen: ${chance(occ.assertion, theirs(occ))}.` : null,
+    usable(sev) ? `If it does, it ${verb} ‘${target}’ by ${size(sev.assertion, theirs(sev))}.` : `If it happens, it pushes ‘${target}’ ${r.direction === 'unknown' ? 'either way' : r.direction}.`,
     [occ, sev].some((q) => q?.origin?.by === 'olumi') ? 'Olumi’s what-if figures, until you give your own.' : null,
   ].filter(Boolean)
   return parts.join(' ')
@@ -128,9 +131,10 @@ export function graphOf(form) {
     const target = m.get(r.measure?.target)
     const a = target?.assertion
     // A target that is a range is shown as one ("95 to 105"), never collapsed to a single figure nobody gave.
-    const rangeWords = a?.kind === 'interval' ? `${num(a.low)} to ${num(a.high)}${a.likely != null ? `, most likely ${num(a.likely)}` : ''}` : null
-    const raw = a?.kind === 'interval' ? (a.likely ?? `${num(a.low)} to ${num(a.high)}`) : valueOf(target)
-    add({ id: r.id, ref: `G${++g}`, kind: 'goal', label: nameFor(r, target, m, 'Aim for'), provenance: prov(r, target), ...quote(r, target), display_value: r.measure ? `${r.measure.cmp} ${rangeWords ?? valueOf(target)} ${target?.unit ?? ''}`.trim() : r.label,
+    const ex = theirs(target)   // the person's own target is shown as they gave it; Olumi's to 3 significant figures
+    const rangeWords = a?.kind === 'interval' ? `${num(a.low, ex)} to ${num(a.high, ex)}${a.likely != null ? `, most likely ${num(a.likely, ex)}` : ''}` : null
+    const raw = a?.kind === 'interval' ? (a.likely ?? `${num(a.low, ex)} to ${num(a.high, ex)}`) : valueOf(target)
+    add({ id: r.id, ref: `G${++g}`, kind: 'goal', label: nameFor(r, target, m, 'Aim for'), provenance: prov(r, target), ...quote(r, target), display_value: r.measure ? `${r.measure.cmp} ${rangeWords ?? (ex ? valueOf(target) : shownNumber(valueOf(target)))} ${target?.unit ?? ''}`.trim() : r.label,
       goal_direction: r.measure?.cmp, goal_threshold_raw: raw, goal_threshold_unit: target?.unit ?? null, goal_threshold_frame: r.measure?.frame ?? 'level', goal_measure_by: r.measure?.measure_by ?? 'person', analysis_participation: 'included' })
     if (r.measure && seen.has(r.measure.quantity)) link(r.measure.quantity, r.id, { provenance: { source: 'brief_extraction', definitional: true } })
   }

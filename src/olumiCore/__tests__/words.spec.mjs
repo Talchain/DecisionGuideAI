@@ -59,7 +59,7 @@ describe('a stored figure or word is never changed on its way to the card (sibli
     expect(num(0.0000001)).toBe('0.0000001')
     expect(num(-0.00000042)).toBe('-0.00000042')
     expect(num(0.1 + 0.2)).toBe('0.3')
-    expect(num(1234567.5)).toBe('1,234,567.5')
+    expect(num(1234567.5, true)).toBe('1,234,567.5')   // a figure the person typed; Olumi's and the model's are tidied to 3 significant figures (figuresShown.spec.mjs)
     expect(num(0)).toBe('0')
   })
   it('a quote with an ellipsis or a double stop in it is shown as the person wrote it; only the seam between the sentence and the quote is made one stop', () => {
