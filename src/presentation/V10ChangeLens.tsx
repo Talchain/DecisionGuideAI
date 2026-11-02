@@ -10,7 +10,8 @@
  *     was a second answer, not served guidance);
  *   - the board's driver chart and "works above about 6%": CEE serves only the side where the chance falls, and no
  *     switch point.
- * The badge hangs on the card's corner, out of flow, so no card changes height. Nothing dims. It drops at the line rung,
+ * The badge hangs on the card's corner, out of flow, so no card changes height; its box stays 20px on the card at every zoom
+ * (not counter-scaled), so it never reaches the title. Nothing dims. It drops at the line rung,
  * as the card's own marks do.
  */
 import { useMemo } from 'react'
@@ -53,9 +54,9 @@ function OptionDriverBadge({ nodeId }: { nodeId: string }) {
         role="img"
         tabIndex={0}
         aria-label={V10_CHANGE_COPY.driverAria}
-        className={`pointer-events-auto absolute -right-2 -top-2 z-10 inline-grid place-items-center ${CANVAS_GLYPH_SIZE_CLASSES[20]} rounded-full border border-panel-border bg-panel text-text-light shadow-1`}
+        className={`pointer-events-auto absolute -right-2 -top-2 z-10 inline-grid h-5 w-5 place-items-center rounded-full border border-panel-border bg-panel text-text-light shadow-1`}
       >
-        <Activity aria-hidden="true" size={12} className={CANVAS_GLYPH_SIZE_CLASSES[12]} />
+        <Activity aria-hidden="true" className="h-3 w-3" />
       </span>
     </Tooltip>
   )

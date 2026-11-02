@@ -66,6 +66,14 @@ describe('v10 "What would change": the option driver badge', () => {
     expect(screen.queryByTestId('v10-change-driver-opt-b')).toBeNull()
   })
 
+  it('keeps a fixed 20px box on the card at every zoom, so it never grows over the option title (Codex 00026: at 50% zoom the counter-scaled box reached 32px into the card)', () => {
+    mount('opt-a', 'option')
+    const cls = screen.getByTestId('v10-change-driver-opt-a').className
+    expect(cls).toContain('h-5 w-5')
+    expect(cls).toContain('-right-2 -top-2')
+    expect(cls).not.toContain('--canvas-glyph-scale')
+  })
+
   it('draws nothing at the line rung, where the card\'s own marks drop', () => {
     seed('what_changes', 'line')
     mount('opt-a', 'option')
