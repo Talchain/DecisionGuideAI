@@ -58,7 +58,9 @@ describe('v10 "Rests on": what each option stands on, counted by author', () => 
     key('v10')
     const reliance = screen.getByTestId('v10-rests-on-reliance')
     const rowOf = (id: string) => reliance.querySelector(`[data-option="${id}"]`) as HTMLElement
-    expect(within(rowOf('A')).getByText(/Olumi’s, unchecked 1 · No figure yet or origin not known 1/u)).toBeTruthy()
+    // At rest the row is glyphs and counts; the words are the mark's name (hover and focus), said once in the key.
+    const countsA = within(rowOf('A')).getAllByTestId(/^v10-rests-on-count-/u)
+    expect(countsA.map((c) => [c.getAttribute('aria-label'), c.textContent])).toEqual([['Olumi’s, unchecked 1', '1'], ['No figure yet or origin not known 1', '1']])
     const segments = [...rowOf('A').querySelectorAll<HTMLElement>('[data-segment]')]
     expect(segments.map((s) => [s.dataset.segment, s.style.width])).toEqual([['unchecked', '50%'], ['unset', '50%']])
     expect(rowOf('B').querySelector('[data-segment="yours"]')).not.toBeNull()

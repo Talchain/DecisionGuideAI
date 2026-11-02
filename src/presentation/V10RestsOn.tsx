@@ -78,9 +78,15 @@ function Row({ row }: { row: OptionReliance }) {
               <i key={s.id} data-segment={s.id} className="block h-full" style={{ ...FILL[s.id], width: `${(s.n / row.total) * 100}%` }} />
             ))}
           </div>
-          <p className={`${typography.panelMeta} m-0 text-text-light tabular-nums`}>
-            {parts.map((s) => `${s.label} ${s.n}`).join(' · ')}
-          </p>
+          {/* A mark at rest: the author's glyph and the count. The words are on hover and focus, and once in the key above. */}
+          <ul className={`m-0 flex list-none flex-wrap gap-x-3 gap-y-0.5 p-0 ${typography.panelMeta} text-text-body tabular-nums`}>
+            {parts.map((s) => (
+              <li key={s.id} data-testid={`${V10_RESTS_ON_TESTID}-count-${s.id}`} tabIndex={0} title={`${s.label} ${s.n}`} aria-label={`${s.label} ${s.n}`} className="inline-flex items-center gap-1">
+                <Glyph id={s.id} />
+                {s.n}
+              </li>
+            ))}
+          </ul>
         </>
       )}
     </li>
