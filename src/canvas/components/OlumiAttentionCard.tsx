@@ -54,7 +54,7 @@ import { useCurrentGoalWaitsOn, WaitsOnList } from '../../components/results/ana
 import { goalTargetLine } from '../domain/goalTargetLine'
 import type { GoalTargetSource } from '../domain/goalTarget'
 import { usePresentation } from '../../presentation/v10'
-import { V10_NOTE_WIDTH, boundsInFrame, connectorBetween, measureVisibleCanvas, placeNoteBeside } from '../../presentation/v10Note'
+import { V10_NOTE_WIDTH, boundsInFrame, connectorBetween, measureVisibleCanvas, placeNoteBeside, useRelayoutOnResize } from '../../presentation/v10Note'
 
 /** The closed grammar. Every intervention is one of these four moves. */
 const MOVE_LABEL: Record<string, string> = {
@@ -170,7 +170,7 @@ function drawnCardBoxes(note: HTMLElement | null, anchorId: string): Box[] {
 }
 
 /** A link's anchor, in flow units: the midpoint along its drawn path (where its label sits), else between its cards. */
-function linkMidpoint(edgeId: string): { x: number; y: number } | null {
+export function linkMidpoint(edgeId: string): { x: number; y: number } | null {
   if (typeof document === 'undefined') return null
   const path = document.querySelector<SVGPathElement>(`.react-flow__edge[data-id="${CSS.escape(edgeId)}"] path.react-flow__edge-path`)
   const length = path && typeof path.getTotalLength === 'function' ? path.getTotalLength() : 0
@@ -215,6 +215,8 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   const [cardHeight, setCardHeight] = useState(0)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal height bails out
   useLayoutEffect(() => { const h = cardRef.current?.offsetHeight ?? 0; if (h !== cardHeight) setCardHeight(h) })
+  // v10: the window, the canvas or the dock changing size re-places the note (it reads the visible canvas while rendering).
+  useRelayoutOnResize(cardRef.current?.offsetParent ?? null, v10 && attention != null)
 
   /*
    * ⭐ ESCAPE RELEASES THE HOLD, AND IT IS DELIBERATELY ABOVE THE EARLY RETURN.

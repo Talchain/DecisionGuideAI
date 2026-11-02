@@ -12,7 +12,7 @@
  * Everything below is measured from what is drawn (the same selectors the fit uses), never guessed. The geometry is a
  * pure function over boxes so it is proved without a browser.
  */
-import { useLayoutEffect, useState, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useState, type RefObject } from 'react'
 import { DOCK_SELECTOR, OVERLAY_BAND_SELECTOR, SIDEBAR_SELECTOR, TOP_BAR_SELECTOR } from '../canvas/utils/computeFitPadding'
 
 export interface Box { readonly x: number; readonly y: number; readonly w: number; readonly h: number }
@@ -150,11 +150,38 @@ export const boundsInFrame = (b: Bounds, origin: { left: number; top: number }):
 })
 
 /**
+ * Re-place a note when the room it was placed in changes: the window resizing, or the canvas frame, the Outputs dock or the
+ * overlay band changing size (the dock widens, the window narrows after a pan). Placement reads its bounds while rendering,
+ * so a note not told would keep standing where the room used to be, perhaps under the dock with its dismiss button hidden.
+ * Returns a counter that changes on each; read it by calling the hook, and the host component renders again.
+ */
+export function useRelayoutOnResize(frame: Element | null | undefined, active = true): number {
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    if (!active || typeof window === 'undefined') return
+    const relayout = () => setTick((t) => t + 1)
+    window.addEventListener('resize', relayout)
+    const watch = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(relayout)
+    if (watch) {
+      for (const el of [frame, document.querySelector(DOCK_SELECTOR), document.querySelector(OVERLAY_BAND_SELECTOR)]) if (el) watch.observe(el)
+    }
+    return () => {
+      window.removeEventListener('resize', relayout)
+      watch?.disconnect()
+    }
+  }, [active, frame])
+  return tick
+}
+
+/**
  * A note about nothing keeps the place it has (a cell of the overlay band), then is nudged the least distance that puts it
  * wholly inside the visible canvas. Returns the style to put on the note; undefined while it already is inside.
  */
 export function useKeepInView(ref: RefObject<HTMLElement | null>, active: boolean): { transform: string } | undefined {
   const [shift, setShift] = useState({ dx: 0, dy: 0 })
+  const band = (ref.current?.closest(OVERLAY_BAND_SELECTOR) as HTMLElement | null) ?? null
+  // The window or the dock changing size moves the room: render again so the effect below measures it again.
+  useRelayoutOnResize(band?.offsetParent ?? null, active)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal shift bails out
   useLayoutEffect(() => {
     const el = ref.current

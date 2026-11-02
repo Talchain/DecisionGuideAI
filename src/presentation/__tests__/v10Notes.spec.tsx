@@ -31,8 +31,18 @@ const NOTE_H = 110
 function setRect(el: Element, r: R) {
   el.getBoundingClientRect = () => ({ ...r, x: r.left, y: r.top, toJSON: () => r }) as DOMRect
 }
+/** A ResizeObserver jsdom lacks: it records what is watched, and a test fires it. */
+const watchers: Array<{ cb: () => void; seen: Element[] }> = []
+class FakeResizeObserver {
+  private w = { cb: () => undefined as void, seen: [] as Element[] }
+  constructor(cb: () => void) { this.w.cb = cb; watchers.push(this.w) }
+  observe(el: Element) { this.w.seen.push(el) }
+  unobserve() { /* unused */ }
+  disconnect() { watchers.splice(watchers.indexOf(this.w), 1) }
+}
 let frame: HTMLDivElement
 beforeEach(() => {
+  vi.stubGlobal('ResizeObserver', FakeResizeObserver)
   // jsdom has no layout: the canvas frame is 1280x800, a note is 110px tall, the zoom controls sit at the lower left.
   frame = document.createElement('div')
   setRect(frame, CANVAS)
@@ -47,6 +57,8 @@ beforeEach(() => {
 })
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
+  watchers.length = 0
   vi.restoreAllMocks()
   document.body.replaceChildren()
   camera.transform = [0, 0, 1]
@@ -157,6 +169,60 @@ describe('Olumi’s focus in v10', () => {
     expect(leftOf(screen.getByTestId(V10_FOCUS_NOTE_TESTID)), 'the card moved 100px left; the note went with it').toBe(first - 100)
   })
 
+  it('a link is anchored on its drawn path, not on the middle of its two cards (which can fall inside a card it is routed around)', () => {
+    // A -> B routed below C: the centres' midpoint (500, 340) is inside C; the drawn path's midpoint is (400, 560).
+    useCanvasStore.setState({
+      nodes: [node('a', 0, 300, 200, 80), node('b', 800, 300, 200, 80), node('c', 300, 280, 400, 120)],
+      edges: [{ id: 'e', source: 'a', target: 'b' } as never],
+    })
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+    g.setAttribute('class', 'react-flow__edge')
+    g.setAttribute('data-id', 'e')
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    path.setAttribute('class', 'react-flow__edge-path')
+    Object.assign(path, { getTotalLength: () => 100, getPointAtLength: () => ({ x: 400, y: 560 }) })
+    g.appendChild(path)
+    document.body.appendChild(g)
+    render(inPresentation('v10', <V10FocusNote />))
+    act(() => activateAssistantFocus({ id: 'e', kind: 'edge', label: 'a to b' }))
+    const note = screen.getByTestId(V10_FOCUS_NOTE_TESTID)
+    const line = screen.getByTestId('v10-note-connector').querySelector('line')!
+    const at = { x: leftOf(note) + Number(line.getAttribute('x1')), y: topOf(note) + Number(line.getAttribute('y1')) }
+    expect(at, 'the connector starts on the drawn path').toEqual({ x: 400, y: 560 })
+  })
+
+  describe('when the room changes size', () => {
+    const dockAt = (left: number) => {
+      const dock = document.createElement('aside')
+      dock.setAttribute('aria-label', 'Outputs dock')
+      setRect(dock, { left, top: 0, right: 1280, bottom: 800, width: 1280 - left, height: 800 })
+      document.body.appendChild(dock)
+    }
+    const fire = () => act(() => { window.dispatchEvent(new Event('resize')) })
+
+    it('the window resizing re-places the note: a dock that widens after the note is up does not leave it underneath', () => {
+      useCanvasStore.setState({ nodes: [node('per', 400, 300)] })
+      render(inPresentation('v10', <V10FocusNote />))
+      focus()
+      expect(leftOf(screen.getByTestId(V10_FOCUS_NOTE_TESTID)), 'room on the right: beside the card, to its right').toBe(614)
+      dockAt(700)
+      fire()
+      const note = screen.getByTestId(V10_FOCUS_NOTE_TESTID)
+      expect(leftOf(note) + 260, 'wholly left of the dock (700) less the margin').toBeLessThanOrEqual(700 - 14)
+    })
+
+    it('the canvas frame or the dock changing size, seen by the resize observer, re-places it too', () => {
+      useCanvasStore.setState({ nodes: [node('per', 400, 300)] })
+      render(inPresentation('v10', <V10FocusNote />))
+      focus()
+      expect(watchers.length, 'it is watching').toBeGreaterThan(0)
+      expect(watchers.some((w) => w.seen.includes(frame)), 'the canvas frame is watched').toBe(true)
+      setRect(frame, { ...CANVAS, right: 900, width: 900 })
+      act(() => { watchers.forEach((w) => w.cb()) })
+      expect(leftOf(screen.getByTestId(V10_FOCUS_NOTE_TESTID)) + 260, 'inside the narrower canvas').toBeLessThanOrEqual(900 - 14)
+    })
+  })
+
   it('one note at a time: while Olumi’s coaching note is open, the focus note steps aside', () => {
     useCanvasStore.setState({
       nodes: [node('per', 400, 300)],
@@ -198,6 +264,19 @@ describe('a note about no record keeps its place and is held inside the visible 
     const s = shift()
     expect(s, 'nudged').not.toBeNull()
     expect(-40 + s!.dx, 'clear of the controls (their right edge plus the margin)').toBeGreaterThanOrEqual(VISIBLE.left)
+  })
+
+  it('the dock widening after it is placed moves it clear of the dock (a real window resize, no re-render by hand)', () => {
+    inBand({ left: 900, top: 700, right: 1160, bottom: 760, width: 260, height: 60 })
+    expect(shift(), 'inside while nothing is in the way').toBeNull()
+    const dock = document.createElement('aside')
+    dock.setAttribute('aria-label', 'Outputs dock')
+    setRect(dock, { left: 1000, top: 0, right: 1280, bottom: 800, width: 280, height: 800 })
+    document.body.appendChild(dock)
+    act(() => { window.dispatchEvent(new Event('resize')) })
+    const s = shift()
+    expect(s, 'moved').not.toBeNull()
+    expect(1160 + s!.dx, 'its right edge is left of the dock (1000) less the margin').toBeLessThanOrEqual(1000 - 14)
   })
 
   it('CONTRAST: one already inside the visible canvas is left where it is', () => {

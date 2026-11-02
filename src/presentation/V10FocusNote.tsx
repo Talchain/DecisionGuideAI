@@ -16,7 +16,8 @@ import { dismissAssistantFocus, useAssistantFocusStore } from '../canvas/stores/
 import { OlumiAiIcon } from '../components/results/analysisNew/OlumiAiIcon'
 import { ICON_STANDALONE } from '../canvas/conversation/panelIcons'
 import { usePresentation } from './v10'
-import { V10_NOTE_WIDTH, boundsInFrame, connectorBetween, drawnCardsIn, measureVisibleCanvas, placeNoteBeside, type Box } from './v10Note'
+import { linkMidpoint } from '../canvas/components/OlumiAttentionCard'
+import { V10_NOTE_WIDTH, boundsInFrame, connectorBetween, drawnCardsIn, measureVisibleCanvas, placeNoteBeside, useRelayoutOnResize, type Box } from './v10Note'
 
 export const V10_FOCUS_NOTE_TESTID = 'v10-focus-note'
 
@@ -43,7 +44,19 @@ export const V10FocusNote = memo(function V10FocusNote() {
   })
 
   const scenarioMatches = target?.scenarioId == null || target.scenarioId === scenarioId
-  if (!v10 || !target || !scenarioMatches || coachingOpen) return null
+  const showing = v10 && Boolean(target) && scenarioMatches && !coachingOpen
+  // A link is anchored on its drawn path (where its label sits), measured after render like `OlumiAttentionCard` does: the
+  // middle of its two cards can fall inside a card the link is routed around.
+  const linkId = showing && target?.kind === 'edge' ? target.id : null
+  const [linkPoint, setLinkPoint] = useState<{ x: number; y: number } | null>(null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal point bails out
+  useLayoutEffect(() => {
+    const p = linkId ? linkMidpoint(linkId) : null
+    if (p?.x !== linkPoint?.x || p?.y !== linkPoint?.y) setLinkPoint(p)
+  })
+  // The window, the canvas or the dock changing size re-places the note: its room is read while rendering.
+  useRelayoutOnResize(ref.current?.offsetParent ?? null, showing)
+  if (!showing || !target) return null
 
   // The record's box on screen: a card from its position and the camera; a link at the middle of its two cards.
   const boxOf = (n: { position: { x: number; y: number }; measured?: { width?: number; height?: number } }): Box => ({
@@ -53,7 +66,9 @@ export const V10FocusNote = memo(function V10FocusNote() {
   const ends = edge ? [edge.source, edge.target].map((id) => nodes.find((n) => n.id === id)) : []
   let anchor: Box | null = null
   if (node) anchor = boxOf(node as never)
+  else if (edge && linkPoint) anchor = { x: linkPoint.x * zoom + tx, y: linkPoint.y * zoom + ty, w: 0, h: 0 }
   else if (edge && ends[0] && ends[1]) {
+    // Until the path is measured (or with none drawn): between its two cards.
     const [a, b] = [boxOf(ends[0] as never), boxOf(ends[1] as never)]
     anchor = { x: (a.x + a.w / 2 + b.x + b.w / 2) / 2, y: (a.y + a.h / 2 + b.y + b.h / 2) / 2, w: 0, h: 0 }
   }
