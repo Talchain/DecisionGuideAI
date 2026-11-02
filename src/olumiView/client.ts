@@ -38,3 +38,14 @@ export async function readView(sid: string, opened: Opened = NOTHING_OPENED): Pr
   if (v === null || typeof v !== 'object' || v.schema !== VIEW_SCHEMA) throw new TeamApiError(0, VIEW_SHAPE_CHANGED)
   return v as View
 }
+
+/**
+ * The writes, straight to core's v1 routes on this origin (View API design §2: no adapter). Each carries an op id where core takes one,
+ * so a write re-sent after a dropped connection is saved once. After any of them the caller reads the View again.
+ */
+const scenarioPath = (sid: string) => `/api/scenarios/${encodeURIComponent(sid)}`
+export const writes = {
+  message: (sid: string, text: string, op: string) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/messages`, { text, op }),
+  approve: (proposal: number, base: number | null) => call<unknown>('POST', `/api/proposals/${proposal}/approve`, { base }),
+  discard: (proposal: number) => call<unknown>('POST', `/api/proposals/${proposal}/discard`, {}),
+}
