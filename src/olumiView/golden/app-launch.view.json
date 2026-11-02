@@ -576,11 +576,7 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "link in words: conditional, unknown; Excluding the defective path could protect users only if isolation is technically valid; no architecture evidence was supplied. · Proposed by Olumi: Retains the possible mechanism without inventing a risk reduction or claiming feasibility.",
-    "records": [
-     "isolation_trust_link"
-    ],
-    "via": []
+    "title": "link in words: conditional, unknown; Excluding the defective path could protect users only if isolation is technically valid; no architecture evidence was supplied. · Proposed by Olumi: Retains the possible mechanism without inventing a risk reduction or claiming feasibility."
    },
    {
     "from": "option_isolate",
@@ -590,14 +586,7 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change. · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
-    "records": [
-     "isolation_readiness_link",
-     "calculate_readiness_margin"
-    ],
-    "via": [
-     "readiness_duration"
-    ]
+    "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change. · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration."
    },
    {
     "from": "negative_reviews",
@@ -607,9 +596,7 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "may change",
-    "records": [],
-    "via": []
+    "title": "may change"
    },
    {
     "from": "readiness_margin",
@@ -619,9 +606,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by",
-    "records": [],
-    "via": []
+    "title": "measured by"
    },
    {
     "from": "zero_schedule_shortfall",
@@ -631,9 +616,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target",
-    "records": [],
-    "via": []
+    "title": "target"
    },
    {
     "from": "schedule_assumptions",
@@ -643,9 +626,7 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
-    "records": [],
-    "via": []
+    "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison."
    },
    {
     "from": "schedule_assumptions",
@@ -655,9 +636,7 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
-    "records": [],
-    "via": []
+    "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison."
    },
    {
     "from": "option_delay",
@@ -667,9 +646,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input",
-    "records": [],
-    "via": []
+    "title": "option input"
    },
    {
     "from": "delayed_release_offset",
@@ -679,13 +656,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Time available before release · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
-    "records": [
-     "calculate_readiness_margin"
-    ],
-    "via": [
-     "release_offset"
-    ]
+    "title": "worked out through Time available before release · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration."
    }
   ],
   "edit_base": 1

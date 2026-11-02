@@ -491,13 +491,7 @@
       },
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
-      "title": "If Olumi's estimates hold, the chance that 'A second oven' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'.",
-      "swing": {
-       "label": "about 53% if 'extra sold per oven' is low, about 81% if it is high",
-       "title": "about 53% if 'extra sold per oven' is low, about 81% if it is high. Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are its chances over the lowest and highest third of that figure's draws.",
-       "low": 0.5346534653465347,
-       "high": 0.8067806780678067
-      }
+      "title": "If Olumi's estimates hold, the chance that 'A second oven' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'."
      }
     ],
     "status": null,
@@ -539,13 +533,7 @@
       "likely": null,
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
-      "title": "If Olumi's estimates hold, the chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'.",
-      "swing": {
-       "label": "under 1% if 'extra hours sold' is low, over 99% if it is high",
-       "title": "under 1% if 'extra hours sold' is low, over 99% if it is high. Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are its chances over the lowest and highest third of that figure's draws.",
-       "low": 0,
-       "high": 1
-      }
+      "title": "If Olumi's estimates hold, the chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'."
      }
     ],
     "status": null,
@@ -587,8 +575,7 @@
       "likely": null,
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
-      "title": "If Olumi's estimates hold, the chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'.",
-      "swing": null
+      "title": "If Olumi's estimates hold, the chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'."
      }
     ],
     "status": null,
@@ -628,11 +615,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "base · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "sales_rel"
-    ],
-    "via": []
+    "title": "base · Proposed by Olumi: Olumi's estimate"
    },
    {
     "from": "extra_hours_sold",
@@ -642,11 +625,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "how much · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "sales_rel"
-    ],
-    "via": []
+    "title": "how much · Proposed by Olumi: Olumi's estimate"
    },
    {
     "from": "oven_price",
@@ -656,14 +635,7 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "worked out through oven cost · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "oven_cost_rel",
-     "spend_rel"
-    ],
-    "via": [
-     "oven_cost"
-    ]
+    "title": "worked out through oven cost · Proposed by Olumi: Olumi's estimate"
    },
    {
     "from": "fitting",
@@ -673,14 +645,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through oven cost · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "oven_cost_rel",
-     "spend_rel"
-    ],
-    "via": [
-     "oven_cost"
-    ]
+    "title": "worked out through oven cost · Proposed by Olumi: Olumi's estimate"
    },
    {
     "from": "sales",
@@ -690,9 +655,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by",
-    "records": [],
-    "via": []
+    "title": "measured by"
    },
    {
     "from": "sales_target",
@@ -702,9 +665,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target",
-    "records": [],
-    "via": []
+    "title": "target"
    },
    {
     "from": "spend",
@@ -714,9 +675,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by",
-    "records": [],
-    "via": []
+    "title": "measured by"
    },
    {
     "from": "budget",
@@ -726,9 +685,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "bound",
-    "records": [],
-    "via": []
+    "title": "bound"
    },
    {
     "from": "second_oven",
@@ -738,9 +695,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input",
-    "records": [],
-    "via": []
+    "title": "option input"
    },
    {
     "from": "one_oven",
@@ -750,13 +705,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through ovens added · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "sales_rel"
-    ],
-    "via": [
-     "ovens_added"
-    ]
+    "title": "worked out through ovens added · Proposed by Olumi: Olumi's estimate"
    },
    {
     "from": "one_oven",
@@ -766,13 +715,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through ovens added · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "spend_rel"
-    ],
-    "via": [
-     "ovens_added"
-    ]
+    "title": "worked out through ovens added · Proposed by Olumi: Olumi's estimate"
    },
    {
     "from": "longer_hours",
@@ -782,9 +725,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input",
-    "records": [],
-    "via": []
+    "title": "option input"
    },
    {
     "from": "hours_switched_on",
@@ -794,13 +735,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through hours on · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "sales_rel"
-    ],
-    "via": [
-     "hours_on"
-    ]
+    "title": "worked out through hours on · Proposed by Olumi: Olumi's estimate"
    },
    {
     "from": "oven_repair",
@@ -810,13 +745,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through extra sold per oven · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "sales_rel"
-    ],
-    "via": [
-     "extra_sold_per_oven"
-    ]
+    "title": "worked out through extra sold per oven · Proposed by Olumi: Olumi's estimate"
    }
   ],
   "edit_base": 1

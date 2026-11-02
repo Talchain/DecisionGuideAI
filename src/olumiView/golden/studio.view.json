@@ -376,13 +376,7 @@
       },
       "aim": "Take £2,640 a month",
       "aim_id": "takings_goal",
-      "title": "The chance that 'Evening classes' meets 'Take £2,640 a month', in this model on current information.",
-      "swing": {
-       "label": "about 68% if 'evening extra' is low, over 99% if it is high",
-       "title": "about 68% if 'evening extra' is low, over 99% if it is high. Under 'Evening classes', the chance of meeting 'Take £2,640 a month' moves most with 'evening extra': these are its chances over the lowest and highest third of that figure's draws.",
-       "low": 0.678967896789679,
-       "high": 1
-      }
+      "title": "The chance that 'Evening classes' meets 'Take £2,640 a month', in this model on current information."
      }
     ],
     "status": null,
@@ -434,8 +428,7 @@
       "likely": null,
       "aim": "Take £2,640 a month",
       "aim_id": "takings_goal",
-      "title": "With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
-      "swing": null
+      "title": "With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance."
      }
     ],
     "status": null,
@@ -474,8 +467,7 @@
       "likely": null,
       "aim": "Take £2,640 a month",
       "aim_id": "takings_goal",
-      "title": "With the model's figures, 'Carry on as now' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
-      "swing": null
+      "title": "With the model's figures, 'Carry on as now' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance."
      }
     ],
     "status": null,
@@ -493,14 +485,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through classes · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "classes_rel",
-     "takings_rel"
-    ],
-    "via": [
-     "classes"
-    ]
+    "title": "worked out through classes · Proposed by Olumi: Olumi's estimate"
    },
    {
     "from": "class_fee",
@@ -510,11 +495,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "multiplies · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "takings_rel"
-    ],
-    "via": []
+    "title": "multiplies · Proposed by Olumi: Olumi's estimate"
    },
    {
     "from": "evening_classes",
@@ -524,14 +505,7 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "worked out through How members feel · Theirs: “Members have asked for evening slots” · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link.",
-    "records": [
-     "evening_mood",
-     "mood_members"
-    ],
-    "via": [
-     "member_mood"
-    ]
+    "title": "worked out through How members feel · Theirs: “Members have asked for evening slots” · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link."
    },
    {
     "from": "takings",
@@ -541,9 +515,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by",
-    "records": [],
-    "via": []
+    "title": "measured by"
    },
    {
     "from": "takings_target",
@@ -553,9 +525,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target",
-    "records": [],
-    "via": []
+    "title": "target"
    },
    {
     "from": "members",
@@ -565,9 +535,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by",
-    "records": [],
-    "via": []
+    "title": "measured by"
    },
    {
     "from": "members_target",
@@ -577,9 +545,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target",
-    "records": [],
-    "via": []
+    "title": "target"
    },
    {
     "from": "evening_classes",
@@ -589,9 +555,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input",
-    "records": [],
-    "via": []
+    "title": "option input"
    },
    {
     "from": "evening_extra",
@@ -601,15 +565,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through extra classes, classes · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "classes_rel",
-     "takings_rel"
-    ],
-    "via": [
-     "extra_classes",
-     "classes"
-    ]
+    "title": "worked out through extra classes, classes · Proposed by Olumi: Olumi's estimate"
    },
    {
     "from": "weekend_workshops",
@@ -619,9 +575,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input",
-    "records": [],
-    "via": []
+    "title": "option input"
    },
    {
     "from": "workshop_extra",
@@ -631,15 +585,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through extra classes, classes · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "classes_rel",
-     "takings_rel"
-    ],
-    "via": [
-     "extra_classes",
-     "classes"
-    ]
+    "title": "worked out through extra classes, classes · Proposed by Olumi: Olumi's estimate"
    }
   ],
   "edit_base": 1

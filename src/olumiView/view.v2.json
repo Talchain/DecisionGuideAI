@@ -398,37 +398,6 @@
               },
               "title": {
                "type": "string"
-              },
-              "swing": {
-               "anyOf": [
-                {
-                 "type": "object",
-                 "properties": {
-                  "label": {
-                   "type": "string"
-                  },
-                  "title": {
-                   "type": "string"
-                  },
-                  "low": {
-                   "type": "number"
-                  },
-                  "high": {
-                   "type": "number"
-                  }
-                 },
-                 "required": [
-                  "label",
-                  "title",
-                  "low",
-                  "high"
-                 ],
-                 "additionalProperties": false
-                },
-                {
-                 "type": "null"
-                }
-               ]
               }
              },
              "required": [
@@ -440,8 +409,7 @@
               "likely",
               "aim",
               "aim_id",
-              "title",
-              "swing"
+              "title"
              ],
              "additionalProperties": false
             },
@@ -699,18 +667,6 @@
          },
          "title": {
           "type": "string"
-         },
-         "records": {
-          "type": "array",
-          "items": {
-           "type": "string"
-          }
-         },
-         "via": {
-          "type": "array",
-          "items": {
-           "type": "string"
-          }
          }
         },
         "required": [
@@ -721,9 +677,7 @@
          "doubt",
          "alert",
          "proposed",
-         "title",
-         "records",
-         "via"
+         "title"
         ],
         "additionalProperties": false
        }

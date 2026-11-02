@@ -85,12 +85,6 @@ export type View = {
         aim: string
         aim_id: string
         title: string
-        swing: {
-          label: string
-          title: string
-          low: number
-          high: number
-        } | null
       } | {
         kind: "limit"
         value: string
@@ -138,8 +132,6 @@ export type View = {
       alert: boolean
       proposed: boolean
       title: string
-      records: Array<string>
-      via: Array<string>
     }>
     edit_base: number | null
   } | null

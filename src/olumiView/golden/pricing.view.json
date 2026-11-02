@@ -245,13 +245,7 @@
       },
       "aim": "Make £7,000 a month",
       "aim_id": "profit_goal",
-      "title": "If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change'.",
-      "swing": {
-       "label": "under 1% if 'cups change' is low, over 99% if it is high",
-       "title": "under 1% if 'cups change' is low, over 99% if it is high. Under 'Raise the price by 45p', the chance of meeting 'Make £7,000 a month' moves most with 'cups change': these are its chances over the lowest and highest third of that figure's draws.",
-       "low": 0,
-       "high": 1
-      }
+      "title": "If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change'."
      }
     ],
     "status": null,
@@ -288,8 +282,7 @@
       "likely": null,
       "aim": "Make £7,000 a month",
       "aim_id": "profit_goal",
-      "title": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's what-if ranges for 'cups change'.",
-      "swing": null
+      "title": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's what-if ranges for 'cups change'."
      }
     ],
     "status": null,
@@ -307,14 +300,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through cups · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "cups_rel",
-     "profit_rel"
-    ],
-    "via": [
-     "cups"
-    ]
+    "title": "worked out through cups · Proposed by Olumi: Olumi's estimate"
    },
    {
     "from": "profit",
@@ -324,9 +310,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by",
-    "records": [],
-    "via": []
+    "title": "measured by"
    },
    {
     "from": "profit_target",
@@ -336,9 +320,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target",
-    "records": [],
-    "via": []
+    "title": "target"
    },
    {
     "from": "raise_price",
@@ -348,9 +330,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input",
-    "records": [],
-    "via": []
+    "title": "option input"
    },
    {
     "from": "margin_raised",
@@ -360,13 +340,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through margin · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "profit_rel"
-    ],
-    "via": [
-     "margin"
-    ]
+    "title": "worked out through margin · Proposed by Olumi: Olumi's estimate"
    },
    {
     "from": "raise_price",
@@ -376,9 +350,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input",
-    "records": [],
-    "via": []
+    "title": "option input"
    },
    {
     "from": "rise_switched_on",
@@ -388,15 +360,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through rise on, cups · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "cups_rel",
-     "profit_rel"
-    ],
-    "via": [
-     "rise_on",
-     "cups"
-    ]
+    "title": "worked out through rise on, cups · Proposed by Olumi: Olumi's estimate"
    }
   ],
   "edit_base": 1
