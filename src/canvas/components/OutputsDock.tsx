@@ -213,6 +213,7 @@ import { TeamTab } from '../../olumiCore/team/TeamTab'
 import { setOnModelMoved, useTeamStore } from '../../olumiCore/team/store'
 import { modelKeyOf } from '../../olumiView/modelKey'
 import { currentModel, useViewStore } from '../../olumiView/store'
+import { useViewFollows } from '../../olumiView/follow'
 import { ViewChancesBlock } from '../../olumiView/ViewChances'
 import { ViewChat, ViewComposer } from '../../olumiView/ViewChat'
 import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
@@ -805,15 +806,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const teamUse = useTeamStore(s => s.use)
   const teamCardCount = useCanvasStore(s => s.nodes.length)
   useEffect(() => { if (isOlumiCoreLane()) void teamUse(currentScenarioIdForRun ?? null) }, [currentScenarioIdForRun, teamCardCount, teamUse])
-  // The olumi-core lane's View (olumi.view/2): read for this scenario, and again whenever the canvas's model changes (a saved change,
-  // another member's approval), so what the dock draws from it is the model on screen. Never on a drag (`modelKeyOf`).
+  // The olumi-core lane's View (olumi.view/2): read for this scenario, and again when the canvas's model changes or core's approved
+  // version moves (src/olumiView/follow.ts). Never on a drag (`modelKeyOf`).
   const viewModelOnCanvas = useCanvasStore(s => modelKeyOf(s.nodes, s.edges))
   const coreView = useViewStore(currentModel)
-  useEffect(() => {
-    if (!isOlumiCoreLane()) return
-    const v = useViewStore.getState(), uuid = currentScenarioIdForRun ?? null
-    void (v.uuid === uuid && v.status !== 'none' ? v.modelChanged() : v.use(uuid))
-  }, [currentScenarioIdForRun, viewModelOnCanvas])
+  useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null, viewModelOnCanvas)
   // Another member approved a change: a read of the team shows the approved model has moved on, so the canvas reads the saved model again
   // (design QA 7: Bea's canvas must not stay on version 1 while her Team tab shows version 2).
   useEffect(() => {
