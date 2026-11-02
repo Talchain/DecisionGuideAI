@@ -5,11 +5,11 @@
  * change moves, before → after (core's changedFields, 00047 #1): a person sees what they would approve on the card it changes.
  */
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import type { ViewCard } from './client'
+import type { ViewCard as Card } from './client'
 import { Row } from './ViewChances'
 import { typography } from '../styles/typography'
 
-export type ViewCardData = { card: ViewCard }
+export type ViewCardData = { card: Card }
 
 const Mark = ({ at, mark }: { at: string; mark: { glyph: string; title: string } }) => (
   <span title={mark.title} aria-label={mark.title} data-view={`${at}.glyph`}>{mark.glyph}</span>
