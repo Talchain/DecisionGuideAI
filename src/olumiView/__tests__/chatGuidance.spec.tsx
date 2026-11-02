@@ -137,6 +137,20 @@ describe('a brief whose answer could not be read may have been saved (00054 #4)'
   })
 })
 
+describe('a brief answered with JSON null may have been saved (00055/00056 ledger)', () => {
+  it('it says so and keeps the brief, never "Nothing was saved"', async () => {
+    const fresh = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
+    useViewStore.setState({ uuid: fresh, sid: null, view: null, error: null, status: 'none' })
+    answer(() => new Response('null', { status: 201 }))
+    const { container } = render(<><ViewChat /><ViewComposer /></>)
+    act(() => { useViewChat.setState({ text: 'Should we raise the price?' }) })
+    await act(async () => { [...container.querySelectorAll('button')].find((b) => b.textContent === 'Send')!.click() })
+    await waitFor(() => expect(said(container)).toBe(UNCERTAIN_WRITE))
+    expect((container.querySelector('#view-chat-text') as HTMLTextAreaElement).value).toBe('Should we raise the price?')
+    expect(coreScenarioIdOf(fresh)).toBeNull()
+  })
+})
+
 describe('an op id belongs to one scenario and one kind of write (00054 #5)', () => {
   it('the same brief sent from another new scenario after a lost answer is a new write', async () => {
     const A = '1b4e28ba-2fa1-41d2-883f-0016d3cca427', B = '2c5f39cb-3ab2-42e3-994f-1127e4ddb538'

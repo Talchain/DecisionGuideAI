@@ -130,7 +130,8 @@ async function act(f: () => Promise<unknown>, changesModel = false): Promise<boo
 async function startScenario(brief: string, op: string, uuid: string | null): Promise<void> {
   const made = await writes.create(brief, op)
   // A 201 whose body could not be read names no scenario: it may have been saved, so it is said so and sent again with its op (00054 #4).
-  if (typeof made.scenario !== 'string' || !/^s_[0-9a-f]+$/.test(made.scenario)) throw new TeamApiError(0, UNCERTAIN_WRITE, true)
+  // An answer that names no scenario (unreadable, or JSON null) may still have been saved: uncertain, never "nothing saved".
+  if (typeof made?.scenario !== 'string' || !/^s_[0-9a-f]+$/.test(made.scenario)) throw new TeamApiError(0, UNCERTAIN_WRITE, true)
   const views = useViewStore.getState()
   if (uuid !== null && pairCoreScenario(uuid, made.scenario)) {
     if (views.uuid === uuid) await views.use(uuid)
