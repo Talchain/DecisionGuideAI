@@ -47,6 +47,7 @@ const scenarioPath = (sid: string) => `/api/scenarios/${encodeURIComponent(sid)}
 export const writes = {
   create: (brief: string, op: string) => call<{ scenario: string; proposal: number | null }>('POST', '/api/scenarios', { brief, op }),
   message: (sid: string, text: string, op: string) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/messages`, { text, op }),
+  challenge: (sid: string, kind: string, record: string, op: string) => call<{ proposal: number | null }>('POST', `${scenarioPath(sid)}/challenge`, { kind, record, op }),
   approve: (proposal: number, base: number | null) => call<unknown>('POST', `/api/proposals/${proposal}/approve`, { base }),
   discard: (proposal: number) => call<unknown>('POST', `/api/proposals/${proposal}/discard`, {}),
 }
