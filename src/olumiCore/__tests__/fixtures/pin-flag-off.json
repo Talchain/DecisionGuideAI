@@ -1,0 +1,247 @@
+{
+ "view-approved": {
+  "schema": "canonical_analysis_view.v1",
+  "source": "stored_run_facts",
+  "run": {
+   "run_id": "mp_run_1_35135aaa6cc2",
+   "graph_hash_at_run": "abfa4c38a82588d5",
+   "computed_at": "2026-11-01T14:09:54.396Z"
+  },
+  "staleness": {
+   "stale": false,
+   "revision": null,
+   "run_revision": null,
+   "basis": "analysis_graph_hash_interim",
+   "reason": null,
+   "limitation": "Hash equality cannot detect brief, framing or stage changes."
+  },
+  "leader_licence": "withheld",
+  "options": [
+   {
+    "option_id": "hold",
+    "cell": {
+     "kind": "figure",
+     "display": "never met in this model",
+     "face": "never met in this model: With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance."
+    },
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "option_id": "add_one",
+    "cell": {
+     "kind": "figure",
+     "display": "about 50%",
+     "face": "about 50%: The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information."
+    },
+    "main_driver": {
+     "kind": "available",
+     "driver": {
+      "id": "F6",
+      "kind": "driver",
+      "option": "add_one",
+      "goal": "capacity_goal",
+      "low": 0,
+      "high": 1
+     },
+     "detail": "under 1% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws."
+    }
+   }
+  ],
+  "goal_chance": {
+   "chance_words": "chance of ‘At least 100 a week’",
+   "notes": [
+    "This leaves out: How the team feels about a new hire."
+   ],
+   "waits_on": []
+  },
+  "leader": {
+   "licence": "withheld",
+   "option_id": null,
+   "words": "The option most likely to achieve 'At least 100 a week' in this model (about 50%, against under 1% for 'Keep current staffing')."
+  }
+ },
+ "view-rich-approved": {
+  "schema": "canonical_analysis_view.v1",
+  "source": "stored_run_facts",
+  "run": {
+   "run_id": "mp_run_1_3fdba35f04dc",
+   "graph_hash_at_run": "cb7d877a6b519130",
+   "computed_at": "2026-11-01T16:58:51.228Z"
+  },
+  "staleness": {
+   "stale": false,
+   "revision": null,
+   "run_revision": null,
+   "basis": "analysis_graph_hash_interim",
+   "reason": null,
+   "limitation": "Hash equality cannot detect brief, framing or stage changes."
+  },
+  "leader_licence": "withheld",
+  "options": [
+   {
+    "option_id": "hold",
+    "cell": {
+     "kind": "figure",
+     "display": "under 1%",
+     "face": "under 1%: The chance that 'Keep current staffing' meets 'At least 100 a week', in this model on current information. None of the Run’s draws met it."
+    },
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "option_id": "add_one",
+    "cell": {
+     "kind": "figure",
+     "display": "about 40%",
+     "face": "about 40%: If Olumi's estimates hold, the chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. It rests on Olumi's what-if ranges for 'slump chance', 'slump keep' until they give their own, mainly on 'slump keep': change it to see how much this chance moves."
+    },
+    "main_driver": {
+     "kind": "available",
+     "driver": {
+      "id": "F18",
+      "kind": "driver",
+      "option": "add_one",
+      "goal": "capacity_goal",
+      "low": 0,
+      "high": 0.8346834683468347
+     },
+     "detail": "under 1% if 'per specialist' is low, about 83% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws."
+    }
+   },
+   {
+    "option_id": "add_two",
+    "cell": {
+     "kind": "figure",
+     "display": "about 74%",
+     "face": "about 74%: If Olumi's estimates hold, the chance that 'Add two specialists' meets 'At least 100 a week', in this model on current information. It rests on Olumi's what-if ranges for 'slump chance', 'slump keep', 'two specialists' until they give their own, mainly on 'two specialists': change it to see how much this chance moves."
+    },
+    "main_driver": {
+     "kind": "available",
+     "driver": {
+      "id": "F19",
+      "kind": "driver",
+      "option": "add_two",
+      "goal": "capacity_goal",
+      "low": 0.48124812481248125,
+      "high": 0.9186918691869187
+     },
+     "detail": "about 48% if 'two specialists' is low, about 92% if it is high: Under 'Add two specialists', the chance of meeting 'At least 100 a week' moves most with 'two specialists': these are its chances over the lowest and highest third of that figure's draws."
+    }
+   }
+  ],
+  "goal_chance": {
+   "chance_words": "chance of ‘At least 100 a week’",
+   "notes": [
+    "This leaves out: How the team feels about a new hire.",
+    "over 99%: The chance that 'Keep current staffing' stays within 'Capacity ceiling', in this model.",
+    "under 1%: The chance that 'Keep current staffing' goes outside 'Capacity ceiling', in this model.",
+    "over 99%: If Olumi's estimates hold, the chance that 'Add one specialist' stays within 'Capacity ceiling', in this model.",
+    "under 1%: If Olumi's estimates hold, the chance that 'Add one specialist' goes outside 'Capacity ceiling', in this model.",
+    "about 63%: If Olumi's estimates hold, the chance that 'Add two specialists' stays within 'Capacity ceiling', in this model.",
+    "about 37%: If Olumi's estimates hold, the chance that 'Add two specialists' goes outside 'Capacity ceiling', in this model.",
+    "Olumi's what-if for 'slump chance', not their figure: 0.1 to 0.5. Basis: no typical rate known.",
+    "Olumi's what-if for 'slump keep', not their figure: 0.5 to 0.9. Basis: no typical rate known.",
+    "Olumi's what-if for 'hire spend', not their figure: 30,000 to 60,000 EUR. Basis: a typical salary band.",
+    "Olumi's what-if for 'two specialists', not their figure: 1 to 3 specialist. Basis: two is a common step."
+   ],
+   "waits_on": []
+  },
+  "leader": {
+   "licence": "withheld",
+   "option_id": null,
+   "words": "If Olumi's estimates hold, the option most likely to achieve 'At least 100 a week' in this model (about 74%, against about 40% for 'Add one specialist'). It rests on Olumi's what-if ranges for 'slump chance', 'slump keep', 'two specialists' until they give their own, mainly on 'two specialists': change it to see how much this chance moves."
+  }
+ },
+ "view-markers-v2": {
+  "schema": "canonical_analysis_view.v1",
+  "source": "stored_run_facts",
+  "run": {
+   "run_id": "mp_run_2_9400f1b21cb5",
+   "graph_hash_at_run": "7bd0b2b43de15d53",
+   "computed_at": "2026-11-01T16:58:51.392Z"
+  },
+  "staleness": {
+   "stale": false,
+   "revision": null,
+   "run_revision": null,
+   "basis": "analysis_graph_hash_interim",
+   "reason": null,
+   "limitation": "Hash equality cannot detect brief, framing or stage changes."
+  },
+  "leader_licence": "withheld",
+  "options": [
+   {
+    "option_id": "hold",
+    "cell": {
+     "kind": "figure",
+     "display": "never met in this model",
+     "face": "never met in this model: With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance."
+    },
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "option_id": "add_one",
+    "cell": {
+     "kind": "figure",
+     "display": "about 50%",
+     "face": "about 50%: The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information."
+    },
+    "main_driver": {
+     "kind": "available",
+     "driver": {
+      "id": "F8",
+      "kind": "driver",
+      "option": "add_one",
+      "goal": "capacity_goal",
+      "low": 0,
+      "high": 1
+     },
+     "detail": "under 1% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws."
+    }
+   },
+   {
+    "option_id": "add_two",
+    "cell": {
+     "kind": "figure",
+     "display": "about 89%",
+     "face": "about 89%: The chance that 'Add two specialists' meets 'At least 100 a week', in this model on current information."
+    },
+    "main_driver": {
+     "kind": "available",
+     "driver": {
+      "id": "F9",
+      "kind": "driver",
+      "option": "add_two",
+      "goal": "capacity_goal",
+      "low": 0.6783678367836784,
+      "high": 1
+     },
+     "detail": "about 68% if 'per specialist' is low, over 99% if it is high: Under 'Add two specialists', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws."
+    }
+   }
+  ],
+  "goal_chance": {
+   "chance_words": "chance of ‘At least 100 a week’",
+   "notes": [
+    "This leaves out: How the team feels about a new hire."
+   ],
+   "waits_on": []
+  },
+  "leader": {
+   "licence": "withheld",
+   "option_id": null,
+   "words": "The option most likely to achieve 'At least 100 a week' in this model (about 89%, against about 50% for 'Add one specialist')."
+  }
+ },
+ "coachText": "Keeping staffing does not meet it: never met in this model. See The option most likely to achieve 'At least 100 a week' (about 50%). and a finding from the Run.\nIt rests on about 50%.\nNext (pre mortem): Look again at The option most likely to achieve 'At least 100 a week' (about 50%).",
+ "coachTextNoCited": "Keeping staffing does not meet it: a finding from the Run. See a finding from the Run and a finding from the Run.\nIt rests on a finding from the Run.\nNext (pre mortem): Look again at a finding from the Run",
+ "noteOf": {
+  "element_id": "per_specialist",
+  "text": "Look again at The option most likely to achieve 'At least 100 a week' (about 50%)."
+ }
+}

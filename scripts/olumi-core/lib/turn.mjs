@@ -19,9 +19,9 @@ export const UNSUPPORTED_EDIT = 'Olumi cannot make that kind of change on the ca
  * Olumi's reply, as words for the thread: the answer, why, and the next move. A finding the reply cites by marker (`[F5]`) is
  * written in from that reply's OWN `cited` map (`fillCited`): the same reply must read the same live and on every reload.
  */
-export function coachText(coach, cited = {}) {
+export function coachText(coach, cited = {}, citedFacts = null) {
   if (!coach) return ''
-  return [fillCited(coach.answer, cited), ...coach.why.map((t) => fillCited(t, cited)), `Next (${coach.next.move.replace(/_/g, ' ')}): ${fillCited(coach.next.text, cited)}`].filter(Boolean).join('\n')
+  return [fillCited(coach.answer, cited, citedFacts), ...coach.why.map((t) => fillCited(t, cited, citedFacts)), `Next (${coach.next.move.replace(/_/g, ' ')}): ${fillCited(coach.next.text, cited, citedFacts)}`].filter(Boolean).join('\n')
 }
 
 /**
@@ -31,8 +31,8 @@ export function coachText(coach, cited = {}) {
  * `nodes` are the cards of the model the turn shows.
  */
 const replyOf = (row, nodes = []) => {
-  const note = noteOf(row?.answer, row?.cited, nodes)
-  return { text: coachText(row?.answer, row?.cited), notes: note ? [note] : [] }
+  const note = noteOf(row?.answer, row?.cited, nodes, null, row?.cited_facts)
+  return { text: coachText(row?.answer, row?.cited, row?.cited_facts), notes: note ? [note] : [] }
 }
 const nodesOf = (view) => modelOf(view)?.graph.nodes ?? []
 /**
@@ -149,7 +149,7 @@ export function makeShim({ core, log = () => {}, onlySupported }) {
       // The reply is the one core holds on the version it just saved (`version.coach`), never the proposal's own chat answer: after a
       // part-approval that answer still describes the whole proposal. No coach on the new version: nothing from Olumi, and no note.
       const coach = after.version?.n === r.n ? after.version.coach ?? null : null
-      const reply = replyOf({ answer: coach, cited: row?.cited }, nodesOf(after))
+      const reply = replyOf({ answer: coach, cited: row?.cited, cited_facts: row?.cited_facts }, nodesOf(after))
       // Whatever core left waiting after a part-approval stays on screen as a card, so it can still be answered or set aside.
       return { out: turnBody(after, { turnId, text: [savedWords(r.n, after.version?.n === r.n ? after.version.by : null, 'approve'), reply.text].filter(Boolean).join('\n'), withCard: !!after.pending, receipt: true, notes: reply.notes }) }
     })
@@ -337,7 +337,7 @@ export function makeShim({ core, log = () => {}, onlySupported }) {
     const analysis = analysisViewOf(v)
     const answerOf = await answerRule(ctx, sid, v)
     const lastReply = [...v.chat].reverse().find((c) => c.status !== 'pending' && !c.problem && answerOf(c))
-    const note = lastReply ? noteOf(answerOf(lastReply), lastReply.cited, model.graph.nodes) : null
+    const note = lastReply ? noteOf(answerOf(lastReply), lastReply.cited, model.graph.nodes, null, lastReply.cited_facts) : null
     const lastNote = note ? { ...note, turn_id: turnIdOf(sid, lastReply.id) } : null
     return {
       status: 200,
@@ -349,8 +349,8 @@ export function makeShim({ core, log = () => {}, onlySupported }) {
         conversation_turns: v.chat.map((c) => ({
           turn_id: turnIdOf(sid, c.id), created_at: c.at, user_message: c.said,
           assistant_message: c.status === 'pending' ? (c.first ? DRAFT_LEAD : CHANGE_LEAD) : c.problem ? c.problem
-            : isApprovalReply(c) ? [savedWords(c.version, c.current && v.version?.n === c.version ? v.version.by : null, c.kind), answerOf(c) ? coachText(answerOf(c), c.cited) : ''].filter(Boolean).join('\n')
-              : answerOf(c) ? coachText(answerOf(c), c.cited) : 'Noted.',
+            : isApprovalReply(c) ? [savedWords(c.version, c.current && v.version?.n === c.version ? v.version.by : null, c.kind), answerOf(c) ? coachText(answerOf(c), c.cited, c.cited_facts) : ''].filter(Boolean).join('\n')
+              : answerOf(c) ? coachText(answerOf(c), c.cited, c.cited_facts) : 'Noted.',
         })),
         // Olumi's last next step, as the note it was beside its card live: the same row's reply, through the same `noteOf`.
         ...(lastNote ? { olumi_note: lastNote } : {}),

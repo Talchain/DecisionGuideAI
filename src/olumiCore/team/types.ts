@@ -7,7 +7,7 @@ export interface TeamMember { readonly id: string; readonly name: string }
 /** A figure a member gave with a view: one number, or a range given by its two ends. Served only when core preserves it. */
 export type TeamFigure =
   | { readonly kind: 'point'; readonly quantity: string; readonly value: number }
-  | { readonly kind: 'interval'; readonly quantity: string; readonly low: number; readonly high: number }
+  | { readonly kind: 'interval'; readonly quantity: string; readonly low: number; readonly high: number; readonly range_kind?: 'bounds' | 'plausible' }
 
 export interface TeamViewRow {
   readonly id: number
@@ -75,8 +75,32 @@ export interface TeamFact {
   readonly value: string
   readonly text: string
   /** A range finding carries its band as numbers (`low`, `median`, `high`: 8 runs in 10), with its `unit` and the `option` and `goal` it is about. */
-  readonly about?: { readonly kind?: string; readonly option?: string; readonly goal?: string; readonly low?: number; readonly median?: number; readonly high?: number; readonly unit?: string | null }
+  readonly about?: {
+    readonly kind?: string; readonly option?: string; readonly goal?: string; readonly low?: number; readonly median?: number; readonly high?: number; readonly unit?: string | null
+    /** `'labels'` (OLUMI_LABELS): `text` is `label: item` pairs and is never read; the words are built from `value` and the rest of `about`. */
+    readonly form?: string
+    /** The ids of what the aim leaves out (a labels fact's provenance block). */
+    readonly leaves?: readonly string[]
+  }
 }
+
+/** One of D7's facts (API.md "Disagreement as what-ifs"): a member's figure run in the model, one per figure and aim. Read by `about`, never `text`. */
+export interface TeamViewFact {
+  readonly id: string
+  readonly value: string
+  readonly text?: string
+  readonly about?: {
+    readonly kind?: string; readonly form?: string; readonly status?: 'ran' | 'refused' | 'capped' | 'stale'
+    readonly holder?: string; readonly quantity?: string; readonly goal?: string; readonly leader?: string | null; readonly model_leader?: string | null
+    readonly leader_change?: 'same' | 'reversed' | 'now named' | 'now unnamed'
+    readonly options?: readonly { readonly option: string; readonly model: number; readonly view: number; readonly exact?: boolean; readonly model_exact?: boolean; readonly view_exact?: boolean }[]
+    readonly code?: string
+  }
+}
+/** `view_findings` on the scenario view: null before any comparison; current with facts, or stale with a code and NO facts. Only with OLUMI_D7. */
+export type TeamViewFindings =
+  | { readonly status: 'current'; readonly facts: readonly TeamViewFact[] }
+  | { readonly status: 'stale'; readonly code?: string }
 
 export interface TeamScenario {
   readonly id: string
@@ -90,4 +114,6 @@ export interface TeamScenario {
   readonly evidence: readonly TeamEvidenceRow[]
   readonly version: null | { readonly id: number; readonly n: number; readonly form: { readonly records: readonly TeamRecord[] }; readonly facts?: readonly TeamFact[] }
   readonly pending: null | { readonly id: number }
+  /** Present only on a core with OLUMI_D7 on; `null` before any comparison. */
+  readonly view_findings?: TeamViewFindings | null
 }

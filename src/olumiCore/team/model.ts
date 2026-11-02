@@ -2,7 +2,7 @@
  * What the Team tab shows, derived from the olumi-core scenario view by pure functions (no component, no store).
  * Every number and word here is read from the view; nothing is composed, averaged or ranked.
  */
-import type { TeamFigure, TeamMember, TeamRecord, TeamScenario, TeamViewRow } from './types'
+import type { TeamFigure, TeamMember, TeamRecord, TeamScenario, TeamViewFact, TeamViewRow } from './types'
 
 /**
  * Are figures served with a view? FALSE at olumi-core 2b84912: `POST views` ignores `figures` (app.ts reads `text` or `skip` only),
@@ -156,7 +156,7 @@ export function wordsOfRecord(s: Pick<TeamScenario, 'version'>, id: string): str
 
 // ── where the team differs (figures) ──────────────────────────────────────────────────────────────────────────────────────
 
-export interface Position { readonly holder: string; readonly kind: 'point' | 'interval'; readonly value?: number; readonly low?: number; readonly high?: number }
+export interface Position { readonly holder: string; readonly kind: 'point' | 'interval'; readonly value?: number; readonly low?: number; readonly high?: number; readonly rangeKind?: 'bounds' | 'plausible' }
 export interface SpreadFor {
   readonly quantity: string
   readonly label: string
@@ -180,7 +180,7 @@ export function spreadsOf(s: Pick<TeamScenario, 'views' | 'version'>): readonly 
     for (const f of v.figures ?? []) {
       if (!validFigure(f)) continue
       const list = by.get(f.quantity) ?? []
-      list.push(f.kind === 'point' ? { holder: v.by, kind: 'point', value: f.value } : { holder: v.by, kind: 'interval', low: f.low, high: f.high })
+      list.push(f.kind === 'point' ? { holder: v.by, kind: 'point', value: f.value } : { holder: v.by, kind: 'interval', low: f.low, high: f.high, ...(f.range_kind ? { rangeKind: f.range_kind } : {}) })
       by.set(f.quantity, list)
     }
   }
@@ -229,11 +229,84 @@ export function modelBandOf(s: Pick<TeamScenario, 'version'>): readonly ModelBan
     const a = f.about!
     const finiteBand = finite(a.low) && finite(a.high) && a.low <= a.high
     const goal = records.find((r) => r.id === a.goal)
-    return {
-      id: f.id, option: labelOf(a.option), measure: labelOf(goal?.measure?.quantity),
-      low: finiteBand ? a.low! : null, high: finiteBand ? a.high! : null,
-      unit: typeof a.unit === 'string' && a.unit !== '' && a.unit !== '1' ? a.unit : null,
-      valueWords: f.value, words: f.text.replace(LEAVES, '').trim() || f.value, leavesOut: LEAVES.exec(f.text)?.[1] ?? null,
+    const unit = typeof a.unit === 'string' && a.unit !== '' && a.unit !== '1' ? a.unit : null
+    const base = { id: f.id, option: labelOf(a.option), measure: labelOf(goal?.measure?.quantity), low: finiteBand ? a.low! : null, high: finiteBand ? a.high! : null, unit, valueWords: f.value }
+    // A labelled fact (OLUMI_LABELS): its `text` is `label: item` pairs and is never read. The words come from `value` and `about`, and what the
+    // aim leaves out from the left-out records `about.leaves` names.
+    if (a.form === 'labels') {
+      const left = (a.leaves ?? []).map((id) => wordsOfRecord(s, id)).filter((w): w is string => w !== null)
+      const under = base.option ? `Under ‘${base.option}’, ` : ''
+      const what = base.measure ? `‘${base.measure}’` : 'the result'
+      return { ...base, words: `${under}${what} is likely to be in this range (8 draws in 10).`, leavesOut: left.length ? left.join('; ') : null }
     }
+    return { ...base, words: f.text.replace(LEAVES, '').trim() || f.value, leavesOut: LEAVES.exec(f.text)?.[1] ?? null }
   })
+}
+
+// ── D7: where the model and a member's figure disagree (OLUMI_D7) ─────────────────────────────────────────────────────────
+
+/** A sampled chance as core writes it (never certain), so the words here agree with the Run's own. */
+const chancePct = (c: number): string => (c >= 1 ? 'over 99%' : c <= 0 ? 'under 1%' : c < 0.005 ? 'under 1%' : c > 0.995 ? 'over 99%' : `about ${Math.round(c * 100)}%`)
+const REFUSALS: Readonly<Record<string, string>> = {
+  unknown_figure: 'the model does not hold that figure',
+  derived_figure: 'that figure is worked out from others, so there is nothing to replace',
+  structure_figure: 'that figure is fixed by how the model is built',
+  no_figure: 'no figure was given',
+  no_unit: 'the figure has no unit',
+  unit_mismatch: 'the figure is in a different unit from the model\'s',
+  not_a_figure: 'what was given is not a figure Olumi can use',
+  outside_range: 'the figure lies outside what is possible for it',
+  no_range_kind: 'the range does not say whether its ends are firm or a rough estimate',
+  version_moved: 'the approved model has changed since it was given',
+  capped: 'too many figures were revealed at once to run them all',
+  model_not_run: 'the approved model has no result to compare with',
+  option_left_out: 'an option could not be compared',
+  view_cannot_compile: 'the model with that figure cannot be worked out',
+  different_draws: 'the two runs could not be put on the same draws',
+  view_not_run: 'the model with that figure did not run',
+  draws_differ: 'the two runs did not use the same draws',
+  no_aim_compared: 'there was no aim to compare on',
+}
+const GENERIC_REFUSAL = 'Olumi could not run it and cannot yet say why in plain words'
+export interface ViewFindingRow { readonly id: string; readonly status: string; readonly holder: string; readonly words: string; readonly options: readonly { readonly option: string; readonly words: string }[] }
+export type ViewFindingsView =
+  | { readonly status: 'stale'; readonly words: string }
+  | { readonly status: 'current'; readonly rows: readonly ViewFindingRow[] }
+
+/**
+ * What D7 says about the revealed figures, or null when it says nothing. Null when `view_findings` is absent or null (the flag is off, or no comparison
+ * yet). A stale comparison shows its status and nothing else, however much it carries. A current one is a row for each fact, worded from `about` only
+ * (never `text`): a labelled rerun of the model with the member's figure, never an average and never a recommendation.
+ */
+export function viewFindingsOf(s: Pick<TeamScenario, 'view_findings' | 'version'>): ViewFindingsView | null {
+  const vf = s.view_findings
+  if (!vf || typeof vf !== 'object') return null
+  if (vf.status === 'stale') {
+    const words = vf.code === 'version_moved' ? 'The approved model has changed since these figures were compared, so the comparison is out of date.'
+      : vf.code === 'reveal_moved' ? 'Views were revealed again since this comparison, so it is out of date.' : 'This comparison is out of date.'
+    return { status: 'stale', words }
+  }
+  if (vf.status !== 'current' || !Array.isArray(vf.facts)) return null
+  const records = s.version?.form.records ?? []
+  const name = (id: string | null | undefined): string => { if (!id) return ''; const r = records.find((x) => x.id === id); const w = r ? recordWords(r) : null; return `‘${w ?? id.replace(/_/g, ' ')}’` }
+  const sayChance = (c: number, exact: boolean | undefined) => (exact && c === 1 ? 'always meets' : exact && c === 0 ? 'never meets' : chancePct(c))
+  const rows = vf.facts.flatMap((f: TeamViewFact): ViewFindingRow[] => {
+    const a = f.about
+    if (a?.kind !== 'view') return []
+    const holder = a.holder ?? 'A member'
+    const figure = name(a.quantity)
+    const who = `${holder}’s figure for ${figure}`
+    if (a.status !== 'ran') {
+      const why = a.code && Object.prototype.hasOwnProperty.call(REFUSALS, a.code) ? REFUSALS[a.code] : GENERIC_REFUSAL
+      return [{ id: f.id, status: a.status ?? 'refused', holder, words: `${who} was not run, because ${why}.`, options: [] }]
+    }
+    const aim = name(a.goal), lead = name(a.leader), was = name(a.model_leader)
+    const words = a.leader_change === 'reversed' ? `With ${who}, ${lead} leads ${aim} instead of ${was}.`
+      : a.leader_change === 'now named' ? `With ${who}, ${lead} leads ${aim}, where no option led on the model’s own figure.`
+        : a.leader_change === 'now unnamed' ? `With ${who}, no option clearly leads ${aim}, where ${was} led on the model’s own figure.`
+          : `With ${who}, ${lead} still leads ${aim}.`
+    const options = (a.options ?? []).map((o) => ({ option: o.option, words: `${name(o.option)}: ${sayChance(o.model, o.model_exact)} on the model, ${sayChance(o.view, o.view_exact)} on ${holder}’s figure.` }))
+    return [{ id: f.id, status: 'ran', holder, words, options }]
+  })
+  return { status: 'current', rows }
 }

@@ -6,6 +6,7 @@
  */
 import { byId, changeSetOf, decideByWords, figure, nameOf, num, partsOf, percent, shownNumber, signedPartsOf, theirs, CMP } from './words.mjs'
 import { rev16, rev64, revSaved16, runIdOf } from './ids.mjs'
+import { MODULE_KINDS, blockerWords, chanceWords, driverWords, holdNote, isLabels, leaderWords, limitWords, moduleNote, rangeWords, silenceNote, unusedWords, waitsOnIds, whatIfWords } from './labels.mjs'
 
 const valueOf = (q) => (q?.assertion?.kind === 'point' ? q.assertion.value : q?.assertion?.kind === 'interval' ? (q.assertion.likely ?? (q.assertion.low + q.assertion.high) / 2) : null)
 /** A figure in words: the person's own exactly as they gave it, anyone else's to 3 significant figures. */
@@ -355,19 +356,31 @@ export function analysisViewOf(view) {
   // option and aim, passed through as stored: code puts no analytical claim of its own beside them.
   const otherAims = goals.filter((g) => g !== goal).flatMap((g) => live.flatMap((o) => {
     const c = v.facts.find((f) => f.about?.kind === 'chance' && f.about.option === o.id && f.about.goal === g.id)
-    return c ? [`${c.value}: ${sayFact(c.text, leaves)}`] : []
+    return c ? [isLabels(c) ? chanceWords(c, m).face : `${c.value}: ${sayFact(c.text, leaves)}`] : []
   }))
-  const waits = v.facts.filter((f) => f.about?.kind === 'waits' || f.about?.kind === 'blocker').flatMap((f) => (f.about.rests ?? []))
+  // A labelled wait or blocker waits on the questions it asks (`asks`, and the `asked` reasons' figures), not on the premises it rests on; the
+  // legacy fact's `rests` is read as it always was.
+  const waits = v.facts.filter((f) => f.about?.kind === 'waits' || f.about?.kind === 'blocker').flatMap((f) => (isLabels(f) ? waitsOnIds(f, m) : (f.about.rests ?? [])))
   const waitsOn = [...new Set(waits)].map((id) => m.get(id)).filter(Boolean).map((r) => ({ id: r.id, label: nameOf(m, r.id), answer: r.family === 'quantity' && r.assertion.kind === 'asked' ? { quantity_id: r.id } : null, code: r.family === 'quantity' ? r.assertion.kind : 'waiting' }))
   // Olumi's what-if figures, from the structured input facts (API v1.4 `about.olumi`): core's own sentence for each, once per figure, as stored.
-  const whatIfs = [...new Map(v.facts.filter((f) => f.about?.kind === 'input' && f.about.olumi === true).map((f) => [f.about.quantity, sayFact(f.text, leaves)])).values()]
+  const whatIfs = [...new Map(v.facts.filter((f) => f.about?.kind === 'input' && f.about.olumi === true && (!isLabels(f) || f.about.shape === 'range'))
+    .map((f) => [f.about.quantity, isLabels(f) ? whatIfWords(f, m) : sayFact(f.text, leaves)])).values()]
   // The person's limits: core's own sentences for each option (within the limit, outside it, blocked), passed through as stored.
   const limitNotes = v.form.records.filter((r) => r.family === 'limit').flatMap((l) => {
     const of = (kind, o) => v.facts.find((x) => x.about?.kind === kind && x.about.limit === l.id && x.about.option === o.id)
-    const whole = v.facts.find((x) => x.about?.kind === 'blocker' && x.about.limit === l.id && !x.about.option)
-    return [...(whole ? [whole] : []), ...live.flatMap((o) => [of('limit', o), of('outside', o), of('blocker', o)].filter(Boolean))].map((f) => `${f.value}: ${sayFact(f.text, leaves)}`)
+    const whole = v.facts.find((x) => (x.about?.kind === 'blocker' || (isLabels(x) && x.about?.kind === 'waits')) && x.about.limit === l.id && !x.about.option)
+    const say = (f) => (isLabels(f) ? (f.about.kind === 'limit' || f.about.kind === 'outside' ? limitWords(f, m) : f.about.kind === 'chance' ? chanceWords(f, m).face : holdNote(f, m)) : `${f.value}: ${sayFact(f.text, leaves)}`)
+    return [...(whole ? [whole] : []), ...live.flatMap((o) => [of('limit', o), of('outside', o), of('blocker', o)].filter(Boolean))].map(say)
   })
-  const notes = [...(leaves.length ? [`This leaves out: ${leaves.join('; ')}.`] : []), ...otherAims, ...limitNotes, ...whatIfs]
+  // The aim's own holds (labels only): an aim with no measure, or one that waits, is not an option's cell; its reasons are said once, as notes.
+  const aimHolds = v.facts.filter((f) => isLabels(f) && (f.about.kind === 'blocker' || f.about.kind === 'waits') && !f.about.option && !f.about.limit && (!goal || !f.about.goal || f.about.goal === goal.id)).map((f) => holdNote(f, m))
+  // The science modules' markers (labels only): their value as stored beside the names they are about; a kind this code does not know is left alone.
+  const markers = v.facts.filter((f) => isLabels(f) && MODULE_KINDS.has(f.about.kind) && (!goal || !f.about.goal || f.about.goal === goal.id)).map((f) => moduleNote(f, m))
+  const silence = silenceNote(v.science)
+  // Figures given that no result used (labels only: `used`).
+  const unused = v.facts.filter((f) => isLabels(f) && f.about.kind === 'input' && f.about.used === false)
+  const unusedNote = unused.length ? [`Not used by this result: ${unused.map((f) => unusedWords(f, m)).join('; ')}.`] : []
+  const notes = [...(leaves.length ? [`This leaves out: ${leaves.join('; ')}.`] : []), ...otherAims, ...limitNotes, ...aimHolds, ...whatIfs, ...unusedNote, ...markers, ...(silence ? [silence] : [])]
   return {
     schema: 'canonical_analysis_view.v1', source: 'stored_run_facts',
     run: { run_id: runIdOf(v), graph_hash_at_run: revSaved16(view), computed_at: v.at },
@@ -375,17 +388,17 @@ export function analysisViewOf(view) {
     leader_licence: 'withheld',
     options: live.map((o) => {
       const c = chance(o), r = range(o), d = driver(o), b = blocked(o)
-      const cell = c ? { kind: 'figure', display: c.value, face: `${c.value}: ${sayFact(c.text, leaves)}` }
-        : r ? { kind: 'range', display: r.value, face: `${r.value}: ${sayFact(r.text, leaves)}`, detail: { low: r.about.low, median: r.about.median, high: r.about.high, unit: r.about.unit ?? null, olumi: r.about.olumi === true, rests: r.about.rests ?? [] } }
-          : b ? { kind: 'withheld', face: b.value, why: sayFact(b.text, leaves), reasons: [{ code: 'withheld', message: sayFact(b.text, leaves) }] }
+      const cell = c ? (isLabels(c) ? { kind: 'figure', ...(({ display, face }) => ({ display, face }))(chanceWords(c, m)) } : { kind: 'figure', display: c.value, face: `${c.value}: ${sayFact(c.text, leaves)}` })
+        : r ? { kind: 'range', display: r.value, face: isLabels(r) ? rangeWords(r, m, goal) : `${r.value}: ${sayFact(r.text, leaves)}`, detail: { low: r.about.low, median: r.about.median, high: r.about.high, unit: r.about.unit ?? null, olumi: r.about.olumi === true, rests: r.about.rests ?? [] } }
+          : b ? (isLabels(b) ? (({ reasons, why }) => ({ kind: 'withheld', face: b.value, why, reasons }))(blockerWords(b, m)) : { kind: 'withheld', face: b.value, why: sayFact(b.text, leaves), reasons: [{ code: 'withheld', message: sayFact(b.text, leaves) }] })
             : { kind: 'none' }
       return {
         option_id: o.id, cell,
         // No driver fact is not a statement that nothing drives the chance (core may have withheld drivers or measured none): it is not recorded.
-        main_driver: d ? { kind: 'available', driver: { id: d.id, ...(d.about ?? {}) }, detail: `${d.value}: ${sayFact(d.text, leaves)}` } : { kind: 'not_recorded' },
+        main_driver: d ? { kind: 'available', driver: { id: d.id, ...(d.about ?? {}) }, detail: isLabels(d) ? driverWords(d, m) : `${d.value}: ${sayFact(d.text, leaves)}` } : { kind: 'not_recorded' },
       }
     }),
     goal_chance: { ...(goal ? { chance_words: `chance of ‘${goal.label}’` } : {}), ...(notes.length ? { notes } : {}), waits_on: waitsOn },
-    leader: { licence: 'withheld', option_id: null, ...(most ? { words: sayFact(sentence(most.text), leaves) } : {}) },
+    leader: { licence: 'withheld', option_id: null, ...(most ? { words: isLabels(most) ? leaderWords(most, m) : sayFact(sentence(most.text), leaves) } : {}) },
   }
 }
