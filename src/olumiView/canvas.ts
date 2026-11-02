@@ -6,7 +6,7 @@
 import { useEffect } from 'react'
 import { useCanvasStore } from '../canvas/store'
 import type { ViewModel } from './client'
-import { cardPlaces } from './layout'
+import { cardLinks, cardPlaces } from './layout'
 import { useViewStore } from './store'
 
 export const VIEW_CARD = 'viewCard'
@@ -22,9 +22,7 @@ export function drawViewCanvas(model: ViewModel): boolean {
     id: card.id, type: VIEW_CARD, data: { card },
     position: held.get(card.id)?.type === VIEW_CARD ? held.get(card.id)!.position : places.get(card.id)!,
   }))
-  const ids = new Set(nodes.map((n) => n.id))
-  const edges = model.links.filter((l) => ids.has(l.from) && ids.has(l.to))
-    .map((l) => ({ id: `${l.from}->${l.to}`, source: l.from, target: l.to, type: 'default', data: { link: l } }))
+  const edges = cardLinks(model).map((l) => ({ id: `${l.from}->${l.to}`, source: l.from, target: l.to, type: 'default', data: { link: l } }))
   if (same(store.nodes.map((n) => [n.id, n.type, n.data]), nodes.map((n) => [n.id, n.type, n.data])) && same(store.edges.map((e) => [e.id, e.data]), edges.map((e) => [e.id, e.data]))) return false
   store.beginExternalGraphMutation?.('envelope_apply')
   try {

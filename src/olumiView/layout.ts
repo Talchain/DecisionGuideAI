@@ -28,3 +28,9 @@ export function cardPlaces(model: ViewModel): Map<string, { x: number; y: number
   }
   return places
 }
+
+/** The View's links between two of its cards, in its order: the canvas draws a link only where both its ends are drawn. */
+export const cardLinks = (model: ViewModel): ViewModel['links'] => {
+  const ids = new Set(model.cards.map((c) => c.id))
+  return model.links.filter((l) => ids.has(l.from) && ids.has(l.to))
+}
