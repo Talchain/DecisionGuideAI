@@ -7,7 +7,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 
 const mockCallV5Turn = vi.fn()
 vi.mock('../../canvas/conversation/turnService', () => ({
@@ -84,37 +84,9 @@ const sectionOrder = () => {
   return [...panel.querySelectorAll('[data-testid^="reading-group-section-"]')].map((el) => el.getAttribute('data-testid')!.split('-').pop())
 }
 
-describe('the reading card on the olumi-core lane', () => {
-  beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1') })
-  afterEach(() => { vi.unstubAllEnvs() })
-
-  async function open() {
-    mockCallV5Turn.mockResolvedValueOnce(await parseV5Response(new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } }), { coreRoute: true }))
-    render(<App />)
-    await act(async () => { await live!.sendMessage('Should we expand into Europe?') })
-    await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
-  }
-
-  it('shows the person\'s records first, then Olumi\'s, with the brief\'s rows open (not folded) and every row still ticked-able', async () => {
-    await open()
-    expect(sectionOrder().slice(0, 3)).toEqual(['used', 'inferred', 'left_out'])
-    expect(screen.getByTestId('reading-row-tick-input-goal:reach_customer_target')).toBeInTheDocument()
-    expect(screen.queryByTestId(`reading-also-from-brief-${PID}`)).toBeNull()
-  })
-
-  it('folds "Also in the model" by default and opens it on a tap, where a constant is marked as plumbing and is not Olumi\'s', async () => {
-    await open()
-    expect(screen.queryByTestId(`reading-group-section-${PID}-other`)).toBeNull()
-    fireEvent.click(screen.getByTestId(`reading-other-${PID}`))
-    expect(screen.getByTestId(`reading-group-section-${PID}-other`)).toBeInTheDocument()
-    const plumbing = screen.getAllByTestId(/^proposal-change-plumbing-/)
-    expect(plumbing.length).toBe(3)
-    expect(plumbing[0]).toHaveAttribute('title', 'Fixed by how the model is built')
-    const row = screen.getByTestId('proposal-change-quantity:expansion_scale')
-    expect(row.querySelector('[data-testid^="proposal-change-olumi-"]')).toBeNull()
-  })
-})
-
+// The olumi-core lane's reading card came from a /bff turn through useConversation, which the View lane no longer sends (lane audit
+// 14/16, DL ruling 3 Nov): its composition is now core's View order, held by src/olumiView/__tests__/contract.spec.tsx (order, nothing
+// dropped). The off-lane card is unchanged:
 describe('off the lane the card is unchanged (W7: Olumi\'s first, the brief\'s folded, no plumbing mark)', () => {
   beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '') })
   afterEach(() => { vi.unstubAllEnvs() })

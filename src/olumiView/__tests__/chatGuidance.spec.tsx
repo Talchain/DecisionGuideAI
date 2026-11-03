@@ -110,6 +110,25 @@ describe('an ask made while Olumi is still answering is kept, never lost (00055)
   })
 })
 
+describe('core\'s own sentence for a failed send reaches the person, and the words stay to send again (coreFailureWords.spec, on the View lane)', () => {
+  const said401 = 'Open your private link again to keep working.'
+  for (const [status, words] of [
+    [401, said401],
+    [409, 'The model moved while you were typing. Nothing was saved.'],
+    [429, 'Too many requests. Try again in 30 seconds.'],
+    [502, 'Olumi could not finish that. Nothing was saved.'],
+  ] as const) {
+    it(`${status}: core's words, verbatim, and the message kept in the composer`, async () => {
+      answer(() => new Response(JSON.stringify({ error: words }), { status }))
+      const { container } = render(<><ViewChat /><ViewComposer /></>)
+      act(() => { useViewChat.setState({ text: 'What matters most here?' }) })
+      await act(async () => { [...container.querySelectorAll('button')].find((b) => b.textContent === 'Send')!.click() })
+      await waitFor(() => expect(said(container)).toBe(words))
+      expect((container.querySelector('#view-chat-text') as HTMLTextAreaElement).value).toBe('What matters most here?')
+    })
+  }
+})
+
 describe('a send from the canvas that core refuses keeps its words (00056 #2)', () => {
   it('the words go to the composer with core\'s own sentence, so the person can send them again', async () => {
     answer(() => new Response(JSON.stringify({ error: 'text is too long (at most 4,000 characters)' }), { status: 413 }))
