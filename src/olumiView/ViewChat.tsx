@@ -175,7 +175,7 @@ async function send(): Promise<void> {
 /** core's four challenges, by the press's chip id (as the adapter page routed them, scripts/olumi-core/lib/turn.mjs CHALLENGE_KINDS). */
 const CHALLENGES: Readonly<Record<string, string>> = { 'ask:challenge': 'assumption', 'ask:method-opposite': 'opposite', 'ask:falsify': 'disconfirming', 'ask:method-outside-view': 'outside' }
 
-type Press = { id?: string; parameters?: Record<string, unknown>; message: string }
+export type Press = { id?: string; parameters?: Record<string, unknown>; message: string }
 
 /**
  * A press on the canvas (a coaching icon, a chip). A challenge on exactly one card of the model goes to core's challenge route for that
@@ -209,22 +209,33 @@ const keptWhileBusy = (text: string): boolean => {
 /** An ask from the canvas that did not go through (core refused it, or its answer never came) keeps its words beside core's sentence. */
 const keptIfNotSent = (text: string) => (sent: boolean) => { if (!sent) keep(text) }
 
-/** While the tab is on the page it answers the canvas's asks (the coaching icons need one), as the /bff Olumi tab did (00054 #3). */
-function useAnswersAsks(): void {
+/** The canvas's asks, answered by this writer: one set for the page, so every holder registers the same functions. */
+const ASKS = {
+  _sendMessage: withOlumiReveal((text: string) => { if (!keptWhileBusy(text)) void say(text).then(keptIfNotSent(text)) }),
+  _prefillChat: withOlumiReveal((text: string) => { useViewChat.setState({ text }) }),
+  _dispatchAction: withOlumiReveal((opts: Press) => { if (!keptWhileBusy(opts.message)) void press(opts).then(keptIfNotSent(opts.message)) }),
+  _isConversationBusy: () => useViewChat.getState().busy,
+}
+let holders = 0
+
+/**
+ * While the tab, or the dock that holds it, is on the page it answers the canvas's asks (the coaching icons need one), as the /bff
+ * Olumi tab did (00054 #3): with the dock collapsed too (lane audit 24), each ask then fronting the Olumi tab. Released when the last
+ * holder leaves.
+ */
+export function useAnswersAsks(on = true): void {
   useEffect(() => {
-    const mine = {
-      _sendMessage: withOlumiReveal((text: string) => { if (!keptWhileBusy(text)) void say(text).then(keptIfNotSent(text)) }),
-      _prefillChat: withOlumiReveal((text: string) => { useViewChat.setState({ text }) }),
-      _dispatchAction: withOlumiReveal((opts: Press) => { if (!keptWhileBusy(opts.message)) void press(opts).then(keptIfNotSent(opts.message)) }),
-      _isConversationBusy: () => useViewChat.getState().busy,
-    }
-    useGuidanceStore.setState(mine)
+    if (!on) return
+    holders += 1
+    useGuidanceStore.setState(ASKS)
     return () => {
+      holders -= 1
+      if (holders > 0) return
       const now = useGuidanceStore.getState(), gone: Record<string, null> = {}
-      for (const [k, f] of Object.entries(mine)) if (now[k as keyof typeof mine] === f) gone[k] = null
+      for (const [k, f] of Object.entries(ASKS)) if (now[k as keyof typeof ASKS] === f) gone[k] = null
       useGuidanceStore.setState(gone)
     }
-  }, [])
+  }, [on])
 }
 
 /** The tab on the core lane: the conversation and the proposal from the View (the composer is the dock's footer, `ViewComposer`). */
@@ -235,7 +246,9 @@ export function ViewChat() {
   return (
     <div className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-        {view === null ? (error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>) : <ViewTurns chat={view.chat} />}
+        {view === null ? null : <ViewTurns chat={view.chat} />}
+        {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
+        {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
         {view?.proposal ? <Proposal p={view.proposal} busy={busy} /> : null}
       </div>
     </div>
@@ -260,6 +273,8 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
   return (
     <div className={`${typography.panelBody} border-t border-border p-3 space-y-2`} data-testid="view-composer">
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
+      {/* While a write is in flight the composer is held: it says why (lane audit 5.7), in core's page's words. */}
+      {busy ? <p role="status" className={typography.panelMeta} data-testid="view-chat-working">Olumi is thinking…</p> : null}
       <label className={brief ? typography.panelHeader : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
       <textarea ref={box} id="view-chat-text" className="w-full rounded border border-border p-2" rows={brief ? 6 : 3} value={text} disabled={busy} onChange={(e) => useViewChat.setState({ text: e.target.value })} />
       <div className="flex gap-2">

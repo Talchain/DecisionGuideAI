@@ -7594,6 +7594,11 @@ export function useConversation(): UseConversationReturn {
       debugRightPanelComposerLeak?: boolean
       chipMeta?: ChipMeta
     }) => {
+      // The olumi-core lane's one writer is the Olumi tab's: its words go to core there (lane audit 14, 16); a hidden turn has none.
+      if (isOlumiCoreLane()) {
+        if (!opts?.hidden) useGuidanceStore.getState()._sendMessage?.(text)
+        return
+      }
       await sendTurn({
         message: text,
         mode: 'user',
@@ -7634,8 +7639,8 @@ export function useConversation(): UseConversationReturn {
       deferIfBusy?: boolean
       scenarioId?: string
     }) => {
-      // No-op when orchestrator V2 is OFF
-      if (!isOrchestratorV2Enabled()) return SEND_BLOCKED
+      // No-op when orchestrator V2 is OFF, and on the olumi-core lane, which has no CEE turn to carry an event (lane audit 43)
+      if (!isOrchestratorV2Enabled() || isOlumiCoreLane()) return SEND_BLOCKED
 
       // Pre-check: skip the entire network turn if the event type is not
       // supported by the CEE v3 schema. Prevents phantom [system] turns
@@ -7747,6 +7752,11 @@ export function useConversation(): UseConversationReturn {
    */
   const dispatchAction = useCallback(
     async (opts: DispatchActionOpts) => {
+      // On the olumi-core lane a press is the Olumi tab's: a challenge on one card goes to core's route, else its words (lane audit 12, 14).
+      if (isOlumiCoreLane()) {
+        useGuidanceStore.getState()._dispatchAction?.({ id: opts.id, parameters: opts.parameters, message: opts.message ?? opts.label, label: opts.label, source: 'chip' } as never)
+        return
+      }
       if (import.meta.env.DEV) {
         console.debug('[Action]', opts.source, opts.action_type, opts.parameters)
       }

@@ -14,7 +14,7 @@ import { canReceiveAsk } from '../../canvas/ui/inspector-v2/askSemantic'
 import { useCanvasStore } from '../../canvas/store'
 import type { View } from '../client'
 import { useViewStore } from '../store'
-import { STILL_ANSWERING, ViewChat, ViewComposer, useViewChat } from '../ViewChat'
+import { STILL_ANSWERING, ViewChat, ViewComposer, useAnswersAsks, useViewChat } from '../ViewChat'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
 const card = view.model!.cards.find((c) => c.family === 'quantity')!
@@ -46,6 +46,15 @@ describe('the canvas\'s asks reach core through the Olumi tab (00054 #3)', () =>
     expect([g._sendMessage, g._prefillChat, g._dispatchAction, g._isConversationBusy].every((f) => typeof f === 'function')).toBe(true)
     expect(canReceiveAsk(g)).toBe(true)
     unmount()
+    expect(canReceiveAsk(useGuidanceStore.getState())).toBe(false)
+  })
+
+  it('the asks stay answered while any holder (the dock, the tab) is on the page, and go with the last (lane audit 24)', () => {
+    function Holder() { useAnswersAsks(); return null }
+    const dock = render(<Holder />), tab = render(<ViewChat />)
+    tab.unmount()
+    expect(canReceiveAsk(useGuidanceStore.getState())).toBe(true)
+    dock.unmount()
     expect(canReceiveAsk(useGuidanceStore.getState())).toBe(false)
   })
 

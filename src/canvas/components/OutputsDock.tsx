@@ -215,7 +215,7 @@ import { currentModel, useViewStore } from '../../olumiView/store'
 import { useViewFollows } from '../../olumiView/follow'
 import { drawViewCanvas, useViewCanvas } from '../../olumiView/canvas'
 import { ViewChancesBlock } from '../../olumiView/ViewChances'
-import { ViewChat, ViewComposer } from '../../olumiView/ViewChat'
+import { useAnswersAsks, ViewChat, ViewComposer } from '../../olumiView/ViewChat'
 import { focusDockedOlumi } from '../conversation/dockedOlumiFocus'
 import { pulseWhenOnCanvas } from '../../olumiCore/pulseArrivals'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
@@ -810,6 +810,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const coreView = useViewStore(currentModel)
   useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null, '')
   useViewCanvas(isOlumiCoreLane())
+  // The canvas's asks are answered while the dock is on the page, collapsed or on another tab (lane audit 24).
+  useAnswersAsks(isOlumiCoreLane())
   // Another member approved a change: a read of the team shows the approved model has moved on, so the canvas reads the saved model again
   // (design QA 7: Bea's canvas must not stay on version 1 while her Team tab shows version 2).
   useEffect(() => {
