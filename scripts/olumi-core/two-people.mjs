@@ -41,6 +41,11 @@ const person = async (name, link, to) => {
   return { name, ctx, page }
 }
 const view = (p, sid) => p.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view`)).json(), sid)
+/** The View once core holds what was just asked for: a press answers asynchronously, so a read straight after the click can come first. */
+const viewWhen = async (p, sid, ready) => {
+  for (let i = 0; i < 50; i++) { const v = await view(p, sid); if (ready(v)) return v; await p.page.waitForTimeout(200) }
+  return view(p, sid)
+}
 const shot = async (p, label) => { if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await p.page.screenshot({ path: `${SHOTS}/${label}.png` }) } }
 const tab = async (p, id) => { await p.page.getByTestId(`outputs-dock-tab-${id}`).click() }
 const teamCheck = async (p) => { await tab(p, 'team'); await p.page.getByTestId('team-check').click(); await p.page.waitForTimeout(400) }
@@ -67,12 +72,17 @@ const sid = `s_${ada.page.url().slice(-12)}`
 check(/^s_[0-9a-f]{12}$/.test(sid), `the address bar names core's scenario (${sid} as /#/scenario/${uuidOf(sid)})`)
 await ada.page.getByRole('button', { name: 'Approve', exact: true }).click()
 await ada.page.waitForFunction(() => document.querySelectorAll('.react-flow__node-viewCard').length > 0, null, { timeout: T })
-let v = await view(ada, sid)
+let v = await viewWhen(ada, sid, (x) => x.proposal === null)
+await ada.page.waitForTimeout(300)
 const cards = await ada.page.locator('.react-flow__node-viewCard').count()
 check(v.version?.n === 1 && v.proposal === null, 'core holds version 1 and nothing pending')
 check(cards === v.model.cards.length, `DGAI's canvas draws every card of core's View (${cards} of ${v.model.cards.length})`)
 check(!(await ada.page.getByText('Untitled scenario').first().isVisible().catch(() => false)) && await ada.page.getByText(v.title, { exact: true }).first().isVisible(), `the top bar names the scenario as core does ("${v.title}")`)
 for (const c of v.model.cards.slice(0, 4)) check(await ada.page.locator(`.react-flow__node-viewCard >> text=${c.heading}`).first().isVisible(), `card "${c.heading}" in core's words`)
+// No dead controls (Paul's W4 rule): what the lane cannot serve is not on the page at all, not shown dark.
+for (const gone of ['analysisNew', 'diagnostics', 'compare']) check(await ada.page.getByTestId(`outputs-dock-tab-${gone}`).count() === 0, `no ${gone === 'analysisNew' ? 'Reasoning' : gone === 'diagnostics' ? 'Model' : 'Compare'} tab`)
+check(await ada.page.getByTestId('lens-bar').count() === 0, 'no lens bar')
+for (const kept of ['olumi', 'results', 'team']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
 // G6: Olumi's next step, beside the one card core names, in core's words.
 const next = v.chat.find((t) => t.answer?.next.newest)?.answer?.next
 check(next && next.at !== null, `core puts Olumi's next step beside one card (${next?.at})`)
@@ -154,8 +164,8 @@ await ada.page.getByRole('button', { name: 'Send', exact: true }).click()
 await ada.page.getByTestId('view-chat-proposal').waitFor({ timeout: T })
 await ada.page.getByRole('button', { name: 'Approve', exact: true }).click()
 await ada.page.waitForFunction(() => document.querySelectorAll('.react-flow__node-viewCard').length > 0, null, { timeout: T })
+v = await viewWhen(ada, sid, (x) => x.proposal === null && x.version?.n === 2)
 await ada.page.waitForTimeout(500)
-v = await view(ada, sid)
 check(v.version.n === 2 && v.proposal === null, 'core holds version 2')
 check(await ada.page.locator('.react-flow__node-viewCard').count() === v.model.cards.length, 'Ada\'s canvas draws version 2\'s cards')
 await teamCheck(bea)

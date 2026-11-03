@@ -35,7 +35,7 @@ case "${1:-core}" in
     body="{\"name\":\"$2\"${3:+,\"scenario\":\"$3\"}}"
     link="$(curl -s -X POST "http://127.0.0.1:$CORE_PORT/api/admin/people" -H "x-olumi-admin: $ADMIN_KEY" -H 'content-type: application/json' -d "$body" | sed -n 's/.*"link":"\([^"]*\)".*/\1/p')"
     [ -n "$link" ] || { echo "core made no link" >&2; exit 1; }
-    # Core's link lands on its own page (?to=/s/<id>) or on DGAI at /; DGAI's address for the scenario is its UUID form (sid.ts).
+    # While core serves a UI, a link with a scenario lands on DGAI's address for it, its UUID form (API v1.9; sid.ts); else on core's page.
     echo "link: http://127.0.0.1:$CORE_PORT$link"
     [ -z "${3:-}" ] || echo "DGAI: http://127.0.0.1:$CORE_PORT/#/scenario/00000000-0000-4000-8000-${3#s_}" ;;
   *) echo "usage: $0 build|core|link" >&2; exit 2 ;;

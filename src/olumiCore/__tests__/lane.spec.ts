@@ -29,7 +29,7 @@ describe('the olumi-core lane', () => {
 
   it('hides the dock surfaces with no View source (Reasoning, Compare, and Model, which reads legacy node shapes: review 00002 #4) and keeps Analysis, the chat and Team', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
-    for (const gone of ['compare', 'analysisNew', 'diagnostics']) expect(coreLaneShowsSurface(gone)).toBe(false)
+    for (const gone of ['compare', 'analysisNew', 'diagnostics', 'lenses']) expect(coreLaneShowsSurface(gone)).toBe(false)
     for (const keep of ['results', 'olumi', 'team']) expect(coreLaneShowsSurface(keep)).toBe(true)
   })
 

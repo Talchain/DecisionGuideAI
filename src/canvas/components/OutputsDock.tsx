@@ -616,7 +616,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     if (state.activeTab === 'olumi' && !isAiPanelV2Enabled()) {
       setState(prev => ({ ...prev, activeTab: UNFLAGGED_FALLBACK_SURFACE }))
     }
-    if (state.activeTab === 'team' && !isOlumiCoreLane()) {
+    // The lane's own surfaces both ways: Team only on the lane, and a tab the lane hides (a restored Reasoning or Model) never on it.
+    if (!coreLaneShowsSurface(state.activeTab)) {
       setState(prev => ({ ...prev, activeTab: landing }))
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- one-time init guard
@@ -682,9 +683,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     // 0.32.0 panel verbs (`open_panel` / `open_section`) ride this path via
     // `forceActivateOutputTab`, and remapping a live request here would make
     // the assistant open a surface it did not name.
+    // A surface the olumi-core lane hides (Reasoning, Compare, Model) is never opened there by a deep link either: no dead control.
     const resolvedTab = (externalTab === 'compare' && !isCompareTabEnabled())
       || (externalTab === 'journey' && !isJourneyTabEnabled())
       || (externalTab === 'olumi' && !isAiPanelV2Enabled())
+      || !coreLaneShowsSurface(externalTab)
       ? DEFAULT_WORKSPACE_SURFACE
       : externalTab
     // A forced activation OF THE OLUMI TAB must also clear the FIRST-USE RAIL,
