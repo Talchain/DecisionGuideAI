@@ -51,4 +51,6 @@ export const writes = {
   challenge: (sid: string, kind: string, record: string, op: string) => call<{ proposal: number | null }>('POST', `${scenarioPath(sid)}/challenge`, { kind, record, op }),
   approve: (proposal: number, base: number | null) => call<unknown>('POST', `/api/proposals/${proposal}/approve`, { base }),
   discard: (proposal: number) => call<unknown>('POST', `/api/proposals/${proposal}/discard`, {}),
+  /** The person's own figure for one quantity, as they typed it (API v1.9 `typed`): core reads it as its page does, or refuses in the card's own ask. */
+  edit: (sid: string, base: number, quantity: string, typed: string, op: string) => call<{ version: number; n: number; receipt: string }>('POST', `${scenarioPath(sid)}/edit`, { base, quantity, typed, op }),
 }

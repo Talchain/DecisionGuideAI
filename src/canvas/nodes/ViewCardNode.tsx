@@ -12,6 +12,7 @@ import { askKindOf, CARD_WIDTH } from '../../olumiView/layout'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { Badge } from '../../olumiView/Badge'
+import { FigureEdit } from '../../olumiView/FigureEdit'
 
 export type ViewCardData = { card: Card }
 
@@ -64,6 +65,7 @@ export function ViewCard({ card }: ViewCardData) {
       {card.status === null ? null : <p data-view={`${id}.status`}>{card.status}</p>}
       {card.reason === null ? null : <p data-view={`${id}.reason`}>{card.reason}</p>}
       {card.figure === null ? null : <p className={typography.nodeValue} title={card.figure.title} data-view={`${id}.figure.text`}>{card.figure.text}</p>}
+      {card.figure?.edit ? <FigureEdit card={card} /> : null}
       {card.bound === null ? null : (
         <p title={card.bound.title}><span data-view={`${id}.bound.text`}>{card.bound.text}</span>
           {card.bound.olumi === null ? null : <> <Mark at={`${id}.bound.olumi`} mark={card.bound.olumi} /></>}</p>

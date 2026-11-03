@@ -213,6 +213,7 @@ import { TeamTab } from '../../olumiCore/team/TeamTab'
 import { currentModel, useViewStore } from '../../olumiView/store'
 import { useViewFollows } from '../../olumiView/follow'
 import { useViewCanvas } from '../../olumiView/canvas'
+import { useViewNote } from '../../olumiView/note'
 import { ViewChancesBlock } from '../../olumiView/ViewChances'
 import { useAnswersAsks, ViewChat, ViewComposer } from '../../olumiView/ViewChat'
 import { focusDockedOlumi } from '../conversation/dockedOlumiFocus'
@@ -803,6 +804,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const coreView = useViewStore(currentModel)
   useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null)
   useViewCanvas(isOlumiCoreLane())
+  useViewNote(isOlumiCoreLane())
   // The canvas's asks are answered while the dock is on the page, collapsed or on another tab (lane audit 24).
   useAnswersAsks(isOlumiCoreLane())
   const runOnRecord = runOnRecordLocally || savedRunUnconfirmed

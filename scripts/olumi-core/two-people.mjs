@@ -31,13 +31,13 @@ const uuidOf = (sid) => `00000000-0000-4000-8000-${sid.slice(2)}`
 
 // CHROME: a Chromium to drive when Playwright's own is not installed (one headless browser at a time on the Mac).
 const browser = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {})
-/** A person in their own browser: their private link signs it in (core lands it on DGAI at /), then DGAI's address `to`. */
+/** A person in their own browser: their private link signs it in and core lands it (on DGAI's scenario route when it names one); then `to`, if given. */
 const person = async (name, link, to) => {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await ctx.newPage()
   page.on('pageerror', (e) => console.error(`  [${name} page error] ${e.message}`))
   await page.goto(`${BASE}${link}`)
-  await page.goto(`${BASE}/${to}`)
+  if (to) await page.goto(`${BASE}/${to}`)
   return { name, ctx, page }
 }
 const view = (p, sid) => p.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view`)).json(), sid)
@@ -73,6 +73,13 @@ check(v.version?.n === 1 && v.proposal === null, 'core holds version 1 and nothi
 check(cards === v.model.cards.length, `DGAI's canvas draws every card of core's View (${cards} of ${v.model.cards.length})`)
 check(!(await ada.page.getByText('Untitled scenario').first().isVisible().catch(() => false)) && await ada.page.getByText(v.title, { exact: true }).first().isVisible(), `the top bar names the scenario as core does ("${v.title}")`)
 for (const c of v.model.cards.slice(0, 4)) check(await ada.page.locator(`.react-flow__node-viewCard >> text=${c.heading}`).first().isVisible(), `card "${c.heading}" in core's words`)
+// G6: Olumi's next step, beside the one card core names, in core's words.
+const next = v.chat.find((t) => t.answer?.next.newest)?.answer?.next
+check(next && next.at !== null, `core puts Olumi's next step beside one card (${next?.at})`)
+const note = ada.page.getByTestId('olumi-attention-card')
+await note.waitFor({ timeout: T })
+const nextWords = next.text.map((p) => p.text ?? '').join('').trim()
+check((await note.innerText()).includes(nextWords), `Olumi's note on the canvas says it: "${nextWords}"`)
 await shot(ada, '0-ada-model')
 
 // ── 1. Bea joins by her link, on the same address ───────────────────────────────────────────────────────────────────────────────
@@ -82,7 +89,10 @@ await ada.page.getByTestId('team-invite-name').fill('Bea')
 await ada.page.getByTestId('team-invite-go').click()
 const beaLink = new URL(await ada.page.getByTestId('team-invite-link').inputValue())
 check(beaLink.pathname.startsWith('/k/'), 'core made Bea\'s own private link')
-const bea = await person('Bea', beaLink.pathname, `#/scenario/${uuidOf(sid)}`)
+// G5: the one link signs Bea in and lands her on this scenario in DGAI; nothing else is opened.
+const bea = await person('Bea', beaLink.pathname + beaLink.search)
+await bea.page.waitForURL(`${BASE}/#/scenario/${uuidOf(sid)}`, { timeout: T })
+ok('the link alone lands Bea on the scenario\'s DGAI address')
 await bea.page.waitForFunction(() => document.querySelectorAll('.react-flow__node-viewCard').length > 0, null, { timeout: T })
 check(await bea.page.locator('.react-flow__node-viewCard').count() === cards, 'Bea\'s DGAI draws the same model')
 // The signature also covers who is in the round, so the two are compared on the version and the model itself, read now.
@@ -154,6 +164,28 @@ check(await bea.page.locator('.react-flow__node-viewCard').count() === v.model.c
 check(JSON.stringify((await view(bea, sid)).model) === JSON.stringify(v.model), 'Bea\'s View is version 2\'s model')
 await shot(bea, '5-bea-version-2')
 
+// ── 5b. The person's own figure, changed on its card ────────────────────────────────────────────────────────────────────────────
+step('5b', 'Ada changes a figure on its card in DGAI, typed as she would say it; core reads it and both screens show it')
+const editable = v.model.cards.find((c) => c.figure?.edit)
+check(editable !== undefined, `core offers a figure to change ("${editable?.heading}")`)
+await ada.page.getByTestId(`view-figure-edit-${editable.id}`).click()
+await ada.page.getByTestId(`view-figure-typed-${editable.id}`).fill('lots')
+await ada.page.getByTestId(`view-figure-set-${editable.id}`).click()
+await ada.page.getByTestId(`view-figure-error-${editable.id}`).waitFor({ timeout: T })
+check((await ada.page.getByTestId(`view-figure-error-${editable.id}`).innerText()) === editable.figure.edit.ask, 'a figure core cannot read is refused in the card\'s own words')
+await ada.page.getByTestId(`view-figure-typed-${editable.id}`).fill('15 to 25')
+await ada.page.getByTestId(`view-figure-set-${editable.id}`).click()
+await ada.page.getByTestId(`view-figure-form-${editable.id}`).waitFor({ state: 'detached', timeout: T })
+v = await view(ada, sid)
+const edited = v.model.cards.find((c) => c.id === editable.id)
+check(v.version.n === 3 && edited.figure.text !== editable.figure.text, `core holds version 3: "${editable.figure.text}" is now "${edited.figure.text}"`)
+check(await ada.page.locator(`[data-view="${editable.id}.figure.text"]`).innerText() === edited.figure.text, 'Ada\'s card says it as core does')
+await teamCheck(bea)
+await bea.page.waitForTimeout(500)
+check(await bea.page.locator(`[data-view="${editable.id}.figure.text"]`).innerText() === edited.figure.text, 'Bea\'s card too, on her next read')
+const coreText = await corePage(ada, sid)
+check(coreText.includes(edited.figure.text), 'core\'s own page shows the new figure')
+
 // ── 6. A commitment ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 step(6, 'Ada records the next action, owned by Bea')
 await tab(ada, 'team')
@@ -162,10 +194,17 @@ await ada.page.getByTestId('team-c-action').fill('Run a four-week trial hire')
 await ada.page.getByTestId('team-c-owner').selectOption({ label: 'Bea' })
 await ada.page.getByTestId('team-c-expect').fill('At least 95 tickets a week by week four')
 await ada.page.getByTestId('team-c-reconsider').fill('Under 85 tickets a week at week two')
+// G3: the disagreement the approved model records stays open, by its id; its label comes back from core.
+const dissent = (await view(ada, sid)).collab.dissent
+check(dissent.length > 0, `core records ${dissent.length} disagreement(s) in the approved model`)
+await ada.page.getByTestId(`team-c-keep-${dissent[0].id}`).check()
 await ada.page.getByTestId('team-commitment-save').click()
 await ada.page.getByText('Run a four-week trial hire').waitFor({ timeout: T })
 await teamCheck(bea)
 check((await bea.page.getByTestId('team-commitment-list').innerText()).includes('owner Bea · set by Ada'), 'Bea sees it, owned by her')
+const kept = (await view(bea, sid)).collab.commitments[0]
+check(JSON.stringify(kept.keeps) === JSON.stringify([dissent[0].id]), 'core holds the commitment keeping that disagreement open')
+check(await bea.page.getByTestId(`team-commitment-keeps-${kept.id}`).isVisible(), 'Bea sees what it keeps open')
 
 // ── 7. The later review ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 step(7, 'Bea records what happened against the expectation')
