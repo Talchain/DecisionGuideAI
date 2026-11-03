@@ -474,35 +474,6 @@
              "properties": {
               "kind": {
                "type": "string",
-               "const": "route"
-              },
-              "glyph": {
-               "type": "string"
-              },
-              "aim": {
-               "type": "string"
-              },
-              "aim_id": {
-               "type": "string"
-              },
-              "title": {
-               "type": "string"
-              }
-             },
-             "required": [
-              "kind",
-              "glyph",
-              "aim",
-              "aim_id",
-              "title"
-             ],
-             "additionalProperties": false
-            },
-            {
-             "type": "object",
-             "properties": {
-              "kind": {
-               "type": "string",
                "const": "none"
               },
               "aim_id": {

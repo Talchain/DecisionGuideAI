@@ -428,7 +428,10 @@
     "bound": {
      "text": "more than £0",
      "title": "What minimum net cash receipt would make the funding process successful for you?",
-     "olumi": null,
+     "olumi": {
+      "glyph": "◆",
+      "title": "Olumi’s proposal, for you to vet"
+     },
      "measured": true
     },
     "reason": null,
@@ -531,7 +534,10 @@
     "bound": {
      "text": "more than £0",
      "title": "How much operating time must a bridge buy to be worthwhile, and what cash buffer must remain?",
-     "olumi": null,
+     "olumi": {
+      "glyph": "◆",
+      "title": "Olumi’s proposal, for you to vet"
+     },
      "measured": true
     },
     "reason": null,

@@ -97,12 +97,6 @@ export type View = {
         aim_id: string
         title: string
       } | {
-        kind: "route"
-        glyph: string
-        aim: string
-        aim_id: string
-        title: string
-      } | {
         kind: "none"
         aim_id: string | null
         text: string

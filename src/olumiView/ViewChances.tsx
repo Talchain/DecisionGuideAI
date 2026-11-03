@@ -1,7 +1,7 @@
 /**
  * Each option's lines from the Run, drawn from the View (olumi.view/2) on the olumi-core lane, in place of the adapter-fed
  * `ViewOnlyRunChancesBlock`. Every word is core's, drawn exactly as it arrives: the option's heading, then each row (a chance with its
- * aim, its approximate mark and Olumi's marks, a limit, a route, or why there is nothing yet), with core's hover. Nothing is composed, rounded or reordered
+ * aim, its approximate mark and Olumi's marks, a limit, or why there is nothing yet), with core's hover. Nothing is composed, rounded or reordered
  * here, and the band is not drawn yet (a v10 slice).
  *
  * Each drawn View string carries `data-view`, the path to the exact string it shows, so a test can bind every element to its own
@@ -34,13 +34,6 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
           <span data-view={`${at}.aim`}>{row.aim}</span>
           <span className={typography.panelTabular} data-view={`${at}.value`}>{row.value}</span>
           <Mark at={`${at}.olumi`} mark={row.olumi} />
-        </div>
-      )
-    case 'route':
-      return (
-        <div className="flex flex-wrap items-baseline gap-x-2" title={row.title} data-view-row={at}>
-          <span data-view={`${at}.glyph`}>{row.glyph}</span>
-          <span data-view={`${at}.aim`}>{row.aim}</span>
         </div>
       )
     case 'none':

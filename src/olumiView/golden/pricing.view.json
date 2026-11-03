@@ -246,10 +246,7 @@
        "glyph": "◆",
        "title": "Rests on Olumi’s proposals"
       },
-      "likely": {
-       "glyph": "◉",
-       "title": "If Olumi's estimates hold, 'Raise the price by 45p' is the option most likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'). It rests on Olumi's what-if ranges for 'cups change'."
-      },
+      "likely": null,
       "aim": "Make £7,000 a month",
       "aim_id": "profit_goal",
       "title": "If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change'."
@@ -377,8 +374,8 @@
    "lead": "In this model, on current information, each option’s chance of ‘Make £7,000 a month’:",
    "all_withheld": false,
    "most_likely": {
-    "text": "If Olumi's estimates hold, 'Raise the price by 45p' is the option most likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'). It rests on Olumi's what-if ranges for 'cups change'.",
-    "title": "If Olumi's estimates hold, 'Raise the price by 45p' is the option most likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'). It rests on Olumi's what-if ranges for 'cups change'."
+    "text": "Which option is most likely to achieve 'Make £7,000 a month' is not worked out in this model: 'cups change' is Olumi's estimate, −900 to −100 cups/month, too wide to tell the options apart. It rests on Olumi's what-if ranges for 'cups change'.",
+    "title": "Which option is most likely to achieve 'Make £7,000 a month' is not worked out in this model: 'cups change' is Olumi's estimate, −900 to −100 cups/month, too wide to tell the options apart. It rests on Olumi's what-if ranges for 'cups change'."
    },
    "waits_on": null,
    "notes": [

@@ -20,7 +20,7 @@ const Mark = ({ at, mark }: { at: string; mark: { glyph: string; title: string }
   mark === null ? null : <span title={mark.title} aria-label={mark.title} data-view={`${at}.glyph`}>{mark.glyph}</span>
 )
 
-/** One row of an option card, as core wrote it: a chance, a limit, a route, or why there is none yet. */
+/** One row of an option card, as core wrote it: a chance, a limit, or why there is none yet. */
 function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
   const at = `${id}.rows.${i}`
   switch (row.kind) {
@@ -35,8 +35,6 @@ function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
       )
     case 'limit':
       return <p title={row.title} data-view-row={at}><span data-view={`${at}.aim`}>{row.aim}</span> <span className={typography.nodeValue} data-view={`${at}.value`}>{row.value}</span> <Mark at={`${at}.olumi`} mark={row.olumi} /></p>
-    case 'route':
-      return <p title={row.title} data-view-row={at}><span data-view={`${at}.glyph`}>{row.glyph}</span> <span data-view={`${at}.aim`}>{row.aim}</span></p>
     case 'none':
       // a core before view-dock serves no `text`: the row says its title, as before (00058 P1)
       return row.text == null
