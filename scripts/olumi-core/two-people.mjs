@@ -71,6 +71,7 @@ let v = await view(ada, sid)
 const cards = await ada.page.locator('.react-flow__node-viewCard').count()
 check(v.version?.n === 1 && v.proposal === null, 'core holds version 1 and nothing pending')
 check(cards === v.model.cards.length, `DGAI's canvas draws every card of core's View (${cards} of ${v.model.cards.length})`)
+check(!(await ada.page.getByText('Untitled scenario').first().isVisible().catch(() => false)) && await ada.page.getByText(v.title, { exact: true }).first().isVisible(), `the top bar names the scenario as core does ("${v.title}")`)
 for (const c of v.model.cards.slice(0, 4)) check(await ada.page.locator(`.react-flow__node-viewCard >> text=${c.heading}`).first().isVisible(), `card "${c.heading}" in core's words`)
 await shot(ada, '0-ada-model')
 
