@@ -78,10 +78,7 @@ describe('WS5 tolerant canonical READ boundary', () => {
     } }
     walk(root)
     // R2-4 narrow opaque transport exception: exactly one adapter expression, never the whole READ envelope.
-    // Plus, on the olumi-core lane only, the core turn's own model carrying the view it shows (`applyCoreTurn.ts`): the same
-    // one parser, handed what the turn says, as a read hands it what the read says.
     expect(hits.sort()).toEqual(['adapters/cee/scenarioGraph.ts:b.canonical_analysis_view',
-      'v5/applyCoreTurn.ts:turn.model.canonical_analysis_view',
       'v5/applyV5State.ts:(response as OlumiResponseWithExtensions)[ADDITIVE_EXTENSIONS_KEY]?.canonical_analysis_view',
       'v5/applyV5State.ts:(response as { canonical_analysis_view?: unknown }).canonical_analysis_view'].sort())
     const hydration = stripComments(readFileSync(join(root, 'canvas/hydrate/serverGraphHydration.ts'), 'utf8'), 'serverGraphHydration.ts')

@@ -132,6 +132,7 @@ async function act(f: () => Promise<unknown>, changesModel = false): Promise<boo
  * page moved on to another scenario moves nothing (review 00052 #5).
  */
 async function startScenario(brief: string, op: string, uuid: string | null): Promise<void> {
+  watchPageMoves()
   const left = pageMoves
   const made = await writes.create(brief, op)
   // An answer that names no scenario (unreadable, or JSON null) may still have been saved: uncertain, never "nothing saved" (00054 #4).
@@ -148,7 +149,13 @@ async function startScenario(brief: string, op: string, uuid: string | null): Pr
 
 /** How many times the page has moved to another scenario: an answer is applied only to the page it was asked from. */
 let pageMoves = 0
-useCanvasStore.subscribe((now, before) => { if (now.currentScenarioId !== before.currentScenarioId) pageMoves += 1 })
+let watching = false
+/** Counted from the first scenario this page starts, not from import: a module that only imports this file subscribes to nothing. */
+function watchPageMoves(): void {
+  if (watching) return
+  watching = true
+  useCanvasStore.subscribe((now, before) => { if (now.currentScenarioId !== before.currentScenarioId) pageMoves += 1 })
+}
 
 /** Core holds no model and no proposal for this scenario (none yet, or its first draft was set aside): a message is a new brief (00052 #6). */
 const takesBrief = (sid: string | null, view: View | null) => sid === null || (view !== null && view.version === null && view.proposal === null)

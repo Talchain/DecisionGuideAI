@@ -48,18 +48,13 @@ export interface GhostNodeInput {
   readonly height?: number
 }
 
-/** A new factor's proposed figure as it is stated: one value, or a range (its two ends, and the most likely when one is stated). An empty unit is a plain number. */
-export type GhostFigure =
-  | { readonly value: number; readonly unit: string }
-  | { readonly low: number; readonly high: number; readonly likely?: number; readonly unit: string }
-
 interface Rect { readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 export interface GhostCard extends Rect {
   readonly id: string
   readonly label: string
   readonly kind: string | null
   /** Core only: the new factor's point level, and whose item it is. */
-  readonly value?: GhostFigure | null
+  readonly value?: { readonly value: number; readonly unit: string } | null
   readonly source?: 'estimate' | 'yours'
 }
 export interface GhostLine { readonly key: string; readonly x1: number; readonly y1: number; readonly x2: number; readonly y2: number }
@@ -164,11 +159,6 @@ export interface GhostMeasures {
   readonly bandPaths?: ReadonlyMap<string, ReadonlyArray<{ readonly x: number; readonly y: number }>>
   /** The real edge's drawn path (`d`) by band key. */
   readonly bandEdgePaths?: ReadonlyMap<string, string>
-  /**
-   * The right edge of what the person can see, in flow units (a panel covering the canvas's right side), null when nothing covers it. A ghost
-   * with nothing to sit beside is put right of the drawing only while it is seen there; else below the drawing, never under the panel.
-   */
-  readonly visibleRight?: number | null
   /** Other drawn marks a ghost must not cover (the edges' own labels: sign, strength). */
   readonly obstacles?: ReadonlyArray<{ readonly x: number; readonly y: number; readonly w: number; readonly h: number }>
 }
@@ -208,7 +198,7 @@ export function proposalGhostGeometry(
   nodes: readonly GhostNodeInput[],
   measures: GhostMeasures = {},
 ): GhostGeometry {
-  const { heights, markSizes, bandPaths, bandEdgePaths, obstacles = [], visibleRight = null } = measures
+  const { heights, markSizes, bandPaths, bandEdgePaths, obstacles = [] } = measures
   const real = new Map(nodes.map((n) => [n.id, rectOf(n)] as const))
   const heightOf = (id: string) => {
     const h = heights?.get(id)
@@ -219,12 +209,8 @@ export function proposalGhostGeometry(
   // The drawing's right edge and top, for a ghost with no anchor on the canvas.
   let right = 0
   let top = Infinity
-  let left = Infinity
-  let bottom = -Infinity
-  for (const r of real.values()) { right = Math.max(right, r.x + r.w); top = Math.min(top, r.y); left = Math.min(left, r.x); bottom = Math.max(bottom, r.y + r.h) }
+  for (const r of real.values()) { right = Math.max(right, r.x + r.w); top = Math.min(top, r.y) }
   if (top === Infinity) top = 0
-  if (left === Infinity) left = 0
-  if (bottom === -Infinity) bottom = 0
 
   const cards: GhostCard[] = []
   // Nodes and cards: nothing may cover them and no line should cross them. Edge labels: nothing may cover them.
@@ -261,16 +247,9 @@ export function proposalGhostGeometry(
     const a = tie ? real.get(tie.fromId === op.id ? tie.toId : tie.fromId)! : null
     let slot = a ? (slotsBeside(a, h).find((s) => free(s.x, s.y, h)) ?? nearestFree(a, GHOST_CARD_WIDTH, h)) : undefined
     if (!slot) {
-      // Right of the drawing never meets a node; step down past any card already there. Where a panel covers that side it would be
-      // drawn under it and never seen: below the drawing instead, along its foot from the left, within what is seen.
+      // Right of the drawing never meets a node; step down past any card already there.
       slot = { x: right + GHOST_GAP_X, y: top }
-      if (visibleRight !== null && slot.x + GHOST_CARD_WIDTH > visibleRight) {
-        slot = { x: left, y: bottom + GHOST_GAP_Y }
-        while (!free(slot.x, slot.y, h)) {
-          const nextX: number = slot.x + GHOST_CARD_WIDTH + GHOST_GAP_X
-          slot = nextX + GHOST_CARD_WIDTH <= visibleRight ? { x: nextX, y: slot.y } : { x: left, y: slot.y + h + GHOST_GAP_Y }
-        }
-      } else while (!free(slot.x, slot.y, h)) slot = { x: slot.x, y: slot.y + GHOST_CARD_HEIGHT + GHOST_GAP_Y }
+      while (!free(slot.x, slot.y, h)) slot = { x: slot.x, y: slot.y + GHOST_CARD_HEIGHT + GHOST_GAP_Y }
     }
     const card = { id: op.id, label: op.label, kind: op.kind, x: slot.x, y: slot.y, w: GHOST_CARD_WIDTH, h,
       ...(op.value !== undefined ? { value: op.value } : {}), ...(op.source !== undefined ? { source: op.source } : {}) }

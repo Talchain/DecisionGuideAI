@@ -34,11 +34,7 @@ export const CHANGE_NOTE_MAX = 4000
 const addSource = z.enum(['estimate', 'yours'])
 const addSchema = z.discriminatedUnion('kind', [
   z.object({ field_id: z.string().regex(/^factor_add:.+$/), kind: z.literal('factor_add'), node_id: z.string().min(1), label: z.string().min(1),
-    // A point as one value, a range as its two ends (and the most likely when stated): never reduced to one number. An empty unit is a plain number.
-    value: z.union([
-      z.object({ value: z.number().finite(), unit: z.string() }),
-      z.object({ low: z.number().finite(), high: z.number().finite(), likely: z.number().finite().optional(), unit: z.string() }),
-    ]).nullable(), source: addSource }),
+    value: z.object({ value: z.number().finite(), unit: z.string().min(1) }).nullable(), source: addSource }),
   z.object({ field_id: z.string().regex(/^link_add:.+$/), kind: z.literal('link_add'), link_id: z.string().min(1), from_id: z.string().min(1),
     to_id: z.string().min(1), from_label: z.string().min(1), to_label: z.string().min(1), direction: z.enum(['positive', 'negative']), source: addSource }),
   // Every other change the approval writes, as CEE's one plain sentence (DL 22 Oct, consent: 12/12 served approvals wrote

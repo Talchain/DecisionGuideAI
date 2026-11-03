@@ -24,7 +24,7 @@ import { useProposalGhostStore } from '../stores/proposalGhostStore'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { action, ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 import type { ActionChip } from '../conversation/types'
-import { GHOST_CARD_HEIGHT, ghostActionsPosition, proposalGhostGeometry, type GhostFigure, type GhostMeasures } from '../utils/proposalGhostGeometry'
+import { GHOST_CARD_HEIGHT, ghostActionsPosition, proposalGhostGeometry, type GhostMeasures } from '../utils/proposalGhostGeometry'
 import { DOCK_SELECTOR } from '../utils/computeFitPadding'
 import { OPTION_TAKEN_OUT_COPY } from '../domain/optionStatus'
 import type { PreviewBand, PreviewOptionStatus } from '../conversation/proposalPreview'
@@ -174,18 +174,11 @@ export function ghostValueText(v: { value: number; unit: string; source: keyof t
 }
 
 /** A figure as the held card says it. */
-const pointText = (value: number, unit: string): string =>
-  formatMoneyFigure(value, unit) ?? (unit === '%' ? `${value}%` : `${value} ${unit}`.trim())
-/** A proposed figure as stated: one value as one value, a range as its two ends (with the most likely when stated), never only a middle. */
-export function figureText(v: GhostFigure): string {
-  if (!('low' in v)) return pointText(v.value, v.unit)
-  const ends = formatMoneyFigure(v.low, v.unit) !== null ? `${pointText(v.low, v.unit)} to ${pointText(v.high, v.unit)}`
-    : v.unit === '%' ? `${v.low}% to ${v.high}%` : `${v.low} to ${v.high}${v.unit ? ` ${v.unit}` : ''}`
-  return v.likely !== undefined ? `${ends}, most likely ${pointText(v.likely, v.unit)}` : ends
-}
+export const figureText = (v: { value: number; unit: string }): string =>
+  formatMoneyFigure(v.value, v.unit) ?? (v.unit === '%' ? `${v.value}%` : `${v.value} ${v.unit}`.trim())
 
 /** A new factor's second line (core): its level, when it has one, and whose item it is; null when there is nothing to say. */
-export function ghostCardDetail(c: { value?: GhostFigure | null; source?: 'estimate' | 'yours' }): string | null {
+export function ghostCardDetail(c: { value?: { value: number; unit: string } | null; source?: 'estimate' | 'yours' }): string | null {
   const figure = c.value ? figureText(c.value) : null
   const whose = c.source === 'yours' ? 'from your message' : null
   return figure && whose ? `${figure} · ${whose}` : figure ?? whose
@@ -207,14 +200,10 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
   // Measured, not guessed: a card's height and a band's size follow the counter-scaled text (so they change with the
   // zoom: re-render on zoom), and a band sits on the real edge's DRAWN path. Re-measure after every render; the values
   // depend on label, zoom and edge route only, so this settles in one pass.
-  const transform = useStore((s) => s.transform)
+  useStore((s) => s.transform[2])
   const layerRef = useRef<HTMLDivElement>(null)
   const [measures, setMeasures] = useState<GhostMeasures>({})
-  // What the person can see: never under the outputs dock (a ghost with nothing to sit beside is not drawn where it cannot be seen).
-  const dockLeft = typeof document === 'undefined' ? null : (() => { const r = document.querySelector(DOCK_SELECTOR)?.getBoundingClientRect(); return r && r.width > 0 ? r.left : null })()
-  const visibleRight = dockLeft === null ? null : screenToFlowPosition({ x: dockLeft - GHOST_ACTIONS_DOCK_GAP, y: 0 }).x
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- `transform` moves `visibleRight` (flow units) on every pan or zoom
-  const geo = useMemo(() => (ghost ? proposalGhostGeometry(ghost, nodes, { ...measures, visibleRight }) : null), [ghost, nodes, measures, visibleRight, transform])
+  const geo = useMemo(() => (ghost ? proposalGhostGeometry(ghost, nodes, measures) : null), [ghost, nodes, measures])
   // eslint-disable-next-line react-hooks/exhaustive-deps -- after EVERY render by design; equal measures bail out
   useLayoutEffect(() => {
     const root = layerRef.current

@@ -162,6 +162,12 @@ const REGISTRY: Record<string, Entry> = {
     reason:
       'PRODUCER SYNC: backfillGoalThresholdOntoGoalNode writes goal_threshold_* values that CEE sent ON the analysis_ready itself. Invalidating here would use an analysis to invalidate itself.',
   },
+  'olumiView/canvas.ts': {
+    sites: 3,
+    disposition: 'exempt',
+    reason:
+      "PRODUCER SYNC (olumi-core lane only): draws, withdraws or re-places core's View model, which carries its own Run state (`model.run`). Whether a run still describes the model is core's to say, in the same View; this canvas's overlay describes a CEE analysis the lane never holds, and no person's edit is written here (edits go to core's routes).",
+  },
   'canvas/conversation/useConversation.ts': {
     sites: 1,
     disposition: 'exempt',
