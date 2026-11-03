@@ -8,13 +8,14 @@ import { useState } from 'react'
 import { typography } from '../styles/typography'
 import { TeamApiError } from '../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../olumiCore/team/writes'
-import { isForThisPage } from '../olumiCore/me'
+import { isForThisPage, useMe } from '../olumiCore/me'
 import { writes, type ViewCard } from './client'
 import { useViewStore } from './store'
 
 export function FigureEdit({ card }: { card: ViewCard }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
+  const me = useMe((s) => s.me)
   const [open, setOpen] = useState(false)
   const [typed, setTyped] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -22,7 +23,7 @@ export function FigureEdit({ card }: { card: ViewCard }): JSX.Element | null {
   const sending = useWriteSending(key)
   const edit = card.figure?.edit
   const base = view?.model?.edit_base ?? null
-  if (!edit || sid === null || base === null || view === null || !isForThisPage(view)) return null
+  if (!edit || sid === null || base === null || view === null || !isForThisPage(view, me)) return null
 
   const save = async () => {
     if (typed.trim() === '' || sending) return

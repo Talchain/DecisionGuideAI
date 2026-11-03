@@ -7,7 +7,7 @@
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../canvas/store'
 import { clearOlumiAttention, requestOlumiAttention, type OlumiAttentionNote } from '../canvas/utils/olumiAttention'
-import { isForThisPage } from '../olumiCore/me'
+import { isForThisPage, useMe } from '../olumiCore/me'
 import type { View } from './client'
 import { useViewStore } from './store'
 
@@ -28,7 +28,8 @@ export function nextNoteOf(view: View): { key: string; at: string; note: OlumiAt
 /** On the core lane: the newest reply's next step, drawn once beside its card; dismissed, it stays dismissed for that reply. */
 export function useViewNote(on: boolean): void {
   const view = useViewStore((s) => s.view)
-  const next = on && view !== null && isForThisPage(view) ? nextNoteOf(view) : null
+  const me = useMe((s) => s.me)
+  const next = on && view !== null && isForThisPage(view, me) ? nextNoteOf(view) : null
   // The card is drawn by the View canvas; the note waits for it.
   const anchored = useCanvasStore((s) => next !== null && s.nodes.some((n) => n.id === next.at))
   const shown = useRef<string | null>(null)
