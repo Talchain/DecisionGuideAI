@@ -82,6 +82,8 @@ describe('on the lane every way to Olumi leads to the dock\'s Olumi tab (review 
 
   it('"Open Olumi" from another tab fronts the Olumi tab with its composer focused, and opens no floating panel', async () => {
     sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'results' }))
+    const view = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
+    useViewStore.setState({ uuid: UUID, sid: 's_000000000001', view: { ...view, proposal: null }, error: null, status: 'ready' } as never)
     useCanvasStore.setState({ nodes: [{ id: 'a', type: 'viewCard', position: { x: 0, y: 0 }, data: { label: 'A' } }] } as never)
     await dock()
     expect(fronted()).toBe('outputs-dock-tab-results')
@@ -151,5 +153,36 @@ describe('on the lane nothing opens a floating panel, an empty scenario included
     await act(async () => { fireEvent.click(screen.getByTestId('persistent-strip-composer-redirect')) })
     await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
     expect(document.activeElement?.id).toBe('view-chat-text')
+  })
+})
+
+describe('only a scenario waiting for its brief opens on the brief (lane audit 1.1)', () => {
+  beforeEach(() => { lane.on = true })
+  it('reloading a paired scenario keeps the person\'s tab while its View loads, and after it lands', async () => {
+    sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'results' }))
+    useViewStore.setState({ uuid: UUID, sid: 's_000000000001', view: null, error: null, status: 'loading' } as never)
+    await dock()
+    expect(fronted()).toBe('outputs-dock-tab-results')
+    const view = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
+    await act(async () => { useViewStore.setState({ view: { ...view, proposal: null }, status: 'ready' } as never) })
+    expect(fronted()).toBe('outputs-dock-tab-results')
+  })
+
+  it('two scenarios in a row that wait for their brief: the second opens on the brief, after the person left the first\'s', async () => {
+    await dock()
+    expect(fronted()).toBe('outputs-dock-tab-olumi')
+    await act(async () => { fireEvent.click(screen.getByTestId('outputs-dock-tab-results')) })
+    expect(fronted()).toBe('outputs-dock-tab-results')
+    await act(async () => { useViewStore.setState({ uuid: '2c5f39cb-3ab2-42e3-994f-1127e4ddb538', sid: null, view: null, status: 'none' } as never) })
+    expect(fronted()).toBe('outputs-dock-tab-olumi')
+  })
+
+  it('moving to another scenario that waits for its brief opens on the brief again', async () => {
+    sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'results' }))
+    useViewStore.setState({ uuid: UUID, sid: 's_000000000001', view: null, error: null, status: 'loading' } as never)
+    await dock()
+    expect(fronted()).toBe('outputs-dock-tab-results')
+    await act(async () => { useViewStore.setState({ uuid: '2c5f39cb-3ab2-42e3-994f-1127e4ddb538', sid: null, view: null, status: 'none' } as never) })
+    expect(fronted()).toBe('outputs-dock-tab-olumi')
   })
 })

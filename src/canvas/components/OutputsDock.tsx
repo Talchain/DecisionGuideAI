@@ -922,10 +922,16 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // the rail). Defined once here and reused by the docked-Olumi close-effect
   // below, the --dock-right-offset effect, and render.
   const effectiveIsOpen = isFirstUse ? false : state.isOpen
-  // On the lane an empty scenario opens on the Olumi tab, where its brief is typed, so the empty canvas never looks dead (D6).
+  // On the lane a scenario waiting for its brief (core holds no scenario for it, or holds no draft yet) opens on the Olumi tab, where
+  // the brief is typed, so the empty canvas never looks dead (D6). Decided by the View, never by the canvas being empty for a moment
+  // while a paired scenario's View loads (lane audit 1.1); each scenario decides once, when it is the one on screen.
+  const viewUuid = useViewStore((s) => s.uuid)
+  const awaitsBrief = useViewStore((s) => s.sid === null || (s.view !== null && s.view.version === null && s.view.proposal === null))
   useEffect(() => {
-    if (isOlumiCoreLane() && !hasGraphContent) setState((prev) => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
-  }, [hasGraphContent]) // eslint-disable-line react-hooks/exhaustive-deps -- setState is stable
+    if (!isOlumiCoreLane() || !awaitsBrief) return
+    setState((prev) => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
+    useUIStore.getState().setActiveOutputTab('olumi' as OutputTab)
+  }, [awaitsBrief, viewUuid]) // eslint-disable-line react-hooks/exhaustive-deps -- setState is stable
   // ACCOUNTS viewer mode (PANEL 5947736451): a viewer keeps the results and loses the
   // readiness / re-analyse bars and the Run action. Only the owner can run.
   const isViewer = useIsViewer()

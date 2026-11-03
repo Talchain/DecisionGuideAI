@@ -16,6 +16,8 @@ import { CanvasViewportControls } from '../../components/layout/CanvasViewportCo
 import { TopBar } from '../../components/layout/TopBar'
 import { ToastProvider } from '../../canvas/ToastContext'
 import { useCanvasStore } from '../../canvas/store'
+import { runCanvasUndo } from '../../canvas/undo/undoCommand'
+import { CORE_LANE_USE_THE_CHAT } from '../../olumiCore/lane'
 import { drawViewCanvas, placeViewCards, useViewCanvas, withdrawViewCanvas } from '../canvas'
 import { useViewStore } from '../store'
 import { cardPlaces } from '../layout'
@@ -92,5 +94,28 @@ describe('B5 Auto-arrange on the lane puts every View card back where core\'s pa
     expect(placeViewCards(view.model!)).toBe(true)
     expect(useCanvasStore.getState().nodes[1]!.position).toEqual(cardPlaces(view.model!).get(first!.id))
     expect(useCanvasStore.getState().pendingLayout).toBe(false)
+  })
+})
+
+describe('lane audit 7.5 and 2.8: no local Versions, and undo says what the lane does instead', () => {
+  it('the top bar offers no Versions on the lane (they snapshot View cards core never sees), and does off it', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    bar()
+    expect(screen.queryByTestId('topbar-versions-trigger')).toBeNull()
+    cleanup()
+    vi.stubEnv('VITE_OLUMI_CORE', '')
+    bar()
+    expect(screen.getByTestId('topbar-versions-trigger')).toBeTruthy()
+  })
+
+  it('undo on the lane says to tell Olumi in the chat, never to sign in', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    const said: string[] = []
+    const hear = (e: Event) => said.push((e as CustomEvent<{ message: string }>).detail.message)
+    window.addEventListener('topbar:show-toast', hear)
+    await runCanvasUndo('undo')
+    await runCanvasUndo('redo')
+    window.removeEventListener('topbar:show-toast', hear)
+    expect(said).toEqual([CORE_LANE_USE_THE_CHAT, CORE_LANE_USE_THE_CHAT])
   })
 })

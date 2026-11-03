@@ -440,7 +440,8 @@ export const TopBar = ({
             document-level controls, not hovering over the graph. `VersionsTrigger`
             carries no positioning of its own — this row owns its layout. */}
         {/* Versions are owner-only on CEE (list, save, restore): hidden for a viewer. */}
-        {!isViewer && (
+        {/* Not on the olumi-core lane: they snapshot and restore View cards locally, which core never sees (lane audit 7.5). */}
+        {!isViewer && coreLaneShowsSurface('versions') && (
           <Tooltip content="Version history — snapshots of the model you authored">
             <VersionsTrigger variant="icon" className={styles.iconButton} data-testid="topbar-versions-trigger" />
           </Tooltip>
