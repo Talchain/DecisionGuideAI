@@ -1,6 +1,6 @@
 /**
  * Which olumi-core scenario is this page's scenario? DGAI names a scenario by a UUID; core's own id (`s_<12 hex>`) has one reversible
- * UUID form (`00000000-0000-4000-8000-<12 hex>`), and that form is the scenario's address on this lane (`/scenario/<uuid>`). Nothing is
+ * UUID form (`00000000-0000-4000-8000-<12 hex>`), and that form is the scenario's address on this lane (`/#/scenario/<uuid>`). Nothing is
  * remembered in the browser, so the same address opens the same scenario for every member, in any browser.
  */
 const DERIVED = /^00000000-0000-4000-8000-([0-9a-f]{12})$/i

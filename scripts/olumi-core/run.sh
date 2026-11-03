@@ -7,8 +7,8 @@
 #   CORE_DIR=<checkout of olumi-core wip/v3.1> scripts/olumi-core/run.sh core        # scripted core serving ./dist on :3951
 #   scripts/olumi-core/run.sh link <name> [<scenario id>]                            # a person's private link (admin route)
 #
-# A link with a scenario opens it in DGAI (/scenario/<its UUID form>); core's page for it is /s/<scenario id>. Two people = two links
-# in two browsers (or two private windows).
+# A private link signs the browser in; DGAI's address for a scenario is /#/scenario/<its UUID form>, core's page for it /s/<scenario
+# id>. Two people = two links in two browsers (or two private windows).
 set -euo pipefail
 unset GH_TOKEN GITHUB_TOKEN
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -35,8 +35,8 @@ case "${1:-core}" in
     body="{\"name\":\"$2\"${3:+,\"scenario\":\"$3\"}}"
     link="$(curl -s -X POST "http://127.0.0.1:$CORE_PORT/api/admin/people" -H "x-olumi-admin: $ADMIN_KEY" -H 'content-type: application/json' -d "$body" | sed -n 's/.*"link":"\([^"]*\)".*/\1/p')"
     [ -n "$link" ] || { echo "core made no link" >&2; exit 1; }
-    # Core's link lands on its own page (?to=/s/<id>); DGAI's address for the same scenario is its UUID form (src/olumiCore/team/sid.ts).
-    if [ -n "${3:-}" ]; then echo "DGAI: http://127.0.0.1:$CORE_PORT${link%%\?*}?to=/scenario/00000000-0000-4000-8000-${3#s_}"; echo "core: http://127.0.0.1:$CORE_PORT$link"
-    else echo "http://127.0.0.1:$CORE_PORT$link"; fi ;;
+    # Core's link lands on its own page (?to=/s/<id>) or on DGAI at /; DGAI's address for the scenario is its UUID form (sid.ts).
+    echo "link: http://127.0.0.1:$CORE_PORT$link"
+    [ -z "${3:-}" ] || echo "DGAI: http://127.0.0.1:$CORE_PORT/#/scenario/00000000-0000-4000-8000-${3#s_}" ;;
   *) echo "usage: $0 build|core|link" >&2; exit 2 ;;
 esac

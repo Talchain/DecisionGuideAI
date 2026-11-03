@@ -196,7 +196,7 @@ describe('the writes go straight to core, and the View is read again', () => {
       await waitFor(() => expect(reads).toContain(`/api/scenarios/${MADE}/view`))
       expect(posts).toEqual([{ url: '/api/scenarios', body: { brief: 'Should we raise the price of our pastries?', op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } }])
       expect(useCanvasStore.getState().currentScenarioId).toBe('00000000-0000-4000-8000-0000000000ab')
-      expect(window.location.pathname).toBe('/scenario/00000000-0000-4000-8000-0000000000ab')
+      expect(window.location.hash).toBe('#/scenario/00000000-0000-4000-8000-0000000000ab')
       expect(localStorage.getItem(`olumi-core-sc:${uuid}`)).toBeNull()
     })
 

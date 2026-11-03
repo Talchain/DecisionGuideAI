@@ -123,7 +123,7 @@ async function act(f: () => Promise<unknown>, changesModel = false): Promise<boo
 
 /**
  * A brief starts a scenario in core, and the page moves to core's id's own UUID form (`sid.ts`), the scenario's one address: the address
- * bar then names it (`/scenario/<uuid>`), so the link opens the same scenario in any browser of a member. An answer that lands after the
+ * bar then names it (`/#/scenario/<uuid>`), so the link opens the same scenario in any browser of a member. An answer that lands after the
  * page moved on to another scenario moves nothing (review 00052 #5).
  */
 async function startScenario(brief: string, op: string, uuid: string | null): Promise<void> {
@@ -135,7 +135,7 @@ async function startScenario(brief: string, op: string, uuid: string | null): Pr
   if (useCanvasStore.getState().currentScenarioId !== uuid) return
   useCanvasStore.setState(scenarioIdWrite(useCanvasStore.getState().currentScenarioId, derived))
   setCurrentScenarioId(derived)
-  try { window.history.replaceState(window.history.state, '', `/scenario/${derived}`) } catch { /* the address bar keeps its old address */ }
+  try { window.history.replaceState(window.history.state, '', `/#/scenario/${derived}`) } catch { /* the address bar keeps its old address */ }
   await useViewStore.getState().use(derived)
 }
 
