@@ -6,6 +6,7 @@ export type View = {
   commit: string
   signature: string
   you: string
+  you_id: string
   members: Array<{
     id: string
     name: string
@@ -196,6 +197,7 @@ export type View = {
     shared: Array<{
       id: number
       by: string
+      by_id: string
       text: string
       skip: boolean
     }>
@@ -212,6 +214,7 @@ export type View = {
       id: number
       at: string
       by: string
+      by_id: string
       action: string
       owner: string
       owner_id: string
@@ -222,6 +225,7 @@ export type View = {
         id: number
         at: string
         by: string
+        by_id: string
         happened: string
         versus: string
         reconsider_triggered: boolean
@@ -232,13 +236,25 @@ export type View = {
       id: string
       name: string
     }>
+    records: Array<{
+      id: string
+      family: string | null
+      label: string | null
+    }>
+    dissent: Array<{
+      id: string
+      holder: string
+      position: string
+    }>
   }
   evidence: Array<{
     id: number
     at: string
     by: string
+    by_id: string
     text: string
     source: string | null
+    link: string | null
     concerns: Array<string>
     stance: string
     version: number | null
@@ -269,6 +285,7 @@ export type View = {
           cite: string
         }>
         about: Array<string>
+        at: string | null
         newest: boolean
       }
     } | null

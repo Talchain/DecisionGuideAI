@@ -5,6 +5,7 @@
  "commit": "golden",
  "signature": "[1,null,[],[],[],[],[\"p_1\"]]",
  "you": "Paul",
+ "you_id": "p_1",
  "members": [
   {
    "id": "p_1",
@@ -405,7 +406,80 @@
     "id": "p_1",
     "name": "Paul"
    }
-  ]
+  ],
+  "records": [
+   {
+    "id": "margin",
+    "family": "quantity",
+    "label": "margin"
+   },
+   {
+    "id": "margin_raised",
+    "family": "quantity",
+    "label": "margin raised"
+   },
+   {
+    "id": "cups_now",
+    "family": "quantity",
+    "label": "cups now"
+   },
+   {
+    "id": "rise_on",
+    "family": "quantity",
+    "label": "rise on"
+   },
+   {
+    "id": "rise_switched_on",
+    "family": "quantity",
+    "label": "rise switched on"
+   },
+   {
+    "id": "cups_change",
+    "family": "quantity",
+    "label": "cups change"
+   },
+   {
+    "id": "cups",
+    "family": "quantity",
+    "label": "cups"
+   },
+   {
+    "id": "profit",
+    "family": "quantity",
+    "label": "profit"
+   },
+   {
+    "id": "profit_target",
+    "family": "quantity",
+    "label": "profit target"
+   },
+   {
+    "id": "cups_rel",
+    "family": "relation",
+    "label": "how cups is worked out"
+   },
+   {
+    "id": "profit_rel",
+    "family": "relation",
+    "label": "how profit is worked out"
+   },
+   {
+    "id": "profit_goal",
+    "family": "goal",
+    "label": "Make £7,000 a month"
+   },
+   {
+    "id": "raise_price",
+    "family": "option",
+    "label": "Raise the price by 45p"
+   },
+   {
+    "id": "carry_on",
+    "family": "option",
+    "label": "Keep the price"
+   }
+  ],
+  "dissent": []
  },
  "evidence": [],
  "chat": []

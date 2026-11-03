@@ -1,6 +1,6 @@
 /**
  * THE TEAM TAB IS CORE'S VIEW (spec §8 steps 1–7): every word and state it shows is the View's `collab`, `evidence` and `members`, and
- * every write goes to core's own route, after which the View is read again. The View here is core's golden (wip/v3.1 cc0931a) with a
+ * every write goes to core's own route, after which the View is read again. The View here is core's golden (wip/v3.1-one 8d25761, API v1.9) with a
  * two-person round written in by hand, in the View's own shape.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -17,19 +17,21 @@ import { useMe } from '../me'
 const SID = 's_0123456789ab'
 const base = golden as unknown as View
 const twoPeople = (over: Partial<View['collab']> = {}, view: Partial<View> = {}): View => ({
-  ...base, id: SID, you: 'Ada',
+  ...base, id: SID, you: 'Ada', you_id: 'p_1',
   members: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Bea' }],
   collab: {
     alone: false, heading: 'Team views · 2', open: true,
-    shared: [{ id: 3, by: 'Bea', text: 'Hold until the pilot reports.', skip: false }],
+    shared: [{ id: 3, by: 'Bea', by_id: 'p_2', text: 'Hold until the pilot reports.', skip: false }],
     mine: [{ id: 4, text: 'Enter one country first.', shared: false, skip: false }],
     placeholder: 'Your own view, private until revealed', can_reveal: false, waiting: 'waiting for Bea',
-    commitments: [{ id: 9, at: '2026-11-03T10:00:00Z', by: 'Ada', action: 'Pilot in Germany', owner: 'Bea', owner_id: 'p_2', expect: 'Ten customers by March', reconsider: 'Fewer than five by February', keeps: [],
-      outcomes: [{ id: 2, at: '2026-11-03T11:00:00Z', by: 'Bea', happened: 'Seven customers.', versus: 'worse', reconsider_triggered: false, note: null }] }],
+    commitments: [{ id: 9, at: '2026-11-03T10:00:00Z', by: 'Ada', by_id: 'p_1', action: 'Pilot in Germany', owner: 'Bea', owner_id: 'p_2', expect: 'Ten customers by March', reconsider: 'Fewer than five by February', keeps: ['d_1'],
+      outcomes: [{ id: 2, at: '2026-11-03T11:00:00Z', by: 'Bea', by_id: 'p_2', happened: 'Seven customers.', versus: 'worse', reconsider_triggered: false, note: null }] }],
     owners: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Bea' }],
+    records: [...base.collab.records, { id: 'd_1', family: 'dissent', label: 'Bea: wait for the pilot' }, { id: 'gone', family: 'quantity', label: null }],
+    dissent: [{ id: 'd_1', holder: 'Bea', position: 'Wait for the pilot before entering a second country.' }],
     ...over,
   },
-  evidence: [{ id: 5, at: '2026-11-03T09:00:00Z', by: 'Bea', text: 'Churn in DACH was 2 in 100.', source: 'https://example.org/churn', concerns: [base.model!.cards[0]!.id], stance: 'challenges', version: 1 }],
+  evidence: [{ id: 5, at: '2026-11-03T09:00:00Z', by: 'Bea', by_id: 'p_2', text: 'Churn in DACH was 2 in 100.', source: 'https://example.org/churn', link: 'https://example.org/churn', concerns: [base.collab.records[0]!.id], stance: 'challenges', version: 1 }],
   ...view,
 })
 
@@ -43,7 +45,7 @@ beforeEach(() => {
   setTeamFetch((async (u: unknown, init?: RequestInit) => {
     const method = init?.method ?? 'GET'
     calls.push({ method, path: String(u), body: init?.body ? JSON.parse(String(init.body)) : undefined })
-    if (String(u).endsWith('/invites')) return new Response(JSON.stringify(method === 'GET' ? { invites } : { id: 'p_9', link: '/k/tok123?to=/s/' + SID }), { status: method === 'GET' ? 200 : 201 })
+    if (String(u).endsWith('/invites')) return new Response(JSON.stringify(method === 'GET' ? { invites } : { id: 'p_9', link: '/k/tok123?to=' + encodeURIComponent('/#/scenario/00000000-0000-4000-8000-0123456789ab') }), { status: method === 'GET' ? 200 : 201 })
     return new Response(JSON.stringify(method === 'GET' ? served : { ok: 1 }), { status: method === 'GET' ? 200 : 201 })
   }) as unknown as typeof fetch)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: served, status: 'ready', error: null, stale: false })
@@ -65,6 +67,12 @@ describe('what the tab shows is the View, word for word', () => {
     expect(screen.getByTestId('team-waiting').textContent).toBe('waiting for Bea')
     expect(screen.getByTestId('team-view-text').getAttribute('placeholder')).toBe('Your own view, private until revealed')
   })
+  it('"(you)" is core\'s own answer (`you_id`), never a name: two members may share one', () => {
+    useViewStore.setState({ view: { ...twoPeople(), members: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Ada' }] } })
+    render(<TeamTab />)
+    expect(screen.getByTestId('team-member-p_1').textContent).toBe('AAda (you)')
+    expect(screen.getByTestId('team-member-p_2').textContent).toBe('AAda')
+  })
   it('the reveal is offered exactly when core says it can be made', () => {
     const { rerender } = render(<TeamTab />)
     expect(screen.queryByTestId('team-reveal-go')).toBeNull()
@@ -73,10 +81,11 @@ describe('what the tab shows is the View, word for word', () => {
     expect(screen.getByTestId('team-reveal-go')).toBeTruthy()
     expect(screen.queryByTestId('team-waiting')).toBeNull()
   })
-  it('evidence, a commitment and its outcome, as core holds them; what evidence bears on is the card\'s own heading', () => {
+  it('evidence, a commitment and its outcome, as core holds them; what evidence bears on and what a commitment keeps open are core\'s labels', () => {
     render(<TeamTab />)
     expect(screen.getByTestId('team-evidence-text-5').textContent).toBe('Churn in DACH was 2 in 100.')
-    expect(screen.getByTestId('team-evidence-about-5').textContent).toBe(`Bears on: ${base.model!.cards[0]!.heading}`)
+    expect(screen.getByTestId('team-evidence-about-5').textContent).toBe(`Bears on: ${base.collab.records[0]!.label}`)
+    expect(screen.getByTestId('team-commitment-keeps-9').textContent).toBe('Keeps open: Bea: wait for the pilot')
     expect(screen.getByTestId('team-evidence-source-5').querySelector('a')?.getAttribute('href')).toBe('https://example.org/churn')
     expect(screen.getByTestId('team-commitment-action-9').textContent).toBe('Pilot in Germany')
     expect(screen.getByTestId('team-commitment-9').textContent).toContain('owner Bea · set by Ada')
@@ -112,20 +121,22 @@ describe('every write goes to core\'s own route, and the View is read again afte
     render(<TeamTab />)
     fireEvent.click(screen.getByTestId('team-evidence-open'))
     fireEvent.change(screen.getByTestId('team-evidence-body'), { target: { value: 'Two pilots stalled.' } })
-    const card = base.model!.cards[1]!
+    const card = base.collab.records[1]!
     fireEvent.change(screen.getByTestId('team-evidence-bears'), { target: { value: card.id } })
     fireEvent.click(screen.getByLabelText('Supports it'))
     fireEvent.click(screen.getByTestId('team-evidence-add'))
     await waitFor(() => expect(reread()).toBe(1))
     expect(posts()[0]).toMatchObject({ path: `/api/scenarios/${SID}/evidence`, body: { text: 'Two pilots stalled.', concerns: [card.id], stance: 'supports', op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } })
   })
-  it('while a proposal is held, evidence can only be about the model generally (its cards may not be in the approved version)', () => {
+  it('what evidence may bear on is the approved version\'s records, by core\'s label, held proposal or not; a record no longer in it is not offered', () => {
     useViewStore.setState({ view: twoPeople({}, { proposal: { id: 1, base: 1, heading: 'x', on: [], removed: [], problem: null, marks: [] } as unknown as View['proposal'] }) })
     render(<TeamTab />)
     fireEvent.click(screen.getByTestId('team-evidence-open'))
     const bears = screen.getByTestId('team-evidence-bears') as HTMLSelectElement
-    expect(bears.disabled).toBe(true)
-    expect([...bears.options].map((o) => o.value)).toEqual(['', '__none__'])
+    expect(bears.disabled).toBe(false)
+    const labelled = twoPeople().collab.records.filter((r) => r.label !== null)
+    expect([...bears.options].map((o) => o.value)).toEqual(['', '__none__', ...labelled.map((r) => r.id)])
+    expect([...bears.options].slice(2).map((o) => o.textContent)).toEqual(labelled.map((r) => r.label))
   })
   it('a commitment owned by a member core names (by id), and an outcome against it with its op', async () => {
     render(<TeamTab />)
@@ -134,9 +145,11 @@ describe('every write goes to core\'s own route, and the View is read again afte
     fireEvent.change(screen.getByTestId('team-c-owner'), { target: { value: 'p_2' } })
     fireEvent.change(screen.getByTestId('team-c-expect'), { target: { value: 'Ten by March' } })
     fireEvent.change(screen.getByTestId('team-c-reconsider'), { target: { value: 'Under five' } })
+    expect(screen.getByTestId('team-c-keeps').textContent).toContain('Bea: Wait for the pilot before entering a second country.')
+    fireEvent.click(screen.getByTestId('team-c-keep-d_1'))
     fireEvent.click(screen.getByTestId('team-commitment-save'))
     await waitFor(() => expect(reread()).toBe(1))
-    expect(posts()[0]).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/commitments`, body: { action: 'Run the pilot', owner: 'p_2', expect: 'Ten by March', reconsider: 'Under five', keeps: [] } })
+    expect(posts()[0]).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/commitments`, body: { action: 'Run the pilot', owner: 'p_2', expect: 'Ten by March', reconsider: 'Under five', keeps: ['d_1'] } })
 
     fireEvent.click(screen.getByTestId('team-outcome-open-9'))
     fireEvent.change(screen.getByTestId('team-o-9-happened'), { target: { value: 'Eight.' } })
@@ -149,15 +162,14 @@ describe('every write goes to core\'s own route, and the View is read again afte
 })
 
 describe('bringing a colleague in (core API v1.8, any member, no admin key)', () => {
-  it('makes their link through core\'s invites route, shows it once with the scenario\'s DGAI address, and lists who was invited', async () => {
+  it('makes their link through core\'s invites route, shows it once (it lands on this scenario in DGAI), and lists who was invited', async () => {
     render(<TeamTab />)
     fireEvent.change(screen.getByTestId('team-invite-name'), { target: { value: 'Cai' } })
     invites = [{ id: 'p_9', name: 'Cai', by: 'Ada', made: '2026-11-03', expires: '2026-12-03', status: 'live', revocable: true }]
     fireEvent.click(screen.getByTestId('team-invite-go'))
     await waitFor(() => expect(screen.getByTestId('team-invite-link')).toBeTruthy())
     expect(posts().find((p) => p.path.endsWith('/invites'))).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/invites`, body: { name: 'Cai' } })
-    expect((screen.getByTestId('team-invite-link') as HTMLInputElement).value).toBe(`${window.location.origin}/k/tok123?to=/s/${SID}`)
-    expect(screen.getByTestId('team-invite-address').textContent).toContain(`/#/scenario/00000000-0000-4000-8000-0123456789ab`)
+    expect((screen.getByTestId('team-invite-link') as HTMLInputElement).value).toBe(`${window.location.origin}/k/tok123?to=%2F%23%2Fscenario%2F00000000-0000-4000-8000-0123456789ab`)
     await waitFor(() => expect(screen.getByTestId('team-invite-p_9').textContent).toContain('Cai · invited by Ada · live'))
     fireEvent.click(screen.getByTestId('team-invite-revoke-p_9'))
     await waitFor(() => expect(posts().some((p) => p.path === `/api/scenarios/${SID}/invites/p_9/revoke`)).toBe(true))

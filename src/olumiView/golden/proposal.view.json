@@ -5,6 +5,7 @@
  "commit": "golden",
  "signature": "[4,5,[[3,\"approved\"],[5,\"pending\"]],[],[\"Paul\"],[],[\"p_1\"]]",
  "you": "Paul",
+ "you_id": "p_1",
  "members": [
   {
    "id": "p_1",
@@ -470,6 +471,105 @@
     "id": "p_1",
     "name": "Paul"
    }
+  ],
+  "records": [
+   {
+    "id": "existing_capacity",
+    "family": "quantity",
+    "label": "existing capacity"
+   },
+   {
+    "id": "per_specialist",
+    "family": "quantity",
+    "label": "per specialist"
+   },
+   {
+    "id": "specialists",
+    "family": "quantity",
+    "label": "specialists"
+   },
+   {
+    "id": "one_specialist",
+    "family": "quantity",
+    "label": "one specialist"
+   },
+   {
+    "id": "added_capacity",
+    "family": "quantity",
+    "label": "added capacity"
+   },
+   {
+    "id": "total_capacity",
+    "family": "quantity",
+    "label": "total capacity"
+   },
+   {
+    "id": "capacity_target",
+    "family": "quantity",
+    "label": "capacity target"
+   },
+   {
+    "id": "team_morale",
+    "family": "quantity",
+    "label": "team morale"
+   },
+   {
+    "id": "added_def",
+    "family": "relation",
+    "label": "how added capacity is worked out"
+   },
+   {
+    "id": "total_def",
+    "family": "relation",
+    "label": "how total capacity is worked out"
+   },
+   {
+    "id": "morale_link",
+    "family": "relation",
+    "label": "Add one specialist → team morale"
+   },
+   {
+    "id": "capacity_goal",
+    "family": "goal",
+    "label": "At least 100 a week"
+   },
+   {
+    "id": "hold",
+    "family": "option",
+    "label": "Keep current staffing"
+   },
+   {
+    "id": "add_one",
+    "family": "option",
+    "label": "Add one specialist"
+   },
+   {
+    "id": "lead_doubt",
+    "family": "dissent",
+    "label": "our team lead: A new hire may unsettle the team."
+   },
+   {
+    "id": "morale_left_out",
+    "family": "left_out",
+    "label": "How the team feels about a new hire"
+   },
+   {
+    "id": "deadline",
+    "family": "quantity",
+    "label": "deadline"
+   },
+   {
+    "id": "start_delay",
+    "family": "quantity",
+    "label": "start delay"
+   }
+  ],
+  "dissent": [
+   {
+    "id": "lead_doubt",
+    "holder": "our team lead",
+    "position": "A new hire may unsettle the team."
+   }
   ]
  },
  "evidence": [],
@@ -496,6 +596,7 @@
       }
      ],
      "about": [],
+     "at": null,
      "newest": false
     }
    },
@@ -525,6 +626,7 @@
       }
      ],
      "about": [],
+     "at": null,
      "newest": true
     }
    },

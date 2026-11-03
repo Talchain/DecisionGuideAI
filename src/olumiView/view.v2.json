@@ -21,6 +21,9 @@
   "you": {
    "type": "string"
   },
+  "you_id": {
+   "type": "string"
+  },
   "members": {
    "type": "array",
    "items": {
@@ -1032,6 +1035,9 @@
        "by": {
         "type": "string"
        },
+       "by_id": {
+        "type": "string"
+       },
        "text": {
         "type": "string"
        },
@@ -1042,6 +1048,7 @@
       "required": [
        "id",
        "by",
+       "by_id",
        "text",
        "skip"
       ],
@@ -1101,6 +1108,9 @@
        "by": {
         "type": "string"
        },
+       "by_id": {
+        "type": "string"
+       },
        "action": {
         "type": "string"
        },
@@ -1136,6 +1146,9 @@
           "by": {
            "type": "string"
           },
+          "by_id": {
+           "type": "string"
+          },
           "happened": {
            "type": "string"
           },
@@ -1156,6 +1169,7 @@
           "id",
           "at",
           "by",
+          "by_id",
           "happened",
           "versus",
           "reconsider_triggered",
@@ -1169,6 +1183,7 @@
        "id",
        "at",
        "by",
+       "by_id",
        "action",
        "owner",
        "owner_id",
@@ -1198,6 +1213,58 @@
       ],
       "additionalProperties": false
      }
+    },
+    "records": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "family": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "label": {
+        "type": [
+         "string",
+         "null"
+        ]
+       }
+      },
+      "required": [
+       "id",
+       "family",
+       "label"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "dissent": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "holder": {
+        "type": "string"
+       },
+       "position": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "holder",
+       "position"
+      ],
+      "additionalProperties": false
+     }
     }
    },
    "required": [
@@ -1210,7 +1277,9 @@
     "can_reveal",
     "waiting",
     "commitments",
-    "owners"
+    "owners",
+    "records",
+    "dissent"
    ],
    "additionalProperties": false
   },
@@ -1228,10 +1297,19 @@
      "by": {
       "type": "string"
      },
+     "by_id": {
+      "type": "string"
+     },
      "text": {
       "type": "string"
      },
      "source": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "link": {
       "type": [
        "string",
        "null"
@@ -1257,8 +1335,10 @@
      "id",
      "at",
      "by",
+     "by_id",
      "text",
      "source",
+     "link",
      "concerns",
      "stance",
      "version"
@@ -1405,6 +1485,12 @@
              "type": "string"
             }
            },
+           "at": {
+            "type": [
+             "string",
+             "null"
+            ]
+           },
            "newest": {
             "type": "boolean"
            }
@@ -1413,6 +1499,7 @@
            "label",
            "text",
            "about",
+           "at",
            "newest"
           ],
           "additionalProperties": false
@@ -1489,6 +1576,7 @@
   "commit",
   "signature",
   "you",
+  "you_id",
   "members",
   "version",
   "model",

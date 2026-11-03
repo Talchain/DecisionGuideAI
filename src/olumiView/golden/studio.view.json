@@ -5,6 +5,7 @@
  "commit": "golden",
  "signature": "[1,null,[],[],[],[],[\"p_1\"]]",
  "you": "Paul",
+ "you_id": "p_1",
  "members": [
   {
    "id": "p_1",
@@ -790,6 +791,125 @@
    {
     "id": "p_1",
     "name": "Paul"
+   }
+  ],
+  "records": [
+   {
+    "id": "class_fee",
+    "family": "quantity",
+    "label": "class fee"
+   },
+   {
+    "id": "classes_now",
+    "family": "quantity",
+    "label": "classes now"
+   },
+   {
+    "id": "extra_classes",
+    "family": "quantity",
+    "label": "extra classes"
+   },
+   {
+    "id": "evening_extra",
+    "family": "quantity",
+    "label": "evening extra"
+   },
+   {
+    "id": "workshop_extra",
+    "family": "quantity",
+    "label": "workshop extra"
+   },
+   {
+    "id": "classes",
+    "family": "quantity",
+    "label": "classes"
+   },
+   {
+    "id": "takings",
+    "family": "quantity",
+    "label": "takings"
+   },
+   {
+    "id": "takings_target",
+    "family": "quantity",
+    "label": "takings target"
+   },
+   {
+    "id": "members",
+    "family": "quantity",
+    "label": "members"
+   },
+   {
+    "id": "members_target",
+    "family": "quantity",
+    "label": "members target"
+   },
+   {
+    "id": "member_mood",
+    "family": "quantity",
+    "label": "How members feel"
+   },
+   {
+    "id": "classes_rel",
+    "family": "relation",
+    "label": "how classes is worked out"
+   },
+   {
+    "id": "takings_rel",
+    "family": "relation",
+    "label": "how takings is worked out"
+   },
+   {
+    "id": "evening_mood",
+    "family": "relation",
+    "label": "Evening classes → How members feel"
+   },
+   {
+    "id": "mood_members",
+    "family": "relation",
+    "label": "How members feel → members"
+   },
+   {
+    "id": "takings_goal",
+    "family": "goal",
+    "label": "Take £2,640 a month"
+   },
+   {
+    "id": "keep_members",
+    "family": "goal",
+    "label": "Keep at least 140 members"
+   },
+   {
+    "id": "evening_classes",
+    "family": "option",
+    "label": "Evening classes"
+   },
+   {
+    "id": "weekend_workshops",
+    "family": "option",
+    "label": "Weekend workshops"
+   },
+   {
+    "id": "carry_on",
+    "family": "option",
+    "label": "Carry on as now"
+   },
+   {
+    "id": "co_owner_view",
+    "family": "dissent",
+    "label": "my co-owner: Evening classes will crowd the studio and put off daytime members."
+   },
+   {
+    "id": "if_slots_suit",
+    "family": "condition",
+    "label": "It depends on whether evening slots suit the members who work days."
+   }
+  ],
+  "dissent": [
+   {
+    "id": "co_owner_view",
+    "holder": "my co-owner",
+    "position": "Evening classes will crowd the studio and put off daytime members."
    }
   ]
  },

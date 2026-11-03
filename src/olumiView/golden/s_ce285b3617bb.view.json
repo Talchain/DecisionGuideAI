@@ -5,6 +5,7 @@
  "commit": "9055027f947fcdeaab44422420499572838f1d27",
  "signature": "[15,null,[[12,\"approved\"],[14,\"approved\"]],[],[\"DL journey test\"],[],[\"5\"]]",
  "you": "DL journey test",
+ "you_id": "5",
  "members": [
   {
    "id": "5",
@@ -173,7 +174,7 @@
     "h": 116,
     "olumi": {
      "glyph": "◐",
-     "title": "Theirs: “spend about £60,000 a month” · Olumi reads it as within 10% either way, their figure most likely, until they give a range."
+     "title": "Theirs: “spend about £60,000 a month” · Olumi reads it as their figure most likely, 10% either way for 8 draws in 10, until they give a range."
     },
     "change": null,
     "focus": true,
@@ -1182,7 +1183,240 @@
     "id": "5",
     "name": "DL journey test"
    }
-  ]
+  ],
+  "records": [
+   {
+    "id": "horizon",
+    "family": "quantity",
+    "label": "Funding window"
+   },
+   {
+    "id": "target_firm_deal_size",
+    "family": "quantity",
+    "label": "Deal size of investment firms being targeted"
+   },
+   {
+    "id": "current_focus",
+    "family": "claim",
+    "label": "The current search focuses mainly on UK investment firms. Cold email and attempts to find warm connections will continue."
+   },
+   {
+    "id": "cash_urgency",
+    "family": "claim",
+    "label": "Cash is expected to run out soon. Cash on hand and approximate monthly spending have now been supplied; the exact cash-out date remains unresolved."
+   },
+   {
+    "id": "opening_cash",
+    "family": "quantity",
+    "label": "Available unrestricted cash"
+   },
+   {
+    "id": "monthly_burn",
+    "family": "quantity",
+    "label": "Monthly net operating cash burn before new funding"
+   },
+   {
+    "id": "institutional_opportunities",
+    "family": "quantity",
+    "label": "Qualified institutional opportunities worked during the funding window"
+   },
+   {
+    "id": "institutional_cash_conversion",
+    "family": "quantity",
+    "label": "Institutional opportunity share reaching cash receipt within the window"
+   },
+   {
+    "id": "institutional_net_cheque",
+    "family": "quantity",
+    "label": "Net cash per funded institutional opportunity"
+   },
+   {
+    "id": "institutional_capacity",
+    "family": "quantity",
+    "label": "Institutional fundraising capacity retained"
+   },
+   {
+    "id": "bridge_capacity_retained",
+    "family": "quantity",
+    "label": "Institutional fundraising capacity retained while pursuing angels"
+   },
+   {
+    "id": "angel_opportunities",
+    "family": "quantity",
+    "label": "Qualified angel opportunities worked during the funding window"
+   },
+   {
+    "id": "bridge_angel_opportunities",
+    "family": "quantity",
+    "label": "Qualified angel opportunities under the bridge route"
+   },
+   {
+    "id": "angel_cash_conversion",
+    "family": "quantity",
+    "label": "Angel opportunity share reaching cash receipt within the window"
+   },
+   {
+    "id": "angel_cheque",
+    "family": "quantity",
+    "label": "Gross cash per funded angel opportunity"
+   },
+   {
+    "id": "angel_proceeds_retained",
+    "family": "quantity",
+    "label": "Angel proceeds retained after transaction cash costs"
+   },
+   {
+    "id": "burn_retained",
+    "family": "quantity",
+    "label": "Operating burn retained"
+   },
+   {
+    "id": "deferred_spend_burn_retained",
+    "family": "quantity",
+    "label": "Operating burn retained after temporary spend deferral"
+   },
+   {
+    "id": "institutional_funding",
+    "family": "quantity",
+    "label": "Institutional net funding received during the window"
+   },
+   {
+    "id": "calculate_institutional_funding",
+    "family": "relation",
+    "label": "how Institutional net funding received during the window is worked out"
+   },
+   {
+    "id": "angel_net_funding",
+    "family": "quantity",
+    "label": "Angel net funding received during the window"
+   },
+   {
+    "id": "calculate_angel_funding",
+    "family": "relation",
+    "label": "how Angel net funding received during the window is worked out"
+   },
+   {
+    "id": "net_funding",
+    "family": "quantity",
+    "label": "Total net funding received during the window"
+   },
+   {
+    "id": "calculate_net_funding",
+    "family": "relation",
+    "label": "how Total net funding received during the window is worked out"
+   },
+   {
+    "id": "window_operating_spend",
+    "family": "quantity",
+    "label": "Net operating cash consumed during the window"
+   },
+   {
+    "id": "calculate_operating_spend",
+    "family": "relation",
+    "label": "how Net operating cash consumed during the window is worked out"
+   },
+   {
+    "id": "end_cash_margin",
+    "family": "quantity",
+    "label": "Cash surplus or shortfall at the funding window's end"
+   },
+   {
+    "id": "calculate_end_cash_margin",
+    "family": "relation",
+    "label": "how Cash surplus or shortfall at the funding window's end is worked out"
+   },
+   {
+    "id": "zero_cash",
+    "family": "quantity",
+    "label": "Cash break-even boundary"
+   },
+   {
+    "id": "secure_funding",
+    "family": "goal",
+    "label": "Secure funding within the funding window"
+   },
+   {
+    "id": "cash_survival",
+    "family": "goal",
+    "label": "Buy more operating time"
+   },
+   {
+    "id": "continue_outreach",
+    "family": "option",
+    "label": "Continue institutional cold email and warm introductions"
+   },
+   {
+    "id": "add_angel_bridge",
+    "family": "option",
+    "label": "Pursue an angel bridge alongside institutional outreach"
+   },
+   {
+    "id": "bridge_and_spend_deferral",
+    "family": "option",
+    "label": "Combine an angel bridge with temporary spend deferral"
+   },
+   {
+    "id": "angel_speed_hypothesis",
+    "family": "claim",
+    "label": "Angels may provide smaller funding sooner than the investment firms currently being pursued. This remains a hypothesis to test against investor readiness and completion requirements."
+   },
+   {
+    "id": "overhead_tradeoff",
+    "family": "claim",
+    "label": "The value of an angel bridge depends on whether the extra operating time justifies its overhead."
+   },
+   {
+    "id": "pipeline_approximation",
+    "family": "assumption",
+    "label": "Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success."
+   },
+   {
+    "id": "window_accounting",
+    "family": "assumption",
+    "label": "Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date."
+   },
+   {
+    "id": "deferral_feasibility",
+    "family": "assumption",
+    "label": "Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window."
+   },
+   {
+    "id": "test_speed_bottleneck",
+    "family": "condition",
+    "label": "Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck."
+   },
+   {
+    "id": "bridge_terms_compatibility",
+    "family": "condition",
+    "label": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations."
+   },
+   {
+    "id": "receipt_timing_gap",
+    "family": "left_out",
+    "label": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out."
+   },
+   {
+    "id": "funding_adequacy",
+    "family": "left_out",
+    "label": "The funding measure tests receipt of some net cash, not whether the amount is sufficient for the intended round, milestone or operating buffer."
+   },
+   {
+    "id": "bridge_overhead_gap",
+    "family": "left_out",
+    "label": "The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window."
+   },
+   {
+    "id": "probability_gap",
+    "family": "left_out",
+    "label": "Scenario outputs are not calibrated chances of securing funding or surviving. Either route could produce no completed deal."
+   },
+   {
+    "id": "reported_cash_and_spend_basis",
+    "family": "assumption",
+    "label": "Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment."
+   }
+  ],
+  "dissent": []
  },
  "evidence": [],
  "chat": [
@@ -1223,6 +1457,7 @@
       "test_speed_bottleneck",
       "angel_speed_hypothesis"
      ],
+     "at": null,
      "newest": false
     }
    },
@@ -1262,6 +1497,7 @@
       "opening_cash",
       "monthly_burn"
      ],
+     "at": null,
      "newest": true
     }
    },

@@ -22,7 +22,7 @@ export function TeamTab(): JSX.Element {
   const error = useViewStore((s) => s.error)
   const refresh = useViewStore((s) => s.refresh)
   const me = useMe((s) => s.me)
-  const shown: View | null = view !== null && isForThisPage(view as { you_id?: string | null }, me) ? view : null
+  const shown: View | null = view !== null && isForThisPage(view, me) ? view : null
 
   return (
     <div data-testid="team-tab" className="grid gap-4 pb-6">
@@ -50,10 +50,10 @@ export function TeamTab(): JSX.Element {
 
       {shown !== null && sid && (
         <>
-          <ViewsPanel sid={sid} view={shown} meId={me?.id ?? null} onWrote={refresh} />
+          <ViewsPanel sid={sid} view={shown} onWrote={refresh} />
           <InvitePanel sid={sid} />
           <EvidencePanel sid={sid} view={shown} onWrote={refresh} />
-          <CommitmentPanel sid={sid} view={shown} meId={me?.id ?? null} onWrote={refresh} />
+          <CommitmentPanel sid={sid} view={shown} onWrote={refresh} />
         </>
       )}
     </div>

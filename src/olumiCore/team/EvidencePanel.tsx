@@ -28,11 +28,8 @@ export function linkOf(source: string | null): string | null {
   } catch { return null }
 }
 
-/**
- * What evidence can be pointed at: the cards of the approved model, by core's own heading. Only while no proposal is held, because core
- * checks `concerns` against the approved version and a held proposal's cards may not be in it.
- */
-const choicesOf = (view: View) => (view.proposal === null && view.version !== null ? view.model?.cards ?? [] : [])
+/** What evidence can be pointed at: the approved version's records, by core's own label (`collab.records`); a record no longer in it has none. */
+const choicesOf = (view: View) => view.collab.records.filter((r): r is typeof r & { label: string } => r.label !== null)
 
 /**
  * EVIDENCE FOR OR AGAINST (spec §8 step 4). Shared with the team the moment it is added, never private, and a record of what people
@@ -40,7 +37,7 @@ const choicesOf = (view: View) => (view.proposal === null && view.version !== nu
  */
 export function EvidencePanel({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element {
   const choices = choicesOf(view)
-  const headingOf = (id: string) => view.model?.cards.find((c) => c.id === id)?.heading ?? null
+  const labelOf = (id: string) => view.collab.records.find((r) => r.id === id)?.label ?? null
   const [d, setD, dropDraft] = useDraft<EvidenceDraft>(`${sid}:evidence`, EMPTY)
   const { open, text, source, bears, stance } = d
   const put = (p: Partial<EvidenceDraft>) => setD((x) => ({ ...x, ...p }))
@@ -69,8 +66,8 @@ export function EvidencePanel({ sid, view, onWrote }: { sid: string; view: View;
       <h3 className={H}>Evidence</h3>
       <ul className="m-0 grid list-none gap-1.5 p-0" data-testid="team-evidence-list">
         {view.evidence.map((e) => {
-          const link = linkOf(e.source)
-          const about = e.concerns.map(headingOf).filter((h): h is string => h !== null)
+          const link = e.link !== null ? linkOf(e.link) : null
+          const about = e.concerns.map(labelOf).filter((h): h is string => h !== null)
           return (
             <li key={e.id} data-testid={`team-evidence-${e.id}`} data-stance={e.stance} className={CARD}>
               <p className={`${META} text-text-header`}>{e.by} · {STANCES.find((s) => s.value === e.stance)?.words.toLowerCase() ?? e.stance}</p>
@@ -98,7 +95,7 @@ export function EvidencePanel({ sid, view, onWrote }: { sid: string; view: View;
           <select id="team-evidence-bears" data-testid="team-evidence-bears" className={FIELD} value={effectiveBears} disabled={busy || choices.length === 0} onChange={(e) => put({ bears: e.target.value })}>
             <option value="" disabled>Choose…</option>
             <option value={NONE}>Nothing in the model yet</option>
-            {choices.map((c) => <option key={c.id} value={c.id}>{c.heading}</option>)}
+            {choices.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
           </select>
           <fieldset className="m-0 grid gap-1 border-0 p-0" data-testid="team-evidence-stance">
             <legend className={LABEL}>It…</legend>

@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '../../components/ui/Button'
-import { derivedUuidOf } from './sid'
 import { teamApi, TeamApiError, type Invite } from './api'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from './writes'
 import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
 
 /**
  * BRING A COLLEAGUE IN (core API v1.8, "joining by link"): any member makes a colleague their own private link, which signs them in as a
- * member of this scenario. Core gives the link once, in its answer, and never again: it is shown here until the tab is left, with the
- * scenario's address in DGAI. The people this member invited are listed as core lists them, and the inviter may revoke a link.
+ * member of this scenario and opens it here (API v1.9: the link lands on this scenario's DGAI address while DGAI is served). Core gives
+ * the link once, in its answer, and never again: it is shown here until the tab is left. The people this member invited are listed as core lists them, and the inviter may revoke a link.
  */
 export function InvitePanel({ sid }: { sid: string }): JSX.Element {
   const [name, setName] = useState('')
@@ -36,7 +35,6 @@ export function InvitePanel({ sid }: { sid: string }): JSX.Element {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was changed.')
     }
   }
-  const address = derivedUuidOf(sid)
 
   return (
     <section data-testid="team-invite" aria-label="Bring a colleague in" className="grid gap-2">
@@ -45,7 +43,6 @@ export function InvitePanel({ sid }: { sid: string }): JSX.Element {
         <div className={CARD} data-testid="team-invite-made">
           <p className={BODY}>{made.name}’s own private link. Send it to them yourself; Olumi shows it only now.</p>
           <input readOnly className={FIELD} value={made.link} data-testid="team-invite-link" onFocus={(e) => e.currentTarget.select()} aria-label={`${made.name}’s private link`} />
-          {address !== null && <p className={META} data-testid="team-invite-address">Once signed in, this scenario in DGAI: {new URL(`/#/scenario/${address}`, window.location.origin).href}</p>}
         </div>
       )}
       <div className={CARD}>

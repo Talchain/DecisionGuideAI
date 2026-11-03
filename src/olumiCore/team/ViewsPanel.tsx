@@ -12,7 +12,7 @@ import { AVATAR, BODY, CARD, ERR, FIELD, H, META } from './ui'
  * View's `collab`: the heading, the placeholder, your own views still private to you, the team's revealed views, whether the reveal is
  * open (`can_reveal`) and whom it waits for. Words go to core exactly as typed; a given view is never edited.
  */
-export function ViewsPanel({ sid, view, meId, onWrote }: { sid: string; view: View; meId: string | null; onWrote: () => Promise<boolean> }): JSX.Element {
+export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element {
   const c = view.collab
   const [text, setText, dropText] = useDraft(`${sid}:view`, '')
   const [busy, setBusy] = useState(false)
@@ -38,7 +38,7 @@ export function ViewsPanel({ sid, view, meId, onWrote }: { sid: string; view: Vi
         {view.members.map((m) => (
           <li key={m.id} data-testid={`team-member-${m.id}`} className={`${META} inline-flex items-center gap-1.5`}>
             <span aria-hidden="true" className={AVATAR}>{m.name.slice(0, 1).toUpperCase()}</span>
-            {m.name}{m.id === meId ? ' (you)' : ''}
+            {m.name}{m.id === view.you_id ? ' (you)' : ''}
           </li>
         ))}
       </ul>

@@ -5,6 +5,7 @@
  "commit": "golden",
  "signature": "[1,null,[],[],[],[],[\"p_1\"]]",
  "you": "Paul",
+ "you_id": "p_1",
  "members": [
   {
    "id": "p_1",
@@ -818,7 +819,190 @@
     "id": "p_1",
     "name": "Paul"
    }
-  ]
+  ],
+  "records": [
+   {
+    "id": "current_release_window",
+    "family": "claim",
+    "label": "The new app update is scheduled to go live in less than a month; the exact release date is not supplied."
+   },
+   {
+    "id": "reported_sync_defect",
+    "family": "claim",
+    "label": "Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied."
+   },
+   {
+    "id": "campaign_commitment",
+    "family": "claim",
+    "label": "Marketing has already bought ads for Q4. The amount, campaign dates and ability to redirect or reschedule them are not supplied."
+   },
+   {
+    "id": "expected_marketing_reaction",
+    "family": "claim",
+    "label": "The user expects strong opposition from marketing if the release is delayed; this is not a reported position from marketing."
+   },
+   {
+    "id": "feared_review_rating",
+    "family": "quantity",
+    "label": "Feared review rating"
+   },
+   {
+    "id": "negative_reviews",
+    "family": "risk",
+    "label": "Broken release prompts one-star reviews"
+   },
+   {
+    "id": "review_prediction_not_observation",
+    "family": "claim",
+    "label": "One-star reviews are a feared consequence, not observed feedback or a quantified forecast. Their likelihood depends on whether users encounter the defect and what it does."
+   },
+   {
+    "id": "initial_position",
+    "family": "claim",
+    "label": "The user currently favors postponement and wants a technical explanation that avoids unfairly blaming the development team."
+   },
+   {
+    "id": "boss_discussion",
+    "family": "goal",
+    "label": "Explain the release decision without unfair team blame"
+   },
+   {
+    "id": "protect_user_trust",
+    "family": "goal",
+    "label": "Avoid damaging users' experience and trust"
+   },
+   {
+    "id": "release_offset",
+    "family": "quantity",
+    "label": "Time available before release"
+   },
+   {
+    "id": "repair_duration",
+    "family": "quantity",
+    "label": "Time to implement the sync fix"
+   },
+   {
+    "id": "validation_duration",
+    "family": "quantity",
+    "label": "Validation time after implementing the fix"
+   },
+   {
+    "id": "readiness_duration",
+    "family": "quantity",
+    "label": "Time to complete repair and validation"
+   },
+   {
+    "id": "calculate_readiness_duration",
+    "family": "relation",
+    "label": "how Time to complete repair and validation is worked out"
+   },
+   {
+    "id": "readiness_margin",
+    "family": "quantity",
+    "label": "Release time minus repair and validation time"
+   },
+   {
+    "id": "calculate_readiness_margin",
+    "family": "relation",
+    "label": "how Release time minus repair and validation time is worked out"
+   },
+   {
+    "id": "zero_schedule_shortfall",
+    "family": "quantity",
+    "label": "Minimum proposed schedule margin"
+   },
+   {
+    "id": "allow_readiness_work",
+    "family": "goal",
+    "label": "Allow time for repair and validation"
+   },
+   {
+    "id": "schedule_assumptions",
+    "family": "assumption",
+    "label": "For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison."
+   },
+   {
+    "id": "schedule_measure_exclusions",
+    "family": "left_out",
+    "label": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer."
+   },
+   {
+    "id": "option_scheduled",
+    "family": "option",
+    "label": "Keep the currently scheduled full release"
+   },
+   {
+    "id": "delayed_release_offset",
+    "family": "quantity",
+    "label": "Postponed release time from now"
+   },
+   {
+    "id": "option_delay",
+    "family": "option",
+    "label": "Postpone the full update"
+   },
+   {
+    "id": "option_isolate",
+    "family": "option",
+    "label": "Explore shipping without the affected sync path"
+   },
+   {
+    "id": "isolation_prerequisite",
+    "family": "condition",
+    "label": "A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect."
+   },
+   {
+    "id": "isolation_trust_link",
+    "family": "relation",
+    "label": "Explore shipping without the affected sync path → Avoid damaging users' experience and trust"
+   },
+   {
+    "id": "technical_diagnosis",
+    "family": "condition",
+    "label": "Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker."
+   },
+   {
+    "id": "conditional_integrity_reason",
+    "family": "claim",
+    "label": "Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here."
+   },
+   {
+    "id": "conditional_validation_reason",
+    "family": "claim",
+    "label": "Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect."
+   },
+   {
+    "id": "conditional_exposure_reason",
+    "family": "claim",
+    "label": "Potential reason for delay: if the campaign sends more users into an unresolved defective flow, paid acquisition may amplify exposure to the problem rather than deliver its intended benefit. The campaign destination and affected flow must be checked."
+   },
+   {
+    "id": "campaign_flexibility",
+    "family": "condition",
+    "label": "Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses."
+   },
+   {
+    "id": "disconfirm_full_delay",
+    "family": "condition",
+    "label": "Test the strongest countercase to postponement: the defect may be limited, recoverable or safely isolated. Conversely, delaying the date without fixing and verifying the underlying problem would not itself protect users."
+   },
+   {
+    "id": "boss_brief_structure",
+    "family": "claim",
+    "label": "A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault."
+   },
+   {
+    "id": "isolation_readiness_link",
+    "family": "relation",
+    "label": "Explore shipping without the affected sync path → Time to complete repair and validation"
+   },
+   {
+    "id": "review_rating_numeric_exclusion",
+    "family": "left_out",
+    "label": "The supplied one-star rating is retained as the feared type of review associated with the negative-review risk. It is not used as a numerical measure of user trust or as a release threshold."
+   }
+  ],
+  "dissent": []
  },
  "evidence": [],
  "chat": []

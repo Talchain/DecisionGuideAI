@@ -5,6 +5,7 @@
  "commit": "golden",
  "signature": "[1,null,[],[],[],[],[\"p_1\"]]",
  "you": "Paul",
+ "you_id": "p_1",
  "members": [
   {
    "id": "p_1",
@@ -820,7 +821,135 @@
     "id": "p_1",
     "name": "Paul"
    }
-  ]
+  ],
+  "records": [
+   {
+    "id": "base_sales",
+    "family": "quantity",
+    "label": "base sales"
+   },
+   {
+    "id": "sales_target",
+    "family": "quantity",
+    "label": "sales target"
+   },
+   {
+    "id": "ovens_added",
+    "family": "quantity",
+    "label": "ovens added"
+   },
+   {
+    "id": "one_oven",
+    "family": "quantity",
+    "label": "one oven"
+   },
+   {
+    "id": "extra_sold_per_oven",
+    "family": "quantity",
+    "label": "extra sold per oven"
+   },
+   {
+    "id": "hours_on",
+    "family": "quantity",
+    "label": "hours on"
+   },
+   {
+    "id": "hours_switched_on",
+    "family": "quantity",
+    "label": "hours switched on"
+   },
+   {
+    "id": "extra_hours_sold",
+    "family": "quantity",
+    "label": "extra hours sold"
+   },
+   {
+    "id": "sales",
+    "family": "quantity",
+    "label": "sales"
+   },
+   {
+    "id": "repair_chance",
+    "family": "quantity",
+    "label": "repair chance"
+   },
+   {
+    "id": "half_capacity",
+    "family": "quantity",
+    "label": "half capacity"
+   },
+   {
+    "id": "budget",
+    "family": "quantity",
+    "label": "budget"
+   },
+   {
+    "id": "oven_price",
+    "family": "quantity",
+    "label": "oven price"
+   },
+   {
+    "id": "fitting",
+    "family": "quantity",
+    "label": "fitting"
+   },
+   {
+    "id": "oven_cost",
+    "family": "quantity",
+    "label": "oven cost"
+   },
+   {
+    "id": "spend",
+    "family": "quantity",
+    "label": "spend"
+   },
+   {
+    "id": "sales_rel",
+    "family": "relation",
+    "label": "how sales is worked out"
+   },
+   {
+    "id": "oven_cost_rel",
+    "family": "relation",
+    "label": "how oven cost is worked out"
+   },
+   {
+    "id": "spend_rel",
+    "family": "relation",
+    "label": "how spend is worked out"
+   },
+   {
+    "id": "sell_360",
+    "family": "goal",
+    "label": "Sell at least 360 loaves a week"
+   },
+   {
+    "id": "within_budget",
+    "family": "limit",
+    "label": "Within the £3,000"
+   },
+   {
+    "id": "second_oven",
+    "family": "option",
+    "label": "A second oven"
+   },
+   {
+    "id": "longer_hours",
+    "family": "option",
+    "label": "Open two hours longer"
+   },
+   {
+    "id": "carry_on",
+    "family": "option",
+    "label": "Carry on as now"
+   },
+   {
+    "id": "oven_repair",
+    "family": "risk",
+    "label": "The new oven needs a repair"
+   }
+  ],
+  "dissent": []
  },
  "evidence": [],
  "chat": []
