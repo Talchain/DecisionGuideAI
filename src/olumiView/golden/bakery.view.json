@@ -285,7 +285,7 @@
     "glyph": "●",
     "heading": "budget",
     "typed": false,
-    "detail": "budget · quantity · Theirs: “We have £3,000 to spend” · 3,000 GBP",
+    "detail": "budget · quantity · Theirs: “We have £3,000 to spend” · £3,000",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -294,8 +294,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "3,000 GBP",
-     "title": "3,000 GBP",
+     "text": "£3,000",
+     "title": "£3,000",
      "edit": {
       "prompt": "New figure for “budget” (GBP): one number, or a range like 150 to 400",
       "ask": "For “budget”, type one number, or a range like 150 to 400."
@@ -345,7 +345,7 @@
     "glyph": "●",
     "heading": "fitting",
     "typed": false,
-    "detail": "fitting · quantity · Theirs: “fitting an oven costs £400” · 400 GBP/oven",
+    "detail": "fitting · quantity · Theirs: “fitting an oven costs £400” · £400/oven",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -354,8 +354,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "400 GBP/oven",
-     "title": "400 GBP/oven",
+     "text": "£400/oven",
+     "title": "£400/oven",
      "edit": {
       "prompt": "New figure for “fitting” (GBP/oven): one number, or a range like 150 to 400",
       "ask": "For “fitting”, type one number, or a range like 150 to 400."
@@ -460,8 +460,8 @@
     "driver": null,
     "status": null,
     "bound": {
-     "text": "at most 3,000 GBP",
-     "title": "at most 3,000 GBP",
+     "text": "at most £3,000",
+     "title": "at most £3,000",
      "olumi": null,
      "measured": true
     },

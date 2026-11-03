@@ -62,7 +62,7 @@
     "glyph": "●",
     "heading": "Deal size of investment firms being targeted",
     "typed": false,
-    "detail": "Deal size of investment firms being targeted · quantity · Theirs: “investment firms that do deals between £1-2 million” · Hard bounds: 1,000,000 to 2,000,000 GBP",
+    "detail": "Deal size of investment firms being targeted · quantity · Theirs: “investment firms that do deals between £1-2 million” · Hard bounds: £1,000,000 to £2,000,000",
     "col": 1,
     "h": 116,
     "olumi": null,
@@ -71,8 +71,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "1m to 2m GBP",
-     "title": "Hard bounds: 1,000,000 to 2,000,000 GBP",
+     "text": "£1m to £2m",
+     "title": "Hard bounds: £1,000,000 to £2,000,000",
      "edit": {
       "prompt": "New figure for “Deal size of investment firms being targeted” (GBP): one number, or a range like 150 to 400",
       "ask": "For “Deal size of investment firms being targeted”, type one number, or a range like 150 to 400."
@@ -102,7 +102,7 @@
     "glyph": "●",
     "heading": "Available unrestricted cash",
     "typed": false,
-    "detail": "Available unrestricted cash · quantity · Theirs: “we have £180,000 cash on hand” · 180,000 GBP",
+    "detail": "Available unrestricted cash · quantity · Theirs: “we have £180,000 cash on hand” · £180,000",
     "col": 1,
     "h": 116,
     "olumi": null,
@@ -111,8 +111,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "180,000 GBP",
-     "title": "180,000 GBP",
+     "text": "£180,000",
+     "title": "£180,000",
      "edit": {
       "prompt": "New figure for “Available unrestricted cash” (GBP): one number, or a range like 150 to 400",
       "ask": "For “Available unrestricted cash”, type one number, or a range like 150 to 400."
@@ -168,7 +168,7 @@
     "glyph": "●",
     "heading": "Monthly net operating cash burn before new funding",
     "typed": false,
-    "detail": "Monthly net operating cash burn before new funding · quantity · Theirs: “spend about £60,000 a month” · An approximate figure: 60,000 GBP/month",
+    "detail": "Monthly net operating cash burn before new funding · quantity · Theirs: “spend about £60,000 a month” · An approximate figure: £60,000/month",
     "col": 1,
     "h": 116,
     "olumi": {
@@ -180,8 +180,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "≈60,000 GBP/month",
-     "title": "An approximate figure: 60,000 GBP/month",
+     "text": "≈£60,000/month",
+     "title": "An approximate figure: £60,000/month",
      "edit": {
       "prompt": "New figure for “Monthly net operating cash burn before new funding” (GBP/month): one number, or a range like 150 to 400",
       "ask": "For “Monthly net operating cash burn before new funding”, type one number, or a range like 150 to 400."
@@ -211,7 +211,7 @@
     "glyph": "●",
     "heading": "Institutional fundraising capacity retained while pursuing angels",
     "typed": false,
-    "detail": "Institutional fundraising capacity retained while pursuing angels · quantity · Proposed by Olumi: No typical rate known; replace with your figure. A first-guess band approximately 0.354–0.707 around 0.5 is widened on a ratio scale to 0.25–1. This tests displacement of institutional work by bridge fundraising, rather than assuming angel proceeds are free additions. · Plausible range: 25 to 100%, most likely 50%",
+    "detail": "Institutional fundraising capacity retained while pursuing angels · quantity · Proposed by Olumi: No typical rate known; replace with your figure. A first-guess band approximately 0.354–0.707 around 0.5 is widened on a ratio scale to 0.25–1. This tests displacement of institutional work by bridge fundraising, rather than assuming angel proceeds are free additions. · Plausible range: 25% to 100%, most likely 50%",
     "col": 1,
     "h": 88,
     "olumi": {
@@ -223,8 +223,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "25 to 100%",
-     "title": "Plausible range: 25 to 100%, most likely 50%",
+     "text": "25% to 100%",
+     "title": "Plausible range: 25% to 100%, most likely 50%",
      "edit": {
       "prompt": "New figure for “Institutional fundraising capacity retained while pursuing angels” in %: one number, or a range like 40 to 70",
       "ask": "For “Institutional fundraising capacity retained while pursuing angels”, type it in %: one number, or a range like 40 to 70."
@@ -277,7 +277,7 @@
     "glyph": "●",
     "heading": "Operating burn retained after temporary spend deferral",
     "typed": false,
-    "detail": "Operating burn retained after temporary spend deferral · quantity · Proposed by Olumi: No typical rate known; replace with your figure. A first-guess deferrable burn share of 0.0625–0.25 around 0.125 is widened on a ratio scale to 0.03125–0.50 and represented as retained burn. This is a cash-timing what-if, not evidence that these savings are feasible or permanent. · Plausible range: 50 to 96.875%, most likely 87.5%",
+    "detail": "Operating burn retained after temporary spend deferral · quantity · Proposed by Olumi: No typical rate known; replace with your figure. A first-guess deferrable burn share of 0.0625–0.25 around 0.125 is widened on a ratio scale to 0.03125–0.50 and represented as retained burn. This is a cash-timing what-if, not evidence that these savings are feasible or permanent. · Plausible range: 50% to 96.875%, most likely 87.5%",
     "col": 1,
     "h": 88,
     "olumi": {
@@ -289,8 +289,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "50 to 96.88%",
-     "title": "Plausible range: 50 to 96.875%, most likely 87.5%",
+     "text": "50% to 96.88%",
+     "title": "Plausible range: 50% to 96.875%, most likely 87.5%",
      "edit": {
       "prompt": "New figure for “Operating burn retained after temporary spend deferral” in %: one number, or a range like 40 to 70",
       "ask": "For “Operating burn retained after temporary spend deferral”, type it in %: one number, or a range like 40 to 70."
@@ -322,8 +322,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "Continue institutional cold email and warm introductions: 63,600 to 5.29m GBP · Pursue an angel bridge alongside institutional outreach: 82,400 to 2.98m GBP · Combine an angel bridge with temporary spend deferral: 82,400 to 2.98m GBP",
-     "title": "Modelled range at the end of month 2: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. It rests on figures Olumi proposed. Continue institutional cold email and warm introductions: 63,600 to 5.29m GBP; Pursue an angel bridge alongside institutional outreach: 82,400 to 2.98m GBP; Combine an angel bridge with temporary spend deferral: 82,400 to 2.98m GBP. Worked out from the figures it depends on.",
+     "text": "Continue institutional cold email and warm introductions: £63,600 to £5.29m · Pursue an angel bridge alongside institutional outreach: £82,400 to £2.98m · Combine an angel bridge with temporary spend deferral: £82,400 to £2.98m",
+     "title": "Modelled range at the end of month 2: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. It rests on figures Olumi proposed. Continue institutional cold email and warm introductions: £63,600 to £5.29m; Pursue an angel bridge alongside institutional outreach: £82,400 to £2.98m; Combine an angel bridge with temporary spend deferral: £82,400 to £2.98m. Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -379,8 +379,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "Continue institutional cold email and warm introductions: 125,000 to 5.34m GBP · Pursue an angel bridge alongside institutional outreach: 143,000 to 3.03m GBP · Combine an angel bridge with temporary spend deferral: 169,000 to 3.06m GBP",
-     "title": "Modelled range at the end of month 2: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. It rests on figures Olumi proposed. Continue institutional cold email and warm introductions: 125,000 to 5.34m GBP; Pursue an angel bridge alongside institutional outreach: 143,000 to 3.03m GBP; Combine an angel bridge with temporary spend deferral: 169,000 to 3.06m GBP. Worked out from the figures it depends on.",
+     "text": "Continue institutional cold email and warm introductions: £125,000 to £5.34m · Pursue an angel bridge alongside institutional outreach: £143,000 to £3.03m · Combine an angel bridge with temporary spend deferral: £169,000 to £3.06m",
+     "title": "Modelled range at the end of month 2: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. It rests on figures Olumi proposed. Continue institutional cold email and warm introductions: £125,000 to £5.34m; Pursue an angel bridge alongside institutional outreach: £143,000 to £3.03m; Combine an angel bridge with temporary spend deferral: £169,000 to £3.06m. Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -425,7 +425,7 @@
     "driver": null,
     "status": null,
     "bound": {
-     "text": "more than 0 GBP",
+     "text": "more than £0",
      "title": "What minimum net cash receipt would make the funding process successful for you?",
      "olumi": null,
      "measured": true
@@ -528,7 +528,7 @@
     "driver": null,
     "status": null,
     "bound": {
-     "text": "more than 0 GBP",
+     "text": "more than £0",
      "title": "How much operating time must a bridge buy to be worthwhile, and what cash buffer must remain?",
      "olumi": null,
      "measured": true

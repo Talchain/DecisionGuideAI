@@ -32,7 +32,7 @@
     "glyph": "●",
     "heading": "margin raised",
     "typed": false,
-    "detail": "margin raised · quantity · Theirs: “so each cup earns £2.00” · 2 GBP/cup",
+    "detail": "margin raised · quantity · Theirs: “so each cup earns £2.00” · £2/cup",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -41,8 +41,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "2 GBP/cup",
-     "title": "2 GBP/cup",
+     "text": "£2/cup",
+     "title": "£2/cup",
      "edit": {
       "prompt": "New figure for “margin raised” (GBP/cup): one number, or a range like 150 to 400",
       "ask": "For “margin raised”, type one number, or a range like 150 to 400."
@@ -134,8 +134,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "Raise the price by 45p: 6,190 to 7,820 GBP/month · Keep the price: 6,200 GBP/month",
-     "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. Under Raise the price by 45p it rests on figures Olumi proposed. Raise the price by 45p: 6,190 to 7,820 GBP/month; Keep the price: 6,200 GBP/month. Worked out from the figures it depends on.",
+     "text": "Raise the price by 45p: £6,190 to £7,820/month · Keep the price: £6,200/month",
+     "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. Under Raise the price by 45p it rests on figures Olumi proposed. Raise the price by 45p: £6,190 to £7,820/month; Keep the price: £6,200/month. Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -167,7 +167,7 @@
     "glyph": "●",
     "heading": "profit target",
     "typed": false,
-    "detail": "profit target · quantity · Theirs: “make at least £7,000 a month” · 7,000 GBP/month",
+    "detail": "profit target · quantity · Theirs: “make at least £7,000 a month” · £7,000/month",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -176,8 +176,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "7,000 GBP/month",
-     "title": "7,000 GBP/month",
+     "text": "£7,000/month",
+     "title": "£7,000/month",
      "edit": {
       "prompt": "New figure for “profit target” (GBP/month): one number, or a range like 150 to 400",
       "ask": "For “profit target”, type one number, or a range like 150 to 400."
@@ -211,8 +211,8 @@
     "driver": null,
     "status": null,
     "bound": {
-     "text": "at least 7,000 GBP/month",
-     "title": "at least 7,000 GBP/month",
+     "text": "at least £7,000/month",
+     "title": "at least £7,000/month",
      "olumi": null,
      "measured": true
     },

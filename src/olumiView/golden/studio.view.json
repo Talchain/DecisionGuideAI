@@ -32,7 +32,7 @@
     "glyph": "●",
     "heading": "class fee",
     "typed": false,
-    "detail": "class fee · quantity · Theirs: “£12 a class” · 12 GBP/class",
+    "detail": "class fee · quantity · Theirs: “£12 a class” · £12/class",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -41,8 +41,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "12 GBP/class",
-     "title": "12 GBP/class",
+     "text": "£12/class",
+     "title": "£12/class",
      "edit": {
       "prompt": "New figure for “class fee” (GBP/class): one number, or a range like 150 to 400",
       "ask": "For “class fee”, type one number, or a range like 150 to 400."
@@ -167,8 +167,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "Evening classes: 2,640 to 2,880 GBP/month · Weekend workshops: 2,580 GBP/month · Carry on as now: 2,400 GBP/month",
-     "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. Under Weekend workshops it rests on figures Olumi proposed. Evening classes: 2,640 to 2,880 GBP/month; Weekend workshops: 2,580 GBP/month; Carry on as now: 2,400 GBP/month. Worked out from the figures it depends on.",
+     "text": "Evening classes: £2,640 to £2,880/month · Weekend workshops: £2,580/month · Carry on as now: £2,400/month",
+     "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. Under Weekend workshops it rests on figures Olumi proposed. Evening classes: £2,640 to £2,880/month; Weekend workshops: £2,580/month; Carry on as now: £2,400/month. Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -198,7 +198,7 @@
     "glyph": "●",
     "heading": "takings target",
     "typed": false,
-    "detail": "takings target · quantity · Theirs: “take at least £2,640 a month” · 2,640 GBP/month",
+    "detail": "takings target · quantity · Theirs: “take at least £2,640 a month” · £2,640/month",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -207,8 +207,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "2,640 GBP/month",
-     "title": "2,640 GBP/month",
+     "text": "£2,640/month",
+     "title": "£2,640/month",
      "edit": {
       "prompt": "New figure for “takings target” (GBP/month): one number, or a range like 150 to 400",
       "ask": "For “takings target”, type one number, or a range like 150 to 400."
@@ -372,8 +372,8 @@
     "driver": null,
     "status": null,
     "bound": {
-     "text": "at least 2,640 GBP/month",
-     "title": "at least 2,640 GBP/month",
+     "text": "at least £2,640/month",
+     "title": "at least £2,640/month",
      "olumi": null,
      "measured": true
     },

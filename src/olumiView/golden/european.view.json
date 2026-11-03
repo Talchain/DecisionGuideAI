@@ -416,7 +416,7 @@
     "glyph": "●",
     "heading": "Investment budget ceiling",
     "typed": false,
-    "detail": "Investment budget ceiling · quantity · Theirs: “The investment budget is up to £500k.” · 500,000 GBP",
+    "detail": "Investment budget ceiling · quantity · Theirs: “The investment budget is up to £500k.” · £500,000",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -425,8 +425,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "500,000 GBP",
-     "title": "500,000 GBP",
+     "text": "£500,000",
+     "title": "£500,000",
      "edit": {
       "prompt": "New figure for “Investment budget ceiling” (GBP): one number, or a range like 150 to 400",
       "ask": "For “Investment budget ceiling”, type one number, or a range like 150 to 400."
@@ -446,7 +446,7 @@
     "glyph": "●",
     "heading": "Broader-entry investment what-if",
     "typed": false,
-    "detail": "Broader-entry investment what-if · quantity · Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated total commitment what-if including setup, localisation, compliance and launch activity: an initial £100,000–£400,000 guess widened twofold on a ratio scale to £50,000–£800,000. The stated budget is a ceiling, not evidence of actual cost. · Plausible range: 50,000 to 800,000 GBP",
+    "detail": "Broader-entry investment what-if · quantity · Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated total commitment what-if including setup, localisation, compliance and launch activity: an initial £100,000–£400,000 guess widened twofold on a ratio scale to £50,000–£800,000. The stated budget is a ceiling, not evidence of actual cost. · Plausible range: £50,000 to £800,000",
     "col": 1,
     "h": 116,
     "olumi": {
@@ -458,8 +458,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "50,000 to 800,000 GBP",
-     "title": "Plausible range: 50,000 to 800,000 GBP",
+     "text": "£50,000 to £800,000",
+     "title": "Plausible range: £50,000 to £800,000",
      "edit": {
       "prompt": "New figure for “Broader-entry investment what-if” (GBP): one number, or a range like 150 to 400",
       "ask": "For “Broader-entry investment what-if”, type one number, or a range like 150 to 400."
@@ -489,7 +489,7 @@
     "glyph": "●",
     "heading": "Single-country test investment what-if",
     "typed": false,
-    "detail": "Single-country test investment what-if · quantity · Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated total commitment for a deliberately narrower test: an initial £25,000–£100,000 guess widened twofold on a ratio scale to £12,500–£200,000. This is not a supplier quote or a spending recommendation. · Plausible range: 12,500 to 200,000 GBP",
+    "detail": "Single-country test investment what-if · quantity · Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated total commitment for a deliberately narrower test: an initial £25,000–£100,000 guess widened twofold on a ratio scale to £12,500–£200,000. This is not a supplier quote or a spending recommendation. · Plausible range: £12,500 to £200,000",
     "col": 1,
     "h": 116,
     "olumi": {
@@ -501,8 +501,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "12,500 to 200,000 GBP",
-     "title": "Plausible range: 12,500 to 200,000 GBP",
+     "text": "£12,500 to £200,000",
+     "title": "Plausible range: £12,500 to £200,000",
      "edit": {
       "prompt": "New figure for “Single-country test investment what-if” (GBP): one number, or a range like 150 to 400",
       "ask": "For “Single-country test investment what-if”, type one number, or a range like 150 to 400."
@@ -638,7 +638,7 @@
     "driver": null,
     "status": null,
     "bound": {
-     "text": "at most 500,000 GBP",
+     "text": "at most £500,000",
      "title": "Does the £500k cover the full expansion commitment, including compliance, localisation, staffing and working capital?",
      "olumi": null,
      "measured": true
