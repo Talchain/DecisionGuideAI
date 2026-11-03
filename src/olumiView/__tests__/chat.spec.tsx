@@ -10,7 +10,7 @@ import { setTeamFetch, UNCERTAIN_WRITE } from '../../olumiCore/team/api'
 import type { View } from '../client'
 import { currentModel, useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
-import { ViewChat, ViewComposer, ViewTurns, useViewChat, SAVED_NOT_SHOWN } from '../ViewChat'
+import { ViewChat, ViewComposer, ViewTurns, useViewChat, SAVED_NOT_SHOWN, BRIEF_INTRO, BRIEF_EXAMPLE } from '../ViewChat'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -217,6 +217,19 @@ describe('the writes go straight to core, and the View is read again', () => {
       expect(useCanvasStore.getState().currentScenarioId).toBe('00000000-0000-4000-8000-0000000000ab')
       expect(window.location.hash).toBe('#/scenario/00000000-0000-4000-8000-0000000000ab')
       expect(localStorage.getItem(`olumi-core-sc:${uuid}`)).toBeNull()
+    })
+
+    it('lane C: a first scenario says what to write and what happens, once; a scenario with a model says neither', () => {
+      useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' })
+      const first = render(<ViewComposer />).container
+      expect(first.querySelector('[data-testid="view-brief-intro"]')?.textContent).toBe(BRIEF_INTRO)
+      expect(first.querySelector('#view-chat-text')?.getAttribute('placeholder')).toBe(BRIEF_EXAMPLE)
+      expect(first.querySelector('#view-chat-text')?.getAttribute('aria-describedby')).toBe('view-brief-intro')
+      first.remove()
+      useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view: golden('pricing'), error: null, status: 'ready' })
+      const later = render(<ViewComposer />).container
+      expect(later.querySelector('[data-testid="view-brief-intro"]')).toBeNull()
+      expect(later.querySelector('#view-chat-text')?.getAttribute('placeholder')).toBeNull()
     })
 
     it('a canvas with no scenario yet moves to core\'s id\'s own UUID', async () => {

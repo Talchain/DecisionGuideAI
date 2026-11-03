@@ -282,6 +282,10 @@ export function ViewChat() {
   )
 }
 
+/** What a first-time person needs before their brief (lane C, Paul 3 Nov: understood within a minute): what to write and what happens. */
+export const BRIEF_INTRO = 'Describe the situation in your own words: the options you are weighing, what you are aiming for, and any figures you know. Olumi builds a model from it for you to check and change.'
+export const BRIEF_EXAMPLE = 'For example: should we hire a second engineer now or wait until next quarter? We need the release out by June, and each engineer ships about two features a month.'
+
 /**
  * The composer on the core lane, in the dock's footer in place of the /bff conversation's (review 00052 #3): a brief while core holds
  * no model for this scenario, else a message. It keeps the footer's run control (`analysisAction`, the dock's canonical runner).
@@ -303,7 +307,9 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
       {/* While a write is in flight the composer is held: it says why (lane audit 5.7), in core's page's words. */}
       {busy ? <p role="status" className={typography.panelMeta} data-testid="view-chat-working">Olumi is thinking…</p> : null}
       <label className={brief ? typography.panelHeader : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
-      <textarea ref={box} id="view-chat-text" className="w-full rounded border border-border p-2" rows={brief ? 6 : 3} value={text} disabled={busy} onChange={(e) => useViewChat.setState({ text: e.target.value })} />
+      {brief ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
+      <textarea ref={box} id="view-chat-text" className="w-full rounded border border-border p-2" rows={brief ? 6 : 3} value={text}
+        placeholder={brief ? BRIEF_EXAMPLE : undefined} aria-describedby={brief ? 'view-brief-intro' : undefined} disabled={busy} onChange={(e) => useViewChat.setState({ text: e.target.value })} />
       <div className="flex gap-2">
         <button type="button" disabled={busy || text.trim() === ''} className="rounded px-3 py-2 bg-primary text-text-on-color disabled:opacity-50" onClick={() => void send()}>Send</button>
         {analysisAction === undefined ? null : (
