@@ -926,7 +926,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // the brief is typed, so the empty canvas never looks dead (D6). Decided by the View, never by the canvas being empty for a moment
   // while a paired scenario's View loads (lane audit 1.1); each scenario decides once, when it is the one on screen.
   const viewUuid = useViewStore((s) => s.uuid)
-  const awaitsBrief = useViewStore((s) => s.sid === null || (s.view !== null && s.view.version === null && s.view.proposal === null))
+  // Only once the View store is the scenario on screen's: before that (a cold reload, its scenario not yet named) it decides nothing (00067).
+  const onScreen = currentScenarioIdForRun ?? null
+  const awaitsBrief = useViewStore((s) => s.uuid !== null && s.uuid === onScreen && (s.sid === null || (s.view !== null && s.view.version === null && s.view.proposal === null)))
   useEffect(() => {
     if (!isOlumiCoreLane() || !awaitsBrief) return
     setState((prev) => ({ ...prev, isOpen: true, activeTab: 'olumi' }))

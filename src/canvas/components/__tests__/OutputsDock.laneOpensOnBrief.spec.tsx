@@ -173,7 +173,7 @@ describe('only a scenario waiting for its brief opens on the brief (lane audit 1
     expect(fronted()).toBe('outputs-dock-tab-olumi')
     await act(async () => { fireEvent.click(screen.getByTestId('outputs-dock-tab-results')) })
     expect(fronted()).toBe('outputs-dock-tab-results')
-    await act(async () => { useViewStore.setState({ uuid: '2c5f39cb-3ab2-42e3-994f-1127e4ddb538', sid: null, view: null, status: 'none' } as never) })
+    await act(async () => { useCanvasStore.setState({ currentScenarioId: '2c5f39cb-3ab2-42e3-994f-1127e4ddb538' } as never) })
     expect(fronted()).toBe('outputs-dock-tab-olumi')
   })
 
@@ -182,7 +182,20 @@ describe('only a scenario waiting for its brief opens on the brief (lane audit 1
     useViewStore.setState({ uuid: UUID, sid: 's_000000000001', view: null, error: null, status: 'loading' } as never)
     await dock()
     expect(fronted()).toBe('outputs-dock-tab-results')
-    await act(async () => { useViewStore.setState({ uuid: '2c5f39cb-3ab2-42e3-994f-1127e4ddb538', sid: null, view: null, status: 'none' } as never) })
+    await act(async () => { useCanvasStore.setState({ currentScenarioId: '2c5f39cb-3ab2-42e3-994f-1127e4ddb538' } as never) })
     expect(fronted()).toBe('outputs-dock-tab-olumi')
+  })
+})
+
+describe('a cold reload keeps the remembered tab (review 00067)', () => {
+  beforeEach(() => { lane.on = true })
+  it('a saved scenario reloaded while the View store names no scenario yet keeps the tab the person left it on', async () => {
+    // core's s_000000000001 in its UUID form: a scenario core holds. A cold reload: the View store exactly as the page loads it, unset.
+    sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'results' }))
+    useCanvasStore.setState({ currentScenarioId: '00000000-0000-4000-8000-000000000001' } as never)
+    useViewStore.setState(useViewStore.getInitialState(), true)
+    await dock()
+    expect(useViewStore.getState().sid).toBe('s_000000000001')
+    expect(fronted()).toBe('outputs-dock-tab-results')
   })
 })
