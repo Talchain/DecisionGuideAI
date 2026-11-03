@@ -32,7 +32,7 @@
     "glyph": "●",
     "heading": "base sales",
     "typed": false,
-    "detail": "base sales · quantity · Theirs: “We bake and sell 300 loaves a week” · 300 loafs/week",
+    "detail": "base sales · quantity · Theirs: “We bake and sell 300 loaves a week” · 300 loaves/week",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -41,8 +41,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "300 loafs/week",
-     "title": "300 loafs/week",
+     "text": "300 loaves/week",
+     "title": "300 loaves/week",
      "edit": {
       "prompt": "New figure for “base sales” (loaf/week): one number, or a range like 150 to 400",
       "ask": "For “base sales”, type one number, or a range like 150 to 400."
@@ -62,7 +62,7 @@
     "glyph": "●",
     "heading": "sales target",
     "typed": false,
-    "detail": "sales target · quantity · Theirs: “want to sell at least 360” · 360 loafs/week",
+    "detail": "sales target · quantity · Theirs: “want to sell at least 360” · 360 loaves/week",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -71,8 +71,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "360 loafs/week",
-     "title": "360 loafs/week",
+     "text": "360 loaves/week",
+     "title": "360 loaves/week",
      "edit": {
       "prompt": "New figure for “sales target” (loaf/week): one number, or a range like 150 to 400",
       "ask": "For “sales target”, type one number, or a range like 150 to 400."
@@ -134,7 +134,7 @@
      "text": "1",
      "title": "1",
      "edit": {
-      "prompt": "New figure for “hours switched on” (1): one number, or a range like 150 to 400",
+      "prompt": "New figure for “hours switched on”: one number, or a range like 150 to 400",
       "ask": "For “hours switched on”, type one number, or a range like 150 to 400."
      }
     },
@@ -152,7 +152,7 @@
     "glyph": "●",
     "heading": "extra hours sold",
     "typed": false,
-    "detail": "extra hours sold · quantity · Theirs: “somewhere around 40 to 80 extra loaves a week” · Plausible range: 40 to 80 loafs/week",
+    "detail": "extra hours sold · quantity · Theirs: “somewhere around 40 to 80 extra loaves a week” · Plausible range: 40 to 80 loaves/week",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -161,8 +161,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "40 to 80 loafs/week",
-     "title": "Plausible range: 40 to 80 loafs/week",
+     "text": "40 to 80 loaves/week",
+     "title": "Plausible range: 40 to 80 loaves/week",
      "edit": {
       "prompt": "New figure for “extra hours sold” (loaf/week): one number, or a range like 150 to 400",
       "ask": "For “extra hours sold”, type one number, or a range like 150 to 400."
@@ -194,8 +194,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "A second oven: 337 to 387 loafs/week · Open two hours longer: 339 to 380 loafs/week · Carry on as now: 300 loafs/week",
-     "title": "Modelled range at the end of week 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. It rests on figures Olumi proposed. A second oven: 337 to 387 loafs/week; Open two hours longer: 339 to 380 loafs/week; Carry on as now: 300 loafs/week. Worked out from the figures it depends on.",
+     "text": "A second oven: 337 to 387 loaves/week · Open two hours longer: 339 to 380 loaves/week · Carry on as now: 300 loaves/week",
+     "title": "Modelled range at the end of week 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. Under A second oven it rests on figures Olumi proposed. A second oven: 337 to 387 loaves/week; Open two hours longer: 339 to 380 loaves/week; Carry on as now: 300 loaves/week. Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -237,7 +237,7 @@
      "text": "0.2",
      "title": "0.2",
      "edit": {
-      "prompt": "New figure for “repair chance” (1): one number, or a range like 150 to 400",
+      "prompt": "New figure for “repair chance”: one number, or a range like 150 to 400",
       "ask": "For “repair chance”, type one number, or a range like 150 to 400."
      }
     },
@@ -267,7 +267,7 @@
      "text": "0.5",
      "title": "0.5",
      "edit": {
-      "prompt": "New figure for “half capacity” (1): one number, or a range like 150 to 400",
+      "prompt": "New figure for “half capacity”: one number, or a range like 150 to 400",
       "ask": "For “half capacity”, type one number, or a range like 150 to 400."
      }
     },
@@ -415,7 +415,7 @@
    {
     "id": "sell_360",
     "family": "goal",
-    "glyph": "◆",
+    "glyph": "★",
     "heading": "Sell at least 360 loaves a week",
     "typed": false,
     "detail": "Sell at least 360 loaves a week · goal · Theirs: “want to sell at least 360”",
@@ -432,8 +432,8 @@
     "driver": null,
     "status": null,
     "bound": {
-     "text": "at least 360 loafs/week",
-     "title": "at least 360 loafs/week",
+     "text": "at least 360 loaves/week",
+     "title": "at least 360 loaves/week",
      "olumi": null,
      "measured": true
     },
@@ -502,7 +502,7 @@
       },
       "likely": {
        "glyph": "◉",
-       "title": "If Olumi's estimates hold, the option most likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'). It rests on Olumi's what-if ranges for 'extra sold per oven'."
+       "title": "If Olumi's estimates hold, 'A second oven' is the option most likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'). It rests on Olumi's what-if ranges for 'extra sold per oven'."
       },
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
@@ -546,14 +546,11 @@
       "value": "about 50% chance",
       "fixed": false,
       "approx": "",
-      "olumi": {
-       "glyph": "◆",
-       "title": "Rests on Olumi’s proposals"
-      },
+      "olumi": null,
       "likely": null,
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
-      "title": "If Olumi's estimates hold, the chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'."
+      "title": "The chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information."
      }
     ],
     "driver": {
@@ -593,14 +590,11 @@
       "value": "under 1% chance",
       "fixed": false,
       "approx": "",
-      "olumi": {
-       "glyph": "◆",
-       "title": "Rests on Olumi’s proposals"
-      },
+      "olumi": null,
       "likely": null,
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
-      "title": "If Olumi's estimates hold, the chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'."
+      "title": "The chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information."
      }
     ],
     "driver": null,
@@ -780,14 +774,31 @@
    "lead": "In this model, on current information, each option’s chance of ‘Sell at least 360 loaves a week’:",
    "all_withheld": false,
    "most_likely": {
-    "text": "If Olumi's estimates hold, the option most likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'). It rests on Olumi's what-if ranges for 'extra sold per oven'.",
-    "title": "If Olumi's estimates hold, the option most likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'). It rests on Olumi's what-if ranges for 'extra sold per oven'."
+    "text": "If Olumi's estimates hold, 'A second oven' is the option most likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'). It rests on Olumi's what-if ranges for 'extra sold per oven'.",
+    "title": "If Olumi's estimates hold, 'A second oven' is the option most likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'). It rests on Olumi's what-if ranges for 'extra sold per oven'."
    },
-   "waits_on": null,
+   "waits_on": {
+    "head": "Chance of meeting the goal",
+    "label": "Waits on:",
+    "text": "waits on 1 figure",
+    "items": [
+     {
+      "id": "oven_price",
+      "text": "‘oven price’",
+      "title": "What would the second oven cost?",
+      "answer": true,
+      "unknown": null,
+      "edit": {
+       "prompt": "New figure for “oven price” (GBP/oven): one number, or a range like 150 to 400",
+       "ask": "For “oven price”, type one number, or a range like 150 to 400."
+      }
+     }
+    ]
+   },
    "notes": [
     {
-     "text": "Olumi's what-if for 'extra sold per oven', not their figure: 60 to 90 loaf/week/oven. Basis: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes.",
-     "title": "Olumi's what-if for 'extra sold per oven', not their figure: 60 to 90 loaf/week/oven. Basis: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes."
+     "text": "Olumi's what-if for 'extra sold per oven', not their figure: 60 to 90 loaves/week/oven. Basis: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes.",
+     "title": "Olumi's what-if for 'extra sold per oven', not their figure: 60 to 90 loaves/week/oven. Basis: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes."
     }
    ]
   },

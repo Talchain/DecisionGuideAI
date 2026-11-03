@@ -171,7 +171,10 @@
     "detail": "Monthly net operating cash burn before new funding · quantity · Theirs: “spend about £60,000 a month” · An approximate figure: 60,000 GBP/month",
     "col": 1,
     "h": 116,
-    "olumi": null,
+    "olumi": {
+     "glyph": "◐",
+     "title": "Theirs: “spend about £60,000 a month” · Olumi reads it as within 10% either way, their figure most likely, until they give a range."
+    },
     "change": null,
     "focus": true,
     "challenged": false,
@@ -223,8 +226,8 @@
      "text": "25 to 100%",
      "title": "Plausible range: 25 to 100%, most likely 50%",
      "edit": {
-      "prompt": "New figure for “Institutional fundraising capacity retained while pursuing angels” (1): one number, or a range like 150 to 400",
-      "ask": "For “Institutional fundraising capacity retained while pursuing angels”, type one number, or a range like 150 to 400."
+      "prompt": "New figure for “Institutional fundraising capacity retained while pursuing angels” in %: one number, or a range like 40 to 70",
+      "ask": "For “Institutional fundraising capacity retained while pursuing angels”, type it in %: one number, or a range like 40 to 70."
      }
     },
     "premises": [],
@@ -289,8 +292,8 @@
      "text": "50 to 96.88%",
      "title": "Plausible range: 50 to 96.875%, most likely 87.5%",
      "edit": {
-      "prompt": "New figure for “Operating burn retained after temporary spend deferral” (1): one number, or a range like 150 to 400",
-      "ask": "For “Operating burn retained after temporary spend deferral”, type one number, or a range like 150 to 400."
+      "prompt": "New figure for “Operating burn retained after temporary spend deferral” in %: one number, or a range like 40 to 70",
+      "ask": "For “Operating burn retained after temporary spend deferral”, type it in %: one number, or a range like 40 to 70."
      }
     },
     "premises": [],
@@ -405,7 +408,7 @@
    {
     "id": "secure_funding",
     "family": "goal",
-    "glyph": "◆",
+    "glyph": "★",
     "heading": "Secure funding within the funding window",
     "typed": false,
     "detail": "Secure funding within the funding window · goal · Theirs: “I need to accelerate securing funding within the next 2 months.”",
@@ -508,7 +511,7 @@
    {
     "id": "cash_survival",
     "family": "goal",
-    "glyph": "◆",
+    "glyph": "★",
     "heading": "Buy more operating time",
     "typed": false,
     "detail": "Buy more operating time · goal · Theirs: “a small amount of funding quicker to buy us more time”",

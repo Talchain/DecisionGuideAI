@@ -33,6 +33,7 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
         <div className="flex flex-wrap items-baseline gap-x-2" title={row.title} data-view-row={at}>
           <span data-view={`${at}.aim`}>{row.aim}</span>
           <span className={typography.panelTabular} data-view={`${at}.value`}>{row.value}</span>
+          <Mark at={`${at}.olumi`} mark={row.olumi} />
         </div>
       )
     case 'route':

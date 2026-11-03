@@ -230,7 +230,7 @@
     "typed": false,
     "detail": "members · quantity · Theirs: “has 150 members” · 150 members",
     "col": 1,
-    "h": 116,
+    "h": 88,
     "olumi": null,
     "change": null,
     "focus": false,
@@ -250,21 +250,7 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": {
-     "records": [
-      "member_mood",
-      "evening_mood",
-      "mood_members",
-      "co_owner_view",
-      "if_slots_suit"
-     ],
-     "text": "● ↝ ⚑ +5",
-     "title": "quantity: How members feel\nrelation: Evening classes → How members feel\nrelation: How members feel → members\ndissent: my co-owner: Evening classes will crowd the studio and put off daytime members.\nchallenge: It depends on whether evening slots suit the members who work days.",
-     "label": "Expand 5 reasoning records",
-     "open": false,
-     "proposed": false,
-     "change": ""
-    }
+    "badge": null
    },
    {
     "id": "members_target",
@@ -297,9 +283,79 @@
     "badge": null
    },
    {
+    "id": "member_mood",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "How members feel",
+    "typed": false,
+    "detail": "How members feel · quantity · Proposed by Olumi: No one can measure how members feel yet; repeat bookings might show it. · unknown: No one can measure how members feel yet; repeat bookings might show it.",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: No one can measure how members feel yet; repeat bookings might show it."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "?",
+     "title": "unknown: No one can measure how members feel yet; repeat bookings might show it.",
+     "edit": {
+      "prompt": "New figure for “How members feel”: one number, or a range like 150 to 400",
+      "ask": "For “How members feel”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null
+   },
+   {
+    "id": "mood_members",
+    "family": "relation",
+    "glyph": "↝",
+    "heading": "relation",
+    "typed": true,
+    "detail": "How members feel → members · relation · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link.",
+    "col": 1,
+    "h": 140,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "How members feel → members",
+    "badge": {
+     "records": [
+      "co_owner_view",
+      "if_slots_suit"
+     ],
+     "text": "⚑ ! +2",
+     "title": "dissent: my co-owner: Evening classes will crowd the studio and put off daytime members.\nchallenge: It depends on whether evening slots suit the members who work days.",
+     "label": "Expand 2 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
     "id": "takings_goal",
     "family": "goal",
-    "glyph": "◆",
+    "glyph": "★",
     "heading": "Take £2,640 a month",
     "typed": false,
     "detail": "Take £2,640 a month · goal · Theirs: “take at least £2,640 a month”",
@@ -327,7 +383,7 @@
    {
     "id": "keep_members",
     "family": "goal",
-    "glyph": "◆",
+    "glyph": "★",
     "heading": "Keep at least 140 members",
     "typed": false,
     "detail": "Keep at least 140 members · goal · Theirs: “keep at least 140 members”",
@@ -360,7 +416,7 @@
     "typed": false,
     "detail": "Evening classes · option · Theirs: “add evening classes”",
     "col": 0,
-    "h": 124,
+    "h": 96,
     "olumi": null,
     "change": null,
     "focus": false,
@@ -383,7 +439,7 @@
       "olumi": null,
       "likely": {
        "glyph": "◉",
-       "title": "The option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops')."
+       "title": "If Olumi's estimates hold, 'Evening classes' is the option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'). It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them."
       },
       "aim": "Take £2,640 a month",
       "aim_id": "takings_goal",
@@ -397,17 +453,30 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": {
-     "records": [
-      "evening_mood"
-     ],
-     "text": "↝ +1",
-     "title": "relation: Evening classes → How members feel",
-     "label": "Expand 1 reasoning records",
-     "open": false,
-     "proposed": false,
-     "change": ""
-    }
+    "badge": null
+   },
+   {
+    "id": "evening_mood",
+    "family": "relation",
+    "glyph": "↝",
+    "heading": "relation",
+    "typed": true,
+    "detail": "Evening classes → How members feel · relation · Theirs: “Members have asked for evening slots”",
+    "col": 0,
+    "h": 112,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "Evening classes → How members feel",
+    "badge": null
    },
    {
     "id": "weekend_workshops",
@@ -440,11 +509,14 @@
       "value": "never met in this model",
       "fixed": true,
       "approx": "",
-      "olumi": null,
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
       "likely": null,
       "aim": "Take £2,640 a month",
       "aim_id": "takings_goal",
-      "title": "With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance."
+      "title": "With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them."
      }
     ],
     "driver": null,
@@ -518,13 +590,63 @@
    },
    {
     "from": "evening_classes",
+    "to": "member_mood",
+    "kind": "plain",
+    "label": "+",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "link in words: up, likely; Members have asked for evening slots. · Theirs: “Members have asked for evening slots”"
+   },
+   {
+    "from": "member_mood",
     "to": "members",
-    "kind": "through",
+    "kind": "plain",
     "label": "",
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "worked out through How members feel · Theirs: “Members have asked for evening slots” · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link."
+    "title": "link in words: conditional, unsure; Happier members stay only if the evening slots suit them; see the condition and the dissent on this link. · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link."
+   },
+   {
+    "from": "evening_mood",
+    "to": "evening_classes",
+    "kind": "reason",
+    "label": "↝",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "relation: Evening classes → How members feel"
+   },
+   {
+    "from": "evening_mood",
+    "to": "member_mood",
+    "kind": "reason",
+    "label": "↝",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "relation: Evening classes → How members feel"
+   },
+   {
+    "from": "mood_members",
+    "to": "member_mood",
+    "kind": "reason",
+    "label": "↝",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "relation: How members feel → members"
+   },
+   {
+    "from": "mood_members",
+    "to": "members",
+    "kind": "reason",
+    "label": "↝",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "relation: How members feel → members"
    },
    {
     "from": "takings",
@@ -612,10 +734,43 @@
    "lead": "In this model, on current information, each option’s chance of ‘Take £2,640 a month’:",
    "all_withheld": false,
    "most_likely": {
-    "text": "The option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops').",
-    "title": "The option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops')."
+    "text": "If Olumi's estimates hold, 'Evening classes' is the option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'). It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them.",
+    "title": "If Olumi's estimates hold, 'Evening classes' is the option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'). It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them."
    },
-   "waits_on": null,
+   "waits_on": {
+    "head": "Chance of meeting the goal",
+    "label": "Waits on:",
+    "text": "waits on 3 things",
+    "items": [
+     {
+      "id": "member_mood",
+      "text": "‘How members feel’",
+      "title": "No one can measure how members feel yet; repeat bookings might show it.",
+      "answer": false,
+      "unknown": ", which no one can size yet (No one can measure how members feel yet; repeat bookings might show it)",
+      "edit": {
+       "prompt": "New figure for “How members feel”: one number, or a range like 150 to 400",
+       "ask": "For “How members feel”, type one number, or a range like 150 to 400."
+      }
+     },
+     {
+      "id": "evening_mood",
+      "text": "‘evening_mood’",
+      "title": "evening_mood",
+      "answer": false,
+      "unknown": null,
+      "edit": null
+     },
+     {
+      "id": "mood_members",
+      "text": "‘mood_members’",
+      "title": "mood_members",
+      "answer": false,
+      "unknown": null,
+      "edit": null
+     }
+    ]
+   },
    "notes": []
   },
   "edit_base": 1

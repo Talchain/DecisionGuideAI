@@ -32,7 +32,7 @@ function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
         </p>
       )
     case 'limit':
-      return <p title={row.title} data-view-row={at}><span data-view={`${at}.aim`}>{row.aim}</span> <span className={typography.nodeValue} data-view={`${at}.value`}>{row.value}</span></p>
+      return <p title={row.title} data-view-row={at}><span data-view={`${at}.aim`}>{row.aim}</span> <span className={typography.nodeValue} data-view={`${at}.value`}>{row.value}</span> <Mark at={`${at}.olumi`} mark={row.olumi} /></p>
     case 'route':
       return <p title={row.title} data-view-row={at}><span data-view={`${at}.glyph`}>{row.glyph}</span> <span data-view={`${at}.aim`}>{row.aim}</span></p>
     case 'none':

@@ -88,6 +88,10 @@ export type View = {
       } | {
         kind: "limit"
         value: string
+        olumi: {
+          glyph: string
+          title: string
+        } | null
         aim: string
         aim_id: string
         title: string
@@ -156,6 +160,10 @@ export type View = {
           title: string
           answer: boolean
           unknown: string | null
+          edit: {
+            prompt: string
+            ask: string
+          } | null
         }>
       } | null
       notes: Array<{

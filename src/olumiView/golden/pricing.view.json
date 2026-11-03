@@ -104,7 +104,7 @@
      "text": "1",
      "title": "1",
      "edit": {
-      "prompt": "New figure for “rise switched on” (1): one number, or a range like 150 to 400",
+      "prompt": "New figure for “rise switched on”: one number, or a range like 150 to 400",
       "ask": "For “rise switched on”, type one number, or a range like 150 to 400."
      }
     },
@@ -135,7 +135,7 @@
     "doubt": false,
     "figure": {
      "text": "Raise the price by 45p: 6,190 to 7,820 GBP/month · Keep the price: 6,200 GBP/month",
-     "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. It rests on figures Olumi proposed. Raise the price by 45p: 6,190 to 7,820 GBP/month; Keep the price: 6,200 GBP/month. Worked out from the figures it depends on.",
+     "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. Under Raise the price by 45p it rests on figures Olumi proposed. Raise the price by 45p: 6,190 to 7,820 GBP/month; Keep the price: 6,200 GBP/month. Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -194,7 +194,7 @@
    {
     "id": "profit_goal",
     "family": "goal",
-    "glyph": "◆",
+    "glyph": "★",
     "heading": "Make £7,000 a month",
     "typed": false,
     "detail": "Make £7,000 a month · goal · Theirs: “make at least £7,000 a month”",
@@ -247,7 +247,7 @@
       },
       "likely": {
        "glyph": "◉",
-       "title": "If Olumi's estimates hold, the option most likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'). It rests on Olumi's what-if ranges for 'cups change'."
+       "title": "If Olumi's estimates hold, 'Raise the price by 45p' is the option most likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'). It rests on Olumi's what-if ranges for 'cups change'."
       },
       "aim": "Make £7,000 a month",
       "aim_id": "profit_goal",
@@ -285,14 +285,11 @@
       "value": "never met in this model",
       "fixed": true,
       "approx": "",
-      "olumi": {
-       "glyph": "◆",
-       "title": "Rests on Olumi’s proposals"
-      },
+      "olumi": null,
       "likely": null,
       "aim": "Make £7,000 a month",
       "aim_id": "profit_goal",
-      "title": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's what-if ranges for 'cups change'."
+      "title": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance."
      }
     ],
     "driver": null,
@@ -379,14 +376,14 @@
    "lead": "In this model, on current information, each option’s chance of ‘Make £7,000 a month’:",
    "all_withheld": false,
    "most_likely": {
-    "text": "If Olumi's estimates hold, the option most likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'). It rests on Olumi's what-if ranges for 'cups change'.",
-    "title": "If Olumi's estimates hold, the option most likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'). It rests on Olumi's what-if ranges for 'cups change'."
+    "text": "If Olumi's estimates hold, 'Raise the price by 45p' is the option most likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'). It rests on Olumi's what-if ranges for 'cups change'.",
+    "title": "If Olumi's estimates hold, 'Raise the price by 45p' is the option most likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'). It rests on Olumi's what-if ranges for 'cups change'."
    },
    "waits_on": null,
    "notes": [
     {
-     "text": "Olumi's what-if for 'cups change', not their figure: -900 to -100 cup/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month.",
-     "title": "Olumi's what-if for 'cups change', not their figure: -900 to -100 cup/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
+     "text": "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month.",
+     "title": "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
     }
    ]
   },

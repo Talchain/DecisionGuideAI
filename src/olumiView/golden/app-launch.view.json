@@ -81,7 +81,11 @@
     "focus": false,
     "challenged": false,
     "doubt": true,
-    "figure": null,
+    "figure": {
+     "text": "no size yet",
+     "title": "‘Broken release prompts one-star reviews’ acts on an option, not on a figure, so the calculation cannot size it.",
+     "edit": null
+    },
     "premises": [],
     "rows": [],
     "driver": null,
@@ -105,7 +109,7 @@
    {
     "id": "boss_discussion",
     "family": "goal",
-    "glyph": "◆",
+    "glyph": "★",
     "heading": "Explain the release decision without unfair team blame",
     "typed": false,
     "detail": "Explain the release decision without unfair team blame · goal · Theirs: “make it sound super technical and smart so he doesnt just blame my team”",
@@ -147,7 +151,7 @@
    {
     "id": "protect_user_trust",
     "family": "goal",
-    "glyph": "◆",
+    "glyph": "★",
     "heading": "Avoid damaging users' experience and trust",
     "typed": false,
     "detail": "Avoid damaging users' experience and trust · goal · Theirs: “if we launch broken apps people will give us 1 star reviews”",
@@ -222,16 +226,14 @@
       "readiness_duration",
       "calculate_readiness_duration",
       "calculate_readiness_margin",
-      "isolation_prerequisite",
       "technical_diagnosis",
       "conditional_integrity_reason",
       "conditional_validation_reason",
-      "boss_brief_structure",
-      "isolation_readiness_link"
+      "boss_brief_structure"
      ],
-     "text": "❝ ● = +14",
-     "title": "claim: The new app update is scheduled to go live in less than a month; the exact release date is not supplied.\nclaim: Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied.\nquantity: Time available before release\nquantity: Time to implement the sync fix\nquantity: Validation time after implementing the fix\nquantity: Time to complete repair and validation\nrelation: how Time to complete repair and validation is worked out\nrelation: how Release time minus repair and validation time is worked out\nprerequisite: A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect.\nchallenge: Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nclaim: Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.\nrelation: Explore shipping without the affected sync path → Time to complete repair and validation",
-     "label": "Expand 14 reasoning records",
+     "text": "❝ ● = +12",
+     "title": "claim: The new app update is scheduled to go live in less than a month; the exact release date is not supplied.\nclaim: Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied.\nquantity: Time available before release\nquantity: Time to implement the sync fix\nquantity: Validation time after implementing the fix\nquantity: Time to complete repair and validation\nrelation: how Time to complete repair and validation is worked out\nrelation: how Release time minus repair and validation time is worked out\nchallenge: Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nclaim: Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.",
+     "label": "Expand 12 reasoning records",
      "open": false,
      "proposed": false,
      "change": ""
@@ -273,7 +275,7 @@
    {
     "id": "allow_readiness_work",
     "family": "goal",
-    "glyph": "◆",
+    "glyph": "★",
     "heading": "Allow time for repair and validation",
     "typed": false,
     "detail": "Allow time for repair and validation · goal · Proposed by Olumi: A testable schedule criterion for exploring the concern about releasing a known defect; it does not establish product safety.",
@@ -576,12 +578,47 @@
       "isolation_trust_link",
       "conditional_exposure_reason",
       "campaign_flexibility",
-      "disconfirm_full_delay",
-      "isolation_readiness_link"
+      "disconfirm_full_delay"
      ],
-     "text": "❝ ⊢ ↝ +8",
-     "title": "claim: Marketing has already bought ads for Q4. The amount, campaign dates and ability to redirect or reschedule them are not supplied.\nclaim: The user expects strong opposition from marketing if the release is delayed; this is not a reported position from marketing.\nprerequisite: A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect.\nrelation: Explore shipping without the affected sync path → Avoid damaging users' experience and trust\nclaim: Potential reason for delay: if the campaign sends more users into an unresolved defective flow, paid acquisition may amplify exposure to the problem rather than deliver its intended benefit. The campaign destination and affected flow must be checked.\nchallenge: Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses.\nchallenge: Test the strongest countercase to postponement: the defect may be limited, recoverable or safely isolated. Conversely, delaying the date without fixing and verifying the underlying problem would not itself protect users.\nrelation: Explore shipping without the affected sync path → Time to complete repair and validation",
-     "label": "Expand 8 reasoning records",
+     "text": "❝ ⊢ ↝ +7",
+     "title": "claim: Marketing has already bought ads for Q4. The amount, campaign dates and ability to redirect or reschedule them are not supplied.\nclaim: The user expects strong opposition from marketing if the release is delayed; this is not a reported position from marketing.\nprerequisite: A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect.\nrelation: Explore shipping without the affected sync path → Avoid damaging users' experience and trust\nclaim: Potential reason for delay: if the campaign sends more users into an unresolved defective flow, paid acquisition may amplify exposure to the problem rather than deliver its intended benefit. The campaign destination and affected flow must be checked.\nchallenge: Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses.\nchallenge: Test the strongest countercase to postponement: the defect may be limited, recoverable or safely isolated. Conversely, delaying the date without fixing and verifying the underlying problem would not itself protect users.",
+     "label": "Expand 7 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "isolation_readiness_link",
+    "family": "relation",
+    "glyph": "↝",
+    "heading": "relation",
+    "typed": true,
+    "detail": "Explore shipping without the affected sync path → Time to complete repair and validation · relation · Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change.",
+    "col": 0,
+    "h": 140,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "Explore shipping without the affected sync path → Time to complete repair and validation",
+    "badge": {
+     "records": [
+      "isolation_prerequisite"
+     ],
+     "text": "⊢ +1",
+     "title": "prerequisite: A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect.",
+     "label": "Expand 1 reasoning records",
      "open": false,
      "proposed": false,
      "change": ""
@@ -678,6 +715,26 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through Time available before release · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration."
+   },
+   {
+    "from": "isolation_readiness_link",
+    "to": "option_isolate",
+    "kind": "reason",
+    "label": "↝",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "relation: Explore shipping without the affected sync path → Time to complete repair and validation"
+   },
+   {
+    "from": "isolation_readiness_link",
+    "to": "readiness_margin",
+    "kind": "reason",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration."
    }
   ],
   "run": {
@@ -688,33 +745,58 @@
    "waits_on": {
     "head": "Chance of meeting the goal",
     "label": "Waits on:",
-    "text": "waits on 1 thing",
+    "text": "waits on 4 things",
     "items": [
+     {
+      "id": "boss_discussion",
+      "text": "‘Explain the release decision without unfair team blame’",
+      "title": "Explain the release decision without unfair team blame",
+      "answer": false,
+      "unknown": null,
+      "edit": null
+     },
+     {
+      "id": "protect_user_trust",
+      "text": "‘Avoid damaging users' experience and trust’",
+      "title": "Avoid damaging users' experience and trust",
+      "answer": false,
+      "unknown": null,
+      "edit": null
+     },
      {
       "id": "schedule_assumptions",
       "text": "‘For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.’",
       "title": "For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
       "answer": false,
-      "unknown": null
+      "unknown": null,
+      "edit": null
+     },
+     {
+      "id": "isolation_readiness_link",
+      "text": "‘isolation_readiness_link’",
+      "title": "isolation_readiness_link",
+      "answer": false,
+      "unknown": null,
+      "edit": null
      }
     ]
    },
    "notes": [
     {
-     "text": "Olumi's what-if for 'Time available before release', not their figure: 0.5 to 4 week. Basis: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure.",
-     "title": "Olumi's what-if for 'Time available before release', not their figure: 0.5 to 4 week. Basis: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure."
+     "text": "Olumi's what-if for 'Time available before release', not their figure: 0.5 to 4 weeks. Basis: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure.",
+     "title": "Olumi's what-if for 'Time available before release', not their figure: 0.5 to 4 weeks. Basis: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure."
     },
     {
-     "text": "Olumi's what-if for 'Time to implement the sync fix', not their figure: 2 to 12 week. Basis: Sarah's 'weeks' does not supply numerical endpoints. This deliberately widened ratio-scale what-if is not her estimate or an industry forecast. Open-source bug-resolution averages do not fit this defect; no typical rate known; replace with your figure.",
-     "title": "Olumi's what-if for 'Time to implement the sync fix', not their figure: 2 to 12 week. Basis: Sarah's 'weeks' does not supply numerical endpoints. This deliberately widened ratio-scale what-if is not her estimate or an industry forecast. Open-source bug-resolution averages do not fit this defect; no typical rate known; replace with your figure."
+     "text": "Olumi's what-if for 'Time to implement the sync fix', not their figure: 2 to 12 weeks. Basis: Sarah's 'weeks' does not supply numerical endpoints. This deliberately widened ratio-scale what-if is not her estimate or an industry forecast. Open-source bug-resolution averages do not fit this defect; no typical rate known; replace with your figure.",
+     "title": "Olumi's what-if for 'Time to implement the sync fix', not their figure: 2 to 12 weeks. Basis: Sarah's 'weeks' does not supply numerical endpoints. This deliberately widened ratio-scale what-if is not her estimate or an industry forecast. Open-source bug-resolution averages do not fit this defect; no typical rate known; replace with your figure."
     },
     {
-     "text": "Olumi's what-if for 'Validation time after implementing the fix', not their figure: 0.25 to 2 week. Basis: Separate allowance for reproducer-based verification, regression checks and release validation. Deliberately widened on a ratio scale, not calibrated to this team; no typical rate known; replace with your figure. Remove this separate allowance if Sarah's estimate already includes it.",
-     "title": "Olumi's what-if for 'Validation time after implementing the fix', not their figure: 0.25 to 2 week. Basis: Separate allowance for reproducer-based verification, regression checks and release validation. Deliberately widened on a ratio scale, not calibrated to this team; no typical rate known; replace with your figure. Remove this separate allowance if Sarah's estimate already includes it."
+     "text": "Olumi's what-if for 'Validation time after implementing the fix', not their figure: 0.25 to 2 weeks. Basis: Separate allowance for reproducer-based verification, regression checks and release validation. Deliberately widened on a ratio scale, not calibrated to this team; no typical rate known; replace with your figure. Remove this separate allowance if Sarah's estimate already includes it.",
+     "title": "Olumi's what-if for 'Validation time after implementing the fix', not their figure: 0.25 to 2 weeks. Basis: Separate allowance for reproducer-based verification, regression checks and release validation. Deliberately widened on a ratio scale, not calibrated to this team; no typical rate known; replace with your figure. Remove this separate allowance if Sarah's estimate already includes it."
     },
     {
-     "text": "Olumi's what-if for 'Postponed release time from now', not their figure: 4 to 16 week. Basis: An exploratory postponed-release window, measured from now rather than added to the original date. Deliberately widened on a ratio scale; no typical rate known; replace with your figure. It is neither a recommendation nor a commitment that the defect will be resolved by then.",
-     "title": "Olumi's what-if for 'Postponed release time from now', not their figure: 4 to 16 week. Basis: An exploratory postponed-release window, measured from now rather than added to the original date. Deliberately widened on a ratio scale; no typical rate known; replace with your figure. It is neither a recommendation nor a commitment that the defect will be resolved by then."
+     "text": "Olumi's what-if for 'Postponed release time from now', not their figure: 4 to 16 weeks. Basis: An exploratory postponed-release window, measured from now rather than added to the original date. Deliberately widened on a ratio scale; no typical rate known; replace with your figure. It is neither a recommendation nor a commitment that the defect will be resolved by then.",
+     "title": "Olumi's what-if for 'Postponed release time from now', not their figure: 4 to 16 weeks. Basis: An exploratory postponed-release window, measured from now rather than added to the original date. Deliberately widened on a ratio scale; no typical rate known; replace with your figure. It is neither a recommendation nor a commitment that the defect will be resolved by then."
     }
    ]
   },

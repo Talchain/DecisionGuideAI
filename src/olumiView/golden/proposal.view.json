@@ -196,7 +196,7 @@
    {
     "id": "capacity_goal",
     "family": "goal",
-    "glyph": "◆",
+    "glyph": "★",
     "heading": "At least 100 a week",
     "typed": false,
     "detail": "At least 100 a week · goal · Theirs: “at least 100 tickets a week”",
@@ -281,7 +281,7 @@
       "olumi": null,
       "likely": {
        "glyph": "◉",
-       "title": "The option most likely to achieve 'At least 100 a week' in this model (about 74%, against under 1% for 'Keep current staffing'). It leaves out: How the team feels about a new hire."
+       "title": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%, against under 1% for 'Keep current staffing'). It leaves out: How the team feels about a new hire."
       },
       "aim": "At least 100 a week",
       "aim_id": "capacity_goal",
@@ -433,8 +433,8 @@
    "lead": "In this model, on current information, each option’s chance of ‘At least 100 a week’:",
    "all_withheld": false,
    "most_likely": {
-    "text": "The option most likely to achieve 'At least 100 a week' in this model (about 74%, against under 1% for 'Keep current staffing').",
-    "title": "The option most likely to achieve 'At least 100 a week' in this model (about 74%, against under 1% for 'Keep current staffing'). It leaves out: How the team feels about a new hire."
+    "text": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%, against under 1% for 'Keep current staffing').",
+    "title": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%, against under 1% for 'Keep current staffing'). It leaves out: How the team feels about a new hire."
    },
    "waits_on": null,
    "notes": [
