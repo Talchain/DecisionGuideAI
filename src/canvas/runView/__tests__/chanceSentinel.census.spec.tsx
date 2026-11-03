@@ -832,6 +832,7 @@ const FIELD_DISPOSITION: Readonly<Record<string, FieldDisposition>> = {
   shareable_url: { excluded: NOT_A_NUMBER }, shared_at: { excluded: NOT_A_NUMBER }, shared_mechanism: { excluded: NOT_A_NUMBER },
   switch_reading: { excluded: NOT_A_NUMBER }, switch_reason: { excluded: NOT_A_NUMBER }, win_probabilities_unavailable: { excluded: NOT_A_NUMBER },
   winner_flips: { excluded: NOT_A_NUMBER }, winner_id: { excluded: NOT_A_NUMBER }, winner_label: { excluded: NOT_A_NUMBER },
+  shared_blockers: { excluded: 'olumi-core View (`model.run.shared_blockers`): the Run\'s whole sentence on why no option\'s chance of an aim can be worked out yet, with that aim\'s and the options\' ids; core\'s words, drawn verbatim, never a number' },
 }
 
 type SurfaceDisposition = 'rendered' | { readonly excluded: string }

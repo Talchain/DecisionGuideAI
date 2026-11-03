@@ -166,6 +166,36 @@ describe('the Run beside the chances says what the base dock said, word for word
   })
 })
 
+describe('a reason every option shares is said once, above the options; each covered card carries only core\'s mark (core 23bc745 run.shared_blockers)', () => {
+  // pricing-unmoved-first: the View olumi-core 23bc745 serves for its own test case of that name (view.test.ts CASES), captured from it.
+  type Oracle = { lead: string | null; withheld: Record<string, string> }
+  const oracle = JSON.parse(readFileSync(path.join(DIR, 'golden', 'dock.oracle.json'), 'utf8')) as Record<string, Oracle>
+  it('present: the Run\'s sentence once, in core\'s words, before every option; each covered option\'s row is the mark the dock oracle names', () => {
+    const model = golden('pricing-unmoved-first').model!, shared = model.run!.shared_blockers!
+    expect(shared).toHaveLength(1)
+    const { container } = render(<ViewChances model={model} />)
+    const said = [...container.querySelectorAll('[data-testid="view-run-shared-blocker"]')]
+    expect(said.map((e) => [e.getAttribute('data-aim'), e.textContent])).toEqual(shared.map((b) => [b.aim_id, b.text]))
+    // Said once on the whole block, and above the first option.
+    expect(container.textContent!.split(shared[0]!.text).length - 1).toBe(1)
+    const first = container.querySelector('[data-view-card]')!
+    expect(said[0]!.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    for (const [id, mark] of Object.entries(oracle['pricing-unmoved-first']!.withheld)) {
+      expect(shared[0]!.options).toContain(id)
+      const card = model.cards.find((c) => c.id === id)!, i = card.rows.findIndex((r) => r.aim_id === shared[0]!.aim_id)
+      expect(container.querySelector(`[data-view-card="${id}"] [data-view="${id}.rows.${i}.text"]`)?.textContent, id).toBe(mark)
+    }
+    expect(container.querySelector('[data-view="run.lead"]')?.textContent).toBe(oracle['pricing-unmoved-first']!.lead)
+  })
+  it('absent: no View without the key draws a shared reason', () => {
+    for (const n of GOLDEN) {
+      expect(golden(n).model?.run?.shared_blockers, n).toBeUndefined()
+      const model = golden(n).model
+      if (model) expect(render(<ViewChances model={model} />).container.querySelector('[data-testid="view-run-shared-blocker"]'), n).toBeNull()
+    }
+  })
+})
+
 describe('a View from a core without the dock fields still draws (00058 P1)', () => {
   /** The same golden as an olumi.view/2 core before view-dock serves it: no `run`, no `driver`, `none` rows with no `text`. */
   const older = (n: string): ViewModel => {

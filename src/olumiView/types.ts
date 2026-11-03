@@ -141,6 +141,11 @@ export type View = {
       aim: string | null
       lead: string | null
       all_withheld: boolean
+      shared_blockers?: Array<{
+        aim_id: string
+        options: Array<string>
+        text: string
+      }>
       most_likely: {
         text: string
         title: string

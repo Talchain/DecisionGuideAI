@@ -63,7 +63,9 @@ function WaitsOnItems({ w, unknown }: { w: WaitsOn; unknown: boolean }) {
 
 /**
  * The lines for one View model: pure, so a test draws it from a golden View. As the base dock (ViewOnlyRunChancesBlock): the Run's lead,
- * then, when every option waits (`all_withheld`), the waits-on headline; each option with its lines and what moves its chance most; the
+ * then, when every option waits (`all_withheld`), the waits-on headline; a reason every option shares (`shared_blockers`), said once
+ * above the options as core's page says it, since each covered card carries only the mark; each option with its lines and what moves
+ * its chance most; the
  * most likely option; the notes; and, when not every option waits, what the chances wait on. Every word is the View's.
  */
 export function ViewChances({ model }: { model: ViewModel }) {
@@ -78,6 +80,9 @@ export function ViewChances({ model }: { model: ViewModel }) {
           <p><span data-view="run.waits_on.text">{run.waits_on!.text}</span>{': '}<WaitsOnItems w={run.waits_on!} unknown /></p>
         </div>
       )}
+      {run?.shared_blockers == null ? null : run.shared_blockers.map((b, i) => (
+        <p key={b.aim_id} data-testid="view-run-shared-blocker" data-aim={b.aim_id} data-view={`run.shared_blockers.${i}.text`}>{b.text}</p>
+      ))}
       {optionCards(model).map((card) => (
         <div key={card.id} data-view-card={card.id}>
           <div className={typography.panelHeader} data-view={`${card.id}.heading`}>{card.heading}</div>

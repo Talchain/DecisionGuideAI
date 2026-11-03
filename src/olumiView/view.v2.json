@@ -728,6 +728,32 @@
           "all_withheld": {
            "type": "boolean"
           },
+          "shared_blockers": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "properties": {
+             "aim_id": {
+              "type": "string"
+             },
+             "options": {
+              "type": "array",
+              "items": {
+               "type": "string"
+              }
+             },
+             "text": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "aim_id",
+             "options",
+             "text"
+            ],
+            "additionalProperties": false
+           }
+          },
           "most_likely": {
            "anyOf": [
             {
