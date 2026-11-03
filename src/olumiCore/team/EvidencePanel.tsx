@@ -3,7 +3,7 @@ import { Button } from '../../components/ui/Button'
 import type { View } from '../../olumiView/client'
 import { teamApi, TeamApiError, type EvidenceInput } from './api'
 import { useDraft } from './drafts'
-import { runWrite } from './writes'
+import { runWrite, useWriteSending } from './writes'
 import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
 
 type Stance = EvidenceInput['stance']
@@ -44,7 +44,9 @@ export function EvidencePanel({ sid, view, onWrote }: { sid: string; view: View;
   const [d, setD, dropDraft] = useDraft<EvidenceDraft>(`${sid}:evidence`, EMPTY)
   const { open, text, source, bears, stance } = d
   const put = (p: Partial<EvidenceDraft>) => setD((x) => ({ ...x, ...p }))
-  const [busy, setBusy] = useState(false)
+  const [mine, setBusy] = useState(false)
+  const sending = useWriteSending(`${sid}:evidence`)
+  const busy = mine || sending
   const [error, setError] = useState<string | null>(null)
   const effectiveBears = choices.length > 0 ? bears : NONE
   const ready = text.trim() !== '' && effectiveBears !== '' && stance !== null

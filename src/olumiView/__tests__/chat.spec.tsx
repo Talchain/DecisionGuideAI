@@ -154,6 +154,23 @@ describe('the writes go straight to core, and the View is read again', () => {
       expect(reads).not.toContain('/api/scenarios/s_0000000000aa/view')
     })
 
+    it('a brief answered after the page went to another scenario and came back (A → B → A) moves nothing (review 00002)', async () => {
+      const A = '1b4e28ba-2fa1-41d2-883f-0016d3cca427', B = '00000000-0000-4000-8000-0000000000bb'
+      useCanvasStore.setState({ currentScenarioId: A } as never)
+      useViewStore.setState({ uuid: A, sid: null, view: null, error: null, status: 'none' })
+      let made!: (r: Response) => void
+      answer(() => new Promise<Response>((done) => { made = done }))
+      const { container } = renderTab()
+      type(container, 'Should we raise the price of our pastries?')
+      await send(container)
+      useCanvasStore.setState({ currentScenarioId: B } as never)
+      useCanvasStore.setState({ currentScenarioId: A } as never)
+      await act(async () => { made(new Response(JSON.stringify({ scenario: 's_0000000000aa', proposal: 1 }), { status: 201 })) })
+      await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
+      expect(useCanvasStore.getState().currentScenarioId).toBe(A)
+      expect(reads).not.toContain('/api/scenarios/s_0000000000aa/view')
+    })
+
     it('#6 a scenario whose first draft was set aside (no version, nothing held) starts again from the brief, at the new scenario\'s address', async () => {
       const uuid = '00000000-0000-4000-8000-0000000000aa'
       useCanvasStore.setState({ currentScenarioId: uuid } as never)

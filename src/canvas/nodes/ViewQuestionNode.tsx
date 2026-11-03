@@ -6,6 +6,8 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { ViewModel } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
+import { Badge } from '../../olumiView/Badge'
+import { QUESTION } from '../../olumiView/layout'
 
 export type ViewQuestionData = { question: ViewModel['question']; width: number }
 
@@ -21,7 +23,7 @@ export function ViewQuestion({ question, width }: ViewQuestionData) {
       {q.decide_by === null ? null : (
         <p title={q.decide_by.title} className={q.decide_by.olumi ? 'text-info' : undefined} data-olumi={q.decide_by.olumi || undefined} data-view="question.decide_by.text">{q.decide_by.text}</p>
       )}
-      {q.badge === null ? null : <p title={q.badge.title} aria-label={q.badge.label} data-view="question.badge.text">{q.badge.text}</p>}
+      {q.badge === null ? null : <p><Badge cardId={QUESTION} badge={q.badge} at="question" /></p>}
     </div>
   )
 }

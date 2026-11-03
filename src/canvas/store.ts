@@ -7626,8 +7626,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // null (decision-context change) clears, and that goes through
     // DECISION_CONTEXT_CLEAR rather than here.
     if (typeof hash !== 'string' || hash.length === 0) return
-    // olumi-core lane: the page's own side (lib/tab.js) counts a saved-model revision as seen only once the canvas has adopted it, here.
-    try { (globalThis as { __OLUMI_CORE__?: { adopted?: (rev: string) => void } }).__OLUMI_CORE__?.adopted?.(hash) } catch { /* none */ }
     const held = get().lastServerGraphHash
     if (held === hash) return
     // A new hash over a held one is a write CEE has just committed (a value set, a rename, an accepted change), so

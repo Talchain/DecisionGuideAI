@@ -11,6 +11,7 @@ import { typography } from '../../styles/typography'
 import { askKindOf, CARD_WIDTH } from '../../olumiView/layout'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
+import { Badge } from '../../olumiView/Badge'
 
 export type ViewCardData = { card: Card }
 
@@ -71,7 +72,7 @@ export function ViewCard({ card }: ViewCardData) {
         <p key={j} title={p.title}><span data-view={`${id}.premises.${j}.glyph`}>{p.glyph}</span> <span data-view={`${id}.premises.${j}.text`}>{p.text}</span></p>
       ))}
       {card.rows.map((row, i) => <Row key={i} id={id} row={row} i={i} />)}
-      {card.badge === null ? null : <p title={card.badge.title} aria-label={card.badge.label} data-view={`${id}.badge.text`}>{card.badge.text}</p>}
+      {card.badge === null ? null : <p><Badge cardId={id} badge={card.badge} at={id} /></p>}
     </div>
   )
 }

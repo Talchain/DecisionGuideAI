@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { teamApi, TeamApiError } from './api'
-import { runWrite } from './writes'
+import { runWrite, useWriteSending } from './writes'
 import { useDraft } from './drafts'
 import type { View } from '../../olumiView/client'
 import { BODY, CARD, ERR, FIELD, LABEL, META } from './ui'
@@ -33,7 +33,9 @@ export function OutcomePanel({ sid, commitment, onWrote }: { sid: string; commit
   const setVersus = (v: OutcomeVersus) => setD((p) => ({ ...p, versus: v }))
   const setTriggered = (v: boolean) => setD((p) => ({ ...p, triggered: v }))
   const setNote = (v: string) => setD((p) => ({ ...p, note: v }))
-  const [busy, setBusy] = useState(false)
+  const [mine, setBusy] = useState(false)
+  const sending = useWriteSending(`${sid}:outcome:${c.id}`)
+  const busy = mine || sending
   const [error, setError] = useState<string | null>(null)
   const ready = happened.trim() !== '' && versus !== null && triggered !== null
 

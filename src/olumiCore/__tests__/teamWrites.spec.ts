@@ -3,11 +3,11 @@
  * to the same request, never guessed from a read (`team/writes.ts`).
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { TeamApiError, setTeamFetch, teamApi } from '../team/api'
+import { NOT_FOR_THIS_PAGE, TeamApiError, setPagePerson, setTeamFetch, teamApi } from '../team/api'
 import { MAY_HAVE_SAVED, NOT_CONFIRMED, resetWrites, runWrite, useWrites } from '../team/writes'
 
 beforeEach(resetWrites)
-afterEach(() => { setTeamFetch(null); resetWrites() })
+afterEach(() => { setTeamFetch(null); setPagePerson(null); resetWrites() })
 
 describe('A. an uncertain write is settled by core\'s answer to the same request, never guessed from a read', () => {
   const lost = () => new TeamApiError(0, 'dropped', true)
@@ -54,5 +54,46 @@ describe('A. an uncertain write is settled by core\'s answer to the same request
     setTeamFetch((async (_u: unknown, init?: RequestInit) => { bodies.push(init?.body ? JSON.parse(String(init.body)) : null); return { ok: true, status: 201, json: async () => ({}) } as Response }) as typeof fetch)
     await teamApi.giveView('s_1', 'x'); await teamApi.addCommitment('s_1', { action: 'a', owner: '1', expect: 'e', reconsider: 'r', keeps: [] })
     expect(bodies.every((b) => !('op' in (b as object)))).toBe(true)
+  })
+})
+
+describe('a write still on its way is never sent a second time (review 00002 #2)', () => {
+  it('a second press while the first is pending waits for the first\'s answer and sends nothing', async () => {
+    let release!: (v: { saved: number }) => void
+    let sends = 0
+    const send = () => { sends += 1; return new Promise<{ saved: number }>((r) => { release = r }) }
+    const first = runWrite('s:commitment', { op: false }, null, send)
+    const second = runWrite('s:commitment', { op: false }, null, send)
+    expect(useWrites.getState().sending['s:commitment']).toBe(true)
+    release({ saved: 1 })
+    await expect(first).resolves.toEqual({ saved: 1 })
+    await expect(second).resolves.toEqual({ saved: 1 })
+    expect(sends).toBe(1)
+    expect(useWrites.getState().sending['s:commitment']).toBeUndefined()
+    await runWrite('s:commitment', { op: false }, null, async () => { sends += 1; return { saved: 2 } })
+    expect(sends).toBe(2)
+  })
+})
+
+describe('every write is the page\'s person\'s, or it is not sent (review 00002 #1)', () => {
+  const core = (holder: string) => {
+    const posts: string[] = []
+    setTeamFetch((async (u: unknown, init?: RequestInit) => {
+      if (init?.method === 'POST') { posts.push(String(u)); return new Response('{}', { status: 201 }) }
+      return new Response(JSON.stringify({ me: { id: holder, name: holder } }), { status: 200 })
+    }) as unknown as typeof fetch)
+    return posts
+  }
+  it('another person\'s link opened in this browser since: refused here, nothing sent', async () => {
+    setPagePerson('p_1')
+    const posts = core('p_2')
+    await expect(teamApi.giveView('s_1', 'mine')).rejects.toMatchObject({ status: 409, message: NOT_FOR_THIS_PAGE, uncertain: false })
+    expect(posts).toEqual([])
+  })
+  it('the same person: sent', async () => {
+    setPagePerson('p_1')
+    const posts = core('p_1')
+    await teamApi.giveView('s_1', 'mine')
+    expect(posts).toEqual(['/api/scenarios/s_1/views'])
   })
 })

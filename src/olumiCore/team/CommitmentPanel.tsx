@@ -4,7 +4,7 @@ import type { View } from '../../olumiView/client'
 import { teamApi, TeamApiError } from './api'
 import { useDraft } from './drafts'
 import { OutcomePanel } from './OutcomePanel'
-import { MAY_HAVE_SAVED, runWrite, useWriteLocked } from './writes'
+import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from './writes'
 import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
 
 interface CommitmentDraft { open: boolean; action: string; owner: string; expect: string; reconsider: string }
@@ -20,7 +20,9 @@ export function CommitmentPanel({ sid, view, meId, onWrote }: { sid: string; vie
   const [d, setD, dropDraft] = useDraft<CommitmentDraft>(`${sid}:commitment`, { ...EMPTY, owner: meId ?? '' })
   const { open, action, owner, expect, reconsider } = d
   const put = (p: Partial<CommitmentDraft>) => setD((x) => ({ ...x, ...p }))
-  const [busy, setBusy] = useState(false)
+  const [mine, setBusy] = useState(false)
+  const sending = useWriteSending(`${sid}:commitment`)
+  const busy = mine || sending
   const [error, setError] = useState<string | null>(null)
   // A commitment has no operation id in core: one whose answer was lost may have been saved, so it is locked, not sent again (`writes.ts`).
   const locked = useWriteLocked(`${sid}:commitment`)

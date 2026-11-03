@@ -79,3 +79,22 @@ describe('a none row from a core before view-dock (no `text`) still says why (00
     expect(seen).toBeGreaterThan(0)
   })
 })
+
+describe('a badge opens what core folded into it (review 00002 ledger): a new read of the View with ?open=, nothing re-folded here', () => {
+  it('pressing a closed badge reads the View with that card\'s records opened; pressing it open closes them', async () => {
+    const { setTeamFetch } = await import('../../olumiCore/team/api')
+    const { useViewStore } = await import('../store')
+    const { fireEvent, waitFor } = await import('@testing-library/react')
+    const view = golden('european'), card = view.model!.cards.find((c) => c.badge !== null)!
+    const paths: string[] = []
+    setTeamFetch((async (u: unknown) => { paths.push(decodeURIComponent(String(u))); return new Response(JSON.stringify(view), { status: 200 }) }) as unknown as typeof fetch)
+    useViewStore.setState({ uuid: 'u', sid: 's_0123456789ab', view, opened: { open: new Map(), all: false }, status: 'ready', error: null, stale: false })
+    const { container, rerender } = render(<ViewCard card={{ ...card, badge: { ...card.badge!, open: false } }} />)
+    fireEvent.click(container.querySelector(`[data-view="${card.id}.badge.text"]`)!)
+    await waitFor(() => expect(paths.at(-1)).toBe(`/api/scenarios/s_0123456789ab/view?open=${JSON.stringify({ [card.id]: card.badge!.records })}`))
+    rerender(<ViewCard card={{ ...card, badge: { ...card.badge!, open: true } }} />)
+    fireEvent.click(container.querySelector(`[data-view="${card.id}.badge.text"]`)!)
+    await waitFor(() => expect(paths.at(-1)).toBe('/api/scenarios/s_0123456789ab/view'))
+    setTeamFetch(null)
+  })
+})

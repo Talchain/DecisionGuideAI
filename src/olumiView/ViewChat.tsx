@@ -101,9 +101,14 @@ interface ViewChatState {
   readonly busy: boolean
   /** Core's words for the last write that did not go through, or SAVED_NOT_SHOWN. */
   readonly said: string | null
+  /**
+   * A challenge that did not go through, its words waiting in the composer: sending those words again resends THAT challenge, with its
+   * op id (it may already be saved), never a plain message (review 00002 #3). Changed words are a new message.
+   */
+  readonly held: { readonly text: string; readonly kind: string; readonly record: string } | null
 }
 
-export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new Map(), busy: false, said: null }))
+export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new Map(), busy: false, said: null, held: null }))
 
 /** One write, then the View read again. An approval changes the model: the View is stale until the new one lands (00051). */
 async function act(f: () => Promise<unknown>, changesModel = false): Promise<boolean> {
@@ -127,17 +132,23 @@ async function act(f: () => Promise<unknown>, changesModel = false): Promise<boo
  * page moved on to another scenario moves nothing (review 00052 #5).
  */
 async function startScenario(brief: string, op: string, uuid: string | null): Promise<void> {
+  const left = pageMoves
   const made = await writes.create(brief, op)
   // An answer that names no scenario (unreadable, or JSON null) may still have been saved: uncertain, never "nothing saved" (00054 #4).
   if (typeof made?.scenario !== 'string' || !/^s_[0-9a-f]+$/.test(made.scenario)) throw new TeamApiError(0, UNCERTAIN_WRITE, true)
   const derived = derivedUuidOf(made.scenario)
   if (derived === null) throw new TeamApiError(502, 'Olumi made the scenario but named it in a way this page cannot open. Reload the page.')
-  if (useCanvasStore.getState().currentScenarioId !== uuid) return
+  // The page moved away while the answer was on its way, even if it has since come back (A → B → A): it moves nothing (review 00002).
+  if (pageMoves !== left || useCanvasStore.getState().currentScenarioId !== uuid) return
   useCanvasStore.setState(scenarioIdWrite(useCanvasStore.getState().currentScenarioId, derived))
   setCurrentScenarioId(derived)
   try { window.history.replaceState(window.history.state, '', `/#/scenario/${derived}`) } catch { /* the address bar keeps its old address */ }
   await useViewStore.getState().use(derived)
 }
+
+/** How many times the page has moved to another scenario: an answer is applied only to the page it was asked from. */
+let pageMoves = 0
+useCanvasStore.subscribe((now, before) => { if (now.currentScenarioId !== before.currentScenarioId) pageMoves += 1 })
 
 /** Core holds no model and no proposal for this scenario (none yet, or its first draft was set aside): a message is a new brief (00052 #6). */
 const takesBrief = (sid: string | null, view: View | null) => sid === null || (view !== null && view.version === null && view.proposal === null)
@@ -161,9 +172,21 @@ function say(text: string): Promise<boolean> {
 }
 
 async function send(): Promise<void> {
-  const { text } = useViewChat.getState()
-  if (text.trim() === '' || !(await say(text))) return
+  const { text, held } = useViewChat.getState()
+  if (text.trim() === '') return
+  const again = held !== null && held.text === text ? held : null
+  if (held !== null && again === null) useViewChat.setState({ held: null })
+  if (!(await (again !== null ? challenge(again.kind, again.record, again.text) : say(text)))) return
   if (useViewChat.getState().text === text) useViewChat.setState({ text: '' })
+}
+
+/** A challenge on one card, to core's challenge route; one that does not go through is held for the same resend (`held`). */
+async function challenge(kind: string, record: string, text: string): Promise<boolean> {
+  const sid = useViewStore.getState().sid
+  if (sid === null) return false
+  const sent = await write(`challenge:${kind}:${record}`, text, (op) => writes.challenge(sid, kind, record, op))
+  useViewChat.setState({ held: sent ? null : { text, kind, record } })
+  return sent
 }
 
 /** core's four challenges (API `POST …/challenge` `kind`), by the press's chip id. */
@@ -182,7 +205,7 @@ function press(opts: Press): Promise<boolean> {
   const target = takeAskTargetBinding(opts.message)?.nodeIds ?? useCanvasStore.getState().selection.nodeIds
   const ids = [...target]
   const record = ids.length === 1 && view?.model?.cards.some((c) => c.id === ids[0]) ? ids[0]! : null
-  if (kind !== undefined && record !== null && sid !== null) return write(`challenge:${kind}:${record}`, opts.message, (op) => writes.challenge(sid, kind, record, op))
+  if (kind !== undefined && record !== null && sid !== null) return challenge(kind, record, opts.message)
   return say(opts.message)
 }
 

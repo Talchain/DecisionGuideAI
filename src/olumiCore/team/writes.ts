@@ -21,13 +21,19 @@ interface WritesState {
   readonly attempts: Readonly<Record<string, Attempt>>
   /** Writes that may have been saved and cannot be asked about: no second send. */
   readonly locked: Readonly<Record<string, true>>
+  /** Writes on their way to core now. */
+  readonly sending: Readonly<Record<string, true>>
 }
-export const useWrites = create<WritesState>()(() => ({ attempts: {}, locked: {} }))
+export const useWrites = create<WritesState>()(() => ({ attempts: {}, locked: {}, sending: {} }))
+/** The writes on their way now, by key, so a second press waits for the first. */
+const inFlight = new Map<string, Promise<unknown>>()
 
 /** For specs. */
-export function resetWrites(): void { useWrites.setState({ attempts: {}, locked: {} }) }
+export function resetWrites(): void { inFlight.clear(); useWrites.setState({ attempts: {}, locked: {}, sending: {} }) }
 /** Is this write locked (it may have been saved, and cannot be asked about)? */
 export const useWriteLocked = (key: string): boolean => useWrites((s) => s.locked[key] === true)
+/** Is this write on its way now? A form drawn again while it is says so and offers no second send. */
+export const useWriteSending = (key: string): boolean => useWrites((s) => s.sending[key] === true)
 
 const without = <T,>(o: Readonly<Record<string, T>>, key: string): Record<string, T> => { const { [key]: _gone, ...rest } = o; return rest }
 
@@ -36,7 +42,21 @@ const without = <T,>(o: Readonly<Record<string, T>>, key: string): Record<string
  * `key` names the write (scenario and form). `request` is the request's content: an op is reused only for the same content.
  * `send` gets the op to carry (null for a write core has no op for).
  */
-export async function runWrite<T>(key: string, kind: { readonly op: boolean }, request: unknown, send: (op: string | null) => Promise<T>): Promise<T> {
+export function runWrite<T>(key: string, kind: { readonly op: boolean }, request: unknown, send: (op: string | null) => Promise<T>): Promise<T> {
+  // A write still on its way is not sent again: a second press (the form remounted, its own busy flag gone) waits for the first's answer
+  // (review 00002 #2). Core keeps no op for a commitment, a view or a reveal, so a second send would be saved twice.
+  const going = inFlight.get(key)
+  if (going !== undefined) return going as Promise<T>
+  const p = settle(key, kind, request, send)
+  inFlight.set(key, p)
+  useWrites.setState((s) => ({ sending: { ...s.sending, [key]: true } }))
+  const done = () => { inFlight.delete(key); useWrites.setState((s) => ({ sending: without(s.sending, key) })) }
+  p.then(done, done)
+  return p
+}
+
+
+async function settle<T>(key: string, kind: { readonly op: boolean }, request: unknown, send: (op: string | null) => Promise<T>): Promise<T> {
   if (!kind.op) {
     if (useWrites.getState().locked[key]) throw new TeamApiError(0, MAY_HAVE_SAVED, true)
     try { return await send(null) } catch (e) {

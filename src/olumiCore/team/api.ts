@@ -40,7 +40,26 @@ export function newOp(): string {
   return c?.randomUUID ? c.randomUUID() : `op-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
+/** What the page says when the browser now holds another person's private link than the one this page was opened for. */
+export const NOT_FOR_THIS_PAGE = 'This page was opened with a different private link from the one this browser holds now, so nothing is shown or saved here. Reload this page to continue as the person whose private link is open now.'
+
+/** The member this page was opened for, once core has said (`../me.ts`); null before. */
+let pagePerson: string | null = null
+export function setPagePerson(id: string | null): void { pagePerson = id }
+
+/**
+ * A write is saved as whoever holds the browser's cookie NOW, and another tab may have opened someone else's private link since this
+ * page was opened (review 00002 #1). So before every write core is asked whose link it is; a different person's is refused here, and
+ * nothing is sent.
+ */
+async function stillThisPerson(): Promise<void> {
+  if (pagePerson === null) return
+  const now = await call<{ me?: { id?: unknown } | null }>('GET', '/api/me')
+  if (now?.me?.id !== pagePerson) throw new TeamApiError(409, NOT_FOR_THIS_PAGE)
+}
+
 export async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  if (method === 'POST') await stillThisPerson()
   let res: Response
   try {
     res = await (fetchImpl ?? fetch)(path, {

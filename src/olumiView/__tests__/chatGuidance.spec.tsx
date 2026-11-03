@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, render, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import { setTeamFetch, UNCERTAIN_WRITE } from '../../olumiCore/team/api'
 import { coreScenarioIdOf } from '../../olumiCore/team/sid'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
@@ -36,7 +36,7 @@ beforeEach(() => {
 afterEach(() => {
   setTeamFetch(null)
   useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' })
-  useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null })
+  useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null })
 })
 
 describe('the canvas\'s asks reach core through the Olumi tab (00054 #3)', () => {
@@ -75,6 +75,33 @@ describe('the canvas\'s asks reach core through the Olumi tab (00054 #3)', () =>
     useCanvasStore.setState({ selection: { nodeIds: new Set([card.id]), edgeIds: new Set(), anchorPosition: null } })
     await act(async () => { useGuidanceStore.getState()._dispatchAction!({ id: 'ask:challenge', label: 'Challenge', message: 'Challenge this', source: 'chip' }) })
     await waitFor(() => expect(posts).toEqual([{ url: `/api/scenarios/${SID}/challenge`, body: { kind: 'assumption', record: card.id, op: expect.any(String) } }]))
+  })
+
+  it('a challenge whose answer was lost is sent again AS THAT CHALLENGE, with its op, when its words are sent from the composer (review 00002 #3)', async () => {
+    let n = 0
+    answer(() => { n++; if (n === 1) throw new TypeError('network'); return new Response(JSON.stringify({ proposal: null }), { status: 201 }) })
+    const { container } = render(<><ViewChat /><ViewComposer /></>)
+    useCanvasStore.setState({ selection: { nodeIds: new Set([card.id]), edgeIds: new Set(), anchorPosition: null } })
+    await act(async () => { useGuidanceStore.getState()._dispatchAction!({ id: 'ask:challenge', label: 'Challenge', message: 'Challenge this', source: 'chip' }) })
+    await waitFor(() => expect(useViewChat.getState().text).toBe('Challenge this'))
+    await act(async () => { fireEvent.click([...container.querySelectorAll('button')].find((b) => b.textContent === 'Send')!) })
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts.map((p) => p.url)).toEqual([`/api/scenarios/${SID}/challenge`, `/api/scenarios/${SID}/challenge`])
+    expect(posts[1]!.body).toEqual(posts[0]!.body)
+    expect(useViewChat.getState().held).toBeNull()
+  })
+
+  it('changed words after a lost challenge are a new message, not the challenge', async () => {
+    let n = 0
+    answer(() => { n++; if (n === 1) throw new TypeError('network'); return new Response(JSON.stringify({ proposal: null }), { status: 201 }) })
+    const { container } = render(<><ViewChat /><ViewComposer /></>)
+    useCanvasStore.setState({ selection: { nodeIds: new Set([card.id]), edgeIds: new Set(), anchorPosition: null } })
+    await act(async () => { useGuidanceStore.getState()._dispatchAction!({ id: 'ask:challenge', label: 'Challenge', message: 'Challenge this', source: 'chip' }) })
+    await waitFor(() => expect(useViewChat.getState().text).toBe('Challenge this'))
+    act(() => { useViewChat.setState({ text: 'What drives the price instead?' }) })
+    await act(async () => { fireEvent.click([...container.querySelectorAll('button')].find((b) => b.textContent === 'Send')!) })
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts[1]!.url).toBe(`/api/scenarios/${SID}/messages`)
   })
 
   it('any other press says its words to core as a message', async () => {

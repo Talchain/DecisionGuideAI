@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/Button'
 import type { View } from '../../olumiView/client'
 import { teamApi, TeamApiError } from './api'
 import { useDraft } from './drafts'
-import { MAY_HAVE_SAVED, runWrite, useWriteLocked } from './writes'
+import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from './writes'
 import { AVATAR, BODY, CARD, ERR, FIELD, H, META } from './ui'
 
 /**
@@ -20,6 +20,9 @@ export function ViewsPanel({ sid, view, meId, onWrote }: { sid: string; view: Vi
   // A view and a reveal have no operation id in core: one whose answer was lost may have been saved, so it is not sent again (`writes.ts`).
   const viewLocked = useWriteLocked(`${sid}:view`)
   const revealLocked = useWriteLocked(`${sid}:reveal`)
+  // A write still on its way (this panel drawn again meanwhile) keeps its buttons held: it is never sent twice.
+  const viewSending = useWriteSending(`${sid}:view`), revealSending = useWriteSending(`${sid}:reveal`)
+  const sending = viewSending || revealSending
 
   const run = async (key: string, write: () => Promise<unknown>, after?: () => void) => {
     setBusy(true); setError(null)
@@ -65,17 +68,17 @@ export function ViewsPanel({ sid, view, meId, onWrote }: { sid: string; view: Vi
       <div className={CARD}>
         <textarea
           aria-label={c.placeholder} placeholder={c.placeholder} data-testid="team-view-text" className={`${FIELD} min-h-[72px]`}
-          value={text} disabled={busy || viewLocked} onChange={(e) => { setText(e.target.value); if (error) setError(null) }}
+          value={text} disabled={busy || sending || viewLocked} onChange={(e) => { setText(e.target.value); if (error) setError(null) }}
         />
         <div className="flex flex-wrap items-center gap-3">
-          <Button size="sm" data-testid="team-view-give" disabled={busy || viewLocked || text.trim() === ''} onClick={() => void run(`${sid}:view`, () => teamApi.giveView(sid, text), dropText)}>Add my view</Button>
+          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === ''} onClick={() => void run(`${sid}:view`, () => teamApi.giveView(sid, text), dropText)}>Add my view</Button>
           <button
-            type="button" data-testid="team-view-skip" disabled={busy || viewLocked}
+            type="button" data-testid="team-view-skip" disabled={busy || sending || viewLocked}
             className={`${META} cursor-pointer underline underline-offset-2 hover:text-text-body disabled:opacity-50`}
             onClick={() => void run(`${sid}:view`, () => teamApi.skipView(sid))}
           >I would rather not answer this</button>
           {c.can_reveal && (
-            <Button size="sm" data-testid="team-reveal-go" disabled={busy || revealLocked} onClick={() => void run(`${sid}:reveal`, () => teamApi.reveal(sid))}>
+            <Button size="sm" data-testid="team-reveal-go" disabled={busy || sending || revealLocked} onClick={() => void run(`${sid}:reveal`, () => teamApi.reveal(sid))}>
               <span className="inline-flex items-center gap-1.5"><Eye aria-hidden="true" className="h-3.5 w-3.5" />Reveal everyone’s views</span>
             </Button>
           )}
