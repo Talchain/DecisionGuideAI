@@ -1,5 +1,5 @@
 /**
- * Each option's lines from the Run, drawn from the View (olumi.view/2) on the olumi-core lane, in place of the adapter-fed
+ * Each option's lines from the Run, drawn from the View (olumi.view/3; olumi.view/2 from a core before it) on the olumi-core lane, in place of the adapter-fed
  * `ViewOnlyRunChancesBlock`. Every word is core's, drawn exactly as it arrives: the option's heading, then each row (a chance with its
  * aim, its approximate mark and Olumi's marks, a limit, a route, or why there is nothing yet), with core's hover. Nothing is composed, rounded or reordered
  * here, and the band is not drawn yet (a v10 slice).
@@ -51,6 +51,28 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
 }
 
 type WaitsOn = NonNullable<ViewRun['waits_on']>
+type Science = ViewRun['science'][number]
+
+/** Whose a science line's figure is, as a mark: ◆ Olumi's estimate, ◐ a person's figure with Olumi's range, none when it is theirs or
+ *  the line names no single figure (the line itself says whose each figure is, in core's words). */
+const WHOSE_MARK = new Map<string, { glyph: string; title: string }>([['olumi', { glyph: '◆', title: 'Olumi’s estimate' }], ['mixed', { glyph: '◐', title: 'Partly Olumi’s: a person’s figure, Olumi’s range' }]])
+
+/** The Run's science lines (olumi.view/3 `model.run.science`), each core's `line` with core's `hover`, in the Run's order, verbatim. */
+function ScienceLines({ lines }: { lines: readonly Science[] }) {
+  return lines.length === 0 ? null : (
+    <div data-testid="view-run-science">
+      {lines.map((l, i) => {
+        const mark = l.figure === null ? undefined : WHOSE_MARK.get(l.figure.whose)
+        return (
+          <p key={l.id} className={typography.panelMeta} title={l.hover} data-view-science={l.id}>
+            <span data-view={`run.science.${i}.line`}>{l.line}</span>
+            {mark === undefined ? null : <>{' '}<span data-view={`run.science.${i}.whose`} title={mark.title} aria-label={mark.title}>{mark.glyph}</span></>}
+          </p>
+        )
+      })}
+    </div>
+  )
+}
 
 /** What the chances wait on, each item core's `‘label’` with its hover; a figure no one can size yet says so in the headline only. */
 function WaitsOnItems({ w, unknown }: { w: WaitsOn; unknown: boolean }) {
@@ -97,6 +119,8 @@ export function ViewChances({ model }: { model: ViewModel }) {
           {run.notes.map((n, i) => <p key={i} className={typography.panelMeta} title={n.title} data-view={`run.notes.${i}.text`}>{n.text}</p>)}
         </div>
       )}
+      {/* a core before olumi.view/3 serves no `science` */}
+      <ScienceLines lines={run?.science ?? []} />
       {run === null || run.waits_on === null || headline ? null : (
         <p data-testid="view-run-waits-on"><span data-view="run.waits_on.label">{run.waits_on.label}</span>{' '}<WaitsOnItems w={run.waits_on} unknown={false} /></p>
       )}

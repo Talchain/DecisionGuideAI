@@ -60,7 +60,7 @@ describe('the writes go straight to core, and the View is read again', () => {
     const { container } = renderTab()
     type(container, 'Raise it by 30p instead')
     await send(container)
-    await waitFor(() => expect(reads).toContain('/api/scenarios/s_000000000001/view'))
+    await waitFor(() => expect(reads).toContain('/api/scenarios/s_000000000001/view?schema=3'))
     expect(posts).toEqual([{ url: '/api/scenarios/s_000000000001/messages', body: { text: 'Raise it by 30p instead', op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } }])
     expect((container.querySelector('#view-chat-text') as HTMLTextAreaElement).value).toBe('')
   })
@@ -163,7 +163,7 @@ describe('the writes go straight to core, and the View is read again', () => {
       await waitFor(() => expect(posts[0]?.url).toBe('/api/scenarios'))
       expect(posts[0]!.body).toEqual({ brief: 'Should we raise the price of our pastries by 20p?', op: expect.any(String) })
       expect(coreScenarioIdOf(uuid)).toBe('s_0000000000cc')
-      await waitFor(() => expect(reads).toContain('/api/scenarios/s_0000000000cc/view'))
+      await waitFor(() => expect(reads).toContain('/api/scenarios/s_0000000000cc/view?schema=3'))
     })
 
     it('#7 a message saved whose View could not be read says so, rather than looking sent and shown', async () => {
@@ -190,7 +190,7 @@ describe('the writes go straight to core, and the View is read again', () => {
       const { container } = renderTab()
       type(container, 'Should we raise the price of our pastries?')
       await send(container)
-      await waitFor(() => expect(reads).toContain(`/api/scenarios/${MADE}/view`))
+      await waitFor(() => expect(reads).toContain(`/api/scenarios/${MADE}/view?schema=3`))
       expect(posts).toEqual([{ url: '/api/scenarios', body: { brief: 'Should we raise the price of our pastries?', op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } }])
       expect(coreScenarioIdOf(uuid)).toBe(MADE)
     })
@@ -202,7 +202,7 @@ describe('the writes go straight to core, and the View is read again', () => {
       type(container, 'Should we raise the price of our pastries?')
       await send(container)
       await waitFor(() => expect(useCanvasStore.getState().currentScenarioId).toBe('00000000-0000-4000-8000-0000000000ab'))
-      await waitFor(() => expect(reads).toContain(`/api/scenarios/${MADE}/view`))
+      await waitFor(() => expect(reads).toContain(`/api/scenarios/${MADE}/view?schema=3`))
     })
 
     it('a refused brief keeps what was typed and says core\'s own words', async () => {

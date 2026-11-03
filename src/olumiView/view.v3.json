@@ -1,0 +1,1551 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "type": "object",
+ "properties": {
+  "schema": {
+   "type": "string",
+   "const": "olumi.view/3"
+  },
+  "id": {
+   "type": "string"
+  },
+  "title": {
+   "type": "string"
+  },
+  "commit": {
+   "type": "string"
+  },
+  "signature": {
+   "type": "string"
+  },
+  "you": {
+   "type": "string"
+  },
+  "members": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "name"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "version": {
+   "anyOf": [
+    {
+     "type": "object",
+     "properties": {
+      "id": {
+       "type": "number"
+      },
+      "n": {
+       "type": "number"
+      },
+      "label": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "id",
+      "n",
+      "label"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "null"
+    }
+   ]
+  },
+  "model": {
+   "anyOf": [
+    {
+     "type": "object",
+     "properties": {
+      "question": {
+       "type": "object",
+       "properties": {
+        "text": {
+         "type": "string"
+        },
+        "decide_by": {
+         "anyOf": [
+          {
+           "type": "object",
+           "properties": {
+            "text": {
+             "type": "string"
+            },
+            "title": {
+             "type": "string"
+            },
+            "olumi": {
+             "type": "boolean"
+            }
+           },
+           "required": [
+            "text",
+            "title",
+            "olumi"
+           ],
+           "additionalProperties": false
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        "proposed": {
+         "type": "boolean"
+        },
+        "focus": {
+         "type": "boolean"
+        },
+        "badge": {
+         "anyOf": [
+          {
+           "type": "object",
+           "properties": {
+            "records": {
+             "type": "array",
+             "items": {
+              "type": "string"
+             }
+            },
+            "text": {
+             "type": "string"
+            },
+            "title": {
+             "type": "string"
+            },
+            "label": {
+             "type": "string"
+            },
+            "open": {
+             "type": "boolean"
+            },
+            "proposed": {
+             "type": "boolean"
+            },
+            "change": {
+             "type": "string"
+            }
+           },
+           "required": [
+            "records",
+            "text",
+            "title",
+            "label",
+            "open",
+            "proposed",
+            "change"
+           ],
+           "additionalProperties": false
+          },
+          {
+           "type": "null"
+          }
+         ]
+        }
+       },
+       "required": [
+        "text",
+        "decide_by",
+        "proposed",
+        "focus",
+        "badge"
+       ],
+       "additionalProperties": false
+      },
+      "whole": {
+       "type": "boolean"
+      },
+      "cards": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "family": {
+          "type": "string"
+         },
+         "glyph": {
+          "type": "string"
+         },
+         "heading": {
+          "type": "string"
+         },
+         "typed": {
+          "type": "boolean"
+         },
+         "detail": {
+          "type": "string"
+         },
+         "col": {
+          "type": "number"
+         },
+         "h": {
+          "type": "number"
+         },
+         "olumi": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "glyph": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "glyph",
+             "title"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
+         "change": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "glyph": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "glyph",
+             "title"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
+         "focus": {
+          "type": "boolean"
+         },
+         "challenged": {
+          "type": "boolean"
+         },
+         "doubt": {
+          "type": "boolean"
+         },
+         "figure": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "text": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             },
+             "edit": {
+              "anyOf": [
+               {
+                "type": "object",
+                "properties": {
+                 "prompt": {
+                  "type": "string"
+                 },
+                 "ask": {
+                  "type": "string"
+                 }
+                },
+                "required": [
+                 "prompt",
+                 "ask"
+                ],
+                "additionalProperties": false
+               },
+               {
+                "type": "null"
+               }
+              ]
+             }
+            },
+            "required": [
+             "text",
+             "title",
+             "edit"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
+         "premises": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "glyph": {
+             "type": "string"
+            },
+            "text": {
+             "type": "string"
+            },
+            "title": {
+             "type": "string"
+            }
+           },
+           "required": [
+            "glyph",
+            "text",
+            "title"
+           ],
+           "additionalProperties": false
+          }
+         },
+         "rows": {
+          "type": "array",
+          "items": {
+           "oneOf": [
+            {
+             "type": "object",
+             "properties": {
+              "kind": {
+               "type": "string",
+               "const": "chance"
+              },
+              "value": {
+               "type": "string"
+              },
+              "fixed": {
+               "type": "boolean"
+              },
+              "approx": {
+               "type": "string"
+              },
+              "olumi": {
+               "anyOf": [
+                {
+                 "type": "object",
+                 "properties": {
+                  "glyph": {
+                   "type": "string"
+                  },
+                  "title": {
+                   "type": "string"
+                  }
+                 },
+                 "required": [
+                  "glyph",
+                  "title"
+                 ],
+                 "additionalProperties": false
+                },
+                {
+                 "type": "null"
+                }
+               ]
+              },
+              "likely": {
+               "anyOf": [
+                {
+                 "type": "object",
+                 "properties": {
+                  "glyph": {
+                   "type": "string"
+                  },
+                  "title": {
+                   "type": "string"
+                  }
+                 },
+                 "required": [
+                  "glyph",
+                  "title"
+                 ],
+                 "additionalProperties": false
+                },
+                {
+                 "type": "null"
+                }
+               ]
+              },
+              "aim": {
+               "type": "string"
+              },
+              "aim_id": {
+               "type": "string"
+              },
+              "title": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "kind",
+              "value",
+              "fixed",
+              "approx",
+              "olumi",
+              "likely",
+              "aim",
+              "aim_id",
+              "title"
+             ],
+             "additionalProperties": false
+            },
+            {
+             "type": "object",
+             "properties": {
+              "kind": {
+               "type": "string",
+               "const": "limit"
+              },
+              "value": {
+               "type": "string"
+              },
+              "aim": {
+               "type": "string"
+              },
+              "aim_id": {
+               "type": "string"
+              },
+              "title": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "kind",
+              "value",
+              "aim",
+              "aim_id",
+              "title"
+             ],
+             "additionalProperties": false
+            },
+            {
+             "type": "object",
+             "properties": {
+              "kind": {
+               "type": "string",
+               "const": "route"
+              },
+              "glyph": {
+               "type": "string"
+              },
+              "aim": {
+               "type": "string"
+              },
+              "aim_id": {
+               "type": "string"
+              },
+              "title": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "kind",
+              "glyph",
+              "aim",
+              "aim_id",
+              "title"
+             ],
+             "additionalProperties": false
+            },
+            {
+             "type": "object",
+             "properties": {
+              "kind": {
+               "type": "string",
+               "const": "none"
+              },
+              "aim_id": {
+               "type": [
+                "string",
+                "null"
+               ]
+              },
+              "text": {
+               "type": "string"
+              },
+              "title": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "kind",
+              "aim_id",
+              "text",
+              "title"
+             ],
+             "additionalProperties": false
+            }
+           ]
+          }
+         },
+         "driver": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "text": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "text",
+             "title"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
+         "status": {
+          "type": [
+           "string",
+           "null"
+          ]
+         },
+         "bound": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "text": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             },
+             "olumi": {
+              "anyOf": [
+               {
+                "type": "object",
+                "properties": {
+                 "glyph": {
+                  "type": "string"
+                 },
+                 "title": {
+                  "type": "string"
+                 }
+                },
+                "required": [
+                 "glyph",
+                 "title"
+                ],
+                "additionalProperties": false
+               },
+               {
+                "type": "null"
+               }
+              ]
+             },
+             "measured": {
+              "type": "boolean"
+             }
+            },
+            "required": [
+             "text",
+             "title",
+             "olumi",
+             "measured"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
+         "reason": {
+          "type": [
+           "string",
+           "null"
+          ]
+         },
+         "badge": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "records": {
+              "type": "array",
+              "items": {
+               "type": "string"
+              }
+             },
+             "text": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             },
+             "label": {
+              "type": "string"
+             },
+             "open": {
+              "type": "boolean"
+             },
+             "proposed": {
+              "type": "boolean"
+             },
+             "change": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "records",
+             "text",
+             "title",
+             "label",
+             "open",
+             "proposed",
+             "change"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
+         }
+        },
+        "required": [
+         "id",
+         "family",
+         "glyph",
+         "heading",
+         "typed",
+         "detail",
+         "col",
+         "h",
+         "olumi",
+         "change",
+         "focus",
+         "challenged",
+         "doubt",
+         "figure",
+         "premises",
+         "rows",
+         "driver",
+         "status",
+         "bound",
+         "reason",
+         "badge"
+        ],
+        "additionalProperties": false
+       }
+      },
+      "links": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "properties": {
+         "from": {
+          "type": "string"
+         },
+         "to": {
+          "type": "string"
+         },
+         "kind": {
+          "type": "string",
+          "enum": [
+           "plain",
+           "replaces",
+           "reason",
+           "through"
+          ]
+         },
+         "label": {
+          "type": "string"
+         },
+         "doubt": {
+          "type": "boolean"
+         },
+         "alert": {
+          "type": "boolean"
+         },
+         "proposed": {
+          "type": "boolean"
+         },
+         "title": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "from",
+         "to",
+         "kind",
+         "label",
+         "doubt",
+         "alert",
+         "proposed",
+         "title"
+        ],
+        "additionalProperties": false
+       }
+      },
+      "run": {
+       "anyOf": [
+        {
+         "type": "object",
+         "properties": {
+          "aim": {
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "lead": {
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "all_withheld": {
+           "type": "boolean"
+          },
+          "most_likely": {
+           "anyOf": [
+            {
+             "type": "object",
+             "properties": {
+              "text": {
+               "type": "string"
+              },
+              "title": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "text",
+              "title"
+             ],
+             "additionalProperties": false
+            },
+            {
+             "type": "null"
+            }
+           ]
+          },
+          "waits_on": {
+           "anyOf": [
+            {
+             "type": "object",
+             "properties": {
+              "head": {
+               "type": "string"
+              },
+              "label": {
+               "type": "string"
+              },
+              "text": {
+               "type": "string"
+              },
+              "items": {
+               "type": "array",
+               "items": {
+                "type": "object",
+                "properties": {
+                 "id": {
+                  "type": "string"
+                 },
+                 "text": {
+                  "type": "string"
+                 },
+                 "title": {
+                  "type": "string"
+                 },
+                 "answer": {
+                  "type": "boolean"
+                 },
+                 "unknown": {
+                  "type": [
+                   "string",
+                   "null"
+                  ]
+                 },
+                 "edit": {
+                  "anyOf": [
+                   {
+                    "type": "object",
+                    "properties": {
+                     "prompt": {
+                      "type": "string"
+                     },
+                     "ask": {
+                      "type": "string"
+                     }
+                    },
+                    "required": [
+                     "prompt",
+                     "ask"
+                    ],
+                    "additionalProperties": false
+                   },
+                   {
+                    "type": "null"
+                   }
+                  ]
+                 }
+                },
+                "required": [
+                 "id",
+                 "text",
+                 "title",
+                 "answer",
+                 "unknown",
+                 "edit"
+                ],
+                "additionalProperties": false
+               }
+              }
+             },
+             "required": [
+              "head",
+              "label",
+              "text",
+              "items"
+             ],
+             "additionalProperties": false
+            },
+            {
+             "type": "null"
+            }
+           ]
+          },
+          "notes": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "properties": {
+             "text": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "text",
+             "title"
+            ],
+            "additionalProperties": false
+           }
+          },
+          "science": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "properties": {
+             "id": {
+              "type": "string"
+             },
+             "kind": {
+              "type": "string",
+              "enum": [
+               "worth",
+               "failure",
+               "tipping",
+               "reliance"
+              ]
+             },
+             "line": {
+              "type": "string"
+             },
+             "hover": {
+              "type": "string"
+             },
+             "aim": {
+              "type": "string"
+             },
+             "limits": {
+              "type": "array",
+              "items": {
+               "type": "string"
+              }
+             },
+             "figure": {
+              "anyOf": [
+               {
+                "type": "object",
+                "properties": {
+                 "label": {
+                  "type": "string"
+                 },
+                 "whose": {
+                  "type": "string",
+                  "enum": [
+                   "theirs",
+                   "olumi",
+                   "mixed"
+                  ]
+                 }
+                },
+                "required": [
+                 "label",
+                 "whose"
+                ],
+                "additionalProperties": false
+               },
+               {
+                "type": "null"
+               }
+              ]
+             }
+            },
+            "required": [
+             "id",
+             "kind",
+             "line",
+             "hover",
+             "aim",
+             "limits",
+             "figure"
+            ],
+            "additionalProperties": false
+           }
+          }
+         },
+         "required": [
+          "aim",
+          "lead",
+          "all_withheld",
+          "most_likely",
+          "waits_on",
+          "notes",
+          "science"
+         ],
+         "additionalProperties": false
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "edit_base": {
+       "type": [
+        "number",
+        "null"
+       ]
+      }
+     },
+     "required": [
+      "question",
+      "whole",
+      "cards",
+      "links",
+      "run",
+      "edit_base"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "null"
+    }
+   ]
+  },
+  "proposal": {
+   "anyOf": [
+    {
+     "type": "object",
+     "properties": {
+      "id": {
+       "type": "number"
+      },
+      "base": {
+       "type": [
+        "number",
+        "null"
+       ]
+      },
+      "heading": {
+       "type": "string"
+      },
+      "on": {
+       "type": "string"
+      },
+      "removed": {
+       "anyOf": [
+        {
+         "type": "object",
+         "properties": {
+          "text": {
+           "type": "string"
+          },
+          "title": {
+           "type": "string"
+          }
+         },
+         "required": [
+          "text",
+          "title"
+         ],
+         "additionalProperties": false
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "problem": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "marks": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "properties": {
+         "what": {
+          "type": "string"
+         },
+         "status": {
+          "type": "string"
+         },
+         "title": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "what",
+         "status",
+         "title"
+        ],
+        "additionalProperties": false
+       }
+      }
+     },
+     "required": [
+      "id",
+      "base",
+      "heading",
+      "on",
+      "removed",
+      "problem",
+      "marks"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "null"
+    }
+   ]
+  },
+  "collab": {
+   "type": "object",
+   "properties": {
+    "alone": {
+     "type": "boolean"
+    },
+    "heading": {
+     "type": "string"
+    },
+    "open": {
+     "type": "boolean"
+    },
+    "shared": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "number"
+       },
+       "by": {
+        "type": "string"
+       },
+       "text": {
+        "type": "string"
+       },
+       "skip": {
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "id",
+       "by",
+       "text",
+       "skip"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "mine": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "number"
+       },
+       "text": {
+        "type": "string"
+       },
+       "shared": {
+        "type": "boolean"
+       },
+       "skip": {
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "id",
+       "text",
+       "shared",
+       "skip"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "placeholder": {
+     "type": "string"
+    },
+    "can_reveal": {
+     "type": "boolean"
+    },
+    "waiting": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "commitments": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "number"
+       },
+       "at": {
+        "type": "string"
+       },
+       "by": {
+        "type": "string"
+       },
+       "action": {
+        "type": "string"
+       },
+       "owner": {
+        "type": "string"
+       },
+       "owner_id": {
+        "type": "string"
+       },
+       "expect": {
+        "type": "string"
+       },
+       "reconsider": {
+        "type": "string"
+       },
+       "keeps": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       },
+       "outcomes": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "id": {
+           "type": "number"
+          },
+          "at": {
+           "type": "string"
+          },
+          "by": {
+           "type": "string"
+          },
+          "happened": {
+           "type": "string"
+          },
+          "versus": {
+           "type": "string"
+          },
+          "reconsider_triggered": {
+           "type": "boolean"
+          },
+          "note": {
+           "type": [
+            "string",
+            "null"
+           ]
+          }
+         },
+         "required": [
+          "id",
+          "at",
+          "by",
+          "happened",
+          "versus",
+          "reconsider_triggered",
+          "note"
+         ],
+         "additionalProperties": false
+        }
+       }
+      },
+      "required": [
+       "id",
+       "at",
+       "by",
+       "action",
+       "owner",
+       "owner_id",
+       "expect",
+       "reconsider",
+       "keeps",
+       "outcomes"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "owners": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "name": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "name"
+      ],
+      "additionalProperties": false
+     }
+    }
+   },
+   "required": [
+    "alone",
+    "heading",
+    "open",
+    "shared",
+    "mine",
+    "placeholder",
+    "can_reveal",
+    "waiting",
+    "commitments",
+    "owners"
+   ],
+   "additionalProperties": false
+  },
+  "evidence": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "number"
+     },
+     "at": {
+      "type": "string"
+     },
+     "by": {
+      "type": "string"
+     },
+     "text": {
+      "type": "string"
+     },
+     "source": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "concerns": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "stance": {
+      "type": "string"
+     },
+     "version": {
+      "type": [
+       "number",
+       "null"
+      ]
+     }
+    },
+    "required": [
+     "id",
+     "at",
+     "by",
+     "text",
+     "source",
+     "concerns",
+     "stance",
+     "version"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "chat": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "number"
+     },
+     "by": {
+      "type": "string"
+     },
+     "version": {
+      "type": "string"
+     },
+     "earlier": {
+      "type": "boolean"
+     },
+     "status": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "said": {
+      "type": "string"
+     },
+     "answer": {
+      "anyOf": [
+       {
+        "type": "object",
+        "properties": {
+         "answer": {
+          "type": "array",
+          "items": {
+           "anyOf": [
+            {
+             "type": "object",
+             "properties": {
+              "text": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "text"
+             ],
+             "additionalProperties": false
+            },
+            {
+             "type": "object",
+             "properties": {
+              "cite": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "cite"
+             ],
+             "additionalProperties": false
+            }
+           ]
+          }
+         },
+         "why": {
+          "type": "array",
+          "items": {
+           "type": "array",
+           "items": {
+            "anyOf": [
+             {
+              "type": "object",
+              "properties": {
+               "text": {
+                "type": "string"
+               }
+              },
+              "required": [
+               "text"
+              ],
+              "additionalProperties": false
+             },
+             {
+              "type": "object",
+              "properties": {
+               "cite": {
+                "type": "string"
+               }
+              },
+              "required": [
+               "cite"
+              ],
+              "additionalProperties": false
+             }
+            ]
+           }
+          }
+         },
+         "next": {
+          "type": "object",
+          "properties": {
+           "label": {
+            "type": "string"
+           },
+           "text": {
+            "type": "array",
+            "items": {
+             "anyOf": [
+              {
+               "type": "object",
+               "properties": {
+                "text": {
+                 "type": "string"
+                }
+               },
+               "required": [
+                "text"
+               ],
+               "additionalProperties": false
+              },
+              {
+               "type": "object",
+               "properties": {
+                "cite": {
+                 "type": "string"
+                }
+               },
+               "required": [
+                "cite"
+               ],
+               "additionalProperties": false
+              }
+             ]
+            }
+           },
+           "about": {
+            "type": "array",
+            "items": {
+             "type": "string"
+            }
+           },
+           "newest": {
+            "type": "boolean"
+           }
+          },
+          "required": [
+           "label",
+           "text",
+           "about",
+           "newest"
+          ],
+          "additionalProperties": false
+         }
+        },
+        "required": [
+         "answer",
+         "why",
+         "next"
+        ],
+        "additionalProperties": false
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "broke": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "problem": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "marks": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "what": {
+         "type": "string"
+        },
+        "status": {
+         "type": "string"
+        },
+        "title": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "what",
+        "status",
+        "title"
+       ],
+       "additionalProperties": false
+      }
+     }
+    },
+    "required": [
+     "id",
+     "by",
+     "version",
+     "earlier",
+     "status",
+     "said",
+     "answer",
+     "broke",
+     "problem",
+     "marks"
+    ],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": [
+  "schema",
+  "id",
+  "title",
+  "commit",
+  "signature",
+  "you",
+  "members",
+  "version",
+  "model",
+  "proposal",
+  "collab",
+  "evidence",
+  "chat"
+ ],
+ "additionalProperties": false
+}

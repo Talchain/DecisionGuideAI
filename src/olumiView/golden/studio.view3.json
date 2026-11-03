@@ -1,0 +1,644 @@
+{
+ "schema": "olumi.view/3",
+ "id": "s_000000000002",
+ "title": "Evening classes or carry on?",
+ "commit": "golden",
+ "signature": "[1,null,[],[],[],[],[\"p_1\"]]",
+ "you": "Paul",
+ "members": [
+  {
+   "id": "p_1",
+   "name": "Paul"
+  }
+ ],
+ "version": {
+  "id": 1,
+  "n": 1,
+  "label": "version 1"
+ },
+ "model": {
+  "question": {
+   "text": "Should the studio add evening classes?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": null
+  },
+  "whole": false,
+  "cards": [
+   {
+    "id": "class_fee",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "class fee",
+    "typed": false,
+    "detail": "class fee · quantity · Theirs: “£12 a class” · 12 GBP/class",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "12 GBP/class",
+     "title": "12 GBP/class",
+     "edit": {
+      "prompt": "New figure for “class fee” (GBP/class): one number, or a range like 150 to 400",
+      "ask": "For “class fee”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null
+   },
+   {
+    "id": "classes_now",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "classes now",
+    "typed": false,
+    "detail": "classes now · quantity · Theirs: “teaches 200 classes a month” · 200 classes/month",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "200 classes/month",
+     "title": "200 classes/month",
+     "edit": {
+      "prompt": "New figure for “classes now” (class/month): one number, or a range like 150 to 400",
+      "ask": "For “classes now”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null
+   },
+   {
+    "id": "evening_extra",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "evening extra",
+    "typed": false,
+    "detail": "evening extra · quantity · Theirs: “somewhere between 20 and 40 evening classes a month” · Plausible range: 20 to 40 classes/month",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "20 to 40 classes/month",
+     "title": "Plausible range: 20 to 40 classes/month",
+     "edit": {
+      "prompt": "New figure for “evening extra” (class/month): one number, or a range like 150 to 400",
+      "ask": "For “evening extra”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null
+   },
+   {
+    "id": "workshop_extra",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "workshop extra",
+    "typed": false,
+    "detail": "workshop extra · quantity · Proposed by Olumi: Olumi's proposed size for weekend workshops. · 15 classes/month",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Olumi's proposed size for weekend workshops."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "15 classes/month",
+     "title": "15 classes/month",
+     "edit": {
+      "prompt": "New figure for “workshop extra” (class/month): one number, or a range like 150 to 400",
+      "ask": "For “workshop extra”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null
+   },
+   {
+    "id": "takings",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "takings",
+    "typed": false,
+    "detail": "takings · quantity · Proposed by Olumi: Olumi's estimate · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Olumi's estimate"
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Evening classes: 2,640 to 2,880 GBP/month · Weekend workshops: 2,580 GBP/month · Carry on as now: 2,400 GBP/month",
+     "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. Under Weekend workshops it rests on figures Olumi proposed. Evening classes: 2,640 to 2,880 GBP/month; Weekend workshops: 2,580 GBP/month; Carry on as now: 2,400 GBP/month. Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "extra_classes",
+      "classes",
+      "classes_rel",
+      "takings_rel"
+     ],
+     "text": "● = +4",
+     "title": "quantity: extra classes\nquantity: classes\nrelation: how classes is worked out\nrelation: how takings is worked out",
+     "label": "Expand 4 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "takings_target",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "takings target",
+    "typed": false,
+    "detail": "takings target · quantity · Theirs: “take at least £2,640 a month” · 2,640 GBP/month",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "2,640 GBP/month",
+     "title": "2,640 GBP/month",
+     "edit": {
+      "prompt": "New figure for “takings target” (GBP/month): one number, or a range like 150 to 400",
+      "ask": "For “takings target”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null
+   },
+   {
+    "id": "members",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "members",
+    "typed": false,
+    "detail": "members · quantity · Theirs: “has 150 members” · 150 members",
+    "col": 1,
+    "h": 116,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "150 members",
+     "title": "150 members",
+     "edit": {
+      "prompt": "New figure for “members” (member): one number, or a range like 150 to 400",
+      "ask": "For “members”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "member_mood",
+      "evening_mood",
+      "mood_members",
+      "co_owner_view",
+      "if_slots_suit"
+     ],
+     "text": "● ↝ ⚑ +5",
+     "title": "quantity: How members feel\nrelation: Evening classes → How members feel\nrelation: How members feel → members\ndissent: my co-owner: Evening classes will crowd the studio and put off daytime members.\nchallenge: It depends on whether evening slots suit the members who work days.",
+     "label": "Expand 5 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "members_target",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "members target",
+    "typed": false,
+    "detail": "members target · quantity · Theirs: “keep at least 140 members” · 140 members",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "140 members",
+     "title": "140 members",
+     "edit": {
+      "prompt": "New figure for “members target” (member): one number, or a range like 150 to 400",
+      "ask": "For “members target”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null
+   },
+   {
+    "id": "takings_goal",
+    "family": "goal",
+    "glyph": "◆",
+    "heading": "Take £2,640 a month",
+    "typed": false,
+    "detail": "Take £2,640 a month · goal · Theirs: “take at least £2,640 a month”",
+    "col": 3,
+    "h": 102,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at least 2,640 GBP/month",
+     "title": "at least 2,640 GBP/month",
+     "olumi": null,
+     "measured": true
+    },
+    "reason": null,
+    "badge": null
+   },
+   {
+    "id": "keep_members",
+    "family": "goal",
+    "glyph": "◆",
+    "heading": "Keep at least 140 members",
+    "typed": false,
+    "detail": "Keep at least 140 members · goal · Theirs: “keep at least 140 members”",
+    "col": 3,
+    "h": 102,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at least 140 members",
+     "title": "at least 140 members",
+     "olumi": null,
+     "measured": true
+    },
+    "reason": null,
+    "badge": null
+   },
+   {
+    "id": "evening_classes",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Evening classes",
+    "typed": false,
+    "detail": "Evening classes · option · Theirs: “add evening classes”",
+    "col": 0,
+    "h": 124,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "keep_members",
+      "text": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated.",
+      "title": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated."
+     },
+     {
+      "kind": "chance",
+      "value": "about 89% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": null,
+      "likely": {
+       "glyph": "◉",
+       "title": "The option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops')."
+      },
+      "aim": "Take £2,640 a month",
+      "aim_id": "takings_goal",
+      "title": "The chance that 'Evening classes' meets 'Take £2,640 a month', in this model on current information."
+     }
+    ],
+    "driver": {
+     "text": "about 68% if 'evening extra' is low, over 99% if it is high: Under 'Evening classes', the chance of meeting 'Take £2,640 a month' moves most with 'evening extra': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "about 68% if 'evening extra' is low, over 99% if it is high: Under 'Evening classes', the chance of meeting 'Take £2,640 a month' moves most with 'evening extra': these are its chances over the lowest and highest third of that figure's draws."
+    },
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "evening_mood"
+     ],
+     "text": "↝ +1",
+     "title": "relation: Evening classes → How members feel",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    }
+   },
+   {
+    "id": "weekend_workshops",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Weekend workshops",
+    "typed": false,
+    "detail": "Weekend workshops · option · Proposed by Olumi: Olumi's estimate",
+    "col": 0,
+    "h": 98,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Olumi's estimate"
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "keep_members",
+      "text": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated.",
+      "title": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated."
+     },
+     {
+      "kind": "chance",
+      "value": "never met in this model",
+      "fixed": true,
+      "approx": "",
+      "olumi": null,
+      "likely": null,
+      "aim": "Take £2,640 a month",
+      "aim_id": "takings_goal",
+      "title": "With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance."
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null
+   },
+   {
+    "id": "carry_on",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Carry on as now",
+    "typed": false,
+    "detail": "Carry on as now · option · Theirs: “carry on as now”",
+    "col": 0,
+    "h": 98,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "keep_members",
+      "text": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated.",
+      "title": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated."
+     },
+     {
+      "kind": "chance",
+      "value": "never met in this model",
+      "fixed": true,
+      "approx": "",
+      "olumi": null,
+      "likely": null,
+      "aim": "Take £2,640 a month",
+      "aim_id": "takings_goal",
+      "title": "With the model's figures, 'Carry on as now' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance."
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null
+   }
+  ],
+  "links": [
+   {
+    "from": "classes_now",
+    "to": "takings",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through classes · Proposed by Olumi: Olumi's estimate"
+   },
+   {
+    "from": "class_fee",
+    "to": "takings",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "multiplies · Proposed by Olumi: Olumi's estimate"
+   },
+   {
+    "from": "evening_classes",
+    "to": "members",
+    "kind": "through",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through How members feel · Theirs: “Members have asked for evening slots” · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link."
+   },
+   {
+    "from": "takings",
+    "to": "takings_goal",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by"
+   },
+   {
+    "from": "takings_target",
+    "to": "takings_goal",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target"
+   },
+   {
+    "from": "members",
+    "to": "keep_members",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by"
+   },
+   {
+    "from": "members_target",
+    "to": "keep_members",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target"
+   },
+   {
+    "from": "evening_classes",
+    "to": "evening_extra",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input"
+   },
+   {
+    "from": "evening_extra",
+    "to": "takings",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through extra classes, classes · Proposed by Olumi: Olumi's estimate"
+   },
+   {
+    "from": "weekend_workshops",
+    "to": "workshop_extra",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input"
+   },
+   {
+    "from": "workshop_extra",
+    "to": "takings",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through extra classes, classes · Proposed by Olumi: Olumi's estimate"
+   }
+  ],
+  "run": {
+   "aim": "chance of ‘Take £2,640 a month’",
+   "lead": "In this model, on current information, each option’s chance of ‘Take £2,640 a month’:",
+   "all_withheld": false,
+   "most_likely": {
+    "text": "The option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops').",
+    "title": "The option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops')."
+   },
+   "waits_on": null,
+   "notes": [],
+   "science": []
+  },
+  "edit_base": 1
+ },
+ "proposal": null,
+ "collab": {
+  "alone": true,
+  "heading": "Your private views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own private view",
+  "can_reveal": false,
+  "waiting": null,
+  "commitments": [],
+  "owners": [
+   {
+    "id": "p_1",
+    "name": "Paul"
+   }
+  ]
+ },
+ "evidence": [],
+ "chat": []
+}

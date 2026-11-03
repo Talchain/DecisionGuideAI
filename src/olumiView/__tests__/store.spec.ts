@@ -18,7 +18,7 @@ it('reads the View of the scenario the page shows, by its core id', async () => 
   const urls: string[] = []
   setTeamFetch((async (url: string) => { urls.push(url); return answered('first') }) as unknown as typeof fetch)
   await useViewStore.getState().use(UUID)
-  expect(urls).toEqual([`/api/scenarios/${SID}/view`])
+  expect(urls).toEqual([`/api/scenarios/${SID}/view?schema=3`])
   expect(useViewStore.getState().view?.title).toBe('first')
 })
 

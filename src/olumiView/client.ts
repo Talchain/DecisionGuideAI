@@ -22,21 +22,22 @@ export type ViewRun = NonNullable<ViewModel['run']>
 export interface Opened { readonly open: ReadonlyMap<string, readonly string[]>; readonly all: boolean }
 export const NOTHING_OPENED: Opened = { open: new Map(), all: false }
 
-export const VIEW_SCHEMA = 'olumi.view/2'
+export const VIEW_SCHEMA = 'olumi.view/3'
+/** A core before olumi.view/3 answers ?schema=3 with olumi.view/2: the same View without `model.run.science`, drawn with no science lines. */
+const VIEW_SCHEMA_BEFORE = 'olumi.view/2'
 /** Core answered in a shape this page was not built for (a newer or older View): said, never drawn as if it were this one. */
 export const VIEW_SHAPE_CHANGED = 'Olumi has been updated since this page loaded. Reload the page to continue.'
 
 export function viewPath(sid: string, opened: Opened = NOTHING_OPENED): string {
-  const q = new URLSearchParams()
+  const q = new URLSearchParams({ schema: '3' })
   if (opened.open.size > 0) q.set('open', JSON.stringify(Object.fromEntries(opened.open)))
   if (opened.all) q.set('all', '1')
-  const s = q.toString()
-  return `/api/scenarios/${encodeURIComponent(sid)}/view${s ? `?${s}` : ''}`
+  return `/api/scenarios/${encodeURIComponent(sid)}/view?${q.toString()}`
 }
 
 export async function readView(sid: string, opened: Opened = NOTHING_OPENED): Promise<View> {
   const v = await call<{ schema?: unknown }>('GET', viewPath(sid, opened))
-  if (v === null || typeof v !== 'object' || v.schema !== VIEW_SCHEMA) throw new TeamApiError(0, VIEW_SHAPE_CHANGED)
+  if (v === null || typeof v !== 'object' || (v.schema !== VIEW_SCHEMA && v.schema !== VIEW_SCHEMA_BEFORE)) throw new TeamApiError(0, VIEW_SHAPE_CHANGED)
   return v as View
 }
 
