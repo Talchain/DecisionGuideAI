@@ -35,12 +35,15 @@ const twoPeople = (over: Partial<View['collab']> = {}, view: Partial<View> = {})
 
 let calls: Array<{ method: string; path: string; body: unknown }> = []
 let served: View
+let invites: unknown[] = []
 beforeEach(() => {
   calls = []
+  invites = []
   served = twoPeople()
   setTeamFetch((async (u: unknown, init?: RequestInit) => {
     const method = init?.method ?? 'GET'
     calls.push({ method, path: String(u), body: init?.body ? JSON.parse(String(init.body)) : undefined })
+    if (String(u).endsWith('/invites')) return new Response(JSON.stringify(method === 'GET' ? { invites } : { id: 'p_9', link: '/k/tok123?to=/s/' + SID }), { status: method === 'GET' ? 200 : 201 })
     return new Response(JSON.stringify(method === 'GET' ? served : { ok: 1 }), { status: method === 'GET' ? 200 : 201 })
   }) as unknown as typeof fetch)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: served, status: 'ready', error: null, stale: false })
@@ -142,5 +145,21 @@ describe('every write goes to core\'s own route, and the View is read again afte
     fireEvent.click(screen.getByTestId('team-o-9-save'))
     await waitFor(() => expect(reread()).toBe(2))
     expect(posts()[1]).toMatchObject({ path: `/api/scenarios/${SID}/commitments/9/outcomes`, body: { happened: 'Eight.', versus: 'mixed', reconsider_triggered: false, op: expect.any(String) } })
+  })
+})
+
+describe('bringing a colleague in (core API v1.8, any member, no admin key)', () => {
+  it('makes their link through core\'s invites route, shows it once with the scenario\'s DGAI address, and lists who was invited', async () => {
+    render(<TeamTab />)
+    fireEvent.change(screen.getByTestId('team-invite-name'), { target: { value: 'Cai' } })
+    invites = [{ id: 'p_9', name: 'Cai', by: 'Ada', made: '2026-11-03', expires: '2026-12-03', status: 'live', revocable: true }]
+    fireEvent.click(screen.getByTestId('team-invite-go'))
+    await waitFor(() => expect(screen.getByTestId('team-invite-link')).toBeTruthy())
+    expect(posts().find((p) => p.path.endsWith('/invites'))).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/invites`, body: { name: 'Cai' } })
+    expect((screen.getByTestId('team-invite-link') as HTMLInputElement).value).toBe(`${window.location.origin}/k/tok123?to=/s/${SID}`)
+    expect(screen.getByTestId('team-invite-address').textContent).toContain(`/#/scenario/00000000-0000-4000-8000-0123456789ab`)
+    await waitFor(() => expect(screen.getByTestId('team-invite-p_9').textContent).toContain('Cai · invited by Ada · live'))
+    fireEvent.click(screen.getByTestId('team-invite-revoke-p_9'))
+    await waitFor(() => expect(posts().some((p) => p.path === `/api/scenarios/${SID}/invites/p_9/revoke`)).toBe(true))
   })
 })

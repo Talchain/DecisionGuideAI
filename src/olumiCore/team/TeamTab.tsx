@@ -5,6 +5,7 @@ import type { View } from '../../olumiView/client'
 import { isForThisPage, NOT_FOR_THIS_PAGE, useMe } from '../me'
 import { CommitmentPanel } from './CommitmentPanel'
 import { EvidencePanel } from './EvidencePanel'
+import { InvitePanel } from './InvitePanel'
 import { ViewsPanel } from './ViewsPanel'
 import { BODY, ERR, H, META } from './ui'
 
@@ -50,6 +51,7 @@ export function TeamTab(): JSX.Element {
       {shown !== null && sid && (
         <>
           <ViewsPanel sid={sid} view={shown} meId={me?.id ?? null} onWrote={refresh} />
+          <InvitePanel sid={sid} />
           <EvidencePanel sid={sid} view={shown} onWrote={refresh} />
           <CommitmentPanel sid={sid} view={shown} meId={me?.id ?? null} onWrote={refresh} />
         </>

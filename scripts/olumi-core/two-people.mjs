@@ -76,8 +76,13 @@ for (const c of v.model.cards.slice(0, 4)) check(await ada.page.locator(`.react-
 await shot(ada, '0-ada-model')
 
 // ── 1. Bea joins by her link, on the same address ───────────────────────────────────────────────────────────────────────────────
-step(1, 'Bea opens her own link to the same scenario in a second browser; each gives a private view')
-const bea = await person('Bea', await mint('Bea', sid), `#/scenario/${uuidOf(sid)}`)
+step(1, 'Ada brings Bea in from DGAI\'s Team tab (her own link, no admin key); Bea opens it in a second browser; each gives a private view')
+await tab(ada, 'team')
+await ada.page.getByTestId('team-invite-name').fill('Bea')
+await ada.page.getByTestId('team-invite-go').click()
+const beaLink = new URL(await ada.page.getByTestId('team-invite-link').inputValue())
+check(beaLink.pathname.startsWith('/k/'), 'core made Bea\'s own private link')
+const bea = await person('Bea', beaLink.pathname, `#/scenario/${uuidOf(sid)}`)
 await bea.page.waitForFunction(() => document.querySelectorAll('.react-flow__node-viewCard').length > 0, null, { timeout: T })
 check(await bea.page.locator('.react-flow__node-viewCard').count() === cards, 'Bea\'s DGAI draws the same model')
 // The signature also covers who is in the round, so the two are compared on the version and the model itself, read now.

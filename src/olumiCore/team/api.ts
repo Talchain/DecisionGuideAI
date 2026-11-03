@@ -96,6 +96,9 @@ export interface EvidenceInput { readonly text: string; readonly source: string 
 export interface CommitmentInput { readonly action: string; readonly owner: string; readonly expect: string; readonly reconsider: string; readonly keeps: readonly string[] }
 export interface OutcomeInput { readonly happened: string; readonly versus: string; readonly reconsider_triggered: boolean; readonly note: string | null }
 
+/** A colleague a member invited into the scenario (API v1.8), as core lists them; never their link. */
+export interface Invite { readonly id: string; readonly name: string; readonly by: string; readonly made: string; readonly expires: string | null; readonly status: string; readonly revocable: boolean }
+
 export const teamApi = {
   giveView: (sid: string, text: string) => call<{ contribution: number }>('POST', `${base(sid)}/views`, { text }),
   skipView: (sid: string) => call<{ contribution: number }>('POST', `${base(sid)}/views`, { skip: true }),
@@ -103,6 +106,10 @@ export const teamApi = {
   addEvidence: (sid: string, e: EvidenceInput, op: string) =>
     call<{ evidence: number }>('POST', `${base(sid)}/evidence`, { text: e.text, ...(e.source !== null ? { source: e.source } : {}), concerns: e.concerns, stance: e.stance, op }),
   addCommitment: (sid: string, c: CommitmentInput) => call<{ commitment: number }>('POST', `${base(sid)}/commitments`, { action: c.action, owner: c.owner, expect: c.expect, reconsider: c.reconsider, keeps: c.keeps }),
+  /** A colleague's own private link (API v1.8): in this one answer and never again. */
+  invite: (sid: string, name: string) => call<{ id: string; link: string }>('POST', `${base(sid)}/invites`, { name }),
+  invites: (sid: string) => call<{ invites: Invite[] }>('GET', `${base(sid)}/invites`),
+  revokeInvite: (sid: string, id: string) => call<{ revoked: unknown }>('POST', `${base(sid)}/invites/${encodeURIComponent(id)}/revoke`, {}),
   addOutcome: (sid: string, commitment: number, o: OutcomeInput, op: string) =>
     call<{ outcome: number }>('POST', `${base(sid)}/commitments/${commitment}/outcomes`, { happened: o.happened, versus: o.versus, reconsider_triggered: o.reconsider_triggered, ...(o.note !== null ? { note: o.note } : {}), op }),
 }
