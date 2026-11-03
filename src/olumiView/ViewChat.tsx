@@ -12,11 +12,10 @@
 import { create } from 'zustand'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { newOp, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
-import { useTeamStore } from '../olumiCore/team/store'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
 import { writes, type View, type ViewTurn } from './client'
 import { useViewStore } from './store'
-import { derivedUuidOf, pairCoreScenario } from '../olumiCore/team/sid'
+import { derivedUuidOf } from '../olumiCore/team/sid'
 import { useCanvasStore } from '../canvas/store'
 import { setCurrentScenarioId } from '../canvas/store/scenarios'
 import { scenarioIdWrite } from '../canvas/stores/unboundModelBinding'
@@ -106,14 +105,14 @@ interface ViewChatState {
 
 export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new Map(), busy: false, said: null }))
 
-/** One write, then the View and the team read again. An approval changes the model: the View is stale until the new one lands (00051). */
+/** One write, then the View read again. An approval changes the model: the View is stale until the new one lands (00051). */
 async function act(f: () => Promise<unknown>, changesModel = false): Promise<boolean> {
   if (useViewChat.getState().busy) return false
   useViewChat.setState({ busy: true, said: null })
   try {
     await f()
     const views = useViewStore.getState()
-    const [shown] = await Promise.all([changesModel ? views.modelChanged() : views.refresh(), useTeamStore.getState().refresh()])
+    const shown = await (changesModel ? views.modelChanged() : views.refresh())
     if (!shown) useViewChat.setState({ said: SAVED_NOT_SHOWN })
     return true
   } catch (e) {
@@ -123,26 +122,21 @@ async function act(f: () => Promise<unknown>, changesModel = false): Promise<boo
 }
 
 /**
- * A brief starts a scenario in core. Its id is kept against the scenario the brief was sent from (`uuid`, read before the write, so an
- * answer that lands after the page moved on pairs the right one: review 00052 #5), as the adapter page kept it from `x-olumi-alias`.
- * A canvas with no scenario yet, or a page that cannot keep the pairing, moves to core's id's own UUID form, if it is still on it.
+ * A brief starts a scenario in core, and the page moves to core's id's own UUID form (`sid.ts`), the scenario's one address: the address
+ * bar then names it (`/scenario/<uuid>`), so the link opens the same scenario in any browser of a member. An answer that lands after the
+ * page moved on to another scenario moves nothing (review 00052 #5).
  */
 async function startScenario(brief: string, op: string, uuid: string | null): Promise<void> {
   const made = await writes.create(brief, op)
-  // A 201 whose body could not be read names no scenario: it may have been saved, so it is said so and sent again with its op (00054 #4).
-  // An answer that names no scenario (unreadable, or JSON null) may still have been saved: uncertain, never "nothing saved".
+  // An answer that names no scenario (unreadable, or JSON null) may still have been saved: uncertain, never "nothing saved" (00054 #4).
   if (typeof made?.scenario !== 'string' || !/^s_[0-9a-f]+$/.test(made.scenario)) throw new TeamApiError(0, UNCERTAIN_WRITE, true)
-  const views = useViewStore.getState()
-  if (uuid !== null && pairCoreScenario(uuid, made.scenario)) {
-    if (views.uuid === uuid) await views.use(uuid)
-    return
-  }
   const derived = derivedUuidOf(made.scenario)
   if (derived === null) throw new TeamApiError(502, 'Olumi made the scenario but named it in a way this page cannot open. Reload the page.')
   if (useCanvasStore.getState().currentScenarioId !== uuid) return
   useCanvasStore.setState(scenarioIdWrite(useCanvasStore.getState().currentScenarioId, derived))
   setCurrentScenarioId(derived)
-  await views.use(derived)
+  try { window.history.replaceState(window.history.state, '', `/scenario/${derived}`) } catch { /* the address bar keeps its old address */ }
+  await useViewStore.getState().use(derived)
 }
 
 /** Core holds no model and no proposal for this scenario (none yet, or its first draft was set aside): a message is a new brief (00052 #6). */
@@ -172,7 +166,7 @@ async function send(): Promise<void> {
   if (useViewChat.getState().text === text) useViewChat.setState({ text: '' })
 }
 
-/** core's four challenges, by the press's chip id (as the adapter page routed them, scripts/olumi-core/lib/turn.mjs CHALLENGE_KINDS). */
+/** core's four challenges (API `POST …/challenge` `kind`), by the press's chip id. */
 const CHALLENGES: Readonly<Record<string, string>> = { 'ask:challenge': 'assumption', 'ask:method-opposite': 'opposite', 'ask:falsify': 'disconfirming', 'ask:method-outside-view': 'outside' }
 
 export type Press = { id?: string; parameters?: Record<string, unknown>; message: string }

@@ -9,7 +9,6 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import { setTeamFetch, UNCERTAIN_WRITE } from '../../olumiCore/team/api'
 import type { View } from '../client'
 import { currentModel, useViewStore } from '../store'
-import { coreScenarioIdOf } from '../../olumiCore/team/sid'
 import { useCanvasStore } from '../../canvas/store'
 import { ViewChat, ViewComposer, ViewTurns, useViewChat, SAVED_NOT_SHOWN } from '../ViewChat'
 
@@ -137,24 +136,27 @@ describe('the writes go straight to core, and the View is read again', () => {
       expect((posts[1]!.body as { op: string }).op).toBe((posts[0]!.body as { op: string }).op)
     })
 
-    it('#5 a brief answered after the page moved to another scenario pairs the scenario it was sent from', async () => {
-      const A = '1b4e28ba-2fa1-41d2-883f-0016d3cca427', B = '2c5f39cb-3ab2-42e3-994f-1127e4ddb538'
+    it('#5 a brief answered after the page moved to another scenario moves nothing: the page stays on the scenario it is on', async () => {
+      const A = '1b4e28ba-2fa1-41d2-883f-0016d3cca427', B = '00000000-0000-4000-8000-0000000000bb'
+      useCanvasStore.setState({ currentScenarioId: A } as never)
       useViewStore.setState({ uuid: A, sid: null, view: null, error: null, status: 'none' })
-      localStorage.setItem(`olumi-core-sc:${B}`, 's_0000000000bb')
       let made!: (r: Response) => void
       answer(() => new Promise<Response>((done) => { made = done }))
       const { container } = renderTab()
       type(container, 'Should we raise the price of our pastries?')
       await send(container)
+      useCanvasStore.setState({ currentScenarioId: B } as never)
       useViewStore.setState({ uuid: B, sid: 's_0000000000bb' })
       await act(async () => { made(new Response(JSON.stringify({ scenario: 's_0000000000aa', proposal: 1 }), { status: 201 })) })
-      await waitFor(() => expect(coreScenarioIdOf(A)).toBe('s_0000000000aa'))
-      expect(coreScenarioIdOf(B)).toBe('s_0000000000bb')
+      await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
+      expect(useCanvasStore.getState().currentScenarioId).toBe(B)
+      expect(useViewStore.getState().sid).toBe('s_0000000000bb')
+      expect(reads).not.toContain('/api/scenarios/s_0000000000aa/view')
     })
 
-    it('#6 a scenario whose first draft was set aside (no version, nothing held) starts again from the brief', async () => {
-      const uuid = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
-      localStorage.setItem(`olumi-core-sc:${uuid}`, 's_0000000000aa')
+    it('#6 a scenario whose first draft was set aside (no version, nothing held) starts again from the brief, at the new scenario\'s address', async () => {
+      const uuid = '00000000-0000-4000-8000-0000000000aa'
+      useCanvasStore.setState({ currentScenarioId: uuid } as never)
       useViewStore.setState({ uuid, sid: 's_0000000000aa', view: { ...view, version: null, proposal: null }, error: null, status: 'ready' })
       answer(() => new Response(JSON.stringify({ scenario: 's_0000000000cc', proposal: 1 }), { status: 201 }))
       const { container } = renderTab()
@@ -162,8 +164,8 @@ describe('the writes go straight to core, and the View is read again', () => {
       await send(container)
       await waitFor(() => expect(posts[0]?.url).toBe('/api/scenarios'))
       expect(posts[0]!.body).toEqual({ brief: 'Should we raise the price of our pastries by 20p?', op: expect.any(String) })
-      expect(coreScenarioIdOf(uuid)).toBe('s_0000000000cc')
       await waitFor(() => expect(reads).toContain('/api/scenarios/s_0000000000cc/view'))
+      expect(useCanvasStore.getState().currentScenarioId).toBe('00000000-0000-4000-8000-0000000000cc')
     })
 
     it('#7 a message saved whose View could not be read says so, rather than looking sent and shown', async () => {
@@ -183,8 +185,9 @@ describe('the writes go straight to core, and the View is read again', () => {
     const MADE = 's_0000000000ab'
     beforeEach(() => { try { localStorage.clear() } catch { /* none */ } })
 
-    it('posts the brief, keeps core\'s id against the page\'s scenario, and reads its View', async () => {
+    it('posts the brief, moves the page to the new scenario\'s one address (any member\'s browser opens it there), and reads its View', async () => {
       const uuid = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
+      useCanvasStore.setState({ currentScenarioId: uuid } as never)
       useViewStore.setState({ uuid, sid: null, view: null, error: null, status: 'none' })
       answer(() => new Response(JSON.stringify({ scenario: MADE, proposal: 1 }), { status: 201 }))
       const { container } = renderTab()
@@ -192,10 +195,13 @@ describe('the writes go straight to core, and the View is read again', () => {
       await send(container)
       await waitFor(() => expect(reads).toContain(`/api/scenarios/${MADE}/view`))
       expect(posts).toEqual([{ url: '/api/scenarios', body: { brief: 'Should we raise the price of our pastries?', op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } }])
-      expect(coreScenarioIdOf(uuid)).toBe(MADE)
+      expect(useCanvasStore.getState().currentScenarioId).toBe('00000000-0000-4000-8000-0000000000ab')
+      expect(window.location.pathname).toBe('/scenario/00000000-0000-4000-8000-0000000000ab')
+      expect(localStorage.getItem(`olumi-core-sc:${uuid}`)).toBeNull()
     })
 
     it('a canvas with no scenario yet moves to core\'s id\'s own UUID', async () => {
+      useCanvasStore.setState({ currentScenarioId: null } as never)
       useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' })
       answer(() => new Response(JSON.stringify({ scenario: MADE, proposal: 1 }), { status: 201 }))
       const { container } = renderTab()

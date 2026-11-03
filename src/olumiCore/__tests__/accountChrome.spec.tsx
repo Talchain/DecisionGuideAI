@@ -13,13 +13,14 @@ vi.mock('../../contexts/AuthContext', () => ({
 }))
 
 import { UserAvatarMenu } from '../../components/layout/UserAvatarMenu'
+import { useMe } from '../me'
 
-afterEach(() => { cleanup(); vi.unstubAllEnvs(); vi.unstubAllGlobals() })
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); useMe.setState({ me: null, status: 'none' }) })
 
 describe('the account menu on the olumi-core lane', () => {
   it('is a plain mark saying whose private link this page was opened with, and opens nothing that cannot work', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
-    vi.stubGlobal('window', Object.assign(window, { __OLUMI_CORE__: { person: { id: '1', name: 'Ada' } } }))
+    useMe.setState({ me: { id: 'p_1', name: 'Ada' }, status: 'ready' })
     render(<MemoryRouter><UserAvatarMenu size="compact" /></MemoryRouter>)
     const mark = screen.getByTestId('olumi-core-person-mark')
     expect(mark.getAttribute('aria-label')).toBe('You are using Olumi through Ada’s private link')

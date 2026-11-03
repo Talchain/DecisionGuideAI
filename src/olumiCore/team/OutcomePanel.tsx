@@ -3,9 +3,11 @@ import { Button } from '../../components/ui/Button'
 import { teamApi, TeamApiError } from './api'
 import { runWrite } from './writes'
 import { useDraft } from './drafts'
-import { wordsOfRecord } from './model'
+import type { View } from '../../olumiView/client'
 import { BODY, CARD, ERR, FIELD, LABEL, META } from './ui'
-import type { OutcomeVersus, TeamCommitmentRow, TeamScenario } from './types'
+
+type OutcomeVersus = 'as_expected' | 'better' | 'worse' | 'mixed' | 'unclear'
+type Commitment = View['collab']['commitments'][number]
 
 interface OutcomeDraft { open: boolean; happened: string; versus: OutcomeVersus | null; triggered: boolean | null; note: string }
 const EMPTY: OutcomeDraft = { open: false, happened: '', versus: null, triggered: null, note: '' }
@@ -16,17 +18,14 @@ export const VERSUS: ReadonlyArray<{ value: OutcomeVersus; words: string }> = [
   { value: 'mixed', words: 'Mixed' },
   { value: 'unclear', words: 'Too early to say' },
 ]
-const versusWords = (v: OutcomeVersus): string => VERSUS.find((x) => x.value === v)?.words ?? v
+const versusWords = (v: string): string => VERSUS.find((x) => x.value === v)?.words ?? v
 
 /**
- * THE OUTCOME REVIEW (design plan step 10; v10 board 21), under the commitment it reviews. What happened in the team's own words, how it
- * went against the expectation (unset), and whether the reconsider point triggered (unset). Any member records one; none is edited or
- * judged by Olumi. The team's verdict on each kept disagreement is the team's to give, and core does not store one yet, so it is drawn
- * disabled: humans stay the authors.
+ * THE OUTCOME REVIEW (spec §8 step 7), under the commitment it reviews: what happened in the team's own words, how it went against the
+ * expectation and whether the reconsider point came up, none preset. Any member records one; none is edited, and Olumi does not judge it.
  */
-export function OutcomePanel({ sid, scenario, commitment, onWrote }: { sid: string; scenario: TeamScenario; commitment: TeamCommitmentRow; onWrote: () => Promise<boolean> }): JSX.Element {
+export function OutcomePanel({ sid, commitment, onWrote }: { sid: string; commitment: Commitment; onWrote: () => Promise<boolean> }): JSX.Element {
   const c = commitment
-  // What is typed is kept while the tab is away (`drafts.ts`).
   const [d, setD, dropDraft] = useDraft<OutcomeDraft>(`${sid}:outcome:${c.id}`, EMPTY)
   const { open, happened, versus, triggered, note } = d
   const setOpen = (v: boolean) => setD((p) => ({ ...p, open: v }))
@@ -65,18 +64,6 @@ export function OutcomePanel({ sid, scenario, commitment, onWrote }: { sid: stri
           </li>
         ))}
       </ul>
-      {c.keeps.length > 0 && (
-        <div className="grid gap-1" data-testid={`team-verdicts-${c.id}`}>
-          <p className={META}>The team’s verdict on each disagreement it kept is the team’s to give, not Olumi’s. It comes when Olumi can store it.</p>
-          {c.keeps.map((id) => (
-            <label key={id} className={`${META} grid gap-0.5`}>
-              <span>{wordsOfRecord(scenario, id) ?? 'A disagreement the model no longer holds'}</span>
-              <select className={FIELD} disabled aria-label={`Verdict on ${wordsOfRecord(scenario, id) ?? id}`}><option value="" /></select>
-            </label>
-          ))}
-        </div>
-      )}
-
       {!open ? (
         <div><Button size="sm" variant="secondary" data-testid={`team-outcome-open-${c.id}`} onClick={() => setOpen(true)}>Record what happened</Button></div>
       ) : (

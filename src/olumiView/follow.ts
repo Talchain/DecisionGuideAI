@@ -1,17 +1,13 @@
 /**
- * When the page reads the View again. For the scenario on screen; again whenever the canvas's model changes (a figure saved here); and
- * again whenever core's approved version moves (an approval, here or by another member). The approved version's identity is the key
- * for an approval: an approved change to an aim's bound can leave every node and link on the canvas as it was (review 00053 #1).
+ * When the page reads the View: for the scenario on screen, and again whenever it changes. Every write reads the View again itself
+ * (ViewChat `act`, the Team tab's `onWrote`), and another member's change arrives on the next read, so the canvas, the chat and the Team
+ * tab always show one View.
  */
 import { useEffect } from 'react'
-import { useTeamStore } from '../olumiCore/team/store'
 import { useViewStore } from './store'
 
-export function useViewFollows(on: boolean, uuid: string | null, modelKey: string): void {
-  const approved = useTeamStore((s) => (s.uuid === uuid ? s.scenario?.version?.id ?? null : null))
+export function useViewFollows(on: boolean, uuid: string | null): void {
   useEffect(() => {
-    if (!on) return
-    const v = useViewStore.getState()
-    void (v.uuid === uuid && v.status !== 'none' ? v.modelChanged() : v.use(uuid))
-  }, [on, uuid, modelKey, approved])
+    if (on) void useViewStore.getState().use(uuid)
+  }, [on, uuid])
 }

@@ -210,14 +210,12 @@ import { DefineSuccessModal, DecisionRecordModal, HowComputedModal, openDecision
 import { useIsViewer } from '../../lib/viewerMode'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
-import { setOnModelMoved, useTeamStore } from '../../olumiCore/team/store'
 import { currentModel, useViewStore } from '../../olumiView/store'
 import { useViewFollows } from '../../olumiView/follow'
-import { drawViewCanvas, useViewCanvas } from '../../olumiView/canvas'
+import { useViewCanvas } from '../../olumiView/canvas'
 import { ViewChancesBlock } from '../../olumiView/ViewChances'
 import { useAnswersAsks, ViewChat, ViewComposer } from '../../olumiView/ViewChat'
 import { focusDockedOlumi } from '../conversation/dockedOlumiFocus'
-import { pulseWhenOnCanvas } from '../../olumiCore/pulseArrivals'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
 
 /**
@@ -800,36 +798,13 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const declinedSavedRun = useDeclinedSavedRunStore(s => s.declined)
   const currentScenarioIdForRun = useCanvasStore(s => s.currentScenarioId)
   const savedRunUnconfirmed = selectSavedRunUnconfirmed(declinedSavedRun, currentScenarioIdForRun, runOnRecordLocally)
-  // The olumi-core lane's team (Team tab, question-card held count): pointed at this scenario, read once core knows it. A model
-  // change can be the moment a new scenario is first paired with core's id, so the card count is part of the dependencies.
-  const teamUse = useTeamStore(s => s.use)
-  const teamCardCount = useCanvasStore(s => s.nodes.length)
-  useEffect(() => { if (isOlumiCoreLane()) void teamUse(currentScenarioIdForRun ?? null) }, [currentScenarioIdForRun, teamCardCount, teamUse])
-  // The olumi-core lane's View (olumi.view/2): read for this scenario and again when core's approved version moves
-  // (src/olumiView/follow.ts); the canvas is drawn from it (src/olumiView/canvas.ts), so the canvas never re-triggers the read.
+  // The olumi-core lane's View (olumi.view/2): read for this scenario (src/olumiView/follow.ts); the canvas, the chat and the Team tab
+  // are all drawn from it (src/olumiView/canvas.ts), so the canvas never re-triggers the read.
   const coreView = useViewStore(currentModel)
-  useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null, '')
+  useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null)
   useViewCanvas(isOlumiCoreLane())
   // The canvas's asks are answered while the dock is on the page, collapsed or on another tab (lane audit 24).
   useAnswersAsks(isOlumiCoreLane())
-  // Another member approved a change: a read of the team shows the approved model has moved on, so the canvas reads the saved model again
-  // (design QA 7: Bea's canvas must not stay on version 1 while her Team tab shows version 2).
-  useEffect(() => {
-    if (!isOlumiCoreLane()) return
-    setOnModelMoved(async (uuid) => {
-      if (useCanvasStore.getState().currentScenarioId !== uuid) return false
-      const before = useCanvasStore.getState().nodes.map((n) => n.id)
-      // The canvas is the View's: the approved model is read from core's View and drawn (src/olumiView/canvas.ts), never from /bff.
-      // Only a read that was adopted counts: a failed one is asked for again on the team's next read.
-      if (useViewStore.getState().uuid !== uuid || !(await useViewStore.getState().modelChanged())) return false
-      const model = useViewStore.getState().view?.model
-      if (model) drawViewCanvas(model)
-      // What the other member's approval added is acknowledged on arrival, as it is for the person who approved it.
-      pulseWhenOnCanvas(useCanvasStore.getState().nodes.map((n) => n.id).filter((nid) => !before.includes(nid)))
-      return true
-    })
-    return () => setOnModelMoved(null)
-  }, [])
   const runOnRecord = runOnRecordLocally || savedRunUnconfirmed
   const runStateKindForStatus = useCanvasStore(s => s.analysisStateV1?.run_state.kind ?? null)
 
@@ -4384,14 +4359,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             )}
             {effectiveActiveTab === 'team' && (
               // The olumi-core lane only (`laneOnly` in the shell contract): the team's panels, read from and written to core.
-              <TeamTab
-                scenarioUuid={currentScenarioIdForRun}
-                onAskOlumi={(question) => {
-                  // Evidence does not reach Olumi yet (core's coach does not read it): the person asks in the chat, quoting it.
-                  useUIStore.getState().forceActivateOutputTab('olumi')
-                  void sendMessage(question)
-                }}
-              />
+              <TeamTab />
             )}
             {/* Olumi: keep mounted across tab switches so ChatThread's scroll
                 position and useSmartScroll state survive. Visibility toggled

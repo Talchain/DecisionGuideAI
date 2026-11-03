@@ -8,6 +8,7 @@ import { useCanvasStore } from '../canvas/store'
 import type { ViewModel } from './client'
 import { cardLinks, cardPlaces, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace, withoutViewNodes } from './layout'
 import { useViewStore } from './store'
+import { pulseWhenOnCanvas } from '../olumiCore/pulseArrivals'
 
 export const VIEW_CARD = 'viewCard', VIEW_QUESTION = 'viewQuestion', VIEW_LINK = 'viewLink'
 
@@ -74,7 +75,11 @@ export function placeViewCards(model: ViewModel): boolean {
   return drawViewCanvas(model)
 }
 
-/** On the core lane, the canvas follows the View: each View that lands for the scenario on screen is drawn, and one with no model withdraws it. */
+/**
+ * On the core lane, the canvas follows the View: each View that lands for the scenario on screen is drawn, and one with no model withdraws it.
+ * A card that arrives on a canvas already holding the model (an approval, here or by another member) is acknowledged with the applied-edit
+ * pulse; the first drawing of a scenario pulses nothing.
+ */
 export function useViewCanvas(on: boolean): void {
   const view = useViewStore((s) => s.view)
   const model = view?.model ?? null
@@ -82,7 +87,12 @@ export function useViewCanvas(on: boolean): void {
   const heights = useCanvasStore((s) => drawnHeightsKey(s.nodes))
   useEffect(() => {
     if (!on || view === null) return
-    if (model === null) withdrawViewCanvas()
-    else drawViewCanvas(model)
+    if (model === null) { withdrawViewCanvas(); return }
+    const before = useCanvasStore.getState().nodes
+    const had = holdsViewNodes(before, [VIEW_CARD, VIEW_QUESTION]) ? new Set(before.map((n) => n.id)) : null
+    if (!drawViewCanvas(model) || had === null) return
+    const arrived: string[] = []
+    for (const c of model.cards) if (!had.has(c.id)) arrived.push(c.id)
+    pulseWhenOnCanvas(arrived)
   }, [on, view, model, heights])
 }

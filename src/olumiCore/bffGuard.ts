@@ -1,7 +1,7 @@
 /**
  * On the olumi-core lane nothing is sent to /bff (canvas slice A). olumi-core serving DGAI on one origin has no /bff: a GET there is
  * answered with DGAI's own page (200, HTML), which a caller would read as success. Every same-origin /bff/ request is answered here
- * the way the adapter page answered it (scripts/olumi-core/server.mjs, "not available on Olumi", 404), without a network call, so
+ * with "not available on Olumi" (404), without a network call, so
  * each caller takes the refusal it already handles. What the lane does use goes to core itself (src/olumiView/).
  */
 export const NOT_ON_OLUMI = 'not available on Olumi'

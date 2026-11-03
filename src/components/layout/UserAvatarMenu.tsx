@@ -12,7 +12,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import { sanitiseUserId } from '../../lib/guestIdentity'
-import { coreLanePerson, isOlumiCoreLane } from '../../olumiCore/lane'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { useMe } from '../../olumiCore/me'
 
 function getInitial(profile: { display_name?: string | null; email?: string | null } | null, user: { email?: string } | null): string {
   const name = profile?.display_name || user?.email || ''
@@ -34,7 +35,7 @@ interface UserAvatarMenuProps {
  * avatar is then a plain mark that says whose private link this page was opened with, and opens nothing.
  */
 function PrivateLinkMark({ size }: { size: 'default' | 'compact' }) {
-  const person = coreLanePerson()
+  const person = useMe((s) => s.me)
   const initial = (person?.name ?? '').charAt(0).toUpperCase() || '?'
   const words = person ? `You are using Olumi through ${person.name}’s private link` : 'You are using Olumi through your private link'
   return (

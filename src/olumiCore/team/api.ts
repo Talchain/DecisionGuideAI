@@ -1,7 +1,6 @@
 /**
- * The Team tab's calls to olumi-core, through the one-origin server's `/api` proxy (scripts/olumi-core/server.mjs). The page's
- * own side (lib/tab.js) stamps every `/api/` call with who the page was opened for, the server refuses a write when the browser's
- * private link has since changed, and core refuses a cross-site write itself. Nothing here holds identity.
+ * The lane's calls to olumi-core's own routes, on the origin that serves this page (core serves DGAI's build itself, src/server/ui.ts in
+ * core), with the browser's private-link cookie. Core refuses a cross-site write itself. Nothing here holds identity (`../me.ts` does).
  *
  * Words the person typed go out exactly as typed (not trimmed, not capitalised, not ended with a full stop); core keeps them
  * as given. A blank field is the one thing refused here, because core refuses it too.
@@ -46,8 +45,7 @@ export async function call<T>(method: 'GET' | 'POST', path: string, body?: unkno
   try {
     res = await (fetchImpl ?? fetch)(path, {
       method,
-      // Same origin only: the browser then sends `Sec-Fetch-Site: same-origin`, the one value (with `none`) the server and core accept for a write,
-      // and the page's own side (lib/tab.js) stamps `x-olumi-person` on every `/api/` call, so a write can never be saved as somebody else.
+      // Same origin only: the browser then sends `Sec-Fetch-Site: same-origin`, the one value (with `none`) core accepts for a write.
       credentials: 'same-origin',
       mode: 'same-origin',
       headers: { 'content-type': 'application/json' },
@@ -80,7 +78,6 @@ export interface CommitmentInput { readonly action: string; readonly owner: stri
 export interface OutcomeInput { readonly happened: string; readonly versus: string; readonly reconsider_triggered: boolean; readonly note: string | null }
 
 export const teamApi = {
-  read: <T>(sid: string) => call<T>('GET', base(sid)),
   giveView: (sid: string, text: string) => call<{ contribution: number }>('POST', `${base(sid)}/views`, { text }),
   skipView: (sid: string) => call<{ contribution: number }>('POST', `${base(sid)}/views`, { skip: true }),
   reveal: (sid: string) => call<{ revealed: number[] }>('POST', `${base(sid)}/reveal`),

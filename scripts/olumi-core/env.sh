@@ -1,7 +1,7 @@
 # The build/dev environment for DGAI on olumi-core: the staging build's flags (netlify.toml [build.environment] +
 # [context.staging.environment]) plus the same-origin V5 endpoint and the olumi-core lane flag. Source this, do not execute it.
 #   VITE_OLUMI_CORE=1   this build talks to olumi-core only: the core route is the default lane and CEE-only chrome is hidden
-#   VITE_V5_ENDPOINT    DGAI's chat turn: same origin, answered by scripts/olumi-core/server.mjs
+#   VITE_V5_ENDPOINT    the legacy chat turn, which this lane never sends (src/olumiCore/bffGuard.ts answers /bff/ with a 404)
 export VITE_V5_ENDPOINT=/bff/orchestrate/v2/turn VITE_ENABLE_V5_ORCHESTRATOR=true VITE_ENABLE_ORCHESTRATOR_V2=true \
        VITE_AUTH_MODE=guest VITE_DISABLE_OPENAI=1 VITE_POC_ONLY=0 VITE_PLC_LAB=1 VITE_APP_ENV=staging \
        VITE_FEATURE_AI_PANEL_V2=true VITE_V5_CANONICAL_ANALYSIS=true VITE_FEATURE_GRAPH_LENS=true \

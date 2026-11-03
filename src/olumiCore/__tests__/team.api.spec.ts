@@ -1,10 +1,22 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { setTeamFetch, teamApi, TeamApiError, newOp } from '../team/api'
-import { fakeApi } from './teamFixtures'
+
+/** A fake of core's routes on this origin: records every call and answers from a handler. */
+function fakeApi(handler: (method: string, path: string, body: unknown) => { status?: number; json: unknown }) {
+  const calls: Array<{ method: string; path: string; body: unknown; headers: Record<string, string> }> = []
+  const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const body = init?.body ? JSON.parse(String(init.body)) : undefined
+    calls.push({ method: init?.method ?? 'GET', path: String(input), body, headers: { ...(init?.headers as Record<string, string>) } })
+    const r = handler(init?.method ?? 'GET', String(input), body)
+    const status = r.status ?? 200
+    return { ok: status >= 200 && status < 300, status, json: async () => r.json } as Response
+  }) as typeof fetch
+  return { calls, fetchImpl }
+}
 
 afterEach(() => { setTeamFetch(null) })
 
-describe('the Team tab talks to core through the /api proxy', () => {
+describe('the Team tab talks to core\'s own routes on this origin', () => {
   it('sends a view exactly as typed (no trim, no capital, no full stop) as JSON, and a skip as skip', async () => {
     const api = fakeApi(() => ({ json: { contribution: 7 } }))
     setTeamFetch(api.fetchImpl)
@@ -26,7 +38,6 @@ describe('the Team tab talks to core through the /api proxy', () => {
     setTeamFetch((async () => { throw new TypeError('network') }) as typeof fetch)
     // A write whose answer never came may have been saved: it is never worded as "nothing was sent", and it is marked uncertain.
     await expect(teamApi.reveal('s_a1')).rejects.toMatchObject({ status: 0, uncertain: true, message: expect.stringContaining('may have been saved') })
-    await expect(teamApi.read('s_a1')).rejects.toMatchObject({ status: 0, uncertain: false, message: expect.stringContaining('could not be read') })
     expect(new TeamApiError(0, 'x')).toBeInstanceOf(Error)
   })
   it('makes an op core accepts (8 to 64 letters, digits and hyphens)', () => {

@@ -2,6 +2,7 @@
 import './index.css';
 import { captureParticipantTokenFromUrl } from './collab/participantToken';
 import { isOlumiCoreLane } from './olumiCore/lane';
+import { useMe } from './olumiCore/me';
 import { guardBff } from './olumiCore/bffGuard';
 import { Suspense } from 'react';
 import { InputModality } from './components/InputModality';
@@ -147,7 +148,11 @@ const AppPoC = lazyWithStallBound(async () => { await runLapseBoundaryIfNeeded()
     // is not a hiding place in a HashRouter app.
     captureParticipantTokenFromUrl();
     // The olumi-core lane sends nothing to /bff: refused here before anything can fetch (src/olumiCore/bffGuard.ts).
-    if (isOlumiCoreLane()) guardBff(window);
+    if (isOlumiCoreLane()) {
+      guardBff(window);
+      // Who this page is for: core's own answer from the private-link cookie (src/olumiCore/me.ts), read once.
+      void useMe.getState().load();
+    }
 
     log('boot:start', { href: location.href, token: ENTRY_PROOF_TOKEN });
 

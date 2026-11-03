@@ -35,7 +35,7 @@ import { useViewStore } from '../../../olumiView/store'
 import { useViewChat } from '../../../olumiView/ViewChat'
 import { setTeamFetch } from '../../../olumiCore/team/api'
 
-const UUID = '1b4e28ba-2fa1-41d2-883f-0016d3cca427', SID = 's_000000000001'
+const UUID = '00000000-0000-4000-8000-000000000001', SID = 's_000000000001'
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
 let seen: { method: string; path: string; body?: unknown }[] = []
 let conversation: ReturnType<typeof useConversationContext> | null = null

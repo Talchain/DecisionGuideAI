@@ -1,6 +1,7 @@
 // A dev olumi-core whose AI is SCRIPTED (no provider calls), for driving DGAI end to end. TEST HARNESS, not part of the build.
-// run.sh copies this into a clone of olumi-core (origin/staging) as scripts/scripted-core.ts and starts it:
-//   OLUMI_DB=<scratch>/core.db OLUMI_ADMIN_KEY=<24+ chars> PORT=<free port> pnpm -s tsx scripts/scripted-core.ts
+// run.sh copies this into a checkout of olumi-core (wip/v3.1) as scripts/scripted-core.ts and starts it, serving DGAI's build as core
+// serves it on Render (OLUMI_UI_DIST: DGAI at /, core's own page at /s/<id> and /debug), on one origin:
+//   OLUMI_DB=<scratch>/core.db OLUMI_ADMIN_KEY=<24+ chars> OLUMI_UI_DIST=<DGAI dist> PORT=<free port> pnpm -s tsx scripts/scripted-core.ts
 // Same pattern as core's scripts/dev-seed.ts. Any brief gets the synthetic "capacity" model (the checks quote the brief, so use BRIEF).
 // Behaviour the browser drives, chosen by the person's words so no provider is ever called:
 //   a message with "?"            -> a question: Olumi replies, the model does not change (discussion)
@@ -16,10 +17,12 @@
 // Failure injection for the error screens: a control file (OLUMI_CONTROL, JSON, read on every call), e.g.
 //   {"fail":"update"}  {"fail":"draft"}  {"fail":"coach"}  {"delay_ms":3000}
 import fs from 'node:fs';
+import { buildSync } from 'esbuild';
 import { Store } from '../src/store/store.js';
 import { Service } from '../src/app/service.js';
 import { createApp } from '../src/server/app.js';
-import { loadPrompts } from '../src/run/pipeline.js';
+import { buildOf, uiFrom } from '../src/server/ui.js';
+import { flagsFromEnv, loadPrompts } from '../src/run/pipeline.js';
 import { capacity, olumi, person, q } from '../src/contract/__tests__/fixtures/capacity.js';
 import type { callStructured } from '../src/run/openai.js';
 
@@ -84,6 +87,10 @@ const caller = (async (o: Parameters<typeof callStructured>[0]) => {
   return { parsed, text: '', ms: 0, response_id: '', model: 'scripted', usage: { input_tokens: 0, cached_tokens: 0, output_tokens: 0, reasoning_tokens: 0 } };
 }) as typeof callStructured;
 
-const service = new Service(new Store(process.env['OLUMI_DB']!), { prompts: loadPrompts('prompts'), caller, today: () => new Date().toISOString().slice(0, 10), commit: 'scripted-dev' });
-createApp({ service, page: () => ({ html: '', js: '' }), adminKey: process.env['OLUMI_ADMIN_KEY'] ?? null, commit: 'scripted-dev', secureCookie: false })
-  .listen(Number(process.env['PORT'] ?? 3947), () => console.log('scripted olumi-core on', process.env['PORT'] ?? 3947));
+const service = new Service(new Store(process.env['OLUMI_DB']!), { prompts: loadPrompts('prompts'), caller, today: () => new Date().toISOString().slice(0, 10), commit: 'scripted-dev', flags: flagsFromEnv(process.env) });
+// Core's own page, bundled as src/server/main.ts bundles it, so it can be opened beside DGAI's.
+const js = buildSync({ entryPoints: ['src/page/main.ts'], bundle: true, format: 'esm', write: false, target: 'es2022' }).outputFiles[0]!.text;
+const html = fs.readFileSync('src/page/index.html', 'utf8');
+const dist = process.env['OLUMI_UI_DIST'];
+createApp({ service, page: () => ({ html, js }), adminKey: process.env['OLUMI_ADMIN_KEY'] ?? null, commit: 'scripted-dev', secureCookie: false, ui: dist ? uiFrom(dist) : null, build: dist ? buildOf(dist) : null })
+  .listen(Number(process.env['PORT'] ?? 3947), () => console.log('scripted olumi-core on', process.env['PORT'] ?? 3947, dist ? `serving DGAI from ${dist}` : 'without DGAI'));
