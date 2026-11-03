@@ -45,6 +45,20 @@ describe('A. an uncertain write is settled by core\'s answer to the same request
     expect(ops[4]).not.toBe(ops[0])                  // other content is another request
     expect(ops[5]).toBe(ops[4])
   })
+  it('core still running the first send (409): the op is kept, so the next press resends the same op and gets that send\'s result, never a second paid attempt (final review 00004 #2)', async () => {
+    const ops: string[] = []
+    let n = 0
+    const send = async (op: string | null) => {
+      ops.push(op!); n += 1
+      if (n === 1) throw lost()
+      if (n === 2) throw new TeamApiError(409, 'Olumi is still working on this; wait a moment and reload')
+      return { version: 3 }
+    }
+    await expect(runWrite('s:edit:q', { op: true }, { typed: '15 to 25' }, send)).rejects.toMatchObject({ status: 409 })
+    await expect(runWrite('s:edit:q', { op: true }, { typed: '15 to 25' }, send)).resolves.toEqual({ version: 3 })
+    expect(new Set(ops).size).toBe(1)
+    expect(useWrites.getState().attempts['s:edit:q']).toBeUndefined()   // settled: the op goes
+  })
   it('a definite refusal is not an uncertain write: nothing is locked and the op is dropped', async () => {
     await expect(runWrite('s:v', { op: false }, null, async () => { throw new TeamApiError(400, 'write your view first') })).rejects.toMatchObject({ status: 400 })
     expect(useWrites.getState().locked['s:v']).toBeUndefined()

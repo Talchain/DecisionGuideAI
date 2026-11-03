@@ -5,10 +5,15 @@
  *
  * Reads are numbered, as the Team tab's are: an answer a newer read has overtaken is dropped, so an expand answered after a collapse
  * never reopens it (Codex 00044). A failed read keeps the last good View and says why.
+ *
+ * A View for someone other than the person this page was opened for (another private link opened in this browser since: `you_id` is
+ * not the page's person) is never installed: chat, canvas, results and Team all read this one copy, so none of them draws it. It reads
+ * as a failed read in the person's words (NOT_FOR_THIS_PAGE), and the page's last View stays (final review 00004 #1).
  */
 import { create } from 'zustand'
 import { READ_FAILED, TeamApiError } from '../olumiCore/team/api'
 import { coreScenarioIdOf } from '../olumiCore/team/sid'
+import { isForThisPage, NOT_FOR_THIS_PAGE } from '../olumiCore/me'
 import { readView, type Opened, type View } from './client'
 
 export type ViewStatus = 'none' | 'loading' | 'ready' | 'error'
@@ -60,6 +65,7 @@ export const useViewStore = create<ViewState>()((set, get) => ({
     try {
       const view = await readView(sid, get().opened)
       if (mine !== seq) return false
+      if (!isForThisPage(view)) { set({ status: get().view ? 'ready' : 'error', error: NOT_FOR_THIS_PAGE }); return false }
       set({ view, status: 'ready', error: null, stale: false })
       return true
     } catch (e) {

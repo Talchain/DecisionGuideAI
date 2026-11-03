@@ -97,4 +97,14 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
     await waitFor(() => expect(paths.at(-1)).toBe('/api/scenarios/s_0123456789ab/view'))
     setTeamFetch(null)
   })
+  it('a badge folding a record the held proposal changes shows core\'s change glyphs and is marked; one with none shows no glyph (final review 00004 #3)', () => {
+    const card = golden('european').model!.cards.find((c) => c.badge !== null)!
+    const marked = render(<ViewCard card={{ ...card, badge: { ...card.badge!, proposed: true, change: '+ ↻' } }} />).container
+    expect(marked.querySelector(`[data-view="${card.id}.badge.change"]`)?.textContent).toBe('+ ↻')
+    expect(marked.querySelector(`[data-view="${card.id}.badge.text"]`)?.closest('button')?.getAttribute('data-proposed')).toBe('true')
+    marked.remove()
+    const plain = render(<ViewCard card={{ ...card, badge: { ...card.badge!, proposed: false, change: '' } }} />).container
+    expect(plain.querySelector(`[data-view="${card.id}.badge.change"]`)).toBeNull()
+    expect(plain.querySelector(`[data-view="${card.id}.badge.text"]`)?.closest('button')?.hasAttribute('data-proposed')).toBe(false)
+  })
 })

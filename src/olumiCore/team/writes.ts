@@ -70,12 +70,17 @@ async function settle<T>(key: string, kind: { readonly op: boolean }, request: u
   useWrites.setState((s) => ({ attempts: { ...s.attempts, [key]: { op, request: body } } }))
   const forget = () => useWrites.setState((s) => ({ attempts: without(s.attempts, key) }))
   const once = async (): Promise<T> => { const r = await send(op); forget(); return r }
+  // Core answers 409 while an earlier send of this op is still running (API.md "Retries"): the op is unresolved, so it is kept. A later
+  // press with the same content resends it, which returns that send's result once it has one and is never a second paid attempt
+  // (final review 00004 #2). Only an answer that settles the request lets its op go.
+  const unresolved = (e: unknown) => e instanceof TeamApiError && (e.uncertain || e.status === 409)
   try { return await once() } catch (e) {
-    if (!(e instanceof TeamApiError && e.uncertain)) { forget(); throw e }
+    if (!(e instanceof TeamApiError && e.uncertain)) { if (!unresolved(e)) forget(); throw e }
     // The answer was lost: the same request, the same op. Core's answer to it is the truth.
     try { return await once() } catch (again) {
       if (again instanceof TeamApiError && again.uncertain) throw new TeamApiError(again.status, NOT_CONFIRMED, true)
-      forget(); throw again
+      if (!unresolved(again)) forget()
+      throw again
     }
   }
 }

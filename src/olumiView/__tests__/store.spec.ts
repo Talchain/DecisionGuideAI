@@ -5,6 +5,7 @@
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { currentModel, useViewStore } from '../store'
+import { NOT_FOR_THIS_PAGE, useMe } from '../../olumiCore/me'
 
 const SID = 's_0123456789ab', UUID = '00000000-0000-4000-8000-0123456789ab'
 const view = (title: string) => ({ schema: 'olumi.view/2', id: SID, title, commit: 't', signature: title, you: 'Paul', members: [], version: null, model: null, proposal: null,
@@ -12,7 +13,7 @@ const view = (title: string) => ({ schema: 'olumi.view/2', id: SID, title, commi
 const answered = (title: string) => new Response(JSON.stringify(view(title)), { status: 200 })
 
 beforeEach(() => useViewStore.setState({ uuid: null, sid: null, view: null, opened: { open: new Map(), all: false }, status: 'none', error: null }))
-afterEach(() => setTeamFetch(null))
+afterEach(() => { setTeamFetch(null); useMe.setState({ me: null, status: 'none' }) })
 
 it('reads the View of the scenario the page shows, by its core id', async () => {
   const urls: string[] = []
@@ -65,4 +66,20 @@ it('a read after a model change that fails shows no chance as current', async ()
   setTeamFetch((async () => new Response(JSON.stringify({ error: 'the server is busy' }), { status: 503 })) as unknown as typeof fetch)
   expect(await useViewStore.getState().modelChanged()).toBe(false)
   expect(currentModel(useViewStore.getState())).toBeNull()
+})
+
+it('a View for someone else (another private link opened in this browser since) is never installed: the page keeps its own and says so (final review 00004 #1)', async () => {
+  useMe.setState({ me: { id: 'p_1', name: 'Ada' }, status: 'ready' })
+  setTeamFetch((async () => new Response(JSON.stringify({ ...view('Ada\'s'), you_id: 'p_1' }), { status: 200 })) as unknown as typeof fetch)
+  await useViewStore.getState().use(UUID)
+  expect(useViewStore.getState().view?.title).toBe('Ada\'s')
+  setTeamFetch((async () => new Response(JSON.stringify({ ...view('Bea\'s'), you_id: 'p_2' }), { status: 200 })) as unknown as typeof fetch)
+  expect(await useViewStore.getState().refresh()).toBe(false)
+  expect(useViewStore.getState()).toMatchObject({ status: 'ready', error: NOT_FOR_THIS_PAGE })
+  expect(useViewStore.getState().view?.title).toBe('Ada\'s')
+  expect(currentModel(useViewStore.getState())).toBeNull()
+  // A first read for someone else installs nothing either.
+  useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null })
+  await useViewStore.getState().use(UUID)
+  expect(useViewStore.getState()).toMatchObject({ view: null, status: 'error', error: NOT_FOR_THIS_PAGE })
 })
