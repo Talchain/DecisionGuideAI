@@ -15,6 +15,7 @@ import { useCanvasStore } from '../store'
 import { useWhatIfStore } from '../stores/whatIfStore'
 import { proposalGhostGeometry } from '../utils/proposalGhostGeometry'
 import { figureText } from './ProposalGhostLayer'
+import '../../presentation/v10-whatif.css'
 
 export const WHAT_IF_MARK_TESTID = 'what-if-mark'
 export const whatIfMarkText = (v: { value: number; unit: string }): string => `What if: ${figureText(v)}`
@@ -39,10 +40,11 @@ export const WhatIfMarkLayer = memo(function WhatIfMarkLayer() {
       <div aria-hidden="true" style={{ pointerEvents: 'none' }}>
         {mark.connector && (
           <svg className="absolute overflow-visible" style={{ left: 0, top: 0, pointerEvents: 'none' }} width={1} height={1}>
-            <line x1={mark.connector.x1} y1={mark.connector.y1} x2={mark.connector.x2} y2={mark.connector.y2} className="stroke-info" strokeOpacity={0.55} strokeWidth={1.5} />
+            <line data-what-if-line="" x1={mark.connector.x1} y1={mark.connector.y1} x2={mark.connector.x2} y2={mark.connector.y2} className="stroke-info" strokeOpacity={0.55} strokeWidth={1.5} />
           </svg>
         )}
         <span
+          data-what-if-mark=""
           data-testid={`${WHAT_IF_MARK_TESTID}-${held.nodeId}`}
           className={`absolute rounded border border-info bg-panel ${typography.edgeLabel} text-text-header`}
           style={{ left: mark.x, top: mark.y, transform: 'translate(-50%, -50%)', padding: '2px 8px', whiteSpace: 'nowrap', pointerEvents: 'none' }}

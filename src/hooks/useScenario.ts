@@ -46,6 +46,7 @@ import { isViewerSession } from '../lib/viewerMode'
 import { getScenarioAccess } from '../services/scenarioSharingService'
 import { awaitCanonicalOpen, canonicalOpenSequence } from '../canvas/hydrate/canonicalOpenOutcome'
 import { track } from '../lib/telemetry'
+import { scenarioPath } from '../presentation/v10'
 
 export type SaveStatus = 'saved' | 'saving' | 'error'
 
@@ -799,7 +800,7 @@ export function useScenario(): UseScenarioReturn {
       } else {
         useCanvasStore.setState({ currentScenarioId: row.id })
       }
-      navigate(`/scenario/${row.id}`)
+      navigate(scenarioPath(row.id))
       return row.id
     },
     [isPersistenceActive, user, navigate],

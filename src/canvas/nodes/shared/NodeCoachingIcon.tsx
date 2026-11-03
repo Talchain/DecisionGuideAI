@@ -59,6 +59,7 @@ import Tooltip from '../../../components/Tooltip'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { requestAsk, canReceiveAsk } from '../../ui/inspector-v2/askSemantic'
+import { usePresentation } from '../../../presentation/v10'
 import { useShowToastSafe } from '../../ToastContext'
 import { buildAskAIPrompt } from '../../contextMenu/actions'
 import type { NodeType } from '../../domain/nodes'
@@ -177,9 +178,18 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
     return typeof l === 'string' && l.trim().length > 0 ? l.trim() : 'this element'
   })
 
+  const presentation = usePresentation()
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     if (!chip) return
+    // v10: the Olumi icon on a card is the contextual prompt into the chat (Paul 24 Oct ruling 3). It fills the
+    // composer with "About <card>: " for the person to finish, and sends nothing.
+    if (presentation === 'v10') {
+      useCanvasStore.getState().selectNodeWithoutHistory?.(nodeId)
+      const landedPrefill = requestAsk({ text: `About ${nodeLabel}: `, label: `Ask Olumi about ${nodeLabel}`, targetId: nodeId, source: 'node-coaching-icon' })
+      if (landedPrefill === 'none') showToast('The conversation is not open yet. Try again in a moment.', 'warning')
+      return
+    }
     const store = useCanvasStore.getState() as {
       selectNodeWithoutHistory?: (id: string) => void
       nodes?: ReadonlyArray<{ id: string; type?: string; data?: unknown }>
@@ -212,7 +222,7 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
     if (landed === 'none') {
       showToast('Your question was not sent. Try again in the conversation.', 'warning')
     }
-  }, [chip, nodeId, nodeLabel, showToast])
+  }, [chip, nodeId, nodeLabel, showToast, presentation])
 
   if (!chip) return null
 

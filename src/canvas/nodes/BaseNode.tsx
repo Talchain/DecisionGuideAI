@@ -78,6 +78,10 @@ import {
 } from './shared/analysisParticipation'
 import { livingOnlyOf, NOT_IN_CALCULATION_TEST_ID, notInCalculationWords } from '../domain/livingModelCanvas'
 import { NodeQuickActions } from './shared/NodeQuickActions'
+import { NodeCornerOlumi } from './shared/NodeCornerOlumi'
+import { usePresentation } from '../../presentation/v10'
+import { V10StoryDiscs } from '../../presentation/V10StoryNumbers'
+import { V10ChangeMarks } from '../../presentation/V10ChangeLens'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { openOptionValueInput } from '../utils/openOptionValueInput'
@@ -528,8 +532,12 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // ⭐ A LINK-ONLY CHANGE SUBDUES TOO (audit 5942900903 (a)): the rule is the edges' — anything marked subdues what is
   // not — bar the cards at the ends of a marked link, which are the link's context. A projection that marks nothing
   // still subdues nothing.
+  // v10 (#/canvas2), Paul 24 Oct ruling "nothing dims": the three dims below read false there, and the emphasis
+  // each one sat beside (the changed card's outline + word, the lit ring, the selection ring) is what shows.
+  const noDim = usePresentation() === 'v10'
   const isRunChangeSubdued = useCanvasStore(
     s =>
+      !noDim &&
       s.analysisHighlight?.source === 'run_changes' &&
       (s.analysisHighlight.nodeIds?.size ?? 0) + (s.analysisHighlight.edgeIds?.size ?? 0) > 0 &&
       s.analysisHighlight.nodeIds.has(id) === false &&
@@ -610,12 +618,12 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
 
   // Graph Interaction P1: Node dimming for path highlighting
   // Nodes not on the highlighted path are dimmed (opacity ~0.4)
-  const isDimmed = useCanvasStore(s => s.dimmedNodeIds.has(id))
+  const isDimmed = useCanvasStore(s => !noDim && s.dimmedNodeIds.has(id))
 
   // Graph Lens: lens-mode dimming (20% opacity for inactive nodes in option mode)
   // Uses primitive boolean selector (React #185 pattern) to avoid re-render loops
   const isLensDimmed = useCanvasStore(s =>
-    isGraphLensEnabled() && s.lens._dimmedNodeIds.has(id)
+    !noDim && isGraphLensEnabled() && s.lens._dimmedNodeIds.has(id)
   )
 
   /**
@@ -664,6 +672,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    * alone never qualifies (spec §2).
    */
   const attention = useNodeAttention(id)
+  const isV10 = usePresentation() === 'v10'
   /**
    * Provenance at rest = EXCEPTIONS to the board's default (spec §6; ED 11:52Z
    * point 8). Detailed shows every mark ("Detailed adds information").
@@ -2141,6 +2150,13 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         />
       )}
 
+      {/* v10 (#/canvas2): the Olumi mark is a badge on the card's bottom-right corner, not part of the rail
+          (`NodeQuickActions` withholds its door in v10). Shown on hover, focus and selection, and at rest where Olumi has
+          a note or attention here. Same mount gate as the rail, so no rung that hides the rail draws it. */}
+      {isV10 && showQuickActions && livingOnly === null && (
+        <NodeCornerOlumi nodeId={id} selected={selected === true} hasAttention={attention.reasons.length > 0} />
+      )}
+
       {/* ⭐ ONE POINTING HALO (vision spec §3, 23 Oct): assistant focus and a method result that names this option draw
           the same mark, once. `data-method-pointed` still says which method's result pointed here. */}
       {(isAssistantFocused || methodPointed !== null) && (
@@ -2529,6 +2545,13 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           className="absolute left-3 top-0 z-10 -translate-y-1/2"
         />
       )}
+
+      {/* v10 "If it failed": the numbers of the failure stories that rest on this card, at its top-left corner. Unmounted at the
+          low-detail rung, with the rest of the card's marks. */}
+      {isV10 && !lodBodyHidden && <V10StoryDiscs nodeId={id} />}
+
+      {/* v10 only (#/canvas2): the "What would change" lens's marks, out of flow. */}
+      {isV10 && livingOnly === null && <V10ChangeMarks nodeId={id} nodeType={nodeType} />}
 
       {/* Node header — shape + title on same row (spec Section 3.2) */}
       <div

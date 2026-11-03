@@ -23,6 +23,7 @@ import GuestCopyOnSignIn from '../components/auth/GuestCopyOnSignIn'
 // SINGLE mount — the duplicate ReactFlowGraph mount was removed.
 import { useShouldShowDebugPanel } from '../components/debug/debugPanelVisibility'
 import { lazyWithStallBound } from '../lib/lazyWithStallBound'
+import { PresentationProvider } from '../presentation/v10'
 
 /**
  * Lazy-loaded routes for code splitting.
@@ -998,6 +999,9 @@ export default function AppPoC() {
                       people, so it requires a verified session. */}
                   <Route path="/scenario/:id/panel" element={unlessLane(<PanelSetupPage />)} />
                   <Route path="/canvas" element={<RouteContent><CanvasMVP /></RouteContent>} />
+                  {/* The v10 design on the same canvas, data and AI, for side-by-side comparison (src/presentation/v10.tsx); not on the olumi-core lane. */}
+                  <Route path="/canvas2" element={unlessLane(<RouteContent><PresentationProvider value="v10"><CanvasMVP /></PresentationProvider></RouteContent>)} />
+                  <Route path="/canvas2/:id" element={unlessLane(<RouteContent><PresentationProvider value="v10"><CanvasMVP /></PresentationProvider></RouteContent>)} />
                   <Route path="/profile" element={unlessLane(<ProfileSettingsPage />)} />
                 </Route>
 

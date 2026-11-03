@@ -12,6 +12,7 @@ import { FileUp, Loader2 } from 'lucide-react'
 
 import { useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
+import { scenarioPath } from '../../presentation/v10'
 import {
   shouldOfferDraftImport,
   importGuestDraft,
@@ -33,7 +34,7 @@ export function GuestDraftImportBanner() {
     setError(null)
     try {
       const scenarioId = await importGuestDraft(user.id)
-      navigate(`/scenario/${scenarioId}`)
+      navigate(scenarioPath(scenarioId))
     } catch {
       setError("Couldn't save your draft — please try again.")
       setSaving(false)
