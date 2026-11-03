@@ -105,7 +105,7 @@ interface ViewChatState {
    * A challenge that did not go through, its words waiting in the composer: sending those words again resends THAT challenge, with its
    * op id (it may already be saved), never a plain message (review 00002 #3). Changed words are a new message.
    */
-  readonly held: { readonly text: string; readonly kind: string; readonly record: string } | null
+  readonly held: { readonly text: string; readonly kind: string; readonly record: string; readonly sid: string; readonly uuid: string | null } | null
 }
 
 export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new Map(), busy: false, said: null, held: null }))
@@ -155,9 +155,9 @@ const takesBrief = (sid: string | null, view: View | null) => sid === null || (v
 
 const opKey = (uuid: string | null, kind: string, text: string) => `${uuid ?? '-'}\u0000${kind}\u0000${text}`
 
-/** One write of `text`, with its op id kept until core has it; true when it went through. */
-async function write(kind: string, text: string, f: (op: string) => Promise<unknown>, changesModel = false): Promise<boolean> {
-  const key = opKey(useViewStore.getState().uuid, kind, text)
+/** One write of `text`, with its op id kept until core has it; true when it went through. `uuid`: the scenario it belongs to (the page's). */
+async function write(kind: string, text: string, f: (op: string) => Promise<unknown>, changesModel = false, uuid = useViewStore.getState().uuid): Promise<boolean> {
+  const key = opKey(uuid, kind, text)
   const op = useViewChat.getState().ops.get(key) ?? newOp()
   useViewChat.setState({ ops: new Map(useViewChat.getState().ops).set(key, op) })
   const sent = await act(() => f(op), changesModel)
@@ -176,16 +176,19 @@ async function send(): Promise<void> {
   if (text.trim() === '') return
   const again = held !== null && held.text === text ? held : null
   if (held !== null && again === null) useViewChat.setState({ held: null })
-  if (!(await (again !== null ? challenge(again.kind, again.record, again.text) : say(text)))) return
+  if (!(await (again !== null ? challenge(again.kind, again.record, again.text, again) : say(text)))) return
   if (useViewChat.getState().text === text) useViewChat.setState({ text: '' })
 }
 
-/** A challenge on one card, to core's challenge route; one that does not go through is held for the same resend (`held`). */
-async function challenge(kind: string, record: string, text: string): Promise<boolean> {
-  const sid = useViewStore.getState().sid
+/**
+ * A challenge on one card, to core's challenge route; one that does not go through is held for the same resend (`held`). A resend goes to
+ * the scenario it was made in, with that scenario's op, whichever scenario is on screen now (review 00003 #2): it is the same write.
+ */
+async function challenge(kind: string, record: string, text: string, at = { sid: useViewStore.getState().sid, uuid: useViewStore.getState().uuid }): Promise<boolean> {
+  const { sid, uuid } = at
   if (sid === null) return false
-  const sent = await write(`challenge:${kind}:${record}`, text, (op) => writes.challenge(sid, kind, record, op))
-  useViewChat.setState({ held: sent ? null : { text, kind, record } })
+  const sent = await write(`challenge:${kind}:${record}`, text, (op) => writes.challenge(sid, kind, record, op), false, uuid)
+  useViewChat.setState({ held: sent ? null : { text, kind, record, sid, uuid } })
   return sent
 }
 

@@ -105,6 +105,7 @@ describe('the writes go straight to core, and the View is read again', () => {
     useViewStore.setState({ view: golden('proposal') })
     let answer!: (r: Response) => void
     setTeamFetch((async (url: string, init?: RequestInit) => {
+      if (String(url) === '/api/me') return new Response(JSON.stringify({ me: null }), { status: 200 })
       if (init?.method === 'POST') { posts.push({ url, body: JSON.parse(String(init.body)) }); return new Response('{}', { status: 200 }) }
       if (url.includes('/view')) return new Promise<Response>((done) => { answer = done })
       return new Response(JSON.stringify({ error: 'no team here' }), { status: 404 })
@@ -187,6 +188,7 @@ describe('the writes go straight to core, and the View is read again', () => {
 
     it('#7 a message saved whose View could not be read says so, rather than looking sent and shown', async () => {
       setTeamFetch((async (url: string, init?: RequestInit) => {
+        if (String(url) === '/api/me') return new Response(JSON.stringify({ me: null }), { status: 200 })
         if (init?.method === 'POST') { posts.push({ url, body: JSON.parse(String(init.body)) }); return new Response(JSON.stringify({ proposal: 9 }), { status: 201 }) }
         return new Response(JSON.stringify({ error: 'the server is busy' }), { status: 503 })
       }) as unknown as typeof fetch)

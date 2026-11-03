@@ -154,6 +154,10 @@ export function KebabMenu({
               <Download size={14} aria-hidden="true" />
               <span>Export</span>
             </button>
+            {/* Import and Snapshots replace the canvas here, which core never sees: on the olumi-core lane the model is changed in the
+                chat, as a proposal (review 00003 ledger). */}
+            {coreLaneAllows('structure') && (
+              <>
             <button
               type="button"
               role="menuitem"
@@ -174,6 +178,8 @@ export function KebabMenu({
               <Camera size={14} aria-hidden="true" />
               <span>Snapshots</span>
             </button>
+              </>
+            )}
             {/* NAMED BY INTENT, NOT BY MECHANISM (30 Aug 2026).
                 This item was named for the mechanism — a destructive wipe — in
                 the vocabulary of the implementation rather than the user's. It

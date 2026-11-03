@@ -12,16 +12,10 @@
 import { AnalysisStateV1Schema, type AnalysisStateV1 } from '@talchain/schemas/boundary'
 import type { Node } from '@xyflow/react'
 import { requestOlumiAttention } from '../canvas/utils/olumiAttention'
-import { focusAssistantTarget } from '../canvas/utils/assistantFocusCamera'
 import { bumpSavedGraphEpoch } from '../canvas/nodes/shared/savedGraphEpoch'
 import { ADDITIVE_EXTENSIONS_KEY } from './responseParser'
 import type { CoreTurn } from './coreTurnContract'
 import type { ApplyV5StateOptions, ApplyV5StateResult } from './applyV5State'
-import { isOlumiCoreLane } from '../olumiCore/lane'
-import { markNoteShown } from '../olumiCore/reloadNote'
-import { arrivalsOf, pulseWhenOnCanvas } from '../olumiCore/pulseArrivals'
-import { parseCanonicalAnalysisView } from '../canvas/runView/canonicalAnalysisView'
-import { useCanonicalAnalysisViewStore } from '../canvas/stores/canonicalAnalysisViewStore'
 
 /** The core turn the parser kept beside the answer (`coreTurnResponse`), or null for any other answer. */
 export function readCoreTurn(response: unknown): CoreTurn | null {
@@ -32,16 +26,12 @@ export function readCoreTurn(response: unknown): CoreTurn | null {
 
 export interface CoreTurnApplicatorStore {
   nodes: Node[]
-  /** olumi-core lane: let go of the graph on the canvas (and the autosave a reload would recover) when core holds no model. */
-  withdrawGraph?: () => void
   setLastServerGraphHash?: (hash: string) => void
   setAnalysisStateV1?: (state: AnalysisStateV1 | null) => void
 }
 
 /** The card kinds a note sits beside (CEE `NOTE_NODE_KINDS`); the question itself is never a card to note. */
 const NOTE_KINDS = new Set(['factor', 'option', 'goal', 'risk', 'constraint', 'outcome'])
-/** The cards Olumi's pointer (focus halo and camera) can land on; a note on any other kind is held beside its card without it. */
-const POINTER_KINDS = new Set(['factor', 'option', 'goal', 'risk', 'outcome'])
 
 export function applyCoreTurnState(turn: CoreTurn, store: CoreTurnApplicatorStore, options?: ApplyV5StateOptions): ApplyV5StateResult {
   const applied: string[] = []
@@ -52,20 +42,6 @@ export function applyCoreTurnState(turn: CoreTurn, store: CoreTurnApplicatorStor
     return { applied, deferred }
   }
 
-  // olumi-core holds NO model for this scenario (a first draft was set aside, and a draft is only ever held or saved): the canvas
-  // must not go on drawing it, or a figure edit there would answer "no saved model" and a reload would bring it back.
-  if (isOlumiCoreLane() && turn.model == null && turn.error == null && store.nodes.length > 0 && store.withdrawGraph) {
-    store.withdrawGraph()
-    applied.push('graph:withdrawn')
-  }
-
-  // olumi-core lane: the turn carries the Run view for the model it shows (as a read does), so the Analysis tab agrees with the canvas
-  // at once: not current beside a held change, current again once it is set aside. Without it the view of the last read stands.
-  if (isOlumiCoreLane() && turn.model != null && 'canonical_analysis_view' in turn.model && options?.turnScenarioId) {
-    useCanonicalAnalysisViewStore.getState().adopt(options.turnScenarioId, parseCanonicalAnalysisView(turn.model.canonical_analysis_view))
-    applied.push('canonical_analysis_view:adopted')
-  }
-
   const revision = turn.model?.revision ?? null
   // The note: the first one on a card of the saved model, held beside that card while it is on the canvas.
   const graphNodes = (Array.isArray(turn.model?.graph?.nodes) ? turn.model.graph.nodes : []) as Array<{ id?: unknown; kind?: unknown; label?: unknown }>
@@ -74,24 +50,10 @@ export function applyCoreTurnState(turn: CoreTurn, store: CoreTurnApplicatorStor
   if (note !== undefined) {
     if (store.nodes.some((n) => n.id === note.element_id)) {
       requestOlumiAttention({ nodeIds: [note.element_id], edgeIds: [], note: { body: note.text.trim() }, ...(revision ? { modelVersion: revision } : {}) })
-      markNoteShown(note)
       applied.push(`note:${note.element_id}`)
-      // olumi-core lane: Olumi points at the card its next step is about (the assistant-focus halo, and the camera if the card is
-      // off screen), the way a CEE `focus` directive does. A note on any other kind of card is held without the pointer.
-      const card = graphNodes.find((g) => g.id === note.element_id)
-      if (isOlumiCoreLane() && typeof card?.kind === 'string' && POINTER_KINDS.has(card.kind) && typeof card.label === 'string') {
-        focusAssistantTarget({ id: note.element_id, kind: 'node', label: card.label, scenarioId: options?.turnScenarioId ?? null })
-        applied.push(`focus:${note.element_id}`)
-      }
     } else {
       deferred.push({ reason: 'ui_directive_target_not_found', detail: note.element_id })
     }
-  }
-
-  // olumi-core lane: a card that arrives because a change was approved (a ghost made real) is pulsed on its arrival, with the camera brought to it.
-  if (isOlumiCoreLane() && turn.receipts.length > 0 && turn.error == null) {
-    const arrivals = arrivalsOf(graphNodes, store.nodes)
-    if (arrivals.length > 0) { pulseWhenOnCanvas(arrivals); applied.push(`pulse:${arrivals.join(',')}`) }
   }
 
   if (revision) {

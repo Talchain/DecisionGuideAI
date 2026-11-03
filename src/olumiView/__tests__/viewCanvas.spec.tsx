@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import type { View } from '../client'
 import { useCanvasStore } from '../../canvas/store'
 import { useViewStore } from '../store'
@@ -46,6 +46,14 @@ describe('the View draws the canvas', () => {
     useViewStore.setState({ view: { ...approved, proposal: null } })
     rerender()
     expect(ids()).toEqual(approved.model!.cards.map((c) => c.id))
+  })
+
+  it('R2b no View for the scenario on screen (a new scenario started): the last one\'s cards leave the canvas (review 00003 #1)', () => {
+    renderHook(() => useViewCanvas(true))
+    act(() => { useViewStore.setState({ uuid: 'a', sid: 's_0123456789ab', view: golden('pricing'), status: 'ready', error: null }) })
+    expect(useCanvasStore.getState().nodes.length).toBeGreaterThan(0)
+    act(() => { useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' }) })
+    expect(useCanvasStore.getState().nodes).toEqual([])
   })
 
   it('R3 the same View twice changes nothing, and a card the person moved stays where they put it', () => {

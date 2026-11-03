@@ -76,7 +76,8 @@ export function placeViewCards(model: ViewModel): boolean {
 }
 
 /**
- * On the core lane, the canvas follows the View: each View that lands for the scenario on screen is drawn, and one with no model withdraws it.
+ * On the core lane, the canvas follows the View: each View that lands for the scenario on screen is drawn; no View, or one with no
+ * model, withdraws it.
  * A card that arrives on a canvas already holding the model (an approval, here or by another member) is acknowledged with the applied-edit
  * pulse; the first drawing of a scenario pulses nothing.
  */
@@ -86,8 +87,9 @@ export function useViewCanvas(on: boolean): void {
   // A card the canvas measures taller (or shorter) re-places the cards below it (review 00063 #4).
   const heights = useCanvasStore((s) => drawnHeightsKey(s.nodes))
   useEffect(() => {
-    if (!on || view === null) return
-    if (model === null) { withdrawViewCanvas(); return }
+    if (!on) return
+    // No View for the scenario on screen (a new scenario, or one core holds no model for): the last one's cards leave (review 00003 #1).
+    if (view === null || model === null) { withdrawViewCanvas(); return }
     const before = useCanvasStore.getState().nodes
     const had = holdsViewNodes(before, [VIEW_CARD, VIEW_QUESTION]) ? new Set(before.map((n) => n.id)) : null
     if (!drawViewCanvas(model) || had === null) return

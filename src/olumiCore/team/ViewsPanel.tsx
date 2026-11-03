@@ -58,7 +58,7 @@ export function ViewsPanel({ sid, view, meId, onWrote }: { sid: string; view: Vi
         <ul className="m-0 grid list-none gap-1.5 p-0" data-testid="team-mine">
           {c.mine.map((v) => (
             <li key={v.id} data-testid={`team-mine-${v.id}`} className={CARD}>
-              <p className={`${META} flex items-center gap-1.5 text-text-header`}><Lock aria-hidden="true" className="h-3 w-3 flex-none" />Private: only you can see this</p>
+              <p className={`${META} flex items-center gap-1.5 text-text-header`}><Lock aria-hidden="true" className="h-3 w-3 flex-none" />Private to you until everyone’s views are revealed</p>
               {v.skip ? <p className={META}>You chose not to answer.</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
             </li>
           ))}

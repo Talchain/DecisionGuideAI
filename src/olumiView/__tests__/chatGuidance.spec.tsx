@@ -91,6 +91,20 @@ describe('the canvas\'s asks reach core through the Olumi tab (00054 #3)', () =>
     expect(useViewChat.getState().held).toBeNull()
   })
 
+  it('a lost challenge resent after the page moved to another scenario goes to ITS scenario, with its op (review 00003 #2)', async () => {
+    let n = 0
+    answer(() => { n++; if (n === 1) throw new TypeError('network'); return new Response(JSON.stringify({ proposal: null }), { status: 201 }) })
+    const { container } = render(<><ViewChat /><ViewComposer /></>)
+    useCanvasStore.setState({ selection: { nodeIds: new Set([card.id]), edgeIds: new Set(), anchorPosition: null } })
+    await act(async () => { useGuidanceStore.getState()._dispatchAction!({ id: 'ask:challenge', label: 'Challenge', message: 'Challenge this', source: 'chip' }) })
+    await waitFor(() => expect(useViewChat.getState().text).toBe('Challenge this'))
+    act(() => { useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000002', sid: 's_000000000002' }) })
+    await act(async () => { fireEvent.click([...container.querySelectorAll('button')].find((b) => b.textContent === 'Send')!) })
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts[1]).toEqual(posts[0])
+    expect(posts[1]!.url).toBe(`/api/scenarios/${SID}/challenge`)
+  })
+
   it('changed words after a lost challenge are a new message, not the challenge', async () => {
     let n = 0
     answer(() => { n++; if (n === 1) throw new TypeError('network'); return new Response(JSON.stringify({ proposal: null }), { status: 201 }) })

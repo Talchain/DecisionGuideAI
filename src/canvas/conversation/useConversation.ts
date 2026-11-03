@@ -30,7 +30,6 @@ import { addBreadcrumb } from '../../lib/monitoring'
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { isThinClientSession } from '../thinClient/thinClient'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
-import { withdrawGraphFromCanvas } from '../../olumiCore/withdrawGraph'
 import { useDraftStore, draftStreamPhaseFor, streamedPreviewStandingFor, canvasDraftPreviewFingerprint } from '../stores/draftStore'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { scenarioIdWrite } from '../stores/unboundModelBinding'
@@ -5925,7 +5924,7 @@ export function useConversation(): UseConversationReturn {
           useCanvasStore.getState().beginExternalGraphMutation?.('envelope_apply')
           let stateApply: ReturnType<typeof applyV5State>
           try {
-            stateApply = coreBody !== null ? applyCoreTurnState(coreBody, { ...v5StoreSnapshot, withdrawGraph: withdrawGraphFromCanvas }, {
+            stateApply = coreBody !== null ? applyCoreTurnState(coreBody, v5StoreSnapshot, {
               turnClientId,
               currentClientTurnId: activeV5TurnIdRef.current,
               turnScenarioId: scenarioIdAtDispatch,
@@ -7595,8 +7594,12 @@ export function useConversation(): UseConversationReturn {
       chipMeta?: ChipMeta
     }) => {
       // The olumi-core lane's one writer is the Olumi tab's: its words go to core there (lane audit 14, 16); a hidden turn has none.
+      // A chip goes as the press it is (its id kept, so a challenge reaches core's challenge route); plain words go as the caller's own.
       if (isOlumiCoreLane()) {
-        if (!opts?.hidden) useGuidanceStore.getState()._sendMessage?.(text)
+        if (opts?.hidden) return
+        const lane = useGuidanceStore.getState()
+        if (opts?.chipMeta) lane._dispatchAction?.({ id: opts.chipMeta.id, label: text, message: text, source: 'chip' })
+        else lane._sendMessage?.(text)
         return
       }
       await sendTurn({

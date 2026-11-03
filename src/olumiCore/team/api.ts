@@ -50,12 +50,14 @@ export function setPagePerson(id: string | null): void { pagePerson = id }
 /**
  * A write is saved as whoever holds the browser's cookie NOW, and another tab may have opened someone else's private link since this
  * page was opened (review 00002 #1). So before every write core is asked whose link it is; a different person's is refused here, and
- * nothing is sent.
+ * nothing is sent. With no person known yet, the first one core names is the page's.
  */
 async function stillThisPerson(): Promise<void> {
-  if (pagePerson === null) return
   const now = await call<{ me?: { id?: unknown } | null }>('GET', '/api/me')
-  if (now?.me?.id !== pagePerson) throw new TeamApiError(409, NOT_FOR_THIS_PAGE)
+  const id = typeof now?.me?.id === 'string' ? now.me.id : null
+  // The page's first answer failed (`me.ts`): this one is the page's person from now on, so a later switch is still caught (review 00003).
+  if (pagePerson === null) { pagePerson = id; return }
+  if (id !== pagePerson) throw new TeamApiError(409, NOT_FOR_THIS_PAGE)
 }
 
 export async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {

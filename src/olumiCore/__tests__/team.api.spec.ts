@@ -6,6 +6,7 @@ function fakeApi(handler: (method: string, path: string, body: unknown) => { sta
   const calls: Array<{ method: string; path: string; body: unknown; headers: Record<string, string> }> = []
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const body = init?.body ? JSON.parse(String(init.body)) : undefined
+    if (String(input) === '/api/me') return { ok: true, status: 200, json: async () => ({ me: null }) } as Response
     calls.push({ method: init?.method ?? 'GET', path: String(input), body, headers: { ...(init?.headers as Record<string, string>) } })
     const r = handler(init?.method ?? 'GET', String(input), body)
     const status = r.status ?? 200
@@ -35,8 +36,11 @@ describe('the Team tab talks to core\'s own routes on this origin', () => {
   it('says what core said when it refuses (the person\'s words), and a fixed sentence when it cannot be reached', async () => {
     setTeamFetch(fakeApi(() => ({ status: 409, json: { error: 'there are not two members who have each given a view yet' } })).fetchImpl)
     await expect(teamApi.reveal('s_a1')).rejects.toMatchObject({ name: 'TeamApiError', status: 409, message: 'there are not two members who have each given a view yet' })
+    // Core cannot be reached at all: the identity read before the write fails, so the write never left, and it says Olumi could not be read.
     setTeamFetch((async () => { throw new TypeError('network') }) as typeof fetch)
-    // A write whose answer never came may have been saved: it is never worded as "nothing was sent", and it is marked uncertain.
+    await expect(teamApi.reveal('s_a1')).rejects.toMatchObject({ status: 0, uncertain: false, message: expect.stringContaining('could not be read') })
+    // The write left and its answer never came: it may have been saved, never worded as "nothing was sent", and marked uncertain.
+    setTeamFetch((async (u: unknown) => { if (String(u) === '/api/me') return new Response(JSON.stringify({ me: null }), { status: 200 }); throw new TypeError('network') }) as typeof fetch)
     await expect(teamApi.reveal('s_a1')).rejects.toMatchObject({ status: 0, uncertain: true, message: expect.stringContaining('may have been saved') })
     expect(new TeamApiError(0, 'x')).toBeInstanceOf(Error)
   })

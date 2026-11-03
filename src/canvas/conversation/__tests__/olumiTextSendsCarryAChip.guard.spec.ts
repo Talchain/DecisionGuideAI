@@ -74,6 +74,8 @@ const ALLOWED: Record<string, { count: number; reason: string }> = {
     reason: 'Generate model sends `consumeBrief()` — the composer text the person typed.' },
   'canvas/conversation/askAi.ts::state._sendMessage(req.userWords)': { count: 1,
     reason: '`req.userWords` — the person\'s own typed words, every one (T1H-3: the Respond door\'s typed-parameter chip is gone).' },
+  'canvas/conversation/useConversation.ts::lane._sendMessage(text)': { count: 1,
+    reason: 'the olumi-core lane\'s relay inside `sendMessage`: only a send with no `chipMeta` takes it, and every chipless `sendMessage` caller is a typed-composer source on this list, so the text is the person\'s own typed words (a chip goes as a press, `_dispatchAction`).' },
   'canvas/conversation/hooks/useComposerState.ts::onSend(value.trim())': { count: 1,
     reason: 'the composer\'s own submit — the words the person typed.' },
   'canvas/conversation/zones/ChatComposer.tsx::sendMessage(text)': { count: 1,

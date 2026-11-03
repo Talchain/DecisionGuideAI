@@ -51,7 +51,7 @@ describe('A. an uncertain write is settled by core\'s answer to the same request
   })
   it('the API wiring: a write that carries an op sends it, and the ones core has no op for send none', async () => {
     const bodies: unknown[] = []
-    setTeamFetch((async (_u: unknown, init?: RequestInit) => { bodies.push(init?.body ? JSON.parse(String(init.body)) : null); return { ok: true, status: 201, json: async () => ({}) } as Response }) as typeof fetch)
+    setTeamFetch((async (u: unknown, init?: RequestInit) => { if (String(u) === '/api/me') return { ok: true, status: 200, json: async () => ({ me: null }) } as Response; bodies.push(init?.body ? JSON.parse(String(init.body)) : null); return { ok: true, status: 201, json: async () => ({}) } as Response }) as typeof fetch)
     await teamApi.giveView('s_1', 'x'); await teamApi.addCommitment('s_1', { action: 'a', owner: '1', expect: 'e', reconsider: 'r', keeps: [] })
     expect(bodies.every((b) => !('op' in (b as object)))).toBe(true)
   })
@@ -88,6 +88,14 @@ describe('every write is the page\'s person\'s, or it is not sent (review 00002 
     setPagePerson('p_1')
     const posts = core('p_2')
     await expect(teamApi.giveView('s_1', 'mine')).rejects.toMatchObject({ status: 409, message: NOT_FOR_THIS_PAGE, uncertain: false })
+    expect(posts).toEqual([])
+  })
+  it('no person known yet (the page\'s first read failed): the first person core names is the page\'s, and a later switch is refused (review 00003)', async () => {
+    let posts = core('p_1')
+    await teamApi.giveView('s_1', 'mine')
+    expect(posts).toEqual(['/api/scenarios/s_1/views'])
+    posts = core('p_2')
+    await expect(teamApi.giveView('s_1', 'mine')).rejects.toMatchObject({ status: 409, message: NOT_FOR_THIS_PAGE })
     expect(posts).toEqual([])
   })
   it('the same person: sent', async () => {
