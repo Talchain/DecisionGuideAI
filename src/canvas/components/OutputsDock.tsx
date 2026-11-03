@@ -4455,6 +4455,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 witness; `shellContract.ts`'s `footerBar` doc carries why the
                 fix is a footer declaration and NOT a change to that mount. */}
             {(() => {
+              // DL ruling 3 Nov (lane audit 12): core runs the analysis on every save, so the olumi-core lane offers no Run control.
+              if (isOlumiCoreLane()) return null
               const bar = surfaceFor(effectiveActiveTab).footerBar
               switch (bar) {
                 // ⭐ ONE PRE-RUN RUN CONTROL PER SURFACE (26 Sep 2026, register
@@ -4550,8 +4552,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
               isOlumiTabActive={effectiveActiveTab === 'olumi'}
               onOpenFloating={floatOutToWindow}
               onFocusFloating={focusFloating}
-              /* The olumi-core lane writes to core from its own composer, keeping this run control (review 00052 #3). */
-              composer={isOlumiCoreLane() ? (run) => <ViewComposer analysisAction={run} /> : undefined}
+              /* The olumi-core lane writes to core from its own composer, with no Run control: core runs the analysis on every save, so
+                 a Run press there is a dead control (DL ruling 3 Nov, lane audit 12; reverses review 00052 #3's keep). */
+              composer={isOlumiCoreLane() ? () => <ViewComposer /> : undefined}
               /* ⭐ THE AI TAB'S RUN CONTROL, AND THE GAP IT CLOSES.
                  `AnalysisReadinessBar` — the bar this surface declares in
                  `shellContract.ts` — returns null the moment the pre-run window

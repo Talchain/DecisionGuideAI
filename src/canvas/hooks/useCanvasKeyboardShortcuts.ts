@@ -15,6 +15,7 @@
  * - ?: Show keyboard map
  */
 
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { useEffect, useCallback, useRef } from 'react'
 import { useCanvasStore, getNextInvalidNode } from '../store'
 import { isGraphLensEnabled } from '../../flags'
@@ -182,7 +183,8 @@ export function useCanvasKeyboardShortcuts({
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
 
-      if (onRunSimulation) {
+      // Not on the olumi-core lane: core runs the analysis on every save (DL ruling 3 Nov, lane audit 12).
+      if (onRunSimulation && !isOlumiCoreLane()) {
         onRunSimulation()
       }
 
