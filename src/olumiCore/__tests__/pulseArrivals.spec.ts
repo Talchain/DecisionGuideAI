@@ -43,12 +43,13 @@ describe('the card an approval adds is pulsed when it arrives', () => {
     expect(v1.model!.cards.some((c) => has(c.id))).toBe(false)
   })
 
-  it('a newer version pulses the cards it applied: the one whose figure core now words differently and the one the proposal marked; others stay still', async () => {
+  it('a newer version pulses the cards it applied: a figure a person sets that core now words differently and the one the proposal marked; others, and a worked-out figure, stay still', async () => {
     const on = (id: string) => useCanvasStore.getState().nodes.some((n) => n.id === id)
     const base = v2.model!, n = v2.version!.n
-    const [edited, marked, still] = base.cards.filter((c) => c.figure !== null)
+    const [edited, marked, still] = base.cards.filter((c) => (c.figure?.edit ?? null) !== null)
+    const worked = base.cards.find((c) => c.figure !== null && (c.figure.edit ?? null) === null)!
     const held: View = { ...v2, id: 's_pulse0000001', model: { ...base, cards: base.cards.map((c) => (c.id === marked!.id ? { ...c, change: { glyph: '+', title: 'Proposed addition' } } : c)) } }
-    const applied: View = { ...held, version: { ...v2.version!, n: n + 1 }, model: { ...base, cards: base.cards.map((c) => (c.id === edited!.id ? { ...c, figure: { ...c.figure!, text: `${c.figure!.text} (new)` } } : c)) } }
+    const applied: View = { ...held, version: { ...v2.version!, n: n + 1 }, model: { ...base, cards: base.cards.map((c) => (c.id === edited!.id || c.id === worked.id ? { ...c, figure: { ...c.figure!, text: `${c.figure!.text} (new)` } } : c)) } }
     useViewStore.setState({ sid: held.id })
     renderHook(() => useViewCanvas(true))
     act(() => { useViewStore.setState({ view: held, status: 'ready' }) })
@@ -57,7 +58,8 @@ describe('the card an approval adds is pulsed when it arrives', () => {
     act(() => { useViewStore.setState({ view: applied }) })
     await vi.waitFor(() => expect(has(edited!.id)).toBe(false))
     await vi.waitFor(() => { vi.advanceTimersByTime(PULSE_COALESCE_MS + 20); expect(has(edited!.id)).toBe(true) })
-    expect([has(marked!.id), has(still!.id)]).toEqual([true, false])
+    // A figure core works out from others moves with the edit and is not pulsed (two-people step 9: total capacity).
+    expect([has(marked!.id), has(still!.id), has(worked.id)]).toEqual([true, false, false])
   })
 
   it('CONTRAST: the same version redrawn with a different figure (a proposal held, nothing applied) pulses nothing', async () => {

@@ -134,12 +134,13 @@ export function driverLinksOf(model: ViewModel, drivers: ReadonlyMap<string, rea
 
 /**
  * The cards a newer version applied, for the applied-edit pulse: each card the last View drew with core's change mark (a proposal's
- * addition or change, now approved), and each whose figure core now words differently (an edit). Core's words compared as they are,
- * never read. An arrived card is pulsed by its arrival (canvas.ts).
+ * addition or change, now approved), and each figure a person sets (core offers it an edit) that core now words differently (an edit).
+ * A figure core works out from others moves with them and is not pulsed. Core's words compared as they are, never read. An arrived card
+ * is pulsed by its arrival (canvas.ts).
  */
 export function appliedSince(before: ViewModel, after: ViewModel): string[] {
   const was = new Map(before.cards.map((c) => [c.id, c]))
-  return after.cards.filter((c) => { const w = was.get(c.id); return w !== undefined && (w.change !== null || (w.figure?.text ?? null) !== (c.figure?.text ?? null)) }).map((c) => c.id)
+  return after.cards.filter((c) => { const w = was.get(c.id); return w !== undefined && (w.change !== null || ((c.figure?.edit ?? null) !== null && (w.figure?.text ?? null) !== (c.figure?.text ?? null))) }).map((c) => c.id)
 }
 
 /** The DGAI node kind a View card is drawn as on the canvas (the original look): a figure a person sets is a factor, one core works out
