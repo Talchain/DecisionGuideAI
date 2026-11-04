@@ -60,12 +60,18 @@ describe('partial approval', () => {
     expect(posts[0]!.body).toEqual({ base: p.base, only: [changes[0]!.id], only_top: [changes[0]!.id] })
   })
 
-  it('must not change: Approve is still the whole proposal (`base` alone); a proposal held without a list has no ticks', async () => {
+  it('must not change: Approve is still the whole proposal (`base` alone); one line, or none, has no ticks', async () => {
     show(golden)
     fireEvent.click(screen.getByTestId('view-change-tick-0'))
     fireEvent.click(screen.getByText('Approve'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]).toEqual({ path: `/api/proposals/${p.id}/approve`, body: { base: p.base } })
+    cleanup()
+    // One line is the whole proposal: the line is drawn, with no tick and no second Approve.
+    const one = show({ ...golden, proposal: { ...p, changes: [p.changes[0]!] } })
+    expect(one.querySelector('[data-view="proposal.changes.0.text"]')?.textContent).toBe(p.changes[0]!.text)
+    expect(one.querySelector('[data-testid^="view-change-tick-"]')).toBeNull()
+    expect(screen.queryByTestId('view-approve-ticked')).toBeNull()
     cleanup()
     const c = show({ ...golden, proposal: { ...p, changes: [], groups: null } })
     expect(c.querySelector('[data-testid^="view-change-tick-"]')).toBeNull()

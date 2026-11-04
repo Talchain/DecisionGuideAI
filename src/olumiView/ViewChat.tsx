@@ -107,11 +107,11 @@ const keyOf = (c: Change) => `${c.top ? 'top' : 'rec'}:${c.id}`
  * One change line of core's change card (View `proposal.changes`, L8): its tick, core's line, and what a tap opens (`detail`), with Olumi's
  * mark on a line of Olumi's. Every word is core's.
  */
-function ChangeLine({ c, i, ticked, toggle, busy }: { c: Change; i: number; ticked: boolean; toggle: (c: Change) => void; busy: boolean }) {
+function ChangeLine({ c, i, ticked, toggle, busy }: { c: Change; i: number; ticked: boolean | null; toggle: (c: Change) => void; busy: boolean }) {
   const line = <><span data-view={`proposal.changes.${i}.text`}>{c.text}</span>{c.olumi === null ? null : <> <span title={c.olumi.title} aria-label={c.olumi.title} data-view={`proposal.changes.${i}.olumi.glyph`}>{c.olumi.glyph}</span></>}</>
   return (
     <li className="flex items-start gap-2" data-change={keyOf(c)}>
-      <input type="checkbox" checked={ticked} disabled={busy} onChange={() => toggle(c)} aria-label={`Choose ${c.text}`} data-testid={`view-change-tick-${i}`} className="mt-1" />
+      {ticked === null ? null : <input type="checkbox" checked={ticked} disabled={busy} onChange={() => toggle(c)} aria-label={`Choose ${c.text}`} data-testid={`view-change-tick-${i}`} className="mt-1" />}
       {c.detail === '' ? <span>{line}</span> : (
         <details><summary className="cursor-pointer">{line}</summary><p className="whitespace-pre-line text-text-light" data-view={`proposal.changes.${i}.detail`}>{c.detail}</p></details>
       )}
@@ -126,6 +126,8 @@ function ChangeLine({ c, i, ticked, toggle, busy }: { c: Change; i: number; tick
 function Proposal({ p, busy }: { p: NonNullable<View['proposal']>; busy: boolean }) {
   // A core before L8 serves no list (absent, never []): its card has Approve alone, as a proposal held without a list.
   const changes = p.changes ?? [], groups = p.groups ?? null
+  // One line is the whole proposal: ticking it would only repeat Approve, so there are ticks from two lines (4 Nov drive at 1280).
+  const tickable = changes.length > 1
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set())
   const toggle = (c: Change) => setTicked((t) => { const n = new Set(t), k = keyOf(c); if (n.has(k)) n.delete(k); else n.add(k); return n })
   const toggleGroup = (lines: number[], on: boolean) => setTicked((t) => { const n = new Set(t); for (const i of lines) { const c = changes[i]; if (c) { if (on) n.add(keyOf(c)); else n.delete(keyOf(c)) } } return n })
@@ -133,7 +135,7 @@ function Proposal({ p, busy }: { p: NonNullable<View['proposal']>; busy: boolean
   const pick: { only: string[]; only_top: string[] } = { only: [], only_top: [] }
   for (const c of changes) if (ticked.has(keyOf(c))) (c.top ? pick.only_top : pick.only).push(c.id)
   const chosen = pick.only.length + pick.only_top.length
-  const line = (i: number) => { const c = changes[i]!; return <ChangeLine key={keyOf(c)} c={c} i={i} ticked={ticked.has(keyOf(c))} toggle={toggle} busy={busy} /> }
+  const line = (i: number) => { const c = changes[i]!; return <ChangeLine key={keyOf(c)} c={c} i={i} ticked={tickable ? ticked.has(keyOf(c)) : null} toggle={toggle} busy={busy} /> }
   return (
     <div className={`${typography.panelBody} rounded border border-border p-3 space-y-2`} data-testid="view-chat-proposal">
       <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span> <span data-view="proposal.on">{p.on}</span>
@@ -163,7 +165,7 @@ function Proposal({ p, busy }: { p: NonNullable<View['proposal']>; busy: boolean
         )}
       <div className="flex flex-wrap gap-2">
         <button type="button" disabled={busy} className="rounded px-3 py-2 bg-primary text-text-on-color disabled:opacity-50" onClick={() => void act(() => writes.approve(p.id, p.base), true)}>Approve</button>
-        {changes.length === 0 ? null : (
+        {!tickable ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
             className="rounded px-3 py-2 border border-info/30 text-info disabled:opacity-50" onClick={() => void act(() => writes.approve(p.id, p.base, pick), true)}>Approve ticked · {chosen}</button>
         )}
