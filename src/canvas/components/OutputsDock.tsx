@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useLayoutEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
-import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle, FlaskConical, Loader2 } from 'lucide-react'
+import { BarChart3, Shuffle, Activity, Users, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle, FlaskConical, Loader2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
@@ -50,7 +50,7 @@ import {
   DEFAULT_WORKSPACE_SURFACE,
   UNFLAGGED_FALLBACK_SURFACE,
   SHELL_CONTAINER_NAME,
-  presentedSurfaces,
+  presentedSurfacesWithLane,
   shellBodyClassName,
   surfaceFor,
   type WorkspaceSurfaceDescriptor,
@@ -208,6 +208,15 @@ import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer
 import { AssistantOpenedNotice } from './AssistantOpenedNotice'
 import { DefineSuccessModal, DecisionRecordModal, HowComputedModal, openDecisionRecord, useDecisionRecordForScenario } from '../../components/results/modals'
 import { useIsViewer } from '../../lib/viewerMode'
+import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
+import { TeamTab } from '../../olumiCore/team/TeamTab'
+import { currentModel, useViewStore } from '../../olumiView/store'
+import { useViewFollows } from '../../olumiView/follow'
+import { useViewCanvas } from '../../olumiView/canvas'
+import { useViewNote } from '../../olumiView/note'
+import { ViewChancesBlock } from '../../olumiView/ViewChances'
+import { useAnswersAsks, ViewChat, ViewComposer } from '../../olumiView/ViewChat'
+import { focusDockedOlumi } from '../conversation/dockedOlumiFocus'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
 
 /**
@@ -275,7 +284,7 @@ export function readPersistedActiveDockTab(): OutputsDockTab | null {
     // 'altview' is deliberately absent: the retired V7 comparison tab must not
     // rehydrate from a session persisted before its retirement — an unknown id
     // falls through to null and the dock opens on its default tab.
-    if (tab === 'results' || tab === 'analysisNew' || tab === 'compare' || tab === 'diagnostics' || tab === 'journey' || tab === 'olumi') {
+    if (tab === 'results' || tab === 'analysisNew' || tab === 'compare' || tab === 'diagnostics' || tab === 'journey' || tab === 'olumi' || (tab === 'team' && isOlumiCoreLane())) {
       return tab
     }
     return null
@@ -495,7 +504,9 @@ export function getOutputTabsForParity(): WorkspaceSurfaceDescriptor[] {
   // to correct. `presentedSurfaces().map(s => s.id)` is asserted not to contain
   // 'journey' in `tests/ci-guards/shell-conformance.spec.ts`, and
   // `OutputsDock.dom.spec.tsx` drives the whole dock with the flag forced ON.
-  return presentedSurfaces().filter(surface => {
+  return presentedSurfacesWithLane().filter(surface => {
+    // The olumi-core lane has no Reasoning or Compare backend (CEE's): hidden there, never left to 404. Its Team tab is shown there and nowhere else.
+    if (!coreLaneShowsSurface(surface.id)) return false
     if (surface.id === 'olumi') return isAiPanelV2Enabled()
     if (surface.id === 'compare') return isCompareTabEnabled()
     return true
@@ -605,6 +616,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     if (state.activeTab === 'olumi' && !isAiPanelV2Enabled()) {
       setState(prev => ({ ...prev, activeTab: UNFLAGGED_FALLBACK_SURFACE }))
     }
+    // The lane's own surfaces both ways: Team only on the lane, and a tab the lane hides (a restored Reasoning or Model) never on it.
+    if (!coreLaneShowsSurface(state.activeTab)) {
+      setState(prev => ({ ...prev, activeTab: landing }))
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- one-time init guard
 
   // (UX correction P0 redirect effect is mounted later, after the
@@ -668,9 +683,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     // 0.32.0 panel verbs (`open_panel` / `open_section`) ride this path via
     // `forceActivateOutputTab`, and remapping a live request here would make
     // the assistant open a surface it did not name.
+    // A surface the olumi-core lane hides (Reasoning, Compare, Model) is never opened there by a deep link either: no dead control.
     const resolvedTab = (externalTab === 'compare' && !isCompareTabEnabled())
       || (externalTab === 'journey' && !isJourneyTabEnabled())
       || (externalTab === 'olumi' && !isAiPanelV2Enabled())
+      || !coreLaneShowsSurface(externalTab)
       ? DEFAULT_WORKSPACE_SURFACE
       : externalTab
     // A forced activation OF THE OLUMI TAB must also clear the FIRST-USE RAIL,
@@ -785,6 +802,14 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const declinedSavedRun = useDeclinedSavedRunStore(s => s.declined)
   const currentScenarioIdForRun = useCanvasStore(s => s.currentScenarioId)
   const savedRunUnconfirmed = selectSavedRunUnconfirmed(declinedSavedRun, currentScenarioIdForRun, runOnRecordLocally)
+  // The olumi-core lane's View (olumi.view/2): read for this scenario (src/olumiView/follow.ts); the canvas, the chat and the Team tab
+  // are all drawn from it (src/olumiView/canvas.ts), so the canvas never re-triggers the read.
+  const coreView = useViewStore(currentModel)
+  useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null)
+  useViewCanvas(isOlumiCoreLane())
+  useViewNote(isOlumiCoreLane())
+  // The canvas's asks are answered while the dock is on the page, collapsed or on another tab (lane audit 24).
+  useAnswersAsks(isOlumiCoreLane())
   const runOnRecord = runOnRecordLocally || savedRunUnconfirmed
   const runStateKindForStatus = useCanvasStore(s => s.analysisStateV1?.run_state.kind ?? null)
 
@@ -863,7 +888,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // narrowing) is WITHDRAWN as of 17 Aug: it bought no legibility at any dock
   // width and cost 35% of the panel's content budget. This VISIBILITY rule is
   // untouched by that. See the predicate's own header for the full record.
-  const isFirstUse = shouldRenderFirstUseRail({
+  // The olumi-core lane mounts no first-use composer (its one chat is this dock's Olumi tab, canvas A S6 D6): no first-use rail.
+  const isFirstUse = !isOlumiCoreLane() && shouldRenderFirstUseRail({
     aiPanelV2On,
     hasModelContent: hasGraphContent,
     analysisActive,
@@ -878,6 +904,18 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // the rail). Defined once here and reused by the docked-Olumi close-effect
   // below, the --dock-right-offset effect, and render.
   const effectiveIsOpen = isFirstUse ? false : state.isOpen
+  // On the lane a scenario waiting for its brief (core holds no scenario for it, or holds no draft yet) opens on the Olumi tab, where
+  // the brief is typed, so the empty canvas never looks dead (D6). Decided by the View, never by the canvas being empty for a moment
+  // while a paired scenario's View loads (lane audit 1.1); each scenario decides once, when it is the one on screen.
+  const viewUuid = useViewStore((s) => s.uuid)
+  // Only once the View store is the scenario on screen's: before that (a cold reload, its scenario not yet named) it decides nothing (00067).
+  const onScreen = currentScenarioIdForRun ?? null
+  const awaitsBrief = useViewStore((s) => s.uuid !== null && s.uuid === onScreen && (s.sid === null || (s.view !== null && s.view.version === null && s.view.proposal === null)))
+  useEffect(() => {
+    if (!isOlumiCoreLane() || !awaitsBrief) return
+    setState((prev) => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
+    useUIStore.getState().setActiveOutputTab('olumi' as OutputTab)
+  }, [awaitsBrief, viewUuid]) // eslint-disable-line react-hooks/exhaustive-deps -- setState is stable
   // ACCOUNTS viewer mode (PANEL 5947736451): a viewer keeps the results and loses the
   // readiness / re-analyse bars and the Run action. Only the owner can run.
   const isViewer = useIsViewer()
@@ -1038,6 +1076,14 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // write would land too late). When activeTab is not 'olumi', the
   // swap is skipped — just opens the panel.
   const floatOutToWindow = () => {
+    // The olumi-core lane mounts no floating panel: every way to Olumi fronts this dock's Olumi tab, with its composer (review 00065).
+    if (isOlumiCoreLane()) {
+      setState((prev) => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
+      useUIStore.getState().setActiveOutputTab('olumi' as OutputTab)
+      // Once the tab has drawn its composer, the person is in it (review 00066 ledger).
+      if (typeof window !== 'undefined') window.requestAnimationFrame(() => { focusDockedOlumi() })
+      return
+    }
     if (state.activeTab === 'olumi') {
       const fallback = lastNonOlumiTabRef.current
       try {
@@ -3292,6 +3338,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 ? Clock
                 : tab.id === 'olumi'
                 ? MessageSquare
+                : tab.id === 'team'
+                ? Users
                 : Activity
             return (
               <button
@@ -3711,9 +3759,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 {/* DL ruling A (23 Oct): on a program board, a bound, current view-only Run says its served words here
                     instead of the pre-analysis panel, whose lines ("No goal selected", "Analyse anyway") say no result
                     exists. */}
-                {isPreRun && nodes.length > 0 && viewOnlyChances !== null && (
+                {/* The olumi-core lane draws each option's lines from core's View (src/olumiView/), never from the adapter's CEE shape. */}
+                {isPreRun && nodes.length > 0 && ((isOlumiCoreLane() && coreView !== null) || viewOnlyChances !== null) && (
                   <div className="px-4 py-3" data-testid="outputs-pre-run-view-only">
-                    <ViewOnlyRunChancesBlock chances={viewOnlyChances} />
+                    {/* The View's lines only while they are the approved model's and current (`currentModel`); else the earlier block. */}
+                    {isOlumiCoreLane() && coreView !== null ? <ViewChancesBlock /> : viewOnlyChances === null ? null : <ViewOnlyRunChancesBlock chances={viewOnlyChances} />}
                     {programShowsResult && (programDecisionRecord !== null || !isViewer) ? (
                       <div className="mt-3">
                         <RecordYourView canCapture={!isViewer} record={programDecisionRecord} onRecord={openDecisionRecord} testId="analysis-results-record" />
@@ -4312,6 +4362,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             {effectiveActiveTab === 'journey' && (
               <JourneyTabBody />
             )}
+            {effectiveActiveTab === 'team' && (
+              // The olumi-core lane only (`laneOnly` in the shell contract): the team's panels, read from and written to core.
+              <TeamTab />
+            )}
             {/* Olumi: keep mounted across tab switches so ChatThread's scroll
                 position and useSmartScroll state survive. Visibility toggled
                 with CSS so the underlying ChatThread never unmounts when the
@@ -4325,7 +4379,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 data-testid="olumi-tab-wrapper"
                 aria-hidden={effectiveActiveTab !== 'olumi'}
               >
-                <OlumiTabBody onFloatOut={floatOutToWindow} />
+                {/* The olumi-core lane talks to core itself (src/olumiView/ViewChat), the brief included; never through /bff. */}
+                {isOlumiCoreLane() ? <ViewChat /> : <OlumiTabBody onFloatOut={floatOutToWindow} />}
               </div>
             )}
           </div>
@@ -4377,6 +4432,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 witness; `shellContract.ts`'s `footerBar` doc carries why the
                 fix is a footer declaration and NOT a change to that mount. */}
             {(() => {
+              // DL ruling 3 Nov (lane audit 12): core runs the analysis on every save, so the olumi-core lane offers no Run control.
+              if (isOlumiCoreLane()) return null
               const bar = surfaceFor(effectiveActiveTab).footerBar
               switch (bar) {
                 // ⭐ ONE PRE-RUN RUN CONTROL PER SURFACE (26 Sep 2026, register
@@ -4472,6 +4529,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
               isOlumiTabActive={effectiveActiveTab === 'olumi'}
               onOpenFloating={floatOutToWindow}
               onFocusFloating={focusFloating}
+              /* The olumi-core lane writes to core from its own composer, with no Run control: core runs the analysis on every save, so
+                 a Run press there is a dead control (DL ruling 3 Nov, lane audit 12; reverses review 00052 #3's keep). */
+              composer={isOlumiCoreLane() ? () => <ViewComposer /> : undefined}
               /* ⭐ THE AI TAB'S RUN CONTROL, AND THE GAP IT CLOSES.
                  `AnalysisReadinessBar` — the bar this surface declares in
                  `shellContract.ts` — returns null the moment the pre-run window

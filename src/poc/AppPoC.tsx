@@ -3,13 +3,14 @@
 
 import { StrictMode, useState, useEffect, Suspense, useMemo, useCallback, useRef, lazy } from 'react'
 import type React from 'react'
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { isCanvasRouteHash } from './canvasRouteHash'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { simulateTokens, getJSON } from './adapters/StreamAdapter'
 import { feature } from '../lib/pocFlags'
 import DevRoutesGuard from '../components/auth/DevRoutesGuard'
 import { isE2EEnabled } from '../flags'
+import { coreLaneHasAccounts } from '../olumiCore/lane'
 import { fetchFlow as fetchFlowEngine, openSSE } from '../lib/pocEngine'
 import { initMonitoring } from '../lib/monitoring'
 import GraphCanvas from '../components/GraphCanvas'
@@ -162,6 +163,11 @@ const queryClient: any = (QueryClient && typeof QueryClient === 'function')
     })
   : {}
 
+
+/** The olumi-core lane's one redirect: a page that needs accounts, CEE or the v10 design lands on the canvas there; elsewhere, the page. */
+function NotOnTheLane(): JSX.Element {
+  return coreLaneHasAccounts() ? <Outlet /> : <Navigate to="/canvas" replace />
+}
 
 export default function AppPoC() {
   // P1: the single, gated DebugPanel mount lives here (the app shell).
@@ -968,7 +974,9 @@ export default function AppPoC() {
             <Suspense fallback={<RouteLoadingFallback />}>
               <CanvasErrorBoundary>
                 <Routes>
-                {/* Public routes */}
+                {/* Public routes. On the olumi-core lane none of them can work (no accounts, no shared pages, no sign in: a person is
+                    who their private link says), so `NotOnTheLane` lands each on the canvas. */}
+                <Route element={<NotOnTheLane />}>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route path="/auth/confirm" element={<AuthConfirmPage />} />
@@ -980,22 +988,26 @@ export default function AppPoC() {
                     `collabParticipantRouteIsPublic.spec.tsx` asserts the mount
                     PATH itself, so moving it inside the guard fails loud. */}
                 <Route path="/panel/:round_id" element={<ParticipantPacketPage />} />
+                </Route>
 
                 {/* Auth-guarded routes */}
                 <Route element={<AuthGuard />}>
+                  <Route path="/scenario/:id" element={<RouteContent><CanvasMVP /></RouteContent>} />
+                  <Route path="/canvas" element={<RouteContent><CanvasMVP /></RouteContent>} />
+                  {/* The rest need accounts, CEE or the v10 design: not on the olumi-core lane (`NotOnTheLane`). */}
+                  <Route element={<NotOnTheLane />}>
                   <Route path="/" element={<ScenarioListPage />} />
                   <Route path="/scenarios" element={<ScenarioListPage />} />
-                  <Route path="/scenario/:id" element={<RouteContent><CanvasMVP /></RouteContent>} />
                   <Route path="/scenario/:id/compare" element={<RouteContent><ScenarioComparePage /></RouteContent>} />
                   {/* COLLAB — the owner's side. INSIDE AuthGuard: minting a
                       round pins a version of the owner's model and names real
                       people, so it requires a verified session. */}
                   <Route path="/scenario/:id/panel" element={<PanelSetupPage />} />
-                  <Route path="/canvas" element={<RouteContent><CanvasMVP /></RouteContent>} />
                   {/* The v10 design on the same canvas, data and AI, for side-by-side comparison (src/presentation/v10.tsx). */}
                   <Route path="/canvas2" element={<RouteContent><PresentationProvider value="v10"><CanvasMVP /></PresentationProvider></RouteContent>} />
                   <Route path="/canvas2/:id" element={<RouteContent><PresentationProvider value="v10"><CanvasMVP /></PresentationProvider></RouteContent>} />
                   <Route path="/profile" element={<ProfileSettingsPage />} />
+                  </Route>
                 </Route>
 
                 {/* Dev/POC routes — ALL behind the `devRoutes` flag, declared

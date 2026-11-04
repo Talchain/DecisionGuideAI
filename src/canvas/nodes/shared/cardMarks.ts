@@ -1,7 +1,7 @@
 import {
   LocateFixed, AlertTriangle, AlertCircle, Wrench, GraduationCap, Lightbulb, Flag, BadgeHelp, Bookmark, CircleDashed, CircleSlash, Clock, Equal, Hourglass, Ruler, Target, NotebookPen, ListFilter, RotateCcw,
   Gauge, History, HelpCircle, ListOrdered, Grid2x2, ScanLine, Calculator,
-  Signal, BookOpen,
+  Signal, BookOpen, Lock,
   type LucideIcon,
 } from 'lucide-react'
 import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
@@ -23,6 +23,8 @@ export interface CardMarkDefinition {
   readonly visual?: CardMarkVisual
   /** Marks rendered on cards or in the board status area. */
   readonly rendered: boolean
+  /** Drawn only on the olumi-core lane (the team's views): the Key lists it there and nowhere else. */
+  readonly coreLaneOnly?: boolean
 }
 /** A Lucide glyph, or the Olumi brand mark (which mirrors the Lucide props a card passes). */
 export type CardMarkIcon = LucideIcon | typeof OlumiAiIcon
@@ -77,6 +79,9 @@ export const CARD_MARKS = [
   entry('coaching-uncategorised', 'Coaching suggestion: …', Lightbulb, values, true),
   entry('flagged-assumption', 'Flagged as assumption', Flag, values, true),
   entry('evidence-priority', 'Evidence priority: …', ListFilter, ['decision'], true),
+  // Team views (olumi-core lane, design plan step 3): the round in progress on the question card. Counts come from the scenario view's
+  // members, waiting and reveal, never views.length.
+  { ...entry('views-held', 'N of M views held', Lock, ['decision'], true, 'N of M views held · private until revealed'), coreLaneOnly: true },
 ] as const satisfies readonly CardMarkDefinition[]
 export type CardMarkId = typeof CARD_MARKS[number]['id']
 export function cardMark(id: CardMarkId): CardMarkDefinition {

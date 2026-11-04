@@ -63,6 +63,7 @@ import { useStore } from '@xyflow/react'
 import Tooltip from '../Tooltip'
 import { CanvasLegendPopover } from '../../canvas/components/CanvasLegendPopover'
 import { useCanvasStore } from '../../canvas/store'
+import { coreLaneShowsSurface } from '../../olumiCore/lane'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import styles from './CanvasFloatingToolbar.module.css'
 
@@ -246,7 +247,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
                 <span>Detailed view</span>
                 <span className={styles.menuItemMeta} aria-hidden="true">{isDetailed ? 'On' : 'Off'}</span>
               </button>
-              <button
+              {coreLaneShowsSurface('legend') && <button
                 type="button"
                 role="menuitem"
                 className={styles.menuItem}
@@ -256,7 +257,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
               >
                 <HelpCircle aria-hidden="true" />
                 <span>How to read this</span>
-              </button>
+              </button>}
             </div>
           )}
         </div>
@@ -264,7 +265,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
 
       {/* The canvas key, opened from the menu and anchored to this toolbar —
           the same component and content the "?" button used to toggle. */}
-      <CanvasLegendPopover variant="controlled" open={legendOpen} onOpenChange={setLegendOpen} />
+      {coreLaneShowsSurface('legend') && <CanvasLegendPopover variant="controlled" open={legendOpen} onOpenChange={setLegendOpen} />}
     </nav>
   )
 })

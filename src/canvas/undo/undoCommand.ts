@@ -20,6 +20,7 @@ import { clearPendingEditNotes } from '../editNotes/reportManualEditReceipt'
  */
 
 import { useCanvasStore } from '../store'
+import { CORE_LANE_USE_THE_CHAT, isOlumiCoreLane } from '../../olumiCore/lane'
 import { listModelVersions, restoreModelVersion } from '../../adapters/cee/modelVersions'
 import { getSessionIdentity } from '../../lib/supabase'
 import { canRestoreSharedVersions } from '../versions/sharedVersionsAvailability'
@@ -102,6 +103,11 @@ type RestoreResult = Awaited<ReturnType<typeof restoreModelVersion>>
 const RETRYABLE: ReadonlySet<RestoreResult['status']> = new Set(['unavailable', 'unusable'])
 
 export async function runCanvasUndo(direction: UndoDirection, expectedTurnId?: string): Promise<UndoCommandOutcome> {
+  // The olumi-core lane's model is core's: a change, or taking one back, is asked for in the chat (lane audit 2.8).
+  if (isOlumiCoreLane()) {
+    notify(CORE_LANE_USE_THE_CHAT)
+    return 'nothing'
+  }
   clearPendingEditNotes()
   const scenarioId = useCanvasStore.getState().currentScenarioId
   // ⭐ THE READER CLASS FIRST, before the journal (Undo S5). A guest's journal is always empty — versions are

@@ -30,6 +30,8 @@ interface ImportMetaEnv {
   readonly VITE_RELEASE_VERSION?: string
   readonly VITE_SESSION_ID?: string
   readonly VITE_ORG?: string
+  /** "1" on the olumi-core build (scripts/olumi-core/env.sh): the core route is the only lane, and what core cannot honour is hidden (src/olumiCore/lane.ts). */
+  readonly VITE_OLUMI_CORE?: string
 
   // --- Service URLs ---
   readonly VITE_BFF_BASE?: string

@@ -34,6 +34,8 @@ import { resolveModelDisplayName } from '../canvas/domain/modelDisplayName'
 import { useLegacyValidationOff } from '../canvas/nodes/shared/savedModelIsCore'
 import { getStarter, resolveStarterId } from '../canvas/starters/loadStarter'
 import { resolveNodeTypeLiteral } from '../canvas/domain/nodes'
+import { isOlumiCoreLane } from '../olumiCore/lane'
+import { useViewStore } from '../olumiView/store'
 
 const VersionsPanelHost = lazy(() => import('../canvas/versions/VersionsPanelHost').then(m => ({ default: m.VersionsPanelHost })))
 
@@ -227,7 +229,10 @@ function CanvasMVPBody() {
   const legacyValidationOff = useLegacyValidationOff()
   useEffect(() => { useCanvasStore.getState().setLegacyValidationOff(legacyValidationOff) }, [legacyValidationOff])
 
+  // On the olumi-core lane the scenario is core's, and so is its title: the View's, as core's page shows it.
+  const coreTitle = useViewStore((s) => (isOlumiCoreLane() && s.uuid === currentScenarioId ? s.view?.title || null : null))
   const scenarioTitle = (() => {
+    if (coreTitle) return coreTitle
     if (currentScenarioId) {
       const scenario = getScenario(currentScenarioId)
       if (scenario?.name) return scenario.name

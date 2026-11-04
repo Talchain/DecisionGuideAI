@@ -1,3 +1,5 @@
+import { isOlumiCoreLane } from '../olumiCore/lane'
+
 /**
  * `core-route` (contract v1.6, DL 22 Oct): CEE's thin core route, read only through `coreTurnContract.ts`. It is the staging
  * default; `?ai=core` (PATH-B's old surface, which it replaces) reaches it too, so an old link never lands elsewhere.
@@ -42,6 +44,8 @@ function isOlumiStagingHost(hostname: string): boolean {
  * introduces a selector there.
  */
 export function resolveAiComparisonMode(href?: string): AiComparisonMode | null {
+  // The olumi-core build has one backend: no link, header or host picks another lane.
+  if (isOlumiCoreLane()) return 'core-route'
   if (typeof window === 'undefined' && href == null) return null
   const source = href ?? window.location.href
   let url: URL

@@ -38,6 +38,7 @@ import { PanelSection } from '../panels/_shared/PanelSection'
 import { typography } from '../../styles/typography'
 import { buildVersionLabelIndex, describeChangeset } from './describeChange'
 import { ServerVersionsSection } from './ServerVersionsSection'
+import { coreLaneHasAccounts } from '../../olumiCore/lane'
 import { isThinClientSession } from '../thinClient/thinClient'
 import { useModelVersions } from './useModelVersions'
 import {
@@ -328,7 +329,10 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
             the shared model itself (its own storage disclosure inside;
             sign-in required, and it says so honestly). Renders nothing when
             the scenario is not server-addressable. */}
-        <ServerVersionsSection />
+        {/* No shared version history on the olumi-core lane: it needs a signed-in session, and there are no accounts there. */}
+        {coreLaneHasAccounts() ? (
+          <ServerVersionsSection />
+        ) : null}
       </PanelShell>
     </div>
   )

@@ -15,6 +15,7 @@
  * - ?: Show keyboard map
  */
 
+import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { useEffect, useCallback, useRef } from 'react'
 import { useCanvasStore, getNextInvalidNode } from '../store'
 import { isGraphLensEnabled } from '../../flags'
@@ -182,7 +183,8 @@ export function useCanvasKeyboardShortcuts({
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
 
-      if (onRunSimulation) {
+      // Not on the olumi-core lane: core runs the analysis on every save (DL ruling 3 Nov, lane audit 12).
+      if (onRunSimulation && !isOlumiCoreLane()) {
         onRunSimulation()
       }
 
@@ -223,7 +225,8 @@ export function useCanvasKeyboardShortcuts({
 
     // L: the next lens on the lens bar (`artefacts/LensBar.tsx`), skipping one that cannot show yet
     if (e.key === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-      if (isGraphLensEnabled() && !isTextInputTarget) {
+      // Not on the olumi-core lane: a View card draws no lens, and the lane offers no lens bar (lane audit 33).
+      if (isGraphLensEnabled() && coreLaneShowsSurface('lenses') && !isTextInputTarget) {
         e.preventDefault()
         const state = useCanvasStore.getState()
         state.setLens(nextBarLens(state.lens.active, state.results.status === 'complete' && !!state.results.report, programRef.current))

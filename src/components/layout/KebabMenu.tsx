@@ -36,6 +36,7 @@ import { SnapshotManager } from '../../canvas/components/SnapshotManager'
 import { useSettingsStore } from '../../canvas/settingsStore'
 import { useCanvasStore } from '../../canvas/store'
 import styles from './TopBar.module.css'
+import { coreLaneAllows } from '../../olumiCore/lane'
 
 interface KebabMenuProps {
   isOpen: boolean
@@ -132,15 +133,17 @@ export function KebabMenu({
           <div className={styles.dropdownMenu} role="menu">
             {/* Model group (Paul, 14 Aug 2026: "decision" -> "model") */}
             <div className={styles.dropdownMenuLabel}>Model</div>
-            <button
-              type="button"
-              role="menuitem"
-              className={styles.dropdownMenuButton}
-              onClick={onStartRename}
-            >
-              <Pencil size={14} aria-hidden="true" />
-              <span>Rename</span>
-            </button>
+            {coreLaneAllows('structure') && (
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.dropdownMenuButton}
+                onClick={onStartRename}
+              >
+                <Pencil size={14} aria-hidden="true" />
+                <span>Rename</span>
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"
@@ -151,6 +154,10 @@ export function KebabMenu({
               <Download size={14} aria-hidden="true" />
               <span>Export</span>
             </button>
+            {/* Import and Snapshots replace the canvas here, which core never sees: on the olumi-core lane the model is changed in the
+                chat, as a proposal (review 00003 ledger). */}
+            {coreLaneAllows('structure') && (
+              <>
             <button
               type="button"
               role="menuitem"
@@ -171,6 +178,8 @@ export function KebabMenu({
               <Camera size={14} aria-hidden="true" />
               <span>Snapshots</span>
             </button>
+              </>
+            )}
             {/* NAMED BY INTENT, NOT BY MECHANISM (30 Aug 2026).
                 This item was named for the mechanism — a destructive wipe — in
                 the vocabulary of the implementation rather than the user's. It

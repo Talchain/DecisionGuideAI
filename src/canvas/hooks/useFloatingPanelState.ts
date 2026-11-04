@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 
 export type FloatingPanelSource = 'system-first-use' | 'user'
 
@@ -111,13 +112,16 @@ let _autoRepositionClearId: number | null = null
 
 export const useFloatingPanelState = create<FloatingPanelState>((set, get) => ({
   ...INITIAL,
-  open: (source) =>
-    set({ isOpen: true, source, userRepositioned: false, isMinimised: false, userChoseFloating: false }),
+  // The olumi-core lane mounts no floating panel (its one chat is the dock's Olumi tab), so nothing there opens one (review 00066).
+  open: (source) => {
+    if (isOlumiCoreLane()) return
+    set({ isOpen: true, source, userRepositioned: false, isMinimised: false, userChoseFloating: false })
+  },
   close: () => set({ isOpen: false, isMinimised: false, userChoseFloating: false }),
   toggle: () => {
     const cur = get()
     if (cur.isOpen) set({ isOpen: false, isMinimised: false, userChoseFloating: false })
-    else set({ isOpen: true, source: 'user', userRepositioned: false, isMinimised: false, userChoseFloating: false })
+    else if (!isOlumiCoreLane()) set({ isOpen: true, source: 'user', userRepositioned: false, isMinimised: false, userChoseFloating: false })
   },
   minimise: () => set({ isMinimised: true }),
   restore: () => set({ isMinimised: false }),

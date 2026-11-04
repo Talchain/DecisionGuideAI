@@ -828,7 +828,9 @@ describe('the shell contract itself holds together', () => {
     // the Record appears in presentedSurfaces(), whatever ORDER says. Binding
     // by identity to the derived id set.
     const fromRecord = (Object.keys(WORKSPACE_SURFACES) as Array<keyof typeof WORKSPACE_SURFACES>)
-      .filter(id => WORKSPACE_SURFACES[id].presentedAsTab)
+      // `laneOnly` rows (the olumi-core lane's Team tab) are in the Record but not in the strip every other build lays out;
+      // `presentedSurfacesWithLane()` is the whole set and `teamTabRegistration.spec.ts` bounds the lane's own strip.
+      .filter(id => WORKSPACE_SURFACES[id].presentedAsTab && WORKSPACE_SURFACES[id].laneOnly !== true)
       .sort()
     expect(presentedSurfaces().map(s => s.id).sort()).toEqual(fromRecord)
   })

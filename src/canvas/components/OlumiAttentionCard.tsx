@@ -108,7 +108,7 @@ type Box = { readonly x: number; readonly y: number; readonly w: number; readonl
  * fits, else left.
  */
 export function attentionCardSpot(anchor: Box, card: { readonly w: number; readonly h: number }, others: readonly Box[],
-  roomLeft: number, roomRight: number, roomTop = -Infinity): { left: number; top: number } {
+  roomLeft: number, roomRight: number, roomTop = -Infinity, roomBottom = Infinity, controls: readonly Box[] = []): { left: number; top: number } {
   const right = { left: anchor.x + anchor.w + CARD_GAP, top: anchor.y }
   const left = { left: anchor.x - card.w - CARD_GAP, top: anchor.y }
   const fits = (s: { left: number }) => s.left >= roomLeft && s.left + card.w <= roomRight
@@ -129,12 +129,23 @@ export function attentionCardSpot(anchor: Box, card: { readonly w: number; reado
       { ...below, left: below.left + d }, { ...below, left: below.left - d }, { ...above, left: above.left + d }, { ...above, left: above.left - d },
     )
   }
-  const room = spots.filter((s) => fits(s) && s.top >= roomTop)
+  // ⛔ NEVER OVER A CONTROL (live olumi-core-v3, 4 Nov: the note sat on the zoom controls): a spot touching one is no spot at all, not
+  // merely a costly one, so neither the free search nor the least-covered fallback can take it.
+  const onControl = (s: { left: number; top: number }) => controls.some((o) =>
+    s.left < o.x + o.w && s.left + card.w > o.x && s.top < o.y + o.h && s.top + card.h > o.y)
+  const room = spots.filter((s) => fits(s) && s.top >= roomTop && s.top + card.h <= roomBottom && !onControl(s))
   const free = room.find((s) => covered(s) === 0)
   if (free) return free
   // Nothing free anywhere: the spot that covers least (strictly less, so the earlier, nearer spot wins a tie).
-  return room.reduce<{ left: number; top: number } | null>(
-    (best, s) => (best === null || covered(s) < covered(best) ? s : best), null) ?? before
+  const least = room.reduce<{ left: number; top: number } | null>(
+    (best, s) => (best === null || covered(s) < covered(best) ? s : best), null)
+  if (least) return least
+  // No spot is inside the room at all: the note still stays on screen, clamped into it, never off an edge.
+  const inside = (s: { left: number; top: number }) => ({
+    left: Math.max(roomLeft, Math.min(s.left, roomRight - card.w)),
+    top: Math.max(Number.isFinite(roomTop) ? roomTop : 0, Math.min(s.top, Number.isFinite(roomBottom) ? roomBottom - card.h : s.top)),
+  })
+  return inside(before)
 }
 
 /** How far the note slides along a side looking for a free spot (screen px), and how many steps it tries. */
@@ -156,6 +167,20 @@ function drawnCardBoxes(note: HTMLElement | null, anchorId: string): Box[] {
     .map((el) => el.getBoundingClientRect())
     .filter((r) => r.width > 0 && r.height > 0)
     .map((r) => ({ x: r.left - frame.left, y: r.top - frame.top, w: r.width, h: r.height }))
+}
+
+/**
+ * The controls drawn over the canvas that a note must never sit under (the tool rail on the left, the zoom controls, the Olumi focus chip),
+ * as boxes in the note's own frame. Measured from what is drawn, never guessed.
+ */
+const CONTROL_SELECTORS = ['nav[aria-label="Canvas tools"]', 'nav[aria-label="Viewport controls"]', '[data-testid="assistant-focus-chip"]', '[role="banner"]', '[role="radiogroup"][data-testid^="lens-bar"]']
+function controlBoxes(note: HTMLElement | null): Box[] {
+  const frame = note?.offsetParent?.getBoundingClientRect()
+  if (!note || !frame) return []
+  return CONTROL_SELECTORS.flatMap((sel) => Array.from(document.querySelectorAll<HTMLElement>(sel)))
+    .map((el) => el.getBoundingClientRect())
+    .filter((r) => r.width > 0 && r.height > 0)
+    .map((r) => ({ x: r.left - frame.left - 6, y: r.top - frame.top - 6, w: r.width + 12, h: r.height + 12 }))
 }
 
 /** A link's anchor, in flow units: the midpoint along its drawn path (where its label sits), else between its cards. */
@@ -254,13 +279,17 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
     x: n.position.x * zoom + tx, y: n.position.y * zoom + ty, w: (n.measured?.width ?? 240) * zoom, h: (n.measured?.height ?? 80) * zoom })
   // The cards as drawn (their real rects, in this note's frame); the store's sizes only where the DOM has none (tests).
   const drawn = cardHeight > 0 ? drawnCardBoxes(cardRef.current, anchorId) : []
+  const controls = cardHeight > 0 ? controlBoxes(cardRef.current) : []
   const others = cardHeight > 0
-    ? (drawn.length > 0 ? drawn : nodes.filter((n) => n.id !== anchorId).map((n) => screenBox(n as never)))
+    ? [...(drawn.length > 0 ? drawn : nodes.filter((n) => n.id !== anchorId).map((n) => screenBox(n as never))), ...controls]
     : []
+  // The frame the note lives in bounds it on every side: never clipped at an edge, never under the controls.
+  const frameRect = cardRef.current?.offsetParent?.getBoundingClientRect()
+  const roomBottom = frameRect ? frameRect.height - CARD_GAP : Infinity
   const anchorBox: Box = anchor
     ? { ...screenBox(anchor as never), w: w * zoom }
     : { x: point!.x * zoom + tx, y: point!.y * zoom + ty, w: 0, h: 0 }
-  const { left, top } = attentionCardSpot(anchorBox, { w: CARD_WIDTH, h: cardHeight }, others, 0, roomRight, 0)
+  const { left, top } = attentionCardSpot(anchorBox, { w: CARD_WIDTH, h: cardHeight }, others, CARD_GAP, roomRight, CARD_GAP, roomBottom, controls)
 
   const note = attention.note
   const caveat = attention.caveat

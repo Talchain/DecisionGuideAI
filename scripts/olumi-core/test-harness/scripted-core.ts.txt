@@ -1,0 +1,96 @@
+// A dev olumi-core whose AI is SCRIPTED (no provider calls), for driving DGAI end to end. TEST HARNESS, not part of the build.
+// run.sh copies this into a checkout of olumi-core (wip/v3.1) as scripts/scripted-core.ts and starts it, serving DGAI's build as core
+// serves it on Render (OLUMI_UI_DIST: DGAI at /, core's own page at /s/<id> and /debug), on one origin:
+//   OLUMI_DB=<scratch>/core.db OLUMI_ADMIN_KEY=<24+ chars> OLUMI_UI_DIST=<DGAI dist> PORT=<free port> pnpm -s tsx scripts/scripted-core.ts
+// Same pattern as core's scripts/dev-seed.ts. Any brief gets the synthetic "capacity" model (the checks quote the brief, so use BRIEF).
+// Behaviour the browser drives, chosen by the person's words so no provider is ever called:
+//   a message with "?"            -> a question: Olumi replies, the model does not change (discussion)
+//   a message naming "absence"    -> adds staff absence as Olumi's what-if (a change to approve)
+//   a message naming "third option" -> adds an option "Add two specialists" (a change to approve; Run fact ids shift)
+//   any other message             -> no change (discussion)
+// The control file also picks the model a brief drafts and how the coach cites the Run:
+//   {"model":"rich"}      the capacity case plus a risk, a limit ("no more than 120"), Olumi's what-if ranges set by options,
+//                         a disputed and an unknown influence, and a figure still asked for (the model-audit shapes)
+//   {"model":"target_interval"}   the aim's target is a range
+//   {"markers":true}      the first coach reply cites Run findings by marker ({F3} chance, {F5} most likely), so a
+//                         reply read back later must keep the figures it was written with
+// Failure injection for the error screens: a control file (OLUMI_CONTROL, JSON, read on every call), e.g.
+//   {"fail":"update"}  {"fail":"draft"}  {"fail":"coach"}  {"delay_ms":3000}
+import fs from 'node:fs';
+import { buildSync } from 'esbuild';
+import { Store } from '../src/store/store.js';
+import { Service } from '../src/app/service.js';
+import { createApp } from '../src/server/app.js';
+import { buildOf, uiFrom } from '../src/server/ui.js';
+import { flagsFromEnv, loadPrompts } from '../src/run/pipeline.js';
+import { capacity, olumi, person, q } from '../src/contract/__tests__/fixtures/capacity.js';
+import type { callStructured } from '../src/run/openai.js';
+
+export const BRIEF = 'Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing or add one specialist? We need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.';
+/** The brief for {"model":"rich"}: the person's quotes in that model are verbatim spans of it. */
+export const BRIEF_RICH = 'Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing, add one specialist, or add two specialists? We need at least 100 tickets a week but no more than 120. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.';
+const none = { intent: 'change' as const, records: [], remove: [], question: null, title: null, period: null, coaching_questions: null, decide_by: null, withdraw_decide_by: false };
+const markers = (): boolean => control().markers === true;
+const coaches = [
+  { answer: 'In this model, adding a specialist reaches your aim about half the time; carrying on never does.', why: ['It turns on what a new specialist really adds.'], next: { move: 'pre_mortem', about: ['per_specialist'], text: 'Imagine it is three months on and the hire did not lift capacity enough. What went wrong?' } },
+  { answer: 'Here is staff absence as a factor, for you to approve.', why: [], next: { move: 'gather_evidence', about: ['staff_absence'], text: 'Check last quarter’s absence records.' } },
+  { answer: 'The model stays as it is. What a specialist adds is the figure that matters most here.', why: ['Everything else follows from it.'], next: { move: 'outside_view', about: ['per_specialist'], text: 'Ask a team that added a specialist what they really gained in the first month.' } },
+];
+let coachTurn = 0;
+const control = (): { fail?: string; delay_ms?: number; model?: string; markers?: boolean } => { try { return JSON.parse(fs.readFileSync(process.env['OLUMI_CONTROL'] ?? '/dev/null', 'utf8')); } catch { return {}; } };
+const lastUser = (o: Parameters<typeof callStructured>[0]): string => [...o.input].reverse().find((m) => m.role === 'user')?.content ?? '';
+
+/** The capacity case plus the shapes the model audit found: a risk with an effect, a limit with a person's bound, option figures that are Olumi's ranges, influences that are disputed or unknown. */
+function rich() {
+  const f = capacity();
+  f.records.push(
+    q('slump_chance', '1', 'coefficient', { kind: 'interval', low: 0.1, high: 0.5, range_kind: 'plausible', likely: 0.3 }, olumi('no typical rate known')) as never,
+    q('slump_keep', '1', 'coefficient', { kind: 'interval', low: 0.5, high: 0.9, range_kind: 'plausible', likely: 0.7 }, olumi('no typical rate known')) as never,
+    { family: 'risk', id: 'new_hire_slump', label: 'New hire output slump', effect_on: 'per_specialist', direction: 'down', occurrence: 'slump_chance', severity: 'slump_keep', mode: 'multiply', starts_after: 0, origin: olumi('new hires often ramp slowly') } as never,
+    q('spend', 'EUR', 'fact', { kind: 'point', value: 0, approximate: false }, { by: 'structure', basis: 'carrying on spends nothing' }) as never,
+    q('hire_spend', 'EUR', 'fact', { kind: 'interval', low: 30000, high: 60000, range_kind: 'plausible', likely: null }, olumi('a typical salary band')) as never,
+    q('cap', 'ticket/week', 'fact', { kind: 'point', value: 120, approximate: false }, person('no more than 120')) as never,
+    { family: 'limit', id: 'ceiling', label: 'Capacity ceiling', question: null, origin: person('no more than 120'), measure: { quantity: 'total_capacity', per: null, cmp: '<=', bound: 'cap', aggregation: 'end', window: null } } as never,
+    q('two_specialists', 'specialist', 'fact', { kind: 'interval', low: 1, high: 3, range_kind: 'plausible', likely: 2 }, olumi('two is a common step')) as never,
+    { family: 'option', id: 'add_two', label: 'Add two specialists', status: 'live', carry_on: false, developed_from: null, sets: [{ quantity: 'specialists', to: 'two_specialists', starts_after: 0 }], origin: person('add two specialists') } as never,
+    { family: 'relation', id: 'infl_unknown', form: 'influence', from: 'hold', to: 'team_morale', direction: 'unknown', confidence: 'unknown', basis: null, origin: olumi('no basis to say') } as never,
+  );
+  const add = f.records.find((r) => r.id === 'add_one')!;
+  if (add.family === 'option') add.sets.push({ quantity: 'spend', to: 'hire_spend', starts_after: 0 });
+  return f;
+}
+function targetInterval() {
+  const f = capacity();
+  const r = f.records.find((x) => x.id === 'capacity_target')!;
+  if (r.family === 'quantity') { r.assertion = { kind: 'interval', low: 95, high: 105, range_kind: 'plausible', likely: null } as never; }
+  return f;
+}
+const caller = (async (o: Parameters<typeof callStructured>[0]) => {
+  const kind = o.schemaName.replace('olumi_', '');
+  const c = control();
+  if (c.delay_ms) await new Promise((r) => setTimeout(r, c.delay_ms));
+  if (c.fail === kind) throw new Error('scripted AI failure');
+  let parsed: unknown;
+  if (kind === 'draft') { coachTurn = 0; parsed = c.model === 'rich' ? rich() : c.model === 'target_interval' ? targetInterval() : capacity(); }
+  else if (kind === 'coach') {
+    const next = coaches[Math.min(coachTurn++, coaches.length - 1)]!;
+    parsed = markers() && next === coaches[0] ? { ...next, answer: 'In this model {F3} for adding a specialist. Also: {F5}.' } : next;
+  }
+  else {
+    const said = lastUser(o);
+    parsed = /absence/i.test(said)
+      ? { ...none, records: [q('staff_absence', 'ticket/week', 'fact', { kind: 'interval', low: 2, high: 10, range_kind: 'plausible', likely: 5 }, olumi('typical absence for a small team'))] }
+      : /third option/i.test(said)
+        ? { ...none, records: [q('two_specialists', 'specialist', 'fact', { kind: 'point', value: 2, approximate: false }, person('add two specialists')), { family: 'option', id: 'add_two', label: 'Add two specialists', status: 'live', carry_on: false, developed_from: null, sets: [{ quantity: 'specialists', to: 'two_specialists', starts_after: 0 }], origin: person('add two specialists') }] }
+        : { ...none, intent: /\?/.test(said) ? 'question' as const : 'change' as const };
+  }
+  return { parsed, text: '', ms: 0, response_id: '', model: 'scripted', usage: { input_tokens: 0, cached_tokens: 0, output_tokens: 0, reasoning_tokens: 0 } };
+}) as typeof callStructured;
+
+const service = new Service(new Store(process.env['OLUMI_DB']!), { prompts: loadPrompts('prompts'), caller, today: () => new Date().toISOString().slice(0, 10), commit: 'scripted-dev', flags: flagsFromEnv(process.env) });
+// Core's own page, bundled as src/server/main.ts bundles it, so it can be opened beside DGAI's.
+const js = buildSync({ entryPoints: ['src/page/main.ts'], bundle: true, format: 'esm', write: false, target: 'es2022' }).outputFiles[0]!.text;
+const html = fs.readFileSync('src/page/index.html', 'utf8');
+const dist = process.env['OLUMI_UI_DIST'];
+createApp({ service, page: () => ({ html, js }), adminKey: process.env['OLUMI_ADMIN_KEY'] ?? null, commit: 'scripted-dev', secureCookie: false, ui: dist ? uiFrom(dist) : null, build: dist ? buildOf(dist) : null })
+  .listen(Number(process.env['PORT'] ?? 3947), () => console.log('scripted olumi-core on', process.env['PORT'] ?? 3947, dist ? `serving DGAI from ${dist}` : 'without DGAI'));

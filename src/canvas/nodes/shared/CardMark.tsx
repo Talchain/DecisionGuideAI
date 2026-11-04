@@ -69,11 +69,12 @@ export function CardMarkShape({ mark, level = 3, rank = 1, cell = null, stale = 
     default: return <mark.Icon aria-hidden="true" className={SOURCE_MARK_GLYPH_CLASSES} />
   }
 }
-export function CardMark({ id, testId, words, description, className = '', level, cell, factorId }: { id: CardMarkId; testId?: string; words?: string; description?: string; className?: string; level?: number; cell?: number | null; factorId?: string }) {
+export function CardMark({ id, testId, words, description, className = '', level, cell, factorId, caption }: { id: CardMarkId; testId?: string; words?: string; description?: string; className?: string; level?: number; cell?: number | null; factorId?: string; caption?: string }) {
   const mark = cardMark(id)
   const label = words ?? mark.words
   const tooltipWords = description && !description.includes(label) ? `${label} · ${description}` : description || label
   return <BottomCardMark><Tooltip asChild content={tooltipWords}><span className="inline-flex"><span data-testid={testId} data-card-mark={mark.id} data-factor-id={factorId} aria-label={label} aria-description={description} role="img" tabIndex={0} className={`${typography.edgeLabel} inline-flex shrink-0 items-center whitespace-nowrap ${/\btext-text-/.test(className) ? '' : id === 'not-analysed' ? 'text-text-body' : 'text-text-light'} ${className}`}>
     <CardMarkShape mark={mark} level={level} cell={cell} />
+    {caption !== undefined && <span aria-hidden="true" data-testid={testId ? `${testId}-caption` : undefined} className="ml-0.5 tabular-nums">{caption}</span>}
   </span></span></Tooltip></BottomCardMark>
 }

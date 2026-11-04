@@ -1,0 +1,373 @@
+{
+ "note": "The chances dock DGAI draws today, as its adapter makes it: scripts/olumi-core/lib/model.mjs analysisViewOf at DGAI 6928d8e03 (poc/science-consumers, the base DGAI's step 2 builds on), run on each golden input with no AI (legacy Run facts: candidate core has no labels grammar). waits_on.text is DGAI's waitsOnCountWords. The View must say the same, word for word. The proposal golden is not here: while a change waits the adapter reads the saved version, the View the proposal. studio-members-first is studio with its membership aim placed first (built in the test from studio.input.json; review 00073): the Run is then about that aim, so no driver or most-likely line from the takings aim may show. Three more are built in the test by changing one record of a golden form and running it again, as scripts/golden-inputs.ts runs one (review 00073's bar: every rule the dock shows is pinned on a real Run): studio-takings-asked (the takings target asked, so that aim only waits and the Run's aim is the membership aim), bakery-limit-unmeasured (the budget limit without a measure: not checked, for the limit as a whole) and bakery-ovens-asked (the ovens added asked: the aim's waits and the options' blockers rest on it, and it is named once). The words slice adds three, built the same way: pricing-no-options (no live option, so not every option is withheld), pricing-unmoved-first (an aim on today's cups, which no option moves, placed first: every option is withheld on it while each has a chance on profit) and pricing-no-goals (no aim: no aim words and no lead line). Six rows (pricing, studio, bakery, european, app-launch, studio-members-first) were updated by hand on 3 Nov to the goldens regenerated at v3 45693d8, field by field with their causes (the commit lists them), not re-run through DGAI's adapter; a new waits-on item's code follows this file's convention (asked, unknown, waiting) and is not compared. V3.1 FORMATTING (3 Nov): the pricing cases' cups-change fact reads with one minus sign, \"−900 to −100\" (it read \"-900 to -100\"); and european's churn what-if reads \"4 to 20.3%\" (it read \"4 to 20.3 %\"). Both updated by hand, since the View passes the fact's words through and only they changed. Three rows were updated by hand on 3 Nov for V3.1 PROVENANCE (one reliance rule): studio's and european's most_likely and studio-members-first's notes now carry the corrected basis of the facts they show (studio rests on Olumi's proposed workshop figure; european names Olumi's proposed horizon and settings), field by field from the golden inputs, not re-run through DGAI's adapter. pricing-unmoved-first's two withheld lines were updated by hand on 3 Nov (the View says a reason every option shares once, in run.shared_blockers): each card's line is now the mark \"cannot be worked out yet · Sell at least 3,500 cups a month\", as the core page marks it; the reason is said once, outside this file's fields, and is pinned in view.test.",
+ "pricing": {
+  "aim": "chance of ‘Make £7,000 a month’",
+  "lead": "In this model, on current information, each option’s chance of ‘Make £7,000 a month’:",
+  "all_withheld": false,
+  "drivers": {
+   "raise_price": "under 1% if 'cups change' is low, over 99% if it is high: Under 'Raise the price by 45p', the chance of meeting 'Make £7,000 a month' moves most with 'cups change': these are its chances over the lowest and highest third of that figure's draws.",
+   "carry_on": null
+  },
+  "withheld": {},
+  "most_likely": "If Olumi's estimates hold, 'Raise the price by 45p' is more likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'); it rests on Olumi's estimate of 'cups change' — give yours with ✎.",
+  "waits_on": null,
+  "notes": [
+   "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
+  ]
+ },
+ "studio": {
+  "aim": "chance of ‘Take £2,640 a month’",
+  "lead": "In this model, on current information, each option’s chance of ‘Take £2,640 a month’:",
+  "all_withheld": false,
+  "drivers": {
+   "evening_classes": "about 68% if 'evening extra' is low, over 99% if it is high: Under 'Evening classes', the chance of meeting 'Take £2,640 a month' moves most with 'evening extra': these are its chances over the lowest and highest third of that figure's draws.",
+   "weekend_workshops": null,
+   "carry_on": null
+  },
+  "withheld": {},
+  "most_likely": "If Olumi's estimates hold, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎.",
+  "waits_on": {
+   "text": "waits on 3 things",
+   "items": [
+    {
+     "id": "member_mood",
+     "label": "How members feel",
+     "code": "unknown",
+     "answer": false
+    },
+    {
+     "id": "evening_mood",
+     "label": "evening_mood",
+     "code": "waiting",
+     "answer": false
+    },
+    {
+     "id": "mood_members",
+     "label": "mood_members",
+     "code": "waiting",
+     "answer": false
+    }
+   ]
+  },
+  "notes": []
+ },
+ "bakery": {
+  "aim": "chance of ‘Sell at least 360 loaves a week’",
+  "lead": "In this model, on current information, each option’s chance of ‘Sell at least 360 loaves a week’:",
+  "all_withheld": false,
+  "drivers": {
+   "second_oven": "about 53% if 'extra sold per oven' is low, about 81% if it is high: Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are its chances over the lowest and highest third of that figure's draws.",
+   "longer_hours": "under 1% if 'extra hours sold' is low, over 99% if it is high: Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are its chances over the lowest and highest third of that figure's draws.",
+   "carry_on": null
+  },
+  "withheld": {},
+  "most_likely": "If Olumi's estimates hold, 'A second oven' is more likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'); it rests on Olumi's estimate of 'extra sold per oven' — give yours with ✎.",
+  "waits_on": {
+   "text": "waits on 1 figure",
+   "items": [
+    {
+     "id": "oven_price",
+     "label": "oven price",
+     "code": "asked",
+     "answer": true
+    }
+   ]
+  },
+  "notes": [
+   "Olumi's what-if for 'extra sold per oven', not their figure: 60 to 90 loaves/week/oven. Basis: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes."
+  ]
+ },
+ "european": {
+  "aim": "chance of ‘Reach 800 customers’",
+  "lead": "In this model, on current information, each option’s chance of ‘Reach 800 customers’:",
+  "all_withheld": false,
+  "drivers": {
+   "broader_entry": "about 4% if 'New customers from existing markets' is low, about 97% if it is high: Under 'Enter multiple European countries', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
+   "single_country_test": "under 1% if 'New customers from existing markets' is low, about 95% if it is high: Under 'Test one country before broader commitment', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
+   "no_new_european_entry": "under 1% if 'New customers from existing markets' is low, about 99% if it is high: Under 'No new European entry during this window', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws."
+  },
+  "withheld": {},
+  "most_likely": "If Olumi's estimates hold, 'Enter multiple European countries' is more likely to achieve 'Reach 800 customers' in this model (about 41%, against about 33% for 'Test one country before broader commitment'); it rests on Olumi's estimate of 'Broader-entry acquisition what-if' — give yours with ✎. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'New customers from existing markets', 'Single-country test acquisition what-if', 'Post-entry churn what-if'. It rests on Olumi's proposed figures for 'Proposed comparison horizon', not yet confirmed by them. It rests on: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter; Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets; Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply; Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption; For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
+  "waits_on": null,
+  "notes": [
+   "This leaves out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated; The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision.",
+   "about 75%: If Olumi's estimates hold, the chance that 'Enter multiple European countries' stays within 'Stay within £500k investment budget', in this model.",
+   "about 25%: If Olumi's estimates hold, the chance that 'Enter multiple European countries' goes outside 'Stay within £500k investment budget', in this model.",
+   "over 99%: If Olumi's estimates hold, the chance that 'Test one country before broader commitment' stays within 'Stay within £500k investment budget', in this model.",
+   "under 1%: If Olumi's estimates hold, the chance that 'Test one country before broader commitment' goes outside 'Stay within £500k investment budget', in this model.",
+   "always within in this model: With the model's figures, 'No new European entry during this window' always stays within 'Stay within £500k investment budget': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
+   "about 64%: If Olumi's estimates hold, the chance that 'Enter multiple European countries' stays within 'Proposed guardrail: churn no higher than 12%', in this model.",
+   "about 36%: If Olumi's estimates hold, the chance that 'Enter multiple European countries' goes outside 'Proposed guardrail: churn no higher than 12%', in this model.",
+   "about 64%: If Olumi's estimates hold, the chance that 'Test one country before broader commitment' stays within 'Proposed guardrail: churn no higher than 12%', in this model.",
+   "about 36%: If Olumi's estimates hold, the chance that 'Test one country before broader commitment' goes outside 'Proposed guardrail: churn no higher than 12%', in this model.",
+   "always within in this model: With the model's figures, 'No new European entry during this window' always stays within 'Proposed guardrail: churn no higher than 12%': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
+   "Olumi's what-if for 'New customers from existing markets', not their figure: 10 to 160 customers/month. Basis: no typical rate known; replace with your figure. Uncalibrated what-if, not a forecast: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No sector or acquisition history was supplied.",
+   "Olumi's what-if for 'Broader-entry acquisition what-if', not their figure: 10 to 160 customers/month. Basis: no typical rate known; replace with your figure. Uncalibrated incremental acquisition what-if after entry: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No demand, funnel or country data was supplied.",
+   "Olumi's what-if for 'Single-country test acquisition what-if', not their figure: 2.5 to 40 customers/month. Basis: no typical rate known; replace with your figure. Uncalibrated average monthly acquisition what-if: an initial 5–20 guess widened twofold on a ratio scale to 2.5–40. The smaller scale is a proposed test design, not evidence of country demand.",
+   "Olumi's what-if for 'Post-entry churn what-if', not their figure: 4 to 20.3%. Basis: no typical rate known; replace with your figure. Uncalibrated stress range, not a prediction of expansion's effect: an initial 6–13.5% guess widened twofold on a ratio scale to 4–20.25%. The supplied subscription-business benchmark is not applied because the business model is unspecified.",
+   "Olumi's what-if for 'Broader-entry investment what-if', not their figure: £50,000 to £800,000. Basis: no typical rate known; replace with your figure. Uncalibrated total commitment what-if including setup, localisation, compliance and launch activity: an initial £100,000–£400,000 guess widened twofold on a ratio scale to £50,000–£800,000. The stated budget is a ceiling, not evidence of actual cost.",
+   "Olumi's what-if for 'Single-country test investment what-if', not their figure: £12,500 to £200,000. Basis: no typical rate known; replace with your figure. Uncalibrated total commitment for a deliberately narrower test: an initial £25,000–£100,000 guess widened twofold on a ratio scale to £12,500–£200,000. This is not a supplier quote or a spending recommendation."
+  ]
+ },
+ "app-launch": {
+  "aim": "chance of ‘Explain the release decision without unfair team blame’",
+  "lead": "In this model, on current information, each option’s chance of ‘Explain the release decision without unfair team blame’:",
+  "all_withheld": false,
+  "drivers": {
+   "option_scheduled": null,
+   "option_delay": null,
+   "option_isolate": null
+  },
+  "withheld": {},
+  "most_likely": null,
+  "waits_on": {
+   "text": "waits on 4 things",
+   "items": [
+    {
+     "id": "boss_discussion",
+     "label": "Explain the release decision without unfair team blame",
+     "code": "waiting",
+     "answer": false
+    },
+    {
+     "id": "protect_user_trust",
+     "label": "Avoid damaging users' experience and trust",
+     "code": "waiting",
+     "answer": false
+    },
+    {
+     "id": "schedule_assumptions",
+     "label": "For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
+     "code": "waiting",
+     "answer": false
+    },
+    {
+     "id": "isolation_readiness_link",
+     "label": "isolation_readiness_link",
+     "code": "waiting",
+     "answer": false
+    }
+   ]
+  },
+  "notes": [
+   "Olumi's what-if for 'Time available before release', not their figure: 0.5 to 4 weeks. Basis: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure.",
+   "Olumi's what-if for 'Time to implement the sync fix', not their figure: 2 to 12 weeks. Basis: Sarah's 'weeks' does not supply numerical endpoints. This deliberately widened ratio-scale what-if is not her estimate or an industry forecast. Open-source bug-resolution averages do not fit this defect; no typical rate known; replace with your figure.",
+   "Olumi's what-if for 'Validation time after implementing the fix', not their figure: 0.25 to 2 weeks. Basis: Separate allowance for reproducer-based verification, regression checks and release validation. Deliberately widened on a ratio scale, not calibrated to this team; no typical rate known; replace with your figure. Remove this separate allowance if Sarah's estimate already includes it.",
+   "Olumi's what-if for 'Postponed release time from now', not their figure: 4 to 16 weeks. Basis: An exploratory postponed-release window, measured from now rather than added to the original date. Deliberately widened on a ratio scale; no typical rate known; replace with your figure. It is neither a recommendation nor a commitment that the defect will be resolved by then."
+  ]
+ },
+ "s_ce285b3617bb": {
+  "aim": "chance of ‘Secure funding within the funding window’",
+  "lead": "In this model, on current information, each option’s chance of ‘Secure funding within the funding window’:",
+  "all_withheld": false,
+  "drivers": {
+   "continue_outreach": null,
+   "add_angel_bridge": null,
+   "bridge_and_spend_deferral": null
+  },
+  "withheld": {},
+  "most_likely": "No option is clearly more likely than another to achieve 'Secure funding within the funding window' in this model; the top two are too close to separate. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations.",
+  "waits_on": null,
+  "notes": [
+   "This leaves out: The funding measure tests receipt of some net cash, not whether the amount is sufficient for the intended round, milestone or operating buffer; A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out.",
+   "over 99%: If Olumi's estimates hold, the chance that 'Continue institutional cold email and warm introductions' meets 'Buy more operating time', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
+   "over 99%: If Olumi's estimates hold, the chance that 'Pursue an angel bridge alongside institutional outreach' meets 'Buy more operating time', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
+   "over 99%: If Olumi's estimates hold, the chance that 'Combine an angel bridge with temporary spend deferral' meets 'Buy more operating time', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs', 'Operating burn retained after temporary spend deferral'. It reads their approximate 'Monthly net operating cash burn before new funding' as within 10% either way until they give a range. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
+   "Olumi's what-if for 'Qualified institutional opportunities worked during the funding window', not their figure: 1 to 16 opportunity. Basis: No typical rate known; replace with your figure. Exploratory pipeline-volume assumption, not an estimate of the current pipeline. A first-guess band of 2–8 around 4 is widened on a ratio scale to 1–16. Counts qualified opportunities, not cold emails.",
+   "Olumi's what-if for 'Institutional opportunity share reaching cash receipt within the window', not their figure: 0.025 to 0.4. Basis: No typical rate known; replace with your figure. A first-guess band of 0.05–0.20 around 0.10 is widened on a ratio scale. Applies only to qualified institutional opportunities producing cleared cash during this funding window; it is not a sourced fundraising conversion rate.",
+   "Olumi's what-if for 'Net cash per funded institutional opportunity', not their figure: 250,000 to 4,000,000 GBP/opportunity. Basis: No typical rate known; replace with your figure. A first-guess band of GBP 500,000–2,000,000 around GBP 1,000,000 is widened on a ratio scale. This is a separate hypothetical net cheque, not a reinterpretation of the supplied firms' deal-size band. Whether their deal sizes correspond to an individual cheque or a whole round needs confirmation.",
+   "Olumi's what-if for 'Institutional fundraising capacity retained while pursuing angels', not their figure: 0.25 to 1. Basis: No typical rate known; replace with your figure. A first-guess band approximately 0.354–0.707 around 0.5 is widened on a ratio scale to 0.25–1. This tests displacement of institutional work by bridge fundraising, rather than assuming angel proceeds are free additions.",
+   "Olumi's what-if for 'Qualified angel opportunities under the bridge route', not their figure: 1 to 16 opportunity. Basis: No typical rate known; replace with your figure. A first-guess band of 2–8 around 4 is widened on a ratio scale. This is an exploratory volume of qualified angel opportunities, not an assertion that these investors are accessible.",
+   "Olumi's what-if for 'Angel opportunity share reaching cash receipt within the window', not their figure: 0.05 to 0.8. Basis: No typical rate known; replace with your figure. A first-guess band of 0.10–0.40 around 0.20 is widened on a ratio scale. This tests, rather than establishes, whether angels can reach cleared cash more readily within the window.",
+   "Olumi's what-if for 'Gross cash per funded angel opportunity', not their figure: 12,500 to 200,000 GBP/opportunity. Basis: No typical rate known; replace with your figure. A first-guess band of GBP 25,000–100,000 around GBP 50,000 is widened on a ratio scale. This is a hypothetical cheque per funded angel opportunity, not the bridge amount the company needs.",
+   "Olumi's what-if for 'Angel proceeds retained after transaction cash costs', not their figure: 0.8 to 0.988. Basis: No typical rate known; replace with your figure. A first-guess transaction-cost share of 0.025–0.10 around 0.05 is widened on a ratio scale to 0.0125–0.20 and represented as retained proceeds. Costs scale with proceeds here; fixed costs incurred without a close are excluded.",
+   "Olumi's what-if for 'Operating burn retained after temporary spend deferral', not their figure: 0.5 to 0.969. Basis: No typical rate known; replace with your figure. A first-guess deferrable burn share of 0.0625–0.25 around 0.125 is widened on a ratio scale to 0.03125–0.50 and represented as retained burn. This is a cash-timing what-if, not evidence that these savings are feasible or permanent."
+  ]
+ },
+ "studio-members-first": {
+  "aim": "chance of ‘Keep at least 140 members’",
+  "lead": "In this model, on current information, each option’s chance of ‘Keep at least 140 members’:",
+  "all_withheld": false,
+  "drivers": {
+   "evening_classes": null,
+   "weekend_workshops": null,
+   "carry_on": null
+  },
+  "withheld": {},
+  "most_likely": null,
+  "waits_on": {
+   "text": "waits on 3 things",
+   "items": [
+    {
+     "id": "member_mood",
+     "label": "How members feel",
+     "code": "unknown",
+     "answer": false
+    },
+    {
+     "id": "evening_mood",
+     "label": "evening_mood",
+     "code": "waiting",
+     "answer": false
+    },
+    {
+     "id": "mood_members",
+     "label": "mood_members",
+     "code": "waiting",
+     "answer": false
+    }
+   ]
+  },
+  "notes": [
+   "about 89%: The chance that 'Evening classes' meets 'Take £2,640 a month', in this model on current information.",
+   "never met in this model: With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them.",
+   "never met in this model: With the model's figures, 'Carry on as now' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance."
+  ]
+ },
+ "studio-takings-asked": {
+  "aim": "chance of ‘Keep at least 140 members’",
+  "lead": "In this model, on current information, each option’s chance of ‘Keep at least 140 members’:",
+  "all_withheld": false,
+  "drivers": {
+   "evening_classes": null,
+   "weekend_workshops": null,
+   "carry_on": null
+  },
+  "withheld": {},
+  "most_likely": null,
+  "waits_on": {
+   "text": "waits on 4 things",
+   "items": [
+    {
+     "id": "takings_target",
+     "label": "takings target",
+     "code": "asked",
+     "answer": true
+    },
+    {
+     "id": "member_mood",
+     "label": "How members feel",
+     "code": "unknown",
+     "answer": false
+    },
+    {
+     "id": "evening_mood",
+     "label": "evening_mood",
+     "code": "waiting",
+     "answer": false
+    },
+    {
+     "id": "mood_members",
+     "label": "mood_members",
+     "code": "waiting",
+     "answer": false
+    }
+   ]
+  },
+  "notes": []
+ },
+ "bakery-limit-unmeasured": {
+  "aim": "chance of ‘Sell at least 360 loaves a week’",
+  "lead": "In this model, on current information, each option’s chance of ‘Sell at least 360 loaves a week’:",
+  "all_withheld": false,
+  "drivers": {
+   "second_oven": "about 53% if 'extra sold per oven' is low, about 81% if it is high: Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are its chances over the lowest and highest third of that figure's draws.",
+   "longer_hours": "under 1% if 'extra hours sold' is low, over 99% if it is high: Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are its chances over the lowest and highest third of that figure's draws.",
+   "carry_on": null
+  },
+  "withheld": {},
+  "most_likely": "If Olumi's estimates hold, 'A second oven' is more likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'); it rests on Olumi's estimate of 'extra sold per oven' — give yours with ✎.",
+  "waits_on": {
+   "text": "waits on 1 thing",
+   "items": [
+    {
+     "id": "within_budget",
+     "label": "Within the £3,000",
+     "code": "waiting",
+     "answer": false
+    }
+   ]
+  },
+  "notes": [
+   "not checked yet: 'Within the £3,000' is not checked yet: the limit has no measure.",
+   "Olumi's what-if for 'extra sold per oven', not their figure: 60 to 90 loaves/week/oven. Basis: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes."
+  ]
+ },
+ "bakery-ovens-asked": {
+  "aim": "chance of ‘Sell at least 360 loaves a week’",
+  "lead": "In this model, on current information, each option’s chance of ‘Sell at least 360 loaves a week’:",
+  "all_withheld": false,
+  "drivers": {
+   "second_oven": null,
+   "longer_hours": null,
+   "carry_on": null
+  },
+  "withheld": {},
+  "most_likely": null,
+  "waits_on": {
+   "text": "waits on 2 figures",
+   "items": [
+    {
+     "id": "ovens_added",
+     "label": "ovens added",
+     "code": "asked",
+     "answer": true
+    },
+    {
+     "id": "oven_price",
+     "label": "oven price",
+     "code": "asked",
+     "answer": true
+    }
+   ]
+  },
+  "notes": [
+   "Olumi's what-if for 'extra sold per oven', not their figure: 60 to 90 loaves/week/oven. Basis: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes."
+  ]
+ },
+ "pricing-no-options": {
+  "aim": "chance of ‘Make £7,000 a month’",
+  "lead": "In this model, on current information, each option’s chance of ‘Make £7,000 a month’:",
+  "all_withheld": false,
+  "drivers": {},
+  "withheld": {},
+  "most_likely": null,
+  "waits_on": null,
+  "notes": [
+   "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
+  ]
+ },
+ "pricing-unmoved-first": {
+  "aim": "chance of ‘Sell at least 3,500 cups a month’",
+  "lead": "In this model, on current information, each option’s chance of ‘Sell at least 3,500 cups a month’:",
+  "all_withheld": true,
+  "drivers": {
+   "raise_price": null,
+   "carry_on": null
+  },
+  "withheld": {
+   "raise_price": "cannot be worked out yet · Sell at least 3,500 cups a month",
+   "carry_on": "cannot be worked out yet · Sell at least 3,500 cups a month"
+  },
+  "most_likely": null,
+  "waits_on": null,
+  "notes": [
+   "about 49%: If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change'.",
+   "never met in this model: With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+   "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
+  ]
+ },
+ "pricing-no-goals": {
+  "aim": null,
+  "lead": null,
+  "all_withheld": false,
+  "drivers": {
+   "raise_price": null,
+   "carry_on": null
+  },
+  "withheld": {},
+  "most_likely": null,
+  "waits_on": null,
+  "notes": []
+ }
+}

@@ -82,6 +82,8 @@ export interface SystemEventSendSettlementDetail {
    * "the model moved on". Ask `fenceRefusalCopyForCategory` first.
    */
   readonly conflictCategory?: string
+  /** Set on `unverified` only, on the olumi-core lane: core says the change WAS saved and only the read that shows its result failed. */
+  readonly kept?: boolean
   /**
    * The producer's `details.reason`, RAW — a machine token as often as prose.
    * Show it only through `isDisplaySafeReason`.
@@ -160,6 +162,8 @@ export function settleSystemEventSend(
         // too coarse to decide what a surface may claim.
         if (err.kind === 'server') {
           const reason = err.reason !== undefined ? { reason: err.reason } : {}
+          // olumi-core kept the write and said so: not "may not have reached the model", and no no-write claim either.
+          if (err.coreKept === true) return settleOnce('unverified', { ...reason, ...turn, kept: true })
           if (isProvenNoWriteConflict(err.conflictCategory)) {
             try {
               return settleOnce('refused', { ...reason, refusal: 'conflict', conflictCategory: err.conflictCategory })

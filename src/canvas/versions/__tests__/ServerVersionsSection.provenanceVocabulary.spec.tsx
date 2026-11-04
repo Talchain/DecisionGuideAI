@@ -327,6 +327,10 @@ describe('provenance vocabulary — on the rendered surface', () => {
  * a hop in a flag — which is the single change that would silently re-dark this
  * badge.
  *
+ * ONE DELIBERATE EXCEPTION, and it is a deployment posture, not a feature flag: the olumi-core build (`VITE_OLUMI_CORE=1`) has no
+ * accounts behind it, so `WhatChangedPanel` does not mount the section there (`coreLaneHasAccounts()`, `src/olumiCore/lane.ts`; the
+ * mount line itself stays bare, which is what this guard reads). Every other build mounts it exactly as above.
+ *
  * ⚠ WHAT THIS DOES NOT CLAIM. It does not claim a real user sees the badge.
  * The component gates ITSELF on `isRestoreCapableIdentity`, and
  * `sanitiseUserId('guest')` is null — so the DEFAULT deployed reader (a guest)

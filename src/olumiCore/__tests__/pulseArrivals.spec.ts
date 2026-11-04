@@ -1,0 +1,42 @@
+/**
+ * Design QA 9: approving a change shows a pulse on the card it adds. On the lane the canvas follows the View (src/olumiView/canvas.ts):
+ * a card that arrives on a canvas already holding the model is pulsed once it is drawn; the first drawing of a scenario pulses nothing.
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { renderHook, act } from '@testing-library/react'
+
+vi.mock('../../lib/supabase', () => ({ supabase: {}, getUserId: async () => null, getSessionIdentity: async () => ({ userId: null, accessToken: null }) }))
+vi.mock('../../lib/posthog', () => ({ trackEvent: () => undefined }))
+
+import { useCanvasStore } from '../../canvas/store'
+import { PULSE_COALESCE_MS } from '../../canvas/utils/appliedEditPulse'
+import type { View } from '../../olumiView/client'
+import { useViewStore } from '../../olumiView/store'
+import { useViewCanvas } from '../../olumiView/canvas'
+
+const v2: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/european.view.json'), 'utf8'))
+const added = v2.model!.cards.at(-1)!
+const v1: View = { ...v2, model: { ...v2.model!, cards: v2.model!.cards.filter((c) => c.id !== added.id), links: v2.model!.links.filter((l) => l.from !== added.id && l.to !== added.id) } }
+const has = (id: string) => useCanvasStore.getState().highlightedNodes.has(id)
+
+beforeEach(() => {
+  vi.useFakeTimers()
+  useCanvasStore.setState({ nodes: [], edges: [], highlightedNodes: new Set() } as never)
+  useViewStore.setState({ uuid: 'u', sid: 's_0123456789ab', view: null, status: 'none', error: null, stale: false })
+})
+afterEach(() => { vi.useRealTimers() })
+
+describe('the card an approval adds is pulsed when it arrives', () => {
+  it('the first drawing of a scenario pulses nothing; a card a later View adds is pulsed once it is on the canvas', () => {
+    renderHook(() => useViewCanvas(true))
+    act(() => { useViewStore.setState({ view: v1, status: 'ready' }) })
+    vi.advanceTimersByTime(PULSE_COALESCE_MS + 20)
+    expect(v1.model!.cards.some((c) => has(c.id))).toBe(false)
+    act(() => { useViewStore.setState({ view: v2 }) })
+    vi.advanceTimersByTime(PULSE_COALESCE_MS + 20)
+    expect(has(added.id)).toBe(true)
+    expect(v1.model!.cards.some((c) => has(c.id))).toBe(false)
+  })
+})

@@ -62,7 +62,7 @@ export const AssistantFocusChip = memo(function AssistantFocusChip() {
     >
       <OlumiAiIcon size={ICON_STANDALONE} className="olumi-glyph-ai shrink-0 text-info" aria-hidden="true" />
       <span className="truncate text-sm text-text-body">
-        Olumi focus: <strong className="font-medium">{target.label}</strong>
+        Olumi is looking at <strong className="font-medium">{target.label.charAt(0).toUpperCase()}{target.label.slice(1)}</strong>
       </span>
       <button
         type="button"

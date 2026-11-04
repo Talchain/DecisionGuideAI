@@ -34,7 +34,7 @@ beforeEach(() => {
   fetchSpy.mockReset(); vi.stubGlobal('fetch', fetchSpy)
   useCanvasStore.setState({ currentScenarioId: '9a3239b6-2aec-4d22-aca7-ba93e4ac96fd', nodes: [], edges: [] } as never)
 })
-afterEach(() => { HTMLElement.prototype.scrollIntoView = originalScrollIntoView; cleanup(); vi.unstubAllGlobals() })
+afterEach(() => { HTMLElement.prototype.scrollIntoView = originalScrollIntoView; cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs() })
 
 describe('S-D reload restores the held change from proposal_fields (SERVED sd-wire-4)', () => {
   it('the served turn and the served read carry the same held entry', () => {
@@ -71,6 +71,8 @@ describe('S-D reload restores the held change from proposal_fields (SERVED sd-wi
   })
 
   it('a malformed entry or a later user message leaves the thread unchanged; a card already on the reply is kept beside the held one', () => {
+    // CEE's rule (a later user message takes priority); the olumi-core lane keeps a held card past a press (failedConfirmReload.spec.ts).
+    vi.stubEnv('VITE_OLUMI_CORE', '')
     const bad = { ...read.proposal_fields, proposals: [{ ...read.proposal_fields.proposals[0], digest: 'bad' }] }
     expect(latest(restore(bad)).actionChips ?? []).toHaveLength(0)
     const withUser = [...restore(null), { id: 'u-later', role: 'user' as const, content: 'later', timestamp: new Date() }]

@@ -398,6 +398,13 @@ export interface WorkspaceSurfaceDescriptor {
    *                 authority, only one fewer button before it.
    */
   readonly footerBar: 'none' | 'reanalyse' | 'reanalyseAfterFirstRun' | 'readiness'
+  /**
+   * OPTIONAL. The surface exists only on the olumi-core lane (`VITE_OLUMI_CORE=1`): the team's panels. It is a row in this Record
+   * so the type forces its scroll and padding, but `presentedSurfaces()` (the strip every other build lays out, bounded by
+   * `MAX_PRESENTED_SURFACES`) leaves it out; `presentedSurfacesWithLane()` adds it back for the lane, whose strip is bounded
+   * after the CEE-only rows are removed (`coreLaneStrip` in shell-conformance).
+   */
+  readonly laneOnly?: boolean
 }
 
 /**
@@ -523,6 +530,21 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
     presentedAsTab: true,
     hiddenReason: '',
   },
+  /**
+   * THE TEAM TAB (olumi-core lane only; design plan TEAM-PANELS-PLAN r2, 1 Nov 2026). The team journey in one place: who is here,
+   * your private view, the reveal, where you differ, evidence, the commitment and its outcome. `laneOnly`: no other build has it.
+   * `shell` scroll and padding like Model: a column of panels in the shell's own gutter.
+   */
+  team: {
+    id: 'team',
+    label: 'Team',
+    footerBar: 'none',
+    scroll: 'shell',
+    padding: 'shell',
+    presentedAsTab: true,
+    hiddenReason: '',
+    laneOnly: true,
+  },
   journey: {
     id: 'journey',
     label: 'Journey',
@@ -567,6 +589,7 @@ export const WORKSPACE_SURFACE_ORDER: readonly OutputTab[] = [
   'analysisNew',
   'compare',
   'diagnostics',
+  'team',
   'journey',
 ]
 
@@ -681,6 +704,11 @@ export const MAX_PRESENTED_SURFACES = 5
  * never distinguish the two).
  */
 export function presentedSurfaces(): WorkspaceSurfaceDescriptor[] {
+  return presentedSurfacesWithLane().filter(s => s.laneOnly !== true)
+}
+
+/** Every surface offered as a tab on SOME build, in strip order, including the ones only the olumi-core lane has (`laneOnly`). */
+export function presentedSurfacesWithLane(): WorkspaceSurfaceDescriptor[] {
   // Iterate the RECORD (membership), then sort by ORDER (presentation). An id
   // absent from ORDER sorts last rather than vanishing — see ORDER's header.
   const rank = (id: OutputTab) => {

@@ -108,6 +108,10 @@ import { RunChangePencilLayer } from './graphChanges/RunChangePencilLayer'
 import { DirectionNeededLayer } from './nodes/DirectionNeededLayer'
 import { coreSwitchOptionOf, withoutCoreSwitches } from './domain/coreSwitch'
 import { NoteRecordsPublisher } from './components/NoteRecordsPublisher'
+import { ViewLinkEdge } from './edges/ViewLinkEdge'
+import { isOlumiCoreLane } from '../olumiCore/lane'
+import { useViewStore } from '../olumiView/store'
+import { isViewNode, placeViewCards } from '../olumiView/canvas'
 import { useDrawnLivingModel } from './hooks/useDrawnLivingModel'
 import { livingOnlyOf } from './domain/livingModelCanvas'
 import { fitBoundsFor, CANVAS_MOUNT_FIT_OPTIONS } from './utils/zoomLegibility'
@@ -1527,6 +1531,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     onCanvasInteraction?.()
     // A card drawn from the living model alone has no store node to select, inspect or edit.
     if (livingOnlyOf(node?.data) !== null) return
+    // A card drawn from core's View (the olumi-core lane) has no store node either: selected by the click, no inspector.
+    if (isViewNode(node)) return
 
     if (reconnecting) {
       completeReconnect(node.id)
@@ -1582,8 +1588,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
    * `openNodeInspector` uses, for the same reason: opening an editor is not a
    * graph change and must not be undoable.
    */
-  const handleNodeDoubleClick = useCallback((_event: unknown, node: { id: string; data?: unknown }) => {
-    if (!node?.id || livingOnlyOf(node.data) !== null) return
+  const handleNodeDoubleClick = useCallback((_event: unknown, node: { id: string; type?: string; data?: unknown }) => {
+    if (!node?.id || livingOnlyOf(node.data) !== null || isViewNode(node)) return
     useCanvasStore.getState().selectNodeWithoutHistory(node.id)
     requestNodeRename(node.id)
     setShowFullInspector(true)
@@ -1764,6 +1770,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [])
 
   const handleAutoArrange = useCallback(() => {
+    // The olumi-core lane's cards are placed by core: Auto-arrange puts them back there, never an ELK layout (canvas A S6, B5).
+    const viewModel = isOlumiCoreLane() ? useViewStore.getState().view?.model ?? null : null
+    if (viewModel) {
+      placeViewCards(viewModel)
+      return
+    }
     if (nodesRef.current.length === 0) {
       showToast('No nodes to arrange.', 'info')
       return
@@ -2002,7 +2014,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const showAlignmentGuides = useSettingsStore(s => s.showAlignmentGuides)
   const loadSettings = useSettingsStore(s => s.loadSettings)
   const snapGridValue = useMemo<[number, number]>(() => [gridSize, gridSize], [gridSize])
-  const edgeTypes = useMemo(() => ({ styled: StyledEdge as any }), [])
+  const edgeTypes = useMemo(() => ({ styled: StyledEdge as any, viewLink: ViewLinkEdge }), [])
   const defaultEdgeOpts = useMemo(() => ({ type: 'styled' as const, animated: false }), [])
   const miniMapStyle = useMemo(() => ({ width: 120, height: 80 }), [])
 
@@ -3235,10 +3247,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             single useConversation() singleton lives at the canvas root when
             FF is on. */}
       <OutputsDock />
-      {!isAiPanelV2Enabled() && <DraftChat />}
-      {isAiPanelV2Enabled() && (
-        <FloatingOlumiPanelHost showStarters={showStarters} />
-      )}
+      <RightEdgeChat showStarters={showStarters} />
 
       {/* Lenses on the model: the bar that switches them, and the key card of the one on screen */}
       <LensBar />
@@ -3339,6 +3348,21 @@ export function MaybeConversationProvider({ children }: { children: import('reac
     )
   }
   return <>{children}</>
+}
+
+/**
+ * The chat beside the canvas: DraftChat (aiPanelV2 off) or the floating Olumi panel with the first-use composer and starters (on).
+ * On the olumi-core lane neither: they send to /bff, and the lane's one chat is the dock's Olumi tab (ViewChat), which opens with
+ * the brief box when the scenario is empty (DL 2 Nov, canvas A S6 D6). The floating chat comes back on the View after switch-on.
+ */
+export function RightEdgeChat({ showStarters }: { showStarters?: boolean }) {
+  if (isOlumiCoreLane()) return null
+  return (
+    <>
+      {!isAiPanelV2Enabled() && <DraftChat />}
+      {isAiPanelV2Enabled() && <FloatingOlumiPanelHost showStarters={showStarters} />}
+    </>
+  )
 }
 
 /**
