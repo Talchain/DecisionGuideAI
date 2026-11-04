@@ -25,6 +25,7 @@ import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding
 import type { AIInputBarProps } from '../canvas/components/AIInputBar'
 import { useUIStore } from '../stores/uiStore'
 import { FigureEdit } from './FigureEdit'
+import { VIEW_NOTE_SLOT } from './note'
 
 type Said = NonNullable<ViewTurn['answer']>['answer']
 
@@ -410,6 +411,8 @@ export function ViewChat() {
         {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
         {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
         {view === null ? null : <NextStepCard view={view} busy={busy} />}
+        {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
+        <div {...{ [VIEW_NOTE_SLOT]: '' }} />
         {view === null ? null : <ViewConversation chat={view.chat} />}
       </div>
     </div>
