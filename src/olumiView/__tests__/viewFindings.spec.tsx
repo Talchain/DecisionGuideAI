@@ -40,14 +40,16 @@ describe('each option\'s finding, not the wall', () => {
       expect(c.querySelector(`[data-view-row="${card.id}.rows.${i}"]`)?.getAttribute('title')).toBe(row.title)
     }
   })
-  it('core\'s rests_on_text is drawn verbatim, once each, under its finding (and under the most likely line)', () => {
+  it('core\'s rests_on_text is each finding\'s hover, verbatim (and the most likely line\'s), never drawn as text on screen', () => {
     const c = render(<ViewChances model={model} />).container, all = c.textContent ?? ''
     for (const { card, i, row } of chanceRows) {
-      expect(c.querySelector(`[data-view="${card.id}.rows.${i}.rests_on_text"]`)?.textContent, card.id).toBe(row.rests_on_text)
-      expect(occurrences(all, row.rests_on_text), card.id).toBe(1)
+      const f = c.querySelector(`[data-view-hover="${card.id}.rows.${i}.rests_on_text"]`)
+      expect(f?.getAttribute('title'), card.id).toBe(row.rests_on_text)
+      expect(f?.getAttribute('data-view'), card.id).toBe(`${card.id}.rows.${i}.text`)
+      expect(occurrences(all, row.rests_on_text), `${card.id}: not on screen`).toBe(0)
     }
-    expect(c.querySelector('[data-view="run.most_likely.rests_on_text"]')?.textContent).toBe('Rests on Olumi\'s reading of the aim.')
-    expect(occurrences(all, 'Rests on Olumi\'s reading of the aim.')).toBe(1)
+    expect(c.querySelector('[data-view-hover="run.most_likely.rests_on_text"]')?.getAttribute('title')).toBe('Rests on Olumi\'s reading of the aim.')
+    expect(occurrences(all, 'Rests on Olumi\'s reading of the aim.')).toBe(0)
   })
   it('every card a finding rests on is marked on the Rests on lens: a what-if, an estimate folded into a badge, an approximation', () => {
     const { items } = restsOnOf(model)
@@ -56,17 +58,18 @@ describe('each option\'s finding, not the wall', () => {
     const plain = restsOnOf(golden.model!).items
     expect([plain.has('sales'), plain.has('oven_repair')]).toEqual([false, false])
   })
-  it('the Summary draws the same: each option\'s finding in core\'s words under its row, each rests_on_text once, the wall only as hover', () => {
+  it('the Summary draws the same: each option\'s finding in core\'s words under its row with its basis as hover, the wall never as text', () => {
     const c = render(<ViewBriefBody model={model} />).container, all = c.textContent ?? ''
     for (const { card, i, row } of chanceRows) {
       expect(c.querySelector(`[data-view="${card.id}.rows.${i}.text"]`)?.textContent, card.id).toBe(row.text)
-      expect(occurrences(all, row.rests_on_text), card.id).toBe(1)
+      expect(c.querySelector(`[data-view-hover="${card.id}.rows.${i}.rests_on_text"]`)?.getAttribute('title'), card.id).toBe(row.rests_on_text)
+      expect(occurrences(all, row.rests_on_text), card.id).toBe(0)
       expect(all.includes(row.title), `${card.id}: the wall is not drawn as text`).toBe(false)
     }
-    expect(occurrences(all, 'Rests on Olumi\'s reading of the aim.')).toBe(1)
+    expect(c.querySelector('[data-testid="view-brief-most-likely"]')?.getAttribute('title')).toBe('Rests on Olumi\'s reading of the aim.')
   })
   it('must not change: a View without the stand-in draws exactly as before (no finding, no footnote)', () => {
     const c = render(<ViewChances model={golden.model!} />).container
-    expect(c.querySelectorAll('[data-view$=".rests_on_text"], [data-view$=".rows.1.text"]').length).toBe(0)
+    expect(c.querySelectorAll('[data-view-hover], [data-view$=".rows.1.text"]').length).toBe(0)
   })
 })
