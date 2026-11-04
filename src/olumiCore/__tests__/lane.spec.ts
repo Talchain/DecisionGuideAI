@@ -38,7 +38,7 @@ describe('the olumi-core lane', () => {
   // surface the dock, the top bar and the canvas can offer, the lane hides exactly the legacy lens bar and Model, nothing more.
   it('R1 guard: on the lane exactly lenses (the legacy bar) and diagnostics (Model) are hidden; Reasoning, the key, Summary, Compare and Version history show', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
-    const offered = [...new Set([...WORKSPACE_SURFACES.map((s) => s.id), 'analysisNew', 'legend', 'summary', 'compare', 'versions', 'lenses', 'diagnostics'])]
+    const offered = [...new Set([...Object.keys(WORKSPACE_SURFACES), 'analysisNew', 'legend', 'summary', 'compare', 'versions', 'lenses', 'diagnostics'])]
     expect(offered.filter((id) => !coreLaneShowsSurface(id)).sort()).toEqual(['diagnostics', 'lenses'])
   })
 
