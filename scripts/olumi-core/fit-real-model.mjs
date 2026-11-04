@@ -45,6 +45,9 @@ async function frame(view, label, whole = false) {
 // European's option cards are taller than the canvas holds even at the lane's floor: the fit must then have gone to the floor (0.25),
 // never stopped above it with cards cut (a fit taken before the cards settled: 0.461, six cut).
 const first = await frame(golden, 'first open (european, 22 cards)')
+// Each premise row is one line on the served build (core's .premise: nowrap, ellipsis), however long core's text.
+const rows = await page.evaluate(() => [...document.querySelectorAll('[data-view*=".premises."][data-view$=".glyph"]')].map((g) => g.parentElement).map((e) => { const s = getComputedStyle(e); return { id: e.firstElementChild.getAttribute('data-view'), h: e.getBoundingClientRect().height / (new DOMMatrix(getComputedStyle(document.querySelector('.react-flow__viewport')).transform).a), lh: parseFloat(s.lineHeight) || parseFloat(s.fontSize) * 1.5 } }))
+check(rows.length > 0 && rows.every((r) => r.h <= r.lh * 1.5), `each of the ${rows.length} premise rows is one line${rows.filter((r) => r.h > r.lh * 1.5).length ? ` (taller: ${rows.filter((r) => r.h > r.lh * 1.5).map((r) => r.id).join(', ')})` : ''}`)
 check(first.out.length === 0 || first.zoom <= 0.2501, `first open: whole, or framed at the lane's floor (zoom ${first.zoom.toFixed(3)})`)
 if (SHOT) await page.screenshot({ path: SHOT })
 served = { ...next, id: made.scenario, you_id: me.id, you: me.name, version: { ...next.version, id: golden.version.id + 1, n: 2, label: 'version 2' } }

@@ -75,7 +75,9 @@ export function ViewCard({ card, selected = false }: ViewCardData & { selected?:
           {card.bound.olumi === null ? null : <> <Mark at={`${id}.bound.olumi`} mark={card.bound.olumi} /></>}</p>
       )}
       {card.premises.map((p, j) => (
-        <p key={j} title={p.title}><span data-view={`${id}.premises.${j}.glyph`}>{p.glyph}</span> <span data-view={`${id}.premises.${j}.text`}>{p.text}</span></p>
+        // One line each, cut with an ellipsis, the glyph first and the whole on hover, as core's page draws a premise (.premise: nowrap,
+        // ellipsis): a premise shared by several options otherwise repeated in full on each card (DL 4 Nov).
+        <p key={j} title={p.title} className="truncate" data-premise-row={`${id}.${j}`}><span data-view={`${id}.premises.${j}.glyph`}>{p.glyph}</span> <span data-view={`${id}.premises.${j}.text`}>{p.text}</span></p>
       ))}
       {card.rows.map((row, i) => <Row key={i} id={id} row={row} i={i} />)}
       {card.badge === null ? null : <p><Badge cardId={id} badge={card.badge} at={id} /></p>}

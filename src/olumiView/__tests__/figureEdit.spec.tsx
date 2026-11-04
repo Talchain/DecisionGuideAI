@@ -74,6 +74,24 @@ describe('a card says its heading once, with no kind word and no provenance spel
   })
 })
 
+describe('a premise is one line, its glyph first, the whole on hover (core\'s .premise; DL 4 Nov)', () => {
+  it('every premise row of european\'s option cards: one line cut with an ellipsis, glyph and text drawn, core\'s title on hover', () => {
+    const options = view.model!.cards.filter((c) => c.family === 'option' && c.premises.length > 0)
+    expect(options.length).toBeGreaterThan(0)
+    for (const c of options) {
+      const el = render(<ViewCard card={c} />).container
+      c.premises.forEach((p, j) => {
+        const row = el.querySelector<HTMLElement>(`[data-premise-row="${c.id}.${j}"]`)!
+        expect(row.className, `${c.id}.${j}`).toContain('truncate')
+        expect(row.getAttribute('title')).toBe(p.title)
+        expect(row.querySelector(`[data-view="${c.id}.premises.${j}.glyph"]`)?.textContent).toBe(p.glyph)
+        expect(row.querySelector(`[data-view="${c.id}.premises.${j}.text"]`)?.textContent).toBe(p.text)
+      })
+      cleanup()
+    }
+  })
+})
+
 describe('an Olumi estimate reads as Olumi\'s at a glance (core L1/L2)', () => {
   it('a figure card core marks ◆: the figure in Olumi\'s colour with core\'s mark on hover, its ✎ always shown and the words "Give yours" only on hover, focus or selection (no static repeating text); a person\'s figure is neither', async () => {
     const { QUIET, QUIET_WORDS } = await import('../FigureEdit')
