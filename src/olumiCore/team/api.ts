@@ -105,6 +105,10 @@ export const teamApi = {
   giveView: (sid: string, text: string) => call<{ contribution: number }>('POST', `${base(sid)}/views`, { text }),
   skipView: (sid: string) => call<{ contribution: number }>('POST', `${base(sid)}/views`, { skip: true }),
   reveal: (sid: string) => call<{ revealed: number[] }>('POST', `${base(sid)}/reveal`),
+  /** How much each aim matters to this member (core L3): private until revealed, never combined. */
+  weigh: (sid: string, weights: Readonly<Record<string, 'more' | 'same' | 'less'>>) => call<{ weight: number }>('POST', `${base(sid)}/weights`, { weights }),
+  skipWeights: (sid: string) => call<{ weight: number }>('POST', `${base(sid)}/weights`, { skip: true }),
+  revealWeights: (sid: string) => call<{ revealed: number[] }>('POST', `${base(sid)}/weights/reveal`),
   addEvidence: (sid: string, e: EvidenceInput, op: string) =>
     call<{ evidence: number }>('POST', `${base(sid)}/evidence`, { text: e.text, ...(e.source !== null ? { source: e.source } : {}), concerns: e.concerns, stance: e.stance, op }),
   addCommitment: (sid: string, c: CommitmentInput) => call<{ commitment: number }>('POST', `${base(sid)}/commitments`, { action: c.action, owner: c.owner, expect: c.expect, reconsider: c.reconsider, keeps: c.keeps }),

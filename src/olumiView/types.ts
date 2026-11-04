@@ -180,6 +180,18 @@ export type View = {
         figure: {
           label: string
           whose: "theirs" | "olumi" | "mixed"
+          id: string
+          mark: {
+            glyph: string
+            title: string
+          } | null
+          give: {
+            text: string
+            edit: {
+              prompt: string
+              ask: string
+            }
+          } | null
         } | null
         olumi: {
           glyph: string
