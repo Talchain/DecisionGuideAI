@@ -45,7 +45,11 @@ describe('the canvas card draws the View exactly', () => {
         const { container, unmount } = render(<ViewCard card={card} />)
         for (const el of container.querySelectorAll<HTMLElement>('[data-view]')) expect(el.textContent, el.dataset['view']).toBe(at(model, el.dataset['view']!))
         const { id: _id, ...fields } = card
-        for (const p of shown(fields, card.id)) expect(container.querySelector(`[data-view="${p}"]`), p).not.toBeNull()
+        // A worked-out figure with a line per option (two or more `values`) is drawn as those lines, a row per option, in place of its one
+        // run-on sentence (R3 pristine): each option's line is then the drawn string, and the sentence stays the rows' hover (core's title).
+        const perOption = card.figure !== null && (card.values?.length ?? 0) > 1
+        const want = perOption ? [...shown(fields, card.id).filter((p) => p !== `${card.id}.figure.text`), ...card.values!.map((_, i) => `${card.id}.values.${i}.text`)] : shown(fields, card.id)
+        for (const p of want) expect(container.querySelector(`[data-view="${p}"]`), p).not.toBeNull()
         if (card.detail !== '') expect(container.querySelector(`[data-view="${card.id}.heading"]`)?.getAttribute('title'), `${card.id}.detail on hover`).toBe(card.detail)
         unmount()
       }
@@ -118,7 +122,7 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
 })
 
 describe('the compact face (Paul 4 Nov: the causal graph reads; every word of core\'s still reachable)', () => {
-  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|rows\..*|badge.*)$/
+  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.text|rows\..*|badge.*)$/ // values: the figure's per-option rows (R3 pristine)
   const MORE = /^[^.]+\.(status|reason|bound\..*|premises\..*)$/
   for (const n of GOLDEN) {
     it(`${n}: unselected, a card shows only its glyph, heading, marks, figure and rows (an assumption its reason); the rest opens on selection`, () => {

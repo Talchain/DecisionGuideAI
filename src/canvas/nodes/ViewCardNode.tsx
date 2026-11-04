@@ -67,6 +67,17 @@ function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
   }
 }
 
+/** One option's row on a worked-out figure card: the option's number (O1, …) as the canvas numbers it, then core's line, two lines at most, whole on hover. */
+function OptionValueRow({ at, option, text }: { at: string; option: string; text: string }) {
+  const n = useCardNumber(option)
+  return (
+    <p className="line-clamp-2" title={text} data-value-row={option}>
+      {n === null ? null : <><span className="text-text-light font-normal tabular-nums" data-card-number={n}>{n}</span>{' '}</>}
+      <span data-view={at}>{text}</span>
+    </p>
+  )
+}
+
 /** One View card, pure: a test draws it from a golden View. */
 export function ViewCard({ card, selected = false, restsOn = null, driverOf = null, number = null, tried = null, pulsed = false, kind = askKindOf(card.family) }: ViewCardData & { selected?: boolean; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf> }) {
   const id = card.id
@@ -80,6 +91,9 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
   // proposal ghost (ProposalGhostLayer: translucent, a solid 1px info border, never dashed, which means doubt), with core's own words
   // for it ("Proposed addition") as its caption. Approving stays the Proposal card's in the chat.
   const ghost = card.change?.kind === 'added'
+  // A worked-out figure with a line per option (core's `values`, two or more) is drawn a row per option, not as one run-on sentence that
+  // grows the card past the screen (R3 pristine: OC1 on the capacity model ran 8 lines).
+  const perOption = card.figure !== null && (card.values?.length ?? 0) > 1
   const more = card.status !== null || (card.reason !== null && !says) || card.bound !== null || card.premises.length > 0
   return (
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
@@ -124,8 +138,17 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       {says ? <p className="line-clamp-2" title={card.reason!} data-view={`${id}.reason`}>{card.reason}</p> : null}
       {card.figure === null ? null : (
         <div className="flex items-baseline gap-1">
-          <p className={`${typography.nodeValue} ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
-            data-olumi={estimate || undefined} data-view={`${id}.figure.text`}>{card.figure.text}</p>
+          {perOption ? (
+            // One row per option, core's own line for it (`values[].text`), after the option's number as the canvas numbers it: the face stays
+            // compact, two lines a row at most, the whole row on hover; core's sentence for every option stays the hover of the rows (R3 pristine).
+            <div className={`${typography.nodeValue} min-w-0 flex-1 space-y-0.5 ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
+              data-olumi={estimate || undefined} data-view-values={id}>
+              {card.values!.map((v, i) => <OptionValueRow key={v.option} at={`${id}.values.${i}.text`} option={v.option} text={v.text} />)}
+            </div>
+          ) : (
+            <p className={`${typography.nodeValue} ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
+              data-olumi={estimate || undefined} data-view={`${id}.figure.text`}>{card.figure.text}</p>
+          )}
           <Slot name={VIEW_CARD_SLOTS.figureSide} className="empty:hidden" />
         </div>
       )}

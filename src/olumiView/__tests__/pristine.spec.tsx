@@ -93,3 +93,39 @@ describe('the lens bar keeps the top row: icon-only when its labels do not fit b
     done()
   })
 })
+
+describe('a worked-out figure with a line per option is drawn a row per option, never one run-on sentence (R3 pristine: OC1)', () => {
+  // A 3-option outcome: core's three lines verbatim from the capacity model of the 4 Nov witness (sys31, scenario s_f79b0d4c6864).
+  const base = golden('capacity-v3').model!.cards.find((c) => c.id === 'total_capacity')!
+  const card = {
+    ...base,
+    figure: { ...base.figure!, text: "Keep current staffing: 80 tickets/week · Add one specialist: about 100 tickets/week (93.7 to 106 tickets/week) if 'A new hire may unsettle the team' does not happen · Share a part-time specialist with another team: about 90 tickets/week (86.8 to 93.2 tickets/week)" },
+    values: [
+      { option: 'keep_staffing', text: '80 tickets/week', p10: 80, p50: 80, p90: 80, if_absent: [], olumi: true },
+      { option: 'add_specialist', text: "about 100 tickets/week (93.7 to 106 tickets/week) if 'A new hire may unsettle the team' does not happen", p10: 93.69, p50: 100.09, p90: 106.42, if_absent: ['team_unsettled'], olumi: false },
+      { option: 'share_specialist', text: 'about 90 tickets/week (86.8 to 93.2 tickets/week)', p10: 86.85, p50: 90.05, p90: 93.21, if_absent: [], olumi: true },
+    ],
+  } as typeof base
+
+  it('three options: three rows in core\'s order, each core\'s line verbatim, two lines at most, whole on hover; the sentence is the rows\' hover', () => {
+    const c = render(<ViewCard card={card} />).container
+    const rows = [...c.querySelectorAll<HTMLElement>('[data-value-row]')]
+    expect(rows.map((r) => r.getAttribute('data-value-row'))).toEqual(['keep_staffing', 'add_specialist', 'share_specialist'])
+    rows.forEach((r, i) => {
+      expect(r.querySelector(`[data-view="total_capacity.values.${i}.text"]`)?.textContent).toBe(card.values![i]!.text)
+      expect(r.className).toContain('line-clamp-2')
+      expect(r.getAttribute('title')).toBe(card.values![i]!.text)
+    })
+    expect(c.querySelector('[data-view="total_capacity.figure.text"]')).toBeNull() // not also the run-on sentence
+    expect(c.querySelector('[data-view-values="total_capacity"]')!.getAttribute('title')).toContain(card.figure!.title)
+  })
+
+  it('one line (a single value, or none): the figure\'s own line as before', () => {
+    for (const values of [[card.values![0]!], []]) {
+      const c = render(<ViewCard card={{ ...card, values }} />).container
+      expect(c.querySelector('[data-view="total_capacity.figure.text"]')?.textContent).toBe(card.figure!.text)
+      expect(c.querySelector('[data-value-row]')).toBeNull()
+      cleanup()
+    }
+  })
+})
