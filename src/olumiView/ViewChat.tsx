@@ -41,7 +41,8 @@ function Words({ parts, at }: { parts: Said; at: string }) {
 /** One turn of the conversation as the View holds it. `answerFirst`: Olumi's reply above the words it answers (the newest turn, lane C). */
 function Turn({ t, at, answerFirst = false }: { t: ViewTurn; at: string; answerFirst?: boolean }) {
   const said = answerFirst
-    ? <p className={typography.panelMeta}>In reply to: <span data-view={`${at}.said`}>{t.said}</span></p>
+    // One line under the reply, the whole of what was said on hover: a brief quoted in full repeated the person's own words (4 Nov drive).
+    ? <p className={`${typography.panelMeta} line-clamp-1`} title={t.said} data-testid="view-chat-in-reply">In reply to: <span data-view={`${at}.said`}>{t.said}</span></p>
     : <p data-view={`${at}.said`}>{t.said}</p>
   const answer = t.answer === null ? null : (
     <div className={answerFirst ? 'space-y-2' : 'mt-2 space-y-2'}>

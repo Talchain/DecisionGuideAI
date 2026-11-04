@@ -78,7 +78,14 @@ describe('Olumi\'s newest reply first', () => {
     const latest = c.querySelector(`[data-testid="view-chat-latest"] [data-view-turn="chat.${last}"]`)!
     const answer = latest.querySelector(`[data-view="chat.${last}.answer.answer.0.text"]`)!, said = latest.querySelector(`[data-view="chat.${last}.said"]`)!
     expect(answer.compareDocumentPosition(said) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // What it answers is one line, its whole words on hover; the text itself is core's, untouched.
+    const reply = latest.querySelector<HTMLElement>('[data-testid="view-chat-in-reply"]')!
+    expect(reply.className).toContain('line-clamp-1')
+    expect(reply.getAttribute('title')).toBe(view.chat[last]!.said)
+    expect(said.textContent).toBe(view.chat[last]!.said)
     const earlier = c.querySelector('[data-testid="view-chat-earlier"]')!
+    // Earlier turns keep what was said in full, unclamped.
+    expect(earlier.querySelector('[data-view-turn="chat.0"] [data-view="chat.0.said"]')?.closest('.line-clamp-1')).toBeNull()
     expect(earlier.tagName).toBe('DETAILS')
     expect(earlier.querySelectorAll('[data-view-turn]')).toHaveLength(last)
     expect(earlier.querySelector('[data-view-turn="chat.0"] [data-view="chat.0.said"]')?.textContent).toBe(view.chat[0]!.said)
