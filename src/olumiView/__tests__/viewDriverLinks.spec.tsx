@@ -43,12 +43,13 @@ describe('What would change on the links', () => {
     expect(driverLinksOf(none, driversOf(none)).size).toBe(0)
   })
 
-  it('on the canvas: wider in ink and core\'s strength words while the lens is on; at rest under Model', () => {
+  it('on the canvas: wider in ink while the lens is on; at rest under Model, with core\'s strength words on the line either way', () => {
     useViewStore.setState({ view })
     const sized = model.links.findIndex((l) => l.from === 'one_oven' && l.to === 'sales'), plain = model.links.findIndex((l) => l.from === 'budget')
     let c = edge(sized)
     expect(c.querySelector('[data-driver-link]')).toBeNull()
-    expect(c.querySelector(`[data-view="links.${sized}.effect.text"]`)).toBeNull()
+    // Core's strength words are on the line under every lens (R1 P1), never only under this one.
+    expect(c.querySelector(`[data-view="links.${sized}.effect.text"]`)).not.toBeNull()
     cleanup()
     act(() => useViewLens.setState({ lens: 'what_changes' }))
     c = edge(sized)

@@ -66,5 +66,3 @@ export function useDriverLink(i: number): boolean {
   return on && links.has(i)
 }
 
-/** Whether the What would change lens is on (a link then says its strength in core's words, `links[].effect`). */
-export const useWhatChangesOn = (): boolean => useViewLens((s) => s.lens === 'what_changes')
