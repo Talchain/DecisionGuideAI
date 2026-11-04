@@ -69,7 +69,8 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "customer_target",
@@ -99,7 +100,8 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "entry_delay",
@@ -140,7 +142,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "entry_interpretation",
@@ -166,7 +169,8 @@
     "status": null,
     "bound": null,
     "reason": "Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply.",
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "churn_danger_threshold",
@@ -207,7 +211,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "broad_entry_acquisitions",
@@ -251,7 +256,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "pilot_acquisitions",
@@ -295,7 +301,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "expansion_churn",
@@ -328,7 +335,8 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "shared_churn_stress",
@@ -354,7 +362,8 @@
     "status": null,
     "bound": null,
     "reason": "Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.",
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "customers",
@@ -374,8 +383,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "Enter multiple European countries: 318 to 1,540 customers · Test one country before broader commitment: 261 to 1,400 customers · No new European entry during this window: 254 to 1,410 customers",
-     "title": "Modelled range at the end of month 12: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. It rests on figures Olumi proposed. Enter multiple European countries: 318 to 1,540 customers; Test one country before broader commitment: 261 to 1,400 customers; No new European entry during this window: 254 to 1,410 customers. Worked out from the figures it depends on.",
+     "text": "Enter multiple European countries: about 663 customers (318 to 1,540 customers) · Test one country before broader commitment: about 511 customers (261 to 1,400 customers) · No new European entry during this window: about 472 customers (254 to 1,410 customers)",
+     "title": "Modelled range at the end of month 12: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Enter multiple European countries: about 663 customers (318 to 1,540 customers); Test one country before broader commitment: about 511 customers (261 to 1,400 customers); No new European entry during this window: about 472 customers (254 to 1,410 customers). Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -409,7 +418,36 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": [
+     {
+      "option": "broader_entry",
+      "text": "about 663 customers (318 to 1,540 customers)",
+      "p10": 317.72905206768274,
+      "p50": 663.0754988387507,
+      "p90": 1538.1500774262233,
+      "if_absent": [],
+      "olumi": true
+     },
+     {
+      "option": "single_country_test",
+      "text": "about 511 customers (261 to 1,400 customers)",
+      "p10": 260.794195006196,
+      "p50": 510.98840023662854,
+      "p90": 1402.0826406474423,
+      "if_absent": [],
+      "olumi": true
+     },
+     {
+      "option": "no_new_european_entry",
+      "text": "about 472 customers (254 to 1,410 customers)",
+      "p10": 254.4975125174409,
+      "p50": 471.7302972405148,
+      "p90": 1408.9701836856868,
+      "if_absent": [],
+      "olumi": true
+     }
+    ]
    },
    {
     "id": "investment_cap",
@@ -439,7 +477,8 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "broad_entry_investment",
@@ -482,7 +521,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "pilot_investment",
@@ -525,7 +565,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "reach_customer_target",
@@ -568,7 +609,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "target_interpretation",
@@ -594,7 +636,8 @@
     "status": null,
     "bound": null,
     "reason": "Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter.",
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "customer_flow_assumptions",
@@ -620,7 +663,8 @@
     "status": null,
     "bound": null,
     "reason": "Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "investment_limit",
@@ -660,7 +704,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "proposed_churn_guardrail",
@@ -705,7 +750,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "broader_entry",
@@ -788,7 +834,8 @@
     ],
     "driver": {
      "text": "about 4% if 'New customers from existing markets' is low, about 97% if it is high: Under 'Enter multiple European countries', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
-     "title": "about 4% if 'New customers from existing markets' is low, about 97% if it is high: Under 'Enter multiple European countries', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws."
+     "title": "about 4% if 'New customers from existing markets' is low, about 97% if it is high: Under 'Enter multiple European countries', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "existing_market_acquisitions"
     },
     "status": null,
     "bound": null,
@@ -806,7 +853,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "country_readiness",
@@ -832,7 +880,8 @@
     "status": null,
     "bound": null,
     "reason": "For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "single_country_test",
@@ -907,7 +956,8 @@
     ],
     "driver": {
      "text": "under 1% if 'New customers from existing markets' is low, about 95% if it is high: Under 'Test one country before broader commitment', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
-     "title": "under 1% if 'New customers from existing markets' is low, about 95% if it is high: Under 'Test one country before broader commitment', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws."
+     "title": "under 1% if 'New customers from existing markets' is low, about 95% if it is high: Under 'Test one country before broader commitment', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "existing_market_acquisitions"
     },
     "status": null,
     "bound": null,
@@ -924,7 +974,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "no_new_european_entry",
@@ -991,7 +1042,8 @@
     ],
     "driver": {
      "text": "under 1% if 'New customers from existing markets' is low, about 99% if it is high: Under 'No new European entry during this window', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
-     "title": "under 1% if 'New customers from existing markets' is low, about 99% if it is high: Under 'No new European entry during this window', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws."
+     "title": "under 1% if 'New customers from existing markets' is low, about 99% if it is high: Under 'No new European entry during this window', the chance of meeting 'Reach 800 customers' moves most with 'New customers from existing markets': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "existing_market_acquisitions"
     },
     "status": null,
     "bound": null,
@@ -1006,7 +1058,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    }
   ],
   "links": [
@@ -1472,7 +1525,113 @@
     }
    ]
   },
-  "edit_base": 1
+  "edit_base": 1,
+  "key": [
+   {
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "glyph": "?",
+    "text": "unsized"
+   },
+   {
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "glyph": "↻",
+    "text": "changed"
+   }
+  ]
  },
  "proposal": null,
  "collab": {
@@ -1721,5 +1880,6 @@
   "dissent": []
  },
  "evidence": [],
- "chat": []
+ "chat": [],
+ "brief": "Should we expand into the European market in the next 6–12 months?"
 }

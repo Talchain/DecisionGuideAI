@@ -9,7 +9,7 @@
  */
 import { FigureEdit } from './FigureEdit'
 import type { ViewModel } from './client'
-import { optionCards, settableFigures } from './layout'
+import { bandPlace, olumiKey, optionBands, optionCards, settableFigures } from './layout'
 import { currentModel, useViewStore } from './store'
 import { OptionLines, SharedBlockers, WhatIfShown, Worth } from './ViewChances'
 import { typography } from '../styles/typography'
@@ -21,7 +21,7 @@ export function ViewReasoning({ model }: { model: ViewModel }) {
       <WhatIfShown model={model} />
       {run?.lead == null ? null : <p data-view="run.lead">{run.lead}</p>}
       <SharedBlockers run={run} />
-      {optionCards(model).map((card) => <OptionLines key={card.id} card={card} />)}
+      {optionCards(model).map((card) => <OptionLines key={card.id} card={card}><Bands model={model} option={card.id} /></OptionLines>)}
       <Worth run={run} tab="analysisNew" />
       {settable.length === 0 ? null : (
         <div data-testid="view-reasoning-try" aria-label="Try a figure">
@@ -35,6 +35,34 @@ export function ViewReasoning({ model }: { model: ViewModel }) {
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * Under an option, each outcome band core gives it (`cards[].values`): the card, core's own line for this option, ◆ (core's key) where
+ * core marks it Olumi's, the card's range reading on hover, and a bar placed on the card's one axis so the options can be read together.
+ */
+function Bands({ model, option }: { model: ViewModel; option: string }) {
+  const olumi = olumiKey(model)
+  return (
+    <>
+      {optionBands(model, option).map(({ card, band, i }) => {
+        const at = bandPlace(card.values!, band)
+        return (
+          <div key={card.id} className="mt-1" title={card.figure?.title} data-band={card.id}>
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <span className={typography.panelMeta} data-view={`${card.id}.heading`}>{card.heading}</span>
+              <span className={typography.panelTabular} data-view={`${card.id}.values.${i}.text`}>{band.text}</span>
+              {band.olumi && olumi !== null ? <span aria-label={olumi.text} data-view={`key.${olumi.i}.glyph`}>{olumi.glyph}</span> : null}
+            </div>
+            <div aria-hidden="true" className="relative mt-0.5 h-1.5 w-full rounded-full bg-panel-border/50">
+              <span data-band-bar className="absolute inset-y-0 min-w-[4px] rounded-full bg-text-light/40" style={{ left: `${at.left}%`, width: `${at.width}%` }} />
+              {at.mid === null ? null : <span data-band-mid className="absolute -inset-y-0.5 w-0.5 bg-text-body" style={{ left: `${at.mid}%` }} />}
+            </div>
+          </div>
+        )
+      })}
+    </>
   )
 }
 

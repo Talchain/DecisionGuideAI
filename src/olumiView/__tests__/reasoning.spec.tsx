@@ -7,10 +7,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import type { View } from '../client'
+import type { View, ViewModel } from '../client'
 import { useViewStore } from '../store'
 import { optionCards } from '../layout'
 import { ViewReasoning, ViewReasoningBlock } from '../ViewReasoning'
+import { ViewChances } from '../ViewChances'
 import { clearWhatIf } from '../whatif'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
@@ -35,7 +36,7 @@ const unbound = (root: HTMLElement, also: string[]) => {
 }
 
 describe('the Reasoning tab draws the Run in core\'s words', () => {
-  for (const golden of ['bakery.view.json', 'european.view.json', 'studio.view.json', 'app-launch.view.json']) {
+  for (const golden of ['bakery.view.json', 'european.view.json', 'studio.view.json', 'app-launch.view.json', 'pricing.view.json', 's_ce285b3617bb.view.json']) {
     it(`${golden}: the lead, each option's rows and driver, and each worth line, each bound to its View string and in core's order; no word of its own`, () => {
       const view = read(golden), m = view.model!
       ready(view)
@@ -136,5 +137,45 @@ describe('try a figure: core\'s what-if, from the Reasoning tab', () => {
     fireEvent.submit(screen.getByTestId(`reasoning-form-${id}`))
     await screen.findByTestId('view-whatif')
     expect(posts.map((p) => p.path)).toEqual([`/api/scenarios/${view.id}/whatif`])
+  })
+})
+
+describe('each option\'s outcome band (olumi.view/3 `cards[].values`, core e16a497)', () => {
+  // bakery's golden (core e16a497): 'sales' carries one band per option. Its axis runs from the least p10 (carry_on, 300) to the greatest p90
+  // (second_oven, 387.094…), a span of 87.094…, so second_oven sits at (336.615 − 300) / 87.094 = 42.04% to 100%, its p50 at 80.33%;
+  // longer_hours at 45.32% to 91.55% (a width of 46.22% unrounded), p50 68.89%; carry_on, a point at 300, at 0%.
+  const view = read('bakery.view.json'), m = view.model!
+  const sales = m.cards.find((c) => c.id === 'sales')!
+  const PLACES: Record<string, [string, string, string]> = { second_oven: ['42.04%', '57.96%', '80.33%'], longer_hours: ['45.32%', '46.22%', '68.89%'], carry_on: ['0%', '0%', '0%'] }
+
+  it('under each option, the band\'s card and core\'s own line for that option, its range on hover, ◆ only where core marks it Olumi\'s, placed on one axis', () => {
+    ready(view)
+    render(<ViewReasoning model={m} />)
+    const root = screen.getByTestId('view-reasoning')
+    sales.values!.forEach((v, i) => {
+      const bands = root.querySelectorAll(`[data-view-card="${v.option}"] [data-band]`)
+      expect(bands.length, v.option).toBe(1)
+      const band = bands[0] as HTMLElement
+      expect(band.getAttribute('data-band')).toBe('sales')
+      expect(band.getAttribute('title')).toBe(sales.figure!.title)
+      expect(band.querySelector('[data-view="sales.heading"]')?.textContent).toBe(sales.heading)
+      expect(band.querySelector(`[data-view="sales.values.${i}.text"]`)?.textContent).toBe(v.text)
+      expect(band.querySelector('[data-view="key.0.glyph"]')?.textContent ?? null, v.option).toBe(v.olumi ? m.key[0].glyph : null)
+      const bar = band.querySelector('[data-band-bar]') as HTMLElement, mid = band.querySelector('[data-band-mid]') as HTMLElement
+      const [left, width, at] = PLACES[v.option]
+      expect([parseFloat(bar.style.left).toFixed(2) + '%', parseFloat(bar.style.width).toFixed(2) + '%', parseFloat(mid.style.left).toFixed(2) + '%'].map((x) => x.replace('.00%', '%')), v.option).toEqual([left, width, at])
+    })
+    expect(m.key[0]).toEqual({ glyph: '◆', text: 'Olumi' })
+  })
+
+  it('must not change: a card with no modelled figure (null), or a View from a core before the band (no field), draws no band; the Analysis tab draws none', () => {
+    ready(view)
+    const { rerender } = render(<ViewReasoning model={{ ...m, cards: m.cards.map((c) => ({ ...c, values: null })) }} />)
+    expect(screen.getByTestId('view-reasoning').querySelectorAll('[data-band]').length).toBe(0)
+    // A core before e16a497 sends no `values` at all.
+    rerender(<ViewReasoning model={{ ...m, cards: m.cards.map(({ values: _gone, ...c }) => c) } as unknown as ViewModel} />)
+    expect(screen.getByTestId('view-reasoning').querySelectorAll('[data-band]').length).toBe(0)
+    rerender(<ViewChances model={m} />)
+    expect(screen.getByTestId('view-chances').querySelectorAll('[data-band]').length).toBe(0)
   })
 })

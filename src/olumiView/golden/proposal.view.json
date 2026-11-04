@@ -65,7 +65,8 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "per_specialist",
@@ -95,7 +96,8 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "one_specialist",
@@ -122,7 +124,8 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "total_capacity",
@@ -142,8 +145,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "Keep current staffing: 80 tickets/week · Add one specialist: 94.7 to 115 tickets/week",
-     "title": "Modelled range at the end of week 12: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. Keep current staffing: 80 tickets/week; Add one specialist: 94.7 to 115 tickets/week. Worked out from the figures it depends on.",
+     "text": "Keep current staffing: 80 tickets/week · Add one specialist: about 105 tickets/week (94.7 to 115 tickets/week)",
+     "title": "Modelled range at the end of week 12: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Keep current staffing: 80 tickets/week; Add one specialist: about 105 tickets/week (94.7 to 115 tickets/week). Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -165,7 +168,27 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": [
+     {
+      "option": "hold",
+      "text": "80 tickets/week",
+      "p10": 80,
+      "p50": 80,
+      "p90": 80,
+      "if_absent": [],
+      "olumi": false
+     },
+     {
+      "option": "add_one",
+      "text": "about 105 tickets/week (94.7 to 115 tickets/week)",
+      "p10": 94.6795181966731,
+      "p50": 104.92980796070435,
+      "p90": 114.91851476864522,
+      "if_absent": [],
+      "olumi": false
+     }
+    ]
    },
    {
     "id": "capacity_target",
@@ -192,7 +215,8 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "capacity_goal",
@@ -220,7 +244,8 @@
      "measured": true
     },
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "hold",
@@ -256,7 +281,8 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "add_one",
@@ -293,7 +319,8 @@
     ],
     "driver": {
      "text": "about 22% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws.",
-     "title": "about 22% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws."
+     "title": "about 22% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "per_specialist"
     },
     "status": null,
     "bound": null,
@@ -309,7 +336,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "deadline",
@@ -336,7 +364,8 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "start_delay",
@@ -366,7 +395,8 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    }
   ],
   "links": [
@@ -449,7 +479,113 @@
    ],
    "science": []
   },
-  "edit_base": null
+  "edit_base": null,
+  "key": [
+   {
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "glyph": "?",
+    "text": "unsized"
+   },
+   {
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "glyph": "↻",
+    "text": "changed"
+   }
+  ]
  },
  "proposal": {
   "id": 5,
@@ -620,7 +756,8 @@
      ],
      "about": [],
      "at": null,
-     "newest": false
+     "newest": false,
+     "move": "gather_evidence"
     }
    },
    "broke": null,
@@ -650,12 +787,14 @@
      ],
      "about": [],
      "at": null,
-     "newest": true
+     "newest": true,
+     "move": "gather_evidence"
     }
    },
    "broke": null,
    "problem": null,
    "marks": []
   }
- ]
+ ],
+ "brief": "Our team resolves 80 tickets a week. Keep current staffing or add one specialist? In 12 weeks we need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team."
 }

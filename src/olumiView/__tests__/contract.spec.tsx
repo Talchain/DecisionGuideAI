@@ -9,7 +9,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { render } from '@testing-library/react'
+import { cleanup, render } from '@testing-library/react'
 import type { View, ViewModel } from '../client'
 import { ViewChances, ViewChancesBlock } from '../ViewChances'
 import { useViewStore } from '../store'
@@ -145,7 +145,9 @@ describe('the Run beside the chances says what the base dock said, word for word
       expect(texts(container, '[data-view^="run.notes."]')).toEqual(o.notes)
       if (o.waits_on === null) expect(container.querySelector('[data-testid="view-run-waits-on"]')).toBeNull()
       else {
-        expect(container.querySelector('[data-view="run.waits_on.label"]')?.textContent).toBe(model.run!.waits_on!.label)
+        // Since core e16a497 app-launch has every option waiting (`all_withheld`): what they wait on heads the dock, with no label line.
+        if (model.run!.all_withheld) expect(container.querySelector('[data-testid="view-run-waits-headline"] [data-view="run.waits_on.text"]')?.textContent).toBe(o.waits_on.text)
+        else expect(container.querySelector('[data-view="run.waits_on.label"]')?.textContent).toBe(model.run!.waits_on!.label)
         expect(texts(container, '[data-view^="run.waits_on.items."][data-view$=".text"]')).toEqual(model.run!.waits_on!.items.map((i) => i.text))
         expect(model.run!.waits_on!.items.map((i) => i.id)).toEqual(o.waits_on.items.map((i) => i.id))
         expect(model.run!.waits_on!.text).toBe(o.waits_on.text)
@@ -187,11 +189,13 @@ describe('a reason every option shares is said once, above the options; each cov
     }
     expect(container.querySelector('[data-view="run.lead"]')?.textContent).toBe(oracle['pricing-unmoved-first']!.lead)
   })
-  it('absent: no View without the key draws a shared reason', () => {
+  it('absent: no View without the key draws a shared reason; each golden that carries it (core e16a497: studio, app-launch) draws exactly its own', () => {
+    const without = GOLDEN.filter((n) => golden(n).model?.run?.shared_blockers === undefined)
+    expect(without.length).toBeGreaterThan(0)
     for (const n of GOLDEN) {
-      expect(golden(n).model?.run?.shared_blockers, n).toBeUndefined()
-      const model = golden(n).model
-      if (model) expect(render(<ViewChances model={model} />).container.querySelector('[data-testid="view-run-shared-blocker"]'), n).toBeNull()
+      const model = golden(n).model!, said = [...render(<ViewChances model={model} />).container.querySelectorAll('[data-testid="view-run-shared-blocker"]')]
+      expect(said.map((e) => e.textContent), n).toEqual((model.run!.shared_blockers ?? []).map((b) => b.text))
+      cleanup()
     }
   })
 })

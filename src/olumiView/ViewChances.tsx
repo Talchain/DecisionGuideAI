@@ -7,6 +7,7 @@
  * Each drawn View string carries `data-view`, the path to the exact string it shows, so a test can bind every element to its own
  * value by identity (design §3).
  */
+import type { ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow, ViewRun } from './client'
 import { optionCards } from './layout'
@@ -124,13 +125,14 @@ export function SharedBlockers({ run }: { run: ViewRun | null }) {
   )
 }
 
-/** One option: its heading, each row (a chance, a limit, or why there is nothing yet), and what moves its chance most, all core's. */
-export function OptionLines({ card }: { card: ViewCard }) {
+/** One option: its heading, each row (a chance, a limit, or why there is nothing yet), and what moves its chance most, all core's; then `children`. */
+export function OptionLines({ card, children }: { card: ViewCard; children?: ReactNode }) {
   return (
     <div data-view-card={card.id}>
       <div className={typography.panelHeader} data-view={`${card.id}.heading`}>{card.heading}</div>
       {card.rows.map((row, i) => <Row key={i} card={card} row={row} i={i} />)}
       {card.driver == null ? null : <p className={typography.panelMeta} title={card.driver.title} data-view={`${card.id}.driver.text`}>{card.driver.text}</p>}
+      {children}
     </div>
   )
 }

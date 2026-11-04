@@ -14,6 +14,30 @@ export const optionCards = (model: ViewModel): ViewCard[] => model.cards.filter(
 /** The cards whose figure the person may set, in the View's own order: core offers `figure.edit` only there, and only while no proposal is held. */
 export const settableFigures = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.figure?.edit)
 
+type Band = NonNullable<ViewCard['values']>[number]
+/**
+ * Each outcome band core gives one option (olumi.view/3 `cards[].values`), in the View's card order: the card, the option's entry and
+ * its place in the card's list. A card with no modelled figure carries null, and a core before the band no field: neither draws one.
+ */
+export const optionBands = (model: ViewModel, option: string): { card: ViewCard; band: Band; i: number }[] =>
+  model.cards.flatMap((card) => (card.values ?? []).flatMap((band, i) => (band.option === option ? [{ card, band, i }] : [])))
+
+/**
+ * Where a band sits on its card's one axis, from the least p10 to the greatest p90 of the card's bands, as percentages (core's numbers
+ * are for positions only; its words are the band's `text`). One value everywhere puts every band at the start.
+ */
+export function bandPlace(bands: Band[], band: Band): { left: number; width: number; mid: number | null } {
+  const lo = Math.min(...bands.map((b) => b.p10)), span = Math.max(...bands.map((b) => b.p90)) - lo
+  const at = (x: number) => (span === 0 ? 0 : ((x - lo) / span) * 100)
+  return { left: at(band.p10), width: at(band.p90) - at(band.p10), mid: band.p50 === null ? null : at(band.p50) }
+}
+
+/** Core's key item for Olumi's mark (`model.key`, "Olumi") and its place in the key, or null when the View carries none. */
+export function olumiKey(model: ViewModel): { glyph: string; text: string; i: number } | null {
+  const i = (model.key ?? []).findIndex((k) => k.text === 'Olumi')
+  return i < 0 ? null : { ...model.key[i]!, i }
+}
+
 /** Core's own page geometry (olumi-core src/page/graph.ts): card width and the gaps between columns and cards, and the top margin. */
 const W = 232, GAP_X = 48, GAP_Y = 14, TOP = 112
 

@@ -297,6 +297,10 @@ for (const c of options) {
 }
 for (const [i, l] of v3.model.run.science.entries()) { if (await inReasoning(`run.science.${i}.line`).innerText() !== l.line) check(false, `worth line ${l.id} in core's words`); bound++ }
 check(bound > 0, `every option's chance or blocker, driver line and worth line drawn exactly as core's View says it (${bound} strings)`)
+// Each option's outcome band (olumi.view/3 `cards[].values`, core e16a497): core's own line for that option, under it, once per card.
+const bands = v3.model.cards.flatMap((c) => (c.values ?? []).map((b, i) => ({ c, b, i })))
+for (const { c, b, i } of bands) if (await reasoning.locator(`[data-view-card="${b.option}"] [data-band="${c.id}"] [data-view="${c.id}.values.${i}.text"]`).innerText() !== b.text) check(false, `${c.id}'s band for ${b.option} is core's "${b.text}"`)
+check(bands.length > 0 && await reasoning.locator('[data-band]').count() === bands.length, `each option's outcome band under it, in core's words (${bands.length}: ${bands.map(({ b }) => b.text).join(' · ')})`)
 await shot(ada, `k-analysis-${process.env.VIEW_W ?? 1440}`)
 const tryable = v3.model.cards.find((c) => c.figure?.edit)
 check(tryable !== undefined, `Reasoning offers a figure to try ("${tryable?.heading}")`)
