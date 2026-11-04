@@ -21,21 +21,20 @@ function Mark({ at, mark }: { at: string; mark: { glyph: string; title: string }
   return mark === null ? null : <span data-view={`${at}.glyph`} title={mark.title} aria-label={mark.title}>{mark.glyph}</span>
 }
 
-/** Core's one line on what a finding rests on (stand-in `rests_on_text`), said once, quietly, under it; the marks are the Rests on lens's. */
-export function RestsOnLine({ at, text }: { at: string; text: string | null }) {
-  return text === null ? null : <p className={`${typography.panelMeta} text-text-light`} data-view={`${at}.rests_on_text`}>{text}</p>
-}
-
-/** Under an option's chance row on the Analysis tab: core's finding in at most two sentences (stand-in `text`), then what it rests on. */
+/**
+ * Under an option's chance row on the Analysis tab: core's finding in at most two sentences (`text`), with core's line on what it rests
+ * on (`rests_on_text`) as its hover, verbatim, never on screen: on real models that line runs to a paragraph (european, core 550ad5f),
+ * the wall again (DL 4 Nov: provenance by icons and hover). The icons are the Rests on lens's marks on the cards it names.
+ */
 export function FindingLines({ at, row }: { at: string; row: ViewRow }) {
   const f = findingOf(row)
-  return f.text === null && f.rests_on_text === null ? null : (
-    <>
-      {f.text === null ? null : <p data-view={`${at}.text`}>{f.text}</p>}
-      <RestsOnLine at={at} text={f.rests_on_text} />
-    </>
+  return f.text === null ? null : (
+    <p data-view={`${at}.text`} title={f.rests_on_text ?? undefined} data-view-hover={f.rests_on_text === null ? undefined : `${at}.rests_on_text`}>{f.text}</p>
   )
 }
+
+/** The hover for the most likely line: core's line on what it rests on when core gives one, else the line's own title. */
+export const mostLikelyHover = (ml: NonNullable<ViewRun['most_likely']>): string => mostLikelyBasisOf(ml).rests_on_text ?? ml.title
 
 export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number }) {
   const at = `${card.id}.rows.${i}`
@@ -109,10 +108,9 @@ export function WhatIfShown({ model }: { model: ViewModel }) {
 function MostLikely({ model, ml }: { model: ViewModel; ml: NonNullable<ViewRun['most_likely']> }) {
   const card = ml.estimate === null ? undefined : model.cards.find((c) => c.id === ml.estimate && c.figure?.edit)
   return (
-    <div title={ml.title}>
+    <div title={mostLikelyHover(ml)} data-view-hover={mostLikelyBasisOf(ml).rests_on_text === null ? undefined : 'run.most_likely.rests_on_text'}>
       <span data-view="run.most_likely.text">{ml.text}</span>
       {card === undefined ? null : <> <FigureEdit id={card.id} edit={card.figure!.edit} place="likely" glyph="✎" words={false} label={`Give your figure for ${card.heading}`} /></>}
-      <RestsOnLine at="run.most_likely" text={mostLikelyBasisOf(ml).rests_on_text} />
     </div>
   )
 }
