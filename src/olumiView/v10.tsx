@@ -43,6 +43,7 @@ import { useCanvasStore } from '../canvas/store'
 import { typography } from '../styles/typography'
 import type { ViewCard, ViewModel } from './client'
 import { useViewStore } from './store'
+import { keyNamesBlueRange } from './layout'
 import { useCardNumber } from './lens'
 
 /** v10's rulings for the whole lane while its canvas is up: the attribute v10's stylesheets are scoped to. */
@@ -165,7 +166,8 @@ export interface ValueBar { readonly option: string; readonly leftPct: number; r
 /**
  * A worked-out figure's range under each option, on the card's own axis (v10's band, one bar per option), from core's `values`. The numbers
  * place the bars and nothing else; core's line for each is its hover. None when core gives no values, or every option's range is one point.
- * Every bar is in the option colour: a colour that means "rests on Olumi's figures" waits for core's key (`model.key`) to name it.
+ * A bar that rests on a figure Olumi proposed (`values[].olumi`) is in Olumi's blue only while core's key names that colour
+ * (`keyNamesBlueRange`); otherwise, and for every other bar, the option colour, so the blue is never unexplained.
  */
 export function valueBars(card: ViewCard): readonly ValueBar[] {
   const vs: NonNullable<ViewCard['values']> = []
@@ -179,14 +181,14 @@ export function valueBars(card: ViewCard): readonly ValueBar[] {
   }))
 }
 
-/** One bar's row: the option's number as the canvas numbers it (O1, …), and its range. */
-function ValueBarRow({ cardId, bar }: { cardId: string; bar: ValueBar }) {
+/** One bar's row: the option's number as the canvas numbers it (O1, …), and its range; Olumi's blue where `blue` (core's key names it). */
+function ValueBarRow({ cardId, bar, blue }: { cardId: string; bar: ValueBar; blue: boolean }) {
   const n = useCardNumber(bar.option)
   return (
-    <div className="flex items-center gap-1.5" title={bar.text} role="img" aria-label={bar.text} data-testid={`view-values-${cardId}-${bar.option}`}>
+    <div className="flex items-center gap-1.5" title={bar.text} role="img" aria-label={bar.text} data-testid={`view-values-${cardId}-${bar.option}`} data-olumi={blue || undefined}>
       <span className={`${typography.edgeLabel} w-6 flex-none text-text-light tabular-nums`}>{n ?? ''}</span>
       <div className="relative flex-1" style={{ height: 4, background: 'var(--factor-light)', borderRadius: 2 }}>
-        <div className="absolute top-0 h-full" style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%`, background: 'var(--option)', borderRadius: 2 }} />
+        <div className="absolute top-0 h-full" data-values-range style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%`, background: blue ? 'var(--info)' : 'var(--option)', borderRadius: 2 }} />
         {bar.medianPct === null ? null : <div className="absolute" style={{ left: `${bar.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />}
       </div>
     </div>
@@ -195,9 +197,9 @@ function ValueBarRow({ cardId, bar }: { cardId: string; bar: ValueBar }) {
 
 /** v10's values band: under a worked-out figure's value line, one bar per option on the card's own axis. */
 export function ViewValuesBand({ card }: { card: ViewCard }) {
-  const bars = valueBars(card)
+  const bars = valueBars(card), keyed = useViewStore((s) => keyNamesBlueRange(s.view?.model?.key))
   if (bars.length === 0) return null
-  return <div className="mt-1 space-y-0.5" data-testid={`view-values-${card.id}`}>{bars.map((b) => <ValueBarRow key={b.option} cardId={card.id} bar={b} />)}</div>
+  return <div className="mt-1 space-y-0.5" data-testid={`view-values-${card.id}`}>{bars.map((b) => <ValueBarRow key={b.option} cardId={card.id} bar={b} blue={keyed && b.olumi} />)}</div>
 }
 
 type Places = { readonly olumi: Element | null; readonly driver: Element | null; readonly band: Element | null; readonly values: Element | null }

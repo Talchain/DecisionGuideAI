@@ -62,6 +62,18 @@ export function olumiKey(model: ViewModel): { glyph: string; text: string; i: nu
   return i < 0 ? null : { ...model.key[i]!, i }
 }
 
+/**
+ * Core's key item for a range that rests on a figure Olumi proposed: olumi-core src/view/model.ts BLUE_RANGE_KEY (wip/k5 6e40b89), last in
+ * `model.key` only when some card's `values[].olumi` is true. Matched by its stable id, never its glyph or words (core may reword them; the
+ * ids stay), so the page draws Olumi's blue on a bar only while core's key explains it. A key with no ids (R1/R2 core) draws no blue.
+ */
+export const BLUE_RANGE_KEY_ID = 'blue_range'
+export function keyNamesBlueRange(key: ViewModel['key'] | null | undefined): boolean {
+  // `id` is read structurally until the View is next vendored with olumi.view/3's key ids.
+  for (const k of key ?? []) if ((k as { id?: unknown }).id === BLUE_RANGE_KEY_ID) return true
+  return false
+}
+
 /** Core's own page geometry (olumi-core src/page/graph.ts): card width and the gap between its columns (the question's width). */
 const W = 220, GAP_X = 48
 /** The gap under a card: the least room between two cards one above the other. */
