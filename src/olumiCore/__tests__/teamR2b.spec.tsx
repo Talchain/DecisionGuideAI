@@ -133,6 +133,37 @@ describe('a commitment names its option and version, with a review date and the 
   })
 })
 
+describe('R2 review P1-2: the option and its band are the APPROVED model\'s, never a held proposal\'s', () => {
+  it('while Olumi holds a proposal, its options and bands are not offered as version n\'s: the choice and the save wait, and say why', () => {
+    // The View's model while a proposal is held is the proposal's (store.ts currentModel): a different heading and band here.
+    const held = { ...base.model!, cards: base.model!.cards.map((x) => (x.family === 'option' ? { ...x, heading: `PROPOSED ${x.heading}`, rows: x.rows.map((r) => (r.kind === 'chance' && r.outcome ? { ...r, outcome: { ...r.outcome, text: 'PROPOSED BAND' } } : r)) } : x)) }
+    serve({ ...teamView('p_1'), model: held, proposal: { id: 7 } } as unknown as View)
+    render(<TeamTab />)
+    fillCommitment()
+    fireEvent.change(screen.getByTestId('team-c-expect'), { target: { value: 'Ten by March' } })
+    expect(screen.queryByTestId('team-c-option')).toBeNull()
+    expect(screen.queryByTestId('team-c-band')).toBeNull()
+    expect(screen.getByTestId('team-commitment-form').textContent).not.toContain('PROPOSED')
+    expect(screen.getByTestId('team-c-pending').textContent).toBe('The option is chosen from the approved model. Approve or set aside the proposal in the chat first.')
+    expect((screen.getByTestId('team-commitment-save') as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('R2 review P1-4: a dissent its holder confirmed is read in their confirmed words, as the Disagreements panel reads it', () => {
+  it('beside the choice to keep it open, and in the outcome\'s verdict on it', () => {
+    const confirmed = { at: '2026-11-04T09:00:00Z', by_id: 'p_2', words: 'Wait for the German pilot to report first.', tell: null }
+    serve(teamView('p_1', { dissent: [{ id: 'd_1', holder: 'Bea', holder_id: 'p_2', position: 'Wait for the pilot before entering a second country.', confirmed }], commitments: [commitment()] }))
+    render(<TeamTab />)
+    fillCommitment()
+    expect(screen.getByTestId('team-c-keeps').textContent).toContain('Bea: Wait for the German pilot to report first.')
+    expect(screen.getByTestId('team-c-keeps').textContent).not.toContain('Wait for the pilot before entering a second country.')
+    fireEvent.click(screen.getByTestId('team-outcome-open-9'))
+    const v = screen.getByTestId('team-o-9-verdict-d_1')
+    expect(v.textContent).toContain('Bea: Wait for the German pilot to report first.')
+    expect(v.textContent).not.toContain('Wait for the pilot before entering a second country.')
+  })
+})
+
 describe('a kept dissent carries its holder\'s tell, word for word (board 20; DL 4 Nov)', () => {
   const confirmed = [{ id: 'd_1', holder: 'Bea', holder_id: 'p_2', position: 'Wait for the pilot before entering a second country.',
     confirmed: { at: '2026-11-04T09:00:00Z', by_id: 'p_2', words: 'Wait for the pilot before entering a second country.', tell: 'Five customers in the first month.' } }]
