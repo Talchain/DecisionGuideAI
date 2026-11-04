@@ -11,6 +11,7 @@
  */
 import { create } from 'zustand'
 import { newOp, TeamApiError } from './api'
+import { useViewStore } from '../../olumiView/store'
 
 export const MAY_HAVE_SAVED = 'The connection dropped before Olumi answered, so this may already have been saved. It is not sent again from this page: reload the page to see what Olumi holds.'
 export const NOT_CONFIRMED = 'Olumi did not confirm that. Send it again: it is the same request, so it will not be recorded twice.'
@@ -42,7 +43,13 @@ const without = <T,>(o: Readonly<Record<string, T>>, key: string): Record<string
  * `key` names the write (scenario and form). `request` is the request's content: an op is reused only for the same content.
  * `send` gets the op to carry (null for a write core has no op for).
  */
-export function runWrite<T>(key: string, kind: { readonly op: boolean }, request: unknown, send: (op: string | null) => Promise<T>): Promise<T> {
+/** A past version is on the canvas (the version history's Draw): the team's record is the live scenario's, so nothing is added to it. */
+export const TEAM_PAST_HELD = 'Go back to the latest version to add to the team’s record.'
+
+export function runWrite<T>(key: string, kind: { readonly op: boolean; readonly anyVersion?: boolean }, request: unknown, send: (op: string | null) => Promise<T>): Promise<T> {
+  // Views, evidence, commitments and outcomes belong to the live scenario: none is written while an earlier version is drawn (R1 review
+  // 1). An invitation (`anyVersion`) is about who is in, not about any version.
+  if (!kind.anyVersion && useViewStore.getState().at !== null) return Promise.reject(new TeamApiError(0, TEAM_PAST_HELD))
   // A write still on its way is not sent again: a second press (the form remounted, its own busy flag gone) waits for the first's answer
   // (review 00002 #2). Core keeps no op for a commitment, a view or a reveal, so a second send would be saved twice.
   const going = inFlight.get(key)

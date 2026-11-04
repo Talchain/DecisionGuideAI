@@ -4,7 +4,7 @@
  * scenario's Compare tab draws core's change list; hiding the surface again (lane.ts CEE_ONLY_SURFACES) turns it red.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 vi.mock('../../lib/supabase', () => ({
   supabase: { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }) }) }) }) },
@@ -18,7 +18,8 @@ import golden from '../../olumiView/golden/european.view.json'
 import type { View } from '../../olumiView/client'
 import { useViewStore } from '../../olumiView/store'
 import { setTeamFetch } from '../team/api'
-import { CoreCompareTab } from '../compare'
+import { CoreCompare, CoreCompareTab } from '../compare'
+import { ComparePanel } from '../team/ComparePanel'
 import { CoreVersions } from '../versions'
 import { WhatChangedPanel } from '../../canvas/versions/WhatChangedPanel'
 
@@ -48,7 +49,7 @@ beforeEach(() => {
   }) as unknown as typeof fetch)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: withVersion(2), status: 'ready', error: null, stale: false })
 })
-afterEach(() => { cleanup(); setTeamFetch(null); vi.unstubAllEnvs() })
+afterEach(() => { cleanup(); setTeamFetch(null); vi.unstubAllEnvs(); useViewStore.setState({ at: null }) })
 
 describe('the catch row: Compare is on the lane and shows a two-version scenario\'s change list', () => {
   it('the dock offers Compare on the lane, and its tab draws core\'s change lines between version 1 and 2, marks and all', async () => {
@@ -177,5 +178,70 @@ describe('Version history on the lane', () => {
     render(<WhatChangedPanel isOpen onClose={() => {}} />)
     expect(screen.queryByTestId('core-versions')).toBeNull()
     expect(screen.getByTestId('versions-vocabulary-disclosure')).toBeTruthy()
+  })
+})
+
+describe('R1 review 2: Compare takes the latest approved version from core, not from the version drawn', () => {
+  const THREE = { versions: [...VERSIONS.versions, { ...VERSIONS.versions[1]!, id: 43, n: 3, base: 42 }] }
+  beforeEach(() => {
+    setTeamFetch((async (u: unknown) => { const p = String(u); paths.push(p); return new Response(JSON.stringify(p.includes('/compare') ? COMPARED : THREE), { status: 200 }) }) as unknown as typeof fetch)
+    useViewStore.setState({ view: withVersion(1), at: 1 }) // version 1 drawn on the canvas; core holds 3
+  })
+  it('the dock\'s Compare tab offers all three versions and reads 2 against 3', async () => {
+    render(<CoreCompareTab />)
+    await waitFor(() => expect(paths).toContain(`/api/scenarios/${SID}/compare?from=2&to=3`))
+    expect(screen.queryByTestId('core-compare-one')).toBeNull()
+    expect([...screen.getByTestId('core-compare-to').querySelectorAll('option')].map((o) => o.textContent)).toEqual(['version 1', 'version 2', 'version 3'])
+  })
+  it('the Team tab\'s compare offers all three too', async () => {
+    render(<ComparePanel sid={SID} view={withVersion(1)} />)
+    fireEvent.click(await screen.findByText('Compare versions'))
+    await waitFor(() => expect([...screen.getByTestId('team-compare-to').querySelectorAll('option')].map((o) => o.textContent)).toEqual(['version 1', 'version 2', 'version 3']))
+  })
+})
+
+describe('R1 review 3: a comparison answered late never overwrites a newer one', () => {
+  it('a slow 1–2 that lands after the auto-refresh\'s 2–3 is dropped, with its busy and error', async () => {
+    let slow: ((r: Response) => void) | null = null
+    setTeamFetch(((u: unknown) => {
+      const p = String(u); paths.push(p)
+      if (p.endsWith('from=1&to=2')) return new Promise<Response>((res) => { slow = res })
+      return Promise.resolve(new Response(JSON.stringify({ ...COMPARED, changes: [{ text: '↻ figure: newer', detail: '', mark: null }] }), { status: 200 }))
+    }) as unknown as typeof fetch)
+    const { rerender } = render(<CoreCompare sid={SID} latest={2} id="x" auto />)
+    await waitFor(() => expect(paths).toContain(`/api/scenarios/${SID}/compare?from=1&to=2`))
+    rerender(<CoreCompare sid={SID} latest={3} id="x" auto />) // another member approved: the default pair moves to 2–3
+    await waitFor(() => expect(screen.getByTestId('x-changes').textContent).toBe('↻ figure: newer'))
+    await act(async () => { slow!(new Response(JSON.stringify(COMPARED), { status: 200 })) })
+    expect(screen.getByTestId('x-changes').textContent).toBe('↻ figure: newer')
+    expect((screen.getByTestId('x-go') as HTMLButtonElement).disabled).toBe(false)
+  })
+  it('an old answer that lands while the newer read is still on its way leaves the picker held', async () => {
+    const held: Record<string, (r: Response) => void> = {}
+    setTeamFetch(((u: unknown) => { const p = String(u); paths.push(p); return new Promise<Response>((res) => { held[p.slice(p.indexOf('from='))] = res }) }) as unknown as typeof fetch)
+    const { rerender } = render(<CoreCompare sid={SID} latest={2} id="x" auto />)
+    await waitFor(() => expect(held['from=1&to=2']).toBeDefined())
+    rerender(<CoreCompare sid={SID} latest={3} id="x" auto />)
+    await waitFor(() => expect(held['from=2&to=3']).toBeDefined())
+    await act(async () => { held['from=1&to=2']!(new Response(JSON.stringify(COMPARED), { status: 200 })) })
+    expect((screen.getByTestId('x-go') as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.queryByTestId('x-out')).toBeNull()
+    await act(async () => { held['from=2&to=3']!(new Response(JSON.stringify(COMPARED), { status: 200 })) })
+    expect((screen.getByTestId('x-go') as HTMLButtonElement).disabled).toBe(false)
+  })
+  it('a late failure of a superseded read says nothing', async () => {
+    let slow: ((e: Error) => void) | null = null
+    setTeamFetch(((u: unknown) => {
+      const p = String(u); paths.push(p)
+      if (p.endsWith('from=1&to=2')) return new Promise<Response>((_, rej) => { slow = rej })
+      return Promise.resolve(new Response(JSON.stringify(COMPARED), { status: 200 }))
+    }) as unknown as typeof fetch)
+    const { rerender } = render(<CoreCompare sid={SID} latest={2} id="x" auto />)
+    await waitFor(() => expect(slow).not.toBeNull())
+    rerender(<CoreCompare sid={SID} latest={3} id="x" auto />)
+    await waitFor(() => expect(screen.getByTestId('x-out')).toBeTruthy())
+    await act(async () => { slow!(new TypeError('network')) })
+    expect(screen.queryByTestId('x-error')).toBeNull()
+    expect(screen.getByTestId('x-out')).toBeTruthy()
   })
 })
