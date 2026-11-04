@@ -140,3 +140,9 @@ export function cardNumbersOf(model: ViewModel): ReadonlyMap<string, string> {
 
 /** The top of the causal graph, which the camera centres on when a board is too large to read whole: the question and the options. */
 export const headOf = (model: ViewModel): ReadonlySet<string> => new Set([QUESTION, ...model.cards.filter((c) => c.family === 'option').map((c) => c.id)])
+
+/** The ids of the cards core marks as a proposed change (`card.change`), in core's order; of those only `only`'s when it is given. */
+export function proposedIds(cards: readonly ViewCard[], only?: readonly string[]): string[] {
+  return cards.filter((c) => c.change !== null && (only === undefined || only.includes(c.id))).map((c) => c.id)
+}
+

@@ -55,3 +55,19 @@
 [data-presentation="v10"] .send-btn:disabled svg {
   stroke: #fff !important;
 }
+
+/* ── 3. Proposed and just applied (core lane, src/olumiView/v10.tsx) ─────────────────────────────────────────────────────────── */
+/* A proposed change is a ghost until it is approved: dashed, in Olumi's colour, the card's own words unchanged. */
+[data-presentation="v10"] [data-testid="view-card-v10"][data-proposed] [data-view-card] {
+  border-style: dashed;
+  border-color: var(--info);
+}
+/* An approved change pulses once on its card (F4's ring and keyframes, as BaseNode draws them). */
+[data-presentation="v10"] [data-testid="view-card-v10"][data-pulsed] [data-view-card] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--info) 45%, transparent);
+  animation: ai-highlight-pulse 2s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-presentation="v10"] [data-testid="view-card-v10"][data-pulsed] [data-view-card] { animation: none; }
+}
+

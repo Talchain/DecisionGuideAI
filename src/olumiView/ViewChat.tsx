@@ -28,6 +28,8 @@ import { FigureEdit } from './FigureEdit'
 import { VIEW_NOTE_SLOT } from './note'
 import { V10_METHODS, withMethodPrefix } from '../presentation/V10MethodChips'
 import { ringCards } from './ring'
+import { pulseWhenOnCanvas } from '../olumiCore/pulseArrivals'
+import { proposedIds } from './layout'
 import { ArrowUp, FlipVertical2, Globe, History, RefreshCw, SearchX, Zap } from 'lucide-react'
 import Tooltip from '../components/Tooltip'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
@@ -189,15 +191,26 @@ function Proposal({ p, busy }: { p: NonNullable<View['proposal']>; busy: boolean
           </ul>
         )}
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={busy} className={CHIP_PRIMARY_CLASS} onClick={() => void act(() => writes.approve(p.id, p.base), true)}>Approve</button>
+        <button type="button" disabled={busy} className={CHIP_PRIMARY_CLASS} onClick={() => void approving(changedCards(), () => writes.approve(p.id, p.base))}>Approve</button>
         {!tickable ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
-            className={CHIP_CLASS} onClick={() => void act(() => writes.approve(p.id, p.base, pick), true)}>Approve ticked · {chosen}</button>
+            className={CHIP_CLASS} onClick={() => void approving(changedCards(pick.only), () => writes.approve(p.id, p.base, pick))}>Approve ticked · {chosen}</button>
         )}
         <button type="button" disabled={busy} className={CHIP_CLASS} onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
       </div>
     </div>
   )
+}
+
+/** The cards the proposal changes, or of those only the ticked ones (`proposedIds`, layout.ts): they pulse once it is approved. */
+const changedCards = (only?: readonly string[]): string[] => proposedIds(useViewStore.getState().view?.model?.cards ?? [], only)
+
+/**
+ * An approval, then the applied-edit pulse (F4, v10 boards 3 and 19) on the cards it changed, once the new model is on the canvas: a
+ * change the person approved is seen on the card it changed. A card it adds pulses as it arrives (canvas.ts). Nothing pulses if it failed.
+ */
+async function approving(changed: string[], f: () => Promise<unknown>): Promise<void> {
+  if (await act(f, true)) pulseWhenOnCanvas(changed)
 }
 
 /** A write core saved whose View could not then be read: it is not lost, and it is not shown yet (review 00052 #7). */

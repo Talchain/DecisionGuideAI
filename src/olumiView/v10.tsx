@@ -20,6 +20,10 @@
  *   that option (core's `rows[].outcome` on its chance row), every option on ONE axis so the cards read side by side: the range as a
  *   bar, the median as a tick, and core's own line for it beneath. The numbers place the bar and nothing else; every word is core's.
  *
+ * - **Proposed, and just applied** (v10 boards 2, 3 and 19): a card core marks as a proposed change (`card.change`) is drawn as a ghost
+ *   (dashed, in Olumi's colour, v10.css) until it is approved; a card an approval changed carries the applied-edit pulse (the canvas's
+ *   `highlightedNodes`, set by `pulseAppliedTargets`), which the shell's card does not read itself.
+ *
  * The methods are v10's (`V10_METHODS`), the composer's icon row in ViewChat.tsx.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -129,6 +133,8 @@ export function ViewCardV10(props: NodeProps) {
   const box = useRef<HTMLDivElement>(null)
   const [places, setPlaces] = useState<Places>({ olumi: null, driver: null, band: null })
   const band = useOptionBands().get(props.id) ?? null
+  const pulsed = useCanvasStore((s) => s.highlightedNodes.has(props.id))
+  const proposed = (props.data as ViewCardData).card.change !== null
   // The card draws its places; v10 finds them each time the card is drawn from new data (a card that changes family gains or loses its
   // driver place).
   useLayoutEffect(() => {
@@ -138,7 +144,7 @@ export function ViewCardV10(props: NodeProps) {
   }, [props.data])
   return (
     <V10Scope>
-      <div ref={box} data-testid="view-card-v10">
+      <div ref={box} data-testid="view-card-v10" data-proposed={proposed || undefined} data-pulsed={pulsed || undefined}>
         <ViewCardNode {...props} />
         {places.olumi === null ? null : createPortal(<NodeCornerOlumi nodeId={props.id} selected={props.selected === true} />, places.olumi)}
         {places.driver === null ? null : createPortal(<ViewDriverBadge card={(props.data as ViewCardData).card} />, places.driver)}

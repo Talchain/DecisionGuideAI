@@ -169,4 +169,37 @@ describe('v10 on the core lane', () => {
       }
     })
   }
+
+  it('a proposed card is a ghost until approved, and a card the highlight names carries the applied-edit pulse; v10.css draws both', () => {
+    const model = golden('proposal').model!
+    const changed = model.cards.find((c) => c.change !== null)!, kept = model.cards.find((c) => c.change === null && c.family !== 'question')!
+    const draw = (card: typeof changed) => render(<ReactFlowProvider><ViewCardV10 {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>).container.querySelector('[data-testid="view-card-v10"]')!
+    expect(draw(changed).hasAttribute('data-proposed')).toBe(true)
+    expect(draw(kept).hasAttribute('data-proposed')).toBe(false)
+    act(() => { useCanvasStore.getState().setHighlightedNodes([kept.id]) })
+    expect(draw(kept).hasAttribute('data-pulsed')).toBe(true)
+    expect(draw(changed).hasAttribute('data-pulsed')).toBe(false)
+    act(() => { useCanvasStore.getState().setHighlightedNodes([]) })
+    const css = readFileSync(path.resolve('src/presentation/v10.css'), 'utf8')
+    expect(css).toMatch(/\[data-testid="view-card-v10"\]\[data-proposed\] \[data-view-card\] \{\s*border-style: dashed;\s*border-color: var\(--info\);/)
+    expect(css).toMatch(/\[data-testid="view-card-v10"\]\[data-pulsed\] \[data-view-card\] \{[^}]*animation: ai-highlight-pulse/)
+  })
+
+  it('approving pulses exactly the cards the approval changed: Approve ticked pulses the ticked line\'s card, not the other proposed one', async () => {
+    const held = golden('proposal'), model = held.model!
+    const marked = model.cards.filter((c) => c.change !== null).map((c) => c.id)
+    expect(marked.length).toBeGreaterThan(1)
+    useViewStore.setState({ view: held })
+    useCanvasStore.setState({ nodes: model.cards.map((card) => ({ id: card.id, type: 'viewCard', position: { x: 0, y: 0 }, data: { card, label: card.heading } })) as never })
+    setTeamFetch((async (_url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') { posts++; return new Response('{}', { status: 200 }) }
+      return new Response(JSON.stringify(golden('pricing')), { status: 200 })
+    }) as unknown as typeof fetch)
+    const { container } = render(<ViewChat />)
+    const first = held.proposal!.changes.findIndex((c) => marked.includes(c.id))
+    fireEvent.click(container.querySelector(`[data-testid="view-change-tick-${first}"]`)!)
+    await act(async () => { fireEvent.click(container.querySelector('[data-testid="view-approve-ticked"]')!) })
+    const want = held.proposal!.changes[first]!.id
+    await waitFor(() => expect([...useCanvasStore.getState().highlightedNodes]).toEqual([want]))
+  })
 })
