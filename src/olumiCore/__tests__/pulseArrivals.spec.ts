@@ -43,24 +43,28 @@ describe('the card an approval adds is pulsed when it arrives', () => {
     expect(v1.model!.cards.some((c) => has(c.id))).toBe(false)
   })
 
-  it('a newer version pulses the cards it applied: a figure a person sets that core now words differently and the one the proposal marked; others, and a worked-out figure, stay still', async () => {
+  // One applied version, drawn on a held one: core names what it changed (R2a `version.changed`), or, from a core before R2a, the cards are
+  // compared. Either way the edited figure and the approved card pulse; another figure, and a worked-out figure that moved with them, do not.
+  const appliedRow = async (sid: string, named: boolean) => {
     const on = (id: string) => useCanvasStore.getState().nodes.some((n) => n.id === id)
     const base = v2.model!, n = v2.version!.n
     const [edited, marked, still] = base.cards.filter((c) => (c.figure?.edit ?? null) !== null)
     const worked = base.cards.find((c) => c.figure !== null && (c.figure.edit ?? null) === null)!
-    const held: View = { ...v2, id: 's_pulse0000001', model: { ...base, cards: base.cards.map((c) => (c.id === marked!.id ? { ...c, change: { glyph: '+', title: 'Proposed addition' } } : c)) } }
-    const applied: View = { ...held, version: { ...v2.version!, n: n + 1 }, model: { ...base, cards: base.cards.map((c) => (c.id === edited!.id || c.id === worked.id ? { ...c, figure: { ...c.figure!, text: `${c.figure!.text} (new)` } } : c)) } }
-    useViewStore.setState({ sid: held.id })
+    const held: View = { ...v2, id: sid, model: { ...base, cards: base.cards.map((c) => (c.id === marked!.id ? { ...c, change: { glyph: '+', title: 'Proposed addition', kind: 'added' as const } } : c)) } }
+    const version = named ? { ...v2.version!, n: n + 1, changed: [edited!.id, marked!.id, still!.id] } : ({ id: v2.version!.id, n: n + 1, label: v2.version!.label } as unknown as View['version'])
+    const applied: View = { ...held, version, model: { ...base, cards: base.cards.map((c) => (c.id === edited!.id || c.id === worked.id ? { ...c, figure: { ...c.figure!, text: `${c.figure!.text} (new)` } } : c)) } }
+    useViewStore.setState({ sid })
     renderHook(() => useViewCanvas(true))
     act(() => { useViewStore.setState({ view: held, status: 'ready' }) })
     await vi.waitFor(() => expect(on(marked!.id)).toBe(true))
     vi.advanceTimersByTime(PULSE_COALESCE_MS + 20)
     act(() => { useViewStore.setState({ view: applied }) })
-    await vi.waitFor(() => expect(has(edited!.id)).toBe(false))
     await vi.waitFor(() => { vi.advanceTimersByTime(PULSE_COALESCE_MS + 20); expect(has(edited!.id)).toBe(true) })
-    // A figure core works out from others moves with the edit and is not pulsed (two-people step 9: total capacity).
-    expect([has(marked!.id), has(still!.id), has(worked.id)]).toEqual([true, false, false])
-  })
+    // `still` changed in a way its words do not show (core names it): pulsed only when core says so.
+    expect([has(marked!.id), has(still!.id), has(worked.id)]).toEqual([true, named, false])
+  }
+  it('a newer version pulses the records core names it changed (version.changed), even one whose words did not change, and nothing else', () => appliedRow('s_pulse0000001', true))
+  it('from a core before R2a: the figure a person sets that core now words differently and the card the proposal marked', () => appliedRow('s_pulse0000003', false))
 
   it('CONTRAST: the same version redrawn with a different figure (a proposal held, nothing applied) pulses nothing', async () => {
     const on = (id: string) => useCanvasStore.getState().nodes.some((n) => n.id === id)

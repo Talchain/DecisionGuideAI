@@ -132,8 +132,14 @@ export function driverLinksOf(model: ViewModel, drivers: ReadonlyMap<string, rea
   return new Set(model.links.flatMap((l, i) => (drivers.has(l.from) || (l.effect != null && drivers.has(cardOf(l.effect.figure)?.id ?? '')) ? [i] : [])))
 }
 
+/** The cards drawing the records a version changed (core's `version.changed`): the card with that id, else the card whose badge folds it. */
+export function cardsOfRecords(model: ViewModel, records: readonly string[]): string[] {
+  const ids = new Set(records)
+  return model.cards.filter((c) => ids.has(c.id) || c.badge?.records.some((r) => ids.has(r)) === true).map((c) => c.id)
+}
+
 /**
- * The cards a newer version applied, for the applied-edit pulse: each card the last View drew with core's change mark (a proposal's
+ * For a core that names no `version.changed` (before R2a): the cards a newer version applied, for the applied-edit pulse: each card the last View drew with core's change mark (a proposal's
  * addition or change, now approved), and each figure a person sets (core offers it an edit) that core now words differently (an edit).
  * A figure core works out from others moves with them and is not pulsed. Core's words compared as they are, never read. An arrived card
  * is pulsed by its arrival (canvas.ts).

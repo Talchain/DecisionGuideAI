@@ -13,10 +13,10 @@ import { ViewCard } from '../../canvas/nodes/ViewCardNode'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'proposal.view.json'), 'utf8'))
 const cards = view.model!.cards
-const changed = cards.find((c) => c.change?.glyph === '↻')!
+const changed = cards.find((c) => c.change?.kind === 'changed')!
 const kept = cards.find((c) => c.change === null)!
-// Core's own mark for an added record (view.ts: glyph '+', title 'Proposed addition'), on a card of the wire View.
-const added: Card = { ...kept, id: 'added_one', change: { glyph: '+', title: 'Proposed addition' } }
+// Core's own mark for an added record (view.ts: glyph '+', title 'Proposed addition', kind 'added'), on a card of the wire View.
+const added: Card = { ...kept, id: 'added_one', change: { glyph: '+', title: 'Proposed addition', kind: 'added' } }
 
 afterEach(cleanup)
 const root = (c: HTMLElement) => c.querySelector<HTMLElement>('[data-view-card]')!

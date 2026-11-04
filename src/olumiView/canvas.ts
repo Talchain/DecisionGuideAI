@@ -8,7 +8,7 @@ import { useEffect } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import type { ViewModel } from './client'
-import { appliedSince, CARD_WIDTH, GAP_Y, causalPlaces, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
+import { appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
 import { useViewStore } from './store'
 import { pulseWhenOnCanvas } from '../olumiCore/pulseArrivals'
 
@@ -153,7 +153,9 @@ export function useViewCanvas(on: boolean): void {
       for (const c of model.cards) if (!had.has(c.id)) arrived.push(c.id)
       // A newer version of the same scenario (an approval, or an edit, here or by another member): the cards it applied pulse too.
       const advanced = last !== null && last.sid === sid && last.n !== null && n !== null && n > last.n
-      pulseWhenOnCanvas(advanced ? [...arrived, ...appliedSince(last.model, model)] : arrived)
+      // Core names the records the version changed (`version.changed`); a core before R2a does not, and the cards are compared instead.
+      const changed = view.version?.changed
+      pulseWhenOnCanvas(advanced ? [...arrived, ...(changed === undefined ? appliedSince(last.model, model) : cardsOfRecords(model, changed))] : arrived)
     })
     return () => { live = false }
   }, [on, view, model, heights])

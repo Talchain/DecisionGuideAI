@@ -74,10 +74,10 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
   // A card with no figure and no rows (an assumption, a condition) says what it holds in its reason: that stays on the face, one line
   // and whole on hover (DL 4 Nov). Any other card's reason opens with its other words.
   const says = card.figure === null && card.rows.length === 0 && card.reason !== null
-  // A card Olumi's proposal adds (core's `+` change; the View's model is the proposal's while one is held): drawn as the original canvas's
+  // A card Olumi's proposal adds (core's change `kind: 'added'`; the View's model is the proposal's while one is held): drawn as the original canvas's
   // proposal ghost (ProposalGhostLayer: translucent, a solid 1px info border, never dashed, which means doubt), with core's own words
   // for it ("Proposed addition") as its caption. Approving stays the Proposal card's in the chat.
-  const ghost = card.change?.glyph === '+'
+  const ghost = card.change?.kind === 'added'
   const more = card.status !== null || (card.reason !== null && !says) || card.bound !== null || card.premises.length > 0
   return (
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).

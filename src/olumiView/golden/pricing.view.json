@@ -15,7 +15,8 @@
  "version": {
   "id": 1,
   "n": 1,
-  "label": "version 1"
+  "label": "version 1",
+  "changed": []
  },
  "model": {
   "question": {
@@ -290,8 +291,8 @@
        "median": 6985.7864462053185,
        "high": 7820.149703344684,
        "unit": "GBP/month",
-       "text": "about £6,990/month (£6,190 to £7,820/month)",
-       "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under Raise the price by 45p it rests on figures Olumi proposed. Raise the price by 45p: about £6,990/month (£6,190 to £7,820/month); Keep the price: £6,200/month. Worked out from the figures it depends on."
+       "text": "between £6,190 and £7,820/month (middle £6,990)",
+       "title": "If Olumi's estimates hold, under 'Raise the price by 45p', 'profit' is likely to be in this range (8 draws in 10). It rests on Olumi's what-if ranges for 'cups change'."
       },
       "estimate": null
      }
@@ -342,7 +343,7 @@
        "high": 6200,
        "unit": "GBP/month",
        "text": "£6,200/month",
-       "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under Raise the price by 45p it rests on figures Olumi proposed. Raise the price by 45p: about £6,990/month (£6,190 to £7,820/month); Keep the price: £6,200/month. Worked out from the figures it depends on."
+       "title": "Under 'Keep the price', 'profit' is this in at least 8 draws in 10."
       },
       "estimate": null
      }
@@ -563,7 +564,16 @@
     "glyph": "↻",
     "text": "changed"
    }
-  ]
+  ],
+  "removed": [],
+  "aim": {
+   "quantity": "profit",
+   "value": 7000,
+   "unit": "GBP/month",
+   "text": "at least £7,000/month",
+   "title": "£7,000/month",
+   "side": "at_least"
+  }
  },
  "proposal": null,
  "collab": {

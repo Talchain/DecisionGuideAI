@@ -15,6 +15,7 @@ export type View = {
     id: number
     n: number
     label: string
+    changed: Array<string>
   } | null
   model: {
     question: {
@@ -53,6 +54,7 @@ export type View = {
       change: {
         glyph: string
         title: string
+        kind: "added" | "changed"
       } | null
       focus: boolean
       challenged: boolean
@@ -235,6 +237,19 @@ export type View = {
       glyph: string
       text: string
     }>
+    removed: Array<{
+      id: string
+      heading: string
+      title: string
+    }>
+    aim: {
+      quantity: string
+      value: number
+      unit: string | null
+      text: string
+      title: string
+      side: "at_least" | "at_most"
+    } | null
   } | null
   proposal: {
     id: number

@@ -15,7 +15,8 @@
  "version": {
   "id": 15,
   "n": 2,
-  "label": "version 2"
+  "label": "version 2",
+  "changed": []
  },
  "model": {
   "question": {
@@ -678,8 +679,8 @@
        "median": 662368.9160430939,
        "high": 5287900.689246738,
        "unit": "GBP",
-       "text": "about £662,000 (£63,600 to £5.29m)",
-       "title": "Modelled range at the end of month 2: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Continue institutional cold email and warm introductions: about £662,000 (£63,600 to £5.29m); Pursue an angel bridge alongside institutional outreach: about £506,000 (£82,400 to £2.98m); Combine an angel bridge with temporary spend deferral: about £506,000 (£82,400 to £2.98m). Worked out from the figures it depends on."
+       "text": "between 63,600 and 5,290,000 GBP (middle 662,000)",
+       "title": "If Olumi's estimates hold, under 'Continue institutional cold email and warm introductions', 'Total net funding received during the window' at the end of the window is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date. It leaves out: The funding measure tests receipt of some net cash, not whether the amount is sufficient for the intended round, milestone or operating buffer; A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out."
       },
       "estimate": null
      },
@@ -702,8 +703,8 @@
        "median": 724886.0121820148,
        "high": 5339882.072556103,
        "unit": "GBP",
-       "text": "about £725,000 (£125,000 to £5.34m)",
-       "title": "Modelled range at the end of month 2: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Continue institutional cold email and warm introductions: about £725,000 (£125,000 to £5.34m); Pursue an angel bridge alongside institutional outreach: about £569,000 (£143,000 to £3.03m); Combine an angel bridge with temporary spend deferral: about £593,000 (£169,000 to £3.06m). Worked out from the figures it depends on."
+       "text": "between 125,000 and 5,340,000 GBP (middle 725,000)",
+       "title": "If Olumi's estimates hold, under 'Continue institutional cold email and warm introductions', 'Cash surplus or shortfall at the funding window's end' at the end of the window is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window."
       },
       "estimate": null
      }
@@ -790,8 +791,8 @@
        "median": 506337.3200206752,
        "high": 2975059.6735837613,
        "unit": "GBP",
-       "text": "about £506,000 (£82,400 to £2.98m)",
-       "title": "Modelled range at the end of month 2: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Continue institutional cold email and warm introductions: about £662,000 (£63,600 to £5.29m); Pursue an angel bridge alongside institutional outreach: about £506,000 (£82,400 to £2.98m); Combine an angel bridge with temporary spend deferral: about £506,000 (£82,400 to £2.98m). Worked out from the figures it depends on."
+       "text": "between 82,400 and 2,980,000 GBP (middle 506,000)",
+       "title": "If Olumi's estimates hold, under 'Pursue an angel bridge alongside institutional outreach', 'Total net funding received during the window' at the end of the window is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. It leaves out: The funding measure tests receipt of some net cash, not whether the amount is sufficient for the intended round, milestone or operating buffer; A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out."
       },
       "estimate": null
      },
@@ -814,8 +815,8 @@
        "median": 569419.9814489953,
        "high": 3029676.6522076586,
        "unit": "GBP",
-       "text": "about £569,000 (£143,000 to £3.03m)",
-       "title": "Modelled range at the end of month 2: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Continue institutional cold email and warm introductions: about £725,000 (£125,000 to £5.34m); Pursue an angel bridge alongside institutional outreach: about £569,000 (£143,000 to £3.03m); Combine an angel bridge with temporary spend deferral: about £593,000 (£169,000 to £3.06m). Worked out from the figures it depends on."
+       "text": "between 143,000 and 3,030,000 GBP (middle 569,000)",
+       "title": "If Olumi's estimates hold, under 'Pursue an angel bridge alongside institutional outreach', 'Cash surplus or shortfall at the funding window's end' at the end of the window is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window."
       },
       "estimate": null
      }
@@ -940,8 +941,8 @@
        "median": 506337.3200206752,
        "high": 2975059.6735837613,
        "unit": "GBP",
-       "text": "about £506,000 (£82,400 to £2.98m)",
-       "title": "Modelled range at the end of month 2: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Continue institutional cold email and warm introductions: about £662,000 (£63,600 to £5.29m); Pursue an angel bridge alongside institutional outreach: about £506,000 (£82,400 to £2.98m); Combine an angel bridge with temporary spend deferral: about £506,000 (£82,400 to £2.98m). Worked out from the figures it depends on."
+       "text": "between 82,400 and 2,980,000 GBP (middle 506,000)",
+       "title": "If Olumi's estimates hold, under 'Combine an angel bridge with temporary spend deferral', 'Total net funding received during the window' at the end of the window is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window. It leaves out: The funding measure tests receipt of some net cash, not whether the amount is sufficient for the intended round, milestone or operating buffer; A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out."
       },
       "estimate": null
      },
@@ -964,8 +965,8 @@
        "median": 593470.0182295068,
        "high": 3056117.284865905,
        "unit": "GBP",
-       "text": "about £593,000 (£169,000 to £3.06m)",
-       "title": "Modelled range at the end of month 2: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Continue institutional cold email and warm introductions: about £725,000 (£125,000 to £5.34m); Pursue an angel bridge alongside institutional outreach: about £569,000 (£143,000 to £3.03m); Combine an angel bridge with temporary spend deferral: about £593,000 (£169,000 to £3.06m). Worked out from the figures it depends on."
+       "text": "between 169,000 and 3,060,000 GBP (middle 593,000)",
+       "title": "If Olumi's estimates hold, under 'Combine an angel bridge with temporary spend deferral', 'Cash surplus or shortfall at the funding window's end' at the end of the window is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs', 'Operating burn retained after temporary spend deferral'. It reads their approximate 'Monthly net operating cash burn before new funding' as within 10% either way until they give a range. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window."
       },
       "estimate": null
      }
@@ -1520,7 +1521,16 @@
     "glyph": "↻",
     "text": "changed"
    }
-  ]
+  ],
+  "removed": [],
+  "aim": {
+   "quantity": "net_funding",
+   "value": 0,
+   "unit": "GBP",
+   "text": "more than £0",
+   "title": "£0",
+   "side": "at_least"
+  }
  },
  "proposal": null,
  "collab": {

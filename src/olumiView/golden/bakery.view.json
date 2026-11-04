@@ -15,7 +15,8 @@
  "version": {
   "id": 1,
   "n": 1,
-  "label": "version 1"
+  "label": "version 1",
+  "changed": []
  },
  "model": {
   "question": {
@@ -570,8 +571,8 @@
        "median": 369.96239436039934,
        "high": 387.0940544324368,
        "unit": "loaf/week",
-       "text": "about 370 loaves/week (337 to 387 loaves/week)",
-       "title": "Modelled range at the end of week 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under A second oven it rests on figures Olumi proposed. A second oven: about 370 loaves/week (337 to 387 loaves/week); Open two hours longer: about 360 loaves/week (339 to 380 loaves/week); Carry on as now: 300 loaves/week. Worked out from the figures it depends on."
+       "text": "between 337 and 387 loaves/week (middle 370)",
+       "title": "If Olumi's estimates hold, under 'A second oven', 'sales' is likely to be in this range (8 draws in 10). It rests on Olumi's what-if ranges for 'extra sold per oven'."
       },
       "estimate": null
      }
@@ -627,8 +628,8 @@
        "median": 359.9971077421209,
        "high": 379.7323179658307,
        "unit": "loaf/week",
-       "text": "about 360 loaves/week (339 to 380 loaves/week)",
-       "title": "Modelled range at the end of week 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under A second oven it rests on figures Olumi proposed. A second oven: about 370 loaves/week (337 to 387 loaves/week); Open two hours longer: about 360 loaves/week (339 to 380 loaves/week); Carry on as now: 300 loaves/week. Worked out from the figures it depends on."
+       "text": "between 339 and 380 loaves/week (middle 360)",
+       "title": "Under 'Open two hours longer', 'sales' is likely to be in this range (8 draws in 10)."
       },
       "estimate": null
      }
@@ -685,7 +686,7 @@
        "high": 300,
        "unit": "loaf/week",
        "text": "300 loaves/week",
-       "title": "Modelled range at the end of week 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under A second oven it rests on figures Olumi proposed. A second oven: about 370 loaves/week (337 to 387 loaves/week); Open two hours longer: about 360 loaves/week (339 to 380 loaves/week); Carry on as now: 300 loaves/week. Worked out from the figures it depends on."
+       "title": "Under 'Carry on as now', 'sales' is this in at least 8 draws in 10."
       },
       "estimate": null
      }
@@ -1055,7 +1056,16 @@
     "glyph": "↻",
     "text": "changed"
    }
-  ]
+  ],
+  "removed": [],
+  "aim": {
+   "quantity": "sales",
+   "value": 360,
+   "unit": "loaf/week",
+   "text": "at least 360 loaves/week",
+   "title": "360 loaves/week",
+   "side": "at_least"
+  }
  },
  "proposal": null,
  "collab": {

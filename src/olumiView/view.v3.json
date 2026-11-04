@@ -56,12 +56,19 @@
       },
       "label": {
        "type": "string"
+      },
+      "changed": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
       }
      },
      "required": [
       "id",
       "n",
-      "label"
+      "label",
+      "changed"
      ],
      "additionalProperties": false
     },
@@ -235,11 +242,19 @@
              },
              "title": {
               "type": "string"
+             },
+             "kind": {
+              "type": "string",
+              "enum": [
+               "added",
+               "changed"
+              ]
              }
             },
             "required": [
              "glyph",
-             "title"
+             "title",
+             "kind"
             ],
             "additionalProperties": false
            },
@@ -1269,6 +1284,75 @@
         ],
         "additionalProperties": false
        }
+      },
+      "removed": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "heading": {
+          "type": "string"
+         },
+         "title": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "id",
+         "heading",
+         "title"
+        ],
+        "additionalProperties": false
+       }
+      },
+      "aim": {
+       "anyOf": [
+        {
+         "type": "object",
+         "properties": {
+          "quantity": {
+           "type": "string"
+          },
+          "value": {
+           "type": "number"
+          },
+          "unit": {
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "text": {
+           "type": "string"
+          },
+          "title": {
+           "type": "string"
+          },
+          "side": {
+           "type": "string",
+           "enum": [
+            "at_least",
+            "at_most"
+           ]
+          }
+         },
+         "required": [
+          "quantity",
+          "value",
+          "unit",
+          "text",
+          "title",
+          "side"
+         ],
+         "additionalProperties": false
+        },
+        {
+         "type": "null"
+        }
+       ]
       }
      },
      "required": [
@@ -1278,7 +1362,9 @@
       "links",
       "run",
       "edit_base",
-      "key"
+      "key",
+      "removed",
+      "aim"
      ],
      "additionalProperties": false
     },
