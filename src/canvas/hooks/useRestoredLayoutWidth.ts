@@ -79,6 +79,7 @@ import { restoreIdentityKey } from './useFitViewOnLayoutVersion'
 import { withoutCoreSwitches } from '../domain/coreSwitch'
 import { livingOutcomeIdsOf, withLivingKinds } from '../domain/livingKinds'
 import { useSavedGraph } from '../nodes/shared/savedGraph'
+import { isViewNode } from '../../olumiView/canvas'
 
 /**
  * ⛔ THE MODEL AS DRAWN, AS `layoutGraph` LAYS IT OUT (served 21 Oct 2026). Core's option switch (`<option>__on`) stays in
@@ -267,7 +268,9 @@ export function useRestoredLayoutWidth(): void {
      * changes only the x of the cards the plan names, on whatever the store
      * holds at the moment of the write.
      */
-    const movedX = planSubFloorRespread(live, { preserveLocked: respectLocked, spacing: nodeSpacing })
+    // ⛔ NEVER CORE'S CARDS (live olumi-core-v3, 4 Nov): a View card is placed by core (olumiView/layout.ts cardPlaces); read as an
+    // under-stride row, a real model's stacked columns were respread into one diagonal ~5,400 units wide. View cards are not moved.
+    const movedX = planSubFloorRespread(live.filter((n) => !isViewNode(n as { type?: string })), { preserveLocked: respectLocked, spacing: nodeSpacing })
     if (movedX.size > 0) {
       const store = useCanvasStore.getState()
       store.beginExternalGraphMutation('hydrate')
