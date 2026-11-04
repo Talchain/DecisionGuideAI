@@ -343,13 +343,18 @@ for (const [p, words] of [[ada, 'Hire now: the backlog is the real risk.'], [bea
     check(await seen(ada, async () => (await ada.page.getByTestId('team-revealed').innerText({ timeout: 1000 })).includes(words) && await ada.page.getByTestId(`team-mine-${own.id}`).count() === 0),
       'shared: her view now shows as the team\'s, no longer private to her')
     const vb0 = await view3(bea, sid)
-    check(vb0.collab.shared.some((x) => x.id === own.id && x.text === words) && vb0.gated === true, 'core shows it to Bea and marks Bea gated until she gives her own (the client withholds it by that flag)')
-    // R2 cut check (a): Bea, who has not given her own, does not see Ada's early view on her screen (core marks her `gated`).
+    // R3 (core c369b8e, 550ad5f): core withholds an early-shared view from a gated viewer itself; v3 `shared` holds none of Ada's for Bea.
+    check(!vb0.collab.shared.some((x) => x.id === own.id || x.text === words) && vb0.gated === true, 'core withholds Ada\'s early view from Bea (v3 `shared` has none of it) and marks Bea gated until she gives her own')
+    // R2 cut check (a), R3: Bea, who has not given her own, does not see Ada's early view, and her Team tab tells her why (drawn on `gated`
+    // alone, DL ruling (a), since core now sends her no shared view to hold).
     // Her read answers when it does (a slow core holds it seconds): wait for the held line, and Ada's words are never on her screen meanwhile.
     await teamCheck(bea)
     let leaked = false
     const held = await seen(bea, async () => { if ((await bea.page.getByTestId('team-tab').innerText()).includes(words)) leaked = true; return await bea.page.getByTestId('team-revealed-held').isVisible() })
     check(held && !leaked && !(await bea.page.getByTestId('team-tab').innerText()).includes(words), 'Bea, who has not given her own, cannot see Ada\'s early view: her Team tab says to give or skip hers first')
+    const teamHeld = held ? await bea.page.getByTestId('team-revealed-held').innerText() : ''
+    check(teamHeld === 'Give or skip your own view first: the others’ views show here once you have.', `her Team tab says, word for word, that the others' views show there once she has given or skipped hers ("${teamHeld}")`)
+    await shot(bea, `i-held-team-${process.env.VIEW_W ?? 1440}`)
     shared = own.id
     // R2 privacy (core a051a13, P1-1): Ada asks Olumi after sharing; Bea, still gated, sees core's held line in place of the reply (the
     // coach may quote Ada's view), not a blank bubble, not an error with a retry; after Bea gives her own view, the reply is hers to read.

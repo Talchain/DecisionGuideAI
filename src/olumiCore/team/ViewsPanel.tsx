@@ -62,8 +62,10 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
       </ul>
 
       {/* Core holds a member who has not given or skipped their own view (`gated`): no one else's view, an early-shared one included, is
-          drawn until they have, so none can anchor them (DL R2, cut check a). Core's rule; nothing worked out here. */}
-      {view.gated && c.shared.length > 0 && <p className={META} data-testid="team-revealed-held">Give or skip your own view first: then you see the others’.</p>}
+          drawn until they have, so none can anchor them (DL R2, cut check a). Core's rule; nothing worked out here. From R3 core withholds
+          the shared views itself (`shared` is empty for a gated viewer, core 550ad5f), so the line is drawn on `gated` alone (DL ruling a),
+          in words true whether or not anyone has shared yet (the DL's final text, 4 Nov). */}
+      {view.gated && <p className={META} data-testid="team-revealed-held">Give or skip your own view first: the others’ views show here once you have.</p>}
       {!view.gated && c.shared.length > 0 && (
         <ul className="m-0 grid list-none gap-1.5 p-0" data-testid="team-revealed">
           {c.shared.map((v) => (
