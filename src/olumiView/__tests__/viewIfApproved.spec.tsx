@@ -61,3 +61,40 @@ describe('while core shows a pending proposal, every Run-derived line carries â†
     for (const card of pending.model!.cards) expect(render(<ViewCard card={card} ifApproved={null} />).container.querySelector('[data-if-approved]'), card.id).toBeNull()
   })
 })
+
+/**
+ * R5 (DL 4 Nov; poc-core-server's field, core wip/r5-if-approved c91f363): core marks each Run-derived value a pending proposal MOVES with
+ * `if_approved: { glyph, title }` (title "if approved; now <the base version's value>", in core's words), null where nothing moves. Drawn
+ * verbatim beside the value; it replaces the blanket mark wherever core sends the key. Fixture: core's own proposal golden at c91f363.
+ */
+describe('R5: core\'s own if_approved, only on the values a pending proposal moves', () => {
+  const r5: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/r5', 'proposal.view3.json'), 'utf8'))
+  const blanket = ifApprovedMarkOf(r5)
+  type Marked = { if_approved?: { glyph: string; title: string } | null }
+
+  it('each chance row carries core\'s mark verbatim where core gives one, and none where core gives null', () => {
+    const options = r5.model!.cards.filter((c) => c.family === 'option' && c.rows.some((r) => r.kind === 'chance'))
+    const seen: (string | null)[] = []
+    for (const card of options) {
+      const c = render(<ViewCard card={card} ifApproved={blanket} />).container
+      card.rows.forEach((r, i) => {
+        if (r.kind !== 'chance') return
+        const core = (r as Marked).if_approved ?? null, m = c.querySelector(`[data-view-row="${card.id}.rows.${i}"] [data-if-approved]`)
+        expect([m?.textContent ?? null, m?.getAttribute('title') ?? null, m?.getAttribute('data-view') ?? null], `${card.id} ${i}`)
+          .toEqual(core === null ? [null, null, null] : [core.glyph, core.title, `${card.id}.rows.${i}.if_approved.glyph`])
+        seen.push(core?.title ?? null)
+      })
+      cleanup()
+    }
+    expect(seen).toContain('if approved; now about 50% chance')
+    expect(seen).toContain(null)
+  })
+
+  it('each option\'s value on a worked-out figure: core\'s mark where it moved, none where it did not', () => {
+    const worked = r5.model!.cards.find((c) => c.figure !== null && (c.values?.length ?? 0) > 1)!
+    const w = render(<ViewCard card={worked} ifApproved={blanket} />).container
+    const marks = [...w.querySelectorAll('[data-value-row]')].map((row) => row.querySelector('[data-if-approved]')?.getAttribute('title') ?? null)
+    expect(marks).toEqual(worked.values!.map((b) => (b as Marked).if_approved?.title ?? null))
+    expect(marks.some((t) => t === null) && marks.some((t) => t !== null)).toBe(true)
+  })
+})

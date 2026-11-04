@@ -13,6 +13,7 @@ import { useMemo } from 'react'
 import type { ViewCard as Card, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, type RestsOnItem } from '../../olumiView/layout'
+import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { useCanvasStore } from '../store'
 import { useViewStore } from '../../olumiView/store'
@@ -50,12 +51,23 @@ const Mark = ({ at, mark }: { at: string; mark: { glyph: string; title: string }
 /** One row of an option card, as core wrote it: a chance, a limit, or why there is none yet. */
 /** Core's ↻ "If approved" beside a Run-derived value while a pending proposal is shown (layout.ts ifApprovedMarkOf), bound to its key item. */
 type IfApproved = { glyph: string; title: string; i: number } | null
-const IfApprovedMark = ({ mark }: { mark: IfApproved }) => (
-  mark === null ? null : <span title={mark.title} aria-label={mark.title} data-if-approved="" data-view={`key.${mark.i}.glyph`}>{mark.glyph}</span>
+type ValueMark = { glyph: string; title: string; at: string } | null
+/**
+ * The mark beside one value: R5 core's own (`if_approved` on the value, only where the proposal moves it, its words verbatim), and on a core
+ * before R5 (no key) the R4 rule, every Run-derived value while a proposal is shown (`blanket`).
+ */
+function valueMark(x: object, at: string, blanket: IfApproved): ValueMark {
+  const core = ifApprovedFieldOf(x)
+  if (core !== undefined) return core === null ? null : { glyph: core.glyph, title: core.title, at: `${at}.if_approved.glyph` }
+  return blanket === null ? null : { glyph: blanket.glyph, title: blanket.title, at: `key.${blanket.i}.glyph` }
+}
+const IfApprovedMark = ({ mark }: { mark: ValueMark }) => (
+  mark === null ? null : <span title={mark.title} aria-label={mark.title} data-if-approved="" data-view={mark.at}>{mark.glyph}</span>
 )
 
 function Row({ id, row, i, ifApproved = null }: { id: string; row: ViewRow; i: number; ifApproved?: IfApproved }) {
   const at = `${id}.rows.${i}`
+  const moved = valueMark(row, at, ifApproved)
   switch (row.kind) {
     case 'chance':
       return (
@@ -66,7 +78,7 @@ function Row({ id, row, i, ifApproved = null }: { id: string; row: ViewRow; i: n
           <span className={typography.nodeValue}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span>
             {row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}
             {row.likely === null ? null : <>{NBSP}<Mark at={`${at}.likely`} mark={row.likely} /></>}
-            {ifApproved === null ? null : <>{NBSP}<IfApprovedMark mark={ifApproved} /></>}
+            {moved === null ? null : <>{NBSP}<IfApprovedMark mark={moved} /></>}
           </span>
         </p>
       )
@@ -81,12 +93,12 @@ function Row({ id, row, i, ifApproved = null }: { id: string; row: ViewRow; i: n
 }
 
 /** One option's row on a worked-out figure card: the option's number (O1, …) as the canvas numbers it, then core's line, two lines at most, whole on hover. */
-function OptionValueRow({ at, option, text, ifApproved = null }: { at: string; option: string; text: string; ifApproved?: IfApproved }) {
+function OptionValueRow({ at, option, text, mark = null }: { at: string; option: string; text: string; mark?: ValueMark }) {
   const n = useCardNumber(option)
   return (
     <p className="line-clamp-2" title={text} data-value-row={option}>
       {n === null ? null : <><span className="text-text-light font-normal tabular-nums" data-card-number={n}>{n}</span>{' '}</>}
-      <span data-view={at}>{text}</span>{ifApproved === null ? null : <>{' '}<IfApprovedMark mark={ifApproved} /></>}
+      <span data-view={at}>{text}</span>{mark === null ? null : <>{NBSP}<IfApprovedMark mark={mark} /></>}
     </p>
   )
 }
@@ -158,7 +170,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
             // compact, two lines a row at most, the whole row on hover; core's sentence for every option stays the hover of the rows (R3 pristine).
             <div className={`${typography.nodeValue} min-w-0 flex-1 space-y-0.5 ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
               data-olumi={estimate || undefined} data-view-values={id}>
-              {card.values!.map((v, i) => <OptionValueRow key={v.option} at={`${id}.values.${i}.text`} option={v.option} text={v.text} ifApproved={ifApproved} />)}
+              {card.values!.map((v, i) => <OptionValueRow key={v.option} at={`${id}.values.${i}.text`} option={v.option} text={v.text} mark={valueMark(v, `${id}.values.${i}`, ifApproved)} />)}
             </div>
           ) : (
             <p className={`${typography.nodeValue} ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}

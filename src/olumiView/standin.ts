@@ -33,3 +33,14 @@ export function basisIdsOf(model: ViewModel): string[] {
   if (model.run?.most_likely != null) add(mostLikelyBasisOf(model.run.most_likely).rests_on)
   return out
 }
+
+/**
+ * R5 `if_approved` (poc-core-server, core wip/r5-if-approved c91f363, olumi.view/3, additive), read here until DGAI vendors that core: on each
+ * chance row, band entry and `run.most_likely`, core's own mark for a value a pending proposal moves ({ glyph, title }, title "if approved;
+ * now <the base version's value>"), null where nothing moves. Undefined on a core before R5 (no key), so the caller keeps its R4 rule there.
+ */
+export function ifApprovedFieldOf(x: object): { readonly glyph: string; readonly title: string } | null | undefined {
+  if (!('if_approved' in x)) return undefined
+  const v = (x as { if_approved?: { glyph: string; title: string } | null }).if_approved
+  return v == null ? null : v
+}
