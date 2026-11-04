@@ -250,10 +250,21 @@ for (const [p, words] of [[ada, 'Hire now: the backlog is the real risk.'], [bea
   await p.page.getByTestId('team-view-give').click()
   await p.page.getByTestId('team-mine').getByText(words).waitFor({ timeout: T })
   ok(`${p.name}'s view is held, private to ${p.name}`)
+  if (p === ada) {
+    // The Team tab's nudge: whom the round still waits for, in core's words (`collab.waiting`), at the top of the tab.
+    const w = (await view(ada, sid)).collab.waiting
+    check(w !== null && await seen(ada, async () => (await ada.page.getByTestId('team-nudges').innerText({ timeout: 1000 })).includes(w)), `Ada's Team tab says whom the round waits for, as core does ("${w}")`)
+    // Sharing her own view before the reveal is offered exactly where core says it can be (`collab.mine[].can_share`, github-3c).
+    const own = (await view(ada, sid)).collab.mine[0]
+    if (!('can_share' in own)) check(await ada.page.locator('[data-testid^="team-share-"]').count() === 0, 'this core offers no early share (no `can_share`), and DGAI offers none')
+    else check(await ada.page.getByTestId(`team-share-${own.id}`).count() === (own.can_share ? 1 : 0), `core says Ada ${own.can_share ? 'can' : 'cannot'} share her view early, and DGAI offers it accordingly`)
+  }
 }
 await teamCheck(ada)
 check(!(await ada.page.getByTestId('team-tab').innerText()).includes('Wait a month'), 'Ada cannot see Bea\'s view before the reveal')
 await shot(bea, '1-bea-private-view')
+// Everyone has given: the nudge offers the reveal (core's `can_reveal`), and nothing says the round still waits.
+check((await view(ada, sid)).collab.can_reveal && await seen(ada, async () => await ada.page.getByTestId('team-nudges').getByTestId('team-reveal-go').isVisible({ timeout: 1000 }) && await ada.page.getByTestId('team-waiting').count() === 0), 'everyone has given: Ada\'s Team tab offers the reveal at the top')
 
 // ── 2. The reveal ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
 step(2, 'Ada reveals everyone\'s views together; Bea sees both')
@@ -446,6 +457,8 @@ await ada.page.getByText('Run a four-week trial hire').waitFor({ timeout: T })
 await teamCheck(bea)
 check(await seen(bea, async () => (await bea.page.getByTestId('team-commitment-list').innerText()).includes('owner Bea · set by Ada')), 'Bea sees it, owned by her')
 const kept = (await view(bea, sid)).collab.commitments[0]
+// A next action with no outcome yet is a nudge on every member's Team tab, in core's words: the action and its owner.
+check(kept.outcomes.length === 0 && await seen(bea, async () => { const t = await bea.page.getByTestId(`team-nudge-outcome-${kept.id}`).innerText({ timeout: 1000 }); return t.includes(kept.action) && t.includes(kept.owner) }), `Bea's Team tab nudges the open next action ("${kept.action}", ${kept.owner}), no outcome yet`)
 if (dissent.length > 0) {
   check(JSON.stringify(kept.keeps) === JSON.stringify([dissent[0].id]), 'core holds the commitment keeping that disagreement open')
   check(await bea.page.getByTestId(`team-commitment-keeps-${kept.id}`).isVisible(), 'Bea sees what it keeps open')
@@ -454,7 +467,7 @@ if (dissent.length > 0) {
 // ── 7. The later review ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 step(7, 'Bea records what happened against the expectation')
 const c = (await view(bea, sid)).collab.commitments[0]
-await bea.page.getByTestId(`team-outcome-open-${c.id}`).click()
+await bea.page.getByTestId(`team-nudge-outcome-${c.id}`).getByRole('button').click() // from the nudge, straight to the outcome form
 await bea.page.getByTestId(`team-o-${c.id}-happened`).fill('92 a week by week four; the reconsider point did not come up.')
 await bea.page.getByTestId(`team-o-${c.id}-versus`).getByLabel('Worse than expected').check()
 await bea.page.getByTestId(`team-o-${c.id}-triggered`).getByLabel('No, it did not').check()
@@ -462,6 +475,7 @@ await bea.page.getByTestId(`team-o-${c.id}-save`).click()
 await bea.page.getByText('92 a week by week four').waitFor({ timeout: T })
 await teamCheck(ada)
 check(await seen(ada, async () => (await ada.page.getByTestId(`team-commitments`).innerText()).includes('92 a week by week four')), 'Ada sees the outcome')
+check(await ada.page.getByTestId(`team-nudge-outcome-${c.id}`).count() === 0, 'and the next action is no longer nudged: it has its outcome')
 await shot(ada, '7-ada-team')
 
 // ── Both screens agree ──────────────────────────────────────────────────────────────────────────────────────────────────────────
