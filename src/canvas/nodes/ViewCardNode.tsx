@@ -110,7 +110,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       </div>
       {card.family === 'option' ? <Slot name={VIEW_CARD_SLOTS.driverBadge} className="absolute right-1 top-1 empty:hidden" />
         // The original's ⌄ on a card with more to say: a press selects the card, which opens its other words beside it.
-        : more ? <ChevronDown aria-hidden="true" data-more-cue="" className="absolute right-1.5 top-2 h-3.5 w-3.5 text-text-light" /> : null}
+        : more && driverOf === null ? <ChevronDown aria-hidden="true" data-more-cue="" className="absolute right-1.5 top-2 h-3.5 w-3.5 text-text-light" /> : null}
       {says ? <p className="line-clamp-1" title={card.reason!} data-view={`${id}.reason`}>{card.reason}</p> : null}
       {card.figure === null ? null : (
         <div className="flex items-baseline gap-1">
