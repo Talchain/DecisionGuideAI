@@ -504,13 +504,18 @@ const ghosts = await ada.page.evaluate(() => [...document.querySelectorAll('[dat
 check(addedIds.length > 0 && JSON.stringify([...ghosts].sort()) === JSON.stringify([...addedIds].sort()), `the cards the proposal adds, and only those, are drawn as ghosts (${addedIds.join(', ')})`)
 await shot(ada, '9-proposal-ghosts')
 await tickLine(ada, part, 0)
-// The pulse lasts 2 s from when the page's View lands (appliedEditPulse.ts); on a slow core this script's own read lands later than the
-// page's, so every card seen pulsed is recorded from before the press, by id, and the check reads the record (4 Nov, R2 cut, DELAY_MS).
-await ada.page.evaluate(() => {
-  const seen = (window.__pulsed = new Set())
-  const note = () => { for (const e of document.querySelectorAll('[data-pulsed]')) { const id = e.closest('.react-flow__node')?.getAttribute('data-id'); if (id) seen.add(id) } }
+// The pulse lasts 2 s from when the page's View lands (appliedEditPulse.ts), and the ghosts' own arrival ring may still be on when the
+// press comes (4 Nov: it alone passed this row). So the page notes when its own read of the approved version lands (proposal gone, version
+// n + 1), and only a card ringed after that counts, by id. On a slow core this script's own read lands later than the page's (R2 cut).
+await ada.page.waitForFunction(() => document.querySelector('[data-pulsed]') !== null, null, { timeout: 3000 }).catch(() => {})
+await ada.page.waitForFunction(() => document.querySelector('[data-pulsed]') === null, null, { timeout: 10000 })
+await ada.page.evaluate((n) => {
+  const seen = (window.__pulsed = new Set()); window.__landed = null
+  const f = window.fetch.bind(window)
+  window.fetch = async (...a) => { const r = await f(...a); if (String(a[0]).includes('/view?')) r.clone().json().then((j) => { if (window.__landed === null && j.proposal === null && j.version?.n === n) window.__landed = Date.now() }, () => {}); return r }
+  const note = () => { if (window.__landed === null) return; for (const e of document.querySelectorAll('[data-pulsed]')) { const id = e.closest('.react-flow__node')?.getAttribute('data-id'); if (id) seen.add(id) } }
   new MutationObserver(note).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-pulsed'] })
-})
+}, before + 1)
 await ada.page.getByTestId('view-approve-ticked').click()
 // Core refuses a line that needs an unchosen added record (409, naming it), in its own words; a person then ticks the rest too.
 const saved = (x) => x.proposal === null && x.version?.n === before + 1
@@ -525,7 +530,9 @@ if (await ada.page.getByTestId('view-chat-said').count() > 0 && !saved(await vie
 v = await viewWhen(ada, sid, saved)
 // The applied-edit pulse (DL 4 Nov, R2): the version applied rings the cards it changed on Ada's canvas, the ghosts it approved among them.
 const pulsedIds = await ada.page.waitForFunction(() => (window.__pulsed.size ? [...window.__pulsed] : null), null, { timeout: 8000 + 3 * Number(process.env.DELAY_MS ?? 0) }).then((h) => h.jsonValue()).catch(() => [])
-check(pulsedIds.length > 0 && pulsedIds.every((id) => part.changes.some((c) => c.id === id)), `the approval pulses the cards it applied, and only those (${pulsedIds.join(', ')})`)
+// Exactly the approved lines' cards: the first line alone when core took it alone, every line otherwise (a left-out line is not pulsed).
+const appliedIds = (alone ? part.changes.slice(0, 1) : part.changes).map((c) => c.id).filter((id) => v.model.cards.some((k) => k.id === id))
+check(appliedIds.length > 0 && JSON.stringify([...pulsedIds].sort()) === JSON.stringify([...appliedIds].sort()), `the approval pulses exactly the cards it applied (${pulsedIds.join(', ')}; applied ${appliedIds.join(', ')})`)
 check(saved(v), alone ? `core approved the ticked line alone ("${part.changes[0].text}" of ${part.changes.length}): version ${before + 1}` : `core approved the ticked lines: version ${before + 1}`)
 
 // The dock's Compare tab: the previous approved version against this one, as core compares them (a shot, for the pilot kit).

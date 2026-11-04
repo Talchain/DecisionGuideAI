@@ -206,6 +206,16 @@ export function cardsOfRecords(model: ViewModel, records: readonly string[]): st
 }
 
 /**
+ * The cards a newer version applied that the last View drew as core's proposed additions (`change.kind` 'added'): their ghosts were already
+ * on the canvas, so they never arrive, and core's `version.changed` names the records it modified, not the ones it added (core
+ * service.ts `changedOf`). An addition the approval left out is not in the newer model, so it is not pulsed.
+ */
+export function addedSince(before: ViewModel, after: ViewModel): string[] {
+  const added = new Set(before.cards.filter((c) => c.change?.kind === 'added').map((c) => c.id))
+  return after.cards.filter((c) => added.has(c.id)).map((c) => c.id)
+}
+
+/**
  * For a core that names no `version.changed` (before R2a): the cards a newer version applied, for the applied-edit pulse: each card the last View drew with core's change mark (a proposal's
  * addition or change, now approved), and each figure a person sets (core offers it an edit) that core now words differently (an edit).
  * A figure core works out from others moves with them and is not pulsed. Core's words compared as they are, never read. An arrived card
