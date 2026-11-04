@@ -56,9 +56,9 @@ export const outcomePlace = (model: ViewModel, aim: string, o: Outcome): Place =
   optionCards(model).flatMap((c) => c.rows.flatMap((r) => (r.kind === 'chance' && r.aim_id === aim && r.outcome != null ? [[r.outcome.low, r.outcome.high] as [number, number]] : []))),
   o.low, o.median, o.high)
 
-/** Core's key item for Olumi's mark (`model.key`, "Olumi") and its place in the key, or null when the View carries none. */
+/** Core's key item for Olumi's mark (`model.key`, by core's id `olumi`, never its words: DL 4 Nov, R4) and its place in the key, or null when the View carries none. */
 export function olumiKey(model: ViewModel): { glyph: string; text: string; i: number } | null {
-  const i = (model.key ?? []).findIndex((k) => k.text === 'Olumi')
+  const i = (model.key ?? []).findIndex((k) => k.id === 'olumi')
   return i < 0 ? null : { ...model.key[i]!, i }
 }
 

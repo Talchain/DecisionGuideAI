@@ -85,3 +85,47 @@ describe('partial approval', () => {
     expect(screen.queryByTestId('view-approve-ticked')).toBeNull()
   })
 })
+
+/**
+ * R4 (DL 4 Nov, "never orphan Olumi's figure silently"; core 1dd2ca9, API v1.13): an added figure read only by other lines of its proposal is
+ * approved only with one of them, and olumi.view/3 marks each such line `together: { ids, why }`. A tick on one ticks the lines it is marked
+ * with; core's `why` is that line's hover. The View is core's own (fixtures/real/together.view3.json, from core's approve path).
+ */
+describe('a figure and the line that reads it are ticked together', () => {
+  const pair: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', 'together.view3.json'), 'utf8'))
+  const lines = pair.proposal!.changes
+  const at = (id: string) => lines.findIndex((l) => l.id === id)
+  const ticks = () => lines.map((_, i) => (screen.getByTestId(`view-change-tick-${i}`) as HTMLInputElement).checked)
+
+  it('core marks the figure and its option, and nothing else (the fixture is the pair)', () => {
+    expect(lines.map((l) => [l.id, l.together?.ids ?? null])).toEqual([['two_specialists', ['add_two']], ['add_two', ['two_specialists']], ['c_extra', null]])
+  })
+
+  it('ticking Olumi\'s figure ticks its option, untick either and both go; Approve ticked sends the two', async () => {
+    show(pair)
+    fireEvent.click(screen.getByTestId(`view-change-tick-${at('two_specialists')}`))
+    expect(ticks()).toEqual([true, true, false])
+    fireEvent.click(screen.getByTestId(`view-change-tick-${at('add_two')}`))
+    expect(ticks()).toEqual([false, false, false])
+    fireEvent.click(screen.getByTestId(`view-change-tick-${at('add_two')}`))
+    expect(ticks()).toEqual([true, true, false])
+    expect(screen.getByTestId('view-approve-ticked')).toHaveTextContent('Approve ticked · 2')
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]!.body).toEqual({ base: pair.proposal!.base, only: ['two_specialists', 'add_two'], only_top: [] })
+  })
+
+  it('each marked line carries core\'s why as its hover, verbatim; an unmarked line has none', () => {
+    const c = show(pair)
+    lines.forEach((l, i) => {
+      const hover = c.querySelector(`[data-view-hover="proposal.changes.${i}.together.why"]`)
+      expect(hover?.getAttribute('title') ?? null, l.id).toBe(l.together?.why ?? null)
+    })
+  })
+
+  it('CONTRAST: a line core marks with nothing is ticked alone', () => {
+    show(pair)
+    fireEvent.click(screen.getByTestId(`view-change-tick-${at('c_extra')}`))
+    expect(ticks()).toEqual([false, false, true])
+  })
+})
