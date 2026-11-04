@@ -38,7 +38,8 @@ import { PanelSection } from '../panels/_shared/PanelSection'
 import { typography } from '../../styles/typography'
 import { buildVersionLabelIndex, describeChangeset } from './describeChange'
 import { ServerVersionsSection } from './ServerVersionsSection'
-import { coreLaneHasAccounts } from '../../olumiCore/lane'
+import { coreLaneHasAccounts, isOlumiCoreLane } from '../../olumiCore/lane'
+import { CoreVersions } from '../../olumiCore/versions'
 import { isThinClientSession } from '../thinClient/thinClient'
 import { useModelVersions } from './useModelVersions'
 import {
@@ -115,6 +116,18 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
   }, [draftName, saveVersion])
 
   if (!isOpen) return null
+
+  // THE OLUMI-CORE LANE: the versions are core's own, one per approval (`olumiCore/versions.tsx`). The local snapshots below are never
+  // offered there: core never sees them, so they could neither be shared nor compared with what core holds (lane audit 7.5).
+  if (isOlumiCoreLane()) {
+    return (
+      <div className="fixed right-0 z-[2000]" style={{ top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }} data-testid="what-changed-panel">
+        <PanelShell icon={<History className="w-5 h-5" />} title="Version history" onClose={onClose} width="420px">
+          <CoreVersions />
+        </PanelShell>
+      </div>
+    )
+  }
 
   const lines =
     changeset && from && to ? describeChangeset(changeset, buildVersionLabelIndex(from, to)) : []

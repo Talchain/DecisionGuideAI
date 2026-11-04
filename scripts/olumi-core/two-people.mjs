@@ -154,9 +154,10 @@ check(cards === v.model.cards.length, `DGAI's canvas draws every card of core's 
 check(!(await ada.page.getByText('Untitled scenario').first().isVisible().catch(() => false)) && await ada.page.getByText(v.title, { exact: true }).first().isVisible(), `the top bar names the scenario as core does ("${v.title}")`)
 for (const c of v.model.cards.slice(0, 4)) check(await ada.page.locator(`.react-flow__node-viewCard >> text=${c.heading}`).first().isVisible(), `card "${c.heading}" in core's words`)
 // No dead controls (Paul's W4 rule): what the lane cannot serve is not on the page at all, not shown dark.
-for (const gone of ['analysisNew', 'diagnostics', 'compare']) check(await ada.page.getByTestId(`outputs-dock-tab-${gone}`).count() === 0, `no ${gone === 'analysisNew' ? 'Reasoning' : gone === 'diagnostics' ? 'Model' : 'Compare'} tab`)
+for (const gone of ['analysisNew', 'diagnostics']) check(await ada.page.getByTestId(`outputs-dock-tab-${gone}`).count() === 0, `no ${gone === 'analysisNew' ? 'Reasoning' : 'Model'} tab`)
 check(await ada.page.getByTestId('lens-bar').count() === 0, 'no lens bar')
-for (const kept of ['olumi', 'results', 'team']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
+// Compare is core's own comparison of two approved versions (src/olumiCore/compare.tsx), so it is there.
+for (const kept of ['olumi', 'results', 'team', 'compare']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
 // G6: Olumi's next step, beside the one card core names, in core's words.
 const next = v.chat.find((t) => t.answer?.next.newest)?.answer?.next
 check(next && next.at !== null, `core puts Olumi's next step beside one card (${next?.at})`)
@@ -390,6 +391,11 @@ if (await ada.page.getByTestId('view-chat-said').count() > 0 && !saved(await vie
 }
 v = await viewWhen(ada, sid, saved)
 check(saved(v), alone ? `core approved the ticked line alone ("${part.changes[0].text}" of ${part.changes.length}): version ${before + 1}` : `core approved the ticked lines: version ${before + 1}`)
+
+// The dock's Compare tab: the previous approved version against this one, as core compares them (a shot, for the pilot kit).
+await tab(ada, 'compare')
+await ada.page.getByTestId('core-compare-out').waitFor({ timeout: T })
+await shot(ada, `i-compare-${process.env.VIEW_W ?? 1440}`)
 
 console.log(`\nAll steps hold. Scenario ${sid}: DGAI ${BASE}/#/scenario/${uuidOf(sid)} · core ${BASE}/s/${sid}`)
 await browser.close()

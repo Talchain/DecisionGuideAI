@@ -20,6 +20,7 @@ import { runCanvasUndo } from '../../canvas/undo/undoCommand'
 import { CORE_LANE_USE_THE_CHAT } from '../../olumiCore/lane'
 import { layViewCanvas, placeViewCards, useViewCanvas, withdrawViewCanvas } from '../canvas'
 import { useViewStore } from '../store'
+import { useVersionsPanelStore } from '../../canvas/versions/versionsPanelStore'
 
 afterEach(() => { cleanup(); vi.unstubAllEnvs() })
 
@@ -97,12 +98,15 @@ describe('B5 Auto-arrange on the lane puts every View card back in its causal pl
   })
 })
 
-describe('lane audit 7.5 and 2.8: no local Versions, and undo says what the lane does instead', () => {
-  it('the top bar offers no Versions on the lane (they snapshot View cards core never sees), and does off it', () => {
+describe('lane audit 7.5 and 2.8: Versions are core\'s own on the lane, and undo says what the lane does instead', () => {
+  it('the top bar offers Versions on the lane, which open core\'s versions (one per approval, olumiCore/versions.tsx; never local snapshots of View cards), and off it as before', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
+    useVersionsPanelStore.setState({ isOpen: false })
     bar()
-    expect(screen.queryByTestId('topbar-versions-trigger')).toBeNull()
+    fireEvent.click(screen.getByTestId('topbar-versions-trigger'))
+    expect(useVersionsPanelStore.getState().isOpen).toBe(true) // the panel it opens draws core's list on the lane (coreCompare.spec)
     cleanup()
+    useVersionsPanelStore.setState({ isOpen: false })
     vi.stubEnv('VITE_OLUMI_CORE', '')
     bar()
     expect(screen.getByTestId('topbar-versions-trigger')).toBeTruthy()
