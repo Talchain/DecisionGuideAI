@@ -82,6 +82,23 @@ describe('the note on the core lane never covers a card', () => {
     expect([measure.getAttribute('aria-hidden'), measure.hasAttribute('inert'), measure.querySelectorAll('[data-testid]').length]).toEqual(['true', true, 0])
   })
 
+  it('⛔ the note never paints on the canvas before its spot is known (integrator, 900×560: on the canvas for one frame, then in the tab): on the first render it is not visible anywhere on the canvas', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    board(full)
+    // Before the cards are measured (the next frame), the canvas copy is drawn invisible, so nothing can flash over a card.
+    const first = [...document.querySelectorAll<HTMLElement>(`[data-testid="${OLUMI_ATTENTION_CARD_TESTID}"], [data-note-measure]`)].filter((e) => !screen.getByTestId('slot').contains(e))
+    expect(first.length).toBe(1)
+    expect(first[0]!.style.visibility).toBe('hidden')
+    // …and it then ends in the tab, as before.
+    await vi.waitFor(() => expect(screen.getByTestId('slot').querySelector(`[data-testid="${OLUMI_ATTENTION_CARD_TESTID}"]`)).not.toBeNull())
+  })
+  it('CONTRAST: with a free spot, once measured the note is visible on the canvas', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    board([{ left: 0, top: 0, width: W, height: 290 }])
+    await vi.waitFor(() => expect(screen.getByTestId(OLUMI_ATTENTION_CARD_TESTID).style.visibility).toBe(''))
+    expect(screen.getByTestId(OLUMI_ATTENTION_CARD_TESTID).dataset['inPanel']).toBeUndefined()
+  })
+
   it('CONTRAST: a free spot exists → on the canvas, over no card, the tab left as it is', async () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     board([{ left: 0, top: 0, width: W, height: 290 }])

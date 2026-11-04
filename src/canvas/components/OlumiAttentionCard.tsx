@@ -599,8 +599,13 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   )
   // The note on the canvas, where it is placed and measured; in the panel instead (below), it stays there unseen, so it is measured still.
   // In the panel case the canvas copy is only measured: no test id, hidden from screen readers and inert (nothing in it focusable), invisible.
+  // ⛔ NEVER PAINTED BEFORE ITS SPOT IS KNOWN (integrator, 4 Nov, 900×560: on the canvas for a frame, then in the tab). On the lane the
+  // note's place rests on the cards as drawn, measured a frame after it mounts; until then `inPanel` cannot be known, so it is drawn
+  // invisible (still measured) and shown only once placed.
+  const placed = !isOlumiCoreLane() || (cardHeight > 0 && drawnNow.key !== '')
+  const unseen = inPanel || !placed
   const onCanvas = shell({ ref: cardRef, ...(inPanel ? { 'data-note-measure': '', 'aria-hidden': true, inert: '' } : { 'data-testid': OLUMI_ATTENTION_CARD_TESTID }),
-    style: { position: 'absolute', left, top, width: CARD_WIDTH, zIndex: 95, ...(inPanel ? { visibility: 'hidden', pointerEvents: 'none' } : {}) } }, inPanel ? body(false) : content)
+    style: { position: 'absolute', left, top, width: CARD_WIDTH, zIndex: 95, ...(unseen ? { visibility: 'hidden', pointerEvents: 'none' } : {}) } }, inPanel ? body(false) : content)
   if (!inPanel || slot === null) return onCanvas
   return <>{onCanvas}{createPortal(shell({ 'data-testid': OLUMI_ATTENTION_CARD_TESTID, 'data-in-panel': true }, content), slot)}</>
 }
