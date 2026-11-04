@@ -300,14 +300,17 @@
     "driver": {
      "text": "under 1% if 'cups change' is low, over 99% if it is high: Under 'Raise the price by 45p', the chance of meeting 'Make £7,000 a month' moves most with 'cups change': these are its chances over the lowest and highest third of that figure's draws.",
      "title": "under 1% if 'cups change' is low, over 99% if it is high: Under 'Raise the price by 45p', the chance of meeting 'Make £7,000 a month' moves most with 'cups change': these are its chances over the lowest and highest third of that figure's draws.",
-     "figure": "cups_change"
+     "figure": "cups_change",
+     "low": 0,
+     "high": 1
     },
     "status": null,
     "bound": null,
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "committed": null
    },
    {
     "id": "carry_on",
@@ -354,7 +357,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "committed": null
    }
   ],
   "links": [
@@ -456,7 +460,11 @@
      "title": "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
     }
    ],
-   "science": []
+   "science": [],
+   "sensitivity": {
+    "text": "These are its chances over the lowest and highest third of that figure's draws.",
+    "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+   }
   },
   "edit_base": 1,
   "key": [

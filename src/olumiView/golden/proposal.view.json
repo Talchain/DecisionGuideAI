@@ -300,7 +300,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "committed": null
    },
    {
     "id": "add_one",
@@ -347,7 +348,9 @@
     "driver": {
      "text": "about 22% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws.",
      "title": "about 22% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws.",
-     "figure": "per_specialist"
+     "figure": "per_specialist",
+     "low": 0.21692169216921692,
+     "high": 1
     },
     "status": null,
     "bound": null,
@@ -365,7 +368,8 @@
      "change": ""
     },
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "committed": null
    },
    {
     "id": "deadline",
@@ -514,7 +518,11 @@
      "title": "This leaves out: How the team feels about a new hire."
     }
    ],
-   "science": []
+   "science": [],
+   "sensitivity": {
+    "text": "These are its chances over the lowest and highest third of that figure's draws.",
+    "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+   }
   },
   "edit_base": null,
   "key": [
@@ -659,7 +667,8 @@
     "olumi": null
    }
   ],
-  "groups": null
+  "groups": null,
+  "from": null
  },
  "collab": {
   "alone": true,
@@ -773,7 +782,9 @@
    {
     "id": "lead_doubt",
     "holder": "our team lead",
-    "position": "A new hire may unsettle the team."
+    "position": "A new hire may unsettle the team.",
+    "holder_id": null,
+    "confirmed": null
    }
   ]
  },
@@ -808,7 +819,8 @@
    },
    "broke": null,
    "problem": null,
-   "marks": []
+   "marks": [],
+   "choice": null
   },
   {
    "id": 5,
@@ -839,7 +851,8 @@
    },
    "broke": null,
    "problem": null,
-   "marks": []
+   "marks": [],
+   "choice": null
   }
  ],
  "brief": "Our team resolves 80 tickets a week. Keep current staffing or add one specialist? In 12 weeks we need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.",

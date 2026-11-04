@@ -119,6 +119,8 @@ export type View = {
         text: string
         title: string
         figure: string | null
+        low: number | null
+        high: number | null
       } | null
       status: string | null
       bound: {
@@ -153,6 +155,10 @@ export type View = {
         id: string
         whose: "theirs" | "olumi" | "mixed"
       }>
+      committed?: {
+        by: string
+        at: string
+      } | null
     }>
     links: Array<{
       from: string
@@ -231,6 +237,10 @@ export type View = {
           title: string
         } | null
       }>
+      sensitivity: {
+        text: string
+        title: string
+      }
     } | null
     edit_base: number | null
     key: Array<{
@@ -281,6 +291,10 @@ export type View = {
       heading: string
       lines: Array<number>
     }> | null
+    from: {
+      evidence: number
+      asked_by: string
+    } | null
   } | null
   collab: {
     alone: boolean
@@ -292,12 +306,51 @@ export type View = {
       by_id: string
       text: string
       skip: boolean
+      figures: Array<{
+        quantity: string
+        label: string
+        text: string
+        title: string
+        unit: string
+        version: number
+        value: number
+      } | {
+        quantity: string
+        label: string
+        text: string
+        title: string
+        unit: string
+        version: number
+        low: number
+        high: number
+        range_kind: "bounds" | "plausible"
+      }>
     }>
     mine: Array<{
       id: number
       text: string
       shared: boolean
       skip: boolean
+      figures: Array<{
+        quantity: string
+        label: string
+        text: string
+        title: string
+        unit: string
+        version: number
+        value: number
+      } | {
+        quantity: string
+        label: string
+        text: string
+        title: string
+        unit: string
+        version: number
+        low: number
+        high: number
+        range_kind: "bounds" | "plausible"
+      }>
+      can_share: boolean
     }>
     placeholder: string
     can_reveal: boolean
@@ -322,7 +375,30 @@ export type View = {
         versus: string
         reconsider_triggered: boolean
         note: string | null
+        figure: {
+          value: number
+          unit: string | null
+          text: string
+        } | null
+        dissent: Array<{
+          id: string
+          verdict: "resolved" | "partly_right" | "not_yet_known"
+          by: string
+        }>
       }>
+      option: {
+        id: string
+        heading: string
+      } | null
+      version: number | null
+      expect_band: {
+        low: number
+        median: number | null
+        high: number
+        unit: string | null
+        text: string
+      } | null
+      review_on: string | null
     }>
     owners: Array<{
       id: string
@@ -337,6 +413,13 @@ export type View = {
       id: string
       holder: string
       position: string
+      holder_id: string | null
+      confirmed: {
+        at: string
+        by_id: string
+        words: string
+        tell: string | null
+      } | null
     }>
   }
   evidence: Array<{
@@ -350,6 +433,15 @@ export type View = {
     concerns: Array<string>
     stance: string
     version: number | null
+    considered: {
+      at: string
+      by: string
+      proposal: number | null
+      why: {
+        text: string
+        title: string
+      } | null
+    } | null
   }>
   chat: Array<{
     id: number
@@ -389,6 +481,10 @@ export type View = {
       status: string
       title: string
     }>
+    choice: {
+      move: string
+      label: string
+    } | null
   }>
   brief: string
   gated: boolean

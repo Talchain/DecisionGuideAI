@@ -513,14 +513,17 @@
     "driver": {
      "text": "about 68% if 'evening extra' is low, over 99% if it is high: Under 'Evening classes', the chance of meeting 'Take £2,640 a month' moves most with 'evening extra': these are its chances over the lowest and highest third of that figure's draws.",
      "title": "about 68% if 'evening extra' is low, over 99% if it is high: Under 'Evening classes', the chance of meeting 'Take £2,640 a month' moves most with 'evening extra': these are its chances over the lowest and highest third of that figure's draws.",
-     "figure": "evening_extra"
+     "figure": "evening_extra",
+     "low": 0.678967896789679,
+     "high": 1
     },
     "status": null,
     "bound": null,
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "committed": null
    },
    {
     "id": "evening_mood",
@@ -604,7 +607,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "committed": null
    },
    {
     "id": "carry_on",
@@ -657,7 +661,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "committed": null
    }
   ],
   "links": [
@@ -893,7 +898,11 @@
     ]
    },
    "notes": [],
-   "science": []
+   "science": [],
+   "sensitivity": {
+    "text": "These are its chances over the lowest and highest third of that figure's draws.",
+    "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+   }
   },
   "edit_base": 1,
   "key": [
@@ -1145,7 +1154,9 @@
    {
     "id": "co_owner_view",
     "holder": "my co-owner",
-    "position": "Evening classes will crowd the studio and put off daytime members."
+    "position": "Evening classes will crowd the studio and put off daytime members.",
+    "holder_id": null,
+    "confirmed": null
    }
   ]
  },

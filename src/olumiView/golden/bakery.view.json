@@ -580,14 +580,17 @@
     "driver": {
      "text": "about 53% if 'extra sold per oven' is low, about 81% if it is high: Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are its chances over the lowest and highest third of that figure's draws.",
      "title": "about 53% if 'extra sold per oven' is low, about 81% if it is high: Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are its chances over the lowest and highest third of that figure's draws.",
-     "figure": "extra_sold_per_oven"
+     "figure": "extra_sold_per_oven",
+     "low": 0.5346534653465347,
+     "high": 0.8067806780678067
     },
     "status": null,
     "bound": null,
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "committed": null
    },
    {
     "id": "longer_hours",
@@ -637,14 +640,17 @@
     "driver": {
      "text": "under 1% if 'extra hours sold' is low, over 99% if it is high: Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are its chances over the lowest and highest third of that figure's draws.",
      "title": "under 1% if 'extra hours sold' is low, over 99% if it is high: Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are its chances over the lowest and highest third of that figure's draws.",
-     "figure": "extra_hours_sold"
+     "figure": "extra_hours_sold",
+     "low": 0,
+     "high": 1
     },
     "status": null,
     "bound": null,
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "committed": null
    },
    {
     "id": "carry_on",
@@ -697,7 +703,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "committed": null
    },
    {
     "id": "oven_repair",
@@ -948,7 +955,11 @@
       "title": "Rests on Olumi’s proposals"
      }
     }
-   ]
+   ],
+   "sensitivity": {
+    "text": "These are its chances over the lowest and highest third of that figure's draws.",
+    "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+   }
   },
   "edit_base": 1,
   "key": [

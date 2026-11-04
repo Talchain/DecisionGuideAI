@@ -148,7 +148,7 @@
     "id": "reported_cash_and_spend_basis",
     "family": "assumption",
     "glyph": "◇",
-    "heading": "assumption",
+    "heading": "Reported cash and spend basis",
     "typed": true,
     "detail": "Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment. · assumption · Proposed by Olumi: Applies the supplied cash and spending figures to the existing cash calculation without inventing separate receipts or liabilities. Availability of cash and whether spending is net of receipts remain to be confirmed. · Applied in the calculation",
     "col": 1,
@@ -533,7 +533,7 @@
     "id": "pipeline_approximation",
     "family": "assumption",
     "glyph": "◇",
-    "heading": "assumption",
+    "heading": "Pipeline approximation",
     "typed": true,
     "detail": "Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success. · assumption · Proposed by Olumi: Allows an initial mechanism-based comparison without inventing investor-specific outcomes. Actual fundraising is discrete and may be dominated by a single investor. · Applied in the calculation",
     "col": 4,
@@ -571,7 +571,7 @@
     "id": "window_accounting",
     "family": "assumption",
     "glyph": "◇",
-    "heading": "assumption",
+    "heading": "Window accounting",
     "typed": true,
     "detail": "Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date. · assumption · Proposed by Olumi: A provisional window-total comparison. Immediate starts describe beginning the work, not immediate funding receipt or guaranteed implementation. · Applied in the calculation",
     "col": 4,
@@ -742,7 +742,8 @@
       "id": "reported_cash_and_spend_basis",
       "whose": "olumi"
      }
-    ]
+    ],
+    "committed": null
    },
    {
     "id": "add_angel_bridge",
@@ -861,7 +862,8 @@
       "id": "reported_cash_and_spend_basis",
       "whose": "olumi"
      }
-    ]
+    ],
+    "committed": null
    },
    {
     "id": "bridge_terms_compatibility",
@@ -1008,13 +1010,14 @@
       "id": "reported_cash_and_spend_basis",
       "whose": "olumi"
      }
-    ]
+    ],
+    "committed": null
    },
    {
     "id": "deferral_feasibility",
     "family": "assumption",
     "glyph": "◇",
-    "heading": "assumption",
+    "heading": "Deferral feasibility",
     "typed": true,
     "detail": "Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window. · assumption · Proposed by Olumi: The cash calculation captures only the direct effect of deferral. Its apparent benefit is conditional on avoiding offsetting commercial or financing damage. · Applied in the calculation",
     "col": 0,
@@ -1413,7 +1416,11 @@
      "title": "Olumi's what-if for 'Operating burn retained after temporary spend deferral', not their figure: 0.5 to 0.969. Basis: No typical rate known; replace with your figure. A first-guess deferrable burn share of 0.0625–0.25 around 0.125 is widened on a ratio scale to 0.03125–0.50 and represented as retained burn. This is a cash-timing what-if, not evidence that these savings are feasible or permanent."
     }
    ],
-   "science": []
+   "science": [],
+   "sensitivity": {
+    "text": "These are its chances over the lowest and highest third of that figure's draws.",
+    "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+   }
   },
   "edit_base": 15,
   "key": [
@@ -1829,7 +1836,8 @@
    },
    "broke": null,
    "problem": null,
-   "marks": []
+   "marks": [],
+   "choice": null
   },
   {
    "id": 14,
@@ -1870,7 +1878,8 @@
    },
    "broke": null,
    "problem": null,
-   "marks": []
+   "marks": [],
+   "choice": null
   }
  ],
  "brief": "I need to accelerate securing funding within the next 2 months. We've been focused on investment firms that do deals between £1-2 million, mostly based in the UK. We'll keep sending cold emails and trying to find warm connections, but I want to explore alternatives to support the funding process, as we'll run out of money soon. For example, angel investors might be able to provide a small amount of funding quicker to buy us more time, but we would need to decide whether the overhead would be worth it.",
