@@ -216,6 +216,7 @@ import { useViewFollows } from '../../olumiView/follow'
 import { useViewCanvas } from '../../olumiView/canvas'
 import { useViewNote } from '../../olumiView/note'
 import { ViewChancesBlock } from '../../olumiView/ViewChances'
+import { ViewReasoningBlock } from '../../olumiView/ViewReasoning'
 import { useAnswersAsks, ViewChat, ViewComposer } from '../../olumiView/ViewChat'
 import { focusDockedOlumi } from '../conversation/dockedOlumiFocus'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
@@ -617,7 +618,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     if (state.activeTab === 'olumi' && !isAiPanelV2Enabled()) {
       setState(prev => ({ ...prev, activeTab: UNFLAGGED_FALLBACK_SURFACE }))
     }
-    // The lane's own surfaces both ways: Team only on the lane, and a tab the lane hides (a restored Reasoning or Model) never on it.
+    // The lane's own surfaces both ways: Team only on the lane, and a tab the lane hides (a restored Model or Compare) never on it.
     if (!coreLaneShowsSurface(state.activeTab)) {
       setState(prev => ({ ...prev, activeTab: landing }))
     }
@@ -4188,6 +4189,13 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                * whole tab is the experiment, so degrading it as a unit is the
                * honest granularity. Sections inside can earn their own later.
                */
+              // The olumi-core lane draws this tab from core's View (src/olumiView/ViewReasoning.tsx): CEE's report, run state and Run
+              // control have no source there, so neither the cover nor the legacy body mounts (DL brief, 4 Nov).
+              isOlumiCoreLane() ? (
+                <SectionErrorBoundary section="Reasoning">
+                  <ViewReasoningBlock />
+                </SectionErrorBoundary>
+              ) : (
               <>
               {/* #1198 — THE RUN, SHOWN. `AnalysisRunStateCover` is the shared
                   in-flight treatment for dock surfaces outside the Analysis
@@ -4318,6 +4326,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 />
               </SectionErrorBoundary>
               </>
+              )
             )}
             {effectiveActiveTab === 'compare' && (
               // SC-24 v3 (ChatGPT #75 5917800777; lease DL #75 5917856638): previous Run vs this Run, rendered from

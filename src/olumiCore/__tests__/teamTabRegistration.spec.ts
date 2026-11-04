@@ -17,11 +17,11 @@ describe('the Team tab is the olumi-core lane\'s and nobody else\'s', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '')
     expect(presentedSurfacesWithLane().filter((s) => coreLaneShowsSurface(s.id)).map((s) => s.id)).not.toContain('team')
   })
-  it('on the lane the strip is checked AFTER the lane filter: Olumi, Analysis, Compare, Team (the dock applies this same filter in getOutputTabsForParity), never more than the recorded maximum', () => {
+  it('on the lane the strip is checked AFTER the lane filter: Olumi, Analysis, Reasoning, Compare, Team (the dock applies this same filter in getOutputTabsForParity), never more than the recorded maximum', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     const ids = presentedSurfacesWithLane().filter((s) => coreLaneShowsSurface(s.id)).map((s) => s.id)
     expect(ids).toContain('team')
-    expect(ids).not.toContain('analysisNew')
+    expect(ids).toContain('analysisNew')
     expect(ids).toContain('compare') // core's own comparison (olumiCore/compare.tsx)
     expect(ids.length).toBeLessThanOrEqual(MAX_PRESENTED_SURFACES)
     expect(ids.indexOf('team')).toBeGreaterThan(ids.indexOf('diagnostics'))

@@ -15,8 +15,11 @@ export const allOptionCards = (model: ViewModel): ViewCard[] => model.cards.filt
  */
 export const optionCards = (model: ViewModel): ViewCard[] => allOptionCards(model).filter((c) => c.status === null)
 
-/** Core's own page geometry (olumi-core src/page/graph.ts): card width and the gap between its columns (the question's width). */
-const W = 232, GAP_X = 48
+/** The cards whose figure the person may set, in the View's own order: core offers `figure.edit` only there, and only while no proposal is held. */
+export const settableFigures = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.figure?.edit)
+
+/** Core's own page geometry (olumi-core src/page/graph.ts): card width, the gap between its columns (the question's width), and the top margin. */
+const W = 232, GAP_X = 48, TOP = 112
 /** The gap under a card: the least room between two cards one above the other. */
 export const GAP_Y = 14
 
