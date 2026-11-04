@@ -16,7 +16,8 @@ const BASE = process.env.CORE_BASE ?? `http://127.0.0.1:${process.env.CORE_PORT 
 const ADMIN = process.env.OLUMI_ADMIN_KEY ?? 'dgai-core-admin-key-0123456789abcdef'
 const SHOTS = process.argv.includes('--shots') ? process.argv[process.argv.indexOf('--shots') + 1] : null
 const BRIEF = 'Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing or add one specialist? We need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.'
-const T = 30_000
+// A real core drafts a first model in minutes (PL review 4 Nov): against a served CORE_BASE each step waits up to 10 minutes.
+const T = Number(process.env.STEP_TIMEOUT_MS ?? (process.env.CORE_BASE ? 600_000 : 30_000))
 
 const step = (n, what) => console.log(`\n▶ ${n}. ${what}`)
 const ok = (what) => console.log(`  ✓ ${what}`)
@@ -43,7 +44,7 @@ const person = async (name, link, to) => {
 const view = (p, sid) => p.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view`)).json(), sid)
 /** The View once core holds what was just asked for: a press answers asynchronously, so a read straight after the click can come first. */
 const viewWhen = async (p, sid, ready) => {
-  for (let i = 0; i < 50; i++) { const v = await view(p, sid); if (ready(v)) return v; await p.page.waitForTimeout(200) }
+  for (const end = Date.now() + T; Date.now() < end;) { const v = await view(p, sid); if (ready(v)) return v; await p.page.waitForTimeout(500) }
   return view(p, sid)
 }
 const shot = async (p, label) => { if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await p.page.screenshot({ path: `${SHOTS}/${label}.png` }) } }
@@ -90,6 +91,13 @@ const note = ada.page.getByTestId('olumi-attention-card')
 await note.waitFor({ timeout: T })
 const nextWords = next.text.map((p) => p.text ?? '').join('').trim()
 check((await note.innerText()).includes(nextWords), `Olumi's note on the canvas says it: "${nextWords}"`)
+// Lane C: the note sits beside its card and covers none (measured from what is drawn).
+await ada.page.waitForTimeout(500)
+const covers = await ada.page.evaluate(() => {
+  const n = document.querySelector('[data-testid="olumi-attention-card"]').getBoundingClientRect()
+  return [...document.querySelectorAll('.react-flow__node')].filter((e) => { const r = e.getBoundingClientRect(); return Math.min(n.right, r.right) > Math.max(n.left, r.left) && Math.min(n.bottom, r.bottom) > Math.max(n.top, r.top) }).map((e) => e.getAttribute('data-id'))
+})
+check(covers.length === 0, `Olumi's note covers no card${covers.length ? ` (covers ${covers.join(', ')})` : ''}`)
 await shot(ada, '0-ada-model')
 
 // ── 1. Bea joins by her link, on the same address ───────────────────────────────────────────────────────────────────────────────

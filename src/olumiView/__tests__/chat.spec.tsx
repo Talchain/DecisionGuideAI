@@ -2,7 +2,7 @@
  * The Olumi tab on the core lane (View API design §2, §3): the conversation drawn exactly as the View holds it, bound by identity, and
  * the writes going straight to core's v1 routes with what core takes, then the View read again.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, fireEvent, render, waitFor } from '@testing-library/react'
@@ -10,7 +10,7 @@ import { setTeamFetch, UNCERTAIN_WRITE } from '../../olumiCore/team/api'
 import type { View } from '../client'
 import { currentModel, useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
-import { ViewChat, ViewComposer, ViewTurns, useViewChat, SAVED_NOT_SHOWN, BRIEF_INTRO, BRIEF_EXAMPLE } from '../ViewChat'
+import { ViewChat, ViewComposer, ViewTurns, useViewChat, SAVED_NOT_SHOWN, BRIEF_INTRO, BRIEF_EXAMPLE, DRAFTING_WORDS, THINKING_WORDS } from '../ViewChat'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -217,6 +217,22 @@ describe('the writes go straight to core, and the View is read again', () => {
       expect(useCanvasStore.getState().currentScenarioId).toBe('00000000-0000-4000-8000-0000000000ab')
       expect(window.location.hash).toBe('#/scenario/00000000-0000-4000-8000-0000000000ab')
       expect(localStorage.getItem(`olumi-core-sc:${uuid}`)).toBeNull()
+    })
+
+    it('while a brief drafts, the composer says a first model can take a few minutes and counts the seconds; a message says Olumi is thinking (PL review 4 Nov)', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+      try {
+        useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' })
+        useViewChat.setState({ busy: true })
+        const c = render(<ViewComposer />).container
+        expect(c.querySelector('[data-testid="view-chat-working"]')?.textContent).toBe(`${DRAFTING_WORDS} 0 s`)
+        await act(async () => { vi.advanceTimersByTime(3000) })
+        expect(c.querySelector('[data-testid="view-chat-working-seconds"]')?.textContent).toBe('3 s')
+        c.remove()
+        useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view: golden('pricing'), error: null, status: 'ready' })
+        const m = render(<ViewComposer />).container
+        expect(m.querySelector('[data-testid="view-chat-working"]')?.textContent).toBe(`${THINKING_WORDS} 0 s`)
+      } finally { vi.useRealTimers(); useViewChat.setState({ busy: false }) }
     })
 
     it('lane C: a first scenario says what to write and what happens, once; a scenario with a model says neither', () => {

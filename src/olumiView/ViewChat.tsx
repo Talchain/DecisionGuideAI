@@ -10,7 +10,7 @@
  * closing the dock loses neither (review 00052).
  */
 import { create } from 'zustand'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { newOp, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
 import { writes, type View, type ViewTurn } from './client'
@@ -354,6 +354,27 @@ export function ViewChat() {
   )
 }
 
+export const DRAFTING_WORDS = 'Olumi is drafting a model from your brief. A first model can take a few minutes.'
+export const THINKING_WORDS = 'Olumi is thinking…'
+
+/**
+ * While a write is in flight the composer is held and says why (lane audit 5.7), with the seconds since it started: a first draft takes
+ * minutes, and a line that never moves reads as stuck (PL review, 4 Nov). Status only; nothing streams.
+ */
+function Working({ brief }: { brief: boolean }) {
+  // What the write is, as it was when it started: the page moves to the new scenario while a brief is still drafting.
+  const [drafting] = useState(brief)
+  const [started] = useState(() => Date.now())
+  const [now, setNow] = useState(started)
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
+  const s = Math.floor((now - started) / 1000)
+  return (
+    <p role="status" className={typography.panelMeta} data-testid="view-chat-working">
+      {drafting ? DRAFTING_WORDS : THINKING_WORDS} <span data-testid="view-chat-working-seconds">{s} s</span>
+    </p>
+  )
+}
+
 /** What a first-time person needs before their brief (lane C, Paul 3 Nov: understood within a minute): what to write and what happens. */
 export const BRIEF_INTRO = 'Describe the situation in your own words: the options you are weighing, what you are aiming for, and any figures you know. Olumi builds a model from it for you to check and change.'
 export const BRIEF_EXAMPLE = 'For example: should we hire a second engineer now or wait until next quarter? We need the release out by June, and each engineer ships about two features a month.'
@@ -377,7 +398,7 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
     <div className={`${typography.panelBody} border-t border-border p-3 space-y-2`} data-testid="view-composer">
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
       {/* While a write is in flight the composer is held: it says why (lane audit 5.7), in core's page's words. */}
-      {busy ? <p role="status" className={typography.panelMeta} data-testid="view-chat-working">Olumi is thinking…</p> : null}
+      {busy ? <Working brief={brief} /> : null}
       <label className={brief ? typography.panelHeader : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
       {brief ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
       <textarea ref={box} id="view-chat-text" className="w-full rounded border border-border p-2" rows={brief ? 6 : 3} value={text}
