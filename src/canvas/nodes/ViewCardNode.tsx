@@ -9,9 +9,10 @@
  */
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { ChevronDown } from 'lucide-react'
+import { useMemo } from 'react'
 import type { ViewCard as Card, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
-import { askKindOf, CARD_WIDTH, drawKindOf, type RestsOnItem } from '../../olumiView/layout'
+import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, type RestsOnItem } from '../../olumiView/layout'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { useCanvasStore } from '../store'
 import { useViewStore } from '../../olumiView/store'
@@ -46,7 +47,13 @@ const Mark = ({ at, mark }: { at: string; mark: { glyph: string; title: string }
 )
 
 /** One row of an option card, as core wrote it: a chance, a limit, or why there is none yet. */
-function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
+/** Core's ↻ "If approved" beside a Run-derived value while a pending proposal is shown (layout.ts ifApprovedMarkOf), bound to its key item. */
+type IfApproved = { glyph: string; title: string; i: number } | null
+const IfApprovedMark = ({ mark }: { mark: IfApproved }) => (
+  mark === null ? null : <span title={mark.title} aria-label={mark.title} data-if-approved="" data-view={`key.${mark.i}.glyph`}>{mark.glyph}</span>
+)
+
+function Row({ id, row, i, ifApproved = null }: { id: string; row: ViewRow; i: number; ifApproved?: IfApproved }) {
   const at = `${id}.rows.${i}`
   switch (row.kind) {
     case 'chance':
@@ -56,6 +63,7 @@ function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
           <span className={typography.nodeValue}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
           <Mark at={`${at}.olumi`} mark={row.olumi} />
           <Mark at={`${at}.likely`} mark={row.likely} />
+          <IfApprovedMark mark={ifApproved} />
         </p>
       )
     case 'limit':
@@ -69,18 +77,18 @@ function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
 }
 
 /** One option's row on a worked-out figure card: the option's number (O1, …) as the canvas numbers it, then core's line, two lines at most, whole on hover. */
-function OptionValueRow({ at, option, text }: { at: string; option: string; text: string }) {
+function OptionValueRow({ at, option, text, ifApproved = null }: { at: string; option: string; text: string; ifApproved?: IfApproved }) {
   const n = useCardNumber(option)
   return (
     <p className="line-clamp-2" title={text} data-value-row={option}>
       {n === null ? null : <><span className="text-text-light font-normal tabular-nums" data-card-number={n}>{n}</span>{' '}</>}
-      <span data-view={at}>{text}</span>
+      <span data-view={at}>{text}</span>{ifApproved === null ? null : <>{' '}<IfApprovedMark mark={ifApproved} /></>}
     </p>
   )
 }
 
 /** One View card, pure: a test draws it from a golden View. */
-export function ViewCard({ card, selected = false, restsOn = null, driverOf = null, number = null, tried = null, pulsed = false, kind = askKindOf(card.family) }: ViewCardData & { selected?: boolean; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf> }) {
+export function ViewCard({ card, selected = false, restsOn = null, driverOf = null, number = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null }: ViewCardData & { selected?: boolean; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
   const id = card.id
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
@@ -146,7 +154,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
             // compact, two lines a row at most, the whole row on hover; core's sentence for every option stays the hover of the rows (R3 pristine).
             <div className={`${typography.nodeValue} min-w-0 flex-1 space-y-0.5 ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
               data-olumi={estimate || undefined} data-view-values={id}>
-              {card.values!.map((v, i) => <OptionValueRow key={v.option} at={`${id}.values.${i}.text`} option={v.option} text={v.text} />)}
+              {card.values!.map((v, i) => <OptionValueRow key={v.option} at={`${id}.values.${i}.text`} option={v.option} text={v.text} ifApproved={ifApproved} />)}
             </div>
           ) : (
             <p className={`${typography.nodeValue} ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
@@ -159,7 +167,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       {card.figure?.edit ? <span className={selected ? '' : 'invisible group-hover:visible'} data-at-rest-hidden=""><FigureEdit id={card.id} edit={card.figure.edit} {...(estimate ? { glyph: '✎', label: 'Give yours' } : {})} quiet={!selected} /></span> : null}
       {card.rows.map((row, i) => (
         <span key={i} className="contents">
-          <Row id={id} row={row} i={i} />
+          <Row id={id} row={row} i={i} ifApproved={ifApproved} />
           {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
         </span>
       ))}
@@ -217,13 +225,16 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   // The applied-edit pulse (pulseArrivals.ts, appliedEditPulse.ts): the original card's ring on a card an approval or edit just applied.
   const pulsed = useCanvasStore((st) => st.highlightedNodes.has(id))
   // The card's role in core's model (`drawKindOf`): its shape on the canvas, the same on every version.
-  const model = useViewStore((st) => st.view?.model ?? null)
+  const view = useViewStore((st) => st.view)
+  const model = view?.model ?? null
   const kind = model === null ? askKindOf(card.family) : drawKindOf(card, model)
+  // While core's View shows a pending proposal, its Run is the proposal's: each Run-derived line says "If approved" (DL ruling, R4).
+  const ifApproved = useMemo(() => ifApprovedMarkOf(view), [view])
   const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] === id)
   return (
     <div className="group/vcard relative">
       <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
-      <ViewCard card={card} selected={selected === true} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} pulsed={pulsed} kind={kind} />
+      <ViewCard card={card} selected={selected === true} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
       <div className={selected === true || noted ? '' : 'opacity-0 group-hover/vcard:opacity-100 focus-within:opacity-100'} data-olumi-controls="">

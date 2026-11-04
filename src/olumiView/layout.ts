@@ -5,7 +5,7 @@
  */
 import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../canvas/domain/vocabulary'
 import type { Edge, Node } from '@xyflow/react'
-import type { ViewCard, ViewModel, ViewRow } from './client'
+import type { View, ViewCard, ViewModel, ViewRow } from './client'
 import { layoutGraph } from '../canvas/utils/layout'
 import { wrapTiers } from '../canvas/utils/wrapTiers'
 import { basisIdsOf } from './standin'
@@ -55,6 +55,19 @@ export const rowsCarryOutcome = (model: ViewModel): boolean => model.cards.some(
 export const outcomePlace = (model: ViewModel, aim: string, o: Outcome): Place => placeOn(
   optionCards(model).flatMap((c) => c.rows.flatMap((r) => (r.kind === 'chance' && r.aim_id === aim && r.outcome != null ? [[r.outcome.low, r.outcome.high] as [number, number]] : []))),
   o.low, o.median, o.high)
+
+/**
+ * ⛔ A PENDING PROPOSAL'S RUN IS NEVER READ AS THE CURRENT MODEL (DL ruling, 4 Nov, R4). While core's View shows a pending proposal, its
+ * model and Run are the proposal's (core view.ts:370 `shownModel = pending ?? version`), and core says so exactly when `proposal` is set and
+ * `model.edit_base` is null (view.ts:380: no edit base while a proposal is shown; a held proposal shows the approved version and keeps it).
+ * Then every Run-derived line carries core's own ↻ (its key item `changed`, by id), hover "If approved" (the DL's words); otherwise null.
+ */
+export function ifApprovedMarkOf(view: View | null): { glyph: string; title: string; i: number } | null {
+  if (view === null || view.proposal == null || view.model == null || view.model.edit_base !== null) return null
+  const i = view.model.key.findIndex((k) => k.id === 'changed')
+  return i < 0 ? null : { glyph: view.model.key[i]!.glyph, title: IF_APPROVED, i }
+}
+const IF_APPROVED = 'If approved'
 
 /** Core's key item for Olumi's mark (`model.key`, by core's id `olumi`, never its words: DL 4 Nov, R4) and its place in the key, or null when the View carries none. */
 export function olumiKey(model: ViewModel): { glyph: string; text: string; i: number } | null {
