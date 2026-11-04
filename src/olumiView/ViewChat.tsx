@@ -199,9 +199,13 @@ interface ViewChatState {
 
 export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new Map(), busy: false, said: null, held: null }))
 
+/** A past version is on the canvas (the version history's Draw): nothing is written until the person is back on the latest. */
+export const PAST_HELD = 'Go back to the latest version to change the model.'
+
 /** One write, then the View read again. An approval changes the model: the View is stale until the new one lands (00051). */
 async function act(f: () => Promise<unknown>, changesModel = false): Promise<boolean> {
   if (useViewChat.getState().busy) return false
+  if (useViewStore.getState().at !== null) { useViewChat.setState({ said: PAST_HELD }); return false }
   useViewChat.setState({ busy: true, said: null })
   try {
     await f()
@@ -446,8 +450,9 @@ export const BRIEF_EXAMPLE = 'For example: should we hire a second engineer now 
  * no model for this scenario, else a message. It keeps the footer's run control (`analysisAction`, the dock's canonical runner).
  */
 export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarProps['analysisAction'] }): ReactNode {
-  const sid = useViewStore((s) => s.sid), view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
+  const sid = useViewStore((s) => s.sid), view = useViewStore((s) => s.view), error = useViewStore((s) => s.error), past = useViewStore((s) => s.at)
   const { text, busy, said } = useViewChat()
+  const held = busy || past !== null
   const box = useRef<HTMLTextAreaElement>(null)
   const brief = takesBrief(sid, view)
   // A scenario waiting for its brief puts the person in the brief box (canvas A S6 D6), once no write holds it disabled (00065).
@@ -461,14 +466,20 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
       {/* While a write is in flight the composer is held: it says why (lane audit 5.7), in core's page's words. */}
       {busy ? <Working brief={brief} /> : null}
+      {past === null ? null : (
+        <p className="flex flex-wrap items-center gap-2" data-testid="view-composer-past">
+          <span>Version {past} is on the canvas, as it was. {PAST_HELD}</span>
+          <button type="button" className="rounded px-2 py-1 border border-border" data-testid="view-composer-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</button>
+        </p>
+      )}
       <label className={brief ? typography.panelHeader : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
       {brief ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
       <textarea ref={box} id="view-chat-text" className="w-full rounded border border-border p-2" rows={brief ? 6 : 3} value={text}
-        placeholder={brief ? BRIEF_EXAMPLE : undefined} aria-describedby={brief ? 'view-brief-intro' : undefined} disabled={busy} onChange={(e) => useViewChat.setState({ text: e.target.value })} />
+        placeholder={brief ? BRIEF_EXAMPLE : undefined} aria-describedby={brief ? 'view-brief-intro' : undefined} disabled={held} onChange={(e) => useViewChat.setState({ text: e.target.value })} />
       <div className="flex gap-2">
-        <button type="button" disabled={busy || text.trim() === ''} className="rounded px-3 py-2 bg-primary text-text-on-color disabled:opacity-50" onClick={() => void send()}>Send</button>
+        <button type="button" disabled={held || text.trim() === ''} className="rounded px-3 py-2 bg-primary text-text-on-color disabled:opacity-50" onClick={() => void send()}>Send</button>
         {analysisAction === undefined ? null : (
-          <button type="button" onClick={analysisAction.onRun} disabled={analysisAction.isRunning || !analysisAction.canRun} aria-label={analysisAction.label}
+          <button type="button" onClick={analysisAction.onRun} disabled={past !== null || analysisAction.isRunning || !analysisAction.canRun} aria-label={analysisAction.label}
             title={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} className="rounded px-3 py-2 border border-border disabled:opacity-50"
             data-testid="view-composer-analyse">{analysisAction.label}</button>
         )}

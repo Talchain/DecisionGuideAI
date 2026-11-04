@@ -27,16 +27,22 @@ export const VIEW_SCHEMA = 'olumi.view/3'
 /** Core answered in a shape this page was not built for (a newer or older View): said, never drawn as if it were this one. */
 export const VIEW_SHAPE_CHANGED = 'Olumi has been updated since this page loaded. Reload the page to continue.'
 
-export function viewPath(sid: string, opened: Opened = NOTHING_OPENED): string {
+/** `at`: one approved version's own View, as it was (core API v1.10, `view?at=n`): no proposal, nothing to edit. Null: the latest. */
+export function viewPath(sid: string, opened: Opened = NOTHING_OPENED, at: number | null = null): string {
   const q = new URLSearchParams({ schema: '3' })
+  if (at !== null) q.set('at', String(at))
   if (opened.open.size > 0) q.set('open', JSON.stringify(Object.fromEntries(opened.open)))
   if (opened.all) q.set('all', '1')
   return `/api/scenarios/${encodeURIComponent(sid)}/view?${q.toString()}`
 }
 
-export async function readView(sid: string, opened: Opened = NOTHING_OPENED): Promise<View> {
-  const v = await call<{ schema?: unknown }>('GET', viewPath(sid, opened))
+/** A core that answers a version's read with another version (one older than API v1.10 ignores `at`): said, never drawn as that version. */
+export const VERSION_NOT_SERVED = 'Olumi cannot show a past version on the canvas yet.'
+
+export async function readView(sid: string, opened: Opened = NOTHING_OPENED, at: number | null = null): Promise<View> {
+  const v = await call<{ schema?: unknown; version?: { n?: unknown } | null }>('GET', viewPath(sid, opened, at))
   if (v === null || typeof v !== 'object' || v.schema !== VIEW_SCHEMA) throw new TeamApiError(0, VIEW_SHAPE_CHANGED)
+  if (at !== null && v.version?.n !== at) throw new TeamApiError(0, VERSION_NOT_SERVED)
   return v as View
 }
 

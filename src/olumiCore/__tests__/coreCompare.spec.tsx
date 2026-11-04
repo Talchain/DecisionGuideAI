@@ -126,7 +126,22 @@ describe('Version history on the lane', () => {
     expect(paths).toContain(`/api/scenarios/${SID}/compare?from=1&to=2`)
     expect(screen.getByTestId('core-version-1-who').textContent).toBe('Proposed by Olumi, from Ada\'s brief · approved by Ada')
     expect(screen.getByTestId('core-version-1-found').textContent).toBe('‘Add one specialist’ on ‘At least 100 a week’: about 50% chance')
-    expect(screen.queryByTestId('core-version-1-changes')).toBeNull() // no earlier version, so no change card
+    expect(screen.queryByTestId('core-version-1-changes')).toBeNull() // a core before API v1.10 serves no `lines`: no change card drawn
+  })
+  it('the first version\'s own change lines are core\'s `lines` (API v1.10), and each record links to its heading on the printable record', async () => {
+    const LINES = [{ text: '+ option: Add one specialist', detail: '', mark: null, olumi: false }, { text: '+ figure: per specialist', detail: '10 to 30 ticket/week', mark: { glyph: '◆', title: 'Proposed by Olumi: from the brief' }, olumi: true }]
+    const withLines = { versions: [{ ...VERSIONS.versions[0]!, lines: LINES }, { ...VERSIONS.versions[1]!, lines: COMPARED.changes }] }
+    setTeamFetch((async (u: unknown) => { const p = String(u); paths.push(p); return new Response(JSON.stringify(p.includes('/compare') ? COMPARED : withLines), { status: 200 }) }) as unknown as typeof fetch)
+    render(<CoreVersions />)
+    fireEvent.click(await screen.findByTestId('core-version-open-1'))
+    expect([...(await screen.findByTestId('core-version-1-changes')).querySelectorAll('li')].map((l) => l.textContent))
+      .toEqual(['+ option: Add one specialist', '+ figure: per specialist 10 to 30 ticket/week ◆'])
+    expect(screen.getByTestId('core-version-1-record-link').getAttribute('href')).toBe(`/s/${SID}/record#version-1`)
+    // A later version's change card is core's comparison with the version it was approved over: drawn once, not again from `lines`.
+    fireEvent.click(screen.getByTestId('core-version-open-2'))
+    await waitFor(() => expect(screen.getAllByTestId('core-version-2-changes')).toHaveLength(1))
+    await waitFor(() => expect(screen.getByTestId('core-version-2-results')).toBeTruthy())
+    expect(screen.getAllByTestId('core-version-2-changes')).toHaveLength(1)
   })
   it('a lone version opens on who approved it and reads no comparison', async () => {
     setTeamFetch((async (u: unknown) => { const p = String(u); paths.push(p); return new Response(JSON.stringify({ versions: [VERSIONS.versions[0]] }), { status: 200 }) }) as unknown as typeof fetch)

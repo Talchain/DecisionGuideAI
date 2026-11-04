@@ -28,6 +28,11 @@ export function SideText({ s }: { s: Side | null }) {
   return <><span title={s.title}>{s.value}</span>{s.olumi ? <> <span title={s.olumi.title} aria-label={s.olumi.title}>{s.olumi.glyph}</span></> : null}</>
 }
 
+/** One change line as core's change card writes it: its text, how it moved, and Olumi's mark with core's hover. */
+export function ChangeItem({ l }: { l: Compared['changes'][number] }): JSX.Element {
+  return <li className={BODY}>{l.text}{l.detail ? <> <span className="text-text-light whitespace-pre-line">{l.detail}</span></> : null}{l.mark ? <> <span title={l.mark.title} aria-label={l.mark.title}>{l.mark.glyph}</span></> : null}</li>
+}
+
 /** The comparison as core read it, in three short lists. `id` prefixes each list's test id, one per surface; `who: false` leaves out the
  *  first list where the surface names the version's people itself (the version history's record). */
 export function ComparedLists({ c, id = 'team-compare', who = true }: { c: Compared; id?: string; who?: boolean }): JSX.Element {
@@ -41,7 +46,7 @@ export function ComparedLists({ c, id = 'team-compare', who = true }: { c: Compa
         {list(c.versions.map((v) => <li key={v.n} className={BODY}>Version {v.n}: {whoOf(v)}</li>), 'None', 'versions')}
       </>}
       <p className={`${BODY} text-text-header`}>What changed</p>
-      {list(c.changes.map((l, i) => <li key={i} className={BODY}>{l.text}{l.detail ? <> <span className="text-text-light whitespace-pre-line">{l.detail}</span></> : null}{l.mark ? <> <span title={l.mark.title} aria-label={l.mark.title}>{l.mark.glyph}</span></> : null}</li>), 'No change to the model', 'changes')}
+      {list(c.changes.map((l, i) => <ChangeItem key={i} l={l} />), 'No change to the model', 'changes')}
       <p className={`${BODY} text-text-header`}>How the results moved</p>
       {list(c.results.map((r, i) => <li key={i} className={BODY}>{what(r)}: <SideText s={r.before} /> → <SideText s={r.after} /> <span className="text-text-light">({MOVE[r.move]})</span></li>), 'No results in either version', 'results')}
     </div>
