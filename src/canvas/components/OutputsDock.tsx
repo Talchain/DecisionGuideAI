@@ -215,6 +215,7 @@ import { currentModel, useViewStore } from '../../olumiView/store'
 import { useViewFollows } from '../../olumiView/follow'
 import { useViewCanvas } from '../../olumiView/canvas'
 import { useViewNote } from '../../olumiView/note'
+import { useOwnViewFirst } from '../../olumiCore/ownViewFirst'
 import { ViewChancesBlock } from '../../olumiView/ViewChances'
 import { useAnswersAsks, ViewChat, ViewComposer } from '../../olumiView/ViewChat'
 import { focusDockedOlumi } from '../conversation/dockedOlumiFocus'
@@ -808,7 +809,22 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const coreView = useViewStore(currentModel)
   useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null)
   useViewCanvas(isOlumiCoreLane())
-  useViewNote(isOlumiCoreLane())
+  // A member who joined by a link and has not yet given or skipped their own view lands on it, in the Team tab, and no Olumi note is
+  // drawn until they have (PILOT-PACK 1.1, src/olumiCore/ownViewFirst.ts). The landing happens once per scenario and person: once they
+  // have given or skipped, nothing moves them again.
+  const ownViewFirst = useOwnViewFirst(isOlumiCoreLane())
+  const ownViewLanded = useRef<string | null>(null)
+  useEffect(() => {
+    if (ownViewFirst !== 'pending') return
+    const v = useViewStore.getState().view
+    const at = `${useViewStore.getState().sid}:${v?.you_id}`
+    if (ownViewLanded.current === at) return
+    ownViewLanded.current = at
+    setState((prev) => ({ ...prev, isOpen: true, activeTab: 'team' }))
+    useUIStore.getState().setActiveOutputTab('team' as OutputTab)
+    if (typeof window !== 'undefined') window.requestAnimationFrame(() => { document.querySelector<HTMLTextAreaElement>('[data-testid="team-view-text"]')?.focus() })
+  }, [ownViewFirst]) // eslint-disable-line react-hooks/exhaustive-deps -- setState is stable
+  useViewNote(isOlumiCoreLane() && ownViewFirst === 'clear')
   // The canvas's asks are answered while the dock is on the page, collapsed or on another tab (lane audit 24).
   useAnswersAsks(isOlumiCoreLane())
   const runOnRecord = runOnRecordLocally || savedRunUnconfirmed
