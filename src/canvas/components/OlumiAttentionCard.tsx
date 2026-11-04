@@ -253,6 +253,20 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   const [cardHeight, setCardHeight] = useState(0)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal height bails out
   useLayoutEffect(() => { const h = cardRef.current?.offsetHeight ?? 0; if (h !== cardHeight) setCardHeight(h) })
+  // ⛔ …AND WHENEVER IT CHANGES SIZE (fit-real-model, 4 Nov: the hiring note covered a card 1 run in 4): its words can re-wrap with no render
+  // of this note (the font arriving), and the cards' sizes reach it through the store while its own did not. Observed, so it is placed again.
+  const observedEl = useRef<HTMLElement | null>(null)
+  const observer = useRef<ResizeObserver | null>(null)
+  // After every render; the same element keeps its observer.
+  useLayoutEffect(() => {
+    const el = cardRef.current
+    if (el === observedEl.current) return
+    observer.current?.disconnect()
+    observedEl.current = el
+    observer.current = el !== null && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => setCardHeight(el.offsetHeight)) : null
+    if (el !== null) observer.current?.observe(el)
+  })
+  useEffect(() => () => observer.current?.disconnect(), [])
   // ⛔ THE CARDS WHERE THEY ARE DRAWN NOW (4 Nov, the causal graph: after a pan the note sat on the card Ada had panned to). Read during
   // render, the DOM still holds the frame before it, so the note placed itself by where the cards had been. The cards and controls are
   // read on the frame after this render is on the page (whole px; at most once a frame, so a card still easing does not loop), and the
@@ -289,7 +303,8 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   useEffect(() => {
     if (!(cardHeight > 0)) return
     const raf = requestAnimationFrame(() => {
-      const px = (b: Box): Box => ({ x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h) })
+      // Whole px, rounded OUTWARD: a card a fraction of a pixel into a spot is in the way (rounded to the nearest, 0.4 px over read as free).
+      const px = (b: Box): Box => { const x = Math.floor(b.x), y = Math.floor(b.y); return { x, y, w: Math.ceil(b.x + b.w) - x, h: Math.ceil(b.y + b.h) - y } }
       const cards = drawnCardBoxes(cardRef.current, anchorRef.current).map(px), controls = controlBoxes(cardRef.current).map(px)
       const key = JSON.stringify([cards, controls])
       setDrawnNow((was) => (was.key === key ? was : { key, cards, controls }))

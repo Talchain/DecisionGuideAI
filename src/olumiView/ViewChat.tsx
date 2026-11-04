@@ -15,6 +15,7 @@ import { newOp, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
 import { writes, type View, type ViewTurn } from './client'
 import { useViewStore } from './store'
+import { olumiKey } from './layout'
 import { derivedUuidOf } from '../olumiCore/team/sid'
 import { useCanvasStore } from '../canvas/store'
 import { setCurrentScenarioId } from '../canvas/store/scenarios'
@@ -63,7 +64,8 @@ function Stories({ answer, at }: { answer: NonNullable<ViewTurn['answer']>; at: 
   const model = useViewStore((s) => s.view?.model ?? null)
   const stories = storiesOf(answer), heading = storiesHeadingOf(answer)
   if (stories.length === 0 || heading === null) return null
-  const olumi = model?.key.find((k) => k.text === 'Olumi') ?? null
+  // Core's key item for Olumi by its id (`olumi`), never its words (DL 4 Nov, R4): the one matcher, layout.ts olumiKey.
+  const olumi = model === null ? null : olumiKey(model)
   const headingOf = (id: string) => model?.cards.find((c) => c.id === id)?.heading ?? null
   return (
     <section data-testid="view-chat-stories" aria-label={heading}>
@@ -168,7 +170,9 @@ const keyOf = (c: Change) => `${c.top ? 'top' : 'rec'}:${c.id}`
  * mark on a line of Olumi's. Every word is core's.
  */
 function ChangeLine({ c, i, ticked, toggle, busy }: { c: Change; i: number; ticked: boolean | null; toggle: (c: Change) => void; busy: boolean }) {
-  const line = <><span data-view={`proposal.changes.${i}.text`}>{c.text}</span>{c.olumi === null ? null : <> <span title={c.olumi.title} aria-label={c.olumi.title} data-view={`proposal.changes.${i}.olumi.glyph`}>{c.olumi.glyph}</span></>}</>
+  // R4 (core v1.13): a line approved only with others carries core's why as its hover, verbatim (`together.why`).
+  const why = c.together?.why ?? null
+  const line = <><span data-view={`proposal.changes.${i}.text`} title={why ?? undefined} data-view-hover={why === null ? undefined : `proposal.changes.${i}.together.why`}>{c.text}</span>{c.olumi === null ? null : <> <span title={c.olumi.title} aria-label={c.olumi.title} data-view={`proposal.changes.${i}.olumi.glyph`}>{c.olumi.glyph}</span></>}</>
   return (
     <li className="flex items-start gap-2" data-change={keyOf(c)}>
       {ticked === null ? null : <input type="checkbox" checked={ticked} disabled={busy} onChange={() => toggle(c)} aria-label={`Choose ${c.text}`} data-testid={`view-change-tick-${i}`} className="mt-1" />}
@@ -191,8 +195,12 @@ function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; bus
   // One line is the whole proposal: ticking it would only repeat Approve, so there are ticks from two lines (4 Nov drive at 1280).
   const tickable = changes.length > 1
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set())
-  const toggle = (c: Change) => setTicked((t) => { const n = new Set(t), k = keyOf(c); if (n.has(k)) n.delete(k); else n.add(k); return n })
-  const toggleGroup = (lines: number[], on: boolean) => setTicked((t) => { const n = new Set(t); for (const i of lines) { const c = changes[i]; if (c) { if (on) n.add(keyOf(c)); else n.delete(keyOf(c)) } } return n })
+  // ⛔ NEVER ORPHAN OLUMI'S FIGURE (R4, core v1.13 `together`): a line core marks as approved only with others is ticked and unticked with
+  // them (the records named in its `together.ids`), so a tick can never leave the figure without the line that reads it.
+  const withPartners = (c: Change): Change[] => { const ids = c.together?.ids ?? []; return [c, ...changes.flatMap((o) => (!o.top && ids.includes(o.id) ? [o] : []))] }
+  const set = (n: Set<string>, cs: readonly Change[], on: boolean) => { for (const x of cs) { if (on) n.add(keyOf(x)); else n.delete(keyOf(x)) } }
+  const toggle = (c: Change) => setTicked((t) => { const n = new Set(t); set(n, withPartners(c), !n.has(keyOf(c))); return n })
+  const toggleGroup = (lines: number[], on: boolean) => setTicked((t) => { const n = new Set(t); for (const i of lines) { const c = changes[i]; if (c) set(n, withPartners(c), on) } return n })
   // The ticked lines, in core's order: a record's id in `only`, a top-level field's name in `only_top`, never mixed (API v1.8).
   const pick: { only: string[]; only_top: string[] } = { only: [], only_top: [] }
   for (const c of changes) if (ticked.has(keyOf(c))) (c.top ? pick.only_top : pick.only).push(c.id)

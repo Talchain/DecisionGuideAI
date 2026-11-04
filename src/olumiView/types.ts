@@ -274,6 +274,25 @@ export type View = {
         text: string
         title: string
       }
+      compared: Array<{
+        id: string
+        kind: "middle" | "better"
+        line: string
+        hover: string
+        aim: string
+        option: string
+        versus: string | null
+        status: "met" | "missed" | "unresolved" | null
+        olumi: {
+          glyph: string
+          title: string
+        } | null
+      }>
+      compared_headings: {
+        middle: string
+        better: string
+        unresolved: string
+      }
     } | null
     edit_base: number | null
     key: Array<{
@@ -319,6 +338,10 @@ export type View = {
       olumi: {
         glyph: string
         title: string
+      } | null
+      together: {
+        ids: Array<string>
+        why: string
       } | null
     }>
     groups: Array<{
