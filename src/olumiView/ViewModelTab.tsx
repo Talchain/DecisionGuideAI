@@ -28,7 +28,7 @@ function CardRow({ card, number }: { card: ViewCard; number: string | null }) {
         className={`w-full cursor-pointer rounded px-1 py-1 text-left hover:bg-panel-hover ${ACTION_FOCUS}`}>
         <span className="flex items-baseline gap-1">
           {number === null ? null : <span className="text-text-light">{number}</span>}
-          <span className="font-semibold text-text-header" title={card.detail === '' ? undefined : card.detail} data-view={`${card.id}.heading`}>{card.heading}</span>
+          <span className="text-text-header" title={card.detail === '' ? undefined : card.detail} data-view={`${card.id}.heading`}>{card.heading}</span>
           <Mark at={`${card.id}.olumi`} mark={card.olumi} />
           <Mark at={`${card.id}.change`} mark={card.change} />
         </span>
@@ -46,11 +46,11 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
     <div className={`${typography.panelBody} space-y-4 pb-4`} data-testid="view-model-tab">
       {groups.map((g) => (g.cards.length === 0 && g.id !== 'goal' ? null : (
         <section key={g.id} aria-label={g.title} data-model-group={g.id}>
-          <h3 className={`${typography.panelHeader} text-text-header`}>{g.title} <span className="text-text-light font-normal tabular-nums">{g.cards.length + (g.id === 'goal' ? 1 : 0)}</span></h3>
+          <h3 className={`${typography.panelHeader} text-text-header`}>{g.title} <span className={`${typography.panelMeta} text-text-light`}>{g.cards.length + (g.id === 'goal' ? 1 : 0)}</span></h3>
           <ul className="mt-1 space-y-0.5">
             {g.id === 'goal' ? (
               <li className="px-1 py-1">
-                <span className="font-semibold text-text-header" data-view="model.question.text">{model.question.text}</span>
+                <span className="text-text-header" data-view="model.question.text">{model.question.text}</span>
                 {model.aim == null ? null : <span className="block" title={model.aim.title} data-view="model.aim.text">{model.aim.text}</span>}
               </li>
             ) : null}
@@ -60,7 +60,7 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
       )))}
       {model.links.length === 0 ? null : (
         <section aria-label={MODEL_GROUP_TITLE.relationships} data-model-group="relationships">
-          <h3 className={`${typography.panelHeader} text-text-header`}>{MODEL_GROUP_TITLE.relationships} <span className="text-text-light font-normal tabular-nums">{model.links.length}</span></h3>
+          <h3 className={`${typography.panelHeader} text-text-header`}>{MODEL_GROUP_TITLE.relationships} <span className={`${typography.panelMeta} text-text-light`}>{model.links.length}</span></h3>
           <ul className="mt-1 space-y-0.5">
             {model.links.map((l, i) => (
               <li key={i}>
