@@ -43,6 +43,7 @@ import { useCanvasStore } from '../canvas/store'
 import { typography } from '../styles/typography'
 import type { ViewCard, ViewModel } from './client'
 import { useViewStore } from './store'
+import { useCardNumber } from './lens'
 
 /** v10's rulings for the whole lane while its canvas is up: the attribute v10's stylesheets are scoped to. */
 export function useV10Lane(): void {
@@ -158,19 +159,60 @@ export function ViewOptionBand({ id, band }: { id: string; band: OptionBand }) {
   )
 }
 
-type Places = { readonly olumi: Element | null; readonly driver: Element | null; readonly band: Element | null }
+/** One option's range on a worked-out figure card's own axis (core's `cards[].values`): percent positions and core's line for it. */
+export interface ValueBar { readonly option: string; readonly leftPct: number; readonly widthPct: number; readonly medianPct: number | null; readonly text: string; readonly olumi: boolean }
+
+/**
+ * A worked-out figure's range under each option, on the card's own axis (v10's band, one bar per option), from core's `values`. The numbers
+ * place the bars and nothing else; core's line for each is its hover. None when core gives no values, or every option's range is one point.
+ */
+export function valueBars(card: ViewCard): readonly ValueBar[] {
+  const vs: NonNullable<ViewCard['values']> = []
+  for (const v of card.values ?? []) if (Number.isFinite(v.p10) && Number.isFinite(v.p90)) vs.push(v)
+  if (vs.length === 0) return []
+  const min = Math.min(...vs.map((v) => v.p10)), span = Math.max(...vs.map((v) => v.p90)) - min
+  if (!(span > 0)) return []
+  return vs.map((v) => ({
+    option: v.option, leftPct: pct(v.p10, min, span), widthPct: Math.max(2, pct(v.p90, min, span) - pct(v.p10, min, span)),
+    medianPct: v.p50 === null || !Number.isFinite(v.p50) ? null : pct(v.p50, min, span), text: v.text, olumi: v.olumi,
+  }))
+}
+
+/** One bar's row: the option's number as the canvas numbers it (O1, …), and its range; Olumi's colour where it rests on Olumi's figures. */
+function ValueBarRow({ cardId, bar }: { cardId: string; bar: ValueBar }) {
+  const n = useCardNumber(bar.option)
+  return (
+    <div className="flex items-center gap-1.5" title={bar.text} role="img" aria-label={bar.text} data-testid={`view-values-${cardId}-${bar.option}`} data-olumi={bar.olumi || undefined}>
+      <span className={`${typography.edgeLabel} w-6 flex-none text-text-light tabular-nums`}>{n ?? ''}</span>
+      <div className="relative flex-1" style={{ height: 4, background: 'var(--factor-light)', borderRadius: 2 }}>
+        <div className="absolute top-0 h-full" style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%`, background: bar.olumi ? 'var(--info)' : 'var(--option)', borderRadius: 2 }} />
+        {bar.medianPct === null ? null : <div className="absolute" style={{ left: `${bar.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />}
+      </div>
+    </div>
+  )
+}
+
+/** v10's values band: under a worked-out figure's value line, one bar per option on the card's own axis. */
+export function ViewValuesBand({ card }: { card: ViewCard }) {
+  const bars = valueBars(card)
+  if (bars.length === 0) return null
+  return <div className="mt-1 space-y-0.5" data-testid={`view-values-${card.id}`}>{bars.map((b) => <ValueBarRow key={b.option} cardId={card.id} bar={b} />)}</div>
+}
+
+type Places = { readonly olumi: Element | null; readonly driver: Element | null; readonly band: Element | null; readonly values: Element | null }
 
 /** A View card as v10 draws its controls: DGAI's card, with the Olumi corner and the driver badge in the card's own named places. */
 export function ViewCardV10(props: NodeProps) {
   const box = useRef<HTMLDivElement>(null)
-  const [places, setPlaces] = useState<Places>({ olumi: null, driver: null, band: null })
+  const [places, setPlaces] = useState<Places>({ olumi: null, driver: null, band: null, values: null })
   const band = useOptionBands().get(props.id) ?? null
   // The card draws its places; v10 finds them each time the card is drawn from new data (a card that changes family gains or loses its
   // driver place).
   useLayoutEffect(() => {
     const at = (name: string) => box.current?.querySelector(`[data-slot="${name}"]`) ?? null
     const olumi = at(VIEW_CARD_SLOTS.olumiBadge), driver = at(VIEW_CARD_SLOTS.driverBadge), band = at(VIEW_CARD_SLOTS.outcomeBand)
-    setPlaces((p) => (p.olumi === olumi && p.driver === driver && p.band === band ? p : { olumi, driver, band }))
+    const values = at(VIEW_CARD_SLOTS.valuesBand)
+    setPlaces((p) => (p.olumi === olumi && p.driver === driver && p.band === band && p.values === values ? p : { olumi, driver, band, values }))
   }, [props.data])
   return (
     <V10Scope>
@@ -179,6 +221,7 @@ export function ViewCardV10(props: NodeProps) {
         {places.olumi === null ? null : createPortal(<NodeCornerOlumi nodeId={props.id} selected={props.selected === true} />, places.olumi)}
         {places.driver === null ? null : createPortal(<ViewDriverBadge card={(props.data as ViewCardData).card} />, places.driver)}
         {places.band === null || band === null ? null : createPortal(<ViewOptionBand id={props.id} band={band} />, places.band)}
+        {places.values === null ? null : createPortal(<ViewValuesBand card={(props.data as ViewCardData).card} />, places.values)}
       </div>
     </V10Scope>
   )
