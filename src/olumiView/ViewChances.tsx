@@ -171,7 +171,7 @@ export function Worth({ run, tab }: { run: ViewRun | null; tab?: OutputTab }) {
 export function Compared({ run }: { run: ViewRun | null }) {
   const groups = comparedGroupsOf(run)
   return groups.length === 0 ? null : (
-    <div data-testid="view-run-compared">
+    <div data-testid="view-run-compared" className="space-y-3">
       {groups.map(({ group, heading, lines }) => (
         <div key={group} data-testid={`view-run-compared-${group}`} aria-label={heading}>
           <p className={typography.panelHeader} data-view={`run.compared_headings.${group}`}>{heading}</p>

@@ -1,9 +1,10 @@
 /**
- * R3 COMPARED LINES, AHEAD OF THE VENDORED VIEW (DL 4 Nov): core's `model.run.compared` as olumi-core wip/science-d2 e469ec168 serves it
- * (D2, the middle figures; CHANGE 8, compared with carrying on), read here until DGAI vendors olumi.view/3 at that core. Then this file
+ * R4 COMPARED LINES (was R3; DL 4 Nov: ships with R4), AHEAD OF THE VENDORED VIEW (DL 4 Nov): core's `model.run.compared` and `compared_headings` as olumi-core
+ * wip/science-unresolved 5b8cc6f60 serves them (D2, the middle figures; CHANGE 8, compared with carrying on; on D2 e469ec168), read here
+ * until DGAI vendors olumi.view/3 at that core. Then this file
  * goes: vendor view.v3.json, regenerate types.ts, and read the field straight. A View without the field draws nothing.
  *
- * Headings: `model.run.compared_headings`, one per group in core's words (science-coaching's decision, 4 Nov; its #2 slice): `middle`,
+ * Headings: `model.run.compared_headings`, one per group in core's words (science-coaching's decision, 4 Nov; served at 5b8cc6f60): `middle`,
  * `better` and `unresolved` (a D2 line whose status is unresolved, "can't be told apart from …"). A group core gives no heading for is
  * drawn as nothing.
  *
