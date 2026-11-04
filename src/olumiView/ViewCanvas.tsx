@@ -33,6 +33,7 @@ import { readableFirstViewport } from './camera'
 import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
 import { useV10Lane, ViewCardV10 } from './v10'
+import { ViewLensBar } from './ViewLensBar'
 
 // Each card is drawn with v10's controls (./v10): the card itself, and the Olumi corner that asks about it.
 const nodeTypes = { [VIEW_CARD]: ViewCardV10, [VIEW_QUESTION]: ViewQuestionNode }
@@ -109,6 +110,7 @@ function ViewFlow() {
   const userMoved = useRef(false)
   const fit = useViewCamera(userMoved)
   const { zoomIn, zoomOut, zoomTo } = useReactFlow()
+  const hasModel = useViewStore((s) => (s.view?.model?.cards.length ?? 0) > 0)
   const mine = (e: unknown) => { if (e) userMoved.current = true }
   return (
     <>
@@ -128,6 +130,7 @@ function ViewFlow() {
         onFitView={() => { userMoved.current = false; fit() }}
         onAutoArrange={() => { const model = useViewStore.getState().view?.model; if (model) void placeViewCards(model) }}
       />
+      {hasModel ? <ViewLensBar /> : null}
       <OlumiAttentionCard />
       <OutputsDock />
     </>

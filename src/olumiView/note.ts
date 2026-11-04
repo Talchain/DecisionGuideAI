@@ -25,6 +25,9 @@ export function nextNoteOf(view: View): { key: string; at: string; note: OlumiAt
   return { key: `${VIEW_NOTE}${view.id}:${turn.id}`, at: next.at, note: { title: next.label, body } }
 }
 
+/** Where the Olumi tab takes a note the canvas has no free spot for (OlumiAttentionCard), under Next step (`ViewChat`). */
+export const VIEW_NOTE_SLOT = 'data-olumi-note-slot'
+
 /** On the core lane: the newest reply's next step, drawn once beside its card; dismissed, it stays dismissed for that reply. */
 export function useViewNote(on: boolean): void {
   const view = useViewStore((s) => s.view)

@@ -37,6 +37,9 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { VIEW_NOTE_SLOT } from '../../olumiView/note'
 import { useStore } from '@xyflow/react'
 import { ArrowUp, HelpCircle, History, Info, Lightbulb, MessageCircleQuestion, RefreshCw, Scale, X, type LucideIcon } from 'lucide-react'
 import { useCanvasStore } from '../store'
@@ -103,7 +106,8 @@ type Box = { readonly x: number; readonly y: number; readonly w: number; readonl
 /**
  * Where the note sits, in screen px: beside its card on the right, else on the left, else below, else above: the first
  * spot that fits between `roomLeft` and `roomRight` and covers no other card (Paul's pre-flight, 22 Oct: placed on the
- * left it covered the next option's title). None free: the spot that covers the least (served café board, 22 Oct:
+ * left it covered the next option's title). None free beside it: the free spot in the room nearest the card. None free anywhere:
+ * the spot that covers the least (served café board, 22 Oct:
  * above touched the question card by 2px while left covered O1). Unmeasured, or none fits: as before, right if it
  * fits, else left.
  */
@@ -136,6 +140,19 @@ export function attentionCardSpot(anchor: Box, card: { readonly w: number; reado
   const room = spots.filter((s) => fits(s) && s.top >= roomTop && s.top + card.h <= roomBottom && !onControl(s))
   const free = room.find((s) => covered(s) === 0)
   if (free) return free
+  // ⛔ NONE BESIDE IT FREE, ON A DENSE BOARD (real capacity model on the causal graph, 4 Nov: the least-covered spot sat on the goal and a
+  // risk while the canvas had room elsewhere): the free spot in the whole canvas nearest the card, before any spot that covers one.
+  if (Number.isFinite(roomTop) && Number.isFinite(roomBottom)) {
+    const cx = anchor.x + anchor.w / 2, cy = anchor.y + anchor.h / 2
+    let near: { left: number; top: number } | null = null, far = Infinity
+    for (let top = roomTop; top + card.h <= roomBottom; top += SLIDE_PX) {
+      for (let left = roomLeft; left + card.w <= roomRight; left += SLIDE_PX) {
+        const s = { left, top }, d = Math.hypot(left + card.w / 2 - cx, top + card.h / 2 - cy)
+        if (d < far && !onControl(s) && covered(s) === 0) { near = s; far = d }
+      }
+    }
+    if (near) return near
+  }
   // Nothing free anywhere: the spot that covers least (strictly less, so the earlier, nearer spot wins a tie).
   const least = room.reduce<{ left: number; top: number } | null>(
     (best, s) => (best === null || covered(s) < covered(best) ? s : best), null)
@@ -147,6 +164,10 @@ export function attentionCardSpot(anchor: Box, card: { readonly w: number; reado
   })
   return inside(before)
 }
+
+/** Whether a note at `s` covers any of `cards`. */
+export const spotCovers = (s: { left: number; top: number }, card: { readonly w: number; readonly h: number }, cards: readonly Box[]): boolean =>
+  cards.some((o) => s.left < o.x + o.w && s.left + card.w > o.x && s.top < o.y + o.h && s.top + card.h > o.y)
 
 /** How far the note slides along a side looking for a free spot (screen px), and how many steps it tries. */
 const SLIDE_PX = 16
@@ -232,6 +253,13 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   // read on the frame after this render is on the page (whole px; at most once a frame, so a card still easing does not loop), and the
   // note is placed again when they moved.
   const anchorRef = useRef('')
+  // In the panel: the Olumi tab is opened for the note, once each time it moves there (`inPanelNow`, set where the spot is worked out).
+  const inPanelNow = useRef(false)
+  const [panelOpened, setPanelOpened] = useState(false)
+  useEffect(() => {
+    if (inPanelNow.current && !panelOpened) { revealOlumiSurface(); setPanelOpened(true) }
+    if (!inPanelNow.current && panelOpened) setPanelOpened(false)
+  })
   const [drawnNow, setDrawnNow] = useState<{ key: string; cards: Box[]; controls: Box[] }>({ key: '', cards: [], controls: [] })
   useEffect(() => {
     if (!(cardHeight > 0)) return
@@ -307,6 +335,11 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
     ? { ...screenBox(anchor as never), w: w * zoom }
     : { x: point!.x * zoom + tx, y: point!.y * zoom + ty, w: 0, h: 0 }
   const { left, top } = attentionCardSpot(anchorBox, { w: CARD_WIDTH, h: cardHeight }, others, CARD_GAP, roomRight, CARD_GAP, roomBottom, controls)
+  // ⛔ NEVER OVER A CARD ON THE CORE LANE (DL 4 Nov, the real capacity model's witness): where even the whole canvas has no free spot,
+  // the note goes into the Olumi tab, under Next step (`VIEW_NOTE_SLOT`), which is opened for it; never over a card.
+  const inPanel = isOlumiCoreLane() && drawn.length > 0 && spotCovers({ left, top }, { w: CARD_WIDTH, h: cardHeight }, drawn)
+  inPanelNow.current = inPanel
+  const slot = inPanel && typeof document !== 'undefined' ? document.querySelector<HTMLElement>(`[${VIEW_NOTE_SLOT}]`) : null
 
   const note = attention.note
   const caveat = attention.caveat
@@ -335,179 +368,187 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
         ? { Icon: MessageCircleQuestion, label: QUESTION_LABEL }
         : null
 
-  return (
+  const content = (
+    <>
+        <div className="flex items-start gap-2">
+          <span title={ATTENTION_CARD_COPY.olumi} className="mt-0.5 flex-none">
+            <OlumiMark size={16} aria-hidden="true" />
+            <span className="sr-only">{ATTENTION_CARD_COPY.olumi}</span>
+          </span>
+          {/* The move's chip; stale, it becomes the clock (the stale sentence is its name). */}
+          {isStale ? (
+            <span
+              data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-stale`}
+              title={ATTENTION_CARD_COPY.stale}
+              className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-panel-hover text-warning"
+            >
+              <History className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="sr-only">{ATTENTION_CARD_COPY.stale}</span>
+            </span>
+          ) : chip ? (
+            <span
+              data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-move`}
+              title={chip.label}
+              role="img"
+              aria-label={chip.label}
+              className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-info/10 text-info"
+            >
+              <chip.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            </span>
+          ) : null}
+          <span className="min-w-0 flex-1">
+            {note?.title ? (
+              <span className={`${typography.panelHeader} ${isStale ? 'text-text-light' : 'text-text-header'} block mt-0.5`}>
+                {note.title}
+              </span>
+            ) : null}
+          </span>
+          <button
+            type="button"
+            onClick={dismiss}
+            aria-label="Dismiss"
+            className="shrink-0 rounded p-0.5 text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          >
+            <X className="w-3.5 h-3.5" aria-hidden="true" />
+          </button>
+        </div>
+
+        {goalWaits ? (
+          <div data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-waits`} className="mt-1.5 space-y-0.5">
+            {goalTarget ? <p className={`${typography.panelBody} text-text-body mb-0`}>{goalTarget}</p> : null}
+            <p className={`${typography.panelBody} text-text-body mb-0`}>{'Waits on: '}<WaitsOnList items={waitsOn} testIdPrefix={`${OLUMI_ATTENTION_CARD_TESTID}-waits-on`} /></p>
+          </div>
+        ) : null}
+
+        {note?.body ? (
+          <p className={`${typography.panelBody} ${isStale ? 'text-text-light' : 'text-text-body'} mt-1.5 mb-0`}>{note.body}</p>
+        ) : null}
+
+        {note && !viewer && !link && isQuestion(note.body ?? note.title) ? (
+          <form
+            data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-answer`}
+            className="mt-2 flex items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3 py-1 focus-within:ring-2 focus-within:ring-primary"
+            onSubmit={(e) => {
+              e.preventDefault()
+              // The person's own words, about this item: CEE reads them as theirs and answers in the conversation.
+              if (askAi({ userWords: answer, nodeIds: [anchorId] }) !== 'sent') return
+              // The item keeps a tick with this question and answer (`AnsweredMark`).
+              const scenarioId = useCanvasStore.getState().currentScenarioId
+              const question = note.body ?? note.title ?? ''
+              if (scenarioId) useAnsweredQuestionsStore.getState().record(scenarioId, anchorId, { question, answer: answer.trim(), at: new Date().toISOString() })
+              setAnswer('')
+              clearOlumiAttention()
+              revealOlumiSurface()
+            }}
+          >
+            <input
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              onKeyDown={(e) => { if (e.key !== 'Escape') e.stopPropagation() }}
+              placeholder={ATTENTION_CARD_COPY.answer}
+              aria-label={ATTENTION_CARD_COPY.answer}
+              className={`${typography.panelBody} min-w-0 flex-1 bg-transparent text-text-body placeholder:text-text-light focus:outline-none`}
+            />
+            <button
+              type="submit"
+              disabled={answer.trim() === ''}
+              aria-label={ATTENTION_CARD_COPY.send}
+              title={ATTENTION_CARD_COPY.send}
+              className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full bg-primary text-text-on-color hover:bg-primary-hover disabled:bg-panel-hover disabled:text-text-light"
+            >
+              <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </form>
+        ) : null}
+
+        {caveat ? (
+          <>
+            <p
+              className={`${typography.panelBody} text-warning mt-1.5 mb-0`}
+              data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-caveat`}
+            >
+              {caveat.text}
+            </p>
+            {caveat.sourceLine ? (
+              <p
+                className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+                data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-caveat-reason`}
+              >
+                {caveat.sourceLine}
+              </p>
+            ) : null}
+          </>
+        ) : null}
+
+
+        {note && note.actions && note.actions.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {note.actions.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-action`}
+                data-action-id={a.id}
+                onClick={() => {
+                  // A held note's own press and dismissal (the canvas's suggested move: its press, its "Not now").
+                  if (a.kind === 'press') { onPress?.(a.id); return }
+                  if (a.kind === 'dismiss') { dismiss(); return }
+                  // "Open details": the inspector, where the item is edited. The note steps aside for it.
+                  if (a.kind === 'details') {
+                    clearOlumiAttention()
+                    openNodeInspector(anchorId)
+                    return
+                  }
+                  /*
+                   * ⭐ THE CARD IS A DOOR, NOT A NOTICE (30 Aug 2026, per the
+                   * alignment principle: Olumi should point into the model,
+                   * explain why something deserves thought, and then let the user
+                   * EXPLORE it conversationally — one reasoning partner rather
+                   * than a graph plus a chatbot).
+                   *
+                   * The ask carries the element it is about, so the conversation
+                   * opens already knowing what is being discussed instead of
+                   * asking the user to re-describe it. The draft is a QUESTION,
+                   * because the product test is whether this improves the user's
+                   * reasoning — a prefilled answer would fail it.
+                   */
+                  openAskOlumi({
+                    context: note.body,
+                    draft: a.prompt ?? '',
+                    label: a.label,
+                    targetId: anchorId,
+                    source: 'canvas_attention',
+                  })
+                }}
+                className={`${typography.panelBody} rounded-md bg-info/10 px-2 py-1 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {note && note.sourceLine ? (
+          <p className={`${typography.panelMeta} text-text-light mt-1.5 mb-0`}>{note.sourceLine}</p>
+        ) : null}
+    </>
+  )
+  const shell = (props: Record<string, unknown>, inside: JSX.Element) => (
     <div
-      ref={cardRef}
-      data-testid={OLUMI_ATTENTION_CARD_TESTID}
+      {...props}
       data-anchor-id={anchorId}
       {...(link ? { 'data-anchor-kind': 'link' } : {})}
       {...(note ? { 'data-move': note.move } : {})}
-      style={{ position: 'absolute', left, top, width: CARD_WIDTH, zIndex: 95 }}
       className="pointer-events-auto rounded-lg border border-panel-border bg-panel shadow-panel p-3"
       role="complementary"
       aria-label={`Olumi on ${anchorId}`}
     >
-      <div className="flex items-start gap-2">
-        <span title={ATTENTION_CARD_COPY.olumi} className="mt-0.5 flex-none">
-          <OlumiMark size={16} aria-hidden="true" />
-          <span className="sr-only">{ATTENTION_CARD_COPY.olumi}</span>
-        </span>
-        {/* The move's chip; stale, it becomes the clock (the stale sentence is its name). */}
-        {isStale ? (
-          <span
-            data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-stale`}
-            title={ATTENTION_CARD_COPY.stale}
-            className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-panel-hover text-warning"
-          >
-            <History className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className="sr-only">{ATTENTION_CARD_COPY.stale}</span>
-          </span>
-        ) : chip ? (
-          <span
-            data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-move`}
-            title={chip.label}
-            role="img"
-            aria-label={chip.label}
-            className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-info/10 text-info"
-          >
-            <chip.Icon className="h-3.5 w-3.5" aria-hidden="true" />
-          </span>
-        ) : null}
-        <span className="min-w-0 flex-1">
-          {note?.title ? (
-            <span className={`${typography.panelHeader} ${isStale ? 'text-text-light' : 'text-text-header'} block mt-0.5`}>
-              {note.title}
-            </span>
-          ) : null}
-        </span>
-        <button
-          type="button"
-          onClick={dismiss}
-          aria-label="Dismiss"
-          className="shrink-0 rounded p-0.5 text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
-        >
-          <X className="w-3.5 h-3.5" aria-hidden="true" />
-        </button>
-      </div>
-
-      {goalWaits ? (
-        <div data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-waits`} className="mt-1.5 space-y-0.5">
-          {goalTarget ? <p className={`${typography.panelBody} text-text-body mb-0`}>{goalTarget}</p> : null}
-          <p className={`${typography.panelBody} text-text-body mb-0`}>{'Waits on: '}<WaitsOnList items={waitsOn} testIdPrefix={`${OLUMI_ATTENTION_CARD_TESTID}-waits-on`} /></p>
-        </div>
-      ) : null}
-
-      {note?.body ? (
-        <p className={`${typography.panelBody} ${isStale ? 'text-text-light' : 'text-text-body'} mt-1.5 mb-0`}>{note.body}</p>
-      ) : null}
-
-      {note && !viewer && !link && isQuestion(note.body ?? note.title) ? (
-        <form
-          data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-answer`}
-          className="mt-2 flex items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3 py-1 focus-within:ring-2 focus-within:ring-primary"
-          onSubmit={(e) => {
-            e.preventDefault()
-            // The person's own words, about this item: CEE reads them as theirs and answers in the conversation.
-            if (askAi({ userWords: answer, nodeIds: [anchorId] }) !== 'sent') return
-            // The item keeps a tick with this question and answer (`AnsweredMark`).
-            const scenarioId = useCanvasStore.getState().currentScenarioId
-            const question = note.body ?? note.title ?? ''
-            if (scenarioId) useAnsweredQuestionsStore.getState().record(scenarioId, anchorId, { question, answer: answer.trim(), at: new Date().toISOString() })
-            setAnswer('')
-            clearOlumiAttention()
-            revealOlumiSurface()
-          }}
-        >
-          <input
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-            onKeyDown={(e) => { if (e.key !== 'Escape') e.stopPropagation() }}
-            placeholder={ATTENTION_CARD_COPY.answer}
-            aria-label={ATTENTION_CARD_COPY.answer}
-            className={`${typography.panelBody} min-w-0 flex-1 bg-transparent text-text-body placeholder:text-text-light focus:outline-none`}
-          />
-          <button
-            type="submit"
-            disabled={answer.trim() === ''}
-            aria-label={ATTENTION_CARD_COPY.send}
-            title={ATTENTION_CARD_COPY.send}
-            className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full bg-primary text-text-on-color hover:bg-primary-hover disabled:bg-panel-hover disabled:text-text-light"
-          >
-            <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-        </form>
-      ) : null}
-
-      {caveat ? (
-        <>
-          <p
-            className={`${typography.panelBody} text-warning mt-1.5 mb-0`}
-            data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-caveat`}
-          >
-            {caveat.text}
-          </p>
-          {caveat.sourceLine ? (
-            <p
-              className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-              data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-caveat-reason`}
-            >
-              {caveat.sourceLine}
-            </p>
-          ) : null}
-        </>
-      ) : null}
-
-
-      {note && note.actions && note.actions.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {note.actions.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-action`}
-              data-action-id={a.id}
-              onClick={() => {
-                // A held note's own press and dismissal (the canvas's suggested move: its press, its "Not now").
-                if (a.kind === 'press') { onPress?.(a.id); return }
-                if (a.kind === 'dismiss') { dismiss(); return }
-                // "Open details": the inspector, where the item is edited. The note steps aside for it.
-                if (a.kind === 'details') {
-                  clearOlumiAttention()
-                  openNodeInspector(anchorId)
-                  return
-                }
-                /*
-                 * ⭐ THE CARD IS A DOOR, NOT A NOTICE (30 Aug 2026, per the
-                 * alignment principle: Olumi should point into the model,
-                 * explain why something deserves thought, and then let the user
-                 * EXPLORE it conversationally — one reasoning partner rather
-                 * than a graph plus a chatbot).
-                 *
-                 * The ask carries the element it is about, so the conversation
-                 * opens already knowing what is being discussed instead of
-                 * asking the user to re-describe it. The draft is a QUESTION,
-                 * because the product test is whether this improves the user's
-                 * reasoning — a prefilled answer would fail it.
-                 */
-                openAskOlumi({
-                  context: note.body,
-                  draft: a.prompt ?? '',
-                  label: a.label,
-                  targetId: anchorId,
-                  source: 'canvas_attention',
-                })
-              }}
-              className={`${typography.panelBody} rounded-md bg-info/10 px-2 py-1 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {note && note.sourceLine ? (
-        <p className={`${typography.panelMeta} text-text-light mt-1.5 mb-0`}>{note.sourceLine}</p>
-      ) : null}
+      {inside}
     </div>
   )
+  // The note on the canvas, where it is placed and measured; in the panel instead (below), it stays there unseen, so it is measured still.
+  const onCanvas = shell({ ref: cardRef, 'data-testid': inPanel ? `${OLUMI_ATTENTION_CARD_TESTID}-measure` : OLUMI_ATTENTION_CARD_TESTID, 'aria-hidden': inPanel || undefined,
+    style: { position: 'absolute', left, top, width: CARD_WIDTH, zIndex: 95, ...(inPanel ? { visibility: 'hidden', pointerEvents: 'none' } : {}) } }, content)
+  if (!inPanel || slot === null) return onCanvas
+  return <>{onCanvas}{createPortal(shell({ 'data-testid': OLUMI_ATTENTION_CARD_TESTID, 'data-in-panel': true }, content), slot)}</>
 }

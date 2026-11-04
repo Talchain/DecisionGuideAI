@@ -87,3 +87,15 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
  */
 export const linkDrawn = (link: { from: string; to: string; kind: string; alert: boolean; proposed: boolean }, active: ReadonlySet<string>): boolean =>
   link.kind !== 'reason' || link.alert || link.proposed || active.has(link.from) || active.has(link.to)
+
+/** One thing the model rests on that a person can check or set, numbered in the View's order; `olumi` when core marks it Olumi's. */
+export type RestsOnItem = { readonly id: string; readonly n: number; readonly olumi: boolean }
+/**
+ * The "Rests on" lens on the core lane (DL 4 Nov, the hidden lenses back on, fed from the View only): every figure a person can set (core
+ * offers it an edit) and every assumption and condition, in the View's order and numbered from 1. Olumi's (core's ◆ or ◐ on the card)
+ * are the ones to check or set. A figure core works out from others (no edit) is not something the model rests on.
+ */
+export function restsOnOf(model: ViewModel): { items: ReadonlyMap<string, RestsOnItem>; olumi: number } {
+  const picked = model.cards.filter((c) => (c.figure?.edit ?? null) !== null || c.family === 'assumption' || c.family === 'condition')
+  return { items: new Map(picked.map((c, i) => [c.id, { id: c.id, n: i + 1, olumi: c.olumi !== null }])), olumi: picked.filter((c) => c.olumi !== null).length }
+}
