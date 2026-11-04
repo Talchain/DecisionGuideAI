@@ -592,5 +592,6 @@
   "dissent": []
  },
  "evidence": [],
- "chat": []
+ "chat": [],
+ "gated": true
 }

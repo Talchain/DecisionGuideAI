@@ -810,13 +810,13 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const coreView = useViewStore(currentModel)
   useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null)
   useViewCanvas(isOlumiCoreLane())
-  // A member who joined by a link and has not yet given or skipped their own view lands on it, in the Team tab, and no Olumi note is
-  // drawn until they have (PILOT-PACK 1.1, src/olumiCore/ownViewFirst.ts). The landing happens once per scenario and person: once they
-  // have given or skipped, nothing moves them again.
+  // A member core holds until they have given or skipped their own view (the View's `gated`) lands on it, in the Team tab, and no Olumi
+  // note is drawn until they have (PILOT-PACK 1.1, src/olumiCore/ownViewFirst.ts). The landing happens once per scenario and person: once
+  // they have given or skipped, nothing moves them again.
   const ownViewFirst = useOwnViewFirst(isOlumiCoreLane())
   const ownViewLanded = useRef<string | null>(null)
   useEffect(() => {
-    if (ownViewFirst !== 'pending') return
+    if (!ownViewFirst) return
     const v = useViewStore.getState().view
     const at = `${useViewStore.getState().sid}:${v?.you_id}`
     if (ownViewLanded.current === at) return
@@ -825,7 +825,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     useUIStore.getState().setActiveOutputTab('team' as OutputTab)
     if (typeof window !== 'undefined') window.requestAnimationFrame(() => { document.querySelector<HTMLTextAreaElement>('[data-testid="team-view-text"]')?.focus() })
   }, [ownViewFirst]) // eslint-disable-line react-hooks/exhaustive-deps -- setState is stable
-  useViewNote(isOlumiCoreLane() && ownViewFirst === 'clear')
+  useViewNote(isOlumiCoreLane() && !ownViewFirst)
   // The canvas's asks are answered while the dock is on the page, collapsed or on another tab (lane audit 24).
   useAnswersAsks(isOlumiCoreLane())
   const runOnRecord = runOnRecordLocally || savedRunUnconfirmed
@@ -930,7 +930,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const onScreen = currentScenarioIdForRun ?? null
   const awaitsBrief = useViewStore((s) => s.uuid !== null && s.uuid === onScreen && (s.sid === null || (s.view !== null && s.view.version === null && s.view.proposal === null)))
   useEffect(() => {
-    if (!isOlumiCoreLane() || !awaitsBrief) return
+    // A member core holds for their own view lands on it instead (above): the brief is not theirs to write.
+    if (!isOlumiCoreLane() || !awaitsBrief || ownViewFirst) return
     setState((prev) => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
     useUIStore.getState().setActiveOutputTab('olumi' as OutputTab)
   }, [awaitsBrief, viewUuid]) // eslint-disable-line react-hooks/exhaustive-deps -- setState is stable
