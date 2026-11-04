@@ -725,7 +725,14 @@ for (const c of summaryOptions) {
   rows += c.rows.length
 }
 check(summaryOptions.length > 0, `the Summary draws all ${summaryOptions.length} options and their ${rows} rows, each value as core's View holds it`)
-if (summed.run?.most_likely) check(await panel.getByTestId('view-brief-most-likely').innerText() === summed.run.most_likely.text, 'the Summary\'s most-likely line is core\'s, word for word')
+// DGAI draws olumi.view/3. Since the R3 wall (core 550ad5f) v3's most_likely.text is the sentence up to its basis and the basis is the
+// line's hover (ViewChances.tsx mostLikelyHover: rests_on_text, else the title); v2's text is still the whole sentence (R3 witness, 4 Nov).
+const ml3 = (await view3(ada, sid)).model.run?.most_likely ?? null
+if (ml3) {
+  const line = panel.getByTestId('view-brief-most-likely')
+  check(await line.innerText() === ml3.text, `the Summary's most-likely line is core's v3 line, word for word ("${ml3.text.slice(0, 90)}…")`)
+  check(await line.getAttribute('title') === (ml3.rests_on_text ?? ml3.title), `and its hover is what core says it rests on (${ml3.rests_on_text ? 'rests_on_text' : 'the title'})`)
+}
 // The key, opened with the Summary still beside it: core's own (model.key), every item in core's order.
 // The page reads olumi.view/3 (?schema=3); `view` above reads core's default View, which carries no key.
 const key = (await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view?schema=3`)).json(), sid)).model.key
