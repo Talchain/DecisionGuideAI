@@ -7,11 +7,13 @@ import type { Edge, Node } from '@xyflow/react'
 import type { ViewCard, ViewModel } from './client'
 import { layoutGraph } from '../canvas/utils/layout'
 
+/** Every option card in the View's order, live or not (the Summary shows a withheld option's status and reason too). */
+export const allOptionCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.family === 'option')
 /**
  * The option cards core compares, in the View's own order: what the chances block draws. An option core does not compare carries its
  * status on its card ("removed", "ruled out"); it has no chance to show, and the block leaves it out as the base does (review 00051).
  */
-export const optionCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.family === 'option' && c.status === null)
+export const optionCards = (model: ViewModel): ViewCard[] => allOptionCards(model).filter((c) => c.status === null)
 
 /** Core's own page geometry (olumi-core src/page/graph.ts): card width and the gap between its columns (the question's width). */
 const W = 232, GAP_X = 48

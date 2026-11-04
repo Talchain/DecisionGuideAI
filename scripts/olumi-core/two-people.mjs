@@ -397,6 +397,35 @@ check(saved(v), alone ? `core approved the ticked line alone ("${part.changes[0]
 await tab(ada, 'compare')
 await ada.page.getByTestId('core-compare-out').waitFor({ timeout: T })
 await shot(ada, `i-compare-${process.env.VIEW_W ?? 1440}`)
+// ── 10. The Summary in DGAI is core's View (DL 4 Nov) ───────────────────────────────────────────────────────────────────────────
+step(10, 'Ada opens the Summary and the key in DGAI: the question, the Run\'s lines, each option\'s rows and core\'s key, as core\'s View holds them')
+const summed = (await view(ada, sid)).model
+await ada.page.getByTestId('view-brief-trigger').click()
+const panel = ada.page.getByTestId('view-brief-panel')
+await panel.waitFor({ timeout: T })
+check(await panel.getByTestId('view-brief-question').innerText() === summed.question.text, `the Summary's question is core's: "${summed.question.text}"`)
+const options = summed.cards.filter((c) => c.family === 'option')
+let rows = 0
+for (const c of options) {
+  const box = panel.getByTestId(`view-brief-option-${c.id}`)
+  const text = await box.innerText()
+  if (!text.includes(c.heading) || !c.rows.every((r) => text.includes(r.kind === 'none' ? r.text : r.value))) { check(false, `the Summary draws "${c.heading}" and its rows as core's View holds them`) }
+  rows += c.rows.length
+}
+check(options.length > 0, `the Summary draws all ${options.length} options and their ${rows} rows, each value as core's View holds it`)
+if (summed.run?.most_likely) check(await panel.getByTestId('view-brief-most-likely').innerText() === summed.run.most_likely.text, 'the Summary\'s most-likely line is core\'s, word for word')
+// The key, opened with the Summary still beside it: core's own (model.key), every item in core's order.
+// The page reads olumi.view/3 (?schema=3); `view` above reads core's default View, which carries no key.
+const key = (await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view?schema=3`)).json(), sid)).model.key
+await ada.page.getByTestId('viewport-more').click()
+await ada.page.getByTestId('viewport-legend').click()
+const legend = ada.page.getByTestId('view-legend')
+await legend.waitFor({ timeout: T })
+const flat = (t) => t.replace(/\s+/g, '')
+const drawn = await legend.locator('li').allInnerTexts()
+check(key.length > 0 && drawn.length === key.length && drawn.every((t, i) => flat(t) === flat(`${key[i].glyph}${key[i].text}`)), `the key draws core's ${key.length} items, glyph and words, in core's order`)
+await shot(ada, `j-legend-summary-${process.env.VIEW_W ?? 1440}`)
+await ada.page.keyboard.press('Escape') // closes the key and the Summary
 
 console.log(`\nAll steps hold. Scenario ${sid}: DGAI ${BASE}/#/scenario/${uuidOf(sid)} · core ${BASE}/s/${sid}`)
 await browser.close()
