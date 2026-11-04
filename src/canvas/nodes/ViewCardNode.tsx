@@ -21,6 +21,7 @@ import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { Badge } from '../../olumiView/Badge'
 import { FigureEdit } from '../../olumiView/FigureEdit'
+import { failedOf, failedReasonOf } from '../../olumiView/k5'
 
 export type ViewCardData = { card: Card }
 
@@ -72,6 +73,8 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
   const id = card.id
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
+  // K5 (R3): Olumi's failure stories resting on this card, and an option's story most within the team's control (./k5.ts, ahead of core).
+  const failed = failedOf(card), reason = failedReasonOf(card)
   const estimate = card.family === 'quantity' && card.olumi !== null && card.figure !== null
   // A card with no figure and no rows (an assumption, a condition) says what it holds in its reason: that stays on the face, one line
   // and whole on hover (DL 4 Nov). Any other card's reason opens with its other words.
@@ -140,6 +143,18 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       {/* An option the team committed to (olumi.view/3 `committed`, the newest commitment naming it): who, in the marks row; when, on hover. */}
       <span data-slot={VIEW_CARD_SLOTS.marks} className="flex gap-1 empty:hidden">
         {card.committed == null ? null : <span className="text-text-light" title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}
+        {/* K5 "If it failed" (R3): one badge per pre-mortem story resting on this card, core's number with Olumi's mark, the story in
+            Olumi's words on hover; on an option, the story most within the team's control, in core's words. All Olumi's (./k5.ts). */}
+        {failed.map((f, j) => (
+          <span key={`f${f.n}`} className="text-info" title={`${f.olumi.title} · ${f.title}`} aria-label={`${f.olumi.title} · ${f.title}`} data-failed={`${id}.${f.n}`}>
+            <span data-view={`${id}.failed.${j}.olumi.glyph`}>{f.olumi.glyph}</span><span>{f.n}</span>
+          </span>
+        ))}
+        {reason === null ? null : (
+          <span className="text-info" title={`${reason.olumi.title} · ${reason.title}`} aria-label={`${reason.olumi.title} · ${reason.text} · ${reason.title}`} data-failed-reason={id}>
+            <span data-view={`${id}.failed_reason.olumi.glyph`}>{reason.olumi.glyph}</span> <span data-view={`${id}.failed_reason.text`}>{reason.text}</span>
+          </span>
+        )}
       </span>
       <Slot name={VIEW_CARD_SLOTS.olumiBadge} className="absolute bottom-1 right-1 empty:hidden" />
       {more ? (
