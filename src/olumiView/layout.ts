@@ -72,3 +72,10 @@ export const holdsViewNodes = (nodes: readonly { type?: string }[], types: reado
 
 /** The canvas's nodes the View did not draw. */
 export const withoutViewNodes = <N extends { type?: string }>(nodes: readonly N[], types: readonly string[]): N[] => nodes.filter((n) => !types.includes(n.type ?? ''))
+
+/** The canvas nodes that draw the View (its cards and question), by their node types: what the lane's own canvas frames. */
+export const viewDrawnNodes = <T extends { type?: string }>(nodes: readonly T[], types: readonly string[]): T[] => nodes.filter((n) => n.type !== undefined && types.includes(n.type))
+
+/** The drawn nodes of the given ids that the canvas has measured (both sides), for the camera's settle signal. */
+export const measuredOf = <T extends { id: string; measured?: { width?: number; height?: number } }>(nodes: readonly T[], ids: ReadonlySet<string>): T[] =>
+  nodes.filter((n) => ids.has(n.id) && !!n.measured?.width && !!n.measured?.height)
