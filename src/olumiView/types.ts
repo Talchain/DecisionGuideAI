@@ -107,6 +107,7 @@ export type View = {
       driver: {
         text: string
         title: string
+        figure?: string | null
       } | null
       status: string | null
       bound: {

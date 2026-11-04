@@ -11,7 +11,8 @@ import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { ViewCard as Card, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { askKindOf, CARD_WIDTH, type RestsOnItem } from '../../olumiView/layout'
-import { useRestsOnItem } from '../../olumiView/lens'
+import { useDriverOf, useRestsOnItem } from '../../olumiView/lens'
+import { Activity } from 'lucide-react'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { Badge } from '../../olumiView/Badge'
@@ -47,7 +48,7 @@ function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
 }
 
 /** One View card, pure: a test draws it from a golden View. */
-export function ViewCard({ card, selected = false, restsOn = null }: ViewCardData & { selected?: boolean; restsOn?: RestsOnItem | null }) {
+export function ViewCard({ card, selected = false, restsOn = null, driverOf = null }: ViewCardData & { selected?: boolean; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null }) {
   const id = card.id
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
@@ -60,13 +61,20 @@ export function ViewCard({ card, selected = false, restsOn = null }: ViewCardDat
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
     <div
       style={{ width: CARD_WIDTH }}
-      className={`group relative ${typography.nodeLabel} rounded-lg border bg-panel p-3 space-y-1 ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : ''}`}
+      className={`group relative ${typography.nodeLabel} rounded-lg border bg-panel p-3 space-y-1 ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
       data-view-card={id} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
     >
       {restsOn === null ? null : (
         // The Rests on lens: this card's number, in Olumi's blue when core marks it Olumi's (one to check or set), its hover core's mark.
         <span className={`absolute -left-2 -top-2 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border bg-panel px-1 tabular-nums ${typography.nodeLabel} ${restsOn.olumi ? 'border-info text-info' : 'border-border text-text-body'}`}
           title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n} data-rests-on-olumi={restsOn.olumi || undefined}>{restsOn.n}</span>
+      )}
+      {driverOf === null ? null : (
+        // What would change: a figure an option's chance moves most with, how many options it moves, and core's driver words on hover.
+        <span className={`absolute -right-2 -top-2 inline-flex h-[20px] items-center gap-0.5 rounded-full border border-text-header bg-panel px-1.5 tabular-nums text-text-header ${typography.nodeLabel}`}
+          title={driverOf.map((o) => o.driver!.title).join('\n')} data-driver-of={driverOf.map((o) => o.id).join(' ')}>
+          <Activity aria-hidden="true" className="h-3 w-3" />{driverOf.length}
+        </span>
       )}
       <div className="flex items-baseline gap-1">
         <span data-view={`${id}.glyph`}>{card.glyph}</span>
@@ -113,10 +121,11 @@ export function ViewCard({ card, selected = false, restsOn = null }: ViewCardDat
 export function ViewCardNode({ id, data, selected }: NodeProps) {
   const { card } = data as ViewCardData
   const restsOn = useRestsOnItem(id)
+  const driverOf = useDriverOf(id)
   return (
     <div className="relative">
       <Handle type="target" position={Position.Top} isConnectable={false} />
-      <ViewCard card={card} selected={selected === true} restsOn={restsOn} />
+      <ViewCard card={card} selected={selected === true} restsOn={restsOn} driverOf={driverOf} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       <NodeQuickActions nodeId={id} nodeType={askKindOf(card.family)} label={card.heading} placement="below" alwaysVisible={selected === true} />
       <Handle type="source" position={Position.Bottom} isConnectable={false} />

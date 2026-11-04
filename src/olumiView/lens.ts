@@ -1,16 +1,17 @@
 /**
  * The lenses on the core lane's canvas (DL 4 Nov: the hidden surfaces back on, fed from core's View only). The legacy lens bar reads the
  * legacy node shapes, which a View card does not carry; this lane draws its own (`ViewLensBar`), with the lenses the View can fill:
- * Model (no lens) and Rests on (`restsOnOf`). The others wait on View fields (What would change: the driver's card; If it failed: core's
- * stories; Trade-offs: core's gains and gives-up) or are the card's own (What if: ✎ → Try). View only: a lens writes nothing.
+ * Model (no lens), Rests on (`restsOnOf`) and What would change (`driversOf`, core's `driver.figure`). If it failed and Trade-offs need
+ * output core does not make yet; What if is the card's own (✎ → Try). View only: a lens writes nothing.
  */
 import { useMemo } from 'react'
 import { create } from 'zustand'
-import { restsOnOf, type RestsOnItem } from './layout'
+import { driversOf, restsOnOf, type RestsOnItem } from './layout'
+import type { ViewCard } from './client'
 import { useViewStore } from './store'
 
-export type ViewLens = 'full' | 'rests_on'
-export const VIEW_LENSES: readonly ViewLens[] = ['full', 'rests_on']
+export type ViewLens = 'full' | 'rests_on' | 'what_changes'
+export const VIEW_LENSES: readonly ViewLens[] = ['full', 'rests_on', 'what_changes']
 export const useViewLens = create<{ lens: ViewLens }>(() => ({ lens: 'full' }))
 
 /** What the model on screen rests on, worked out once per View. */
@@ -24,4 +25,17 @@ export function useRestsOnItem(id: string): RestsOnItem | null {
   const on = useViewLens((s) => s.lens === 'rests_on')
   const { items } = useRestsOn()
   return on ? items.get(id) ?? null : null
+}
+
+/** The figures the model's options move most with, by the card that draws each, worked out once per View. */
+export function useDrivers(): ReadonlyMap<string, readonly ViewCard[]> {
+  const model = useViewStore((s) => s.view?.model ?? null)
+  return useMemo(() => (model === null ? new Map() : driversOf(model)), [model])
+}
+
+/** The options whose chance moves most with this card's figure, while What would change is on; else null. */
+export function useDriverOf(id: string): readonly ViewCard[] | null {
+  const on = useViewLens((s) => s.lens === 'what_changes')
+  const drivers = useDrivers()
+  return on ? drivers.get(id) ?? null : null
 }
