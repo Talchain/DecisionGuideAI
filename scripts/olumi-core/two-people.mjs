@@ -154,9 +154,9 @@ check(cards === v.model.cards.length, `DGAI's canvas draws every card of core's 
 check(!(await ada.page.getByText('Untitled scenario').first().isVisible().catch(() => false)) && await ada.page.getByText(v.title, { exact: true }).first().isVisible(), `the top bar names the scenario as core does ("${v.title}")`)
 for (const c of v.model.cards.slice(0, 4)) check(await ada.page.locator(`.react-flow__node-viewCard >> text=${c.heading}`).first().isVisible(), `card "${c.heading}" in core's words`)
 // No dead controls (Paul's W4 rule): what the lane cannot serve is not on the page at all, not shown dark.
-for (const gone of ['analysisNew', 'diagnostics', 'compare']) check(await ada.page.getByTestId(`outputs-dock-tab-${gone}`).count() === 0, `no ${gone === 'analysisNew' ? 'Reasoning' : gone === 'diagnostics' ? 'Model' : 'Compare'} tab`)
+for (const gone of ['diagnostics', 'compare']) check(await ada.page.getByTestId(`outputs-dock-tab-${gone}`).count() === 0, `no ${gone === 'diagnostics' ? 'Model' : 'Compare'} tab`)
 check(await ada.page.getByTestId('lens-bar').count() === 0, 'no lens bar')
-for (const kept of ['olumi', 'results', 'team']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
+for (const kept of ['olumi', 'results', 'analysisNew', 'team']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
 // G6: Olumi's next step, beside the one card core names, in core's words.
 const next = v.chat.find((t) => t.answer?.next.newest)?.answer?.next
 check(next && next.at !== null, `core puts Olumi's next step beside one card (${next?.at})`)
@@ -248,6 +248,10 @@ await tab(ada, 'olumi')
 await ada.page.fill('#view-chat-text', 'Add staff absence as a factor.')
 await ada.page.getByRole('button', { name: 'Send', exact: true }).click()
 await ada.page.getByTestId('view-chat-proposal').waitFor({ timeout: T })
+// Pending is never shown as current: while core holds the proposal, the Reasoning tab draws no Run at all.
+await tab(ada, 'analysisNew')
+check(await ada.page.getByTestId('view-reasoning').count() === 0, 'while the proposal is held, the Reasoning tab draws no Run')
+await tab(ada, 'olumi')
 // L8: core's change list on the card, each line with its tick; ticking one offers "Approve ticked · 1" (approved whole here; step 9 ticks).
 const held = (await view(ada, sid)).proposal
 const ticks = await ada.page.locator('[data-testid^="view-change-tick-"]').count()
@@ -269,6 +273,42 @@ await teamCheck(bea)
 check(await seen(bea, async () => await bea.page.locator('.react-flow__node-viewCard').count() === v.model.cards.length), 'Bea\'s canvas moved to version 2 on her next read')
 check(JSON.stringify((await view(bea, sid)).model) === JSON.stringify(v.model), 'Bea\'s View is version 2\'s model')
 await shot(bea, '5-bea-version-2')
+
+// ── 5a. Reasoning, from core's View ─────────────────────────────────────────────────────────────────────────────────────────────
+step('5a', 'Ada opens Reasoning: version 2\'s Run in core\'s words and order, and a figure tried there on a copy')
+await tab(ada, 'analysisNew')
+const reasoning = ada.page.getByTestId('view-reasoning')
+await reasoning.waitFor({ timeout: T })
+const inReasoning = (p) => reasoning.locator(`[data-view="${p}"]`)
+// The page reads core's olumi.view/3 (src/olumiView/client.ts `viewPath`), which carries the Run's science lines: compared against that.
+const v3 = await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view?schema=3`)).json(), sid)
+check(v3.version.id === v.version.id, 'core\'s olumi.view/3 is the same version')
+const options = v3.model.cards.filter((c) => c.family === 'option' && c.status === null)
+check(v3.model.run.lead === null || await inReasoning('run.lead').innerText() === v3.model.run.lead, `the Run's lead, as core says it`)
+check(JSON.stringify(await reasoning.locator('[data-view-card]').evaluateAll((es) => es.map((e) => e.getAttribute('data-view-card')))) === JSON.stringify(options.map((c) => c.id)), `each option in core's order (${options.length}), none ranked`)
+let bound = 0
+for (const c of options) {
+  if (await inReasoning(`${c.id}.heading`).innerText() !== c.heading) { check(false, `option "${c.heading}" in core's words`) }
+  for (const [i, r] of c.rows.entries()) {
+    const words = r.kind === 'none' ? [[`${c.id}.rows.${i}.text`, r.text]] : [[`${c.id}.rows.${i}.aim`, r.aim], [`${c.id}.rows.${i}.value`, r.value]]
+    for (const [at, text] of words) { if (await inReasoning(at).innerText() !== text) check(false, `${at} is core's "${text}"`); bound++ }
+  }
+  if (c.driver !== null) { if (await inReasoning(`${c.id}.driver.text`).innerText() !== c.driver.text) check(false, `${c.id}'s driver line in core's words`); bound++ }
+}
+for (const [i, l] of v3.model.run.science.entries()) { if (await inReasoning(`run.science.${i}.line`).innerText() !== l.line) check(false, `worth line ${l.id} in core's words`); bound++ }
+check(bound > 0, `every option's chance or blocker, driver line and worth line drawn exactly as core's View says it (${bound} strings)`)
+await shot(ada, `k-analysis-${process.env.VIEW_W ?? 1440}`)
+const tryable = v3.model.cards.find((c) => c.figure?.edit)
+check(tryable !== undefined, `Reasoning offers a figure to try ("${tryable?.heading}")`)
+await reasoning.getByTestId(`reasoning-edit-${tryable.id}`).click()
+await reasoning.getByTestId(`reasoning-typed-${tryable.id}`).fill('5')
+await reasoning.getByTestId(`reasoning-try-${tryable.id}`).click()
+await reasoning.getByTestId('view-whatif').waitFor({ timeout: T })
+check((await reasoning.getByTestId('view-whatif').innerText()).includes('What-if, not saved') && await ada.page.getByTestId('outputs-dock-tab-analysisNew').getAttribute('aria-selected') === 'true', 'the try is drawn on Reasoning, which stays open, marked not saved')
+check((await view(ada, sid)).version.n === 2, 'core saved nothing: still version 2')
+await reasoning.getByTestId('view-whatif-clear').click()
+await reasoning.getByRole('button', { name: 'Cancel', exact: true }).click()
+await tab(ada, 'olumi')
 
 // ── 5b. The person's own figure, changed on its card ────────────────────────────────────────────────────────────────────────────
 step('5b', 'Ada changes a figure on its card in DGAI, typed as she would say it; core reads it and both screens show it')

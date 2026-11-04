@@ -11,6 +11,9 @@ import type { ViewCard, ViewModel } from './client'
  */
 export const optionCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.family === 'option' && c.status === null)
 
+/** The cards whose figure the person may set, in the View's own order: core offers `figure.edit` only there, and only while no proposal is held. */
+export const settableFigures = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.figure?.edit)
+
 /** Core's own page geometry (olumi-core src/page/graph.ts): card width and the gaps between columns and cards, and the top margin. */
 const W = 232, GAP_X = 48, GAP_Y = 14, TOP = 112
 
