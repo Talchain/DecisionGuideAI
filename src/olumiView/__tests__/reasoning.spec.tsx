@@ -200,7 +200,7 @@ describe('each option\'s outcome band', () => {
       expect(band.querySelector('[data-view="key.0.glyph"]')?.textContent ?? null, v.option).toBe(v.olumi ? m.key[0].glyph : null)
       expect(places(band), v.option).toEqual(PLACES[v.option])
     })
-    expect(m.key[0]).toEqual({ glyph: '◆', text: 'Olumi' })
+    expect(m.key[0]).toEqual({ id: 'olumi', glyph: '◆', text: 'Olumi' })
   })
 
   it('must not change: no outcome (null) draws no band; before e16a497 (no field) and with null values nothing; the Analysis tab draws none', () => {

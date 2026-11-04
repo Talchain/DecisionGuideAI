@@ -81,11 +81,13 @@ describe('nothing the View says on a line is dropped (review 00049)', () => {
   /**
    * Every visible string a row carries: its words and marks, never its hovers (`title`), its kind or its aim's id. Nor its `outcome`
    * (olumi.view/3 at core c838f56: the run's low / median / high and unit, numbers for the option card's outcome band, the v10 slot under
-   * status line 2), which no line of this block draws: deliberately exempt, so the band, not this list, owns it.
+   * status line 2), which no line of this block draws: deliberately exempt, so the band, not this list, owns it. Nor (core 550ad5f, the R3
+   * Analysis wall) a finding's `rests_on` (record ids, the Rests on lens's marks) or its `rests_on_text` (the finding's hover, not words
+   * on screen: viewFindings.spec binds both); its `text` is drawn and walked here.
    */
   const shownStrings = (row: Record<string, unknown>, at: string): string[] => Object.entries(row).flatMap(([k, v]) =>
-    typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'aim_id' && k !== 'title' ? [`${at}.${k}`] : [])
-    : v !== null && typeof v === 'object' && k !== 'outcome' ? shownStrings(v as Record<string, unknown>, `${at}.${k}`) : [])
+    typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'aim_id' && k !== 'title' && k !== 'rests_on_text' ? [`${at}.${k}`] : [])
+    : v !== null && typeof v === 'object' && k !== 'outcome' && k !== 'rests_on' ? shownStrings(v as Record<string, unknown>, `${at}.${k}`) : [])
   for (const n of GOLDEN) {
     it(`${n}: every word and mark on every option line is drawn, and each line carries core's hover`, () => {
       const model = golden(n).model!
@@ -145,7 +147,13 @@ describe('the Run beside the chances says what the base dock said, word for word
       const model = golden(n).model!, o = oracle[n]!
       const { container } = render(<ViewChances model={model} />)
       expect(container.querySelector('[data-view="run.lead"]')?.textContent ?? null).toBe(o.lead)
-      expect(container.querySelector('[data-view="run.most_likely.text"]')?.textContent ?? null).toBe(o.most_likely)
+      // On olumi.view/3 (core 550ad5f) the base dock's one sentence is split: its head on screen (`text`), what it rests on as its hover
+      // (`rests_on_text`). Together they are still the base dock's words, in order, none dropped.
+      const ml = model.run?.most_likely ?? null
+      const head = container.querySelector('[data-view="run.most_likely.text"]')?.textContent ?? null
+      const hover = container.querySelector('[data-view-hover="run.most_likely.rests_on_text"]')?.getAttribute('title') ?? null
+      expect(hover, 'the hover is core\'s rests_on_text').toBe(ml?.rests_on_text ?? null)
+      expect(head === null ? null : hover === null ? head : `${head} ${hover}`).toBe(o.most_likely)
       expect(texts(container, '[data-view^="run.notes."]')).toEqual(o.notes)
       if (o.waits_on === null) expect(container.querySelector('[data-testid="view-run-waits-on"]')).toBeNull()
       else {
