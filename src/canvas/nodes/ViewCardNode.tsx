@@ -70,7 +70,7 @@ export function ViewCard({ card, selected = false }: ViewCardData & { selected?:
         <p className={`${typography.nodeValue} ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
           data-olumi={estimate || undefined} data-view={`${id}.figure.text`}>{card.figure.text}</p>
       )}
-      {card.figure?.edit ? <FigureEdit id={card.id} edit={card.figure.edit} label={estimate ? '✎ Give yours' : undefined} quiet={!selected && !estimate} /> : null}
+      {card.figure?.edit ? <FigureEdit id={card.id} edit={card.figure.edit} {...(estimate ? { glyph: '✎', label: 'Give yours' } : {})} quiet={!selected} /> : null}
       {card.bound === null ? null : (
         <p title={card.bound.title}><span data-view={`${id}.bound.text`}>{card.bound.text}</span>
           {card.bound.olumi === null ? null : <> <Mark at={`${id}.bound.olumi`} mark={card.bound.olumi} /></>}</p>

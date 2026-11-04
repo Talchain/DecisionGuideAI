@@ -58,8 +58,8 @@ describe('lane C: a card reads heading and figure first', () => {
 })
 
 describe('an Olumi estimate reads as Olumi\'s at a glance (core L1/L2)', () => {
-  it('a figure card core marks ◆: the figure in Olumi\'s colour with core\'s mark on hover, and "✎ Give yours" always shown; a person\'s figure is neither', async () => {
-    const { QUIET } = await import('../FigureEdit')
+  it('a figure card core marks ◆: the figure in Olumi\'s colour with core\'s mark on hover, its ✎ always shown and the words "Give yours" only on hover, focus or selection (no static repeating text); a person\'s figure is neither', async () => {
+    const { QUIET, QUIET_WORDS } = await import('../FigureEdit')
     const est = view.model!.cards.find((c) => c.family === 'quantity' && c.olumi?.glyph === '◆' && c.figure?.edit)!
     const theirs = view.model!.cards.find((c) => c.family === 'quantity' && c.olumi === null && c.figure?.edit)!
     const a = render(<ViewCard card={est} />).container
@@ -69,9 +69,16 @@ describe('an Olumi estimate reads as Olumi\'s at a glance (core L1/L2)', () => {
     expect(fig.className).toContain('text-info')
     expect(fig.getAttribute('title')).toBe(`${est.figure!.title} · ${est.olumi!.title}`)
     const give = a.querySelector(`[data-testid="view-figure-edit-${est.id}"]`)!
-    expect(give.textContent).toBe('✎ Give yours')
+    expect(give.getAttribute('aria-label')).toBe('Give yours')
     expect(give.className).not.toContain(QUIET)
+    const glyph = a.querySelector(`[data-testid="view-figure-glyph-${est.id}"]`)!
+    expect(glyph.textContent).toBe('✎')
+    expect(glyph.className).not.toContain('opacity-0')
+    expect(a.querySelector(`[data-testid="view-figure-words-${est.id}"]`)?.className).toContain(QUIET_WORDS)
     a.remove()
+    const sel = render(<ViewCard card={est} selected />).container
+    expect(sel.querySelector(`[data-testid="view-figure-words-${est.id}"]`)?.className).not.toContain('opacity-0')
+    sel.remove()
     const b = render(<ViewCard card={theirs} />).container
     expect(b.querySelector(`[data-view="${theirs.id}.figure.text"]`)?.hasAttribute('data-olumi')).toBe(false)
     expect(b.querySelector(`[data-testid="view-figure-edit-${theirs.id}"]`)?.textContent).toBe('Change figure')
