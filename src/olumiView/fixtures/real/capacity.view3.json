@@ -1,0 +1,1205 @@
+{
+ "schema": "olumi.view/3",
+ "id": "s_f79b0d4c6864",
+ "title": "Weekly ticket capacity and staffing",
+ "commit": "scripted-dev",
+ "signature": "[4,null,[[3,\"approved\"]],[],[\"Ada\"],[],[\"1\"]]",
+ "you": "Ada",
+ "you_id": "1",
+ "members": [
+  {
+   "id": "1",
+   "name": "Ada"
+  }
+ ],
+ "version": {
+  "id": 4,
+  "n": 1,
+  "label": "version 1",
+  "changed": []
+ },
+ "model": {
+  "question": {
+   "text": "Keep current staffing or add one specialist?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": {
+    "records": [
+     "disruption_onset"
+    ],
+    "text": "● +1",
+    "title": "quantity: Timing of possible team disruption",
+    "label": "Expand 1 reasoning records",
+    "open": false,
+    "proposed": false,
+    "change": ""
+   }
+  },
+  "whole": false,
+  "cards": [
+   {
+    "id": "current_resolutions",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Current weekly ticket resolutions",
+    "typed": false,
+    "detail": "Current weekly ticket resolutions · quantity · Theirs: “Our team resolves 80 tickets a week.” (Ada) · 80 tickets/week",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "80 tickets/week",
+     "title": "80 tickets/week",
+     "edit": {
+      "prompt": "New figure for “Current weekly ticket resolutions” (ticket/week): one number, or a range like 150 to 400",
+      "ask": "For “Current weekly ticket resolutions”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "specialist_contribution",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Weekly contribution per added specialist",
+    "typed": false,
+    "detail": "Weekly contribution per added specialist · quantity · Theirs: “Each specialist adds about 20, somewhere between 10 and 30.” (Ada) · Hard bounds: 10 to 30 tickets/week/specialist, most likely 20 tickets/week/specialist",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": true,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "10 to 30 tickets/week/specialist",
+     "title": "Hard bounds: 10 to 30 tickets/week/specialist, most likely 20 tickets/week/specialist",
+     "edit": {
+      "prompt": "New figure for “Weekly contribution per added specialist” (ticket/week/specialist): one number, or a range like 150 to 400",
+      "ask": "For “Weekly contribution per added specialist”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "test_net_contribution",
+    "family": "condition",
+    "glyph": "!",
+    "heading": "challenge",
+    "typed": true,
+    "detail": "Check whether the specialist contribution already includes time existing specialists spend onboarding and coordinating. If it is a gross contribution, adding it directly may overstate the team's net gain. · challenge · Proposed by Olumi: The additive identity holds existing output fixed, while the team lead raises a possible interaction. The brief does not establish that unsettling the team changes ticket output.",
+    "col": 1,
+    "h": 112,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: The additive identity holds existing output fixed, while the team lead raises a possible interaction. The brief does not establish that unsettling the team changes ticket output."
+    },
+    "change": null,
+    "focus": true,
+    "challenged": true,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "Check whether the specialist contribution already includes time existing specialists spend onboarding and coordinating. If it is a gross contribution, adding it directly may overstate the team's net gain.",
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "one_specialist",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Capacity added by the full-specialist option",
+    "typed": false,
+    "detail": "Capacity added by the full-specialist option · quantity · Theirs: “Keep current staffing or add one specialist?” (Ada) · 1 specialist",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "1 specialist",
+     "title": "1 specialist",
+     "edit": {
+      "prompt": "New figure for “Capacity added by the full-specialist option” (specialist): one number, or a range like 150 to 400",
+      "ask": "For “Capacity added by the full-specialist option”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "shared_specialist",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Capacity added by the shared-specialist proposal",
+    "typed": false,
+    "detail": "Capacity added by the shared-specialist proposal · quantity · Proposed by Olumi: A half-time specialist shared with another team is a narrower staffing alternative for testing whether partial capacity is useful. Availability and proportional contribution are not established. · 0.5 specialists",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A half-time specialist shared with another team is a narrower staffing alternative for testing whether partial capacity is useful. Availability and proportional contribution are not established."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0.5 specialists",
+     "title": "0.5 specialists",
+     "edit": {
+      "prompt": "New figure for “Capacity added by the shared-specialist proposal” (specialist): one number, or a range like 150 to 400",
+      "ask": "For “Capacity added by the shared-specialist proposal”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "total_resolutions",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Weekly ticket resolutions under the additive model",
+    "typed": false,
+    "detail": "Weekly ticket resolutions under the additive model · quantity · Theirs: “Total is today plus the specialists.” (Ada) · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Keep current staffing: 80 tickets/week · Add one specialist: about 100 tickets/week (93.7 to 106 tickets/week) if 'A new hire may unsettle the team' does not happen · Share a part-time specialist with another team: about 90 tickets/week (86.8 to 93.2 tickets/week)",
+     "title": "Modelled range at the end of week 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under Keep current staffing, Share a part-time specialist with another team it rests on figures Olumi proposed. Keep current staffing: 80 tickets/week; Add one specialist: about 100 tickets/week (93.7 to 106 tickets/week) if 'A new hire may unsettle the team' does not happen; Share a part-time specialist with another team: about 90 tickets/week (86.8 to 93.2 tickets/week). Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "added_specialists",
+      "weekly_capacity",
+      "disruption_not_sized"
+     ],
+     "text": "● = ○ +3",
+     "title": "quantity: Added specialist capacity\nrelation: how Weekly ticket resolutions under the additive model is worked out\nleft out: The possible team disruption is retained as a risk but has no numerical ticket-output effect.",
+     "label": "Expand 3 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": [
+     {
+      "option": "keep_staffing",
+      "text": "80 tickets/week",
+      "p10": 80,
+      "p50": 80,
+      "p90": 80,
+      "if_absent": [],
+      "olumi": true
+     },
+     {
+      "option": "add_specialist",
+      "text": "about 100 tickets/week (93.7 to 106 tickets/week) if 'A new hire may unsettle the team' does not happen",
+      "p10": 93.6926082148581,
+      "p50": 100.09405018582876,
+      "p90": 106.42421638270152,
+      "if_absent": [
+       "team_unsettled"
+      ],
+      "olumi": false
+     },
+     {
+      "option": "share_specialist",
+      "text": "about 90 tickets/week (86.8 to 93.2 tickets/week)",
+      "p10": 86.84630410742905,
+      "p50": 90.04702509291438,
+      "p90": 93.21210819135075,
+      "if_absent": [],
+      "olumi": true
+     }
+    ],
+    "rests_on": []
+   },
+   {
+    "id": "required_resolutions",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Required weekly ticket resolutions",
+    "typed": false,
+    "detail": "Required weekly ticket resolutions · quantity · Theirs: “We need at least 100 tickets a week.” (Ada) · 100 tickets/week",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "100 tickets/week",
+     "title": "100 tickets/week",
+     "edit": {
+      "prompt": "New figure for “Required weekly ticket resolutions” (ticket/week): one number, or a range like 150 to 400",
+      "ask": "For “Required weekly ticket resolutions”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "weekly_requirement",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Meet the weekly ticket requirement",
+    "typed": false,
+    "detail": "Meet the weekly ticket requirement · goal · Theirs: “We need at least 100 tickets a week.” (Ada)",
+    "col": 3,
+    "h": 130,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at least 100 tickets/week",
+     "title": "Should this requirement apply immediately, or once an added specialist is fully contributing?",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Olumi’s proposal, for you to vet"
+     },
+     "measured": true
+    },
+    "reason": null,
+    "badge": {
+     "records": [
+      "transition_not_modelled",
+      "disruption_not_sized"
+     ],
+     "text": "○ +2",
+     "title": "left out: Recruitment and onboarding weeks are not calculated.\nleft out: The possible team disruption is retained as a risk but has no numerical ticket-output effect.",
+     "label": "Expand 2 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "keep_staffing",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Keep current staffing",
+    "typed": false,
+    "detail": "Keep current staffing · option · Theirs: “Keep current staffing or add one specialist?” (Ada)",
+    "col": 0,
+    "h": 98,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "never met in this model",
+      "fixed": true,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Meet the weekly ticket requirement",
+      "aim_id": "weekly_requirement",
+      "title": "With the model's figures, 'Keep current staffing' never meets 'Meet the weekly ticket requirement': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's proposed figures for 'Added specialist capacity', not yet confirmed by them. It leaves out: Recruitment and onboarding weeks are not calculated; The possible team disruption is retained as a risk but has no numerical ticket-output effect.",
+      "chance": 0,
+      "outcome": {
+       "low": 80,
+       "median": 80,
+       "high": 80,
+       "unit": "ticket/week",
+       "text": "80 tickets/week",
+       "title": "If Olumi's estimates hold, under 'Keep current staffing', 'Weekly ticket resolutions under the additive model' is this in at least 8 draws in 10. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's proposed figures for 'Added specialist capacity', not yet confirmed by them. It leaves out: Recruitment and onboarding weeks are not calculated; The possible team disruption is retained as a risk but has no numerical ticket-output effect."
+      },
+      "estimate": null
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "committed": null
+   },
+   {
+    "id": "add_specialist",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Add one specialist",
+    "typed": false,
+    "detail": "Add one specialist · option · Theirs: “Keep current staffing or add one specialist?” (Ada)",
+    "col": 0,
+    "h": 160,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "◇",
+      "text": "The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation.",
+      "title": "The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation. · assumption · Proposed by Olumi: The brief supplies weekly contributions but no recruitment or onboarding schedule. Starting the static comparison with productive capacity avoids inventing a hiring date. · Applied in the calculation"
+     },
+     {
+      "glyph": "!",
+      "text": "Check whether the specialist contribution already includes time existing specialists spend onboarding and coordinating. If it is a gross contribution, adding it directly may overstate the team's net gain.",
+      "title": "Check whether the specialist contribution already includes time existing specialists spend onboarding and coordinating. If it is a gross contribution, adding it directly may overstate the team's net gain. · challenge · Proposed by Olumi: The additive identity holds existing output fixed, while the team lead raises a possible interaction. The brief does not establish that unsettling the team changes ticket output."
+     }
+    ],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "about 51% chance if 'A new hire may unsettle the team' does not happen",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": {
+       "glyph": "◉",
+       "title": "If Olumi's estimates hold, 'Add one specialist' is more likely to achieve 'Meet the weekly ticket requirement' in this model (about 51%, against under 1% for 'Keep current staffing'); it rests on Olumi's estimate of 'Added specialist capacity' — give yours with ✎. It is worked out as if 'A new hire may unsettle the team' does not happen: that risk has no size yet. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation. It leaves out: Recruitment and onboarding weeks are not calculated; The possible team disruption is retained as a risk but has no numerical ticket-output effect."
+      },
+      "aim": "Meet the weekly ticket requirement",
+      "aim_id": "weekly_requirement",
+      "title": "If Olumi's estimates hold, the chance that 'Add one specialist' meets 'Meet the weekly ticket requirement', in this model on current information. It is worked out as if 'A new hire may unsettle the team' does not happen: that risk has no size yet. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation. It leaves out: Recruitment and onboarding weeks are not calculated; The possible team disruption is retained as a risk but has no numerical ticket-output effect.",
+      "chance": 0.5073,
+      "outcome": {
+       "low": 93.6926082148581,
+       "median": 100.09405018582876,
+       "high": 106.42421638270152,
+       "unit": "ticket/week",
+       "text": "between 93.7 and 106 tickets/week (middle 100) if 'A new hire may unsettle the team' does not happen",
+       "title": "If Olumi's estimates hold, under 'Add one specialist', 'Weekly ticket resolutions under the additive model' is likely to be in this range (8 draws in 10). It is worked out as if 'A new hire may unsettle the team' does not happen: that risk has no size yet. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation. It leaves out: Recruitment and onboarding weeks are not calculated; The possible team disruption is retained as a risk but has no numerical ticket-output effect."
+      },
+      "estimate": null
+     }
+    ],
+    "driver": {
+     "text": "under 1% if 'Weekly contribution per added specialist' is low, over 99% if it is high, each if 'A new hire may unsettle the team' does not happen: Under 'Add one specialist', the chance of meeting 'Meet the weekly ticket requirement' moves most with 'Weekly contribution per added specialist': these are its chances over the lowest and highest third of that figure's draws. It is worked out as if 'A new hire may unsettle the team' does not happen: that risk has no size yet.",
+     "title": "under 1% if 'Weekly contribution per added specialist' is low, over 99% if it is high, each if 'A new hire may unsettle the team' does not happen: Under 'Add one specialist', the chance of meeting 'Meet the weekly ticket requirement' moves most with 'Weekly contribution per added specialist': these are its chances over the lowest and highest third of that figure's draws. It is worked out as if 'A new hire may unsettle the team' does not happen: that risk has no size yet.",
+     "figure": "specialist_contribution",
+     "low": 0,
+     "high": 1
+    },
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "transition_not_modelled"
+     ],
+     "text": "○ +1",
+     "title": "left out: Recruitment and onboarding weeks are not calculated.",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": null,
+    "rests_on": [
+     {
+      "id": "productive_week",
+      "whose": "olumi"
+     }
+    ],
+    "committed": null
+   },
+   {
+    "id": "productive_week",
+    "family": "assumption",
+    "glyph": "◇",
+    "heading": "Productive week",
+    "typed": true,
+    "detail": "The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation. · assumption · Proposed by Olumi: The brief supplies weekly contributions but no recruitment or onboarding schedule. Starting the static comparison with productive capacity avoids inventing a hiring date. · Applied in the calculation",
+    "col": 0,
+    "h": 112,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: The brief supplies weekly contributions but no recruitment or onboarding schedule. Starting the static comparison with productive capacity avoids inventing a hiring date."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation.",
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "share_specialist",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Share a part-time specialist with another team",
+    "typed": false,
+    "detail": "Share a part-time specialist with another team · option · Proposed by Olumi: A narrower alternative tests partial staffing rather than treating a full hire as the only available increment. It is an additional exploration, not a replacement for Ada's comparison.",
+    "col": 0,
+    "h": 164,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A narrower alternative tests partial staffing rather than treating a full hire as the only available increment. It is an additional exploration, not a replacement for Ada's comparison."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "◇",
+      "text": "The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation.",
+      "title": "The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation. · assumption · Proposed by Olumi: The brief supplies weekly contributions but no recruitment or onboarding schedule. Starting the static comparison with productive capacity avoids inventing a hiring date. · Applied in the calculation"
+     },
+     {
+      "glyph": "◇",
+      "text": "For the shared-specialist proposal only, contribution scales proportionally with allocated specialist time.",
+      "title": "For the shared-specialist proposal only, contribution scales proportionally with allocated specialist time. · assumption · Proposed by Olumi: Proportional scaling makes the narrower proposal inspectable, but coordination costs or indivisible work could make it inaccurate. · Applied in the calculation"
+     },
+     {
+      "glyph": "!",
+      "text": "Check whether the specialist contribution already includes time existing specialists spend onboarding and coordinating. If it is a gross contribution, adding it directly may overstate the team's net gain.",
+      "title": "Check whether the specialist contribution already includes time existing specialists spend onboarding and coordinating. If it is a gross contribution, adding it directly may overstate the team's net gain. · challenge · Proposed by Olumi: The additive identity holds existing output fixed, while the team lead raises a possible interaction. The brief does not establish that unsettling the team changes ticket output."
+     }
+    ],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "under 1% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Meet the weekly ticket requirement",
+      "aim_id": "weekly_requirement",
+      "title": "If Olumi's estimates hold, the chance that 'Share a part-time specialist with another team' meets 'Meet the weekly ticket requirement', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's proposed figures for 'Capacity added by the shared-specialist proposal', not yet confirmed by them. It rests on: The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation; For the shared-specialist proposal only, contribution scales proportionally with allocated specialist time. It leaves out: Recruitment and onboarding weeks are not calculated; The possible team disruption is retained as a risk but has no numerical ticket-output effect.",
+      "chance": 0,
+      "outcome": {
+       "low": 86.84630410742905,
+       "median": 90.04702509291438,
+       "high": 93.21210819135075,
+       "unit": "ticket/week",
+       "text": "between 86.8 and 93.2 tickets/week (middle 90)",
+       "title": "If Olumi's estimates hold, under 'Share a part-time specialist with another team', 'Weekly ticket resolutions under the additive model' is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's proposed figures for 'Capacity added by the shared-specialist proposal', not yet confirmed by them. It rests on: The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation; For the shared-specialist proposal only, contribution scales proportionally with allocated specialist time. It leaves out: Recruitment and onboarding weeks are not calculated; The possible team disruption is retained as a risk but has no numerical ticket-output effect."
+      },
+      "estimate": null
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "transition_not_modelled"
+     ],
+     "text": "○ +1",
+     "title": "left out: Recruitment and onboarding weeks are not calculated.",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": null,
+    "rests_on": [
+     {
+      "id": "productive_week",
+      "whose": "olumi"
+     },
+     {
+      "id": "fractional_capacity",
+      "whose": "olumi"
+     }
+    ],
+    "committed": null
+   },
+   {
+    "id": "fractional_capacity",
+    "family": "assumption",
+    "glyph": "◇",
+    "heading": "Fractional capacity",
+    "typed": true,
+    "detail": "For the shared-specialist proposal only, contribution scales proportionally with allocated specialist time. · assumption · Proposed by Olumi: Proportional scaling makes the narrower proposal inspectable, but coordination costs or indivisible work could make it inaccurate. · Applied in the calculation",
+    "col": 0,
+    "h": 112,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Proportional scaling makes the narrower proposal inspectable, but coordination costs or indivisible work could make it inaccurate."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "For the shared-specialist proposal only, contribution scales proportionally with allocated specialist time.",
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "team_unsettled",
+    "family": "risk",
+    "glyph": "△",
+    "heading": "A new hire may unsettle the team",
+    "typed": false,
+    "detail": "A new hire may unsettle the team · risk · Theirs: “Our team lead says a new hire may unsettle the team.” (Ada's team lead)",
+    "col": 0,
+    "h": 130,
+    "olumi": null,
+    "change": null,
+    "focus": true,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "no size yet",
+     "title": "‘A new hire may unsettle the team’ acts on an option, not on a figure, so the calculation cannot size it.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "disruption_not_sized"
+     ],
+     "text": "○ +1",
+     "title": "left out: The possible team disruption is retained as a risk but has no numerical ticket-output effect.",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": null,
+    "rests_on": []
+   }
+  ],
+  "links": [
+   {
+    "from": "current_resolutions",
+    "to": "total_resolutions",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "base · Theirs: “Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing or add one specialist? We need at least 100 tickets a week. Total is today plus the specialists.” (Ada)",
+    "effect": null
+   },
+   {
+    "from": "specialist_contribution",
+    "to": "total_resolutions",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "how much · Theirs: “Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing or add one specialist? We need at least 100 tickets a week. Total is today plus the specialists.” (Ada)",
+    "effect": null
+   },
+   {
+    "from": "total_resolutions",
+    "to": "weekly_requirement",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "effect": null
+   },
+   {
+    "from": "required_resolutions",
+    "to": "weekly_requirement",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target",
+    "effect": null
+   },
+   {
+    "from": "add_specialist",
+    "to": "one_specialist",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "effect": null
+   },
+   {
+    "from": "one_specialist",
+    "to": "total_resolutions",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Added specialist capacity · Theirs: “Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing or add one specialist? We need at least 100 tickets a week. Total is today plus the specialists.” (Ada)",
+    "effect": {
+     "text": "10 to 30 tickets/week/specialist",
+     "title": "Weekly contribution per added specialist · Hard bounds: 10 to 30 tickets/week/specialist, most likely 20 tickets/week/specialist · worked out through Added specialist capacity",
+     "figure": "specialist_contribution"
+    }
+   },
+   {
+    "from": "share_specialist",
+    "to": "shared_specialist",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "effect": null
+   },
+   {
+    "from": "shared_specialist",
+    "to": "total_resolutions",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Added specialist capacity · Theirs: “Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing or add one specialist? We need at least 100 tickets a week. Total is today plus the specialists.” (Ada)",
+    "effect": {
+     "text": "10 to 30 tickets/week/specialist",
+     "title": "Weekly contribution per added specialist · Hard bounds: 10 to 30 tickets/week/specialist, most likely 20 tickets/week/specialist · worked out through Added specialist capacity",
+     "figure": "specialist_contribution"
+    }
+   },
+   {
+    "from": "productive_week",
+    "to": "page:question",
+    "kind": "reason",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation.",
+    "effect": null
+   },
+   {
+    "from": "productive_week",
+    "to": "add_specialist",
+    "kind": "reason",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation.",
+    "effect": null
+   },
+   {
+    "from": "productive_week",
+    "to": "share_specialist",
+    "kind": "reason",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation.",
+    "effect": null
+   },
+   {
+    "from": "fractional_capacity",
+    "to": "share_specialist",
+    "kind": "reason",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: For the shared-specialist proposal only, contribution scales proportionally with allocated specialist time.",
+    "effect": null
+   },
+   {
+    "from": "fractional_capacity",
+    "to": "page:question",
+    "kind": "reason",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: For the shared-specialist proposal only, contribution scales proportionally with allocated specialist time.",
+    "effect": null
+   },
+   {
+    "from": "team_unsettled",
+    "to": "add_specialist",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "may change",
+    "effect": null
+   },
+   {
+    "from": "test_net_contribution",
+    "to": "specialist_contribution",
+    "kind": "reason",
+    "label": "!",
+    "doubt": true,
+    "alert": true,
+    "proposed": false,
+    "title": "challenge: Check whether the specialist contribution already includes time existing specialists spend onboarding and coordinating. If it is a gross contribution, adding it directly may overstate the team's net gain.",
+    "effect": null
+   },
+   {
+    "from": "test_net_contribution",
+    "to": "page:question",
+    "kind": "reason",
+    "label": "!",
+    "doubt": true,
+    "alert": true,
+    "proposed": false,
+    "title": "challenge: Check whether the specialist contribution already includes time existing specialists spend onboarding and coordinating. If it is a gross contribution, adding it directly may overstate the team's net gain.",
+    "effect": null
+   },
+   {
+    "from": "test_net_contribution",
+    "to": "team_unsettled",
+    "kind": "reason",
+    "label": "!",
+    "doubt": true,
+    "alert": true,
+    "proposed": false,
+    "title": "challenge: Check whether the specialist contribution already includes time existing specialists spend onboarding and coordinating. If it is a gross contribution, adding it directly may overstate the team's net gain.",
+    "effect": null
+   },
+   {
+    "from": "test_net_contribution",
+    "to": "share_specialist",
+    "kind": "reason",
+    "label": "!",
+    "doubt": true,
+    "alert": true,
+    "proposed": false,
+    "title": "challenge: Check whether the specialist contribution already includes time existing specialists spend onboarding and coordinating. If it is a gross contribution, adding it directly may overstate the team's net gain.",
+    "effect": null
+   }
+  ],
+  "run": {
+   "aim": "chance of ‘Meet the weekly ticket requirement’",
+   "lead": "In this model, on current information, each option’s chance of ‘Meet the weekly ticket requirement’:",
+   "all_withheld": false,
+   "most_likely": {
+    "text": "If Olumi's estimates hold, 'Add one specialist' is more likely to achieve 'Meet the weekly ticket requirement' in this model (about 51%, against under 1% for 'Keep current staffing'); it rests on Olumi's estimate of 'Added specialist capacity' — give yours with ✎. It is worked out as if 'A new hire may unsettle the team' does not happen: that risk has no size yet. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation.",
+    "title": "If Olumi's estimates hold, 'Add one specialist' is more likely to achieve 'Meet the weekly ticket requirement' in this model (about 51%, against under 1% for 'Keep current staffing'); it rests on Olumi's estimate of 'Added specialist capacity' — give yours with ✎. It is worked out as if 'A new hire may unsettle the team' does not happen: that risk has no size yet. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation. It leaves out: Recruitment and onboarding weeks are not calculated; The possible team disruption is retained as a risk but has no numerical ticket-output effect.",
+    "estimate": "added_specialists"
+   },
+   "waits_on": {
+    "head": "Chance of meeting the goal",
+    "label": "Waits on:",
+    "text": "waits on 1 thing",
+    "items": [
+     {
+      "id": "team_unsettled",
+      "text": "‘A new hire may unsettle the team’",
+      "title": "A new hire may unsettle the team",
+      "answer": false,
+      "unknown": null,
+      "edit": null
+     }
+    ]
+   },
+   "notes": [
+    {
+     "text": "This leaves out: Recruitment and onboarding weeks are not calculated; The possible team disruption is retained as a risk but has no numerical ticket-output effect.",
+     "title": "This leaves out: Recruitment and onboarding weeks are not calculated; The possible team disruption is retained as a risk but has no numerical ticket-output effect."
+    }
+   ],
+   "science": [],
+   "sensitivity": {
+    "text": "These are its chances over the lowest and highest third of that figure's draws.",
+    "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+   }
+  },
+  "edit_base": 4,
+  "key": [
+   {
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "glyph": "?",
+    "text": "unsized"
+   },
+   {
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "glyph": "↻",
+    "text": "changed"
+   }
+  ],
+  "removed": [],
+  "aim": {
+   "quantity": "total_resolutions",
+   "value": 100,
+   "unit": "ticket/week",
+   "text": "at least 100 tickets/week",
+   "title": "100 tickets/week",
+   "side": "at_least"
+  }
+ },
+ "proposal": null,
+ "collab": {
+  "alone": true,
+  "heading": "Team views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own view, private until revealed",
+  "can_reveal": false,
+  "waiting": null,
+  "commitments": [],
+  "owners": [
+   {
+    "id": "1",
+    "name": "Ada"
+   }
+  ],
+  "records": [
+   {
+    "id": "current_resolutions",
+    "family": "quantity",
+    "label": "Current weekly ticket resolutions"
+   },
+   {
+    "id": "specialist_contribution",
+    "family": "quantity",
+    "label": "Weekly contribution per added specialist"
+   },
+   {
+    "id": "added_specialists",
+    "family": "quantity",
+    "label": "Added specialist capacity"
+   },
+   {
+    "id": "one_specialist",
+    "family": "quantity",
+    "label": "Capacity added by the full-specialist option"
+   },
+   {
+    "id": "shared_specialist",
+    "family": "quantity",
+    "label": "Capacity added by the shared-specialist proposal"
+   },
+   {
+    "id": "total_resolutions",
+    "family": "quantity",
+    "label": "Weekly ticket resolutions under the additive model"
+   },
+   {
+    "id": "weekly_capacity",
+    "family": "relation",
+    "label": "how Weekly ticket resolutions under the additive model is worked out"
+   },
+   {
+    "id": "required_resolutions",
+    "family": "quantity",
+    "label": "Required weekly ticket resolutions"
+   },
+   {
+    "id": "weekly_requirement",
+    "family": "goal",
+    "label": "Meet the weekly ticket requirement"
+   },
+   {
+    "id": "keep_staffing",
+    "family": "option",
+    "label": "Keep current staffing"
+   },
+   {
+    "id": "add_specialist",
+    "family": "option",
+    "label": "Add one specialist"
+   },
+   {
+    "id": "share_specialist",
+    "family": "option",
+    "label": "Share a part-time specialist with another team"
+   },
+   {
+    "id": "productive_week",
+    "family": "assumption",
+    "label": "The comparison represents a week when any added specialist is already contributing at the stated rate. The current team's contribution remains unchanged in the additive calculation."
+   },
+   {
+    "id": "fractional_capacity",
+    "family": "assumption",
+    "label": "For the shared-specialist proposal only, contribution scales proportionally with allocated specialist time."
+   },
+   {
+    "id": "disruption_onset",
+    "family": "quantity",
+    "label": "Timing of possible team disruption"
+   },
+   {
+    "id": "team_unsettled",
+    "family": "risk",
+    "label": "A new hire may unsettle the team"
+   },
+   {
+    "id": "test_net_contribution",
+    "family": "condition",
+    "label": "Check whether the specialist contribution already includes time existing specialists spend onboarding and coordinating. If it is a gross contribution, adding it directly may overstate the team's net gain."
+   },
+   {
+    "id": "transition_not_modelled",
+    "family": "left_out",
+    "label": "Recruitment and onboarding weeks are not calculated."
+   },
+   {
+    "id": "disruption_not_sized",
+    "family": "left_out",
+    "label": "The possible team disruption is retained as a risk but has no numerical ticket-output effect."
+   }
+  ],
+  "dissent": []
+ },
+ "evidence": [],
+ "chat": [
+  {
+   "id": 3,
+   "by": "Ada",
+   "version": "version 1",
+   "earlier": false,
+   "status": null,
+   "said": "Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing or add one specialist? We need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.",
+   "answer": {
+    "answer": [
+     {
+      "text": "Adding a specialist could meet your requirement, but is not a reliable guarantee: if Olumi’s estimates hold, its modelled chance is about 51% if 'A new hire may unsettle the team' does not happen. Keeping current staffing does not meet the requirement in this model "
+     },
+     {
+      "cite": "With the model's figures, 'Keep current staffing' never meets 'Meet the weekly ticket requirement': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's proposed figures for 'Added specialist capacity', not yet confirmed by them. It leaves out: Recruitment and onboarding weeks are not calculated; The possible team disruption is retained as a risk but has no numerical ticket-output effect."
+     },
+     {
+      "text": "."
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "The calculation holds existing output unchanged, leaving your team lead’s concern unmeasured "
+      },
+      {
+       "cite": "'A new hire may unsettle the team' has no size yet, so the results that rest on it are worked out as if it does not happen."
+      },
+      {
+       "text": ". It also excludes recruitment and onboarding weeks."
+      }
+     ]
+    ],
+    "next": {
+     "label": "What evidence would settle it?",
+     "text": [
+      {
+       "text": "Ask the team lead to examine whether Weekly contribution per added specialist includes colleagues’ onboarding and coordination time. Evidence of reduced existing output would challenge the additive premise; unchanged output would support it."
+      }
+     ],
+     "about": [
+      "test_net_contribution",
+      "specialist_contribution",
+      "team_unsettled"
+     ],
+     "at": "test_net_contribution",
+     "newest": true,
+     "move": "gather_evidence"
+    }
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "choice": null
+  }
+ ],
+ "brief": "Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing or add one specialist? We need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.",
+ "gated": false
+}

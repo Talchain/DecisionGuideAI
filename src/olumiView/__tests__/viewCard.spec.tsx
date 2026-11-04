@@ -10,8 +10,10 @@ import type { View, ViewModel } from '../client'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
 
 const DIR = path.resolve('src/olumiView')
-const GOLDEN = ['pricing', 'studio', 'bakery', 'european', 'app-launch', 's_ce285b3617bb', 'proposal'] as const
-const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
+// The real dense boards from the R2 witness store (DL 4 Nov), walked as the goldens are.
+const REAL = ['capacity', 'hiring'] as const
+const GOLDEN = ['pricing', 'studio', 'bakery', 'european', 'app-launch', 's_ce285b3617bb', 'proposal', ...REAL] as const
+const golden = (n: string): View => JSON.parse(readFileSync((REAL as readonly string[]).includes(n) ? path.join(DIR, 'fixtures', 'real', `${n}.view3.json`) : path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
 
 function at(model: ViewModel, p: string): unknown {
   const [id, ...rest] = p.split('.')
