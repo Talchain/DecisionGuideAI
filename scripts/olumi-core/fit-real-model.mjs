@@ -37,6 +37,12 @@ async function frame(view, label, whole = false) {
   check(over.length === 0 && options.every((o) => o.t > q.b) && goals.every((g) => options.every((o) => g.t > o.b)),
     `${label}: the ${view.model.cards.length} cards drawn as the causal graph: the question on top, the ${options.length} options below it, the goal below them, no card on another${over.length ? ` (overlap: ${over.join(', ')})` : ''}`)
   const zoom = await page.evaluate(() => new DOMMatrix(getComputedStyle(document.querySelector('.react-flow__viewport')).transform).a)
+  // R1.1 (Paul's screen: A2 half under the dock): no card rect intersects the dock's.
+  const underDock = await page.evaluate(() => {
+    const d = document.querySelector('[data-testid="outputs-dock"]').getBoundingClientRect()
+    return [...document.querySelectorAll('.react-flow__node')].filter((e) => { const r = e.getBoundingClientRect(); return r.right > d.left + 1 && r.left < d.right && r.bottom > d.top && r.top < d.bottom }).map((e) => e.getAttribute('data-id'))
+  })
+  check(underDock.length === 0, `${label}: no card under the dock${underDock.length ? ` (under it: ${underDock.join(', ')})` : ''}`)
   const out = await page.evaluate(() => {
     const dock = document.querySelector('[data-testid="outputs-dock"]').getBoundingClientRect(), pane = document.querySelector('.react-flow').getBoundingClientRect()
     return [...document.querySelectorAll('.react-flow__node-viewCard, .react-flow__node-viewQuestion')].filter((e) => { const r = e.getBoundingClientRect(); return r.left < pane.left - 1 || r.top < pane.top - 1 || r.right > dock.left + 1 || r.bottom > pane.bottom + 1 }).map((e) => e.getAttribute('data-id'))
@@ -46,7 +52,7 @@ async function frame(view, label, whole = false) {
   // Readable first (DL 4 Nov, the original look): whole when it fits at 0.9 or more, else at 0.9 (lower only as far as keeps the
   // question and options across) with the question and options in view.
   const head = ['page:question', ...view.model.cards.filter((c) => c.family === 'option').map((c) => c.id)]
-  if (whole) check(zoom >= 0.5 && head.every((id) => !out.includes(id)), `${label}: zoom ${zoom.toFixed(3)}, ${out.length === 0 ? 'the whole model in view' : 'the question and every option in view'}`)
+  if (whole) check(zoom >= 0.5 && head.every((id) => !out.includes(id)), `${label}: zoom ${zoom.toFixed(3)}, ${out.length === 0 ? 'the whole model in view' : 'the question and every option in view'}${head.some((id) => out.includes(id)) ? ` (out: ${head.filter((id) => out.includes(id)).join(', ')})` : ''}`)
   else console.log(`  · ${label}: zoom ${zoom.toFixed(3)}; ${out.length === 0 ? 'the whole model is in view' : `out of view: ${out.join(', ')}`}`)
   return { zoom, out }
 }

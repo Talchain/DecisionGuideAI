@@ -164,9 +164,16 @@ for (const kept of ['olumi', 'results', 'analysisNew', 'team', 'compare']) check
 // G6: Olumi's next step, beside the one card core names, in core's words.
 const next = v.chat.find((t) => t.answer?.next.newest)?.answer?.next
 check(next && next.at !== null, `core puts Olumi's next step beside one card (${next?.at})`)
+// R1.1 (Paul's screen): on load the note is an icon at its card, its words said once (in the Olumi tab); a press opens it.
+const nextWords = next.text.map((p) => p.text ?? '').join('').trim()
+const icon = ada.page.getByTestId('olumi-attention-card-icon')
+await icon.waitFor({ timeout: T })
+check(await icon.getAttribute('data-anchor-id') === next.at && await ada.page.getByTestId('olumi-attention-card').count() === 0, `on load, Olumi's next step is an icon at its card (${next.at}), the note not opened`)
+const onceOnLoad = await ada.page.evaluate((w) => [...document.querySelectorAll('body *')].filter((e) => e.checkVisibility?.() !== false && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.includes(w.slice(0, 40)))).length, nextWords)
+check(onceOnLoad <= 1, `on load, the next step's words are on screen at most once (${onceOnLoad})`)
+await icon.click()
 const note = ada.page.getByTestId('olumi-attention-card')
 await note.waitFor({ timeout: T })
-const nextWords = next.text.map((p) => p.text ?? '').join('').trim()
 check((await note.innerText()).includes(nextWords), `Olumi's note on the canvas says it: "${nextWords}"`)
 // Lane C: the note sits beside its card and covers none (measured from what is drawn).
 await ada.page.waitForTimeout(500)
