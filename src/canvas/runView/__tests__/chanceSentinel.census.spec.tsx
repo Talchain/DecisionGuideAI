@@ -833,6 +833,7 @@ const FIELD_DISPOSITION: Readonly<Record<string, FieldDisposition>> = {
   switch_reading: { excluded: NOT_A_NUMBER }, switch_reason: { excluded: NOT_A_NUMBER }, win_probabilities_unavailable: { excluded: NOT_A_NUMBER },
   winner_flips: { excluded: NOT_A_NUMBER }, winner_id: { excluded: NOT_A_NUMBER }, winner_label: { excluded: NOT_A_NUMBER },
   shared_blockers: { excluded: 'olumi-core View (`model.run.shared_blockers`): the Run\'s whole sentence on why no option\'s chance of an aim can be worked out yet, with that aim\'s and the options\' ids; core\'s words, drawn verbatim, never a number' },
+  can_share: { excluded: 'olumi-core View (`collab.mine[].can_share`, API v1.12, 4 Nov): a permission flag, whether a member may share their own view before the reveal; a boolean, never a chance or a number' },
 }
 
 type SurfaceDisposition = 'rendered' | { readonly excluded: string }
