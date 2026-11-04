@@ -157,7 +157,8 @@ describe('the original card\'s look and its named places (DL 4 Nov: an improved 
     const c = render(<ViewCard card={{ ...option, committed: { by: 'Bea', at: '2026-11-04T10:00:00Z' } }} />).container
     const marks = c.querySelector('[data-slot="marks"]')!
     expect(marks.querySelector(`[data-view="${option.id}.committed.by"]`)?.textContent).toBe('Bea')
-    expect(marks.querySelector(`[data-committed="${option.id}"]`)?.getAttribute('title')).toBe('Committed by Bea · 2026-11-04T10:00:00Z')
+    expect(marks.textContent).toBe('Committed by: Bea')
+    expect(marks.querySelector(`[data-committed="${option.id}"]`)?.getAttribute('title')).toBe('Committed by: Bea · 2026-11-04T10:00:00Z')
     // CONTRAST: core's null draws an empty marks row
     expect(render(<ViewCard card={{ ...option, committed: null }} />).container.querySelector('[data-slot="marks"]')!.childElementCount).toBe(0)
   })
