@@ -401,6 +401,12 @@
               },
               "title": {
                "type": "string"
+              },
+              "estimate": {
+               "type": [
+                "string",
+                "null"
+               ]
               }
              },
              "required": [
@@ -412,7 +418,8 @@
               "likely",
               "aim",
               "aim_id",
-              "title"
+              "title",
+              "estimate"
              ],
              "additionalProperties": false
             },
@@ -457,6 +464,12 @@
               },
               "title": {
                "type": "string"
+              },
+              "estimate": {
+               "type": [
+                "string",
+                "null"
+               ]
               }
              },
              "required": [
@@ -465,7 +478,8 @@
               "olumi",
               "aim",
               "aim_id",
-              "title"
+              "title",
+              "estimate"
              ],
              "additionalProperties": false
             },
@@ -764,11 +778,18 @@
               },
               "title": {
                "type": "string"
+              },
+              "estimate": {
+               "type": [
+                "string",
+                "null"
+               ]
               }
              },
              "required": [
               "text",
-              "title"
+              "title",
+              "estimate"
              ],
              "additionalProperties": false
             },
@@ -926,11 +947,76 @@
                    "olumi",
                    "mixed"
                   ]
+                 },
+                 "id": {
+                  "type": "string"
+                 },
+                 "mark": {
+                  "anyOf": [
+                   {
+                    "type": "object",
+                    "properties": {
+                     "glyph": {
+                      "type": "string"
+                     },
+                     "title": {
+                      "type": "string"
+                     }
+                    },
+                    "required": [
+                     "glyph",
+                     "title"
+                    ],
+                    "additionalProperties": false
+                   },
+                   {
+                    "type": "null"
+                   }
+                  ]
+                 },
+                 "give": {
+                  "anyOf": [
+                   {
+                    "type": "object",
+                    "properties": {
+                     "text": {
+                      "type": "string"
+                     },
+                     "edit": {
+                      "type": "object",
+                      "properties": {
+                       "prompt": {
+                        "type": "string"
+                       },
+                       "ask": {
+                        "type": "string"
+                       }
+                      },
+                      "required": [
+                       "prompt",
+                       "ask"
+                      ],
+                      "additionalProperties": false
+                     }
+                    },
+                    "required": [
+                     "text",
+                     "edit"
+                    ],
+                    "additionalProperties": false
+                   },
+                   {
+                    "type": "null"
+                   }
+                  ]
                  }
                 },
                 "required": [
                  "label",
-                 "whose"
+                 "whose",
+                 "id",
+                 "mark",
+                 "give"
                 ],
                 "additionalProperties": false
                },

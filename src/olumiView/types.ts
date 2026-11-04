@@ -86,6 +86,7 @@ export type View = {
         aim: string
         aim_id: string
         title: string
+        estimate: string | null
       } | {
         kind: "limit"
         value: string
@@ -96,6 +97,7 @@ export type View = {
         aim: string
         aim_id: string
         title: string
+        estimate: string | null
       } | {
         kind: "none"
         aim_id: string | null
@@ -149,6 +151,7 @@ export type View = {
       most_likely: {
         text: string
         title: string
+        estimate: string | null
       } | null
       waits_on: {
         head: string
@@ -180,6 +183,18 @@ export type View = {
         figure: {
           label: string
           whose: "theirs" | "olumi" | "mixed"
+          id: string
+          mark: {
+            glyph: string
+            title: string
+          } | null
+          give: {
+            text: string
+            edit: {
+              prompt: string
+              ask: string
+            }
+          } | null
         } | null
         olumi: {
           glyph: string

@@ -503,11 +503,12 @@
       },
       "likely": {
        "glyph": "◉",
-       "title": "If Olumi's estimates hold, 'A second oven' is the option most likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'). It rests on Olumi's what-if ranges for 'extra sold per oven'."
+       "title": "If Olumi's estimates hold, 'A second oven' is more likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'); it rests on Olumi's estimate of 'extra sold per oven' — give yours with ✎."
       },
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
-      "title": "If Olumi's estimates hold, the chance that 'A second oven' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'."
+      "title": "If Olumi's estimates hold, the chance that 'A second oven' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'.",
+      "estimate": null
      }
     ],
     "driver": {
@@ -551,7 +552,8 @@
       "likely": null,
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
-      "title": "The chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information."
+      "title": "The chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information.",
+      "estimate": null
      }
     ],
     "driver": {
@@ -595,7 +597,8 @@
       "likely": null,
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
-      "title": "The chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information."
+      "title": "The chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information.",
+      "estimate": null
      }
     ],
     "driver": null,
@@ -775,8 +778,9 @@
    "lead": "In this model, on current information, each option’s chance of ‘Sell at least 360 loaves a week’:",
    "all_withheld": false,
    "most_likely": {
-    "text": "If Olumi's estimates hold, 'A second oven' is the option most likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'). It rests on Olumi's what-if ranges for 'extra sold per oven'.",
-    "title": "If Olumi's estimates hold, 'A second oven' is the option most likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'). It rests on Olumi's what-if ranges for 'extra sold per oven'."
+    "text": "If Olumi's estimates hold, 'A second oven' is more likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'); it rests on Olumi's estimate of 'extra sold per oven' — give yours with ✎.",
+    "title": "If Olumi's estimates hold, 'A second oven' is more likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'); it rests on Olumi's estimate of 'extra sold per oven' — give yours with ✎.",
+    "estimate": "extra_sold_per_oven"
    },
    "waits_on": {
     "head": "Chance of meeting the goal",
@@ -812,7 +816,16 @@
      "limits": [],
      "figure": {
       "label": "extra hours sold",
-      "whose": "theirs"
+      "whose": "theirs",
+      "id": "extra_hours_sold",
+      "mark": null,
+      "give": {
+       "text": "Give your figure with",
+       "edit": {
+        "prompt": "New figure for “extra hours sold” (loaf/week): one number, or a range like 150 to 400",
+        "ask": "For “extra hours sold”, type one number, or a range like 150 to 400."
+       }
+      }
      },
      "olumi": {
       "glyph": "◆",

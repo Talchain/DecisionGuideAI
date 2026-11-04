@@ -440,11 +440,12 @@
       "olumi": null,
       "likely": {
        "glyph": "◉",
-       "title": "If Olumi's estimates hold, 'Evening classes' is the option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'). It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them."
+       "title": "If Olumi's estimates hold, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎."
       },
       "aim": "Take £2,640 a month",
       "aim_id": "takings_goal",
-      "title": "The chance that 'Evening classes' meets 'Take £2,640 a month', in this model on current information."
+      "title": "The chance that 'Evening classes' meets 'Take £2,640 a month', in this model on current information.",
+      "estimate": null
      }
     ],
     "driver": {
@@ -517,7 +518,8 @@
       "likely": null,
       "aim": "Take £2,640 a month",
       "aim_id": "takings_goal",
-      "title": "With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them."
+      "title": "With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them.",
+      "estimate": null
      }
     ],
     "driver": null,
@@ -558,7 +560,8 @@
       "likely": null,
       "aim": "Take £2,640 a month",
       "aim_id": "takings_goal",
-      "title": "With the model's figures, 'Carry on as now' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance."
+      "title": "With the model's figures, 'Carry on as now' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "estimate": null
      }
     ],
     "driver": null,
@@ -735,8 +738,9 @@
    "lead": "In this model, on current information, each option’s chance of ‘Take £2,640 a month’:",
    "all_withheld": false,
    "most_likely": {
-    "text": "If Olumi's estimates hold, 'Evening classes' is the option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'). It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them.",
-    "title": "If Olumi's estimates hold, 'Evening classes' is the option most likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'). It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them."
+    "text": "If Olumi's estimates hold, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎.",
+    "title": "If Olumi's estimates hold, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎.",
+    "estimate": "workshop_extra"
    },
    "waits_on": {
     "head": "Chance of meeting the goal",
