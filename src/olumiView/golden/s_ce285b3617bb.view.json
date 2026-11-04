@@ -55,7 +55,8 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "target_firm_deal_size",
@@ -95,7 +96,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "opening_cash",
@@ -135,7 +137,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "reported_cash_and_spend_basis",
@@ -161,7 +164,8 @@
     "status": null,
     "bound": null,
     "reason": "Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment.",
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "monthly_burn",
@@ -204,7 +208,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "bridge_capacity_retained",
@@ -237,7 +242,8 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "bridge_angel_opportunities",
@@ -270,7 +276,8 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "deferred_spend_burn_retained",
@@ -303,7 +310,8 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "net_funding",
@@ -323,8 +331,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "Continue institutional cold email and warm introductions: £63,600 to £5.29m · Pursue an angel bridge alongside institutional outreach: £82,400 to £2.98m · Combine an angel bridge with temporary spend deferral: £82,400 to £2.98m",
-     "title": "Modelled range at the end of month 2: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. It rests on figures Olumi proposed. Continue institutional cold email and warm introductions: £63,600 to £5.29m; Pursue an angel bridge alongside institutional outreach: £82,400 to £2.98m; Combine an angel bridge with temporary spend deferral: £82,400 to £2.98m. Worked out from the figures it depends on.",
+     "text": "Continue institutional cold email and warm introductions: about £662,000 (£63,600 to £5.29m) · Pursue an angel bridge alongside institutional outreach: about £506,000 (£82,400 to £2.98m) · Combine an angel bridge with temporary spend deferral: about £506,000 (£82,400 to £2.98m)",
+     "title": "Modelled range at the end of month 2: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Continue institutional cold email and warm introductions: about £662,000 (£63,600 to £5.29m); Pursue an angel bridge alongside institutional outreach: about £506,000 (£82,400 to £2.98m); Combine an angel bridge with temporary spend deferral: about £506,000 (£82,400 to £2.98m). Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -360,7 +368,36 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": [
+     {
+      "option": "continue_outreach",
+      "text": "about £662,000 (£63,600 to £5.29m)",
+      "p10": 63607.44669711203,
+      "p50": 662368.9160430939,
+      "p90": 5287900.689246738,
+      "if_absent": [],
+      "olumi": true
+     },
+     {
+      "option": "add_angel_bridge",
+      "text": "about £506,000 (£82,400 to £2.98m)",
+      "p10": 82441.7770250563,
+      "p50": 506337.3200206752,
+      "p90": 2975059.6735837613,
+      "if_absent": [],
+      "olumi": true
+     },
+     {
+      "option": "bridge_and_spend_deferral",
+      "text": "about £506,000 (£82,400 to £2.98m)",
+      "p10": 82441.7770250563,
+      "p50": 506337.3200206752,
+      "p90": 2975059.6735837613,
+      "if_absent": [],
+      "olumi": true
+     }
+    ]
    },
    {
     "id": "end_cash_margin",
@@ -380,8 +417,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "Continue institutional cold email and warm introductions: £125,000 to £5.34m · Pursue an angel bridge alongside institutional outreach: £143,000 to £3.03m · Combine an angel bridge with temporary spend deferral: £169,000 to £3.06m",
-     "title": "Modelled range at the end of month 2: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. It rests on figures Olumi proposed. Continue institutional cold email and warm introductions: £125,000 to £5.34m; Pursue an angel bridge alongside institutional outreach: £143,000 to £3.03m; Combine an angel bridge with temporary spend deferral: £169,000 to £3.06m. Worked out from the figures it depends on.",
+     "text": "Continue institutional cold email and warm introductions: about £725,000 (£125,000 to £5.34m) · Pursue an angel bridge alongside institutional outreach: about £569,000 (£143,000 to £3.03m) · Combine an angel bridge with temporary spend deferral: about £593,000 (£169,000 to £3.06m)",
+     "title": "Modelled range at the end of month 2: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Continue institutional cold email and warm introductions: about £725,000 (£125,000 to £5.34m); Pursue an angel bridge alongside institutional outreach: about £569,000 (£143,000 to £3.03m); Combine an angel bridge with temporary spend deferral: about £593,000 (£169,000 to £3.06m). Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -404,7 +441,36 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": [
+     {
+      "option": "continue_outreach",
+      "text": "about £725,000 (£125,000 to £5.34m)",
+      "p10": 124944.15626344438,
+      "p50": 724886.0121820148,
+      "p90": 5339882.072556103,
+      "if_absent": [],
+      "olumi": true
+     },
+     {
+      "option": "add_angel_bridge",
+      "text": "about £569,000 (£143,000 to £3.03m)",
+      "p10": 143137.43069631341,
+      "p50": 569419.9814489953,
+      "p90": 3029676.6522076586,
+      "if_absent": [],
+      "olumi": true
+     },
+     {
+      "option": "bridge_and_spend_deferral",
+      "text": "about £593,000 (£169,000 to £3.06m)",
+      "p10": 169274.94143110016,
+      "p50": 593470.0182295068,
+      "p90": 3056117.284865905,
+      "if_absent": [],
+      "olumi": true
+     }
+    ]
    },
    {
     "id": "secure_funding",
@@ -448,7 +514,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "pipeline_approximation",
@@ -484,7 +551,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "window_accounting",
@@ -510,7 +578,8 @@
     "status": null,
     "bound": null,
     "reason": "Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date.",
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "cash_survival",
@@ -556,7 +625,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "continue_outreach",
@@ -620,7 +690,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "add_angel_bridge",
@@ -698,7 +769,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "bridge_terms_compatibility",
@@ -724,7 +796,8 @@
     "status": null,
     "bound": null,
     "reason": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations.",
-    "badge": null
+    "badge": null,
+    "values": null
    },
    {
     "id": "bridge_and_spend_deferral",
@@ -802,7 +875,8 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null
    },
    {
     "id": "deferral_feasibility",
@@ -828,7 +902,8 @@
     "status": null,
     "bound": null,
     "reason": "Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window.",
-    "badge": null
+    "badge": null,
+    "values": null
    }
   ],
   "links": [
@@ -1179,7 +1254,113 @@
    ],
    "science": []
   },
-  "edit_base": 15
+  "edit_base": 15,
+  "key": [
+   {
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "glyph": "?",
+    "text": "unsized"
+   },
+   {
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "glyph": "↻",
+    "text": "changed"
+   }
+  ]
  },
  "proposal": null,
  "collab": {
@@ -1471,8 +1652,9 @@
       "test_speed_bottleneck",
       "angel_speed_hypothesis"
      ],
-     "at": null,
-     "newest": false
+     "at": "receipt_timing_gap",
+     "newest": false,
+     "move": "gather_evidence"
     }
    },
    "broke": null,
@@ -1511,13 +1693,15 @@
       "opening_cash",
       "monthly_burn"
      ],
-     "at": null,
-     "newest": true
+     "at": "reported_cash_and_spend_basis",
+     "newest": true,
+     "move": "gather_evidence"
     }
    },
    "broke": null,
    "problem": null,
    "marks": []
   }
- ]
+ ],
+ "brief": "I need to accelerate securing funding within the next 2 months. We've been focused on investment firms that do deals between £1-2 million, mostly based in the UK. We'll keep sending cold emails and trying to find warm connections, but I want to explore alternatives to support the funding process, as we'll run out of money soon. For example, angel investors might be able to provide a small amount of funding quicker to buy us more time, but we would need to decide whether the overhead would be worth it."
 }
