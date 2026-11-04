@@ -74,13 +74,17 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
   // A card with no figure and no rows (an assumption, a condition) says what it holds in its reason: that stays on the face, one line
   // and whole on hover (DL 4 Nov). Any other card's reason opens with its other words.
   const says = card.figure === null && card.rows.length === 0 && card.reason !== null
+  // A card Olumi's proposal adds (core's `+` change; the View's model is the proposal's while one is held): drawn as the original canvas's
+  // proposal ghost (ProposalGhostLayer: translucent, a solid 1px info border, never dashed, which means doubt), with core's own words
+  // for it ("Proposed addition") as its caption. Approving stays the Proposal card's in the chat.
+  const ghost = card.change?.glyph === '+'
   const more = card.status !== null || (card.reason !== null && !says) || card.bound !== null || card.premises.length > 0
   return (
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
     <div
       style={{ width: CARD_WIDTH }}
-      className={`group relative text-[length:calc(12px*var(--canvas-label-scale,1))] leading-[1.35] font-sans text-text-body rounded-md border bg-panel px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
-      data-view-card={id} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
+      className={`group relative text-[length:calc(12px*var(--canvas-label-scale,1))] leading-[1.35] font-sans text-text-body rounded-md border ${ghost ? 'bg-panel/80' : 'bg-panel'} px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : ghost ? 'border-info' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
+      data-view-card={id} data-proposed-card={ghost || undefined} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
       data-slot-outline="next-step" data-driver-of={driverOf === null ? undefined : driverOf.map((o) => o.id).join(' ')}
       // What would change: the ring says this figure is one an option's chance moves most with; its options' driver words on hover. The
       // options themselves carry v10's driver badge (DL 4 Nov: one representation, no chip here).
@@ -101,6 +105,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       <span className="absolute -top-[10px] left-1/2 -translate-x-1/2 leading-none" aria-hidden="true">
         <NodeShapeIndicator nodeKind={drawKindOf(card)} size={18} stroke="var(--bg-panel)" strokeWidth={0.6} />
       </span>
+      {ghost ? <p className="text-text-light" data-view={`${id}.change.title`}>{card.change!.title}</p> : null}
       <div className="flex items-baseline gap-1">
         <span className="sr-only" data-view={`${id}.glyph`}>{card.glyph}</span>
         {number === null ? null : <span className="text-text-light font-normal" data-card-number={number}>{number}</span>}

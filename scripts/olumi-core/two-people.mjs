@@ -397,6 +397,12 @@ await ada.page.fill('#view-chat-text', 'Add a third option.')
 await ada.page.getByRole('button', { name: 'Send', exact: true }).click()
 await ada.page.getByTestId('view-chat-proposal').waitFor({ timeout: T })
 const part = (await viewWhen(ada, sid, (x) => x.proposal !== null)).proposal
+// Proposal ghosts (DL 4 Nov, R2): each card the proposal adds is drawn as a ghost with core's caption; no other card is.
+const addedIds = part.changes.filter((c) => !c.top && c.text.startsWith('+')).map((c) => c.id)
+await ada.page.waitForFunction((n) => document.querySelectorAll('[data-proposed-card]').length >= n, addedIds.length, { timeout: T })
+const ghosts = await ada.page.evaluate(() => [...document.querySelectorAll('[data-proposed-card]')].map((e) => e.closest('.react-flow__node').getAttribute('data-id')))
+check(addedIds.length > 0 && JSON.stringify([...ghosts].sort()) === JSON.stringify([...addedIds].sort()), `the cards the proposal adds, and only those, are drawn as ghosts (${addedIds.join(', ')})`)
+await shot(ada, '9-proposal-ghosts')
 await tickLine(ada, part, 0)
 await ada.page.getByTestId('view-approve-ticked').click()
 // Core refuses a line that needs an unchosen added record (409, naming it), in its own words; a person then ticks the rest too.
