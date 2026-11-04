@@ -22,16 +22,20 @@ describe('Rests on, from the View', () => {
   it('european: every figure core offers to edit and every assumption and condition, numbered in the View\'s order', () => {
     const { items, olumi } = restsOnOf(model)
     expect([...items.values()].map((i) => [i.id, i.n])).toEqual(['starting_customers', 'customer_target', 'entry_delay', 'entry_interpretation',
-      'churn_danger_threshold', 'broad_entry_acquisitions', 'pilot_acquisitions', 'expansion_churn', 'shared_churn_stress', 'investment_cap',
+      'churn_danger_threshold', 'broad_entry_acquisitions', 'pilot_acquisitions', 'expansion_churn', 'shared_churn_stress', 'customers', 'investment_cap',
       'broad_entry_investment', 'pilot_investment', 'target_interpretation', 'customer_flow_assumptions', 'country_readiness'].map((id, i) => [id, i + 1]))
     expect([...items.values()].filter((i) => i.olumi).map((i) => i.id)).toEqual(['entry_interpretation', 'broad_entry_acquisitions', 'pilot_acquisitions',
-      'expansion_churn', 'shared_churn_stress', 'broad_entry_investment', 'pilot_investment', 'target_interpretation', 'customer_flow_assumptions', 'country_readiness'])
-    expect(olumi).toBe(10)
+      'expansion_churn', 'shared_churn_stress', 'customers', 'broad_entry_investment', 'pilot_investment', 'target_interpretation', 'customer_flow_assumptions', 'country_readiness'])
+    expect(olumi).toBe(11) // R3: `customers` is on it because the Run rests on `existing_market_acquisitions`, which its badge folds
   })
 
   it('CONTRAST: a figure core works out from others (no edit), an option and the goal rest on nothing', () => {
     const { items } = restsOnOf(model)
-    for (const id of ['customers', 'broader_entry', 'reach_customer_target']) expect(items.has(id), id).toBe(false)
+    for (const id of ['broader_entry', 'reach_customer_target']) expect(items.has(id), id).toBe(false)
+    // `customers` (worked out from others, no edit) is on the list only through the Run's basis: without core's `rests_on` it is not.
+    const bare = { ...model, run: model.run == null ? model.run : { ...model.run, most_likely: model.run.most_likely == null ? model.run.most_likely : { ...model.run.most_likely, rests_on: undefined } },
+      cards: model.cards.map((c) => ({ ...c, rows: c.rows.map((r) => (r.kind === 'chance' ? { ...r, rests_on: undefined } : r)) })) } as typeof model
+    expect([items.has('customers'), restsOnOf(bare).items.has('customers')]).toEqual([true, false])
   })
 
   it('on a card: its number, in Olumi\'s blue with core\'s mark as its hover when Olumi\'s; a person\'s in the plain ink', () => {
@@ -52,8 +56,8 @@ describe('the lane\'s lens bar', () => {
   it('Model and Rests on, Rests on counting Olumi\'s to check or set; a press switches the lens', () => {
     useViewStore.setState({ view })
     render(<ViewLensBar />)
-    expect(screen.getAllByRole('radio').map((b) => b.textContent)).toEqual(['Model', 'Rests on10', 'What would change', 'What if'])
-    expect(screen.getByTestId('lens-bar-rests_on').getAttribute('aria-label')).toBe('Rests on, 10 to check or set')
+    expect(screen.getAllByRole('radio').map((b) => b.textContent)).toEqual(['Model', 'Rests on11', 'What would change', 'What if'])
+    expect(screen.getByTestId('lens-bar-rests_on').getAttribute('aria-label')).toBe('Rests on, 11 to check or set')
     expect(screen.getByTestId('lens-bar-full').getAttribute('aria-checked')).toBe('true')
     fireEvent.click(screen.getByTestId('lens-bar-rests_on'))
     expect(useViewLens.getState().lens).toBe('rests_on')

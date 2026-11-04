@@ -34,10 +34,13 @@ function at(model: ViewModel, p: string): unknown {
 // as the row's words: deliberately exempt here.
 // `values` (core e92f2a6): each option's outcome band for a figure, the v10 band's (the card's figure line already says it);
 // `rests_on` (ids and whose, for the Rests-on lens): deliberately exempt too.
-const SKIP = new Set(['id', 'family', 'title', 'detail', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver', 'outcome', 'values', 'rests_on'])
+// A chance row's finding (`text`, at most two sentences) and its basis line (`rests_on_text`) (core 550ad5f, the R3 Analysis wall) are
+// the Analysis tab's and the Summary's words (ViewChances, ViewBrief: viewFindings.spec), not the card face's: exempt here, the
+// finding only on a chance row (a 'none' row's `text` is its face line). `rests_on` (row-level: the basis ids) is already exempt.
+const SKIP = new Set(['id', 'family', 'title', 'detail', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver', 'outcome', 'values', 'rests_on', 'rests_on_text'])
 const shown = (x: unknown, p: string): string[] => typeof x === 'string' ? (x !== '' ? [p] : [])
   : Array.isArray(x) ? x.flatMap((y, i) => shown(y, `${p}.${i}`))
-  : x !== null && typeof x === 'object' ? Object.entries(x).flatMap(([k, y]) => (SKIP.has(k) || (k === 'change' && typeof y === 'string') ? [] : shown(y, `${p}.${k}`))) : []
+  : x !== null && typeof x === 'object' ? Object.entries(x).flatMap(([k, y]) => (SKIP.has(k) || (k === 'change' && typeof y === 'string') || (k === 'text' && (x as { kind?: unknown }).kind === 'chance') ? [] : shown(y, `${p}.${k}`))) : []
 
 describe('the canvas card draws the View exactly', () => {
   for (const n of GOLDEN) {

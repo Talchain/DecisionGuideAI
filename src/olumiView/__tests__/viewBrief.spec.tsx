@@ -33,7 +33,7 @@ describe('the lane\'s Summary draws the View', () => {
     expect(within(panel).getByTestId('view-brief-question').textContent).toBe(m.question.text)
     expect(within(panel).getByText(m.run!.lead!)).toBeTruthy()
     const likely = within(panel).getByTestId('view-brief-most-likely')
-    expect([likely.textContent, likely.getAttribute('title')]).toEqual([m.run!.most_likely!.text, m.run!.most_likely!.title])
+    expect([likely.textContent, likely.getAttribute('title')]).toEqual([m.run!.most_likely!.text, m.run!.most_likely!.rests_on_text ?? m.run!.most_likely!.title]) // R3: the hover is core's basis line when it gives one
     const options = m.cards.filter((c) => c.family === 'option')
     expect(options.length).toBeGreaterThan(1)
     for (const card of options) {

@@ -97,6 +97,15 @@ export type View = {
           text: string
           title: string
         } | null
+        text?: string
+        rests_on?: {
+          reading: boolean
+          target: boolean
+          what_ifs: Array<string>
+          estimates: Array<string>
+          approx: Array<string>
+        }
+        rests_on_text?: string
         estimate: string | null
       } | {
         kind: "limit"
@@ -159,6 +168,22 @@ export type View = {
         by: string
         at: string
       } | null
+      failed: Array<{
+        n: number
+        title: string
+        olumi: {
+          glyph: string
+          title: string
+        }
+      }>
+      failed_reason?: {
+        text: string
+        title: string
+        olumi: {
+          glyph: string
+          title: string
+        }
+      } | null
     }>
     links: Array<{
       from: string
@@ -187,6 +212,14 @@ export type View = {
       most_likely: {
         text: string
         title: string
+        rests_on?: {
+          reading: boolean
+          target: boolean
+          what_ifs: Array<string>
+          estimates: Array<string>
+          approx: Array<string>
+        }
+        rests_on_text?: string
         estimate: string | null
       } | null
       waits_on: {
@@ -244,6 +277,7 @@ export type View = {
     } | null
     edit_base: number | null
     key: Array<{
+      id: string
       glyph: string
       text: string
     }>
@@ -473,6 +507,13 @@ export type View = {
         newest: boolean
         move: string
       }
+      stories: Array<{
+        text: string
+        rests_on: Array<string>
+        option: string | null
+        in_control: boolean
+      }>
+      stories_heading: string | null
     } | null
     broke: string | null
     problem: string | null

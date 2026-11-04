@@ -468,6 +468,49 @@
                 }
                ]
               },
+              "text": {
+               "type": "string"
+              },
+              "rests_on": {
+               "type": "object",
+               "properties": {
+                "reading": {
+                 "type": "boolean"
+                },
+                "target": {
+                 "type": "boolean"
+                },
+                "what_ifs": {
+                 "type": "array",
+                 "items": {
+                  "type": "string"
+                 }
+                },
+                "estimates": {
+                 "type": "array",
+                 "items": {
+                  "type": "string"
+                 }
+                },
+                "approx": {
+                 "type": "array",
+                 "items": {
+                  "type": "string"
+                 }
+                }
+               },
+               "required": [
+                "reading",
+                "target",
+                "what_ifs",
+                "estimates",
+                "approx"
+               ],
+               "additionalProperties": false
+              },
+              "rests_on_text": {
+               "type": "string"
+              },
               "estimate": {
                "type": [
                 "string",
@@ -833,6 +876,82 @@
             "type": "null"
            }
           ]
+         },
+         "failed": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "n": {
+             "type": "number"
+            },
+            "title": {
+             "type": "string"
+            },
+            "olumi": {
+             "type": "object",
+             "properties": {
+              "glyph": {
+               "type": "string"
+              },
+              "title": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "glyph",
+              "title"
+             ],
+             "additionalProperties": false
+            }
+           },
+           "required": [
+            "n",
+            "title",
+            "olumi"
+           ],
+           "additionalProperties": false
+          }
+         },
+         "failed_reason": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "text": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             },
+             "olumi": {
+              "type": "object",
+              "properties": {
+               "glyph": {
+                "type": "string"
+               },
+               "title": {
+                "type": "string"
+               }
+              },
+              "required": [
+               "glyph",
+               "title"
+              ],
+              "additionalProperties": false
+             }
+            },
+            "required": [
+             "text",
+             "title",
+             "olumi"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
          }
         },
         "required": [
@@ -858,7 +977,8 @@
          "reason",
          "badge",
          "values",
-         "rests_on"
+         "rests_on",
+         "failed"
         ],
         "additionalProperties": false
        }
@@ -995,6 +1115,46 @@
                "type": "string"
               },
               "title": {
+               "type": "string"
+              },
+              "rests_on": {
+               "type": "object",
+               "properties": {
+                "reading": {
+                 "type": "boolean"
+                },
+                "target": {
+                 "type": "boolean"
+                },
+                "what_ifs": {
+                 "type": "array",
+                 "items": {
+                  "type": "string"
+                 }
+                },
+                "estimates": {
+                 "type": "array",
+                 "items": {
+                  "type": "string"
+                 }
+                },
+                "approx": {
+                 "type": "array",
+                 "items": {
+                  "type": "string"
+                 }
+                }
+               },
+               "required": [
+                "reading",
+                "target",
+                "what_ifs",
+                "estimates",
+                "approx"
+               ],
+               "additionalProperties": false
+              },
+              "rests_on_text": {
                "type": "string"
               },
               "estimate": {
@@ -1325,6 +1485,9 @@
        "items": {
         "type": "object",
         "properties": {
+         "id": {
+          "type": "string"
+         },
          "glyph": {
           "type": "string"
          },
@@ -1333,6 +1496,7 @@
          }
         },
         "required": [
+         "id",
          "glyph",
          "text"
         ],
@@ -2546,12 +2710,53 @@
            "move"
           ],
           "additionalProperties": false
+         },
+         "stories": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "text": {
+             "type": "string"
+            },
+            "rests_on": {
+             "type": "array",
+             "items": {
+              "type": "string"
+             }
+            },
+            "option": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "in_control": {
+             "type": "boolean"
+            }
+           },
+           "required": [
+            "text",
+            "rests_on",
+            "option",
+            "in_control"
+           ],
+           "additionalProperties": false
+          }
+         },
+         "stories_heading": {
+          "type": [
+           "string",
+           "null"
+          ]
          }
         },
         "required": [
          "answer",
          "why",
-         "next"
+         "next",
+         "stories",
+         "stories_heading"
         ],
         "additionalProperties": false
        },
