@@ -4,6 +4,7 @@ import { useViewStore } from '../../olumiView/store'
 import type { View } from '../../olumiView/client'
 import { isForThisPage, NOT_FOR_THIS_PAGE, useMe } from '../me'
 import { CommitmentPanel } from './CommitmentPanel'
+import { DissentPanel } from './DissentPanel'
 import { ComparePanel } from './ComparePanel'
 import { EvidencePanel } from './EvidencePanel'
 import { InvitePanel } from './InvitePanel'
@@ -61,6 +62,7 @@ export function TeamTab(): JSX.Element {
           )}
           {/* The team's record is the live scenario's: its forms are held while an earlier version is drawn (the writer refuses too). */}
           <fieldset disabled={past !== null} className="contents"><ViewsPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
+          <fieldset disabled={past !== null} className="contents"><DissentPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <InvitePanel sid={sid} />
           <fieldset disabled={past !== null} className="contents"><EvidencePanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <fieldset disabled={past !== null} className="contents"><CommitmentPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>

@@ -95,8 +95,10 @@ export async function call<T>(method: 'GET' | 'POST', path: string, body?: unkno
 const base = (sid: string) => `/api/scenarios/${encodeURIComponent(sid)}`
 
 export interface EvidenceInput { readonly text: string; readonly source: string | null; readonly concerns: readonly string[]; readonly stance: 'supports' | 'challenges' | 'unclear' }
-export interface CommitmentInput { readonly action: string; readonly owner: string; readonly expect: string; readonly reconsider: string; readonly keeps: readonly string[] }
-export interface OutcomeInput { readonly happened: string; readonly versus: string; readonly reconsider_triggered: boolean; readonly note: string | null }
+/** `option`, `version` and `review_on` (R2b, core API v1.12 at d1fe5e2): the option chosen, the approved version on screen, an optional review date. */
+export interface CommitmentInput { readonly action: string; readonly owner: string; readonly expect: string; readonly reconsider: string; readonly keeps: readonly string[]; readonly option?: string | null; readonly version?: number | null; readonly review_on?: string | null }
+/** `figure` and `dissent` (R2b, core API v1.12): the figure that came about, and the team's verdict on each dissent the commitment keeps. */
+export interface OutcomeInput { readonly happened: string; readonly versus: string; readonly reconsider_triggered: boolean; readonly note: string | null; readonly figure?: number | null; readonly dissent?: ReadonlyArray<{ readonly id: string; readonly verdict: string }> }
 
 /** A colleague a member invited into the scenario (API v1.8), as core lists them; never their link. */
 export interface Invite { readonly id: string; readonly name: string; readonly by: string; readonly made: string; readonly expires: string | null; readonly status: string; readonly revocable: boolean }
@@ -110,11 +112,19 @@ export const teamApi = {
   /** Olumi considers shared evidence (API v1.12): one turn in the asker's name; core proposes a change where it warrants one, else says why not. */
   considerEvidence: (sid: string, evidence: number, op: string) =>
     call<{ proposal: number | null; discussion: boolean }>('POST', `${base(sid)}/evidence/${evidence}/consider`, { op }),
-  addCommitment: (sid: string, c: CommitmentInput) => call<{ commitment: number }>('POST', `${base(sid)}/commitments`, { action: c.action, owner: c.owner, expect: c.expect, reconsider: c.reconsider, keeps: c.keeps }),
+  addCommitment: (sid: string, c: CommitmentInput) => call<{ commitment: number }>('POST', `${base(sid)}/commitments`, {
+    action: c.action, owner: c.owner, expect: c.expect, reconsider: c.reconsider, keeps: c.keeps,
+    ...(c.option != null ? { option: c.option } : {}), ...(c.version != null ? { version: c.version } : {}), ...(c.review_on != null ? { review_on: c.review_on } : {}),
+  }),
+  /** The holder's own words for their dissent, confirmed as they stand or reworded, and what would tell them they are wrong (R2b, core API v1.12). */
+  confirmDissent: (sid: string, id: string, words: string, tell: string | null) => call<{ confirmed: number }>('POST', `${base(sid)}/dissent/${encodeURIComponent(id)}/confirm`, { words, ...(tell !== null ? { tell } : {}) }),
   /** A colleague's own private link (API v1.8): in this one answer and never again. */
   invite: (sid: string, name: string) => call<{ id: string; link: string }>('POST', `${base(sid)}/invites`, { name }),
   invites: (sid: string) => call<{ invites: Invite[] }>('GET', `${base(sid)}/invites`),
   revokeInvite: (sid: string, id: string) => call<{ revoked: unknown }>('POST', `${base(sid)}/invites/${encodeURIComponent(id)}/revoke`, {}),
   addOutcome: (sid: string, commitment: number, o: OutcomeInput, op: string) =>
-    call<{ outcome: number }>('POST', `${base(sid)}/commitments/${commitment}/outcomes`, { happened: o.happened, versus: o.versus, reconsider_triggered: o.reconsider_triggered, ...(o.note !== null ? { note: o.note } : {}), op }),
+    call<{ outcome: number }>('POST', `${base(sid)}/commitments/${commitment}/outcomes`, {
+      happened: o.happened, versus: o.versus, reconsider_triggered: o.reconsider_triggered, ...(o.note !== null ? { note: o.note } : {}),
+      ...(o.figure != null ? { figure: o.figure } : {}), ...(o.dissent && o.dissent.length > 0 ? { dissent: o.dissent } : {}), op,
+    }),
 }

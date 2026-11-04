@@ -180,21 +180,25 @@ describe('every write goes to core\'s own route, and the View is read again afte
     fireEvent.click(screen.getByTestId('team-commitment-open'))
     fireEvent.change(screen.getByTestId('team-c-action'), { target: { value: 'Run the pilot' } })
     fireEvent.change(screen.getByTestId('team-c-owner'), { target: { value: 'p_2' } })
+    // R2b: the option the team commits to is its own choice (teamR2b.spec.tsx has the rest of board 20).
+    fireEvent.change(screen.getByTestId('team-c-option'), { target: { value: 'single_country_test' } })
     fireEvent.change(screen.getByTestId('team-c-expect'), { target: { value: 'Ten by March' } })
     fireEvent.change(screen.getByTestId('team-c-reconsider'), { target: { value: 'Under five' } })
     expect(screen.getByTestId('team-c-keeps').textContent).toContain('Bea: Wait for the pilot before entering a second country.')
     fireEvent.click(screen.getByTestId('team-c-keep-d_1'))
     fireEvent.click(screen.getByTestId('team-commitment-save'))
     await waitFor(() => expect(reread()).toBe(1))
-    expect(posts()[0]).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/commitments`, body: { action: 'Run the pilot', owner: 'p_2', expect: 'Ten by March', reconsider: 'Under five', keeps: ['d_1'] } })
+    expect(posts()[0]).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/commitments`, body: { action: 'Run the pilot', owner: 'p_2', expect: 'Ten by March', reconsider: 'Under five', keeps: ['d_1'], option: 'single_country_test', version: 1 } })
 
     fireEvent.click(screen.getByTestId('team-outcome-open-9'))
     fireEvent.change(screen.getByTestId('team-o-9-happened'), { target: { value: 'Eight.' } })
     fireEvent.click(screen.getAllByLabelText('Mixed')[0]!)
     fireEvent.click(screen.getAllByLabelText('No, it did not')[0]!)
+    // R2b: the commitment keeps d_1, so the team gives its verdict on it (teamR2b.spec.tsx has the rest of board 21).
+    fireEvent.click(screen.getAllByLabelText('Not yet known')[0]!)
     fireEvent.click(screen.getByTestId('team-o-9-save'))
     await waitFor(() => expect(reread()).toBe(2))
-    expect(posts()[1]).toMatchObject({ path: `/api/scenarios/${SID}/commitments/9/outcomes`, body: { happened: 'Eight.', versus: 'mixed', reconsider_triggered: false, op: expect.any(String) } })
+    expect(posts()[1]).toMatchObject({ path: `/api/scenarios/${SID}/commitments/9/outcomes`, body: { happened: 'Eight.', versus: 'mixed', reconsider_triggered: false, dissent: [{ id: 'd_1', verdict: 'not_yet_known' }], op: expect.any(String) } })
   })
 })
 
