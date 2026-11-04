@@ -86,15 +86,6 @@ export type View = {
         aim: string
         aim_id: string
         title: string
-        chance: number | null
-        outcome: {
-          low: number
-          median: number | null
-          high: number
-          unit: string | null
-          text: string
-          title: string
-        } | null
         estimate: string | null
       } | {
         kind: "limit"
@@ -147,10 +138,6 @@ export type View = {
         if_absent: Array<string>
         olumi: boolean
       }> | null
-      rests_on: Array<{
-        id: string
-        whose: "theirs" | "olumi" | "mixed"
-      }>
     }>
     links: Array<{
       from: string
@@ -161,11 +148,6 @@ export type View = {
       alert: boolean
       proposed: boolean
       title: string
-      effect: {
-        text: string
-        title: string
-        figure: string
-      } | null
     }>
     run: {
       aim: string | null

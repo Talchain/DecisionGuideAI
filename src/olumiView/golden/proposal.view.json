@@ -66,8 +66,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
-    "values": null,
-    "rests_on": []
+    "values": null
    },
    {
     "id": "per_specialist",
@@ -98,8 +97,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
-    "values": null,
-    "rests_on": []
+    "values": null
    },
    {
     "id": "one_specialist",
@@ -127,8 +125,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
-    "values": null,
-    "rests_on": []
+    "values": null
    },
    {
     "id": "total_capacity",
@@ -191,8 +188,7 @@
       "if_absent": [],
       "olumi": false
      }
-    ],
-    "rests_on": []
+    ]
    },
    {
     "id": "capacity_target",
@@ -220,8 +216,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
-    "values": null,
-    "rests_on": []
+    "values": null
    },
    {
     "id": "capacity_goal",
@@ -250,8 +245,7 @@
     },
     "reason": null,
     "badge": null,
-    "values": null,
-    "rests_on": []
+    "values": null
    },
    {
     "id": "hold",
@@ -280,15 +274,6 @@
       "aim": "At least 100 a week",
       "aim_id": "capacity_goal",
       "title": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It leaves out: How the team feels about a new hire.",
-      "chance": 0,
-      "outcome": {
-       "low": 80,
-       "median": 80,
-       "high": 80,
-       "unit": "ticket/week",
-       "text": "80 tickets/week",
-       "title": "Modelled range at the end of week 12: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Keep current staffing: 80 tickets/week; Add one specialist: about 105 tickets/week (94.7 to 115 tickets/week). Worked out from the figures it depends on."
-      },
       "estimate": null
      }
     ],
@@ -297,8 +282,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
-    "values": null,
-    "rests_on": []
+    "values": null
    },
    {
     "id": "add_one",
@@ -330,15 +314,6 @@
       "aim": "At least 100 a week",
       "aim_id": "capacity_goal",
       "title": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. It leaves out: How the team feels about a new hire.",
-      "chance": 0.739,
-      "outcome": {
-       "low": 94.6795181966731,
-       "median": 104.92980796070435,
-       "high": 114.91851476864522,
-       "unit": "ticket/week",
-       "text": "about 105 tickets/week (94.7 to 115 tickets/week)",
-       "title": "Modelled range at the end of week 12: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Keep current staffing: 80 tickets/week; Add one specialist: about 105 tickets/week (94.7 to 115 tickets/week). Worked out from the figures it depends on."
-      },
       "estimate": null
      }
     ],
@@ -362,8 +337,7 @@
      "proposed": false,
      "change": ""
     },
-    "values": null,
-    "rests_on": []
+    "values": null
    },
    {
     "id": "deadline",
@@ -391,8 +365,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
-    "values": null,
-    "rests_on": []
+    "values": null
    },
    {
     "id": "start_delay",
@@ -423,8 +396,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
-    "values": null,
-    "rests_on": []
+    "values": null
    }
   ],
   "links": [
@@ -436,8 +408,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”",
-    "effect": null
+    "title": "worked out through added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”"
    },
    {
     "from": "existing_capacity",
@@ -447,8 +418,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "adds to · Theirs: “total is today plus the specialists”",
-    "effect": null
+    "title": "adds to · Theirs: “total is today plus the specialists”"
    },
    {
     "from": "total_capacity",
@@ -458,8 +428,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by",
-    "effect": null
+    "title": "measured by"
    },
    {
     "from": "capacity_target",
@@ -469,8 +438,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target",
-    "effect": null
+    "title": "target"
    },
    {
     "from": "add_one",
@@ -480,8 +448,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input",
-    "effect": null
+    "title": "option input"
    },
    {
     "from": "one_specialist",
@@ -491,8 +458,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through specialists, added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”",
-    "effect": null
+    "title": "worked out through specialists, added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”"
    }
   ],
   "run": {
