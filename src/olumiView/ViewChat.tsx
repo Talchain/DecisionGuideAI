@@ -26,7 +26,7 @@ import type { AIInputBarProps } from '../canvas/components/AIInputBar'
 import { useUIStore } from '../stores/uiStore'
 import { FigureEdit } from './FigureEdit'
 import { V10MethodChips } from '../presentation/V10MethodChips'
-import { ringCards } from './v10'
+import { ringCards } from './ring'
 import { VIEW_NOTE_SLOT } from './note'
 
 type Said = NonNullable<ViewTurn['answer']>['answer']

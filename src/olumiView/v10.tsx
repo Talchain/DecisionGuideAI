@@ -27,6 +27,7 @@ import { V10_CHANGE_COPY } from '../presentation/V10ChangeLens'
 import type { ViewCardData } from '../canvas/nodes/ViewCardNode'
 import type { NodeProps } from '@xyflow/react'
 import { V10Scope } from '../presentation/v10'
+export { ringCards } from './ring'
 import { ViewCardNode } from '../canvas/nodes/ViewCardNode'
 import { NodeCornerOlumi } from '../canvas/nodes/shared/NodeCornerOlumi'
 
@@ -37,13 +38,6 @@ export function useV10Lane(): void {
     root.dataset.presentation = 'v10'
     return () => { delete root.dataset.presentation }
   }, [])
-}
-
-/** Light exactly these cards (v10's ring, a class on each card's own node), and only these: none, to clear. */
-export function ringCards(ids: readonly string[]): void {
-  if (typeof document === 'undefined') return
-  document.querySelectorAll('.react-flow__node.v10-lit').forEach((el) => el.classList.remove('v10-lit'))
-  for (const id of ids) document.querySelector(`.react-flow__node[data-id="${CSS.escape(id)}"]`)?.classList.add('v10-lit')
 }
 
 /** v10's "What would change" badge for one card, from core's `driver`: its sentence verbatim on hover or focus, with Olumi's mark. */
