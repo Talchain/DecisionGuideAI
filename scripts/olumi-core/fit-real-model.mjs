@@ -59,12 +59,18 @@ check(first.zoom >= 0.5 && first.zoom <= 1 && topOut.length === 0, `first open: 
 const says = golden.model.cards.filter((c) => c.figure === null && c.rows.length === 0 && c.reason !== null).map((c) => `${c.id}.reason`)
 const folded = await page.evaluate((says) => [...document.querySelectorAll('[data-view$=".status"], [data-view$=".reason"], [data-view*=".bound."], [data-view*=".premises."]')].filter((e) => e.getClientRects().length > 0 && !says.includes(e.getAttribute('data-view'))).map((e) => e.getAttribute('data-view')), says)
 check(folded.length === 0, `on open, every card shows its compact face${folded.length ? ` (shown: ${folded.join(', ')})` : ''}`)
+// The premise and assumption links fold away until one of their cards is hovered or selected; every causal link is drawn (DL 4 Nov).
+const kinds = async () => page.evaluate(() => [...document.querySelectorAll('[data-view-link]')].map((g) => g.getAttribute('data-kind')))
+const causal = golden.model.links.filter((l) => l.kind !== 'reason').length, folded0 = (await kinds()).filter((k) => k === 'reason').length
+check(folded0 === 0 && (await kinds()).length === causal, `on open, every one of the ${causal} causal links is drawn and no premise or assumption link (${golden.model.links.length - causal} folded)`)
 if (SHOT) await page.screenshot({ path: SHOT })
 // Selected, a card's other words open beside it; each premise row is one line (core's .premise: nowrap, ellipsis), however long.
 const withPremises = golden.model.cards.find((c) => c.family === 'option' && c.premises.length > 0)
 await page.locator(`.react-flow__node[data-id="${withPremises.id}"] [data-view="${withPremises.id}.heading"]`).click()
 await page.waitForFunction((id) => document.querySelector(`[data-view-more="${id}"]`)?.getClientRects().length > 0, withPremises.id, { timeout: 5000 })
 const rows = await page.evaluate(() => [...document.querySelectorAll('[data-view*=".premises."][data-view$=".glyph"]')].map((g) => g.parentElement).map((e) => { const s = getComputedStyle(e); return { id: e.firstElementChild.getAttribute('data-view'), h: e.getBoundingClientRect().height / (new DOMMatrix(getComputedStyle(document.querySelector('.react-flow__viewport')).transform).a), lh: parseFloat(s.lineHeight) || parseFloat(s.fontSize) * 1.5 } }))
+const onIt = golden.model.links.filter((l) => l.kind === 'reason' && (l.from === withPremises.id || l.to === withPremises.id)).length
+check((await kinds()).filter((k) => k === 'reason').length === onIt && onIt > 0, `selected, ${withPremises.id}'s ${onIt} premise and assumption links are drawn, and no other`)
 const shownRows = rows.filter((r) => r.id.startsWith(`${withPremises.id}.`))
 check(shownRows.length === withPremises.premises.length && shownRows.every((r) => r.h <= r.lh * 1.5), `selected, ${withPremises.id}'s ${withPremises.premises.length} premise rows open beside it, each one line`)
 served = { ...next, id: made.scenario, you_id: me.id, you: me.name, version: { ...next.version, id: golden.version.id + 1, n: 2, label: 'version 2' } }

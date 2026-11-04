@@ -29,7 +29,7 @@ import { MaybeConversationProvider } from '../canvas/ReactFlowGraph'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { viewportCentredInFreePane } from '../canvas/utils/fitIntoFreePane'
-import { placeViewCards, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
+import { placeViewCards, useViewHover, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
 import { readableFirstViewport } from './camera'
 import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
@@ -113,6 +113,7 @@ function ViewFlow() {
     <>
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
+        onNodeMouseEnter={(_, n) => useViewHover.setState({ id: n.id })} onNodeMouseLeave={() => useViewHover.setState({ id: null })}
         onMoveStart={mine} panOnDrag={PAN_BUTTONS} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}
         nodesConnectable={false} edgesFocusable={false} deleteKeyCode={null} selectionKeyCode={null} multiSelectionKeyCode={null}
         proOptions={{ hideAttribution: true }} data-testid="view-canvas"

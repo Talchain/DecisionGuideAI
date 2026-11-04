@@ -51,8 +51,8 @@ export function ViewCard({ card, selected = false }: ViewCardData & { selected?:
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
   const estimate = card.family === 'quantity' && card.olumi !== null && card.figure !== null
-  // A card with no figure and no rows (an assumption, a condition) says what it holds in its reason: that stays on the face, three lines
-  // at most and whole on hover. Any other card's reason opens with its other words.
+  // A card with no figure and no rows (an assumption, a condition) says what it holds in its reason: that stays on the face, one line
+  // and whole on hover (DL 4 Nov). Any other card's reason opens with its other words.
   const says = card.figure === null && card.rows.length === 0 && card.reason !== null
   const more = card.status !== null || (card.reason !== null && !says) || card.bound !== null || card.premises.length > 0
   return (
@@ -69,7 +69,7 @@ export function ViewCard({ card, selected = false }: ViewCardData & { selected?:
         <Mark at={`${id}.olumi`} mark={card.olumi} />
         <Mark at={`${id}.change`} mark={card.change} />
       </div>
-      {says ? <p className="line-clamp-3" title={card.reason!} data-view={`${id}.reason`}>{card.reason}</p> : null}
+      {says ? <p className="line-clamp-1" title={card.reason!} data-view={`${id}.reason`}>{card.reason}</p> : null}
       {card.figure === null ? null : (
         <p className={`${typography.nodeValue} ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
           data-olumi={estimate || undefined} data-view={`${id}.figure.text`}>{card.figure.text}</p>
