@@ -505,6 +505,9 @@ await ada.page.getByTestId('team-c-action').fill('Run a four-week trial hire')
 await ada.page.getByTestId('team-c-owner').selectOption({ label: 'Bea' })
 await ada.page.getByTestId('team-c-expect').fill('At least 95 tickets a week by week four')
 await ada.page.getByTestId('team-c-reconsider').fill('Under 85 tickets a week at week two')
+// R2b (board 20): the option the action commits to is the team's own choice among the live options, unset and needed.
+const optionPick = ada.page.getByTestId('team-c-option')
+if (await optionPick.count() > 0) await optionPick.selectOption({ label: 'Add one specialist' })
 // G3: the disagreement the approved model records stays open, by its id; its label comes back from core.
 // With real AI the approved model may hold no disagreement record (the views stay contributions): then nothing is offered to keep, and
 // the action is recorded without one (github-a7's real-AI witness, 4 Nov). Either branch is witnessed.
@@ -520,6 +523,8 @@ check(await seen(bea, async () => (await bea.page.getByTestId('team-commitment-l
 const kept = (await view(bea, sid)).collab.commitments[0]
 // A next action with no outcome yet is a nudge on every member's Team tab, in core's words: the action and its owner.
 check(kept.outcomes.length === 0 && await seen(bea, async () => { const t = await bea.page.getByTestId(`team-nudge-outcome-${kept.id}`).innerText({ timeout: 1000 }); return t.includes(kept.action) && t.includes(kept.owner) }), `Bea's Team tab nudges the open next action ("${kept.action}", ${kept.owner}), no outcome yet`)
+const kept3 = (await bea.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view?schema=3`)).json(), sid)).collab.commitments[0]
+check(kept3.option?.id === 'add_one' && Number.isInteger(kept3.version), `R2b: core holds the commitment's option and version (${kept3.option?.heading} · version ${kept3.version})`)
 if (dissent.length > 0) {
   check(JSON.stringify(kept.keeps) === JSON.stringify([dissent[0].id]), 'core holds the commitment keeping that disagreement open')
   check(await bea.page.getByTestId(`team-commitment-keeps-${kept.id}`).isVisible(), 'Bea sees what it keeps open')
@@ -532,6 +537,8 @@ await bea.page.getByTestId(`team-nudge-outcome-${c.id}`).getByRole('button').cli
 await bea.page.getByTestId(`team-o-${c.id}-happened`).fill('92 a week by week four; the reconsider point did not come up.')
 await bea.page.getByTestId(`team-o-${c.id}-versus`).getByLabel('Worse than expected').check()
 await bea.page.getByTestId(`team-o-${c.id}-triggered`).getByLabel('No, it did not').check()
+// R2b (board 21): the team's verdict on each disagreement the commitment keeps open, none preset and each needed.
+for (const id of c.keeps) await bea.page.getByTestId(`team-o-${c.id}-verdict-${id}`).getByLabel('Not yet known').check()
 await bea.page.getByTestId(`team-o-${c.id}-save`).click()
 // A SAVED outcome (team-outcome-happened-<id>): team-outcomes-<id> also wraps the form Bea typed in, so it is not scope enough.
 await bea.page.locator('[data-testid^="team-outcome-happened-"]', { hasText: '92 a week by week four' }).waitFor({ timeout: T })
