@@ -43,7 +43,9 @@ export function useV10Lane(): void {
 export function ringCards(ids: readonly string[]): void {
   if (typeof document === 'undefined') return
   document.querySelectorAll('.react-flow__node.v10-lit').forEach((el) => el.classList.remove('v10-lit'))
-  for (const id of ids) document.querySelector(`.react-flow__node[data-id="${CSS.escape(id)}"]`)?.classList.add('v10-lit')
+  // A page without CSS.escape (jsdom) still finds the card: its id with quotes and backslashes escaped.
+  const esc = typeof CSS !== 'undefined' && typeof CSS.escape === 'function' ? CSS.escape : (s: string) => s.replace(/["\\]/g, (c) => `\\${c}`)
+  for (const id of ids) document.querySelector(`.react-flow__node[data-id="${esc(id)}"]`)?.classList.add('v10-lit')
 }
 
 /** v10's "What would change" badge for one card, from core's `driver`: its sentence verbatim on hover or focus, with Olumi's mark. */
@@ -51,7 +53,7 @@ export function ViewDriverBadge({ card }: { card: ViewCardData['card'] }) {
   if (card.driver === null) return null
   const disclosure = (
     <span className="inline-flex items-start gap-1.5">
-      <OlumiAiIcon size={12} aria-hidden="true" className={`mt-[2px] flex-none ${CANVAS_GLYPH_SIZE_CLASSES[12]}`} />
+      <OlumiAiIcon size={12} aria-hidden="true" data-testid={`view-driver-mark-${card.id}`} className={`mt-[2px] flex-none ${CANVAS_GLYPH_SIZE_CLASSES[12]}`} />
       <span data-view={`${card.id}.driver.text`}>{card.driver.text}</span>
     </span>
   )
