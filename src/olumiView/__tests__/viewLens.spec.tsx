@@ -77,13 +77,18 @@ describe('What would change, from the View', () => {
     expect(driversOf(withFigures(null).model!).size).toBe(0)
     expect(driversOf(withFigures('New customers from existing markets').model!).size).toBe(0)
   })
-  it('on the card: how many options it moves, core\'s driver words on hover, the card ringed', () => {
+  it('on the card: the card ringed, the options it moves and core\'s driver words on hover; no chip (DL 4 Nov: v10\'s badge is the one mark)', () => {
     const d = driversOf(withFigures('existing_market_acquisitions').model!)
     const card = model.cards.find((c) => c.id === 'customers')!
     const c = render(<ViewCard card={card} driverOf={d.get('customers')!} />).container
-    const chip = c.querySelector<HTMLElement>('[data-driver-of]')!
-    expect([chip.textContent, chip.dataset['driverOf'], chip.title]).toEqual(['3', 'broader_entry single_country_test no_new_european_entry', d.get('customers')!.map((o) => o.driver!.title).join('\n')])
-    expect(c.querySelector('[data-view-card]')!.className).toContain('ring-[3px]')
+    const ringed = c.querySelector<HTMLElement>('[data-driver-of]')!
+    expect(ringed.hasAttribute('data-view-card')).toBe(true)
+    expect([ringed.dataset['driverOf'], ringed.title]).toEqual(['broader_entry single_country_test no_new_european_entry', d.get('customers')!.map((o) => o.driver!.title).join('\n')])
+    expect(ringed.className).toContain('ring-[3px]')
+    expect(c.querySelector('svg.lucide-activity')).toBeNull()
+    // CONTRAST: the same card off the lens is neither ringed nor marked
+    const off = render(<ViewCard card={card} />).container
+    expect([off.querySelector('[data-driver-of]'), off.querySelector('[data-view-card]')!.className.includes('ring-[3px]')]).toEqual([null, false])
   })
   it('the bar: before a Run names a driver the lens is shown but cannot be chosen, and says how to get one; with one it switches', () => {
     useViewStore.setState({ view: withFigures(null) })

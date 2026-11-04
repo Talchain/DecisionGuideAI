@@ -15,7 +15,6 @@ import { askKindOf, CARD_WIDTH, drawKindOf, type RestsOnItem } from '../../olumi
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { useCanvasStore } from '../store'
 import { useCardNumber, useDriverOf, useRestsOnItem } from '../../olumiView/lens'
-import { Activity } from 'lucide-react'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { Badge } from '../../olumiView/Badge'
@@ -81,19 +80,15 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       style={{ width: CARD_WIDTH }}
       className={`group relative text-[length:calc(12px*var(--canvas-label-scale,1))] leading-[1.35] font-sans text-text-body rounded-md border bg-panel px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
       data-view-card={id} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
-      data-slot-outline="next-step"
+      data-slot-outline="next-step" data-driver-of={driverOf === null ? undefined : driverOf.map((o) => o.id).join(' ')}
+      // What would change: the ring says this figure is one an option's chance moves most with; its options' driver words on hover. The
+      // options themselves carry v10's driver badge (DL 4 Nov: one representation, no chip here).
+      title={driverOf === null ? undefined : driverOf.map((o) => o.driver!.title).join('\n')}
     >
       {restsOn === null ? null : (
         // The Rests on lens: this card's number, in Olumi's blue when core marks it Olumi's (one to check or set), its hover core's mark.
         <span className={`absolute -left-2 -top-2 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border bg-panel px-1 tabular-nums ${typography.nodeLabel} ${restsOn.olumi ? 'border-info text-info' : 'border-border text-text-body'}`}
           title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n} data-rests-on-olumi={restsOn.olumi || undefined}>{restsOn.n}</span>
-      )}
-      {driverOf === null ? null : (
-        // What would change: a figure an option's chance moves most with, how many options it moves, and core's driver words on hover.
-        <span className={`absolute -right-2 -top-2 inline-flex h-[20px] items-center gap-0.5 rounded-full border border-text-header bg-panel px-1.5 tabular-nums text-text-header ${typography.nodeLabel}`}
-          title={driverOf.map((o) => o.driver!.title).join('\n')} data-driver-of={driverOf.map((o) => o.id).join(' ')}>
-          <Activity aria-hidden="true" className="h-3 w-3" />{driverOf.length}
-        </span>
       )}
       {/* The original canvas's connector glyph: the card's kind as its shape, on the top edge where its links arrive. */}
       <span className="absolute -top-[10px] left-1/2 -translate-x-1/2 leading-none" aria-hidden="true">
@@ -110,7 +105,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       </div>
       {card.family === 'option' ? <Slot name={VIEW_CARD_SLOTS.driverBadge} className="absolute right-1 top-1 empty:hidden" />
         // The original's ⌄ on a card with more to say: a press selects the card, which opens its other words beside it.
-        : more && driverOf === null ? <ChevronDown aria-hidden="true" data-more-cue="" className="absolute right-1.5 top-2 h-3.5 w-3.5 text-text-light" /> : null}
+        : more ? <ChevronDown aria-hidden="true" data-more-cue="" className="absolute right-1.5 top-2 h-3.5 w-3.5 text-text-light" /> : null}
       {says ? <p className="line-clamp-1" title={card.reason!} data-view={`${id}.reason`}>{card.reason}</p> : null}
       {card.figure === null ? null : (
         <div className="flex items-baseline gap-1">
