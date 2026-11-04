@@ -187,6 +187,24 @@ describe('where the note sits (Paul\'s pre-flight, 22 Oct: on the left it covere
     // Before: the least-covered of the four, right at (834, 600), over the goal. Now: left, slid up 10 × 16px, over nothing.
     expect(attentionCardSpot(link, { w: 268, h: 110 }, [F5, F6, goal], 0, 1180)).toEqual({ left: 538, top: 440 })
   })
+  it('⭐ never over the zoom controls (live olumi-core-v3, 4 Nov): a crowded bottom-left board whose least-covered spot sat on them', () => {
+    // The anchor near the bottom-left, as on the live board; cards fill above it and everything to its right; the zoom controls below-left.
+    const A = { x: 20, y: 600, w: 240, h: 100 }
+    const zoom = { x: 8, y: 714, w: 56, h: 150 }
+    const right = { x: 270, y: 0, w: 900, h: 900 }
+    const above = { x: 0, y: 0, w: 270, h: 590 }
+    const card = { w: 268, h: 110 }
+    const touches = (s: { left: number; top: number }, o: typeof zoom) => s.left < o.x + o.w && s.left + card.w > o.x && s.top < o.y + o.h && s.top + card.h > o.y
+    // Before: controls counted only as covered area, so the least-covered spot was on them.
+    expect(touches(attentionCardSpot(A, card, [right, above, zoom], 0, 1066, 0, 900), zoom), 'precondition: the old spot touches the controls').toBe(true)
+    const spot = attentionCardSpot(A, card, [right, above, zoom], 0, 1066, 0, 900, [zoom])
+    expect(touches(spot, zoom)).toBe(false)
+  })
+  it('must not change: with the controls given, a free spot is exactly as before, and the note covers no card', () => {
+    const zoom = { x: 8, y: 714, w: 56, h: 150 }
+    expect(attentionCardSpot(O2, { w: 268, h: 110 }, [O1, F2, zoom], 0, 1066, -Infinity, Infinity, [zoom])).toEqual({ left: 554, top: 432 })
+    expect(attentionCardSpot(O1, { w: 268, h: 110 }, [F2, zoom], 0, 1066, -Infinity, Infinity, [zoom])).toEqual({ left: 527, top: 320 })
+  })
   it('a slid spot never rises above the canvas top (roomTop)', () => {
     const wallBelow = { x: 0, y: 100, w: 2000, h: 2000 }
     expect(attentionCardSpot({ x: 400, y: 120, w: 100, h: 50 }, { w: 268, h: 110 }, [wallBelow], 0, 1500, 0).top).toBeGreaterThanOrEqual(0)
