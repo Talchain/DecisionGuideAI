@@ -149,7 +149,9 @@ describe('the Run beside the chances says what the base dock said, word for word
       expect(texts(container, '[data-view^="run.notes."]')).toEqual(o.notes)
       if (o.waits_on === null) expect(container.querySelector('[data-testid="view-run-waits-on"]')).toBeNull()
       else {
-        expect(container.querySelector('[data-view="run.waits_on.label"]')?.textContent).toBe(model.run!.waits_on!.label)
+        // When every option waits (core 534203e on), what they wait on heads the dock (its head and text), not the "Waits on:" line.
+        if (model.run!.all_withheld) expect(container.querySelector('[data-testid="view-run-waits-headline"] [data-view="run.waits_on.text"]')?.textContent).toBe(model.run!.waits_on!.text)
+        else expect(container.querySelector('[data-view="run.waits_on.label"]')?.textContent).toBe(model.run!.waits_on!.label)
         expect(texts(container, '[data-view^="run.waits_on.items."][data-view$=".text"]')).toEqual(model.run!.waits_on!.items.map((i) => i.text))
         expect(model.run!.waits_on!.items.map((i) => i.id)).toEqual(o.waits_on.items.map((i) => i.id))
         expect(model.run!.waits_on!.text).toBe(o.waits_on.text)
@@ -192,10 +194,12 @@ describe('a reason every option shares is said once, above the options; each cov
     expect(container.querySelector('[data-view="run.lead"]')?.textContent).toBe(oracle['pricing-unmoved-first']!.lead)
   })
   it('absent: no View without the key draws a shared reason', () => {
+    // (From core 89d09f0 the goldens carry the key where a blocker is shared: the absent case is made by taking it away.)
     for (const n of GOLDEN) {
-      expect(golden(n).model?.run?.shared_blockers, n).toBeUndefined()
-      const model = golden(n).model
-      if (model) expect(render(<ViewChances model={model} />).container.querySelector('[data-testid="view-run-shared-blocker"]'), n).toBeNull()
+      const model = structuredClone(golden(n).model)
+      if (!model) continue
+      if (model.run) delete model.run.shared_blockers
+      expect(render(<ViewChances model={model} />).container.querySelector('[data-testid="view-run-shared-blocker"]'), n).toBeNull()
     }
   })
 })

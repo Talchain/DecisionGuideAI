@@ -113,7 +113,9 @@ const notFramed = async (p, model) => p.page.evaluate(({ model, f }) => {
   const z = new DOMMatrix(getComputedStyle(document.querySelector('.react-flow__viewport')).transform).a
   const all = ['page:question', ...model.cards.map((c) => c.id)], rs = all.map(rect).filter(Boolean)
   const bw = (Math.max(...rs.map((r) => r.right)) - Math.min(...rs.map((r) => r.left))) / z, bh = (Math.max(...rs.map((r) => r.bottom)) - Math.min(...rs.map((r) => r.top))) / z
-  const whole = Math.min(f.width / bw, f.height / bh) >= 0.9
+  // The product frames whole at 0.9 or more inside its padded canvas (rail, dock and top bar kept clear); measured here on the raw
+  // pane, a board that fits only within that padding is not required whole (0.95 covers it); the question and options always are.
+  const whole = Math.min(f.width / bw, f.height / bh) >= 0.95
   const tops = model.cards.filter((c) => c.family === 'option').map((c) => c.id)
   return (whole ? all : ['page:question', ...tops]).filter((id) => !inside(rect(id)))
 }, { model, f: await free(p) })

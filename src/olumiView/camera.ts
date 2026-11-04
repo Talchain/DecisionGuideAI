@@ -16,12 +16,15 @@ type Insets = { top: number; right: number; bottom: number; left: number }
 /**
  * READABLE FIRST, WHOLE WHEN IT FITS (DL 4 Nov: a 22-card board fitted whole at 0.272, nothing readable; then, for the original look,
  * "on open, the camera zooms to max(fit, 0.9), anchored at the top centre"). Null when the whole board fits the free canvas at
- * `READABLE_WHOLE_ZOOM` or more: the product's own fit then frames it whole. Otherwise the board at that zoom, its top under the free
- * canvas's top and the centre of `top` (the question and the options) at its centre; the person pans for the rest.
+ * `READABLE_WHOLE_ZOOM` or more: the product's own fit then frames it whole. Otherwise the board at that zoom (lower only as far as
+ * keeps `top`, the question and the options, across the free canvas), its top under the free canvas's top and `top` centred across
+ * it; the person pans for the rest.
  */
 export function readableFirstViewport(bounds: Rect, pane: { width: number; height: number }, insets: Insets, top: Rect = bounds): { x: number; y: number; zoom: number } | null {
   const freeW = Math.max(1, pane.width - insets.left - insets.right), freeH = Math.max(1, pane.height - insets.top - insets.bottom)
-  if (Math.min(freeW / Math.max(1, bounds.width), freeH / Math.max(1, bounds.height)) >= READABLE_WHOLE_ZOOM) return null
-  const zoom = READABLE_WHOLE_ZOOM
+  const whole = Math.min(freeW / Math.max(1, bounds.width), freeH / Math.max(1, bounds.height))
+  if (whole >= READABLE_WHOLE_ZOOM) return null
+  // At 0.9, unless the question and the options would not fit across the free canvas there: then as near 0.9 as keeps them in view.
+  const zoom = Math.max(whole, Math.min(READABLE_WHOLE_ZOOM, freeW / Math.max(1, top.width)))
   return { zoom, x: insets.left + freeW / 2 - (top.x + top.width / 2) * zoom, y: insets.top - bounds.y * zoom }
 }

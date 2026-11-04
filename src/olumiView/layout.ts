@@ -37,11 +37,11 @@ export const askKindOf = (family: string): 'factor' | 'risk' | 'goal' | 'option'
 /** The question's card on core's page (olumi-core src/view/model.ts QUESTION): what a link to the question as a whole ends at. */
 export const QUESTION = 'page:question'
 
-/** How wide the question's card is, as core's page draws it (`drawModel`): as wide as the columns, at most 900px. The causal layout
- *  places it, at the top. */
-export function questionPlace(model: ViewModel): { width: number } {
-  const cols = Math.max(0, ...model.cards.map((c) => c.col)) + 1
-  return { width: Math.min(Math.max(740, 48 + cols * (W + GAP_X) - GAP_X) - 40, 900) }
+/** How wide the question's card is: two cards and the gap between them, as the original canvas draws its decision card (DL 4 Nov, the
+ *  original look; core's page drew it as wide as its columns, up to 900px, which ran under the dock at a readable zoom). The causal
+ *  layout places it, at the top. */
+export function questionPlace(_model: ViewModel): { width: number } {
+  return { width: 2 * W + GAP_X }
 }
 
 /** The View's links whose both ends are drawn (a card or the question), each with its place in the View's list, in its order. */

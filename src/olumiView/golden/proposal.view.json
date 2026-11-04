@@ -65,7 +65,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "per_specialist",
@@ -95,7 +97,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "one_specialist",
@@ -122,7 +126,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "total_capacity",
@@ -142,8 +148,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "Keep current staffing: 80 tickets/week · Add one specialist: 94.7 to 115 tickets/week",
-     "title": "Modelled range at the end of week 12: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. Keep current staffing: 80 tickets/week; Add one specialist: 94.7 to 115 tickets/week. Worked out from the figures it depends on.",
+     "text": "Keep current staffing: 80 tickets/week · Add one specialist: about 105 tickets/week (94.7 to 115 tickets/week)",
+     "title": "Modelled range at the end of week 12: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Keep current staffing: 80 tickets/week; Add one specialist: about 105 tickets/week (94.7 to 115 tickets/week). Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -165,7 +171,28 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": [
+     {
+      "option": "hold",
+      "text": "80 tickets/week",
+      "p10": 80,
+      "p50": 80,
+      "p90": 80,
+      "if_absent": [],
+      "olumi": false
+     },
+     {
+      "option": "add_one",
+      "text": "about 105 tickets/week (94.7 to 115 tickets/week)",
+      "p10": 94.6795181966731,
+      "p50": 104.92980796070435,
+      "p90": 114.91851476864522,
+      "if_absent": [],
+      "olumi": false
+     }
+    ],
+    "rests_on": []
    },
    {
     "id": "capacity_target",
@@ -192,7 +219,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "capacity_goal",
@@ -220,7 +249,9 @@
      "measured": true
     },
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "hold",
@@ -249,6 +280,15 @@
       "aim": "At least 100 a week",
       "aim_id": "capacity_goal",
       "title": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It leaves out: How the team feels about a new hire.",
+      "chance": 0,
+      "outcome": {
+       "low": 80,
+       "median": 80,
+       "high": 80,
+       "unit": "ticket/week",
+       "text": "80 tickets/week",
+       "title": "Modelled range at the end of week 12: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Keep current staffing: 80 tickets/week; Add one specialist: about 105 tickets/week (94.7 to 115 tickets/week). Worked out from the figures it depends on."
+      },
       "estimate": null
      }
     ],
@@ -256,7 +296,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "add_one",
@@ -288,12 +330,22 @@
       "aim": "At least 100 a week",
       "aim_id": "capacity_goal",
       "title": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. It leaves out: How the team feels about a new hire.",
+      "chance": 0.739,
+      "outcome": {
+       "low": 94.6795181966731,
+       "median": 104.92980796070435,
+       "high": 114.91851476864522,
+       "unit": "ticket/week",
+       "text": "about 105 tickets/week (94.7 to 115 tickets/week)",
+       "title": "Modelled range at the end of week 12: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Keep current staffing: 80 tickets/week; Add one specialist: about 105 tickets/week (94.7 to 115 tickets/week). Worked out from the figures it depends on."
+      },
       "estimate": null
      }
     ],
     "driver": {
      "text": "about 22% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws.",
-     "title": "about 22% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws."
+     "title": "about 22% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "per_specialist"
     },
     "status": null,
     "bound": null,
@@ -309,7 +361,9 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "deadline",
@@ -336,7 +390,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "start_delay",
@@ -366,7 +422,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    }
   ],
   "links": [
@@ -378,7 +436,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”"
+    "title": "worked out through added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”",
+    "effect": null
    },
    {
     "from": "existing_capacity",
@@ -388,7 +447,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "adds to · Theirs: “total is today plus the specialists”"
+    "title": "adds to · Theirs: “total is today plus the specialists”",
+    "effect": null
    },
    {
     "from": "total_capacity",
@@ -398,7 +458,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by"
+    "title": "measured by",
+    "effect": null
    },
    {
     "from": "capacity_target",
@@ -408,7 +469,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target"
+    "title": "target",
+    "effect": null
    },
    {
     "from": "add_one",
@@ -418,7 +480,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "effect": null
    },
    {
     "from": "one_specialist",
@@ -428,7 +491,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through specialists, added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”"
+    "title": "worked out through specialists, added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”",
+    "effect": null
    }
   ],
   "run": {
@@ -449,7 +513,113 @@
    ],
    "science": []
   },
-  "edit_base": null
+  "edit_base": null,
+  "key": [
+   {
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "glyph": "?",
+    "text": "unsized"
+   },
+   {
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "glyph": "↻",
+    "text": "changed"
+   }
+  ]
  },
  "proposal": {
   "id": 5,
@@ -620,7 +790,8 @@
      ],
      "about": [],
      "at": null,
-     "newest": false
+     "newest": false,
+     "move": "gather_evidence"
     }
    },
    "broke": null,
@@ -650,12 +821,15 @@
      ],
      "about": [],
      "at": null,
-     "newest": true
+     "newest": true,
+     "move": "gather_evidence"
     }
    },
    "broke": null,
    "problem": null,
    "marks": []
   }
- ]
+ ],
+ "brief": "Our team resolves 80 tickets a week. Keep current staffing or add one specialist? In 12 weeks we need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.",
+ "gated": false
 }

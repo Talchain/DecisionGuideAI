@@ -55,7 +55,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "classes_now",
@@ -85,7 +87,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "evening_extra",
@@ -115,7 +119,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "workshop_extra",
@@ -148,7 +154,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "takings",
@@ -168,8 +176,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "Evening classes: £2,640 to £2,880/month · Weekend workshops: £2,580/month · Carry on as now: £2,400/month",
-     "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. Under Weekend workshops it rests on figures Olumi proposed. Evening classes: £2,640 to £2,880/month; Weekend workshops: £2,580/month; Carry on as now: £2,400/month. Worked out from the figures it depends on.",
+     "text": "Evening classes: about £2,760/month (£2,640 to £2,880/month) · Weekend workshops: £2,580/month · Carry on as now: £2,400/month",
+     "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under Weekend workshops it rests on figures Olumi proposed. Evening classes: about £2,760/month (£2,640 to £2,880/month); Weekend workshops: £2,580/month; Carry on as now: £2,400/month. Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -191,7 +199,37 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": [
+     {
+      "option": "evening_classes",
+      "text": "about £2,760/month (£2,640 to £2,880/month)",
+      "p10": 2636.536440533496,
+      "p50": 2759.211381632416,
+      "p90": 2876.256859711379,
+      "if_absent": [],
+      "olumi": false
+     },
+     {
+      "option": "weekend_workshops",
+      "text": "£2,580/month",
+      "p10": 2580,
+      "p50": 2580,
+      "p90": 2580,
+      "if_absent": [],
+      "olumi": true
+     },
+     {
+      "option": "carry_on",
+      "text": "£2,400/month",
+      "p10": 2400,
+      "p50": 2400,
+      "p90": 2400,
+      "if_absent": [],
+      "olumi": false
+     }
+    ],
+    "rests_on": []
    },
    {
     "id": "takings_target",
@@ -221,7 +259,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "members",
@@ -251,7 +291,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "members_target",
@@ -281,7 +323,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "member_mood",
@@ -314,7 +358,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "mood_members",
@@ -351,7 +397,9 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "takings_goal",
@@ -379,7 +427,9 @@
      "measured": true
     },
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "keep_members",
@@ -407,7 +457,9 @@
      "measured": true
     },
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "evening_classes",
@@ -429,8 +481,8 @@
      {
       "kind": "none",
       "aim_id": "keep_members",
-      "text": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated.",
-      "title": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated."
+      "text": "cannot be worked out yet · Keep at least 140 members",
+      "title": "cannot be worked out yet · Keep at least 140 members"
      },
      {
       "kind": "chance",
@@ -445,17 +497,29 @@
       "aim": "Take £2,640 a month",
       "aim_id": "takings_goal",
       "title": "The chance that 'Evening classes' meets 'Take £2,640 a month', in this model on current information.",
+      "chance": 0.893,
+      "outcome": {
+       "low": 2636.536440533496,
+       "median": 2759.211381632416,
+       "high": 2876.256859711379,
+       "unit": "GBP/month",
+       "text": "about £2,760/month (£2,640 to £2,880/month)",
+       "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under Weekend workshops it rests on figures Olumi proposed. Evening classes: about £2,760/month (£2,640 to £2,880/month); Weekend workshops: £2,580/month; Carry on as now: £2,400/month. Worked out from the figures it depends on."
+      },
       "estimate": null
      }
     ],
     "driver": {
      "text": "about 68% if 'evening extra' is low, over 99% if it is high: Under 'Evening classes', the chance of meeting 'Take £2,640 a month' moves most with 'evening extra': these are its chances over the lowest and highest third of that figure's draws.",
-     "title": "about 68% if 'evening extra' is low, over 99% if it is high: Under 'Evening classes', the chance of meeting 'Take £2,640 a month' moves most with 'evening extra': these are its chances over the lowest and highest third of that figure's draws."
+     "title": "about 68% if 'evening extra' is low, over 99% if it is high: Under 'Evening classes', the chance of meeting 'Take £2,640 a month' moves most with 'evening extra': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "evening_extra"
     },
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "evening_mood",
@@ -478,7 +542,9 @@
     "status": null,
     "bound": null,
     "reason": "Evening classes → How members feel",
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "weekend_workshops",
@@ -503,8 +569,8 @@
      {
       "kind": "none",
       "aim_id": "keep_members",
-      "text": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated.",
-      "title": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated."
+      "text": "cannot be worked out yet · Keep at least 140 members",
+      "title": "cannot be worked out yet · Keep at least 140 members"
      },
      {
       "kind": "chance",
@@ -519,6 +585,15 @@
       "aim": "Take £2,640 a month",
       "aim_id": "takings_goal",
       "title": "With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them.",
+      "chance": 0,
+      "outcome": {
+       "low": 2580,
+       "median": 2580,
+       "high": 2580,
+       "unit": "GBP/month",
+       "text": "£2,580/month",
+       "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under Weekend workshops it rests on figures Olumi proposed. Evening classes: about £2,760/month (£2,640 to £2,880/month); Weekend workshops: £2,580/month; Carry on as now: £2,400/month. Worked out from the figures it depends on."
+      },
       "estimate": null
      }
     ],
@@ -526,7 +601,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "carry_on",
@@ -548,8 +625,8 @@
      {
       "kind": "none",
       "aim_id": "keep_members",
-      "text": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated.",
-      "title": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated."
+      "text": "cannot be worked out yet · Keep at least 140 members",
+      "title": "cannot be worked out yet · Keep at least 140 members"
      },
      {
       "kind": "chance",
@@ -561,6 +638,15 @@
       "aim": "Take £2,640 a month",
       "aim_id": "takings_goal",
       "title": "With the model's figures, 'Carry on as now' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "chance": 0,
+      "outcome": {
+       "low": 2400,
+       "median": 2400,
+       "high": 2400,
+       "unit": "GBP/month",
+       "text": "£2,400/month",
+       "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under Weekend workshops it rests on figures Olumi proposed. Evening classes: about £2,760/month (£2,640 to £2,880/month); Weekend workshops: £2,580/month; Carry on as now: £2,400/month. Worked out from the figures it depends on."
+      },
       "estimate": null
      }
     ],
@@ -568,7 +654,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    }
   ],
   "links": [
@@ -580,7 +668,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through classes · Proposed by Olumi: Olumi's estimate"
+    "title": "worked out through classes · Proposed by Olumi: Olumi's estimate",
+    "effect": null
    },
    {
     "from": "class_fee",
@@ -590,7 +679,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "multiplies · Proposed by Olumi: Olumi's estimate"
+    "title": "multiplies · Proposed by Olumi: Olumi's estimate",
+    "effect": null
    },
    {
     "from": "evening_classes",
@@ -600,7 +690,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "link in words: up, likely; Members have asked for evening slots. · Theirs: “Members have asked for evening slots”"
+    "title": "link in words: up, likely; Members have asked for evening slots. · Theirs: “Members have asked for evening slots”",
+    "effect": null
    },
    {
     "from": "member_mood",
@@ -610,7 +701,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "link in words: conditional, unsure; Happier members stay only if the evening slots suit them; see the condition and the dissent on this link. · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link."
+    "title": "link in words: conditional, unsure; Happier members stay only if the evening slots suit them; see the condition and the dissent on this link. · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link.",
+    "effect": null
    },
    {
     "from": "evening_mood",
@@ -620,7 +712,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "relation: Evening classes → How members feel"
+    "title": "relation: Evening classes → How members feel",
+    "effect": null
    },
    {
     "from": "evening_mood",
@@ -630,7 +723,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "relation: Evening classes → How members feel"
+    "title": "relation: Evening classes → How members feel",
+    "effect": null
    },
    {
     "from": "mood_members",
@@ -640,7 +734,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "relation: How members feel → members"
+    "title": "relation: How members feel → members",
+    "effect": null
    },
    {
     "from": "mood_members",
@@ -650,7 +745,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "relation: How members feel → members"
+    "title": "relation: How members feel → members",
+    "effect": null
    },
    {
     "from": "takings",
@@ -660,7 +756,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by"
+    "title": "measured by",
+    "effect": null
    },
    {
     "from": "takings_target",
@@ -670,7 +767,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target"
+    "title": "target",
+    "effect": null
    },
    {
     "from": "members",
@@ -680,7 +778,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by"
+    "title": "measured by",
+    "effect": null
    },
    {
     "from": "members_target",
@@ -690,7 +789,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target"
+    "title": "target",
+    "effect": null
    },
    {
     "from": "evening_classes",
@@ -700,7 +800,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "effect": null
    },
    {
     "from": "evening_extra",
@@ -710,7 +811,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through extra classes, classes · Proposed by Olumi: Olumi's estimate"
+    "title": "worked out through extra classes, classes · Proposed by Olumi: Olumi's estimate",
+    "effect": null
    },
    {
     "from": "weekend_workshops",
@@ -720,7 +822,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "effect": null
    },
    {
     "from": "workshop_extra",
@@ -730,13 +833,25 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through extra classes, classes · Proposed by Olumi: Olumi's estimate"
+    "title": "worked out through extra classes, classes · Proposed by Olumi: Olumi's estimate",
+    "effect": null
    }
   ],
   "run": {
    "aim": "chance of ‘Take £2,640 a month’",
    "lead": "In this model, on current information, each option’s chance of ‘Take £2,640 a month’:",
    "all_withheld": false,
+   "shared_blockers": [
+    {
+     "aim_id": "keep_members",
+     "options": [
+      "evening_classes",
+      "weekend_workshops",
+      "carry_on"
+     ],
+     "text": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated."
+    }
+   ],
    "most_likely": {
     "text": "If Olumi's estimates hold, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎.",
     "title": "If Olumi's estimates hold, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎.",
@@ -779,7 +894,113 @@
    "notes": [],
    "science": []
   },
-  "edit_base": 1
+  "edit_base": 1,
+  "key": [
+   {
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "glyph": "?",
+    "text": "unsized"
+   },
+   {
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "glyph": "↻",
+    "text": "changed"
+   }
+  ]
  },
  "proposal": null,
  "collab": {
@@ -919,5 +1140,7 @@
   ]
  },
  "evidence": [],
- "chat": []
+ "chat": [],
+ "brief": "Should the studio add evening classes?",
+ "gated": true
 }

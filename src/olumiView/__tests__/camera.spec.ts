@@ -59,6 +59,12 @@ describe('readable first, whole when it fits (DL 4 Nov: whole at 0.272 unreadabl
     expect((head.x + head.width / 2) * v.zoom + v.x).toBeCloseTo(freeMid)
     expect(r.y * v.zoom + v.y).toBeCloseTo(insets.top)
   })
+  it('a top tier wider than the free canvas at 0.9: the zoom comes down only as far as keeps the question and the options across it', () => {
+    const r = rect(boxes), freeW = pane.width - insets.left - insets.right, head = { x: r.x, y: r.y, width: freeW / 0.7, height: 100 }
+    const v = readableFirstViewport(r, pane, insets, head)!
+    expect(v.zoom).toBeCloseTo(0.7)
+    expect(head.x * v.zoom + v.x).toBeCloseTo(insets.left)
+  })
   it('must not change: a board that fits whole at 0.9 or more is the product\'s own whole fit (null here)', () => {
     const small = [one[0]!, ...one.slice(1, 3)].map((b) => ({ ...b, x: b.x / 4, y: b.y / 4, w: b.w / 4, h: b.h / 4 }))
     expect(readableFirstViewport(rect(small), pane, insets)).toBeNull()

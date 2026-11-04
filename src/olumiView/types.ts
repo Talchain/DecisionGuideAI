@@ -86,6 +86,15 @@ export type View = {
         aim: string
         aim_id: string
         title: string
+        chance: number | null
+        outcome: {
+          low: number
+          median: number | null
+          high: number
+          unit: string | null
+          text: string
+          title: string
+        } | null
         estimate: string | null
       } | {
         kind: "limit"
@@ -107,7 +116,7 @@ export type View = {
       driver: {
         text: string
         title: string
-        figure?: string | null
+        figure: string | null
       } | null
       status: string | null
       bound: {
@@ -129,6 +138,19 @@ export type View = {
         proposed: boolean
         change: string
       } | null
+      values: Array<{
+        option: string
+        text: string
+        p10: number
+        p50: number | null
+        p90: number
+        if_absent: Array<string>
+        olumi: boolean
+      }> | null
+      rests_on: Array<{
+        id: string
+        whose: "theirs" | "olumi" | "mixed"
+      }>
     }>
     links: Array<{
       from: string
@@ -139,6 +161,11 @@ export type View = {
       alert: boolean
       proposed: boolean
       title: string
+      effect: {
+        text: string
+        title: string
+        figure: string
+      } | null
     }>
     run: {
       aim: string | null
@@ -204,6 +231,10 @@ export type View = {
       }>
     } | null
     edit_base: number | null
+    key: Array<{
+      glyph: string
+      text: string
+    }>
   } | null
   proposal: {
     id: number
@@ -333,6 +364,7 @@ export type View = {
         about: Array<string>
         at: string | null
         newest: boolean
+        move: string
       }
     } | null
     broke: string | null
@@ -343,4 +375,6 @@ export type View = {
       title: string
     }>
   }>
+  brief: string
+  gated: boolean
 }

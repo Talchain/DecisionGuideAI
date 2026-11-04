@@ -402,6 +402,57 @@
               "title": {
                "type": "string"
               },
+              "chance": {
+               "type": [
+                "number",
+                "null"
+               ]
+              },
+              "outcome": {
+               "anyOf": [
+                {
+                 "type": "object",
+                 "properties": {
+                  "low": {
+                   "type": "number"
+                  },
+                  "median": {
+                   "type": [
+                    "number",
+                    "null"
+                   ]
+                  },
+                  "high": {
+                   "type": "number"
+                  },
+                  "unit": {
+                   "type": [
+                    "string",
+                    "null"
+                   ]
+                  },
+                  "text": {
+                   "type": "string"
+                  },
+                  "title": {
+                   "type": "string"
+                  }
+                 },
+                 "required": [
+                  "low",
+                  "median",
+                  "high",
+                  "unit",
+                  "text",
+                  "title"
+                 ],
+                 "additionalProperties": false
+                },
+                {
+                 "type": "null"
+                }
+               ]
+              },
               "estimate": {
                "type": [
                 "string",
@@ -419,6 +470,8 @@
               "aim",
               "aim_id",
               "title",
+              "chance",
+              "outcome",
               "estimate"
              ],
              "additionalProperties": false
@@ -534,7 +587,8 @@
             },
             "required": [
              "text",
-             "title"
+             "title",
+             "figure"
             ],
             "additionalProperties": false
            },
@@ -651,6 +705,82 @@
             "type": "null"
            }
           ]
+         },
+         "values": {
+          "anyOf": [
+           {
+            "type": "array",
+            "items": {
+             "type": "object",
+             "properties": {
+              "option": {
+               "type": "string"
+              },
+              "text": {
+               "type": "string"
+              },
+              "p10": {
+               "type": "number"
+              },
+              "p50": {
+               "type": [
+                "number",
+                "null"
+               ]
+              },
+              "p90": {
+               "type": "number"
+              },
+              "if_absent": {
+               "type": "array",
+               "items": {
+                "type": "string"
+               }
+              },
+              "olumi": {
+               "type": "boolean"
+              }
+             },
+             "required": [
+              "option",
+              "text",
+              "p10",
+              "p50",
+              "p90",
+              "if_absent",
+              "olumi"
+             ],
+             "additionalProperties": false
+            }
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
+         "rests_on": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "id": {
+             "type": "string"
+            },
+            "whose": {
+             "type": "string",
+             "enum": [
+              "theirs",
+              "olumi",
+              "mixed"
+             ]
+            }
+           },
+           "required": [
+            "id",
+            "whose"
+           ],
+           "additionalProperties": false
+          }
          }
         },
         "required": [
@@ -674,7 +804,9 @@
          "status",
          "bound",
          "reason",
-         "badge"
+         "badge",
+         "values",
+         "rests_on"
         ],
         "additionalProperties": false
        }
@@ -713,6 +845,33 @@
          },
          "title": {
           "type": "string"
+         },
+         "effect": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "text": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             },
+             "figure": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "text",
+             "title",
+             "figure"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
          }
         },
         "required": [
@@ -723,7 +882,8 @@
          "doubt",
          "alert",
          "proposed",
-         "title"
+         "title",
+         "effect"
         ],
         "additionalProperties": false
        }
@@ -1090,6 +1250,25 @@
         "number",
         "null"
        ]
+      },
+      "key": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "properties": {
+         "glyph": {
+          "type": "string"
+         },
+         "text": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "glyph",
+         "text"
+        ],
+        "additionalProperties": false
+       }
       }
      },
      "required": [
@@ -1098,7 +1277,8 @@
       "cards",
       "links",
       "run",
-      "edit_base"
+      "edit_base",
+      "key"
      ],
      "additionalProperties": false
     },
@@ -1763,6 +1943,9 @@
            },
            "newest": {
             "type": "boolean"
+           },
+           "move": {
+            "type": "string"
            }
           },
           "required": [
@@ -1770,7 +1953,8 @@
            "text",
            "about",
            "at",
-           "newest"
+           "newest",
+           "move"
           ],
           "additionalProperties": false
          }
@@ -1837,6 +2021,12 @@
     ],
     "additionalProperties": false
    }
+  },
+  "brief": {
+   "type": "string"
+  },
+  "gated": {
+   "type": "boolean"
   }
  },
  "required": [
@@ -1853,7 +2043,9 @@
   "proposal",
   "collab",
   "evidence",
-  "chat"
+  "chat",
+  "brief",
+  "gated"
  ],
  "additionalProperties": false
 }
