@@ -249,17 +249,40 @@ check(onceOnLoad <= 1, `on load, the next step's words are on screen at most onc
 await icon.click()
 const note = ada.page.getByTestId('olumi-attention-card')
 await note.waitFor({ timeout: T })
-check((await note.innerText()).includes(nextWords), `Olumi's note on the canvas says it: "${nextWords}"`)
+// Ruling (a): with no free spot on the canvas the note goes into the Olumi tab, under Next step; the canvas then keeps an
+// unseen copy only to measure it (real-AI board, 4 Nov). Every check below reads the note a person sees, wherever it went.
+// The note is placed once it is measured, so it can open on the canvas and move into the tab a frame later (4 Nov, 1 of 3 runs at
+// 900 px): read where it is once that has held for three reads in a row.
+let inTab = null, same = 0
+for (const t0 = Date.now(); same < 3 && Date.now() - t0 < T; await ada.page.waitForTimeout(200)) { const now = await note.getAttribute('data-in-panel') !== null; same = now === inTab ? same + 1 : 0; inTab = now }
+check(same >= 3, `Olumi's note settles in one place (${inTab ? 'the Olumi tab' : 'the canvas'})`)
+const where = inTab ? 'in the Olumi tab (no free spot on the canvas)' : 'on the canvas'
+check((await note.innerText()).includes(nextWords), `Olumi's note ${where} says it: "${nextWords}"`)
 // W1 "Why ▸" on a finding: the reply's reasons behind the note's Why, in core's words.
 const whyWords = (v.chat.find((t) => t.answer?.next.newest)?.answer?.why ?? []).map((w) => w.map((p) => p.text ?? '').join('').trim()).filter(Boolean)
 if (whyWords.length > 0) {
-  await ada.page.getByTestId('olumi-attention-card-why').locator('summary').click()
-  const said = await ada.page.getByTestId('olumi-attention-card-why').innerText()
+  const why = note.getByTestId('olumi-attention-card-why')
+  await why.locator('summary').click()
+  const said = await why.innerText()
   check(whyWords.every((w) => said.includes(w)), `the note's Why says core's reasons ("${whyWords[0]}")`)
-  await ada.page.getByTestId('olumi-attention-card-why').locator('summary').click()
+  await why.locator('summary').click()
 } else ok('this reply gives no reasons, so the note has no Why')
-// Lane C: the note sits beside its card and covers none (measured from what is drawn).
 await ada.page.waitForTimeout(500)
+if (inTab) {
+  // In the tab: the note is under Next step there, and on the canvas (the canvas root minus the dock) its words are not seen and take
+  // no press (found by its words, not its test ids, so the check holds whatever the unseen measuring copy carries).
+  check(await note.evaluate((e) => e.closest('[data-olumi-note-slot]') !== null), 'the note in the Olumi tab sits under Next step')
+  const onCanvas = await ada.page.evaluate((w) => {
+    const root = document.querySelector('[data-testid="view-canvas-root"]')
+    if (root === null) return null
+    return [...root.querySelectorAll('*')].filter((e) => !e.closest('[data-testid="outputs-dock"]') && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.includes(w.slice(0, 40)))).map((e) => {
+      const r = e.getBoundingClientRect(), hit = r.width > 0 && r.height > 0 ? document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) : null
+      return { seen: e.checkVisibility({ visibilityProperty: true, opacityProperty: true }), takesPress: hit !== null && e.contains(hit) }
+    })
+  }, nextWords)
+  check(onCanvas !== null && onCanvas.every((c) => !c.seen && !c.takesPress), `on the canvas the note's words are not seen and take no press (${JSON.stringify(onCanvas)})`)
+} else {
+// Lane C: the note sits beside its card and covers none (measured from what is drawn).
 const covers = await ada.page.evaluate(() => {
   const n = document.querySelector('[data-testid="olumi-attention-card"]').getBoundingClientRect()
   return [...document.querySelectorAll('.react-flow__node')].filter((e) => { const r = e.getBoundingClientRect(); return Math.min(n.right, r.right) > Math.max(n.left, r.left) && Math.min(n.bottom, r.bottom) > Math.max(n.top, r.top) }).map((e) => e.getAttribute('data-id'))
@@ -271,6 +294,7 @@ const onControls = await ada.page.evaluate(() => {
   return ['nav[aria-label="Viewport controls"]', 'nav[aria-label="Canvas tools"]'].filter((sel) => { const e = document.querySelector(sel); if (!e) return false; const r = e.getBoundingClientRect(); return Math.min(n.right, r.right) > Math.max(n.left, r.left) && Math.min(n.bottom, r.bottom) > Math.max(n.top, r.top) })
 })
 check(onControls.length === 0, `Olumi's note covers no canvas control${onControls.length ? ` (covers ${onControls.join(', ')})` : ''}`)
+}
 await shot(ada, '0-ada-model')
 
 // ── 1. Bea joins by her link, on the same address ───────────────────────────────────────────────────────────────────────────────
