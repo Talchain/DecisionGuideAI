@@ -11,6 +11,7 @@ import { feature } from '../lib/pocFlags'
 import DevRoutesGuard from '../components/auth/DevRoutesGuard'
 import { isE2EEnabled } from '../flags'
 import { coreLaneHasAccounts } from '../olumiCore/lane'
+import { SignedOut } from '../olumiCore/SignedOut'
 import { fetchFlow as fetchFlowEngine, openSSE } from '../lib/pocEngine'
 import { initMonitoring } from '../lib/monitoring'
 import GraphCanvas from '../components/GraphCanvas'
@@ -976,6 +977,8 @@ export default function AppPoC() {
                 <Routes>
                 {/* Public routes. On the olumi-core lane none of them can work (no accounts, no shared pages, no sign in: a person is
                     who their private link says), so `NotOnTheLane` lands each on the canvas. */}
+                {/* The olumi-core lane's Sign out lands here (src/olumiCore/SignedOut.tsx); off the lane it goes home. */}
+                <Route path="/signed-out" element={<SignedOut />} />
                 <Route element={<NotOnTheLane />}>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />

@@ -2,10 +2,11 @@
  * User avatar with dropdown menu — used in TopBar and scenario hub header.
  *
  * Shows a circular avatar with the user's display_name initial (or email initial).
- * Click opens dropdown: display name, email, "My decisions", "Profile settings", divider, "Sign out".
+ * Click opens dropdown: display name, email, "My decisions", "Profile settings", divider, "Sign out". On the olumi-core lane:
+ * whose private link it is, and Sign out.
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, type RefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Settings, LogOut, LayoutGrid } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
@@ -14,6 +15,8 @@ import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import { sanitiseUserId } from '../../lib/guestIdentity'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { useMe } from '../../olumiCore/me'
+import { signOutOfOlumi } from '../../olumiCore/signout'
+import { TeamApiError } from '../../olumiCore/team/api'
 
 function getInitial(profile: { display_name?: string | null; email?: string | null } | null, user: { email?: string } | null): string {
   const name = profile?.display_name || user?.email || ''
@@ -29,39 +32,8 @@ interface UserAvatarMenuProps {
   size?: 'default' | 'compact'
 }
 
-/**
- * On the olumi-core lane the person is who their private link says, and there is no account behind this build: no sign in, no
- * profile to save, no account to delete (the Supabase address is dead on purpose, so each of them would hang or fail). The
- * avatar is then a plain mark that says whose private link this page was opened with, and opens nothing.
- */
-function PrivateLinkMark({ size }: { size: 'default' | 'compact' }) {
-  const person = useMe((s) => s.me)
-  const initial = (person?.name ?? '').charAt(0).toUpperCase() || '?'
-  const words = person ? `You are using Olumi through ${person.name}’s private link` : 'You are using Olumi through your private link'
-  return (
-    <div
-      role="img"
-      aria-label={words}
-      title={words}
-      data-testid="olumi-core-person-mark"
-      className={`flex ${size === 'compact' ? 'h-[26px] w-[26px]' : 'h-8 w-8'} items-center justify-center rounded-full bg-primary text-text-on-color`}
-    >
-      <span className={size === 'compact' ? 'text-[11px] font-medium font-sans leading-none' : typography.button}>{initial}</span>
-    </div>
-  )
-}
-
-export function UserAvatarMenu(props: UserAvatarMenuProps = {}) {
-  return isOlumiCoreLane() ? <PrivateLinkMark size={props.size ?? 'default'} /> : <AccountAvatarMenu {...props} />
-}
-
-function AccountAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
-  const { user, profile, signOut } = useAuth()
-  const navigate = useNavigate()
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  // Close on outside click or Escape
+/** Closes an open menu on a press outside it, on Escape, and when another menu claims the screen (MENU_EXCLUSIVE_EVENT). */
+function useMenuDismiss(open: boolean, setOpen: (open: boolean) => void, ref: RefObject<HTMLDivElement>) {
   useEffect(() => {
     if (!open) return
     const onClickOutside = (e: MouseEvent) => {
@@ -76,9 +48,8 @@ function AccountAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
       document.removeEventListener('mousedown', onClickOutside)
       document.removeEventListener('keydown', onEscape)
     }
-  }, [open])
+  }, [open, setOpen, ref])
 
-  // Close when another menu claims exclusivity
   useEffect(() => {
     const handler = (e: Event) => {
       const source = (e as CustomEvent).detail?.source
@@ -86,7 +57,93 @@ function AccountAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
     }
     window.addEventListener(MENU_EXCLUSIVE_EVENT, handler)
     return () => window.removeEventListener(MENU_EXCLUSIVE_EVENT, handler)
-  }, [])
+  }, [setOpen])
+}
+
+/**
+ * On the olumi-core lane the person is who their private link says, and there is no account behind this build: no sign in, no
+ * profile to save, no account to delete (the Supabase address is dead on purpose, so each of them would hang or fail). The menu
+ * says whose private link this page was opened with and offers the one thing core serves: Sign out (`POST /api/me/signout`, this
+ * browser only; the link opens it again and other members stay signed in), which lands on the signed-out screen.
+ */
+function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
+  const person = useMe((s) => s.me)
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+  useMenuDismiss(open, setOpen, ref)
+  const initial = (person?.name ?? '').charAt(0).toUpperCase() || '?'
+  const words = person ? `You are using Olumi through ${person.name}’s private link` : 'You are using Olumi through your private link'
+
+  const handleSignOut = useCallback(async () => {
+    setBusy(true); setError(null)
+    try {
+      await signOutOfOlumi()
+      setOpen(false)
+      navigate('/signed-out', { replace: true })
+    } catch (e) {
+      setError(e instanceof TeamApiError ? e.message : 'That did not go through. You are still signed in.')
+    } finally { setBusy(false) }
+  }, [navigate])
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          const next = !open
+          setOpen(next)
+          if (next) window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'avatar' } }))
+        }}
+        title={words}
+        data-testid="olumi-core-person-mark"
+        className={`flex ${size === 'compact' ? 'h-[26px] w-[26px]' : 'h-8 w-8'} items-center justify-center rounded-full bg-primary text-text-on-color transition-transform duration-fast hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info`}
+        aria-label="Account menu"
+        aria-expanded={open}
+        aria-haspopup="true"
+      >
+        <span className={size === 'compact' ? 'text-[11px] font-medium font-sans leading-none' : typography.button}>{initial}</span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-56 rounded-md bg-panel shadow-2 border border-[rgba(38,38,38,0.08)] z-[100]" role="menu">
+          <div className="px-4 py-3">
+            <p className={`${typography.label} text-text-header truncate`}>{person?.name ?? ''}</p>
+            <p className={`${typography.bodySmall} text-text-light`}>{words}</p>
+          </div>
+          <div className="py-1">
+            <button
+              type="button"
+              role="menuitem"
+              data-testid="olumi-core-sign-out"
+              disabled={busy}
+              onClick={() => void handleSignOut()}
+              className="flex w-full items-center gap-2 px-4 py-2 text-left text-danger hover:bg-panel-hover transition-colors duration-fast disabled:opacity-50"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className={typography.bodySmall}>Sign out</span>
+            </button>
+            {error && <p role="alert" data-testid="olumi-core-sign-out-error" className={`${typography.caption} px-4 pb-2 text-danger`}>{error}</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function UserAvatarMenu(props: UserAvatarMenuProps = {}) {
+  return isOlumiCoreLane() ? <PrivateLinkMenu size={props.size ?? 'default'} /> : <AccountAvatarMenu {...props} />
+}
+
+function AccountAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
+  const { user, profile, signOut } = useAuth()
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useMenuDismiss(open, setOpen, ref)
 
   const handleSignOut = useCallback(async () => {
     setOpen(false)
