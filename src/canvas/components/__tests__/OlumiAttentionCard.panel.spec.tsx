@@ -8,6 +8,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { OlumiAttentionCard, OLUMI_ATTENTION_CARD_TESTID, spotCovers } from '../OlumiAttentionCard'
 import { useCanvasStore } from '../../store'
 import { VIEW_NOTE_SLOT, VIEW_NOTE_TURN } from '../../../olumiView/note'
+import { ATTENTION_CARD_COPY } from '../OlumiAttentionCard'
 
 vi.mock('@xyflow/react', () => ({ useStore: (selector: (s: { transform: [number, number, number] }) => unknown) => selector({ transform: [0, 0, 1] }) }))
 vi.mock('../../../components/results/coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
@@ -58,10 +59,27 @@ describe('the note on the core lane never covers a card', () => {
     board(full)
     await vi.waitFor(() => expect(screen.getByTestId('slot').querySelector(`[data-testid="${OLUMI_ATTENTION_CARD_TESTID}"]`)).not.toBeNull())
     expect(screen.getByTestId('slot').textContent).toContain('What evidence would settle it?')
-    const measure = screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-measure`)
-    expect([measure.style.visibility, measure.getAttribute('aria-hidden')]).toEqual(['hidden', 'true'])
+    const measure = document.querySelector<HTMLElement>('[data-note-measure]')!
+    expect([measure.style.visibility, measure.getAttribute('aria-hidden'), measure.hasAttribute('inert')]).toEqual(['hidden', 'true', true])
     expect(screen.getAllByTestId(OLUMI_ATTENTION_CARD_TESTID)).toHaveLength(1)
     await vi.waitFor(() => expect(revealed.n).toBe(1))
+  })
+
+  it('⛔ in the panel, the canvas copy that is only measured is not a second note (R2 witness, 4 Nov: two "Why" on a dense board, Playwright strict mode)', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    useCanvasStore.setState({ nodes: [], edges: [] })
+    board(full)
+    useCanvasStore.setState((s) => ({ olumiAttention: { ...s.olumiAttention!, note: { ...s.olumiAttention!.note!, why: ['Because the figure is Olumi\'s estimate.'] } } }))
+    await vi.waitFor(() => expect(screen.getByTestId('slot').querySelector(`[data-testid="${OLUMI_ATTENTION_CARD_TESTID}"]`)).not.toBeNull())
+    // Exactly one element per note test id, all in the panel's note.
+    const ids = [...document.querySelectorAll<HTMLElement>(`[data-testid^="${OLUMI_ATTENTION_CARD_TESTID}"]`)].map((e) => e.dataset['testid'])
+    expect(ids.length).toBeGreaterThan(1)
+    expect(new Set(ids).size, ids.join(' ')).toBe(ids.length)
+    // Exactly one "Why" a person or a screen reader can reach; the measured copy is hidden, inert, and holds no test id.
+    const whys = screen.getAllByText(ATTENTION_CARD_COPY.why).filter((e) => e.closest('[aria-hidden="true"], [inert]') === null)
+    expect(whys).toHaveLength(1)
+    const measure = document.querySelector<HTMLElement>('[data-note-measure]')!
+    expect([measure.getAttribute('aria-hidden'), measure.hasAttribute('inert'), measure.querySelectorAll('[data-testid]').length]).toEqual(['true', true, 0])
   })
 
   it('CONTRAST: a free spot exists → on the canvas, over no card, the tab left as it is', async () => {

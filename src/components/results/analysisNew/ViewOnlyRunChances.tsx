@@ -310,9 +310,9 @@ function WaitsOnItem({ item, testIdPrefix }: { item: CanonicalWaitsOn; testIdPre
   const quantityId = item.answer?.quantity_id ?? null
   const onCanvas = useCanvasStore(s => quantityId !== null && s.nodes.some(n => n.id === quantityId && n.type === 'factor'))
   const requestPrefill = useValuePrefillStore(s => s.requestPrefill)
-  if (quantityId === null || !onCanvas) return <span data-testid={`${testIdPrefix}-${item.id}`}>{`‘${item.label}’`}</span>
+  if (quantityId === null || !onCanvas) return <span data-testid={testIdPrefix === '' ? undefined : `${testIdPrefix}-${item.id}`}>{`‘${item.label}’`}</span>
   return (
-    <button type="button" className={`${action('inline')} whitespace-normal`} data-testid={`${testIdPrefix}-answer-${quantityId}`}
+    <button type="button" className={`${action('inline')} whitespace-normal`} data-testid={testIdPrefix === '' ? undefined : `${testIdPrefix}-answer-${quantityId}`}
       onClick={() => { focusModelTarget(quantityId); requestPrefill({ nodeId: quantityId, text: '' }) }}>
       {`‘${item.label}’`}
     </button>
