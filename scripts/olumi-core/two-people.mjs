@@ -34,7 +34,7 @@ const uuidOf = (sid) => `00000000-0000-4000-8000-${sid.slice(2)}`
 const browser = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {})
 /** A person in their own browser: their private link signs it in and core lands it (on DGAI's scenario route when it names one); then `to`, if given. */
 const person = async (name, link, to) => {
-  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const ctx = await browser.newContext({ viewport: { width: Number(process.env.VIEW_W ?? 1440), height: 900 } })
   const page = await ctx.newPage()
   page.on('pageerror', (e) => console.error(`  [${name} page error] ${e.message}`))
   await page.goto(`${BASE}${link}`)
@@ -52,8 +52,17 @@ const tab = async (p, id) => { await p.page.getByTestId(`outputs-dock-tab-${id}`
 const teamCheck = async (p) => { await tab(p, 'team'); await p.page.getByTestId('team-check').click(); await p.page.waitForTimeout(400) }
 /** Pan the canvas as a person does in select mode (a middle-button drag), moving its content by (dx, dy). */
 const pan = async (p, dx, dy) => {
-  const pane = await p.page.locator('.react-flow').first().boundingBox()
-  const x = pane.x + pane.width / 2, y = pane.y + pane.height / 2
+  // From empty canvas, as a person does: the first point on a grid where the pane itself is under the pointer (not a card or a note).
+  const at = await p.page.evaluate(() => {
+    const r = document.querySelector('.react-flow').getBoundingClientRect()
+    for (let fy = 0.5; fy < 1; fy += 0.04) for (let fx = 0.1; fx < 0.9; fx += 0.04) {
+      const x = r.left + r.width * fx, y = r.top + r.height * fy, el = document.elementFromPoint(x, y)
+      if (el?.classList.contains('react-flow__pane')) return { x, y }
+    }
+    return null
+  })
+  if (at === null) throw new Error('no empty canvas to drag from')
+  const { x, y } = at
   await p.page.mouse.move(x, y)
   await p.page.mouse.down({ button: 'middle' })
   await p.page.mouse.move(x + dx, y + dy, { steps: 12 })
@@ -61,14 +70,19 @@ const pan = async (p, dx, dy) => {
 }
 /** Bring a card to the middle of the canvas by panning to it: a real first model has cards beyond the view, which Playwright's scroll
  *  cannot reach on a transformed canvas (github-a7's real-AI witness, 4 Nov). */
+/** The canvas a person can see: the React Flow pane left of the dock (the dock sits over the canvas's right side). */
+const free = async (p) => {
+  const pane = await p.page.locator('.react-flow').first().boundingBox(), dock = await p.page.getByTestId('outputs-dock').boundingBox()
+  const right = dock && dock.x > pane.x ? Math.min(pane.x + pane.width, dock.x) : pane.x + pane.width
+  return { x: pane.x, y: pane.y, width: right - pane.x, height: pane.height }
+}
 const reach = async (p, id) => {
-  const pane = await p.page.locator('.react-flow').first().boundingBox()
-  const b = await p.page.locator(`.react-flow__node[data-id="${id}"]`).boundingBox()
-  await pan(p, pane.x + pane.width / 2 - (b.x + b.width / 2), pane.y + pane.height / 2 - (b.y + b.height / 2))
+  const f = await free(p), b = await p.page.locator(`.react-flow__node[data-id="${id}"]`).boundingBox()
+  await pan(p, f.x + f.width / 2 - (b.x + b.width / 2), f.y + f.height / 2 - (b.y + b.height / 2))
 }
 const inView = async (p, id) => {
-  const pane = await p.page.locator('.react-flow').first().boundingBox(), b = await p.page.locator(`.react-flow__node[data-id="${id}"]`).boundingBox()
-  return b.x >= pane.x && b.y >= pane.y && b.x + b.width <= pane.x + pane.width && b.y + b.height <= pane.y + pane.height
+  const f = await free(p), b = await p.page.locator(`.react-flow__node[data-id="${id}"]`).boundingBox()
+  return b.x >= f.x && b.y >= f.y && b.x + b.width <= f.x + f.width && b.y + b.height <= f.y + f.height
 }
 /** Core's own page for the scenario, opened by the same person (their cookie), as its text. */
 const corePage = async (p, sid) => {
@@ -89,6 +103,7 @@ await ada.page.fill('#view-chat-text', BRIEF)
 await ada.page.getByRole('button', { name: 'Send', exact: true }).click()
 await ada.page.getByTestId('view-chat-proposal').waitFor({ timeout: T })
 await ada.page.waitForURL(/#\/scenario\/00000000-0000-4000-8000-[0-9a-f]{12}$/, { timeout: T })
+await shot(ada, '0-first-model-proposal')
 const sid = `s_${ada.page.url().slice(-12)}`
 check(/^s_[0-9a-f]{12}$/.test(sid), `the address bar names core's scenario (${sid} as /#/scenario/${uuidOf(sid)})`)
 await ada.page.getByRole('button', { name: 'Approve', exact: true }).click()
@@ -96,6 +111,7 @@ await ada.page.waitForFunction(() => document.querySelectorAll('.react-flow__nod
 let v = await viewWhen(ada, sid, (x) => x.proposal === null)
 await ada.page.waitForTimeout(300)
 const cards = await ada.page.locator('.react-flow__node-viewCard').count()
+await shot(ada, '0-canvas-version-1')
 check(v.version?.n === 1 && v.proposal === null, 'core holds version 1 and nothing pending')
 check(cards === v.model.cards.length, `DGAI's canvas draws every card of core's View (${cards} of ${v.model.cards.length})`)
 check(!(await ada.page.getByText('Untitled scenario').first().isVisible().catch(() => false)) && await ada.page.getByText(v.title, { exact: true }).first().isVisible(), `the top bar names the scenario as core does ("${v.title}")`)
@@ -192,10 +208,14 @@ await ada.page.getByRole('button', { name: 'Send', exact: true }).click()
 await ada.page.getByTestId('view-chat-proposal').waitFor({ timeout: T })
 // L8: core's change list on the card, each line with its tick; ticking one offers "Approve ticked · 1" (approved whole here; step 9 ticks).
 const held = (await view(ada, sid)).proposal
-check(held.changes.length > 0 && await ada.page.locator('[data-testid^="view-change-tick-"]').count() === held.changes.length, `core's ${held.changes.length} change line(s), each with its tick`)
-await ada.page.getByTestId('view-change-tick-0').check()
-check((await ada.page.getByTestId('view-approve-ticked').innerText()).includes('Approve ticked · 1'), 'one tick offers Approve ticked · 1')
-await ada.page.getByTestId('view-change-tick-0').uncheck()
+const ticks = await ada.page.locator('[data-testid^="view-change-tick-"]').count()
+if (held.changes.length > 1) {
+  check(ticks === held.changes.length, `core's ${held.changes.length} change lines, each with its tick`)
+  await ada.page.getByTestId('view-change-tick-0').check()
+  check((await ada.page.getByTestId('view-approve-ticked').innerText()).includes('Approve ticked · 1'), 'one tick offers Approve ticked · 1')
+  await shot(ada, '5-proposal-ticked')
+  await ada.page.getByTestId('view-change-tick-0').uncheck()
+} else check(held.changes.length === 1 && ticks === 0 && await ada.page.getByTestId('view-approve-ticked').count() === 0, 'core\'s one change line, with no tick: Approve is the whole of it')
 await ada.page.getByRole('button', { name: 'Approve', exact: true }).click()
 await ada.page.waitForFunction(() => document.querySelectorAll('.react-flow__node-viewCard').length > 0, null, { timeout: T })
 v = await viewWhen(ada, sid, (x) => x.proposal === null && x.version?.n === 2)
@@ -228,6 +248,7 @@ await ada.page.getByTestId(`view-figure-try-${editable.id}`).click()
 await ada.page.getByTestId('view-whatif').waitFor({ timeout: T })
 check((await ada.page.getByTestId('view-whatif').innerText()).includes('What-if, not saved'), 'the try opens the chances: a what-if drawn over them, marked not saved')
 check((await view(ada, sid)).version.n === 2, 'core saved nothing: still version 2')
+await shot(ada, '5b-whatif')
 await ada.page.getByTestId('view-whatif-clear').click()
 check(await ada.page.getByTestId('view-whatif').count() === 0, 'Clear removes it')
 await ada.page.getByTestId(`view-figure-typed-${editable.id}`).fill('15 to 25')
@@ -291,6 +312,7 @@ await ada.page.getByTestId('team-compare').locator('summary').click()
 await ada.page.getByTestId('team-compare-from').selectOption('1')
 await ada.page.getByTestId('team-compare-go').click()
 await ada.page.getByTestId('team-compare-out').waitFor({ timeout: T })
+await shot(ada, '8-compare')
 const cmp = await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/compare?from=1&to=3`)).json(), sid)
 const shownChanges = await ada.page.getByTestId('team-compare-changes').locator('li').count()
 check(cmp.changes.length > 0 && shownChanges === cmp.changes.length, `compare version 1 with 3 draws core's ${cmp.changes.length} change lines`)
