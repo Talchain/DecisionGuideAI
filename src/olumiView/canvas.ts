@@ -5,6 +5,7 @@
  * A card already on the canvas keeps where the person put it. Nothing else writes the core lane's canvas.
  */
 import { useEffect } from 'react'
+import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import type { ViewModel } from './client'
 import { CARD_WIDTH, GAP_Y, causalPlaces, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
@@ -17,6 +18,9 @@ export const VIEW_CARD = 'viewCard', VIEW_QUESTION = 'viewQuestion', VIEW_LINK =
 export const isViewNode = (node: { type?: string } | null | undefined): boolean => node?.type === VIEW_CARD || node?.type === VIEW_QUESTION
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+
+/** The View card (or the question) under the pointer, if any: its reason links are drawn while it is (`linkDrawn`). */
+export const useViewHover = create<{ id: string | null }>(() => ({ id: null }))
 
 type At = { x: number; y: number }
 /** Where this module last put each View card and the question. One still there is the canvas's to re-place; one elsewhere is where the

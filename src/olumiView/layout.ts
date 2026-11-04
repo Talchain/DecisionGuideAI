@@ -79,3 +79,11 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   const laid = await layoutGraph(nodes, edges, { direction: 'DOWN' })
   return new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }]))
 }
+
+/**
+ * Whether a link is drawn (DL 4 Nov, after the causal graph: "the dashed premise and assumption links cross the whole board"). The
+ * causal links always are. A reason link (a premise ⊢ or an assumption ◇ on what it concerns) only while one of its two cards is
+ * hovered or selected (`active`), or when core marks it challenged or proposed, so what a person would approve is never folded away.
+ */
+export const linkDrawn = (link: { from: string; to: string; kind: string; alert: boolean; proposed: boolean }, active: ReadonlySet<string>): boolean =>
+  link.kind !== 'reason' || link.alert || link.proposed || active.has(link.from) || active.has(link.to)
