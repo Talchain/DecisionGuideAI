@@ -46,6 +46,9 @@ interface ViewState {
 }
 
 let seq = 0
+/** Reads on their way now: the background re-read (`poll.ts`) waits for none of them and never adds one beside them. */
+let reading = 0
+export const isReading = (): boolean => reading > 0
 
 /**
  * The model whose lines may be drawn beside the canvas: the View's, only while it is the approved model (no proposal held, whose lines
@@ -70,17 +73,20 @@ export const useViewStore = create<ViewState>()((set, get) => ({
     if (!sid) { set({ sid: null, status: 'none' }); return false }
     const mine = ++seq
     set({ sid, status: get().view ? 'ready' : 'loading' })
+    reading += 1
     try {
       const view = await readView(sid, get().opened, get().at)
       if (mine !== seq) return false
       if (!isForThisPage(view)) { set({ status: get().view ? 'ready' : 'error', error: NOT_FOR_THIS_PAGE }); return false }
-      set({ view, status: 'ready', error: null, stale: false })
+      // The same View again (a re-read that found nothing new) keeps the one held, so nothing that reads it draws again.
+      const held = get().view
+      set({ view: held !== null && JSON.stringify(held) === JSON.stringify(view) ? held : view, status: 'ready', error: null, stale: false })
       return true
     } catch (e) {
       if (mine !== seq) return false
       set({ status: get().view ? 'ready' : 'error', error: e instanceof TeamApiError ? e.message : READ_FAILED })
       return false
-    }
+    } finally { reading -= 1 }
   },
   modelChanged: async () => {
     set({ stale: true })
@@ -98,6 +104,7 @@ export const useViewStore = create<ViewState>()((set, get) => ({
     const sid = get().sid
     if (!sid) return READ_FAILED
     const mine = ++seq
+    reading += 1 // a look is a read on its way too: the background re-read never overtakes it
     try {
       const view = await readView(sid, get().opened, at)
       if (mine !== seq) return null // a newer read settles what is on screen
@@ -108,6 +115,6 @@ export const useViewStore = create<ViewState>()((set, get) => ({
       if (mine !== seq) return null
       // The View on screen stays, and with it the version it is: a failed look is said where the person asked, not as a failed read.
       return e instanceof TeamApiError ? e.message : READ_FAILED
-    }
+    } finally { reading -= 1 }
   },
 }))

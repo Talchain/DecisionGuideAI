@@ -334,6 +334,9 @@ check(v.proposal === null && v.version.n === 1, 'a question changes nothing in t
 
 // ── 4. Evidence ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 step(4, 'Bea adds evidence that challenges a card of the approved model')
+// Ada's Team tab is open before Bea writes, and she presses nothing after: Bea's evidence must reach her screen on its own (R1 blocker,
+// 4 Nov; run it with DELAY_MS to race the reads as a real core does).
+await tab(ada, 'team')
 await tab(bea, 'team')
 const target = v.model.cards.find((c) => c.family === 'quantity') ?? v.model.cards[0]
 await bea.page.getByTestId('team-evidence-open').click()
@@ -345,8 +348,8 @@ await bea.page.getByTestId('team-evidence-add').click()
 // Her SAVED evidence, in the list (never the textarea she typed it in: React mirrors a textarea's value into its text, so an unscoped
 // getByText matched it before core had stored anything; 4 Nov, proved with the POST held).
 await bea.page.getByTestId('team-evidence-list').getByText('Last year two hires took six weeks').waitFor({ timeout: T })
-await teamCheck(ada)
-check(await seen(ada, async () => (await ada.page.getByTestId('team-evidence-list').innerText()).includes(`Bears on: ${target.heading}`), { recheck: true }), `Ada sees it, on "${target.heading}"`)
+// Ada presses nothing (no recheck): the View's own re-read brings Bea's evidence to her (R2).
+check(await seen(ada, async () => (await ada.page.getByTestId('team-evidence-list').innerText({ timeout: 1000 })).includes(`Bears on: ${target.heading}`)), `Ada sees it, on "${target.heading}", with no press and no reload`)
 v = await view(ada, sid)
 check(v.evidence.length === 1 && v.evidence[0].stance === 'challenges' && v.evidence[0].concerns[0] === target.id, 'core\'s View holds it as Bea gave it')
 
