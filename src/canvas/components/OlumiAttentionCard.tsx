@@ -227,6 +227,22 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   const [cardHeight, setCardHeight] = useState(0)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal height bails out
   useLayoutEffect(() => { const h = cardRef.current?.offsetHeight ?? 0; if (h !== cardHeight) setCardHeight(h) })
+  // ⛔ THE CARDS WHERE THEY ARE DRAWN NOW (4 Nov, the causal graph: after a pan the note sat on the card Ada had panned to). Read during
+  // render, the DOM still holds the frame before it, so the note placed itself by where the cards had been. The cards and controls are
+  // read on the frame after this render is on the page (whole px; at most once a frame, so a card still easing does not loop), and the
+  // note is placed again when they moved.
+  const anchorRef = useRef('')
+  const [drawnNow, setDrawnNow] = useState<{ key: string; cards: Box[]; controls: Box[] }>({ key: '', cards: [], controls: [] })
+  useEffect(() => {
+    if (!(cardHeight > 0)) return
+    const raf = requestAnimationFrame(() => {
+      const px = (b: Box): Box => ({ x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h) })
+      const cards = drawnCardBoxes(cardRef.current, anchorRef.current).map(px), controls = controlBoxes(cardRef.current).map(px)
+      const key = JSON.stringify([cards, controls])
+      setDrawnNow((was) => (was.key === key ? was : { key, cards, controls }))
+    })
+    return () => cancelAnimationFrame(raf)
+  })
 
   /*
    * ⭐ ESCAPE RELEASES THE HOLD, AND IT IS DELIBERATELY ABOVE THE EARLY RETURN.
@@ -278,8 +294,9 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   const screenBox = (n: { position: { x: number; y: number }; measured?: { width?: number; height?: number } }): Box => ({
     x: n.position.x * zoom + tx, y: n.position.y * zoom + ty, w: (n.measured?.width ?? 240) * zoom, h: (n.measured?.height ?? 80) * zoom })
   // The cards as drawn (their real rects, in this note's frame); the store's sizes only where the DOM has none (tests).
-  const drawn = cardHeight > 0 ? drawnCardBoxes(cardRef.current, anchorId) : []
-  const controls = cardHeight > 0 ? controlBoxes(cardRef.current) : []
+  anchorRef.current = anchorId
+  const drawn = cardHeight > 0 && drawnNow.key !== '' ? drawnNow.cards : []
+  const controls = cardHeight > 0 && drawnNow.key !== '' ? drawnNow.controls : []
   const others = cardHeight > 0
     ? [...(drawn.length > 0 ? drawn : nodes.filter((n) => n.id !== anchorId).map((n) => screenBox(n as never))), ...controls]
     : []

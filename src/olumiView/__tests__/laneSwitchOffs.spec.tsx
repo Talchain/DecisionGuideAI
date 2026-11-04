@@ -18,9 +18,8 @@ import { ToastProvider } from '../../canvas/ToastContext'
 import { useCanvasStore } from '../../canvas/store'
 import { runCanvasUndo } from '../../canvas/undo/undoCommand'
 import { CORE_LANE_USE_THE_CHAT } from '../../olumiCore/lane'
-import { drawViewCanvas, placeViewCards, useViewCanvas, withdrawViewCanvas } from '../canvas'
+import { layViewCanvas, placeViewCards, useViewCanvas, withdrawViewCanvas } from '../canvas'
 import { useViewStore } from '../store'
-import { cardPlaces } from '../layout'
 
 afterEach(() => { cleanup(); vi.unstubAllEnvs() })
 
@@ -60,9 +59,9 @@ describe('C7 the top bar offers no Summary on the lane', () => {
 
 describe('D4 a View with no model takes the View\'s cards off the canvas', () => {
   const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
-  it('the cards, the question and the links go; a canvas with no View cards is left as it is', () => {
+  it('the cards, the question and the links go; a canvas with no View cards is left as it is', async () => {
     useCanvasStore.setState({ nodes: [], edges: [] })
-    drawViewCanvas(view.model!)
+    await layViewCanvas(view.model!)
     expect(useCanvasStore.getState().nodes.length).toBeGreaterThan(0)
     expect(withdrawViewCanvas()).toBe(true)
     expect([useCanvasStore.getState().nodes, useCanvasStore.getState().edges]).toEqual([[], []])
@@ -72,11 +71,11 @@ describe('D4 a View with no model takes the View\'s cards off the canvas', () =>
     expect(useCanvasStore.getState().nodes).toBe(other)
   })
 
-  it('on the lane, a View that lands with no model withdraws the canvas it drew', () => {
+  it('on the lane, a View that lands with no model withdraws the canvas it drew', async () => {
     useCanvasStore.setState({ nodes: [], edges: [] })
     useViewStore.setState({ view })
     const { rerender } = renderHook(() => useViewCanvas(true))
-    expect(useCanvasStore.getState().nodes.length).toBeGreaterThan(0)
+    await vi.waitFor(() => expect(useCanvasStore.getState().nodes.length).toBeGreaterThan(0))
     useViewStore.setState({ view: { ...view, model: null } })
     rerender()
     expect(useCanvasStore.getState().nodes).toEqual([])
@@ -84,15 +83,16 @@ describe('D4 a View with no model takes the View\'s cards off the canvas', () =>
   })
 })
 
-describe('B5 Auto-arrange on the lane puts every View card back where core\'s page places it, never an ELK layout', () => {
+describe('B5 Auto-arrange on the lane puts every View card back in its causal place, and asks the legacy canvas for no layout', () => {
   const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
-  it('a card the person moved goes back; no layout is asked for', () => {
+  it('a card the person moved goes back; no layout is asked for', async () => {
     useCanvasStore.setState({ nodes: [], edges: [], pendingLayout: false })
-    drawViewCanvas(view.model!)
+    await layViewCanvas(view.model!)
     const [q, first, ...rest] = useCanvasStore.getState().nodes
+    const home = first!.position
     useCanvasStore.setState({ nodes: [q!, { ...first!, position: { x: 999, y: 999 } }, ...rest] })
-    expect(placeViewCards(view.model!)).toBe(true)
-    expect(useCanvasStore.getState().nodes[1]!.position).toEqual(cardPlaces(view.model!).get(first!.id))
+    expect(await placeViewCards(view.model!)).toBe(true)
+    expect(useCanvasStore.getState().nodes[1]!.position).toEqual(home)
     expect(useCanvasStore.getState().pendingLayout).toBe(false)
   })
 })

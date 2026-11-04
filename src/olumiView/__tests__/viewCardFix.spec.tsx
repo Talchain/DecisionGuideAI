@@ -1,8 +1,8 @@
 /**
  * Canvas A1, review 00063 (the third A1 review's correction): the View's cards never sit on one another, and each card keeps the
- * Olumi controls a canvas card has. A card added to a column a person has already rearranged finds free space (#1); a column stacks by
- * each card's drawn height, never shorter than core's `h`, so a long card pushes the next down, while a card the person moved stays
- * (#4); the card is core's width; and every card carries Ask Olumi and Challenge, which reach core (a challenge on core's own
+ * Olumi controls a canvas card has. A card added to a board a person has already rearranged finds free space (#1); the causal graph
+ * is laid out at each card's drawn height, never shorter than core's `h`, so a long card sits on nothing, while a card the person moved
+ * stays (#4); the card is core's width; and every card carries Ask Olumi and Challenge, which reach core (a challenge on core's own
  * challenge route for that card), and its coaching marker (#3). #2 (a View with no model) is S6's withdraw, laneSwitchOffs.spec D4.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -18,13 +18,13 @@ import type { View, ViewModel } from '../client'
 import { useCanvasStore } from '../../canvas/store'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { setTeamFetch } from '../../olumiCore/team/api'
-import { drawViewCanvas, useViewCanvas, VIEW_CARD } from '../canvas'
+import { layViewCanvas, useViewCanvas, VIEW_CARD } from '../canvas'
 import { useViewStore } from '../store'
 import { ViewChat, useViewChat } from '../ViewChat'
 import { ViewCard, ViewCardNode } from '../../canvas/nodes/ViewCardNode'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
-const W = 232, GAP_Y = 14
+const W = 232
 const UUID = '00000000-0000-4000-8000-000000000001', SID = 's_000000000001'
 
 type Box = { id: string; x: number; y: number; w: number; h: number }
@@ -40,51 +40,52 @@ const measure = (id: string, height: number) => useCanvasStore.setState({ nodes:
 beforeEach(() => { useCanvasStore.setState({ nodes: [], edges: [], pendingLayout: false }) })
 afterEach(() => { cleanup(); setTeamFetch(null) })
 
-describe('#1 a card added to a rearranged column finds free space', () => {
-  it('a card core inserts after margin_raised, with cups_now moved by the person, lands on no other card', () => {
+describe('#1 a card added to a rearranged board finds free space', () => {
+  it('a card core inserts beside the first, with every card moved by the person onto the places it could take, lands on no other card', async () => {
     const model = view.model!
-    drawViewCanvas(model)
-    const first = model.cards[0]!, col = model.cards.filter((c) => c.col === first.col)
-    expect(col.length).toBeGreaterThan(1)
-    // The person moves the column's second card into the slot a new second card would take.
-    const second = useCanvasStore.getState().nodes.find((n) => n.id === col[1]!.id)!
-    const slot = { ...second.position }
-    useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map((n) => (n.id === second.id ? { ...n, position: { x: slot.x, y: slot.y + 1 } } : n)) as never })
-    const inserted = { ...first, id: 'inserted_quantity', heading: 'Inserted' }
+    const first = model.cards[0]!, inserted = { ...first, id: 'inserted_quantity', heading: 'Inserted' }
     const next = { ...model, cards: [first, inserted, ...model.cards.slice(1)] }
-    drawViewCanvas(next)
+    // Where the causal layout would put each card of the next model: the person moves the existing cards one unit off those places.
+    await layViewCanvas(next)
+    const slots = new Map(useCanvasStore.getState().nodes.map((n) => [n.id, n.position]))
+    useCanvasStore.setState({ nodes: [] })
+    await layViewCanvas(model)
+    const target = slots.get(inserted.id)!
+    useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map((n) => (n.id === first.id ? { ...n, position: { x: target.x, y: target.y + 1 } } : n)) as never })
+    await layViewCanvas(next)
+    expect(useCanvasStore.getState().nodes.find((n) => n.id === first.id)!.position).toEqual({ x: target.x, y: target.y + 1 })
     expect(overlapping(boxes(next))).toEqual([])
   })
 })
 
-describe('#4 a column stacks by each card\'s drawn height', () => {
-  it('a card drawn taller than core\'s h pushes the next card in its column below it; a card the person moved stays', () => {
+describe('#4 the causal graph is laid out at each card\'s drawn height', () => {
+  it('a card drawn taller than core\'s h sits on no other card; a card the person moved stays', async () => {
     const model = view.model!
-    drawViewCanvas(model)
-    const col = model.cards.filter((c) => c.col === model.cards[0]!.col)
-    const [a, b] = [col[0]!, col[1]!]
-    measure(a.id, a.h + 200)
-    drawViewCanvas(model)
+    await layViewCanvas(model)
+    const [a, b] = [model.cards[0]!, model.cards[1]!]
+    measure(a.id, a.h + 400)
+    await layViewCanvas(model)
     const at = (id: string) => useCanvasStore.getState().nodes.find((n) => n.id === id)!.position
     // A re-draw keeps what the canvas measured, so it never forgets a card's height.
-    expect((useCanvasStore.getState().nodes.find((n) => n.id === a.id) as { measured?: { height?: number } }).measured?.height).toBe(a.h + 200)
-    expect(at(b.id).y).toBeGreaterThanOrEqual(at(a.id).y + a.h + 200 + GAP_Y)
+    expect((useCanvasStore.getState().nodes.find((n) => n.id === a.id) as { measured?: { height?: number } }).measured?.height).toBe(a.h + 400)
     expect(overlapping(boxes(model))).toEqual([])
     const moved = { x: 999, y: 999 }
     useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map((n) => (n.id === b.id ? { ...n, position: moved } : n)) as never })
-    measure(a.id, a.h + 300)
-    drawViewCanvas(model)
+    measure(a.id, a.h + 500)
+    await layViewCanvas(model)
     expect(at(b.id)).toEqual(moved)
   })
 
-  it('on the lane the canvas re-places its cards when a card is measured taller, with no new View', () => {
+  it('on the lane the canvas lays the graph out again when a card is measured taller, with no new View', async () => {
     const model = view.model!
     useViewStore.setState({ view })
     renderHook(() => useViewCanvas(true))
-    const col = model.cards.filter((c) => c.col === model.cards[0]!.col)
-    const before = useCanvasStore.getState().nodes.find((n) => n.id === col[1]!.id)!.position.y
-    act(() => measure(col[0]!.id, col[0]!.h + 150))
-    expect(useCanvasStore.getState().nodes.find((n) => n.id === col[1]!.id)!.position.y).toBe(before + 150)
+    await waitFor(() => expect(useCanvasStore.getState().nodes.length).toBe(model.cards.length + 1))
+    expect(overlapping(boxes(model))).toEqual([])
+    const before = JSON.stringify(useCanvasStore.getState().nodes.map((n) => n.position))
+    act(() => measure(model.cards[0]!.id, model.cards[0]!.h + 400))
+    await waitFor(() => expect(JSON.stringify(useCanvasStore.getState().nodes.map((n) => n.position))).not.toBe(before))
+    expect(overlapping(boxes(model))).toEqual([])
     useViewStore.setState({ view: null })
   })
 
@@ -103,7 +104,7 @@ describe('#3 every View card keeps the Olumi controls, and they reach core', () 
       return new Response(JSON.stringify(view), { status: 200 })
     }) as unknown as typeof fetch)
     useViewStore.setState({ uuid: UUID, sid: SID, view, error: null, status: 'ready', stale: false })
-    drawViewCanvas(view.model!)
+    return layViewCanvas(view.model!).then(() => undefined)
   })
   afterEach(() => {
     useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' })

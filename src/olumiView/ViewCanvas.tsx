@@ -2,10 +2,10 @@
  * THE OLUMI-CORE LANE'S OWN CANVAS (DL 4 Nov: "draw the View on a small dedicated canvas"). The lane mounts this in place of the legacy
  * `ReactFlowGraph`: React Flow with only the View's cards, question and links, and one camera rule. None of the legacy canvas's hooks
  * run here, so nothing re-lays out, re-spreads or inspects core's cards (the three faults of 4 Nov were each legacy machinery acting on
- * them). Cards are placed by core (`placeViewCards`, via the dock's `useViewCanvas`); the person may pan, zoom and move a card.
+ * them). Cards are placed as DGAI's causal graph (`causalPlaces`, via the dock's `useViewCanvas`); the person may pan, zoom and move a card.
  *
  * The camera: each version of core's model is framed once its cards are drawn and settled, readable first and whole when it fits
- * (`readableFirstViewport`), and framed again if the new zoom changed the board, at most three times and never over the person's own
+ * (`readableFirstViewport`) once the causal layout is in, and framed again if the new zoom changed the board, at most three times and never over the person's own
  * pan or zoom. The dock, the note and the zoom controls are the legacy canvas's own components, unchanged.
  */
 import { useCallback, useEffect, useRef } from 'react'
@@ -28,7 +28,7 @@ import { MaybeConversationProvider } from '../canvas/ReactFlowGraph'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { viewportCentredInFreePane } from '../canvas/utils/fitIntoFreePane'
-import { placeViewCards, VIEW_CARD, VIEW_LINK, VIEW_QUESTION } from './canvas'
+import { placeViewCards, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
 import { readableFirstViewport } from './camera'
 import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
@@ -83,7 +83,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
       const drawn = measuredOf(getNodes(), ids)
       const board = `${drawnHeightsKey(drawn)}#${drawn.map((n) => `${n.position.x},${n.position.y}`).join('|')}`
       const now = `${board}@${getViewport().zoom}`
-      const settled = drawn.length === ids.size && now === last
+      const settled = drawn.length === ids.size && now === last && !viewLaying()
       last = now
       if (!settled && ++frames < 300) { raf = requestAnimationFrame(tick); return }
       if (drawn.length === 0 || board === fitted || fits >= MAX_FITS) return
@@ -125,7 +125,7 @@ function ViewFlow() {
         onZoomOut={() => { userMoved.current = true; void zoomOut({ duration: 200 }) }}
         onZoomReset={() => { userMoved.current = true; void zoomTo(1, { duration: 200 }) }}
         onFitView={() => { userMoved.current = false; fit() }}
-        onAutoArrange={() => { const model = useViewStore.getState().view?.model; if (model) placeViewCards(model) }}
+        onAutoArrange={() => { const model = useViewStore.getState().view?.model; if (model) void placeViewCards(model) }}
       />
       <OlumiAttentionCard />
       <OutputsDock />

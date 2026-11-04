@@ -29,12 +29,15 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers() })
 
 describe('the card an approval adds is pulsed when it arrives', () => {
-  it('the first drawing of a scenario pulses nothing; a card a later View adds is pulsed once it is on the canvas', () => {
+  it('the first drawing of a scenario pulses nothing; a card a later View adds is pulsed once it is on the canvas', async () => {
+    const on = (id: string) => useCanvasStore.getState().nodes.some((n) => n.id === id)
     renderHook(() => useViewCanvas(true))
     act(() => { useViewStore.setState({ view: v1, status: 'ready' }) })
+    await vi.waitFor(() => expect(on(v1.model!.cards[0]!.id)).toBe(true))
     vi.advanceTimersByTime(PULSE_COALESCE_MS + 20)
     expect(v1.model!.cards.some((c) => has(c.id))).toBe(false)
     act(() => { useViewStore.setState({ view: v2 }) })
+    await vi.waitFor(() => expect(on(added.id)).toBe(true))
     vi.advanceTimersByTime(PULSE_COALESCE_MS + 20)
     expect(has(added.id)).toBe(true)
     expect(v1.model!.cards.some((c) => has(c.id))).toBe(false)

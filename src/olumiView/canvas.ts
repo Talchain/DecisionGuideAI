@@ -1,12 +1,13 @@
 /**
- * The canvas on the olumi-core lane is the View's model (decision A): one `viewCard` node per card, placed as core's page places it
- * (`cardPlaces`), and one link per View link. Drawn whenever a View lands (`useViewCanvas`), including the first approved model and every
- * approval after it (00052 #1). A card already on the canvas keeps where the person put it. Nothing else writes the core lane's canvas.
+ * The canvas on the olumi-core lane is the View's model (decision A): one `viewCard` node per card and one link per View link, placed as
+ * DGAI's causal graph (`causalPlaces`: the question at the top, then the options, the factors, the goal; Paul 4 Nov, replacing core's
+ * columns). Drawn whenever a View lands (`useViewCanvas`), including the first approved model and every approval after it (00052 #1).
+ * A card already on the canvas keeps where the person put it. Nothing else writes the core lane's canvas.
  */
 import { useEffect } from 'react'
 import { useCanvasStore } from '../canvas/store'
 import type { ViewModel } from './client'
-import { cardLinks, cardPlaces, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace, withoutViewNodes } from './layout'
+import { CARD_WIDTH, GAP_Y, causalPlaces, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
 import { useViewStore } from './store'
 import { pulseWhenOnCanvas } from '../olumiCore/pulseArrivals'
 
@@ -18,32 +19,66 @@ export const isViewNode = (node: { type?: string } | null | undefined): boolean 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 type At = { x: number; y: number }
-/** Where this module last put each View card. A card still there is the canvas's to re-place; one elsewhere is where the person put it. */
+/** Where this module last put each View card and the question. One still there is the canvas's to re-place; one elsewhere is where the
+ *  person put it. */
 const placed = new Map<string, At>()
 const at = (a: At | undefined, b: At) => a !== undefined && a.x === b.x && a.y === b.y
+type Box = At & { w: number; h: number }
+const sits = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+
+/** The last causal layout, keyed by what it rests on (the cards, their links and their drawn heights), and how many are being laid out. */
+let causal: { key: string; places: Map<string, At> } | null = null
+let laying = 0
+/** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
+export const viewLaying = (): boolean => laying > 0
+const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[]) =>
+  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to]), drawnHeightsKey(nodes)])
+
+/** DGAI's causal places for the model, at the cards' drawn heights (else core's), worked out once per model and set of heights. */
+async function causalFor(model: ViewModel): Promise<Map<string, At>> {
+  const nodes = useCanvasStore.getState().nodes, key = causalKey(model, nodes)
+  if (causal?.key === key) return causal.places
+  const size = new Map([...drawnHeights(nodes)].map(([id, height]) => [id, { width: id === QUESTION ? questionPlace(model).width : CARD_WIDTH, height }]))
+  laying += 1
+  try {
+    const places = await causalPlaces(model, size, questionPlace(model).width)
+    causal = { key, places }
+    return places
+  } finally {
+    laying -= 1
+  }
+}
 
 /**
- * Put the View's model on the canvas. True when the canvas changed. Each card the person has not moved is placed as core's page places
- * it, by its drawn height (review 00063 #4); a card the person moved stays, and no card is put on it (00063 #1). The canvas's
- * measurements are kept, so a re-draw never forgets a card's height.
+ * Put the View's model on the canvas at `places` (the question's and every card's). True when the canvas changed. A card (or the
+ * question) the person moved stays where they put it; the canvas's measurements are kept, so a re-draw never forgets a card's height.
  */
-export function drawViewCanvas(model: ViewModel): boolean {
+export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, At>): boolean {
   const store = useCanvasStore.getState()
   const held = new Map(store.nodes.map((n) => [n.id, n]))
-  const moved = new Map<string, At>()
-  for (const c of model.cards) {
-    const n = held.get(c.id)
-    if (n?.type === VIEW_CARD && !at(placed.get(c.id), n.position)) moved.set(c.id, n.position)
+  const heights = drawnHeights(store.nodes), q = questionPlace(model)
+  const box = (id: string, p: At) => ({ ...p, w: id === QUESTION ? q.width : CARD_WIDTH, h: heights.get(id) ?? model.cards.find((c) => c.id === id)?.h ?? 0 })
+  const ids = [QUESTION, ...model.cards.map((c) => c.id)], type = (id: string) => (id === QUESTION ? VIEW_QUESTION : VIEW_CARD)
+  const movedTo = (id: string) => { const n = held.get(id); return n?.type === type(id) && !at(placed.get(id), n.position) ? n.position : null }
+  // What the person moved stays; every other card goes to its causal place, below any moved card it would sit on (review 00063 #1).
+  const taken = ids.flatMap((id) => { const p = movedTo(id); return p ? [box(id, p)] : [] })
+  const final = new Map<string, At>()
+  for (const id of ids) {
+    const kept = movedTo(id)
+    if (kept) { final.set(id, kept); continue }
+    let place = places.get(id) ?? { x: 0, y: 0 }
+    for (let on = taken.find((t) => sits(box(id, place), t)); on; on = taken.find((t) => sits(box(id, place), t))) place = { x: place.x, y: on.y + on.h + GAP_Y }
+    taken.push(box(id, place))
+    placed.set(id, place)
+    final.set(id, place)
   }
-  const places = cardPlaces(model, drawnHeights(store.nodes), moved), q = questionPlace(model)
-  for (const c of model.cards) if (!moved.has(c.id)) placed.set(c.id, places.get(c.id)!)
-  const kept = (id: string, type: string, place: At) => (held.get(id)?.type === type ? held.get(id)!.position : place)
+  const placeOf = (id: string): At => final.get(id)!
   const measured = (id: string) => (held.get(id)?.measured ? { measured: held.get(id)!.measured } : {})
   // The question first, as core's page draws it (00057 #1): its text, its date, its badge, and the links to the question as a whole.
   const nodes = [
-    { id: QUESTION, type: VIEW_QUESTION, data: { question: model.question, width: q.width }, position: kept(QUESTION, VIEW_QUESTION, { x: q.x, y: q.y }), ...measured(QUESTION) },
+    { id: QUESTION, type: VIEW_QUESTION, data: { question: model.question, width: q.width }, position: placeOf(QUESTION), ...measured(QUESTION) },
     // `label` is the card's heading, for the canvas's readers that name a node (the Olumi controls' asks among them, 00063 #3).
-    ...model.cards.map((card) => ({ id: card.id, type: VIEW_CARD, data: { card, label: card.heading }, position: places.get(card.id)!, ...measured(card.id) })),
+    ...model.cards.map((card) => ({ id: card.id, type: VIEW_CARD, data: { card, label: card.heading }, position: placeOf(card.id), ...measured(card.id) })),
   ]
   // Each link keeps its meaning (00057 #3): its kind, sign, doubt, challenge and proposal, drawn by the View link edge.
   const edges = cardLinks(model).map(({ link, i }) => ({ id: `${link.from}->${link.to}:${link.kind}`, source: link.from, target: link.to, type: VIEW_LINK, data: { link, i } }))
@@ -56,6 +91,11 @@ export function drawViewCanvas(model: ViewModel): boolean {
     useCanvasStore.getState().endExternalGraphMutation?.()
   }
   return true
+}
+
+/** Lay the model out as DGAI's causal graph and draw it. True when the canvas changed. */
+export async function layViewCanvas(model: ViewModel): Promise<boolean> {
+  return drawViewCanvas(model, await causalFor(model))
 }
 
 /** Core holds no model (its first draft set aside): the View's cards, question and links leave the canvas (gap D4). True when they did. */
@@ -71,11 +111,11 @@ export function withdrawViewCanvas(): boolean {
   return true
 }
 
-/** Auto-arrange on the core lane (gap B5): every View card back where core's page places it; the person's moves are let go. */
-export function placeViewCards(model: ViewModel): boolean {
-  const store = useCanvasStore.getState()
-  useCanvasStore.setState({ nodes: withoutViewNodes(store.nodes, [VIEW_CARD, VIEW_QUESTION]) })
-  return drawViewCanvas(model)
+/** Auto-arrange on the core lane (gap B5): every View card back in its causal place; the person's moves are let go. */
+export function placeViewCards(model: ViewModel): Promise<boolean> {
+  placed.clear()
+  for (const n of useCanvasStore.getState().nodes) if (isViewNode(n)) placed.set(n.id, n.position)
+  return layViewCanvas(model)
 }
 
 /**
@@ -87,7 +127,7 @@ export function placeViewCards(model: ViewModel): boolean {
 export function useViewCanvas(on: boolean): void {
   const view = useViewStore((s) => s.view)
   const model = view?.model ?? null
-  // A card the canvas measures taller (or shorter) re-places the cards below it (review 00063 #4).
+  // A card the canvas measures taller (or shorter) lays the graph out again at the drawn heights (review 00063 #4).
   const heights = useCanvasStore((s) => drawnHeightsKey(s.nodes))
   useEffect(() => {
     if (!on) return
@@ -95,9 +135,14 @@ export function useViewCanvas(on: boolean): void {
     if (view === null || model === null) { withdrawViewCanvas(); return }
     const before = useCanvasStore.getState().nodes
     const had = holdsViewNodes(before, [VIEW_CARD, VIEW_QUESTION]) ? new Set(before.map((n) => n.id)) : null
-    if (!drawViewCanvas(model) || had === null) return
-    const arrived: string[] = []
-    for (const c of model.cards) if (!had.has(c.id)) arrived.push(c.id)
-    pulseWhenOnCanvas(arrived)
+    let live = true
+    // A newer View, or a new height, starts its own layout: this one draws nothing once it is stale.
+    void causalFor(model).then((places) => {
+      if (!live || !drawViewCanvas(model, places) || had === null) return
+      const arrived: string[] = []
+      for (const c of model.cards) if (!had.has(c.id)) arrived.push(c.id)
+      pulseWhenOnCanvas(arrived)
+    })
+    return () => { live = false }
   }, [on, view, model, heights])
 }
