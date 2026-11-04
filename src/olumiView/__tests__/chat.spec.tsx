@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, fireEvent, render, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { setTeamFetch, UNCERTAIN_WRITE } from '../../olumiCore/team/api'
 import type { View } from '../client'
 import { currentModel, useViewStore } from '../store'
@@ -101,6 +101,21 @@ describe('the writes go straight to core, and the View is read again', () => {
     const { container: again } = renderTab()
     await act(async () => { fireEvent.click([...again.querySelectorAll('button')].find((b) => b.textContent === 'Set aside')!) })
     await waitFor(() => expect(posts[1]).toEqual({ url: `/api/proposals/${p.id}/discard`, body: {} }))
+  })
+
+  it('a proposal made on considering evidence names who asked and the evidence in its member\'s words, never as its author (API v1.12)', () => {
+    const held = golden('proposal')
+    const ev = { id: 5, at: '2026-11-04T09:00:00Z', by: 'Bea', by_id: 'p_2', text: 'Churn in DACH was 2 in 100.', source: null, link: null, concerns: [], stance: 'challenges', version: 1, considered: { at: '2026-11-04T09:05:00Z', by: 'Ada', proposal: held.proposal!.id, why: null } }
+    useViewStore.setState({ view: { ...held, evidence: [ev], proposal: { ...held.proposal!, from: { evidence: 5, asked_by: 'Ada' } } } })
+    const { container } = renderTab()
+    const from = container.querySelector('[data-testid="view-chat-proposal-from"]')!
+    expect(from.querySelector('[data-view="proposal.from.asked_by"]')?.textContent).toBe('Ada')
+    expect(from.querySelector('[data-testid="view-chat-proposal-from-evidence"]')?.textContent).toBe(ev.text)
+    expect(from.textContent).not.toContain('Bea')
+    // CONTRAST: a proposal not made from evidence says nothing of it
+    cleanup()
+    useViewStore.setState({ view: { ...held, evidence: [ev], proposal: { ...held.proposal!, from: null } } })
+    expect(renderTab().container.querySelector('[data-testid="view-chat-proposal-from"]')).toBeNull()
   })
 
   it('after an approval no chance from before it is current until the new View lands', async () => {

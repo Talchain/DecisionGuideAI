@@ -67,6 +67,22 @@ describe('what the tab shows is the View, word for word', () => {
     expect(screen.getByTestId('team-waiting').textContent).toBe('waiting for Bea')
     expect(screen.getByTestId('team-view-text').getAttribute('placeholder')).toBe('Your own view, private until revealed')
   })
+  it('each view\'s figures under it, in core\'s words and order (the revealed one\'s, and your own while private); a view with none draws none', () => {
+    // Shaped exactly as core's view3-fields.test.ts (API v1.11): a range on a revealed view, a number on your private one.
+    const range = { quantity: 'per_specialist', label: 'per specialist', text: '20 to 30 tickets/week/specialist', title: 'Hard bounds: 20 to 30 tickets/week/specialist', unit: 'ticket/week/specialist', version: 1, low: 20, high: 30, range_kind: 'bounds' as const }
+    const point = { quantity: 'existing_capacity', label: 'existing capacity', text: '85 tickets/week', title: '85 tickets/week', unit: 'ticket/week', version: 1, value: 85 }
+    const t = twoPeople()
+    served = twoPeople({ shared: [{ ...t.collab.shared[0]!, figures: [range] }], mine: [{ ...t.collab.mine[0]!, figures: [point] }, { id: 7, text: 'Words only.', shared: false, skip: false, figures: [], can_share: false }] })
+    useViewStore.setState({ view: served })
+    render(<TeamTab />)
+    const fig = screen.getByTestId('team-revealed-3-figure-0')
+    expect([fig.textContent, fig.getAttribute('title')]).toEqual(['per specialist: 20 to 30 tickets/week/specialist', 'Hard bounds: 20 to 30 tickets/week/specialist'])
+    expect(screen.getByTestId('team-mine-4-figure-0').textContent).toBe('existing capacity: 85 tickets/week')
+    expect(screen.getByTestId('team-revealed-3-figures').children.length).toBe(1)
+    // CONTRAST: a view without figures draws no list
+    expect(screen.getByTestId('team-mine-7').textContent).toContain('Words only.')
+    expect(screen.queryByTestId('team-mine-7-figures')).toBeNull()
+  })
   it('"(you)" is core\'s own answer (`you_id`), never a name: two members may share one', () => {
     useViewStore.setState({ view: { ...twoPeople(), members: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Ada' }] } })
     render(<TeamTab />)
@@ -127,6 +143,27 @@ describe('every write goes to core\'s own route, and the View is read again afte
     fireEvent.click(screen.getByTestId('team-evidence-add'))
     await waitFor(() => expect(reread()).toBe(1))
     expect(posts()[0]).toMatchObject({ path: `/api/scenarios/${SID}/evidence`, body: { text: 'Two pilots stalled.', concerns: [card.id], stance: 'supports', op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } })
+  })
+  it('asking Olumi to consider a piece of evidence posts to core\'s consider route with an op, then reads the View again (API v1.12)', async () => {
+    render(<TeamTab />)
+    expect(screen.queryByTestId('team-evidence-considered-by-5')).toBeNull()
+    fireEvent.click(screen.getByTestId('team-evidence-consider-5'))
+    await waitFor(() => expect(reread()).toBe(1))
+    expect(posts()).toEqual([{ method: 'POST', path: `/api/scenarios/${SID}/evidence/5/consider`, body: { op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } }])
+  })
+  it('what Olumi made of it, as core holds it: who asked, and core\'s why verbatim when it changed nothing; a proposal from it says so', () => {
+    const t = twoPeople(), ev = t.evidence[0]!
+    const why = { text: 'The model already allows churn this low.', title: 'Nothing to change: churn is already within the range.' }
+    useViewStore.setState({ view: { ...t, evidence: [{ ...ev, considered: { at: '2026-11-04T09:00:00Z', by: 'Ada', proposal: null, why } }] } })
+    render(<TeamTab />)
+    expect(screen.getByTestId('team-evidence-considered-by-5').textContent).toBe('Ada asked Olumi to consider this.')
+    const w = screen.getByTestId('team-evidence-why-5')
+    expect([w.textContent, w.getAttribute('title')]).toEqual([why.text, why.title])
+    cleanup()
+    useViewStore.setState({ view: { ...t, evidence: [{ ...ev, considered: { at: '2026-11-04T09:00:00Z', by: 'Ada', proposal: 12, why: null } }] } })
+    render(<TeamTab />)
+    expect(screen.getByTestId('team-evidence-considered-by-5').textContent).toBe('Ada asked Olumi to consider this. Olumi proposed a change from it.')
+    expect(screen.queryByTestId('team-evidence-why-5')).toBeNull()
   })
   it('what evidence may bear on is the approved version\'s records, by core\'s label, held proposal or not; a record no longer in it is not offered', () => {
     useViewStore.setState({ view: twoPeople({}, { proposal: { id: 1, base: 1, heading: 'x', on: [], removed: [], problem: null, marks: [] } as unknown as View['proposal'] }) })

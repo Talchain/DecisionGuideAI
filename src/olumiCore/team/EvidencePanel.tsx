@@ -32,6 +32,39 @@ export function linkOf(source: string | null): string | null {
 const choicesOf = (view: View) => view.collab.records.filter((r): r is typeof r & { label: string } => r.label !== null)
 
 /**
+ * Olumi considers a piece of evidence (API v1.12): a press asks core for one turn in the asker's name; core proposes a change where the
+ * evidence warrants one (the change card, in the chat, names the evidence it came from), else replies why not. Shown here: who asked, and
+ * core's `why` verbatim when it changed nothing (`evidence[].considered`, the newest such turn).
+ */
+function Considered({ sid, e, onWrote }: { sid: string; e: View['evidence'][number]; onWrote: () => Promise<boolean> }): JSX.Element {
+  const key = `${sid}:consider:${e.id}`
+  const sending = useWriteSending(key)
+  const [mine, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const c = e.considered
+  const ask = async () => {
+    setBusy(true); setError(null)
+    try { await runWrite(key, { op: true }, { evidence: e.id }, (op) => teamApi.considerEvidence(sid, e.id, op!)); await onWrote() } catch (x) {
+      setError(x instanceof TeamApiError ? x.message : 'That did not go through. Nothing was saved.')
+    } finally { setBusy(false) }
+  }
+  return (
+    <div className="grid gap-1" data-testid={`team-evidence-considered-${e.id}`}>
+      {c !== null && (
+        <p className={META} data-testid={`team-evidence-considered-by-${e.id}`}>
+          {c.by} asked Olumi to consider this{c.proposal !== null ? '. Olumi proposed a change from it.' : '.'}
+        </p>
+      )}
+      {c?.why != null && <p className={`${META} whitespace-pre-wrap break-words`} title={c.why.title} data-testid={`team-evidence-why-${e.id}`}>{c.why.text}</p>}
+      <div>
+        <Button size="sm" variant="secondary" data-testid={`team-evidence-consider-${e.id}`} disabled={mine || sending} onClick={() => void ask()}>Ask Olumi to consider this</Button>
+      </div>
+      {error && <p role="alert" data-testid={`team-evidence-consider-error-${e.id}`} className={ERR}>{error}</p>}
+    </div>
+  )
+}
+
+/**
  * EVIDENCE FOR OR AGAINST (spec §8 step 4). Shared with the team the moment it is added, never private, and a record of what people
  * brought, not a change to the model. The person says what it bears on and how; nothing is preset.
  */
@@ -78,6 +111,7 @@ export function EvidencePanel({ sid, view, onWrote }: { sid: string; view: View;
                   Source: {link ? <a href={link} target="_blank" rel="noopener noreferrer" className="text-info underline underline-offset-2">{e.source}</a> : e.source}
                 </p>
               )}
+              <Considered sid={sid} e={e} onWrote={onWrote} />
             </li>
           )
         })}

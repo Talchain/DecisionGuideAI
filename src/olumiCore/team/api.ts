@@ -107,6 +107,9 @@ export const teamApi = {
   reveal: (sid: string) => call<{ revealed: number[] }>('POST', `${base(sid)}/reveal`),
   addEvidence: (sid: string, e: EvidenceInput, op: string) =>
     call<{ evidence: number }>('POST', `${base(sid)}/evidence`, { text: e.text, ...(e.source !== null ? { source: e.source } : {}), concerns: e.concerns, stance: e.stance, op }),
+  /** Olumi considers shared evidence (API v1.12): one turn in the asker's name; core proposes a change where it warrants one, else says why not. */
+  considerEvidence: (sid: string, evidence: number, op: string) =>
+    call<{ proposal: number | null; discussion: boolean }>('POST', `${base(sid)}/evidence/${evidence}/consider`, { op }),
   addCommitment: (sid: string, c: CommitmentInput) => call<{ commitment: number }>('POST', `${base(sid)}/commitments`, { action: c.action, owner: c.owner, expect: c.expect, reconsider: c.reconsider, keeps: c.keeps }),
   /** A colleague's own private link (API v1.8): in this one answer and never again. */
   invite: (sid: string, name: string) => call<{ id: string; link: string }>('POST', `${base(sid)}/invites`, { name }),
