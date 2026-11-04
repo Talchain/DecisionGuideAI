@@ -238,6 +238,7 @@ check(!(await inView(ada, editable.id)), 'the card is off the view')
 await reach(ada, editable.id)
 check(await inView(ada, editable.id), 'Ada pans the canvas to it')
 await ada.page.getByTestId(`view-figure-edit-${editable.id}`).click()
+check(await ada.page.getByTestId('inspector-header').count() === 0, 'the card\'s editor opens on the card, with no inspector over the canvas')
 await ada.page.getByTestId(`view-figure-typed-${editable.id}`).fill('lots')
 await ada.page.getByTestId(`view-figure-set-${editable.id}`).click()
 await ada.page.getByTestId(`view-figure-error-${editable.id}`).waitFor({ timeout: T })
@@ -273,16 +274,22 @@ await ada.page.getByTestId('team-c-owner').selectOption({ label: 'Bea' })
 await ada.page.getByTestId('team-c-expect').fill('At least 95 tickets a week by week four')
 await ada.page.getByTestId('team-c-reconsider').fill('Under 85 tickets a week at week two')
 // G3: the disagreement the approved model records stays open, by its id; its label comes back from core.
+// With real AI the approved model may hold no disagreement record (the views stay contributions): then nothing is offered to keep, and
+// the action is recorded without one (github-a7's real-AI witness, 4 Nov). Either branch is witnessed.
 const dissent = (await view(ada, sid)).collab.dissent
-check(dissent.length > 0, `core records ${dissent.length} disagreement(s) in the approved model`)
-await ada.page.getByTestId(`team-c-keep-${dissent[0].id}`).check()
+if (dissent.length > 0) {
+  ok(`core records ${dissent.length} disagreement(s) in the approved model`)
+  await ada.page.getByTestId(`team-c-keep-${dissent[0].id}`).check()
+} else check(await ada.page.locator('[data-testid^="team-c-keep-"]').count() === 0, 'core records no disagreement in the approved model, so none is offered to keep')
 await ada.page.getByTestId('team-commitment-save').click()
 await ada.page.getByText('Run a four-week trial hire').waitFor({ timeout: T })
 await teamCheck(bea)
 check((await bea.page.getByTestId('team-commitment-list').innerText()).includes('owner Bea · set by Ada'), 'Bea sees it, owned by her')
 const kept = (await view(bea, sid)).collab.commitments[0]
-check(JSON.stringify(kept.keeps) === JSON.stringify([dissent[0].id]), 'core holds the commitment keeping that disagreement open')
-check(await bea.page.getByTestId(`team-commitment-keeps-${kept.id}`).isVisible(), 'Bea sees what it keeps open')
+if (dissent.length > 0) {
+  check(JSON.stringify(kept.keeps) === JSON.stringify([dissent[0].id]), 'core holds the commitment keeping that disagreement open')
+  check(await bea.page.getByTestId(`team-commitment-keeps-${kept.id}`).isVisible(), 'Bea sees what it keeps open')
+} else check(kept.keeps.length === 0 && await bea.page.getByTestId(`team-commitment-keeps-${kept.id}`).count() === 0, 'core holds the commitment keeping nothing open, and Bea sees none')
 
 // ── 7. The later review ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 step(7, 'Bea records what happened against the expectation')
