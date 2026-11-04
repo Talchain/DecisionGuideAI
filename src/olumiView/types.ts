@@ -342,4 +342,5 @@ export type View = {
       title: string
     }>
   }>
+  gated: boolean
 }

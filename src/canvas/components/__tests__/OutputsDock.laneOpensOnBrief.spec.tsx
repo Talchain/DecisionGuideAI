@@ -86,7 +86,8 @@ describe('on the lane every way to Olumi leads to the dock\'s Olumi tab (review 
     sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'results' }))
     const view = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
     useCanvasStore.setState({ currentScenarioId: PAIRED } as never)
-    useViewStore.setState({ uuid: PAIRED, sid: 's_000000000001', view: { ...view, proposal: null }, error: null, status: 'ready' } as never)
+    // The person here wrote the brief, whom core never holds for their own view (`gated`; the synthetic golden reads it true).
+    useViewStore.setState({ uuid: PAIRED, sid: 's_000000000001', view: { ...view, proposal: null, gated: false }, error: null, status: 'ready' } as never)
     useCanvasStore.setState({ nodes: [{ id: 'a', type: 'viewCard', position: { x: 0, y: 0 }, data: { label: 'A' } }] } as never)
     await dock()
     expect(fronted()).toBe('outputs-dock-tab-results')
@@ -150,7 +151,7 @@ describe('on the lane nothing opens a floating panel, an empty scenario included
   it('"Open Olumi" on a scenario with a model focuses the message box', async () => {
     const view = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
     useCanvasStore.setState({ currentScenarioId: PAIRED } as never)
-    useViewStore.setState({ uuid: PAIRED, sid: 's_000000000001', view: { ...view, proposal: null }, error: null, status: 'ready' })
+    useViewStore.setState({ uuid: PAIRED, sid: 's_000000000001', view: { ...view, proposal: null, gated: false }, error: null, status: 'ready' })
     sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'results' }))
     useCanvasStore.setState({ nodes: [{ id: 'goal-1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } }] } as never)
     await dock()
@@ -169,7 +170,7 @@ describe('only a scenario waiting for its brief opens on the brief (lane audit 1
     await dock()
     expect(fronted()).toBe('outputs-dock-tab-results')
     const view = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
-    await act(async () => { useViewStore.setState({ view: { ...view, proposal: null }, status: 'ready' } as never) })
+    await act(async () => { useViewStore.setState({ view: { ...view, proposal: null, gated: false }, status: 'ready' } as never) })
     expect(fronted()).toBe('outputs-dock-tab-results')
   })
 

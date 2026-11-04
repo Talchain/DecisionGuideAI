@@ -1831,6 +1831,9 @@
     ],
     "additionalProperties": false
    }
+  },
+  "gated": {
+   "type": "boolean"
   }
  },
  "required": [
@@ -1847,7 +1850,8 @@
   "proposal",
   "collab",
   "evidence",
-  "chat"
+  "chat",
+  "gated"
  ],
  "additionalProperties": false
 }

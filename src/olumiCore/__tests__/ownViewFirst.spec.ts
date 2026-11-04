@@ -1,6 +1,6 @@
 /**
- * Who owes their own view first (PILOT-PACK 1.1): an invited member, in a team, with a model to be anchored by, who has not given,
- * skipped or had revealed a view in this round. Rows from core's whatif golden (Ada 1 made it; Bea 5 and Cy 18 were invited).
+ * Who owes their own view first is core's word (the View's `gated`, olumi.view/3): DGAI holds exactly whom core holds, and a View
+ * without the field holds nobody. Rows from core's goldens, whose `gated` core wrote.
  */
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -8,15 +8,14 @@ import path from 'node:path'
 import type { View } from '../../olumiView/client'
 import { ownViewPending } from '../ownViewFirst'
 
-const golden = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/whatif.view.json'), 'utf8')) as View
-const bea = { ...golden, you_id: '5', you: 'Bea', collab: { ...golden.collab, shared: [], mine: [] } } as View
-const INVITED = new Set(['5', '18'])
+const golden = (n: string) => JSON.parse(readFileSync(path.resolve(`src/olumiView/golden/${n}.view.json`), 'utf8')) as View
 
-describe('own view first', () => {
-  it('Bea, invited, nothing given: owes it', () => expect(ownViewPending(bea, INVITED)).toBe(true))
-  it('Ada, whom nobody invited: does not', () => expect(ownViewPending({ ...bea, you_id: '1', you: 'Ada' } as View, INVITED)).toBe(false))
-  it('invitations not read: decides nothing', () => expect(ownViewPending(bea, null)).toBe(false))
-  it('alone in the scenario: nobody to be anchored against', () => expect(ownViewPending({ ...bea, collab: { ...bea.collab, alone: true } } as View, INVITED)).toBe(false))
-  it('no model yet: nothing of Olumi\'s to anchor her', () => expect(ownViewPending({ ...bea, model: null } as View, INVITED)).toBe(false))
-  it('skipped: does not', () => expect(ownViewPending({ ...bea, collab: { ...bea.collab, mine: [{ id: 4, text: '', shared: false, skip: true }] } } as View, INVITED)).toBe(false))
+describe('own view first follows core', () => {
+  it('a viewer core holds (whatif: Cy has given no view and did not write the brief)', () => expect(ownViewPending(golden('whatif'))).toBe(true))
+  it('a viewer core does not hold (proposal: its viewer wrote the brief)', () => expect(ownViewPending(golden('proposal'))).toBe(false))
+  it('a View without the field: nobody is held', () => {
+    const v = golden('whatif') as unknown as Record<string, unknown>
+    delete v.gated
+    expect(ownViewPending(v as unknown as View)).toBe(false)
+  })
 })
