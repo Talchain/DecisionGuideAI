@@ -165,6 +165,7 @@ export interface ValueBar { readonly option: string; readonly leftPct: number; r
 /**
  * A worked-out figure's range under each option, on the card's own axis (v10's band, one bar per option), from core's `values`. The numbers
  * place the bars and nothing else; core's line for each is its hover. None when core gives no values, or every option's range is one point.
+ * Every bar is in the option colour: a colour that means "rests on Olumi's figures" waits for core's key (`model.key`) to name it.
  */
 export function valueBars(card: ViewCard): readonly ValueBar[] {
   const vs: NonNullable<ViewCard['values']> = []
@@ -178,14 +179,14 @@ export function valueBars(card: ViewCard): readonly ValueBar[] {
   }))
 }
 
-/** One bar's row: the option's number as the canvas numbers it (O1, …), and its range; Olumi's colour where it rests on Olumi's figures. */
+/** One bar's row: the option's number as the canvas numbers it (O1, …), and its range. */
 function ValueBarRow({ cardId, bar }: { cardId: string; bar: ValueBar }) {
   const n = useCardNumber(bar.option)
   return (
-    <div className="flex items-center gap-1.5" title={bar.text} role="img" aria-label={bar.text} data-testid={`view-values-${cardId}-${bar.option}`} data-olumi={bar.olumi || undefined}>
+    <div className="flex items-center gap-1.5" title={bar.text} role="img" aria-label={bar.text} data-testid={`view-values-${cardId}-${bar.option}`}>
       <span className={`${typography.edgeLabel} w-6 flex-none text-text-light tabular-nums`}>{n ?? ''}</span>
       <div className="relative flex-1" style={{ height: 4, background: 'var(--factor-light)', borderRadius: 2 }}>
-        <div className="absolute top-0 h-full" style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%`, background: bar.olumi ? 'var(--info)' : 'var(--option)', borderRadius: 2 }} />
+        <div className="absolute top-0 h-full" style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%`, background: 'var(--option)', borderRadius: 2 }} />
         {bar.medianPct === null ? null : <div className="absolute" style={{ left: `${bar.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />}
       </div>
     </div>

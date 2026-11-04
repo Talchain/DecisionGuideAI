@@ -1,6 +1,6 @@
 {
   "schema": "olumi.view/3",
-  "id": "s_1264f1972449",
+  "id": "s_3477fba5d4f7",
   "title": "Support capacity",
   "commit": "scripted-dev",
   "signature": "[4,null,[[3,\"approved\"]],[],[\"Ada\"],[],[\"1\"]]",
@@ -308,7 +308,8 @@
         "reason": null,
         "badge": null,
         "values": null,
-        "rests_on": []
+        "rests_on": [],
+        "committed": null
       },
       {
         "id": "add_one",
@@ -355,7 +356,9 @@
         "driver": {
           "text": "under 1% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws.",
           "title": "under 1% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws.",
-          "figure": "per_specialist"
+          "figure": "per_specialist",
+          "low": 0,
+          "high": 1
         },
         "status": null,
         "bound": null,
@@ -373,7 +376,8 @@
           "change": ""
         },
         "values": null,
-        "rests_on": []
+        "rests_on": [],
+        "committed": null
       }
     ],
     "links": [
@@ -460,7 +464,11 @@
           "title": "This leaves out: How the team feels about a new hire."
         }
       ],
-      "science": []
+      "science": [],
+      "sensitivity": {
+        "text": "These are its chances over the lowest and highest third of that figure's draws.",
+        "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+      }
     },
     "edit_base": 4,
     "key": [
@@ -682,7 +690,9 @@
       {
         "id": "lead_doubt",
         "holder": "our team lead",
-        "position": "A new hire may unsettle the team."
+        "position": "A new hire may unsettle the team.",
+        "holder_id": null,
+        "confirmed": null
       }
     ]
   },
@@ -725,7 +735,8 @@
       },
       "broke": null,
       "problem": null,
-      "marks": []
+      "marks": [],
+      "choice": null
     }
   ],
   "brief": "Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing or add one specialist? We need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.",
