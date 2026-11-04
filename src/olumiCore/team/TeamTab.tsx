@@ -8,7 +8,8 @@ import { ComparePanel } from './ComparePanel'
 import { EvidencePanel } from './EvidencePanel'
 import { InvitePanel } from './InvitePanel'
 import { ViewsPanel } from './ViewsPanel'
-import { BODY, ERR, H, META } from './ui'
+import { BODY, CARD, ERR, H, META } from './ui'
+import { TEAM_PAST_HELD } from './writes'
 
 /**
  * THE TEAM TAB (olumi-core lane only). The team's views, the reveal, evidence, commitments and their outcomes, every word and state as
@@ -22,6 +23,7 @@ export function TeamTab(): JSX.Element {
   const status = useViewStore((s) => s.status)
   const error = useViewStore((s) => s.error)
   const refresh = useViewStore((s) => s.refresh)
+  const past = useViewStore((s) => s.at)
   const me = useMe((s) => s.me)
   const shown: View | null = view !== null && isForThisPage(view, me) ? view : null
 
@@ -51,10 +53,17 @@ export function TeamTab(): JSX.Element {
 
       {shown !== null && sid && (
         <>
-          <ViewsPanel sid={sid} view={shown} onWrote={refresh} />
+          {past !== null && (
+            <div className={`${CARD} flex flex-wrap items-center gap-2`} data-testid="team-past">
+              <span className={BODY}>Version {past} is on the canvas, as it was. {TEAM_PAST_HELD}</span>
+              <Button size="sm" variant="secondary" data-testid="team-past-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</Button>
+            </div>
+          )}
+          {/* The team's record is the live scenario's: its forms are held while an earlier version is drawn (the writer refuses too). */}
+          <fieldset disabled={past !== null} className="contents"><ViewsPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <InvitePanel sid={sid} />
-          <EvidencePanel sid={sid} view={shown} onWrote={refresh} />
-          <CommitmentPanel sid={sid} view={shown} onWrote={refresh} />
+          <fieldset disabled={past !== null} className="contents"><EvidencePanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
+          <fieldset disabled={past !== null} className="contents"><CommitmentPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <ComparePanel sid={sid} view={shown} />
         </>
       )}

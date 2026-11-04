@@ -12,7 +12,8 @@ import type { View } from './client'
 import { useViewStore } from './store'
 
 /** Every note this page draws from a View has a turn id with this prefix, so it never clears a note another surface asked for. */
-const VIEW_NOTE = 'olumi-view-next:'
+export const VIEW_NOTE_TURN = 'olumi-view-next:'
+const VIEW_NOTE = VIEW_NOTE_TURN
 
 /** The newest reply's next step and the card core puts it beside; null when core names no card. */
 export function nextNoteOf(view: View): { key: string; at: string; note: OlumiAttentionNote } | null {
@@ -30,7 +31,7 @@ export function nextNoteOf(view: View): { key: string; at: string; note: OlumiAt
 /** Where the Olumi tab takes a note the canvas has no free spot for (OlumiAttentionCard), under Next step (`ViewChat`). */
 export const VIEW_NOTE_SLOT = 'data-olumi-note-slot'
 
-/** On the core lane: the newest reply's next step, drawn once beside its card; dismissed, it stays dismissed for that reply. */
+/** On the core lane: the newest reply's next step, drawn once beside its card; dismissed, it stays dismissed for that reply. Off: none of this page's. */
 export function useViewNote(on: boolean): void {
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
@@ -39,9 +40,10 @@ export function useViewNote(on: boolean): void {
   const anchored = useCanvasStore((s) => next !== null && s.nodes.some((n) => n.id === next.at))
   const shown = useRef<string | null>(null)
   useEffect(() => {
-    if (!on) return
     const held = useCanvasStore.getState().olumiAttention
     const ours = held?.turnId?.startsWith(VIEW_NOTE) === true
+    // Held (a member's own view comes first, `olumiCore/ownViewFirst.ts`): a note this page drew is taken down, and drawn again after.
+    if (!on) { if (ours) { clearOlumiAttention(); shown.current = null } return }
     // A newer reply with no card, or another scenario: this page's last note is no longer Olumi's current next step.
     if (ours && held!.turnId !== next?.key) clearOlumiAttention()
     if (next === null || !anchored || shown.current === next.key) return

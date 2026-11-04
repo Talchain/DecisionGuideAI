@@ -4,10 +4,10 @@
  * is never drawn over a card. Off the lane, and wherever a free spot exists, it stays on the canvas as before.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { OlumiAttentionCard, OLUMI_ATTENTION_CARD_TESTID, spotCovers } from '../OlumiAttentionCard'
 import { useCanvasStore } from '../../store'
-import { VIEW_NOTE_SLOT } from '../../../olumiView/note'
+import { VIEW_NOTE_SLOT, VIEW_NOTE_TURN } from '../../../olumiView/note'
 
 vi.mock('@xyflow/react', () => ({ useStore: (selector: (s: { transform: [number, number, number] }) => unknown) => selector({ transform: [0, 0, 1] }) }))
 vi.mock('../../../components/results/coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
@@ -19,11 +19,11 @@ const W = 1200, H = 800
 type R = { left: number; top: number; width: number; height: number }
 const rect = (r: R) => ({ ...r, x: r.left, y: r.top, right: r.left + r.width, bottom: r.top + r.height, toJSON: () => r }) as DOMRect
 /** The board as drawn: the anchor, and `others` (the cards around it) in screen px. */
-function board(others: R[]) {
+function board(others: R[], turnId: string | null = null) {
   useCanvasStore.setState({
     nodes: [{ id: 'a', type: 'factor', position: { x: 500, y: 300 }, measured: { width: 200, height: 80 }, data: {} } as never],
     edges: [],
-    olumiAttention: { nodeIds: ['a'], edgeIds: [], note: { body: 'What evidence would settle it?' }, caveat: null, turnId: null, modelVersion: null },
+    olumiAttention: { nodeIds: ['a'], edgeIds: [], note: { title: 'What would change your mind?', body: 'What evidence would settle it?' }, caveat: null, turnId, modelVersion: null },
   })
   return render(
     <div>
@@ -79,5 +79,34 @@ describe('the note on the core lane never covers a card', () => {
     await new Promise((r) => setTimeout(r, 50))
     expect(screen.getByTestId('slot').childElementCount).toBe(0)
     expect(screen.getByTestId(OLUMI_ATTENTION_CARD_TESTID).style.visibility).toBe('')
+  })
+})
+
+describe('R1.1 (Paul\'s screen): on the core lane Olumi\'s next step is an icon at its card until pressed; its words are in the Olumi tab', () => {
+  const turn = `${VIEW_NOTE_TURN}s_1:t1`
+  const said = (c: HTMLElement) => (c.textContent ?? '').split('What evidence would settle it?').length - 1
+  it('on load: the icon at its card, the words nowhere on the canvas or in the slot, and the Olumi tab is not opened for it', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    const { container } = board([], turn)
+    expect(screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`).getAttribute('aria-label')).toBe('What would change your mind?')
+    expect(said(container)).toBe(0)
+    expect(screen.queryByTestId(OLUMI_ATTENTION_CARD_TESTID)).toBeNull()
+    expect(revealed.n).toBe(0)
+  })
+  it('pressed: the note opens beside its card, its words once', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    const { container } = board([], turn)
+    fireEvent.click(screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`))
+    await vi.waitFor(() => expect(screen.getByTestId(OLUMI_ATTENTION_CARD_TESTID)).not.toBeNull())
+    expect(said(container)).toBe(1)
+  })
+  it('CONTRAST: off the lane, and on the lane a note another surface asked for, opens as before', () => {
+    const off = board([], turn)
+    expect(screen.getByTestId(OLUMI_ATTENTION_CARD_TESTID)).not.toBeNull()
+    expect(said(off.container)).toBe(1)
+    cleanup()
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    board([], 'some-other-turn')
+    expect(screen.queryByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`)).toBeNull()
   })
 })

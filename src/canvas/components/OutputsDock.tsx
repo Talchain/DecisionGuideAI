@@ -210,12 +210,15 @@ import { DefineSuccessModal, DecisionRecordModal, HowComputedModal, openDecision
 import { useIsViewer } from '../../lib/viewerMode'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
+import { CoreCompareTab } from '../../olumiCore/compare'
 import { currentModel, useViewStore } from '../../olumiView/store'
 import { useViewFollows } from '../../olumiView/follow'
 import { useViewCanvas } from '../../olumiView/canvas'
 import { useViewNote } from '../../olumiView/note'
+import { useOwnViewFirst } from '../../olumiCore/ownViewFirst'
 import { ViewChancesBlock } from '../../olumiView/ViewChances'
 import { ViewModelTabBlock } from '../../olumiView/ViewModelTab'
+import { ViewReasoningBlock } from '../../olumiView/ViewReasoning'
 import { useAnswersAsks, ViewChat, ViewComposer } from '../../olumiView/ViewChat'
 import { focusDockedOlumi } from '../conversation/dockedOlumiFocus'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
@@ -617,7 +620,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     if (state.activeTab === 'olumi' && !isAiPanelV2Enabled()) {
       setState(prev => ({ ...prev, activeTab: UNFLAGGED_FALLBACK_SURFACE }))
     }
-    // The lane's own surfaces both ways: Team only on the lane, and a tab the lane hides (a restored Reasoning or Model) never on it.
+    // The lane's own surfaces both ways: Team only on the lane, and a tab the lane hides (a restored Model or Compare) never on it.
     if (!coreLaneShowsSurface(state.activeTab)) {
       setState(prev => ({ ...prev, activeTab: landing }))
     }
@@ -808,7 +811,22 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const coreView = useViewStore(currentModel)
   useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null)
   useViewCanvas(isOlumiCoreLane())
-  useViewNote(isOlumiCoreLane())
+  // A member core holds until they have given or skipped their own view (the View's `gated`) lands on it, in the Team tab, and no Olumi
+  // note is drawn until they have (PILOT-PACK 1.1, src/olumiCore/ownViewFirst.ts). The landing happens once per scenario and person: once
+  // they have given or skipped, nothing moves them again.
+  const ownViewFirst = useOwnViewFirst(isOlumiCoreLane())
+  const ownViewLanded = useRef<string | null>(null)
+  useEffect(() => {
+    if (!ownViewFirst) return
+    const v = useViewStore.getState().view
+    const at = `${useViewStore.getState().sid}:${v?.you_id}`
+    if (ownViewLanded.current === at) return
+    ownViewLanded.current = at
+    setState((prev) => ({ ...prev, isOpen: true, activeTab: 'team' }))
+    useUIStore.getState().setActiveOutputTab('team' as OutputTab)
+    if (typeof window !== 'undefined') window.requestAnimationFrame(() => { document.querySelector<HTMLTextAreaElement>('[data-testid="team-view-text"]')?.focus() })
+  }, [ownViewFirst]) // eslint-disable-line react-hooks/exhaustive-deps -- setState is stable
+  useViewNote(isOlumiCoreLane() && !ownViewFirst)
   // The canvas's asks are answered while the dock is on the page, collapsed or on another tab (lane audit 24).
   useAnswersAsks(isOlumiCoreLane())
   const runOnRecord = runOnRecordLocally || savedRunUnconfirmed
@@ -913,7 +931,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const onScreen = currentScenarioIdForRun ?? null
   const awaitsBrief = useViewStore((s) => s.uuid !== null && s.uuid === onScreen && (s.sid === null || (s.view !== null && s.view.version === null && s.view.proposal === null)))
   useEffect(() => {
-    if (!isOlumiCoreLane() || !awaitsBrief) return
+    // A member core holds for their own view lands on it instead (above): the brief is not theirs to write.
+    if (!isOlumiCoreLane() || !awaitsBrief || ownViewFirst) return
     setState((prev) => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
     useUIStore.getState().setActiveOutputTab('olumi' as OutputTab)
   }, [awaitsBrief, viewUuid]) // eslint-disable-line react-hooks/exhaustive-deps -- setState is stable
@@ -4188,6 +4207,13 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                * whole tab is the experiment, so degrading it as a unit is the
                * honest granularity. Sections inside can earn their own later.
                */
+              // The olumi-core lane draws this tab from core's View (src/olumiView/ViewReasoning.tsx): CEE's report, run state and Run
+              // control have no source there, so neither the cover nor the legacy body mounts (DL brief, 4 Nov).
+              isOlumiCoreLane() ? (
+                <SectionErrorBoundary section="Reasoning">
+                  <ViewReasoningBlock />
+                </SectionErrorBoundary>
+              ) : (
               <>
               {/* #1198 — THE RUN, SHOWN. `AnalysisRunStateCover` is the shared
                   in-flight treatment for dock surfaces outside the Analysis
@@ -4318,12 +4344,16 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 />
               </SectionErrorBoundary>
               </>
+              )
             )}
             {effectiveActiveTab === 'compare' && (
               // SC-24 v3 (ChatGPT #75 5917800777; lease DL #75 5917856638): previous Run vs this Run, rendered from
               // the comparison CEE produced for the analysis on screen — the SAME reader and section the Reasoning
               // receipt uses. The old browser-derived body (`CompareTabBody`) is no longer on this path.
-              <CompareRunPairBody responseHash={results?.hash} runOnRecordWithoutResult={runOnRecordWithoutResult} />
+              // On the olumi-core lane, core's own comparison of two approved versions (`olumiCore/compare.tsx`).
+              isOlumiCoreLane()
+                ? <CoreCompareTab />
+                : <CompareRunPairBody responseHash={results?.hash} runOnRecordWithoutResult={runOnRecordWithoutResult} />
             )}
             {effectiveActiveTab === 'diagnostics' && isOlumiCoreLane() && <ViewModelTabBlock />}
             {effectiveActiveTab === 'diagnostics' && !isOlumiCoreLane() && (

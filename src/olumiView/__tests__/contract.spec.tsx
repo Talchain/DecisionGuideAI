@@ -9,7 +9,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { render } from '@testing-library/react'
+import { cleanup, render } from '@testing-library/react'
 import type { View, ViewModel } from '../client'
 import { ViewChances, ViewChancesBlock } from '../ViewChances'
 import { useViewStore } from '../store'
@@ -200,6 +200,13 @@ describe('a reason every option shares is said once, above the options; each cov
       if (!model) continue
       if (model.run) delete model.run.shared_blockers
       expect(render(<ViewChances model={model} />).container.querySelector('[data-testid="view-run-shared-blocker"]'), n).toBeNull()
+    }
+  })
+  it('present: each golden that carries the key draws exactly its own shared reasons, in core\'s words (analysis 48d6c6a15 kept)', () => {
+    for (const n of GOLDEN) {
+      const model = golden(n).model!, said = [...render(<ViewChances model={model} />).container.querySelectorAll('[data-testid="view-run-shared-blocker"]')]
+      expect(said.map((e) => e.textContent), n).toEqual((model.run!.shared_blockers ?? []).map((b) => b.text))
+      cleanup()
     }
   })
 })

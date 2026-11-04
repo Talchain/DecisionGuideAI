@@ -7,12 +7,14 @@
  * Each drawn View string carries `data-view`, the path to the exact string it shows, so a test can bind every element to its own
  * value by identity (design §3).
  */
+import { Fragment, type ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow, ViewRun } from './client'
 import { optionCards, worthLinesOf } from './layout'
 import { currentModel, useViewStore } from './store'
 import { clearWhatIf, useWhatIf } from './whatif'
 import { typography } from '../styles/typography'
+import type { OutputTab } from '../stores/uiStore'
 
 function Mark({ at, mark }: { at: string; mark: { glyph: string; title: string } | null }) {
   return mark === null ? null : <span data-view={`${at}.glyph`} title={mark.title} aria-label={mark.title}>{mark.glyph}</span>
@@ -114,6 +116,52 @@ function WaitsOnItems({ w, unknown }: { w: WaitsOn; unknown: boolean }) {
   )
 }
 
+/** A reason every option shares (`shared_blockers`), said once above the options as core's page says it, since each covered card carries only the mark. */
+export function SharedBlockers({ run }: { run: ViewRun | null }) {
+  return run?.shared_blockers == null ? null : (
+    <>{run.shared_blockers.map((b, i) => (
+      <p key={b.aim_id} data-testid="view-run-shared-blocker" data-aim={b.aim_id} data-view={`run.shared_blockers.${i}.text`}>{b.text}</p>
+    ))}</>
+  )
+}
+
+/**
+ * One option: its heading, each row (a chance, a limit, or why there is nothing yet) with what `after` draws under it, and what moves its
+ * chance most, all core's; then `children`.
+ */
+export function OptionLines({ card, after, children }: { card: ViewCard; after?: (row: ViewRow, i: number) => ReactNode; children?: ReactNode }) {
+  return (
+    <div data-view-card={card.id}>
+      <div className={typography.panelHeader} data-view={`${card.id}.heading`}>{card.heading}</div>
+      {card.rows.map((row, i) => <Fragment key={i}><Row card={card} row={row} i={i} />{after?.(row, i)}</Fragment>)}
+      {card.driver == null ? null : <p className={typography.panelMeta} title={card.driver.title} data-view={`${card.id}.driver.text`}>{card.driver.text}</p>}
+      {children}
+    </div>
+  )
+}
+
+/**
+ * Each aim's figure most worth checking first (D3), as core's page draws it: its mark when it rests on Olumi's proposals, the line in core's
+ * words, the Run's whole reason on hover (olumi.view/3 model.run.science; PL review 4 Nov). `tab`: where a try from its ✎ is drawn.
+ */
+export function Worth({ run, tab }: { run: ViewRun | null; tab?: OutputTab }) {
+  // Only the science kinds this page knows; any other kind is drawn as nothing, never as a worth line (core's D2 adds kinds).
+  const worth = run?.science == null ? [] : worthLinesOf(run.science)
+  return worth.length === 0 ? null : (
+    <div data-testid="view-run-worth" aria-label="Worth checking first">
+      <p className={typography.panelHeader}>Worth checking first</p>
+      {worth.map(({ line: l, i }) => (
+        <div key={l.id} title={l.hover} data-view-fact={l.id}>
+          {l.olumi === null ? null : <><span title={l.olumi.title} aria-label={l.olumi.title} data-view={`run.science.${i}.olumi.glyph`}>{l.olumi.glyph}</span> </>}
+          <span data-view={`run.science.${i}.line`}>{l.line}</span>
+          {l.figure?.mark == null ? null : <> <span title={l.figure.mark.title} aria-label={l.figure.mark.title} data-view={`run.science.${i}.figure.mark.glyph`}>{l.figure.mark.glyph}</span></>}
+          {l.figure?.give == null ? null : <> <FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} tab={tab} /></>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 /**
  * The lines for one View model: pure, so a test draws it from a golden View. As the base dock (ViewOnlyRunChancesBlock): the Run's lead,
  * then, when every option waits (`all_withheld`), the waits-on headline; a reason every option shares (`shared_blockers`), said once
@@ -124,8 +172,6 @@ function WaitsOnItems({ w, unknown }: { w: WaitsOn; unknown: boolean }) {
 export function ViewChances({ model }: { model: ViewModel }) {
   const run = model.run ?? null // absent from a core before view-dock (00058 P1)
   const headline = run !== null && run.all_withheld && run.waits_on !== null
-  // Only the science kinds this page knows; any other kind is drawn as nothing, never as a worth line (core's D2 adds kinds).
-  const worth = run?.science == null ? [] : worthLinesOf(run.science)
   return (
     <div className={`${typography.panelBody} space-y-3`} data-testid="view-chances">
       <WhatIfShown model={model} />
@@ -136,32 +182,10 @@ export function ViewChances({ model }: { model: ViewModel }) {
           <p><span data-view="run.waits_on.text">{run.waits_on!.text}</span>{': '}<WaitsOnItems w={run.waits_on!} unknown /></p>
         </div>
       )}
-      {run?.shared_blockers == null ? null : run.shared_blockers.map((b, i) => (
-        <p key={b.aim_id} data-testid="view-run-shared-blocker" data-aim={b.aim_id} data-view={`run.shared_blockers.${i}.text`}>{b.text}</p>
-      ))}
-      {optionCards(model).map((card) => (
-        <div key={card.id} data-view-card={card.id}>
-          <div className={typography.panelHeader} data-view={`${card.id}.heading`}>{card.heading}</div>
-          {card.rows.map((row, i) => <Row key={i} card={card} row={row} i={i} />)}
-          {card.driver == null ? null : <p className={typography.panelMeta} title={card.driver.title} data-view={`${card.id}.driver.text`}>{card.driver.text}</p>}
-        </div>
-      ))}
+      <SharedBlockers run={run} />
+      {optionCards(model).map((card) => <OptionLines key={card.id} card={card} />)}
       {run?.most_likely == null ? null : <MostLikely model={model} ml={run.most_likely} />}
-      {/* Under the chances, each aim's figure most worth checking first (D3), as core's page draws it: its mark when it rests on Olumi's
-          proposals, the line in core's words, the Run's whole reason on hover (olumi.view/3 model.run.science; PL review 4 Nov). */}
-      {worth.length === 0 ? null : (
-        <div data-testid="view-run-worth" aria-label="Worth checking first">
-          <p className={typography.panelHeader}>Worth checking first</p>
-          {worth.map(({ line: l, i }) => (
-            <div key={l.id} title={l.hover} data-view-fact={l.id}>
-              {l.olumi === null ? null : <><span title={l.olumi.title} aria-label={l.olumi.title} data-view={`run.science.${i}.olumi.glyph`}>{l.olumi.glyph}</span> </>}
-              <span data-view={`run.science.${i}.line`}>{l.line}</span>
-              {l.figure?.mark == null ? null : <> <span title={l.figure.mark.title} aria-label={l.figure.mark.title} data-view={`run.science.${i}.figure.mark.glyph`}>{l.figure.mark.glyph}</span></>}
-              {l.figure?.give == null ? null : <> <FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} /></>}
-            </div>
-          ))}
-        </div>
-      )}
+      <Worth run={run} />
       {run === null || run.notes.length === 0 ? null : (
         <div data-testid="view-run-notes">
           {run.notes.map((n, i) => <p key={i} className={typography.panelMeta} title={n.title} data-view={`run.notes.${i}.text`}>{n.text}</p>)}

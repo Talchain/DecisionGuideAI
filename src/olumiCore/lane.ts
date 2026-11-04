@@ -30,16 +30,17 @@ export function coreLaneAllows(write: CoreLaneWrite): boolean {
 export const CORE_LANE_USE_THE_CHAT = 'Tell Olumi in the chat what to change; it will propose it for you to confirm.'
 
 /**
- * The right-hand dock's surfaces olumi-core has no backend for. `analysisNew` is "Reasoning" and `compare` is "Compare": both
- * read CEE routes that do not exist here. Analysis (`results`) and the chat (`olumi`) stay.
+ * The right-hand dock's surfaces olumi-core has no backend for. Analysis (`results`), Reasoning (`analysisNew`, drawn from core's View
+ * on this lane: src/olumiView/ViewReasoning.tsx) and the chat (`olumi`) stay. Compare (`compare`) and Version history (`versions`) are
+ * shown, fed by core's own stored versions and comparison (`compare.tsx`, `versions.tsx`), never the local snapshots or CEE's run delta.
  */
-// `legend` explains marks a View card never draws (each mark carries core's own hover); `summary` builds the brief from the
-// adapter's saved model, which this lane does not read (canvas A S6, gaps B8 and C7); `versions` snapshot and restore View cards
-// locally, which core never sees (lane audit 7.5); `lenses` is the legacy lens bar, which reads legacy node shapes a View card never
-// carries (review 00057 #2): the lane's canvas draws its own, fed from the View (src/olumiView/ViewLensBar.tsx).
-// `diagnostics` (Model) is back on (DL 4 Nov, R2): the lane draws its own outline from the View (src/olumiView/ViewModelTab.tsx) in place
-// of the legacy tab, which projects node shapes a View card does not carry (review 00002 #4).
-const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['analysisNew', 'compare', 'legend', 'summary', 'versions', 'lenses'])
+// The legend and the Summary are shown: on the lane each is the View's own (src/olumiView/ViewLegend.tsx draws core's key, model.key;
+// src/olumiView/ViewBrief.tsx the question, the Run and each option), never the legacy ones of legacy marks and the saved model.
+// Compare and Version history are core's own (compare.tsx, versions.tsx). `lenses` is the legacy lens bar, which reads legacy node shapes
+// a View card never carries (review 00057 #2): the lane's canvas draws its own, fed from the View (src/olumiView/ViewLensBar.tsx).
+// `diagnostics` (Model) is the lane's own outline, drawn from the View (src/olumiView/ViewModelTab.tsx; DL 4 Nov, R2), in place of the
+// legacy tab, which projects node shapes a View card does not carry (review 00002 #4).
+const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['lenses'])
 /** The surfaces only this lane has: the team's panels (`team`), drawn from core's View. */
 const LANE_ONLY_SURFACES: ReadonlySet<string> = new Set(['team'])
 export function coreLaneShowsSurface(surfaceId: string): boolean {

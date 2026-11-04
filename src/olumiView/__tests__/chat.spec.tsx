@@ -21,6 +21,7 @@ describe.each(['s_ce285b3617bb', 'proposal'])('the conversation is drawn exactly
   it('every drawn string is the View\'s own at its path, and every word of every turn is drawn', () => {
     const { container } = render(<ViewTurns chat={view.chat} />)
     for (const el of container.querySelectorAll<HTMLElement>('[data-view]')) expect(el.textContent, el.dataset['view']).toBe(at(view, el.dataset['view']!))
+    // Not words: hovers, the records a turn is about or cites, the one card it is beside (`at`) and the coach's move id (`move`, olumi.view/3).
     const strings = (x: unknown, p: string): string[] => typeof x === 'string' ? (x === '' ? [] : [p])
       : Array.isArray(x) ? x.flatMap((y, i) => strings(y, `${p}.${i}`))
       // `next.at` is the card id the step points at, `next.move` the coach's move id (olumi.view/3 e16a497): core's ids, never words.
@@ -246,7 +247,8 @@ describe('the writes go straight to core, and the View is read again', () => {
       useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view: golden('pricing'), error: null, status: 'ready' })
       const later = render(<ViewComposer />).container
       expect(later.querySelector('[data-testid="view-brief-intro"]')).toBeNull()
-      expect(later.querySelector('#view-chat-text')?.getAttribute('placeholder')).toBeNull()
+      // Never the brief's example: DGAI's own placeholder for a model with a run (the panel's original look, DL 4 Nov).
+      expect(later.querySelector('#view-chat-text')?.getAttribute('placeholder')).toBe('Ask about the latest analysis…')
     })
 
     it('a canvas with no scenario yet moves to core\'s id\'s own UUID', async () => {

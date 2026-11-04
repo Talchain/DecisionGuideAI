@@ -23,5 +23,21 @@ await page.waitForFunction((ids) => ids.every((id) => document.querySelector(`.r
 await page.waitForTimeout(3000)
 const zoom = await page.evaluate(() => new DOMMatrix(getComputedStyle(document.querySelector('.react-flow__viewport')).transform).a)
 console.log(`  · ${golden.model.cards.length} cards, zoom ${zoom.toFixed(3)}`)
+// R1.1 (DL 4 Nov, Paul's screen): no card under the right dock, and the newest reply's next step said once on screen (in the panel).
+let fails = 0
+const check = (ok, what) => { console.log(`  ${ok ? '✓' : '✗'} ${what}`); if (!ok) fails += 1 }
+const underDock = await page.evaluate(() => {
+  const d = document.querySelector('[data-testid="outputs-dock"]')?.getBoundingClientRect()
+  if (!d || d.width === 0) return []
+  return [...document.querySelectorAll('.react-flow__node')].filter((e) => { const r = e.getBoundingClientRect(); return r.right > d.left + 1 && r.left < d.right && r.bottom > d.top && r.top < d.bottom }).map((e) => e.getAttribute('data-id'))
+})
+check(underDock.length === 0, `no card under the dock${underDock.length ? ` (under it: ${underDock.join(', ')})` : ''}`)
+const next = golden.chat.find((t) => t.answer?.next.newest)?.answer?.next
+if (next) {
+  const words = next.text.map((p) => p.text ?? '').join('').trim()
+  const shown = await page.evaluate((w) => [...document.querySelectorAll('body *')].filter((e) => e.checkVisibility?.() !== false && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.includes(w.slice(0, 40)))).length, words)
+  check(shown === 1, `the next step's words are on screen once (${shown}): "${words.slice(0, 60)}"`)
+}
 if (SHOT) await page.screenshot({ path: SHOT })
 await b.close()
+process.exit(fails ? 1 : 0)

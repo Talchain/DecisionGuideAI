@@ -1,0 +1,149 @@
+/**
+ * The v10 design on the olumi-core lane (DL, 4 Nov): the features Paul approved on #/canvas2 (#3085–#3101), here drawn from the View.
+ * The lane's own components stay current; v10 reaches them three ways, all from src/presentation:
+ *
+ * - **v10's CSS rulings** (`v10.css`, index.css `v10-lit`): the lane sets `data-presentation="v10"` on <html> while its canvas is up
+ *   (`useV10Lane`). So the person's own primary buttons are ink and only Olumi's elements are blue, nothing on the canvas dims, and
+ *   a lit card shows its ring. No JS behaviour changes with the attribute.
+ * - **v10's card controls** (`ViewCardV10`): each View card is drawn inside `V10Scope`, so its quick actions drop their Olumi door and
+ *   the card carries v10's Olumi corner (`NodeCornerOlumi`): a click puts "About <card>: " in the composer and sends nothing. The card
+ *   face is DGAI's shell (`ViewCardNode`, the original look); v10 fills its named places (`VIEW_CARD_SLOTS`) by portal and changes
+ *   nothing else on it: the corner in `olumi-badge`, the driver badge in `driver-badge`.
+ * - **The ring** (`ringCards`): the cards a reply's next step is about (core's `chat[].answer.next.about`, the only place the View
+ *   names records in the chat) are lit while that line is hovered or focused, and nothing else changes.
+ *
+ * - **What would change** (`ViewDriverBadge`, v10 #3098): an option card core gives a `driver` carries v10's driver badge on its corner,
+ *   an icon at rest, in the shell's top-right place; hovering or focusing it says core's own sentence, verbatim, with Olumi's mark. Out
+ *   of flow, so no card changes height; nothing dims. A card with no driver draws none.
+ *
+ * - **The outcome band** (`ViewOptionBand`, v10's band from #/canvas2): under an option's chance line, the aim's measured quantity under
+ *   that option (core's `rows[].outcome` on its chance row), every option on ONE axis so the cards read side by side: the range as a
+ *   bar, the median as a tick, and core's own line for it beneath. The numbers place the bar and nothing else; every word is core's.
+ *
+ * The methods are v10's (`V10_METHODS`), the composer's icon row in ViewChat.tsx.
+ */
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Activity } from 'lucide-react'
+import Tooltip from '../components/Tooltip'
+import { OlumiAiIcon } from '../components/results/analysisNew/OlumiAiIcon'
+import { CANVAS_GLYPH_SIZE_CLASSES } from '../canvas/nodes/shared/canvasGlyphScale'
+import { NODE_TOOLTIP_DELAY_MS } from '../canvas/nodes/shared/nodeTooltip'
+import { V10_CHANGE_COPY } from '../presentation/V10ChangeLens'
+import { VIEW_CARD_SLOTS, type ViewCardData } from '../canvas/nodes/ViewCardNode'
+import type { NodeProps } from '@xyflow/react'
+import { V10Scope } from '../presentation/v10'
+export { ringCards } from './ring'
+import { ViewCardNode } from '../canvas/nodes/ViewCardNode'
+import { NodeCornerOlumi } from '../canvas/nodes/shared/NodeCornerOlumi'
+import { useCanvasStore } from '../canvas/store'
+import { typography } from '../styles/typography'
+import type { ViewCard } from './client'
+
+/** v10's rulings for the whole lane while its canvas is up: the attribute v10's stylesheets are scoped to. */
+export function useV10Lane(): void {
+  useEffect(() => {
+    const root = document.documentElement
+    root.dataset.presentation = 'v10'
+    return () => { delete root.dataset.presentation }
+  }, [])
+}
+
+/** v10's "What would change" badge for one card, from core's `driver`: its sentence verbatim on hover or focus, with Olumi's mark. */
+export function ViewDriverBadge({ card }: { card: ViewCardData['card'] }) {
+  if (card.driver === null) return null
+  const disclosure = (
+    <span className="inline-flex items-start gap-1.5">
+      <OlumiAiIcon size={12} aria-hidden="true" data-testid={`view-driver-mark-${card.id}`} className={`mt-[2px] flex-none ${CANVAS_GLYPH_SIZE_CLASSES[12]}`} />
+      <span data-view={`${card.id}.driver.text`}>{card.driver.text}</span>
+    </span>
+  )
+  return (
+    <Tooltip asChild content={disclosure} delay={NODE_TOOLTIP_DELAY_MS}>
+      <span data-testid={`view-driver-${card.id}`} data-node-tooltip="true" role="img" tabIndex={0} aria-label={V10_CHANGE_COPY.driverAria}
+        className="nodrag pointer-events-auto relative z-10 inline-grid h-5 w-5 place-items-center rounded-full border border-panel-border bg-panel text-text-light shadow-1">
+        <Activity aria-hidden="true" className="h-3 w-3" />
+      </span>
+    </Tooltip>
+  )
+}
+
+/** One option's band on the shared axis: percent positions, and core's line for it with its path in the View. */
+export interface OptionBand { readonly leftPct: number; readonly widthPct: number; readonly medianPct: number | null; readonly text: string; readonly title: string; readonly at: string }
+
+const pct = (v: number, min: number, span: number) => Math.min(100, Math.max(0, ((v - min) / span) * 100))
+
+/**
+ * Every option's band on one axis, from core's `outcome` on each option card's chance row. None at all unless every option with a
+ * band measures the same quantity in the same unit and the axis has width: two units on one axis would put a bar in the wrong place.
+ */
+export function optionBands(cards: readonly ViewCard[]): ReadonlyMap<string, OptionBand> {
+  const found: { id: string; i: number; o: NonNullable<Extract<ViewCard['rows'][number], { kind: 'chance' }>['outcome']> }[] = []
+  for (const c of cards) {
+    if (c.family !== 'option') continue
+    const i = c.rows.findIndex((r) => r.kind === 'chance' && r.outcome != null && Number.isFinite(r.outcome.low) && Number.isFinite(r.outcome.high))
+    const row = c.rows[i]
+    if (row?.kind === 'chance' && row.outcome) found.push({ id: c.id, i, o: row.outcome })
+  }
+  if (found.length === 0 || new Set(found.map((f) => f.o.unit)).size > 1) return new Map()
+  const min = Math.min(...found.map((f) => f.o.low)), span = Math.max(...found.map((f) => f.o.high)) - min
+  if (!(span > 0)) return new Map()
+  return new Map(found.map(({ id, i, o }) => [id, {
+    leftPct: pct(o.low, min, span),
+    widthPct: Math.max(2, pct(o.high, min, span) - pct(o.low, min, span)),
+    medianPct: o.median === null || !Number.isFinite(o.median) ? null : pct(o.median, min, span),
+    text: o.text, title: o.title, at: `${id}.rows.${i}.outcome.text`,
+  }]))
+}
+
+/** The bands of the cards on the canvas now: one axis for exactly the options drawn. */
+function useOptionBands(): ReadonlyMap<string, OptionBand> {
+  const nodes = useCanvasStore((s) => s.nodes)
+  return useMemo(() => optionBands(nodes.flatMap((n) => {
+    const card = (n.data as Partial<ViewCardData> | undefined)?.card
+    return card?.family === 'option' ? [card] : []
+  })), [nodes])
+}
+
+/** v10's outcome band (#/canvas2's look), drawn from core: the bar and tick on the shared axis, and core's line beneath, its hover core's. */
+export function ViewOptionBand({ id, band }: { id: string; band: OptionBand }) {
+  return (
+    <div className="mt-1 min-w-0" data-testid={`view-option-band-${id}`} title={band.title}>
+      <div className="relative" role="img" aria-label={band.text} style={{ height: 6, background: 'var(--factor-light)', borderRadius: 3 }}>
+        <div className="absolute top-0 h-full" data-testid={`view-option-band-range-${id}`}
+          style={{ left: `${band.leftPct}%`, width: `${band.widthPct}%`, background: 'var(--option)', borderRadius: 3 }} />
+        {band.medianPct === null ? null : (
+          <div className="absolute" data-testid={`view-option-band-median-${id}`}
+            style={{ left: `${band.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />
+        )}
+      </div>
+      <p className={`${typography.edgeLabel} text-text-light line-clamp-1`} data-view={band.at}>{band.text}</p>
+    </div>
+  )
+}
+
+type Places = { readonly olumi: Element | null; readonly driver: Element | null; readonly band: Element | null }
+
+/** A View card as v10 draws its controls: DGAI's card, with the Olumi corner and the driver badge in the card's own named places. */
+export function ViewCardV10(props: NodeProps) {
+  const box = useRef<HTMLDivElement>(null)
+  const [places, setPlaces] = useState<Places>({ olumi: null, driver: null, band: null })
+  const band = useOptionBands().get(props.id) ?? null
+  // The card draws its places; v10 finds them each time the card is drawn from new data (a card that changes family gains or loses its
+  // driver place).
+  useLayoutEffect(() => {
+    const at = (name: string) => box.current?.querySelector(`[data-slot="${name}"]`) ?? null
+    const olumi = at(VIEW_CARD_SLOTS.olumiBadge), driver = at(VIEW_CARD_SLOTS.driverBadge), band = at(VIEW_CARD_SLOTS.outcomeBand)
+    setPlaces((p) => (p.olumi === olumi && p.driver === driver && p.band === band ? p : { olumi, driver, band }))
+  }, [props.data])
+  return (
+    <V10Scope>
+      <div ref={box} data-testid="view-card-v10">
+        <ViewCardNode {...props} />
+        {places.olumi === null ? null : createPortal(<NodeCornerOlumi nodeId={props.id} selected={props.selected === true} />, places.olumi)}
+        {places.driver === null ? null : createPortal(<ViewDriverBadge card={(props.data as ViewCardData).card} />, places.driver)}
+        {places.band === null || band === null ? null : createPortal(<ViewOptionBand id={props.id} band={band} />, places.band)}
+      </div>
+    </V10Scope>
+  )
+}

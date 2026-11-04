@@ -8,7 +8,8 @@ import { ScenarioSwitcher } from '../../canvas/components/ScenarioSwitcher'
 import { SCENARIO_RENAME_REQUEST_EVENT } from '../../canvas/components/scenarioRenameEvent'
 import { VersionsTrigger } from '../../canvas/versions/VersionsTrigger'
 import { DecisionBriefTrigger } from '../../canvas/decisionBrief/DecisionBriefTrigger'
-import { coreLaneShowsSurface } from '../../olumiCore/lane'
+import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
+import { ViewBriefTrigger } from '../../olumiView/ViewBrief'
 import { ownerPanelHash } from '../../collab/panelRoute'
 import { useCanvasStore } from '../../canvas/store'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
@@ -440,7 +441,7 @@ export const TopBar = ({
             document-level controls, not hovering over the graph. `VersionsTrigger`
             carries no positioning of its own — this row owns its layout. */}
         {/* Versions are owner-only on CEE (list, save, restore): hidden for a viewer. */}
-        {/* Not on the olumi-core lane: they snapshot and restore View cards locally, which core never sees (lane audit 7.5). */}
+        {/* On the olumi-core lane the panel lists core's own versions, one per approval (src/olumiCore/versions.tsx). */}
         {!isViewer && coreLaneShowsSurface('versions') && (
           <Tooltip content="Version history — snapshots of the model you authored">
             <VersionsTrigger variant="icon" className={styles.iconButton} data-testid="topbar-versions-trigger" />
@@ -449,11 +450,16 @@ export const TopBar = ({
 
         {/* DECISION BRIEF — the saved model and its latest Run as one shareable page (self-contained; renders
             nothing for a scenario CEE cannot read). */}
-        {coreLaneShowsSurface('summary') && (
+        {/* On the olumi-core lane the Summary is the View's own (question, Run lines, each option's rows), not the adapter's saved model. */}
+        {coreLaneShowsSurface('summary') && (isOlumiCoreLane() ? (
+          <Tooltip content="Summary: the question, the latest Run and each option's chances">
+            <ViewBriefTrigger className={styles.iconButton} />
+          </Tooltip>
+        ) : (
           <Tooltip content="Summary: the saved model and its latest Run, to print or share">
             <DecisionBriefTrigger className={styles.iconButton} />
           </Tooltip>
-        )}
+        ))}
 
         {/* Kebab menu */}
         <KebabMenu

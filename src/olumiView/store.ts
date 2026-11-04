@@ -9,6 +9,10 @@
  * A View for someone other than the person this page was opened for (another private link opened in this browser since: `you_id` is
  * not the page's person) is never installed: chat, canvas, results and Team all read this one copy, so none of them draws it. It reads
  * as a failed read in the person's words (NOT_FOR_THIS_PAGE), and the page's last View stays (final review 00004 #1).
+ *
+ * `at` is the approved version the person chose to look at (the version history's Draw): every read is then that version's own View
+ * (core API v1.10), so a background read never swaps the latest back in unasked. Null is the latest. A version core does not serve as
+ * asked is never installed (`readView` fails closed), and the canvas stays on what it drew.
  */
 import { create } from 'zustand'
 import { READ_FAILED, TeamApiError } from '../olumiCore/team/api'
@@ -27,6 +31,8 @@ interface ViewState {
   readonly error: string | null
   /** The canvas's model changed after this View was read: until a new one lands, none of its lines is current. */
   readonly stale: boolean
+  /** The approved version on screen when the person chose an earlier one; null for the latest. */
+  readonly at: number | null
   /** Point the store at a DGAI scenario; reads its View when core knows it. */
   readonly use: (uuid: string | null) => Promise<void>
   /** Read the View again. True when a whole, current answer was read. */
@@ -35,6 +41,8 @@ interface ViewState {
   readonly modelChanged: () => Promise<boolean>
   /** Open or close a badge (its card id and the records the View said it holds), or every figure: a new read. */
   readonly setOpened: (opened: Opened) => Promise<boolean>
+  /** Look at one approved version as it was (n), or go back to the latest (null): a new read. Null when it landed, else why not. */
+  readonly look: (at: number | null) => Promise<string | null>
 }
 
 let seq = 0
@@ -47,13 +55,13 @@ let seq = 0
 export const currentModel = (s: { view: View | null; error: string | null; stale: boolean }) => (s.error === null && !s.stale && s.view !== null && s.view.proposal === null ? s.view.model : null)
 
 export const useViewStore = create<ViewState>()((set, get) => ({
-  uuid: null, sid: null, view: null, opened: { open: new Map(), all: false }, status: 'none', error: null, stale: false,
+  uuid: null, sid: null, view: null, opened: { open: new Map(), all: false }, status: 'none', error: null, stale: false, at: null,
   use: async (uuid) => {
     const sid = coreScenarioIdOf(uuid)
     if (get().uuid === uuid && get().sid === sid && get().status !== 'none' && get().status !== 'error') return
     const same = get().uuid === uuid
     seq += 1
-    set({ uuid, sid, view: same ? get().view : null, opened: same ? get().opened : { open: new Map(), all: false }, status: sid ? 'loading' : 'none', error: null })
+    set({ uuid, sid, view: same ? get().view : null, opened: same ? get().opened : { open: new Map(), all: false }, at: same ? get().at : null, status: sid ? 'loading' : 'none', error: null })
     if (sid) await get().refresh()
   },
   refresh: async () => {
@@ -63,7 +71,7 @@ export const useViewStore = create<ViewState>()((set, get) => ({
     const mine = ++seq
     set({ sid, status: get().view ? 'ready' : 'loading' })
     try {
-      const view = await readView(sid, get().opened)
+      const view = await readView(sid, get().opened, get().at)
       if (mine !== seq) return false
       if (!isForThisPage(view)) { set({ status: get().view ? 'ready' : 'error', error: NOT_FOR_THIS_PAGE }); return false }
       set({ view, status: 'ready', error: null, stale: false })
@@ -85,5 +93,21 @@ export const useViewStore = create<ViewState>()((set, get) => ({
     // A read that failed puts back what was opened, so the page and the View agree. One a newer read overtook is that read's to settle.
     if (!ok && get().opened === opened && get().status !== 'loading') set({ opened: was })
     return ok
+  },
+  look: async (at) => {
+    const sid = get().sid
+    if (!sid) return READ_FAILED
+    const mine = ++seq
+    try {
+      const view = await readView(sid, get().opened, at)
+      if (mine !== seq) return null // a newer read settles what is on screen
+      if (!isForThisPage(view)) return NOT_FOR_THIS_PAGE
+      set({ view, at, status: 'ready', error: null, stale: false })
+      return null
+    } catch (e) {
+      if (mine !== seq) return null
+      // The View on screen stays, and with it the version it is: a failed look is said where the person asked, not as a failed read.
+      return e instanceof TeamApiError ? e.message : READ_FAILED
+    }
   },
 }))

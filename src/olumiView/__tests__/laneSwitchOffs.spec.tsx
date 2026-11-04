@@ -1,8 +1,8 @@
 /**
  * Canvas A, slice S6 (canvas-A-gaps.md B5, B8, C7, D4): what the olumi-core lane cannot honour is not offered, and the canvas lets go
- * of a model core no longer holds. Tidy would re-lay core's columns with ELK (B5); the legend explains marks a View card never draws
- * (B8: each mark has core's own hover); the Summary reads the adapter's saved model, so it told a person with one "no saved model
- * yet" (C7). Off the lane each is as before.
+ * of a model core no longer holds. Tidy would re-lay core's columns with ELK (B5); the legacy legend explains marks a View card never draws (on the lane the key is core's own, viewLegend.spec.tsx)
+ * (B8: each mark has core's own hover); the legacy Summary reads the adapter's saved model, so it told a person with one "no saved model
+ * yet" (C7): on the lane the Summary is the View's own instead (viewBrief.spec.tsx). Off the lane each is as before.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -20,6 +20,7 @@ import { runCanvasUndo } from '../../canvas/undo/undoCommand'
 import { CORE_LANE_USE_THE_CHAT } from '../../olumiCore/lane'
 import { layViewCanvas, placeViewCards, useViewCanvas, withdrawViewCanvas } from '../canvas'
 import { useViewStore } from '../store'
+import { useVersionsPanelStore } from '../../canvas/versions/versionsPanelStore'
 
 afterEach(() => { cleanup(); vi.unstubAllEnvs() })
 
@@ -29,11 +30,11 @@ const menuItems = () => {
   return within(screen.getByRole('menu', { name: 'More view options' })).queryAllByRole('menuitem').map((b) => b.getAttribute('data-testid'))
 }
 
-describe('B8 the view menu offers no legend on the lane', () => {
-  it('on the lane: no legend; Auto-arrange stays (B5: it puts the cards where core places them)', () => {
+describe('B8 the view menu offers the key on the lane, as core\'s own (viewLegend.spec.tsx)', () => {
+  it('on the lane: the key, and Auto-arrange stays (B5: it puts the cards where core places them)', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     const items = menuItems()
-    expect(items).not.toContain('viewport-legend')
+    expect(items).toContain('viewport-legend')
     expect(items).toEqual(expect.arrayContaining(['viewport-zoom-reset', 'viewport-auto-arrange']))
   })
   it('off the lane: both, as before', () => {
@@ -44,8 +45,8 @@ describe('B8 the view menu offers no legend on the lane', () => {
 
 const bar = () => (useCanvasStore.setState({ currentScenarioId: '6f37ea65-964e-4176-bcca-d68a5cc1bf06' }), render(<MemoryRouter><ToastProvider><TopBar scenarioTitle="Pricing" onTitleChange={vi.fn()} onSave={vi.fn()} onShare={vi.fn()} /></ToastProvider></MemoryRouter>))
 
-describe('C7 the top bar offers no Summary on the lane', () => {
-  it('on the lane: no Summary button', () => {
+describe('C7 the top bar offers no saved-model Summary on the lane', () => {
+  it('on the lane: no saved-model Summary button (the View\'s own Summary is viewBrief.spec.tsx)', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     bar()
     expect(screen.queryByTestId('decision-brief-trigger')).toBeNull()
@@ -97,12 +98,15 @@ describe('B5 Auto-arrange on the lane puts every View card back in its causal pl
   })
 })
 
-describe('lane audit 7.5 and 2.8: no local Versions, and undo says what the lane does instead', () => {
-  it('the top bar offers no Versions on the lane (they snapshot View cards core never sees), and does off it', () => {
+describe('lane audit 7.5 and 2.8: Versions are core\'s own on the lane, and undo says what the lane does instead', () => {
+  it('the top bar offers Versions on the lane, which open core\'s versions (one per approval, olumiCore/versions.tsx; never local snapshots of View cards), and off it as before', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
+    useVersionsPanelStore.setState({ isOpen: false })
     bar()
-    expect(screen.queryByTestId('topbar-versions-trigger')).toBeNull()
+    fireEvent.click(screen.getByTestId('topbar-versions-trigger'))
+    expect(useVersionsPanelStore.getState().isOpen).toBe(true) // the panel it opens draws core's list on the lane (coreCompare.spec)
     cleanup()
+    useVersionsPanelStore.setState({ isOpen: false })
     vi.stubEnv('VITE_OLUMI_CORE', '')
     bar()
     expect(screen.getByTestId('topbar-versions-trigger')).toBeTruthy()

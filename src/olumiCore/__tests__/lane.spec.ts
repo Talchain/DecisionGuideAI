@@ -4,6 +4,7 @@ vi.mock('../../lib/supabase', () => ({ getUserId: async () => null, getSessionId
 vi.mock('../../lib/posthog', () => ({ trackEvent: () => undefined }))
 
 import { coreLaneAllows, coreLaneShowsSurface, coreLaneHasAccounts, isOlumiCoreLane } from '../lane'
+import { WORKSPACE_SURFACES } from '../../canvas/components/workspaceShell/shellContract'
 import { resolveAiComparisonMode, aiComparisonHeaders } from '../../v5/aiComparisonMode'
 import { streamedDraftEligible } from '../../canvas/conversation/useConversation'
 import { preloadPrompts } from '../../lib/prompt-preloader'
@@ -27,10 +28,18 @@ describe('the olumi-core lane', () => {
     expect(coreLaneAllows('structure')).toBe(false)
   })
 
-  it('hides the dock surfaces with no View source (Reasoning, Compare, the legacy lenses) and keeps Analysis, the chat, Team and Model (drawn from the View, DL 4 Nov)', () => {
+  it('hides only the legacy lens bar and keeps Analysis, Reasoning and Model (drawn from the View), the chat, Team, and Compare and Version history (fed by core)', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
-    for (const gone of ['compare', 'analysisNew', 'lenses']) expect(coreLaneShowsSurface(gone)).toBe(false)
-    for (const keep of ['results', 'olumi', 'team', 'diagnostics']) expect(coreLaneShowsSurface(keep)).toBe(true)
+    for (const gone of ['lenses']) expect(coreLaneShowsSurface(gone)).toBe(false)
+    for (const keep of ['results', 'analysisNew', 'olumi', 'team', 'compare', 'versions', 'diagnostics']) expect(coreLaneShowsSurface(keep)).toBe(true)
+  })
+
+  // R1 (DL 4 Nov): this morning a cut hid Reasoning, the key, Summary, Compare and Version history by a stale lane list. Of every
+  // surface the dock, the top bar and the canvas can offer, the lane hides exactly the legacy lens bar and Model, nothing more.
+  it('R1 guard: on the lane exactly lenses (the legacy bar) is hidden; Reasoning, the key, Summary, Compare, Version history and Model (R2, from the View) show', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    const offered = [...new Set([...Object.keys(WORKSPACE_SURFACES), 'analysisNew', 'legend', 'summary', 'compare', 'versions', 'lenses', 'diagnostics'])]
+    expect(offered.filter((id) => !coreLaneShowsSurface(id)).sort()).toEqual(['lenses'])
   })
 
   it('is the core route on every host and whatever the link says, so no URL needs ?ai=core and none can pick another lane', () => {

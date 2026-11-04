@@ -23,7 +23,7 @@ export function InvitePanel({ sid }: { sid: string }): JSX.Element {
   const invite = async () => {
     setBusy(true); setError(null)
     try {
-      const r = await runWrite(`${sid}:invite`, { op: false }, null, () => teamApi.invite(sid, name))
+      const r = await runWrite(`${sid}:invite`, { op: false, anyVersion: true }, null, () => teamApi.invite(sid, name))
       setMade({ name, link: new URL(r.link, window.location.origin).href })
       setName('')
       await list()
@@ -31,7 +31,7 @@ export function InvitePanel({ sid }: { sid: string }): JSX.Element {
   }
   const revoke = async (id: string) => {
     setError(null)
-    try { await runWrite(`${sid}:revoke:${id}`, { op: false }, null, () => teamApi.revokeInvite(sid, id)); await list() } catch (e) {
+    try { await runWrite(`${sid}:revoke:${id}`, { op: false, anyVersion: true }, null, () => teamApi.revokeInvite(sid, id)); await list() } catch (e) {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was changed.')
     }
   }

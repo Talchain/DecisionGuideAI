@@ -37,6 +37,8 @@ import { setTeamFetch } from '../../../olumiCore/team/api'
 
 const UUID = '00000000-0000-4000-8000-000000000001', SID = 's_000000000001'
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
+// The person here wrote the brief, whom core never holds for their own view (`gated`); the golden, a synthetic fixture with no first
+// turn, reads it true.
 let seen: { method: string; path: string; body?: unknown }[] = []
 let conversation: ReturnType<typeof useConversationContext> | null = null
 function Probe() { conversation = useConversationContext(); return null }
@@ -57,7 +59,7 @@ beforeEach(() => {
   sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'results' }))
   useUIStore.setState({ activeRightPanel: null, activeOutputTab: 'results' } as never)
   useCanvasStore.setState({ nodes: [{ id: 'cups_now', type: 'viewCard', position: { x: 0, y: 0 }, data: { label: 'cups now' } }], edges: [], currentScenarioId: UUID, hasCompletedFirstRun: false, selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } } as never)
-  useViewStore.setState({ uuid: UUID, sid: SID, view: { ...view, proposal: null }, error: null, status: 'ready' } as never)
+  useViewStore.setState({ uuid: UUID, sid: SID, view: { ...view, proposal: null, gated: false }, error: null, status: 'ready' } as never)
 })
 afterEach(() => { vi.unstubAllGlobals(); setTeamFetch(null); lane.on = true; useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null }) })
 

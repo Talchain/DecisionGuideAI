@@ -156,7 +156,6 @@ check(cards === v.model.cards.length, `DGAI's canvas draws every card of core's 
 check(!(await ada.page.getByText('Untitled scenario').first().isVisible().catch(() => false)) && await ada.page.getByText(v.title, { exact: true }).first().isVisible(), `the top bar names the scenario as core does ("${v.title}")`)
 for (const c of v.model.cards.slice(0, 4)) check(await ada.page.locator(`.react-flow__node-viewCard >> text=${c.heading}`).first().isVisible(), `card "${c.heading}" in core's words`)
 // No dead controls (Paul's W4 rule): what the lane cannot serve is not on the page at all, not shown dark.
-for (const gone of ['analysisNew', 'compare']) check(await ada.page.getByTestId(`outputs-dock-tab-${gone}`).count() === 0, `no ${gone === 'analysisNew' ? 'Reasoning' : 'Compare'} tab`)
 // The Model tab, drawn from the View (DL 4 Nov, R2): the legacy outline's groups; a row's press puts its card in front.
 await tab(ada, 'diagnostics')
 await ada.page.getByTestId('view-model-tab').waitFor({ timeout: T })
@@ -187,13 +186,21 @@ await ada.page.keyboard.press('ArrowLeft')
 check(await ada.page.getByTestId('lens-bar-full').getAttribute('aria-checked') === 'true', 'keyboard: back to Model')
 // The lenses are back on from the View (DL 4 Nov): the bar offers only those the View fills, never a dead one.
 check(JSON.stringify(await ada.page.getByTestId('lens-bar').getByRole('radio').evaluateAll((bs) => bs.map((b) => b.getAttribute('data-testid')))) === JSON.stringify(['lens-bar-full', 'lens-bar-rests_on', 'lens-bar-what_changes', 'lens-bar-what_if']), 'the lens bar offers Model, Rests on, What would change and What if, and no lens the View cannot fill')
-for (const kept of ['olumi', 'results', 'team']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
+// Compare is core's own comparison of two approved versions (src/olumiCore/compare.tsx); Reasoning and Model are drawn from the View.
+for (const kept of ['olumi', 'results', 'analysisNew', 'team', 'compare', 'diagnostics']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
 // G6: Olumi's next step, beside the one card core names, in core's words.
 const next = v.chat.find((t) => t.answer?.next.newest)?.answer?.next
 check(next && next.at !== null, `core puts Olumi's next step beside one card (${next?.at})`)
+// R1.1 (Paul's screen): on load the note is an icon at its card, its words said once (in the Olumi tab); a press opens it.
+const nextWords = next.text.map((p) => p.text ?? '').join('').trim()
+const icon = ada.page.getByTestId('olumi-attention-card-icon')
+await icon.waitFor({ timeout: T })
+check(await icon.getAttribute('data-anchor-id') === next.at && await ada.page.getByTestId('olumi-attention-card').count() === 0, `on load, Olumi's next step is an icon at its card (${next.at}), the note not opened`)
+const onceOnLoad = await ada.page.evaluate((w) => [...document.querySelectorAll('body *')].filter((e) => e.checkVisibility?.() !== false && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.includes(w.slice(0, 40)))).length, nextWords)
+check(onceOnLoad <= 1, `on load, the next step's words are on screen at most once (${onceOnLoad})`)
+await icon.click()
 const note = ada.page.getByTestId('olumi-attention-card')
 await note.waitFor({ timeout: T })
-const nextWords = next.text.map((p) => p.text ?? '').join('').trim()
 check((await note.innerText()).includes(nextWords), `Olumi's note on the canvas says it: "${nextWords}"`)
 // W1 "Why ▸" on a finding: the reply's reasons behind the note's Why, in core's words.
 const whyWords = (v.chat.find((t) => t.answer?.next.newest)?.answer?.why ?? []).map((w) => w.map((p) => p.text ?? '').join('').trim()).filter(Boolean)
@@ -287,6 +294,10 @@ await tab(ada, 'olumi')
 await ada.page.fill('#view-chat-text', 'Add staff absence as a factor.')
 await ada.page.getByRole('button', { name: 'Send', exact: true }).click()
 await ada.page.getByTestId('view-chat-proposal').waitFor({ timeout: T })
+// Pending is never shown as current: while core holds the proposal, the Reasoning tab draws no Run at all.
+await tab(ada, 'analysisNew')
+check(await ada.page.getByTestId('view-reasoning').count() === 0, 'while the proposal is held, the Reasoning tab draws no Run')
+await tab(ada, 'olumi')
 // L8: core's change list on the card, each line with its tick; ticking one offers "Approve ticked · 1" (approved whole here; step 9 ticks).
 const held = (await view(ada, sid)).proposal
 const ticks = await ada.page.locator('[data-testid^="view-change-tick-"]').count()
@@ -308,6 +319,53 @@ await teamCheck(bea)
 check(await seen(bea, async () => await bea.page.locator('.react-flow__node-viewCard').count() === v.model.cards.length), 'Bea\'s canvas moved to version 2 on her next read')
 check(JSON.stringify((await view(bea, sid)).model) === JSON.stringify(v.model), 'Bea\'s View is version 2\'s model')
 await shot(bea, '5-bea-version-2')
+
+// ── 5a. Reasoning, from core's View ─────────────────────────────────────────────────────────────────────────────────────────────
+step('5a', 'Ada opens Reasoning: version 2\'s Run in core\'s words and order, and a figure tried there on a copy')
+await tab(ada, 'analysisNew')
+const reasoning = ada.page.getByTestId('view-reasoning')
+await reasoning.waitFor({ timeout: T })
+const inReasoning = (p) => reasoning.locator(`[data-view="${p}"]`)
+// The page reads core's olumi.view/3 (src/olumiView/client.ts `viewPath`), which carries the Run's science lines: compared against that.
+const v3 = await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view?schema=3`)).json(), sid)
+check(v3.version.id === v.version.id, 'core\'s olumi.view/3 is the same version')
+const options = v3.model.cards.filter((c) => c.family === 'option' && c.status === null)
+check(v3.model.run.lead === null || await inReasoning('run.lead').innerText() === v3.model.run.lead, `the Run's lead, as core says it`)
+check(JSON.stringify(await reasoning.locator('[data-view-card]').evaluateAll((es) => es.map((e) => e.getAttribute('data-view-card')))) === JSON.stringify(options.map((c) => c.id)), `each option in core's order (${options.length}), none ranked`)
+let bound = 0
+for (const c of options) {
+  if (await inReasoning(`${c.id}.heading`).innerText() !== c.heading) { check(false, `option "${c.heading}" in core's words`) }
+  for (const [i, r] of c.rows.entries()) {
+    const words = r.kind === 'none' ? [[`${c.id}.rows.${i}.text`, r.text]] : [[`${c.id}.rows.${i}.aim`, r.aim], [`${c.id}.rows.${i}.value`, r.value]]
+    for (const [at, text] of words) { if (await inReasoning(at).innerText() !== text) check(false, `${at} is core's "${text}"`); bound++ }
+  }
+  if (c.driver !== null) { if (await inReasoning(`${c.id}.driver.text`).innerText() !== c.driver.text) check(false, `${c.id}'s driver line in core's words`); bound++ }
+}
+for (const [i, l] of v3.model.run.science.entries()) { if (await inReasoning(`run.science.${i}.line`).innerText() !== l.line) check(false, `worth line ${l.id} in core's words`); bound++ }
+check(bound > 0, `every option's chance or blocker, driver line and worth line drawn exactly as core's View says it (${bound} strings)`)
+// Each option's outcome band: since core c838f56 the aim's, under each chance row (`rows[].outcome`); from e16a497 each card's
+// (`cards[].values`) under the option. Core's own line, once each.
+const outcomes = options.flatMap((c) => c.rows.flatMap((r, i) => (r.kind === 'chance' && r.outcome != null ? [{ c, r, i }] : [])))
+if (v3.model.cards.some((c) => c.rows.some((r) => r.kind === 'chance' && 'outcome' in r))) {
+  for (const { c, r, i } of outcomes) if (await reasoning.locator(`[data-view-card="${c.id}"] [data-outcome="${r.aim_id}"] [data-view="${c.id}.rows.${i}.outcome.text"]`).innerText() !== r.outcome.text) check(false, `${c.id}'s outcome for ${r.aim_id} is core's "${r.outcome.text}"`)
+  check(outcomes.length > 0 && await reasoning.locator('[data-outcome]').count() === outcomes.length && await reasoning.locator('[data-band]').count() === 0, `under each chance, the aim's outcome in core's words, on one axis (${outcomes.length}: ${outcomes.map(({ r }) => r.outcome.text).join(' · ')})`)
+} else {
+  const bands = v3.model.cards.flatMap((c) => (c.values ?? []).map((b, i) => ({ c, b, i })))
+  for (const { c, b, i } of bands) if (await reasoning.locator(`[data-view-card="${b.option}"] [data-band="${c.id}"] [data-view="${c.id}.values.${i}.text"]`).innerText() !== b.text) check(false, `${c.id}'s band for ${b.option} is core's "${b.text}"`)
+  check(bands.length > 0 && await reasoning.locator('[data-band]').count() === bands.length, `each option's outcome band under it, in core's words (${bands.length}: ${bands.map(({ b }) => b.text).join(' · ')})`)
+}
+await shot(ada, `k-analysis-${process.env.VIEW_W ?? 1440}`)
+const tryable = v3.model.cards.find((c) => c.figure?.edit)
+check(tryable !== undefined, `Reasoning offers a figure to try ("${tryable?.heading}")`)
+await reasoning.getByTestId(`reasoning-edit-${tryable.id}`).click()
+await reasoning.getByTestId(`reasoning-typed-${tryable.id}`).fill('5')
+await reasoning.getByTestId(`reasoning-try-${tryable.id}`).click()
+await reasoning.getByTestId('view-whatif').waitFor({ timeout: T })
+check((await reasoning.getByTestId('view-whatif').innerText()).includes('What-if, not saved') && await ada.page.getByTestId('outputs-dock-tab-analysisNew').getAttribute('aria-selected') === 'true', 'the try is drawn on Reasoning, which stays open, marked not saved')
+check((await view(ada, sid)).version.n === 2, 'core saved nothing: still version 2')
+await reasoning.getByTestId('view-whatif-clear').click()
+await reasoning.getByRole('button', { name: 'Cancel', exact: true }).click()
+await tab(ada, 'olumi')
 
 // ── 5b. The person's own figure, changed on its card ────────────────────────────────────────────────────────────────────────────
 step('5b', 'Ada changes a figure on its card in DGAI, typed as she would say it; core reads it and both screens show it')
@@ -456,6 +514,111 @@ v = await viewWhen(ada, sid, saved)
 const pulsedIds = await ada.page.waitForFunction(() => { const ids = [...document.querySelectorAll('[data-pulsed]')].map((e) => e.closest('.react-flow__node').getAttribute('data-id')); return ids.length ? ids : null }, null, { timeout: 8000 }).then((h) => h.jsonValue()).catch(() => [])
 check(pulsedIds.length > 0 && pulsedIds.every((id) => part.changes.some((c) => c.id === id)), `the approval pulses the cards it applied, and only those (${pulsedIds.join(', ')})`)
 check(saved(v), alone ? `core approved the ticked line alone ("${part.changes[0].text}" of ${part.changes.length}): version ${before + 1}` : `core approved the ticked lines: version ${before + 1}`)
+
+// The dock's Compare tab: the previous approved version against this one, as core compares them (a shot, for the pilot kit).
+await tab(ada, 'compare')
+await ada.page.getByTestId('core-compare-out').waitFor({ timeout: T })
+await shot(ada, `i-compare-${process.env.VIEW_W ?? 1440}`)
+// ── 10. The Summary in DGAI is core's View (DL 4 Nov) ───────────────────────────────────────────────────────────────────────────
+step(10, 'Ada opens the Summary and the key in DGAI: the question, the Run\'s lines, each option\'s rows and core\'s key, as core\'s View holds them')
+const summed = (await view(ada, sid)).model
+await ada.page.getByTestId('view-brief-trigger').click()
+const panel = ada.page.getByTestId('view-brief-panel')
+await panel.waitFor({ timeout: T })
+check(await panel.getByTestId('view-brief-question').innerText() === summed.question.text, `the Summary's question is core's: "${summed.question.text}"`)
+const summaryOptions = summed.cards.filter((c) => c.family === 'option')
+let rows = 0
+for (const c of summaryOptions) {
+  const box = panel.getByTestId(`view-brief-option-${c.id}`)
+  const text = await box.innerText()
+  if (!text.includes(c.heading) || !c.rows.every((r) => text.includes(r.kind === 'none' ? r.text : r.value))) { check(false, `the Summary draws "${c.heading}" and its rows as core's View holds them`) }
+  rows += c.rows.length
+}
+check(summaryOptions.length > 0, `the Summary draws all ${summaryOptions.length} options and their ${rows} rows, each value as core's View holds it`)
+if (summed.run?.most_likely) check(await panel.getByTestId('view-brief-most-likely').innerText() === summed.run.most_likely.text, 'the Summary\'s most-likely line is core\'s, word for word')
+// The key, opened with the Summary still beside it: core's own (model.key), every item in core's order.
+// The page reads olumi.view/3 (?schema=3); `view` above reads core's default View, which carries no key.
+const key = (await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view?schema=3`)).json(), sid)).model.key
+await ada.page.getByTestId('viewport-more').click()
+await ada.page.getByTestId('viewport-legend').click()
+const legend = ada.page.getByTestId('view-legend')
+await legend.waitFor({ timeout: T })
+const flat = (t) => t.replace(/\s+/g, '')
+const drawn = await legend.locator('li').allInnerTexts()
+check(key.length > 0 && drawn.length === key.length && drawn.every((t, i) => flat(t) === flat(`${key[i].glyph}${key[i].text}`)), `the key draws core's ${key.length} items, glyph and words, in core's order`)
+await shot(ada, `j-legend-summary-${process.env.VIEW_W ?? 1440}`)
+await ada.page.keyboard.press('Escape') // closes the key and the Summary
+
+// ── 11. Version history (DL, 4 Nov) ─────────────────────────────────────────────────────────────────────────────────────────────
+step(11, 'Ada opens Version history: core\'s versions, any version\'s record, and two compared; the current version is untouched')
+const now = await view(ada, sid)
+const listed = (await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/versions`)).json(), sid)).versions
+const sent = []
+const watch = (r) => { if (r.method() !== 'GET') sent.push(`${r.method()} ${r.url()}`) }
+ada.page.on('request', watch)
+await ada.page.getByTestId('topbar-versions-trigger').click()
+check(await seen(ada, async () => await ada.page.getByTestId('core-version-row').count() === listed.length), `the history lists core's ${listed.length} versions`)
+check(await seen(ada, async () => await ada.page.locator(`[data-testid="core-version-row"][aria-current="true"]`).getAttribute('data-version', { timeout: 1000 }) === String(now.version.n)), `version ${now.version.n} is marked as the one in use`)
+// Version 3 is the figure Ada typed on its card (5b). Its record is core's change card: version 3 against the version it was approved over.
+const ver3 = listed.find((x) => x.n === 3), over = listed.find((x) => x.id === ver3.base).n
+const card = await ada.page.evaluate(async ([s, a]) => (await fetch(`/api/scenarios/${s}/compare?from=${a}&to=3`)).json(), [sid, over])
+await ada.page.getByTestId('core-version-open-3').click()
+const lines = async () => ada.page.getByTestId('core-version-3-changes').locator('li').allInnerTexts()
+check(await seen(ada, async () => { const l = await lines(); return card.changes.length > 0 && l.length === card.changes.length && card.changes.every((c, i) => l[i].startsWith(c.text)) }),
+  `version 3's record is core's change card (${card.changes.length} line(s), "${card.changes[0]?.text}")`)
+const who = card.versions.find((x) => x.n === 3)
+check(await seen(ada, async () => (await ada.page.getByTestId('core-version-3-who').innerText({ timeout: 1000 })).endsWith(`approved by ${who.approvedBy}`)), `and who proposed and approved it, as core names them (${who.approvedBy})`)
+// Version 1 was approved over none: who proposed it, and its saved results as core words them (the earlier side of version 1 with 2).
+const first = await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/compare?from=1&to=2`)).json(), sid)
+await ada.page.getByTestId('core-version-open-1').click()
+const w1 = first.versions.find((x) => x.n === 1)
+check(await seen(ada, async () => (await ada.page.getByTestId('core-version-1-who').innerText({ timeout: 1000 })).startsWith(`Proposed by ${w1.proposedBy}`)), `version 1's record opens too: proposed by ${w1.proposedBy}${w1.briefBy ? `, from ${w1.briefBy}'s brief` : ''}`)
+// Its own change lines are core's `lines` on /versions (API v1.10): every record of the first model, added over nothing.
+const own1 = listed[0].lines ?? []
+check(await seen(ada, async () => { const l = await ada.page.getByTestId('core-version-1-changes').locator('li').allInnerTexts(); return own1.length > 0 && l.length === own1.length && own1.every((c, i) => l[i].startsWith(c.text)) }),
+  `version 1's own change lines are core's (${own1.length}, "${own1[0]?.text}")`)
+check(await ada.page.getByTestId('core-version-3-record-link').getAttribute('href') === `/s/${sid}/record#version-3`, 'version 3\'s record links to its heading on core\'s printable record')
+check(await ada.page.evaluate(async (s) => (await (await fetch(`/s/${s}/record`)).text()).includes('id="version-3"'), sid), 'and core\'s printable record has that heading')
+const saved1 = first.results.filter((r) => r.before)
+check(await seen(ada, async () => { const l = await ada.page.getByTestId('core-version-1-found').locator('li').allInnerTexts(); return saved1.length > 0 && l.length === saved1.length && saved1.every((r, i) => l[i].includes(r.before.value)) }), `and its ${saved1.length} saved results, in core's words ("${saved1[0]?.before.value}")`)
+await shot(ada, `i-versions-${process.env.VIEW_W ?? 1440}`)
+await ada.page.getByTestId('versions-compare-from').selectOption('1')
+await ada.page.getByTestId('versions-compare-go').click()
+const both = await ada.page.evaluate(async ([s, b]) => (await fetch(`/api/scenarios/${s}/compare?from=1&to=${b}`)).json(), [sid, now.version.n])
+check(await seen(ada, async () => await ada.page.getByTestId('versions-compare-changes').locator('li').count() === both.changes.length), `compare version 1 with ${now.version.n} in the history draws core's ${both.changes.length} change lines`)
+// The must-not-change row: reading the history moves nothing. Core still holds the same version and model, and Ada's canvas still draws it.
+ada.page.off('request', watch)
+const then = await view(ada, sid)
+check(then.version.id === now.version.id && JSON.stringify(then.model) === JSON.stringify(now.model), `core still holds version ${now.version.n}, the same model`)
+check(sent.length === 0, `reading the history sent core nothing but reads${sent.length ? `: ${sent.join(', ')}` : ''}`)
+check(await ada.page.locator('.react-flow__node-viewCard').count() === now.model.cards.length, `Ada's canvas still draws version ${now.version.n}'s cards`)
+
+// ── 11. A past version on the canvas, by Ada's choice (core API v1.10, view?at=n) ────────────────────────────────────────────────
+step(11, 'Ada draws version 2 on the canvas as it was, then goes back to the latest; core changes nothing')
+const at2 = await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view?at=2&schema=3`)).json(), sid)
+check(at2.version?.n === 2 && at2.proposal === null && at2.model.edit_base === null, 'core serves version 2\'s own View: nothing pending, nothing to edit')
+const was = at2.model.cards.find((x) => x.id === editable.id), is = now.model.cards.find((x) => x.id === editable.id)
+sent.length = 0
+ada.page.on('request', watch)
+await ada.page.getByTestId('core-version-open-2').click()
+check(await seen(ada, async () => await ada.page.getByTestId('core-version-2-draw').count() === 1), 'version 2\'s record offers to draw it on the canvas')
+await ada.page.getByTestId('core-version-2-draw').click()
+const figure = () => ada.page.locator(`[data-view="${editable.id}.figure.text"]`).innerText({ timeout: 1000 })
+check(await seen(ada, async () => await figure() === was.figure.text && await ada.page.locator('.react-flow__node-viewCard').count() === at2.model.cards.length),
+  `Ada's canvas draws version 2: "${was.figure.text}" where version ${now.version.n} has "${is.figure.text}"`)
+check(await seen(ada, async () => await ada.page.locator('[data-testid="core-version-row"][aria-current="true"]').getAttribute('data-version', { timeout: 1000 }) === '2'), 'the history marks version 2 as the one drawn')
+await shot(ada, `i-version-2-drawn-${process.env.VIEW_W ?? 1440}`)
+// The history panel sits over the dock: Ada closes it, as a person does, to reach the message box on the Olumi tab.
+await ada.page.getByTestId('what-changed-panel').getByRole('button', { name: 'Close panel' }).click()
+await tab(ada, 'olumi')
+check(await seen(ada, async () => await ada.page.locator('#view-chat-text').isDisabled({ timeout: 1000 }) && await ada.page.getByTestId('view-composer-past').isVisible()), 'the message box is held while a past version is drawn, and says so')
+const still = await view(ada, sid)
+check(still.version.id === now.version.id && JSON.stringify(still.model) === JSON.stringify(now.model), `core still holds version ${now.version.n}, the same model`)
+await ada.page.getByTestId('view-composer-back').click()
+check(await seen(ada, async () => await figure() === is.figure.text && await ada.page.locator('.react-flow__node-viewCard').count() === now.model.cards.length), `back to the latest: Ada's canvas draws version ${now.version.n} again ("${is.figure.text}")`)
+check(await seen(ada, async () => await ada.page.locator('#view-chat-text').isEnabled()), 'and the message box is open again')
+ada.page.off('request', watch)
+check(sent.length === 0, `drawing a past version sent core nothing but reads${sent.length ? `: ${sent.join(', ')}` : ''}`)
 
 console.log(`\nAll steps hold. Scenario ${sid}: DGAI ${BASE}/#/scenario/${uuidOf(sid)} · core ${BASE}/s/${sid}`)
 await browser.close()
