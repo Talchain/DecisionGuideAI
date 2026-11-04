@@ -168,6 +168,23 @@ await ada.page.waitForFunction((id) => document.querySelector(`.react-flow__node
 ok(`a Model tab row selects its card on the canvas (${rowId})`)
 await shot(ada, '0b-model-tab')
 await tab(ada, 'olumi')
+// W1 keyboard: a card is reached and selected from the keyboard, its own controls are next in the tab order, and the lens bar moves on
+// the arrow keys (DL 4 Nov). Measured on the page, never a readout.
+const keyCard = v.model.cards.find((c) => c.figure?.edit)
+await ada.page.locator(`.react-flow__node[data-id="${keyCard.id}"]`).focus()
+await ada.page.keyboard.press('Enter')
+await ada.page.waitForFunction((id) => document.querySelector(`.react-flow__node[data-id="${id}"]`)?.classList.contains('selected'), keyCard.id, { timeout: T })
+await ada.page.keyboard.press('Tab')
+const tabbedTo = await ada.page.evaluate(() => { const a = document.activeElement; return a ? { inCard: a.closest('.react-flow__node')?.getAttribute('data-id') ?? null, what: a.getAttribute('data-testid') ?? a.getAttribute('aria-label') ?? a.tagName } : null })
+check(tabbedTo?.inCard === keyCard.id, `keyboard: Enter selects a card and Tab reaches its own controls (${tabbedTo?.what})`)
+await ada.page.keyboard.press('Shift+Tab')
+const ring = await ada.page.evaluate((id) => { const el = document.querySelector(`.react-flow__node[data-id="${id}"]`); const cs = getComputedStyle(el); return { focus: document.activeElement === el && el.matches(':focus-visible'), outline: `${cs.outlineStyle} ${cs.outlineWidth}` } }, keyCard.id)
+check(ring.focus && ring.outline.startsWith('solid'), `keyboard: a focused card shows the canvas's focus ring (${ring.outline})`)
+await ada.page.getByTestId('lens-bar-full').focus()
+await ada.page.keyboard.press('ArrowRight')
+check(await ada.page.getByTestId('lens-bar-rests_on').getAttribute('aria-checked') === 'true' && await ada.page.evaluate(() => document.activeElement?.getAttribute('data-testid')) === 'lens-bar-rests_on', 'keyboard: the arrow keys move along the lens bar and switch the lens')
+await ada.page.keyboard.press('ArrowLeft')
+check(await ada.page.getByTestId('lens-bar-full').getAttribute('aria-checked') === 'true', 'keyboard: back to Model')
 // The lenses are back on from the View (DL 4 Nov): the bar offers only those the View fills, never a dead one.
 check(JSON.stringify(await ada.page.getByTestId('lens-bar').getByRole('radio').evaluateAll((bs) => bs.map((b) => b.getAttribute('data-testid')))) === JSON.stringify(['lens-bar-full', 'lens-bar-rests_on', 'lens-bar-what_changes', 'lens-bar-what_if']), 'the lens bar offers Model, Rests on, What would change and What if, and no lens the View cannot fill')
 for (const kept of ['olumi', 'results', 'team']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
