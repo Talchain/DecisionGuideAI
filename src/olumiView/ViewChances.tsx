@@ -29,7 +29,8 @@ function Mark({ at, mark }: { at: string; mark: { glyph: string; title: string }
 export function FindingLines({ at, row }: { at: string; row: ViewRow }) {
   const f = findingOf(row)
   return f.text === null ? null : (
-    <p data-view={`${at}.text`} title={f.rests_on_text ?? undefined} data-view-hover={f.rests_on_text === null ? undefined : `${at}.rests_on_text`}>{f.text}</p>
+    // The panel's body type, whatever it is drawn inside (the Summary's panel gave it none: R5, the look check's ~18 px line).
+    <p className={typography.panelBody} data-view={`${at}.text`} title={f.rests_on_text ?? undefined} data-view-hover={f.rests_on_text === null ? undefined : `${at}.rests_on_text`}>{f.text}</p>
   )
 }
 
