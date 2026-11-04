@@ -150,7 +150,8 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       </span>
       {ghost ? <p className="text-text-light" data-view={`${id}.change.title`}>{card.change!.title}</p> : null}
       {/* One block of inline words, so a wrapped title returns to the card's left edge under its number, as the original's did (R3 pristine). */}
-      <p data-view-title={id}>
+      {/* An option core gives a driver carries v10's 20 px driver badge at right-1 top-1, 12 px into this row: the title keeps that room. */}
+      <p data-view-title={id} className={card.family === 'option' && card.driver !== null ? 'pr-4' : undefined}>
         <span className="sr-only" data-view={`${id}.glyph`}>{card.glyph}</span>
         {number === null ? null : <><span className="text-text-light font-normal" data-card-number={number}>{number}</span>{' '}</>}
         {/* Core's detail ("… · quantity · Theirs: …") is its page's hover text, not a line: on the heading, whole (DL 4 Nov, Paul's rule). */}
