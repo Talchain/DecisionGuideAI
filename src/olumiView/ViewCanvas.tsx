@@ -15,7 +15,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { useCanvasStore } from '../canvas/store'
 import { REACT_FLOW_DELETE_KEY_CODE } from '../canvas/useKeyboardShortcuts'
-import { useFocusCamera } from '../canvas/hooks/useFocusCamera'
+import { registerFocusHelpers } from '../canvas/utils/focusHelpers'
 import { ViewCardNode } from '../canvas/nodes/ViewCardNode'
 import { ViewQuestionNode } from '../canvas/nodes/ViewQuestionNode'
 import { ViewLinkEdge } from '../canvas/edges/ViewLinkEdge'
@@ -114,8 +114,18 @@ function ViewFlow() {
   const onNodesChange = useCallback((changes: NodeChange[]) => useCanvasStore.getState().onNodesChange(changes), [])
   const userMoved = useRef(false)
   const fit = useViewCamera(userMoved)
-  // The canvas's own focus (focusHelpers.ts), registered here too: a Model tab row puts its card in front (select and fit, nothing dims).
-  const { onMoveStart: focusMoveStart } = useFocusCamera()
+  // A Model tab row puts its card in front (`focusNodeById`): selected, and the camera centred on it at the zoom the person has. Only the
+  // node focus is registered: the legacy fit and pan seams stay unregistered on this lane, so the applied-edit pulse never moves the
+  // camera off the question and options (fit-real-model, bakery).
+  const { setCenter, getZoom, getInternalNode } = useReactFlow()
+  useEffect(() => registerFocusHelpers((id) => {
+    const n = getInternalNode(id)
+    if (n === undefined) return
+    useCanvasStore.getState().selectNodeWithoutHistory(id)
+    const at = n.internals.positionAbsolute, w = n.measured.width ?? 0, h = n.measured.height ?? 0
+    userMoved.current = true
+    void setCenter(at.x + w / 2, at.y + h / 2, { zoom: getZoom(), duration: 300 })
+  }, () => undefined), [setCenter, getZoom, getInternalNode])
   const { zoomIn, zoomOut, zoomTo } = useReactFlow()
   const hasModel = useViewStore((s) => (s.view?.model?.cards.length ?? 0) > 0)
   const mine = (e: unknown) => { if (e) userMoved.current = true }
@@ -124,7 +134,7 @@ function ViewFlow() {
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
         onNodeMouseEnter={(_, n) => useViewHover.setState({ id: n.id })} onNodeMouseLeave={() => useViewHover.setState({ id: null })}
-        onMoveStart={(e) => { mine(e); focusMoveStart() }} panOnDrag={PAN_BUTTONS} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}
+        onMoveStart={mine} panOnDrag={PAN_BUTTONS} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}
         nodesConnectable={false} edgesFocusable={false} elevateEdgesOnSelect={false} deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE} selectionKeyCode={null} multiSelectionKeyCode={null}
         proOptions={{ hideAttribution: true }} data-testid="view-canvas"
       >

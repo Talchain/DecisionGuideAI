@@ -46,7 +46,7 @@ async function frame(view, label, whole = false) {
   // Readable first (DL 4 Nov, the original look): whole when it fits at 0.9 or more, else at 0.9 (lower only as far as keeps the
   // question and options across) with the question and options in view.
   const head = ['page:question', ...view.model.cards.filter((c) => c.family === 'option').map((c) => c.id)]
-  if (whole) check(zoom >= 0.5 && head.every((id) => !out.includes(id)), `${label}: zoom ${zoom.toFixed(3)}, ${out.length === 0 ? 'the whole model in view' : 'the question and every option in view'}`)
+  if (whole) check(zoom >= 0.5 && head.every((id) => !out.includes(id)), `${label}: zoom ${zoom.toFixed(3)}, ${out.length === 0 ? 'the whole model in view' : 'the question and every option in view'}${head.some((id) => out.includes(id)) ? ` (out: ${head.filter((id) => out.includes(id)).join(', ')})` : ''}`)
   else console.log(`  · ${label}: zoom ${zoom.toFixed(3)}; ${out.length === 0 ? 'the whole model is in view' : `out of view: ${out.join(', ')}`}`)
   return { zoom, out }
 }
