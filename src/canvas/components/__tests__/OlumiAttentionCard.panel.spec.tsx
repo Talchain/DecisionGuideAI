@@ -20,16 +20,16 @@ const W = 1200, H = 800
 type R = { left: number; top: number; width: number; height: number }
 const rect = (r: R) => ({ ...r, x: r.left, y: r.top, right: r.left + r.width, bottom: r.top + r.height, toJSON: () => r }) as DOMRect
 /** The board as drawn: the anchor, and `others` (the cards around it) in screen px. */
-function board(others: R[], turnId: string | null = null, banner: R | null = null) {
+function board(others: R[], turnId: string | null = null, banner: R | null = null, ax = 500) {
   useCanvasStore.setState({
-    nodes: [{ id: 'a', type: 'factor', position: { x: 500, y: 300 }, measured: { width: 200, height: 80 }, data: {} } as never],
+    nodes: [{ id: 'a', type: 'factor', position: { x: ax, y: 300 }, measured: { width: 200, height: 80 }, data: {} } as never],
     edges: [],
     olumiAttention: { nodeIds: ['a'], edgeIds: [], note: { title: 'What would change your mind?', body: 'What evidence would settle it?' }, caveat: null, turnId, modelVersion: null },
   })
   return render(
     <div>
       <div className="react-flow">
-        <div className="react-flow__node" data-id="a" data-r={JSON.stringify({ left: 500, top: 300, width: 200, height: 80 })} />
+        <div className="react-flow__node" data-id="a" data-r={JSON.stringify({ left: ax, top: 300, width: 200, height: 80 })} />
         {others.map((o, i) => <div key={i} className="react-flow__node" data-id={`c${i}`} data-r={JSON.stringify(o)} />)}
       </div>
       {banner === null ? null : <div role="banner" data-r={JSON.stringify(banner)} />}
@@ -127,6 +127,18 @@ describe('R1.1 (Paul\'s screen): on the core lane Olumi\'s next step is an icon 
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     board([], 'some-other-turn')
     expect(screen.queryByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`)).toBeNull()
+  })
+  it('⛔ the icon never sits under the dock (real capacity board on the R3 layout, 4 Nov: its card at the right edge, the icon unclickable): at the card\'s left edge when its right edge has no room', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    // The room ends at the window less the dock and a gap (jsdom: 1024 − 0 − 14 = 1010); the card's right edge is at 1000.
+    board([], turn, null, 800)
+    const icon = screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`)
+    expect(parseFloat(icon.style.left) + 24, icon.style.left).toBeLessThanOrEqual(1010)
+    expect(icon.style.left).toBe('774px')
+    // CONTRAST: with room on the right, beside its right edge as before.
+    cleanup()
+    board([], turn)
+    expect(screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`).style.left).toBe('702px')
   })
   it('the icon never sits under the top bar: below its bottom when the card\'s top is under it; at the card otherwise', async () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')

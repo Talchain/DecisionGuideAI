@@ -363,7 +363,9 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   if (folded) {
     inPanelNow.current = false
     const label = attention.note?.title ?? ATTENTION_CARD_COPY.olumi
-    iconLeft.current = anchorBox.x + anchorBox.w + 2
+    // Beside the card's right edge; where that has no room (under the dock: the real capacity board, R3), at its left edge, never under it.
+    const right = anchorBox.x + anchorBox.w + 2
+    iconLeft.current = right + ICON <= roomRight ? right : Math.max(0, anchorBox.x - ICON - 2)
     return (
       <button ref={iconRef} type="button" data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-icon`} data-anchor-id={anchorId} title={label} aria-label={label}
         onClick={() => setOpenedKey(attention.turnId ?? null)}
