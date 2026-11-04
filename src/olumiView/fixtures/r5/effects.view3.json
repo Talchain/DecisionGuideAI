@@ -1,6 +1,6 @@
 {
  "schema": "olumi.view/3",
- "id": "s_be50b075a067",
+ "id": "s_9a15360f4def",
  "title": "Support capacity",
  "commit": "c0ffee",
  "signature": "[6,null,[[5,\"approved\"]],[[8,true],[9,true]],[\"Paul\",\"Sam\",\"Kim\"],[],[\"1\",\"2\",\"3\"]]",
@@ -198,7 +198,8 @@
       "p50": 80,
       "p90": 80,
       "if_absent": [],
-      "olumi": false
+      "olumi": false,
+      "if_approved": null
      },
      {
       "option": "add_one",
@@ -207,7 +208,8 @@
       "p50": 99.92980796070435,
       "p90": 109.91851476864522,
       "if_absent": [],
-      "olumi": false
+      "olumi": false,
+      "if_approved": null
      }
     ],
     "rests_on": [],
@@ -321,6 +323,7 @@
        "estimates": [],
        "approx": []
       },
+      "if_approved": null,
       "estimate": null
      }
     ],
@@ -382,6 +385,7 @@
        "estimates": [],
        "approx": []
       },
+      "if_approved": null,
       "estimate": null
      }
     ],
@@ -496,6 +500,7 @@
      "estimates": [],
      "approx": []
     },
+    "if_approved": null,
     "estimate": null
    },
    "waits_on": null,
@@ -740,6 +745,7 @@
       "gap": -0.4962,
       "gap_low": -0.5059991145185239,
       "gap_high": -0.4863962806351938,
+      "gap_text": "−50 percentage points (−51 to −49)",
       "olumi": false,
       "rests": [],
       "if_absent": [],
@@ -783,6 +789,7 @@
       "gap": 0,
       "gap_low": 0,
       "gap_high": 0,
+      "gap_text": null,
       "olumi": false,
       "rests": [],
       "if_absent": [],
@@ -826,6 +833,7 @@
       "gap": 0.3966,
       "gap_low": 0.38696664094380884,
       "gap_high": 0.40614613759543483,
+      "gap_text": "+40 percentage points (+39 to +41)",
       "olumi": false,
       "rests": [],
       "if_absent": [],
@@ -1010,7 +1018,11 @@
    "changes": "Changes which option is most likely",
    "moves": "Moves the chances only",
    "same": "The same chances in these draws",
-   "refused": "Not run"
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without"
   }
  },
  "evidence": [],

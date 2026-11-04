@@ -1,10 +1,9 @@
 /**
- * R5, D7 (DL 4 Nov, finish line 3: the disagreement kept and made concrete): beside each revealed view, what each of its figures does when the
- * model's Run is run again with it (core's `collab.shared[].effects`, typed, no words). Drawn only from core's fields: the status under core's
- * own heading (`collab.effect_headings`), the figure, the aim and the options by their own labels (the view's figure, the model's cards, by id),
- * the option most likely on their figure and on the model's, the option that moves most with its interval, and what it is worked out without
- * (`if_absent`). A figure core did not run is listed under core's "Not run". A gated viewer sees none. Fixtures: core 307a70c's own
- * (src/olumiView/fixtures/r5, README).
+ * R5, D7 (finish line 3: the disagreement kept and made concrete): beside each revealed view, what each of its figures does when the model's
+ * Run is run again with it (core's `collab.shared[].effects`). Every word is core's (DL: the View carries every label and value; the UI
+ * formats nothing): the status and each row's label from `collab.effect_headings`, the move as core words it (`gap_text`), and the figure,
+ * aim, options and conditions by their own labels, by id. A figure core did not run is listed under core's "Not run". A gated viewer sees
+ * none. Fixtures: core 066287e's own output (src/olumiView/fixtures/r5, README).
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -14,81 +13,100 @@ import type { View } from '../../olumiView/client'
 import { ViewsPanel } from '../team/ViewsPanel'
 
 const read = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/r5', n), 'utf8'))
-type Effect = { quantity: string; status?: 'changes' | 'moves' | 'same'; refused?: string; goal?: string; leader?: string | null; model_leader?: string | null; most?: string | null; gap?: number; gap_low?: number; gap_high?: number; if_absent?: string[] }
+type Effect = { quantity: string; status?: 'changes' | 'moves' | 'same'; refused?: string; goal?: string; leader?: string | null; model_leader?: string | null; most?: string | null; gap_text?: string | null; if_absent?: string[] }
 type Shared = View['collab']['shared'][number] & { effects: Effect[] }
-type Headings = { changes: string; moves: string; same: string; refused: string }
-const effectsView = read('effects.view3.json')
+type Headings = Record<'changes' | 'moves' | 'same' | 'refused' | 'leader' | 'model_leader' | 'most' | 'if_absent', string>
+const sharedOf = (v: View) => v.collab.shared as Shared[]
+const headingsOf = (v: View) => (v.collab as unknown as { effect_headings: Headings }).effect_headings
 const headingOf = (v: View, id: string) => v.model!.cards.find((c) => c.id === id)!.heading
 const show = (v: View) => render(<ViewsPanel sid="s_x" view={v} onWrote={async () => true} />)
+const effectEl = (s: Shared, q: string) => screen.getByTestId(`team-revealed-${s.id}-effects`).querySelector<HTMLElement>(`[data-effect="${q}"]`)!
+const valueOf = (el: Element, at: string) => el.querySelector(`[${at}] > span:last-child`)?.textContent ?? null
+const labelOf = (el: Element, at: string) => el.querySelector(`[${at}] > span:first-child`)?.textContent ?? null
 afterEach(cleanup)
 
-describe('beside each revealed view, what each of its figures does to the Run (D7)', () => {
-  const headings = (effectsView.collab as unknown as { effect_headings: Headings }).effect_headings
-  const shared = effectsView.collab.shared as Shared[]
+const effects = read('effects.view3.json')
 
-  it('each figure core ran, under core\'s own heading for its status, by the figure\'s own label, with the aim', () => {
-    show(effectsView)
-    for (const s of shared) {
-      const box = screen.getByTestId(`team-revealed-${s.id}-effects`)
-      const items = [...box.querySelectorAll<HTMLElement>('[data-effect]')]
+describe('beside each revealed view, what each of its figures does to the Run (D7), in core\'s words', () => {
+  it('each figure core ran: the figure by the view\'s own label, the aim, and the status under core\'s heading; a refused one under "Not run"', () => {
+    show(effects)
+    const h = headingsOf(effects)
+    for (const s of sharedOf(effects)) {
+      const items = [...screen.getByTestId(`team-revealed-${s.id}-effects`).querySelectorAll<HTMLElement>('[data-effect]')]
       expect(items.map((e) => e.dataset['effect']), s.by).toEqual(s.effects.map((e) => e.quantity))
-      s.effects.forEach((e, i) => {
-        const el = items[i]!
-        const label = s.figures.find((f) => f.quantity === e.quantity)!.label
-        expect(el.querySelector('[data-effect-figure]')?.textContent, `${s.by} ${e.quantity}`).toBe(label)
-        expect(el.querySelector('[data-effect-status]')?.textContent, `${s.by} ${e.quantity}`).toBe(e.refused !== undefined ? headings.refused : headings[e.status!])
-        if (e.refused === undefined) expect(el.querySelector('[data-effect-aim]')?.textContent).toBe(headingOf(effectsView, e.goal!))
-      })
+      for (const e of s.effects) {
+        const el = effectEl(s, e.quantity)
+        expect(el.querySelector('[data-effect-figure]')?.textContent).toBe(s.figures.find((f) => f.quantity === e.quantity)!.label)
+        expect(el.querySelector('[data-effect-status]')?.textContent, `${s.by} ${e.quantity}`).toBe(e.refused !== undefined ? h.refused : h[e.status!])
+        if (e.refused === undefined) expect(el.querySelector('[data-effect-aim]')?.textContent).toBe(headingOf(effects, e.goal!))
+      }
     }
-    // The fixture has all four kinds: each heading shown, verbatim.
-    expect(new Set(shared.flatMap((s) => s.effects.map((e) => e.status ?? 'refused')))).toEqual(new Set(['changes', 'same', 'moves', 'refused']))
+    expect(new Set(sharedOf(effects).flatMap((s) => s.effects.map((e) => e.status ?? 'refused')))).toEqual(new Set(['changes', 'same', 'moves', 'refused']))
   })
 
-  it('the option most likely on their figure and on the model\'s, by the option\'s heading; none named where core names none', () => {
-    show(effectsView)
-    for (const s of shared) s.effects.forEach((e, i) => {
-      if (e.refused !== undefined) return
-      const el = screen.getByTestId(`team-revealed-${s.id}-effects`).querySelectorAll<HTMLElement>('[data-effect]')[i]!
-      expect(el.querySelector('[data-effect-leader] [data-effect-option]')?.textContent ?? null, `${s.by} ${e.quantity}`).toBe(e.leader == null ? null : headingOf(effectsView, e.leader))
-      expect(el.querySelector('[data-effect-model-leader] [data-effect-option]')?.textContent ?? null).toBe(e.model_leader == null ? null : headingOf(effectsView, e.model_leader))
-    })
+  it('every row label and the move are drawn exactly as core sends them, never formatted here (core\'s words changed: the drawing follows)', () => {
+    // Core's strings replaced by others: a drawer that formats or labels anything itself cannot pass.
+    const say = (k: string) => `‹core’s ${k}›`
+    const paul = sharedOf(effects).find((s) => s.by === 'Paul')!
+    const v = { ...effects, collab: { ...effects.collab, effect_headings: { ...headingsOf(effects), leader: say('leader'), model_leader: say('model_leader'), most: say('most') },
+      shared: sharedOf(effects).map((s) => ({ ...s, effects: s.effects.map((e) => (e.gap_text == null ? e : { ...e, gap_text: say(`gap ${e.quantity}`) })) })) } } as unknown as View
+    show(v)
+    const el = effectEl(paul, 'capacity_target')
+    expect([labelOf(el, 'data-effect-leader'), labelOf(el, 'data-effect-model-leader'), labelOf(el, 'data-effect-most')]).toEqual([say('leader'), say('model_leader'), say('most')])
+    expect(el.querySelector('[data-effect-gap]')?.textContent).toBe(say('gap capacity_target'))
+    expect(effectEl(paul, 'per_specialist').querySelector('[data-effect-gap]')?.textContent).toBe(say('gap per_specialist'))
   })
 
-  it('their leader and the model\'s are each the option core names for it (constructed: core\'s fixture has no effect where both are named and differ)', () => {
-    const paul = shared.find((s) => s.by === 'Paul')!
-    const swapped = { ...effectsView, collab: { ...effectsView.collab, shared: shared.map((s) => (s.id !== paul.id ? s : { ...s, effects: s.effects.map((e) => (e.quantity === 'capacity_target' ? { ...e, leader: 'hold' } : e)) })) } } as unknown as View
-    show(swapped)
-    const el = screen.getByTestId(`team-revealed-${paul.id}-effects`).querySelector('[data-effect="capacity_target"]')!
-    expect([el.querySelector('[data-effect-leader] [data-effect-option]')?.textContent, el.querySelector('[data-effect-model-leader] [data-effect-option]')?.textContent])
-      .toEqual([headingOf(effectsView, 'hold'), headingOf(effectsView, 'add_one')])
+  it('the move: the option that moves most and core\'s gap_text, verbatim; none where core gives none', () => {
+    show(effects)
+    const paul = sharedOf(effects).find((s) => s.by === 'Paul')!
+    for (const e of paul.effects) {
+      const el = effectEl(paul, e.quantity)
+      expect(el.querySelector('[data-effect-gap]')?.textContent ?? null, e.quantity).toBe(e.gap_text ?? null)
+      expect(el.querySelector('[data-effect-most] [data-effect-option]')?.textContent ?? null).toBe(e.most == null ? null : headingOf(effects, e.most))
+    }
+    expect(paul.effects.map((e) => e.gap_text ?? null)).toContain(null)
   })
 
-  it('the option that moves most, with core\'s change and its interval in whole percentage points (UI-SEM-099); none where core names none', () => {
-    show(effectsView)
-    const paul = shared.find((s) => s.by === 'Paul')!
-    const line = (q: string) => screen.getByTestId(`team-revealed-${paul.id}-effects`).querySelector(`[data-effect="${q}"] [data-effect-most]`)
-    // Core 307a70c: per_specialist gap −0.4962 (−0.5060 to −0.4864); capacity_target +0.3966 (+0.3870 to +0.4061); existing_capacity: most null.
-    expect(line('per_specialist')?.textContent).toBe('Moves most: Add one specialist −50 percentage points (−51 to −49)')
-    expect(line('capacity_target')?.textContent).toBe('Moves most: Add one specialist +40 percentage points (+39 to +41)')
-    expect(line('existing_capacity')).toBeNull()
+  it('their leader and the model\'s, each the option core names, under core\'s labels (core\'s own two-leader case)', () => {
+    const v = read('effects-leaders.view3.json'), paul = sharedOf(v).find((s) => s.by === 'Paul')!, e = paul.effects[0]!
+    expect([e.leader, e.model_leader]).toEqual(['hold', 'add_one'])
+    show(v)
+    const el = effectEl(paul, e.quantity)
+    expect([labelOf(el, 'data-effect-leader'), valueOf(el, 'data-effect-leader'), labelOf(el, 'data-effect-model-leader'), valueOf(el, 'data-effect-model-leader')])
+      .toEqual([headingsOf(v).leader, headingOf(v, 'hold'), headingsOf(v).model_leader, headingOf(v, 'add_one')])
+  })
+
+  it('what it is worked out without: core\'s label, then each condition\'s card heading (core\'s own unsized-risk case)', () => {
+    const v = read('effects-if-absent.view3.json'), sam = sharedOf(v).find((s) => s.by === 'Sam')!, e = sam.effects[0]!
+    expect(e.if_absent).toEqual(['slow_ramp'])
+    show(v)
+    const el = effectEl(sam, e.quantity)
+    expect([labelOf(el, 'data-effect-if-absent'), valueOf(el, 'data-effect-if-absent')]).toEqual([headingsOf(v).if_absent, headingOf(v, 'slow_ramp')])
+    cleanup()
+    show(effects) // an effect core gives no condition (if_absent []): no row
+    expect(effectEl(sharedOf(effects).find((s) => s.by === 'Paul')!, 'per_specialist').querySelector('[data-effect-if-absent]')).toBeNull()
   })
 
   it('bound by identity: each person\'s effects under their own view, never another\'s', () => {
-    const [a, b] = shared
-    show(effectsView)
-    expect(within(screen.getByTestId(`team-revealed-${a!.id}-effects`)).queryAllByText(headings.refused).length).toBe(a!.effects.filter((e) => e.refused !== undefined).length)
-    expect(within(screen.getByTestId(`team-revealed-${b!.id}-effects`)).queryAllByText(headings.refused).length).toBe(b!.effects.filter((e) => e.refused !== undefined).length)
+    show(effects)
+    const h = headingsOf(effects)
+    for (const s of sharedOf(effects)) expect(within(screen.getByTestId(`team-revealed-${s.id}-effects`)).queryAllByText(h.refused).length, s.by).toBe(s.effects.filter((e) => e.refused !== undefined).length)
   })
 
-  it('a gated viewer sees no effects; a core before D7 (no key) and a view with none draw no drawer', () => {
+  it('a gated viewer sees no effects; a core before D7 (no key), a view with none, and a core without the row labels draw no words of their own', () => {
     show(read('effects-gated.view3.json'))
     expect(document.querySelector('[data-effect]')).toBeNull()
     cleanup()
-    const before = { ...effectsView, collab: { ...effectsView.collab, shared: shared.map(({ effects: _e, ...x }) => x) } } as unknown as View
-    show(before)
+    show({ ...effects, collab: { ...effects.collab, shared: sharedOf(effects).map(({ effects: _e, ...x }) => x) } } as unknown as View)
     expect(document.querySelector('[data-testid$="-effects"]')).toBeNull()
     cleanup()
-    show({ ...effectsView, collab: { ...effectsView.collab, shared: shared.map((x) => ({ ...x, effects: [] })) } } as unknown as View)
+    show({ ...effects, collab: { ...effects.collab, shared: sharedOf(effects).map((x) => ({ ...x, effects: [] })) } } as unknown as View)
     expect(document.querySelector('[data-testid$="-effects"]')).toBeNull()
+    cleanup()
+    const four = Object.fromEntries(Object.entries(headingsOf(effects)).filter(([k]) => ['changes', 'moves', 'same', 'refused'].includes(k)))
+    show({ ...effects, collab: { ...effects.collab, effect_headings: four } } as unknown as View)
+    expect(document.querySelector('[data-effect-leader], [data-effect-model-leader], [data-effect-most], [data-effect-if-absent]')).toBeNull()
+    expect(document.querySelectorAll('[data-effect-status]').length).toBeGreaterThan(0)
   })
 })
