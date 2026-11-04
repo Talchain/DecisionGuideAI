@@ -352,6 +352,8 @@ for (const [p, words] of [[ada, 'Hire now: the backlog is the real risk.'], [bea
     let leaked = false
     const held = await seen(bea, async () => { if ((await bea.page.getByTestId('team-tab').innerText()).includes(words)) leaked = true; return await bea.page.getByTestId('team-revealed-held').isVisible() })
     check(held && !leaked && !(await bea.page.getByTestId('team-tab').innerText()).includes(words), 'Bea, who has not given her own, cannot see Ada\'s early view: her Team tab says to give or skip hers first')
+    const teamHeld = held ? await bea.page.getByTestId('team-revealed-held').innerText() : ''
+    check(teamHeld === 'Give or skip your own view first: the others’ views show here once you have.', `her Team tab says, word for word, that the others' views show there once she has given or skipped hers ("${teamHeld}")`)
     await shot(bea, `i-held-team-${process.env.VIEW_W ?? 1440}`)
     shared = own.id
     // R2 privacy (core a051a13, P1-1): Ada asks Olumi after sharing; Bea, still gated, sees core's held line in place of the reply (the
