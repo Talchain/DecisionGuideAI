@@ -214,6 +214,7 @@ import { CoreCompareTab } from '../../olumiCore/compare'
 import { currentModel, useViewStore } from '../../olumiView/store'
 import { useViewFollows } from '../../olumiView/follow'
 import { useViewCanvas } from '../../olumiView/canvas'
+import { useViewPoll } from '../../olumiView/poll'
 import { useViewNote } from '../../olumiView/note'
 import { useOwnViewFirst } from '../../olumiCore/ownViewFirst'
 import { ViewChancesBlock } from '../../olumiView/ViewChances'
@@ -827,6 +828,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     if (typeof window !== 'undefined') window.requestAnimationFrame(() => { document.querySelector<HTMLTextAreaElement>('[data-testid="team-view-text"]')?.focus() })
   }, [ownViewFirst]) // eslint-disable-line react-hooks/exhaustive-deps -- setState is stable
   useViewNote(isOlumiCoreLane() && !ownViewFirst)
+  // Each member sees the others' input arrive: the View read again while the page is seen (R2).
+  useViewPoll(isOlumiCoreLane())
   // The canvas's asks are answered while the dock is on the page, collapsed or on another tab (lane audit 24).
   useAnswersAsks(isOlumiCoreLane())
   const runOnRecord = runOnRecordLocally || savedRunUnconfirmed

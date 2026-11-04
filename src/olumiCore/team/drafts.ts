@@ -14,6 +14,11 @@ export function resetDrafts(): void { useDraftStore.setState({ values: {} }) }
 /** What is held under a key (specs and the tab's own reads). */
 export const draftOf = <T,>(key: string): T | undefined => useDraftStore.getState().values[key] as T | undefined
 
+/** Change a draft from outside its form (another panel of the tab opening it). */
+export function putDraft<T>(key: string, next: (prev: T | undefined) => T): void {
+  useDraftStore.setState((s) => ({ values: { ...s.values, [key]: next(s.values[key] as T | undefined) } }))
+}
+
 /** A draft: its value (the initial one until something is typed), a setter that takes a value or an update, and a way to drop it once sent. */
 export function useDraft<T>(key: string, initial: T): readonly [T, (next: T | ((prev: T) => T)) => void, () => void] {
   const held = useDraftStore((s) => s.values[key]) as T | undefined

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { teamApi, TeamApiError } from './api'
 import { runWrite, useWriteSending } from './writes'
-import { useDraft } from './drafts'
+import { putDraft, useDraft } from './drafts'
 import type { View } from '../../olumiView/client'
 import { BODY, CARD, ERR, FIELD, LABEL, META } from './ui'
 
@@ -29,6 +29,12 @@ export const VERSUS: ReadonlyArray<{ value: OutcomeVersus; words: string }> = [
   { value: 'unclear', words: 'Too early to say' },
 ]
 const versusWords = (v: string): string => VERSUS.find((x) => x.value === v)?.words ?? v
+
+/** Open a commitment's outcome form from elsewhere on the tab (the nudge for a next action with no outcome yet): its draft, kept as typed. */
+export function openOutcome(sid: string, id: number): void {
+  const key = `${sid}:outcome:${id}`
+  putDraft<OutcomeDraft>(key, (d) => ({ ...(d ?? EMPTY), open: true }))
+}
 
 /**
  * THE OUTCOME REVIEW (spec §8 step 7), under the commitment it reviews: what happened in the team's own words, how it went against the

@@ -8,6 +8,7 @@ import { DissentPanel } from './DissentPanel'
 import { ComparePanel } from './ComparePanel'
 import { EvidencePanel } from './EvidencePanel'
 import { InvitePanel } from './InvitePanel'
+import { NudgesPanel } from './NudgesPanel'
 import { ViewsPanel } from './ViewsPanel'
 import { BODY, CARD, ERR, H, META } from './ui'
 import { TEAM_PAST_HELD } from './writes'
@@ -61,6 +62,8 @@ export function TeamTab(): JSX.Element {
             </div>
           )}
           {/* The team's record is the live scenario's: its forms are held while an earlier version is drawn (the writer refuses too). */}
+          {/* The nudges' reveal is the team's record too: held with the forms (R1 review 1; the writer refuses it as well). */}
+          <fieldset disabled={past !== null} className="contents"><NudgesPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <fieldset disabled={past !== null} className="contents"><ViewsPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <fieldset disabled={past !== null} className="contents"><DissentPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <InvitePanel sid={sid} />

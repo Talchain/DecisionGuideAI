@@ -107,6 +107,8 @@ export const teamApi = {
   giveView: (sid: string, text: string) => call<{ contribution: number }>('POST', `${base(sid)}/views`, { text }),
   skipView: (sid: string) => call<{ contribution: number }>('POST', `${base(sid)}/views`, { skip: true }),
   reveal: (sid: string) => call<{ revealed: number[] }>('POST', `${base(sid)}/reveal`),
+  /** One's own view shown to the team before the round's reveal (olumi-core API v1.12, 3b2ba2d: `POST …/views/:id/reveal` → `{ revealed: [id] }`). */
+  shareView: (sid: string, id: number) => call<{ revealed: number[] }>('POST', `${base(sid)}/views/${id}/reveal`),
   addEvidence: (sid: string, e: EvidenceInput, op: string) =>
     call<{ evidence: number }>('POST', `${base(sid)}/evidence`, { text: e.text, ...(e.source !== null ? { source: e.source } : {}), concerns: e.concerns, stance: e.stance, op }),
   /** Olumi considers shared evidence (API v1.12): one turn in the asker's name; core proposes a change where it warrants one, else says why not. */
