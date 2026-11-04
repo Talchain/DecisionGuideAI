@@ -20,7 +20,8 @@ export type WhatIfVariant = {
 }
 export type WhatIfAnswer = { scenario: string; version: { id: number; n: number }; hypothetical: true; saved: false; variants: WhatIfVariant[] }
 
-type Shown = { sid: string; base: number; quantity: string; variant: WhatIfVariant }
+/** `typed`: the figure as the person typed it, drawn on its card while the What if lens is on (their words, never core's or ours). */
+type Shown = { sid: string; base: number; quantity: string; typed: string; variant: WhatIfVariant }
 export const useWhatIf = create<{ shown: Shown | null }>()(() => ({ shown: null }))
 export const clearWhatIf = () => useWhatIf.setState({ shown: null })
 
@@ -28,5 +29,5 @@ export const clearWhatIf = () => useWhatIf.setState({ shown: null })
 export async function tryWhatIf(sid: string, base: number, quantity: string, typed: string): Promise<void> {
   const a = await call<WhatIfAnswer>('POST', `/api/scenarios/${encodeURIComponent(sid)}/whatif`, { base, variants: [{ edits: [{ quantity, typed }] }] })
   const variant = a.variants[0]
-  useWhatIf.setState({ shown: variant === undefined ? null : { sid, base, quantity, variant } })
+  useWhatIf.setState({ shown: variant === undefined ? null : { sid, base, quantity, typed, variant } })
 }

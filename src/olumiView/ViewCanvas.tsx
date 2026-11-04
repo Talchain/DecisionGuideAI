@@ -35,6 +35,7 @@ import { readableFirstViewport } from './camera'
 import { drawnHeightsKey, headOf, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
 import { ViewLensBar } from './ViewLensBar'
+import { ViewWhatIfKey } from './ViewWhatIfKey'
 
 const nodeTypes = { [VIEW_CARD]: ViewCardNode, [VIEW_QUESTION]: ViewQuestionNode }
 const edgeTypes = { [VIEW_LINK]: ViewLinkEdge }
@@ -134,6 +135,7 @@ function ViewFlow() {
         onAutoArrange={() => { const model = useViewStore.getState().view?.model; if (model) void placeViewCards(model) }}
       />
       {hasModel ? <ViewLensBar /> : null}
+      {hasModel ? <ViewWhatIfKey /> : null}
       <OlumiAttentionCard />
       <OutputsDock />
     </>

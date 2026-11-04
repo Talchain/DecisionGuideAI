@@ -60,6 +60,7 @@ import { ACTION_BAR_COPY } from '../conversation/actionBar/ActionBar'
 import { RestsOnKey, usePickedKey } from '../artefacts/RestsOnKey'
 import { TradeOffsKey } from '../artefacts/TradeOffsKey'
 import { WhatIfKey } from '../artefacts/WhatIfKey'
+import { LENS_KEY_COPY } from '../artefacts/lensKeyCopy'
 import { LENS_COPY, LENS_ICON, useCurrentPremortemWorksheet } from '../artefacts/lenses'
 import { usePresentation } from '../../presentation/v10'
 import { V10WriteMineFirst, V10_WRITE_MINE_COPY } from '../../presentation/V10WriteMineFirst'
@@ -67,24 +68,7 @@ import { resolveAiComparisonMode } from '../../v5/aiComparisonMode'
 import type { GraphChangeTarget } from '../graphChanges/graphChangesView'
 import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
 
-export const LENS_KEY_COPY = {
-  close: 'Back to the model',
-  fold: 'Fold the key',
-  unfold: 'Open the key',
-  premortemEmpty: 'Olumi has not imagined this model failing yet.',
-  premortemWhat: 'It writes plausible ways each option could fail, each tied to what it rests on in the model, for you to challenge.',
-  premortemAsk: 'Ask Olumi to imagine it failed',
-  premortemNeedsRun: 'Olumi imagines failures from what a current Run shows. Run the analysis, then ask here.',
-  premortemInChat: 'Olumi’s failure stories arrive in the chat.',
-  fragileHeading: 'Links that could change how the options compare',
-  sensitiveHeading: 'Factors the result moves with most',
-  focusOn: 'If you could strengthen one relationship, focus on:',
-  nothingMeasured: 'This Run measured nothing it is especially sensitive to.',
-  fragileNotChecked: "Fragile links weren't checked on this Run.",
-  modelRelative: 'These describe this model as it stands, not what to choose.',
-  premortemLegend: 'In front: what Olumi’s failure stories rest on. Open the key to read them.',
-  whatChangesLegend: 'Numbered 1 to 3: the links the result moves with most. The links this Run is most sensitive to are drawn wider.',
-} as const
+export { LENS_KEY_COPY }
 
 /** Never a dead press: with no conversation to send it to, say so (the action bar's own words). */
 function askAndReveal(request: Parameters<typeof askAi>[0]): void {

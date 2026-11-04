@@ -12,6 +12,9 @@ import { wrapTiers } from '../canvas/utils/wrapTiers'
  * The option cards core compares, in the View's own order: what the chances block draws. An option core does not compare carries its
  * status on its card ("removed", "ruled out"); it has no chance to show, and the block leaves it out as the base does (review 00051).
  */
+/** The cards whose figure the person may set (core offers `figure.edit`): the ones a what-if can try a different value for. */
+export const triableCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.figure?.edit != null)
+
 export const optionCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.family === 'option' && c.status === null)
 
 /** Core's own page geometry (olumi-core src/page/graph.ts): card width and the gap between its columns (the question's width). */

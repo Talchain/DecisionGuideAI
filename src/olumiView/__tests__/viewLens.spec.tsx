@@ -52,7 +52,7 @@ describe('the lane\'s lens bar', () => {
   it('Model and Rests on, Rests on counting Olumi\'s to check or set; a press switches the lens', () => {
     useViewStore.setState({ view })
     render(<ViewLensBar />)
-    expect(screen.getAllByRole('radio').map((b) => b.textContent)).toEqual(['Model', 'Rests on10', 'What would change'])
+    expect(screen.getAllByRole('radio').map((b) => b.textContent)).toEqual(['Model', 'Rests on10', 'What would change', 'What if'])
     expect(screen.getByTestId('lens-bar-rests_on').getAttribute('aria-label')).toBe('Rests on, 10 to check or set')
     expect(screen.getByTestId('lens-bar-full').getAttribute('aria-checked')).toBe('true')
     fireEvent.click(screen.getByTestId('lens-bar-rests_on'))

@@ -14,7 +14,8 @@ import { typography } from '../../styles/typography'
 import { askKindOf, CARD_WIDTH, drawKindOf, type RestsOnItem } from '../../olumiView/layout'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { useCanvasStore } from '../store'
-import { useCardNumber, useDriverOf, useRestsOnItem } from '../../olumiView/lens'
+import { useCardNumber, useDriverOf, useRestsOnItem, useTriedOn } from '../../olumiView/lens'
+import { WHAT_IF_COPY } from '../artefacts/whatIfCopy'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { Badge } from '../../olumiView/Badge'
@@ -65,7 +66,7 @@ function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
 }
 
 /** One View card, pure: a test draws it from a golden View. */
-export function ViewCard({ card, selected = false, restsOn = null, driverOf = null, number = null }: ViewCardData & { selected?: boolean; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null }) {
+export function ViewCard({ card, selected = false, restsOn = null, driverOf = null, number = null, tried = null }: ViewCardData & { selected?: boolean; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null; tried?: string | null }) {
   const id = card.id
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
@@ -89,6 +90,12 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
         // The Rests on lens: this card's number, in Olumi's blue when core marks it Olumi's (one to check or set), its hover core's mark.
         <span className={`absolute -left-2 -top-2 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border bg-panel px-1 tabular-nums ${typography.nodeLabel} ${restsOn.olumi ? 'border-info text-info' : 'border-border text-text-body'}`}
           title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n} data-rests-on-olumi={restsOn.olumi || undefined}>{restsOn.n}</span>
+      )}
+      {tried === null ? null : (
+        // What if: the figure tried on a copy, as the person typed it, on its card's corner, out of flow so no card moves (legacy
+        // WhatIfMarkLayer's "What if: …"); the lens's key card holds core's words for it and what each option gives.
+        <span className={`absolute -right-2 -top-2 z-10 max-w-[180px] truncate rounded border border-info bg-panel px-2 py-0.5 text-text-header ${typography.nodeLabel}`}
+          title={tried} data-whatif-mark={card.id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
       )}
       {/* The original canvas's connector glyph: the card's kind as its shape, on the top edge where its links arrive. */}
       <span className="absolute -top-[10px] left-1/2 -translate-x-1/2 leading-none" aria-hidden="true">
@@ -156,11 +163,12 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const restsOn = useRestsOnItem(id)
   const driverOf = useDriverOf(id)
   const number = useCardNumber(id)
+  const tried = useTriedOn(id)
   const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] === id)
   return (
     <div className="group/vcard relative">
       <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
-      <ViewCard card={card} selected={selected === true} restsOn={restsOn} driverOf={driverOf} number={number} />
+      <ViewCard card={card} selected={selected === true} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
       <div className={selected === true || noted ? '' : 'opacity-0 group-hover/vcard:opacity-100 focus-within:opacity-100'} data-olumi-controls="">

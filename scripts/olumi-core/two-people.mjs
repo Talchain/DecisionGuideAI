@@ -158,7 +158,7 @@ for (const c of v.model.cards.slice(0, 4)) check(await ada.page.locator(`.react-
 // No dead controls (Paul's W4 rule): what the lane cannot serve is not on the page at all, not shown dark.
 for (const gone of ['analysisNew', 'diagnostics', 'compare']) check(await ada.page.getByTestId(`outputs-dock-tab-${gone}`).count() === 0, `no ${gone === 'analysisNew' ? 'Reasoning' : gone === 'diagnostics' ? 'Model' : 'Compare'} tab`)
 // The lenses are back on from the View (DL 4 Nov): the bar offers only those the View fills, never a dead one.
-check(JSON.stringify(await ada.page.getByTestId('lens-bar').getByRole('radio').evaluateAll((bs) => bs.map((b) => b.getAttribute('data-testid')))) === JSON.stringify(['lens-bar-full', 'lens-bar-rests_on', 'lens-bar-what_changes']), 'the lens bar offers Model, Rests on and What would change, and no lens the View cannot fill')
+check(JSON.stringify(await ada.page.getByTestId('lens-bar').getByRole('radio').evaluateAll((bs) => bs.map((b) => b.getAttribute('data-testid')))) === JSON.stringify(['lens-bar-full', 'lens-bar-rests_on', 'lens-bar-what_changes', 'lens-bar-what_if']), 'the lens bar offers Model, Rests on, What would change and What if, and no lens the View cannot fill')
 for (const kept of ['olumi', 'results', 'team']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
 // G6: Olumi's next step, beside the one card core names, in core's words.
 const next = v.chat.find((t) => t.answer?.next.newest)?.answer?.next
@@ -300,6 +300,22 @@ await shot(ada, '5b-whatif')
 check(await ada.page.getByText('This element has no detailed editor yet.').count() === 0, 'the card\'s editor works on the card, with no inspector opened over the canvas')
 await ada.page.getByTestId('view-whatif-clear').click()
 check(await ada.page.getByTestId('view-whatif').count() === 0, 'Clear removes it')
+// The What if lens (DL 4 Nov, R2): the same try from the lens's key card; the card is marked as typed, each option's saved lines beside
+// the copy's, nothing saved; the card's ✎ stays the only way to save.
+await ada.page.getByTestId('lens-bar-what_if').click()
+await ada.page.getByTestId('view-whatif-key-fold').click()
+await ada.page.getByTestId('view-whatif-key-factor').selectOption(editable.id)
+await ada.page.getByTestId('view-whatif-key-typed').fill('5')
+await ada.page.getByTestId('view-whatif-key-run').click()
+await ada.page.getByTestId('view-whatif-key-compare').waitFor({ timeout: T })
+check((await ada.page.locator(`[data-whatif-mark="${editable.id}"]`).innerText()) === 'What if: 5', 'the What if lens marks the figure tried on its card, as typed')
+check(await ada.page.locator('[data-whatif-key-option]').count() > 0, 'the key shows each option\'s saved lines beside the what-if\'s')
+check((await view(ada, sid)).version.n === 2, 'the lens saved nothing: still version 2')
+await shot(ada, '5c-whatif-lens')
+await ada.page.getByTestId('view-whatif-key-clear').click()
+check(await ada.page.locator('[data-whatif-mark]').count() === 0, 'Clear removes the mark')
+await ada.page.getByTestId('lens-bar-full').click()
+check(await ada.page.getByTestId('view-whatif-key').count() === 0, 'back on Model, the key is gone')
 await ada.page.getByTestId(`view-figure-typed-${editable.id}`).fill('15 to 25')
 await ada.page.getByTestId(`view-figure-set-${editable.id}`).click()
 await ada.page.getByTestId(`view-figure-form-${editable.id}`).waitFor({ state: 'detached', timeout: T })
