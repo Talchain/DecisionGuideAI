@@ -245,7 +245,8 @@ describe('the writes go straight to core, and the View is read again', () => {
       useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view: golden('pricing'), error: null, status: 'ready' })
       const later = render(<ViewComposer />).container
       expect(later.querySelector('[data-testid="view-brief-intro"]')).toBeNull()
-      expect(later.querySelector('#view-chat-text')?.getAttribute('placeholder')).toBeNull()
+      // Never the brief's example: DGAI's own placeholder for a model with a run (the panel's original look, DL 4 Nov).
+      expect(later.querySelector('#view-chat-text')?.getAttribute('placeholder')).toBe('Ask about the latest analysis…')
     })
 
     it('a canvas with no scenario yet moves to core\'s id\'s own UUID', async () => {
