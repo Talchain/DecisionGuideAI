@@ -9,7 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, fireEvent, render, renderHook } from '@testing-library/react'
+import { act, fireEvent, render, renderHook, waitFor } from '@testing-library/react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import type { View } from '../client'
@@ -89,5 +89,16 @@ describe('v10 on the core lane', () => {
     const css = readFileSync(path.resolve('src/presentation/v10.css'), 'utf8')
     expect(css).toMatch(/\[data-presentation="v10"\] button:is\(\.bg-primary[^{]*\{\s*background-color: #262626 !important;/)
     expect(css).toMatch(/\[data-presentation="v10"\] \[data-selection-dimmed="true"\] \{\s*opacity: 1 !important;/)
+  })
+
+  it('"What would change": an option card core gives a driver carries v10\'s badge, its words core\'s own; a card with none draws no badge', async () => {
+    const model = currentModel({ view: golden('bakery'), error: null, stale: false })!
+    const withDriver = model.cards.find((c) => c.driver !== null)!, without = model.cards.find((c) => c.driver === null)!
+    const draw = (card: typeof withDriver) => render(<ReactFlowProvider><ViewCardV10 {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>).container
+    const badge = draw(withDriver).querySelector<HTMLElement>(`[data-testid="view-driver-${withDriver.id}"]`)!
+    expect([badge.getAttribute('aria-label'), badge.textContent]).toEqual(['Its main driver', '']) // an icon at rest, never a line on the card
+    act(() => { fireEvent.focus(badge); fireEvent.mouseEnter(badge) })
+    await waitFor(() => expect(document.querySelector(`[data-view="${withDriver.id}.driver.text"]`)?.textContent).toBe(withDriver.driver!.text)) // core's words, verbatim
+    expect(draw(without).querySelector('[data-testid^="view-driver-"]')).toBeNull()
   })
 })
