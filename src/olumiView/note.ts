@@ -12,7 +12,8 @@ import type { View } from './client'
 import { useViewStore } from './store'
 
 /** Every note this page draws from a View has a turn id with this prefix, so it never clears a note another surface asked for. */
-const VIEW_NOTE = 'olumi-view-next:'
+export const VIEW_NOTE_TURN = 'olumi-view-next:'
+const VIEW_NOTE = VIEW_NOTE_TURN
 
 /** The newest reply's next step and the card core puts it beside; null when core names no card. */
 export function nextNoteOf(view: View): { key: string; at: string; note: OlumiAttentionNote } | null {

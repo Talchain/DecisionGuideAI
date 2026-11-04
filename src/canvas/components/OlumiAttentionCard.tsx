@@ -39,7 +39,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
-import { VIEW_NOTE_SLOT } from '../../olumiView/note'
+import { VIEW_NOTE_SLOT, VIEW_NOTE_TURN } from '../../olumiView/note'
 import { useStore } from '@xyflow/react'
 import { ArrowUp, HelpCircle, History, Info, Lightbulb, MessageCircleQuestion, RefreshCw, Scale, X, type LucideIcon } from 'lucide-react'
 import { useCanvasStore } from '../store'
@@ -260,6 +260,10 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
     if (inPanelNow.current && !panelOpened) { revealOlumiSurface(); setPanelOpened(true) }
     if (!inPanelNow.current && panelOpened) setPanelOpened(false)
   })
+  // ⭐ ON THE CORE LANE OLUMI'S NEXT STEP IS AN ICON UNTIL PRESSED (DL 4 Nov R1.1, Paul's screen): its words are in the Olumi tab
+  // already (Next step, the chat), so the canvas shows them once only on a press, and never covers cards on its own. The card keeps
+  // core's focus ring; the icon sits at its edge. Which reply's note was opened, so a newer reply's starts folded again.
+  const [openedKey, setOpenedKey] = useState<string | null>(null)
   const [drawnNow, setDrawnNow] = useState<{ key: string; cards: Box[]; controls: Box[] }>({ key: '', cards: [], controls: [] })
   useEffect(() => {
     if (!(cardHeight > 0)) return
@@ -334,6 +338,19 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   const anchorBox: Box = anchor
     ? { ...screenBox(anchor as never), w: w * zoom }
     : { x: point!.x * zoom + tx, y: point!.y * zoom + ty, w: 0, h: 0 }
+  const folded = isOlumiCoreLane() && attention.turnId?.startsWith(VIEW_NOTE_TURN) === true && openedKey !== attention.turnId
+  if (folded) {
+    inPanelNow.current = false
+    const label = attention.note?.title ?? ATTENTION_CARD_COPY.olumi
+    return (
+      <button type="button" data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-icon`} data-anchor-id={anchorId} title={label} aria-label={label}
+        onClick={() => setOpenedKey(attention.turnId ?? null)}
+        className="pointer-events-auto inline-flex h-6 w-6 items-center justify-center rounded-full border border-panel-border bg-panel shadow-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        style={{ position: 'absolute', left: anchorBox.x + anchorBox.w + 2, top: anchorBox.y + 6, zIndex: 95 }}>
+        <OlumiMark size={14} aria-hidden="true" />
+      </button>
+    )
+  }
   const { left, top } = attentionCardSpot(anchorBox, { w: CARD_WIDTH, h: cardHeight }, others, CARD_GAP, roomRight, CARD_GAP, roomBottom, controls)
   // ⛔ NEVER OVER A CARD ON THE CORE LANE (DL 4 Nov, the real capacity model's witness): where even the whole canvas has no free spot,
   // the note goes into the Olumi tab, under Next step (`VIEW_NOTE_SLOT`), which is opened for it; never over a card.
