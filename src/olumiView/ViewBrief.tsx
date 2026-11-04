@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom'
 import { FileText, X } from 'lucide-react'
 import { typography } from '../styles/typography'
 import { DECISION_BRIEF_TRIGGER_LABEL } from '../canvas/decisionBrief/DecisionBriefTrigger'
+import { allOptionCards } from './layout'
 import { useViewStore } from './store'
 import type { View } from './types'
 
@@ -35,7 +36,7 @@ function OptionRows({ card }: { card: Card }) {
 
 /** The Summary's body: the View's question, its Run and its options, in that order. */
 export function ViewBriefBody({ model }: { model: Model }) {
-  const run = model.run, options = model.cards.filter((c) => c.family === 'option')
+  const run = model.run, options = allOptionCards(model)
   return (
     <div className="flex flex-col gap-3" data-testid="view-brief-body">
       <h2 className={`${typography.panelHeader} text-text-header`} data-testid="view-brief-question">{model.question.text}</h2>

@@ -33,12 +33,12 @@ export const CORE_LANE_USE_THE_CHAT = 'Tell Olumi in the chat what to change; it
  * The right-hand dock's surfaces olumi-core has no backend for. `analysisNew` is "Reasoning" and `compare` is "Compare": both
  * read CEE routes that do not exist here. Analysis (`results`) and the chat (`olumi`) stay.
  */
-// `legend` explains marks a View card never draws (each mark carries core's own hover), and the View holds no key to draw instead (a
-// field asked of core, 4 Nov). The Summary is shown: on the lane it is the View's own (src/olumiView/ViewBrief.tsx). `versions` snapshot
+// The legend and the Summary are shown: on the lane each is the View's own (src/olumiView/ViewLegend.tsx draws core's key, model.key;
+// src/olumiView/ViewBrief.tsx the question, the Run and each option), never the legacy ones of legacy marks and the saved model. `versions` snapshot
 // and restore View cards locally, which core never sees (lane audit 7.5); `lenses` is the legacy lens bar, which reads legacy node shapes
 // a View card never carries (review 00057 #2): the lane's canvas draws its own, fed from the View (src/olumiView/ViewLensBar.tsx).
 // `diagnostics` (Model) projects the legacy node shapes, which a View card does not carry: it would show no rows (review 00002 #4).
-const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['analysisNew', 'compare', 'legend', 'versions', 'lenses', 'diagnostics'])
+const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['analysisNew', 'compare', 'versions', 'lenses', 'diagnostics'])
 /** The surfaces only this lane has: the team's panels (`team`), drawn from core's View. */
 const LANE_ONLY_SURFACES: ReadonlySet<string> = new Set(['team'])
 export function coreLaneShowsSurface(surfaceId: string): boolean {

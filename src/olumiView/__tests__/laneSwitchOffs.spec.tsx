@@ -1,6 +1,6 @@
 /**
  * Canvas A, slice S6 (canvas-A-gaps.md B5, B8, C7, D4): what the olumi-core lane cannot honour is not offered, and the canvas lets go
- * of a model core no longer holds. Tidy would re-lay core's columns with ELK (B5); the legend explains marks a View card never draws
+ * of a model core no longer holds. Tidy would re-lay core's columns with ELK (B5); the legacy legend explains marks a View card never draws (on the lane the key is core's own, viewLegend.spec.tsx)
  * (B8: each mark has core's own hover); the legacy Summary reads the adapter's saved model, so it told a person with one "no saved model
  * yet" (C7): on the lane the Summary is the View's own instead (viewBrief.spec.tsx). Off the lane each is as before.
  */
@@ -29,11 +29,11 @@ const menuItems = () => {
   return within(screen.getByRole('menu', { name: 'More view options' })).queryAllByRole('menuitem').map((b) => b.getAttribute('data-testid'))
 }
 
-describe('B8 the view menu offers no legend on the lane', () => {
-  it('on the lane: no legend; Auto-arrange stays (B5: it puts the cards where core places them)', () => {
+describe('B8 the view menu offers the key on the lane, as core\'s own (viewLegend.spec.tsx)', () => {
+  it('on the lane: the key, and Auto-arrange stays (B5: it puts the cards where core places them)', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     const items = menuItems()
-    expect(items).not.toContain('viewport-legend')
+    expect(items).toContain('viewport-legend')
     expect(items).toEqual(expect.arrayContaining(['viewport-zoom-reset', 'viewport-auto-arrange']))
   })
   it('off the lane: both, as before', () => {

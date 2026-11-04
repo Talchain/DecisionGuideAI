@@ -63,7 +63,8 @@ import { useStore } from '@xyflow/react'
 import Tooltip from '../Tooltip'
 import { CanvasLegendPopover } from '../../canvas/components/CanvasLegendPopover'
 import { useCanvasStore } from '../../canvas/store'
-import { coreLaneShowsSurface } from '../../olumiCore/lane'
+import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
+import { ViewLegend } from '../../olumiView/ViewLegend'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import styles from './CanvasFloatingToolbar.module.css'
 
@@ -265,7 +266,10 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
 
       {/* The canvas key, opened from the menu and anchored to this toolbar —
           the same component and content the "?" button used to toggle. */}
-      {coreLaneShowsSurface('legend') && <CanvasLegendPopover variant="controlled" open={legendOpen} onOpenChange={setLegendOpen} />}
+      {/* On the olumi-core lane the key is core's own, from the View (model.key), never the legacy key of legacy marks. */}
+      {coreLaneShowsSurface('legend') && (isOlumiCoreLane()
+        ? <ViewLegend open={legendOpen} onOpenChange={setLegendOpen} />
+        : <CanvasLegendPopover variant="controlled" open={legendOpen} onOpenChange={setLegendOpen} />)}
     </nav>
   )
 })

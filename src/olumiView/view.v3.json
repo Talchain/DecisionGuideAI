@@ -1084,6 +1084,25 @@
         "number",
         "null"
        ]
+      },
+      "key": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "properties": {
+         "glyph": {
+          "type": "string"
+         },
+         "text": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "glyph",
+         "text"
+        ],
+        "additionalProperties": false
+       }
       }
      },
      "required": [
@@ -1092,7 +1111,8 @@
       "cards",
       "links",
       "run",
-      "edit_base"
+      "edit_base",
+      "key"
      ],
      "additionalProperties": false
     },

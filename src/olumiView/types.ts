@@ -203,6 +203,10 @@ export type View = {
       }>
     } | null
     edit_base: number | null
+    key: Array<{
+      glyph: string
+      text: string
+    }>
   } | null
   proposal: {
     id: number
