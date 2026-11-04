@@ -284,6 +284,7 @@ check(await bea.page.locator('.react-flow__node-viewCard').count() === cards, 'B
 const [va1, vb] = [await view(ada, sid), await view(bea, sid)]
 check(vb.version.id === va1.version.id && JSON.stringify(vb.model) === JSON.stringify(va1.model), 'Bea\'s View is the same version and model, marks and results as Ada\'s')
 let shared = null // Ada's view, once she shares it early
+let heldAt = -1, heldWords = '' // the turn core holds from Bea while she is gated, and its words
 for (const [p, words] of [[ada, 'Hire now: the backlog is the real risk.'], [bea, 'Wait a month: a new hire may unsettle the team.']]) {
   await teamCheck(p)
   await p.page.getByTestId('team-view-text').fill(words)
@@ -309,11 +310,30 @@ for (const [p, words] of [[ada, 'Hire now: the backlog is the real risk.'], [bea
     const held = await seen(bea, async () => { if ((await bea.page.getByTestId('team-tab').innerText()).includes(words)) leaked = true; return await bea.page.getByTestId('team-revealed-held').isVisible() })
     check(held && !leaked && !(await bea.page.getByTestId('team-tab').innerText()).includes(words), 'Bea, who has not given her own, cannot see Ada\'s early view: her Team tab says to give or skip hers first')
     shared = own.id
+    // R2 privacy (core a051a13, P1-1): Ada asks Olumi after sharing; Bea, still gated, sees core's held line in place of the reply (the
+    // coach may quote Ada's view), not a blank bubble, not an error with a retry; after Bea gives her own view, the reply is hers to read.
+    await tab(ada, 'olumi')
+    await ada.page.fill('#view-chat-text', 'Where do the views on the team differ?')
+    await ada.page.getByRole('button', { name: 'Send', exact: true }).click()
+    await ada.page.getByTestId('view-chat-working').waitFor({ state: 'detached', timeout: T }).catch(() => {})
+    const asked = (await viewWhen(ada, sid, (x) => x.chat.some((t) => t.said.includes('views on the team differ') && t.answer !== null))).chat.findIndex((t) => t.said.includes('views on the team differ'))
+    const b3 = await view3(bea, sid), turn = b3.chat[asked]
+    check(asked >= 0 && turn.answer === null && typeof turn.problem === 'string' && turn.problem.includes('shown once you have given your own view'), `core holds Olumi's reply from Bea while she is gated ("${turn?.problem}")`)
+    heldAt = asked; heldWords = turn.problem
+    await tab(bea, 'olumi')
+    check(await seen(bea, async () => (await bea.page.locator(`[data-view="chat.${asked}.problem"]`).innerText({ timeout: 1000 })) === heldWords), 'Bea\'s chat shows core\'s held line, verbatim, where the reply would be')
+    check(await bea.page.locator(`[data-view-turn="chat.${asked}"] [data-testid="view-chat-answer"]`).count() === 0 && await bea.page.locator(`[data-view-turn="chat.${asked}"]`).getByRole('button').count() === 0,
+      'no reply bubble and no retry on that turn')
+    await shot(bea, `i-held-reply-${process.env.VIEW_W ?? 1440}`)
   }
 }
 await teamCheck(ada)
 check(!(await ada.page.getByTestId('team-tab').innerText()).includes('Wait a month'), 'Ada cannot see Bea\'s view before the reveal')
 await shot(bea, '1-bea-private-view')
+// Bea has given her own now: the reply core held from her is hers to read (the re-read brings it, no press).
+await tab(bea, 'olumi')
+check(heldAt >= 0 && await seen(bea, async () => await bea.page.locator(`[data-view-turn="chat.${heldAt}"] [data-testid="view-chat-answer"]`).count() === 1 && await bea.page.locator(`[data-view="chat.${heldAt}.problem"]`).count() === 0),
+  'after giving her own view, Bea reads Olumi\'s reply that was held')
 // Bea has given her own now: Ada's early-shared view is hers to see, before the round's reveal.
 await teamCheck(bea)
 check(await seen(bea, async () => (await bea.page.getByTestId('team-revealed').innerText({ timeout: 1000 })).includes('Hire now')), 'Bea, having given her own, sees Ada\'s early-shared view before the reveal')
