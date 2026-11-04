@@ -103,6 +103,20 @@ const outOfView = async (p) => {
     return r.left < f.x - 1 || r.top < f.y - 1 || r.right > f.x + f.width + 1 || r.bottom > f.y + f.height + 1
   }).map((e) => e.getAttribute('data-id')), f)
 }
+/**
+ * What a person must see on landing (DL 4 Nov, readable first): the question and every column's first card, in the canvas left of the dock;
+ * and the whole board when it fits there at 0.5 or more. Returns the ids missing, [] when all is as it should be.
+ */
+const notFramed = async (p, model) => p.page.evaluate(({ model, f }) => {
+  const rect = (id) => document.querySelector(`.react-flow__node[data-id="${id}"]`)?.getBoundingClientRect()
+  const inside = (r) => r && r.left >= f.x - 1 && r.top >= f.y - 1 && r.right <= f.x + f.width + 1 && r.bottom <= f.y + f.height + 1
+  const z = new DOMMatrix(getComputedStyle(document.querySelector('.react-flow__viewport')).transform).a
+  const all = ['page:question', ...model.cards.map((c) => c.id)], rs = all.map(rect).filter(Boolean)
+  const bw = (Math.max(...rs.map((r) => r.right)) - Math.min(...rs.map((r) => r.left))) / z, bh = (Math.max(...rs.map((r) => r.bottom)) - Math.min(...rs.map((r) => r.top))) / z
+  const whole = Math.min(f.width / bw, f.height / bh) >= 0.5
+  const firsts = [...new Set(model.cards.map((c) => c.col))].map((col) => model.cards.find((c) => c.col === col).id)
+  return (whole ? all : ['page:question', ...firsts]).filter((id) => !inside(rect(id)))
+}, { model, f: await free(p) })
 /** Core's own page for the scenario, opened by the same person (their cookie), as its text. */
 const corePage = async (p, sid) => {
   const other = await p.ctx.newPage()
@@ -131,7 +145,9 @@ let v = await viewWhen(ada, sid, (x) => x.proposal === null)
 await ada.page.waitForTimeout(300)
 const cards = await ada.page.locator('.react-flow__node-viewCard').count()
 // The whole model in view on first open, left of the dock (live olumi-core-v3, 4 Nov: a real model opened cut off).
-check(await seen(ada, async () => (await outOfView(ada)).length === 0), `the whole model is in view on first open${(await outOfView(ada)).length ? ` (out: ${(await outOfView(ada)).join(', ')})` : ''}`)
+// The requirement changed (DL 4 Nov): the question and every column's first card, and the whole board when it fits at 0.5 or more.
+const v1 = await viewWhen(ada, sid, (x) => x.version?.n === 1 && x.model !== null)
+check(await seen(ada, async () => (await notFramed(ada, v1.model)).length === 0), `on first open: the question, every column's first card, and the whole board when it fits at 0.5 or more${(await notFramed(ada, v1.model)).length ? ` (out: ${(await notFramed(ada, v1.model)).join(', ')})` : ''}`)
 await shot(ada, '0-canvas-version-1')
 check(v.version?.n === 1 && v.proposal === null, 'core holds version 1 and nothing pending')
 check(cards === v.model.cards.length, `DGAI's canvas draws every card of core's View (${cards} of ${v.model.cards.length})`)
@@ -247,7 +263,7 @@ await ada.page.waitForFunction(() => document.querySelectorAll('.react-flow__nod
 v = await viewWhen(ada, sid, (x) => x.proposal === null && x.version?.n === 2)
 await ada.page.waitForTimeout(500)
 check(v.version.n === 2 && v.proposal === null, 'core holds version 2')
-check(await seen(ada, async () => (await outOfView(ada)).length === 0), 'the whole of version 2 is in view on Ada\'s canvas')
+check(await seen(ada, async () => (await notFramed(ada, v.model)).length === 0), 'version 2 on Ada\'s canvas: the question, every column\'s first card, and the whole board when it fits at 0.5 or more')
 check(await ada.page.locator('.react-flow__node-viewCard').count() === v.model.cards.length, 'Ada\'s canvas draws version 2\'s cards')
 await teamCheck(bea)
 check(await seen(bea, async () => await bea.page.locator('.react-flow__node-viewCard').count() === v.model.cards.length), 'Bea\'s canvas moved to version 2 on her next read')

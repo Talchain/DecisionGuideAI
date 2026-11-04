@@ -42,13 +42,18 @@ async function frame(view, label, whole = false) {
   else console.log(`  · ${label}: zoom ${zoom.toFixed(3)}; ${out.length === 0 ? 'the whole model is in view' : `out of view: ${out.join(', ')}`}`)
   return { zoom, out }
 }
-// European's option cards are taller than the canvas holds even at the lane's floor: the fit must then have gone to the floor (0.25),
-// never stopped above it with cards cut (a fit taken before the cards settled: 0.461, six cut).
 const first = await frame(golden, 'first open (european, 22 cards)')
 // Each premise row is one line on the served build (core's .premise: nowrap, ellipsis), however long core's text.
 const rows = await page.evaluate(() => [...document.querySelectorAll('[data-view*=".premises."][data-view$=".glyph"]')].map((g) => g.parentElement).map((e) => { const s = getComputedStyle(e); return { id: e.firstElementChild.getAttribute('data-view'), h: e.getBoundingClientRect().height / (new DOMMatrix(getComputedStyle(document.querySelector('.react-flow__viewport')).transform).a), lh: parseFloat(s.lineHeight) || parseFloat(s.fontSize) * 1.5 } }))
 check(rows.length > 0 && rows.every((r) => r.h <= r.lh * 1.5), `each of the ${rows.length} premise rows is one line${rows.filter((r) => r.h > r.lh * 1.5).length ? ` (taller: ${rows.filter((r) => r.h > r.lh * 1.5).map((r) => r.id).join(', ')})` : ''}`)
-check(first.out.length === 0 || first.zoom <= 0.2501, `first open: whole, or framed at the lane's floor (zoom ${first.zoom.toFixed(3)})`)
+// Readable first (DL 4 Nov): european fits whole only below 0.5, so it is framed by its width, top-aligned, at 0.5 or more, with the
+// question and every column's first card in view (before: whole at 0.272, tall, narrow, unreadable).
+const firsts = [...new Set(golden.model.cards.map((c) => c.col))].map((col) => golden.model.cards.find((c) => c.col === col).id)
+const topOut = await page.evaluate((ids) => {
+  const dock = document.querySelector('[data-testid="outputs-dock"]').getBoundingClientRect(), pane = document.querySelector('.react-flow').getBoundingClientRect()
+  return ids.filter((id) => { const r = document.querySelector(`.react-flow__node[data-id="${id}"]`)?.getBoundingClientRect(); return !r || r.left < pane.left - 1 || r.top < pane.top - 1 || r.right > dock.left + 1 || r.bottom > pane.bottom + 1 })
+}, ['page:question', ...firsts])
+check(first.zoom >= 0.5 && first.zoom <= 1 && topOut.length === 0, `first open: framed by width at zoom ${first.zoom.toFixed(3)}, the question and every column's first card in view${topOut.length ? ` (out: ${topOut.join(', ')})` : ''}`)
 if (SHOT) await page.screenshot({ path: SHOT })
 served = { ...next, id: made.scenario, you_id: me.id, you: me.name, version: { ...next.version, id: golden.version.id + 1, n: 2, label: 'version 2' } }
 await page.getByTestId('outputs-dock-tab-team').click()

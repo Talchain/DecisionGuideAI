@@ -15,7 +15,7 @@ import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 import { currentModelKey } from '../utils/currentModelKey'
 import { drawnOnlyKey, subscribeDrawnOnly } from '../domain/livingKinds'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
-import { productFitFloor } from '../../olumiView/camera'
+import { productFitFloor, readableFirstViewport } from '../../olumiView/camera'
 import { useViewStore } from '../../olumiView/store'
 import { drawnHeightsKey, QUESTION } from '../../olumiView/layout'
 
@@ -208,6 +208,14 @@ export function useFitViewOnLayoutVersion(): void {
     // measurement.
     const cam = readFocusCamera(getViewportRef.current)
     if (nodes.length > 0 && cam) {
+      // The olumi-core lane: a board that fits whole only below a readable zoom is framed by its width, top-aligned (olumiView/camera.ts).
+      const readable = isOlumiCoreLane()
+        ? readableFirstViewport(getNodesBounds(nodes), { width: cam.paneWidth, height: cam.paneHeight }, paddingToInsets(padding))
+        : null
+      if (readable) {
+        setViewportRef.current(readable, { duration })
+        return
+      }
       const anchored = topAnchoredViewportWhenClamped(
         getNodesBounds(nodes),
         cam.paneWidth,
@@ -573,21 +581,33 @@ export function useFitViewOnLayoutVersion(): void {
     let raf = 0
     let frames = 0
     let last = ''
+    let fitted = ''
+    let fits = 0
     const tryFit = () => {
       const cards = useViewStore.getState().view?.model?.cards ?? []
       const ids = new Set([QUESTION, ...cards.map((c) => c.id)])
       const drawn = (getNodesRef.current?.() ?? []).filter((n) => ids.has(n.id) && n.measured?.width && n.measured?.height)
       // Measured cards grow past core's heights and the canvas re-places them, pushing each column down: frame the board once every
-      // card is measured and its heights and places are unchanged across a frame, not at the first measure (4 Nov: a 22-card model's
-      // bottom was cropped). A measured signal, not a timer; bounded so a board that never settles is still framed.
-      const now = `${drawnHeightsKey(drawn)}#${drawn.map((n) => `${n.position.x},${n.position.y}`).join('|')}`
+      // card is measured and its heights, places and the camera are unchanged across a frame, not at the first measure (4 Nov: a
+      // 22-card model's bottom was cropped). A measured signal, not a timer; bounded so a board that never settles is still framed.
+      const board = `${drawnHeightsKey(drawn)}#${drawn.map((n) => `${n.position.x},${n.position.y}`).join('|')}`
+      const now = `${board}@${getViewportRef.current().zoom}`
       const settled = drawn.length === ids.size && now === last
       last = now
       if (!settled && ++frames < 300) { raf = requestAnimationFrame(tryFit); return }
-      if (drawn.length === 0) return
+      if (drawn.length === 0 || board === fitted || fits >= 3) return
+      // A new zoom re-draws the cards at its level of detail, so their heights (and the board) change after a fit (4 Nov: bakery fitted
+      // whole for the previous zoom's heights, then grew past the canvas). Once the board settles again at the new zoom, frame it again
+      // if it changed; at most three times, and never over a frame the person has taken since.
+      if (fits === 0) releaseUserCameraClaim()
+      else if (userOwnsCamera()) return
       framedCoreVersionRef.current = coreVersion
-      releaseUserCameraClaim()
       fitNow.current()
+      fits += 1
+      fitted = board
+      frames = 0
+      last = ''
+      raf = requestAnimationFrame(tryFit)
     }
     raf = requestAnimationFrame(tryFit)
     return () => cancelAnimationFrame(raf)

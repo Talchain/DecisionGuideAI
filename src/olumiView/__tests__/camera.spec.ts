@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View } from '../client'
 import { cardPlaces, CARD_WIDTH, questionPlace } from '../layout'
-import { CORE_LANE_FIT_FLOOR, productFitFloor } from '../camera'
+import { CORE_LANE_FIT_FLOOR, productFitFloor, READABLE_WHOLE_ZOOM, readableFirstViewport } from '../camera'
 import { paddingToInsets, topAnchoredViewportWhenClamped } from '../../canvas/utils/cameraComfort'
 import { viewportCentredInFreePane } from '../../canvas/utils/fitIntoFreePane'
 import { LABEL_LEGIBLE_ZOOM } from '../../canvas/utils/zoomLegibility'
@@ -43,5 +43,25 @@ describe('the core lane frames the whole of core\'s model at landing', () => {
     expect(productFitFloor(false, LABEL_LEGIBLE_ZOOM)).toBe(LABEL_LEGIBLE_ZOOM)
     expect(productFitFloor(true, LABEL_LEGIBLE_ZOOM)).toBe(CORE_LANE_FIT_FLOOR)
     expect(productFitFloor(true, 0.1)).toBe(0.1)
+  })
+})
+
+describe('readable first, whole when it fits (DL 4 Nov: whole at 0.272 was tall, narrow and unreadable)', () => {
+  const insets = paddingToInsets(padding)
+  const rect = (bs: typeof one) => { const x = Math.min(...bs.map((b) => b.x)), y = Math.min(...bs.map((b) => b.y))
+    return { x, y, width: Math.max(...bs.map((b) => b.x + b.w)) - x, height: Math.max(...bs.map((b) => b.y + b.h)) - y } }
+  it('a board that fits whole only below 0.5 is framed by its width, top-aligned: the question and every column\'s first card in view', () => {
+    const v = readableFirstViewport(rect(boxes), pane, insets)!
+    expect(v).not.toBeNull()
+    expect(v.zoom).toBeGreaterThanOrEqual(READABLE_WHOLE_ZOOM)
+    expect(v.zoom).toBeLessThanOrEqual(1)
+    const top = [one[0]!, ...[...new Set(model.cards.map((c) => c.col))].map((col) => { const c = model.cards.find((k) => k.col === col)!; return { ...places.get(c.id)!, w: CARD_WIDTH, h: c.h } })]
+    for (const b of top) {
+      const l = b.x * v.zoom + v.x, t = b.y * v.zoom + v.y
+      expect(l >= insets.left - 1 && l + b.w * v.zoom <= pane.width - insets.right + 1 && t >= insets.top - 1 && t + b.h * v.zoom <= pane.height, JSON.stringify(b)).toBe(true)
+    }
+  })
+  it('must not change: a board that fits whole at 0.5 or more is the product\'s own whole fit (null here)', () => {
+    expect(readableFirstViewport(rect(one), pane, insets)).toBeNull()
   })
 })
