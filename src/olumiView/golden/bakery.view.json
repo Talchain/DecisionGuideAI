@@ -1,5 +1,5 @@
 {
- "schema": "olumi.view/2",
+ "schema": "olumi.view/3",
  "id": "s_000000000003",
  "title": "Second oven or longer hours?",
  "commit": "golden",
@@ -800,6 +800,24 @@
     {
      "text": "Olumi's what-if for 'extra sold per oven', not their figure: 60 to 90 loaves/week/oven. Basis: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes.",
      "title": "Olumi's what-if for 'extra sold per oven', not their figure: 60 to 90 loaves/week/oven. Basis: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes."
+    }
+   ],
+   "science": [
+    {
+     "id": "F20",
+     "kind": "worth",
+     "line": "'extra hours sold' (a person's range) · aim 'Sell at least 360 loaves a week' · worth finding out",
+     "hover": "In this model: 'extra hours sold' (the person's range); 'Sell at least 360 loaves a week'; worth finding out. Not covered: Within the £3,000.\nabout 14 points, an estimate",
+     "aim": "sell_360",
+     "limits": [],
+     "figure": {
+      "label": "extra hours sold",
+      "whose": "theirs"
+     },
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
     }
    ]
   },

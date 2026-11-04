@@ -59,7 +59,7 @@ describe('the writes go straight to core, and the View is read again', () => {
     const { container } = renderTab()
     type(container, 'Raise it by 30p instead')
     await send(container)
-    await waitFor(() => expect(reads).toContain('/api/scenarios/s_000000000001/view'))
+    await waitFor(() => expect(reads).toContain('/api/scenarios/s_000000000001/view?schema=3'))
     expect(posts).toEqual([{ url: '/api/scenarios/s_000000000001/messages', body: { text: 'Raise it by 30p instead', op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } }])
     expect((container.querySelector('#view-chat-text') as HTMLTextAreaElement).value).toBe('')
   })
@@ -107,7 +107,7 @@ describe('the writes go straight to core, and the View is read again', () => {
     setTeamFetch((async (url: string, init?: RequestInit) => {
       if (String(url) === '/api/me') return new Response(JSON.stringify({ me: null }), { status: 200 })
       if (init?.method === 'POST') { posts.push({ url, body: JSON.parse(String(init.body)) }); return new Response('{}', { status: 200 }) }
-      if (url.includes('/view')) return new Promise<Response>((done) => { answer = done })
+      if (url.includes('/view?schema=3')) return new Promise<Response>((done) => { answer = done })
       return new Response(JSON.stringify({ error: 'no team here' }), { status: 404 })
     }) as unknown as typeof fetch)
     const { container } = renderTab()
@@ -152,7 +152,7 @@ describe('the writes go straight to core, and the View is read again', () => {
       await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
       expect(useCanvasStore.getState().currentScenarioId).toBe(B)
       expect(useViewStore.getState().sid).toBe('s_0000000000bb')
-      expect(reads).not.toContain('/api/scenarios/s_0000000000aa/view')
+      expect(reads).not.toContain('/api/scenarios/s_0000000000aa/view?schema=3')
     })
 
     it('a brief answered after the page went to another scenario and came back (A → B → A) moves nothing (review 00002)', async () => {
@@ -169,7 +169,7 @@ describe('the writes go straight to core, and the View is read again', () => {
       await act(async () => { made(new Response(JSON.stringify({ scenario: 's_0000000000aa', proposal: 1 }), { status: 201 })) })
       await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
       expect(useCanvasStore.getState().currentScenarioId).toBe(A)
-      expect(reads).not.toContain('/api/scenarios/s_0000000000aa/view')
+      expect(reads).not.toContain('/api/scenarios/s_0000000000aa/view?schema=3')
     })
 
     it('#6 a scenario whose first draft was set aside (no version, nothing held) starts again from the brief, at the new scenario\'s address', async () => {
@@ -182,7 +182,7 @@ describe('the writes go straight to core, and the View is read again', () => {
       await send(container)
       await waitFor(() => expect(posts[0]?.url).toBe('/api/scenarios'))
       expect(posts[0]!.body).toEqual({ brief: 'Should we raise the price of our pastries by 20p?', op: expect.any(String) })
-      await waitFor(() => expect(reads).toContain('/api/scenarios/s_0000000000cc/view'))
+      await waitFor(() => expect(reads).toContain('/api/scenarios/s_0000000000cc/view?schema=3'))
       expect(useCanvasStore.getState().currentScenarioId).toBe('00000000-0000-4000-8000-0000000000cc')
     })
 
@@ -212,7 +212,7 @@ describe('the writes go straight to core, and the View is read again', () => {
       const { container } = renderTab()
       type(container, 'Should we raise the price of our pastries?')
       await send(container)
-      await waitFor(() => expect(reads).toContain(`/api/scenarios/${MADE}/view`))
+      await waitFor(() => expect(reads).toContain(`/api/scenarios/${MADE}/view?schema=3`))
       expect(posts).toEqual([{ url: '/api/scenarios', body: { brief: 'Should we raise the price of our pastries?', op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } }])
       expect(useCanvasStore.getState().currentScenarioId).toBe('00000000-0000-4000-8000-0000000000ab')
       expect(window.location.hash).toBe('#/scenario/00000000-0000-4000-8000-0000000000ab')
@@ -256,7 +256,7 @@ describe('the writes go straight to core, and the View is read again', () => {
       type(container, 'Should we raise the price of our pastries?')
       await send(container)
       await waitFor(() => expect(useCanvasStore.getState().currentScenarioId).toBe('00000000-0000-4000-8000-0000000000ab'))
-      await waitFor(() => expect(reads).toContain(`/api/scenarios/${MADE}/view`))
+      await waitFor(() => expect(reads).toContain(`/api/scenarios/${MADE}/view?schema=3`))
     })
 
     it('a refused brief keeps what was typed and says core\'s own words', async () => {

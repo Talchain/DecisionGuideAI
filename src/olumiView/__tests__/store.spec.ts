@@ -8,7 +8,7 @@ import { currentModel, useViewStore } from '../store'
 import { NOT_FOR_THIS_PAGE, useMe } from '../../olumiCore/me'
 
 const SID = 's_0123456789ab', UUID = '00000000-0000-4000-8000-0123456789ab'
-const view = (title: string) => ({ schema: 'olumi.view/2', id: SID, title, commit: 't', signature: title, you: 'Paul', members: [], version: null, model: null, proposal: null,
+const view = (title: string) => ({ schema: 'olumi.view/3', id: SID, title, commit: 't', signature: title, you: 'Paul', members: [], version: null, model: null, proposal: null,
   collab: { alone: true, heading: '', open: false, shared: [], mine: [], placeholder: '', can_reveal: false, waiting: null, commitments: [], owners: [] }, evidence: [], chat: [] })
 const answered = (title: string) => new Response(JSON.stringify(view(title)), { status: 200 })
 
@@ -19,7 +19,7 @@ it('reads the View of the scenario the page shows, by its core id', async () => 
   const urls: string[] = []
   setTeamFetch((async (url: string) => { urls.push(url); return answered('first') }) as unknown as typeof fetch)
   await useViewStore.getState().use(UUID)
-  expect(urls).toEqual([`/api/scenarios/${SID}/view`])
+  expect(urls).toEqual([`/api/scenarios/${SID}/view?schema=3`])
   expect(useViewStore.getState().view?.title).toBe('first')
 })
 

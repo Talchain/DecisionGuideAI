@@ -4,7 +4,7 @@
  "properties": {
   "schema": {
    "type": "string",
-   "const": "olumi.view/2"
+   "const": "olumi.view/3"
   },
   "id": {
    "type": "string"
@@ -881,6 +881,100 @@
             ],
             "additionalProperties": false
            }
+          },
+          "science": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "properties": {
+             "id": {
+              "type": "string"
+             },
+             "kind": {
+              "type": "string",
+              "enum": [
+               "worth"
+              ]
+             },
+             "line": {
+              "type": "string"
+             },
+             "hover": {
+              "type": "string"
+             },
+             "aim": {
+              "type": "string"
+             },
+             "limits": {
+              "type": "array",
+              "items": {
+               "type": "string"
+              }
+             },
+             "figure": {
+              "anyOf": [
+               {
+                "type": "object",
+                "properties": {
+                 "label": {
+                  "type": "string"
+                 },
+                 "whose": {
+                  "type": "string",
+                  "enum": [
+                   "theirs",
+                   "olumi",
+                   "mixed"
+                  ]
+                 }
+                },
+                "required": [
+                 "label",
+                 "whose"
+                ],
+                "additionalProperties": false
+               },
+               {
+                "type": "null"
+               }
+              ]
+             },
+             "olumi": {
+              "anyOf": [
+               {
+                "type": "object",
+                "properties": {
+                 "glyph": {
+                  "type": "string"
+                 },
+                 "title": {
+                  "type": "string"
+                 }
+                },
+                "required": [
+                 "glyph",
+                 "title"
+                ],
+                "additionalProperties": false
+               },
+               {
+                "type": "null"
+               }
+              ]
+             }
+            },
+            "required": [
+             "id",
+             "kind",
+             "line",
+             "hover",
+             "aim",
+             "limits",
+             "figure",
+             "olumi"
+            ],
+            "additionalProperties": false
+           }
           }
          },
          "required": [
@@ -889,7 +983,8 @@
           "all_withheld",
           "most_likely",
           "waits_on",
-          "notes"
+          "notes",
+          "science"
          ],
          "additionalProperties": false
         },

@@ -91,10 +91,10 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
     useViewStore.setState({ uuid: 'u', sid: 's_0123456789ab', view, opened: { open: new Map(), all: false }, status: 'ready', error: null, stale: false })
     const { container, rerender } = render(<ViewCard card={{ ...card, badge: { ...card.badge!, open: false } }} />)
     fireEvent.click(container.querySelector(`[data-view="${card.id}.badge.text"]`)!)
-    await waitFor(() => expect(paths.at(-1)).toBe(`/api/scenarios/s_0123456789ab/view?open=${JSON.stringify({ [card.id]: card.badge!.records })}`))
+    await waitFor(() => expect(paths.at(-1)).toBe(`/api/scenarios/s_0123456789ab/view?schema=3&open=${JSON.stringify({ [card.id]: card.badge!.records })}`))
     rerender(<ViewCard card={{ ...card, badge: { ...card.badge!, open: true } }} />)
     fireEvent.click(container.querySelector(`[data-view="${card.id}.badge.text"]`)!)
-    await waitFor(() => expect(paths.at(-1)).toBe('/api/scenarios/s_0123456789ab/view'))
+    await waitFor(() => expect(paths.at(-1)).toBe('/api/scenarios/s_0123456789ab/view?schema=3'))
     setTeamFetch(null)
   })
   it('a badge folding a record the held proposal changes shows core\'s change glyphs and is marked; one with none shows no glyph (final review 00004 #3)', () => {

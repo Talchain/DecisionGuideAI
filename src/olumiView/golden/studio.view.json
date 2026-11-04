@@ -1,5 +1,5 @@
 {
- "schema": "olumi.view/2",
+ "schema": "olumi.view/3",
  "id": "s_000000000002",
  "title": "Evening classes or carry on?",
  "commit": "golden",
@@ -772,7 +772,8 @@
      }
     ]
    },
-   "notes": []
+   "notes": [],
+   "science": []
   },
   "edit_base": 1
  },

@@ -91,6 +91,19 @@ export function ViewChances({ model }: { model: ViewModel }) {
         </div>
       ))}
       {run?.most_likely == null ? null : <p title={run.most_likely.title} data-view="run.most_likely.text">{run.most_likely.text}</p>}
+      {/* Under the chances, each aim's figure most worth checking first (D3), as core's page draws it: its mark when it rests on Olumi's
+          proposals, the line in core's words, the Run's whole reason on hover (olumi.view/3 model.run.science; PL review 4 Nov). */}
+      {run?.science == null || run.science.length === 0 ? null : (
+        <div data-testid="view-run-worth" aria-label="Worth checking first">
+          <p className={typography.panelHeader}>Worth checking first</p>
+          {run.science.map((l, i) => (
+            <p key={l.id} title={l.hover} data-view-fact={l.id}>
+              {l.olumi === null ? null : <><span title={l.olumi.title} aria-label={l.olumi.title} data-view={`run.science.${i}.olumi.glyph`}>{l.olumi.glyph}</span> </>}
+              <span data-view={`run.science.${i}.line`}>{l.line}</span>
+            </p>
+          ))}
+        </div>
+      )}
       {run === null || run.notes.length === 0 ? null : (
         <div data-testid="view-run-notes">
           {run.notes.map((n, i) => <p key={i} className={typography.panelMeta} title={n.title} data-view={`run.notes.${i}.text`}>{n.text}</p>)}

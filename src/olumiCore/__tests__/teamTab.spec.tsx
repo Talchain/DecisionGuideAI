@@ -54,7 +54,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); setTeamFetch(null); resetDrafts(); resetWrites(); useMe.setState({ me: null, status: 'none' }) })
 
 const posts = () => calls.filter((c) => c.method === 'POST')
-const reread = () => calls.filter((c) => c.method === 'GET' && c.path === `/api/scenarios/${SID}/view`).length
+const reread = () => calls.filter((c) => c.method === 'GET' && c.path === `/api/scenarios/${SID}/view?schema=3`).length
 
 describe('what the tab shows is the View, word for word', () => {
   it('the round: heading, members, the revealed views, your private one, whom the reveal waits for', () => {

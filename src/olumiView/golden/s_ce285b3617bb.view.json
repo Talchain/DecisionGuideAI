@@ -1,5 +1,5 @@
 {
- "schema": "olumi.view/2",
+ "schema": "olumi.view/3",
  "id": "s_ce285b3617bb",
  "title": "Funding routes and the value of a bridge",
  "commit": "9055027f947fcdeaab44422420499572838f1d27",
@@ -1169,7 +1169,8 @@
      "text": "Olumi's what-if for 'Operating burn retained after temporary spend deferral', not their figure: 0.5 to 0.969. Basis: No typical rate known; replace with your figure. A first-guess deferrable burn share of 0.0625–0.25 around 0.125 is widened on a ratio scale to 0.03125–0.50 and represented as retained burn. This is a cash-timing what-if, not evidence that these savings are feasible or permanent.",
      "title": "Olumi's what-if for 'Operating burn retained after temporary spend deferral', not their figure: 0.5 to 0.969. Basis: No typical rate known; replace with your figure. A first-guess deferrable burn share of 0.0625–0.25 around 0.125 is widened on a ratio scale to 0.03125–0.50 and represented as retained burn. This is a cash-timing what-if, not evidence that these savings are feasible or permanent."
     }
-   ]
+   ],
+   "science": []
   },
   "edit_base": 15
  },

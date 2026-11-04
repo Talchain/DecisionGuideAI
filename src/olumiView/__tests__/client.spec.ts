@@ -12,12 +12,12 @@ import { generate } from '../../../scripts/olumi-view/gen-types.mjs'
 
 const here = (f: string) => new URL(f, import.meta.url)
 const json = (f: string) => JSON.parse(readFileSync(here(f), 'utf8'))
-const schema = json('../view.v2.json')
+const schema = json('../view.v3.json')
 const GOLDEN = ['pricing', 'studio', 'bakery', 'european', 'app-launch', 's_ce285b3617bb', 'proposal'] as const
 
 afterEach(() => setTeamFetch(null))
 
-describe('the View types and schema (olumi-core schema/view.v2.json)', () => {
+describe('the View types and schema (olumi-core schema/view.v3.json)', () => {
   it('the committed types are exactly what the generator prints from the vendored schema', () => {
     expect(readFileSync(here('../types.ts'), 'utf8')).toBe(generate(schema))
   })
@@ -40,10 +40,11 @@ describe('the View types and schema (olumi-core schema/view.v2.json)', () => {
 
 describe('reading the View', () => {
   it('asks for what was opened, exactly as the View handed it out, and every figure', () => {
-    expect(viewPath('s_0123456789ab')).toBe('/api/scenarios/s_0123456789ab/view')
+    expect(viewPath('s_0123456789ab')).toBe('/api/scenarios/s_0123456789ab/view?schema=3')
     const opened = { open: new Map([['profit', ['cups', 'cups_change']]]), all: true }
     const url = new URL(viewPath('s_0123456789ab', opened), 'http://local')
     expect(url.pathname).toBe('/api/scenarios/s_0123456789ab/view')
+    expect(url.searchParams.get('schema')).toBe('3')
     expect(JSON.parse(url.searchParams.get('open')!)).toEqual({ profit: ['cups', 'cups_change'] })
     expect(url.searchParams.get('all')).toBe('1')
   })
@@ -53,11 +54,11 @@ describe('reading the View', () => {
     const f = vi.fn(async () => new Response(JSON.stringify(golden), { status: 200 }))
     setTeamFetch(f as unknown as typeof fetch)
     expect(await readView('s_0123456789ab')).toEqual(golden)
-    expect(f).toHaveBeenCalledWith('/api/scenarios/s_0123456789ab/view', expect.objectContaining({ method: 'GET', credentials: 'same-origin' }))
+    expect(f).toHaveBeenCalledWith('/api/scenarios/s_0123456789ab/view?schema=3', expect.objectContaining({ method: 'GET', credentials: 'same-origin' }))
   })
 
   it('a View of another version is said, never drawn as this one', async () => {
-    setTeamFetch((async () => new Response(JSON.stringify({ ...json('../golden/pricing.view.json'), schema: 'olumi.view/3' }), { status: 200 })) as unknown as typeof fetch)
+    setTeamFetch((async () => new Response(JSON.stringify({ ...json('../golden/pricing.view.json'), schema: 'olumi.view/2' }), { status: 200 })) as unknown as typeof fetch)
     await expect(readView('s_0123456789ab')).rejects.toEqual(new TeamApiError(0, VIEW_SHAPE_CHANGED))
   })
 

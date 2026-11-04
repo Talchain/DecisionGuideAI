@@ -1,5 +1,5 @@
 {
- "schema": "olumi.view/2",
+ "schema": "olumi.view/3",
  "id": "s_000000000004",
  "title": "European expansion: growth, retention and investment",
  "commit": "golden",
@@ -1426,6 +1426,27 @@
     {
      "text": "Olumi's what-if for 'Single-country test investment what-if', not their figure: £12,500 to £200,000. Basis: no typical rate known; replace with your figure. Uncalibrated total commitment for a deliberately narrower test: an initial £25,000–£100,000 guess widened twofold on a ratio scale to £12,500–£200,000. This is not a supplier quote or a spending recommendation.",
      "title": "Olumi's what-if for 'Single-country test investment what-if', not their figure: £12,500 to £200,000. Basis: no typical rate known; replace with your figure. Uncalibrated total commitment for a deliberately narrower test: an initial £25,000–£100,000 guess widened twofold on a ratio scale to £12,500–£200,000. This is not a supplier quote or a spending recommendation."
+    }
+   ],
+   "science": [
+    {
+     "id": "F33",
+     "kind": "worth",
+     "line": "'New customers from existing markets' (Olumi's estimate) · aim 'Reach 800 customers' · worth finding out",
+     "hover": "In this model: 'New customers from existing markets' (Olumi's estimate); 'Reach 800 customers'; within: Stay within £500k investment budget, Proposed guardrail: churn no higher than 12%; worth finding out.\nabout 5 points, an estimate",
+     "aim": "reach_customer_target",
+     "limits": [
+      "investment_limit",
+      "proposed_churn_guardrail"
+     ],
+     "figure": {
+      "label": "New customers from existing markets",
+      "whose": "olumi"
+     },
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
     }
    ]
   },

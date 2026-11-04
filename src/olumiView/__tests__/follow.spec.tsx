@@ -6,7 +6,7 @@ import { useViewStore } from '../store'
 import { useViewFollows } from '../follow'
 
 const UUID = '00000000-0000-4000-8000-0123456789ab', OTHER = '00000000-0000-4000-8000-ba9876543210'
-const view = { schema: 'olumi.view/2', id: 's_0123456789ab', title: 't', commit: 't', signature: 't', you: 'Paul', members: [], version: null, model: { cards: [] }, proposal: null,
+const view = { schema: 'olumi.view/3', id: 's_0123456789ab', title: 't', commit: 't', signature: 't', you: 'Paul', members: [], version: null, model: { cards: [] }, proposal: null,
   collab: { alone: true, heading: '', open: false, shared: [], mine: [], placeholder: '', can_reveal: false, waiting: null, commitments: [], owners: [] }, evidence: [], chat: [] }
 const paths: string[] = []
 
@@ -19,10 +19,10 @@ afterEach(() => { setTeamFetch(null) })
 
 it('reads the scenario on screen once, and the next scenario when the page moves to it', async () => {
   const { rerender } = renderHook(({ uuid }) => useViewFollows(true, uuid), { initialProps: { uuid: UUID } })
-  await waitFor(() => expect(paths).toEqual(['/api/scenarios/s_0123456789ab/view']))
+  await waitFor(() => expect(paths).toEqual(['/api/scenarios/s_0123456789ab/view?schema=3']))
   rerender({ uuid: UUID })
   rerender({ uuid: OTHER })
-  await waitFor(() => expect(paths).toEqual(['/api/scenarios/s_0123456789ab/view', '/api/scenarios/s_ba9876543210/view']))
+  await waitFor(() => expect(paths).toEqual(['/api/scenarios/s_0123456789ab/view?schema=3', '/api/scenarios/s_ba9876543210/view?schema=3']))
 })
 
 it('off the core lane it reads nothing', async () => {

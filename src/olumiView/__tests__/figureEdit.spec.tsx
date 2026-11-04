@@ -81,7 +81,7 @@ describe('a figure the person may set', () => {
     fireEvent.click(screen.getByTestId(`view-figure-edit-${card.id}`))
     fireEvent.change(screen.getByTestId(`view-figure-typed-${card.id}`), { target: { value: ' 150 to 400 ' } })
     fireEvent.click(screen.getByTestId(`view-figure-set-${card.id}`))
-    await waitFor(() => expect(calls.some((c) => c.method === 'GET' && c.path === `/api/scenarios/${SID}/view`)).toBe(true))
+    await waitFor(() => expect(calls.some((c) => c.method === 'GET' && c.path === `/api/scenarios/${SID}/view?schema=3`)).toBe(true))
     expect(posts()).toEqual([{ method: 'POST', path: `/api/scenarios/${SID}/edit`,
       body: { base: view.model!.edit_base, quantity: card.id, typed: ' 150 to 400 ', op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } }])
     await waitFor(() => expect(screen.queryByTestId(`view-figure-form-${card.id}`)).toBeNull())

@@ -196,6 +196,30 @@ describe('a reason every option shares is said once, above the options; each cov
   })
 })
 
+describe('worth checking first: each science line of the Run, in core\'s words, under the chances (olumi.view/3 model.run.science)', () => {
+  it('present (bakery, european): every line verbatim and in order, its mark before it when it rests on Olumi\'s proposals, the Run\'s reason on hover', () => {
+    for (const n of ['bakery', 'european']) {
+      const model = golden(n).model!, science = model.run!.science
+      expect(science.length, n).toBeGreaterThan(0)
+      const { container } = render(<ViewChances model={model} />)
+      const lines = [...container.querySelectorAll<HTMLElement>('[data-testid="view-run-worth"] [data-view-fact]')]
+      expect(lines.map((p) => p.getAttribute('data-view-fact')), n).toEqual(science.map((l) => l.id))
+      science.forEach((l, i) => {
+        expect(lines[i]!.querySelector(`[data-view="run.science.${i}.line"]`)?.textContent, n).toBe(l.line)
+        expect(lines[i]!.getAttribute('title'), n).toBe(l.hover)
+        const mark = lines[i]!.querySelector(`[data-view="run.science.${i}.olumi.glyph"]`)
+        if (l.olumi === null) expect(mark, n).toBeNull()
+        else { expect(mark?.textContent, n).toBe(l.olumi.glyph); expect(mark?.getAttribute('title'), n).toBe(l.olumi.title) }
+      })
+    }
+  })
+  it('absent: a Run with no science line draws no block', () => {
+    const model = golden('pricing').model!
+    expect(model.run!.science).toEqual([])
+    expect(render(<ViewChances model={model} />).container.querySelector('[data-testid="view-run-worth"]')).toBeNull()
+  })
+})
+
 describe('a View from a core without the dock fields still draws (00058 P1)', () => {
   /** The same golden as an olumi.view/2 core before view-dock serves it: no `run`, no `driver`, `none` rows with no `text`. */
   const older = (n: string): ViewModel => {

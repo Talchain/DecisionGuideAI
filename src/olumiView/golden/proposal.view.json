@@ -1,5 +1,5 @@
 {
- "schema": "olumi.view/2",
+ "schema": "olumi.view/3",
  "id": "s_000000000006",
  "title": "Support capacity",
  "commit": "golden",
@@ -443,7 +443,8 @@
      "text": "This leaves out: How the team feels about a new hire.",
      "title": "This leaves out: How the team feels about a new hire."
     }
-   ]
+   ],
+   "science": []
   },
   "edit_base": null
  },

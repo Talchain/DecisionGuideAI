@@ -1,5 +1,5 @@
 {
- "schema": "olumi.view/2",
+ "schema": "olumi.view/3",
  "id": "s_000000000005",
  "title": "App release: readiness, campaign commitments and the case for delay",
  "commit": "golden",
@@ -799,7 +799,8 @@
      "text": "Olumi's what-if for 'Postponed release time from now', not their figure: 4 to 16 weeks. Basis: An exploratory postponed-release window, measured from now rather than added to the original date. Deliberately widened on a ratio scale; no typical rate known; replace with your figure. It is neither a recommendation nor a commitment that the defect will be resolved by then.",
      "title": "Olumi's what-if for 'Postponed release time from now', not their figure: 4 to 16 weeks. Basis: An exploratory postponed-release window, measured from now rather than added to the original date. Deliberately widened on a ratio scale; no typical rate known; replace with your figure. It is neither a recommendation nor a commitment that the defect will be resolved by then."
     }
-   ]
+   ],
+   "science": []
   },
   "edit_base": 1
  },
