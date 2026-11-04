@@ -57,6 +57,27 @@ describe('lane C: a card reads heading and figure first', () => {
   })
 })
 
+describe('an Olumi estimate reads as Olumi\'s at a glance (core L1/L2)', () => {
+  it('a figure card core marks ◆: the figure in Olumi\'s colour with core\'s mark on hover, and "✎ Give yours" always shown; a person\'s figure is neither', async () => {
+    const { QUIET } = await import('../FigureEdit')
+    const est = view.model!.cards.find((c) => c.family === 'quantity' && c.olumi?.glyph === '◆' && c.figure?.edit)!
+    const theirs = view.model!.cards.find((c) => c.family === 'quantity' && c.olumi === null && c.figure?.edit)!
+    const a = render(<ViewCard card={est} />).container
+    const fig = a.querySelector<HTMLElement>(`[data-view="${est.id}.figure.text"]`)!
+    expect(fig.textContent).toBe(est.figure!.text)
+    expect(fig.getAttribute('data-olumi')).toBe('true')
+    expect(fig.className).toContain('text-info')
+    expect(fig.getAttribute('title')).toBe(`${est.figure!.title} · ${est.olumi!.title}`)
+    const give = a.querySelector(`[data-testid="view-figure-edit-${est.id}"]`)!
+    expect(give.textContent).toBe('✎ Give yours')
+    expect(give.className).not.toContain(QUIET)
+    a.remove()
+    const b = render(<ViewCard card={theirs} />).container
+    expect(b.querySelector(`[data-view="${theirs.id}.figure.text"]`)?.hasAttribute('data-olumi')).toBe(false)
+    expect(b.querySelector(`[data-testid="view-figure-edit-${theirs.id}"]`)?.textContent).toBe('Change figure')
+  })
+})
+
 describe('a figure the person may set', () => {
   it('is offered exactly where core offers it, labelled with core\'s prompt', () => {
     render(<ViewCard card={card} />)

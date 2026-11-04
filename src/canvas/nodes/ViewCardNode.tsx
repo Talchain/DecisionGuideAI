@@ -46,6 +46,9 @@ function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
 /** One View card, pure: a test draws it from a golden View. */
 export function ViewCard({ card, selected = false }: ViewCardData & { selected?: boolean }) {
   const id = card.id
+  // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
+  // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
+  const estimate = card.family === 'quantity' && card.olumi !== null && card.figure !== null
   return (
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
     <div
@@ -63,8 +66,11 @@ export function ViewCard({ card, selected = false }: ViewCardData & { selected?:
       {card.detail === '' ? null : <p className="line-clamp-2" title={card.detail} data-view={`${id}.detail`}>{card.detail}</p>}
       {card.status === null ? null : <p data-view={`${id}.status`}>{card.status}</p>}
       {card.reason === null ? null : <p data-view={`${id}.reason`}>{card.reason}</p>}
-      {card.figure === null ? null : <p className={typography.nodeValue} title={card.figure.title} data-view={`${id}.figure.text`}>{card.figure.text}</p>}
-      {card.figure?.edit ? <FigureEdit id={card.id} edit={card.figure.edit} quiet={!selected} /> : null}
+      {card.figure === null ? null : (
+        <p className={`${typography.nodeValue} ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
+          data-olumi={estimate || undefined} data-view={`${id}.figure.text`}>{card.figure.text}</p>
+      )}
+      {card.figure?.edit ? <FigureEdit id={card.id} edit={card.figure.edit} label={estimate ? '✎ Give yours' : undefined} quiet={!selected && !estimate} /> : null}
       {card.bound === null ? null : (
         <p title={card.bound.title}><span data-view={`${id}.bound.text`}>{card.bound.text}</span>
           {card.bound.olumi === null ? null : <> <Mark at={`${id}.bound.olumi`} mark={card.bound.olumi} /></>}</p>
