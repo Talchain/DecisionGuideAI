@@ -7,6 +7,12 @@
  *   scripts/olumi-core/run.sh build && CORE_DIR=<olumi-core wip/v3.1> scripts/olumi-core/run.sh core     # in another terminal
  *   node scripts/olumi-core/two-people.mjs [--shots <dir>]          # CHROME=<a Chromium binary> if Playwright's own is not installed
  *
+ * A SLOW CORE (DELAY_MS, REPLY_MS; both off by default). A scripted core answers at once, so a read that races a write never shows
+ * here (4 Nov: witness #1 on a real core at load 27 failed step 4, Ada never saw Bea's evidence; a 1.5–4.5 s delay on every answer
+ * reproduced it on the scripted core). DELAY_MS=<n> holds every /api/ answer n/2 to 3n/2 ms, in random order; REPLY_MS=<n> holds a chat
+ * message (Olumi's reply) n ms, as a real model takes. Raise STEP_TIMEOUT_MS with them.
+ *   DELAY_MS=3000 REPLY_MS=45000 STEP_TIMEOUT_MS=300000 node scripts/olumi-core/two-people.mjs
+ *
  * Exits non-zero on the first step that does not hold, naming it.
  */
 import { chromium } from 'playwright'
@@ -18,6 +24,8 @@ const SHOTS = process.argv.includes('--shots') ? process.argv[process.argv.index
 const BRIEF = 'Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing or add one specialist? We need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.'
 // A real core drafts a first model in minutes (PL review 4 Nov): against a served CORE_BASE each step waits up to 10 minutes.
 const T = Number(process.env.STEP_TIMEOUT_MS ?? (process.env.CORE_BASE ? 600_000 : 30_000))
+const DELAY = Number(process.env.DELAY_MS ?? 0), REPLY = Number(process.env.REPLY_MS ?? 0)
+if (DELAY > 0 || REPLY > 0) console.log(`A slow core: every /api/ answer held ${DELAY / 2}–${(3 * DELAY) / 2} ms, a chat reply ${REPLY > 0 ? `${REPLY} ms` : 'as the rest'}`)
 
 const step = (n, what) => console.log(`\n▶ ${n}. ${what}`)
 const ok = (what) => console.log(`  ✓ ${what}`)
@@ -36,6 +44,14 @@ const browser = await chromium.launch(process.env.CHROME ? { executablePath: pro
 const person = async (name, link, to) => {
   const ctx = await browser.newContext({ viewport: { width: Number(process.env.VIEW_W ?? 1440), height: 900 } })
   const page = await ctx.newPage()
+  if (DELAY > 0 || REPLY > 0) {
+    await ctx.route(/\/api\//, async (route) => {
+      const q = route.request(), reply = q.method() === 'POST' && /\/messages$/.test(new URL(q.url()).pathname)
+      const hold = reply && REPLY > 0 ? REPLY : DELAY > 0 ? DELAY / 2 + Math.random() * DELAY : 0
+      await new Promise((r) => setTimeout(r, hold))
+      await route.continue().catch(() => {})
+    })
+  }
   page.on('pageerror', (e) => console.error(`  [${name} page error] ${e.message}`))
   await page.goto(`${BASE}${link}`)
   if (to) await page.goto(`${BASE}/${to}`)
