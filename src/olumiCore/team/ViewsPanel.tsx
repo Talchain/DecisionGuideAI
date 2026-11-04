@@ -7,6 +7,22 @@ import { useDraft } from './drafts'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from './writes'
 import { AVATAR, BODY, CARD, ERR, FIELD, H, META } from './ui'
 
+type Figure = View['collab']['shared'][number]['figures'][number]
+
+/** The figures a person gave with their view, each in core's words (its `text`, with core's `title` on hover), in core's order. */
+function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX.Element | null {
+  if (figures.length === 0) return null
+  return (
+    <ul className="m-0 grid list-none gap-0.5 p-0" data-testid={`${at}-figures`}>
+      {figures.map((f, i) => (
+        <li key={i} className={META} title={f.title} data-testid={`${at}-figure-${i}`}>
+          <span className="text-text-header">{f.label}</span>: {f.text}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 /**
  * Each person's own view, given before they see anyone else's, then revealed together (spec §8 steps 1 and 2). Everything here is the
  * View's `collab`: the heading, the placeholder, your own views still private to you, the team's revealed views, whether the reveal is
@@ -49,6 +65,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
             <li key={v.id} data-testid={`team-revealed-${v.id}`} className={CARD}>
               <p className={`${BODY} text-text-header`}>{v.by}</p>
               {v.skip ? <p className={META}>Chose not to answer.</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
+              <Figures at={`team-revealed-${v.id}`} figures={v.figures} />
             </li>
           ))}
         </ul>
@@ -60,6 +77,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
             <li key={v.id} data-testid={`team-mine-${v.id}`} className={CARD}>
               <p className={`${META} flex items-center gap-1.5 text-text-header`}><Lock aria-hidden="true" className="h-3 w-3 flex-none" />Private to you until everyone’s views are revealed</p>
               {v.skip ? <p className={META}>You chose not to answer.</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
+              <Figures at={`team-mine-${v.id}`} figures={v.figures} />
             </li>
           ))}
         </ul>
