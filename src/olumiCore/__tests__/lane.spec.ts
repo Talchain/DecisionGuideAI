@@ -27,10 +27,10 @@ describe('the olumi-core lane', () => {
     expect(coreLaneAllows('structure')).toBe(false)
   })
 
-  it('hides the dock surfaces with no View source (Reasoning, Compare, and Model, which reads legacy node shapes: review 00002 #4) and keeps Analysis, the chat and Team', () => {
+  it('hides the dock surfaces with no View source (Reasoning, and Model, which reads legacy node shapes: review 00002 #4) and keeps Analysis, the chat, Team, and Compare and Version history (fed by core\'s stored versions)', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
-    for (const gone of ['compare', 'analysisNew', 'diagnostics', 'lenses']) expect(coreLaneShowsSurface(gone)).toBe(false)
-    for (const keep of ['results', 'olumi', 'team']) expect(coreLaneShowsSurface(keep)).toBe(true)
+    for (const gone of ['analysisNew', 'diagnostics', 'lenses']) expect(coreLaneShowsSurface(gone)).toBe(false)
+    for (const keep of ['results', 'olumi', 'team', 'compare', 'versions']) expect(coreLaneShowsSurface(keep)).toBe(true)
   })
 
   it('is the core route on every host and whatever the link says, so no URL needs ?ai=core and none can pick another lane', () => {
