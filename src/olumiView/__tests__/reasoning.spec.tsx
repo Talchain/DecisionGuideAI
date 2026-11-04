@@ -26,7 +26,7 @@ const ready = (view: View, more: object = {}) => {
 afterEach(() => { cleanup(); clearWhatIf(); setTeamFetch(null); resetWrites(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
 /** Every word drawn: inside an element bound to its View string, or one of the tab's own labels (code writes labels, core the rest). */
-const LABELS = new Set(['Worth checking first', 'Try a figure', '✎', ' '])
+const LABELS = new Set(['Worth checking first', 'Try a figure', '✎', ' ', '\u00a0']) // spacing only: a plain space, and the no-break space that keeps a mark on its value's line (R5)
 const unbound = (root: HTMLElement, also: string[]) => {
   const out: string[] = [], walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   for (let n = walk.nextNode(); n !== null; n = walk.nextNode()) {

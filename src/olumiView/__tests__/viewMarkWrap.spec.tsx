@@ -9,6 +9,7 @@ import path from 'node:path'
 import { cleanup, render } from '@testing-library/react'
 import type { View } from '../client'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
+import { Row } from '../ViewChances'
 
 afterEach(cleanup)
 const capacity: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', 'capacity.view3.json'), 'utf8'))
@@ -30,5 +31,18 @@ describe('a chance row\'s marks wrap with the value\'s last word, never alone', 
     }
     expect(getComputedStyle(row).display === 'flex' ? row.className.includes('flex-wrap') : false).toBe(false)
     expect(row.textContent).toContain(`does not happen\u00a0◆\u00a0◉`)
+  })
+})
+
+describe('the same in the panel (Analysis and Reasoning, ViewChances Row; R3 witness shot k-analysis)', () => {
+  it('the real row: each mark in the value\'s own run, after a no-break space, never a flex item of its own', () => {
+    const at = `${card.id}.rows.${i}`
+    const c = render(<Row card={card} row={card.rows[i]!} i={i} />).container
+    const row = c.querySelector<HTMLElement>(`[data-view-row="${at}"]`)!
+    for (const m of ['olumi', 'likely']) {
+      const mark = row.querySelector<HTMLElement>(`[data-view="${at}.${m}.glyph"]`)!
+      expect(mark.parentElement!.contains(row.querySelector(`[data-view="${at}.value"]`)), m).toBe(true)
+      expect(mark.previousSibling?.textContent?.endsWith('\u00a0') ?? false, m).toBe(true)
+    }
   })
 })
