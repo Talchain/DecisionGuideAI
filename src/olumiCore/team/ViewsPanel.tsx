@@ -28,10 +28,6 @@ function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX.Elemen
  * View's `collab`: the heading, the placeholder, your own views still private to you, the team's revealed views, whether the reveal is
  * open (`can_reveal`) and whom it waits for. Words go to core exactly as typed; a given view is never edited.
  */
-/** `collab.mine[].can_share` (olumi-core, github-3c, olumi.view/3): sharing one's own view before the reveal. Until core's schema carries
- *  it the field is read here, and only `true` offers the share; a core without it offers nothing. */
-const canShare = (v: View['collab']['mine'][number]): boolean => (v as { can_share?: unknown }).can_share === true
-
 export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element {
   const c = view.collab
   const [text, setText, dropText] = useDraft(`${sid}:view`, '')
@@ -84,7 +80,8 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
               <p className={`${META} flex items-center gap-1.5 text-text-header`}><Lock aria-hidden="true" className="h-3 w-3 flex-none" />Private to you until everyone’s views are revealed</p>
               {v.skip ? <p className={META}>You chose not to answer.</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
               <Figures at={`team-mine-${v.id}`} figures={v.figures} />
-              {canShare(v) && !v.skip && (
+              {/* `can_share` is core's rule whole (a second member, this round's view, not a skip): nothing here adds to it. */}
+              {v.can_share && (
                 <div>
                   <Button size="sm" variant="secondary" data-testid={`team-share-${v.id}`} disabled={busy || sending || shareLocked(v.id)}
                     title="Shows this view to the team now, before the others are revealed. Olumi does not read it until then."

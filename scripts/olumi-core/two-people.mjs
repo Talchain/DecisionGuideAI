@@ -42,6 +42,8 @@ const person = async (name, link, to) => {
   return { name, ctx, page }
 }
 const view = (p, sid) => p.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view`)).json(), sid)
+/** The View as DGAI reads it (olumi.view/3): `can_share`, `gated` and v3's `waiting` live only here. */
+const view3 = (p, sid) => p.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view?schema=3`)).json(), sid)
 /** The View once core holds what was just asked for: a press answers asynchronously, so a read straight after the click can come first. */
 const viewWhen = async (p, sid, ready) => {
   for (const end = Date.now() + T; Date.now() < end;) { const v = await view(p, sid); if (ready(v)) return v; await p.page.waitForTimeout(500) }
@@ -244,6 +246,7 @@ check(await bea.page.locator('.react-flow__node-viewCard').count() === cards, 'B
 // The signature also covers who is in the round, so the two are compared on the version and the model itself, read now.
 const [va1, vb] = [await view(ada, sid), await view(bea, sid)]
 check(vb.version.id === va1.version.id && JSON.stringify(vb.model) === JSON.stringify(va1.model), 'Bea\'s View is the same version and model, marks and results as Ada\'s')
+let shared = null // Ada's view, once she shares it early
 for (const [p, words] of [[ada, 'Hire now: the backlog is the real risk.'], [bea, 'Wait a month: a new hire may unsettle the team.']]) {
   await teamCheck(p)
   await p.page.getByTestId('team-view-text').fill(words)
@@ -254,22 +257,35 @@ for (const [p, words] of [[ada, 'Hire now: the backlog is the real risk.'], [bea
     // The Team tab's nudge: whom the round still waits for, in core's words (`collab.waiting`), at the top of the tab.
     const w = (await view(ada, sid)).collab.waiting
     check(w !== null && await seen(ada, async () => (await ada.page.getByTestId('team-nudges').innerText({ timeout: 1000 })).includes(w)), `Ada's Team tab says whom the round waits for, as core does ("${w}")`)
-    // Sharing her own view before the reveal is offered exactly where core says it can be (`collab.mine[].can_share`, github-3c).
-    const own = (await view(ada, sid)).collab.mine[0]
-    if (!('can_share' in own)) check(await ada.page.locator('[data-testid^="team-share-"]').count() === 0, 'this core offers no early share (no `can_share`), and DGAI offers none')
-    else check(await ada.page.getByTestId(`team-share-${own.id}`).count() === (own.can_share ? 1 : 0), `core says Ada ${own.can_share ? 'can' : 'cannot'} share her view early, and DGAI offers it accordingly`)
+    // Ada shares her own view before the reveal (core API v1.12, POST …/views/:id/reveal), where core says she can (`can_share`).
+    const own = (await view3(ada, sid)).collab.mine[0]
+    check(own.can_share === true && await seen(ada, async () => await ada.page.getByTestId(`team-share-${own.id}`).count() === 1), 'core says Ada can share her view early, and her Team tab offers it')
+    await ada.page.getByTestId(`team-share-${own.id}`).click()
+    check(await seen(ada, async () => (await ada.page.getByTestId('team-revealed').innerText({ timeout: 1000 })).includes(words) && await ada.page.getByTestId(`team-mine-${own.id}`).count() === 0),
+      'shared: her view now shows as the team\'s, no longer private to her')
+    const vb0 = await view3(bea, sid)
+    check(vb0.collab.shared.some((x) => x.id === own.id && x.text === words) && vb0.gated === true, 'core shows it to Bea and marks Bea gated until she gives her own (the client withholds it by that flag)')
+    shared = own.id
   }
 }
 await teamCheck(ada)
 check(!(await ada.page.getByTestId('team-tab').innerText()).includes('Wait a month'), 'Ada cannot see Bea\'s view before the reveal')
 await shot(bea, '1-bea-private-view')
-// Everyone has given: the nudge offers the reveal (core's `can_reveal`), and nothing says the round still waits.
-check((await view(ada, sid)).collab.can_reveal && await seen(ada, async () => await ada.page.getByTestId('team-nudges').getByTestId('team-reveal-go').isVisible({ timeout: 1000 }) && await ada.page.getByTestId('team-waiting').count() === 0), 'everyone has given: Ada\'s Team tab offers the reveal at the top')
+// Bea has given her own now: Ada's early-shared view is hers to see, before the round's reveal.
+await teamCheck(bea)
+check(await seen(bea, async () => (await bea.page.getByTestId('team-revealed').innerText({ timeout: 1000 })).includes('Hire now')), 'Bea, having given her own, sees Ada\'s early-shared view before the reveal')
+// Everyone has given: the nudge offers the reveal to whoever core says can make it (`can_reveal`), and nothing says the round still waits.
+// The round is ready (core API v1.12 with 42cd69d: can_reveal follows the round, not the viewer's own private view), so Ada, who shared
+// hers early, can reveal once Bea has given.
+const [ra, rb] = [(await view3(ada, sid)).collab.can_reveal, (await view3(bea, sid)).collab.can_reveal]
+check(ra && rb, 'core offers the reveal to both: Ada, having shared early, too')
+const revealer = ada
+check(await seen(revealer, async () => { await teamCheck(revealer); return await revealer.page.getByTestId('team-nudges').getByTestId('team-reveal-go').isVisible({ timeout: 1000 }) && await revealer.page.getByTestId('team-waiting').count() === 0 }), 'everyone has given: Ada\'s Team tab offers the reveal at the top, though her own view was shared early')
 
 // ── 2. The reveal ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
-step(2, 'Ada reveals everyone\'s views together; Bea sees both')
-await ada.page.getByTestId('team-reveal-go').click()
-await ada.page.getByTestId('team-revealed').getByText('Wait a month').waitFor({ timeout: T })
+step(2, 'Ada reveals the rest of the round; Bea sees both')
+await revealer.page.getByTestId('team-reveal-go').click()
+await revealer.page.getByTestId('team-revealed').getByText('Wait a month').waitFor({ timeout: T })
 await teamCheck(bea)
 check(await seen(bea, async () => { const t = await bea.page.getByTestId('team-revealed').innerText(); return t.includes('Hire now') && t.includes('Wait a month') }), 'both views, with their authors, on Bea\'s screen')
 v = await view(bea, sid)

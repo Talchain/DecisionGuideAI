@@ -102,13 +102,24 @@ describe('sharing one\'s own view before the reveal', () => {
     await waitFor(() => expect(posts().map((c) => c.path)).toEqual([`/api/scenarios/${SID}/views/4/reveal`]))
     await waitFor(() => expect(reread()).toBeGreaterThan(0))
   })
-  it('a core without `can_share`, or one that says false, offers nothing; a skip has nothing to share', () => {
-    for (const v of [withShare(undefined), withShare(false), withShare(true, true)]) {
+  it('a core without `can_share`, or one that says false (a skip, alone, not this round: core\'s rule), offers nothing', () => {
+    for (const v of [withShare(undefined), withShare(false), withShare(false, true)]) {
       show(v)
       const { unmount } = render(<TeamTab />)
       expect(screen.queryByTestId('team-share-4')).toBeNull()
       unmount()
     }
+  })
+  it('a share core refuses says so in core\'s words, and nothing else changes', async () => {
+    show(withShare(true))
+    setTeamFetch((async (u: unknown, init?: RequestInit) => {
+      calls.push({ method: init?.method ?? 'GET', path: String(u), body: undefined })
+      return (init?.method ?? 'GET') === 'POST' ? new Response(JSON.stringify({ error: 'a view is shared early only once a second person has joined' }), { status: 409 }) : new Response(JSON.stringify(served), { status: 200 })
+    }) as unknown as typeof fetch)
+    render(<TeamTab />)
+    fireEvent.click(screen.getByTestId('team-share-4'))
+    expect((await screen.findByTestId('team-views-error')).textContent).toContain('a view is shared early only once a second person has joined')
+    expect(screen.getByTestId('team-mine-4')).toBeTruthy()
   })
   it('a share whose answer was lost is not sent again', async () => {
     show(withShare(true))
