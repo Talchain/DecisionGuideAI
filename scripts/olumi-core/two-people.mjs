@@ -50,6 +50,26 @@ const viewWhen = async (p, sid, ready) => {
 const shot = async (p, label) => { if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await p.page.screenshot({ path: `${SHOTS}/${label}.png` }) } }
 const tab = async (p, id) => { await p.page.getByTestId(`outputs-dock-tab-${id}`).click() }
 const teamCheck = async (p) => { await tab(p, 'team'); await p.page.getByTestId('team-check').click(); await p.page.waitForTimeout(400) }
+/** Pan the canvas as a person does in select mode (a middle-button drag), moving its content by (dx, dy). */
+const pan = async (p, dx, dy) => {
+  const pane = await p.page.locator('.react-flow').first().boundingBox()
+  const x = pane.x + pane.width / 2, y = pane.y + pane.height / 2
+  await p.page.mouse.move(x, y)
+  await p.page.mouse.down({ button: 'middle' })
+  await p.page.mouse.move(x + dx, y + dy, { steps: 12 })
+  await p.page.mouse.up({ button: 'middle' })
+}
+/** Bring a card to the middle of the canvas by panning to it: a real first model has cards beyond the view, which Playwright's scroll
+ *  cannot reach on a transformed canvas (github-a7's real-AI witness, 4 Nov). */
+const reach = async (p, id) => {
+  const pane = await p.page.locator('.react-flow').first().boundingBox()
+  const b = await p.page.locator(`.react-flow__node[data-id="${id}"]`).boundingBox()
+  await pan(p, pane.x + pane.width / 2 - (b.x + b.width / 2), pane.y + pane.height / 2 - (b.y + b.height / 2))
+}
+const inView = async (p, id) => {
+  const pane = await p.page.locator('.react-flow').first().boundingBox(), b = await p.page.locator(`.react-flow__node[data-id="${id}"]`).boundingBox()
+  return b.x >= pane.x && b.y >= pane.y && b.x + b.width <= pane.x + pane.width && b.y + b.height <= pane.y + pane.height
+}
 /** Core's own page for the scenario, opened by the same person (their cookie), as its text. */
 const corePage = async (p, sid) => {
   const other = await p.ctx.newPage()
@@ -170,6 +190,12 @@ await tab(ada, 'olumi')
 await ada.page.fill('#view-chat-text', 'Add staff absence as a factor.')
 await ada.page.getByRole('button', { name: 'Send', exact: true }).click()
 await ada.page.getByTestId('view-chat-proposal').waitFor({ timeout: T })
+// L8: core's change list on the card, each line with its tick; ticking one offers "Approve ticked · 1" (approved whole here; step 9 ticks).
+const held = (await view(ada, sid)).proposal
+check(held.changes.length > 0 && await ada.page.locator('[data-testid^="view-change-tick-"]').count() === held.changes.length, `core's ${held.changes.length} change line(s), each with its tick`)
+await ada.page.getByTestId('view-change-tick-0').check()
+check((await ada.page.getByTestId('view-approve-ticked').innerText()).includes('Approve ticked · 1'), 'one tick offers Approve ticked · 1')
+await ada.page.getByTestId('view-change-tick-0').uncheck()
 await ada.page.getByRole('button', { name: 'Approve', exact: true }).click()
 await ada.page.waitForFunction(() => document.querySelectorAll('.react-flow__node-viewCard').length > 0, null, { timeout: T })
 v = await viewWhen(ada, sid, (x) => x.proposal === null && x.version?.n === 2)
@@ -186,6 +212,11 @@ await shot(bea, '5-bea-version-2')
 step('5b', 'Ada changes a figure on its card in DGAI, typed as she would say it; core reads it and both screens show it')
 const editable = v.model.cards.find((c) => c.figure?.edit)
 check(editable !== undefined, `core offers a figure to change ("${editable?.heading}")`)
+// The card may be beyond the view on a real first model: here it is first panned off, then Ada pans to it, so the proof always reaches it.
+await pan(ada, 4000, 0)
+check(!(await inView(ada, editable.id)), 'the card is off the view')
+await reach(ada, editable.id)
+check(await inView(ada, editable.id), 'Ada pans the canvas to it')
 await ada.page.getByTestId(`view-figure-edit-${editable.id}`).click()
 await ada.page.getByTestId(`view-figure-typed-${editable.id}`).fill('lots')
 await ada.page.getByTestId(`view-figure-set-${editable.id}`).click()
@@ -265,6 +296,19 @@ const shownChanges = await ada.page.getByTestId('team-compare-changes').locator(
 check(cmp.changes.length > 0 && shownChanges === cmp.changes.length, `compare version 1 with 3 draws core's ${cmp.changes.length} change lines`)
 const [va, vb2] = [await view(ada, sid), await view(bea, sid)]
 check(va.version.id === vb2.version.id && JSON.stringify(va.model) === JSON.stringify(vb2.model) && JSON.stringify(va.evidence) === JSON.stringify(vb2.evidence) && JSON.stringify(va.collab.commitments) === JSON.stringify(vb2.collab.commitments), 'Ada\'s and Bea\'s Views are the same model, marks, results, evidence and commitments')
+
+// ── 9. Partial approval (L8) ────────────────────────────────────────────────────────────────────────────────────────────────────
+step(9, 'Ada asks for another change and approves only its first line (core\'s `only` / `only_top`)')
+const before = va.version.n
+await tab(ada, 'olumi')
+await ada.page.fill('#view-chat-text', 'Add a third option.')
+await ada.page.getByRole('button', { name: 'Send', exact: true }).click()
+await ada.page.getByTestId('view-chat-proposal').waitFor({ timeout: T })
+const part = (await viewWhen(ada, sid, (x) => x.proposal !== null)).proposal
+await ada.page.getByTestId('view-change-tick-0').check()
+await ada.page.getByTestId('view-approve-ticked').click()
+v = await viewWhen(ada, sid, (x) => x.proposal === null && x.version?.n === before + 1)
+check(v.proposal === null && v.version.n === before + 1, `core approved the ticked line alone ("${part.changes[0].text}" of ${part.changes.length}): version ${before + 1}`)
 
 console.log(`\nAll steps hold. Scenario ${sid}: DGAI ${BASE}/#/scenario/${uuidOf(sid)} · core ${BASE}/s/${sid}`)
 await browser.close()
