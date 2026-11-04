@@ -1,0 +1,245 @@
+{
+ "scenario": "s_441113f79584",
+ "version": {
+  "id": 15,
+  "n": 3
+ },
+ "hypothetical": true,
+ "saved": false,
+ "variants": [
+  {
+   "hypothetical": true,
+   "edits": [
+    {
+     "quantity": "existing_capacity",
+     "label": "existing capacity",
+     "words": "Set \"existing capacity\" to 5 ticket/week."
+    }
+   ],
+   "facts": [
+    {
+     "id": "F1",
+     "value": "never met in this model",
+     "text": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It leaves out: How the team feels about a new hire.",
+     "about": {
+      "kind": "chance",
+      "option": "hold",
+      "goal": "capacity_goal",
+      "chance": 0,
+      "olumi": false,
+      "approx": false,
+      "fixed": true,
+      "rests": [],
+      "basis_text": " It leaves out: How the team feels about a new hire."
+     }
+    },
+    {
+     "id": "F2",
+     "value": "5 tickets/week",
+     "text": "Under 'Keep current staffing', 'total capacity' is this in at least 8 draws in 10. It leaves out: How the team feels about a new hire.",
+     "about": {
+      "kind": "range",
+      "option": "hold",
+      "goal": "capacity_goal",
+      "approx": false,
+      "low": 5,
+      "high": 5,
+      "median": 5,
+      "unit": "ticket/week",
+      "olumi": false,
+      "rests": [],
+      "basis_text": " It leaves out: How the team feels about a new hire."
+     }
+    },
+    {
+     "id": "F3",
+     "value": "under 1%",
+     "text": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. It leaves out: How the team feels about a new hire.",
+     "about": {
+      "kind": "chance",
+      "option": "add_one",
+      "goal": "capacity_goal",
+      "chance": 0,
+      "olumi": false,
+      "approx": false,
+      "rests": [],
+      "basis_text": " It leaves out: How the team feels about a new hire."
+     }
+    },
+    {
+     "id": "F4",
+     "value": "between 14.7 and 34.9 tickets/week (middle 24.9)",
+     "text": "Under 'Add one specialist', 'total capacity' is likely to be in this range (8 draws in 10). It leaves out: How the team feels about a new hire.",
+     "about": {
+      "kind": "range",
+      "option": "add_one",
+      "goal": "capacity_goal",
+      "approx": false,
+      "low": 14.679518196673104,
+      "high": 34.91851476864522,
+      "median": 24.929807960704345,
+      "unit": "ticket/week",
+      "olumi": false,
+      "rests": [],
+      "basis_text": " It leaves out: How the team feels about a new hire."
+     }
+    },
+    {
+     "id": "F5",
+     "value": "no option is clearly more likely than another to achieve 'At least 100 a week'",
+     "text": "No option is clearly more likely than another to achieve 'At least 100 a week' in this model; the top two are too close to separate. It leaves out: How the team feels about a new hire.",
+     "about": {
+      "kind": "none_clearly",
+      "goal": "capacity_goal",
+      "rests": [],
+      "olumi": false,
+      "approx": false,
+      "basis_text": " It leaves out: How the team feels about a new hire."
+     }
+    },
+    {
+     "id": "F6",
+     "value": "5 tickets/week",
+     "text": "Their figure for 'existing capacity': 5 tickets/week.",
+     "about": {
+      "kind": "input",
+      "quantity": "existing_capacity",
+      "olumi": false,
+      "likely": 5,
+      "unit": "ticket/week"
+     }
+    },
+    {
+     "id": "F7",
+     "value": "10 to 30 tickets/week/specialist, most likely 20 tickets/week/specialist",
+     "text": "Their figure for 'per specialist': 10 to 30 tickets/week/specialist, most likely 20 tickets/week/specialist.",
+     "about": {
+      "kind": "input",
+      "quantity": "per_specialist",
+      "olumi": false,
+      "low": 10,
+      "high": 30,
+      "likely": 20,
+      "unit": "ticket/week/specialist"
+     }
+    },
+    {
+     "id": "F8",
+     "value": "1 specialist",
+     "text": "Their figure for 'one specialist': 1 specialist.",
+     "about": {
+      "kind": "input",
+      "quantity": "one_specialist",
+      "olumi": false,
+      "likely": 1,
+      "unit": "specialist"
+     }
+    },
+    {
+     "id": "F9",
+     "value": "100 tickets/week",
+     "text": "Their figure for 'capacity target': 100 tickets/week.",
+     "about": {
+      "kind": "input",
+      "quantity": "capacity_target",
+      "olumi": false,
+      "likely": 100,
+      "unit": "ticket/week"
+     }
+    }
+   ],
+   "values": [
+    {
+     "option": "hold",
+     "quantity": "added_capacity",
+     "reading": "state",
+     "period": 1,
+     "unit": "ticket/week",
+     "olumi": false,
+     "p10": 0,
+     "p50": 0,
+     "p90": 0
+    },
+    {
+     "option": "hold",
+     "quantity": "total_capacity",
+     "reading": "state",
+     "period": 1,
+     "unit": "ticket/week",
+     "olumi": false,
+     "p10": 5,
+     "p50": 5,
+     "p90": 5
+    },
+    {
+     "option": "add_one",
+     "quantity": "added_capacity",
+     "reading": "state",
+     "period": 1,
+     "unit": "ticket/week",
+     "olumi": false,
+     "p10": 9.679518196673104,
+     "p50": 19.929807960704345,
+     "p90": 29.918514768645213
+    },
+    {
+     "option": "add_one",
+     "quantity": "total_capacity",
+     "reading": "state",
+     "period": 1,
+     "unit": "ticket/week",
+     "olumi": false,
+     "p10": 14.679518196673104,
+     "p50": 24.929807960704345,
+     "p90": 34.91851476864522
+    }
+   ],
+   "blocked": null,
+   "stopped": null,
+   "moved": true,
+   "why_not": null,
+   "rows": [
+    {
+     "option_id": "hold",
+     "rows": [
+      {
+       "kind": "chance",
+       "value": "never met in this model",
+       "fixed": true,
+       "approx": "",
+       "title": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It leaves out: How the team feels about a new hire.",
+       "aim": "At least 100 a week",
+       "aim_id": "capacity_goal",
+       "olumi": null,
+       "likely": null,
+       "estimate": null
+      }
+     ]
+    },
+    {
+     "option_id": "add_one",
+     "rows": [
+      {
+       "kind": "chance",
+       "value": "under 1% chance",
+       "fixed": false,
+       "approx": "",
+       "title": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. It leaves out: How the team feels about a new hire.",
+       "aim": "At least 100 a week",
+       "aim_id": "capacity_goal",
+       "olumi": null,
+       "likely": null,
+       "estimate": null
+      }
+     ]
+    }
+   ],
+   "most_likely": {
+    "text": "No option is clearly more likely than another to achieve 'At least 100 a week' in this model; the top two are too close to separate.",
+    "title": "No option is clearly more likely than another to achieve 'At least 100 a week' in this model; the top two are too close to separate. It leaves out: How the team feels about a new hire.",
+    "estimate": null
+   }
+  }
+ ],
+ "coach": null
+}

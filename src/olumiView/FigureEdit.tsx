@@ -5,6 +5,7 @@
  * `figure.edit.ask`, shown here. Nothing is parsed or converted on this page. The edit is the person's: applied at once, then Olumi replies.
  */
 import { useState } from 'react'
+import { tryWhatIf } from './whatif'
 import { typography } from '../styles/typography'
 import { TeamApiError } from '../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../olumiCore/team/writes'
@@ -28,6 +29,7 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
   const [open, setOpen] = useState(false)
   const [typed, setTyped] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [trying, setTrying] = useState(false)
   const key = `${sid}:edit:${id}`
   const sending = useWriteSending(key)
   const base = view?.model?.edit_base ?? null
@@ -44,6 +46,15 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
     } catch (e) {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
     }
+  }
+
+  /** The same figure on a copy, nothing saved (core's what-if); its answer is drawn over the chances until the View moves on. */
+  const tryIt = async () => {
+    if (typed.trim() === '' || sending || trying) return
+    setError(null); setTrying(true)
+    try { await tryWhatIf(sid, base, id, typed) } catch (e) {
+      setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was tried.')
+    } finally { setTrying(false) }
   }
 
   if (!open) {
@@ -70,6 +81,8 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
       <div className="flex gap-2">
         <button type="submit" data-testid={`${place}-set-${id}`} disabled={sending || typed.trim() === ''}
           className={`${typography.nodeLabel} cursor-pointer rounded bg-primary px-2 py-0.5 text-text-on-color disabled:opacity-50`}>Set figure</button>
+        <button type="button" data-testid={`${place}-try-${id}`} disabled={sending || trying || typed.trim() === ''} onClick={() => void tryIt()}
+          className={`${typography.nodeLabel} cursor-pointer rounded border border-info/30 px-2 py-0.5 text-info disabled:opacity-50`}>Try without saving</button>
         <button type="button" disabled={sending} onClick={() => { setOpen(false); setError(null) }}
           className={`${typography.nodeLabel} cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>

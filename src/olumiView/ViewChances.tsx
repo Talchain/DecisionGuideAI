@@ -11,6 +11,7 @@ import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow, ViewRun } from './client'
 import { optionCards } from './layout'
 import { currentModel, useViewStore } from './store'
+import { clearWhatIf, useWhatIf } from './whatif'
 import { typography } from '../styles/typography'
 
 function Mark({ at, mark }: { at: string; mark: { glyph: string; title: string } | null }) {
@@ -45,6 +46,43 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
   }
 }
 
+/**
+ * The what-if shown (core's `POST …/whatif`): marked not saved, core's words for the figure tried, then what the copy's Run gives, each
+ * option's rows drawn by `Row` from core's own row shape, under the option's heading from this View. Only for the version it was asked on.
+ */
+export function WhatIfShown({ model }: { model: ViewModel }) {
+  const sid = useViewStore((s) => s.sid)
+  const shown = useWhatIf((s) => s.shown)
+  if (shown === null || shown.sid !== sid || shown.base !== model.edit_base) return null
+  const v = shown.variant, heading = new Map(optionCards(model).map((c) => [c.id, c]))
+  return (
+    <div className="space-y-2 rounded-lg border border-info/30 p-2" data-testid="view-whatif" aria-label="What-if, not saved">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className={typography.panelHeader}>What-if, not saved</p>
+        <button type="button" data-testid="view-whatif-clear" onClick={clearWhatIf} className={`${typography.panelMeta} cursor-pointer text-info underline underline-offset-2`}>Clear</button>
+      </div>
+      {v.edits.map((e, i) => <p key={e.quantity} data-view={`whatif.edits.${i}.words`}>{e.words}</p>)}
+      {v.stopped !== null ? <p data-view="whatif.stopped">{v.stopped}</p>
+        : v.blocked !== null ? <p title={v.blocked} data-testid="view-whatif-blocked">Olumi could not work this what-if out.</p>
+          : (
+            <>
+              {v.moved || v.why_not === null ? null : <p className={typography.panelMeta} data-view="whatif.why_not">{v.why_not}</p>}
+              {v.most_likely === null ? null : <p title={v.most_likely.title} data-view="whatif.most_likely.text">{v.most_likely.text}</p>}
+              {v.rows.map((o) => {
+                const card = heading.get(o.option_id)
+                return card === undefined ? null : (
+                  <div key={o.option_id} data-whatif-card={o.option_id}>
+                    <div className={typography.panelHeader}>{card.heading}</div>
+                    {o.rows.map((row, i) => <Row key={i} card={{ ...card, id: `whatif.${o.option_id}` }} row={row} i={i} />)}
+                  </div>
+                )
+              })}
+            </>
+          )}
+    </div>
+  )
+}
+
 type WaitsOn = NonNullable<ViewRun['waits_on']>
 
 /** What the chances wait on, each item core's `‘label’` with its hover; a figure no one can size yet says so in the headline only. */
@@ -74,6 +112,7 @@ export function ViewChances({ model }: { model: ViewModel }) {
   const headline = run !== null && run.all_withheld && run.waits_on !== null
   return (
     <div className={`${typography.panelBody} space-y-3`} data-testid="view-chances">
+      <WhatIfShown model={model} />
       {run?.lead == null ? null : <p data-view="run.lead">{run.lead}</p>}
       {!headline ? null : (
         <div data-testid="view-run-waits-headline">
