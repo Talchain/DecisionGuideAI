@@ -324,4 +324,27 @@ export type View = {
       title: string
     }>
   }>
+  weights?: {
+    aims: Array<{
+      aim_id: string
+      aim: string
+      dissent: string | null
+      dots: Array<{
+        by: string
+        by_id: string
+        weight: "more" | "same" | "less"
+        text: string
+        mine: boolean
+        revealed: boolean
+      }>
+    }>
+    skipped: Array<{
+      by: string
+      by_id: string
+      mine: boolean
+      revealed: boolean
+    }>
+    can_reveal: boolean
+    waiting: string | null
+  }
 }

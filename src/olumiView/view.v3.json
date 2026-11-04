@@ -1724,6 +1724,121 @@
     ],
     "additionalProperties": false
    }
+  },
+  "weights": {
+   "type": "object",
+   "properties": {
+    "aims": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "aim_id": {
+        "type": "string"
+       },
+       "aim": {
+        "type": "string"
+       },
+       "dissent": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "dots": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "by": {
+           "type": "string"
+          },
+          "by_id": {
+           "type": "string"
+          },
+          "weight": {
+           "type": "string",
+           "enum": [
+            "more",
+            "same",
+            "less"
+           ]
+          },
+          "text": {
+           "type": "string"
+          },
+          "mine": {
+           "type": "boolean"
+          },
+          "revealed": {
+           "type": "boolean"
+          }
+         },
+         "required": [
+          "by",
+          "by_id",
+          "weight",
+          "text",
+          "mine",
+          "revealed"
+         ],
+         "additionalProperties": false
+        }
+       }
+      },
+      "required": [
+       "aim_id",
+       "aim",
+       "dissent",
+       "dots"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "skipped": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "by": {
+        "type": "string"
+       },
+       "by_id": {
+        "type": "string"
+       },
+       "mine": {
+        "type": "boolean"
+       },
+       "revealed": {
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "by",
+       "by_id",
+       "mine",
+       "revealed"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "can_reveal": {
+     "type": "boolean"
+    },
+    "waiting": {
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "required": [
+    "aims",
+    "skipped",
+    "can_reveal",
+    "waiting"
+   ],
+   "additionalProperties": false
   }
  },
  "required": [
