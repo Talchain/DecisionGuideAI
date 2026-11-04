@@ -10,7 +10,7 @@
  *
  * Two halves, because either alone is vacuous:
  *   1. SOURCE — every `<ReactFlow>` in `src/` that is wired to the store's
- *      change handlers (today: one, in `ReactFlowGraph.tsx`) passes
+ *      change handlers (today: two, `ReactFlowGraph.tsx` and the core lane's `olumiView/ViewCanvas.tsx`) passes
  *      `deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE}`, with a positive control on
  *      the scan's own reach;
  *   2. WIRE — at the installed @xyflow/react, that value really does switch the
@@ -48,6 +48,8 @@ const SOURCES: Array<{ file: string; code: string }> = (
   .map((f) => ({ file: f, code: stripComments(readFileSync(join(SRC, f), 'utf8')) }))
 
 const GRAPH_FILE = join('canvas', 'ReactFlowGraph.tsx')
+/** The core lane's own canvas (DL 4 Nov): the second store-wired mount, its change handler the store's own. */
+const VIEW_FILE = join('olumiView', 'ViewCanvas.tsx')
 const GRAPH = SOURCES.find((s) => s.file === GRAPH_FILE)?.code ?? ''
 
 /** Every `<ReactFlow …>` opening element in the file, props included. */
@@ -80,15 +82,16 @@ const allStoreWired = () =>
   SOURCES.flatMap(({ file, code }) => storeWired(code).map((el) => ({ file, el })))
 
 describe('SOURCE: every store-wired canvas switches React Flow\'s delete key off', () => {
-  it('POSITIVE CONTROL: the scan reaches the graph\'s nine mounts, and finds exactly one store-wired mount in src/', () => {
+  it('POSITIVE CONTROL: the scan reaches the graph\'s nine mounts, and finds exactly two store-wired mounts in src/ (the graph, the core lane\'s canvas)', () => {
     // Nine at 64a3b385: the live canvas plus eight debug/isolation modes that
     // pass no change handlers (a built-in delete there cannot reach the store).
     expect(SOURCES.length).toBeGreaterThan(100)
     expect(reactFlowElements(GRAPH)).toHaveLength(9)
     const wired = allStoreWired()
-    expect(wired.map((w) => w.file)).toEqual([GRAPH_FILE])
+    expect(wired.map((w) => w.file)).toEqual([GRAPH_FILE, VIEW_FILE])
     expect(wired[0].el).toContain('onNodesChange={handleNodesChange}')
     expect(wired[0].el).toContain('onEdgesChange={handleEdgesChange}')
+    expect(wired[1].el).toContain('onNodesChange={onNodesChange}')
   })
 
   it('⛔ each of them passes deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE}', () => {
