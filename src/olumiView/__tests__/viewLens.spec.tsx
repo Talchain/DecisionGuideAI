@@ -73,8 +73,8 @@ describe('What would change, from the View', () => {
     expect([...driversOf(withFigures('starting_customers').model!).keys()]).toEqual(['starting_customers'])
   })
   it('CONTRAST: no figure named, or one no card draws or folds: nothing is marked (never matched by its heading)', () => {
+    // (Not the golden as vendored: from core e16a497 on it names its figures itself.)
     expect(driversOf(withFigures(null).model!).size).toBe(0)
-    expect(driversOf(model).size).toBe(0)
     expect(driversOf(withFigures('New customers from existing markets').model!).size).toBe(0)
   })
   it('on the card: how many options it moves, core\'s driver words on hover, the card ringed', () => {
@@ -86,7 +86,7 @@ describe('What would change, from the View', () => {
     expect(c.querySelector('[data-view-card]')!.className).toContain('ring-[3px]')
   })
   it('the bar: before a Run names a driver the lens is shown but cannot be chosen, and says how to get one; with one it switches', () => {
-    useViewStore.setState({ view })
+    useViewStore.setState({ view: withFigures(null) })
     const { unmount } = render(<ViewLensBar />)
     const lens = screen.getByTestId('lens-bar-what_changes')
     expect([lens.getAttribute('aria-disabled'), lens.title]).toEqual(['true', 'Run the analysis to see what would change it.'])
