@@ -25,6 +25,9 @@ import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding
 import type { AIInputBarProps } from '../canvas/components/AIInputBar'
 import { useUIStore } from '../stores/uiStore'
 import { FigureEdit } from './FigureEdit'
+import { V10MethodChips } from '../presentation/V10MethodChips'
+import { ringCards } from './v10'
+import { VIEW_NOTE_SLOT } from './note'
 
 type Said = NonNullable<ViewTurn['answer']>['answer']
 
@@ -53,7 +56,9 @@ function Turn({ t, at, answerFirst = false }: { t: ViewTurn; at: string; answerF
           <ul className="list-disc pl-4">{t.answer.why.map((w, j) => <li key={j}><Words parts={w} at={`${at}.answer.why.${j}`} /></li>)}</ul>
         </details>
       )}
-      <p><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} /></p>
+      {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
+      <p tabIndex={t.answer.next.about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ringCards(t.answer!.next.about)} onMouseLeave={() => ringCards([])}
+        onFocus={() => ringCards(t.answer!.next.about)} onBlur={() => ringCards([])}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} /></p>
     </div>
   )
   return (
@@ -410,6 +415,8 @@ export function ViewChat() {
         {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
         {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
         {view === null ? null : <NextStepCard view={view} busy={busy} />}
+        {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
+        <div {...{ [VIEW_NOTE_SLOT]: '' }} />
         {view === null ? null : <ViewConversation chat={view.chat} />}
       </div>
     </div>
@@ -463,6 +470,8 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
       {busy ? <Working brief={brief} /> : null}
       <label className={brief ? typography.panelHeader : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
       {brief ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
+      {/* v10: ways to test the model, each filling the box with its prefix for the person to finish; nothing is sent. */}
+      {brief || busy ? null : <V10MethodChips value={text} onReplace={(t) => { useViewChat.setState({ text: t }); box.current?.focus() }} />}
       <textarea ref={box} id="view-chat-text" className="w-full rounded border border-border p-2" rows={brief ? 6 : 3} value={text}
         placeholder={brief ? BRIEF_EXAMPLE : undefined} aria-describedby={brief ? 'view-brief-intro' : undefined} disabled={busy} onChange={(e) => useViewChat.setState({ text: e.target.value })} />
       <div className="flex gap-2">

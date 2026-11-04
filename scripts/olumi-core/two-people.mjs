@@ -104,7 +104,7 @@ const outOfView = async (p) => {
   }).map((e) => e.getAttribute('data-id')), f)
 }
 /**
- * What a person must see on landing (DL 4 Nov, readable first): the question and every column's first card, in the canvas left of the dock;
+ * What a person must see on landing (DL 4 Nov, readable first): the question and every option (the top of the causal graph), in the canvas left of the dock;
  * and the whole board when it fits there at 0.5 or more. Returns the ids missing, [] when all is as it should be.
  */
 const notFramed = async (p, model) => p.page.evaluate(({ model, f }) => {
@@ -114,8 +114,8 @@ const notFramed = async (p, model) => p.page.evaluate(({ model, f }) => {
   const all = ['page:question', ...model.cards.map((c) => c.id)], rs = all.map(rect).filter(Boolean)
   const bw = (Math.max(...rs.map((r) => r.right)) - Math.min(...rs.map((r) => r.left))) / z, bh = (Math.max(...rs.map((r) => r.bottom)) - Math.min(...rs.map((r) => r.top))) / z
   const whole = Math.min(f.width / bw, f.height / bh) >= 0.5
-  const firsts = [...new Set(model.cards.map((c) => c.col))].map((col) => model.cards.find((c) => c.col === col).id)
-  return (whole ? all : ['page:question', ...firsts]).filter((id) => !inside(rect(id)))
+  const tops = model.cards.filter((c) => c.family === 'option').map((c) => c.id)
+  return (whole ? all : ['page:question', ...tops]).filter((id) => !inside(rect(id)))
 }, { model, f: await free(p) })
 /** Core's own page for the scenario, opened by the same person (their cookie), as its text. */
 const corePage = async (p, sid) => {
@@ -145,18 +145,20 @@ let v = await viewWhen(ada, sid, (x) => x.proposal === null)
 await ada.page.waitForTimeout(300)
 const cards = await ada.page.locator('.react-flow__node-viewCard').count()
 // The whole model in view on first open, left of the dock (live olumi-core-v3, 4 Nov: a real model opened cut off).
-// The requirement changed (DL 4 Nov): the question and every column's first card, and the whole board when it fits at 0.5 or more.
+// The requirement changed (DL 4 Nov): the question and every option (the top of the causal graph), and the whole board when it fits at 0.5 or more.
 const v1 = await viewWhen(ada, sid, (x) => x.version?.n === 1 && x.model !== null)
-check(await seen(ada, async () => (await notFramed(ada, v1.model)).length === 0), `on first open: the question, every column's first card, and the whole board when it fits at 0.5 or more${(await notFramed(ada, v1.model)).length ? ` (out: ${(await notFramed(ada, v1.model)).join(', ')})` : ''}`)
+check(await seen(ada, async () => (await notFramed(ada, v1.model)).length === 0), `on first open: the question, every option, and the whole board when it fits at 0.5 or more${(await notFramed(ada, v1.model)).length ? ` (out: ${(await notFramed(ada, v1.model)).join(', ')})` : ''}`)
 await shot(ada, '0-canvas-version-1')
 check(v.version?.n === 1 && v.proposal === null, 'core holds version 1 and nothing pending')
 check(cards === v.model.cards.length, `DGAI's canvas draws every card of core's View (${cards} of ${v.model.cards.length})`)
 check(!(await ada.page.getByText('Untitled scenario').first().isVisible().catch(() => false)) && await ada.page.getByText(v.title, { exact: true }).first().isVisible(), `the top bar names the scenario as core does ("${v.title}")`)
 for (const c of v.model.cards.slice(0, 4)) check(await ada.page.locator(`.react-flow__node-viewCard >> text=${c.heading}`).first().isVisible(), `card "${c.heading}" in core's words`)
 // No dead controls (Paul's W4 rule): what the lane cannot serve is not on the page at all, not shown dark.
-for (const gone of ['analysisNew', 'diagnostics', 'compare']) check(await ada.page.getByTestId(`outputs-dock-tab-${gone}`).count() === 0, `no ${gone === 'analysisNew' ? 'Reasoning' : gone === 'diagnostics' ? 'Model' : 'Compare'} tab`)
-check(await ada.page.getByTestId('lens-bar').count() === 0, 'no lens bar')
-for (const kept of ['olumi', 'results', 'team']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
+for (const gone of ['analysisNew', 'diagnostics']) check(await ada.page.getByTestId(`outputs-dock-tab-${gone}`).count() === 0, `no ${gone === 'analysisNew' ? 'Reasoning' : 'Model'} tab`)
+// The lenses are back on from the View (DL 4 Nov): the bar offers only those the View fills, Model and Rests on, never a dead one.
+check(JSON.stringify(await ada.page.getByTestId('lens-bar').getByRole('radio').evaluateAll((bs) => bs.map((b) => b.getAttribute('data-testid')))) === JSON.stringify(['lens-bar-full', 'lens-bar-rests_on']), 'the lens bar offers Model and Rests on, and no lens the View cannot fill')
+// Compare is core's own comparison of two approved versions (src/olumiCore/compare.tsx), so it is there.
+for (const kept of ['olumi', 'results', 'team', 'compare']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
 // G6: Olumi's next step, beside the one card core names, in core's words.
 const next = v.chat.find((t) => t.answer?.next.newest)?.answer?.next
 check(next && next.at !== null, `core puts Olumi's next step beside one card (${next?.at})`)
@@ -263,7 +265,7 @@ await ada.page.waitForFunction(() => document.querySelectorAll('.react-flow__nod
 v = await viewWhen(ada, sid, (x) => x.proposal === null && x.version?.n === 2)
 await ada.page.waitForTimeout(500)
 check(v.version.n === 2 && v.proposal === null, 'core holds version 2')
-check(await seen(ada, async () => (await notFramed(ada, v.model)).length === 0), 'version 2 on Ada\'s canvas: the question, every column\'s first card, and the whole board when it fits at 0.5 or more')
+check(await seen(ada, async () => (await notFramed(ada, v.model)).length === 0), 'version 2 on Ada\'s canvas: the question, every option, and the whole board when it fits at 0.5 or more')
 check(await ada.page.locator('.react-flow__node-viewCard').count() === v.model.cards.length, 'Ada\'s canvas draws version 2\'s cards')
 await teamCheck(bea)
 check(await seen(bea, async () => await bea.page.locator('.react-flow__node-viewCard').count() === v.model.cards.length), 'Bea\'s canvas moved to version 2 on her next read')
@@ -279,6 +281,7 @@ await pan(ada, 4000, 0)
 check(!(await inView(ada, editable.id)), 'the card is off the view')
 await reach(ada, editable.id)
 check(await inView(ada, editable.id), 'Ada pans the canvas to it')
+await shot(ada, '5b-reached')
 await ada.page.getByTestId(`view-figure-edit-${editable.id}`).click()
 await ada.page.getByTestId(`view-figure-typed-${editable.id}`).fill('lots')
 await ada.page.getByTestId(`view-figure-set-${editable.id}`).click()
@@ -389,6 +392,11 @@ if (await ada.page.getByTestId('view-chat-said').count() > 0 && !saved(await vie
 }
 v = await viewWhen(ada, sid, saved)
 check(saved(v), alone ? `core approved the ticked line alone ("${part.changes[0].text}" of ${part.changes.length}): version ${before + 1}` : `core approved the ticked lines: version ${before + 1}`)
+
+// The dock's Compare tab: the previous approved version against this one, as core compares them (a shot, for the pilot kit).
+await tab(ada, 'compare')
+await ada.page.getByTestId('core-compare-out').waitFor({ timeout: T })
+await shot(ada, `i-compare-${process.env.VIEW_W ?? 1440}`)
 
 console.log(`\nAll steps hold. Scenario ${sid}: DGAI ${BASE}/#/scenario/${uuidOf(sid)} · core ${BASE}/s/${sid}`)
 await browser.close()

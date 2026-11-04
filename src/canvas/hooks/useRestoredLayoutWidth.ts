@@ -268,7 +268,7 @@ export function useRestoredLayoutWidth(): void {
      * changes only the x of the cards the plan names, on whatever the store
      * holds at the moment of the write.
      */
-    // ⛔ NEVER CORE'S CARDS (live olumi-core-v3, 4 Nov): a View card is placed by core (olumiView/layout.ts cardPlaces); read as an
+    // ⛔ NEVER CORE'S CARDS (live olumi-core-v3, 4 Nov): a View card is placed by the lane's own causal layout (olumiView/canvas.ts causalFor); read as an
     // under-stride row, a real model's stacked columns were respread into one diagonal ~5,400 units wide. View cards are not moved.
     const movedX = planSubFloorRespread(live.filter((n) => !isViewNode(n as { type?: string })), { preserveLocked: respectLocked, spacing: nodeSpacing })
     if (movedX.size > 0) {

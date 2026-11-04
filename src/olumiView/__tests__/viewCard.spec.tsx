@@ -110,3 +110,25 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
     expect(plain.querySelector(`[data-view="${card.id}.badge.text"]`)?.closest('button')?.hasAttribute('data-proposed')).toBe(false)
   })
 })
+
+describe('the compact face (Paul 4 Nov: the causal graph reads; every word of core\'s still reachable)', () => {
+  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|rows\..*|badge.*)$/
+  const MORE = /^[^.]+\.(status|reason|bound\..*|premises\..*)$/
+  for (const n of GOLDEN) {
+    it(`${n}: unselected, a card shows only its glyph, heading, marks, figure and rows (an assumption its reason); the rest opens on selection`, () => {
+      for (const card of golden(n).model!.cards) {
+        const face = render(<ViewCard card={card} />).container
+        for (const el of face.querySelectorAll<HTMLElement>('[data-view]')) {
+          const p = el.dataset['view']!, hidden = el.closest('[hidden]') !== null
+          // An assumption or condition (no figure, no rows) says what it holds in its reason: on the face, whole on hover.
+          const says = card.figure === null && card.rows.length === 0 && p === `${card.id}.reason`
+          if (says) expect([hidden, el.getAttribute('title')], `${p} on the face`).toEqual([false, card.reason])
+          else if (MORE.test(p)) expect(hidden, `${p} folded`).toBe(true)
+          else expect(ON_FACE.test(p) && !hidden, `${p} on the face`).toBe(true)
+        }
+        const open = render(<ViewCard card={card} selected />).container
+        expect(open.querySelector('[hidden]'), `${card.id} opened`).toBeNull()
+      }
+    })
+  }
+})

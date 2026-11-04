@@ -26,12 +26,12 @@ beforeEach(() => { useCanvasStore.setState({ nodes: [], edges: [], olumiAttentio
 afterEach(() => useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }))
 
 describe('Olumi\'s next step on the canvas', () => {
-  it('is drawn beside the card core names, its label and text as core says them', () => {
+  it('is drawn beside the card core names, its label and text as core says them', async () => {
     const v = golden(), card = v.model!.cards[1]!.id
     act(() => useViewStore.setState({ view: at(card, v), status: 'ready' }))
     hooks()
     const newest = v.chat.find((t) => t.answer?.next.newest)!.answer!.next
-    expect(held()?.nodeIds).toEqual([card])
+    await vi.waitFor(() => expect(held()?.nodeIds).toEqual([card]))
     expect(held()?.note).toEqual({ title: newest.label, body: 'What would confirm the start date?' })
   })
 
@@ -50,10 +50,11 @@ describe('Olumi\'s next step on the canvas', () => {
     expect(nextNoteOf(older)).toBeNull()
   })
 
-  it('dismissed, it stays dismissed when the same View is read again; a newer reply with no card takes the last note away', () => {
+  it('dismissed, it stays dismissed when the same View is read again; a newer reply with no card takes the last note away', async () => {
     const v = golden(), card = v.model!.cards[1]!.id
     act(() => useViewStore.setState({ view: at(card, v), status: 'ready' }))
     const { rerender } = hooks()
+    await vi.waitFor(() => expect(held()?.nodeIds).toEqual([card]))
     act(() => useCanvasStore.getState().clearOlumiAttention?.())
     act(() => useViewStore.setState({ view: at(card, golden()) }))
     rerender()
@@ -63,23 +64,23 @@ describe('Olumi\'s next step on the canvas', () => {
     rerender()
     act(() => useViewStore.setState({ view: at(card, golden()) }))
     rerender()
-    expect(useCanvasStore.getState().nodes.some((n) => n.id === card)).toBe(true)
+    await vi.waitFor(() => expect(useCanvasStore.getState().nodes.some((n) => n.id === card)).toBe(true))
     expect(held()).toBeNull()
 
     act(() => useViewStore.setState({ view: { ...at(card, v), id: 's_aaaaaaaaaaaa' } }))
     rerender()
-    expect(held()?.nodeIds).toEqual([card])
+    await vi.waitFor(() => expect(held()?.nodeIds).toEqual([card]))
     const newer = at(null, v)
     act(() => useViewStore.setState({ view: { ...newer, id: 's_aaaaaaaaaaaa', chat: newer.chat.map((t) => ({ ...t, id: t.id + 100 })) } }))
     rerender()
     expect(held()).toBeNull()
   })
 
-  it('a note another surface asked for is left alone, even when a newer reply names no card', () => {
+  it('a note another surface asked for is left alone, even when a newer reply names no card', async () => {
     const v = golden(), card = v.model!.cards[0]!.id
     act(() => useViewStore.setState({ view: at(card, v), status: 'ready' }))
     const { rerender } = hooks()
-    expect(held()?.nodeIds).toEqual([card])
+    await vi.waitFor(() => expect(held()?.nodeIds).toEqual([card]))
     act(() => { requestOlumiAttention({ nodeIds: [card], note: { body: 'A coaching icon\'s note.' }, turnId: 'icon' }) })
     const newer = at(null, v)
     act(() => useViewStore.setState({ view: { ...newer, chat: newer.chat.map((t) => ({ ...t, id: t.id + 100 })) } }))

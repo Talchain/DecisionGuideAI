@@ -3,7 +3,9 @@
  * surface draws, and coordinate arithmetic. It never writes a word, formats a figure, orders what the View ordered, or joins strings:
  * core did all of that. Everything else here draws View strings exactly as they arrive (src/olumiView/__tests__/contract.spec.tsx).
  */
+import type { Edge, Node } from '@xyflow/react'
 import type { ViewCard, ViewModel } from './client'
+import { layoutGraph } from '../canvas/utils/layout'
 
 /**
  * The option cards core compares, in the View's own order: what the chances block draws. An option core does not compare carries its
@@ -11,40 +13,19 @@ import type { ViewCard, ViewModel } from './client'
  */
 export const optionCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.family === 'option' && c.status === null)
 
-/** Core's own page geometry (olumi-core src/page/graph.ts): card width and the gaps between columns and cards, and the top margin. */
-const W = 232, GAP_X = 48, GAP_Y = 14, TOP = 112
+/** Core's own page geometry (olumi-core src/page/graph.ts): card width and the gap between its columns (the question's width). */
+const W = 232, GAP_X = 48
+/** The gap under a card: the least room between two cards one above the other. */
+export const GAP_Y = 14
 
 /** A View card's width on the canvas: core's page card (review 00063 #4). */
 export const CARD_WIDTH = W
-
-type At = { x: number; y: number }
-/**
- * Where each card sits on the canvas, as core's page places it (olumi-core src/page/main.ts `drawModel`): in its column (`col`), stacked
- * down that column in the View's order; the first column starts lower when the model has reasoning about the whole question (`whole`).
- * Each card takes its drawn height (`drawn`, what the canvas measured), never less than core's `h`, so a long card pushes the next one
- * down (review 00063 #4). A card in `kept` (one the person moved) stays where it is, and no other card is put on it: a card that
- * would overlap it goes below it, and the rest of its column after (00063 #1).
- */
-export function cardPlaces(model: ViewModel, drawn: ReadonlyMap<string, number> = new Map(), kept: ReadonlyMap<string, At> = new Map()): Map<string, At> {
-  const height = (id: string, h: number) => Math.max(h, drawn.get(id) ?? 0)
-  const held = model.cards.flatMap((c) => (kept.has(c.id) ? [{ ...kept.get(c.id)!, h: height(c.id, c.h) }] : []))
-  const ys = new Map<number, number>(), places = new Map<string, At>()
-  for (const c of model.cards) {
-    if (kept.has(c.id)) { places.set(c.id, kept.get(c.id)!); continue }
-    const x = 16 + c.col * (W + GAP_X), h = height(c.id, c.h)
-    let y = ys.get(c.col) ?? TOP + (c.col === 0 && model.whole ? 20 : 0)
-    for (let hit = held.find((k) => k.x < x + W && x < k.x + W && k.y < y + h && y < k.y + k.h); hit !== undefined; hit = held.find((k) => k.x < x + W && x < k.x + W && k.y < y + h && y < k.y + k.h)) y = hit.y + hit.h + GAP_Y
-    places.set(c.id, { x, y })
-    ys.set(c.col, y + h + GAP_Y)
-  }
-  return places
-}
 
 /** The heights the canvas measured for the nodes it drew, by id (React Flow's `measured`). */
 export const drawnHeights = (nodes: readonly { id: string; measured?: { height?: number } }[]): Map<string, number> =>
   new Map(nodes.flatMap((n) => (typeof n.measured?.height === 'number' ? [[n.id, n.measured.height] as const] : [])))
 
-/** A key that changes when any measured height does: the canvas re-places its cards then. */
+/** A key that changes when any measured height does: the canvas lays its cards out again then. */
 export const drawnHeightsKey = (nodes: readonly { id: string; measured?: { height?: number } }[]): string =>
   nodes.map((n) => `${n.id}:${n.measured?.height ?? ''}`).join('|')
 
@@ -55,10 +36,11 @@ export const askKindOf = (family: string): 'factor' | 'risk' | 'goal' | 'option'
 /** The question's card on core's page (olumi-core src/view/model.ts QUESTION): what a link to the question as a whole ends at. */
 export const QUESTION = 'page:question'
 
-/** Where the question sits, as core's page places it (`drawModel`): across the top, as wide as the columns, at most 900px. */
-export function questionPlace(model: ViewModel): { x: number; y: number; width: number } {
+/** How wide the question's card is, as core's page draws it (`drawModel`): as wide as the columns, at most 900px. The causal layout
+ *  places it, at the top. */
+export function questionPlace(model: ViewModel): { width: number } {
   const cols = Math.max(0, ...model.cards.map((c) => c.col)) + 1
-  return { x: 16, y: 12, width: Math.min(Math.max(740, 48 + cols * (W + GAP_X) - GAP_X) - 40, 900) }
+  return { width: Math.min(Math.max(740, 48 + cols * (W + GAP_X) - GAP_X) - 40, 900) }
 }
 
 /** The View's links whose both ends are drawn (a card or the question), each with its place in the View's list, in its order. */
@@ -72,3 +54,48 @@ export const holdsViewNodes = (nodes: readonly { type?: string }[], types: reado
 
 /** The canvas's nodes the View did not draw. */
 export const withoutViewNodes = <N extends { type?: string }>(nodes: readonly N[], types: readonly string[]): N[] => nodes.filter((n) => !types.includes(n.type ?? ''))
+
+/** The canvas nodes that draw the View (its cards and question), by their node types: what the lane's own canvas frames. */
+export const viewDrawnNodes = <T extends { type?: string }>(nodes: readonly T[], types: readonly string[]): T[] => nodes.filter((n) => n.type !== undefined && types.includes(n.type))
+
+/** The drawn nodes of the given ids that the canvas has measured (both sides), for the camera's settle signal. */
+export const measuredOf = <T extends { id: string; measured?: { width?: number; height?: number } }>(nodes: readonly T[], ids: ReadonlySet<string>): T[] =>
+  nodes.filter((n) => ids.has(n.id) && !!n.measured?.width && !!n.measured?.height)
+
+type Size = { width: number; height: number }
+/**
+ * DGAI'S CAUSAL GRAPH FOR CORE'S MODEL (Paul, 4 Nov: "the causal graph, not … the horizontal temporary UI"). Each View card as its DGAI
+ * kind (`askKindOf`; the question as the decision) and each View link as an edge, placed by DGAI's own pure layout (`layoutGraph`: ELK
+ * and the semantic tiers, top to bottom: decision, options, factors and risks, goal). `size` is each card as the canvas measured it
+ * (else core's width and height). Positions only: no word of core's is read or written here.
+ */
+export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, questionWidth: number): Promise<Map<string, { x: number; y: number }>> {
+  const at = (id: string, w: number, h: number): Size => size.get(id) ?? { width: w, height: h }
+  const nodes: Node[] = [
+    { id: QUESTION, type: 'decision', data: { kind: 'decision' }, position: { x: 0, y: 0 }, measured: at(QUESTION, questionWidth, 85) },
+    ...model.cards.map((c): Node => { const kind = askKindOf(c.family); return { id: c.id, type: kind, data: { kind }, position: { x: 0, y: 0 }, measured: at(c.id, W, c.h) } }),
+  ]
+  const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
+  const laid = await layoutGraph(nodes, edges, { direction: 'DOWN' })
+  return new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }]))
+}
+
+/**
+ * Whether a link is drawn (DL 4 Nov, after the causal graph: "the dashed premise and assumption links cross the whole board"). The
+ * causal links always are. A reason link (a premise ⊢ or an assumption ◇ on what it concerns) only while one of its two cards is
+ * hovered or selected (`active`), or when core marks it challenged or proposed, so what a person would approve is never folded away.
+ */
+export const linkDrawn = (link: { from: string; to: string; kind: string; alert: boolean; proposed: boolean }, active: ReadonlySet<string>): boolean =>
+  link.kind !== 'reason' || link.alert || link.proposed || active.has(link.from) || active.has(link.to)
+
+/** One thing the model rests on that a person can check or set, numbered in the View's order; `olumi` when core marks it Olumi's. */
+export type RestsOnItem = { readonly id: string; readonly n: number; readonly olumi: boolean }
+/**
+ * The "Rests on" lens on the core lane (DL 4 Nov, the hidden lenses back on, fed from the View only): every figure a person can set (core
+ * offers it an edit) and every assumption and condition, in the View's order and numbered from 1. Olumi's (core's ◆ or ◐ on the card)
+ * are the ones to check or set. A figure core works out from others (no edit) is not something the model rests on.
+ */
+export function restsOnOf(model: ViewModel): { items: ReadonlyMap<string, RestsOnItem>; olumi: number } {
+  const picked = model.cards.filter((c) => (c.figure?.edit ?? null) !== null || c.family === 'assumption' || c.family === 'condition')
+  return { items: new Map(picked.map((c, i) => [c.id, { id: c.id, n: i + 1, olumi: c.olumi !== null }])), olumi: picked.filter((c) => c.olumi !== null).length }
+}
