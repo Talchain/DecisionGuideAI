@@ -8,6 +8,7 @@
  * tokens, which carry the zoom counter-scale.
  */
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { ChevronDown } from 'lucide-react'
 import type { ViewCard as Card, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { askKindOf, CARD_WIDTH, drawKindOf, type RestsOnItem } from '../../olumiView/layout'
@@ -19,6 +20,21 @@ import { Badge } from '../../olumiView/Badge'
 import { FigureEdit } from '../../olumiView/FigureEdit'
 
 export type ViewCardData = { card: Card }
+
+/**
+ * The original card's places, kept as named, empty mount points (DL 4 Nov) for the v10 features the design lead puts back on this shell:
+ * each is a `data-slot` element (the outline is the card's own `data-slot-outline`), drawn empty and taking no room.
+ */
+export const VIEW_CARD_SLOTS = {
+  olumiBadge: 'olumi-badge', // the bottom-right corner
+  driverBadge: 'driver-badge', // the top-right corner, option cards
+  outcomeBand: 'outcome-band', // under status line 2, option cards
+  titleMark: 'title-mark', // the title line: Olumi's inline mark, the only blue
+  figureSide: 'figure-side', // beside the figure's value line: the what-if Try and the Rests-on glyph
+  marks: 'marks', // the bottom marks row
+  rail: 'rail', // below the card
+} as const
+const Slot = ({ name, className = '' }: { name: string; className?: string }) => <span data-slot={name} className={className} />
 
 const Mark = ({ at, mark }: { at: string; mark: { glyph: string; title: string } | null }) => (
   mark === null ? null : <span title={mark.title} aria-label={mark.title} data-view={`${at}.glyph`}>{mark.glyph}</span>
@@ -63,6 +79,7 @@ export function ViewCard({ card, selected = false, restsOn = null, number = null
       style={{ width: CARD_WIDTH }}
       className={`group relative ${typography.nodeLabel} rounded-md border bg-panel px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : ''}`}
       data-view-card={id} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
+      data-slot-outline="next-step"
     >
       {restsOn === null ? null : (
         // The Rests on lens: this card's number, in Olumi's blue when core marks it Olumi's (one to check or set), its hover core's mark.
@@ -80,15 +97,29 @@ export function ViewCard({ card, selected = false, restsOn = null, number = null
         <span className={`${typography.nodeTitle} font-semibold text-text-header`} title={card.detail === '' ? undefined : card.detail} data-view={`${id}.heading`}>{card.heading}</span>
         <Mark at={`${id}.olumi`} mark={card.olumi} />
         <Mark at={`${id}.change`} mark={card.change} />
+        <Slot name={VIEW_CARD_SLOTS.titleMark} className="empty:hidden" />
       </div>
+      {card.family === 'option' ? <Slot name={VIEW_CARD_SLOTS.driverBadge} className="absolute right-1 top-1 empty:hidden" />
+        // The original's ⌄ on a card with more to say: a press selects the card, which opens its other words beside it.
+        : more ? <ChevronDown aria-hidden="true" data-more-cue="" className="absolute right-1.5 top-2 h-3.5 w-3.5 text-text-light" /> : null}
       {says ? <p className="line-clamp-1" title={card.reason!} data-view={`${id}.reason`}>{card.reason}</p> : null}
       {card.figure === null ? null : (
-        <p className={`${typography.nodeValue} ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
-          data-olumi={estimate || undefined} data-view={`${id}.figure.text`}>{card.figure.text}</p>
+        <div className="flex items-baseline gap-1">
+          <p className={`${typography.nodeValue} ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
+            data-olumi={estimate || undefined} data-view={`${id}.figure.text`}>{card.figure.text}</p>
+          <Slot name={VIEW_CARD_SLOTS.figureSide} className="empty:hidden" />
+        </div>
       )}
       {card.figure?.edit ? <FigureEdit id={card.id} edit={card.figure.edit} {...(estimate ? { glyph: '✎', label: 'Give yours' } : {})} quiet={!selected} /> : null}
-      {card.rows.map((row, i) => <Row key={i} id={id} row={row} i={i} />)}
+      {card.rows.map((row, i) => (
+        <span key={i} className="contents">
+          <Row id={id} row={row} i={i} />
+          {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
+        </span>
+      ))}
       {card.badge === null ? null : <p><Badge cardId={id} badge={card.badge} at={id} /></p>}
+      <Slot name={VIEW_CARD_SLOTS.marks} className="flex gap-1 empty:hidden" />
+      <Slot name={VIEW_CARD_SLOTS.olumiBadge} className="absolute bottom-1 right-1 empty:hidden" />
       {more ? (
         // The card's other words (its status, reason, bound and premises), every one core's, beside the card while it is selected: the
         // face stays compact so the causal graph reads (Paul 4 Nov), and opening them never changes the card's drawn height.
@@ -126,6 +157,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
       <ViewCard card={card} selected={selected === true} restsOn={restsOn} number={number} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       <NodeQuickActions nodeId={id} nodeType={askKindOf(card.family)} label={card.heading} placement="below" alwaysVisible={selected === true} />
+      <Slot name={VIEW_CARD_SLOTS.rail} className="absolute left-0 top-full empty:hidden" />
       <Handle type="source" position={Position.Bottom} isConnectable={false} className="!opacity-0" />
     </div>
   )
