@@ -46,6 +46,15 @@ export function PresentationProvider({ value, children }: { value: Presentation;
   )
 }
 
+/**
+ * v10 for one part of a page, with nothing else of the provider: no compare link and no attribute on <html>. The olumi-core lane draws
+ * its cards inside it (src/olumiView/v10.tsx), so each card's controls take v10's Olumi corner, while the rest of the lane keeps
+ * the current behaviour.
+ */
+export function V10Scope({ children }: { children: ReactNode }) {
+  return <PresentationContext.Provider value="v10">{children}</PresentationContext.Provider>
+}
+
 /** v10: ring one card while its name is hovered in the chat. A class on the card's own element, so nothing else dims. */
 export function setV10Lit(nodeId: string | null): void {
   if (typeof document === 'undefined') return

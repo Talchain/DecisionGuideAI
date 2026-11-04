@@ -14,7 +14,6 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useCanvasStore } from '../canvas/store'
-import { ViewCardNode } from '../canvas/nodes/ViewCardNode'
 import { ViewQuestionNode } from '../canvas/nodes/ViewQuestionNode'
 import { ViewLinkEdge } from '../canvas/edges/ViewLinkEdge'
 import { OlumiAttentionCard } from '../canvas/components/OlumiAttentionCard'
@@ -33,8 +32,10 @@ import { placeViewCards, VIEW_CARD, VIEW_LINK, VIEW_QUESTION } from './canvas'
 import { readableFirstViewport } from './camera'
 import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
+import { useV10Lane, ViewCardV10 } from './v10'
 
-const nodeTypes = { [VIEW_CARD]: ViewCardNode, [VIEW_QUESTION]: ViewQuestionNode }
+// Each card is drawn with v10's controls (./v10): the card itself, and the Olumi corner that asks about it.
+const nodeTypes = { [VIEW_CARD]: ViewCardV10, [VIEW_QUESTION]: ViewQuestionNode }
 const edgeTypes = { [VIEW_LINK]: ViewLinkEdge }
 /** Pan with the left button on empty canvas or the middle button anywhere; a card drags with the left. */
 const PAN_BUTTONS = [0, 1]
@@ -134,6 +135,7 @@ function ViewFlow() {
 
 /** The lane's canvas with the providers its dock and note read (the same ones the legacy canvas gives them). */
 export function ViewCanvas(): JSX.Element {
+  useV10Lane()
   return (
     <ToastProvider>
       <LayerProvider>
