@@ -167,7 +167,12 @@ function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; bus
     <div className={`${typography.panelBody} rounded border border-border p-3 space-y-2`} data-testid="view-chat-proposal">
       <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span> <span data-view="proposal.on">{p.on}</span>
         {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>
-      {from === null ? null : <p className="text-text-light" data-testid="view-chat-proposal-from">Asked by <span data-view="proposal.from.asked_by">{from.by}</span>{from.text === null ? null : <>, from evidence: “<span data-testid="view-chat-proposal-from-evidence">{from.text}</span>”</>}</p>}
+      {from === null ? null : (
+        <div className="text-text-light" data-testid="view-chat-proposal-from">
+          <p>Asked by: <span data-view="proposal.from.asked_by">{from.by}</span></p>
+          {from.text === null ? null : <p>From evidence: “<span data-testid="view-chat-proposal-from-evidence">{from.text}</span>”</p>}
+        </div>
+      )}
       {p.problem === null ? null : <p role="alert" data-view="proposal.problem">{p.problem}</p>}
       {p.marks.map((m, j) => <p key={j} title={m.title}><span data-view={`proposal.marks.${j}.what`}>{m.what}</span>: <span data-view={`proposal.marks.${j}.status`}>{m.status}</span></p>)}
       {changes.length === 0 ? null : groups === null

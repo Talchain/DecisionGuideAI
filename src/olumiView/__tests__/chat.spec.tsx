@@ -111,6 +111,7 @@ describe('the writes go straight to core, and the View is read again', () => {
     const from = container.querySelector('[data-testid="view-chat-proposal-from"]')!
     expect(from.querySelector('[data-view="proposal.from.asked_by"]')?.textContent).toBe('Ada')
     expect(from.querySelector('[data-testid="view-chat-proposal-from-evidence"]')?.textContent).toBe(ev.text)
+    expect(from.textContent).toBe(`Asked by: AdaFrom evidence: “${ev.text}”`)
     expect(from.textContent).not.toContain('Bea')
     // CONTRAST: a proposal not made from evidence says nothing of it
     cleanup()
