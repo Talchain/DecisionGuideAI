@@ -32,8 +32,8 @@ export const dissentWords = (d: Dissent): string => d.confirmed?.words ?? d.posi
 
 function DissentRow({ sid, d, you, onWrote }: { sid: string; d: Dissent; you: string; onWrote: () => Promise<boolean> }): JSX.Element {
   // Core's R2b fields (olumi.view/3 at d1fe5e2): the member the holder names, and the holder's confirmed words.
-  const confirmed = d.confirmed
-  const holder = d.holder_id
+  const confirmed = d.confirmed ?? null
+  const holder = d.holder_id ?? null
   const mine = holder !== null && holder === you
   const shown = dissentWords(d)
   const key = `${sid}:dissent:${d.id}`

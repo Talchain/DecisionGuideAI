@@ -133,6 +133,25 @@ describe('a commitment names its option and version, with a review date and the 
   })
 })
 
+describe('a View from a core before R2b (no R2b keys at all): the Team tab draws what it has and never crashes (R2 cut, the EvidencePanel twin)', () => {
+  it('a commitment, its outcome and a dissent with none of the R2b keys: no option, review day, band, figure or verdict line, and the dissent reads as unconfirmed', () => {
+    const older = { id: 9, at: '2026-11-04T10:00:00Z', by: 'Ada', by_id: 'p_1', action: 'Pilot in Germany', owner: 'Bea', owner_id: 'p_2', expect: 'Ten customers by March', reconsider: 'Fewer than five by February', keeps: ['d_1'],
+      outcomes: [{ id: 2, at: '2026-11-04T11:00:00Z', by: 'Bea', by_id: 'p_2', happened: 'Seven.', versus: 'worse', reconsider_triggered: false, note: null }] }
+    serve(teamView('p_2', { commitments: [older], dissent: [{ id: 'd_1', holder: 'Bea', position: 'Wait for the pilot before entering a second country.' }] }))
+    render(<TeamTab />)
+    const k = screen.getByTestId('team-commitment-9')
+    expect(k.textContent).toContain('Pilot in Germany')
+    for (const id of ['team-commitment-option-9', 'team-commitment-review-9', 'team-commitment-band-9', 'team-outcome-figure-2']) expect(screen.queryByTestId(id)).toBeNull()
+    expect(screen.queryAllByTestId(/^team-outcome-verdict-2-/)).toHaveLength(0)
+    expect(screen.getByTestId('team-dissent-state-d_1').textContent).toBe('Not yet confirmed. No member is named as its holder, so no one can confirm it.')
+    expect(screen.queryByTestId('team-dissent-confirm-d_1')).toBeNull()
+    // Its outcome form opens and asks for no figure (no band) and no verdict a core before R2b cannot take.
+    fireEvent.click(screen.getByTestId('team-outcome-open-9'))
+    expect(screen.getByTestId('team-outcome-form-9')).toBeTruthy()
+    expect(screen.queryByTestId('team-o-9-figure')).toBeNull()
+  })
+})
+
 describe('R2 review P1-2: the option and its band are the APPROVED model\'s, never a held proposal\'s', () => {
   it('while Olumi holds a proposal, its options and bands are not offered as version n\'s: the choice and the save wait, and say why', () => {
     // The View's model while a proposal is held is the proposal's (store.ts currentModel): a different heading and band here.
