@@ -66,6 +66,25 @@ describe('the card an approval adds is pulsed when it arrives', () => {
   it('a newer version pulses the records core names it changed (version.changed), even one whose words did not change, and nothing else', () => appliedRow('s_pulse0000001', true))
   it('from a core before R2a: the figure a person sets that core now words differently and the card the proposal marked', () => appliedRow('s_pulse0000003', false))
 
+  it('core names only the records it modified (its `version.changed` leaves additions out): a card the proposal drew as an addition, its ghost already on the canvas, still pulses', async () => {
+    const on = (id: string) => useCanvasStore.getState().nodes.some((n) => n.id === id)
+    const base = v2.model!, n = v2.version!.n, sid = 's_pulse0000004'
+    const [ghost, other] = base.cards.filter((c) => c.family !== 'option')
+    // `other` is a proposed change the approval left out (core names it in no `changed`): it keeps its old words and is not pulsed.
+    const held: View = { ...v2, id: sid, model: { ...base, cards: base.cards.map((c) => (c.id === ghost!.id ? { ...c, change: { glyph: '+', title: 'Proposed addition', kind: 'added' as const } }
+      : c.id === other!.id ? { ...c, change: { glyph: '↻', title: 'Proposed change', kind: 'changed' as const } } : c)) } }
+    // As core serves it after approving an addition alone (service.ts changedOf: the stored change list's `changed`, never `added`).
+    const applied: View = { ...v2, id: sid, version: { ...v2.version!, n: n + 1, changed: [] }, model: base }
+    useViewStore.setState({ sid })
+    renderHook(() => useViewCanvas(true))
+    act(() => { useViewStore.setState({ view: held, status: 'ready' }) })
+    await vi.waitFor(() => expect(on(ghost!.id)).toBe(true))
+    vi.advanceTimersByTime(PULSE_COALESCE_MS + 20)
+    act(() => { useViewStore.setState({ view: applied }) })
+    await vi.waitFor(() => { vi.advanceTimersByTime(PULSE_COALESCE_MS + 20); expect(has(ghost!.id)).toBe(true) })
+    expect(has(other!.id)).toBe(false)
+  })
+
   it('CONTRAST: the same version redrawn with a different figure (a proposal held, nothing applied) pulses nothing', async () => {
     const on = (id: string) => useCanvasStore.getState().nodes.some((n) => n.id === id)
     const base = v2.model!, edited = base.cards.find((c) => c.figure !== null)!
