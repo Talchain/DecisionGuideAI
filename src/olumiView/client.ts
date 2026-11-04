@@ -49,7 +49,9 @@ export const writes = {
   create: (brief: string, op: string) => call<{ scenario: string; proposal: number | null }>('POST', '/api/scenarios', { brief, op }),
   message: (sid: string, text: string, op: string) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/messages`, { text, op }),
   challenge: (sid: string, kind: string, record: string, op: string) => call<{ proposal: number | null }>('POST', `${scenarioPath(sid)}/challenge`, { kind, record, op }),
-  approve: (proposal: number, base: number | null) => call<unknown>('POST', `/api/proposals/${proposal}/approve`, { base }),
+  /** The whole proposal, or (API v1.4/v1.8 "confirm selected") exactly the ticked lines: record ids in `only`, top-level fields in `only_top`. */
+  approve: (proposal: number, base: number | null, pick?: { only: string[]; only_top: string[] }) =>
+    call<unknown>('POST', `/api/proposals/${proposal}/approve`, pick === undefined ? { base } : { base, ...pick }),
   discard: (proposal: number) => call<unknown>('POST', `/api/proposals/${proposal}/discard`, {}),
   /** The person's own figure for one quantity, as they typed it (API v1.9 `typed`): core reads it as its page does, or refuses in the card's own ask. */
   edit: (sid: string, base: number, quantity: string, typed: string, op: string) => call<{ version: number; n: number; receipt: string }>('POST', `${scenarioPath(sid)}/edit`, { base, quantity, typed, op }),

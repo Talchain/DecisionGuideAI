@@ -99,15 +99,74 @@ export function ViewConversation({ chat }: { chat: View['chat'] }) {
 }
 
 /** The change card for the proposal Olumi holds, with core's words and marks, and the two acts on it. */
+type Change = NonNullable<View['proposal']>['changes'][number]
+/** A line's key: its id and whether it is a top-level field, since a record named like a field gives two lines with one id (API v1.9). */
+const keyOf = (c: Change) => `${c.top ? 'top' : 'rec'}:${c.id}`
+
+/**
+ * One change line of core's change card (View `proposal.changes`, L8): its tick, core's line, and what a tap opens (`detail`), with Olumi's
+ * mark on a line of Olumi's. Every word is core's.
+ */
+function ChangeLine({ c, i, ticked, toggle, busy }: { c: Change; i: number; ticked: boolean; toggle: (c: Change) => void; busy: boolean }) {
+  const line = <><span data-view={`proposal.changes.${i}.text`}>{c.text}</span>{c.olumi === null ? null : <> <span title={c.olumi.title} aria-label={c.olumi.title} data-view={`proposal.changes.${i}.olumi.glyph`}>{c.olumi.glyph}</span></>}</>
+  return (
+    <li className="flex items-start gap-2" data-change={keyOf(c)}>
+      <input type="checkbox" checked={ticked} disabled={busy} onChange={() => toggle(c)} aria-label={`Choose ${c.text}`} data-testid={`view-change-tick-${i}`} className="mt-1" />
+      {c.detail === '' ? <span>{line}</span> : (
+        <details><summary className="cursor-pointer">{line}</summary><p className="whitespace-pre-line text-text-light" data-view={`proposal.changes.${i}.detail`}>{c.detail}</p></details>
+      )}
+    </li>
+  )
+}
+
+/**
+ * The proposal, as core's change card: its heading, the change list (flat, or under core's group headings over 12), and Approve (the whole
+ * card), Approve ticked (exactly the ticked lines, core's `only` / `only_top`) and Set aside. A proposal held without a list has Approve alone.
+ */
 function Proposal({ p, busy }: { p: NonNullable<View['proposal']>; busy: boolean }) {
+  // A core before L8 serves no list (absent, never []): its card has Approve alone, as a proposal held without a list.
+  const changes = p.changes ?? [], groups = p.groups ?? null
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set())
+  const toggle = (c: Change) => setTicked((t) => { const n = new Set(t), k = keyOf(c); if (n.has(k)) n.delete(k); else n.add(k); return n })
+  const toggleGroup = (lines: number[], on: boolean) => setTicked((t) => { const n = new Set(t); for (const i of lines) { const c = changes[i]; if (c) { if (on) n.add(keyOf(c)); else n.delete(keyOf(c)) } } return n })
+  // The ticked lines, in core's order: a record's id in `only`, a top-level field's name in `only_top`, never mixed (API v1.8).
+  const pick: { only: string[]; only_top: string[] } = { only: [], only_top: [] }
+  for (const c of changes) if (ticked.has(keyOf(c))) (c.top ? pick.only_top : pick.only).push(c.id)
+  const chosen = pick.only.length + pick.only_top.length
+  const line = (i: number) => { const c = changes[i]!; return <ChangeLine key={keyOf(c)} c={c} i={i} ticked={ticked.has(keyOf(c))} toggle={toggle} busy={busy} /> }
   return (
     <div className={`${typography.panelBody} rounded border border-border p-3 space-y-2`} data-testid="view-chat-proposal">
       <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span> <span data-view="proposal.on">{p.on}</span>
         {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>
       {p.problem === null ? null : <p role="alert" data-view="proposal.problem">{p.problem}</p>}
       {p.marks.map((m, j) => <p key={j} title={m.title}><span data-view={`proposal.marks.${j}.what`}>{m.what}</span>: <span data-view={`proposal.marks.${j}.status`}>{m.status}</span></p>)}
-      <div className="flex gap-2">
+      {changes.length === 0 ? null : groups === null
+        ? <ul className="m-0 grid list-none gap-1 p-0" data-testid="view-changes">{changes.map((_, i) => line(i))}</ul>
+        : (
+          <ul className="m-0 grid list-none gap-1 p-0" data-testid="view-changes">
+            {groups.map((g, gi) => {
+              const all = g.lines.length > 0 && g.lines.every((i) => changes[i] !== undefined && ticked.has(keyOf(changes[i]!)))
+              return (
+                <li key={gi}>
+                  <details>
+                    <summary className="cursor-pointer">
+                      <input type="checkbox" checked={all} disabled={busy} onClick={(e) => e.stopPropagation()} onChange={() => toggleGroup(g.lines, !all)}
+                        aria-label={`Choose every change under ${g.heading}`} data-testid={`view-change-group-${gi}`} className="mr-2" />
+                      <b data-view={`proposal.groups.${gi}.heading`}>{g.heading}</b>
+                    </summary>
+                    <ul className="m-0 mt-1 grid list-none gap-1 p-0 pl-3">{g.lines.map(line)}</ul>
+                  </details>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      <div className="flex flex-wrap gap-2">
         <button type="button" disabled={busy} className="rounded px-3 py-2 bg-primary text-text-on-color disabled:opacity-50" onClick={() => void act(() => writes.approve(p.id, p.base), true)}>Approve</button>
+        {changes.length === 0 ? null : (
+          <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
+            className="rounded px-3 py-2 border border-info/30 text-info disabled:opacity-50" onClick={() => void act(() => writes.approve(p.id, p.base, pick), true)}>Approve ticked · {chosen}</button>
+        )}
         <button type="button" disabled={busy} className="rounded px-3 py-2 border border-border disabled:opacity-50" onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
       </div>
     </div>
@@ -323,7 +382,7 @@ function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
     <section className={`${typography.panelBody} rounded-lg border border-info/40 bg-panel p-3 space-y-2 ring-1 ring-info/20`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
       <p className={typography.panelHeader}>Next step</p>
       <p>{NEXT_STEP_WORDS[step.kind]}</p>
-      {step.kind === 'approve' ? <Proposal p={view.proposal!} busy={busy} /> : null}
+      {step.kind === 'approve' ? <Proposal key={view.proposal!.id} p={view.proposal!} busy={busy} /> : null}
       {step.kind === 'figure' ? (
         <div className="space-y-1">
           <p title={step.item.title} data-view={`run.waits_on.items.${view.model!.run!.waits_on!.items.indexOf(step.item)}.text`}>{step.item.text}</p>
