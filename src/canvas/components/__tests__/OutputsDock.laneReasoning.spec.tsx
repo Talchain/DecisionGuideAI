@@ -60,7 +60,13 @@ describe('the Reasoning tab on the olumi-core lane', () => {
     fireEvent.click(screen.getByTestId('outputs-dock-tab-analysisNew'))
     const body = screen.getByTestId('view-reasoning')
     expect(body.querySelector('[data-view="run.lead"]')?.textContent).toBe(view.model.run.lead)
-    expect(body.querySelector('[data-view="second_oven.driver.text"]')?.textContent).toBe(view.model.cards.find((c: { id: string }) => c.id === 'second_oven').driver.text)
+    // Core's driver line, drawn once: as the text, or (the design lead's v10 marker, when the driver carries low/high) as the marker's
+    // label and hover, its path in `data-view-label` (ViewChances.tsx DriverRange).
+    const driver = view.model.cards.find((c: { id: string }) => c.id === 'second_oven').driver
+    const asText = body.querySelector('[data-view="second_oven.driver.text"]'), asMarker = body.querySelector('[data-view-label="second_oven.driver.text"]')
+    expect([asText, asMarker].filter((e) => e !== null).length, 'core\'s driver line drawn exactly once').toBe(1)
+    if (asMarker !== null) expect([asMarker.getAttribute('aria-label'), asMarker.getAttribute('title')]).toEqual([driver.text, driver.title])
+    else expect(asText?.textContent).toBe(driver.text)
     expect(screen.queryByTestId('stub-legacy-reasoning')).toBeNull()
     expect(document.querySelectorAll('[data-testid="stub-reanalyse-bar"], [data-testid="stub-readiness-bar"]').length).toBe(0)
   })

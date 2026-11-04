@@ -83,10 +83,12 @@ describe('⭐ the Model tab actually mounts the pointer', () => {
     expect(src()).toMatch(/import\s*\{\s*ViewComparisonPointer\s*\}\s*from\s*'\.\/model-tab\/ViewComparisonPointer'/)
   })
 
-  it('⛔ and RENDERS it on the Model tab — whose code id is `diagnostics`, not "model"', () => {
+  it('⛔ and RENDERS it on the Model tab — whose code id is `diagnostics`, not "model" — off the olumi-core lane only', () => {
     // The user-facing name is "Model"; the code id is `diagnostics`. They are
     // different strings and conflating them is a standing estate ruling.
-    expect(src()).toMatch(/effectiveActiveTab === 'diagnostics' && <ViewComparisonPointer \/>/)
+    // On the olumi-core lane the Model tab is core's own outline (src/olumiView/ViewModelTab.tsx, DL 4 Nov R2), which has no legacy
+    // comparison pointer: the pointer mounts off the lane only, and this pins exactly that condition.
+    expect(src()).toMatch(/effectiveActiveTab === 'diagnostics' && !isOlumiCoreLane\(\) && <ViewComparisonPointer \/>/)
   })
 
   it('contrast — the probe can tell a present mount from an absent one', () => {
