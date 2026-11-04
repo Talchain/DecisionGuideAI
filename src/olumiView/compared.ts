@@ -10,6 +10,7 @@
  *
  * Each line is core's own (`line`, the §5.3/§5.10 label: value template, option names as core labels them; `hover`, the Run's text): drawn
  * verbatim, in core's order. They are never science lines, so "Worth checking first" never draws one (`worthLinesOf` reads `science`).
+ * Which lines are drawn and how they group is picked in layout.ts (`comparedLinesOf`, `comparedGroupsOf`), the one module that picks.
  */
 import type { ViewRun } from './client'
 
@@ -19,15 +20,8 @@ export type ComparedLine = {
   status: 'met' | 'missed' | 'unresolved' | null; olumi: { glyph: string; title: string } | null
 }
 
-/** The kinds this page knows how to say; any other kind core adds later is drawn as nothing. */
-const COMPARED_KINDS: ReadonlySet<string> = new Set<ComparedKind>(['middle', 'better'])
-
-/** Core's compared lines this page draws, each with its place in `run.compared` (its View path): only the kinds it knows. */
-export function comparedLinesOf(run: ViewRun | null): { line: ComparedLine; i: number }[] {
-  const all = (run as { compared?: unknown } | null)?.compared
-  if (!Array.isArray(all)) return []
-  return (all as ComparedLine[]).map((line, i) => ({ line, i })).filter(({ line }) => COMPARED_KINDS.has(line.kind))
-}
+/** The kinds this page knows how to say; any other kind core adds later is drawn as nothing (picked in layout.ts, `comparedLinesOf`). */
+export const COMPARED_KINDS: ReadonlySet<string> = new Set<ComparedKind>(['middle', 'better'])
 
 export type ComparedGroup = 'middle' | 'better' | 'unresolved'
 /** The heading group a line is drawn under: a D2 line core could not tell apart from its target is `unresolved`, else its kind. */
@@ -37,16 +31,4 @@ export const groupOf = (l: ComparedLine): ComparedGroup => (l.kind === 'middle' 
 export function comparedHeadingOf(run: ViewRun | null, group: ComparedGroup): string | null {
   const h = (run as { compared_headings?: Partial<Record<ComparedGroup, unknown>> | null } | null)?.compared_headings?.[group]
   return typeof h === 'string' && h.trim() !== '' ? h : null
-}
-
-/** The groups to draw, in the order core first lists a line of each, each with its heading and lines; a group with no heading is left out. */
-export function comparedGroupsOf(run: ViewRun | null): { group: ComparedGroup; heading: string; lines: { line: ComparedLine; i: number }[] }[] {
-  const out: { group: ComparedGroup; heading: string; lines: { line: ComparedLine; i: number }[] }[] = []
-  for (const x of comparedLinesOf(run)) {
-    const g = groupOf(x.line), heading = comparedHeadingOf(run, g)
-    if (heading === null) continue
-    const at = out.find((o) => o.group === g)
-    if (at) at.lines.push(x); else out.push({ group: g, heading, lines: [x] })
-  }
-  return out
 }

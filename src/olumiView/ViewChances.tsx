@@ -10,13 +10,12 @@
 import { Fragment, type ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow, ViewRun } from './client'
-import { optionCards, worthLinesOf } from './layout'
+import { comparedGroupsOf, optionCards, worthLinesOf } from './layout'
 import { currentModel, useViewStore } from './store'
 import { clearWhatIf, useWhatIf } from './whatif'
 import { typography } from '../styles/typography'
 import type { OutputTab } from '../stores/uiStore'
 import { findingOf, mostLikelyBasisOf } from './standin'
-import { comparedGroupsOf } from './compared'
 
 function Mark({ at, mark }: { at: string; mark: { glyph: string; title: string } | null }) {
   return mark === null ? null : <span data-view={`${at}.glyph`} title={mark.title} aria-label={mark.title}>{mark.glyph}</span>
