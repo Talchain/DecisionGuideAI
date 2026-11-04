@@ -44,3 +44,23 @@ export function ifApprovedFieldOf(x: object): { readonly glyph: string; readonly
   const v = (x as { if_approved?: { glyph: string; title: string } | null }).if_approved
   return v == null ? null : v
 }
+
+/**
+ * R5 D7 view effects (science-coaching, core wip/science-d7-wire 307a70c, olumi.view/3, additive), read here until DGAI vendors that core:
+ * on each shared view, `effects` (what each of its figures does when the model's Run is run again with it, typed, no words), and on the
+ * collab `effect_headings` (core's label for each status, and for a figure not run). A core before D7 has neither: no effects, no headings.
+ */
+export type ViewEffectRun = {
+  readonly quantity: string; readonly goal: string; readonly status: 'changes' | 'moves' | 'same'; readonly leader: string | null; readonly model_leader: string | null
+  readonly most: string | null; readonly gap: number; readonly gap_low: number; readonly gap_high: number; readonly if_absent: readonly string[]
+}
+export type ViewEffect = ViewEffectRun | { readonly quantity: string; readonly refused: string }
+export type EffectHeadings = { readonly changes: string; readonly moves: string; readonly same: string; readonly refused: string }
+
+export function effectsOf(shared: object): readonly ViewEffect[] {
+  const e = (shared as { effects?: unknown }).effects
+  return Array.isArray(e) ? (e as ViewEffect[]) : []
+}
+export function effectHeadingsOf(collab: object): EffectHeadings | null {
+  return (collab as { effect_headings?: EffectHeadings | null }).effect_headings ?? null
+}
