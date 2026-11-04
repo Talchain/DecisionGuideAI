@@ -70,7 +70,8 @@
     "bound": null,
     "reason": null,
     "badge": null,
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "customer_target",
@@ -101,7 +102,8 @@
     "bound": null,
     "reason": null,
     "badge": null,
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "entry_delay",
@@ -143,7 +145,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "entry_interpretation",
@@ -170,7 +173,8 @@
     "bound": null,
     "reason": "Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply.",
     "badge": null,
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "churn_danger_threshold",
@@ -212,7 +216,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "broad_entry_acquisitions",
@@ -257,7 +262,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "pilot_acquisitions",
@@ -302,7 +308,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "expansion_churn",
@@ -336,7 +343,8 @@
     "bound": null,
     "reason": null,
     "badge": null,
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "shared_churn_stress",
@@ -363,7 +371,8 @@
     "bound": null,
     "reason": "Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.",
     "badge": null,
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "customers",
@@ -447,7 +456,8 @@
       "if_absent": [],
       "olumi": true
      }
-    ]
+    ],
+    "rests_on": []
    },
    {
     "id": "investment_cap",
@@ -478,7 +488,8 @@
     "bound": null,
     "reason": null,
     "badge": null,
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "broad_entry_investment",
@@ -522,7 +533,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "pilot_investment",
@@ -566,7 +578,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "reach_customer_target",
@@ -610,7 +623,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "target_interpretation",
@@ -637,7 +651,8 @@
     "bound": null,
     "reason": "Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter.",
     "badge": null,
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "customer_flow_assumptions",
@@ -664,7 +679,8 @@
     "bound": null,
     "reason": "Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
     "badge": null,
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "investment_limit",
@@ -705,7 +721,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "proposed_churn_guardrail",
@@ -751,7 +768,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "broader_entry",
@@ -805,6 +823,15 @@
       "aim": "Reach 800 customers",
       "aim_id": "reach_customer_target",
       "title": "If Olumi's estimates hold, the chance that 'Enter multiple European countries' meets 'Reach 800 customers', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'New customers from existing markets', 'Broader-entry acquisition what-if', 'Post-entry churn what-if'. It rests on Olumi's proposed figures for 'Proposed comparison horizon', not yet confirmed by them. It rests on: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter; Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets; Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply; Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption; For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met. It leaves out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated; The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision.",
+      "chance": 0.4068,
+      "outcome": {
+       "low": 317.72905206768274,
+       "median": 663.0754988387507,
+       "high": 1538.1500774262233,
+       "unit": "customer",
+       "text": "about 663 customers (318 to 1,540 customers)",
+       "title": "Modelled range at the end of month 12: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Enter multiple European countries: about 663 customers (318 to 1,540 customers); Test one country before broader commitment: about 511 customers (261 to 1,400 customers); No new European entry during this window: about 472 customers (254 to 1,410 customers). Worked out from the figures it depends on."
+      },
       "estimate": null
      },
      {
@@ -854,7 +881,29 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": [
+     {
+      "id": "target_interpretation",
+      "whose": "olumi"
+     },
+     {
+      "id": "customer_flow_assumptions",
+      "whose": "olumi"
+     },
+     {
+      "id": "entry_interpretation",
+      "whose": "olumi"
+     },
+     {
+      "id": "shared_churn_stress",
+      "whose": "olumi"
+     },
+     {
+      "id": "country_readiness",
+      "whose": "olumi"
+     }
+    ]
    },
    {
     "id": "country_readiness",
@@ -881,7 +930,8 @@
     "bound": null,
     "reason": "For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
     "badge": null,
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "single_country_test",
@@ -927,6 +977,15 @@
       "aim": "Reach 800 customers",
       "aim_id": "reach_customer_target",
       "title": "If Olumi's estimates hold, the chance that 'Test one country before broader commitment' meets 'Reach 800 customers', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'New customers from existing markets', 'Single-country test acquisition what-if', 'Post-entry churn what-if'. It rests on Olumi's proposed figures for 'Proposed comparison horizon', not yet confirmed by them. It rests on: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter; Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets; Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply; Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption; For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met. It leaves out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated; The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision.",
+      "chance": 0.3343,
+      "outcome": {
+       "low": 260.794195006196,
+       "median": 510.98840023662854,
+       "high": 1402.0826406474423,
+       "unit": "customer",
+       "text": "about 511 customers (261 to 1,400 customers)",
+       "title": "Modelled range at the end of month 12: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Enter multiple European countries: about 663 customers (318 to 1,540 customers); Test one country before broader commitment: about 511 customers (261 to 1,400 customers); No new European entry during this window: about 472 customers (254 to 1,410 customers). Worked out from the figures it depends on."
+      },
       "estimate": null
      },
      {
@@ -975,7 +1034,29 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": [
+     {
+      "id": "target_interpretation",
+      "whose": "olumi"
+     },
+     {
+      "id": "customer_flow_assumptions",
+      "whose": "olumi"
+     },
+     {
+      "id": "entry_interpretation",
+      "whose": "olumi"
+     },
+     {
+      "id": "shared_churn_stress",
+      "whose": "olumi"
+     },
+     {
+      "id": "country_readiness",
+      "whose": "olumi"
+     }
+    ]
    },
    {
     "id": "no_new_european_entry",
@@ -1016,6 +1097,15 @@
       "aim": "Reach 800 customers",
       "aim_id": "reach_customer_target",
       "title": "If Olumi's estimates hold, the chance that 'No new European entry during this window' meets 'Reach 800 customers', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'New customers from existing markets'. It rests on Olumi's proposed figures for 'Proposed comparison horizon', not yet confirmed by them. It rests on: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter; Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets; Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply; Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption. It leaves out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated; The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision.",
+      "chance": 0.3312,
+      "outcome": {
+       "low": 254.4975125174409,
+       "median": 471.7302972405148,
+       "high": 1408.9701836856868,
+       "unit": "customer",
+       "text": "about 472 customers (254 to 1,410 customers)",
+       "title": "Modelled range at the end of month 12: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Enter multiple European countries: about 663 customers (318 to 1,540 customers); Test one country before broader commitment: about 511 customers (261 to 1,400 customers); No new European entry during this window: about 472 customers (254 to 1,410 customers). Worked out from the figures it depends on."
+      },
       "estimate": null
      },
      {
@@ -1059,7 +1149,25 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": [
+     {
+      "id": "target_interpretation",
+      "whose": "olumi"
+     },
+     {
+      "id": "customer_flow_assumptions",
+      "whose": "olumi"
+     },
+     {
+      "id": "entry_interpretation",
+      "whose": "olumi"
+     },
+     {
+      "id": "shared_churn_stress",
+      "whose": "olumi"
+     }
+    ]
    }
   ],
   "links": [
@@ -1071,7 +1179,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Monthly customers lost · Proposed by Olumi: Multiplies the opening customer stock by the monthly churn fraction and its once-per-month application frequency to express customer losses in customer/month. This makes the existing monthly timing convention explicit without changing its numerical meaning. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers."
+    "title": "worked out through Monthly customers lost · Proposed by Olumi: Multiplies the opening customer stock by the monthly churn fraction and its once-per-month application frequency to express customer losses in customer/month. This makes the existing monthly timing convention explicit without changing its numerical meaning. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "effect": null
    },
    {
     "from": "starting_customers",
@@ -1081,7 +1190,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "starts at · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers."
+    "title": "starts at · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "effect": null
    },
    {
     "from": "customers",
@@ -1091,7 +1201,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by"
+    "title": "measured by",
+    "effect": null
    },
    {
     "from": "customer_target",
@@ -1101,7 +1212,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target"
+    "title": "target",
+    "effect": null
    },
    {
     "from": "investment_cap",
@@ -1111,7 +1223,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "bound"
+    "title": "bound",
+    "effect": null
    },
    {
     "from": "churn_danger_threshold",
@@ -1121,7 +1234,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "bound"
+    "title": "bound",
+    "effect": null
    },
    {
     "from": "broader_entry",
@@ -1131,7 +1245,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "effect": null
    },
    {
     "from": "broad_entry_acquisitions",
@@ -1141,7 +1256,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Incremental European customer acquisitions, Total monthly new customers · Proposed by Olumi: Arithmetic identity for monthly new customers. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers."
+    "title": "worked out through Incremental European customer acquisitions, Total monthly new customers · Proposed by Olumi: Arithmetic identity for monthly new customers. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "effect": null
    },
    {
     "from": "broader_entry",
@@ -1151,7 +1267,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "effect": null
    },
    {
     "from": "expansion_churn",
@@ -1161,7 +1278,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Monthly customer churn, Monthly churn fraction, Monthly customers lost · Proposed by Olumi: Percentage conversion for the stock-flow calculation. · Proposed by Olumi: Multiplies the opening customer stock by the monthly churn fraction and its once-per-month application frequency to express customer losses in customer/month. This makes the existing monthly timing convention explicit without changing its numerical meaning. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers."
+    "title": "worked out through Monthly customer churn, Monthly churn fraction, Monthly customers lost · Proposed by Olumi: Percentage conversion for the stock-flow calculation. · Proposed by Olumi: Multiplies the opening customer stock by the monthly churn fraction and its once-per-month application frequency to express customer losses in customer/month. This makes the existing monthly timing convention explicit without changing its numerical meaning. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "effect": null
    },
    {
     "from": "expansion_churn",
@@ -1171,7 +1289,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Monthly customer churn"
+    "title": "worked out through Monthly customer churn",
+    "effect": null
    },
    {
     "from": "broader_entry",
@@ -1181,7 +1300,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "effect": null
    },
    {
     "from": "broad_entry_investment",
@@ -1191,7 +1311,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Total investment committed to expansion"
+    "title": "worked out through Total investment committed to expansion",
+    "effect": null
    },
    {
     "from": "single_country_test",
@@ -1201,7 +1322,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "effect": null
    },
    {
     "from": "pilot_acquisitions",
@@ -1211,7 +1333,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Incremental European customer acquisitions, Total monthly new customers · Proposed by Olumi: Arithmetic identity for monthly new customers. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers."
+    "title": "worked out through Incremental European customer acquisitions, Total monthly new customers · Proposed by Olumi: Arithmetic identity for monthly new customers. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "effect": null
    },
    {
     "from": "single_country_test",
@@ -1221,7 +1344,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "effect": null
    },
    {
     "from": "single_country_test",
@@ -1231,7 +1355,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "effect": null
    },
    {
     "from": "pilot_investment",
@@ -1241,7 +1366,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Total investment committed to expansion"
+    "title": "worked out through Total investment committed to expansion",
+    "effect": null
    },
    {
     "from": "country_readiness",
@@ -1251,7 +1377,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "prerequisite: For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met."
+    "title": "prerequisite: For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
+    "effect": null
    },
    {
     "from": "country_readiness",
@@ -1261,7 +1388,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "prerequisite: For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met."
+    "title": "prerequisite: For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
+    "effect": null
    },
    {
     "from": "country_readiness",
@@ -1271,7 +1399,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "prerequisite: For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met."
+    "title": "prerequisite: For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
+    "effect": null
    },
    {
     "from": "country_readiness",
@@ -1281,7 +1410,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Total investment committed to expansion"
+    "title": "worked out through Total investment committed to expansion",
+    "effect": null
    },
    {
     "from": "target_interpretation",
@@ -1291,7 +1421,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter."
+    "title": "assumption: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter.",
+    "effect": null
    },
    {
     "from": "target_interpretation",
@@ -1301,7 +1432,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter."
+    "title": "assumption: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter.",
+    "effect": null
    },
    {
     "from": "entry_interpretation",
@@ -1311,7 +1443,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply."
+    "title": "assumption: Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply.",
+    "effect": null
    },
    {
     "from": "entry_interpretation",
@@ -1321,7 +1454,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply."
+    "title": "assumption: Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply.",
+    "effect": null
    },
    {
     "from": "entry_interpretation",
@@ -1331,7 +1465,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply."
+    "title": "assumption: Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply.",
+    "effect": null
    },
    {
     "from": "entry_interpretation",
@@ -1341,7 +1476,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply."
+    "title": "assumption: Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply.",
+    "effect": null
    },
    {
     "from": "customer_flow_assumptions",
@@ -1351,7 +1487,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets."
+    "title": "assumption: Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
+    "effect": null
    },
    {
     "from": "customer_flow_assumptions",
@@ -1361,7 +1498,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "worked out through New customers from existing markets, Total monthly new customers · Proposed by Olumi: Arithmetic identity for monthly new customers. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers."
+    "title": "worked out through New customers from existing markets, Total monthly new customers · Proposed by Olumi: Arithmetic identity for monthly new customers. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "effect": null
    },
    {
     "from": "customer_flow_assumptions",
@@ -1371,7 +1509,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets."
+    "title": "assumption: Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
+    "effect": null
    },
    {
     "from": "shared_churn_stress",
@@ -1381,7 +1520,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption."
+    "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.",
+    "effect": null
    },
    {
     "from": "shared_churn_stress",
@@ -1391,7 +1531,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption."
+    "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.",
+    "effect": null
    },
    {
     "from": "shared_churn_stress",
@@ -1401,7 +1542,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption."
+    "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.",
+    "effect": null
    },
    {
     "from": "shared_churn_stress",
@@ -1411,7 +1553,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption."
+    "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.",
+    "effect": null
    }
   ],
   "run": {
