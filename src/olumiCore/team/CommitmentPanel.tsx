@@ -6,6 +6,8 @@ import { useDraft } from './drafts'
 import { OutcomePanel } from './OutcomePanel'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from './writes'
 import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
+import { dissentWords } from './DissentPanel'
+import { currentModel, useViewStore } from '../../olumiView/store'
 
 interface CommitmentDraft { open: boolean; action: string; owner: string; expect: string; reconsider: string; keeps: string[]; option?: string; reviewOn?: string }
 const EMPTY: CommitmentDraft = { open: false, action: '', owner: '', expect: '', reconsider: '', keeps: [], option: '', reviewOn: '' }
@@ -25,8 +27,11 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
   const [d, setD, dropDraft] = useDraft<CommitmentDraft>(`${sid}:commitment`, { ...EMPTY, owner: view.you_id })
   const { open, action, owner, expect, reconsider } = d
   const option = d.option ?? '', reviewOn = d.reviewOn ?? ''
-  // A live option of the approved version: core refuses any other (409).
-  const options = (view.model?.cards ?? []).filter((x) => x.family === 'option' && x.status === null)
+  // A live option of the APPROVED version, and its band, from the approved model only (store.ts currentModel; R2 review P1-2): while a
+  // proposal is held the View's model is the proposal's, so neither its options nor its bands are offered as version n's.
+  const approved = useViewStore(currentModel)
+  const pending = view.proposal !== null
+  const options = (approved?.cards ?? []).filter((x) => x.family === 'option' && x.status === null)
   const chosen = options.find((x) => x.id === option) ?? null
   // Only dissent the approved model still records: a kept id core no longer holds is dropped, never sent.
   const keeps = (d.keeps ?? []).filter((id) => c.dissent.some((x) => x.id === id))
@@ -38,7 +43,7 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
   const [error, setError] = useState<string | null>(null)
   // A commitment has no operation id in core: one whose answer was lost may have been saved, so it is locked, not sent again (`writes.ts`).
   const locked = useWriteLocked(`${sid}:commitment`)
-  const ready = [action, expect, reconsider].every((t) => t.trim() !== '') && c.owners.some((o) => o.id === owner) && (options.length === 0 || chosen !== null)
+  const ready = [action, expect, reconsider].every((t) => t.trim() !== '') && c.owners.some((o) => o.id === owner) && approved !== null && (options.length === 0 || chosen !== null)
 
   const save = async () => {
     if (!ready || locked) return
@@ -90,6 +95,7 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
             <option value="" disabled>Choose…</option>
             {c.owners.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
+          {pending && <p className={META} data-testid="team-c-pending">The option is chosen from the approved model. Approve or set aside the proposal in the chat first.</p>}
           {options.length > 0 && (<>
             <label htmlFor="team-c-option" className={LABEL}>Which option this commits to</label>
             <select id="team-c-option" data-testid="team-c-option" className={FIELD} value={option} disabled={busy} onChange={(e) => put({ option: e.target.value })}>
@@ -117,7 +123,7 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
                   <input type="checkbox" className="mt-1" data-testid={`team-c-keep-${x.id}`} checked={keeps.includes(x.id)} disabled={busy}
                     onChange={(e) => put({ keeps: e.target.checked ? [...keeps, x.id] : keeps.filter((id) => id !== x.id) })} />
                   <span className="grid gap-0.5 break-words">
-                    <span>{x.holder}: {x.position}</span>
+                    <span>{x.holder}: {dissentWords(x)}</span>
                     {x.confirmed?.tell != null && <span className={META} data-testid={`team-c-keep-tell-${x.id}`}>What would tell {x.holder} they are wrong: {x.confirmed.tell}</span>}
                   </span>
                 </label>

@@ -27,12 +27,15 @@ export function DissentPanel({ sid, view, onWrote }: { sid: string; view: View; 
   )
 }
 
+/** A dissent as the team reads it: its holder's confirmed words where they confirmed them, else the words the model records (R2 review P1-4). */
+export const dissentWords = (d: Dissent): string => d.confirmed?.words ?? d.position
+
 function DissentRow({ sid, d, you, onWrote }: { sid: string; d: Dissent; you: string; onWrote: () => Promise<boolean> }): JSX.Element {
   // Core's R2b fields (olumi.view/3 at d1fe5e2): the member the holder names, and the holder's confirmed words.
   const confirmed = d.confirmed
   const holder = d.holder_id
   const mine = holder !== null && holder === you
-  const shown = confirmed?.words ?? d.position
+  const shown = dissentWords(d)
   const key = `${sid}:dissent:${d.id}`
   const [draft, setDraft, dropDraft] = useDraft<DissentDraft>(key, { rewording: false, words: shown, tell: confirmed?.tell ?? '' })
   const [busy, setBusy] = useState(false)

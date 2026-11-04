@@ -4,6 +4,7 @@ import { teamApi, TeamApiError } from './api'
 import { runWrite, useWriteSending } from './writes'
 import { useDraft } from './drafts'
 import type { View } from '../../olumiView/client'
+import { dissentWords } from './DissentPanel'
 import { BODY, CARD, ERR, FIELD, LABEL, META } from './ui'
 
 /** Core's verdict on a kept dissent (olumi.view/3 at d1fe5e2), and the words this panel says for each. */
@@ -116,7 +117,7 @@ export function OutcomePanel({ sid, commitment, dissent, labelOf, onWrote }: { s
           </>)}
           {kept.map((x) => (
             <fieldset key={x.id} className="m-0 grid gap-1 border-0 p-0" data-testid={`${name}-verdict-${x.id}`}>
-              <legend className={LABEL}>The team's verdict on {x.holder}: {x.position}</legend>
+              <legend className={LABEL}>The team's verdict on {x.holder}: {dissentWords(x)}</legend>
               {VERDICTS.map((v) => (
                 <label key={v.value} className={`${BODY} flex min-h-[28px] cursor-pointer items-center gap-2`}>
                   <input type="radio" name={`${name}-verdict-${x.id}`} checked={verdicts[x.id] === v.value} disabled={busy} onChange={() => setVerdict(x.id, v.value)} />{v.words}
