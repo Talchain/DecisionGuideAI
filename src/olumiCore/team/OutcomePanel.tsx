@@ -53,7 +53,8 @@ export function OutcomePanel({ sid, commitment, dissent, labelOf, onWrote }: { s
   const kept = dissent.filter((x) => c.keeps.includes(x.id))
   const setFigure = (v: string) => setD((p) => ({ ...p, figure: v }))
   const setVerdict = (id: string, v: Verdict) => setD((p) => ({ ...p, verdicts: { ...(p.verdicts ?? {}), [id]: v } }))
-  const band = c.expect_band
+  // A View from a core before R2b has no R2b keys: absent reads as none (`?? null`, `!= null`, `?? []`), never a crash.
+  const band = c.expect_band ?? null
   const figureValue = figure.trim() === '' ? null : Number(figure)
   const setOpen = (v: boolean) => setD((p) => ({ ...p, open: v }))
   const setHappened = (v: string) => setD((p) => ({ ...p, happened: v }))
@@ -89,8 +90,8 @@ export function OutcomePanel({ sid, commitment, dissent, labelOf, onWrote }: { s
           <li key={o.id} data-testid={`team-outcome-${o.id}`} className={CARD}>
             <p className={`${META} text-text-header`}>{o.by} · {versusWords(o.versus)} · reconsider point {o.reconsider_triggered ? 'triggered' : 'not triggered'}</p>
             <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid={`team-outcome-happened-${o.id}`}>{o.happened}</p>
-            {o.figure !== null && <p className={META} data-testid={`team-outcome-figure-${o.id}`}>What came about: {o.figure.text}</p>}
-            {o.dissent.map((v) => <p key={v.id} className={META} data-testid={`team-outcome-verdict-${o.id}-${v.id}`}>{labelOf(v.id) ?? v.id} · {verdictWords(v.verdict)} · {v.by}</p>)}
+            {o.figure != null && <p className={META} data-testid={`team-outcome-figure-${o.id}`}>What came about: {o.figure.text}</p>}
+            {(o.dissent ?? []).map((v) => <p key={v.id} className={META} data-testid={`team-outcome-verdict-${o.id}-${v.id}`}>{labelOf(v.id) ?? v.id} · {verdictWords(v.verdict)} · {v.by}</p>)}
             {o.note !== null && <p className={`${META} whitespace-pre-wrap break-words`}>{o.note}</p>}
           </li>
         ))}

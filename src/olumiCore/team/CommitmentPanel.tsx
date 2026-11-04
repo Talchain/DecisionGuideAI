@@ -65,12 +65,12 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
           <li key={k.id} data-testid={`team-commitment-${k.id}`} className={CARD}>
             <p className={`${BODY} whitespace-pre-wrap break-words text-text-header`} data-testid={`team-commitment-action-${k.id}`}>{k.action}</p>
             <p className={META}>owner {k.owner} · set by {k.by}</p>
-            {k.option !== null && <p className={META} data-testid={`team-commitment-option-${k.id}`}>{k.option.heading}{k.version !== null ? ` · version ${k.version}` : ''}</p>}
-            {k.review_on !== null && <p className={META} data-testid={`team-commitment-review-${k.id}`}>Review on {k.review_on}</p>}
+            {k.option != null && <p className={META} data-testid={`team-commitment-option-${k.id}`}>{k.option.heading}{k.version != null ? ` · version ${k.version}` : ''}</p>}
+            {k.review_on != null && <p className={META} data-testid={`team-commitment-review-${k.id}`}>Review on {k.review_on}</p>}
             <dl className="m-0 grid gap-1">
               <div><dt className={META}>What we expect</dt><dd className={`${BODY} m-0 whitespace-pre-wrap break-words`} data-testid={`team-commitment-expect-${k.id}`}>{k.expect}</dd></div>
               <div><dt className={META}>What would make us reconsider</dt><dd className={`${BODY} m-0 whitespace-pre-wrap break-words`}>{k.reconsider}</dd></div>
-              {k.expect_band !== null && <div data-testid={`team-commitment-band-${k.id}`}><dt className={META}>The model's band for it then</dt><dd className={`${BODY} m-0`}>{k.expect_band.text}</dd></div>}
+              {k.expect_band != null && <div data-testid={`team-commitment-band-${k.id}`}><dt className={META}>The model's band for it then</dt><dd className={`${BODY} m-0`}>{k.expect_band.text}</dd></div>}
             </dl>
             {k.keeps.map(labelOf).some((l) => l !== null) && <p className={META} data-testid={`team-commitment-keeps-${k.id}`}>Keeps open: {k.keeps.map(labelOf).filter((l): l is string => l !== null).join('; ')}</p>}
             {/* Each kept dissent's tell, in its holder's own words (board 20). */}
