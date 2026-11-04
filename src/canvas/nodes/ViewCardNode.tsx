@@ -42,6 +42,7 @@ export const VIEW_CARD_SLOTS = {
 } as const
 const Slot = ({ name, className = '' }: { name: string; className?: string }) => <span data-slot={name} className={className} />
 
+const NBSP = '\u00a0'
 const Mark = ({ at, mark }: { at: string; mark: { glyph: string; title: string } | null }) => (
   mark === null ? null : <span title={mark.title} aria-label={mark.title} data-view={`${at}.glyph`}>{mark.glyph}</span>
 )
@@ -58,12 +59,15 @@ function Row({ id, row, i, ifApproved = null }: { id: string; row: ViewRow; i: n
   switch (row.kind) {
     case 'chance':
       return (
-        <p className="flex flex-wrap items-baseline gap-x-1" title={row.title} data-view-row={at}>
-          <span data-view={`${at}.aim`}>{row.aim}</span>
-          <span className={typography.nodeValue}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
-          <Mark at={`${at}.olumi`} mark={row.olumi} />
-          <Mark at={`${at}.likely`} mark={row.likely} />
-          <IfApprovedMark mark={ifApproved} />
+        // Inline, never a flex row: each mark follows the value's last word after a no-break space, so it wraps with that word and never
+        // alone (R5, the real capacity board: a lone ◆ after "…does not happen").
+        <p title={row.title} data-view-row={at}>
+          <span data-view={`${at}.aim`}>{row.aim}</span>{' '}
+          <span className={typography.nodeValue}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span>
+            {row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}
+            {row.likely === null ? null : <>{NBSP}<Mark at={`${at}.likely`} mark={row.likely} /></>}
+            {ifApproved === null ? null : <>{NBSP}<IfApprovedMark mark={ifApproved} /></>}
+          </span>
         </p>
       )
     case 'limit':
