@@ -17,7 +17,7 @@ import { drawnOnlyKey, subscribeDrawnOnly } from '../domain/livingKinds'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { productFitFloor } from '../../olumiView/camera'
 import { useViewStore } from '../../olumiView/store'
-import { QUESTION } from '../../olumiView/layout'
+import { drawnHeightsKey, QUESTION } from '../../olumiView/layout'
 
 /** The slice of canvas state the camera's readiness questions are asked of. */
 type CameraReadinessState = Pick<
@@ -572,12 +572,19 @@ export function useFitViewOnLayoutVersion(): void {
     if (coreVersion === '' || framedCoreVersionRef.current === coreVersion) return
     let raf = 0
     let frames = 0
+    let last = ''
     const tryFit = () => {
       const cards = useViewStore.getState().view?.model?.cards ?? []
       const ids = new Set([QUESTION, ...cards.map((c) => c.id)])
-      const measured = (getNodesRef.current?.() ?? []).filter((n) => ids.has(n.id) && n.measured?.width && n.measured?.height).length
-      if (measured < ids.size && ++frames < 120) { raf = requestAnimationFrame(tryFit); return }
-      if (measured === 0) return
+      const drawn = (getNodesRef.current?.() ?? []).filter((n) => ids.has(n.id) && n.measured?.width && n.measured?.height)
+      // Measured cards grow past core's heights and the canvas re-places them, pushing each column down: frame the board once every
+      // card is measured and its heights and places are unchanged across a frame, not at the first measure (4 Nov: a 22-card model's
+      // bottom was cropped). A measured signal, not a timer; bounded so a board that never settles is still framed.
+      const now = `${drawnHeightsKey(drawn)}#${drawn.map((n) => `${n.position.x},${n.position.y}`).join('|')}`
+      const settled = drawn.length === ids.size && now === last
+      last = now
+      if (!settled && ++frames < 300) { raf = requestAnimationFrame(tryFit); return }
+      if (drawn.length === 0) return
       framedCoreVersionRef.current = coreVersion
       releaseUserCameraClaim()
       fitNow.current()
