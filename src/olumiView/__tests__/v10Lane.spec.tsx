@@ -16,7 +16,7 @@ import type { View } from '../client'
 import { currentModel, useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
 import { ViewChat, ViewComposer, ViewTurns, useViewChat, useAnswersAsks } from '../ViewChat'
-import { useV10Lane, ViewCardV10 } from '../v10'
+import { optionBands, useV10Lane, ViewCardV10 } from '../v10'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -123,4 +123,50 @@ describe('v10 on the core lane', () => {
     expect(document.querySelector(`[data-testid="view-driver-mark-${withDriver.id}"]`)).not.toBeNull() // with Olumi's mark (00002 #4)
     expect(draw(without).querySelector('[data-testid^="view-driver-"]')).toBeNull()
   })
+
+  it('the outcome band: each option\'s band from core\'s chance-row outcome on ONE axis, core\'s line beneath verbatim; none in two units', () => {
+    const model = currentModel({ view: golden('capacity-v3'), error: null, stale: false })!
+    const options = model.cards.filter((c) => c.family === 'option')
+    const bands = optionBands(model.cards)
+    const outcome = (id: string) => { const r = options.find((c) => c.id === id)!.rows.find((x) => x.kind === 'chance')!; return r.kind === 'chance' ? r.outcome! : null! }
+    // One axis: its ends are the lowest low and the highest high of every option, so each bar sits where its range is.
+    const lo = Math.min(...options.map((c) => outcome(c.id).low)), hi = Math.max(...options.map((c) => outcome(c.id).high))
+    for (const c of options) {
+      const b = bands.get(c.id)!, o = outcome(c.id)
+      expect(b.leftPct).toBeCloseTo(((o.low - lo) / (hi - lo)) * 100, 6)
+      expect([b.text, b.title]).toEqual([o.text, o.title])
+    }
+    // Drawn on the card, in the shell's outcome-band place, its line core's own at its path.
+    useCanvasStore.setState({ nodes: options.map((card) => ({ id: card.id, type: 'viewCard', position: { x: 0, y: 0 }, data: { card, label: card.heading } })) as never })
+    const c = options[1]!
+    const { container } = render(<ReactFlowProvider><ViewCardV10 {...({ id: c.id, data: { card: c, label: c.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>)
+    const band = container.querySelector(`[data-testid="view-option-band-${c.id}"]`)!
+    expect(band.closest('[data-slot="outcome-band"]')).not.toBeNull()
+    expect(band.querySelector(`[data-view="${bands.get(c.id)!.at}"]`)?.textContent).toBe(outcome(c.id).text)
+    // Never two units on one axis, and nothing where core gives no outcome (an older View).
+    const mixed = model.cards.map((k) => (k.id === c.id ? { ...k, rows: k.rows.map((r) => (r.kind === 'chance' && r.outcome ? { ...r, outcome: { ...r.outcome, unit: 'hour' } } : r)) } : k))
+    expect(optionBands(mixed as typeof model.cards).size).toBe(0)
+    const older = model.cards.map((k) => ({ ...k, rows: k.rows.map((r) => (r.kind === 'chance' ? { ...r, outcome: null } : r)) }))
+    expect(optionBands(older as typeof model.cards).size).toBe(0)
+  })
+
+  // The band owns the chance rows' `outcome` leaves (the card walker exempts them, viewCard.spec SKIP): on every golden, each option's
+  // outcome line is drawn at its path, core's words exactly, whenever the options share one unit, and none is drawn when they do not.
+  for (const n of ['pricing', 'studio', 'bakery', 'european', 'app-launch', 's_ce285b3617bb', 'proposal', 'capacity-v3']) {
+    it(`${n}: every option's outcome line is drawn by its band, verbatim at its path`, () => {
+      const model = currentModel({ view: golden(n), error: null, stale: false })
+      if (model === null) return
+      const options = model.cards.filter((c) => c.family === 'option')
+      useCanvasStore.setState({ nodes: options.map((card) => ({ id: card.id, type: 'viewCard', position: { x: 0, y: 0 }, data: { card, label: card.heading } })) as never })
+      const withOutcome = options.flatMap((c) => c.rows.flatMap((r, i) => (r.kind === 'chance' && r.outcome ? [{ c, i, o: r.outcome }] : [])).slice(0, 1))
+      const oneUnit = new Set(withOutcome.map((x) => x.o.unit)).size <= 1
+      for (const { c, i, o } of withOutcome) {
+        const { container, unmount } = render(<ReactFlowProvider><ViewCardV10 {...({ id: c.id, data: { card: c, label: c.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>)
+        const line = container.querySelector(`[data-view="${c.id}.rows.${i}.outcome.text"]`)
+        if (oneUnit && Math.max(...withOutcome.map((x) => x.o.high)) > Math.min(...withOutcome.map((x) => x.o.low))) expect(line?.textContent, c.id).toBe(o.text)
+        else expect(line, c.id).toBeNull()
+        unmount()
+      }
+    })
+  }
 })
