@@ -281,6 +281,8 @@ check(!(await inView(ada, editable.id)), 'the card is off the view')
 await reach(ada, editable.id)
 check(await inView(ada, editable.id), 'Ada pans the canvas to it')
 await shot(ada, '5b-reached')
+// At rest a card shows no ✎ (DL 4 Nov, the original look): a person points at the card, and it shows.
+await ada.page.locator(`.react-flow__node[data-id="${editable.id}"]`).hover()
 await ada.page.getByTestId(`view-figure-edit-${editable.id}`).click()
 await ada.page.getByTestId(`view-figure-typed-${editable.id}`).fill('lots')
 await ada.page.getByTestId(`view-figure-set-${editable.id}`).click()
