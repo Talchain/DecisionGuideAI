@@ -16,3 +16,5 @@ These two Views are the real models. They're fixtures for `fit-real-model.mjs`, 
     - `gated: false`, `collab.alone: true` and `collab.waiting: null` (that person hadn't given a view, so the read came back gated).
 - **`hiring.view3.json`:** "Hiring for productivity and the next feature launch", R2-shaped.
   - Source: `~/olumi-work/local-dgai/demo-case0/hiring.view3.r2-1c1bc10.json`, unchanged.
+- **`together.view3.json`:** a proposal with Olumi's figure and the option that sets it, which core marks as a pair (`proposal.changes[].together`, R4, API v1.13).
+  - Source: core `wip/r4-science` 1dd2ca9's own approve path (`src/app/__tests__/confirm-selected.test.ts`, the R4 pair: `two_specialists`, `add_two`, plus an unpaired `c_extra`). Read as `ViewV3.parse(viewOf(svc.view(...), undefined, 3))` with no AI calls. Unedited.

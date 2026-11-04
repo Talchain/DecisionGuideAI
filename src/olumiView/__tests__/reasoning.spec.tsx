@@ -208,6 +208,17 @@ describe('each option\'s outcome band', () => {
     expect(m.key[0]).toEqual({ id: 'olumi', glyph: '◆', text: 'Olumi' })
   })
 
+  it('⛔ Olumi\'s key item is core\'s by its id (`olumi`), never by its words: with core\'s words for it changed, ◆ still marks Olumi\'s bands', () => {
+    const before = withoutOutcome(m)
+    const reworded = { ...before, key: before.key.map((k) => (k.id === 'olumi' ? { ...k, text: 'Olumi’s estimate' } : k)) }
+    ready(view)
+    render(<ViewReasoning model={reworded} />)
+    const root = screen.getByTestId('view-reasoning')
+    const olumis = sales.values!.flatMap((v) => (v.olumi ? [v.option] : []))
+    expect(olumis.length).toBeGreaterThan(0)
+    for (const o of olumis) expect(root.querySelector(`[data-view-card="${o}"] [data-band] [data-view="key.0.glyph"]`)?.textContent ?? null, o).toBe('◆')
+  })
+
   it('must not change: no outcome (null) draws no band; before e16a497 (no field) and with null values nothing; the Analysis tab draws none', () => {
     ready(view)
     const nulls = { ...m, cards: m.cards.map((c) => ({ ...c, rows: c.rows.map((r) => (r.kind === 'chance' ? { ...r, outcome: null } : r)) })) }
