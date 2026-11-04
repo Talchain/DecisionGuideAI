@@ -9,7 +9,7 @@
  */
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow, ViewRun } from './client'
-import { optionCards } from './layout'
+import { optionCards, worthLinesOf } from './layout'
 import { currentModel, useViewStore } from './store'
 import { clearWhatIf, useWhatIf } from './whatif'
 import { typography } from '../styles/typography'
@@ -124,6 +124,8 @@ function WaitsOnItems({ w, unknown }: { w: WaitsOn; unknown: boolean }) {
 export function ViewChances({ model }: { model: ViewModel }) {
   const run = model.run ?? null // absent from a core before view-dock (00058 P1)
   const headline = run !== null && run.all_withheld && run.waits_on !== null
+  // Only the science kinds this page knows; any other kind is drawn as nothing, never as a worth line (core's D2 adds kinds).
+  const worth = run?.science == null ? [] : worthLinesOf(run.science)
   return (
     <div className={`${typography.panelBody} space-y-3`} data-testid="view-chances">
       <WhatIfShown model={model} />
@@ -147,10 +149,10 @@ export function ViewChances({ model }: { model: ViewModel }) {
       {run?.most_likely == null ? null : <MostLikely model={model} ml={run.most_likely} />}
       {/* Under the chances, each aim's figure most worth checking first (D3), as core's page draws it: its mark when it rests on Olumi's
           proposals, the line in core's words, the Run's whole reason on hover (olumi.view/3 model.run.science; PL review 4 Nov). */}
-      {run?.science == null || run.science.length === 0 ? null : (
+      {worth.length === 0 ? null : (
         <div data-testid="view-run-worth" aria-label="Worth checking first">
           <p className={typography.panelHeader}>Worth checking first</p>
-          {run.science.map((l, i) => (
+          {worth.map(({ line: l, i }) => (
             <div key={l.id} title={l.hover} data-view-fact={l.id}>
               {l.olumi === null ? null : <><span title={l.olumi.title} aria-label={l.olumi.title} data-view={`run.science.${i}.olumi.glyph`}>{l.olumi.glyph}</span> </>}
               <span data-view={`run.science.${i}.line`}>{l.line}</span>

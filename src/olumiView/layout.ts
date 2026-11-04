@@ -171,6 +171,15 @@ export function linkEndHeading(model: ViewModel, id: string): string {
   return (model.cards.find((c) => c.id === id) ?? model.cards.find((c) => c.badge?.records.includes(id) === true))?.heading ?? ''
 }
 
+/** The science kinds Worth checking first knows how to say (olumi.view/3 `run.science[].kind`). */
+const WORTH_KINDS: ReadonlySet<string> = new Set(['worth'])
+/**
+ * The Run's science lines Worth checking first draws, each with its place in `run.science` (its View path): only the kinds it knows. A
+ * kind core adds later (D2: middle, better, an 'unresolved' status) is drawn as nothing until this page knows what it means.
+ */
+export const worthLinesOf = <T extends { kind: string }>(science: readonly T[]): { line: T; i: number }[] =>
+  science.map((line, i) => ({ line, i })).filter(({ line }) => WORTH_KINDS.has(line.kind))
+
 /**
  * The DGAI node kind a View card is drawn as on the canvas (the original look), by its role in core's model, the same on every version: a
  * figure core works out from others (a `through` link arrives at it) is an outcome, any other figure a factor; the rest as `askKindOf`.
