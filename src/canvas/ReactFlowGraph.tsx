@@ -111,7 +111,7 @@ import { NoteRecordsPublisher } from './components/NoteRecordsPublisher'
 import { ViewLinkEdge } from './edges/ViewLinkEdge'
 import { isOlumiCoreLane } from '../olumiCore/lane'
 import { useViewStore } from '../olumiView/store'
-import { placeViewCards } from '../olumiView/canvas'
+import { isViewNode, placeViewCards } from '../olumiView/canvas'
 import { useDrawnLivingModel } from './hooks/useDrawnLivingModel'
 import { livingOnlyOf } from './domain/livingModelCanvas'
 import { fitBoundsFor, CANVAS_MOUNT_FIT_OPTIONS } from './utils/zoomLegibility'
@@ -1531,6 +1531,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     onCanvasInteraction?.()
     // A card drawn from the living model alone has no store node to select, inspect or edit.
     if (livingOnlyOf(node?.data) !== null) return
+    // A card drawn from core's View (the olumi-core lane) has no store node either: selected by the click, no inspector.
+    if (isViewNode(node)) return
 
     if (reconnecting) {
       completeReconnect(node.id)
@@ -1586,8 +1588,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
    * `openNodeInspector` uses, for the same reason: opening an editor is not a
    * graph change and must not be undoable.
    */
-  const handleNodeDoubleClick = useCallback((_event: unknown, node: { id: string; data?: unknown }) => {
-    if (!node?.id || livingOnlyOf(node.data) !== null) return
+  const handleNodeDoubleClick = useCallback((_event: unknown, node: { id: string; type?: string; data?: unknown }) => {
+    if (!node?.id || livingOnlyOf(node.data) !== null || isViewNode(node)) return
     useCanvasStore.getState().selectNodeWithoutHistory(node.id)
     requestNodeRename(node.id)
     setShowFullInspector(true)

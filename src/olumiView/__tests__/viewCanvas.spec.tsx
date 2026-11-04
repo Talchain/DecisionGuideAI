@@ -124,3 +124,13 @@ describe('nothing else opens the core lane\'s canvas', () => {
     expect(renderHook(() => useSavedModelProgramState()).result.current).toBe('not_program')
   })
 })
+
+describe('a click on a View card opens no inspector (4 Nov drive: "This element has no detailed editor yet" over the canvas)', () => {
+  it('a card or the question from core\'s View is a View node; any other node is not, so its click still opens the inspector', async () => {
+    const { isViewNode, VIEW_CARD, VIEW_QUESTION } = await import('../canvas')
+    expect(isViewNode({ type: VIEW_CARD })).toBe(true)
+    expect(isViewNode({ type: VIEW_QUESTION })).toBe(true)
+    for (const type of ['factor', 'option', 'goal', 'viewLink', undefined]) expect(isViewNode({ type }), String(type)).toBe(false)
+    expect(isViewNode(null)).toBe(false)
+  })
+})
