@@ -15,7 +15,8 @@ import { TEAM_PAST_HELD } from './writes'
  * THE TEAM TAB (olumi-core lane only). The team's views, the reveal, evidence, commitments and their outcomes, every word and state as
  * core's View carries them (`collab`, `evidence`, `members`): the same View the canvas and the chat draw, so the tab and the canvas can
  * never disagree about which version or round they show. Writes go to core's own routes; after each one the View is read again.
- * Refresh, not realtime: another member's change shows on "Check for new views".
+ * Another member's change arrives on its own: while the page is seen the View is read again about every 10 s (`src/olumiView/poll.ts`,
+ * POLL_MS, R2 9055eb083), and at once on "Check for new views"; not a live push, so it can take up to one poll to show.
  */
 export function TeamTab(): JSX.Element {
   const view = useViewStore((s) => s.view)
