@@ -184,6 +184,9 @@ await ada.page.keyboard.press('ArrowRight')
 check(await ada.page.getByTestId('lens-bar-rests_on').getAttribute('aria-checked') === 'true' && await ada.page.evaluate(() => document.activeElement?.getAttribute('data-testid')) === 'lens-bar-rests_on', 'keyboard: the arrow keys move along the lens bar and switch the lens')
 await ada.page.keyboard.press('ArrowLeft')
 check(await ada.page.getByTestId('lens-bar-full').getAttribute('aria-checked') === 'true', 'keyboard: back to Model')
+// Focusing a card pans it into view; Fit to view puts the board back as it opens, for the rows that follow.
+await ada.page.getByRole('button', { name: 'Fit to view' }).click()
+await ada.page.waitForTimeout(800)
 // The lenses are back on from the View (DL 4 Nov): the bar offers only those the View fills, never a dead one.
 check(JSON.stringify(await ada.page.getByTestId('lens-bar').getByRole('radio').evaluateAll((bs) => bs.map((b) => b.getAttribute('data-testid')))) === JSON.stringify(['lens-bar-full', 'lens-bar-rests_on', 'lens-bar-what_changes', 'lens-bar-what_if']), 'the lens bar offers Model, Rests on, What would change and What if, and no lens the View cannot fill')
 // Compare is core's own comparison of two approved versions (src/olumiCore/compare.tsx); Reasoning and Model are drawn from the View.
