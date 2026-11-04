@@ -191,6 +191,9 @@ await ada.page.waitForTimeout(800)
 check(JSON.stringify(await ada.page.getByTestId('lens-bar').getByRole('radio').evaluateAll((bs) => bs.map((b) => b.getAttribute('data-testid')))) === JSON.stringify(['lens-bar-full', 'lens-bar-rests_on', 'lens-bar-what_changes', 'lens-bar-what_if']), 'the lens bar offers Model, Rests on, What would change and What if, and no lens the View cannot fill')
 // Compare is core's own comparison of two approved versions (src/olumiCore/compare.tsx); Reasoning and Model are drawn from the View.
 for (const kept of ['olumi', 'results', 'analysisNew', 'team', 'compare', 'diagnostics']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
+// The lane's strip fits its rail at this width (MAX_LANE_PRESENTED_SURFACES): every tab drawn whole inside the rail and the window.
+const rail = await ada.page.getByTestId('outputs-dock-rail-tablist').evaluate((l) => { const r = l.getBoundingClientRect(); return { n: l.querySelectorAll('[role="tab"]').length, over: l.scrollHeight > l.clientHeight + 1 || l.scrollWidth > l.clientWidth + 1, out: [...l.querySelectorAll('[role="tab"]')].filter((t) => { const b = t.getBoundingClientRect(); return b.top < r.top - 1 || b.bottom > r.bottom + 1 || b.left < r.left - 1 || b.right > r.right + 1 || b.bottom > innerHeight || b.right > innerWidth }).map((t) => t.getAttribute('data-testid')) } })
+check(!rail.over && rail.out.length === 0, `the dock rail holds all ${rail.n} lane tabs whole at ${process.env.VIEW_W ?? 1440}px (overflow ${rail.over}; outside ${rail.out.join(',') || 'none'})`)
 // G6: Olumi's next step, beside the one card core names, in core's words.
 const next = v.chat.find((t) => t.answer?.next.newest)?.answer?.next
 check(next && next.at !== null, `core puts Olumi's next step beside one card (${next?.at})`)

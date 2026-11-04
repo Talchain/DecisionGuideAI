@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { coreLaneShowsSurface } from '../lane'
-import { MAX_PRESENTED_SURFACES, WORKSPACE_SURFACES, presentedSurfaces, presentedSurfacesWithLane } from '../../canvas/components/workspaceShell/shellContract'
+import { MAX_LANE_PRESENTED_SURFACES, MAX_PRESENTED_SURFACES, WORKSPACE_SURFACES, presentedSurfaces, presentedSurfacesWithLane } from '../../canvas/components/workspaceShell/shellContract'
 import { cardMarkKeyRows } from '../../canvas/components/CanvasLegendPopover'
 import { RENDERED_CARD_MARKS } from '../../canvas/nodes/shared/cardMarks'
 
@@ -17,13 +17,14 @@ describe('the Team tab is the olumi-core lane\'s and nobody else\'s', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '')
     expect(presentedSurfacesWithLane().filter((s) => coreLaneShowsSurface(s.id)).map((s) => s.id)).not.toContain('team')
   })
-  it('on the lane the strip is checked AFTER the lane filter: Olumi, Analysis, Reasoning, Compare, Team (the dock applies this same filter in getOutputTabsForParity), never more than the recorded maximum', () => {
+  it('on the lane the strip is checked AFTER the lane filter: Olumi, Analysis, Reasoning, Compare, Model (drawn from the View, R2), Team (the dock applies this same filter in getOutputTabsForParity), never more than the lane\'s recorded maximum', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     const ids = presentedSurfacesWithLane().filter((s) => coreLaneShowsSurface(s.id)).map((s) => s.id)
     expect(ids).toContain('team')
     expect(ids).toContain('analysisNew')
     expect(ids).toContain('compare') // core's own comparison (olumiCore/compare.tsx)
-    expect(ids.length).toBeLessThanOrEqual(MAX_PRESENTED_SURFACES)
+    expect(ids).toContain('diagnostics')
+    expect(ids.length).toBeLessThanOrEqual(MAX_LANE_PRESENTED_SURFACES)
     expect(ids.indexOf('team')).toBeGreaterThan(ids.indexOf('diagnostics'))
   })
 })
