@@ -146,6 +146,13 @@ describe('own view first: a member core holds sees no one else\'s view, an early
     expect(screen.getByTestId('team-revealed-3').textContent).toContain('Hold until the pilot reports.')
     expect(screen.queryByTestId('team-revealed-held')).toBeNull()
   })
+  it('core withholds the shared views itself (R3, core 550ad5f: `shared` empty for a gated viewer): the tab still says to give or skip hers first', () => {
+    const v = twoPeople()
+    show({ ...v, gated: true, collab: { ...v.collab, shared: [] } } as View)
+    render(<TeamTab />)
+    expect(screen.getByTestId('team-revealed-held').textContent).toBe('Give or skip your own view first: then you see the others’.')
+    expect(screen.queryByTestId('team-revealed')).toBeNull()
+  })
 })
 
 describe('the nudges are held with the Team forms while an earlier version is drawn (R1 review 1)', () => {
