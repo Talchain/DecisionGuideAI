@@ -1,5 +1,5 @@
 import type { View } from '../../olumiView/client'
-import { CoreCompare } from '../compare'
+import { CoreCompare, useLatestApproved } from '../compare'
 import { BODY, H, META } from './ui'
 
 /**
@@ -7,8 +7,9 @@ import { BODY, H, META } from './ui'
  * read-only compare route (`../compare.tsx`), and open core's printable reasoning record. Nothing is computed here.
  */
 export function ComparePanel({ sid, view }: { sid: string; view: View }): JSX.Element | null {
-  const latest = view.version?.n ?? null
-  if (latest === null) return null
+  // The latest approved version, not the one drawn: an earlier version on the canvas leaves every version to compare (R1 review 2).
+  const latest = useLatestApproved()
+  if (latest === null || latest === undefined || view.version === null) return null
   return (
     <section data-testid="team-review" aria-label="Record and versions" className="grid gap-2">
       <h3 className={H}>Record and versions</h3>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '../components/ui/Button'
 import { useViewStore } from '../olumiView/store'
 import { call, TeamApiError } from './team/api'
@@ -65,12 +65,19 @@ export function CoreCompare({ sid, latest, id, auto = false }: { sid: string; la
   const [error, setError] = useState<string | null>(null)
   const f = from ?? latest - 1, t = to ?? latest
   const versions = Array.from({ length: latest }, (_, i) => i + 1)
+  // Reads are numbered: an answer a newer read has overtaken (a slow pair after the auto-refresh's) is dropped whole, its busy and error
+  // with it (R1 review 3).
+  const seq = useRef(0)
   const go = async (a: number, b: number) => {
-    if (a === b) { setShown(null); setError('Pick two different versions.'); return }
+    const mine = ++seq.current
+    if (a === b) { setBusy(false); setShown(null); setError('Pick two different versions.'); return }
     setBusy(true); setError(null)
-    try { setShown(await call<Compared>('GET', `/api/scenarios/${encodeURIComponent(sid)}/compare?from=${a}&to=${b}`)) } catch (e) {
-      setShown(null); setError(e instanceof TeamApiError ? e.message : 'That did not go through.')
-    } finally { setBusy(false) }
+    try {
+      const r = await call<Compared>('GET', `/api/scenarios/${encodeURIComponent(sid)}/compare?from=${a}&to=${b}`)
+      if (mine === seq.current) setShown(r)
+    } catch (e) {
+      if (mine === seq.current) { setShown(null); setError(e instanceof TeamApiError ? e.message : 'That did not go through.') }
+    } finally { if (mine === seq.current) setBusy(false) }
   }
   // A new version (another member's approval) moves the default pair to the new latest, read again.
   useEffect(() => { if (auto) { setFrom(null); setTo(null); void go(latest - 1, latest) } }, [auto, sid, latest]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -92,14 +99,36 @@ export function CoreCompare({ sid, latest, id, auto = false }: { sid: string; la
   )
 }
 
+/**
+ * The scenario's latest approved version: the View's own while it is the latest, else (an earlier version drawn from the history) the last
+ * of core's stored versions (`GET /versions`), never the version drawn (R1 review 2). Undefined while that read is on its way.
+ */
+export function useLatestApproved(): number | null | undefined {
+  const sid = useViewStore((s) => s.sid), at = useViewStore((s) => s.at)
+  const own = useViewStore((s) => s.view?.version?.n ?? null)
+  const [listed, setListed] = useState<{ key: string; n: number | null } | null>(null)
+  const key = `${sid}:${at}`
+  useEffect(() => {
+    if (!sid || at === null) return
+    let live = true
+    call<{ versions: { n: number }[] }>('GET', `/api/scenarios/${encodeURIComponent(sid)}/versions`)
+      .then((r) => { if (live) setListed({ key, n: r.versions.at(-1)?.n ?? null }) })
+      .catch(() => { if (live) setListed({ key, n: null }) })
+    return () => { live = false }
+  }, [sid, at, key])
+  if (at === null) return own
+  return listed?.key === key ? listed.n : undefined
+}
+
 /** The dock's Compare tab on the olumi-core lane: the previous approved version against the latest, as core compares them. */
 export function CoreCompareTab(): JSX.Element {
   const sid = useViewStore((s) => s.sid)
-  const latest = useViewStore((s) => s.view?.version?.n ?? null)
+  const latest = useLatestApproved()
+  if (sid && latest === undefined) return <div data-testid="core-compare-tab" className="grid gap-3 px-3 py-3 pb-6"><p className={META} data-testid="core-compare-loading">Reading the versions…</p></div>
   return (
     // The Compare row pads itself (`padding: 'self'` in the shell contract): the shell's own measure, as the Team tab gets it.
     <div data-testid="core-compare-tab" className="grid gap-3 px-3 py-3 pb-6">
-      {!sid || latest === null
+      {!sid || latest === null || latest === undefined
         ? <p className={BODY} data-testid="core-compare-none">Start a model in the chat first. Compare reads the versions you approve.</p>
         : latest < 2
           ? <p className={BODY} data-testid="core-compare-one">Compare needs two approved versions. Approve a change to the model to make the second.</p>

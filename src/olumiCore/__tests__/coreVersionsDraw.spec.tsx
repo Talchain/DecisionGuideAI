@@ -21,6 +21,9 @@ import { PAST_HELD, ViewComposer, useAnswersAsks, useViewChat } from '../../olum
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { setTeamFetch } from '../team/api'
 import { CoreVersions } from '../versions'
+import { runWrite, resetWrites, TEAM_PAST_HELD } from '../team/writes'
+import { TeamTab } from '../team/TeamTab'
+import { useMe } from '../me'
 
 const SID = 's_0123456789ab'
 const base = golden as unknown as View
@@ -47,7 +50,7 @@ beforeEach(() => {
   core()
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: withVersion(2), status: 'ready', error: null, stale: false, at: null })
 })
-afterEach(() => { cleanup(); setTeamFetch(null); vi.unstubAllEnvs(); useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null }) })
+afterEach(() => { cleanup(); setTeamFetch(null); vi.unstubAllEnvs(); resetWrites(); useMe.setState({ me: null, status: 'none' }); useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null }) })
 
 const drawOne = async () => {
   render(<CoreVersions />)
@@ -118,5 +121,30 @@ describe('nothing is written while a past version is drawn', () => {
     await waitFor(() => expect(useViewChat.getState().said).toBe(PAST_HELD))
     expect(posts).toEqual([])
     expect(useViewChat.getState().text).toBe('Why does per specialist matter?')
+  })
+})
+
+describe('R1 review 1: the Team tab writes nothing to the live scenario while a past version is drawn', () => {
+  it('the shared Team writer refuses a view, evidence, commitment or outcome, and sends nothing; an invitation is not version-bound', async () => {
+    useViewStore.setState({ view: withVersion(1), at: 1 })
+    let sent = 0
+    for (const key of [`${SID}:view`, `${SID}:evidence`, `${SID}:commitment`, `${SID}:outcome:9`]) {
+      await expect(runWrite(key, { op: false }, null, async () => { sent += 1 })).rejects.toThrow(TEAM_PAST_HELD)
+    }
+    expect(sent).toBe(0)
+    await runWrite(`${SID}:invite`, { op: false, anyVersion: true }, null, async () => { sent += 1 })
+    expect(sent).toBe(1)
+  })
+  it('its forms are held and say why, with the way back', () => {
+    useViewStore.setState({ view: withVersion(1), at: 1 })
+    useMe.setState({ me: { id: base.you_id, name: base.you }, status: 'ready' })
+    render(<TeamTab />)
+    // Held by its fieldset, as a browser holds it (`:disabled`), the view box and every Team form button with it; invitations stay open.
+    expect(screen.getByTestId('team-view-text').matches(':disabled')).toBe(true)
+    expect(screen.getByTestId('team-commitment-open').matches(':disabled')).toBe(true)
+    expect(screen.getByTestId('team-invite-name').matches(':disabled')).toBe(false)
+    expect(screen.getByTestId('team-past').textContent).toContain(`Version 1 is on the canvas, as it was. ${TEAM_PAST_HELD}`)
+    fireEvent.click(screen.getByTestId('team-past-back'))
+    expect(useViewStore.getState().at).toBe(1) // the read is on its way; the back goes through the store's look
   })
 })
