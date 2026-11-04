@@ -631,7 +631,7 @@
        ],
        "approx": []
       },
-      "rests_on_text": "It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them.",
+      "rests_on_text": "Rests on Olumi's proposed figure for 'workshop extra'.",
       "estimate": null
      }
     ],
@@ -957,6 +957,49 @@
    "sensitivity": {
     "text": "These are its chances over the lowest and highest third of that figure's draws.",
     "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+   },
+   "compared": [
+    {
+     "id": "F16",
+     "kind": "middle",
+     "line": "'Evening classes' · aim 'Take £2,640 a month' · on the middle figures: £2,760/month, meets it",
+     "hover": "option: 'Evening classes'; aim: 'Take £2,640 a month'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'takings' £2,760/month; target: >= £2,640/month; status: meets it.",
+     "aim": "takings_goal",
+     "option": "evening_classes",
+     "versus": null,
+     "status": "met",
+     "olumi": null
+    },
+    {
+     "id": "F17",
+     "kind": "middle",
+     "line": "'Weekend workshops' · aim 'Take £2,640 a month' · on the middle figures: £2,580/month, misses it",
+     "hover": "option: 'Weekend workshops'; aim: 'Take £2,640 a month'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'takings' £2,580/month; target: >= £2,640/month; status: misses it. It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them.",
+     "aim": "takings_goal",
+     "option": "weekend_workshops",
+     "versus": null,
+     "status": "missed",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F18",
+     "kind": "middle",
+     "line": "'Carry on as now' · aim 'Take £2,640 a month' · on the middle figures: £2,400/month, misses it",
+     "hover": "option: 'Carry on as now'; aim: 'Take £2,640 a month'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'takings' £2,400/month; target: >= £2,640/month; status: misses it.",
+     "aim": "takings_goal",
+     "option": "carry_on",
+     "versus": null,
+     "status": "missed",
+     "olumi": null
+    }
+   ],
+   "compared_headings": {
+    "middle": "On the middle figures",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target"
    }
   },
   "edit_base": 1,

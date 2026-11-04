@@ -885,6 +885,12 @@
    "sensitivity": {
     "text": "These are its chances over the lowest and highest third of that figure's draws.",
     "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+   },
+   "compared": [],
+   "compared_headings": {
+    "middle": "On the middle figures",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target"
    }
   },
   "edit_base": 1,

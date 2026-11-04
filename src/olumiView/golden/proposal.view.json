@@ -557,6 +557,35 @@
    "sensitivity": {
     "text": "These are its chances over the lowest and highest third of that figure's draws.",
     "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+   },
+   "compared": [
+    {
+     "id": "F13",
+     "kind": "middle",
+     "line": "'Keep current staffing' · aim 'At least 100 a week' · on the middle figures: 80 tickets/week, misses it",
+     "hover": "option: 'Keep current staffing'; aim: 'At least 100 a week'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'total capacity' at the end of the window 80 tickets/week; target: >= 100 tickets/week; status: misses it. It leaves out: How the team feels about a new hire.",
+     "aim": "capacity_goal",
+     "option": "hold",
+     "versus": null,
+     "status": "missed",
+     "olumi": null
+    },
+    {
+     "id": "F14",
+     "kind": "middle",
+     "line": "'Add one specialist' · aim 'At least 100 a week' · on the middle figures: 105 tickets/week, meets it",
+     "hover": "option: 'Add one specialist'; aim: 'At least 100 a week'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'total capacity' at the end of the window 105 tickets/week; target: >= 100 tickets/week; status: meets it. It leaves out: How the team feels about a new hire.",
+     "aim": "capacity_goal",
+     "option": "add_one",
+     "versus": null,
+     "status": "met",
+     "olumi": null
+    }
+   ],
+   "compared_headings": {
+    "middle": "On the middle figures",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target"
    }
   },
   "edit_base": null,
@@ -717,7 +746,8 @@
     "text": "↻ figure: per specialist",
     "detail": "low 10 → 15\nhigh 30 → 35\nlikely 20 → 25",
     "family": "quantity",
-    "olumi": null
+    "olumi": null,
+    "together": null
    },
    {
     "id": "start_delay",
@@ -725,7 +755,8 @@
     "text": "↻ figure: start delay",
     "detail": "figure 0 → 4",
     "family": "quantity",
-    "olumi": null
+    "olumi": null,
+    "together": null
    }
   ],
   "groups": null,
