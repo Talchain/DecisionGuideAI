@@ -174,7 +174,7 @@ describe('v10 on the core lane', () => {
     const model = golden('proposal').model!
     const changed = model.cards.find((c) => c.change !== null)!, kept = model.cards.find((c) => c.change === null && c.family !== 'question')!
     const draw = (card: typeof changed) => render(<ReactFlowProvider><ViewCardV10 {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>).container.querySelector('[data-testid="view-card-v10"]')!
-    expect(draw(changed).hasAttribute('data-proposed')).toBe(true)
+    expect(draw(changed).getAttribute('data-proposed')).toBe(changed.change!.kind) // core's kind, added or changed
     expect(draw(kept).hasAttribute('data-proposed')).toBe(false)
     act(() => { useCanvasStore.getState().setHighlightedNodes([kept.id]) })
     expect(draw(kept).hasAttribute('data-pulsed')).toBe(true)
@@ -182,6 +182,7 @@ describe('v10 on the core lane', () => {
     act(() => { useCanvasStore.getState().setHighlightedNodes([]) })
     const css = readFileSync(path.resolve('src/presentation/v10.css'), 'utf8')
     expect(css).toMatch(/\[data-testid="view-card-v10"\]\[data-proposed\] \[data-view-card\] \{\s*border-style: dashed;\s*border-color: var\(--info\);/)
+    expect(css).toMatch(/\[data-proposed="added"\] \[data-view-card\] \{\s*background-color: color-mix\(in srgb, var\(--info\) 6%/)
     expect(css).toMatch(/\[data-testid="view-card-v10"\]\[data-pulsed\] \[data-view-card\] \{[^}]*animation: ai-highlight-pulse/)
   })
 
@@ -201,5 +202,37 @@ describe('v10 on the core lane', () => {
     await act(async () => { fireEvent.click(container.querySelector('[data-testid="view-approve-ticked"]')!) })
     const want = held.proposal!.changes[first]!.id
     await waitFor(() => expect([...useCanvasStore.getState().highlightedNodes]).toEqual([want]))
+  })
+
+  it('board 4: the aim on the band\'s axis, core\'s aim words on its line; the part of each range that meets it solid, the part that misses it lighter', () => {
+    const view = golden('capacity-v3'), model = view.model!, aim = model.aim!
+    expect([aim.side, aim.unit]).toEqual(['at_least', 'ticket/week'])
+    const bands = optionBands(model.cards, aim), plain = optionBands(model.cards)
+    const outcome = (id: string) => { const r = model.cards.find((c) => c.id === id)!.rows.find((x) => x.kind === 'chance')!; return r.kind === 'chance' ? r.outcome! : null! }
+    const ids = [...bands.keys()], lo = Math.min(...ids.map((id) => outcome(id).low), aim.value), hi = Math.max(...ids.map((id) => outcome(id).high), aim.value)
+    const at = ((aim.value - lo) / (hi - lo)) * 100
+    for (const id of ids) {
+      const b = bands.get(id)!, o = outcome(id)
+      expect(b.aim!.pct).toBeCloseTo(at, 6)
+      expect(b.aim!.text).toBe(aim.text)
+      // "At least": the part above the aim meets it, the part below misses it.
+      if (o.high > aim.value && o.low < aim.value) {
+        expect(b.aim!.meet!.left).toBeCloseTo(at, 6)
+        expect(b.aim!.miss!.left).toBeCloseTo(b.leftPct, 6)
+      } else if (o.high <= aim.value) expect(b.aim!.meet).toBeNull()
+    }
+    // Drawn on the card: the aim line with core's words on hover, and the two parts.
+    useViewStore.setState({ view })
+    const straddles = ids.find((id) => outcome(id).low < aim.value && outcome(id).high > aim.value)!
+    const card = model.cards.find((c) => c.id === straddles)!
+    useCanvasStore.setState({ nodes: model.cards.filter((c) => c.family === 'option').map((c) => ({ id: c.id, type: 'viewCard', position: { x: 0, y: 0 }, data: { card: c, label: c.heading } })) as never })
+    const { container } = render(<ReactFlowProvider><ViewCardV10 {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>)
+    expect(container.querySelector(`[data-testid="view-option-band-aim-${card.id}"]`)?.getAttribute('title')).toBe(aim.text)
+    expect(container.querySelector(`[data-testid="view-option-band-meet-${card.id}"]`)).not.toBeNull()
+    expect(container.querySelector(`[data-testid="view-option-band-miss-${card.id}"]`)).not.toBeNull()
+    // Never an aim in another unit: the bands are then exactly the plain ones, with no aim line.
+    const other = optionBands(model.cards, { ...aim, unit: 'hour' })
+    expect([...other.values()]).toEqual([...plain.values()])
+    expect([...other.values()].every((b) => b.aim === null)).toBe(true)
   })
 })

@@ -15,7 +15,8 @@
  "version": {
   "id": 1,
   "n": 1,
-  "label": "version 1"
+  "label": "version 1",
+  "changed": []
  },
  "model": {
   "question": {
@@ -1000,7 +1001,16 @@
     "glyph": "↻",
     "text": "changed"
    }
-  ]
+  ],
+  "removed": [],
+  "aim": {
+   "quantity": "takings",
+   "value": 2640,
+   "unit": "GBP/month",
+   "text": "at least £2,640/month",
+   "title": "£2,640/month",
+   "side": "at_least"
+  }
  },
  "proposal": null,
  "collab": {

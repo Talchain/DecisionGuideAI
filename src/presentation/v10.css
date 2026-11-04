@@ -62,6 +62,10 @@
   border-style: dashed;
   border-color: var(--info);
 }
+/* A card the proposal adds (core's `change.kind`) is new to the model: the ghost also takes a faint wash of Olumi's colour. */
+[data-presentation="v10"] [data-testid="view-card-v10"][data-proposed="added"] [data-view-card] {
+  background-color: color-mix(in srgb, var(--info) 6%, var(--bg-panel));
+}
 /* An approved change pulses once on its card (F4's ring and keyframes, as BaseNode draws them). */
 [data-presentation="v10"] [data-testid="view-card-v10"][data-pulsed] [data-view-card] {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--info) 45%, transparent);

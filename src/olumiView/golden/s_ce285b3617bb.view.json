@@ -15,7 +15,8 @@
  "version": {
   "id": 15,
   "n": 2,
-  "label": "version 2"
+  "label": "version 2",
+  "changed": []
  },
  "model": {
   "question": {
@@ -1520,7 +1521,16 @@
     "glyph": "↻",
     "text": "changed"
    }
-  ]
+  ],
+  "removed": [],
+  "aim": {
+   "quantity": "net_funding",
+   "value": 0,
+   "unit": "GBP",
+   "text": "more than £0",
+   "title": "£0",
+   "side": "at_least"
+  }
  },
  "proposal": null,
  "collab": {

@@ -1,6 +1,6 @@
 {
   "schema": "olumi.view/3",
-  "id": "s_4636870786ce",
+  "id": "s_3a9760ea51c0",
   "title": "Support capacity",
   "commit": "scripted-dev",
   "signature": "[4,null,[[3,\"approved\"]],[],[\"Ada\"],[],[\"1\"]]",
@@ -15,7 +15,8 @@
   "version": {
     "id": 4,
     "n": 1,
-    "label": "version 1"
+    "label": "version 1",
+    "changed": []
   },
   "model": {
     "question": {
@@ -567,7 +568,16 @@
         "glyph": "↻",
         "text": "changed"
       }
-    ]
+    ],
+    "removed": [],
+    "aim": {
+      "quantity": "total_capacity",
+      "value": 100,
+      "unit": "ticket/week",
+      "text": "at least 100 tickets/week",
+      "title": "100 tickets/week",
+      "side": "at_least"
+    }
   },
   "proposal": null,
   "collab": {

@@ -15,7 +15,8 @@
  "version": {
   "id": 1,
   "n": 1,
-  "label": "version 1"
+  "label": "version 1",
+  "changed": []
  },
  "model": {
   "question": {
@@ -1055,7 +1056,16 @@
     "glyph": "↻",
     "text": "changed"
    }
-  ]
+  ],
+  "removed": [],
+  "aim": {
+   "quantity": "sales",
+   "value": 360,
+   "unit": "loaf/week",
+   "text": "at least 360 loaves/week",
+   "title": "360 loaves/week",
+   "side": "at_least"
+  }
  },
  "proposal": null,
  "collab": {
