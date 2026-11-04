@@ -104,7 +104,7 @@ const outOfView = async (p) => {
   }).map((e) => e.getAttribute('data-id')), f)
 }
 /**
- * What a person must see on landing (DL 4 Nov, readable first): the question and every column's first card, in the canvas left of the dock;
+ * What a person must see on landing (DL 4 Nov, readable first): the question and every option (the top of the causal graph), in the canvas left of the dock;
  * and the whole board when it fits there at 0.5 or more. Returns the ids missing, [] when all is as it should be.
  */
 const notFramed = async (p, model) => p.page.evaluate(({ model, f }) => {
@@ -114,8 +114,8 @@ const notFramed = async (p, model) => p.page.evaluate(({ model, f }) => {
   const all = ['page:question', ...model.cards.map((c) => c.id)], rs = all.map(rect).filter(Boolean)
   const bw = (Math.max(...rs.map((r) => r.right)) - Math.min(...rs.map((r) => r.left))) / z, bh = (Math.max(...rs.map((r) => r.bottom)) - Math.min(...rs.map((r) => r.top))) / z
   const whole = Math.min(f.width / bw, f.height / bh) >= 0.5
-  const firsts = [...new Set(model.cards.map((c) => c.col))].map((col) => model.cards.find((c) => c.col === col).id)
-  return (whole ? all : ['page:question', ...firsts]).filter((id) => !inside(rect(id)))
+  const tops = model.cards.filter((c) => c.family === 'option').map((c) => c.id)
+  return (whole ? all : ['page:question', ...tops]).filter((id) => !inside(rect(id)))
 }, { model, f: await free(p) })
 /** Core's own page for the scenario, opened by the same person (their cookie), as its text. */
 const corePage = async (p, sid) => {
@@ -145,9 +145,9 @@ let v = await viewWhen(ada, sid, (x) => x.proposal === null)
 await ada.page.waitForTimeout(300)
 const cards = await ada.page.locator('.react-flow__node-viewCard').count()
 // The whole model in view on first open, left of the dock (live olumi-core-v3, 4 Nov: a real model opened cut off).
-// The requirement changed (DL 4 Nov): the question and every column's first card, and the whole board when it fits at 0.5 or more.
+// The requirement changed (DL 4 Nov): the question and every option (the top of the causal graph), and the whole board when it fits at 0.5 or more.
 const v1 = await viewWhen(ada, sid, (x) => x.version?.n === 1 && x.model !== null)
-check(await seen(ada, async () => (await notFramed(ada, v1.model)).length === 0), `on first open: the question, every column's first card, and the whole board when it fits at 0.5 or more${(await notFramed(ada, v1.model)).length ? ` (out: ${(await notFramed(ada, v1.model)).join(', ')})` : ''}`)
+check(await seen(ada, async () => (await notFramed(ada, v1.model)).length === 0), `on first open: the question, every option, and the whole board when it fits at 0.5 or more${(await notFramed(ada, v1.model)).length ? ` (out: ${(await notFramed(ada, v1.model)).join(', ')})` : ''}`)
 await shot(ada, '0-canvas-version-1')
 check(v.version?.n === 1 && v.proposal === null, 'core holds version 1 and nothing pending')
 check(cards === v.model.cards.length, `DGAI's canvas draws every card of core's View (${cards} of ${v.model.cards.length})`)
@@ -263,7 +263,7 @@ await ada.page.waitForFunction(() => document.querySelectorAll('.react-flow__nod
 v = await viewWhen(ada, sid, (x) => x.proposal === null && x.version?.n === 2)
 await ada.page.waitForTimeout(500)
 check(v.version.n === 2 && v.proposal === null, 'core holds version 2')
-check(await seen(ada, async () => (await notFramed(ada, v.model)).length === 0), 'version 2 on Ada\'s canvas: the question, every column\'s first card, and the whole board when it fits at 0.5 or more')
+check(await seen(ada, async () => (await notFramed(ada, v.model)).length === 0), 'version 2 on Ada\'s canvas: the question, every option, and the whole board when it fits at 0.5 or more')
 check(await ada.page.locator('.react-flow__node-viewCard').count() === v.model.cards.length, 'Ada\'s canvas draws version 2\'s cards')
 await teamCheck(bea)
 check(await seen(bea, async () => await bea.page.locator('.react-flow__node-viewCard').count() === v.model.cards.length), 'Bea\'s canvas moved to version 2 on her next read')
@@ -279,6 +279,7 @@ await pan(ada, 4000, 0)
 check(!(await inView(ada, editable.id)), 'the card is off the view')
 await reach(ada, editable.id)
 check(await inView(ada, editable.id), 'Ada pans the canvas to it')
+await shot(ada, '5b-reached')
 await ada.page.getByTestId(`view-figure-edit-${editable.id}`).click()
 await ada.page.getByTestId(`view-figure-typed-${editable.id}`).fill('lots')
 await ada.page.getByTestId(`view-figure-set-${editable.id}`).click()

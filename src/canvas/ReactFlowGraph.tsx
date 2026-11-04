@@ -1770,10 +1770,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [])
 
   const handleAutoArrange = useCallback(() => {
-    // The olumi-core lane's cards are placed by core: Auto-arrange puts them back there, never an ELK layout (canvas A S6, B5).
+    // The olumi-core lane's cards are placed as the View's causal graph: Auto-arrange puts them back there (canvas A S6, B5).
     const viewModel = isOlumiCoreLane() ? useViewStore.getState().view?.model ?? null : null
     if (viewModel) {
-      placeViewCards(viewModel)
+      void placeViewCards(viewModel)
       return
     }
     if (nodesRef.current.length === 0) {
