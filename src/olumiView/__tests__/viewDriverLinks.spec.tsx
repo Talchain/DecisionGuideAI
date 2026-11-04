@@ -19,12 +19,14 @@ const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/ba
 const model = view.model!
 afterEach(() => { cleanup(); useViewLens.setState({ lens: 'full' }); useViewStore.setState({ view: null }) })
 
+/** The edge with only the props it reads (React Flow passes the rest). */
+const Edge = ViewLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
 const edge = (i: number) => {
   const link = model.links[i]!
   return render(
     <ReactFlowProvider><svg>
-      <ViewLinkEdge id={`l${i}`} source={link.from} target={link.to} sourceX={0} sourceY={0} targetX={100} targetY={100}
-        sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link, i }} {...({} as never)} />
+      <Edge id={`l${i}`} source={link.from} target={link.to} sourceX={0} sourceY={0} targetX={100} targetY={100}
+        sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link, i }} />
     </svg></ReactFlowProvider>,
   ).container
 }
