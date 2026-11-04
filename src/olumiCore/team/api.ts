@@ -105,6 +105,8 @@ export const teamApi = {
   giveView: (sid: string, text: string) => call<{ contribution: number }>('POST', `${base(sid)}/views`, { text }),
   skipView: (sid: string) => call<{ contribution: number }>('POST', `${base(sid)}/views`, { skip: true }),
   reveal: (sid: string) => call<{ revealed: number[] }>('POST', `${base(sid)}/reveal`),
+  /** One's own view shown to the team before the round's reveal (olumi-core, github-3c: `POST …/views/:id/reveal`; no AI call). */
+  shareView: (sid: string, id: number) => call<{ revealed: number[] }>('POST', `${base(sid)}/views/${id}/reveal`),
   addEvidence: (sid: string, e: EvidenceInput, op: string) =>
     call<{ evidence: number }>('POST', `${base(sid)}/evidence`, { text: e.text, ...(e.source !== null ? { source: e.source } : {}), concerns: e.concerns, stance: e.stance, op }),
   addCommitment: (sid: string, c: CommitmentInput) => call<{ commitment: number }>('POST', `${base(sid)}/commitments`, { action: c.action, owner: c.owner, expect: c.expect, reconsider: c.reconsider, keeps: c.keeps }),
