@@ -291,3 +291,31 @@ describe('v10 driver marker (core d1fe5e2 driver.low/high, run.sensitivity once;
     for (const c of optionCards(m)) if (c.driver !== null) expect(container.querySelector(`[data-view="${c.id}.driver.text"]`)?.textContent).toBe(c.driver.text)
   })
 })
+
+describe('Olumi\'s blue on a value bar only while core\'s key names it (core wip/k5 42bcb8d BLUE_RANGE_KEY; DL 4 Nov, R3)', () => {
+  // Stand-in for core's new last key item (not vendored): olumi-core src/view/model.ts BLUE_RANGE_KEY.
+  const KEY_ITEM = { glyph: '▬', text: 'blue range: rests on a figure Olumi proposed' }
+  const draw = (key: { glyph: string; text: string }[]) => {
+    const v = golden('bakery'), m = v.model!
+    m.key = key
+    useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view: v, error: null, status: 'ready' })
+    const card = m.cards.find((c) => c.id === 'sales')!
+    const { container } = render(<ReactFlowProvider><ViewCardV10 {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>)
+    return { card, colour: (o: string) => container.querySelector<HTMLElement>(`[data-testid="view-values-${card.id}-${o}"] [data-values-range]`)!.style.background }
+  }
+
+  it('key carries the item: the bar resting on Olumi\'s figure (values[].olumi) is blue, every other bar the option colour', () => {
+    const base = golden('bakery').model!.key
+    const { card, colour } = draw([...base, KEY_ITEM])
+    expect(card.values!.map((v) => v.olumi)).toEqual([true, false, false]) // the probe holds both kinds of bar
+    for (const v of card.values!) expect(colour(v.option), v.option).toBe(v.olumi ? 'var(--info)' : 'var(--option)')
+  })
+
+  it('key without the item, or with other words for it: every bar is the option colour, so the blue is never unexplained', () => {
+    const base = golden('bakery').model!.key
+    for (const key of [base, [...base, { glyph: '▬', text: 'blue range' }], [...base, { glyph: '■', text: KEY_ITEM.text }]]) {
+      const { card, colour } = draw(key)
+      for (const v of card.values!) expect(colour(v.option), `${v.option} ${JSON.stringify(key.at(-1))}`).toBe('var(--option)')
+    }
+  })
+})
