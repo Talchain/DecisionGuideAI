@@ -600,7 +600,7 @@
        ],
        "approx": []
       },
-      "rests_on_text": "It rests on Olumi's what-if ranges for 'extra sold per oven'.",
+      "rests_on_text": "Rests on Olumi's what-if for 'extra sold per oven'.",
       "estimate": null
      }
     ],
@@ -1020,6 +1020,49 @@
    "sensitivity": {
     "text": "These are its chances over the lowest and highest third of that figure's draws.",
     "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+   },
+   "compared": [
+    {
+     "id": "F21",
+     "kind": "middle",
+     "line": "'A second oven' · aim 'Sell at least 360 loaves a week' · on the middle figures: 373 loaves/week, meets it",
+     "hover": "option: 'A second oven'; aim: 'Sell at least 360 loaves a week'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'sales' 373 loaves/week; target: >= 360 loaves/week; status: meets it. It rests on Olumi's what-if ranges for 'extra sold per oven'.",
+     "aim": "sell_360",
+     "option": "second_oven",
+     "versus": null,
+     "status": "met",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F22",
+     "kind": "middle",
+     "line": "'Open two hours longer' · aim 'Sell at least 360 loaves a week' · on the middle figures: 360 loaves/week, meets it",
+     "hover": "option: 'Open two hours longer'; aim: 'Sell at least 360 loaves a week'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'sales' 360 loaves/week; target: >= 360 loaves/week; status: meets it.",
+     "aim": "sell_360",
+     "option": "longer_hours",
+     "versus": null,
+     "status": "met",
+     "olumi": null
+    },
+    {
+     "id": "F23",
+     "kind": "middle",
+     "line": "'Carry on as now' · aim 'Sell at least 360 loaves a week' · on the middle figures: 300 loaves/week, misses it",
+     "hover": "option: 'Carry on as now'; aim: 'Sell at least 360 loaves a week'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'sales' 300 loaves/week; target: >= 360 loaves/week; status: misses it.",
+     "aim": "sell_360",
+     "option": "carry_on",
+     "versus": null,
+     "status": "missed",
+     "olumi": null
+    }
+   ],
+   "compared_headings": {
+    "middle": "On the middle figures",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target"
    }
   },
   "edit_base": 1,

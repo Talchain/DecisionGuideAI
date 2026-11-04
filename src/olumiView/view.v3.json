@@ -1455,6 +1455,112 @@
             "title"
            ],
            "additionalProperties": false
+          },
+          "compared": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "properties": {
+             "id": {
+              "type": "string"
+             },
+             "kind": {
+              "type": "string",
+              "enum": [
+               "middle",
+               "better"
+              ]
+             },
+             "line": {
+              "type": "string"
+             },
+             "hover": {
+              "type": "string"
+             },
+             "aim": {
+              "type": "string"
+             },
+             "option": {
+              "type": "string"
+             },
+             "versus": {
+              "type": [
+               "string",
+               "null"
+              ]
+             },
+             "status": {
+              "anyOf": [
+               {
+                "type": "string",
+                "enum": [
+                 "met",
+                 "missed",
+                 "unresolved"
+                ]
+               },
+               {
+                "type": "null"
+               }
+              ]
+             },
+             "olumi": {
+              "anyOf": [
+               {
+                "type": "object",
+                "properties": {
+                 "glyph": {
+                  "type": "string"
+                 },
+                 "title": {
+                  "type": "string"
+                 }
+                },
+                "required": [
+                 "glyph",
+                 "title"
+                ],
+                "additionalProperties": false
+               },
+               {
+                "type": "null"
+               }
+              ]
+             }
+            },
+            "required": [
+             "id",
+             "kind",
+             "line",
+             "hover",
+             "aim",
+             "option",
+             "versus",
+             "status",
+             "olumi"
+            ],
+            "additionalProperties": false
+           }
+          },
+          "compared_headings": {
+           "type": "object",
+           "properties": {
+            "middle": {
+             "type": "string"
+            },
+            "better": {
+             "type": "string"
+            },
+            "unresolved": {
+             "type": "string"
+            }
+           },
+           "required": [
+            "middle",
+            "better",
+            "unresolved"
+           ],
+           "additionalProperties": false
           }
          },
          "required": [
@@ -1465,7 +1571,9 @@
           "waits_on",
           "notes",
           "science",
-          "sensitivity"
+          "sensitivity",
+          "compared",
+          "compared_headings"
          ],
          "additionalProperties": false
         },
@@ -1705,6 +1813,32 @@
             "type": "null"
            }
           ]
+         },
+         "together": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "ids": {
+              "type": "array",
+              "items": {
+               "type": "string"
+              }
+             },
+             "why": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "ids",
+             "why"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
          }
         },
         "required": [
@@ -1713,7 +1847,8 @@
          "text",
          "detail",
          "family",
-         "olumi"
+         "olumi",
+         "together"
         ],
         "additionalProperties": false
        }

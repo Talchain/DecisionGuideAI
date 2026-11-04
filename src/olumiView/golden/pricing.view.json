@@ -312,7 +312,7 @@
        ],
        "approx": []
       },
-      "rests_on_text": "It rests on Olumi's what-if ranges for 'cups change'.",
+      "rests_on_text": "Rests on Olumi's what-if for 'cups change'.",
       "estimate": null
      }
     ],
@@ -506,6 +506,38 @@
    "sensitivity": {
     "text": "These are its chances over the lowest and highest third of that figure's draws.",
     "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+   },
+   "compared": [
+    {
+     "id": "F12",
+     "kind": "middle",
+     "line": "'Raise the price by 45p' · aim 'Make £7,000 a month' · on the middle figures: £7,000/month, meets it",
+     "hover": "option: 'Raise the price by 45p'; aim: 'Make £7,000 a month'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'profit' £7,000/month; target: >= £7,000/month; status: meets it. It rests on Olumi's what-if ranges for 'cups change'.",
+     "aim": "profit_goal",
+     "option": "raise_price",
+     "versus": null,
+     "status": "met",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F13",
+     "kind": "middle",
+     "line": "'Keep the price' · aim 'Make £7,000 a month' · on the middle figures: £6,200/month, misses it",
+     "hover": "option: 'Keep the price'; aim: 'Make £7,000 a month'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'profit' £6,200/month; target: >= £7,000/month; status: misses it.",
+     "aim": "profit_goal",
+     "option": "carry_on",
+     "versus": null,
+     "status": "missed",
+     "olumi": null
+    }
+   ],
+   "compared_headings": {
+    "middle": "On the middle figures",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target"
    }
   },
   "edit_base": 1,

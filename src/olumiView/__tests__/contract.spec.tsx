@@ -161,7 +161,11 @@ describe('the Run beside the chances says what the base dock said, word for word
       const head = container.querySelector('[data-view="run.most_likely.text"]')?.textContent ?? null
       const hover = container.querySelector('[data-view-hover="run.most_likely.rests_on_text"]')?.getAttribute('title') ?? null
       expect(hover, 'the hover is core\'s rests_on_text').toBe(ml?.rests_on_text ?? null)
-      expect(head === null ? null : hover === null ? head : `${head} ${hover}`).toBe(o.most_likely)
+      // R4 (core 271aa54): rests_on_text is core's one short line on the basis (kinds and counts, ≤ 120 characters), no longer the base
+      // dock's rest word for word; the head on screen is still the base dock's opening, verbatim.
+      if (head === null) expect(o.most_likely).toBeNull()
+      else expect(o.most_likely === head || o.most_likely?.startsWith(`${head} `), `${head} | ${o.most_likely}`).toBe(true)
+      if (hover !== null) expect(hover.length).toBeLessThanOrEqual(120)
       expect(texts(container, '[data-view^="run.notes."]')).toEqual(o.notes)
       if (o.waits_on === null) expect(container.querySelector('[data-testid="view-run-waits-on"]')).toBeNull()
       else {
