@@ -669,6 +669,12 @@ const ghosts = await ada.page.evaluate(() => [...document.querySelectorAll('[dat
 check(addedIds.length > 0 && JSON.stringify([...ghosts].sort()) === JSON.stringify([...addedIds].sort()), `the cards the proposal adds, and only those, are drawn as ghosts (${addedIds.join(', ')})`)
 await shot(ada, '9-proposal-ghosts')
 await tickLine(ada, part, 0)
+// R4 (core v1.13 `together`): a line core marks as approved only with others is ticked with them, so the first tick may bring its partners.
+// `together` is olumi.view/3 only: read from the page's own View.
+const partners = (await view3(ada, sid)).proposal.changes[0].together?.ids ?? []
+const tickedNow = await ada.page.evaluate(() => [...document.querySelectorAll('[data-testid^="view-change-tick-"]')].map((e) => e.checked))
+check(JSON.stringify(tickedNow) === JSON.stringify(part.changes.map((c, i) => i === 0 || (!c.top && partners.includes(c.id)))),
+  `ticking the first line ticks exactly it and the lines core marks it together with (${[part.changes[0].id, ...partners].join(', ')})`)
 // The pulse lasts 2 s from when the page's View lands (appliedEditPulse.ts), and the ghosts' own arrival ring may still be on when the
 // press comes (4 Nov: it alone passed this row). So the page notes when its own read of the approved version lands (proposal gone, version
 // n + 1), and only a card ringed after that counts, by id. On a slow core this script's own read lands later than the page's (R2 cut).
@@ -697,13 +703,13 @@ v = await viewWhen(ada, sid, saved)
 // Exactly the approved lines' cards that are DRAWN: the first line alone when core took it alone, every line otherwise (a left-out line is
 // not pulsed). A line applied but not drawn pulses nothing and the empty match is right: on served 3c5462c (4 Nov) real AI put Olumi's figure
 // `two_specialists` first, Ada approved it alone, and with no option setting it the View folds it behind a badge (core page/graph.ts shownFigure).
-const appliedIds = (alone ? part.changes.slice(0, 1) : part.changes).map((c) => c.id).filter((id) => v.model.cards.some((k) => k.id === id))
+const appliedIds = (alone ? part.changes.flatMap((c, i) => (tickedNow[i] ? [c] : [])) : part.changes).map((c) => c.id).filter((id) => v.model.cards.some((k) => k.id === id))
 const pulsedIds = appliedIds.length > 0
   ? await ada.page.waitForFunction(() => (window.__pulsed.size ? [...window.__pulsed] : null), null, { timeout: 8000 + 3 * Number(process.env.DELAY_MS ?? 0) }).then((h) => h.jsonValue()).catch(() => [])
   : await ada.page.waitForTimeout(3000 + Number(process.env.DELAY_MS ?? 0)).then(() => ada.page.evaluate(() => [...window.__pulsed]))
 const pulseMatch = (pulsed, applied) => JSON.stringify([...pulsed].sort()) === JSON.stringify([...applied].sort())
 check(pulseMatch(pulsedIds, appliedIds), `the approval pulses exactly the applied cards drawn (${pulsedIds.join(', ') || 'none'}; applied ${appliedIds.join(', ') || 'none'})`)
-check(saved(v), alone ? `core approved the ticked line alone ("${part.changes[0].text}" of ${part.changes.length}): version ${before + 1}` : `core approved the ticked lines: version ${before + 1}`)
+check(saved(v), alone ? `core approved the ticked lines as ticked (${part.changes.flatMap((c, i) => (tickedNow[i] ? [`"${c.text}"`] : [])).join(', ')} of ${part.changes.length}): version ${before + 1}` : `core approved the ticked lines: version ${before + 1}`)
 
 // The dock's Compare tab: the previous approved version against this one, as core compares them (a shot, for the pilot kit).
 await tab(ada, 'compare')
