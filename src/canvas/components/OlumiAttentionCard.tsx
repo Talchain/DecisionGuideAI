@@ -92,6 +92,8 @@ export const ATTENTION_CARD_COPY = {
   stale: 'The model has changed since Olumi said this.',
   answer: 'Your answer',
   send: 'Send your answer to Olumi',
+  /** The disclosure's word, as the chat's ("Why", ViewChat.tsx). */
+  why: 'Why',
 } as const
 
 /** A note that asks the person something is answered where it is asked. */
@@ -530,6 +532,13 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
 
         {note && note.sourceLine ? (
           <p className={`${typography.panelMeta} text-text-light mt-1.5 mb-0`}>{note.sourceLine}</p>
+        ) : null}
+        {note && note.why && note.why.length > 0 ? (
+          // The producer's reasons, one press away, verbatim (W1 "Why ▸" on a finding): the chat's own disclosure, on the note.
+          <details className={`${typography.panelMeta} mt-1.5 text-text-body`} data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-why`}>
+            <summary className="cursor-pointer text-text-light">{ATTENTION_CARD_COPY.why}</summary>
+            <ul className="mt-1 list-disc space-y-1 pl-4">{note.why.map((w, i) => <li key={i}>{w}</li>)}</ul>
+          </details>
         ) : null}
     </>
   )

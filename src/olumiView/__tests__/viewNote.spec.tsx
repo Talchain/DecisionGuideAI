@@ -35,6 +35,15 @@ describe('Olumi\'s next step on the canvas', () => {
     expect(held()?.note).toEqual({ title: newest.label, body: 'What would confirm the start date?' })
   })
 
+  it('its reply\'s reasons go behind the note\'s Why, each paragraph\'s words as core says them; a reply with none gives the note no Why', () => {
+    const w: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'whatif.view.json'), 'utf8'))
+    const turn = w.chat.find((t) => t.answer?.next.newest)!.answer!
+    expect(turn.why.length).toBeGreaterThan(0)
+    expect(nextNoteOf(w)?.note.why).toEqual(turn.why.map((para) => para.map((p) => ('text' in p ? p.text : '')).join('').trim()))
+    const none = { ...w, chat: w.chat.map((t) => (t.answer?.next.newest ? { ...t, answer: { ...t.answer, why: [] } } : t)) }
+    expect(nextNoteOf(none)?.note).not.toHaveProperty('why')
+  })
+
   it('core names no card: no note at all, never one beside a card this page picks', () => {
     const v = golden()
     expect(v.chat.find((t) => t.answer?.next.newest)!.answer!.next.about).toEqual([])

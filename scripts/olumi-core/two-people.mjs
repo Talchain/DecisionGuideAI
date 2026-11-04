@@ -178,6 +178,14 @@ const note = ada.page.getByTestId('olumi-attention-card')
 await note.waitFor({ timeout: T })
 const nextWords = next.text.map((p) => p.text ?? '').join('').trim()
 check((await note.innerText()).includes(nextWords), `Olumi's note on the canvas says it: "${nextWords}"`)
+// W1 "Why ▸" on a finding: the reply's reasons behind the note's Why, in core's words.
+const whyWords = (v.chat.find((t) => t.answer?.next.newest)?.answer?.why ?? []).map((w) => w.map((p) => p.text ?? '').join('').trim()).filter(Boolean)
+if (whyWords.length > 0) {
+  await ada.page.getByTestId('olumi-attention-card-why').locator('summary').click()
+  const said = await ada.page.getByTestId('olumi-attention-card-why').innerText()
+  check(whyWords.every((w) => said.includes(w)), `the note's Why says core's reasons ("${whyWords[0]}")`)
+  await ada.page.getByTestId('olumi-attention-card-why').locator('summary').click()
+} else ok('this reply gives no reasons, so the note has no Why')
 // Lane C: the note sits beside its card and covers none (measured from what is drawn).
 await ada.page.waitForTimeout(500)
 const covers = await ada.page.evaluate(() => {

@@ -44,6 +44,8 @@ export interface OlumiAttentionNote {
   body: string
   /** Rendered verbatim when present — never composed here. */
   sourceLine?: string
+  /** The producer's reasons for the note, one paragraph each, verbatim behind the note's "Why" (core lane: `answer.why`). */
+  why?: readonly string[]
   /**
    * What the user can do from here. `prompt` prefills the conversation with a
    * QUESTION — never an answer. A card that handed the user a conclusion would

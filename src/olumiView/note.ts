@@ -22,7 +22,9 @@ export function nextNoteOf(view: View): { key: string; at: string; note: OlumiAt
   // The cites are core's references (drawn as marks in the chat), not words: the note says the words.
   const body = next.text.map((p) => ('text' in p ? p.text : '')).join('').trim()
   if (body === '') return null
-  return { key: `${VIEW_NOTE}${view.id}:${turn.id}`, at: next.at, note: { title: next.label, body } }
+  // Its reply's reasons (`answer.why`), each paragraph's words as the body's: behind the note's "Why", as in the chat.
+  const why = turn.answer!.why.flatMap((w) => { const said = w.map((p) => ('text' in p ? p.text : '')).join('').trim(); return said === '' ? [] : [said] })
+  return { key: `${VIEW_NOTE}${view.id}:${turn.id}`, at: next.at, note: { title: next.label, body, ...(why.length > 0 ? { why } : {}) } }
 }
 
 /** Where the Olumi tab takes a note the canvas has no free spot for (OlumiAttentionCard), under Next step (`ViewChat`). */
