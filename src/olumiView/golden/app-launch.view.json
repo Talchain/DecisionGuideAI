@@ -67,7 +67,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "negative_reviews",
@@ -107,7 +108,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "boss_discussion",
@@ -150,7 +152,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "protect_user_trust",
@@ -191,7 +194,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "readiness_margin",
@@ -243,7 +247,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "zero_schedule_shortfall",
@@ -277,7 +282,8 @@
     "bound": null,
     "reason": null,
     "badge": null,
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "allow_readiness_work",
@@ -322,7 +328,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "option_scheduled",
@@ -386,7 +393,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "delayed_release_offset",
@@ -420,7 +428,8 @@
     "bound": null,
     "reason": null,
     "badge": null,
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "option_delay",
@@ -494,7 +503,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "schedule_assumptions",
@@ -521,7 +531,8 @@
     "bound": null,
     "reason": "For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
     "badge": null,
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "option_isolate",
@@ -594,7 +605,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "isolation_readiness_link",
@@ -631,7 +643,8 @@
      "proposed": false,
      "change": ""
     },
-    "values": null
+    "values": null,
+    "rests_on": []
    }
   ],
   "links": [
@@ -643,7 +656,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "link in words: conditional, unknown; Excluding the defective path could protect users only if isolation is technically valid; no architecture evidence was supplied. · Proposed by Olumi: Retains the possible mechanism without inventing a risk reduction or claiming feasibility."
+    "title": "link in words: conditional, unknown; Excluding the defective path could protect users only if isolation is technically valid; no architecture evidence was supplied. · Proposed by Olumi: Retains the possible mechanism without inventing a risk reduction or claiming feasibility.",
+    "effect": null
    },
    {
     "from": "option_isolate",
@@ -653,7 +667,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change. · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration."
+    "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change. · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
+    "effect": null
    },
    {
     "from": "negative_reviews",
@@ -663,7 +678,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "may change"
+    "title": "may change",
+    "effect": null
    },
    {
     "from": "readiness_margin",
@@ -673,7 +689,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by"
+    "title": "measured by",
+    "effect": null
    },
    {
     "from": "zero_schedule_shortfall",
@@ -683,7 +700,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target"
+    "title": "target",
+    "effect": null
    },
    {
     "from": "schedule_assumptions",
@@ -693,7 +711,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison."
+    "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
+    "effect": null
    },
    {
     "from": "schedule_assumptions",
@@ -703,7 +722,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison."
+    "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
+    "effect": null
    },
    {
     "from": "option_delay",
@@ -713,7 +733,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "effect": null
    },
    {
     "from": "delayed_release_offset",
@@ -723,7 +744,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Time available before release · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration."
+    "title": "worked out through Time available before release · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
+    "effect": null
    },
    {
     "from": "isolation_readiness_link",
@@ -733,7 +755,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "relation: Explore shipping without the affected sync path → Time to complete repair and validation"
+    "title": "relation: Explore shipping without the affected sync path → Time to complete repair and validation",
+    "effect": null
    },
    {
     "from": "isolation_readiness_link",
@@ -743,7 +766,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration."
+    "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
+    "effect": null
    }
   ],
   "run": {

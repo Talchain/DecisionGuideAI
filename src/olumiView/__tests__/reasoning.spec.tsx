@@ -140,18 +140,55 @@ describe('try a figure: core\'s what-if, from the Reasoning tab', () => {
   })
 })
 
-describe('each option\'s outcome band (olumi.view/3 `cards[].values`, core e16a497)', () => {
-  // bakery's golden (core e16a497): 'sales' carries one band per option. Its axis runs from the least p10 (carry_on, 300) to the greatest p90
-  // (second_oven, 387.094…), a span of 87.094…, so second_oven sits at (336.615 − 300) / 87.094 = 42.04% to 100%, its p50 at 80.33%;
-  // longer_hours at 45.32% to 91.55% (a width of 46.22% unrounded), p50 68.89%; carry_on, a point at 300, at 0%.
+describe('each option\'s outcome band', () => {
+  // bakery's golden (core c838f56): under each option the aim 'Sell at least 360 loaves a week' reads its measured quantity, 'sales'
+  // (the chance row's `outcome`, the same figures as the card's `values`). One axis for the aim runs from the least low (carry_on, 300)
+  // to the greatest high (second_oven, 387.094…), a span of 87.094…, so second_oven sits at (336.615 − 300) / 87.094 = 42.04% to
+  // 100%, its median at 80.33%; longer_hours at 45.32% to 91.55% (a width of 46.22% unrounded), median 68.89%; carry_on, a point at
+  // 300, at 0%.
   const view = read('bakery.view.json'), m = view.model!
   const sales = m.cards.find((c) => c.id === 'sales')!
   const PLACES: Record<string, [string, string, string]> = { second_oven: ['42.04%', '57.96%', '80.33%'], longer_hours: ['45.32%', '46.22%', '68.89%'], carry_on: ['0%', '0%', '0%'] }
+  const places = (band: Element) => {
+    const bar = band.querySelector('[data-band-bar]') as HTMLElement, mid = band.querySelector('[data-band-mid]') as HTMLElement
+    return [bar.style.left, bar.style.width, mid.style.left].map((x) => (parseFloat(x).toFixed(2) + '%').replace('.00%', '%'))
+  }
+  /** The View a core before c838f56 (e16a497) serves: chance rows without `outcome`. */
+  const withoutOutcome = (model: ViewModel) => ({ ...model, cards: model.cards.map((c) => ({ ...c, rows: c.rows.map((r) => { const { outcome: _gone, ...rest } = r as typeof r & { outcome?: unknown }; return rest }) })) }) as unknown as ViewModel
 
-  it('under each option, the band\'s card and core\'s own line for that option, its range on hover, ◆ only where core marks it Olumi\'s, placed on one axis', () => {
+  it('under each chance row, the aim\'s outcome in core\'s own line, its range reading on hover, every option placed on the aim\'s one axis; no card band beside it', () => {
     ready(view)
     render(<ViewReasoning model={m} />)
     const root = screen.getByTestId('view-reasoning')
+    for (const card of optionCards(m)) {
+      const i = card.rows.findIndex((r) => r.kind === 'chance' && r.aim_id === 'sell_360'), row = card.rows[i] as Extract<typeof card.rows[number], { kind: 'chance' }>
+      const bands = root.querySelectorAll(`[data-view-card="${card.id}"] [data-outcome="sell_360"]`)
+      expect(bands.length, card.id).toBe(1)
+      expect(bands[0].getAttribute('title')).toBe(row.outcome!.title)
+      expect(bands[0].querySelector(`[data-view="${card.id}.rows.${i}.outcome.text"]`)?.textContent).toBe(row.outcome!.text)
+      expect(places(bands[0]), card.id).toEqual(PLACES[card.id])
+    }
+    expect(root.querySelectorAll('[data-band]').length).toBe(0)
+  })
+
+  it('each aim has its own axis: s_ce285b3617bb\'s two aims in £ each run from their own least low to their own greatest high', () => {
+    // secure_funding: £63,607 (continue_outreach) to £5,287,901, so add_angel_bridge (£82,442 to £2,975,060) sits at 0.36%, 55.37% wide.
+    // cash_survival: £124,944 to £5,339,882, both continue_outreach's, so it fills the axis (0%, 100%); one axis for both aims would put
+    // it at 1.16%, 98.84% wide.
+    const s = read('s_ce285b3617bb.view.json')
+    ready(s)
+    render(<ViewReasoning model={s.model!} />)
+    const root = screen.getByTestId('view-reasoning')
+    expect(places(root.querySelector('[data-view-card="continue_outreach"] [data-outcome="cash_survival"]')!).slice(0, 2)).toEqual(['0%', '100%'])
+    expect(places(root.querySelector('[data-view-card="add_angel_bridge"] [data-outcome="secure_funding"]')!).slice(0, 2)).toEqual(['0.36%', '55.37%'])
+  })
+
+  it('from a core before the row outcome (e16a497): under each option the band\'s card and core\'s own line for it, its range on hover, ◆ only where core marks it Olumi\'s, on one axis', () => {
+    const before = withoutOutcome(m)
+    ready(view)
+    render(<ViewReasoning model={before} />)
+    const root = screen.getByTestId('view-reasoning')
+    expect(root.querySelectorAll('[data-outcome]').length).toBe(0)
     sales.values!.forEach((v, i) => {
       const bands = root.querySelectorAll(`[data-view-card="${v.option}"] [data-band]`)
       expect(bands.length, v.option).toBe(1)
@@ -161,21 +198,22 @@ describe('each option\'s outcome band (olumi.view/3 `cards[].values`, core e16a4
       expect(band.querySelector('[data-view="sales.heading"]')?.textContent).toBe(sales.heading)
       expect(band.querySelector(`[data-view="sales.values.${i}.text"]`)?.textContent).toBe(v.text)
       expect(band.querySelector('[data-view="key.0.glyph"]')?.textContent ?? null, v.option).toBe(v.olumi ? m.key[0].glyph : null)
-      const bar = band.querySelector('[data-band-bar]') as HTMLElement, mid = band.querySelector('[data-band-mid]') as HTMLElement
-      const [left, width, at] = PLACES[v.option]
-      expect([parseFloat(bar.style.left).toFixed(2) + '%', parseFloat(bar.style.width).toFixed(2) + '%', parseFloat(mid.style.left).toFixed(2) + '%'].map((x) => x.replace('.00%', '%')), v.option).toEqual([left, width, at])
+      expect(places(band), v.option).toEqual(PLACES[v.option])
     })
     expect(m.key[0]).toEqual({ glyph: '◆', text: 'Olumi' })
   })
 
-  it('must not change: a card with no modelled figure (null), or a View from a core before the band (no field), draws no band; the Analysis tab draws none', () => {
+  it('must not change: no outcome (null) draws no band; before e16a497 (no field) and with null values nothing; the Analysis tab draws none', () => {
     ready(view)
-    const { rerender } = render(<ViewReasoning model={{ ...m, cards: m.cards.map((c) => ({ ...c, values: null })) }} />)
-    expect(screen.getByTestId('view-reasoning').querySelectorAll('[data-band]').length).toBe(0)
-    // A core before e16a497 sends no `values` at all.
-    rerender(<ViewReasoning model={{ ...m, cards: m.cards.map(({ values: _gone, ...c }) => c) } as unknown as ViewModel} />)
-    expect(screen.getByTestId('view-reasoning').querySelectorAll('[data-band]').length).toBe(0)
+    const nulls = { ...m, cards: m.cards.map((c) => ({ ...c, rows: c.rows.map((r) => (r.kind === 'chance' ? { ...r, outcome: null } : r)) })) }
+    const { rerender } = render(<ViewReasoning model={nulls} />)
+    expect(screen.getByTestId('view-reasoning').querySelectorAll('[data-outcome], [data-band]').length).toBe(0)
+    const before = withoutOutcome(m)
+    rerender(<ViewReasoning model={{ ...before, cards: before.cards.map((c) => ({ ...c, values: null })) }} />)
+    expect(screen.getByTestId('view-reasoning').querySelectorAll('[data-outcome], [data-band]').length).toBe(0)
+    rerender(<ViewReasoning model={{ ...before, cards: before.cards.map(({ values: _gone, ...c }) => c) } as unknown as ViewModel} />)
+    expect(screen.getByTestId('view-reasoning').querySelectorAll('[data-outcome], [data-band]').length).toBe(0)
     rerender(<ViewChances model={m} />)
-    expect(screen.getByTestId('view-chances').querySelectorAll('[data-band]').length).toBe(0)
+    expect(screen.getByTestId('view-chances').querySelectorAll('[data-outcome], [data-band]').length).toBe(0)
   })
 })

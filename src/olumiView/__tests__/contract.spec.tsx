@@ -78,9 +78,13 @@ describe('the lint over the View render chain (design §3)', () => {
 })
 
 describe('nothing the View says on a line is dropped (review 00049)', () => {
-  /** Every visible string a row carries: its words and marks, never its hovers (`title`), its kind or its aim's id. */
+  /**
+   * Every visible string a row carries: its words and marks, never its hovers (`title`), its kind or its aim's id, nor the aim's outcome
+   * (`outcome`, core c838f56), which the Reasoning tab draws under the row (reasoning.spec), not these chances.
+   */
   const shownStrings = (row: Record<string, unknown>, at: string): string[] => Object.entries(row).flatMap(([k, v]) =>
-    typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'aim_id' && k !== 'title' ? [`${at}.${k}`] : [])
+    k === 'outcome' ? []
+    : typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'aim_id' && k !== 'title' ? [`${at}.${k}`] : [])
     : v !== null && typeof v === 'object' ? shownStrings(v as Record<string, unknown>, `${at}.${k}`) : [])
   for (const n of GOLDEN) {
     it(`${n}: every word and mark on every option line is drawn, and each line carries core's hover`, () => {
