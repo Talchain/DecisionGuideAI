@@ -40,6 +40,23 @@ afterEach(() => { cleanup(); setTeamFetch(null); resetWrites(); useViewStore.set
 
 const posts = () => calls.filter((c) => c.method === 'POST')
 
+describe('lane C: a card reads heading and figure first', () => {
+  it('core\'s detail line is at most two lines, its whole words on hover; the figure\'s control keeps its place but shows only on hover, focus or selection', async () => {
+    const { QUIET } = await import('../FigureEdit')
+    const detailed = view.model!.cards.find((c) => c.detail !== '')!
+    const quiet = render(<ViewCard card={card} />).container
+    expect(quiet.querySelector(`[data-testid="view-figure-edit-${card.id}"]`)?.className).toContain(QUIET)
+    quiet.remove()
+    const chosen = render(<ViewCard card={card} selected />).container
+    expect(chosen.querySelector(`[data-testid="view-figure-edit-${card.id}"]`)?.className).not.toContain(QUIET)
+    chosen.remove()
+    const d = render(<ViewCard card={detailed} />).container.querySelector<HTMLElement>(`[data-view="${detailed.id}.detail"]`)!
+    expect(d.textContent).toBe(detailed.detail)
+    expect(d.getAttribute('title')).toBe(detailed.detail)
+    expect(d.className).toContain('line-clamp-2')
+  })
+})
+
 describe('a figure the person may set', () => {
   it('is offered exactly where core offers it, labelled with core\'s prompt', () => {
     render(<ViewCard card={card} />)

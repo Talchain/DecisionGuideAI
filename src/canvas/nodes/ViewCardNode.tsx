@@ -44,13 +44,13 @@ function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
 }
 
 /** One View card, pure: a test draws it from a golden View. */
-export function ViewCard({ card }: ViewCardData) {
+export function ViewCard({ card, selected = false }: ViewCardData & { selected?: boolean }) {
   const id = card.id
   return (
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
     <div
       style={{ width: CARD_WIDTH }}
-      className={`${typography.nodeLabel} rounded-lg border bg-panel p-3 space-y-1 ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : ''}`}
+      className={`group ${typography.nodeLabel} rounded-lg border bg-panel p-3 space-y-1 ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : ''}`}
       data-view-card={id} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
     >
       <div className="flex items-baseline gap-1">
@@ -59,11 +59,12 @@ export function ViewCard({ card }: ViewCardData) {
         <Mark at={`${id}.olumi`} mark={card.olumi} />
         <Mark at={`${id}.change`} mark={card.change} />
       </div>
-      {card.detail === '' ? null : <p data-view={`${id}.detail`}>{card.detail}</p>}
+      {/* At most two lines, the whole of core's words on hover (lane C: a first-time person reads the heading and the figure first). */}
+      {card.detail === '' ? null : <p className="line-clamp-2" title={card.detail} data-view={`${id}.detail`}>{card.detail}</p>}
       {card.status === null ? null : <p data-view={`${id}.status`}>{card.status}</p>}
       {card.reason === null ? null : <p data-view={`${id}.reason`}>{card.reason}</p>}
       {card.figure === null ? null : <p className={typography.nodeValue} title={card.figure.title} data-view={`${id}.figure.text`}>{card.figure.text}</p>}
-      {card.figure?.edit ? <FigureEdit id={card.id} edit={card.figure.edit} /> : null}
+      {card.figure?.edit ? <FigureEdit id={card.id} edit={card.figure.edit} quiet={!selected} /> : null}
       {card.bound === null ? null : (
         <p title={card.bound.title}><span data-view={`${id}.bound.text`}>{card.bound.text}</span>
           {card.bound.olumi === null ? null : <> <Mark at={`${id}.bound.olumi`} mark={card.bound.olumi} /></>}</p>
@@ -87,7 +88,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   return (
     <div className="relative">
       <Handle type="target" position={Position.Left} isConnectable={false} />
-      <ViewCard card={card} />
+      <ViewCard card={card} selected={selected === true} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       <NodeQuickActions nodeId={id} nodeType={askKindOf(card.family)} label={card.heading} placement="below" alwaysVisible={selected === true} />
       <Handle type="source" position={Position.Right} isConnectable={false} />

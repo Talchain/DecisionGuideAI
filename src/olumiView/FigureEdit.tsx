@@ -16,7 +16,10 @@ import { useViewStore } from './store'
  * `id`: the quantity (a card's id, or a waits-on item's); `edit`: core's words for changing it; `label`: the button's words; `place`: where
  * it is drawn (its element ids), since the same figure can be offered on its card and as the next step at once.
  */
-export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure' }: { id: string; edit: { prompt: string; ask: string } | null; label?: string; place?: string }): JSX.Element | null {
+/** On a card the control keeps its place but shows only on hover, focus or selection, so a card is not a column of links (lane C). */
+export const QUIET = 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+
+export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false }: { id: string; edit: { prompt: string; ask: string } | null; label?: string; place?: string; quiet?: boolean }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
@@ -44,7 +47,7 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
   if (!open) {
     return (
       <button type="button" data-testid={`${place}-edit-${id}`} onClick={() => setOpen(true)}
-        className={`nodrag ${typography.nodeLabel} cursor-pointer text-info underline underline-offset-2`}>{label}</button>
+        className={`nodrag ${typography.nodeLabel} cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
     )
   }
   return (
