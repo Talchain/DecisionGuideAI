@@ -407,7 +407,9 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
         ? { Icon: MessageCircleQuestion, label: QUESTION_LABEL }
         : null
 
-  const content = (
+  // The note's words, `live` for the note a person meets; the copy only measured (in the panel case) carries no test id and nothing a
+  // person or a screen reader can reach (DL 4 Nov, R2: two "Why" on a dense board).
+  const body = (live: boolean) => (
     <>
         <div className="flex items-start gap-2">
           <span title={ATTENTION_CARD_COPY.olumi} className="mt-0.5 flex-none">
@@ -417,7 +419,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
           {/* The move's chip; stale, it becomes the clock (the stale sentence is its name). */}
           {isStale ? (
             <span
-              data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-stale`}
+              data-testid={live ? `${OLUMI_ATTENTION_CARD_TESTID}-stale` : undefined}
               title={ATTENTION_CARD_COPY.stale}
               className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-panel-hover text-warning"
             >
@@ -426,7 +428,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
             </span>
           ) : chip ? (
             <span
-              data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-move`}
+              data-testid={live ? `${OLUMI_ATTENTION_CARD_TESTID}-move` : undefined}
               title={chip.label}
               role="img"
               aria-label={chip.label}
@@ -453,9 +455,9 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
         </div>
 
         {goalWaits ? (
-          <div data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-waits`} className="mt-1.5 space-y-0.5">
+          <div data-testid={live ? `${OLUMI_ATTENTION_CARD_TESTID}-waits` : undefined} className="mt-1.5 space-y-0.5">
             {goalTarget ? <p className={`${typography.panelBody} text-text-body mb-0`}>{goalTarget}</p> : null}
-            <p className={`${typography.panelBody} text-text-body mb-0`}>{'Waits on: '}<WaitsOnList items={waitsOn} testIdPrefix={`${OLUMI_ATTENTION_CARD_TESTID}-waits-on`} /></p>
+            <p className={`${typography.panelBody} text-text-body mb-0`}>{'Waits on: '}<WaitsOnList items={waitsOn} testIdPrefix={live ? `${OLUMI_ATTENTION_CARD_TESTID}-waits-on` : ''} /></p>
           </div>
         ) : null}
 
@@ -465,7 +467,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
 
         {note && !viewer && !link && isQuestion(note.body ?? note.title) ? (
           <form
-            data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-answer`}
+            data-testid={live ? `${OLUMI_ATTENTION_CARD_TESTID}-answer` : undefined}
             className="mt-2 flex items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3 py-1 focus-within:ring-2 focus-within:ring-primary"
             onSubmit={(e) => {
               e.preventDefault()
@@ -504,14 +506,14 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
           <>
             <p
               className={`${typography.panelBody} text-warning mt-1.5 mb-0`}
-              data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-caveat`}
+              data-testid={live ? `${OLUMI_ATTENTION_CARD_TESTID}-caveat` : undefined}
             >
               {caveat.text}
             </p>
             {caveat.sourceLine ? (
               <p
                 className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-                data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-caveat-reason`}
+                data-testid={live ? `${OLUMI_ATTENTION_CARD_TESTID}-caveat-reason` : undefined}
               >
                 {caveat.sourceLine}
               </p>
@@ -526,7 +528,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
               <button
                 key={a.id}
                 type="button"
-                data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-action`}
+                data-testid={live ? `${OLUMI_ATTENTION_CARD_TESTID}-action` : undefined}
                 data-action-id={a.id}
                 onClick={() => {
                   // A held note's own press and dismissal (the canvas's suggested move: its press, its "Not now").
@@ -572,13 +574,14 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
         ) : null}
         {note && note.why && note.why.length > 0 ? (
           // The producer's reasons, one press away, verbatim (W1 "Why ▸" on a finding): the chat's own disclosure, on the note.
-          <details className={`${typography.panelMeta} mt-1.5 text-text-body`} data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-why`}>
+          <details className={`${typography.panelMeta} mt-1.5 text-text-body`} data-testid={live ? `${OLUMI_ATTENTION_CARD_TESTID}-why` : undefined}>
             <summary className="cursor-pointer text-text-light">{ATTENTION_CARD_COPY.why}</summary>
             <ul className="mt-1 list-disc space-y-1 pl-4">{note.why.map((w, i) => <li key={i}>{w}</li>)}</ul>
           </details>
         ) : null}
     </>
   )
+  const content = body(true)
   const shell = (props: Record<string, unknown>, inside: JSX.Element) => (
     <div
       {...props}
@@ -593,8 +596,9 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
     </div>
   )
   // The note on the canvas, where it is placed and measured; in the panel instead (below), it stays there unseen, so it is measured still.
-  const onCanvas = shell({ ref: cardRef, 'data-testid': inPanel ? `${OLUMI_ATTENTION_CARD_TESTID}-measure` : OLUMI_ATTENTION_CARD_TESTID, 'aria-hidden': inPanel || undefined,
-    style: { position: 'absolute', left, top, width: CARD_WIDTH, zIndex: 95, ...(inPanel ? { visibility: 'hidden', pointerEvents: 'none' } : {}) } }, content)
+  // In the panel case the canvas copy is only measured: no test id, hidden from screen readers and inert (nothing in it focusable), invisible.
+  const onCanvas = shell({ ref: cardRef, ...(inPanel ? { 'data-note-measure': '', 'aria-hidden': true, inert: '' } : { 'data-testid': OLUMI_ATTENTION_CARD_TESTID }),
+    style: { position: 'absolute', left, top, width: CARD_WIDTH, zIndex: 95, ...(inPanel ? { visibility: 'hidden', pointerEvents: 'none' } : {}) } }, inPanel ? body(false) : content)
   if (!inPanel || slot === null) return onCanvas
   return <>{onCanvas}{createPortal(shell({ 'data-testid': OLUMI_ATTENTION_CARD_TESTID, 'data-in-panel': true }, content), slot)}</>
 }
