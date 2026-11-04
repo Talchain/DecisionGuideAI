@@ -23,7 +23,7 @@ describe('the Model tab, from the View', () => {
     expect(groups.map((g) => g.title)).toEqual([MODEL_TAB_GOAL_GROUP_TITLE, MODEL_GROUP_TITLE.options, MODEL_GROUP_TITLE.factors, MODEL_GROUP_TITLE.outcomesRisks])
     const where = new Map(groups.flatMap((g) => g.cards.map((c) => [c.id, g.id] as const)))
     for (const c of model.cards) {
-      const kind = drawKindOf(c)
+      const kind = drawKindOf(c, model)
       const want = c.family === 'assumption' || c.family === 'condition' ? undefined
         : kind === 'goal' || kind === 'constraint' ? 'goal' : kind === 'option' ? 'options' : kind === 'factor' ? 'factors' : 'outcomes-risks'
       expect(where.get(c.id), c.id).toBe(want)

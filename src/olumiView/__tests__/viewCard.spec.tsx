@@ -145,7 +145,7 @@ describe('the original card\'s look and its named places (DL 4 Nov: an improved 
       const slots = [...c.querySelectorAll<HTMLElement>('[data-slot]')].map((e) => e.dataset['slot'])
       expect(slots, card.id).toEqual(expect.arrayContaining(['title-mark', 'marks', 'olumi-badge']))
       expect(slots.includes('driver-badge') && slots.includes('outcome-band'), `${card.id} option places`).toBe(card.family === 'option' && card.rows.length > 0)
-      expect(slots.includes('figure-side'), `${card.id} figure place`).toBe(card.figure !== null)
+      expect(slots.includes('figure-side') && slots.includes('values-band'), `${card.id} figure places`).toBe(card.figure !== null)
       expect([...c.querySelectorAll('[data-slot]')].every((e) => e.childElementCount === 0 && e.textContent === ''), `${card.id} places are empty`).toBe(true)
       expect(c.querySelector('[data-view-card]')!.getAttribute('data-slot-outline')).toBe('next-step')
     }

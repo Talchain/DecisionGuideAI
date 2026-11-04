@@ -34,6 +34,7 @@ export const VIEW_CARD_SLOTS = {
   outcomeBand: 'outcome-band', // under status line 2, option cards
   titleMark: 'title-mark', // the title line: Olumi's inline mark, the only blue
   figureSide: 'figure-side', // beside the figure's value line: the what-if Try and the Rests-on glyph
+  valuesBand: 'values-band', // a block under the figure's value line: cards[].values, one bar per option on the card's own axis (v10)
   marks: 'marks', // the bottom marks row
   rail: 'rail', // below the card
 } as const
@@ -127,6 +128,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
           <Slot name={VIEW_CARD_SLOTS.figureSide} className="empty:hidden" />
         </div>
       )}
+      {card.figure === null ? null : <Slot name={VIEW_CARD_SLOTS.valuesBand} className="block empty:hidden" />}
       {card.figure?.edit ? <span className={selected ? '' : 'invisible group-hover:visible'} data-at-rest-hidden=""><FigureEdit id={card.id} edit={card.figure.edit} {...(estimate ? { glyph: '✎', label: 'Give yours' } : {})} quiet={!selected} /></span> : null}
       {card.rows.map((row, i) => (
         <span key={i} className="contents">
