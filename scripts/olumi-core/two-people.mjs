@@ -227,6 +227,9 @@ await ada.page.waitForTimeout(800)
 check(JSON.stringify(await ada.page.getByTestId('lens-bar').getByRole('radio').evaluateAll((bs) => bs.map((b) => b.getAttribute('data-testid')))) === JSON.stringify(['lens-bar-full', 'lens-bar-rests_on', 'lens-bar-what_changes', 'lens-bar-what_if']), 'the lens bar offers Model, Rests on, What would change and What if, and no lens the View cannot fill')
 // Compare is core's own comparison of two approved versions (src/olumiCore/compare.tsx); Reasoning and Model are drawn from the View.
 for (const kept of ['olumi', 'results', 'analysisNew', 'team', 'compare', 'diagnostics']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
+// The lane's strip fits its rail at this width (MAX_LANE_PRESENTED_SURFACES): every tab drawn whole inside the rail and the window.
+const rail = await ada.page.getByTestId('outputs-dock-tab-team').evaluate((t0) => { const l = t0.closest('[role="tablist"]') ?? t0.parentElement; const r = l.getBoundingClientRect(); return { n: l.querySelectorAll('[role="tab"]').length, over: l.scrollHeight > l.clientHeight + 1 || l.scrollWidth > l.clientWidth + 1, out: [...l.querySelectorAll('[role="tab"]')].filter((t) => { const b = t.getBoundingClientRect(); return b.top < r.top - 1 || b.bottom > r.bottom + 1 || b.left < r.left - 1 || b.right > r.right + 1 || b.bottom > innerHeight || b.right > innerWidth }).map((t) => t.getAttribute('data-testid')) } })
+check(!rail.over && rail.out.length === 0, `the dock rail holds all ${rail.n} lane tabs whole at ${process.env.VIEW_W ?? 1440}px (overflow ${rail.over}; outside ${rail.out.join(',') || 'none'})`)
 // G6: Olumi's next step, beside the one card core names, in core's words.
 const next = v.chat.find((t) => t.answer?.next.newest)?.answer?.next
 check(next && next.at !== null, `core puts Olumi's next step beside one card (${next?.at})`)
@@ -584,6 +587,13 @@ const ghosts = await ada.page.evaluate(() => [...document.querySelectorAll('[dat
 check(addedIds.length > 0 && JSON.stringify([...ghosts].sort()) === JSON.stringify([...addedIds].sort()), `the cards the proposal adds, and only those, are drawn as ghosts (${addedIds.join(', ')})`)
 await shot(ada, '9-proposal-ghosts')
 await tickLine(ada, part, 0)
+// The pulse lasts 2 s from when the page's View lands (appliedEditPulse.ts); on a slow core this script's own read lands later than the
+// page's, so every card seen pulsed is recorded from before the press, by id, and the check reads the record (4 Nov, R2 cut, DELAY_MS).
+await ada.page.evaluate(() => {
+  const seen = (window.__pulsed = new Set())
+  const note = () => { for (const e of document.querySelectorAll('[data-pulsed]')) { const id = e.closest('.react-flow__node')?.getAttribute('data-id'); if (id) seen.add(id) } }
+  new MutationObserver(note).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-pulsed'] })
+})
 await ada.page.getByTestId('view-approve-ticked').click()
 // Core refuses a line that needs an unchosen added record (409, naming it), in its own words; a person then ticks the rest too.
 const saved = (x) => x.proposal === null && x.version?.n === before + 1
@@ -597,7 +607,7 @@ if (await ada.page.getByTestId('view-chat-said').count() > 0 && !saved(await vie
 }
 v = await viewWhen(ada, sid, saved)
 // The applied-edit pulse (DL 4 Nov, R2): the version applied rings the cards it changed on Ada's canvas, the ghosts it approved among them.
-const pulsedIds = await ada.page.waitForFunction(() => { const ids = [...document.querySelectorAll('[data-pulsed]')].map((e) => e.closest('.react-flow__node').getAttribute('data-id')); return ids.length ? ids : null }, null, { timeout: 8000 }).then((h) => h.jsonValue()).catch(() => [])
+const pulsedIds = await ada.page.waitForFunction(() => (window.__pulsed.size ? [...window.__pulsed] : null), null, { timeout: 8000 + 3 * Number(process.env.DELAY_MS ?? 0) }).then((h) => h.jsonValue()).catch(() => [])
 check(pulsedIds.length > 0 && pulsedIds.every((id) => part.changes.some((c) => c.id === id)), `the approval pulses the cards it applied, and only those (${pulsedIds.join(', ')})`)
 check(saved(v), alone ? `core approved the ticked line alone ("${part.changes[0].text}" of ${part.changes.length}): version ${before + 1}` : `core approved the ticked lines: version ${before + 1}`)
 

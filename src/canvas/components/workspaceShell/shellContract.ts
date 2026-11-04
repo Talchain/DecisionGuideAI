@@ -695,6 +695,13 @@ export const UNFLAGGED_FALLBACK_SURFACE: OutputTab = 'analysisNew'
 export const MAX_PRESENTED_SURFACES = 5
 
 /**
+ * The olumi-core lane's strip: every presented surface but the CEE-only Lenses, plus the lane's own Team and its Model drawn from the View
+ * (DL 4 Nov, R2: Paul's staging has the Model tab). Recorded, not derived, like the strip's maximum; the dock is a vertical rail, and
+ * `scripts/olumi-core/two-people.mjs` witnesses every lane tab inside it at 1280 and 1440. Re-record it here in the same change.
+ */
+export const MAX_LANE_PRESENTED_SURFACES = 6
+
+/**
  * The surfaces offered as tabs, in strip order.
  *
  * Flag state still applies on top of this (Olumi and Compare are flagged);
