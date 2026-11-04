@@ -5,7 +5,8 @@
  */
 import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../canvas/domain/vocabulary'
 import type { Edge, Node } from '@xyflow/react'
-import type { ViewCard, ViewModel, ViewRow } from './client'
+import type { ViewCard, ViewModel, ViewRow, ViewRun } from './client'
+import { COMPARED_KINDS, comparedHeadingOf, groupOf, type ComparedGroup, type ComparedLine } from './compared'
 import { layoutGraph } from '../canvas/utils/layout'
 import { wrapTiers } from '../canvas/utils/wrapTiers'
 import { basisIdsOf } from './standin'
@@ -330,3 +331,24 @@ export function cardNumbersOf(model: ViewModel): ReadonlyMap<string, string> {
 
 /** The top of the causal graph, which the camera centres on when a board is too large to read whole: the question and the options. */
 export const headOf = (model: ViewModel): ReadonlySet<string> => new Set([QUESTION, ...model.cards.filter((c) => c.family === 'option').map((c) => c.id)])
+
+// R4 compared lines (compared.ts holds their stand-in types and per-line rules): which lines this page draws, and their groups. Picking
+// lives here, the one layout module.
+/** Core's compared lines this page draws, each with its place in `run.compared` (its View path): only the kinds it knows. */
+export function comparedLinesOf(run: ViewRun | null): { line: ComparedLine; i: number }[] {
+  const all = (run as { compared?: unknown } | null)?.compared
+  if (!Array.isArray(all)) return []
+  return (all as ComparedLine[]).map((line, i) => ({ line, i })).filter(({ line }) => COMPARED_KINDS.has(line.kind))
+}
+
+/** The groups to draw, in the order core first lists a line of each, each with its heading and lines; a group with no heading is left out. */
+export function comparedGroupsOf(run: ViewRun | null): { group: ComparedGroup; heading: string; lines: { line: ComparedLine; i: number }[] }[] {
+  const out: { group: ComparedGroup; heading: string; lines: { line: ComparedLine; i: number }[] }[] = []
+  for (const x of comparedLinesOf(run)) {
+    const g = groupOf(x.line), heading = comparedHeadingOf(run, g)
+    if (heading === null) continue
+    const at = out.find((o) => o.group === g)
+    if (at) at.lines.push(x); else out.push({ group: g, heading, lines: [x] })
+  }
+  return out
+}

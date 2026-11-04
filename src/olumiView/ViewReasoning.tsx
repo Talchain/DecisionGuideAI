@@ -1,7 +1,7 @@
 /**
  * The Reasoning tab on the olumi-core lane, drawn from the View (olumi.view/3) in place of `AnalysisNewTabBody`, which reads CEE's report
  * and has no source here. From the Run (`model.run`): its lead; each option's chance, limit, or why there is nothing yet, with what moves its
- * chance most; each aim's figure most worth checking first; then each figure the person may set, to try on a copy with core's what-if
+ * chance most; each aim's figure most worth checking first; core's comparisons under core's own headings; then each figure the person may set, to try on a copy with core's what-if
  * (`POST …/whatif`, nothing saved), the answer drawn at the top of this tab. Every word is core's, drawn exactly as it arrives, in core's
  * order: nothing is composed, ranked or recommended here, and the figures are on hover.
  *
@@ -11,7 +11,7 @@ import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow } from './client'
 import { bandPlace, olumiKey, optionBands, optionCards, outcomePlace, rowsCarryOutcome, settableFigures, type Place } from './layout'
 import { currentModel, useViewStore } from './store'
-import { OptionLines, Sensitivity, SharedBlockers, WhatIfShown, Worth } from './ViewChances'
+import { Compared, OptionLines, Sensitivity, SharedBlockers, WhatIfShown, Worth } from './ViewChances'
 import { typography } from '../styles/typography'
 
 export function ViewReasoning({ model }: { model: ViewModel }) {
@@ -26,6 +26,7 @@ export function ViewReasoning({ model }: { model: ViewModel }) {
         ? <OptionLines key={card.id} card={card} after={(row, i) => <AimOutcome model={model} card={card} row={row} i={i} />} />
         : <OptionLines key={card.id} card={card}><Bands model={model} option={card.id} /></OptionLines>))}
       <Worth run={run} tab="analysisNew" />
+      <Compared run={run} />
       {settable.length === 0 ? null : (
         <div data-testid="view-reasoning-try" aria-label="Try a figure">
           <p className={typography.panelHeader}>Try a figure</p>

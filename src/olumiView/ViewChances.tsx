@@ -10,7 +10,7 @@
 import { Fragment, type ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow, ViewRun } from './client'
-import { optionCards, worthLinesOf } from './layout'
+import { comparedGroupsOf, optionCards, worthLinesOf } from './layout'
 import { currentModel, useViewStore } from './store'
 import { clearWhatIf, useWhatIf } from './whatif'
 import { typography } from '../styles/typography'
@@ -214,6 +214,30 @@ export function Worth({ run, tab }: { run: ViewRun | null; tab?: OutputTab }) {
           <span data-view={`run.science.${i}.line`}>{l.line}</span>
           {l.figure?.mark == null ? null : <> <span title={l.figure.mark.title} aria-label={l.figure.mark.title} data-view={`run.science.${i}.figure.mark.glyph`}>{l.figure.mark.glyph}</span></>}
           {l.figure?.give == null ? null : <> <FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} tab={tab} /></>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Core's comparisons (D2 on the middle figures; CHANGE 8 against carrying on: olumi.view/3 `model.run.compared`), each group under core's own
+ * heading for it (`compared_headings`), never under "Worth checking first"; each line verbatim, Olumi's mark when core gives one, the Run's
+ * text on hover. A group core gives no heading for, and a kind this page does not know, is drawn as nothing.
+ */
+export function Compared({ run }: { run: ViewRun | null }) {
+  const groups = comparedGroupsOf(run)
+  return groups.length === 0 ? null : (
+    <div data-testid="view-run-compared" className="space-y-3">
+      {groups.map(({ group, heading, lines }) => (
+        <div key={group} data-testid={`view-run-compared-${group}`} aria-label={heading}>
+          <p className={typography.panelHeader} data-view={`run.compared_headings.${group}`}>{heading}</p>
+          {lines.map(({ line: l, i }) => (
+            <div key={l.id} title={l.hover} data-view-fact={l.id}>
+              {l.olumi === null ? null : <><span title={l.olumi.title} aria-label={l.olumi.title} data-view={`run.compared.${i}.olumi.glyph`}>{l.olumi.glyph}</span> </>}
+              <span data-view={`run.compared.${i}.line`}>{l.line}</span>
+            </div>
+          ))}
         </div>
       ))}
     </div>
