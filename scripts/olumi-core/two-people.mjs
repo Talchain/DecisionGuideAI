@@ -689,10 +689,15 @@ if (await ada.page.getByTestId('view-chat-said').count() > 0 && !saved(await vie
 }
 v = await viewWhen(ada, sid, saved)
 // The applied-edit pulse (DL 4 Nov, R2): the version applied rings the cards it changed on Ada's canvas, the ghosts it approved among them.
-const pulsedIds = await ada.page.waitForFunction(() => (window.__pulsed.size ? [...window.__pulsed] : null), null, { timeout: 8000 + 3 * Number(process.env.DELAY_MS ?? 0) }).then((h) => h.jsonValue()).catch(() => [])
-// Exactly the approved lines' cards: the first line alone when core took it alone, every line otherwise (a left-out line is not pulsed).
+// Exactly the approved lines' cards that are DRAWN: the first line alone when core took it alone, every line otherwise (a left-out line is
+// not pulsed). A line applied but not drawn pulses nothing and the empty match is right: on served 3c5462c (4 Nov) real AI put Olumi's figure
+// `two_specialists` first, Ada approved it alone, and with no option setting it the View folds it behind a badge (core page/graph.ts shownFigure).
 const appliedIds = (alone ? part.changes.slice(0, 1) : part.changes).map((c) => c.id).filter((id) => v.model.cards.some((k) => k.id === id))
-check(appliedIds.length > 0 && JSON.stringify([...pulsedIds].sort()) === JSON.stringify([...appliedIds].sort()), `the approval pulses exactly the cards it applied (${pulsedIds.join(', ')}; applied ${appliedIds.join(', ')})`)
+const pulsedIds = appliedIds.length > 0
+  ? await ada.page.waitForFunction(() => (window.__pulsed.size ? [...window.__pulsed] : null), null, { timeout: 8000 + 3 * Number(process.env.DELAY_MS ?? 0) }).then((h) => h.jsonValue()).catch(() => [])
+  : await ada.page.waitForTimeout(3000 + Number(process.env.DELAY_MS ?? 0)).then(() => ada.page.evaluate(() => [...window.__pulsed]))
+const pulseMatch = (pulsed, applied) => JSON.stringify([...pulsed].sort()) === JSON.stringify([...applied].sort())
+check(pulseMatch(pulsedIds, appliedIds), `the approval pulses exactly the applied cards drawn (${pulsedIds.join(', ') || 'none'}; applied ${appliedIds.join(', ') || 'none'})`)
 check(saved(v), alone ? `core approved the ticked line alone ("${part.changes[0].text}" of ${part.changes.length}): version ${before + 1}` : `core approved the ticked lines: version ${before + 1}`)
 
 // The dock's Compare tab: the previous approved version against this one, as core compares them (a shot, for the pilot kit).
