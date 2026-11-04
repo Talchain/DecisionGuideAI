@@ -430,9 +430,10 @@ await bea.page.getByTestId(`team-o-${c.id}-happened`).fill('92 a week by week fo
 await bea.page.getByTestId(`team-o-${c.id}-versus`).getByLabel('Worse than expected').check()
 await bea.page.getByTestId(`team-o-${c.id}-triggered`).getByLabel('No, it did not').check()
 await bea.page.getByTestId(`team-o-${c.id}-save`).click()
-await bea.page.getByTestId(`team-outcomes-${c.id}`).getByText('92 a week by week four').waitFor({ timeout: T }) // saved outcomes, not the form inside the item
+// A SAVED outcome (team-outcome-happened-<id>): team-outcomes-<id> also wraps the form Bea typed in, so it is not scope enough.
+await bea.page.locator('[data-testid^="team-outcome-happened-"]', { hasText: '92 a week by week four' }).waitFor({ timeout: T })
 await teamCheck(ada)
-check(await seen(ada, async () => (await ada.page.getByTestId(`team-outcomes-${c.id}`).innerText()).includes('92 a week by week four'), { recheck: true }), 'Ada sees the outcome')
+check(await seen(ada, async () => await ada.page.getByTestId(`team-outcomes-${c.id}`).locator('[data-testid^="team-outcome-happened-"]', { hasText: '92 a week by week four' }).count() === 1, { recheck: true }), 'Ada sees the outcome')
 await shot(ada, '7-ada-team')
 
 // ── Both screens agree ──────────────────────────────────────────────────────────────────────────────────────────────────────────
