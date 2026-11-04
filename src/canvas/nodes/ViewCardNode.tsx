@@ -66,7 +66,7 @@ function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
 }
 
 /** One View card, pure: a test draws it from a golden View. */
-export function ViewCard({ card, selected = false, restsOn = null, driverOf = null, number = null, tried = null }: ViewCardData & { selected?: boolean; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null; tried?: string | null }) {
+export function ViewCard({ card, selected = false, restsOn = null, driverOf = null, number = null, tried = null, pulsed = false }: ViewCardData & { selected?: boolean; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null; tried?: string | null; pulsed?: boolean }) {
   const id = card.id
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
@@ -83,8 +83,8 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
     <div
       style={{ width: CARD_WIDTH }}
-      className={`group relative text-[length:calc(12px*var(--canvas-label-scale,1))] leading-[1.35] font-sans text-text-body rounded-md border ${ghost ? 'bg-panel/80' : 'bg-panel'} px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : ghost ? 'border-info' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
-      data-view-card={id} data-proposed-card={ghost || undefined} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
+      className={`group relative text-[length:calc(12px*var(--canvas-label-scale,1))] leading-[1.35] font-sans text-text-body rounded-md border ${ghost ? 'bg-panel/80' : 'bg-panel'} px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : ghost ? 'border-info' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
+      data-view-card={id} data-proposed-card={ghost || undefined} data-pulsed={pulsed || undefined} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
       data-slot-outline="next-step" data-driver-of={driverOf === null ? undefined : driverOf.map((o) => o.id).join(' ')}
       // What would change: the ring says this figure is one an option's chance moves most with; its options' driver words on hover. The
       // options themselves carry v10's driver badge (DL 4 Nov: one representation, no chip here).
@@ -169,11 +169,13 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const driverOf = useDriverOf(id)
   const number = useCardNumber(id)
   const tried = useTriedOn(id)
+  // The applied-edit pulse (pulseArrivals.ts, appliedEditPulse.ts): the original card's ring on a card an approval or edit just applied.
+  const pulsed = useCanvasStore((st) => st.highlightedNodes.has(id))
   const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] === id)
   return (
     <div className="group/vcard relative">
       <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
-      <ViewCard card={card} selected={selected === true} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} />
+      <ViewCard card={card} selected={selected === true} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} pulsed={pulsed} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
       <div className={selected === true || noted ? '' : 'opacity-0 group-hover/vcard:opacity-100 focus-within:opacity-100'} data-olumi-controls="">

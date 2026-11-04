@@ -40,3 +40,13 @@ describe('a card the proposal adds is drawn as a ghost', () => {
     }
   })
 })
+
+describe('the applied-edit pulse on a View card', () => {
+  it('the original card\'s ring while the canvas holds the card as just applied; none otherwise', () => {
+    const on = root(render(<ViewCard card={kept} pulsed />).container)
+    expect([on.dataset['pulsed'], on.className.includes('ai-highlight-pulse')]).toEqual(['true', true])
+    cleanup()
+    const off = root(render(<ViewCard card={kept} />).container)
+    expect([off.dataset['pulsed'], off.className.includes('ai-highlight-pulse')]).toEqual([undefined, false])
+  })
+})

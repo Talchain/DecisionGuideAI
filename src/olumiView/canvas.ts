@@ -8,7 +8,7 @@ import { useEffect } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import type { ViewModel } from './client'
-import { CARD_WIDTH, GAP_Y, causalPlaces, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
+import { appliedSince, CARD_WIDTH, GAP_Y, causalPlaces, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
 import { useViewStore } from './store'
 import { pulseWhenOnCanvas } from '../olumiCore/pulseArrivals'
 
@@ -128,6 +128,9 @@ export function placeViewCards(model: ViewModel): Promise<boolean> {
  * A card that arrives on a canvas already holding the model (an approval, here or by another member) is acknowledged with the applied-edit
  * pulse; the first drawing of a scenario pulses nothing.
  */
+/** The scenario, version and model the canvas last drew: a newer version of the same scenario pulses what it applied (`appliedSince`). */
+let drew: { sid: string | null; n: number | null; model: ViewModel } | null = null
+
 export function useViewCanvas(on: boolean): void {
   const view = useViewStore((s) => s.view)
   const model = view?.model ?? null
@@ -142,10 +145,15 @@ export function useViewCanvas(on: boolean): void {
     let live = true
     // A newer View, or a new height, starts its own layout: this one draws nothing once it is stale.
     void causalFor(model).then((places) => {
-      if (!live || !drawViewCanvas(model, places) || had === null) return
+      if (!live) return
+      const last = drew, sid = useViewStore.getState().sid, n = view.version?.n ?? null
+      drew = { sid, n, model }
+      if (!drawViewCanvas(model, places) || had === null) return
       const arrived: string[] = []
       for (const c of model.cards) if (!had.has(c.id)) arrived.push(c.id)
-      pulseWhenOnCanvas(arrived)
+      // A newer version of the same scenario (an approval, or an edit, here or by another member): the cards it applied pulse too.
+      const advanced = last !== null && last.sid === sid && last.n !== null && n !== null && n > last.n
+      pulseWhenOnCanvas(advanced ? [...arrived, ...appliedSince(last.model, model)] : arrived)
     })
     return () => { live = false }
   }, [on, view, model, heights])

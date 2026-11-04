@@ -416,6 +416,9 @@ if (await ada.page.getByTestId('view-chat-said').count() > 0 && !saved(await vie
   await ada.page.getByTestId('view-approve-ticked').click()
 }
 v = await viewWhen(ada, sid, saved)
+// The applied-edit pulse (DL 4 Nov, R2): the version applied rings the cards it changed on Ada's canvas, the ghosts it approved among them.
+const pulsedIds = await ada.page.waitForFunction(() => { const ids = [...document.querySelectorAll('[data-pulsed]')].map((e) => e.closest('.react-flow__node').getAttribute('data-id')); return ids.length ? ids : null }, null, { timeout: 8000 }).then((h) => h.jsonValue()).catch(() => [])
+check(pulsedIds.length > 0 && pulsedIds.every((id) => part.changes.some((c) => c.id === id)), `the approval pulses the cards it applied, and only those (${pulsedIds.join(', ')})`)
 check(saved(v), alone ? `core approved the ticked line alone ("${part.changes[0].text}" of ${part.changes.length}): version ${before + 1}` : `core approved the ticked lines: version ${before + 1}`)
 
 console.log(`\nAll steps hold. Scenario ${sid}: DGAI ${BASE}/#/scenario/${uuidOf(sid)} · core ${BASE}/s/${sid}`)
