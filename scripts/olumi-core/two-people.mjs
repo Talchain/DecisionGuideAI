@@ -497,6 +497,12 @@ const first = await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/
 await ada.page.getByTestId('core-version-open-1').click()
 const w1 = first.versions.find((x) => x.n === 1)
 check(await seen(ada, async () => (await ada.page.getByTestId('core-version-1-who').innerText({ timeout: 1000 })).startsWith(`Proposed by ${w1.proposedBy}`)), `version 1's record opens too: proposed by ${w1.proposedBy}${w1.briefBy ? `, from ${w1.briefBy}'s brief` : ''}`)
+// Its own change lines are core's `lines` on /versions (API v1.10): every record of the first model, added over nothing.
+const own1 = listed[0].lines ?? []
+check(await seen(ada, async () => { const l = await ada.page.getByTestId('core-version-1-changes').locator('li').allInnerTexts(); return own1.length > 0 && l.length === own1.length && own1.every((c, i) => l[i].startsWith(c.text)) }),
+  `version 1's own change lines are core's (${own1.length}, "${own1[0]?.text}")`)
+check(await ada.page.getByTestId('core-version-3-record-link').getAttribute('href') === `/s/${sid}/record#version-3`, 'version 3\'s record links to its heading on core\'s printable record')
+check(await ada.page.evaluate(async (s) => (await (await fetch(`/s/${s}/record`)).text()).includes('id="version-3"'), sid), 'and core\'s printable record has that heading')
 const saved1 = first.results.filter((r) => r.before)
 check(await seen(ada, async () => { const l = await ada.page.getByTestId('core-version-1-found').locator('li').allInnerTexts(); return saved1.length > 0 && l.length === saved1.length && saved1.every((r, i) => l[i].includes(r.before.value)) }), `and its ${saved1.length} saved results, in core's words ("${saved1[0]?.before.value}")`)
 await shot(ada, `i-versions-${process.env.VIEW_W ?? 1440}`)
@@ -510,6 +516,33 @@ const then = await view(ada, sid)
 check(then.version.id === now.version.id && JSON.stringify(then.model) === JSON.stringify(now.model), `core still holds version ${now.version.n}, the same model`)
 check(sent.length === 0, `reading the history sent core nothing but reads${sent.length ? `: ${sent.join(', ')}` : ''}`)
 check(await ada.page.locator('.react-flow__node-viewCard').count() === now.model.cards.length, `Ada's canvas still draws version ${now.version.n}'s cards`)
+
+// ── 11. A past version on the canvas, by Ada's choice (core API v1.10, view?at=n) ────────────────────────────────────────────────
+step(11, 'Ada draws version 2 on the canvas as it was, then goes back to the latest; core changes nothing')
+const at2 = await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view?at=2&schema=3`)).json(), sid)
+check(at2.version?.n === 2 && at2.proposal === null && at2.model.edit_base === null, 'core serves version 2\'s own View: nothing pending, nothing to edit')
+const was = at2.model.cards.find((x) => x.id === editable.id), is = now.model.cards.find((x) => x.id === editable.id)
+sent.length = 0
+ada.page.on('request', watch)
+await ada.page.getByTestId('core-version-open-2').click()
+check(await seen(ada, async () => await ada.page.getByTestId('core-version-2-draw').count() === 1), 'version 2\'s record offers to draw it on the canvas')
+await ada.page.getByTestId('core-version-2-draw').click()
+const figure = () => ada.page.locator(`[data-view="${editable.id}.figure.text"]`).innerText({ timeout: 1000 })
+check(await seen(ada, async () => await figure() === was.figure.text && await ada.page.locator('.react-flow__node-viewCard').count() === at2.model.cards.length),
+  `Ada's canvas draws version 2: "${was.figure.text}" where version ${now.version.n} has "${is.figure.text}"`)
+check(await seen(ada, async () => await ada.page.locator('[data-testid="core-version-row"][aria-current="true"]').getAttribute('data-version', { timeout: 1000 }) === '2'), 'the history marks version 2 as the one drawn')
+await shot(ada, `i-version-2-drawn-${process.env.VIEW_W ?? 1440}`)
+// The history panel sits over the dock: Ada closes it, as a person does, to reach the message box on the Olumi tab.
+await ada.page.getByTestId('what-changed-panel').getByRole('button', { name: 'Close panel' }).click()
+await tab(ada, 'olumi')
+check(await seen(ada, async () => await ada.page.locator('#view-chat-text').isDisabled({ timeout: 1000 }) && await ada.page.getByTestId('view-composer-past').isVisible()), 'the message box is held while a past version is drawn, and says so')
+const still = await view(ada, sid)
+check(still.version.id === now.version.id && JSON.stringify(still.model) === JSON.stringify(now.model), `core still holds version ${now.version.n}, the same model`)
+await ada.page.getByTestId('view-composer-back').click()
+check(await seen(ada, async () => await figure() === is.figure.text && await ada.page.locator('.react-flow__node-viewCard').count() === now.model.cards.length), `back to the latest: Ada's canvas draws version ${now.version.n} again ("${is.figure.text}")`)
+check(await seen(ada, async () => await ada.page.locator('#view-chat-text').isEnabled()), 'and the message box is open again')
+ada.page.off('request', watch)
+check(sent.length === 0, `drawing a past version sent core nothing but reads${sent.length ? `: ${sent.join(', ')}` : ''}`)
 
 console.log(`\nAll steps hold. Scenario ${sid}: DGAI ${BASE}/#/scenario/${uuidOf(sid)} · core ${BASE}/s/${sid}`)
 await browser.close()
