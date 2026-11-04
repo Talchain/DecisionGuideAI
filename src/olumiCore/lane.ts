@@ -35,7 +35,8 @@ export const CORE_LANE_USE_THE_CHAT = 'Tell Olumi in the chat what to change; it
  */
 // `legend` explains marks a View card never draws (each mark carries core's own hover); `summary` builds the brief from the
 // adapter's saved model, which this lane does not read (canvas A S6, gaps B8 and C7); `versions` snapshot and restore View cards
-// locally, which core never sees (lane audit 7.5); `lenses` colour cards a View card never draws (review 00057 #2).
+// locally, which core never sees (lane audit 7.5); `lenses` is the legacy lens bar, which reads legacy node shapes a View card never
+// carries (review 00057 #2): the lane's canvas draws its own, fed from the View (src/olumiView/ViewLensBar.tsx).
 // `diagnostics` (Model) projects the legacy node shapes, which a View card does not carry: it would show no rows (review 00002 #4).
 const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['analysisNew', 'compare', 'legend', 'summary', 'versions', 'lenses', 'diagnostics'])
 /** The surfaces only this lane has: the team's panels (`team`), drawn from core's View. */

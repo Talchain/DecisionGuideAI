@@ -33,6 +33,7 @@ import { placeViewCards, useViewHover, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, view
 import { readableFirstViewport } from './camera'
 import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
+import { ViewLensBar } from './ViewLensBar'
 
 const nodeTypes = { [VIEW_CARD]: ViewCardNode, [VIEW_QUESTION]: ViewQuestionNode }
 const edgeTypes = { [VIEW_LINK]: ViewLinkEdge }
@@ -108,6 +109,7 @@ function ViewFlow() {
   const userMoved = useRef(false)
   const fit = useViewCamera(userMoved)
   const { zoomIn, zoomOut, zoomTo } = useReactFlow()
+  const hasModel = useViewStore((s) => (s.view?.model?.cards.length ?? 0) > 0)
   const mine = (e: unknown) => { if (e) userMoved.current = true }
   return (
     <>
@@ -127,6 +129,7 @@ function ViewFlow() {
         onFitView={() => { userMoved.current = false; fit() }}
         onAutoArrange={() => { const model = useViewStore.getState().view?.model; if (model) void placeViewCards(model) }}
       />
+      {hasModel ? <ViewLensBar /> : null}
       <OlumiAttentionCard />
       <OutputsDock />
     </>

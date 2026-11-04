@@ -73,6 +73,17 @@ const onIt = golden.model.links.filter((l) => l.kind === 'reason' && (l.from ===
 check((await kinds()).filter((k) => k === 'reason').length === onIt && onIt > 0, `selected, ${withPremises.id}'s ${onIt} premise and assumption links are drawn, and no other`)
 const shownRows = rows.filter((r) => r.id.startsWith(`${withPremises.id}.`))
 check(shownRows.length === withPremises.premises.length && shownRows.every((r) => r.h <= r.lh * 1.5), `selected, ${withPremises.id}'s ${withPremises.premises.length} premise rows open beside it, each one line`)
+// The lens bar (DL 4 Nov, lenses back on from the View): Rests on numbers every figure a person can set and every assumption and condition,
+// Olumi's in blue; Model shows none. Nothing is dimmed.
+await page.keyboard.press('Escape')
+await page.getByTestId('lens-bar-rests_on').click()
+await page.waitForFunction(() => document.querySelectorAll('[data-rests-on]').length > 0, null, { timeout: 5000 })
+const marks = await page.evaluate(() => ({ all: document.querySelectorAll('[data-rests-on]').length, olumi: document.querySelectorAll('[data-rests-on-olumi]').length, dim: [...document.querySelectorAll('.react-flow__node')].filter((n) => parseFloat(getComputedStyle(n).opacity) < 1).length }))
+const settable = golden.model.cards.filter((c) => (c.figure?.edit ?? null) !== null || c.family === 'assumption' || c.family === 'condition')
+check(marks.all === settable.length && marks.olumi === settable.filter((c) => c.olumi !== null).length && marks.dim === 0, `Rests on: ${marks.all} cards numbered, ${marks.olumi} of them Olumi's in blue, none dimmed`)
+if (SHOT) await page.screenshot({ path: SHOT.replace(/\.png$/, '-rests-on.png') })
+await page.getByTestId('lens-bar-full').click()
+check(await page.evaluate(() => document.querySelectorAll('[data-rests-on]').length) === 0, 'Model: no card numbered')
 served = { ...next, id: made.scenario, you_id: me.id, you: me.name, version: { ...next.version, id: golden.version.id + 1, n: 2, label: 'version 2' } }
 await page.getByTestId('outputs-dock-tab-team').click()
 await page.getByTestId('team-check').click()
