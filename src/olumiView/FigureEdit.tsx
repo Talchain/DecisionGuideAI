@@ -9,19 +9,22 @@ import { typography } from '../styles/typography'
 import { TeamApiError } from '../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../olumiCore/team/writes'
 import { isForThisPage, useMe } from '../olumiCore/me'
-import { writes, type ViewCard } from './client'
+import { writes } from './client'
 import { useViewStore } from './store'
 
-export function FigureEdit({ card }: { card: ViewCard }): JSX.Element | null {
+/**
+ * `id`: the quantity (a card's id, or a waits-on item's); `edit`: core's words for changing it; `label`: the button's words; `place`: where
+ * it is drawn (its element ids), since the same figure can be offered on its card and as the next step at once.
+ */
+export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure' }: { id: string; edit: { prompt: string; ask: string } | null; label?: string; place?: string }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
   const [open, setOpen] = useState(false)
   const [typed, setTyped] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const key = `${sid}:edit:${card.id}`
+  const key = `${sid}:edit:${id}`
   const sending = useWriteSending(key)
-  const edit = card.figure?.edit
   const base = view?.model?.edit_base ?? null
   if (!edit || sid === null || base === null || view === null || !isForThisPage(view, me)) return null
 
@@ -29,9 +32,10 @@ export function FigureEdit({ card }: { card: ViewCard }): JSX.Element | null {
     if (typed.trim() === '' || sending) return
     setError(null)
     try {
-      await runWrite(key, { op: true }, { base, quantity: card.id, typed }, (op) => writes.edit(sid, base, card.id, typed, op!))
-      setOpen(false); setTyped('')
-      await useViewStore.getState().modelChanged()
+      await runWrite(key, { op: true }, { base, quantity: id, typed }, (op) => writes.edit(sid, base, id, typed, op!))
+      // Saved: the editor closes once the new View shows it; a View that could not be read says so here, never the old figure as current.
+      if (await useViewStore.getState().modelChanged()) { setOpen(false); setTyped('') }
+      else setError('Saved, but Olumi could not show it just now. Reload the page to see it.')
     } catch (e) {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
     }
@@ -39,21 +43,21 @@ export function FigureEdit({ card }: { card: ViewCard }): JSX.Element | null {
 
   if (!open) {
     return (
-      <button type="button" data-testid={`view-figure-edit-${card.id}`} onClick={() => setOpen(true)}
-        className={`nodrag ${typography.nodeLabel} cursor-pointer text-info underline underline-offset-2`}>Change figure</button>
+      <button type="button" data-testid={`${place}-edit-${id}`} onClick={() => setOpen(true)}
+        className={`nodrag ${typography.nodeLabel} cursor-pointer text-info underline underline-offset-2`}>{label}</button>
     )
   }
   return (
-    <form className="nodrag nopan grid gap-1" data-testid={`view-figure-form-${card.id}`}
+    <form className="nodrag nopan grid gap-1" data-testid={`${place}-form-${id}`}
       onSubmit={(e) => { e.preventDefault(); void save() }}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !sending) { setOpen(false); setError(null) } }}>
-      <label htmlFor={`view-figure-${card.id}`} className={typography.nodeLabel}>{edit.prompt}</label>
-      <input id={`view-figure-${card.id}`} data-testid={`view-figure-typed-${card.id}`} autoFocus autoComplete="off" spellCheck={false}
+      <label htmlFor={`${place}-${id}`} className={typography.nodeLabel}>{edit.prompt}</label>
+      <input id={`${place}-${id}`} data-testid={`${place}-typed-${id}`} autoFocus autoComplete="off" spellCheck={false}
         value={typed} disabled={sending} onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}
         className={`${typography.nodeLabel} w-full rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
-      {error && <p role="alert" data-testid={`view-figure-error-${card.id}`} className={`${typography.nodeLabel} text-danger`}>{error}</p>}
+      {error && <p role="alert" data-testid={`${place}-error-${id}`} className={`${typography.nodeLabel} text-danger`}>{error}</p>}
       <div className="flex gap-2">
-        <button type="submit" data-testid={`view-figure-set-${card.id}`} disabled={sending || typed.trim() === ''}
+        <button type="submit" data-testid={`${place}-set-${id}`} disabled={sending || typed.trim() === ''}
           className={`${typography.nodeLabel} cursor-pointer rounded bg-primary px-2 py-0.5 text-text-on-color disabled:opacity-50`}>Set figure</button>
         <button type="button" disabled={sending} onClick={() => { setOpen(false); setError(null) }}
           className={`${typography.nodeLabel} cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>

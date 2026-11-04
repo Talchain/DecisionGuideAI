@@ -70,6 +70,22 @@ describe('a figure the person may set', () => {
     await waitFor(() => expect(screen.queryByTestId(`view-figure-form-${card.id}`)).toBeNull())
   })
 
+  it('saved, but the View could not be read after it: the card says so and keeps the editor, never the old figure as current (review 00004 ledger)', async () => {
+    setTeamFetch((async (u: unknown, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+      calls.push({ method, path: String(u), body: undefined })
+      if (method === 'GET' && String(u) === '/api/me') return new Response(JSON.stringify({ me: { id: view.you_id, name: view.you } }), { status: 200 })
+      if (method === 'GET') return new Response('{', { status: 200 })
+      return new Response(JSON.stringify({ version: 2, n: 2, receipt: 'r' }), { status: 201 })
+    }) as unknown as typeof fetch)
+    render(<ViewCard card={card} />)
+    fireEvent.click(screen.getByTestId(`view-figure-edit-${card.id}`))
+    fireEvent.change(screen.getByTestId(`view-figure-typed-${card.id}`), { target: { value: '150' } })
+    fireEvent.click(screen.getByTestId(`view-figure-set-${card.id}`))
+    await waitFor(() => expect(screen.getByTestId(`view-figure-error-${card.id}`)).toHaveTextContent('Saved, but Olumi could not show it just now. Reload the page to see it.'))
+    expect(screen.getByTestId(`view-figure-form-${card.id}`)).toBeInTheDocument()
+  })
+
   it('a figure core cannot read: core\'s own ask, on the card; nothing is read again', async () => {
     answer = { status: 400, body: { error: card.figure!.edit!.ask } }
     render(<ViewCard card={card} />)

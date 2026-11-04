@@ -23,6 +23,8 @@ import { typography } from '../styles/typography'
 import { useGuidanceStore, withOlumiReveal } from '../canvas/stores/guidanceStore'
 import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding'
 import type { AIInputBarProps } from '../canvas/components/AIInputBar'
+import { useUIStore } from '../stores/uiStore'
+import { FigureEdit } from './FigureEdit'
 
 type Said = NonNullable<ViewTurn['answer']>['answer']
 
@@ -36,38 +38,63 @@ function Words({ parts, at }: { parts: Said; at: string }) {
   )
 }
 
+/** One turn of the conversation as the View holds it. `answerFirst`: Olumi's reply above the words it answers (the newest turn, lane C). */
+function Turn({ t, at, answerFirst = false }: { t: ViewTurn; at: string; answerFirst?: boolean }) {
+  const said = answerFirst
+    ? <p className={typography.panelMeta}>In reply to: <span data-view={`${at}.said`}>{t.said}</span></p>
+    : <p data-view={`${at}.said`}>{t.said}</p>
+  const answer = t.answer === null ? null : (
+    <div className={answerFirst ? 'space-y-2' : 'mt-2 space-y-2'}>
+      <p><Words parts={t.answer.answer} at={`${at}.answer.answer`} /></p>
+      {t.answer.why.length === 0 ? null : (
+        <details>
+          <summary>Why</summary>
+          <ul className="list-disc pl-4">{t.answer.why.map((w, j) => <li key={j}><Words parts={w} at={`${at}.answer.why.${j}`} /></li>)}</ul>
+        </details>
+      )}
+      <p><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} /></p>
+    </div>
+  )
+  return (
+    <li data-view-turn={at}>
+      <div className={typography.panelMeta}>
+        <span data-view={`${at}.by`}>{t.by}</span> · <span data-view={`${at}.version`}>{t.version}</span>
+        {t.status === null ? null : <> · <span data-view={`${at}.status`}>{t.status}</span></>}
+      </div>
+      {answerFirst ? <>{answer}{said}</> : <>{said}{answer}</>}
+      {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
+      {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}
+      {t.marks.map((m, j) => <p key={j} title={m.title}><span data-view={`${at}.marks.${j}.what`}>{m.what}</span>: <span data-view={`${at}.marks.${j}.status`}>{m.status}</span></p>)}
+    </li>
+  )
+}
+
 /** The conversation, oldest first, as the View holds it. */
 export function ViewTurns({ chat }: { chat: View['chat'] }) {
   return (
     <ol className={`${typography.panelBody} space-y-4`} data-testid="view-chat-turns">
-      {chat.map((t, i) => {
-        const at = `chat.${i}`
-        return (
-          <li key={t.id} data-view-turn={at}>
-            <div className={typography.panelMeta}>
-              <span data-view={`${at}.by`}>{t.by}</span> · <span data-view={`${at}.version`}>{t.version}</span>
-              {t.status === null ? null : <> · <span data-view={`${at}.status`}>{t.status}</span></>}
-            </div>
-            <p data-view={`${at}.said`}>{t.said}</p>
-            {t.answer === null ? null : (
-              <div className="mt-2 space-y-2">
-                <p><Words parts={t.answer.answer} at={`${at}.answer.answer`} /></p>
-                {t.answer.why.length === 0 ? null : (
-                  <details>
-                    <summary>Why</summary>
-                    <ul className="list-disc pl-4">{t.answer.why.map((w, j) => <li key={j}><Words parts={w} at={`${at}.answer.why.${j}`} /></li>)}</ul>
-                  </details>
-                )}
-                <p><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} /></p>
-              </div>
-            )}
-            {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
-            {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}
-            {t.marks.map((m, j) => <p key={j} title={m.title}><span data-view={`${at}.marks.${j}.what`}>{m.what}</span>: <span data-view={`${at}.marks.${j}.status`}>{m.status}</span></p>)}
-          </li>
-        )
-      })}
+      {chat.map((t, i) => <Turn key={t.id} t={t} at={`chat.${i}`} />)}
     </ol>
+  )
+}
+
+/**
+ * The newest turn first, Olumi's reply above the words it answers, and the earlier turns folded under it (lane C, Paul 3 Nov: a
+ * first-time person reads Olumi's reply first). Every turn keeps its path in the View (`chat.<i>`).
+ */
+export function ViewConversation({ chat }: { chat: View['chat'] }) {
+  if (chat.length === 0) return null
+  const last = chat.length - 1
+  return (
+    <div className={`${typography.panelBody} space-y-3`} data-testid="view-chat-turns">
+      <ol className="space-y-4" data-testid="view-chat-latest"><Turn t={chat[last]!} at={`chat.${last}`} answerFirst /></ol>
+      {last === 0 ? null : (
+        <details data-testid="view-chat-earlier">
+          <summary className={typography.panelMeta}>Earlier in this conversation ({last})</summary>
+          <ol className="mt-2 space-y-4">{chat.slice(0, last).map((t, i) => <Turn key={t.id} t={t} at={`chat.${i}`} />)}</ol>
+        </details>
+      )}
+    </div>
   )
 }
 
@@ -265,7 +292,52 @@ export function useAnswersAsks(on = true): void {
   }, [on])
 }
 
-/** The tab on the core lane: the conversation and the proposal from the View (the composer is the dock's footer, `ViewComposer`). */
+type WaitsOnItem = NonNullable<NonNullable<NonNullable<View['model']>['run']>['waits_on']>['items'][number]
+export type NextStep = { readonly kind: 'approve' } | { readonly kind: 'figure'; readonly item: WaitsOnItem & { edit: NonNullable<WaitsOnItem['edit']> } } | { readonly kind: 'invite' }
+
+/**
+ * The one thing for the person to do next (lane C, Paul 3 Nov: a first-time person knows what to do within a minute), chosen from what
+ * the View already states, in this order: a proposal Olumi holds is checked first (nothing is kept until it is approved); then the
+ * first figure the chances wait on that core lets them type; then, while they are the only member, bringing a colleague in. Else
+ * nothing: the conversation is the next step.
+ */
+export function nextStepOf(view: View): NextStep | null {
+  if (view.proposal !== null) return { kind: 'approve' }
+  const item = view.model?.edit_base == null ? undefined : view.model.run?.waits_on?.items.find((i) => i.edit !== null)
+  if (item) return { kind: 'figure', item: item as WaitsOnItem & { edit: NonNullable<WaitsOnItem['edit']> } }
+  if (view.version !== null && view.collab.alone) return { kind: 'invite' }
+  return null
+}
+
+export const NEXT_STEP_WORDS = {
+  approve: 'Olumi proposes changes to the model, shown on the canvas. Check them against your situation, then approve them or set them aside. Nothing changes until you approve.',
+  figure: 'The chances wait on a figure only you can give:',
+  invite: 'Bring in a colleague: each of you gives your own view privately, then you reveal them together and see where you differ.',
+} as const
+
+/** The next step, highlighted at the top of the Olumi tab: its words and the one control that does it. */
+function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
+  const step = nextStepOf(view)
+  if (step === null) return null
+  return (
+    <section className={`${typography.panelBody} rounded-lg border border-info/40 bg-panel p-3 space-y-2 ring-1 ring-info/20`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
+      <p className={typography.panelHeader}>Next step</p>
+      <p>{NEXT_STEP_WORDS[step.kind]}</p>
+      {step.kind === 'approve' ? <Proposal p={view.proposal!} busy={busy} /> : null}
+      {step.kind === 'figure' ? (
+        <div className="space-y-1">
+          <p title={step.item.title} data-view={`run.waits_on.items.${view.model!.run!.waits_on!.items.indexOf(step.item)}.text`}>{step.item.text}</p>
+          <FigureEdit id={step.item.id} edit={step.item.edit} label="Add the figure" place="next-figure" />
+        </div>
+      ) : null}
+      {step.kind === 'invite' ? (
+        <button type="button" data-testid="view-next-invite" className="rounded px-3 py-2 bg-primary text-text-on-color" onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>Invite a colleague</button>
+      ) : null}
+    </section>
+  )
+}
+
+/** The tab on the core lane: the next step, then the conversation, newest first, from the View (the composer is the dock's footer). */
 export function ViewChat() {
   useAnswersAsks()
   const view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
@@ -273,10 +345,10 @@ export function ViewChat() {
   return (
     <div className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-        {view === null ? null : <ViewTurns chat={view.chat} />}
         {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
         {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
-        {view?.proposal ? <Proposal p={view.proposal} busy={busy} /> : null}
+        {view === null ? null : <NextStepCard view={view} busy={busy} />}
+        {view === null ? null : <ViewConversation chat={view.chat} />}
       </div>
     </div>
   )
