@@ -30,15 +30,16 @@ export function coreLaneAllows(write: CoreLaneWrite): boolean {
 export const CORE_LANE_USE_THE_CHAT = 'Tell Olumi in the chat what to change; it will propose it for you to confirm.'
 
 /**
- * The right-hand dock's surfaces olumi-core has no backend for. `analysisNew` is "Reasoning": it reads CEE routes that do not exist
- * here. Analysis (`results`) and the chat (`olumi`) stay. Compare (`compare`) and Version history (`versions`) are shown, fed by core's
- * own stored versions and comparison (`compare.tsx`, `versions.tsx`), never the local snapshots or CEE's run delta.
+ * The right-hand dock's surfaces olumi-core has no backend for. Analysis (`results`), Reasoning (`analysisNew`, drawn from core's View
+ * on this lane: src/olumiView/ViewReasoning.tsx) and the chat (`olumi`) stay. Compare (`compare`) and Version history (`versions`) are
+ * shown, fed by core's own stored versions and comparison (`compare.tsx`, `versions.tsx`), never the local snapshots or CEE's run delta.
  */
-// `legend` explains marks a View card never draws (each mark carries core's own hover); `summary` builds the brief from the
-// adapter's saved model, which this lane does not read (canvas A S6, gaps B8 and C7); `lenses` is the legacy lens bar, which reads legacy node shapes a View card never
-// carries (review 00057 #2): the lane's canvas draws its own, fed from the View (src/olumiView/ViewLensBar.tsx).
+// The legend and the Summary are shown: on the lane each is the View's own (src/olumiView/ViewLegend.tsx draws core's key, model.key;
+// src/olumiView/ViewBrief.tsx the question, the Run and each option), never the legacy ones of legacy marks and the saved model.
+// Compare and Version history are core's own (compare.tsx, versions.tsx). `lenses` is the legacy lens bar, which reads legacy node shapes
+// a View card never carries (review 00057 #2): the lane's canvas draws its own, fed from the View (src/olumiView/ViewLensBar.tsx).
 // `diagnostics` (Model) projects the legacy node shapes, which a View card does not carry: it would show no rows (review 00002 #4).
-const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['analysisNew', 'legend', 'summary', 'lenses', 'diagnostics'])
+const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['lenses', 'diagnostics'])
 /** The surfaces only this lane has: the team's panels (`team`), drawn from core's View. */
 const LANE_ONLY_SURFACES: ReadonlySet<string> = new Set(['team'])
 export function coreLaneShowsSurface(surfaceId: string): boolean {

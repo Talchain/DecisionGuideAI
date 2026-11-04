@@ -21,9 +21,10 @@ describe.each(['s_ce285b3617bb', 'proposal'])('the conversation is drawn exactly
   it('every drawn string is the View\'s own at its path, and every word of every turn is drawn', () => {
     const { container } = render(<ViewTurns chat={view.chat} />)
     for (const el of container.querySelectorAll<HTMLElement>('[data-view]')) expect(el.textContent, el.dataset['view']).toBe(at(view, el.dataset['view']!))
+    // Not words: hovers, the records a turn is about or cites, the one card it is beside (`at`) and the coach's move id (`move`, olumi.view/3).
     const strings = (x: unknown, p: string): string[] => typeof x === 'string' ? (x === '' ? [] : [p])
       : Array.isArray(x) ? x.flatMap((y, i) => strings(y, `${p}.${i}`))
-      : x !== null && typeof x === 'object' ? Object.entries(x).flatMap(([k, y]) => (k === 'title' || k === 'about' || k === 'cite' ? [] : strings(y, `${p}.${k}`))) : []
+      : x !== null && typeof x === 'object' ? Object.entries(x).flatMap(([k, y]) => (k === 'title' || k === 'about' || k === 'cite' || k === 'at' || k === 'move' ? [] : strings(y, `${p}.${k}`))) : []
     view.chat.forEach((t, i) => {
       for (const k of ['by', 'version', 'status', 'said', 'answer', 'broke', 'problem', 'marks'] as const) for (const p of strings(t[k], `chat.${i}.${k}`)) {
         expect(container.querySelector(`[data-view="${p}"]`), p).not.toBeNull()

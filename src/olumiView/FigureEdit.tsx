@@ -6,7 +6,7 @@
  */
 import { useState } from 'react'
 import { tryWhatIf } from './whatif'
-import { useUIStore } from '../stores/uiStore'
+import { useUIStore, type OutputTab } from '../stores/uiStore'
 import { typography } from '../styles/typography'
 import { TeamApiError } from '../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../olumiCore/team/writes'
@@ -16,14 +16,15 @@ import { useViewStore } from './store'
 
 /**
  * `id`: the quantity (a card's id, or a waits-on item's); `edit`: core's words for changing it; `label`: the button's words; `place`: where
- * it is drawn (its element ids), since the same figure can be offered on its card and as the next step at once.
+ * it is drawn (its element ids), since the same figure can be offered on its card and as the next step at once; `tab`: the dock tab a try
+ * opens, where its answer is drawn; `primary`: what Enter does, saving (`set`) or trying on a copy (`try`, where the control offers a try).
  */
 /** On a card the control keeps its place but shows only on hover, focus or selection, so a card is not a column of links (lane C). */
 export const QUIET = 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
 /** With a `glyph` the glyph is the cue and always shows; the words show only on hover, focus or selection (Paul: no static repeating text). */
 export const QUIET_WORDS = 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
 
-export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead }: { id: string; edit: { prompt: string; ask: string } | null; label?: string; place?: string; quiet?: boolean; glyph?: string; words?: boolean; lead?: string }): JSX.Element | null {
+export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab = 'results', primary = 'set' }: { id: string; edit: { prompt: string; ask: string } | null; label?: string; place?: string; quiet?: boolean; glyph?: string; words?: boolean; lead?: string; tab?: OutputTab; primary?: 'set' | 'try' }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
@@ -49,11 +50,11 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
     }
   }
 
-  /** The same figure on a copy, nothing saved (core's what-if); its answer is drawn over the chances (the Results tab, opened for it) until the View moves on. */
+  /** The same figure on a copy, nothing saved (core's what-if); its answer is drawn over the chances (`tab`, opened for it: Results, or Reasoning when tried there) until the View moves on. */
   const tryIt = async () => {
     if (typed.trim() === '' || sending || trying) return
     setError(null); setTrying(true)
-    try { await tryWhatIf(sid, base, id, typed); useUIStore.getState().forceActivateOutputTab('results') } catch (e) {
+    try { await tryWhatIf(sid, base, id, typed); useUIStore.getState().forceActivateOutputTab(tab) } catch (e) {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was tried.')
     } finally { setTrying(false) }
   }
@@ -72,7 +73,7 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
   }
   return (
     <form className="nodrag nopan grid gap-1" data-testid={`${place}-form-${id}`}
-      onSubmit={(e) => { e.preventDefault(); void save() }}
+      onSubmit={(e) => { e.preventDefault(); void (primary === 'try' ? tryIt() : save()) }}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !sending) { setOpen(false); setError(null) } }}>
       <label htmlFor={`${place}-${id}`} className={typography.nodeLabel}>{edit.prompt}</label>
       <input id={`${place}-${id}`} data-testid={`${place}-typed-${id}`} autoFocus autoComplete="off" spellCheck={false}
@@ -80,10 +81,10 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
         className={`${typography.nodeLabel} w-full rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
       {error && <p role="alert" data-testid={`${place}-error-${id}`} className={`${typography.nodeLabel} text-danger`}>{error}</p>}
       <div className="flex gap-2">
-        <button type="submit" data-testid={`${place}-set-${id}`} disabled={sending || typed.trim() === ''}
-          className={`${typography.nodeLabel} cursor-pointer rounded bg-primary px-2 py-0.5 text-text-on-color disabled:opacity-50`}>Set figure</button>
-        <button type="button" data-testid={`${place}-try-${id}`} disabled={sending || trying || typed.trim() === ''} onClick={() => void tryIt()}
-          className={`${typography.nodeLabel} cursor-pointer rounded border border-info/30 px-2 py-0.5 text-info disabled:opacity-50`}>Try without saving</button>
+        <button type={primary === 'set' ? 'submit' : 'button'} data-testid={`${place}-set-${id}`} disabled={sending || typed.trim() === ''} onClick={primary === 'set' ? undefined : () => void save()}
+          className={`${typography.nodeLabel} cursor-pointer rounded px-2 py-0.5 disabled:opacity-50 ${primary === 'set' ? 'bg-primary text-text-on-color' : 'border border-border text-text-body'}`}>Set figure</button>
+        <button type={primary === 'try' ? 'submit' : 'button'} data-testid={`${place}-try-${id}`} disabled={sending || trying || typed.trim() === ''} onClick={primary === 'try' ? undefined : () => void tryIt()}
+          className={`${typography.nodeLabel} cursor-pointer rounded px-2 py-0.5 disabled:opacity-50 ${primary === 'try' ? 'order-first bg-primary text-text-on-color' : 'border border-info/30 text-info'}`}>Try without saving</button>
         <button type="button" disabled={sending} onClick={() => { setOpen(false); setError(null) }}
           className={`${typography.nodeLabel} cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>

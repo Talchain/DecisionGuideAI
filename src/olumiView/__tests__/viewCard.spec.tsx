@@ -24,9 +24,10 @@ function at(model: ViewModel, p: string): unknown {
  * Every visible string a card carries: never a hover (`title`, or core's `detail`, which core's page uses as the hover and the card
  * gives its heading, DL 4 Nov), an aria label, an id or kind, the badge's record ids or its change
  * key, the figure editor's words (`edit`, drawn when the figure is edited, canvas A2), or an option's driver line, which the chances dock
- * draws as the base did (its canvas node never showed it).
+ * draws as the base did (its canvas node never showed it), or a card's outcome band (`values`, olumi.view/3 since core e16a497), which
+ * the Reasoning tab draws under each option; whether the card face draws it too is the canvas's call.
  */
-const SKIP = new Set(['id', 'family', 'title', 'detail', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver'])
+const SKIP = new Set(['id', 'family', 'title', 'detail', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver', 'values'])
 const shown = (x: unknown, p: string): string[] => typeof x === 'string' ? (x !== '' ? [p] : [])
   : Array.isArray(x) ? x.flatMap((y, i) => shown(y, `${p}.${i}`))
   : x !== null && typeof x === 'object' ? Object.entries(x).flatMap(([k, y]) => (SKIP.has(k) || (k === 'change' && typeof y === 'string') ? [] : shown(y, `${p}.${k}`))) : []
