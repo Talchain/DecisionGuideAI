@@ -10,7 +10,7 @@ import { act, render } from '@testing-library/react'
 import type { View } from '../client'
 import { currentModel } from '../store'
 import { useCanvasStore } from '../../canvas/store'
-import { drawViewCanvas } from '../canvas'
+import { placeViewCards } from '../canvas'
 import { ViewCanvas } from '../ViewCanvas'
 
 vi.mock('../../canvas/components/OutputsDock', () => ({ OutputsDock: () => null }))
@@ -26,7 +26,7 @@ afterEach(() => { useCanvasStore.setState({ nodes: [], edges: [] }) })
 describe('the mounted core-lane canvas', () => {
   it('draws every View card through v10\'s wrapper, with the driver badge where core gives one, and carries v10\'s rulings while it is up', async () => {
     const model = currentModel({ view: golden('bakery'), error: null, stale: false })!
-    act(() => { drawViewCanvas(model) })
+    await act(async () => { await placeViewCards(model) })
     const { container, unmount } = render(<div style={{ width: 1440, height: 900 }}><ViewCanvas /></div>)
     await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
     expect(document.documentElement.dataset['presentation']).toBe('v10')
