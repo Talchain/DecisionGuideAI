@@ -297,7 +297,7 @@ describe('Olumi\'s blue on a value bar only while core\'s key names it, by id (c
   const KEY_ITEM = { id: 'blue_range', glyph: '▬', text: 'blue range: rests on a figure Olumi proposed' }
   const draw = (key: { id?: string; glyph: string; text: string }[]) => {
     const v = golden('bakery'), m = v.model!
-    m.key = key
+    m.key = key as typeof m.key // an R1/R2 key item has no id; the vendored olumi.view/3 (core 550ad5f) requires one, so that legacy shape is cast in on purpose
     useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view: v, error: null, status: 'ready' })
     const card = m.cards.find((c) => c.id === 'sales')!
     const { container } = render(<ReactFlowProvider><ViewCardV10 {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>)
@@ -305,20 +305,20 @@ describe('Olumi\'s blue on a value bar only while core\'s key names it, by id (c
   }
 
   it('key carries the item: the bar resting on Olumi\'s figure (values[].olumi) is blue, every other bar the option colour', () => {
-    const base = golden('bakery').model!.key
+    const base = golden('bakery').model!.key.filter((k) => k.id !== 'blue_range') // core 550ad5f's golden now carries the item; each row adds its own
     const { card, colour } = draw([...base, KEY_ITEM])
     expect(card.values!.map((v) => v.olumi)).toEqual([true, false, false]) // the probe holds both kinds of bar
     for (const v of card.values!) expect(colour(v.option), v.option).toBe(v.olumi ? 'var(--info)' : 'var(--option)')
   })
 
   it('core rewords the item or changes its glyph: matched by id, still blue', () => {
-    const base = golden('bakery').model!.key
+    const base = golden('bakery').model!.key.filter((k) => k.id !== 'blue_range') // core 550ad5f's golden now carries the item; each row adds its own
     const { card, colour } = draw([...base, { id: 'blue_range', glyph: '■', text: 'Olumi\'s range' }])
     for (const v of card.values!) expect(colour(v.option), v.option).toBe(v.olumi ? 'var(--info)' : 'var(--option)')
   })
 
   it('key without the item, or its glyph and words with no id (an R1/R2 key): every bar is the option colour, so the blue is never unexplained', () => {
-    const base = golden('bakery').model!.key
+    const base = golden('bakery').model!.key.filter((k) => k.id !== 'blue_range') // core 550ad5f's golden now carries the item; each row adds its own
     for (const key of [base, [...base, { glyph: KEY_ITEM.glyph, text: KEY_ITEM.text }], [...base, { id: 'olumi', glyph: KEY_ITEM.glyph, text: KEY_ITEM.text }]]) {
       const { card, colour } = draw(key)
       for (const v of card.values!) expect(colour(v.option), `${v.option} ${JSON.stringify(key.at(-1))}`).toBe('var(--option)')
