@@ -21,17 +21,18 @@ const twoPeople = (over: Partial<View['collab']> = {}, view: Partial<View> = {})
   members: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Bea' }],
   collab: {
     alone: false, heading: 'Team views · 2', open: true,
-    shared: [{ id: 3, by: 'Bea', by_id: 'p_2', text: 'Hold until the pilot reports.', skip: false }],
-    mine: [{ id: 4, text: 'Enter one country first.', shared: false, skip: false }],
+    shared: [{ id: 3, by: 'Bea', by_id: 'p_2', text: 'Hold until the pilot reports.', skip: false, figures: [] }],
+    mine: [{ id: 4, text: 'Enter one country first.', shared: false, skip: false, figures: [], can_share: false }],
     placeholder: 'Your own view, private until revealed', can_reveal: false, waiting: 'waiting for Bea',
-    commitments: [{ id: 9, at: '2026-11-03T10:00:00Z', by: 'Ada', by_id: 'p_1', action: 'Pilot in Germany', owner: 'Bea', owner_id: 'p_2', expect: 'Ten customers by March', reconsider: 'Fewer than five by February', keeps: ['d_1'],
-      outcomes: [{ id: 2, at: '2026-11-03T11:00:00Z', by: 'Bea', by_id: 'p_2', happened: 'Seven customers.', versus: 'worse', reconsider_triggered: false, note: null }] }],
+    commitments: [{ id: 9, at: '2026-11-03T10:00:00Z', by: 'Ada', by_id: 'p_1', action: 'Pilot in Germany', owner: 'Bea', owner_id: 'p_2', expect: 'Ten customers by March', reconsider: 'Fewer than five by February', keeps: ['d_1'], option: null, version: null, expect_band: null, review_on: null,
+      outcomes: [{ id: 2, at: '2026-11-03T11:00:00Z', by: 'Bea', by_id: 'p_2', happened: 'Seven customers.', versus: 'worse', reconsider_triggered: false, note: null, figure: null, dissent: [] }] }],
     owners: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Bea' }],
     records: [...base.collab.records, { id: 'd_1', family: 'dissent', label: 'Bea: wait for the pilot' }, { id: 'gone', family: 'quantity', label: null }],
-    dissent: [{ id: 'd_1', holder: 'Bea', position: 'Wait for the pilot before entering a second country.' }],
+    dissent: [{ id: 'd_1', holder: 'Bea', position: 'Wait for the pilot before entering a second country.', holder_id: 'p_2', confirmed: null }],
     ...over,
   },
-  evidence: [{ id: 5, at: '2026-11-03T09:00:00Z', by: 'Bea', by_id: 'p_2', text: 'Churn in DACH was 2 in 100.', source: 'https://example.org/churn', link: 'https://example.org/churn', concerns: [base.collab.records[0]!.id], stance: 'challenges', version: 1 }],
+  evidence: [{ id: 5, at: '2026-11-03T09:00:00Z', by: 'Bea', by_id: 'p_2', text: 'Churn in DACH was 2 in 100.', source: 'https://example.org/churn', link: 'https://example.org/churn', concerns: [base.collab.records[0]!.id], stance: 'challenges', version: 1, considered: null }],
+  gated: false, // a member who has given their own view: core holds them no longer
   ...view,
 })
 
@@ -57,7 +58,7 @@ const posts = () => calls.filter((c) => c.method === 'POST')
 const reread = () => calls.filter((c) => c.method === 'GET' && c.path === `/api/scenarios/${SID}/view?schema=3`).length
 
 const show = (v: View) => { served = v; useViewStore.setState({ view: v }) }
-const withShare = (can: unknown, skip = false): View => twoPeople({ mine: [{ id: 4, text: 'Enter one country first.', shared: false, skip, ...(can === undefined ? {} : { can_share: can }) } as View['collab']['mine'][number]] })
+const withShare = (can: unknown, skip = false): View => twoPeople({ mine: [{ id: 4, text: 'Enter one country first.', shared: false, skip, figures: [], ...(can === undefined ? {} : { can_share: can }) } as View['collab']['mine'][number]] })
 const open9 = (over: Partial<View['collab']['commitments'][number]> = {}) => ({ ...twoPeople().collab.commitments[0]!, outcomes: [], ...over })
 
 describe('the nudges at the top of the Team tab are core\'s team state', () => {
@@ -129,5 +130,30 @@ describe('sharing one\'s own view before the reveal', () => {
     await screen.findByTestId('team-views-error') // the answer was lost: said, and the write settled
     await waitFor(() => expect(posts()).toHaveLength(1))
     expect((screen.getByTestId('team-share-4') as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('own view first: a member core holds sees no one else\'s view, an early-shared one included (R2 cut check a)', () => {
+  it('while `gated`, the revealed views are not drawn, and the tab says why; once given, they are', () => {
+    show({ ...twoPeople(), gated: true } as View)
+    const { unmount } = render(<TeamTab />)
+    expect(screen.queryByTestId('team-revealed')).toBeNull()
+    expect(screen.queryByText('Hold until the pilot reports.')).toBeNull()
+    expect(screen.getByTestId('team-revealed-held')).toBeTruthy()
+    unmount()
+    show({ ...twoPeople(), gated: false } as View)
+    render(<TeamTab />)
+    expect(screen.getByTestId('team-revealed-3').textContent).toContain('Hold until the pilot reports.')
+    expect(screen.queryByTestId('team-revealed-held')).toBeNull()
+  })
+})
+
+describe('the nudges are held with the Team forms while an earlier version is drawn (R1 review 1)', () => {
+  it('the reveal at the top is held, as a browser holds it', () => {
+    show(twoPeople({ commitments: [], can_reveal: true, waiting: null }))
+    useViewStore.setState({ at: 1 })
+    render(<TeamTab />)
+    expect(screen.getByTestId('team-reveal-go').matches(':disabled')).toBe(true)
+    useViewStore.setState({ at: null })
   })
 })

@@ -32,6 +32,7 @@ const twoPeople = (over: Partial<View['collab']> = {}, view: Partial<View> = {})
     ...over,
   },
   evidence: [{ id: 5, at: '2026-11-03T09:00:00Z', by: 'Bea', by_id: 'p_2', text: 'Churn in DACH was 2 in 100.', source: 'https://example.org/churn', link: 'https://example.org/churn', concerns: [base.collab.records[0]!.id], stance: 'challenges', version: 1, considered: null }],
+  gated: false, // a member who has given their own view: core holds them no longer
   ...view,
 })
 
