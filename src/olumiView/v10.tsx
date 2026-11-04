@@ -11,9 +11,20 @@
  * - **The ring** (`ringCards`): the cards a reply's next step is about (core's `chat[].answer.next.about`, the only place the View
  *   names records in the chat) are lit while that line is hovered or focused, and nothing else changes.
  *
+ * - **What would change** (`ViewDriverBadge`, v10 #3098): an option card core gives a `driver` carries v10's driver badge on its corner,
+ *   an icon at rest; hovering or focusing it says core's own sentence, verbatim, with Olumi's mark. Out of flow, so no card changes
+ *   height; nothing dims. A card with no driver draws none.
+ *
  * The method chips are v10's own component (`V10MethodChips`), above the composer in ViewChat.tsx.
  */
 import { useEffect } from 'react'
+import { Activity } from 'lucide-react'
+import Tooltip from '../components/Tooltip'
+import { OlumiAiIcon } from '../components/results/analysisNew/OlumiAiIcon'
+import { CANVAS_GLYPH_SIZE_CLASSES } from '../canvas/nodes/shared/canvasGlyphScale'
+import { NODE_TOOLTIP_DELAY_MS } from '../canvas/nodes/shared/nodeTooltip'
+import { V10_CHANGE_COPY } from '../presentation/V10ChangeLens'
+import type { ViewCardData } from '../canvas/nodes/ViewCardNode'
 import type { NodeProps } from '@xyflow/react'
 import { V10Scope } from '../presentation/v10'
 import { ViewCardNode } from '../canvas/nodes/ViewCardNode'
@@ -35,13 +46,33 @@ export function ringCards(ids: readonly string[]): void {
   for (const id of ids) document.querySelector(`.react-flow__node[data-id="${CSS.escape(id)}"]`)?.classList.add('v10-lit')
 }
 
-/** A View card as v10 draws its controls: the card, and the Olumi corner that asks about it. */
+/** v10's "What would change" badge for one card, from core's `driver`: its sentence verbatim on hover or focus, with Olumi's mark. */
+export function ViewDriverBadge({ card }: { card: ViewCardData['card'] }) {
+  if (card.driver === null) return null
+  const disclosure = (
+    <span className="inline-flex items-start gap-1.5">
+      <OlumiAiIcon size={12} aria-hidden="true" className={`mt-[2px] flex-none ${CANVAS_GLYPH_SIZE_CLASSES[12]}`} />
+      <span data-view={`${card.id}.driver.text`}>{card.driver.text}</span>
+    </span>
+  )
+  return (
+    <Tooltip asChild content={disclosure} delay={NODE_TOOLTIP_DELAY_MS}>
+      <span data-testid={`view-driver-${card.id}`} data-node-tooltip="true" role="img" tabIndex={0} aria-label={V10_CHANGE_COPY.driverAria}
+        className="nodrag pointer-events-auto absolute -right-2 -top-2 z-10 inline-grid h-5 w-5 place-items-center rounded-full border border-panel-border bg-panel text-text-light shadow-1">
+        <Activity aria-hidden="true" className="h-3 w-3" />
+      </span>
+    </Tooltip>
+  )
+}
+
+/** A View card as v10 draws its controls: the card, the Olumi corner that asks about it, and its driver badge. */
 export function ViewCardV10(props: NodeProps) {
   return (
     <V10Scope>
       <div className="group relative" data-testid="view-card-v10">
         <ViewCardNode {...props} />
         <NodeCornerOlumi nodeId={props.id} selected={props.selected === true} />
+        <ViewDriverBadge card={(props.data as ViewCardData).card} />
       </div>
     </V10Scope>
   )
