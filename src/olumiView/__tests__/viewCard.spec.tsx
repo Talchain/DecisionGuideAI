@@ -133,3 +133,23 @@ describe('the compact face (Paul 4 Nov: the causal graph reads; every word of co
     })
   }
 })
+
+describe('the original card\'s look and its named places (DL 4 Nov: an improved version of Paul\'s original UI)', () => {
+  const model = golden('european').model!
+  it('every card keeps the marks row and the bottom-right corner; an option its driver corner and outcome band; a figure the place beside its value', () => {
+    for (const card of model.cards) {
+      const c = render(<ViewCard card={card} />).container
+      const slots = [...c.querySelectorAll<HTMLElement>('[data-slot]')].map((e) => e.dataset['slot'])
+      expect(slots, card.id).toEqual(expect.arrayContaining(['title-mark', 'marks', 'olumi-badge']))
+      expect(slots.includes('driver-badge') && slots.includes('outcome-band'), `${card.id} option places`).toBe(card.family === 'option' && card.rows.length > 0)
+      expect(slots.includes('figure-side'), `${card.id} figure place`).toBe(card.figure !== null)
+      expect([...c.querySelectorAll('[data-slot]')].every((e) => e.childElementCount === 0 && e.textContent === ''), `${card.id} places are empty`).toBe(true)
+      expect(c.querySelector('[data-view-card]')!.getAttribute('data-slot-outline')).toBe('next-step')
+    }
+  })
+  it('the number before the title, as the original numbers its cards', () => {
+    const card = model.cards.find((c) => c.family === 'option')!
+    const t = render(<ViewCard card={card} number="O1" />).container.querySelector('[data-card-number]')!
+    expect([t.textContent, t.nextElementSibling?.getAttribute('data-view')]).toEqual(['O1', `${card.id}.heading`])
+  })
+})
