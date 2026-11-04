@@ -8,8 +8,8 @@
  * Each drawn View string carries `data-view`, the path to the exact string it shows (design §3).
  */
 import { FigureEdit } from './FigureEdit'
-import type { ViewModel } from './client'
-import { bandPlace, olumiKey, optionBands, optionCards, settableFigures } from './layout'
+import type { ViewCard, ViewModel, ViewRow } from './client'
+import { bandPlace, olumiKey, optionBands, optionCards, outcomePlace, rowsCarryOutcome, settableFigures, type Place } from './layout'
 import { currentModel, useViewStore } from './store'
 import { OptionLines, SharedBlockers, WhatIfShown, Worth } from './ViewChances'
 import { typography } from '../styles/typography'
@@ -21,7 +21,9 @@ export function ViewReasoning({ model }: { model: ViewModel }) {
       <WhatIfShown model={model} />
       {run?.lead == null ? null : <p data-view="run.lead">{run.lead}</p>}
       <SharedBlockers run={run} />
-      {optionCards(model).map((card) => <OptionLines key={card.id} card={card}><Bands model={model} option={card.id} /></OptionLines>)}
+      {optionCards(model).map((card) => (rowsCarryOutcome(model)
+        ? <OptionLines key={card.id} card={card} after={(row, i) => <AimOutcome model={model} card={card} row={row} i={i} />} />
+        : <OptionLines key={card.id} card={card}><Bands model={model} option={card.id} /></OptionLines>))}
       <Worth run={run} tab="analysisNew" />
       {settable.length === 0 ? null : (
         <div data-testid="view-reasoning-try" aria-label="Try a figure">
@@ -38,8 +40,32 @@ export function ViewReasoning({ model }: { model: ViewModel }) {
   )
 }
 
+/** A band on its axis: the range as a bar, its middle as a tick (positions only; the words are core's line beside it). */
+function Bar({ at }: { at: Place }) {
+  return (
+    <div aria-hidden="true" className="relative mt-0.5 h-1.5 w-full rounded-full bg-panel-border/50">
+      <span data-band-bar className="absolute inset-y-0 min-w-[4px] rounded-full bg-text-light/40" style={{ left: `${at.left}%`, width: `${at.width}%` }} />
+      {at.mid === null ? null : <span data-band-mid className="absolute -inset-y-0.5 w-0.5 bg-text-body" style={{ left: `${at.mid}%` }} />}
+    </div>
+  )
+}
+
 /**
- * Under an option, each outcome band core gives it (`cards[].values`): the card, core's own line for this option, ◆ (core's key) where
+ * Under a chance row, the aim's measured quantity under this option (core c838f56 `rows[].outcome`): core's own line, its range reading on
+ * hover, and a bar on the aim's one axis, so every option's outcome for that aim reads together. Nothing where core gives none.
+ */
+function AimOutcome({ model, card, row, i }: { model: ViewModel; card: ViewCard; row: ViewRow; i: number }) {
+  if (row.kind !== 'chance' || row.outcome == null) return null
+  return (
+    <div className="mb-1" title={row.outcome.title} data-outcome={row.aim_id}>
+      <span className={typography.panelTabular} data-view={`${card.id}.rows.${i}.outcome.text`}>{row.outcome.text}</span>
+      <Bar at={outcomePlace(model, row.aim_id, row.outcome)} />
+    </div>
+  )
+}
+
+/**
+ * From a core before the row outcome (e16a497), under an option, each outcome band core gives it (`cards[].values`): the card, core's own line for this option, ◆ (core's key) where
  * core marks it Olumi's, the card's range reading on hover, and a bar placed on the card's one axis so the options can be read together.
  */
 function Bands({ model, option }: { model: ViewModel; option: string }) {
@@ -55,10 +81,7 @@ function Bands({ model, option }: { model: ViewModel; option: string }) {
               <span className={typography.panelTabular} data-view={`${card.id}.values.${i}.text`}>{band.text}</span>
               {band.olumi && olumi !== null ? <span aria-label={olumi.text} data-view={`key.${olumi.i}.glyph`}>{olumi.glyph}</span> : null}
             </div>
-            <div aria-hidden="true" className="relative mt-0.5 h-1.5 w-full rounded-full bg-panel-border/50">
-              <span data-band-bar className="absolute inset-y-0 min-w-[4px] rounded-full bg-text-light/40" style={{ left: `${at.left}%`, width: `${at.width}%` }} />
-              {at.mid === null ? null : <span data-band-mid className="absolute -inset-y-0.5 w-0.5 bg-text-body" style={{ left: `${at.mid}%` }} />}
-            </div>
+            <Bar at={at} />
           </div>
         )
       })}

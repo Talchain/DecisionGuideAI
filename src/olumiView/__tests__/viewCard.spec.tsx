@@ -24,8 +24,9 @@ function at(model: ViewModel, p: string): unknown {
  * Every visible string a card carries: never a hover (`title`, or core's `detail`, which core's page uses as the hover and the card
  * gives its heading, DL 4 Nov), an aria label, an id or kind, the badge's record ids or its change
  * key, the figure editor's words (`edit`, drawn when the figure is edited, canvas A2), or an option's driver line, which the chances dock
- * draws as the base did (its canvas node never showed it), or a card's outcome band (`values`, olumi.view/3 since core e16a497), which
- * the Reasoning tab draws under each option; whether the card face draws it too is the canvas's call.
+ * draws as the base did (its canvas node never showed it), or a card's outcome band (`values`, olumi.view/3 since core e16a497) or a
+ * chance row's aim outcome (`outcome`, since c838f56), which the Reasoning tab draws under each option; whether the card face draws them
+ * too is the canvas's call; nor what an option rests on (`rests_on`, since c838f56: record ids with whose they are, a code, not words).
  */
 // `outcome` (core c838f56): a chance row's low / median / high and unit, drawn by the option card's outcome band (the v10 slot), not
 // as the row's words: deliberately exempt here.

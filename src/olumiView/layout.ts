@@ -4,7 +4,7 @@
  * core did all of that. Everything else here draws View strings exactly as they arrive (src/olumiView/__tests__/contract.spec.tsx).
  */
 import type { Edge, Node } from '@xyflow/react'
-import type { ViewCard, ViewModel } from './client'
+import type { ViewCard, ViewModel, ViewRow } from './client'
 import { layoutGraph } from '../canvas/utils/layout'
 import { wrapTiers } from '../canvas/utils/wrapTiers'
 
@@ -31,11 +31,24 @@ export const optionBands = (model: ViewModel, option: string): { card: ViewCard;
  * Where a band sits on its card's one axis, from the least p10 to the greatest p90 of the card's bands, as percentages (core's numbers
  * are for positions only; its words are the band's `text`). One value everywhere puts every band at the start.
  */
-export function bandPlace(bands: Band[], band: Band): { left: number; width: number; mid: number | null } {
-  const lo = Math.min(...bands.map((b) => b.p10)), span = Math.max(...bands.map((b) => b.p90)) - lo
+export const bandPlace = (bands: Band[], band: Band): Place => placeOn(bands.map((b) => [b.p10, b.p90]), band.p10, band.p50, band.p90)
+
+export type Place = { left: number; width: number; mid: number | null }
+/** One range on the axis that runs from the least low to the greatest high of `all`, as percentages; one value everywhere is the start. */
+function placeOn(all: [number, number][], low: number, mid: number | null, high: number): Place {
+  const lo = Math.min(...all.map(([l]) => l)), span = Math.max(...all.map(([, h]) => h)) - lo
   const at = (x: number) => (span === 0 ? 0 : ((x - lo) / span) * 100)
-  return { left: at(band.p10), width: at(band.p90) - at(band.p10), mid: band.p50 === null ? null : at(band.p50) }
+  return { left: at(low), width: at(high) - at(low), mid: mid === null ? null : at(mid) }
 }
+
+type Outcome = NonNullable<Extract<ViewRow, { kind: 'chance' }>['outcome']>
+/** Since core c838f56 a chance row carries `outcome`, the aim's measured quantity under that option (null where it has none). */
+export const rowsCarryOutcome = (model: ViewModel): boolean => model.cards.some((c) => c.rows.some((r) => r.kind === 'chance' && 'outcome' in r))
+
+/** Where an option's outcome sits on its aim's one axis: from the least low to the greatest high of every option's outcome for that aim. */
+export const outcomePlace = (model: ViewModel, aim: string, o: Outcome): Place => placeOn(
+  optionCards(model).flatMap((c) => c.rows.flatMap((r) => (r.kind === 'chance' && r.aim_id === aim && r.outcome != null ? [[r.outcome.low, r.outcome.high] as [number, number]] : []))),
+  o.low, o.median, o.high)
 
 /** Core's key item for Olumi's mark (`model.key`, "Olumi") and its place in the key, or null when the View carries none. */
 export function olumiKey(model: ViewModel): { glyph: string; text: string; i: number } | null {
