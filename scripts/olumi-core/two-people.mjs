@@ -296,8 +296,11 @@ for (const [p, words] of [[ada, 'Hire now: the backlog is the real risk.'], [bea
     const vb0 = await view3(bea, sid)
     check(vb0.collab.shared.some((x) => x.id === own.id && x.text === words) && vb0.gated === true, 'core shows it to Bea and marks Bea gated until she gives her own (the client withholds it by that flag)')
     // R2 cut check (a): Bea, who has not given her own, does not see Ada's early view on her screen (core marks her `gated`).
+    // Her read answers when it does (a slow core holds it seconds): wait for the held line, and Ada's words are never on her screen meanwhile.
     await teamCheck(bea)
-    check(!(await bea.page.getByTestId('team-tab').innerText()).includes(words) && await bea.page.getByTestId('team-revealed-held').isVisible(), 'Bea, who has not given her own, cannot see Ada\'s early view: her Team tab says to give or skip hers first')
+    let leaked = false
+    const held = await seen(bea, async () => { if ((await bea.page.getByTestId('team-tab').innerText()).includes(words)) leaked = true; return await bea.page.getByTestId('team-revealed-held').isVisible() })
+    check(held && !leaked && !(await bea.page.getByTestId('team-tab').innerText()).includes(words), 'Bea, who has not given her own, cannot see Ada\'s early view: her Team tab says to give or skip hers first')
     shared = own.id
   }
 }
