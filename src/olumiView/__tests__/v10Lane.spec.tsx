@@ -292,10 +292,10 @@ describe('v10 driver marker (core d1fe5e2 driver.low/high, run.sensitivity once;
   })
 })
 
-describe('Olumi\'s blue on a value bar only while core\'s key names it (core wip/k5 42bcb8d BLUE_RANGE_KEY; DL 4 Nov, R3)', () => {
-  // Stand-in for core's new last key item (not vendored): olumi-core src/view/model.ts BLUE_RANGE_KEY.
-  const KEY_ITEM = { glyph: '▬', text: 'blue range: rests on a figure Olumi proposed' }
-  const draw = (key: { glyph: string; text: string }[]) => {
+describe('Olumi\'s blue on a value bar only while core\'s key names it, by id (core wip/k5 6e40b89 BLUE_RANGE_KEY; DL 4 Nov, R3)', () => {
+  // Stand-in for core's new last key item (not vendored): olumi-core src/view/model.ts BLUE_RANGE_KEY at wip/k5 6e40b89.
+  const KEY_ITEM = { id: 'blue_range', glyph: '▬', text: 'blue range: rests on a figure Olumi proposed' }
+  const draw = (key: { id?: string; glyph: string; text: string }[]) => {
     const v = golden('bakery'), m = v.model!
     m.key = key
     useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view: v, error: null, status: 'ready' })
@@ -311,9 +311,15 @@ describe('Olumi\'s blue on a value bar only while core\'s key names it (core wip
     for (const v of card.values!) expect(colour(v.option), v.option).toBe(v.olumi ? 'var(--info)' : 'var(--option)')
   })
 
-  it('key without the item, or with other words for it: every bar is the option colour, so the blue is never unexplained', () => {
+  it('core rewords the item or changes its glyph: matched by id, still blue', () => {
     const base = golden('bakery').model!.key
-    for (const key of [base, [...base, { glyph: '▬', text: 'blue range' }], [...base, { glyph: '■', text: KEY_ITEM.text }]]) {
+    const { card, colour } = draw([...base, { id: 'blue_range', glyph: '■', text: 'Olumi\'s range' }])
+    for (const v of card.values!) expect(colour(v.option), v.option).toBe(v.olumi ? 'var(--info)' : 'var(--option)')
+  })
+
+  it('key without the item, or its glyph and words with no id (an R1/R2 key): every bar is the option colour, so the blue is never unexplained', () => {
+    const base = golden('bakery').model!.key
+    for (const key of [base, [...base, { glyph: KEY_ITEM.glyph, text: KEY_ITEM.text }], [...base, { id: 'olumi', glyph: KEY_ITEM.glyph, text: KEY_ITEM.text }]]) {
       const { card, colour } = draw(key)
       for (const v of card.values!) expect(colour(v.option), `${v.option} ${JSON.stringify(key.at(-1))}`).toBe('var(--option)')
     }

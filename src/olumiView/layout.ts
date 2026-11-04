@@ -61,13 +61,14 @@ export function olumiKey(model: ViewModel): { glyph: string; text: string; i: nu
 }
 
 /**
- * Core's key item for a range that rests on a figure Olumi proposed (olumi-core src/view/model.ts BLUE_RANGE_KEY, wip/k5 42bcb8d): core puts it
- * last in `model.key` only when some card's `values[].olumi` is true. Matched whole, glyph and words, so the page draws Olumi's blue on a bar
- * only while core's key explains it; any other wording leaves every bar in the option colour.
+ * Core's key item for a range that rests on a figure Olumi proposed: olumi-core src/view/model.ts BLUE_RANGE_KEY (wip/k5 6e40b89), last in
+ * `model.key` only when some card's `values[].olumi` is true. Matched by its stable id, never its glyph or words (core may reword them; the
+ * ids stay), so the page draws Olumi's blue on a bar only while core's key explains it. A key with no ids (R1/R2 core) draws no blue.
  */
-export const BLUE_RANGE_KEY = { glyph: '▬', text: 'blue range: rests on a figure Olumi proposed' } as const
+export const BLUE_RANGE_KEY_ID = 'blue_range'
 export function keyNamesBlueRange(key: ViewModel['key'] | null | undefined): boolean {
-  for (const k of key ?? []) if (k.glyph === BLUE_RANGE_KEY.glyph && k.text === BLUE_RANGE_KEY.text) return true
+  // `id` is read structurally until the View is next vendored with olumi.view/3's key ids.
+  for (const k of key ?? []) if ((k as { id?: unknown }).id === BLUE_RANGE_KEY_ID) return true
   return false
 }
 
