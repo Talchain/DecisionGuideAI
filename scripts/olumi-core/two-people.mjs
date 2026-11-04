@@ -84,6 +84,14 @@ const inView = async (p, id) => {
   const f = await free(p), b = await p.page.locator(`.react-flow__node[data-id="${id}"]`).boundingBox()
   return b.x >= f.x && b.y >= f.y && b.x + b.width <= f.x + f.width && b.y + b.height <= f.y + f.height
 }
+/** Tick change line i. Over 12 changes core groups them (proposal.groups) and each line sits in its folded group: open that group first,
+ *  as a person does (github-a7's real-AI witness, 4 Nov: 13 lines, tick 0 'not visible'). */
+const tickLine = async (p, proposal, i, on = true) => {
+  const box = p.page.getByTestId(`view-change-tick-${i}`)
+  const gi = proposal.groups?.findIndex((g) => g.lines.includes(i)) ?? -1
+  if (gi >= 0 && !(await box.isVisible())) await p.page.locator(`[data-view="proposal.groups.${gi}.heading"]`).click()
+  await (on ? box.check({ timeout: T }) : box.uncheck({ timeout: T }))
+}
 /** Core's own page for the scenario, opened by the same person (their cookie), as its text. */
 const corePage = async (p, sid) => {
   const other = await p.ctx.newPage()
@@ -211,10 +219,10 @@ const held = (await view(ada, sid)).proposal
 const ticks = await ada.page.locator('[data-testid^="view-change-tick-"]').count()
 if (held.changes.length > 1) {
   check(ticks === held.changes.length, `core's ${held.changes.length} change lines, each with its tick`)
-  await ada.page.getByTestId('view-change-tick-0').check()
+  await tickLine(ada, held, 0)
   check((await ada.page.getByTestId('view-approve-ticked').innerText()).includes('Approve ticked · 1'), 'one tick offers Approve ticked · 1')
   await shot(ada, '5-proposal-ticked')
-  await ada.page.getByTestId('view-change-tick-0').uncheck()
+  await tickLine(ada, held, 0, false)
 } else check(held.changes.length === 1 && ticks === 0 && await ada.page.getByTestId('view-approve-ticked').count() === 0, 'core\'s one change line, with no tick: Approve is the whole of it')
 await ada.page.getByRole('button', { name: 'Approve', exact: true }).click()
 await ada.page.waitForFunction(() => document.querySelectorAll('.react-flow__node-viewCard').length > 0, null, { timeout: T })
@@ -334,7 +342,7 @@ await ada.page.fill('#view-chat-text', 'Add a third option.')
 await ada.page.getByRole('button', { name: 'Send', exact: true }).click()
 await ada.page.getByTestId('view-chat-proposal').waitFor({ timeout: T })
 const part = (await viewWhen(ada, sid, (x) => x.proposal !== null)).proposal
-await ada.page.getByTestId('view-change-tick-0').check()
+await tickLine(ada, part, 0)
 await ada.page.getByTestId('view-approve-ticked').click()
 // Core refuses a line that needs an unchosen added record (409, naming it), in its own words; a person then ticks the rest too.
 const saved = (x) => x.proposal === null && x.version?.n === before + 1
@@ -343,7 +351,7 @@ let alone = true
 if (await ada.page.getByTestId('view-chat-said').count() > 0 && !saved(await view(ada, sid))) {
   ok(`core refused the first line alone, in its words: "${await ada.page.getByTestId('view-chat-said').innerText()}"`)
   alone = false
-  for (let i = 1; i < part.changes.length; i++) await ada.page.getByTestId(`view-change-tick-${i}`).check()
+  for (let i = 1; i < part.changes.length; i++) await tickLine(ada, part, i)
   await ada.page.getByTestId('view-approve-ticked').click()
 }
 v = await viewWhen(ada, sid, saved)
