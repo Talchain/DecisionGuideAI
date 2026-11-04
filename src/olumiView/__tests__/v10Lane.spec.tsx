@@ -16,7 +16,7 @@ import type { View } from '../client'
 import { currentModel, useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
 import { ViewChat, ViewComposer, ViewTurns, useViewChat, useAnswersAsks } from '../ViewChat'
-import { optionBands, useV10Lane, ViewCardV10 } from '../v10'
+import { optionBands, useV10Lane, valueBars, ViewCardV10 } from '../v10'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -205,5 +205,25 @@ describe('v10 on the core lane', () => {
     const other = optionBands(model.cards, { ...aim, unit: 'hour' })
     expect([...other.values()]).toEqual([...plain.values()])
     expect([...other.values()].every((b) => b.aim === null)).toBe(true)
+  })
+
+  it('the values band: a worked-out figure\'s range under each option on the card\'s own axis, core\'s line on each bar; none without a spread', () => {
+    const model = golden('bakery').model!, card = model.cards.find((c) => (c.values?.length ?? 0) > 1)!, vs = card.values!
+    const lo = Math.min(...vs.map((v) => v.p10)), hi = Math.max(...vs.map((v) => v.p90))
+    const bars = valueBars(card)
+    expect(bars.map((b) => b.option)).toEqual(vs.map((v) => v.option)) // one per option, in core's order
+    for (const [i, b] of bars.entries()) {
+      expect(b.leftPct).toBeCloseTo(((vs[i]!.p10 - lo) / (hi - lo)) * 100, 6)
+      expect(b.medianPct).toBeCloseTo(((vs[i]!.p50! - lo) / (hi - lo)) * 100, 6)
+      expect([b.text, b.olumi]).toEqual([vs[i]!.text, vs[i]!.olumi])
+    }
+    // Drawn in the shell's values-band place, each bar with core's words as its hover.
+    const { container } = render(<ReactFlowProvider><ViewCardV10 {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>)
+    const band = container.querySelector(`[data-testid="view-values-${card.id}"]`)!
+    expect(band.closest('[data-slot="values-band"]')).not.toBeNull()
+    expect(vs.map((v) => container.querySelector(`[data-testid="view-values-${card.id}-${v.option}"]`)?.getAttribute('title'))).toEqual(vs.map((v) => v.text))
+    // Nothing without values, or when every option's range is one point (no spread to draw).
+    expect(valueBars({ ...card, values: null })).toEqual([])
+    expect(valueBars({ ...card, values: vs.map((v) => ({ ...v, p10: 5, p50: 5, p90: 5 })) })).toEqual([])
   })
 })
