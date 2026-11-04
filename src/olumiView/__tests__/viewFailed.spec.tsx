@@ -80,6 +80,14 @@ describe('"If it failed": Olumi\'s failure stories on the reply they came with (
     }
   })
 
+  it('⛔ Olumi\'s mark is core\'s key item by its id (`olumi`), never its words: with core\'s words for it changed, each story is still marked, in core\'s new words', () => {
+    const v = withStories(STORIES, 'If it failed'), m = v.model!
+    shown({ ...v, model: { ...m, key: m.key.map((k) => (k.id === 'olumi' ? { ...k, text: 'Olumi’s estimate' } : k)) } } as View)
+    const items = [...screen.getByTestId('view-chat-stories').querySelectorAll('[data-story]')]
+    expect(items.length).toBe(STORIES.length)
+    for (const li of items) expect([li.querySelector('[data-story-mark]')?.textContent?.trim() ?? null, li.querySelector('[data-story-mark]')?.getAttribute('title') ?? null]).toEqual(['◆', 'Olumi’s estimate'])
+  })
+
   it('the option a story is about and the cards it rests on, as label: value lines in each card\'s own heading; a record not on the canvas is not named', () => {
     shown(withStories(STORIES, 'If it failed'))
     const [first, second] = [...screen.getByTestId('view-chat-stories').querySelectorAll('[data-story]')]

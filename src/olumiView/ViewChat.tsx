@@ -15,6 +15,7 @@ import { newOp, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
 import { writes, type View, type ViewTurn } from './client'
 import { useViewStore } from './store'
+import { olumiKey } from './layout'
 import { derivedUuidOf } from '../olumiCore/team/sid'
 import { useCanvasStore } from '../canvas/store'
 import { setCurrentScenarioId } from '../canvas/store/scenarios'
@@ -63,7 +64,8 @@ function Stories({ answer, at }: { answer: NonNullable<ViewTurn['answer']>; at: 
   const model = useViewStore((s) => s.view?.model ?? null)
   const stories = storiesOf(answer), heading = storiesHeadingOf(answer)
   if (stories.length === 0 || heading === null) return null
-  const olumi = model?.key.find((k) => k.text === 'Olumi') ?? null
+  // Core's key item for Olumi by its id (`olumi`), never its words (DL 4 Nov, R4): the one matcher, layout.ts olumiKey.
+  const olumi = model === null ? null : olumiKey(model)
   const headingOf = (id: string) => model?.cards.find((c) => c.id === id)?.heading ?? null
   return (
     <section data-testid="view-chat-stories" aria-label={heading}>
