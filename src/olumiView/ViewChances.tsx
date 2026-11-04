@@ -7,6 +7,7 @@
  * Each drawn View string carries `data-view`, the path to the exact string it shows, so a test can bind every element to its own
  * value by identity (design §3).
  */
+import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow, ViewRun } from './client'
 import { optionCards } from './layout'
 import { currentModel, useViewStore } from './store'
@@ -97,10 +98,12 @@ export function ViewChances({ model }: { model: ViewModel }) {
         <div data-testid="view-run-worth" aria-label="Worth checking first">
           <p className={typography.panelHeader}>Worth checking first</p>
           {run.science.map((l, i) => (
-            <p key={l.id} title={l.hover} data-view-fact={l.id}>
+            <div key={l.id} title={l.hover} data-view-fact={l.id}>
               {l.olumi === null ? null : <><span title={l.olumi.title} aria-label={l.olumi.title} data-view={`run.science.${i}.olumi.glyph`}>{l.olumi.glyph}</span> </>}
               <span data-view={`run.science.${i}.line`}>{l.line}</span>
-            </p>
+              {l.figure?.mark == null ? null : <> <span title={l.figure.mark.title} aria-label={l.figure.mark.title} data-view={`run.science.${i}.figure.mark.glyph`}>{l.figure.mark.glyph}</span></>}
+              {l.figure?.give == null ? null : <> <FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} /></>}
+            </div>
           ))}
         </div>
       )}

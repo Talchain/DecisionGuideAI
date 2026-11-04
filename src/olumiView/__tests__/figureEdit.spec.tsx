@@ -11,6 +11,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
+import { ViewChances } from '../ViewChances'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { useMe } from '../../olumiCore/me'
@@ -139,5 +140,40 @@ describe('a figure the person may set', () => {
     fireEvent.click(screen.getByTestId(`view-figure-set-${card.id}`))
     await waitFor(() => expect(screen.getByTestId(`view-figure-error-${card.id}`)).toHaveTextContent(card.figure!.edit!.ask))
     expect(calls.some((c) => c.method === 'GET' && c.path.includes('/view'))).toBe(false)
+  })
+})
+
+describe('worth checking first: the line\'s figure given with its ✎, as core\'s page draws it (olumi.view/3 science[].figure, core L7)', () => {
+  const line = view.model!.run!.science[0]!, fig = line.figure!
+  it('a figure core gives: core\'s words, then the ✎ named for the figure, then the card\'s own edit, by the figure\'s id', async () => {
+    const c = render(<ViewChances model={view.model!} />).container
+    const give = c.querySelector<HTMLElement>(`[data-testid="worth-give-${fig.id}"]`)!
+    expect(give.textContent).toBe(`${fig.give!.text} ✎.`)
+    const btn = screen.getByTestId(`worth-edit-${fig.id}`)
+    expect(btn.getAttribute('aria-label')).toBe(`Change ${fig.label}`)
+    expect(btn.getAttribute('title')).toBe(fig.give!.edit.ask)
+    fireEvent.click(btn)
+    expect(screen.getByLabelText(fig.give!.edit.prompt)).toBeInTheDocument()
+    fireEvent.change(screen.getByTestId(`worth-typed-${fig.id}`), { target: { value: '150' } })
+    fireEvent.click(screen.getByTestId(`worth-set-${fig.id}`))
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    expect(posts()[0]).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/edit`,
+      body: { base: view.model!.edit_base, quantity: fig.id, typed: '150', op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } })
+  })
+  it('whose mark after the line when core gives one, with its hover; none when core gives none', () => {
+    const mark = { glyph: '◐', title: 'A person\'s figure, Olumi\'s range' }
+    const marked = { ...view.model!, run: { ...view.model!.run!, science: [{ ...line, figure: { ...fig, mark } }] } }
+    const m = render(<ViewChances model={marked} />).container.querySelector('[data-view="run.science.0.figure.mark.glyph"]')!
+    expect(m.textContent).toBe('◐')
+    expect(m.getAttribute('title')).toBe(mark.title)
+    cleanup()
+    expect(render(<ViewChances model={view.model!} />).container.querySelector('[data-view="run.science.0.figure.mark.glyph"]')).toBeNull()
+  })
+  it('must not change: core gives no ✎ (give null): no words and no ✎, the line verbatim', () => {
+    const none = { ...view.model!, run: { ...view.model!.run!, science: [{ ...line, figure: { ...fig, give: null } }] } }
+    const c = render(<ViewChances model={none} />).container
+    expect(c.querySelector(`[data-testid="worth-give-${fig.id}"]`)).toBeNull()
+    expect(c.querySelector('[data-view="run.science.0.line"]')?.textContent).toBe(line.line)
+    expect(c.querySelector('[data-view-fact]')?.textContent).toBe(`${line.olumi ? `${line.olumi.glyph} ` : ''}${line.line}`)
   })
 })

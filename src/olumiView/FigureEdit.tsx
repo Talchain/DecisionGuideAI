@@ -21,7 +21,7 @@ export const QUIET = 'opacity-0 group-hover:opacity-100 focus-visible:opacity-10
 /** With a `glyph` the glyph is the cue and always shows; the words show only on hover, focus or selection (Paul: no static repeating text). */
 export const QUIET_WORDS = 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
 
-export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph }: { id: string; edit: { prompt: string; ask: string } | null; label?: string; place?: string; quiet?: boolean; glyph?: string }): JSX.Element | null {
+export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead }: { id: string; edit: { prompt: string; ask: string } | null; label?: string; place?: string; quiet?: boolean; glyph?: string; words?: boolean; lead?: string }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
@@ -51,11 +51,11 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
       glyph === undefined
         ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={() => setOpen(true)}
           className={`nodrag ${typography.nodeLabel} cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
-        : <button type="button" data-testid={`${place}-edit-${id}`} onClick={() => setOpen(true)} aria-label={label} title={label}
+        : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} onClick={() => setOpen(true)} aria-label={label} title={edit.ask}
           className={`nodrag ${typography.nodeLabel} cursor-pointer text-info`}>
-          <span aria-hidden="true" data-testid={`${place}-glyph-${id}`}>{glyph}</span>{' '}
-          <span aria-hidden="true" data-testid={`${place}-words-${id}`} className={`underline underline-offset-2 ${quiet ? QUIET_WORDS : ''}`}>{label}</span>
-        </button>
+          <span aria-hidden="true" data-testid={`${place}-glyph-${id}`}>{glyph}</span>
+          {words ? <>{' '}<span aria-hidden="true" data-testid={`${place}-words-${id}`} className={`underline underline-offset-2 ${quiet ? QUIET_WORDS : ''}`}>{label}</span></> : null}
+        </button>{lead === undefined ? null : '.'}</span>
     )
   }
   return (
