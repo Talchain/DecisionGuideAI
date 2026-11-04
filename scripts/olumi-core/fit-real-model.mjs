@@ -7,7 +7,9 @@ import { chromium } from 'playwright'
 import { readFileSync } from 'node:fs'
 const BASE = process.env.CORE_BASE ?? 'http://127.0.0.1:3951', ADMIN = process.env.OLUMI_ADMIN_KEY ?? 'dgai-core-admin-key-0123456789abcdef'
 const SHOT = process.argv.includes('--shot') ? process.argv[process.argv.indexOf('--shot') + 1] : null
-const golden = JSON.parse(readFileSync('src/olumiView/golden/european.view.json', 'utf8'))
+const european = JSON.parse(readFileSync('src/olumiView/golden/european.view.json', 'utf8'))
+// As core e16a497 serves it: each option's driver names its figure (core's golden: `existing_market_acquisitions`, folded into `customers`).
+const golden = { ...european, model: { ...european.model, cards: european.model.cards.map((c) => (c.driver ? { ...c, driver: { ...c.driver, figure: 'existing_market_acquisitions' } } : c)) } }
 // Version 2: core's bakery golden (18 cards), served as the same scenario's next version, for the after-a-new-version frame.
 const next = JSON.parse(readFileSync('src/olumiView/golden/bakery.view.json', 'utf8'))
 const ok = (w) => console.log(`  ✓ ${w}`)
@@ -82,8 +84,14 @@ const marks = await page.evaluate(() => ({ all: document.querySelectorAll('[data
 const settable = golden.model.cards.filter((c) => (c.figure?.edit ?? null) !== null || c.family === 'assumption' || c.family === 'condition')
 check(marks.all === settable.length && marks.olumi === settable.filter((c) => c.olumi !== null).length && marks.dim === 0, `Rests on: ${marks.all} cards numbered, ${marks.olumi} of them Olumi's in blue, none dimmed`)
 if (SHOT) await page.screenshot({ path: SHOT.replace(/\.png$/, '-rests-on.png') })
+// What would change: the figure the options' chances move most with is marked on the card that draws it, with how many options it moves.
+await page.getByTestId('lens-bar-what_changes').click()
+await page.waitForFunction(() => document.querySelectorAll('[data-driver-of]').length > 0, null, { timeout: 5000 })
+const drivers = await page.evaluate(() => [...document.querySelectorAll('[data-driver-of]')].map((e) => [e.closest('.react-flow__node').getAttribute('data-id'), e.getAttribute('data-driver-of')]))
+check(JSON.stringify(drivers) === JSON.stringify([['customers', 'broader_entry single_country_test no_new_european_entry']]), `What would change: ${JSON.stringify(drivers)}`)
+if (SHOT) { await page.waitForTimeout(400); await page.screenshot({ path: SHOT.replace(/\.png$/, '-what-changes.png') }) }
 await page.getByTestId('lens-bar-full').click()
-check(await page.evaluate(() => document.querySelectorAll('[data-rests-on]').length) === 0, 'Model: no card numbered')
+check(await page.evaluate(() => document.querySelectorAll('[data-rests-on], [data-driver-of]').length) === 0, 'Model: no card numbered or marked')
 served = { ...next, id: made.scenario, you_id: me.id, you: me.name, version: { ...next.version, id: golden.version.id + 1, n: 2, label: 'version 2' } }
 await page.getByTestId('outputs-dock-tab-team').click()
 await page.getByTestId('team-check').click()

@@ -99,3 +99,18 @@ export function restsOnOf(model: ViewModel): { items: ReadonlyMap<string, RestsO
   const picked = model.cards.filter((c) => (c.figure?.edit ?? null) !== null || c.family === 'assumption' || c.family === 'condition')
   return { items: new Map(picked.map((c, i) => [c.id, { id: c.id, n: i + 1, olumi: c.olumi !== null }])), olumi: picked.filter((c) => c.olumi !== null).length }
 }
+
+/**
+ * The "What would change" lens on the core lane (DL 4 Nov): each figure an option's chance moves most with (core's `driver.figure`, a
+ * record id), on the card that draws it (the card with that id, else the card whose badge folds that record), with the options it moves,
+ * in the View's order. Core's ids only, never a heading. No Run, or no driver named: none.
+ */
+export function driversOf(model: ViewModel): ReadonlyMap<string, readonly ViewCard[]> {
+  const out = new Map<string, ViewCard[]>()
+  for (const option of model.cards.filter((c) => (c.driver?.figure ?? null) !== null)) {
+    const figure = option.driver!.figure!
+    const card = model.cards.find((c) => c.id === figure) ?? model.cards.find((c) => c.badge?.records.includes(figure) === true)
+    if (card !== undefined) out.set(card.id, [...(out.get(card.id) ?? []), option])
+  }
+  return out
+}
