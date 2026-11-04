@@ -42,10 +42,10 @@ async function frame(view, label, whole = false) {
     const d = document.querySelector('[data-testid="outputs-dock"]').getBoundingClientRect()
     return [...document.querySelectorAll('.react-flow__node')].filter((e) => { const r = e.getBoundingClientRect(); return r.right > d.left + 1 && r.left < d.right && r.bottom > d.top && r.top < d.bottom }).map((e) => e.getAttribute('data-id'))
   })
-  // DL 4 Nov 17Z (readable first wins): a board that fits at 0.9 or more has no card under the dock; a wider one opens at 0.9 with the
+  // DL 4 Nov 17Z (readable first wins; R3: whole from 0.8): a board that fits at 0.8 or more has no card under the dock; a wider one opens at 0.9 with the
   // question and every option wholly in the visible rect (never under the dock), the rest reached by panning.
   const headIds = ['page:question', ...view.model.cards.filter((c) => c.family === 'option').map((c) => c.id)]
-  const fitsWhole = zoom > 0.9 + 0.005
+  const fitsWhole = zoom > 0.8 - 0.005 && Math.abs(zoom - 0.9) >= 0.005
   if (fitsWhole) check(underDock.length === 0, `${label}: fits at ${zoom.toFixed(3)}, no card under the dock${underDock.length ? ` (under it: ${underDock.join(', ')})` : ''}`)
   else console.log(`  · ${label}: cards under the dock at 0.9 (reached by panning): ${underDock.length === 0 ? 'none' : underDock.join(', ')}`)
   if (!fitsWhole) check(Math.abs(zoom - 0.9) < 0.005 && headIds.every((id) => !underDock.includes(id)), `${label}: zoom ${zoom.toFixed(3)} (0.9, never lower), the question and every option clear of the dock${headIds.some((id) => underDock.includes(id)) ? ` (under it: ${headIds.filter((id) => underDock.includes(id)).join(', ')})` : ''}`)
@@ -63,14 +63,14 @@ async function frame(view, label, whole = false) {
   return { zoom, out }
 }
 const first = await frame(golden, 'first open (european, 22 cards)')
-// Readable first (DL 4 Nov, then the original look): european fits whole only below 0.9, so it opens at 0.9, top-aligned, with the
+// Readable first (DL 4 Nov, then the original look; R3 whole from 0.8): european opens whole at 0.8 or more, else at 0.9, top-aligned, with the
 // question and every option in view (the top of the causal graph).
 const tops = golden.model.cards.filter((c) => c.family === 'option').map((c) => c.id)
 const topOut = await page.evaluate((ids) => {
   const dock = document.querySelector('[data-testid="outputs-dock"]').getBoundingClientRect(), pane = document.querySelector('.react-flow').getBoundingClientRect()
   return ids.filter((id) => { const r = document.querySelector(`.react-flow__node[data-id="${id}"]`)?.getBoundingClientRect(); return !r || r.left < pane.left - 1 || r.top < pane.top - 1 || r.right > dock.left + 1 || r.bottom > pane.bottom + 1 })
 }, ['page:question', ...tops])
-check(first.zoom >= 0.9 - 0.005 && first.zoom <= 1 && topOut.length === 0, `first open: zoom ${first.zoom.toFixed(3)}, the question and every option in view${topOut.length ? ` (out: ${topOut.join(', ')})` : ''}`)
+check(first.zoom >= 0.8 - 0.005 && first.zoom <= 1 && topOut.length === 0, `first open: zoom ${first.zoom.toFixed(3)}, the question and every option in view${topOut.length ? ` (out: ${topOut.join(', ')})` : ''}`)
 // The compact face: no card shows its status, reason, bound or premises until it is selected.
 // An assumption or condition (no figure, no rows) keeps what it says, its reason, on the face.
 const says = golden.model.cards.filter((c) => c.figure === null && c.rows.length === 0 && c.reason !== null).map((c) => `${c.id}.reason`)

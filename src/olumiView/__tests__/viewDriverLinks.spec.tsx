@@ -14,6 +14,7 @@ import { driverLinksOf, driversOf } from '../layout'
 import { useViewLens } from '../lens'
 import { useViewStore } from '../store'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
+import { EdgeLabelLayer } from './edgeLabelLayer'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))
 const model = view.model!
@@ -24,10 +25,10 @@ const Edge = ViewLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Elem
 const edge = (i: number) => {
   const link = model.links[i]!
   return render(
-    <ReactFlowProvider><svg>
+    <ReactFlowProvider><EdgeLabelLayer><svg>
       <Edge id={`l${i}`} source={link.from} target={link.to} sourceX={0} sourceY={0} targetX={100} targetY={100}
         sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link, i }} />
-    </svg></ReactFlowProvider>,
+    </svg></EdgeLabelLayer></ReactFlowProvider>,
   ).container
 }
 
@@ -55,7 +56,7 @@ describe('What would change on the links', () => {
     c = edge(sized)
     expect(c.querySelector('[data-driver-link]')).not.toBeNull()
     expect(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth).toBe('2.5')
-    expect(c.querySelector(`[data-view="links.${sized}.effect.text"]`)?.textContent).toBe(`${model.links[sized]!.effect!.title}${model.links[sized]!.effect!.text}`)
+    expect(c.querySelector(`[data-view="links.${sized}.effect.text"]`)?.textContent).toBe(model.links[sized]!.effect!.text)
     cleanup()
     c = edge(plain)
     expect(c.querySelector('[data-driver-link]')).toBeNull()

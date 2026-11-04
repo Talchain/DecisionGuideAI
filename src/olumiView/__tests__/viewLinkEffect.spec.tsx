@@ -10,16 +10,17 @@ import { cleanup, render } from '@testing-library/react'
 import { Position, ReactFlowProvider } from '@xyflow/react'
 import type { View } from '../client'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
+import { EdgeLabelLayer } from './edgeLabelLayer'
 
 const model = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8')) as View).model!
 afterEach(cleanup)
 /** The edge with only the props it reads (React Flow passes the rest). */
 const Edge = ViewLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
 const edge = (i: number) => render(
-  <ReactFlowProvider><svg>
+  <ReactFlowProvider><EdgeLabelLayer><svg>
     <Edge id={`l${i}`} source={model.links[i]!.from} target={model.links[i]!.to} sourceX={0} sourceY={0} targetX={100} targetY={100}
       sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link: model.links[i]!, i }} />
-  </svg></ReactFlowProvider>,
+  </svg></EdgeLabelLayer></ReactFlowProvider>,
 ).container
 
 describe('a link core sizes says its strength on the line', () => {
@@ -28,8 +29,8 @@ describe('a link core sizes says its strength on the line', () => {
     expect(sized.length).toBe(2)
     for (const i of sized) {
       const t = edge(i).querySelector(`[data-view="links.${i}.effect.text"]`)
-      expect(t?.textContent, `links.${i}`).toBe(`${model.links[i]!.effect!.title}${model.links[i]!.effect!.text}`)
-      expect(t?.querySelector('title')?.textContent, `links.${i}`).toBe(model.links[i]!.effect!.title)
+      expect(t?.textContent, `links.${i}`).toBe(model.links[i]!.effect!.text)
+      expect(t?.getAttribute('title'), `links.${i}`).toBe(model.links[i]!.effect!.title)
       cleanup()
     }
   })
@@ -40,13 +41,20 @@ describe('a link core sizes says its strength on the line', () => {
       m.links.forEach((l, i) => {
         if (l.effect == null) return
         n += 1
-        const c = render(<ReactFlowProvider><svg><Edge id={`l${i}`} source={l.from} target={l.to} sourceX={0} sourceY={0} targetX={100} targetY={100}
-          sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link: l, i }} /></svg></ReactFlowProvider>).container
-        expect(c.querySelector(`[data-view="links.${i}.effect.text"]`)?.textContent?.endsWith(l.effect.text), `${g} links.${i}`).toBe(true)
+        const c = render(<ReactFlowProvider><EdgeLabelLayer><svg><Edge id={`l${i}`} source={l.from} target={l.to} sourceX={0} sourceY={0} targetX={100} targetY={100}
+          sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link: l, i }} /></svg></EdgeLabelLayer></ReactFlowProvider>).container
+        expect(c.querySelector(`[data-view="links.${i}.effect.text"]`)?.textContent, `${g} links.${i}`).toBe(l.effect.text)
         cleanup()
       })
     }
     expect(n).toBeGreaterThan(0)
+  })
+  it('R3 (DL 4 Nov: "…week" clipped under a card): the words on a line are in React Flow\'s label layer, above a resting card, never in the edge\'s own SVG under the cards', () => {
+    const i = sized[0]!, c = edge(i)
+    const t = c.querySelector(`[data-view="links.${i}.effect.text"]`)!
+    expect(t.closest('.react-flow__edgelabel-renderer')).not.toBeNull()
+    expect(t.closest('svg')).toBeNull()
+    expect(Number((t.closest('[data-view-link-words]') as HTMLElement).style.zIndex)).toBeGreaterThan(0)
   })
   it('CONTRAST: a link with no effect draws no strength words', () => {
     const plain = model.links.findIndex((l) => l.effect == null && l.kind !== 'reason')
