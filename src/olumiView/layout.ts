@@ -3,6 +3,7 @@
  * surface draws, and coordinate arithmetic. It never writes a word, formats a figure, orders what the View ordered, or joins strings:
  * core did all of that. Everything else here draws View strings exactly as they arrive (src/olumiView/__tests__/contract.spec.tsx).
  */
+import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../canvas/domain/vocabulary'
 import type { Edge, Node } from '@xyflow/react'
 import type { ViewCard, ViewModel } from './client'
 import { layoutGraph } from '../canvas/utils/layout'
@@ -147,6 +148,27 @@ export function cardsOfRecords(model: ViewModel, records: readonly string[]): st
 export function appliedSince(before: ViewModel, after: ViewModel): string[] {
   const was = new Map(before.cards.map((c) => [c.id, c]))
   return after.cards.filter((c) => { const w = was.get(c.id); return w !== undefined && (w.change !== null || ((c.figure?.edit ?? null) !== null && (w.figure?.text ?? null) !== (c.figure?.text ?? null))) }).map((c) => c.id)
+}
+
+/**
+ * The Model tab's groups (ViewModelTab.tsx), the legacy outline's in its order (`model-tab-v2`), by how the canvas draws each card
+ * (`drawKindOf`): Question & goal holds the aims and limits; Outcomes & risks the figures core works out from others and the risks.
+ * Assumptions and conditions are the Rests on lens's.
+ */
+export function modelGroupsOf(model: ViewModel): { id: 'goal' | 'options' | 'factors' | 'outcomes-risks'; title: string; cards: ViewCard[] }[] {
+  const of = (kinds: readonly string[]) => model.cards.filter((c) => c.family !== 'assumption' && c.family !== 'condition' && kinds.includes(drawKindOf(c)))
+  return [
+    { id: 'goal', title: MODEL_TAB_GOAL_GROUP_TITLE, cards: of(['goal', 'constraint']) },
+    { id: 'options', title: MODEL_GROUP_TITLE.options, cards: of(['option']) },
+    { id: 'factors', title: MODEL_GROUP_TITLE.factors, cards: of(['factor']) },
+    { id: 'outcomes-risks', title: MODEL_GROUP_TITLE.outcomesRisks, cards: of(['outcome', 'risk']) },
+  ]
+}
+
+/** The words for a link's end: the question's, or the heading of the card that draws the record (its own, else the one folding it). */
+export function linkEndHeading(model: ViewModel, id: string): string {
+  if (id === QUESTION) return model.question.text
+  return (model.cards.find((c) => c.id === id) ?? model.cards.find((c) => c.badge?.records.includes(id) === true))?.heading ?? ''
 }
 
 /** The DGAI node kind a View card is drawn as on the canvas (the original look): a figure a person sets is a factor, one core works out

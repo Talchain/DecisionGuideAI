@@ -37,8 +37,9 @@ export const CORE_LANE_USE_THE_CHAT = 'Tell Olumi in the chat what to change; it
 // adapter's saved model, which this lane does not read (canvas A S6, gaps B8 and C7); `versions` snapshot and restore View cards
 // locally, which core never sees (lane audit 7.5); `lenses` is the legacy lens bar, which reads legacy node shapes a View card never
 // carries (review 00057 #2): the lane's canvas draws its own, fed from the View (src/olumiView/ViewLensBar.tsx).
-// `diagnostics` (Model) projects the legacy node shapes, which a View card does not carry: it would show no rows (review 00002 #4).
-const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['analysisNew', 'compare', 'legend', 'summary', 'versions', 'lenses', 'diagnostics'])
+// `diagnostics` (Model) is back on (DL 4 Nov, R2): the lane draws its own outline from the View (src/olumiView/ViewModelTab.tsx) in place
+// of the legacy tab, which projects node shapes a View card does not carry (review 00002 #4).
+const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['analysisNew', 'compare', 'legend', 'summary', 'versions', 'lenses'])
 /** The surfaces only this lane has: the team's panels (`team`), drawn from core's View. */
 const LANE_ONLY_SURFACES: ReadonlySet<string> = new Set(['team'])
 export function coreLaneShowsSurface(surfaceId: string): boolean {

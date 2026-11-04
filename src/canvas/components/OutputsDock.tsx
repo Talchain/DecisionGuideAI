@@ -215,6 +215,7 @@ import { useViewFollows } from '../../olumiView/follow'
 import { useViewCanvas } from '../../olumiView/canvas'
 import { useViewNote } from '../../olumiView/note'
 import { ViewChancesBlock } from '../../olumiView/ViewChances'
+import { ViewModelTabBlock } from '../../olumiView/ViewModelTab'
 import { useAnswersAsks, ViewChat, ViewComposer } from '../../olumiView/ViewChat'
 import { focusDockedOlumi } from '../conversation/dockedOlumiFocus'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
@@ -4324,7 +4325,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
               // receipt uses. The old browser-derived body (`CompareTabBody`) is no longer on this path.
               <CompareRunPairBody responseHash={results?.hash} runOnRecordWithoutResult={runOnRecordWithoutResult} />
             )}
-            {effectiveActiveTab === 'diagnostics' && (
+            {effectiveActiveTab === 'diagnostics' && isOlumiCoreLane() && <ViewModelTabBlock />}
+            {effectiveActiveTab === 'diagnostics' && !isOlumiCoreLane() && (
               <ModelTabBody
                 showDebug={showDebug}
                 hasDiagnostics={hasDiagnostics}
@@ -4358,7 +4360,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 under a boundary guard that forbids importing any store module,
                 and this needs three store reads. Putting it in the dock keeps
                 the guard intact instead of arguing with it. */}
-            {effectiveActiveTab === 'diagnostics' && <ViewComparisonPointer />}
+            {effectiveActiveTab === 'diagnostics' && !isOlumiCoreLane() && <ViewComparisonPointer />}
             {effectiveActiveTab === 'journey' && (
               <JourneyTabBody />
             )}

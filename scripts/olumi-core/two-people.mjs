@@ -156,7 +156,18 @@ check(cards === v.model.cards.length, `DGAI's canvas draws every card of core's 
 check(!(await ada.page.getByText('Untitled scenario').first().isVisible().catch(() => false)) && await ada.page.getByText(v.title, { exact: true }).first().isVisible(), `the top bar names the scenario as core does ("${v.title}")`)
 for (const c of v.model.cards.slice(0, 4)) check(await ada.page.locator(`.react-flow__node-viewCard >> text=${c.heading}`).first().isVisible(), `card "${c.heading}" in core's words`)
 // No dead controls (Paul's W4 rule): what the lane cannot serve is not on the page at all, not shown dark.
-for (const gone of ['analysisNew', 'diagnostics', 'compare']) check(await ada.page.getByTestId(`outputs-dock-tab-${gone}`).count() === 0, `no ${gone === 'analysisNew' ? 'Reasoning' : gone === 'diagnostics' ? 'Model' : 'Compare'} tab`)
+for (const gone of ['analysisNew', 'compare']) check(await ada.page.getByTestId(`outputs-dock-tab-${gone}`).count() === 0, `no ${gone === 'analysisNew' ? 'Reasoning' : 'Compare'} tab`)
+// The Model tab, drawn from the View (DL 4 Nov, R2): the legacy outline's groups; a row's press puts its card in front.
+await tab(ada, 'diagnostics')
+await ada.page.getByTestId('view-model-tab').waitFor({ timeout: T })
+const modelRows = await ada.page.locator('[data-model-row]').count()
+check(modelRows > 0 && await ada.page.locator('[data-model-group="relationships"] [data-model-link]').count() === v.model.links.length, `the Model tab lists the model's cards by group (${modelRows}) and every link (${v.model.links.length})`)
+const rowId = await ada.page.locator('[data-model-row]').first().getAttribute('data-model-row')
+await ada.page.locator(`[data-model-row="${rowId}"]`).click()
+await ada.page.waitForFunction((id) => document.querySelector(`.react-flow__node[data-id="${id}"]`)?.classList.contains('selected'), rowId, { timeout: T })
+ok(`a Model tab row selects its card on the canvas (${rowId})`)
+await shot(ada, '0b-model-tab')
+await tab(ada, 'olumi')
 // The lenses are back on from the View (DL 4 Nov): the bar offers only those the View fills, never a dead one.
 check(JSON.stringify(await ada.page.getByTestId('lens-bar').getByRole('radio').evaluateAll((bs) => bs.map((b) => b.getAttribute('data-testid')))) === JSON.stringify(['lens-bar-full', 'lens-bar-rests_on', 'lens-bar-what_changes', 'lens-bar-what_if']), 'the lens bar offers Model, Rests on, What would change and What if, and no lens the View cannot fill')
 for (const kept of ['olumi', 'results', 'team']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
