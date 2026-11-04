@@ -16,6 +16,7 @@ import { clearWhatIf } from '../whatif'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { useMe } from '../../olumiCore/me'
+import { useUIStore } from '../../stores/uiStore'
 
 const read = (n: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', n), 'utf8'))
 const view: View = read('whatif.view.json'), answer = read('whatif.answer.json')
@@ -37,6 +38,7 @@ beforeEach(() => {
   }) as unknown as typeof fetch)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-441113f79584', sid: SID, view, status: 'ready', error: null, stale: false })
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
+  useUIStore.setState({ activeOutputTab: 'olumi' } as never)
 })
 afterEach(() => { cleanup(); clearWhatIf(); setTeamFetch(null); resetWrites(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
 
@@ -54,6 +56,8 @@ describe('what-if: the figure tried on a copy, nothing saved', () => {
     const block = await screen.findByTestId('view-whatif')
     expect(posts()).toEqual([{ method: 'POST', path: `/api/scenarios/${SID}/whatif`, body: { base: view.model!.edit_base, variants: [{ edits: [{ quantity: card.id, typed: ' 5 ' }] }] } }])
     expect(block).toHaveTextContent('What-if, not saved')
+    // The chances live on the Results tab: the try opens it, so the person sees the answer (two-people witness, 4 Nov).
+    expect(useUIStore.getState().activeOutputTab).toBe('results')
     expect(block.querySelector('[data-view="whatif.edits.0.words"]')?.textContent).toBe(variant.edits[0].words)
     expect(block.querySelector('[data-view="whatif.most_likely.text"]')?.textContent).toBe(variant.most_likely.text)
     for (const o of variant.rows) o.rows.forEach((r: { value: string; aim: string }, i: number) => {
@@ -70,12 +74,13 @@ describe('what-if: the figure tried on a copy, nothing saved', () => {
     render(<><ViewCard card={card} /><ViewChances model={view.model!} /></>)
     typeAndTry('20')
     expect((await screen.findByTestId('view-whatif')).querySelector('[data-view="whatif.why_not"]')?.textContent).toBe('The new figure is inside the range the result already covered.')
-    cleanup(); clearWhatIf()
+    cleanup(); clearWhatIf(); useUIStore.setState({ activeOutputTab: 'olumi' } as never)
     reply = { status: 400, body: { error: card.figure!.edit!.ask } }
     render(<><ViewCard card={card} /><ViewChances model={view.model!} /></>)
     typeAndTry('lots')
     await waitFor(() => expect(screen.getByTestId(`view-figure-error-${card.id}`)).toHaveTextContent(card.figure!.edit!.ask))
     expect(screen.queryByTestId('view-whatif')).toBeNull()
+    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
   })
 
   it('must not change: Set figure still saves through the edit route alone; a what-if is not drawn on another version', async () => {

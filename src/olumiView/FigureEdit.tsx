@@ -6,6 +6,7 @@
  */
 import { useState } from 'react'
 import { tryWhatIf } from './whatif'
+import { useUIStore } from '../stores/uiStore'
 import { typography } from '../styles/typography'
 import { TeamApiError } from '../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../olumiCore/team/writes'
@@ -48,11 +49,11 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
     }
   }
 
-  /** The same figure on a copy, nothing saved (core's what-if); its answer is drawn over the chances until the View moves on. */
+  /** The same figure on a copy, nothing saved (core's what-if); its answer is drawn over the chances (the Results tab, opened for it) until the View moves on. */
   const tryIt = async () => {
     if (typed.trim() === '' || sending || trying) return
     setError(null); setTrying(true)
-    try { await tryWhatIf(sid, base, id, typed) } catch (e) {
+    try { await tryWhatIf(sid, base, id, typed); useUIStore.getState().forceActivateOutputTab('results') } catch (e) {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was tried.')
     } finally { setTrying(false) }
   }
