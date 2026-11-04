@@ -19,6 +19,10 @@ import { chromium } from 'playwright'
 import { mkdirSync } from 'node:fs'
 
 const BASE = process.env.CORE_BASE ?? `http://127.0.0.1:${process.env.CORE_PORT ?? 3951}`
+// Never a live host by accident (DL, 4 Nov: a witness run hit the served v3 host and minted two people there). Only localhost runs,
+// unless ALLOW_LIVE=1 is set explicitly for a run the DL has authorised.
+const LIVE_HOST = new URL(BASE).hostname
+if (LIVE_HOST !== 'localhost' && LIVE_HOST !== '127.0.0.1' && process.env.ALLOW_LIVE !== '1') { console.error(`refusing to run against ${BASE}: not localhost (ALLOW_LIVE=1 only for an authorised live run)`); process.exit(9) }
 const ADMIN = process.env.OLUMI_ADMIN_KEY ?? 'dgai-core-admin-key-0123456789abcdef'
 const SHOTS = process.argv.includes('--shots') ? process.argv[process.argv.indexOf('--shots') + 1] : null
 const BRIEF = 'Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing or add one specialist? We need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.'

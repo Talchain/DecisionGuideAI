@@ -4,6 +4,10 @@
 import { chromium } from 'playwright'
 import { readFileSync } from 'node:fs'
 const BASE = process.env.CORE_BASE ?? 'http://127.0.0.1:3951', ADMIN = process.env.OLUMI_ADMIN_KEY ?? 'dgai-core-admin-key-0123456789abcdef'
+// Never a live host by accident (DL, 4 Nov: a witness run hit the served v3 host and minted two people there). Only localhost runs,
+// unless ALLOW_LIVE=1 is set explicitly for a run the DL has authorised.
+const LIVE_HOST = new URL(BASE).hostname
+if (LIVE_HOST !== 'localhost' && LIVE_HOST !== '127.0.0.1' && process.env.ALLOW_LIVE !== '1') { console.error(`refusing to run against ${BASE}: not localhost (ALLOW_LIVE=1 only for an authorised live run)`); process.exit(9) }
 const SHOT = process.argv.includes('--shot') ? process.argv[process.argv.indexOf('--shot') + 1] : null
 const golden = JSON.parse(readFileSync(process.env.VIEW_FIXTURE, 'utf8'))
 

@@ -43,7 +43,8 @@ If `/healthz` answered `ui: null` before the flip, `OLUMI_UI_DIST` also has to b
 1. `/healthz` answers `ui.dgai` equal to `<SHA>` and `ui.sha256` equal to `artifact_sha256` in `ui-dist/BUILD.json`.
 2. `/` is DGAI and `/s/<scenario>` is core's page.
 3. A link made by `POST /api/admin/people { name, scenario }` lands on `/#/scenario/00000000-0000-4000-8000-<the 12 hex>` (API v1.9).
-4. Only with the DL's go: `CORE_BASE=https://<v3 host> scripts/olumi-core/two-people.mjs`. On a real core it makes paid AI calls
+4. The witness runs the served SHA on a LOCAL core (`CORE_PORT=<port>`), never against the served host: no test people or scenarios on the
+   live host, ever (DL, 4 Nov). The witness scripts refuse any host but localhost (exit 9). On a local real-AI core it makes paid AI calls
    (a brief, two messages, a figure edit, and Olumi's replies). It was written for the scripted core, so the checks that depend on
    Olumi's own replies (a proposal for "staff absence", a next step beside one card, a recorded disagreement) may not hold with a
    real AI. Those are findings about the replies, not failures of the screen.
