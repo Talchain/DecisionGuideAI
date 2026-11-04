@@ -22,12 +22,12 @@ function Mark({ at, mark }: { at: string; mark: { glyph: string; title: string }
 }
 
 /** Core's one line on what a finding rests on (stand-in `rests_on_text`), said once, quietly, under it; the marks are the Rests on lens's. */
-function RestsOnLine({ at, text }: { at: string; text: string | null }) {
+export function RestsOnLine({ at, text }: { at: string; text: string | null }) {
   return text === null ? null : <p className={`${typography.panelMeta} text-text-light`} data-view={`${at}.rests_on_text`}>{text}</p>
 }
 
 /** Under an option's chance row on the Analysis tab: core's finding in at most two sentences (stand-in `text`), then what it rests on. */
-function FindingLines({ at, row }: { at: string; row: ViewRow }) {
+export function FindingLines({ at, row }: { at: string; row: ViewRow }) {
   const f = findingOf(row)
   return f.text === null && f.rests_on_text === null ? null : (
     <>

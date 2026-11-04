@@ -4,12 +4,14 @@
  * each option's chance rows, status and blockers, every string verbatim with core's hover. No sentence is written here and nothing is
  * worked out: an absent field draws nothing. Off the lane the legacy `DecisionBriefTrigger` (the adapter's saved model) stays.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { FileText, X } from 'lucide-react'
 import { typography } from '../styles/typography'
 import { DECISION_BRIEF_TRIGGER_LABEL } from '../canvas/decisionBrief/DecisionBriefTrigger'
 import { allOptionCards } from './layout'
+import { FindingLines, RestsOnLine } from './ViewChances'
+import { mostLikelyBasisOf } from './standin'
 import { currentModel, useViewStore } from './store'
 import type { View } from './types'
 
@@ -24,9 +26,13 @@ function OptionRows({ card }: { card: Card }) {
   return (
     <>
       {card.rows.map((row, i) => (
-        <p key={i} title={row.title} className={typography.panelBody} data-view-brief-row={`${card.id}.${i}`}>
-          {row.kind === 'none' ? row.text : <>{row.aim} <span className={typography.panelTabular}>{row.kind === 'chance' ? row.approx : ''}{row.value}</span><MarkOf mark={row.olumi} />{row.kind === 'chance' ? <MarkOf mark={row.likely} /> : null}</>}
-        </p>
+        <Fragment key={i}>
+          <p title={row.title} className={typography.panelBody} data-view-brief-row={`${card.id}.${i}`}>
+            {row.kind === 'none' ? row.text : <>{row.aim} <span className={typography.panelTabular}>{row.kind === 'chance' ? row.approx : ''}{row.value}</span><MarkOf mark={row.olumi} />{row.kind === 'chance' ? <MarkOf mark={row.likely} /> : null}</>}
+          </p>
+          {/* Core's finding in at most two sentences, then its one line on what it rests on (stand-in), as the Analysis tab draws them. */}
+          <FindingLines at={`${card.id}.rows.${i}`} row={row} />
+        </Fragment>
       ))}
       {card.status === null ? null : <p className={typography.panelBody} data-view-brief-status={card.id}>{card.status}</p>}
       {card.reason === null ? null : <p className={typography.panelBody} data-view-brief-reason={card.id}>{card.reason}</p>}
@@ -44,6 +50,7 @@ export function ViewBriefBody({ model }: { model: Model }) {
         <section className="flex flex-col gap-1" data-testid="view-brief-run">
           {run.lead === null ? null : <p className={typography.panelBody}>{run.lead}</p>}
           {run.most_likely === null ? null : <p className={typography.panelBody} title={run.most_likely.title} data-testid="view-brief-most-likely">{run.most_likely.text}</p>}
+          {run.most_likely === null ? null : <RestsOnLine at="run.most_likely" text={mostLikelyBasisOf(run.most_likely).rests_on_text} />}
           {run.notes.map((n, i) => <p key={`n${i}`} className={typography.panelBody} title={n.title}>{n.text}</p>)}
           {(run.shared_blockers ?? []).map((b, i) => <p key={`b${i}`} className={typography.panelBody}>{b.text}</p>)}
           {run.waits_on === null ? null : (
