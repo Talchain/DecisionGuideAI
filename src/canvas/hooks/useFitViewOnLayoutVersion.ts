@@ -572,12 +572,19 @@ export function useFitViewOnLayoutVersion(): void {
     if (coreVersion === '' || framedCoreVersionRef.current === coreVersion) return
     let raf = 0
     let frames = 0
+    let still = 0
+    let last = ''
     const tryFit = () => {
       const cards = useViewStore.getState().view?.model?.cards ?? []
       const ids = new Set([QUESTION, ...cards.map((c) => c.id)])
-      const measured = (getNodesRef.current?.() ?? []).filter((n) => ids.has(n.id) && n.measured?.width && n.measured?.height).length
-      if (measured < ids.size && ++frames < 120) { raf = requestAnimationFrame(tryFit); return }
-      if (measured === 0) return
+      const drawn = (getNodesRef.current?.() ?? []).filter((n) => ids.has(n.id) && n.measured?.width && n.measured?.height)
+      // Measured cards grow past core's heights and push their columns down (the canvas re-places them): frame the board once it
+      // has held still for a few frames, not at the first measure (4 Nov: a 22-card model's bottom was cropped).
+      const now = drawn.map((n) => `${n.id}:${n.position.x},${n.position.y},${n.measured?.height}`).join('|')
+      still = drawn.length === ids.size && now === last ? still + 1 : 0
+      last = now
+      if (still < 8 && ++frames < 300) { raf = requestAnimationFrame(tryFit); return }
+      if (drawn.length === 0) return
       framedCoreVersionRef.current = coreVersion
       releaseUserCameraClaim()
       fitNow.current()
