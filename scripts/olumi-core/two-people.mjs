@@ -448,15 +448,15 @@ await ada.page.getByTestId('view-brief-trigger').click()
 const panel = ada.page.getByTestId('view-brief-panel')
 await panel.waitFor({ timeout: T })
 check(await panel.getByTestId('view-brief-question').innerText() === summed.question.text, `the Summary's question is core's: "${summed.question.text}"`)
-const options = summed.cards.filter((c) => c.family === 'option')
+const summaryOptions = summed.cards.filter((c) => c.family === 'option')
 let rows = 0
-for (const c of options) {
+for (const c of summaryOptions) {
   const box = panel.getByTestId(`view-brief-option-${c.id}`)
   const text = await box.innerText()
   if (!text.includes(c.heading) || !c.rows.every((r) => text.includes(r.kind === 'none' ? r.text : r.value))) { check(false, `the Summary draws "${c.heading}" and its rows as core's View holds them`) }
   rows += c.rows.length
 }
-check(options.length > 0, `the Summary draws all ${options.length} options and their ${rows} rows, each value as core's View holds it`)
+check(summaryOptions.length > 0, `the Summary draws all ${summaryOptions.length} options and their ${rows} rows, each value as core's View holds it`)
 if (summed.run?.most_likely) check(await panel.getByTestId('view-brief-most-likely').innerText() === summed.run.most_likely.text, 'the Summary\'s most-likely line is core\'s, word for word')
 // The key, opened with the Summary still beside it: core's own (model.key), every item in core's order.
 // The page reads olumi.view/3 (?schema=3); `view` above reads core's default View, which carries no key.
@@ -471,8 +471,8 @@ check(key.length > 0 && drawn.length === key.length && drawn.every((t, i) => fla
 await shot(ada, `j-legend-summary-${process.env.VIEW_W ?? 1440}`)
 await ada.page.keyboard.press('Escape') // closes the key and the Summary
 
-// ── 10. Version history (DL, 4 Nov) ─────────────────────────────────────────────────────────────────────────────────────────────
-step(10, 'Ada opens Version history: core\'s versions, any version\'s record, and two compared; the current version is untouched')
+// ── 11. Version history (DL, 4 Nov) ─────────────────────────────────────────────────────────────────────────────────────────────
+step(11, 'Ada opens Version history: core\'s versions, any version\'s record, and two compared; the current version is untouched')
 const now = await view(ada, sid)
 const listed = (await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/versions`)).json(), sid)).versions
 const sent = []
@@ -482,7 +482,7 @@ await ada.page.getByTestId('topbar-versions-trigger').click()
 check(await seen(ada, async () => await ada.page.getByTestId('core-version-row').count() === listed.length), `the history lists core's ${listed.length} versions`)
 check(await seen(ada, async () => await ada.page.locator(`[data-testid="core-version-row"][aria-current="true"]`).getAttribute('data-version', { timeout: 1000 }) === String(now.version.n)), `version ${now.version.n} is marked as the one in use`)
 // Version 3 is the figure Ada typed on its card (5b). Its record is core's change card: version 3 against the version it was approved over.
-const v3 = listed.find((x) => x.n === 3), over = listed.find((x) => x.id === v3.base).n
+const ver3 = listed.find((x) => x.n === 3), over = listed.find((x) => x.id === ver3.base).n
 const card = await ada.page.evaluate(async ([s, a]) => (await fetch(`/api/scenarios/${s}/compare?from=${a}&to=3`)).json(), [sid, over])
 await ada.page.getByTestId('core-version-open-3').click()
 const lines = async () => ada.page.getByTestId('core-version-3-changes').locator('li').allInnerTexts()
