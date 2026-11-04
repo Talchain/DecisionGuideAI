@@ -303,6 +303,13 @@ const KNOWN_FIXED = [
 const VIEWPORT_PORTALLED = ['src/canvas/nodes/DirectionNeededLayer.tsx', 'src/canvas/nodes/EditNoteAnchor.tsx', 'src/canvas/nodes/ProposalGhostLayer.tsx', 'src/canvas/nodes/WhatIfMarkLayer.tsx'] as const
 
 const FOREIGN_RENDERED = [
+  // 4 Nov 2026 (v10 on the canvas, #3087/#3098/#3100; the integration lead's R1 row): three v10 presentation parts BaseNode and
+  // OptionNode render on a card. V10OptionBand's end labels and V10StoryNumbers' failure discs are `typography.edgeLabel`, counter-scaled
+  // by `--canvas-label-scale`; V10ChangeLens draws only an icon on the card (box sizes, no text), its words in a Tooltip that portals to
+  // `document.body` at screen size.
+  'src/presentation/V10ChangeLens.tsx',
+  'src/presentation/V10OptionBand.tsx',
+  'src/presentation/V10StoryNumbers.tsx',
   // 23 Oct 2026 (vision spec §3, one Olumi mark): the brand mark is a text-free SVG glyph. On the canvas it is sized
   // only by the caller's counter-scaled class (`CANVAS_GLYPH_SIZE_CLASSES` in ScienceIcon's "Discuss with AI"), so it
   // carries no size of its own to census.
