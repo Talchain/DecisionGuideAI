@@ -200,6 +200,15 @@ describe('where the note sits (Paul\'s pre-flight, 22 Oct: on the left it covere
     const spot = attentionCardSpot(A, card, [right, above, zoom], 0, 1066, 0, 900, [zoom])
     expect(touches(spot, zoom)).toBe(false)
   })
+  it('⛔ never over its own card (R2 witness, capacity model, 4 Nov: "covers test_net_contribution", the note\'s own card): on a dense board the canvas-wide search takes a free spot away from it, never the room around it', () => {
+    // A hole just big enough for the note around the anchor, and one free corner far away; everything else is cards.
+    // The hole (x 384–656, y 384–496) is on the search's 16px grid, so a spot in it is found.
+    const A = { x: 392, y: 390, w: 240, h: 100 }, card = { w: 268, h: 110 }
+    const others = [{ x: 300, y: 0, w: 766, h: 150 }, { x: 0, y: 150, w: 384, h: 750 }, { x: 656, y: 150, w: 410, h: 750 }, { x: 384, y: 150, w: 272, h: 234 }, { x: 384, y: 496, w: 272, h: 404 }]
+    const spot = attentionCardSpot(A, card, others, 0, 1066, 0, 900)
+    const over = (o: typeof A) => spot.left < o.x + o.w && spot.left + card.w > o.x && spot.top < o.y + o.h && spot.top + card.h > o.y
+    expect([over(A), ...others.map(over)], JSON.stringify(spot)).toEqual([false, false, false, false, false, false])
+  })
   it('must not change: with the controls given, a free spot is exactly as before, and the note covers no card', () => {
     const zoom = { x: 8, y: 714, w: 56, h: 150 }
     expect(attentionCardSpot(O2, { w: 268, h: 110 }, [O1, F2, zoom], 0, 1066, -Infinity, Infinity, [zoom])).toEqual({ left: 554, top: 432 })
