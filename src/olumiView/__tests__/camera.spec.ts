@@ -57,15 +57,21 @@ describe('readable first, whole when it fits (DL 4 Nov: whole at 0.272 unreadabl
     expect((r.x + r.width / 2) * v.zoom + v.x).toBeCloseTo(insets.left + freeW / 2)
     expect(r.y * v.zoom + v.y).toBeCloseTo(insets.top)
   })
-  it('R1.1 (Paul\'s screen: A2 half under the dock): a board wider than the free canvas at 0.9 comes down only as far as keeps every card across it, none under the dock', () => {
-    const r = rect(boxes), freeW = pane.width - insets.left - insets.right, head = rect([one[0]!])
-    expect(r.width * READABLE_WHOLE_ZOOM, 'precondition: wider than the free canvas at 0.9').toBeGreaterThan(freeW)
+  it('DL 17Z (readable first wins): a board wider than the visible rect at 0.9 opens at 0.9, never lower, with the question and options wholly inside the visible rect (never behind the dock)', () => {
+    const r = rect(boxes), freeW = pane.width - insets.left - insets.right
+    const head = rect(one.slice(0, 1 + model.cards.filter((c) => c.family === 'option').length).length ? [one[0]!, ...one.slice(1).filter((_, i) => model.cards[i]!.family === 'option')] : [one[0]!])
+    expect(r.width * READABLE_WHOLE_ZOOM, 'precondition: wider than the visible rect at 0.9').toBeGreaterThan(freeW)
     const v = readableFirstViewport(r, pane, insets, head)!
-    expect(v.zoom).toBeCloseTo(freeW / r.width)
-    const across = boxes.filter((b) => { const l = b.x * v.zoom + v.x; return l < insets.left - 1 || l + b.w * v.zoom > pane.width - insets.right + 1 })
-    expect(across, 'cards outside the free canvas (under the dock or off the left)').toEqual([])
-    const q = one[0]!
-    expect(q.y * v.zoom + v.y).toBeGreaterThanOrEqual(insets.top - 1)
+    expect(v.zoom).toBe(READABLE_WHOLE_ZOOM)
+    const l = head.x * v.zoom + v.x, rt = (head.x + head.width) * v.zoom + v.x, t = head.y * v.zoom + v.y
+    expect([l >= insets.left - 1, rt <= pane.width - insets.right + 1, t >= insets.top - 1], JSON.stringify({ l, rt, t })).toEqual([true, true, true])
+  })
+  it('a board that fits across at 0.9 but is too tall: every card across the visible rect (none under the dock), the head as near the centre as that allows', () => {
+    const freeW = pane.width - insets.left - insets.right
+    const r = { x: 0, y: 0, width: (freeW - 10) / READABLE_WHOLE_ZOOM, height: 5000 }, head = { x: r.width - 300, y: 0, width: 300, height: 100 }
+    const v = readableFirstViewport(r, pane, insets, head)!
+    expect(v.zoom).toBe(READABLE_WHOLE_ZOOM)
+    expect([r.x * v.zoom + v.x >= insets.left - 0.01, (r.x + r.width) * v.zoom + v.x <= pane.width - insets.right + 0.01]).toEqual([true, true])
   })
   it('must not change: a board that fits whole at 0.9 or more is the product\'s own whole fit (null here)', () => {
     const small = [one[0]!, ...one.slice(1, 3)].map((b) => ({ ...b, x: b.x / 4, y: b.y / 4, w: b.w / 4, h: b.h / 4 }))

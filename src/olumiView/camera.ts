@@ -14,19 +14,21 @@ export const READABLE_WHOLE_ZOOM = 0.9
 type Rect = { x: number; y: number; width: number; height: number }
 type Insets = { top: number; right: number; bottom: number; left: number }
 /**
- * READABLE FIRST, WHOLE WHEN IT FITS (DL 4 Nov: a 22-card board fitted whole at 0.272, nothing readable; then, for the original look,
- * "on open, the camera zooms to max(fit, 0.9), anchored at the top centre"). Null when the whole board fits the free canvas at
- * `READABLE_WHOLE_ZOOM` or more: the product's own fit then frames it whole. Otherwise the board at that zoom (lower only as far as
- * keeps the whole board across the free canvas, so no card is under the dock), its top under the free canvas's top and centred across
- * it; the person scrolls down for the rest. `_top` (the question and options) is kept for its callers; the board's width now bounds the zoom.
+ * READABLE FIRST (DL 4 Nov, 17Z ruling on R1.1: "readable first wins"). The visible rect is the canvas minus the dock; the board is framed
+ * inside it, never behind the dock. Null when the whole board fits it at `READABLE_WHOLE_ZOOM` or more: the product's own fit then frames
+ * it whole, and no card is under the dock. Otherwise the board at 0.9, never lower: its top under the visible rect's top, `top` (the
+ * question and the options) centred across it and wholly inside it; the person pans for the rest.
  */
-export function readableFirstViewport(bounds: Rect, pane: { width: number; height: number }, insets: Insets, _top: Rect = bounds): { x: number; y: number; zoom: number } | null {
+export function readableFirstViewport(bounds: Rect, pane: { width: number; height: number }, insets: Insets, top: Rect = bounds): { x: number; y: number; zoom: number } | null {
   const freeW = Math.max(1, pane.width - insets.left - insets.right), freeH = Math.max(1, pane.height - insets.top - insets.bottom)
   const whole = Math.min(freeW / Math.max(1, bounds.width), freeH / Math.max(1, bounds.height))
   if (whole >= READABLE_WHOLE_ZOOM) return null
-  // At 0.9, unless the board would not fit across the free canvas there: then as near 0.9 as keeps the whole width across, so no card
-  // sits under the dock (R1.1, Paul's screen: A2 half under it at 1440). Its top under the free canvas's top; the person scrolls down.
-  // `top` (the question and the options) is then across too: it is inside the board.
-  const zoom = Math.max(whole, Math.min(READABLE_WHOLE_ZOOM, freeW / Math.max(1, bounds.width)))
-  return { zoom, x: insets.left + freeW / 2 - (bounds.x + bounds.width / 2) * zoom, y: insets.top - bounds.y * zoom }
+  const zoom = READABLE_WHOLE_ZOOM
+  const centred = insets.left + freeW / 2 - (top.x + top.width / 2) * zoom
+  // A board that fits across at 0.9 (only too tall) is held wholly across the visible rect, so no card is under the dock: the question
+  // and options as near the centre as that allows. A wider one keeps them centred and the rest is reached by panning.
+  // The x range that keeps the whole board across: from its left edge at the visible rect's left (lo) to its right edge at its right (hi).
+  const lo = insets.left - bounds.x * zoom, hi = insets.left + freeW - (bounds.x + bounds.width) * zoom
+  const x = lo <= hi ? Math.min(hi, Math.max(lo, centred)) : centred
+  return { zoom, x, y: insets.top - bounds.y * zoom }
 }
