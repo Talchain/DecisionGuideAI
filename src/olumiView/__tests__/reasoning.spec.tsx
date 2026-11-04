@@ -11,7 +11,7 @@ import type { View, ViewModel } from '../client'
 import { useViewStore } from '../store'
 import { optionCards } from '../layout'
 import { ViewReasoning, ViewReasoningBlock } from '../ViewReasoning'
-import { ViewChances } from '../ViewChances'
+import { driverRange, ViewChances } from '../ViewChances'
 import { clearWhatIf } from '../whatif'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
@@ -53,8 +53,13 @@ describe('the Reasoning tab draws the Run in core\'s words', () => {
           else { expect(at(`${c.id}.rows.${i}.value`)?.textContent).toBe(r.value); expect(at(`${c.id}.rows.${i}.aim`)?.textContent).toBe(r.aim); expect(row.getAttribute('title')).toBe(r.title) }
           if (r.kind !== 'none' && r.olumi !== null) expect(at(`${c.id}.rows.${i}.olumi.glyph`)?.textContent).toBe(r.olumi.glyph)
         })
-        if (c.driver !== null) { expect(at(`${c.id}.driver.text`)?.textContent).toBe(c.driver.text); expect(at(`${c.id}.driver.text`)?.getAttribute('title')).toBe(c.driver.title) }
-        else expect(at(`${c.id}.driver.text`)).toBeNull()
+        if (c.driver !== null) {
+          const d = at(`${c.id}.driver.text`) ?? root.querySelector(`[data-view-label="${c.id}.driver.text"]`)
+          if (driverRange(c.driver) !== null) { expect(d?.getAttribute('aria-label')).toBe(c.driver.text); expect(d?.textContent).toBe('') }
+          else expect(d?.textContent).toBe(c.driver.text)
+          expect(d?.getAttribute('title')).toBe(c.driver.title)
+        }
+        else { expect(at(`${c.id}.driver.text`)).toBeNull(); expect(root.querySelector(`[data-view-label="${c.id}.driver.text"]`)).toBeNull() }
       }
       m.run!.science.forEach((l, i) => {
         expect(at(`run.science.${i}.line`)?.textContent).toBe(l.line)

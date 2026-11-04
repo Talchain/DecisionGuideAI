@@ -417,7 +417,15 @@ for (const c of options) {
     const words = r.kind === 'none' ? [[`${c.id}.rows.${i}.text`, r.text]] : [[`${c.id}.rows.${i}.aim`, r.aim], [`${c.id}.rows.${i}.value`, r.value]]
     for (const [at, text] of words) { if (await inReasoning(at).innerText() !== text) check(false, `${at} is core's "${text}"`); bound++ }
   }
-  if (c.driver !== null) { if (await inReasoning(`${c.id}.driver.text`).innerText() !== c.driver.text) check(false, `${c.id}'s driver line in core's words`); bound++ }
+  if (c.driver !== null) {
+    // with core's two chances (driver.low/high) the line is v10's low→high marker, core's words its label (data-view-label); else the words
+    const marked = c.driver.low != null && c.driver.high != null
+    const got = marked ? await reasoning.locator(`[data-view-label="${c.id}.driver.text"]`).getAttribute('aria-label') : await inReasoning(`${c.id}.driver.text`).innerText()
+    if (got !== c.driver.text) check(false, `${c.id}'s driver line in core's words`); bound++
+  }
+}
+{ const s = v3.model.run.sensitivity, n = await reasoning.locator('[data-view="run.sensitivity.text"]').count()
+  if (s != null && options.some((c) => c.driver?.low != null && c.driver?.high != null)) check(n === 1 && await inReasoning('run.sensitivity.text').innerText() === s.text, `what the driver chances are, said once in core's words (${n})`)
 }
 for (const [i, l] of v3.model.run.science.entries()) { if (await inReasoning(`run.science.${i}.line`).innerText() !== l.line) check(false, `worth line ${l.id} in core's words`); bound++ }
 check(bound > 0, `every option's chance or blocker, driver line and worth line drawn exactly as core's View says it (${bound} strings)`)

@@ -254,3 +254,40 @@ describe('what the driver chances are, said once (core d1fe5e2 run.sensitivity; 
     expect(render(<ViewChances model={m} />).container.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
   })
 })
+
+describe('v10 driver marker (core d1fe5e2 driver.low/high, run.sensitivity once; DL 4 Nov)', () => {
+  for (const n of ['bakery', 'european']) {
+    for (const [panel, draw] of [['Analysis', ViewChances], ['Reasoning', ViewReasoning]] as const) {
+      it(`${n}, ${panel}: each option's low→high marker sits at its own two chances, core's line its label, and what they are is said once`, () => {
+        const m = golden(n).model!
+        const { container } = render(<ReactFlowProvider>{draw === ViewChances ? <ViewChances model={m} /> : <ViewReasoning model={m} />}</ReactFlowProvider>)
+        let drawn = 0
+        for (const c of optionCards(m)) {
+          const mark = container.querySelector<HTMLElement>(`[data-testid="view-range-driver-${c.id}"]`)
+          if (c.driver === null || c.driver.low === null || c.driver.high === null) { expect(mark, c.id).toBeNull(); continue }
+          drawn++
+          expect(mark!.closest('[data-view-card]')?.getAttribute('data-view-card'), c.id).toBe(c.id)
+          expect(mark!.getAttribute('aria-label'), c.id).toBe(c.driver.text)
+          expect(mark!.querySelector<HTMLElement>('[data-range-low]')!.style.left, c.id).toBe(`${c.driver.low * 100}%`)
+          expect(mark!.querySelector<HTMLElement>('[data-range-high]')!.style.left, c.id).toBe(`${c.driver.high * 100}%`)
+        }
+        expect(drawn).toBeGreaterThan(1) // the probe reads real markers
+        const once = container.querySelectorAll('[data-view="run.sensitivity.text"]')
+        expect(once.length).toBe(1)
+        expect(once[0]!.textContent).toBe(m.run!.sensitivity.text)
+        expect(once[0]!.getAttribute('title')).toBe(m.run!.sensitivity.title)
+        // core's per-option sentence is no longer drawn as text, once or six times
+        for (const c of optionCards(m)) if (c.driver !== null && c.driver.low !== null) expect(container.textContent!.includes(c.driver.text), c.id).toBe(false)
+      })
+    }
+  }
+
+  it('a View with no driver numbers draws the words as before and no sensitivity line', () => {
+    const m = structuredClone(golden('bakery').model!)
+    for (const c of m.cards) if (c.driver) { c.driver.low = null; c.driver.high = null }
+    const { container } = render(<ViewChances model={m} />)
+    expect(container.querySelector('[data-testid^="view-range-driver-"]')).toBeNull()
+    expect(container.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
+    for (const c of optionCards(m)) if (c.driver !== null) expect(container.querySelector(`[data-view="${c.id}.driver.text"]`)?.textContent).toBe(c.driver.text)
+  })
+})
