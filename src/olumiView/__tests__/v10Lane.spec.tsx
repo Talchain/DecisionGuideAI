@@ -17,6 +17,9 @@ import { currentModel, useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
 import { ViewChat, ViewComposer, ViewTurns, useViewChat, useAnswersAsks } from '../ViewChat'
 import { optionBands, useV10Lane, valueBars, ViewCardV10 } from '../v10'
+import { ViewChances } from '../ViewChances'
+import { ViewReasoning } from '../ViewReasoning'
+import { optionCards } from '../layout'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -225,5 +228,29 @@ describe('v10 on the core lane', () => {
     // Nothing without values, or when every option's range is one point (no spread to draw).
     expect(valueBars({ ...card, values: null })).toEqual([])
     expect(valueBars({ ...card, values: vs.map((v) => ({ ...v, p10: 5, p50: 5, p90: 5 })) })).toEqual([])
+  })
+})
+
+describe('what the driver chances are, said once (core d1fe5e2 run.sensitivity; DL 4 Nov)', () => {
+  for (const n of ['bakery', 'european']) {
+    for (const [panel, Draw] of [['Analysis', ViewChances], ['Reasoning', ViewReasoning]] as const) {
+      it(`${n}, ${panel}: run.sensitivity in core's words with its hover, exactly once, at the head of the option rows`, () => {
+        const m = golden(n).model!
+        const { container } = render(<ReactFlowProvider><Draw model={m} /></ReactFlowProvider>)
+        const once = container.querySelectorAll('[data-view="run.sensitivity.text"]')
+        expect(once.length).toBe(1)
+        expect(once[0]!.textContent).toBe(m.run!.sensitivity.text)
+        expect(once[0]!.getAttribute('title')).toBe(m.run!.sensitivity.title)
+        const first = container.querySelector(`[data-view-card="${optionCards(m)[0]!.id}"]`)!
+        expect(once[0]!.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(once[0]!.closest('[data-view-card]')).toBeNull()
+      })
+    }
+  }
+
+  it('no option carries driver chances: no sensitivity line', () => {
+    const m = structuredClone(golden('bakery').model!)
+    for (const c of m.cards) if (c.driver) { c.driver.low = null; c.driver.high = null }
+    expect(render(<ViewChances model={m} />).container.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
   })
 })

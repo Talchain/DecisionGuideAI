@@ -11,7 +11,7 @@ import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow } from './client'
 import { bandPlace, olumiKey, optionBands, optionCards, outcomePlace, rowsCarryOutcome, settableFigures, type Place } from './layout'
 import { currentModel, useViewStore } from './store'
-import { OptionLines, SharedBlockers, WhatIfShown, Worth } from './ViewChances'
+import { OptionLines, Sensitivity, SharedBlockers, WhatIfShown, Worth } from './ViewChances'
 import { typography } from '../styles/typography'
 
 export function ViewReasoning({ model }: { model: ViewModel }) {
@@ -21,6 +21,7 @@ export function ViewReasoning({ model }: { model: ViewModel }) {
       <WhatIfShown model={model} />
       {run?.lead == null ? null : <p data-view="run.lead">{run.lead}</p>}
       <SharedBlockers run={run} />
+      <Sensitivity model={model} />
       {optionCards(model).map((card) => (rowsCarryOutcome(model)
         ? <OptionLines key={card.id} card={card} after={(row, i) => <AimOutcome model={model} card={card} row={row} i={i} />} />
         : <OptionLines key={card.id} card={card}><Bands model={model} option={card.id} /></OptionLines>))}
