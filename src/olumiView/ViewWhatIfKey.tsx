@@ -43,8 +43,8 @@ function Compare({ model, shown }: { model: ViewModel; shown: NonNullable<Return
         return rows === undefined ? null : (
           <div key={card.id} data-whatif-key-option={card.id}>
             <p className={`${typography.panelHeader} text-text-header`}>{card.heading}</p>
-            <div className="flex gap-1"><span className="text-text-light">{WHAT_IF_COPY.saved}: </span><div>{card.rows.map((row, i) => <Row key={i} card={card} row={row} i={i} />)}</div></div>
-            <div className="flex gap-1"><span className="text-text-light">{WHAT_IF_COPY.whatIf}: </span><div>{rows.map((row, i) => <Row key={i} card={{ ...card, id: `whatif.${card.id}` }} row={row} i={i} />)}</div></div>
+            <div className="flex gap-1"><span className="shrink-0 whitespace-nowrap text-text-light">{WHAT_IF_COPY.saved}: </span><div>{card.rows.map((row, i) => <Row key={i} card={card} row={row} i={i} />)}</div></div>
+            <div className="flex gap-1"><span className="shrink-0 whitespace-nowrap text-text-light">{WHAT_IF_COPY.whatIf}: </span><div>{rows.map((row, i) => <Row key={i} card={{ ...card, id: `whatif.${card.id}` }} row={row} i={i} />)}</div></div>
           </div>
         )
       })}
