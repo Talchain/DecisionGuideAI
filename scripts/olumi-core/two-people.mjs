@@ -13,6 +13,10 @@
  * message (Olumi's reply) n ms, as a real model takes. Raise STEP_TIMEOUT_MS with them.
  *   DELAY_MS=3000 REPLY_MS=45000 STEP_TIMEOUT_MS=300000 node scripts/olumi-core/two-people.mjs
  *
+ * THE NOTE IN THE OLUMI TAB (NOTE_TAB_AT=<w>x<h>). The scripted board always leaves the note a free spot; a small window at step 0 does
+ * not, so the note goes into the Olumi tab, as on a dense real board. A standing run:
+ *   NOTE_TAB_AT=900x560 node scripts/olumi-core/two-people.mjs
+ *
  * Exits non-zero on the first step that does not hold, naming it.
  */
 import { chromium } from 'playwright'
@@ -29,6 +33,10 @@ const BRIEF = 'Our team resolves 80 tickets a week. Each specialist adds about 2
 // A real core drafts a first model in minutes (PL review 4 Nov): against a served CORE_BASE each step waits up to 10 minutes.
 const T = Number(process.env.STEP_TIMEOUT_MS ?? (process.env.CORE_BASE ? 600_000 : 30_000))
 const DELAY = Number(process.env.DELAY_MS ?? 0), REPLY = Number(process.env.REPLY_MS ?? 0)
+// NOTE_TAB_AT=<w>x<h> (a standing run, DL 4 Nov): Ada's window is that size at step 0, so the note finds no free spot on the canvas and
+// goes into the Olumi tab, as on a dense real board (github-3c's real-AI witness, 4 Nov); her window is put back after step 0. The
+// run fails if the note did not go into the tab, so it never passes on the canvas path by accident.
+const NOTE_TAB_AT = process.env.NOTE_TAB_AT ? process.env.NOTE_TAB_AT.split('x').map(Number) : null
 if (DELAY > 0 || REPLY > 0) console.log(`A slow core: every /api/ answer held ${DELAY / 2}–${(3 * DELAY) / 2} ms, a chat reply ${REPLY > 0 ? `${REPLY} ms` : 'as the rest'}`)
 
 const step = (n, what) => console.log(`\n▶ ${n}. ${what}`)
@@ -246,6 +254,7 @@ await icon.waitFor({ timeout: T })
 check(await icon.getAttribute('data-anchor-id') === next.at && await ada.page.getByTestId('olumi-attention-card').count() === 0, `on load, Olumi's next step is an icon at its card (${next.at}), the note not opened`)
 const onceOnLoad = await ada.page.evaluate((w) => [...document.querySelectorAll('body *')].filter((e) => e.checkVisibility?.() !== false && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.includes(w.slice(0, 40)))).length, nextWords)
 check(onceOnLoad <= 1, `on load, the next step's words are on screen at most once (${onceOnLoad})`)
+if (NOTE_TAB_AT) { await ada.page.setViewportSize({ width: NOTE_TAB_AT[0], height: NOTE_TAB_AT[1] }); await ada.page.waitForTimeout(1000) }
 await icon.click()
 const note = ada.page.getByTestId('olumi-attention-card')
 await note.waitFor({ timeout: T })
@@ -256,6 +265,7 @@ await note.waitFor({ timeout: T })
 let inTab = null, same = 0
 for (const t0 = Date.now(); same < 3 && Date.now() - t0 < T; await ada.page.waitForTimeout(200)) { const now = await note.getAttribute('data-in-panel') !== null; same = now === inTab ? same + 1 : 0; inTab = now }
 check(same >= 3, `Olumi's note settles in one place (${inTab ? 'the Olumi tab' : 'the canvas'})`)
+if (NOTE_TAB_AT) check(inTab, `with Ada's window at ${NOTE_TAB_AT.join('×')}, the note found no free spot on the canvas and went into the Olumi tab`)
 const where = inTab ? 'in the Olumi tab (no free spot on the canvas)' : 'on the canvas'
 check((await note.innerText()).includes(nextWords), `Olumi's note ${where} says it: "${nextWords}"`)
 // W1 "Why ▸" on a finding: the reply's reasons behind the note's Why, in core's words.
@@ -296,6 +306,7 @@ const onControls = await ada.page.evaluate(() => {
 check(onControls.length === 0, `Olumi's note covers no canvas control${onControls.length ? ` (covers ${onControls.join(', ')})` : ''}`)
 }
 await shot(ada, '0-ada-model')
+if (NOTE_TAB_AT) { await ada.page.setViewportSize({ width: Number(process.env.VIEW_W ?? 1440), height: 900 }); await ada.page.waitForTimeout(800) }
 
 // ── 1. Bea joins by her link, on the same address ───────────────────────────────────────────────────────────────────────────────
 step(1, 'Ada brings Bea in from DGAI\'s Team tab (her own link, no admin key); Bea opens it in a second browser; each gives a private view')
