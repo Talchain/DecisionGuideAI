@@ -55,6 +55,12 @@ export const writes = {
   create: (brief: string, op: string) => call<{ scenario: string; proposal: number | null }>('POST', '/api/scenarios', { brief, op }),
   message: (sid: string, text: string, op: string) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/messages`, { text, op }),
   challenge: (sid: string, kind: string, record: string, op: string) => call<{ proposal: number | null }>('POST', `${scenarioPath(sid)}/challenge`, { kind, record, op }),
+  /**
+   * The coach's next move, taken in one tap: a structured choice, never words (DL 16:36Z, option b). Core's route (API v1.12, "Taking the
+   * offered coaching move by one tap", 400b672, in the View vendored at d1fe5e2): `{ move, at, op? }` with no `text`; the person's turn is
+   * recorded as core's label for the move (`chat[].said`, with `choice: { move, label }`), and a move no longer the newest is `409`.
+   */
+  move: (sid: string, move: string, at: string | null, op: string) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/messages`, { move, at, op }),
   /** The whole proposal, or (API v1.4/v1.8 "confirm selected") exactly the ticked lines: record ids in `only`, top-level fields in `only_top`. */
   approve: (proposal: number, base: number | null, pick?: { only: string[]; only_top: string[] }) =>
     call<unknown>('POST', `/api/proposals/${proposal}/approve`, pick === undefined ? { base } : { base, ...pick }),

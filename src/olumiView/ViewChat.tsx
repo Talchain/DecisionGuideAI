@@ -27,6 +27,7 @@ import { useUIStore } from '../stores/uiStore'
 import { FigureEdit } from './FigureEdit'
 import { V10_METHODS, withMethodPrefix } from '../presentation/V10MethodChips'
 import { ringCards } from './ring'
+import { Button } from '../components/ui/Button'
 import { VIEW_NOTE_SLOT } from './note'
 import { ArrowUp, FlipVertical2, Globe, History, RefreshCw, SearchX, Zap } from 'lucide-react'
 import Tooltip from '../components/Tooltip'
@@ -53,7 +54,7 @@ function Words({ parts, at }: { parts: Said; at: string }) {
 }
 
 /** One turn of the conversation as the View holds it. `answerFirst`: Olumi's reply above the words it answers (the newest turn, lane C). */
-function Turn({ t, at, answerFirst = false }: { t: ViewTurn; at: string; answerFirst?: boolean }) {
+function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: string; answerFirst?: boolean; moves?: boolean }) {
   // The cards this turn's next step lit are cleared if the turn leaves the page while they are lit (Codex review dgai-v10 00002 ledger).
   const lit = useRef(false)
   useEffect(() => () => { if (lit.current) ringCards([]) }, [])
@@ -74,6 +75,7 @@ function Turn({ t, at, answerFirst = false }: { t: ViewTurn; at: string; answerF
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
       <p tabIndex={t.answer.next.about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
         onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} /></p>
+      {moves && t.answer.next.newest ? <MoveTap turn={t.id} next={t.answer.next} /> : null}
     </div>
   )
   // Who replied and the model version it read, under the reply, as DGAI's version chip (v10): core's words.
@@ -107,12 +109,12 @@ export function ViewTurns({ chat }: { chat: View['chat'] }) {
  * The newest turn first, Olumi's reply above the words it answers, and the earlier turns folded under it (lane C, Paul 3 Nov: a
  * first-time person reads Olumi's reply first). Every turn keeps its path in the View (`chat.<i>`).
  */
-export function ViewConversation({ chat }: { chat: View['chat'] }) {
+export function ViewConversation({ chat, moves = false }: { chat: View['chat']; moves?: boolean }) {
   if (chat.length === 0) return null
   const last = chat.length - 1
   return (
     <div className={`${typography.panelBody} space-y-3`} data-testid="view-chat-turns">
-      <ol className="space-y-4" data-testid="view-chat-latest"><Turn t={chat[last]!} at={`chat.${last}`} answerFirst /></ol>
+      <ol className="space-y-4" data-testid="view-chat-latest"><Turn t={chat[last]!} at={`chat.${last}`} answerFirst moves={moves} /></ol>
       {last === 0 ? null : (
         <details data-testid="view-chat-earlier">
           <summary className={typography.panelMeta}>Earlier in this conversation ({last})</summary>
@@ -227,9 +229,11 @@ interface ViewChatState {
    * op id (it may already be saved), never a plain message (review 00002 #3). Changed words are a new message.
    */
   readonly held: { readonly text: string; readonly kind: string; readonly record: string; readonly sid: string; readonly uuid: string | null } | null
+  /** A move core refused as no longer the newest (409): its tap is not offered again, and it is not retried. */
+  readonly gone?: string | null
 }
 
-export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new Map(), busy: false, said: null, held: null }))
+export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new Map(), busy: false, said: null, held: null, gone: null }))
 
 /** A past version is on the canvas (the version history's Draw): nothing is written until the person is back on the latest. */
 export const PAST_HELD = 'Go back to the latest version to change the model.'
@@ -322,6 +326,39 @@ async function challenge(kind: string, record: string, text: string, at = { sid:
   const sent = await write(`challenge:${kind}:${record}`, text, (op) => writes.challenge(sid, kind, record, op), false, uuid)
   useViewChat.setState({ held: sent ? null : { text, kind, record, sid, uuid } })
   return sent
+}
+
+type Next = NonNullable<ViewTurn['answer']>['next']
+const moveKey = (sid: string, turn: number, move: string) => `${sid}\u0000${turn}\u0000${move}`
+
+/**
+ * The coach's next move, taken in one tap (R2 W1; DL 16:36Z): a structured choice `{ move, at }`, never words, through the same write as a
+ * message (one op id, then the View read again). The person's turn is what core records for it (the move's label); `next.text`, Olumi's
+ * own words to the person, is never sent as theirs. A move core refuses as no longer the newest (409) re-reads the View, and its tap is
+ * dropped, not retried.
+ */
+async function takeMove(turn: number, next: Next): Promise<boolean> {
+  const { sid, uuid } = useViewStore.getState()
+  if (sid === null) return false
+  let stale = false
+  const sent = await write(`move:${next.move}`, String(turn), async (op) => {
+    try { return await writes.move(sid, next.move, next.at, op) } catch (e) { if (e instanceof TeamApiError && e.status === 409) stale = true; throw e }
+  }, false, uuid)
+  if (stale) {
+    useViewChat.setState({ gone: moveKey(sid, turn, next.move) })
+    await useViewStore.getState().refresh()
+  }
+  return sent
+}
+
+/** The newest reply's move as one tap, in the shell's button, with core's label for it. */
+function MoveTap({ turn, next }: { turn: number; next: Next }) {
+  const sid = useViewStore((s) => s.sid)
+  const busy = useViewChat((s) => s.busy), gone = useViewChat((s) => s.gone ?? null)
+  if (sid === null || typeof next.move !== 'string' || next.move === '' || gone === moveKey(sid, turn, next.move)) return null
+  return (
+    <div><Button size="sm" variant="secondary" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{next.label}</Button></div>
+  )
 }
 
 /** core's four challenges (API `POST …/challenge` `kind`), by the press's chip id. */
@@ -450,7 +487,7 @@ export function ViewChat() {
         {view === null ? null : <NextStepCard view={view} busy={busy} />}
         {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
         <div {...{ [VIEW_NOTE_SLOT]: '' }} />
-        {view === null ? null : <ViewConversation chat={view.chat} />}
+        {view === null ? null : <ViewConversation chat={view.chat} moves />}
       </div>
     </div>
   )
