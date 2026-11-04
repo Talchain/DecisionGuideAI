@@ -139,7 +139,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       {card.badge === null ? null : <p className={selected ? '' : 'invisible group-hover:visible'} data-at-rest-hidden=""><Badge cardId={id} badge={card.badge} at={id} /></p>}
       {/* An option the team committed to (olumi.view/3 `committed`, the newest commitment naming it): who, in the marks row; when, on hover. */}
       <span data-slot={VIEW_CARD_SLOTS.marks} className="flex gap-1 empty:hidden">
-        {card.committed == null ? null : <span className="text-text-light" title={`Committed by ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}
+        {card.committed == null ? null : <span className="text-text-light" title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}
       </span>
       <Slot name={VIEW_CARD_SLOTS.olumiBadge} className="absolute bottom-1 right-1 empty:hidden" />
       {more ? (
