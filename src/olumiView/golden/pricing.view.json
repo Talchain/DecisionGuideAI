@@ -58,7 +58,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "cups_now",
@@ -90,7 +91,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "rise_switched_on",
@@ -122,7 +124,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "profit",
@@ -188,7 +191,8 @@
       "olumi": false
      }
     ],
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "profit_target",
@@ -220,7 +224,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "profit_goal",
@@ -250,7 +255,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "raise_price",
@@ -294,6 +300,19 @@
        "text": "between £6,190 and £7,820/month (middle £6,990)",
        "title": "If Olumi's estimates hold, under 'Raise the price by 45p', 'profit' is likely to be in this range (8 draws in 10). It rests on Olumi's what-if ranges for 'cups change'."
       },
+      "text": "If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [
+        "cups_change"
+       ],
+       "estimates": [
+        "cups_change"
+       ],
+       "approx": []
+      },
+      "rests_on_text": "It rests on Olumi's what-if ranges for 'cups change'.",
       "estimate": null
      }
     ],
@@ -310,7 +329,9 @@
     "badge": null,
     "values": null,
     "rests_on": [],
-    "committed": null
+    "committed": null,
+    "failed": [],
+    "failed_reason": null
    },
    {
     "id": "carry_on",
@@ -348,6 +369,14 @@
        "text": "£6,200/month",
        "title": "Under 'Keep the price', 'profit' is this in at least 8 draws in 10."
       },
+      "text": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [],
+       "approx": []
+      },
       "estimate": null
      }
     ],
@@ -358,7 +387,9 @@
     "badge": null,
     "values": null,
     "rests_on": [],
-    "committed": null
+    "committed": null,
+    "failed": [],
+    "failed_reason": null
    }
   ],
   "links": [
@@ -451,6 +482,17 @@
    "most_likely": {
     "text": "If Olumi's estimates hold, 'Raise the price by 45p' is more likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'); it rests on Olumi's estimate of 'cups change' — give yours with ✎.",
     "title": "If Olumi's estimates hold, 'Raise the price by 45p' is more likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'); it rests on Olumi's estimate of 'cups change' — give yours with ✎.",
+    "rests_on": {
+     "reading": false,
+     "target": false,
+     "what_ifs": [
+      "cups_change"
+     ],
+     "estimates": [
+      "cups_change"
+     ],
+     "approx": []
+    },
     "estimate": "cups_change"
    },
    "waits_on": null,
@@ -469,108 +511,139 @@
   "edit_base": 1,
   "key": [
    {
+    "id": "olumi",
     "glyph": "◆",
     "text": "Olumi"
    },
    {
+    "id": "partly_olumi",
     "glyph": "◐",
     "text": "partly Olumi"
    },
    {
+    "id": "approximate",
     "glyph": "≈",
     "text": "approximate"
    },
    {
+    "id": "assumption",
     "glyph": "◇",
     "text": "assumption"
    },
    {
+    "id": "dissent",
     "glyph": "⚑",
     "text": "dissent"
    },
    {
+    "id": "challenge",
     "glyph": "!",
     "text": "challenge"
    },
    {
+    "id": "focus",
     "glyph": "◎",
     "text": "focus"
    },
    {
+    "id": "option",
     "glyph": "▣",
     "text": "option"
    },
    {
+    "id": "figure",
     "glyph": "●",
     "text": "figure"
    },
    {
+    "id": "aim",
     "glyph": "★",
     "text": "aim"
    },
    {
+    "id": "limit",
     "glyph": "□",
     "text": "limit"
    },
    {
+    "id": "risk",
     "glyph": "△",
     "text": "risk"
    },
    {
+    "id": "claim",
     "glyph": "❝",
     "text": "claim"
    },
    {
+    "id": "evidence",
     "glyph": "✓",
     "text": "evidence"
    },
    {
+    "id": "prerequisite",
     "glyph": "⊢",
     "text": "prerequisite"
    },
    {
+    "id": "outside_model",
     "glyph": "○",
     "text": "outside the model"
    },
    {
+    "id": "worked_out",
     "glyph": "=",
     "text": "worked out"
    },
    {
+    "id": "unsized",
     "glyph": "?",
     "text": "unsized"
    },
    {
+    "id": "cannot_work_out",
     "glyph": "⊘",
     "text": "cannot be worked out"
    },
    {
+    "id": "swing",
     "glyph": "├─┤",
     "text": "swing"
    },
    {
+    "id": "most_likely",
     "glyph": "◉",
     "text": "most likely"
    },
    {
+    "id": "works_toward",
     "glyph": "↗",
     "text": "works toward"
    },
    {
+    "id": "works_against",
     "glyph": "↘",
     "text": "works against"
    },
    {
+    "id": "both_ways",
     "glyph": "⇅",
     "text": "both ways"
    },
    {
+    "id": "added",
     "glyph": "+",
     "text": "added"
    },
    {
+    "id": "changed",
     "glyph": "↻",
     "text": "changed"
+   },
+   {
+    "id": "blue_range",
+    "glyph": "▬",
+    "text": "blue range: rests on a figure Olumi proposed"
    }
   ],
   "removed": [],

@@ -1,7 +1,6 @@
 /**
- * STAND-IN for core's Analysis-wall change (DL 4 Nov, R3, approved shape; github-3c builds core's side after the R2 serve). Not yet in
- * the vendored View: every field here is optional and read through this one file, so the re-vendor is a one-file change (types.ts then
- * carries them, and this file reads them as given).
+ * CORE'S ANALYSIS-WALL FIELDS (DL 4 Nov, R3; core wip/r3-analysis-wall 550ad5f, olumi.view/3, additive): read through this one file.
+ * Every field is optional, so a View without them draws as before.
  *
  * On olumi.view/3 each chance fact keeps at most two sentences in its `text` (the finding and its uncertainty); what it rests on moves to
  * a structured `rests_on` and core's own one line, `rests_on_text`. Carried on each chance row (`model.cards[].rows[]`, kind 'chance')
@@ -13,21 +12,17 @@ import type { ViewModel, ViewRow, ViewRun } from './client'
 export type RestsOnBasis = { readonly reading: boolean; readonly target: boolean; readonly what_ifs: readonly string[]; readonly estimates: readonly string[]; readonly approx: readonly string[] }
 export type Finding = { readonly text: string | null; readonly rests_on: RestsOnBasis | null; readonly rests_on_text: string | null }
 
-type Carried = { text?: unknown; rests_on?: unknown; rests_on_text?: unknown }
-const basisOf = (b: unknown): RestsOnBasis | null => (b !== null && typeof b === 'object' && Array.isArray((b as RestsOnBasis).what_ifs) ? b as RestsOnBasis : null)
-const strOf = (s: unknown): string | null => (typeof s === 'string' && s !== '' ? s : null)
+const strOf = (s: string | undefined): string | null => (s === undefined || s === '' ? null : s)
 
 /** A chance row's finding as core gives it (absent on a core before the change: all null, and the row draws as before). */
 export function findingOf(row: ViewRow): Finding {
   if (row.kind !== 'chance') return { text: null, rests_on: null, rests_on_text: null }
-  const r = row as ViewRow & Carried
-  return { text: strOf(r.text), rests_on: basisOf(r.rests_on), rests_on_text: strOf(r.rests_on_text) }
+  return { text: strOf(row.text), rests_on: row.rests_on ?? null, rests_on_text: strOf(row.rests_on_text) }
 }
 
 /** The most likely line's basis, as core gives it (its `text` is the line itself, already drawn). */
 export function mostLikelyBasisOf(ml: NonNullable<ViewRun['most_likely']>): Pick<Finding, 'rests_on' | 'rests_on_text'> {
-  const m = ml as typeof ml & Carried
-  return { rests_on: basisOf(m.rests_on), rests_on_text: strOf(m.rests_on_text) }
+  return { rests_on: ml.rests_on ?? null, rests_on_text: strOf(ml.rests_on_text) }
 }
 
 /** Every record id the Run's findings rest on (what-ifs, estimates, approximations), in the View's order of first mention. */

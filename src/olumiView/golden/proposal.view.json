@@ -68,7 +68,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "per_specialist",
@@ -101,7 +102,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "one_specialist",
@@ -130,7 +132,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "total_capacity",
@@ -194,7 +197,8 @@
       "olumi": false
      }
     ],
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "capacity_target",
@@ -223,7 +227,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "capacity_goal",
@@ -253,7 +258,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "hold",
@@ -291,6 +297,14 @@
        "text": "80 tickets/week",
        "title": "Under 'Keep current staffing', 'total capacity' at the end of the window is this in at least 8 draws in 10. It leaves out: How the team feels about a new hire."
       },
+      "text": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [],
+       "approx": []
+      },
       "estimate": null
      }
     ],
@@ -301,7 +315,9 @@
     "badge": null,
     "values": null,
     "rests_on": [],
-    "committed": null
+    "committed": null,
+    "failed": [],
+    "failed_reason": null
    },
    {
     "id": "add_one",
@@ -342,6 +358,14 @@
        "text": "between 94.7 and 115 tickets/week (middle 105)",
        "title": "Under 'Add one specialist', 'total capacity' at the end of the window is likely to be in this range (8 draws in 10). It leaves out: How the team feels about a new hire."
       },
+      "text": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [],
+       "approx": []
+      },
       "estimate": null
      }
     ],
@@ -369,7 +393,9 @@
     },
     "values": null,
     "rests_on": [],
-    "committed": null
+    "committed": null,
+    "failed": [],
+    "failed_reason": null
    },
    {
     "id": "deadline",
@@ -398,7 +424,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "start_delay",
@@ -431,7 +458,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    }
   ],
   "links": [
@@ -509,6 +537,13 @@
    "most_likely": {
     "text": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%, against under 1% for 'Keep current staffing').",
     "title": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%, against under 1% for 'Keep current staffing'). It leaves out: How the team feels about a new hire.",
+    "rests_on": {
+     "reading": false,
+     "target": false,
+     "what_ifs": [],
+     "estimates": [],
+     "approx": []
+    },
     "estimate": null
    },
    "waits_on": null,
@@ -527,106 +562,132 @@
   "edit_base": null,
   "key": [
    {
+    "id": "olumi",
     "glyph": "◆",
     "text": "Olumi"
    },
    {
+    "id": "partly_olumi",
     "glyph": "◐",
     "text": "partly Olumi"
    },
    {
+    "id": "approximate",
     "glyph": "≈",
     "text": "approximate"
    },
    {
+    "id": "assumption",
     "glyph": "◇",
     "text": "assumption"
    },
    {
+    "id": "dissent",
     "glyph": "⚑",
     "text": "dissent"
    },
    {
+    "id": "challenge",
     "glyph": "!",
     "text": "challenge"
    },
    {
+    "id": "focus",
     "glyph": "◎",
     "text": "focus"
    },
    {
+    "id": "option",
     "glyph": "▣",
     "text": "option"
    },
    {
+    "id": "figure",
     "glyph": "●",
     "text": "figure"
    },
    {
+    "id": "aim",
     "glyph": "★",
     "text": "aim"
    },
    {
+    "id": "limit",
     "glyph": "□",
     "text": "limit"
    },
    {
+    "id": "risk",
     "glyph": "△",
     "text": "risk"
    },
    {
+    "id": "claim",
     "glyph": "❝",
     "text": "claim"
    },
    {
+    "id": "evidence",
     "glyph": "✓",
     "text": "evidence"
    },
    {
+    "id": "prerequisite",
     "glyph": "⊢",
     "text": "prerequisite"
    },
    {
+    "id": "outside_model",
     "glyph": "○",
     "text": "outside the model"
    },
    {
+    "id": "worked_out",
     "glyph": "=",
     "text": "worked out"
    },
    {
+    "id": "unsized",
     "glyph": "?",
     "text": "unsized"
    },
    {
+    "id": "cannot_work_out",
     "glyph": "⊘",
     "text": "cannot be worked out"
    },
    {
+    "id": "swing",
     "glyph": "├─┤",
     "text": "swing"
    },
    {
+    "id": "most_likely",
     "glyph": "◉",
     "text": "most likely"
    },
    {
+    "id": "works_toward",
     "glyph": "↗",
     "text": "works toward"
    },
    {
+    "id": "works_against",
     "glyph": "↘",
     "text": "works against"
    },
    {
+    "id": "both_ways",
     "glyph": "⇅",
     "text": "both ways"
    },
    {
+    "id": "added",
     "glyph": "+",
     "text": "added"
    },
    {
+    "id": "changed",
     "glyph": "↻",
     "text": "changed"
    }
@@ -815,7 +876,9 @@
      "at": null,
      "newest": false,
      "move": "gather_evidence"
-    }
+    },
+    "stories": [],
+    "stories_heading": null
    },
    "broke": null,
    "problem": null,
@@ -847,7 +910,9 @@
      "at": null,
      "newest": true,
      "move": "gather_evidence"
-    }
+    },
+    "stories": [],
+    "stories_heading": null
    },
    "broke": null,
    "problem": null,

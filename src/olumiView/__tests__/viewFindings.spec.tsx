@@ -15,7 +15,12 @@ import { restsOnOf } from '../layout'
 import { ViewChances } from '../ViewChances'
 import { ViewBriefBody } from '../ViewBrief'
 
-const golden: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))
+const raw: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))
+// The golden without core's Analysis-wall fields (as a core before 550ad5f serves it): the base for the hand-written fixture and the
+// must-not-change rows.
+const strip = <T extends object>(o: T): T => { const { text: _t, rests_on: _r, rests_on_text: _x, ...rest } = o as T & { text?: unknown; rests_on?: unknown; rests_on_text?: unknown }; return rest as T }
+const golden: View = { ...raw, model: { ...raw.model!, cards: raw.model!.cards.map((c) => ({ ...c, rows: c.rows.map((r) => (r.kind === 'chance' ? strip(r) : r)) as typeof c.rows })),
+  run: { ...raw.model!.run!, most_likely: (({ rests_on: _r, rests_on_text: _x, ...ml }) => ml)(raw.model!.run!.most_likely!) } } }
 afterEach(cleanup)
 
 const basis = { reading: true, target: false, what_ifs: ['repair_chance'], estimates: ['extra_sold_per_oven'], approx: ['oven_repair'] }
@@ -67,6 +72,32 @@ describe('each option\'s finding, not the wall', () => {
       expect(all.includes(row.title), `${card.id}: the wall is not drawn as text`).toBe(false)
     }
     expect(c.querySelector('[data-testid="view-brief-most-likely"]')?.getAttribute('title')).toBe('Rests on Olumi\'s reading of the aim.')
+  })
+  it('core\'s own output (550ad5f) on every golden: each chance row\'s finding at most two sentences, drawn verbatim; each rests_on_text its hover, never on screen; every basis id on the lens', () => {
+    let rows = 0
+    for (const g of ['app-launch', 'bakery', 'european', 'pricing', 'proposal', 's_ce285b3617bb', 'studio']) {
+      const m = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${g}.view.json`), 'utf8')) as View).model!
+      const c = render(<ViewChances model={m} />).container, all = c.textContent ?? ''
+      const { items } = restsOnOf(m)
+      for (const card of m.cards) card.rows.forEach((r, i) => {
+        if (r.kind !== 'chance' || r.text === undefined) return
+        rows += 1
+        expect(r.text.match(/[.!?](\s|$)/g)?.length ?? 0, `${g} ${card.id}: sentences`).toBeLessThanOrEqual(2)
+        expect(c.querySelector(`[data-view="${card.id}.rows.${i}.text"]`)?.textContent, `${g} ${card.id}`).toBe(r.text)
+        if (r.rests_on_text !== undefined) {
+          expect(c.querySelector(`[data-view-hover="${card.id}.rows.${i}.rests_on_text"]`)?.getAttribute('title'), `${g} ${card.id}`).toBe(r.rests_on_text)
+          expect(all.includes(r.rests_on_text), `${g} ${card.id}: basis not on screen`).toBe(false)
+        }
+        for (const id of [...(r.rests_on?.what_ifs ?? []), ...(r.rests_on?.estimates ?? []), ...(r.rests_on?.approx ?? [])]) {
+          const on = m.cards.find((k) => k.id === id) ?? m.cards.find((k) => k.badge?.records.includes(id))
+          if (on !== undefined) expect(items.has(on.id), `${g} ${card.id}: ${id} marked`).toBe(true)
+        }
+      })
+      const ml = m.run?.most_likely
+      if (ml?.rests_on_text !== undefined) expect(c.querySelector('[data-view-hover="run.most_likely.rests_on_text"]')?.getAttribute('title'), `${g}: most likely basis as hover`).toBe(ml.rests_on_text)
+      cleanup()
+    }
+    expect(rows, 'core\'s goldens carry the fields').toBeGreaterThan(0)
   })
   it('must not change: a View without the stand-in draws exactly as before (no finding, no footnote)', () => {
     const c = render(<ViewChances model={golden.model!} />).container

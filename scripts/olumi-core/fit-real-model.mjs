@@ -99,7 +99,11 @@ await page.keyboard.press('Escape')
 await page.getByTestId('lens-bar-rests_on').click()
 await page.waitForFunction(() => document.querySelectorAll('[data-rests-on]').length > 0, null, { timeout: 5000 })
 const marks = await page.evaluate(() => ({ all: document.querySelectorAll('[data-rests-on]').length, olumi: document.querySelectorAll('[data-rests-on-olumi]').length, dim: [...document.querySelectorAll('.react-flow__node')].filter((n) => parseFloat(getComputedStyle(n).opacity) < 1).length }))
-const settable = golden.model.cards.filter((c) => (c.figure?.edit ?? null) !== null || c.family === 'assumption' || c.family === 'condition')
+// The lens marks every figure a person sets, every assumption and condition, and (core 550ad5f, the R3 Analysis wall) every card a Run
+// finding rests on: the ids in each chance row's and the most likely line's `rests_on`, on the card with that id or whose badge folds it.
+const basis = [...golden.model.cards.flatMap((c) => c.rows.flatMap((r) => (r.kind === 'chance' && r.rests_on ? [...r.rests_on.what_ifs, ...r.rests_on.estimates, ...r.rests_on.approx] : []))),
+  ...(golden.model.run?.most_likely?.rests_on ? [...golden.model.run.most_likely.rests_on.what_ifs, ...golden.model.run.most_likely.rests_on.estimates, ...golden.model.run.most_likely.rests_on.approx] : [])]
+const settable = golden.model.cards.filter((c) => (c.figure?.edit ?? null) !== null || c.family === 'assumption' || c.family === 'condition' || basis.includes(c.id) || c.badge?.records.some((r) => basis.includes(r)))
 check(marks.all === settable.length && marks.olumi === settable.filter((c) => c.olumi !== null).length && marks.dim === 0, `Rests on: ${marks.all} cards numbered, ${marks.olumi} of them Olumi's in blue, none dimmed`)
 if (SHOT) await page.screenshot({ path: SHOT.replace(/\.png$/, '-rests-on.png') })
 // What would change: the figure the options' chances move most with is marked on the card that draws it, with how many options it moves.

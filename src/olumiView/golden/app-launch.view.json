@@ -69,7 +69,8 @@
      "change": ""
     },
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "negative_reviews",
@@ -110,7 +111,8 @@
      "change": ""
     },
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "boss_discussion",
@@ -154,7 +156,8 @@
      "change": ""
     },
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "protect_user_trust",
@@ -196,7 +199,8 @@
      "change": ""
     },
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "readiness_margin",
@@ -249,7 +253,8 @@
      "change": ""
     },
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "zero_schedule_shortfall",
@@ -284,7 +289,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "allow_readiness_work",
@@ -330,7 +336,8 @@
      "change": ""
     },
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "option_scheduled",
@@ -396,7 +403,9 @@
     },
     "values": null,
     "rests_on": [],
-    "committed": null
+    "committed": null,
+    "failed": [],
+    "failed_reason": null
    },
    {
     "id": "delayed_release_offset",
@@ -431,7 +440,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "option_delay",
@@ -507,7 +517,9 @@
     },
     "values": null,
     "rests_on": [],
-    "committed": null
+    "committed": null,
+    "failed": [],
+    "failed_reason": null
    },
    {
     "id": "schedule_assumptions",
@@ -535,7 +547,8 @@
     "reason": "For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "option_isolate",
@@ -610,13 +623,15 @@
     },
     "values": null,
     "rests_on": [],
-    "committed": null
+    "committed": null,
+    "failed": [],
+    "failed_reason": null
    },
    {
     "id": "isolation_readiness_link",
     "family": "relation",
     "glyph": "↝",
-    "heading": "relation",
+    "heading": "Isolation readiness link",
     "typed": true,
     "detail": "Explore shipping without the affected sync path → Time to complete repair and validation · relation · Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change.",
     "col": 0,
@@ -648,7 +663,8 @@
      "change": ""
     },
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    }
   ],
   "links": [
@@ -874,106 +890,132 @@
   "edit_base": 1,
   "key": [
    {
+    "id": "olumi",
     "glyph": "◆",
     "text": "Olumi"
    },
    {
+    "id": "partly_olumi",
     "glyph": "◐",
     "text": "partly Olumi"
    },
    {
+    "id": "approximate",
     "glyph": "≈",
     "text": "approximate"
    },
    {
+    "id": "assumption",
     "glyph": "◇",
     "text": "assumption"
    },
    {
+    "id": "dissent",
     "glyph": "⚑",
     "text": "dissent"
    },
    {
+    "id": "challenge",
     "glyph": "!",
     "text": "challenge"
    },
    {
+    "id": "focus",
     "glyph": "◎",
     "text": "focus"
    },
    {
+    "id": "option",
     "glyph": "▣",
     "text": "option"
    },
    {
+    "id": "figure",
     "glyph": "●",
     "text": "figure"
    },
    {
+    "id": "aim",
     "glyph": "★",
     "text": "aim"
    },
    {
+    "id": "limit",
     "glyph": "□",
     "text": "limit"
    },
    {
+    "id": "risk",
     "glyph": "△",
     "text": "risk"
    },
    {
+    "id": "claim",
     "glyph": "❝",
     "text": "claim"
    },
    {
+    "id": "evidence",
     "glyph": "✓",
     "text": "evidence"
    },
    {
+    "id": "prerequisite",
     "glyph": "⊢",
     "text": "prerequisite"
    },
    {
+    "id": "outside_model",
     "glyph": "○",
     "text": "outside the model"
    },
    {
+    "id": "worked_out",
     "glyph": "=",
     "text": "worked out"
    },
    {
+    "id": "unsized",
     "glyph": "?",
     "text": "unsized"
    },
    {
+    "id": "cannot_work_out",
     "glyph": "⊘",
     "text": "cannot be worked out"
    },
    {
+    "id": "swing",
     "glyph": "├─┤",
     "text": "swing"
    },
    {
+    "id": "most_likely",
     "glyph": "◉",
     "text": "most likely"
    },
    {
+    "id": "works_toward",
     "glyph": "↗",
     "text": "works toward"
    },
    {
+    "id": "works_against",
     "glyph": "↘",
     "text": "works against"
    },
    {
+    "id": "both_ways",
     "glyph": "⇅",
     "text": "both ways"
    },
    {
+    "id": "added",
     "glyph": "+",
     "text": "added"
    },
    {
+    "id": "changed",
     "glyph": "↻",
     "text": "changed"
    }

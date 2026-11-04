@@ -58,7 +58,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "target_firm_deal_size",
@@ -100,7 +101,8 @@
      "change": ""
     },
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "opening_cash",
@@ -142,7 +144,8 @@
      "change": ""
     },
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "reported_cash_and_spend_basis",
@@ -170,7 +173,8 @@
     "reason": "Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment.",
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "monthly_burn",
@@ -215,7 +219,8 @@
      "change": ""
     },
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "bridge_capacity_retained",
@@ -250,7 +255,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "bridge_angel_opportunities",
@@ -285,7 +291,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "deferred_spend_burn_retained",
@@ -320,7 +327,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "net_funding",
@@ -407,7 +415,8 @@
       "olumi": true
      }
     ],
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "end_cash_margin",
@@ -481,7 +490,8 @@
       "olumi": true
      }
     ],
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "secure_funding",
@@ -527,7 +537,8 @@
      "change": ""
     },
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "pipeline_approximation",
@@ -565,7 +576,8 @@
      "change": ""
     },
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "window_accounting",
@@ -593,7 +605,8 @@
     "reason": "Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date.",
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "cash_survival",
@@ -641,7 +654,8 @@
      "change": ""
     },
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "continue_outreach",
@@ -743,7 +757,9 @@
       "whose": "olumi"
      }
     ],
-    "committed": null
+    "committed": null,
+    "failed": [],
+    "failed_reason": null
    },
    {
     "id": "add_angel_bridge",
@@ -863,13 +879,15 @@
       "whose": "olumi"
      }
     ],
-    "committed": null
+    "committed": null,
+    "failed": [],
+    "failed_reason": null
    },
    {
     "id": "bridge_terms_compatibility",
     "family": "condition",
     "glyph": "⊢",
-    "heading": "prerequisite",
+    "heading": "Bridge terms compatibility",
     "typed": true,
     "detail": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. · prerequisite · Proposed by Olumi: A bridge can introduce follow-on financing friction. Terms and existing agreements are unavailable, so this remains a prerequisite rather than a sized cash effect.",
     "col": 0,
@@ -891,7 +909,8 @@
     "reason": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations.",
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "bridge_and_spend_deferral",
@@ -1011,7 +1030,9 @@
       "whose": "olumi"
      }
     ],
-    "committed": null
+    "committed": null,
+    "failed": [],
+    "failed_reason": null
    },
    {
     "id": "deferral_feasibility",
@@ -1039,7 +1060,8 @@
     "reason": "Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window.",
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    }
   ],
   "links": [
@@ -1425,108 +1447,139 @@
   "edit_base": 15,
   "key": [
    {
+    "id": "olumi",
     "glyph": "◆",
     "text": "Olumi"
    },
    {
+    "id": "partly_olumi",
     "glyph": "◐",
     "text": "partly Olumi"
    },
    {
+    "id": "approximate",
     "glyph": "≈",
     "text": "approximate"
    },
    {
+    "id": "assumption",
     "glyph": "◇",
     "text": "assumption"
    },
    {
+    "id": "dissent",
     "glyph": "⚑",
     "text": "dissent"
    },
    {
+    "id": "challenge",
     "glyph": "!",
     "text": "challenge"
    },
    {
+    "id": "focus",
     "glyph": "◎",
     "text": "focus"
    },
    {
+    "id": "option",
     "glyph": "▣",
     "text": "option"
    },
    {
+    "id": "figure",
     "glyph": "●",
     "text": "figure"
    },
    {
+    "id": "aim",
     "glyph": "★",
     "text": "aim"
    },
    {
+    "id": "limit",
     "glyph": "□",
     "text": "limit"
    },
    {
+    "id": "risk",
     "glyph": "△",
     "text": "risk"
    },
    {
+    "id": "claim",
     "glyph": "❝",
     "text": "claim"
    },
    {
+    "id": "evidence",
     "glyph": "✓",
     "text": "evidence"
    },
    {
+    "id": "prerequisite",
     "glyph": "⊢",
     "text": "prerequisite"
    },
    {
+    "id": "outside_model",
     "glyph": "○",
     "text": "outside the model"
    },
    {
+    "id": "worked_out",
     "glyph": "=",
     "text": "worked out"
    },
    {
+    "id": "unsized",
     "glyph": "?",
     "text": "unsized"
    },
    {
+    "id": "cannot_work_out",
     "glyph": "⊘",
     "text": "cannot be worked out"
    },
    {
+    "id": "swing",
     "glyph": "├─┤",
     "text": "swing"
    },
    {
+    "id": "most_likely",
     "glyph": "◉",
     "text": "most likely"
    },
    {
+    "id": "works_toward",
     "glyph": "↗",
     "text": "works toward"
    },
    {
+    "id": "works_against",
     "glyph": "↘",
     "text": "works against"
    },
    {
+    "id": "both_ways",
     "glyph": "⇅",
     "text": "both ways"
    },
    {
+    "id": "added",
     "glyph": "+",
     "text": "added"
    },
    {
+    "id": "changed",
     "glyph": "↻",
     "text": "changed"
+   },
+   {
+    "id": "blue_range",
+    "glyph": "▬",
+    "text": "blue range: rests on a figure Olumi proposed"
    }
   ],
   "removed": [],
@@ -1832,7 +1885,9 @@
      "at": "receipt_timing_gap",
      "newest": false,
      "move": "gather_evidence"
-    }
+    },
+    "stories": [],
+    "stories_heading": null
    },
    "broke": null,
    "problem": null,
@@ -1874,7 +1929,9 @@
      "at": "reported_cash_and_spend_basis",
      "newest": true,
      "move": "gather_evidence"
-    }
+    },
+    "stories": [],
+    "stories_heading": null
    },
    "broke": null,
    "problem": null,

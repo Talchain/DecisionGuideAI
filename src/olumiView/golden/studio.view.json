@@ -58,7 +58,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "classes_now",
@@ -90,7 +91,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "evening_extra",
@@ -122,7 +124,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "workshop_extra",
@@ -157,7 +160,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "takings",
@@ -230,7 +234,8 @@
       "olumi": false
      }
     ],
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "takings_target",
@@ -262,7 +267,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "members",
@@ -294,7 +300,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "members_target",
@@ -326,7 +333,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "member_mood",
@@ -361,13 +369,14 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "mood_members",
     "family": "relation",
     "glyph": "↝",
-    "heading": "relation",
+    "heading": "Mood members",
     "typed": true,
     "detail": "How members feel → members · relation · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link.",
     "col": 1,
@@ -400,7 +409,8 @@
      "change": ""
     },
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "takings_goal",
@@ -430,7 +440,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "keep_members",
@@ -460,7 +471,8 @@
     "reason": null,
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "evening_classes",
@@ -507,6 +519,14 @@
        "text": "between £2,640 and £2,880/month (middle £2,760)",
        "title": "Under 'Evening classes', 'takings' is likely to be in this range (8 draws in 10)."
       },
+      "text": "The chance that 'Evening classes' meets 'Take £2,640 a month', in this model on current information.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [],
+       "approx": []
+      },
       "estimate": null
      }
     ],
@@ -523,13 +543,15 @@
     "badge": null,
     "values": null,
     "rests_on": [],
-    "committed": null
+    "committed": null,
+    "failed": [],
+    "failed_reason": null
    },
    {
     "id": "evening_mood",
     "family": "relation",
     "glyph": "↝",
-    "heading": "relation",
+    "heading": "Evening mood",
     "typed": true,
     "detail": "Evening classes → How members feel · relation · Theirs: “Members have asked for evening slots”",
     "col": 0,
@@ -548,7 +570,8 @@
     "reason": "Evening classes → How members feel",
     "badge": null,
     "values": null,
-    "rests_on": []
+    "rests_on": [],
+    "failed": []
    },
    {
     "id": "weekend_workshops",
@@ -598,6 +621,17 @@
        "text": "£2,580/month",
        "title": "If Olumi's estimates hold, under 'Weekend workshops', 'takings' is this in at least 8 draws in 10. It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them."
       },
+      "text": "With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [
+        "workshop_extra"
+       ],
+       "approx": []
+      },
+      "rests_on_text": "It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them.",
       "estimate": null
      }
     ],
@@ -608,7 +642,9 @@
     "badge": null,
     "values": null,
     "rests_on": [],
-    "committed": null
+    "committed": null,
+    "failed": [],
+    "failed_reason": null
    },
    {
     "id": "carry_on",
@@ -652,6 +688,14 @@
        "text": "£2,400/month",
        "title": "Under 'Carry on as now', 'takings' is this in at least 8 draws in 10."
       },
+      "text": "With the model's figures, 'Carry on as now' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [],
+       "approx": []
+      },
       "estimate": null
      }
     ],
@@ -662,7 +706,9 @@
     "badge": null,
     "values": null,
     "rests_on": [],
-    "committed": null
+    "committed": null,
+    "failed": [],
+    "failed_reason": null
    }
   ],
   "links": [
@@ -861,6 +907,15 @@
    "most_likely": {
     "text": "If Olumi's estimates hold, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎.",
     "title": "If Olumi's estimates hold, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎.",
+    "rests_on": {
+     "reading": false,
+     "target": false,
+     "what_ifs": [],
+     "estimates": [
+      "workshop_extra"
+     ],
+     "approx": []
+    },
     "estimate": "workshop_extra"
    },
    "waits_on": {
@@ -907,108 +962,139 @@
   "edit_base": 1,
   "key": [
    {
+    "id": "olumi",
     "glyph": "◆",
     "text": "Olumi"
    },
    {
+    "id": "partly_olumi",
     "glyph": "◐",
     "text": "partly Olumi"
    },
    {
+    "id": "approximate",
     "glyph": "≈",
     "text": "approximate"
    },
    {
+    "id": "assumption",
     "glyph": "◇",
     "text": "assumption"
    },
    {
+    "id": "dissent",
     "glyph": "⚑",
     "text": "dissent"
    },
    {
+    "id": "challenge",
     "glyph": "!",
     "text": "challenge"
    },
    {
+    "id": "focus",
     "glyph": "◎",
     "text": "focus"
    },
    {
+    "id": "option",
     "glyph": "▣",
     "text": "option"
    },
    {
+    "id": "figure",
     "glyph": "●",
     "text": "figure"
    },
    {
+    "id": "aim",
     "glyph": "★",
     "text": "aim"
    },
    {
+    "id": "limit",
     "glyph": "□",
     "text": "limit"
    },
    {
+    "id": "risk",
     "glyph": "△",
     "text": "risk"
    },
    {
+    "id": "claim",
     "glyph": "❝",
     "text": "claim"
    },
    {
+    "id": "evidence",
     "glyph": "✓",
     "text": "evidence"
    },
    {
+    "id": "prerequisite",
     "glyph": "⊢",
     "text": "prerequisite"
    },
    {
+    "id": "outside_model",
     "glyph": "○",
     "text": "outside the model"
    },
    {
+    "id": "worked_out",
     "glyph": "=",
     "text": "worked out"
    },
    {
+    "id": "unsized",
     "glyph": "?",
     "text": "unsized"
    },
    {
+    "id": "cannot_work_out",
     "glyph": "⊘",
     "text": "cannot be worked out"
    },
    {
+    "id": "swing",
     "glyph": "├─┤",
     "text": "swing"
    },
    {
+    "id": "most_likely",
     "glyph": "◉",
     "text": "most likely"
    },
    {
+    "id": "works_toward",
     "glyph": "↗",
     "text": "works toward"
    },
    {
+    "id": "works_against",
     "glyph": "↘",
     "text": "works against"
    },
    {
+    "id": "both_ways",
     "glyph": "⇅",
     "text": "both ways"
    },
    {
+    "id": "added",
     "glyph": "+",
     "text": "added"
    },
    {
+    "id": "changed",
     "glyph": "↻",
     "text": "changed"
+   },
+   {
+    "id": "blue_range",
+    "glyph": "▬",
+    "text": "blue range: rests on a figure Olumi proposed"
    }
   ],
   "removed": [],
