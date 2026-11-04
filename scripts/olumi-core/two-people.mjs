@@ -155,8 +155,8 @@ check(!(await ada.page.getByText('Untitled scenario').first().isVisible().catch(
 for (const c of v.model.cards.slice(0, 4)) check(await ada.page.locator(`.react-flow__node-viewCard >> text=${c.heading}`).first().isVisible(), `card "${c.heading}" in core's words`)
 // No dead controls (Paul's W4 rule): what the lane cannot serve is not on the page at all, not shown dark.
 for (const gone of ['analysisNew', 'diagnostics']) check(await ada.page.getByTestId(`outputs-dock-tab-${gone}`).count() === 0, `no ${gone === 'analysisNew' ? 'Reasoning' : 'Model'} tab`)
-// The lenses are back on from the View (DL 4 Nov): the bar offers only those the View fills, Model and Rests on, never a dead one.
-check(JSON.stringify(await ada.page.getByTestId('lens-bar').getByRole('radio').evaluateAll((bs) => bs.map((b) => b.getAttribute('data-testid')))) === JSON.stringify(['lens-bar-full', 'lens-bar-rests_on']), 'the lens bar offers Model and Rests on, and no lens the View cannot fill')
+// The lenses are back on from the View (DL 4 Nov): the bar offers only those the View fills, never a dead one.
+check(JSON.stringify(await ada.page.getByTestId('lens-bar').getByRole('radio').evaluateAll((bs) => bs.map((b) => b.getAttribute('data-testid')))) === JSON.stringify(['lens-bar-full', 'lens-bar-rests_on', 'lens-bar-what_changes']), 'the lens bar offers Model, Rests on and What would change, and no lens the View cannot fill')
 // Compare is core's own comparison of two approved versions (src/olumiCore/compare.tsx), so it is there.
 for (const kept of ['olumi', 'results', 'team', 'compare']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
 // G6: Olumi's next step, beside the one card core names, in core's words.

@@ -39,6 +39,9 @@ export const GRAPH_WRITE_REGISTRY: GraphWriteRegistryEntry[] = [
   // store.ts:4105/4267 and use revertStructuralDelete on refusal.
   { file: 'src/canvas/ReactFlowGraph.tsx', mutators: ['hydrateGraphSlice', 'loadScenario'], class: 'reply_apply' },
   { file: 'src/canvas/ReactFlowGraph.tsx', mutators: ['onNodesChange', 'onEdgesChange', 'applyLayout'], class: 'layout' },
+  // The core lane's own canvas (olumiView/ViewCanvas.tsx): a View card moved, measured or selected. Delete is off there, and core's
+  // model is never written from the canvas (every change goes to core as a proposal), so it is layout only.
+  { file: 'src/olumiView/ViewCanvas.tsx', mutators: ['onNodesChange'], class: 'layout' },
   { file: 'src/canvas/ReactFlowGraph.tsx', mutators: ['onNodesChange', 'onEdgesChange'], class: 'optimistic', revert: 'revertStructuralDelete' },
   { file: 'src/canvas/useKeyboardShortcuts.ts', mutators: ['nudgeSelected'], class: 'layout' },
   { file: 'src/canvas/hooks/useMeasureThenLayout.ts', mutators: ['applyLayout'], class: 'layout' },
