@@ -37,8 +37,10 @@ import { drawnHeightsKey, headOf, measuredOf, QUESTION, viewDrawnNodes } from '.
 import { useViewStore } from './store'
 import { ViewLensBar } from './ViewLensBar'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
+import { useV10Lane, ViewCardV10 } from './v10'
 
-const nodeTypes = { [VIEW_CARD]: ViewCardNode, [VIEW_QUESTION]: ViewQuestionNode }
+// Each card is drawn with v10's controls (./v10): the card itself, and the Olumi corner that asks about it.
+const nodeTypes = { [VIEW_CARD]: ViewCardV10, [VIEW_QUESTION]: ViewQuestionNode }
 const edgeTypes = { [VIEW_LINK]: ViewLinkEdge }
 /** Pan with the left button on empty canvas or the middle button anywhere; a card drags with the left. */
 const PAN_BUTTONS = [0, 1]
@@ -157,6 +159,7 @@ function ViewFlow() {
 
 /** The lane's canvas with the providers its dock and note read (the same ones the legacy canvas gives them). */
 export function ViewCanvas(): JSX.Element {
+  useV10Lane()
   return (
     <ToastProvider>
       <LayerProvider>
