@@ -50,7 +50,7 @@ function Considered({ sid, e, onWrote }: { sid: string; e: View['evidence'][numb
   }
   return (
     <div className="grid gap-1" data-testid={`team-evidence-considered-${e.id}`}>
-      {c !== null && (
+      {c != null && (
         <p className={META} data-testid={`team-evidence-considered-by-${e.id}`}>
           Considered, asked by: <span className="text-text-header">{c.by}</span>
         </p>

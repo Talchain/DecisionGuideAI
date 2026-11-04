@@ -152,6 +152,14 @@ describe('every write goes to core\'s own route, and the View is read again afte
     await waitFor(() => expect(reread()).toBe(1))
     expect(posts()).toEqual([{ method: 'POST', path: `/api/scenarios/${SID}/evidence/5/consider`, body: { op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } }])
   })
+  it('evidence from a core that sends no `considered` at all (absent, not null) draws as never considered, and the Consider button stays', () => {
+    const t = twoPeople(), { considered: _c, ...bare } = t.evidence[0]!
+    useViewStore.setState({ view: { ...t, evidence: [bare as unknown as View['evidence'][number]] } })
+    render(<TeamTab />)
+    expect(screen.getByTestId('team-evidence-text-5').textContent).toBe(bare.text)
+    expect(screen.queryByTestId('team-evidence-considered-by-5')).toBeNull()
+    expect(screen.getByTestId('team-evidence-consider-5')).toBeTruthy()
+  })
   it('what Olumi made of it, as label: value over core\'s fields: who asked, and core\'s why verbatim when it changed nothing (none when it proposed)', () => {
     const t = twoPeople(), ev = t.evidence[0]!
     const why = { text: 'The model already allows churn this low.', title: 'Nothing to change: churn is already within the range.' }
