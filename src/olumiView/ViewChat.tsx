@@ -26,8 +26,19 @@ import type { AIInputBarProps } from '../canvas/components/AIInputBar'
 import { useUIStore } from '../stores/uiStore'
 import { FigureEdit } from './FigureEdit'
 import { VIEW_NOTE_SLOT } from './note'
-import { V10MethodChips } from '../presentation/V10MethodChips'
+import { V10_METHODS, withMethodPrefix } from '../presentation/V10MethodChips'
 import { ringCards } from './v10'
+import { ArrowUp, FlipVertical2, Globe, History, RefreshCw, SearchX, Zap } from 'lucide-react'
+import Tooltip from '../components/Tooltip'
+import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
+import styles from '../canvas/conversation/Conversation.module.css'
+
+/*
+ * The panel wears DGAI's own conversation look (DL, 4 Nov: Paul's original UI, staging #/canvas): the person's words in the panel-filled
+ * bubble and Olumi's reply unframed (Conversation.module.css), the acts as the conversation's chips (chipClass), and the composer as
+ * AIInputBar's footer box: the text, then a row of quiet icons and the round send. Only the look is DGAI's; every word and act is the
+ * View's, as before.
+ */
 
 type Said = NonNullable<ViewTurn['answer']>['answer']
 
@@ -49,10 +60,10 @@ function Turn({ t, at, answerFirst = false }: { t: ViewTurn; at: string; answerF
   const ring = (on: boolean) => { lit.current = on; ringCards(on ? t.answer?.next.about ?? [] : []) }
   const said = answerFirst
     // One line under the reply, the whole of what was said on hover: a brief quoted in full repeated the person's own words (4 Nov drive).
-    ? <p className={`${typography.panelMeta} line-clamp-1`} title={t.said} data-testid="view-chat-in-reply">In reply to: <span data-view={`${at}.said`}>{t.said}</span></p>
-    : <p data-view={`${at}.said`}>{t.said}</p>
+    ? <p className={`${typography.chatMeta} text-text-light line-clamp-1`} title={t.said} data-testid="view-chat-in-reply">In reply to: <span data-view={`${at}.said`}>{t.said}</span></p>
+    : <div className={styles.messageBubbleUser} data-testid="view-chat-said-bubble"><p className={typography.chatBody} data-view={`${at}.said`}>{t.said}</p></div>
   const answer = t.answer === null ? null : (
-    <div className={answerFirst ? 'space-y-2' : 'mt-2 space-y-2'}>
+    <div className={`${typography.chatBody} ${styles.markdownContent} ${styles.v2AssistantText} space-y-2`} data-testid="view-chat-answer">
       <p><Words parts={t.answer.answer} at={`${at}.answer.answer`} /></p>
       {t.answer.why.length === 0 ? null : (
         <details>
@@ -65,13 +76,17 @@ function Turn({ t, at, answerFirst = false }: { t: ViewTurn; at: string; answerF
         onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} /></p>
     </div>
   )
+  // Who replied and the model version it read, under the reply, as DGAI's version chip (v10): core's words.
+  const stamp = (
+    <div className={`inline-flex items-center gap-1 text-text-light ${typography.chatMeta}`} data-testid="view-chat-version">
+      <History size={12} aria-hidden="true" />
+      <span><span data-view={`${at}.by`}>{t.by}</span> · <span data-view={`${at}.version`}>{t.version}</span>
+        {t.status === null ? null : <> · <span data-view={`${at}.status`}>{t.status}</span></>}</span>
+    </div>
+  )
   return (
-    <li data-view-turn={at}>
-      <div className={typography.panelMeta}>
-        <span data-view={`${at}.by`}>{t.by}</span> · <span data-view={`${at}.version`}>{t.version}</span>
-        {t.status === null ? null : <> · <span data-view={`${at}.status`}>{t.status}</span></>}
-      </div>
-      {answerFirst ? <>{answer}{said}</> : <>{said}{answer}</>}
+    <li data-view-turn={at} className="space-y-2">
+      {answerFirst ? <>{answer}{stamp}{said}</> : <>{said}{answer}{stamp}</>}
       {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
       {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}
       {t.marks.map((m, j) => <p key={j} title={m.title}><span data-view={`${at}.marks.${j}.what`}>{m.what}</span>: <span data-view={`${at}.marks.${j}.status`}>{m.status}</span></p>)}
@@ -174,12 +189,12 @@ function Proposal({ p, busy }: { p: NonNullable<View['proposal']>; busy: boolean
           </ul>
         )}
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={busy} className="rounded px-3 py-2 bg-primary text-text-on-color disabled:opacity-50" onClick={() => void act(() => writes.approve(p.id, p.base), true)}>Approve</button>
+        <button type="button" disabled={busy} className={CHIP_PRIMARY_CLASS} onClick={() => void act(() => writes.approve(p.id, p.base), true)}>Approve</button>
         {!tickable ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
-            className="rounded px-3 py-2 border border-info/30 text-info disabled:opacity-50" onClick={() => void act(() => writes.approve(p.id, p.base, pick), true)}>Approve ticked · {chosen}</button>
+            className={CHIP_CLASS} onClick={() => void act(() => writes.approve(p.id, p.base, pick), true)}>Approve ticked · {chosen}</button>
         )}
-        <button type="button" disabled={busy} className="rounded px-3 py-2 border border-border disabled:opacity-50" onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
+        <button type="button" disabled={busy} className={CHIP_CLASS} onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
       </div>
     </div>
   )
@@ -404,7 +419,7 @@ function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
         </div>
       ) : null}
       {step.kind === 'invite' ? (
-        <button type="button" data-testid="view-next-invite" className="rounded px-3 py-2 bg-primary text-text-on-color" onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>Invite a colleague</button>
+        <button type="button" data-testid="view-next-invite" className={CHIP_PRIMARY_CLASS} onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>Invite a colleague</button>
       ) : null}
     </section>
   )
@@ -469,25 +484,54 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
   useEffect(() => registerDockedOlumiFocus(() => box.current?.focus()), [])
   if (sid !== null && view === null && error === null) return null
   const blocked = analysisAction !== undefined && !analysisAction.canRun && !analysisAction.isRunning
+  const quiet = 'inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-40 disabled:cursor-not-allowed'
+  // DGAI's placeholders by stage (useStageAwarePlaceholder), from the View: core runs the analysis on every save, so a saved model's run
+  // is the latest; a proposal not yet approved is not one.
+  const placeholder = brief ? BRIEF_EXAMPLE : view?.version != null && view.model?.run ? 'Ask about the latest analysis…' : 'Ask about this model…'
   return (
-    <div className={`${typography.panelBody} border-t border-border p-3 space-y-2`} data-testid="view-composer">
+    <div className={`${typography.chatBody} px-2 pb-2 pt-1 space-y-2`} data-testid="view-composer">
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
       {/* While a write is in flight the composer is held: it says why (lane audit 5.7), in core's page's words. */}
       {busy ? <Working brief={brief} /> : null}
       <label className={brief ? typography.panelHeader : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
       {brief ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
-      {/* v10: ways to test the model, each filling the box with its prefix for the person to finish; nothing is sent. */}
-      {brief || busy ? null : <V10MethodChips value={text} onReplace={(t) => { useViewChat.setState({ text: t }); box.current?.focus() }} />}
-      <textarea ref={box} id="view-chat-text" className="w-full rounded border border-border p-2" rows={brief ? 6 : 3} value={text}
-        placeholder={brief ? BRIEF_EXAMPLE : undefined} aria-describedby={brief ? 'view-brief-intro' : undefined} disabled={busy} onChange={(e) => useViewChat.setState({ text: e.target.value })} />
-      <div className="flex gap-2">
-        <button type="button" disabled={busy || text.trim() === ''} className="rounded px-3 py-2 bg-primary text-text-on-color disabled:opacity-50" onClick={() => void send()}>Send</button>
-        {analysisAction === undefined ? null : (
-          <button type="button" onClick={analysisAction.onRun} disabled={analysisAction.isRunning || !analysisAction.canRun} aria-label={analysisAction.label}
-            title={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} className="rounded px-3 py-2 border border-border disabled:opacity-50"
-            data-testid="view-composer-analyse">{analysisAction.label}</button>
-        )}
+      <div className="relative bg-panel border border-panel-border rounded-lg transition-colors focus-within:border-info">
+        <textarea ref={box} id="view-chat-text" className={`${typography.chatBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light pt-2 pb-1 px-3`}
+          rows={brief ? 6 : 2} value={text} placeholder={placeholder} aria-describedby={brief ? 'view-brief-intro' : undefined} disabled={busy}
+          onChange={(e) => useViewChat.setState({ text: e.target.value })} />
+        <div className="flex items-center justify-end gap-1 px-2 pb-1" data-testid="view-composer-actions">
+          {/* v10's methods as the composer's icon row (DGAI's reasoning moves' place and glyphs): each fills the box with its prefix,
+              keeping what was typed, for the person to finish; nothing is sent. None for a brief or while a write holds the box. */}
+          {brief || busy ? null : (
+            <span role="group" aria-label="Ways to test the model" className="mr-auto flex items-center gap-1" data-testid="v10-method-chips">
+              {V10_METHODS.map(({ key, label, prefix }) => {
+                const Icon = METHOD_GLYPHS[key]
+                return (
+                  <Tooltip key={key} asChild content={label}>
+                    <button type="button" aria-label={label} className={quiet} data-testid={`v10-method-${key}`}
+                      onClick={() => { useViewChat.setState({ text: withMethodPrefix(prefix, useViewChat.getState().text) }); box.current?.focus() }}>
+                      <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                    </button>
+                  </Tooltip>
+                )
+              })}
+            </span>
+          )}
+          {analysisAction === undefined ? null : (
+            <button type="button" onClick={analysisAction.onRun} disabled={analysisAction.isRunning || !analysisAction.canRun} aria-label={analysisAction.label}
+              title={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} className={quiet} data-testid="view-composer-analyse">
+              <RefreshCw className={`w-3.5 h-3.5${analysisAction.isRunning ? ' animate-spin' : ''}`} aria-hidden="true" />
+            </button>
+          )}
+          <button type="button" disabled={busy || text.trim() === ''} aria-label="Send" data-testid="view-composer-send" onClick={() => void send()}
+            className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-30">
+            <ArrowUp className="w-3.5 h-3.5" aria-hidden="true" /><span className="sr-only">Send</span>
+          </button>
+        </div>
       </div>
     </div>
   )
 }
+
+/** DGAI's reasoning-move glyphs (ComposerMoves), on v10's four methods in the same order. */
+const METHOD_GLYPHS: Readonly<Record<(typeof V10_METHODS)[number]['key'], typeof Zap>> = { assumption: Zap, opposite: FlipVertical2, disconfirming: SearchX, outside: Globe }

@@ -7,14 +7,15 @@ import { Zap, ArrowLeftRight, Search, Globe } from 'lucide-react'
 import { ICON_STROKE } from '../canvas/conversation/panelIcons'
 import { typography } from '../styles/typography'
 
-const MOVES = [
+/** The four methods, in order: each one's chip id, label and the prefix it puts in the box. */
+export const V10_METHODS = [
   { key: 'assumption', label: 'Challenge it', prefix: 'Challenge it: ', Icon: Zap },
   { key: 'opposite', label: 'The opposite', prefix: 'Argue the opposite of: ', Icon: ArrowLeftRight },
   { key: 'disconfirming', label: 'What would disprove it', prefix: 'What would disprove: ', Icon: Search },
   { key: 'outside', label: 'Outside view', prefix: 'Outside view on: ', Icon: Globe },
 ] as const
 
-const PREFIXES = MOVES.map((m) => m.prefix)
+const PREFIXES = V10_METHODS.map((m) => m.prefix)
 
 /** Keeps what the person already wrote and swaps only the method prefix. */
 export function withMethodPrefix(prefix: string, current: string): string {
@@ -25,7 +26,7 @@ export function withMethodPrefix(prefix: string, current: string): string {
 export const V10MethodChips = memo(function V10MethodChips({ value, onReplace }: { value: string; onReplace: (text: string) => void }) {
   return (
     <div role="group" aria-label="Ways to test the model" className="flex flex-wrap" style={{ gap: 6, padding: '0 2px 8px' }} data-testid="v10-method-chips">
-      {MOVES.map(({ key, label, prefix, Icon }) => (
+      {V10_METHODS.map(({ key, label, prefix, Icon }) => (
         <button
           key={key}
           type="button"
