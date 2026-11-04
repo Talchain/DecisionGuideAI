@@ -10,7 +10,8 @@ import { act, render } from '@testing-library/react'
 import type { View } from '../client'
 import { currentModel } from '../store'
 import { useCanvasStore } from '../../canvas/store'
-import { placeViewCards } from '../canvas'
+import { drawViewCanvas } from '../canvas'
+import { causalPlaces, questionPlace } from '../layout'
 import { ViewCanvas } from '../ViewCanvas'
 
 vi.mock('../../canvas/components/OutputsDock', () => ({ OutputsDock: () => null }))
@@ -26,14 +27,18 @@ afterEach(() => { useCanvasStore.setState({ nodes: [], edges: [] }) })
 describe('the mounted core-lane canvas', () => {
   it('draws every View card through v10\'s wrapper, with the driver badge where core gives one, and carries v10\'s rulings while it is up', async () => {
     const model = currentModel({ view: golden('bakery'), error: null, stale: false })!
-    await act(async () => { await placeViewCards(model) })
+    const places = await causalPlaces(model, new Map(), questionPlace(model).width)
+    act(() => { drawViewCanvas(model, places) })
     const { container, unmount } = render(<div style={{ width: 1440, height: 900 }}><ViewCanvas /></div>)
     await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
     expect(document.documentElement.dataset['presentation']).toBe('v10')
     const wrapped = [...container.querySelectorAll('[data-testid="view-card-v10"]')]
     expect(wrapped.length).toBe(model.cards.length)
     const withDriver = model.cards.filter((c) => c.driver !== null).map((c) => c.id).sort()
-    expect([...container.querySelectorAll('[data-testid^="view-driver-"]')].map((e) => e.getAttribute('data-testid')!.slice('view-driver-'.length)).sort()).toEqual(withDriver)
+    const badges = [...container.querySelectorAll('[data-testid^="view-driver-"]:not([data-testid^="view-driver-mark-"])')]
+    expect(badges.map((e) => e.getAttribute('data-testid')!.slice('view-driver-'.length)).sort()).toEqual(withDriver)
+    // Each in DGAI's shell's own top-right place (VIEW_CARD_SLOTS); the corner's place is bound in v10Lane.spec, where a chat receives asks.
+    expect(badges.length > 0 && badges.every((e) => e.closest('[data-slot="driver-badge"]') !== null)).toBe(true)
     unmount()
     expect(document.documentElement.dataset['presentation']).toBeUndefined()
   })

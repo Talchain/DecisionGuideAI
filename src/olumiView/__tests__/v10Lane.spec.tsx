@@ -59,6 +59,7 @@ describe('v10 on the core lane', () => {
     expect(container.querySelector(`[data-testid="node-olumi-door-${card.id}"]`)).toBeNull() // the mark is never shown twice
     const corner = container.querySelector<HTMLButtonElement>(`[data-testid="node-corner-olumi-${card.id}"]`)!
     expect(corner.getAttribute('aria-label')).toBe(`Ask Olumi about ${card.heading}`)
+    expect(corner.closest('[data-slot="olumi-badge"]')).not.toBeNull() // in the shell's bottom-right place, not beside the card
     act(() => { fireEvent.click(corner) })
     const box = container.querySelector<HTMLTextAreaElement>("#view-chat-text")!
     expect(box.value).toBe(`About ${card.heading}:`) // requestAsk trims a prefill, as v10 does on #/canvas2
@@ -116,6 +117,7 @@ describe('v10 on the core lane', () => {
     const draw = (card: typeof withDriver) => render(<ReactFlowProvider><ViewCardV10 {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>).container
     const badge = draw(withDriver).querySelector<HTMLElement>(`[data-testid="view-driver-${withDriver.id}"]`)!
     expect([badge.getAttribute('aria-label'), badge.textContent]).toEqual(['Its main driver', '']) // an icon at rest, never a line on the card
+    expect(badge.closest('[data-slot="driver-badge"]')).not.toBeNull() // in the shell's top-right place on an option card
     act(() => { fireEvent.focus(badge); fireEvent.mouseEnter(badge) })
     await waitFor(() => expect(document.querySelector(`[data-view="${withDriver.id}.driver.text"]`)?.textContent).toBe(withDriver.driver!.text)) // core's words, verbatim
     expect(document.querySelector(`[data-testid="view-driver-mark-${withDriver.id}"]`)).not.toBeNull() // with Olumi's mark (00002 #4)
