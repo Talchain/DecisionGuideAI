@@ -122,6 +122,16 @@ export function driversOf(model: ViewModel): ReadonlyMap<string, readonly ViewCa
   return out
 }
 
+/**
+ * The links the What would change lens draws wider: each link leaving a figure an option's chance moves most with (a driver's card,
+ * `driversOf`), or sized by one (core's `effect.figure` on the link names it). By the link's place in the View's `links`; core's ids only.
+ * Core names no order among the figures, so the lens ranks none.
+ */
+export function driverLinksOf(model: ViewModel, drivers: ReadonlyMap<string, readonly ViewCard[]>): ReadonlySet<number> {
+  const cardOf = (record: string) => model.cards.find((c) => c.id === record) ?? model.cards.find((c) => c.badge?.records.includes(record) === true)
+  return new Set(model.links.flatMap((l, i) => (drivers.has(l.from) || (l.effect != null && drivers.has(cardOf(l.effect.figure)?.id ?? '')) ? [i] : [])))
+}
+
 /** The DGAI node kind a View card is drawn as on the canvas (the original look): a figure a person sets is a factor, one core works out
  *  from others (no edit) an outcome; the rest as `askKindOf`. */
 export const drawKindOf = (c: ViewCard): 'factor' | 'outcome' | 'risk' | 'goal' | 'option' | 'constraint' =>

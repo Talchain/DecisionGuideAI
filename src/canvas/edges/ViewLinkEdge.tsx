@@ -9,6 +9,7 @@ import type { ViewLink } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { linkDrawn } from '../../olumiView/layout'
 import { useViewHover } from '../../olumiView/canvas'
+import { useDriverLink, useWhatChangesOn } from '../../olumiView/lens'
 
 export type ViewLinkData = { link: ViewLink; i: number }
 
@@ -17,19 +18,27 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const hovered = useViewHover((h) => h.id)
   const fromSelected = useStore((s) => s.nodeLookup.get(source)?.selected === true)
   const toSelected = useStore((s) => s.nodeLookup.get(target)?.selected === true)
+  // What would change: a link leaving (or sized by) a figure an option's chance moves most with is drawn wider, in ink; every link core
+  // sizes says its strength in core's words (`effect`) on the line, its hover core's.
+  const driver = useDriverLink(i)
+  const changes = useWhatChangesOn()
   const active = new Set<string>()
   if (hovered !== null) active.add(hovered)
   if (fromSelected) active.add(source)
   if (toSelected) active.add(target)
-  if (!linkDrawn(link, active)) return null
+  if (!driver && !linkDrawn(link, active)) return null
   const [path, x, y] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
-  const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
+  const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
   return (
-    <g data-view-link={`links.${i}`} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
+    <g data-view-link={`links.${i}`} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
       <title>{link.title}</title>
-      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: 1, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
+      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: driver ? 2.5 : 1, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
       {link.label === '' ? null : (
         <text x={x} y={y} dy="0.35em" textAnchor="middle" className={`${typography.edgeLabel} fill-current`} paintOrder="stroke" stroke="var(--bg-canvas)" strokeWidth={3} data-view={`links.${i}.label`}>{link.label}</text>
+      )}
+      {!changes || link.effect == null ? null : (
+        <text x={x} y={y} dy={link.label === '' ? '0.35em' : '1.6em'} textAnchor="middle" className={`${typography.edgeLabel} fill-current`} paintOrder="stroke" stroke="var(--bg-canvas)" strokeWidth={3}
+          data-view={`links.${i}.effect.text`}><title>{link.effect.title}</title>{link.effect.text}</text>
       )}
     </g>
   )

@@ -6,7 +6,7 @@
  */
 import { useMemo } from 'react'
 import { create } from 'zustand'
-import { cardNumbersOf, driversOf, restsOnOf, type RestsOnItem } from './layout'
+import { cardNumbersOf, driverLinksOf, driversOf, restsOnOf, type RestsOnItem } from './layout'
 import type { ViewCard } from './client'
 import { useViewStore } from './store'
 import { useWhatIf } from './whatif'
@@ -56,3 +56,15 @@ export function useTriedOn(id: string): string | null {
   const shown = useWhatIf((s) => s.shown)
   return on && shown !== null && shown.sid === sid && shown.base === base && shown.quantity === id ? shown.typed : null
 }
+
+/** While What would change is on: whether the link at `i` leaves (or is sized by) a figure an option's chance moves most with. */
+export function useDriverLink(i: number): boolean {
+  const on = useViewLens((s) => s.lens === 'what_changes')
+  const model = useViewStore((s) => s.view?.model ?? null)
+  const drivers = useDrivers()
+  const links = useMemo(() => (model === null ? new Set<number>() : driverLinksOf(model, drivers)), [model, drivers])
+  return on && links.has(i)
+}
+
+/** Whether the What would change lens is on (a link then says its strength in core's words, `links[].effect`). */
+export const useWhatChangesOn = (): boolean => useViewLens((s) => s.lens === 'what_changes')
