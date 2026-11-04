@@ -43,6 +43,10 @@ function Words({ parts, at }: { parts: Said; at: string }) {
 
 /** One turn of the conversation as the View holds it. `answerFirst`: Olumi's reply above the words it answers (the newest turn, lane C). */
 function Turn({ t, at, answerFirst = false }: { t: ViewTurn; at: string; answerFirst?: boolean }) {
+  // The cards this turn's next step lit are cleared if the turn leaves the page while they are lit (Codex review dgai-v10 00002 ledger).
+  const lit = useRef(false)
+  useEffect(() => () => { if (lit.current) ringCards([]) }, [])
+  const ring = (on: boolean) => { lit.current = on; ringCards(on ? t.answer?.next.about ?? [] : []) }
   const said = answerFirst
     // One line under the reply, the whole of what was said on hover: a brief quoted in full repeated the person's own words (4 Nov drive).
     ? <p className={`${typography.panelMeta} line-clamp-1`} title={t.said} data-testid="view-chat-in-reply">In reply to: <span data-view={`${at}.said`}>{t.said}</span></p>
@@ -57,8 +61,8 @@ function Turn({ t, at, answerFirst = false }: { t: ViewTurn; at: string; answerF
         </details>
       )}
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
-      <p tabIndex={t.answer.next.about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ringCards(t.answer!.next.about)} onMouseLeave={() => ringCards([])}
-        onFocus={() => ringCards(t.answer!.next.about)} onBlur={() => ringCards([])}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} /></p>
+      <p tabIndex={t.answer.next.about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
+        onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} /></p>
     </div>
   )
   return (
@@ -333,7 +337,9 @@ const keptIfNotSent = (text: string) => (sent: boolean) => { if (!sent) keep(tex
 /** The canvas's asks, answered by this writer: one set for the page, so every holder registers the same functions. */
 const ASKS = {
   _sendMessage: withOlumiReveal((text: string) => { if (!keptWhileBusy(text)) void say(text).then(keptIfNotSent(text)) }),
-  _prefillChat: withOlumiReveal((text: string) => { useViewChat.setState({ text }) }),
+  // A prefill from a card (v10's Olumi corner: "About <card>:") is put after whatever the person has typed, never over it (Codex review
+  // dgai-v10 00002 #1: the corner on every card must not delete a draft).
+  _prefillChat: withOlumiReveal((text: string) => { keep(text) }),
   _dispatchAction: withOlumiReveal((opts: Press) => { if (!keptWhileBusy(opts.message)) void press(opts).then(keptIfNotSent(opts.message)) }),
   _isConversationBusy: () => useViewChat.getState().busy,
 }

@@ -16,7 +16,7 @@ import type { View } from '../client'
 import { currentModel, useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
 import { ViewChat, ViewComposer, ViewTurns, useViewChat, useAnswersAsks } from '../ViewChat'
-import { ringCards, useV10Lane, ViewCardV10 } from '../v10'
+import { useV10Lane, ViewCardV10 } from '../v10'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -60,7 +60,12 @@ describe('v10 on the core lane', () => {
     const corner = container.querySelector<HTMLButtonElement>(`[data-testid="node-corner-olumi-${card.id}"]`)!
     expect(corner.getAttribute('aria-label')).toBe(`Ask Olumi about ${card.heading}`)
     act(() => { fireEvent.click(corner) })
-    expect(container.querySelector<HTMLTextAreaElement>("#view-chat-text")!.value).toBe(`About ${card.heading}:`) // requestAsk trims a prefill, as v10 does on #/canvas2
+    const box = container.querySelector<HTMLTextAreaElement>("#view-chat-text")!
+    expect(box.value).toBe(`About ${card.heading}:`) // requestAsk trims a prefill, as v10 does on #/canvas2
+    // A draft is never lost to the corner (Codex review dgai-v10 00002 #1): its words go after what was typed.
+    fireEvent.change(box, { target: { value: 'Keep demand at 12,500; price stays £3.20' } })
+    act(() => { fireEvent.click(corner) })
+    expect(box.value).toBe(`Keep demand at 12,500; price stays £3.20\nAbout ${card.heading}:`)
     expect(posts).toBe(0)
   })
 
@@ -68,17 +73,31 @@ describe('v10 on the core lane', () => {
     const turn = view.chat.find((t) => t.answer !== null)!
     const about = ['card_a', 'card_b'], chat = [{ ...turn, answer: { ...turn.answer!, next: { ...turn.answer!.next, about } } }]
     for (const id of ['card_a', 'card_b', 'card_c']) document.body.insertAdjacentHTML('beforeend', `<div class="react-flow__node" data-id="${id}"></div>`)
-    const before = document.body.innerHTML
+    const unlit = () => [...document.querySelectorAll('.react-flow__node')].map((e) => e.outerHTML)
+    const before = unlit()
     const { container } = render(<ViewTurns chat={chat} />)
     const next = container.querySelector<HTMLElement>('[data-testid="view-chat-next"]')!
     fireEvent.mouseEnter(next)
     const lit = () => [...document.querySelectorAll('.react-flow__node.v10-lit')].map((e) => e.getAttribute('data-id'))
     expect(lit()).toEqual(['card_a', 'card_b'])
-    for (const n of document.querySelectorAll('.react-flow__node')) expect(n.getAttributeNames().sort()).toEqual(['class', 'data-id']) // no dim marker, no style
+    // Nothing else changes, byte for byte: the lit cards gain only the ring's class, every other card is exactly as it was (00002 #3).
+    expect(unlit()).toEqual(before.map((h, i) => (i < 2 ? h.replace('class="react-flow__node"', 'class="react-flow__node v10-lit"') : h)))
     fireEvent.mouseLeave(next)
     expect(lit()).toEqual([])
+    expect(unlit()).toEqual(before)
     fireEvent.focus(next); expect(lit()).toEqual(['card_a', 'card_b']); fireEvent.blur(next); expect(lit()).toEqual([])
-    ringCards([]); expect(document.body.innerHTML.includes(before.slice(0, 40))).toBe(true)
+  })
+
+  it('the ring stays while its line keeps keyboard focus, and goes when the turn that lit it leaves the page', () => {
+    const turn = view.chat.find((t) => t.answer !== null)!, chat = [{ ...turn, answer: { ...turn.answer!, next: { ...turn.answer!.next, about: ['card_a'] } } }]
+    document.body.insertAdjacentHTML('beforeend', '<div class="react-flow__node" data-id="card_a"></div>')
+    const lit = () => document.querySelectorAll('.react-flow__node.v10-lit').length
+    const { container, unmount } = render(<ViewTurns chat={chat} />)
+    const next = container.querySelector<HTMLElement>('[data-testid="view-chat-next"]')!
+    act(() => { next.focus() }); fireEvent.mouseEnter(next); fireEvent.mouseLeave(next)
+    expect(lit()).toBe(1)
+    unmount()
+    expect(lit()).toBe(0)
   })
 
   it('the lane carries v10\'s rulings while its canvas is up, and v10\'s stylesheet paints the person\'s primary buttons ink, not blue', () => {
@@ -99,6 +118,7 @@ describe('v10 on the core lane', () => {
     expect([badge.getAttribute('aria-label'), badge.textContent]).toEqual(['Its main driver', '']) // an icon at rest, never a line on the card
     act(() => { fireEvent.focus(badge); fireEvent.mouseEnter(badge) })
     await waitFor(() => expect(document.querySelector(`[data-view="${withDriver.id}.driver.text"]`)?.textContent).toBe(withDriver.driver!.text)) // core's words, verbatim
+    expect(document.querySelector(`[data-testid="view-driver-mark-${withDriver.id}"]`)).not.toBeNull() // with Olumi's mark (00002 #4)
     expect(draw(without).querySelector('[data-testid^="view-driver-"]')).toBeNull()
   })
 })
