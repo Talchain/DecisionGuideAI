@@ -396,5 +396,43 @@ await tab(ada, 'compare')
 await ada.page.getByTestId('core-compare-out').waitFor({ timeout: T })
 await shot(ada, `i-compare-${process.env.VIEW_W ?? 1440}`)
 
+// ── 10. Version history (DL, 4 Nov) ─────────────────────────────────────────────────────────────────────────────────────────────
+step(10, 'Ada opens Version history: core\'s versions, any version\'s record, and two compared; the current version is untouched')
+const now = await view(ada, sid)
+const listed = (await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/versions`)).json(), sid)).versions
+const sent = []
+const watch = (r) => { if (r.method() !== 'GET') sent.push(`${r.method()} ${r.url()}`) }
+ada.page.on('request', watch)
+await ada.page.getByTestId('topbar-versions-trigger').click()
+check(await seen(ada, async () => await ada.page.getByTestId('core-version-row').count() === listed.length), `the history lists core's ${listed.length} versions`)
+check(await seen(ada, async () => await ada.page.locator(`[data-testid="core-version-row"][aria-current="true"]`).getAttribute('data-version', { timeout: 1000 }) === String(now.version.n)), `version ${now.version.n} is marked as the one in use`)
+// Version 3 is the figure Ada typed on its card (5b). Its record is core's change card: version 3 against the version it was approved over.
+const v3 = listed.find((x) => x.n === 3), over = listed.find((x) => x.id === v3.base).n
+const card = await ada.page.evaluate(async ([s, a]) => (await fetch(`/api/scenarios/${s}/compare?from=${a}&to=3`)).json(), [sid, over])
+await ada.page.getByTestId('core-version-open-3').click()
+const lines = async () => ada.page.getByTestId('core-version-3-changes').locator('li').allInnerTexts()
+check(await seen(ada, async () => { const l = await lines(); return card.changes.length > 0 && l.length === card.changes.length && card.changes.every((c, i) => l[i].startsWith(c.text)) }),
+  `version 3's record is core's change card (${card.changes.length} line(s), "${card.changes[0]?.text}")`)
+const who = card.versions.find((x) => x.n === 3)
+check(await seen(ada, async () => (await ada.page.getByTestId('core-version-3-who').innerText({ timeout: 1000 })).endsWith(`approved by ${who.approvedBy}`)), `and who proposed and approved it, as core names them (${who.approvedBy})`)
+// Version 1 was approved over none: who proposed it, and its saved results as core words them (the earlier side of version 1 with 2).
+const first = await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/compare?from=1&to=2`)).json(), sid)
+await ada.page.getByTestId('core-version-open-1').click()
+const w1 = first.versions.find((x) => x.n === 1)
+check(await seen(ada, async () => (await ada.page.getByTestId('core-version-1-who').innerText({ timeout: 1000 })).startsWith(`Proposed by ${w1.proposedBy}`)), `version 1's record opens too: proposed by ${w1.proposedBy}${w1.briefBy ? `, from ${w1.briefBy}'s brief` : ''}`)
+const saved1 = first.results.filter((r) => r.before)
+check(await seen(ada, async () => { const l = await ada.page.getByTestId('core-version-1-found').locator('li').allInnerTexts(); return saved1.length > 0 && l.length === saved1.length && saved1.every((r, i) => l[i].includes(r.before.value)) }), `and its ${saved1.length} saved results, in core's words ("${saved1[0]?.before.value}")`)
+await shot(ada, `i-versions-${process.env.VIEW_W ?? 1440}`)
+await ada.page.getByTestId('versions-compare-from').selectOption('1')
+await ada.page.getByTestId('versions-compare-go').click()
+const both = await ada.page.evaluate(async ([s, b]) => (await fetch(`/api/scenarios/${s}/compare?from=1&to=${b}`)).json(), [sid, now.version.n])
+check(await seen(ada, async () => await ada.page.getByTestId('versions-compare-changes').locator('li').count() === both.changes.length), `compare version 1 with ${now.version.n} in the history draws core's ${both.changes.length} change lines`)
+// The must-not-change row: reading the history moves nothing. Core still holds the same version and model, and Ada's canvas still draws it.
+ada.page.off('request', watch)
+const then = await view(ada, sid)
+check(then.version.id === now.version.id && JSON.stringify(then.model) === JSON.stringify(now.model), `core still holds version ${now.version.n}, the same model`)
+check(sent.length === 0, `reading the history sent core nothing but reads${sent.length ? `: ${sent.join(', ')}` : ''}`)
+check(await ada.page.locator('.react-flow__node-viewCard').count() === now.model.cards.length, `Ada's canvas still draws version ${now.version.n}'s cards`)
+
 console.log(`\nAll steps hold. Scenario ${sid}: DGAI ${BASE}/#/scenario/${uuidOf(sid)} · core ${BASE}/s/${sid}`)
 await browser.close()

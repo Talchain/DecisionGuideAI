@@ -11,29 +11,35 @@ import { BODY, ERR, FIELD, META } from './team/ui'
  * version history panel and the Team tab.
  */
 type Side = { value: string; title: string; olumi: { glyph: string; title: string } | null }
-type Move = { kind: 'chance' | 'limit' | 'most_likely'; option: string | null; optionLabel: string | null; aim: string; condition: string | null
+export type Move = { kind: 'chance' | 'limit' | 'most_likely'; option: string | null; optionLabel: string | null; aim: string; condition: string | null
   before: Side | null; after: Side | null; move: 'up' | 'down' | 'changed' | 'unchanged' | 'new' | 'gone' }
 export type Compared = { versions: { n: number; at: string; proposedBy: string | null; briefBy: string | null; approvedBy: string }[]
   changes: { text: string; detail: string; mark: { glyph: string; title: string } | null }[]; results: Move[] }
 
 /** Core's page's words for a move (olumi-core src/page/review.ts MOVE), and for what a result is about. */
 const MOVE: Record<Move['move'], string> = { up: 'up', down: 'down', changed: 'changed', unchanged: 'unchanged', new: 'new', gone: 'no longer worked out' }
-const what = (r: Move) => (r.kind === 'most_likely' ? `Most likely to achieve ‘${r.aim}’${r.condition ?? ''}` : `‘${r.optionLabel ?? r.option ?? ''}’ ${r.kind === 'limit' ? 'within' : 'on'} ‘${r.aim}’`)
+export const what = (r: Move) => (r.kind === 'most_likely' ? `Most likely to achieve ‘${r.aim}’${r.condition ?? ''}` : `‘${r.optionLabel ?? r.option ?? ''}’ ${r.kind === 'limit' ? 'within' : 'on'} ‘${r.aim}’`)
 
-function SideText({ s }: { s: Side | null }) {
+/** Who proposed and approved one version, in /record's words (olumi-core record-page.ts). */
+export const whoOf = (v: Compared['versions'][number]) => `proposed by ${v.proposedBy ?? 'unknown'}${v.briefBy ? `, from ${v.briefBy}'s brief` : ''} · approved by ${v.approvedBy}`
+
+export function SideText({ s }: { s: Side | null }) {
   if (s === null) return <span className="text-text-light">none</span>
   return <><span title={s.title}>{s.value}</span>{s.olumi ? <> <span title={s.olumi.title} aria-label={s.olumi.title}>{s.olumi.glyph}</span></> : null}</>
 }
 
-/** The comparison as core read it, in three short lists. `id` prefixes each list's test id, one per surface. */
-export function ComparedLists({ c, id = 'team-compare' }: { c: Compared; id?: string }): JSX.Element {
+/** The comparison as core read it, in three short lists. `id` prefixes each list's test id, one per surface; `who: false` leaves out the
+ *  first list where the surface names the version's people itself (the version history's record). */
+export function ComparedLists({ c, id = 'team-compare', who = true }: { c: Compared; id?: string; who?: boolean }): JSX.Element {
   const list = (items: JSX.Element[], empty: string, part: string) => (items.length
     ? <ul className="m-0 grid list-none gap-1 p-0" data-testid={`${id}-${part}`}>{items}</ul>
     : <p className={META} data-testid={`${id}-${part}-none`}>{empty}</p>)
   return (
     <div className="grid gap-2" data-testid={`${id}-out`}>
-      <p className={`${BODY} text-text-header`}>Who proposed and approved</p>
-      {list(c.versions.map((v) => <li key={v.n} className={BODY}>Version {v.n}: proposed by {v.proposedBy ?? 'unknown'}{v.briefBy ? `, from ${v.briefBy}'s brief` : ''} · approved by {v.approvedBy}</li>), 'None', 'versions')}
+      {who && <>
+        <p className={`${BODY} text-text-header`}>Who proposed and approved</p>
+        {list(c.versions.map((v) => <li key={v.n} className={BODY}>Version {v.n}: {whoOf(v)}</li>), 'None', 'versions')}
+      </>}
       <p className={`${BODY} text-text-header`}>What changed</p>
       {list(c.changes.map((l, i) => <li key={i} className={BODY}>{l.text}{l.detail ? <> <span className="text-text-light whitespace-pre-line">{l.detail}</span></> : null}{l.mark ? <> <span title={l.mark.title} aria-label={l.mark.title}>{l.mark.glyph}</span></> : null}</li>), 'No change to the model', 'changes')}
       <p className={`${BODY} text-text-header`}>How the results moved</p>
