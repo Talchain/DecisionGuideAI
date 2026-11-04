@@ -125,16 +125,45 @@ export function SharedBlockers({ run }: { run: ViewRun | null }) {
   )
 }
 
+type Driver = NonNullable<ViewCard['driver']>
+
+/** Where core's two driver chances (`driver.low` / `driver.high`, 0–1) sit on a 0–100% track; null unless both are numbers. */
+export function driverRange(d: Driver): { lowPct: number; highPct: number } | null {
+  if (d.low === null || d.high === null || !Number.isFinite(d.low) || !Number.isFinite(d.high)) return null
+  const at = (x: number) => Math.min(100, Math.max(0, x * 100))
+  return { lowPct: at(d.low), highPct: at(d.high) }
+}
+
+/**
+ * What moves an option's chance most, as v10's low→high marker (the values band's look): a track from no chance to certain, the span
+ * between the chance when that figure is low (hollow ring) and when it is high (filled dot). The numbers place the marks and nothing else;
+ * core's whole line is its label and hover (`data-view-label`: the path of the string drawn as the label, not as text). What the two chances are is said once for the panel (`Sensitivity`).
+ */
+function DriverRange({ id, driver }: { id: string; driver: Driver }) {
+  const { lowPct, highPct } = driverRange(driver)!
+  const left = Math.min(lowPct, highPct), width = Math.max(2, Math.abs(highPct - lowPct))
+  const dot = { position: 'absolute', top: '50%', width: 8, height: 8, marginLeft: -4, marginTop: -4, borderRadius: 4 } as const
+  return (
+    <div className="mt-1 py-1" role="img" aria-label={driver.text} title={driver.title} data-view-label={`${id}.driver.text`} data-testid={`view-range-driver-${id}`}>
+      <div className="relative" style={{ height: 4, background: 'var(--factor-light)', borderRadius: 2 }}>
+        <div className="absolute top-0 h-full" data-range-span style={{ left: `${left}%`, width: `${width}%`, background: 'var(--option)', borderRadius: 2 }} />
+        <div data-range-low style={{ ...dot, left: `${lowPct}%`, background: 'var(--surface-card)', border: '2px solid var(--option)' }} />
+        <div data-range-high style={{ ...dot, left: `${highPct}%`, background: 'var(--option)' }} />
+      </div>
+    </div>
+  )
+}
+
 /**
  * What each option's two driver chances are (core's `run.sensitivity`), said once at the head of the option rows, in core's words with its
- * hover; only when an option carries those chances (`driver.low` / `driver.high`).
+ * hover; only when an option carries those chances (`driver.low` / `driver.high`), which then draws them as its marker.
  */
 export function Sensitivity({ model }: { model: ViewModel }) {
   const s = model.run?.sensitivity ?? null
   if (s === null) return null
-  let carried = false
-  for (const c of optionCards(model)) if (c.driver != null && c.driver.low !== null && c.driver.high !== null) carried = true
-  return carried ? <p className={typography.panelMeta} title={s.title} data-view="run.sensitivity.text">{s.text}</p> : null
+  let drawn = false
+  for (const c of optionCards(model)) if (c.driver != null && driverRange(c.driver) !== null) drawn = true
+  return drawn ? <p className={typography.panelMeta} title={s.title} data-view="run.sensitivity.text">{s.text}</p> : null
 }
 
 /**
@@ -146,7 +175,8 @@ export function OptionLines({ card, after, children }: { card: ViewCard; after?:
     <div data-view-card={card.id}>
       <div className={typography.panelHeader} data-view={`${card.id}.heading`}>{card.heading}</div>
       {card.rows.map((row, i) => <Fragment key={i}><Row card={card} row={row} i={i} />{after?.(row, i)}</Fragment>)}
-      {card.driver == null ? null : <p className={typography.panelMeta} title={card.driver.title} data-view={`${card.id}.driver.text`}>{card.driver.text}</p>}
+      {card.driver == null ? null : driverRange(card.driver) !== null ? <DriverRange id={card.id} driver={card.driver} />
+        : <p className={typography.panelMeta} title={card.driver.title} data-view={`${card.id}.driver.text`}>{card.driver.text}</p>}
       {children}
     </div>
   )

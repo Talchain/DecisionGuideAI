@@ -11,7 +11,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, render } from '@testing-library/react'
 import type { View, ViewModel } from '../client'
-import { ViewChances, ViewChancesBlock } from '../ViewChances'
+import { driverRange, ViewChances, ViewChancesBlock } from '../ViewChances'
 import { useViewStore } from '../store'
 
 // Paths from the repository root (vitest's working directory): jsdom gives this module no file: URL to resolve against.
@@ -37,6 +37,11 @@ describe('the chances block draws the View exactly (design §3)', () => {
         const want = at(model, el.dataset['view']!)
         expect(typeof want, el.dataset['view']).toBe('string')
         expect(el.textContent, el.dataset['view']).toBe(want)
+      }
+      // a string drawn as a mark's label (v10's driver marker) is the View's own string at its path, and the mark draws no text
+      for (const el of container.querySelectorAll<HTMLElement>('[data-view-label]')) {
+        expect(el.getAttribute('aria-label'), el.dataset['viewLabel']).toBe(at(model, el.dataset['viewLabel']!))
+        expect(el.textContent, el.dataset['viewLabel']).toBe('')
       }
       for (const card of model.cards.filter((c) => c.family === 'option' && c.status === null)) {
         expect(container.querySelector(`[data-view="${card.id}.heading"]`), card.id).not.toBeNull()
@@ -127,10 +132,13 @@ describe('each option says what moves its chance most, as the base dock did (000
       const model = golden(n).model!
       const { container } = render(<ViewChances model={model} />)
       for (const [id, words] of Object.entries(oracle[n]!.drivers)) {
-        const line = container.querySelector<HTMLElement>(`[data-view-card="${id}"] [data-view="${id}.driver.text"]`)
+        const line = container.querySelector<HTMLElement>(`[data-view-card="${id}"] [data-view="${id}.driver.text"], [data-view-card="${id}"] [data-view-label="${id}.driver.text"]`)
         if (words === null) { expect(line, id).toBeNull(); continue }
-        expect(line?.textContent, id).toBe(words)
-        expect(line?.getAttribute('title'), id).toBe(model.cards.find((c) => c.id === id)!.driver!.title)
+        const driver = model.cards.find((c) => c.id === id)!.driver!
+        // with core's two chances (driver.low/high) the line is v10's low→high marker, core's words its label; without them, the words
+        if (driverRange(driver) !== null) { expect(line?.getAttribute('aria-label'), id).toBe(words); expect(line?.textContent, id).toBe('') }
+        else expect(line?.textContent, id).toBe(words)
+        expect(line?.getAttribute('title'), id).toBe(driver.title)
       }
     })
   }
