@@ -161,6 +161,38 @@ describe('every write goes to core\'s own route, and the View is read again afte
   })
 })
 
+describe('the record and how the model moved (PL review 4 Nov: both on core)', () => {
+  it('the printable record is core\'s own page for the scenario; compare is offered from a second version on', () => {
+    render(<TeamTab />)
+    expect(screen.getByTestId('team-record-link').getAttribute('href')).toBe(`/s/${SID}/record`)
+    expect(screen.queryByTestId('team-compare')).toBeNull()
+  })
+  it('two versions: compare reads core\'s compare route for the pair chosen and draws its three lists in core\'s words', async () => {
+    const two = { ...served, version: { ...served.version!, n: 2 } }
+    useViewStore.setState({ view: two })
+    const compared = {
+      versions: [{ n: 2, at: '2026-11-04', proposedBy: 'Olumi', briefBy: null, approvedBy: 'Ada' }],
+      changes: [{ text: '+ figure: staff absence', detail: '2 to 10 ticket/week', mark: { glyph: '◆', title: 'Olumi’s proposal' } }],
+      results: [{ kind: 'chance', option: 'hire', optionLabel: 'Add one specialist', aim: 'At least 100 a week', condition: null,
+        before: { value: 'about 50% chance', title: 't1', olumi: null }, after: { value: 'about 40% chance', title: 't2', olumi: null }, move: 'down' }],
+    }
+    setTeamFetch((async (u: unknown, init?: RequestInit) => {
+      calls.push({ method: init?.method ?? 'GET', path: String(u), body: undefined })
+      return new Response(JSON.stringify(String(u).includes('/compare') ? compared : two), { status: 200 })
+    }) as unknown as typeof fetch)
+    render(<TeamTab />)
+    fireEvent.click(screen.getByTestId('team-compare-go'))
+    await waitFor(() => expect(screen.getByTestId('team-compare-out')).toBeTruthy())
+    expect(calls.at(-1)!.path).toBe(`/api/scenarios/${SID}/compare?from=1&to=2`)
+    expect(screen.getByTestId('team-compare-versions').textContent).toBe('Version 2: proposed by Olumi · approved by Ada')
+    expect(screen.getByTestId('team-compare-changes').textContent).toBe('+ figure: staff absence 2 to 10 ticket/week ◆')
+    expect(screen.getByTestId('team-compare-results').textContent).toBe('‘Add one specialist’ on ‘At least 100 a week’: about 50% chance → about 40% chance (down)')
+    fireEvent.change(screen.getByTestId('team-compare-from'), { target: { value: '2' } })
+    fireEvent.click(screen.getByTestId('team-compare-go'))
+    expect(screen.getByTestId('team-compare-error').textContent).toBe('Pick two different versions.')
+  })
+})
+
 describe('bringing a colleague in (core API v1.8, any member, no admin key)', () => {
   it('makes their link through core\'s invites route, shows it once (it lands on this scenario in DGAI), and lists who was invited', async () => {
     render(<TeamTab />)

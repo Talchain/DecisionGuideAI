@@ -244,6 +244,17 @@ for (const p of [ada, bea]) {
   for (const words of ['Hire now: the backlog is the real risk.', 'Wait a month: a new hire may unsettle the team.', 'Run a four-week trial hire', 'At least 95 tickets a week by week four'])
     check(text.includes(words), `${p.name} on core's page: "${words}"`)
 }
+// The record and how the model moved, from DGAI's Team tab, both core's own (PL review 4 Nov).
+await teamCheck(ada)
+check(await ada.page.getByTestId('team-record-link').getAttribute('href') === `/s/${sid}/record`, 'the printable record is core\'s page for this scenario')
+check(await ada.page.evaluate(async (s) => (await fetch(`/s/${s}/record`)).status, sid) === 200, 'core serves it to Ada')
+await ada.page.getByTestId('team-compare').locator('summary').click()
+await ada.page.getByTestId('team-compare-from').selectOption('1')
+await ada.page.getByTestId('team-compare-go').click()
+await ada.page.getByTestId('team-compare-out').waitFor({ timeout: T })
+const cmp = await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/compare?from=1&to=3`)).json(), sid)
+const shownChanges = await ada.page.getByTestId('team-compare-changes').locator('li').count()
+check(cmp.changes.length > 0 && shownChanges === cmp.changes.length, `compare version 1 with 3 draws core's ${cmp.changes.length} change lines`)
 const [va, vb2] = [await view(ada, sid), await view(bea, sid)]
 check(va.version.id === vb2.version.id && JSON.stringify(va.model) === JSON.stringify(vb2.model) && JSON.stringify(va.evidence) === JSON.stringify(vb2.evidence) && JSON.stringify(va.collab.commitments) === JSON.stringify(vb2.collab.commitments), 'Ada\'s and Bea\'s Views are the same model, marks, results, evidence and commitments')
 

@@ -4,6 +4,7 @@ import { useViewStore } from '../../olumiView/store'
 import type { View } from '../../olumiView/client'
 import { isForThisPage, NOT_FOR_THIS_PAGE, useMe } from '../me'
 import { CommitmentPanel } from './CommitmentPanel'
+import { ComparePanel } from './ComparePanel'
 import { EvidencePanel } from './EvidencePanel'
 import { InvitePanel } from './InvitePanel'
 import { ViewsPanel } from './ViewsPanel'
@@ -54,6 +55,7 @@ export function TeamTab(): JSX.Element {
           <InvitePanel sid={sid} />
           <EvidencePanel sid={sid} view={shown} onWrote={refresh} />
           <CommitmentPanel sid={sid} view={shown} onWrote={refresh} />
+          <ComparePanel sid={sid} view={shown} />
         </>
       )}
     </div>
