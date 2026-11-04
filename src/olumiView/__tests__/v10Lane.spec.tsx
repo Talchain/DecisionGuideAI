@@ -169,4 +169,41 @@ describe('v10 on the core lane', () => {
       }
     })
   }
+
+  it('a proposal\'s ghost is dashed in v10 (the shell marks it, data-proposed-card; v10.css draws the look)', () => {
+    const css = readFileSync(path.resolve('src/presentation/v10.css'), 'utf8')
+    expect(css).toMatch(/\[data-presentation="v10"\] \[data-view-card\]\[data-proposed-card\] \{\s*border-style: dashed;\s*\}/)
+  })
+
+  it('board 4: the aim on the band\'s axis, core\'s aim words on its line; the part of each range that meets it solid, the part that misses it lighter', () => {
+    const view = golden('capacity-v3'), model = view.model!, aim = model.aim!
+    expect([aim.side, aim.unit]).toEqual(['at_least', 'ticket/week'])
+    const bands = optionBands(model.cards, aim), plain = optionBands(model.cards)
+    const outcome = (id: string) => { const r = model.cards.find((c) => c.id === id)!.rows.find((x) => x.kind === 'chance')!; return r.kind === 'chance' ? r.outcome! : null! }
+    const ids = [...bands.keys()], lo = Math.min(...ids.map((id) => outcome(id).low), aim.value), hi = Math.max(...ids.map((id) => outcome(id).high), aim.value)
+    const at = ((aim.value - lo) / (hi - lo)) * 100
+    for (const id of ids) {
+      const b = bands.get(id)!, o = outcome(id)
+      expect(b.aim!.pct).toBeCloseTo(at, 6)
+      expect(b.aim!.text).toBe(aim.text)
+      // "At least": the part above the aim meets it, the part below misses it.
+      if (o.high > aim.value && o.low < aim.value) {
+        expect(b.aim!.meet!.left).toBeCloseTo(at, 6)
+        expect(b.aim!.miss!.left).toBeCloseTo(b.leftPct, 6)
+      } else if (o.high <= aim.value) expect(b.aim!.meet).toBeNull()
+    }
+    // Drawn on the card: the aim line with core's words on hover, and the two parts.
+    useViewStore.setState({ view })
+    const straddles = ids.find((id) => outcome(id).low < aim.value && outcome(id).high > aim.value)!
+    const card = model.cards.find((c) => c.id === straddles)!
+    useCanvasStore.setState({ nodes: model.cards.filter((c) => c.family === 'option').map((c) => ({ id: c.id, type: 'viewCard', position: { x: 0, y: 0 }, data: { card: c, label: c.heading } })) as never })
+    const { container } = render(<ReactFlowProvider><ViewCardV10 {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>)
+    expect(container.querySelector(`[data-testid="view-option-band-aim-${card.id}"]`)?.getAttribute('title')).toBe(aim.text)
+    expect(container.querySelector(`[data-testid="view-option-band-meet-${card.id}"]`)).not.toBeNull()
+    expect(container.querySelector(`[data-testid="view-option-band-miss-${card.id}"]`)).not.toBeNull()
+    // Never an aim in another unit: the bands are then exactly the plain ones, with no aim line.
+    const other = optionBands(model.cards, { ...aim, unit: 'hour' })
+    expect([...other.values()]).toEqual([...plain.values()])
+    expect([...other.values()].every((b) => b.aim === null)).toBe(true)
+  })
 })
