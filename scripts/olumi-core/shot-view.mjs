@@ -31,7 +31,9 @@ const underDock = await page.evaluate(() => {
   if (!d || d.width === 0) return []
   return [...document.querySelectorAll('.react-flow__node')].filter((e) => { const r = e.getBoundingClientRect(); return r.right > d.left + 1 && r.left < d.right && r.bottom > d.top && r.top < d.bottom }).map((e) => e.getAttribute('data-id'))
 })
-check(underDock.length === 0, `no card under the dock${underDock.length ? ` (under it: ${underDock.join(', ')})` : ''}`)
+const headIds = ['page:question', ...golden.model.cards.filter((c) => c.family === 'option').map((c) => c.id)]
+if (zoom > 0.9 + 0.005) check(underDock.length === 0, `fits at ${zoom.toFixed(3)}: no card under the dock${underDock.length ? ` (under it: ${underDock.join(', ')})` : ''}`)
+else check(Math.abs(zoom - 0.9) < 0.005 && headIds.every((id) => !underDock.includes(id)), `zoom ${zoom.toFixed(3)} (0.9, never lower): the question and every option clear of the dock${headIds.some((id) => underDock.includes(id)) ? ` (under it: ${headIds.filter((id) => underDock.includes(id)).join(', ')})` : ''}`)
 const next = golden.chat.find((t) => t.answer?.next.newest)?.answer?.next
 if (next) {
   const words = next.text.map((p) => p.text ?? '').join('').trim()
