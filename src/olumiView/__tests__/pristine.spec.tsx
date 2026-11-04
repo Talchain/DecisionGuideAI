@@ -45,7 +45,7 @@ describe('core\'s words wrap to two lines before an ellipsis (R3 pristine 4)', (
 
   it('the outcome band\'s line', () => {
     const at = 'x.rows.0.outcome.text'
-    const p = render(<ViewOptionBand id="x" band={{ at, text: 'between 272 and 2,020 hours of engineering effort, in this model', title: '', leftPct: 10, widthPct: 70, medianPct: 40 }} />).container.querySelector(`[data-view="${at}"]`)!
+    const p = render(<ViewOptionBand id="x" band={{ at, text: 'between 272 and 2,020 hours of engineering effort, in this model', title: '', leftPct: 10, widthPct: 70, medianPct: 40, aim: null }} />).container.querySelector(`[data-view="${at}"]`)!
     expect(p.className).toContain('line-clamp-2')
     expect(p.className).not.toContain('line-clamp-1')
   })
