@@ -120,7 +120,8 @@ export function attentionCardSpot(anchor: Box, card: { readonly w: number; reado
   const right = { left: anchor.x + anchor.w + CARD_GAP, top: anchor.y }
   const left = { left: anchor.x - card.w - CARD_GAP, top: anchor.y }
   const fits = (s: { left: number }) => s.left >= roomLeft && s.left + card.w <= roomRight
-  const covered = (s: { left: number; top: number }) => others.reduce((area, o) =>
+  // The note's own card counts too (R2 witness, 4 Nov: the canvas-wide search took the free room around it, on top of it).
+  const covered = (s: { left: number; top: number }) => [anchor, ...others].reduce((area, o) =>
     area + Math.max(0, Math.min(s.left + card.w, o.x + o.w) - Math.max(s.left, o.x))
       * Math.max(0, Math.min(s.top + card.h, o.y + o.h) - Math.max(s.top, o.y)), 0)
   const before = right.left + card.w <= roomRight ? right : left
