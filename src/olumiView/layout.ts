@@ -6,6 +6,7 @@
 import type { Edge, Node } from '@xyflow/react'
 import type { ViewCard, ViewModel } from './client'
 import { layoutGraph } from '../canvas/utils/layout'
+import { wrapTiers } from '../canvas/utils/wrapTiers'
 
 /**
  * The option cards core compares, in the View's own order: what the chances block draws. An option core does not compare carries its
@@ -14,7 +15,7 @@ import { layoutGraph } from '../canvas/utils/layout'
 export const optionCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.family === 'option' && c.status === null)
 
 /** Core's own page geometry (olumi-core src/page/graph.ts): card width and the gap between its columns (the question's width). */
-const W = 232, GAP_X = 48
+const W = 220, GAP_X = 48
 /** The gap under a card: the least room between two cards one above the other. */
 export const GAP_Y = 14
 
@@ -66,7 +67,8 @@ type Size = { width: number; height: number }
 /**
  * DGAI'S CAUSAL GRAPH FOR CORE'S MODEL (Paul, 4 Nov: "the causal graph, not … the horizontal temporary UI"). Each View card as its DGAI
  * kind (`askKindOf`; the question as the decision) and each View link as an edge, placed by DGAI's own pure layout (`layoutGraph`: ELK
- * and the semantic tiers, top to bottom: decision, options, factors and risks, goal). `size` is each card as the canvas measured it
+ * and the semantic tiers, top to bottom: decision, options, factors and risks, goal; a tier wider than four cards wraps). `size` is each
+ * card as the canvas measured it
  * (else core's width and height). Positions only: no word of core's is read or written here.
  */
 export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, questionWidth: number): Promise<Map<string, { x: number; y: number }>> {
@@ -77,7 +79,9 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   ]
   const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
   const laid = await layoutGraph(nodes, edges, { direction: 'DOWN' })
-  return new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }]))
+  // A tier wider than four cards wraps (DL 4 Nov), so the board reads at fit as the original canvas does.
+  const sized = new Map(nodes.map((n) => [n.id, n.measured as Size]))
+  return wrapTiers(laid.nodes.map((n) => ({ id: n.id, x: n.position.x, y: n.position.y, ...sized.get(n.id)! })))
 }
 
 /**
@@ -133,3 +137,6 @@ export function cardNumbersOf(model: ViewModel): ReadonlyMap<string, string> {
   }
   return out
 }
+
+/** The top of the causal graph, which the camera centres on when a board is too large to read whole: the question and the options. */
+export const headOf = (model: ViewModel): ReadonlySet<string> => new Set([QUESTION, ...model.cards.filter((c) => c.family === 'option').map((c) => c.id)])
