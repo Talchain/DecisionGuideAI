@@ -46,30 +46,27 @@ export const V10MethodChips = memo(function V10MethodChips({ value, onReplace }:
 /** The coach's moves (olumi-core `form.ts` MOVES), as core names them in a reply's `next.move`. */
 export type CoachMove = 'widen_options' | 'outside_view' | 'pre_mortem' | 'what_would_change_your_mind' | 'define_success' | 'gather_evidence' | 'other_method'
 
-type MoveChip = { readonly label: string; readonly prefix: string; readonly Icon: LucideIcon }
-
-/**
- * One chip per coach move Olumi can point the person to, the same look and grammar as the composer's methods: a press puts the move's
- * prefix in the composer for the person to finish, and sends nothing. `other_method` has no chip: it names no one move.
- */
-export const V10_MOVES: Readonly<Record<Exclude<CoachMove, 'other_method'>, MoveChip>> = {
-  widen_options: { label: 'Widen the options', prefix: 'Another option we could consider: ', Icon: Split },
-  outside_view: { label: 'Outside view', prefix: 'Outside view on: ', Icon: Globe },
-  pre_mortem: { label: 'Imagine it failed', prefix: 'Imagine it failed. The likeliest reason: ', Icon: AlertCircle },
-  what_would_change_your_mind: { label: 'What would change my mind', prefix: 'What would change my mind: ', Icon: Scale },
-  define_success: { label: 'Define success', prefix: 'Success would look like: ', Icon: Target },
-  gather_evidence: { label: 'Bring evidence', prefix: 'Evidence on this: ', Icon: NotebookPen },
+/** Each move's icon (v10's look). `other_method` names no one move, so it has no chip. The words are core's (`next.label`), never here. */
+export const V10_MOVE_ICONS: Readonly<Record<Exclude<CoachMove, 'other_method'>, LucideIcon>> = {
+  widen_options: Split,
+  outside_view: Globe,
+  pre_mortem: AlertCircle,
+  what_would_change_your_mind: Scale,
+  define_success: Target,
+  gather_evidence: NotebookPen,
 }
 
-/** The chip for a reply's next move (core's `next.move`); nothing for a move with no chip. `onPick` gets the prefix; nothing is sent. */
-export function V10MoveChip({ move, onPick }: { move: string | null | undefined; onPick: (prefix: string) => void }) {
-  const chip = move != null && Object.prototype.hasOwnProperty.call(V10_MOVES, move) ? V10_MOVES[move as keyof typeof V10_MOVES] : null
-  if (chip === null) return null
-  const { label, prefix, Icon } = chip
+/**
+ * The chip for a reply's next move: its icon by the move core names, and core's label for it (`next.label`) verbatim. A press calls
+ * `onPress` with nothing typed; the caller sends the person's choice ({ move, at }). Nothing is drawn for a move with no chip.
+ */
+export function V10MoveChip({ move, label, onPress }: { move: string | null | undefined; label: string; onPress: () => void }) {
+  const Icon = move != null && Object.prototype.hasOwnProperty.call(V10_MOVE_ICONS, move) ? V10_MOVE_ICONS[move as keyof typeof V10_MOVE_ICONS] : null
+  if (Icon === null) return null
   return (
     <button
       type="button"
-      onClick={() => onPick(prefix)}
+      onClick={() => onPress()}
       className={`${typography.panelBody} inline-flex items-center rounded-full bg-panel text-text-body hover:bg-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2`}
       style={{ gap: 5, padding: '4px 10px', border: '1px solid var(--border-default)' }}
       data-testid={`v10-move-${move}`}
@@ -79,4 +76,3 @@ export function V10MoveChip({ move, onPick }: { move: string | null | undefined;
     </button>
   )
 }
-
