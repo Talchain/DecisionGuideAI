@@ -126,6 +126,18 @@ export function SharedBlockers({ run }: { run: ViewRun | null }) {
 }
 
 /**
+ * What each option's two driver chances are (core's `run.sensitivity`), said once at the head of the option rows, in core's words with its
+ * hover; only when an option carries those chances (`driver.low` / `driver.high`).
+ */
+export function Sensitivity({ model }: { model: ViewModel }) {
+  const s = model.run?.sensitivity ?? null
+  if (s === null) return null
+  let carried = false
+  for (const c of optionCards(model)) if (c.driver != null && c.driver.low !== null && c.driver.high !== null) carried = true
+  return carried ? <p className={typography.panelMeta} title={s.title} data-view="run.sensitivity.text">{s.text}</p> : null
+}
+
+/**
  * One option: its heading, each row (a chance, a limit, or why there is nothing yet) with what `after` draws under it, and what moves its
  * chance most, all core's; then `children`.
  */
@@ -183,6 +195,7 @@ export function ViewChances({ model }: { model: ViewModel }) {
         </div>
       )}
       <SharedBlockers run={run} />
+      <Sensitivity model={model} />
       {optionCards(model).map((card) => <OptionLines key={card.id} card={card} />)}
       {run?.most_likely == null ? null : <MostLikely model={model} ml={run.most_likely} />}
       <Worth run={run} />
