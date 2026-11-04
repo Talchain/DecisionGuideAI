@@ -187,6 +187,6 @@ describe('the cards as the original canvas numbers and draws them', () => {
     const model = golden('european').model!, n = cardNumbersOf(model)
     expect(model.cards.filter((c) => c.family === 'option').map((c) => n.get(c.id))).toEqual(['O1', 'O2', 'O3'])
     expect([n.get('starting_customers'), n.get('customers'), n.get('entry_interpretation'), n.get('reach_customer_target')]).toEqual(['F1', 'OC1', 'A1', undefined])
-    expect([drawKindOf(model.cards.find((c) => c.id === 'customers')!), drawKindOf(model.cards.find((c) => c.id === 'starting_customers')!)]).toEqual(['outcome', 'factor'])
+    expect([drawKindOf(model.cards.find((c) => c.id === 'customers')!, model), drawKindOf(model.cards.find((c) => c.id === 'starting_customers')!, model)]).toEqual(['outcome', 'factor'])
   })
 })

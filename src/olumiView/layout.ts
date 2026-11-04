@@ -156,7 +156,7 @@ export function appliedSince(before: ViewModel, after: ViewModel): string[] {
  * Assumptions and conditions are the Rests on lens's.
  */
 export function modelGroupsOf(model: ViewModel): { id: 'goal' | 'options' | 'factors' | 'outcomes-risks'; title: string; cards: ViewCard[] }[] {
-  const of = (kinds: readonly string[]) => model.cards.filter((c) => c.family !== 'assumption' && c.family !== 'condition' && kinds.includes(drawKindOf(c)))
+  const of = (kinds: readonly string[]) => model.cards.filter((c) => c.family !== 'assumption' && c.family !== 'condition' && kinds.includes(drawKindOf(c, model)))
   return [
     { id: 'goal', title: MODEL_TAB_GOAL_GROUP_TITLE, cards: of(['goal', 'constraint']) },
     { id: 'options', title: MODEL_GROUP_TITLE.options, cards: of(['option']) },
@@ -171,17 +171,20 @@ export function linkEndHeading(model: ViewModel, id: string): string {
   return (model.cards.find((c) => c.id === id) ?? model.cards.find((c) => c.badge?.records.includes(id) === true))?.heading ?? ''
 }
 
-/** The DGAI node kind a View card is drawn as on the canvas (the original look): a figure a person sets is a factor, one core works out
- *  from others (no edit) an outcome; the rest as `askKindOf`. */
-export const drawKindOf = (c: ViewCard): 'factor' | 'outcome' | 'risk' | 'goal' | 'option' | 'constraint' =>
-  c.family === 'quantity' && c.figure !== null && (c.figure.edit ?? null) === null ? 'outcome' : askKindOf(c.family)
+/**
+ * The DGAI node kind a View card is drawn as on the canvas (the original look), by its role in core's model, the same on every version: a
+ * figure core works out from others (a `through` link arrives at it) is an outcome, any other figure a factor; the rest as `askKindOf`.
+ * Never by whether it can be edited now: core withdraws every edit while a proposal is held and on a past version (R1 P1).
+ */
+export const drawKindOf = (c: ViewCard, model: ViewModel): 'factor' | 'outcome' | 'risk' | 'goal' | 'option' | 'constraint' =>
+  c.family === 'quantity' && model.links.some((l) => l.to === c.id && l.kind === 'through') ? 'outcome' : askKindOf(c.family)
 const PREFIX: Record<string, string> = { option: 'O', factor: 'F', outcome: 'OC', risk: 'R', constraint: 'C' }
 /** Each card's number as the original canvas numbers them (O1, F1, OC1, …), per kind in the View's order; an assumption or condition
  *  is A1, …; the aim has none. */
 export function cardNumbersOf(model: ViewModel): ReadonlyMap<string, string> {
   const seen = new Map<string, number>(), out = new Map<string, string>()
   for (const c of model.cards) {
-    const p = c.family === 'assumption' || c.family === 'condition' ? 'A' : PREFIX[drawKindOf(c)]
+    const p = c.family === 'assumption' || c.family === 'condition' ? 'A' : PREFIX[drawKindOf(c, model)]
     if (p === undefined) continue
     const n = (seen.get(p) ?? 0) + 1
     seen.set(p, n)
