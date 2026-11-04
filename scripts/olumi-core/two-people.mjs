@@ -392,5 +392,25 @@ if (await ada.page.getByTestId('view-chat-said').count() > 0 && !saved(await vie
 v = await viewWhen(ada, sid, saved)
 check(saved(v), alone ? `core approved the ticked line alone ("${part.changes[0].text}" of ${part.changes.length}): version ${before + 1}` : `core approved the ticked lines: version ${before + 1}`)
 
+// ── 10. The Summary in DGAI is core's View (DL 4 Nov) ───────────────────────────────────────────────────────────────────────────
+step(10, 'Ada opens the Summary in DGAI\'s top bar: the question, the Run\'s lines and each option\'s rows, as core\'s View holds them')
+const summed = (await view(ada, sid)).model
+await ada.page.getByTestId('view-brief-trigger').click()
+const panel = ada.page.getByTestId('view-brief-panel')
+await panel.waitFor({ timeout: T })
+check(await panel.getByTestId('view-brief-question').innerText() === summed.question.text, `the Summary's question is core's: "${summed.question.text}"`)
+const options = summed.cards.filter((c) => c.family === 'option')
+let rows = 0
+for (const c of options) {
+  const box = panel.getByTestId(`view-brief-option-${c.id}`)
+  const text = await box.innerText()
+  if (!text.includes(c.heading) || !c.rows.every((r) => text.includes(r.kind === 'none' ? r.text : r.value))) { check(false, `the Summary draws "${c.heading}" and its rows as core's View holds them`) }
+  rows += c.rows.length
+}
+check(options.length > 0, `the Summary draws all ${options.length} options and their ${rows} rows, each value as core's View holds it`)
+if (summed.run?.most_likely) check(await panel.getByTestId('view-brief-most-likely').innerText() === summed.run.most_likely.text, 'the Summary\'s most-likely line is core\'s, word for word')
+await shot(ada, `j-summary-${process.env.VIEW_W ?? 1440}`)
+await ada.page.getByTestId('view-brief-close').click()
+
 console.log(`\nAll steps hold. Scenario ${sid}: DGAI ${BASE}/#/scenario/${uuidOf(sid)} · core ${BASE}/s/${sid}`)
 await browser.close()
