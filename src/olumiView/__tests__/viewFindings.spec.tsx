@@ -13,6 +13,7 @@ import { cleanup, render } from '@testing-library/react'
 import type { View, ViewModel } from '../client'
 import { restsOnOf } from '../layout'
 import { ViewChances } from '../ViewChances'
+import { ViewBriefBody } from '../ViewBrief'
 
 const golden: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))
 afterEach(cleanup)
@@ -54,6 +55,15 @@ describe('each option\'s finding, not the wall', () => {
     // CONTRAST: without the stand-in, the risk and the worked-out figure are not on the lens.
     const plain = restsOnOf(golden.model!).items
     expect([plain.has('sales'), plain.has('oven_repair')]).toEqual([false, false])
+  })
+  it('the Summary draws the same: each option\'s finding in core\'s words under its row, each rests_on_text once, the wall only as hover', () => {
+    const c = render(<ViewBriefBody model={model} />).container, all = c.textContent ?? ''
+    for (const { card, i, row } of chanceRows) {
+      expect(c.querySelector(`[data-view="${card.id}.rows.${i}.text"]`)?.textContent, card.id).toBe(row.text)
+      expect(occurrences(all, row.rests_on_text), card.id).toBe(1)
+      expect(all.includes(row.title), `${card.id}: the wall is not drawn as text`).toBe(false)
+    }
+    expect(occurrences(all, 'Rests on Olumi\'s reading of the aim.')).toBe(1)
   })
   it('must not change: a View without the stand-in draws exactly as before (no finding, no footnote)', () => {
     const c = render(<ViewChances model={golden.model!} />).container

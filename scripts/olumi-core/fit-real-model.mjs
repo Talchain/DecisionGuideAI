@@ -133,17 +133,32 @@ for (const { name, view } of real) {
   if (at === null) { ok(`real ${name}: no next step to open`); continue }
   const icon = page.getByTestId('olumi-attention-card-icon')
   await icon.waitFor({ timeout: 20000 })
+  // Every frame from the press on: was the note ever visible on the canvas (outside the Olumi tab's slot)? (Integrator, 900×560: a frame
+  // on the canvas before it moved to the tab.)
+  await page.evaluate(() => {
+    window.__canvasFrames = 0; window.__sampling = true
+    const tick = () => {
+      const on = [...document.querySelectorAll('[data-testid="olumi-attention-card"]')].some((e) => !e.closest('[data-olumi-note-slot]') && getComputedStyle(e).visibility !== 'hidden' && e.getBoundingClientRect().width > 0)
+      if (on) window.__canvasFrames += 1
+      if (window.__sampling) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  })
   await icon.click()
   await page.getByTestId('olumi-attention-card').waitFor({ timeout: 20000 })
   await page.waitForTimeout(800)
   const note = await page.evaluate(() => {
     const n = document.querySelector('[data-testid="olumi-attention-card"]').getBoundingClientRect()
-    const covers = [...document.querySelectorAll('.react-flow__node')].filter((e) => { const r = e.getBoundingClientRect(); return Math.min(n.right, r.right) > Math.max(n.left, r.left) && Math.min(n.bottom, r.bottom) > Math.max(n.top, r.top) }).map((e) => e.getAttribute('data-id'))
+    const box = (r) => `${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}×${Math.round(r.height)}`
+    // Each covered card with both rects, so an intermittent overlap names its geometry (1 run in 4 at 1440 on hiring, 4 Nov, cause open).
+    const covers = [...document.querySelectorAll('.react-flow__node')].filter((e) => { const r = e.getBoundingClientRect(); return Math.min(n.right, r.right) > Math.max(n.left, r.left) && Math.min(n.bottom, r.bottom) > Math.max(n.top, r.top) }).map((e) => `${e.getAttribute('data-id')} [card ${box(e.getBoundingClientRect())}; note ${box(n)}]`)
     const ids = [...document.querySelectorAll('[data-testid^="olumi-attention-card"]')].map((e) => e.getAttribute('data-testid'))
     const whys = [...document.querySelectorAll('[data-testid^="olumi-attention-card"] summary, [data-note-measure] summary')].filter((e) => !e.closest('[aria-hidden="true"], [inert]')).length
     return { covers, dup: ids.filter((id, i) => ids.indexOf(id) !== i), whys, inPanel: document.querySelector('[data-testid="olumi-attention-card"]').hasAttribute('data-in-panel') }
   })
   check(note.covers.length === 0, `real ${name}: Olumi's note, opened at ${at}${note.inPanel ? ' (in the Olumi tab: no free spot on the canvas)' : ''}, covers no card${note.covers.length ? ` (covers ${note.covers.join(', ')})` : ''}`)
+  const frames = await page.evaluate(() => { window.__sampling = false; return window.__canvasFrames })
+  if (note.inPanel) check(frames === 0, `real ${name}: the note, which ends in the Olumi tab, was never painted on the canvas (${frames} frame(s))`)
   check(note.dup.length === 0 && note.whys <= 1, `real ${name}: one note: each test id once${note.dup.length ? ` (twice: ${note.dup.join(', ')})` : ''}, ${note.whys} reachable "Why"`)
   if (SHOT) await page.screenshot({ path: SHOT.replace(/\.png$/, `-real-${name}.png`) })
 }
