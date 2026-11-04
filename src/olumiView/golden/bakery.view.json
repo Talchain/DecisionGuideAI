@@ -55,7 +55,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "sales_target",
@@ -85,7 +87,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "one_oven",
@@ -115,7 +119,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "hours_switched_on",
@@ -145,7 +151,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "extra_hours_sold",
@@ -175,7 +183,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "sales",
@@ -195,8 +205,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "A second oven: 337 to 387 loaves/week · Open two hours longer: 339 to 380 loaves/week · Carry on as now: 300 loaves/week",
-     "title": "Modelled range at the end of week 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. Under A second oven it rests on figures Olumi proposed. A second oven: 337 to 387 loaves/week; Open two hours longer: 339 to 380 loaves/week; Carry on as now: 300 loaves/week. Worked out from the figures it depends on.",
+     "text": "A second oven: about 370 loaves/week (337 to 387 loaves/week) · Open two hours longer: about 360 loaves/week (339 to 380 loaves/week) · Carry on as now: 300 loaves/week",
+     "title": "Modelled range at the end of week 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under A second oven it rests on figures Olumi proposed. A second oven: about 370 loaves/week (337 to 387 loaves/week); Open two hours longer: about 360 loaves/week (339 to 380 loaves/week); Carry on as now: 300 loaves/week. Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -218,7 +228,37 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": [
+     {
+      "option": "second_oven",
+      "text": "about 370 loaves/week (337 to 387 loaves/week)",
+      "p10": 336.6150549257873,
+      "p50": 369.96239436039934,
+      "p90": 387.0940544324368,
+      "if_absent": [],
+      "olumi": true
+     },
+     {
+      "option": "longer_hours",
+      "text": "about 360 loaves/week (339 to 380 loaves/week)",
+      "p10": 339.4744945801455,
+      "p50": 359.9971077421209,
+      "p90": 379.7323179658307,
+      "if_absent": [],
+      "olumi": false
+     },
+     {
+      "option": "carry_on",
+      "text": "300 loaves/week",
+      "p10": 300,
+      "p50": 300,
+      "p90": 300,
+      "if_absent": [],
+      "olumi": false
+     }
+    ],
+    "rests_on": []
    },
    {
     "id": "repair_chance",
@@ -248,7 +288,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "half_capacity",
@@ -278,7 +320,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "budget",
@@ -308,7 +352,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "oven_price",
@@ -338,7 +384,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "fitting",
@@ -368,7 +416,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "spend",
@@ -411,7 +461,9 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "sell_360",
@@ -439,7 +491,9 @@
      "measured": true
     },
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "within_budget",
@@ -467,7 +521,9 @@
      "measured": true
     },
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "second_oven",
@@ -508,17 +564,29 @@
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
       "title": "If Olumi's estimates hold, the chance that 'A second oven' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'.",
+      "chance": 0.7162,
+      "outcome": {
+       "low": 336.6150549257873,
+       "median": 369.96239436039934,
+       "high": 387.0940544324368,
+       "unit": "loaf/week",
+       "text": "about 370 loaves/week (337 to 387 loaves/week)",
+       "title": "Modelled range at the end of week 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under A second oven it rests on figures Olumi proposed. A second oven: about 370 loaves/week (337 to 387 loaves/week); Open two hours longer: about 360 loaves/week (339 to 380 loaves/week); Carry on as now: 300 loaves/week. Worked out from the figures it depends on."
+      },
       "estimate": null
      }
     ],
     "driver": {
      "text": "about 53% if 'extra sold per oven' is low, about 81% if it is high: Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are its chances over the lowest and highest third of that figure's draws.",
-     "title": "about 53% if 'extra sold per oven' is low, about 81% if it is high: Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are its chances over the lowest and highest third of that figure's draws."
+     "title": "about 53% if 'extra sold per oven' is low, about 81% if it is high: Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "extra_sold_per_oven"
     },
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "longer_hours",
@@ -553,17 +621,29 @@
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
       "title": "The chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information.",
+      "chance": 0.4999,
+      "outcome": {
+       "low": 339.4744945801455,
+       "median": 359.9971077421209,
+       "high": 379.7323179658307,
+       "unit": "loaf/week",
+       "text": "about 360 loaves/week (339 to 380 loaves/week)",
+       "title": "Modelled range at the end of week 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under A second oven it rests on figures Olumi proposed. A second oven: about 370 loaves/week (337 to 387 loaves/week); Open two hours longer: about 360 loaves/week (339 to 380 loaves/week); Carry on as now: 300 loaves/week. Worked out from the figures it depends on."
+      },
       "estimate": null
      }
     ],
     "driver": {
      "text": "under 1% if 'extra hours sold' is low, over 99% if it is high: Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are its chances over the lowest and highest third of that figure's draws.",
-     "title": "under 1% if 'extra hours sold' is low, over 99% if it is high: Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are its chances over the lowest and highest third of that figure's draws."
+     "title": "under 1% if 'extra hours sold' is low, over 99% if it is high: Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "extra_hours_sold"
     },
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "carry_on",
@@ -598,6 +678,15 @@
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
       "title": "The chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information.",
+      "chance": 0,
+      "outcome": {
+       "low": 300,
+       "median": 300,
+       "high": 300,
+       "unit": "loaf/week",
+       "text": "300 loaves/week",
+       "title": "Modelled range at the end of week 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under A second oven it rests on figures Olumi proposed. A second oven: about 370 loaves/week (337 to 387 loaves/week); Open two hours longer: about 360 loaves/week (339 to 380 loaves/week); Carry on as now: 300 loaves/week. Worked out from the figures it depends on."
+      },
       "estimate": null
      }
     ],
@@ -605,7 +694,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "oven_repair",
@@ -628,7 +719,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    }
   ],
   "links": [
@@ -640,7 +733,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "base · Proposed by Olumi: Olumi's estimate"
+    "title": "base · Proposed by Olumi: Olumi's estimate",
+    "effect": null
    },
    {
     "from": "extra_hours_sold",
@@ -650,7 +744,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "how much · Proposed by Olumi: Olumi's estimate"
+    "title": "how much · Proposed by Olumi: Olumi's estimate",
+    "effect": null
    },
    {
     "from": "oven_price",
@@ -660,7 +755,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "worked out through oven cost · Proposed by Olumi: Olumi's estimate"
+    "title": "worked out through oven cost · Proposed by Olumi: Olumi's estimate",
+    "effect": null
    },
    {
     "from": "fitting",
@@ -670,7 +766,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through oven cost · Proposed by Olumi: Olumi's estimate"
+    "title": "worked out through oven cost · Proposed by Olumi: Olumi's estimate",
+    "effect": null
    },
    {
     "from": "sales",
@@ -680,7 +777,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by"
+    "title": "measured by",
+    "effect": null
    },
    {
     "from": "sales_target",
@@ -690,7 +788,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target"
+    "title": "target",
+    "effect": null
    },
    {
     "from": "spend",
@@ -700,7 +799,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by"
+    "title": "measured by",
+    "effect": null
    },
    {
     "from": "budget",
@@ -710,7 +810,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "bound"
+    "title": "bound",
+    "effect": null
    },
    {
     "from": "second_oven",
@@ -720,7 +821,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "effect": null
    },
    {
     "from": "one_oven",
@@ -730,7 +832,12 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through ovens added · Proposed by Olumi: Olumi's estimate"
+    "title": "worked out through ovens added · Proposed by Olumi: Olumi's estimate",
+    "effect": {
+     "text": "60 to 90 loaves/week/oven",
+     "title": "extra sold per oven · Plausible range: 60 to 90 loaves/week/oven · worked out through ovens added",
+     "figure": "extra_sold_per_oven"
+    }
    },
    {
     "from": "one_oven",
@@ -740,7 +847,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through ovens added · Proposed by Olumi: Olumi's estimate"
+    "title": "worked out through ovens added · Proposed by Olumi: Olumi's estimate",
+    "effect": null
    },
    {
     "from": "longer_hours",
@@ -750,7 +858,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "effect": null
    },
    {
     "from": "hours_switched_on",
@@ -760,7 +869,12 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through hours on · Proposed by Olumi: Olumi's estimate"
+    "title": "worked out through hours on · Proposed by Olumi: Olumi's estimate",
+    "effect": {
+     "text": "40 to 80 loaves/week",
+     "title": "extra hours sold · Plausible range: 40 to 80 loaves/week · worked out through hours on",
+     "figure": "extra_hours_sold"
+    }
    },
    {
     "from": "oven_repair",
@@ -770,7 +884,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through extra sold per oven · Proposed by Olumi: Olumi's estimate"
+    "title": "worked out through extra sold per oven · Proposed by Olumi: Olumi's estimate",
+    "effect": null
    }
   ],
   "run": {
@@ -834,7 +949,113 @@
     }
    ]
   },
-  "edit_base": 1
+  "edit_base": 1,
+  "key": [
+   {
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "glyph": "?",
+    "text": "unsized"
+   },
+   {
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "glyph": "↻",
+    "text": "changed"
+   }
+  ]
  },
  "proposal": null,
  "collab": {
@@ -983,5 +1204,6 @@
   "dissent": []
  },
  "evidence": [],
- "chat": []
+ "chat": [],
+ "brief": "Should the bakery buy a second oven or open longer?"
 }

@@ -55,7 +55,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "cups_now",
@@ -85,7 +87,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "rise_switched_on",
@@ -115,7 +119,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "profit",
@@ -135,8 +141,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "Raise the price by 45p: £6,190 to £7,820/month · Keep the price: £6,200/month",
-     "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. Under Raise the price by 45p it rests on figures Olumi proposed. Raise the price by 45p: £6,190 to £7,820/month; Keep the price: £6,200/month. Worked out from the figures it depends on.",
+     "text": "Raise the price by 45p: about £6,990/month (£6,190 to £7,820/month) · Keep the price: £6,200/month",
+     "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under Raise the price by 45p it rests on figures Olumi proposed. Raise the price by 45p: about £6,990/month (£6,190 to £7,820/month); Keep the price: £6,200/month. Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -160,7 +166,28 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": [
+     {
+      "option": "raise_price",
+      "text": "about £6,990/month (£6,190 to £7,820/month)",
+      "p10": 6187.801740508874,
+      "p50": 6985.7864462053185,
+      "p90": 7820.149703344684,
+      "if_absent": [],
+      "olumi": true
+     },
+     {
+      "option": "carry_on",
+      "text": "£6,200/month",
+      "p10": 6200,
+      "p50": 6200,
+      "p90": 6200,
+      "if_absent": [],
+      "olumi": false
+     }
+    ],
+    "rests_on": []
    },
    {
     "id": "profit_target",
@@ -190,7 +217,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "profit_goal",
@@ -218,7 +247,9 @@
      "measured": true
     },
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "raise_price",
@@ -253,17 +284,29 @@
       "aim": "Make £7,000 a month",
       "aim_id": "profit_goal",
       "title": "If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change'.",
+      "chance": 0.4921,
+      "outcome": {
+       "low": 6187.801740508874,
+       "median": 6985.7864462053185,
+       "high": 7820.149703344684,
+       "unit": "GBP/month",
+       "text": "about £6,990/month (£6,190 to £7,820/month)",
+       "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under Raise the price by 45p it rests on figures Olumi proposed. Raise the price by 45p: about £6,990/month (£6,190 to £7,820/month); Keep the price: £6,200/month. Worked out from the figures it depends on."
+      },
       "estimate": null
      }
     ],
     "driver": {
      "text": "under 1% if 'cups change' is low, over 99% if it is high: Under 'Raise the price by 45p', the chance of meeting 'Make £7,000 a month' moves most with 'cups change': these are its chances over the lowest and highest third of that figure's draws.",
-     "title": "under 1% if 'cups change' is low, over 99% if it is high: Under 'Raise the price by 45p', the chance of meeting 'Make £7,000 a month' moves most with 'cups change': these are its chances over the lowest and highest third of that figure's draws."
+     "title": "under 1% if 'cups change' is low, over 99% if it is high: Under 'Raise the price by 45p', the chance of meeting 'Make £7,000 a month' moves most with 'cups change': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "cups_change"
     },
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "carry_on",
@@ -292,6 +335,15 @@
       "aim": "Make £7,000 a month",
       "aim_id": "profit_goal",
       "title": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "chance": 0,
+      "outcome": {
+       "low": 6200,
+       "median": 6200,
+       "high": 6200,
+       "unit": "GBP/month",
+       "text": "£6,200/month",
+       "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Under Raise the price by 45p it rests on figures Olumi proposed. Raise the price by 45p: about £6,990/month (£6,190 to £7,820/month); Keep the price: £6,200/month. Worked out from the figures it depends on."
+      },
       "estimate": null
      }
     ],
@@ -299,7 +351,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    }
   ],
   "links": [
@@ -311,7 +365,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through cups · Proposed by Olumi: Olumi's estimate"
+    "title": "worked out through cups · Proposed by Olumi: Olumi's estimate",
+    "effect": null
    },
    {
     "from": "profit",
@@ -321,7 +376,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by"
+    "title": "measured by",
+    "effect": null
    },
    {
     "from": "profit_target",
@@ -331,7 +387,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target"
+    "title": "target",
+    "effect": null
    },
    {
     "from": "raise_price",
@@ -341,7 +398,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "effect": null
    },
    {
     "from": "margin_raised",
@@ -351,7 +409,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through margin · Proposed by Olumi: Olumi's estimate"
+    "title": "worked out through margin · Proposed by Olumi: Olumi's estimate",
+    "effect": null
    },
    {
     "from": "raise_price",
@@ -361,7 +420,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "effect": null
    },
    {
     "from": "rise_switched_on",
@@ -371,7 +431,12 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through rise on, cups · Proposed by Olumi: Olumi's estimate"
+    "title": "worked out through rise on, cups · Proposed by Olumi: Olumi's estimate",
+    "effect": {
+     "text": "−900 to −100 cups/month",
+     "title": "cups change · Plausible range: −900 to −100 cups/month · worked out through rise on, cups",
+     "figure": "cups_change"
+    }
    }
   ],
   "run": {
@@ -392,7 +457,113 @@
    ],
    "science": []
   },
-  "edit_base": 1
+  "edit_base": 1,
+  "key": [
+   {
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "glyph": "?",
+    "text": "unsized"
+   },
+   {
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "glyph": "↻",
+    "text": "changed"
+   }
+  ]
  },
  "proposal": null,
  "collab": {
@@ -486,5 +657,6 @@
   "dissent": []
  },
  "evidence": [],
- "chat": []
+ "chat": [],
+ "brief": "Should the café raise its coffee price?"
 }

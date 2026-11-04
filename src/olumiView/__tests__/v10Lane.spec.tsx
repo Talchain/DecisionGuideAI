@@ -16,7 +16,7 @@ import type { View } from '../client'
 import { currentModel, useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
 import { ViewChat, ViewComposer, ViewTurns, useViewChat, useAnswersAsks } from '../ViewChat'
-import { useV10Lane, ViewCardV10 } from '../v10'
+import { optionBands, useV10Lane, ViewCardV10 } from '../v10'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -122,5 +122,31 @@ describe('v10 on the core lane', () => {
     await waitFor(() => expect(document.querySelector(`[data-view="${withDriver.id}.driver.text"]`)?.textContent).toBe(withDriver.driver!.text)) // core's words, verbatim
     expect(document.querySelector(`[data-testid="view-driver-mark-${withDriver.id}"]`)).not.toBeNull() // with Olumi's mark (00002 #4)
     expect(draw(without).querySelector('[data-testid^="view-driver-"]')).toBeNull()
+  })
+
+  it('the outcome band: each option\'s band from core\'s chance-row outcome on ONE axis, core\'s line beneath verbatim; none in two units', () => {
+    const model = currentModel({ view: golden('capacity-v3'), error: null, stale: false })!
+    const options = model.cards.filter((c) => c.family === 'option')
+    const bands = optionBands(model.cards)
+    const outcome = (id: string) => { const r = options.find((c) => c.id === id)!.rows.find((x) => x.kind === 'chance')!; return r.kind === 'chance' ? r.outcome! : null! }
+    // One axis: its ends are the lowest low and the highest high of every option, so each bar sits where its range is.
+    const lo = Math.min(...options.map((c) => outcome(c.id).low)), hi = Math.max(...options.map((c) => outcome(c.id).high))
+    for (const c of options) {
+      const b = bands.get(c.id)!, o = outcome(c.id)
+      expect(b.leftPct).toBeCloseTo(((o.low - lo) / (hi - lo)) * 100, 6)
+      expect([b.text, b.title]).toEqual([o.text, o.title])
+    }
+    // Drawn on the card, in the shell's outcome-band place, its line core's own at its path.
+    useCanvasStore.setState({ nodes: options.map((card) => ({ id: card.id, type: 'viewCard', position: { x: 0, y: 0 }, data: { card, label: card.heading } })) as never })
+    const c = options[1]!
+    const { container } = render(<ReactFlowProvider><ViewCardV10 {...({ id: c.id, data: { card: c, label: c.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>)
+    const band = container.querySelector(`[data-testid="view-option-band-${c.id}"]`)!
+    expect(band.closest('[data-slot="outcome-band"]')).not.toBeNull()
+    expect(band.querySelector(`[data-view="${bands.get(c.id)!.at}"]`)?.textContent).toBe(outcome(c.id).text)
+    // Never two units on one axis, and nothing where core gives no outcome (an older View).
+    const mixed = model.cards.map((k) => (k.id === c.id ? { ...k, rows: k.rows.map((r) => (r.kind === 'chance' && r.outcome ? { ...r, outcome: { ...r.outcome, unit: 'hour' } } : r)) } : k))
+    expect(optionBands(mixed as typeof model.cards).size).toBe(0)
+    const older = model.cards.map((k) => ({ ...k, rows: k.rows.map((r) => (r.kind === 'chance' ? { ...r, outcome: null } : r)) }))
+    expect(optionBands(older as typeof model.cards).size).toBe(0)
   })
 })

@@ -66,7 +66,9 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "negative_reviews",
@@ -105,7 +107,9 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "boss_discussion",
@@ -147,7 +151,9 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "protect_user_trust",
@@ -187,7 +193,9 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "readiness_margin",
@@ -238,7 +246,9 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "zero_schedule_shortfall",
@@ -271,7 +281,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "allow_readiness_work",
@@ -315,7 +327,9 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "option_scheduled",
@@ -343,20 +357,20 @@
      {
       "kind": "none",
       "aim_id": "boss_discussion",
-      "text": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure.",
-      "title": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure."
+      "text": "cannot be worked out yet · Explain the release decision without unfair team blame",
+      "title": "cannot be worked out yet · Explain the release decision without unfair team blame"
      },
      {
       "kind": "none",
       "aim_id": "protect_user_trust",
-      "text": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure.",
-      "title": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure."
+      "text": "cannot be worked out yet · Avoid damaging users' experience and trust",
+      "title": "cannot be worked out yet · Avoid damaging users' experience and trust"
      },
      {
       "kind": "none",
       "aim_id": "allow_readiness_work",
-      "text": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated.",
-      "title": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated."
+      "text": "cannot be worked out yet · Allow time for repair and validation",
+      "title": "cannot be worked out yet · Allow time for repair and validation"
      }
     ],
     "driver": null,
@@ -378,7 +392,9 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "delayed_release_offset",
@@ -411,7 +427,9 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "option_delay",
@@ -421,7 +439,7 @@
     "typed": false,
     "detail": "Postpone the full update · option · Theirs: “honestly i think we have to push it back”",
     "col": 0,
-    "h": 166,
+    "h": 148,
     "olumi": null,
     "change": null,
     "focus": false,
@@ -429,11 +447,6 @@
     "doubt": false,
     "figure": null,
     "premises": [
-     {
-      "glyph": "◇",
-      "text": "For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
-      "title": "For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison. · assumption · Proposed by Olumi: These simplifying premises make the schedule subset calculable. Actual staffing, overlapping tests and estimate scope may invalidate them. · Applied in the calculation"
-     },
      {
       "glyph": "!",
       "text": "Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.",
@@ -449,20 +462,20 @@
      {
       "kind": "none",
       "aim_id": "boss_discussion",
-      "text": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure.",
-      "title": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure."
+      "text": "cannot be worked out yet · Explain the release decision without unfair team blame",
+      "title": "cannot be worked out yet · Explain the release decision without unfair team blame"
      },
      {
       "kind": "none",
       "aim_id": "protect_user_trust",
-      "text": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure.",
-      "title": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure."
+      "text": "cannot be worked out yet · Avoid damaging users' experience and trust",
+      "title": "cannot be worked out yet · Avoid damaging users' experience and trust"
      },
      {
       "kind": "none",
       "aim_id": "allow_readiness_work",
-      "text": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated.",
-      "title": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated."
+      "text": "cannot be worked out yet · Allow time for repair and validation",
+      "title": "cannot be worked out yet · Allow time for repair and validation"
      }
     ],
     "driver": null,
@@ -489,7 +502,9 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "schedule_assumptions",
@@ -515,7 +530,9 @@
     "status": null,
     "bound": null,
     "reason": "For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "option_isolate",
@@ -551,20 +568,20 @@
      {
       "kind": "none",
       "aim_id": "boss_discussion",
-      "text": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure.",
-      "title": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure."
+      "text": "cannot be worked out yet · Explain the release decision without unfair team blame",
+      "title": "cannot be worked out yet · Explain the release decision without unfair team blame"
      },
      {
       "kind": "none",
       "aim_id": "protect_user_trust",
-      "text": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure.",
-      "title": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure."
+      "text": "cannot be worked out yet · Avoid damaging users' experience and trust",
+      "title": "cannot be worked out yet · Avoid damaging users' experience and trust"
      },
      {
       "kind": "none",
       "aim_id": "allow_readiness_work",
-      "text": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated.",
-      "title": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated."
+      "text": "cannot be worked out yet · Allow time for repair and validation",
+      "title": "cannot be worked out yet · Allow time for repair and validation"
      }
     ],
     "driver": null,
@@ -587,7 +604,9 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null,
+    "rests_on": []
    },
    {
     "id": "isolation_readiness_link",
@@ -623,7 +642,9 @@
      "open": false,
      "proposed": false,
      "change": ""
-    }
+    },
+    "values": null,
+    "rests_on": []
    }
   ],
   "links": [
@@ -635,7 +656,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "link in words: conditional, unknown; Excluding the defective path could protect users only if isolation is technically valid; no architecture evidence was supplied. · Proposed by Olumi: Retains the possible mechanism without inventing a risk reduction or claiming feasibility."
+    "title": "link in words: conditional, unknown; Excluding the defective path could protect users only if isolation is technically valid; no architecture evidence was supplied. · Proposed by Olumi: Retains the possible mechanism without inventing a risk reduction or claiming feasibility.",
+    "effect": null
    },
    {
     "from": "option_isolate",
@@ -645,7 +667,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change. · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration."
+    "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change. · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
+    "effect": null
    },
    {
     "from": "negative_reviews",
@@ -655,7 +678,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "may change"
+    "title": "may change",
+    "effect": null
    },
    {
     "from": "readiness_margin",
@@ -665,7 +689,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by"
+    "title": "measured by",
+    "effect": null
    },
    {
     "from": "zero_schedule_shortfall",
@@ -675,7 +700,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target"
+    "title": "target",
+    "effect": null
    },
    {
     "from": "schedule_assumptions",
@@ -685,7 +711,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison."
+    "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
+    "effect": null
    },
    {
     "from": "schedule_assumptions",
@@ -695,7 +722,8 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison."
+    "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
+    "effect": null
    },
    {
     "from": "option_delay",
@@ -705,7 +733,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "effect": null
    },
    {
     "from": "delayed_release_offset",
@@ -715,7 +744,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Time available before release · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration."
+    "title": "worked out through Time available before release · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
+    "effect": null
    },
    {
     "from": "isolation_readiness_link",
@@ -725,7 +755,8 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "relation: Explore shipping without the affected sync path → Time to complete repair and validation"
+    "title": "relation: Explore shipping without the affected sync path → Time to complete repair and validation",
+    "effect": null
    },
    {
     "from": "isolation_readiness_link",
@@ -735,13 +766,43 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration."
+    "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
+    "effect": null
    }
   ],
   "run": {
    "aim": "chance of ‘Explain the release decision without unfair team blame’",
    "lead": "In this model, on current information, each option’s chance of ‘Explain the release decision without unfair team blame’:",
-   "all_withheld": false,
+   "all_withheld": true,
+   "shared_blockers": [
+    {
+     "aim_id": "boss_discussion",
+     "options": [
+      "option_scheduled",
+      "option_delay",
+      "option_isolate"
+     ],
+     "text": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure."
+    },
+    {
+     "aim_id": "protect_user_trust",
+     "options": [
+      "option_scheduled",
+      "option_delay",
+      "option_isolate"
+     ],
+     "text": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure."
+    },
+    {
+     "aim_id": "allow_readiness_work",
+     "options": [
+      "option_scheduled",
+      "option_delay",
+      "option_isolate"
+     ],
+     "text": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated."
+    }
+   ],
    "most_likely": null,
    "waits_on": {
     "head": "Chance of meeting the goal",
@@ -802,7 +863,113 @@
    ],
    "science": []
   },
-  "edit_base": 1
+  "edit_base": 1,
+  "key": [
+   {
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "glyph": "?",
+    "text": "unsized"
+   },
+   {
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "glyph": "↻",
+    "text": "changed"
+   }
+  ]
  },
  "proposal": null,
  "collab": {
@@ -1006,5 +1173,6 @@
   "dissent": []
  },
  "evidence": [],
- "chat": []
+ "chat": [],
+ "brief": "How can I make a technically defensible case to my boss for delaying the app update, while testing whether a full delay is necessary?"
 }
