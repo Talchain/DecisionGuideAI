@@ -73,6 +73,31 @@ describe('readable first, whole when it fits (DL 4 Nov: whole at 0.272 unreadabl
     expect(v.zoom).toBe(READABLE_WHOLE_ZOOM)
     expect([r.x * v.zoom + v.x >= insets.left - 0.01, (r.x + r.width) * v.zoom + v.x <= pane.width - insets.right + 0.01]).toEqual([true, true])
   })
+  it('Codex P1-3: four options (4 × 220 + 3 × 48 = 1024 units, 921.6px at 0.9) on a 1280 canvas wrap into two rows in the View\'s order, so the question and every option are inside the visible rect', async () => {
+    const opts = model.cards.filter((c) => c.family === 'option'), src = opts[0]!
+    const extra = { ...src, id: 'fourth_option', heading: 'A fourth option' }
+    const links = model.links.flatMap((l) => (l.from === src.id ? [l, { ...l, from: extra.id }] : l.to === src.id ? [l, { ...l, to: extra.id }] : [l]))
+    const four = { ...model, cards: [...model.cards, extra], links }
+    const ids = [...opts.map((c) => c.id), extra.id]
+    expect(ids.length, 'precondition: four options').toBe(4)
+    const at = await causalPlaces(four, new Map(), q.width)
+    const bs = [{ id: QUESTION, ...at.get(QUESTION)!, w: q.width, h: 85 }, ...four.cards.map((c) => ({ id: c.id, ...at.get(c.id)!, w: CARD_WIDTH, h: c.h }))]
+    const head = rect(bs.filter((b) => b.id === QUESTION || ids.includes(b.id)))
+    const v = readableFirstViewport(rect(bs), pane, insets, head)
+    const vp = v ?? { zoom: READABLE_WHOLE_ZOOM, x: 0, y: 0 }
+    for (const b of bs.filter((x) => x.id === QUESTION || ids.includes(x.id))) {
+      const l = b.x * vp.zoom + vp.x, r = (b.x + b.w) * vp.zoom + vp.x, t = b.y * vp.zoom + vp.y
+      expect([l >= insets.left - 1, r <= pane.width - insets.right + 1, t >= insets.top - 1], `${b.id} ${JSON.stringify({ l, r, t })}`).toEqual([true, true, true])
+    }
+    // Two rows, in the View's order: the first two above the last two; no card overlaps another.
+    const ys = ids.map((id) => at.get(id)!.y)
+    expect(ys[0]).toBe(ys[1]); expect(ys[2]).toBe(ys[3]); expect(ys[2]!).toBeGreaterThan(ys[0]!)
+    for (const a of bs) for (const b of bs) if (a.id < b.id) expect(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h, `${a.id} overlaps ${b.id}`).toBe(false)
+  })
+  it('CONTRAST: three options (756 units) stay one row', async () => {
+    const ids = model.cards.filter((c) => c.family === 'option').map((c) => c.id)
+    expect(new Set(ids.map((id) => places.get(id)!.y)).size).toBe(1)
+  })
   it('must not change: a board that fits whole at 0.9 or more is the product\'s own whole fit (null here)', () => {
     const small = [one[0]!, ...one.slice(1, 3)].map((b) => ({ ...b, x: b.x / 4, y: b.y / 4, w: b.w / 4, h: b.h / 4 }))
     expect(readableFirstViewport(rect(small), pane, insets)).toBeNull()
