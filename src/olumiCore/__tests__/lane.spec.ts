@@ -4,6 +4,7 @@ vi.mock('../../lib/supabase', () => ({ getUserId: async () => null, getSessionId
 vi.mock('../../lib/posthog', () => ({ trackEvent: () => undefined }))
 
 import { coreLaneAllows, coreLaneShowsSurface, coreLaneHasAccounts, isOlumiCoreLane } from '../lane'
+import { WORKSPACE_SURFACES } from '../../canvas/components/workspaceShell/shellContract'
 import { resolveAiComparisonMode, aiComparisonHeaders } from '../../v5/aiComparisonMode'
 import { streamedDraftEligible } from '../../canvas/conversation/useConversation'
 import { preloadPrompts } from '../../lib/prompt-preloader'
@@ -31,6 +32,14 @@ describe('the olumi-core lane', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     for (const gone of ['diagnostics', 'lenses']) expect(coreLaneShowsSurface(gone)).toBe(false)
     for (const keep of ['results', 'analysisNew', 'olumi', 'team', 'compare', 'versions']) expect(coreLaneShowsSurface(keep)).toBe(true)
+  })
+
+  // R1 (DL 4 Nov): this morning a cut hid Reasoning, the key, Summary, Compare and Version history by a stale lane list. Of every
+  // surface the dock, the top bar and the canvas can offer, the lane hides exactly the legacy lens bar and Model, nothing more.
+  it('R1 guard: on the lane exactly lenses (the legacy bar) and diagnostics (Model) are hidden; Reasoning, the key, Summary, Compare and Version history show', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    const offered = [...new Set([...WORKSPACE_SURFACES.map((s) => s.id), 'analysisNew', 'legend', 'summary', 'compare', 'versions', 'lenses', 'diagnostics'])]
+    expect(offered.filter((id) => !coreLaneShowsSurface(id)).sort()).toEqual(['diagnostics', 'lenses'])
   })
 
   it('is the core route on every host and whatever the link says, so no URL needs ?ai=core and none can pick another lane', () => {
