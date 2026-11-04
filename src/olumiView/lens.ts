@@ -6,7 +6,7 @@
  */
 import { useMemo } from 'react'
 import { create } from 'zustand'
-import { restsOnOf, type RestsOnItem } from './layout'
+import { cardNumbersOf, restsOnOf, type RestsOnItem } from './layout'
 import { useViewStore } from './store'
 
 export type ViewLens = 'full' | 'rests_on'
@@ -24,4 +24,11 @@ export function useRestsOnItem(id: string): RestsOnItem | null {
   const on = useViewLens((s) => s.lens === 'rests_on')
   const { items } = useRestsOn()
   return on ? items.get(id) ?? null : null
+}
+
+/** The card's number on the canvas (O1, F1, OC1, …), worked out once per View. */
+export function useCardNumber(id: string): string | null {
+  const model = useViewStore((s) => s.view?.model ?? null)
+  const numbers = useMemo(() => (model === null ? new Map<string, string>() : cardNumbersOf(model)), [model])
+  return numbers.get(id) ?? null
 }

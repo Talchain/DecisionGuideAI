@@ -99,3 +99,22 @@ export function restsOnOf(model: ViewModel): { items: ReadonlyMap<string, RestsO
   const picked = model.cards.filter((c) => (c.figure?.edit ?? null) !== null || c.family === 'assumption' || c.family === 'condition')
   return { items: new Map(picked.map((c, i) => [c.id, { id: c.id, n: i + 1, olumi: c.olumi !== null }])), olumi: picked.filter((c) => c.olumi !== null).length }
 }
+
+/** The DGAI node kind a View card is drawn as on the canvas (the original look): a figure a person sets is a factor, one core works out
+ *  from others (no edit) an outcome; the rest as `askKindOf`. */
+export const drawKindOf = (c: ViewCard): 'factor' | 'outcome' | 'risk' | 'goal' | 'option' | 'constraint' =>
+  c.family === 'quantity' && c.figure !== null && (c.figure.edit ?? null) === null ? 'outcome' : askKindOf(c.family)
+const PREFIX: Record<string, string> = { option: 'O', factor: 'F', outcome: 'OC', risk: 'R', constraint: 'C' }
+/** Each card's number as the original canvas numbers them (O1, F1, OC1, …), per kind in the View's order; an assumption or condition
+ *  is A1, …; the aim has none. */
+export function cardNumbersOf(model: ViewModel): ReadonlyMap<string, string> {
+  const seen = new Map<string, number>(), out = new Map<string, string>()
+  for (const c of model.cards) {
+    const p = c.family === 'assumption' || c.family === 'condition' ? 'A' : PREFIX[drawKindOf(c)]
+    if (p === undefined) continue
+    const n = (seen.get(p) ?? 0) + 1
+    seen.set(p, n)
+    out.set(c.id, `${p}${n}`)
+  }
+  return out
+}

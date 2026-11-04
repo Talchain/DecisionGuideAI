@@ -27,7 +27,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   return (
     <g data-view-link={`links.${i}`} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
       <title>{link.title}</title>
-      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: 1.4, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
+      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: 1.1, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
       {link.label === '' ? null : (
         <text x={x} y={y} dy="0.35em" textAnchor="middle" className={`${typography.edgeLabel} fill-current`} paintOrder="stroke" stroke="var(--bg-canvas)" strokeWidth={3} data-view={`links.${i}.label`}>{link.label}</text>
       )}
