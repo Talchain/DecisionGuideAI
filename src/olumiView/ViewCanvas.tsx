@@ -35,7 +35,6 @@ import { drawnHeightsKey, headOf, measuredOf, QUESTION, viewDrawnNodes } from '.
 import { useViewStore } from './store'
 import { useV10Lane, ViewCardV10 } from './v10'
 import { ViewLensBar } from './ViewLensBar'
-import { useV10Lane, ViewCardV10 } from './v10'
 
 // Each card is drawn with v10's controls (./v10): the card itself, and the Olumi corner that asks about it.
 const nodeTypes = { [VIEW_CARD]: ViewCardV10, [VIEW_QUESTION]: ViewQuestionNode }
