@@ -33,8 +33,8 @@ const choicesOf = (view: View) => view.collab.records.filter((r): r is typeof r 
 
 /**
  * Olumi considers a piece of evidence (API v1.12): a press asks core for one turn in the asker's name; core proposes a change where the
- * evidence warrants one (the change card, in the chat, names the evidence it came from), else replies why not. Shown here: who asked, and
- * core's `why` verbatim when it changed nothing (`evidence[].considered`, the newest such turn).
+ * evidence warrants one (the change card, in the chat, names the evidence it came from), else replies why not. Shown here, as label: value
+ * chrome over core's fields (never a sentence composed from them, DL 4 Nov): who asked, and core's `why` verbatim when it changed nothing.
  */
 function Considered({ sid, e, onWrote }: { sid: string; e: View['evidence'][number]; onWrote: () => Promise<boolean> }): JSX.Element {
   const key = `${sid}:consider:${e.id}`
@@ -52,7 +52,7 @@ function Considered({ sid, e, onWrote }: { sid: string; e: View['evidence'][numb
     <div className="grid gap-1" data-testid={`team-evidence-considered-${e.id}`}>
       {c !== null && (
         <p className={META} data-testid={`team-evidence-considered-by-${e.id}`}>
-          {c.by} asked Olumi to consider this{c.proposal !== null ? '. Olumi proposed a change from it.' : '.'}
+          Considered, asked by: <span className="text-text-header">{c.by}</span>
         </p>
       )}
       {c?.why != null && <p className={`${META} whitespace-pre-wrap break-words`} title={c.why.title} data-testid={`team-evidence-why-${e.id}`}>{c.why.text}</p>}
