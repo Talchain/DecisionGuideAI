@@ -88,7 +88,7 @@ export function ViewCard({ card, selected = false, restsOn = null, number = null
       )}
       {/* The original canvas's connector glyph: the card's kind as its shape, on the top edge where its links arrive. */}
       <span className="absolute -top-[10px] left-1/2 -translate-x-1/2 leading-none" aria-hidden="true">
-        <NodeShapeIndicator nodeKind={drawKindOf(card)} size={18} stroke="var(--bg-panel, #fff)" strokeWidth={0.6} />
+        <NodeShapeIndicator nodeKind={drawKindOf(card)} size={18} stroke="var(--bg-panel, #FEFEFE)" strokeWidth={0.6} />
       </span>
       <div className="flex items-baseline gap-1">
         <span className="sr-only" data-view={`${id}.glyph`}>{card.glyph}</span>
