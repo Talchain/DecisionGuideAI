@@ -195,8 +195,8 @@ describe('where the note sits (Paul\'s pre-flight, 22 Oct: on the left it covere
     const above = { x: 0, y: 0, w: 270, h: 590 }
     const card = { w: 268, h: 110 }
     const touches = (s: { left: number; top: number }, o: typeof zoom) => s.left < o.x + o.w && s.left + card.w > o.x && s.top < o.y + o.h && s.top + card.h > o.y
-    // Before: controls counted only as covered area, so the least-covered spot was on them.
-    expect(touches(attentionCardSpot(A, card, [right, above, zoom], 0, 1066, 0, 900), zoom), 'precondition: the old spot touches the controls').toBe(true)
+    // Before: controls counted only as covered area, so the least-covered spot was on them. (Since the canvas-wide search, 4 Nov, this
+    // board has a free spot even without them; the before and after for the controls is design QA 8's pair below.)
     const spot = attentionCardSpot(A, card, [right, above, zoom], 0, 1066, 0, 900, [zoom])
     expect(touches(spot, zoom)).toBe(false)
   })
@@ -215,6 +215,24 @@ describe('where the note sits (Paul\'s pre-flight, 22 Oct: on the left it covere
     expect(attentionCardSpot(O2, { w: 268, h: 0 }, [O1, F2], 0, 1066), 'unmeasured').toEqual({ left: 272, top: 320 })
     const wall = { x: 0, y: 0, w: 1100, h: 2000 }
     expect(attentionCardSpot(O2, { w: 268, h: 110 }, [wall], 0, 1066, 0), 'nothing free').toEqual({ left: 272, top: 320 })
+  })
+  it('⭐ none beside it free on a dense board (real capacity model, causal graph, 4 Nov witness): the nearest free spot in the canvas, over no card', () => {
+    // Read off the witness at 1440 (screen px, the dock at 1080): the anchor "challenge" and its neighbours; the goal and the risk below.
+    const anchor = { x: 265, y: 353, w: 163, h: 45 }
+    const cards = [
+      { x: 318, y: 115, w: 624, h: 42 }, { x: 97, y: 204, w: 160, h: 70 }, { x: 410, y: 204, w: 159, h: 104 }, { x: 721, y: 204, w: 160, h: 76 },
+      { x: 53, y: 353, w: 160, h: 66 }, { x: 479, y: 353, w: 159, h: 58 }, { x: 691, y: 353, w: 159, h: 66 }, { x: 903, y: 353, w: 160, h: 43 },
+      { x: 160, y: 453, w: 160, h: 57 }, { x: 373, y: 453, w: 159, h: 57 }, { x: 583, y: 452, w: 163, h: 85 }, { x: 797, y: 453, w: 160, h: 151 },
+      { x: 407, y: 649, w: 164, h: 71 }, { x: 318, y: 766, w: 160, h: 54 },
+    ]
+    const zoom = { x: 8, y: 714, w: 52, h: 152 }, card = { w: 268, h: 165 }
+    const covers = (s: { left: number; top: number }) => cards.some((o) => s.left < o.x + o.w && s.left + card.w > o.x && s.top < o.y + o.h && s.top + card.h > o.y)
+    const room = { left: 14, right: 1066, top: 14, bottom: 886 }
+    // Before: every spot beside the card covers one, and the least-covered of them is taken (precondition, with no room-wide search).
+    expect(covers(attentionCardSpot(anchor, card, [...cards, zoom], room.left, room.right, -Infinity, Infinity, [zoom])), 'precondition').toBe(true)
+    const spot = attentionCardSpot(anchor, card, [...cards, zoom], room.left, room.right, room.top, room.bottom, [zoom])
+    expect(covers(spot)).toBe(false)
+    expect(spot.left < zoom.x + zoom.w && spot.left + card.w > zoom.x && spot.top < zoom.y + zoom.h && spot.top + card.h > zoom.y).toBe(false)
   })
   describe('design QA 8: the note stays on screen and clear of the controls drawn over the canvas', () => {
     const card = { w: 268, h: 110 }

@@ -103,7 +103,8 @@ type Box = { readonly x: number; readonly y: number; readonly w: number; readonl
 /**
  * Where the note sits, in screen px: beside its card on the right, else on the left, else below, else above: the first
  * spot that fits between `roomLeft` and `roomRight` and covers no other card (Paul's pre-flight, 22 Oct: placed on the
- * left it covered the next option's title). None free: the spot that covers the least (served café board, 22 Oct:
+ * left it covered the next option's title). None free beside it: the free spot in the room nearest the card. None free anywhere:
+ * the spot that covers the least (served café board, 22 Oct:
  * above touched the question card by 2px while left covered O1). Unmeasured, or none fits: as before, right if it
  * fits, else left.
  */
@@ -136,6 +137,19 @@ export function attentionCardSpot(anchor: Box, card: { readonly w: number; reado
   const room = spots.filter((s) => fits(s) && s.top >= roomTop && s.top + card.h <= roomBottom && !onControl(s))
   const free = room.find((s) => covered(s) === 0)
   if (free) return free
+  // ⛔ NONE BESIDE IT FREE, ON A DENSE BOARD (real capacity model on the causal graph, 4 Nov: the least-covered spot sat on the goal and a
+  // risk while the canvas had room elsewhere): the free spot in the whole canvas nearest the card, before any spot that covers one.
+  if (Number.isFinite(roomTop) && Number.isFinite(roomBottom)) {
+    const cx = anchor.x + anchor.w / 2, cy = anchor.y + anchor.h / 2
+    let near: { left: number; top: number } | null = null, far = Infinity
+    for (let top = roomTop; top + card.h <= roomBottom; top += SLIDE_PX) {
+      for (let left = roomLeft; left + card.w <= roomRight; left += SLIDE_PX) {
+        const s = { left, top }, d = Math.hypot(left + card.w / 2 - cx, top + card.h / 2 - cy)
+        if (d < far && !onControl(s) && covered(s) === 0) { near = s; far = d }
+      }
+    }
+    if (near) return near
+  }
   // Nothing free anywhere: the spot that covers least (strictly less, so the earlier, nearer spot wins a tie).
   const least = room.reduce<{ left: number; top: number } | null>(
     (best, s) => (best === null || covered(s) < covered(best) ? s : best), null)
