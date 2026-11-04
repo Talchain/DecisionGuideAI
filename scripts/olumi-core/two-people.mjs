@@ -7,6 +7,12 @@
  *   scripts/olumi-core/run.sh build && CORE_DIR=<olumi-core wip/v3.1> scripts/olumi-core/run.sh core     # in another terminal
  *   node scripts/olumi-core/two-people.mjs [--shots <dir>]          # CHROME=<a Chromium binary> if Playwright's own is not installed
  *
+ * A SLOW CORE (DELAY_MS, REPLY_MS; both off by default). A scripted core answers at once, so a read that races a write never shows
+ * here (4 Nov: witness #1 on a real core at load 27 failed step 4, Ada never saw Bea's evidence; a 1.5–4.5 s delay on every answer
+ * reproduced it on the scripted core). DELAY_MS=<n> holds every /api/ answer n/2 to 3n/2 ms, in random order; REPLY_MS=<n> holds a chat
+ * message (Olumi's reply) n ms, as a real model takes. Raise STEP_TIMEOUT_MS with them.
+ *   DELAY_MS=3000 REPLY_MS=45000 STEP_TIMEOUT_MS=300000 node scripts/olumi-core/two-people.mjs
+ *
  * Exits non-zero on the first step that does not hold, naming it.
  */
 import { chromium } from 'playwright'
@@ -18,6 +24,8 @@ const SHOTS = process.argv.includes('--shots') ? process.argv[process.argv.index
 const BRIEF = 'Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing or add one specialist? We need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.'
 // A real core drafts a first model in minutes (PL review 4 Nov): against a served CORE_BASE each step waits up to 10 minutes.
 const T = Number(process.env.STEP_TIMEOUT_MS ?? (process.env.CORE_BASE ? 600_000 : 30_000))
+const DELAY = Number(process.env.DELAY_MS ?? 0), REPLY = Number(process.env.REPLY_MS ?? 0)
+if (DELAY > 0 || REPLY > 0) console.log(`A slow core: every /api/ answer held ${DELAY / 2}–${(3 * DELAY) / 2} ms, a chat reply ${REPLY > 0 ? `${REPLY} ms` : 'as the rest'}`)
 
 const step = (n, what) => console.log(`\n▶ ${n}. ${what}`)
 const ok = (what) => console.log(`  ✓ ${what}`)
@@ -36,6 +44,14 @@ const browser = await chromium.launch(process.env.CHROME ? { executablePath: pro
 const person = async (name, link, to) => {
   const ctx = await browser.newContext({ viewport: { width: Number(process.env.VIEW_W ?? 1440), height: 900 } })
   const page = await ctx.newPage()
+  if (DELAY > 0 || REPLY > 0) {
+    await ctx.route(/\/api\//, async (route) => {
+      const q = route.request(), reply = q.method() === 'POST' && /\/messages$/.test(new URL(q.url()).pathname)
+      const hold = reply && REPLY > 0 ? REPLY : DELAY > 0 ? DELAY / 2 + Math.random() * DELAY : 0
+      await new Promise((r) => setTimeout(r, hold))
+      await route.continue().catch(() => {})
+    })
+  }
   page.on('pageerror', (e) => console.error(`  [${name} page error] ${e.message}`))
   await page.goto(`${BASE}${link}`)
   if (to) await page.goto(`${BASE}/${to}`)
@@ -48,8 +64,22 @@ const viewWhen = async (p, sid, ready) => {
   return view(p, sid)
 }
 /** What a screen shows after a read: polled until it holds or the step's time runs out (a live server answers slower than 400 ms;
- *  github-a7's and the live witness, 4 Nov). */
-const seen = async (p, f) => { for (const end = Date.now() + T; Date.now() < end;) { if (await f().catch(() => false)) return true; await p.page.waitForTimeout(500) } return f().catch(() => false) }
+ *  github-a7's and the live witness, 4 Nov). With `recheck`, the person presses "Check for new views" again every RECHECK_MS while
+ *  they wait, as a real person does: the Team tab reads on a press, not on its own, so one press that reached core before a
+ *  teammate's write was stored never shows it (4 Nov: witness #1, step 4; reproduced with DELAY_MS=3000). */
+const RECHECK_MS = 3000
+const seen = async (p, f, { recheck = false } = {}) => {
+  let pressed = Date.now()
+  for (const end = Date.now() + T; Date.now() < end;) {
+    if (await f().catch(() => false)) return true
+    if (recheck && Date.now() - pressed >= RECHECK_MS) {
+      const again = p.page.getByTestId('team-check')
+      if (await again.isVisible().catch(() => false) && await again.isEnabled().catch(() => false)) { await again.click().catch(() => {}); pressed = Date.now() }
+    }
+    await p.page.waitForTimeout(500)
+  }
+  return f().catch(() => false)
+}
 const shot = async (p, label) => { if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await p.page.screenshot({ path: `${SHOTS}/${label}.png` }) } }
 const tab = async (p, id) => { await p.page.getByTestId(`outputs-dock-tab-${id}`).click() }
 const teamCheck = async (p) => { await tab(p, 'team'); await p.page.getByTestId('team-check').click(); await p.page.waitForTimeout(400) }
@@ -260,7 +290,7 @@ step(2, 'Ada reveals everyone\'s views together; Bea sees both')
 await ada.page.getByTestId('team-reveal-go').click()
 await ada.page.getByTestId('team-revealed').getByText('Wait a month').waitFor({ timeout: T })
 await teamCheck(bea)
-check(await seen(bea, async () => { const t = await bea.page.getByTestId('team-revealed').innerText(); return t.includes('Hire now') && t.includes('Wait a month') }), 'both views, with their authors, on Bea\'s screen')
+check(await seen(bea, async () => { const t = await bea.page.getByTestId('team-revealed').innerText(); return t.includes('Hire now') && t.includes('Wait a month') }, { recheck: true }), 'both views, with their authors, on Bea\'s screen')
 v = await view(bea, sid)
 check(v.collab.shared.length === 2 && v.collab.mine.length === 0, 'core\'s View: two shared, none private')
 await shot(bea, '2-bea-revealed')
@@ -285,9 +315,11 @@ await bea.page.getByTestId('team-evidence-source').fill('https://example.org/onb
 await bea.page.getByTestId('team-evidence-bears').selectOption(target.id)
 await bea.page.getByLabel('Challenges it').check()
 await bea.page.getByTestId('team-evidence-add').click()
-await bea.page.getByText('Last year two hires took six weeks').waitFor({ timeout: T })
+// Her SAVED evidence, in the list (never the textarea she typed it in: React mirrors a textarea's value into its text, so an unscoped
+// getByText matched it before core had stored anything; 4 Nov, proved with the POST held).
+await bea.page.getByTestId('team-evidence-list').getByText('Last year two hires took six weeks').waitFor({ timeout: T })
 await teamCheck(ada)
-check(await seen(ada, async () => (await ada.page.getByTestId('team-evidence-list').innerText()).includes(`Bears on: ${target.heading}`)), `Ada sees it, on "${target.heading}"`)
+check(await seen(ada, async () => (await ada.page.getByTestId('team-evidence-list').innerText()).includes(`Bears on: ${target.heading}`), { recheck: true }), `Ada sees it, on "${target.heading}"`)
 v = await view(ada, sid)
 check(v.evidence.length === 1 && v.evidence[0].stance === 'challenges' && v.evidence[0].concerns[0] === target.id, 'core\'s View holds it as Bea gave it')
 
@@ -319,7 +351,7 @@ check(v.version.n === 2 && v.proposal === null, 'core holds version 2')
 check(await seen(ada, async () => (await notFramed(ada, v.model)).length === 0), 'version 2 on Ada\'s canvas: the question, every option, and the whole board when it fits at 0.9 or more')
 check(await ada.page.locator('.react-flow__node-viewCard').count() === v.model.cards.length, 'Ada\'s canvas draws version 2\'s cards')
 await teamCheck(bea)
-check(await seen(bea, async () => await bea.page.locator('.react-flow__node-viewCard').count() === v.model.cards.length), 'Bea\'s canvas moved to version 2 on her next read')
+check(await seen(bea, async () => await bea.page.locator('.react-flow__node-viewCard').count() === v.model.cards.length, { recheck: true }), 'Bea\'s canvas moved to version 2 on her next read')
 check(JSON.stringify((await view(bea, sid)).model) === JSON.stringify(v.model), 'Bea\'s View is version 2\'s model')
 await shot(bea, '5-bea-version-2')
 
@@ -421,7 +453,7 @@ const edited = v.model.cards.find((c) => c.id === editable.id)
 check(v.version.n === 3 && edited.figure.text !== editable.figure.text, `core holds version 3: "${editable.figure.text}" is now "${edited.figure.text}"`)
 check(await ada.page.locator(`[data-view="${editable.id}.figure.text"]`).innerText() === edited.figure.text, 'Ada\'s card says it as core does')
 await teamCheck(bea)
-check(await seen(bea, async () => await bea.page.locator(`[data-view="${editable.id}.figure.text"]`).innerText() === edited.figure.text), 'Bea\'s card too, on her next read')
+check(await seen(bea, async () => await bea.page.locator(`[data-view="${editable.id}.figure.text"]`).innerText() === edited.figure.text, { recheck: true }), 'Bea\'s card too, on her next read')
 const coreText = await corePage(ada, sid)
 check(coreText.includes(edited.figure.text), 'core\'s own page shows the new figure')
 
@@ -442,9 +474,9 @@ if (dissent.length > 0) {
   await ada.page.getByTestId(`team-c-keep-${dissent[0].id}`).check()
 } else check(await ada.page.locator('[data-testid^="team-c-keep-"]').count() === 0, 'core records no disagreement in the approved model, so none is offered to keep')
 await ada.page.getByTestId('team-commitment-save').click()
-await ada.page.getByText('Run a four-week trial hire').waitFor({ timeout: T })
+await ada.page.getByTestId('team-commitment-list').getByText('Run a four-week trial hire').waitFor({ timeout: T }) // the saved list, not the form
 await teamCheck(bea)
-check(await seen(bea, async () => (await bea.page.getByTestId('team-commitment-list').innerText()).includes('owner Bea · set by Ada')), 'Bea sees it, owned by her')
+check(await seen(bea, async () => (await bea.page.getByTestId('team-commitment-list').innerText()).includes('owner Bea · set by Ada'), { recheck: true }), 'Bea sees it, owned by her')
 const kept = (await view(bea, sid)).collab.commitments[0]
 if (dissent.length > 0) {
   check(JSON.stringify(kept.keeps) === JSON.stringify([dissent[0].id]), 'core holds the commitment keeping that disagreement open')
@@ -459,9 +491,10 @@ await bea.page.getByTestId(`team-o-${c.id}-happened`).fill('92 a week by week fo
 await bea.page.getByTestId(`team-o-${c.id}-versus`).getByLabel('Worse than expected').check()
 await bea.page.getByTestId(`team-o-${c.id}-triggered`).getByLabel('No, it did not').check()
 await bea.page.getByTestId(`team-o-${c.id}-save`).click()
-await bea.page.getByText('92 a week by week four').waitFor({ timeout: T })
+// A SAVED outcome (team-outcome-happened-<id>): team-outcomes-<id> also wraps the form Bea typed in, so it is not scope enough.
+await bea.page.locator('[data-testid^="team-outcome-happened-"]', { hasText: '92 a week by week four' }).waitFor({ timeout: T })
 await teamCheck(ada)
-check(await seen(ada, async () => (await ada.page.getByTestId(`team-commitments`).innerText()).includes('92 a week by week four')), 'Ada sees the outcome')
+check(await seen(ada, async () => await ada.page.getByTestId(`team-outcomes-${c.id}`).locator('[data-testid^="team-outcome-happened-"]', { hasText: '92 a week by week four' }).count() === 1, { recheck: true }), 'Ada sees the outcome')
 await shot(ada, '7-ada-team')
 
 // ── Both screens agree ──────────────────────────────────────────────────────────────────────────────────────────────────────────
