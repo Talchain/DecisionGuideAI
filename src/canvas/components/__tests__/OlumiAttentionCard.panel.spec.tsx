@@ -4,7 +4,7 @@
  * is never drawn over a card. Off the lane, and wherever a free spot exists, it stays on the canvas as before.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { OlumiAttentionCard, OLUMI_ATTENTION_CARD_TESTID, spotCovers } from '../OlumiAttentionCard'
 import { useCanvasStore } from '../../store'
 import { VIEW_NOTE_SLOT, VIEW_NOTE_TURN } from '../../../olumiView/note'
@@ -164,5 +164,41 @@ describe('R1.1 (Paul\'s screen): on the core lane Olumi\'s next step is an icon 
     cleanup()
     board([], turn)
     expect(screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`).style.top).toBe('306px')
+  })
+})
+
+/**
+ * ⛔ THE NOTE'S SPOT IS RIGHT ON THE PAGE, NOT ONLY IN ITS OWN SUMS (fit-real-model, 4 Nov: on the real hiring board at 1440 the note covered
+ * onboarding_disruption in 1 run of 4). Two inputs could change after the note was placed with nothing placing it again, or place it a
+ * fraction of a pixel over a card: each row below is one, exact and without timing.
+ */
+describe('the note is placed by the cards and itself as they are on the page', () => {
+  const noteBox = (el: HTMLElement, h: number) => ({ left: parseFloat(el.style.left), top: parseFloat(el.style.top) , h })
+
+  it('⛔ a card a fraction of a pixel into the spot beside it is a card in the way (the drawn boxes were rounded to the nearest pixel, so 0.4 px over read as free)', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    const card = { left: 714, top: 419.6, width: 268, height: 100 }
+    board([card])
+    await vi.waitFor(() => expect(screen.getByTestId(OLUMI_ATTENTION_CARD_TESTID).style.visibility).toBe(''))
+    const n = noteBox(screen.getByTestId(OLUMI_ATTENTION_CARD_TESTID), 120)
+    expect(spotCovers(n, { w: 268, h: n.h }, [{ x: card.left, y: card.top, w: card.width, h: card.height }]), JSON.stringify(n)).toBe(false)
+  })
+
+  it('⛔ the note growing after it is placed (its words re-wrapped: the font arriving) places it again, over no card', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    const observed: ResizeObserverCallback[] = []
+    vi.stubGlobal('ResizeObserver', class { constructor(cb: ResizeObserverCallback) { observed.push(cb) } observe() {} unobserve() {} disconnect() {} })
+    let h = 120
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(() => h)
+    const card = { left: 714, top: 430, width: 268, height: 100 }
+    board([card])
+    await vi.waitFor(() => expect(screen.getByTestId(OLUMI_ATTENTION_CARD_TESTID).style.visibility).toBe(''))
+    expect(noteBox(screen.getByTestId(OLUMI_ATTENTION_CARD_TESTID), h).left).toBe(714) // beside it on the right, clear of the card below
+    h = 200
+    act(() => { for (const cb of observed) cb([], {} as ResizeObserver) })
+    await new Promise((r) => setTimeout(r, 50))
+    const n = noteBox(screen.getByTestId(OLUMI_ATTENTION_CARD_TESTID), h)
+    expect(spotCovers(n, { w: 268, h: n.h }, [{ x: card.left, y: card.top, w: card.width, h: card.height }]), JSON.stringify(n)).toBe(false)
+    vi.unstubAllGlobals()
   })
 })
