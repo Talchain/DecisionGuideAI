@@ -27,7 +27,11 @@ function at(model: ViewModel, p: string): unknown {
  * draws as the base did (its canvas node never showed it), or a card's outcome band (`values`, olumi.view/3 since core e16a497), which
  * the Reasoning tab draws under each option; whether the card face draws it too is the canvas's call.
  */
-const SKIP = new Set(['id', 'family', 'title', 'detail', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver', 'values'])
+// `outcome` (core c838f56): a chance row's low / median / high and unit, drawn by the option card's outcome band (the v10 slot), not
+// as the row's words: deliberately exempt here.
+// `values` (core e92f2a6): each option's outcome band for a figure, the v10 band's (the card's figure line already says it);
+// `rests_on` (ids and whose, for the Rests-on lens): deliberately exempt too.
+const SKIP = new Set(['id', 'family', 'title', 'detail', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver', 'outcome', 'values', 'rests_on'])
 const shown = (x: unknown, p: string): string[] => typeof x === 'string' ? (x !== '' ? [p] : [])
   : Array.isArray(x) ? x.flatMap((y, i) => shown(y, `${p}.${i}`))
   : x !== null && typeof x === 'object' ? Object.entries(x).flatMap(([k, y]) => (SKIP.has(k) || (k === 'change' && typeof y === 'string') ? [] : shown(y, `${p}.${k}`))) : []

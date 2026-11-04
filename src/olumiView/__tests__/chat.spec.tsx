@@ -24,6 +24,7 @@ describe.each(['s_ce285b3617bb', 'proposal'])('the conversation is drawn exactly
     // Not words: hovers, the records a turn is about or cites, the one card it is beside (`at`) and the coach's move id (`move`, olumi.view/3).
     const strings = (x: unknown, p: string): string[] => typeof x === 'string' ? (x === '' ? [] : [p])
       : Array.isArray(x) ? x.flatMap((y, i) => strings(y, `${p}.${i}`))
+      // `next.at` is the card id the step points at, `next.move` the coach's move id (olumi.view/3 e16a497): core's ids, never words.
       : x !== null && typeof x === 'object' ? Object.entries(x).flatMap(([k, y]) => (k === 'title' || k === 'about' || k === 'cite' || k === 'at' || k === 'move' ? [] : strings(y, `${p}.${k}`))) : []
     view.chat.forEach((t, i) => {
       for (const k of ['by', 'version', 'status', 'said', 'answer', 'broke', 'problem', 'marks'] as const) for (const p of strings(t[k], `chat.${i}.${k}`)) {

@@ -43,12 +43,15 @@ async function frame(view, label, whole = false) {
   })
   // Reported, not asserted: a model taller than the canvas holds at the lane's floor (0.25) is top-anchored there, so its last card can
   // run past the bottom (the european golden's option cards carry every row).
-  if (whole) check(out.length === 0 && zoom >= 0.5, `${label}: the whole model in view at zoom ${zoom.toFixed(3)}${out.length ? ` (out: ${out.join(', ')})` : ''}`)
+  // Readable first (DL 4 Nov, the original look): whole when it fits at 0.9 or more, else at 0.9 (lower only as far as keeps the
+  // question and options across) with the question and options in view.
+  const head = ['page:question', ...view.model.cards.filter((c) => c.family === 'option').map((c) => c.id)]
+  if (whole) check(zoom >= 0.5 && head.every((id) => !out.includes(id)), `${label}: zoom ${zoom.toFixed(3)}, ${out.length === 0 ? 'the whole model in view' : 'the question and every option in view'}`)
   else console.log(`  · ${label}: zoom ${zoom.toFixed(3)}; ${out.length === 0 ? 'the whole model is in view' : `out of view: ${out.join(', ')}`}`)
   return { zoom, out }
 }
 const first = await frame(golden, 'first open (european, 22 cards)')
-// Readable first (DL 4 Nov): european fits whole only below 0.5, so it is framed by its width, top-aligned, at 0.5 or more, with the
+// Readable first (DL 4 Nov, then the original look): european fits whole only below 0.9, so it opens at 0.9, top-aligned, with the
 // question and every option in view (the top of the causal graph).
 const tops = golden.model.cards.filter((c) => c.family === 'option').map((c) => c.id)
 const topOut = await page.evaluate((ids) => {
@@ -95,6 +98,6 @@ check(await page.evaluate(() => document.querySelectorAll('[data-rests-on], [dat
 served = { ...next, id: made.scenario, you_id: me.id, you: me.name, version: { ...next.version, id: golden.version.id + 1, n: 2, label: 'version 2' } }
 await page.getByTestId('outputs-dock-tab-team').click()
 await page.getByTestId('team-check').click()
-// Bakery's cards fit at a readable zoom: asserted whole, at 0.5 or more.
+// Bakery: readable first, as above.
 await frame(served, 'a new version (bakery, 18 cards)', true)
 await b.close()

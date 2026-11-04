@@ -402,6 +402,57 @@
               "title": {
                "type": "string"
               },
+              "chance": {
+               "type": [
+                "number",
+                "null"
+               ]
+              },
+              "outcome": {
+               "anyOf": [
+                {
+                 "type": "object",
+                 "properties": {
+                  "low": {
+                   "type": "number"
+                  },
+                  "median": {
+                   "type": [
+                    "number",
+                    "null"
+                   ]
+                  },
+                  "high": {
+                   "type": "number"
+                  },
+                  "unit": {
+                   "type": [
+                    "string",
+                    "null"
+                   ]
+                  },
+                  "text": {
+                   "type": "string"
+                  },
+                  "title": {
+                   "type": "string"
+                  }
+                 },
+                 "required": [
+                  "low",
+                  "median",
+                  "high",
+                  "unit",
+                  "text",
+                  "title"
+                 ],
+                 "additionalProperties": false
+                },
+                {
+                 "type": "null"
+                }
+               ]
+              },
               "estimate": {
                "type": [
                 "string",
@@ -419,6 +470,8 @@
               "aim",
               "aim_id",
               "title",
+              "chance",
+              "outcome",
               "estimate"
              ],
              "additionalProperties": false
@@ -704,6 +757,30 @@
             "type": "null"
            }
           ]
+         },
+         "rests_on": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "id": {
+             "type": "string"
+            },
+            "whose": {
+             "type": "string",
+             "enum": [
+              "theirs",
+              "olumi",
+              "mixed"
+             ]
+            }
+           },
+           "required": [
+            "id",
+            "whose"
+           ],
+           "additionalProperties": false
+          }
          }
         },
         "required": [
@@ -728,7 +805,8 @@
          "bound",
          "reason",
          "badge",
-         "values"
+         "values",
+         "rests_on"
         ],
         "additionalProperties": false
        }
@@ -767,6 +845,33 @@
          },
          "title": {
           "type": "string"
+         },
+         "effect": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "text": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             },
+             "figure": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "text",
+             "title",
+             "figure"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
          }
         },
         "required": [
@@ -777,7 +882,8 @@
          "doubt",
          "alert",
          "proposed",
-         "title"
+         "title",
+         "effect"
         ],
         "additionalProperties": false
        }
@@ -1918,6 +2024,9 @@
   },
   "brief": {
    "type": "string"
+  },
+  "gated": {
+   "type": "boolean"
   }
  },
  "required": [
@@ -1935,7 +2044,8 @@
   "collab",
   "evidence",
   "chat",
-  "brief"
+  "brief",
+  "gated"
  ],
  "additionalProperties": false
 }

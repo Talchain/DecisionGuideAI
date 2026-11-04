@@ -20,11 +20,12 @@ import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { layViewCanvas, useViewCanvas, VIEW_CARD } from '../canvas'
 import { useViewStore } from '../store'
+import { CARD_WIDTH } from '../layout'
 import { ViewChat, useViewChat } from '../ViewChat'
 import { ViewCard, ViewCardNode } from '../../canvas/nodes/ViewCardNode'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
-const W = 232
+const W = CARD_WIDTH
 const UUID = '00000000-0000-4000-8000-000000000001', SID = 's_000000000001'
 
 type Box = { id: string; x: number; y: number; w: number; h: number }
@@ -89,7 +90,7 @@ describe('#4 the causal graph is laid out at each card\'s drawn height', () => {
     useViewStore.setState({ view: null })
   })
 
-  it('the card is core\'s width', () => {
+  it('the card is the canvas card width (220, the original look)', () => {
     const c = render(<ViewCard card={view.model!.cards[0]!} />).container.querySelector<HTMLElement>('[data-view-card]')!
     expect(c.style.width).toBe(`${W}px`)
   })

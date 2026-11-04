@@ -31,7 +31,7 @@ import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { viewportCentredInFreePane } from '../canvas/utils/fitIntoFreePane'
 import { placeViewCards, useViewHover, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
 import { readableFirstViewport } from './camera'
-import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
+import { drawnHeightsKey, headOf, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
 import { useV10Lane, ViewCardV10 } from './v10'
 import { ViewLensBar } from './ViewLensBar'
@@ -55,7 +55,10 @@ const viewNodes = (nodes: readonly Node[]) => viewDrawnNodes(nodes, [VIEW_CARD, 
 function frameFor(nodes: readonly Node[], pane: { width: number; height: number }): Viewport | null {
   if (nodes.length === 0 || pane.width === 0) return null
   const bounds = getNodesBounds(nodes as Node[]), padding = computeFitPadding()
-  return readableFirstViewport(bounds, pane, paddingToInsets(padding))
+  // The top of the causal graph, which the camera centres on when the board is too large to read whole: the question and the options.
+  const model = useViewStore.getState().view?.model
+  const head = model ? measuredOf(nodes, headOf(model)) : []
+  return readableFirstViewport(bounds, pane, paddingToInsets(padding), head.length > 0 ? getNodesBounds(head as Node[]) : bounds)
     ?? viewportCentredInFreePane({ bounds, pane, padding, minZoom: MIN_ZOOM, maxZoom: 1 })
 }
 

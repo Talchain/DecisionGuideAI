@@ -46,22 +46,27 @@ describe('the core lane frames the whole of core\'s model at landing', () => {
   })
 })
 
-describe('readable first, whole when it fits (DL 4 Nov: whole at 0.272 was tall, narrow and unreadable)', () => {
+describe('readable first, whole when it fits (DL 4 Nov: whole at 0.272 unreadable; then "max(fit, 0.9), anchored at the top centre")', () => {
   const insets = paddingToInsets(padding)
   const rect = (bs: typeof one) => { const x = Math.min(...bs.map((b) => b.x)), y = Math.min(...bs.map((b) => b.y))
     return { x, y, width: Math.max(...bs.map((b) => b.x + b.w)) - x, height: Math.max(...bs.map((b) => b.y + b.h)) - y } }
-  it('a board that fits whole only below 0.5 is framed by its width, top-aligned: the question and every column\'s first card in view', () => {
-    const v = readableFirstViewport(rect(boxes), pane, insets)!
-    expect(v).not.toBeNull()
-    expect(v.zoom).toBeGreaterThanOrEqual(READABLE_WHOLE_ZOOM)
-    expect(v.zoom).toBeLessThanOrEqual(1)
-    const top = [one[0]!, ...[...new Set(model.cards.map((c) => c.col))].map((col) => { const c = model.cards.find((k) => k.col === col)!; return { ...places.get(c.id)!, w: CARD_WIDTH, h: c.h } })]
-    for (const b of top) {
-      const l = b.x * v.zoom + v.x, t = b.y * v.zoom + v.y
-      expect(l >= insets.left - 1 && l + b.w * v.zoom <= pane.width - insets.right + 1 && t >= insets.top - 1 && t + b.h * v.zoom <= pane.height, JSON.stringify(b)).toBe(true)
-    }
+  it('a board that fits whole only below 0.9 opens at 0.9, its top under the canvas top and the question centred across it', () => {
+    const r = rect(boxes), head = rect([one[0]!]), v = readableFirstViewport(r, pane, insets, head)!
+    expect(v.zoom).toBe(READABLE_WHOLE_ZOOM)
+    const q = one[0]!, l = q.x * v.zoom + v.x, t = q.y * v.zoom + v.y
+    expect(l >= insets.left - 1 && l + q.w * v.zoom <= pane.width - insets.right + 1 && t >= insets.top - 1, JSON.stringify(q)).toBe(true)
+    const freeMid = insets.left + (pane.width - insets.left - insets.right) / 2
+    expect((head.x + head.width / 2) * v.zoom + v.x).toBeCloseTo(freeMid)
+    expect(r.y * v.zoom + v.y).toBeCloseTo(insets.top)
   })
-  it('must not change: a board that fits whole at 0.5 or more is the product\'s own whole fit (null here)', () => {
-    expect(readableFirstViewport(rect(one), pane, insets)).toBeNull()
+  it('a top tier wider than the free canvas at 0.9: the zoom comes down only as far as keeps the question and the options across it', () => {
+    const r = rect(boxes), freeW = pane.width - insets.left - insets.right, head = { x: r.x, y: r.y, width: freeW / 0.7, height: 100 }
+    const v = readableFirstViewport(r, pane, insets, head)!
+    expect(v.zoom).toBeCloseTo(0.7)
+    expect(head.x * v.zoom + v.x).toBeCloseTo(insets.left)
+  })
+  it('must not change: a board that fits whole at 0.9 or more is the product\'s own whole fit (null here)', () => {
+    const small = [one[0]!, ...one.slice(1, 3)].map((b) => ({ ...b, x: b.x / 4, y: b.y / 4, w: b.w / 4, h: b.h / 4 }))
+    expect(readableFirstViewport(rect(small), pane, insets)).toBeNull()
   })
 })

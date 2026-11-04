@@ -78,10 +78,14 @@ describe('the lint over the View render chain (design §3)', () => {
 })
 
 describe('nothing the View says on a line is dropped (review 00049)', () => {
-  /** Every visible string a row carries: its words and marks, never its hovers (`title`), its kind or its aim's id. */
+  /**
+   * Every visible string a row carries: its words and marks, never its hovers (`title`), its kind or its aim's id. Nor its `outcome`
+   * (olumi.view/3 at core c838f56: the run's low / median / high and unit, numbers for the option card's outcome band, the v10 slot under
+   * status line 2), which no line of this block draws: deliberately exempt, so the band, not this list, owns it.
+   */
   const shownStrings = (row: Record<string, unknown>, at: string): string[] => Object.entries(row).flatMap(([k, v]) =>
     typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'aim_id' && k !== 'title' ? [`${at}.${k}`] : [])
-    : v !== null && typeof v === 'object' ? shownStrings(v as Record<string, unknown>, `${at}.${k}`) : [])
+    : v !== null && typeof v === 'object' && k !== 'outcome' ? shownStrings(v as Record<string, unknown>, `${at}.${k}`) : [])
   for (const n of GOLDEN) {
     it(`${n}: every word and mark on every option line is drawn, and each line carries core's hover`, () => {
       const model = golden(n).model!
@@ -145,8 +149,8 @@ describe('the Run beside the chances says what the base dock said, word for word
       expect(texts(container, '[data-view^="run.notes."]')).toEqual(o.notes)
       if (o.waits_on === null) expect(container.querySelector('[data-testid="view-run-waits-on"]')).toBeNull()
       else {
-        // Since core e16a497 app-launch has every option waiting (`all_withheld`): what they wait on heads the dock, with no label line.
-        if (model.run!.all_withheld) expect(container.querySelector('[data-testid="view-run-waits-headline"] [data-view="run.waits_on.text"]')?.textContent).toBe(o.waits_on.text)
+        // When every option waits (core 534203e on), what they wait on heads the dock (its head and text), not the "Waits on:" line.
+        if (model.run!.all_withheld) expect(container.querySelector('[data-testid="view-run-waits-headline"] [data-view="run.waits_on.text"]')?.textContent).toBe(model.run!.waits_on!.text)
         else expect(container.querySelector('[data-view="run.waits_on.label"]')?.textContent).toBe(model.run!.waits_on!.label)
         expect(texts(container, '[data-view^="run.waits_on.items."][data-view$=".text"]')).toEqual(model.run!.waits_on!.items.map((i) => i.text))
         expect(model.run!.waits_on!.items.map((i) => i.id)).toEqual(o.waits_on.items.map((i) => i.id))
@@ -189,9 +193,16 @@ describe('a reason every option shares is said once, above the options; each cov
     }
     expect(container.querySelector('[data-view="run.lead"]')?.textContent).toBe(oracle['pricing-unmoved-first']!.lead)
   })
-  it('absent: no View without the key draws a shared reason; each golden that carries it (core e16a497: studio, app-launch) draws exactly its own', () => {
-    const without = GOLDEN.filter((n) => golden(n).model?.run?.shared_blockers === undefined)
-    expect(without.length).toBeGreaterThan(0)
+  it('absent: no View without the key draws a shared reason', () => {
+    // (From core 89d09f0 the goldens carry the key where a blocker is shared: the absent case is made by taking it away.)
+    for (const n of GOLDEN) {
+      const model = structuredClone(golden(n).model)
+      if (!model) continue
+      if (model.run) delete model.run.shared_blockers
+      expect(render(<ViewChances model={model} />).container.querySelector('[data-testid="view-run-shared-blocker"]'), n).toBeNull()
+    }
+  })
+  it('present: each golden that carries the key draws exactly its own shared reasons, in core\'s words (analysis 48d6c6a15 kept)', () => {
     for (const n of GOLDEN) {
       const model = golden(n).model!, said = [...render(<ViewChances model={model} />).container.querySelectorAll('[data-testid="view-run-shared-blocker"]')]
       expect(said.map((e) => e.textContent), n).toEqual((model.run!.shared_blockers ?? []).map((b) => b.text))
