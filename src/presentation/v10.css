@@ -55,3 +55,10 @@
 [data-presentation="v10"] .send-btn:disabled svg {
   stroke: #fff !important;
 }
+
+/* ── 3. A proposal's ghost (core lane: the shell marks it, `data-proposed-card`, from core's `change.kind`) ────────────────────────── */
+/* v10 ruling 2: a ghost is dashed. The shell's own fill, Olumi-blue border and caption stay; a doubt card keeps the default border colour. */
+[data-presentation="v10"] [data-view-card][data-proposed-card] {
+  border-style: dashed;
+}
+

@@ -16,7 +16,7 @@ import type { View } from '../client'
 import { currentModel, useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
 import { ViewChat, ViewComposer, ViewTurns, useViewChat, useAnswersAsks } from '../ViewChat'
-import { optionBands, useV10Lane, ViewCardV10 } from '../v10'
+import { optionBands, useV10Lane, valueBars, ViewCardV10 } from '../v10'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -169,4 +169,61 @@ describe('v10 on the core lane', () => {
       }
     })
   }
+
+  it('a proposal\'s ghost is dashed in v10 (the shell marks it, data-proposed-card; v10.css draws the look)', () => {
+    const css = readFileSync(path.resolve('src/presentation/v10.css'), 'utf8')
+    expect(css).toMatch(/\[data-presentation="v10"\] \[data-view-card\]\[data-proposed-card\] \{\s*border-style: dashed;\s*\}/)
+  })
+
+  it('board 4: the aim on the band\'s axis, core\'s aim words on its line; the part of each range that meets it solid, the part that misses it lighter', () => {
+    const view = golden('capacity-v3'), model = view.model!, aim = model.aim!
+    expect([aim.side, aim.unit]).toEqual(['at_least', 'ticket/week'])
+    const bands = optionBands(model.cards, aim), plain = optionBands(model.cards)
+    const outcome = (id: string) => { const r = model.cards.find((c) => c.id === id)!.rows.find((x) => x.kind === 'chance')!; return r.kind === 'chance' ? r.outcome! : null! }
+    const ids = [...bands.keys()], lo = Math.min(...ids.map((id) => outcome(id).low), aim.value), hi = Math.max(...ids.map((id) => outcome(id).high), aim.value)
+    const at = ((aim.value - lo) / (hi - lo)) * 100
+    for (const id of ids) {
+      const b = bands.get(id)!, o = outcome(id)
+      expect(b.aim!.pct).toBeCloseTo(at, 6)
+      expect(b.aim!.text).toBe(aim.text)
+      // "At least": the part above the aim meets it, the part below misses it.
+      if (o.high > aim.value && o.low < aim.value) {
+        expect(b.aim!.meet!.left).toBeCloseTo(at, 6)
+        expect(b.aim!.miss!.left).toBeCloseTo(b.leftPct, 6)
+      } else if (o.high <= aim.value) expect(b.aim!.meet).toBeNull()
+    }
+    // Drawn on the card: the aim line with core's words on hover, and the two parts.
+    useViewStore.setState({ view })
+    const straddles = ids.find((id) => outcome(id).low < aim.value && outcome(id).high > aim.value)!
+    const card = model.cards.find((c) => c.id === straddles)!
+    useCanvasStore.setState({ nodes: model.cards.filter((c) => c.family === 'option').map((c) => ({ id: c.id, type: 'viewCard', position: { x: 0, y: 0 }, data: { card: c, label: c.heading } })) as never })
+    const { container } = render(<ReactFlowProvider><ViewCardV10 {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>)
+    expect(container.querySelector(`[data-testid="view-option-band-aim-${card.id}"]`)?.getAttribute('title')).toBe(aim.text)
+    expect(container.querySelector(`[data-testid="view-option-band-meet-${card.id}"]`)).not.toBeNull()
+    expect(container.querySelector(`[data-testid="view-option-band-miss-${card.id}"]`)).not.toBeNull()
+    // Never an aim in another unit: the bands are then exactly the plain ones, with no aim line.
+    const other = optionBands(model.cards, { ...aim, unit: 'hour' })
+    expect([...other.values()]).toEqual([...plain.values()])
+    expect([...other.values()].every((b) => b.aim === null)).toBe(true)
+  })
+
+  it('the values band: a worked-out figure\'s range under each option on the card\'s own axis, core\'s line on each bar; none without a spread', () => {
+    const model = golden('bakery').model!, card = model.cards.find((c) => (c.values?.length ?? 0) > 1)!, vs = card.values!
+    const lo = Math.min(...vs.map((v) => v.p10)), hi = Math.max(...vs.map((v) => v.p90))
+    const bars = valueBars(card)
+    expect(bars.map((b) => b.option)).toEqual(vs.map((v) => v.option)) // one per option, in core's order
+    for (const [i, b] of bars.entries()) {
+      expect(b.leftPct).toBeCloseTo(((vs[i]!.p10 - lo) / (hi - lo)) * 100, 6)
+      expect(b.medianPct).toBeCloseTo(((vs[i]!.p50! - lo) / (hi - lo)) * 100, 6)
+      expect([b.text, b.olumi]).toEqual([vs[i]!.text, vs[i]!.olumi])
+    }
+    // Drawn in the shell's values-band place, each bar with core's words as its hover.
+    const { container } = render(<ReactFlowProvider><ViewCardV10 {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>)
+    const band = container.querySelector(`[data-testid="view-values-${card.id}"]`)!
+    expect(band.closest('[data-slot="values-band"]')).not.toBeNull()
+    expect(vs.map((v) => container.querySelector(`[data-testid="view-values-${card.id}-${v.option}"]`)?.getAttribute('title'))).toEqual(vs.map((v) => v.text))
+    // Nothing without values, or when every option's range is one point (no spread to draw).
+    expect(valueBars({ ...card, values: null })).toEqual([])
+    expect(valueBars({ ...card, values: vs.map((v) => ({ ...v, p10: 5, p50: 5, p90: 5 })) })).toEqual([])
+  })
 })

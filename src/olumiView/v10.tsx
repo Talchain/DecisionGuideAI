@@ -20,6 +20,9 @@
  *   that option (core's `rows[].outcome` on its chance row), every option on ONE axis so the cards read side by side: the range as a
  *   bar, the median as a tick, and core's own line for it beneath. The numbers place the bar and nothing else; every word is core's.
  *
+ * - **Proposed** (v10 boards 2 and 3): the shell decides which cards are ghosts and which pulse (DGAI's ViewCardNode, from core's
+ *   `change.kind` and `version.changed`); v10's look for a ghost is dashed in Olumi's colour (v10.css, on `data-proposed-card`).
+ *
  * The methods are v10's (`V10_METHODS`), the composer's icon row in ViewChat.tsx.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -38,7 +41,9 @@ import { ViewCardNode } from '../canvas/nodes/ViewCardNode'
 import { NodeCornerOlumi } from '../canvas/nodes/shared/NodeCornerOlumi'
 import { useCanvasStore } from '../canvas/store'
 import { typography } from '../styles/typography'
-import type { ViewCard } from './client'
+import type { ViewCard, ViewModel } from './client'
+import { useViewStore } from './store'
+import { useCardNumber } from './lens'
 
 /** v10's rulings for the whole lane while its canvas is up: the attribute v10's stylesheets are scoped to. */
 export function useV10Lane(): void {
@@ -69,7 +74,16 @@ export function ViewDriverBadge({ card }: { card: ViewCardData['card'] }) {
 }
 
 /** One option's band on the shared axis: percent positions, and core's line for it with its path in the View. */
-export interface OptionBand { readonly leftPct: number; readonly widthPct: number; readonly medianPct: number | null; readonly text: string; readonly title: string; readonly at: string }
+export interface OptionBand {
+  readonly leftPct: number; readonly widthPct: number; readonly medianPct: number | null; readonly text: string; readonly title: string; readonly at: string
+  /** The person's aim on the same axis (core's `model.aim`), and the parts of this range that meet and miss it; null without an aim. */
+  readonly aim: { readonly pct: number; readonly text: string; readonly meet: Seg | null; readonly miss: Seg | null } | null
+}
+type Seg = { readonly left: number; readonly width: number }
+type Aim = NonNullable<ViewModel['aim']>
+
+/** The part of [lo, hi] on one side of `at`, or null when the range has none there (percent positions). */
+const seg = (lo: number, hi: number): Seg | null => (hi > lo ? { left: lo, width: hi - lo } : null)
 
 const pct = (v: number, min: number, span: number) => Math.min(100, Math.max(0, ((v - min) / span) * 100))
 
@@ -77,7 +91,7 @@ const pct = (v: number, min: number, span: number) => Math.min(100, Math.max(0, 
  * Every option's band on one axis, from core's `outcome` on each option card's chance row. None at all unless every option with a
  * band measures the same quantity in the same unit and the axis has width: two units on one axis would put a bar in the wrong place.
  */
-export function optionBands(cards: readonly ViewCard[]): ReadonlyMap<string, OptionBand> {
+export function optionBands(cards: readonly ViewCard[], aim: Aim | null = null): ReadonlyMap<string, OptionBand> {
   const found: { id: string; i: number; o: NonNullable<Extract<ViewCard['rows'][number], { kind: 'chance' }>['outcome']> }[] = []
   for (const c of cards) {
     if (c.family !== 'option') continue
@@ -86,23 +100,34 @@ export function optionBands(cards: readonly ViewCard[]): ReadonlyMap<string, Opt
     if (row?.kind === 'chance' && row.outcome) found.push({ id: c.id, i, o: row.outcome })
   }
   if (found.length === 0 || new Set(found.map((f) => f.o.unit)).size > 1) return new Map()
-  const min = Math.min(...found.map((f) => f.o.low)), span = Math.max(...found.map((f) => f.o.high)) - min
+  // The aim goes on the axis only in the bands' own unit (core's aim is one point in its quantity's unit): never a line in the wrong place.
+  const goal = aim !== null && Number.isFinite(aim.value) && aim.unit === found[0]!.o.unit ? aim : null
+  // An aim beyond every range is still seen (every option falls short of it), so the axis reaches it.
+  const ends = [...found.flatMap((f) => [f.o.low, f.o.high]), ...(goal === null ? [] : [goal.value])]
+  const min = Math.min(...ends), span = Math.max(...ends) - min
   if (!(span > 0)) return new Map()
-  return new Map(found.map(({ id, i, o }) => [id, {
-    leftPct: pct(o.low, min, span),
-    widthPct: Math.max(2, pct(o.high, min, span) - pct(o.low, min, span)),
-    medianPct: o.median === null || !Number.isFinite(o.median) ? null : pct(o.median, min, span),
-    text: o.text, title: o.title, at: `${id}.rows.${i}.outcome.text`,
-  }]))
+  return new Map(found.map(({ id, i, o }) => {
+    const lo = pct(o.low, min, span), hi = pct(o.high, min, span), at = goal === null ? null : pct(goal.value, min, span)
+    // The side of the aim that meets it: above it for "at least", below it for "at most".
+    const below = at === null ? null : seg(lo, Math.min(hi, at)), above = at === null ? null : seg(Math.max(lo, at), hi)
+    return [id, {
+      leftPct: lo,
+      widthPct: Math.max(2, hi - lo),
+      medianPct: o.median === null || !Number.isFinite(o.median) ? null : pct(o.median, min, span),
+      text: o.text, title: o.title, at: `${id}.rows.${i}.outcome.text`,
+      aim: goal === null || at === null ? null : { pct: at, text: goal.text, meet: goal.side === 'at_least' ? above : below, miss: goal.side === 'at_least' ? below : above },
+    }]
+  }))
 }
 
 /** The bands of the cards on the canvas now: one axis for exactly the options drawn. */
 function useOptionBands(): ReadonlyMap<string, OptionBand> {
   const nodes = useCanvasStore((s) => s.nodes)
+  const aim = useViewStore((s) => s.view?.model?.aim ?? null)
   return useMemo(() => optionBands(nodes.flatMap((n) => {
     const card = (n.data as Partial<ViewCardData> | undefined)?.card
     return card?.family === 'option' ? [card] : []
-  })), [nodes])
+  }), aim), [nodes, aim])
 }
 
 /** v10's outcome band (#/canvas2's look), drawn from core: the bar and tick on the shared axis, and core's line beneath, its hover core's. */
@@ -110,8 +135,20 @@ export function ViewOptionBand({ id, band }: { id: string; band: OptionBand }) {
   return (
     <div className="mt-1 min-w-0" data-testid={`view-option-band-${id}`} title={band.title}>
       <div className="relative" role="img" aria-label={band.text} style={{ height: 6, background: 'var(--factor-light)', borderRadius: 3 }}>
-        <div className="absolute top-0 h-full" data-testid={`view-option-band-range-${id}`}
-          style={{ left: `${band.leftPct}%`, width: `${band.widthPct}%`, background: 'var(--option)', borderRadius: 3 }} />
+        {band.aim === null ? (
+          <div className="absolute top-0 h-full" data-testid={`view-option-band-range-${id}`}
+            style={{ left: `${band.leftPct}%`, width: `${band.widthPct}%`, background: 'var(--option)', borderRadius: 3 }} />
+        ) : (
+          // With an aim, the range in two parts (v10 board 4): the part that meets the aim solid, the part that misses it lighter.
+          <>
+            {band.aim.miss === null ? null : <div className="absolute top-0 h-full" data-testid={`view-option-band-miss-${id}`}
+              style={{ left: `${band.aim.miss.left}%`, width: `${band.aim.miss.width}%`, background: 'var(--option)', opacity: 0.35, borderRadius: 3 }} />}
+            {band.aim.meet === null ? null : <div className="absolute top-0 h-full" data-testid={`view-option-band-meet-${id}`}
+              style={{ left: `${band.aim.meet.left}%`, width: `${band.aim.meet.width}%`, background: 'var(--option)', borderRadius: 3 }} />}
+            <div className="absolute" data-testid={`view-option-band-aim-${id}`} title={band.aim.text}
+              style={{ left: `${band.aim.pct}%`, top: -3, bottom: -3, width: 2, marginLeft: -1, background: 'var(--goal)' }} />
+          </>
+        )}
         {band.medianPct === null ? null : (
           <div className="absolute" data-testid={`view-option-band-median-${id}`}
             style={{ left: `${band.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />
@@ -122,19 +159,61 @@ export function ViewOptionBand({ id, band }: { id: string; band: OptionBand }) {
   )
 }
 
-type Places = { readonly olumi: Element | null; readonly driver: Element | null; readonly band: Element | null }
+/** One option's range on a worked-out figure card's own axis (core's `cards[].values`): percent positions and core's line for it. */
+export interface ValueBar { readonly option: string; readonly leftPct: number; readonly widthPct: number; readonly medianPct: number | null; readonly text: string; readonly olumi: boolean }
+
+/**
+ * A worked-out figure's range under each option, on the card's own axis (v10's band, one bar per option), from core's `values`. The numbers
+ * place the bars and nothing else; core's line for each is its hover. None when core gives no values, or every option's range is one point.
+ * Every bar is in the option colour: a colour that means "rests on Olumi's figures" waits for core's key (`model.key`) to name it.
+ */
+export function valueBars(card: ViewCard): readonly ValueBar[] {
+  const vs: NonNullable<ViewCard['values']> = []
+  for (const v of card.values ?? []) if (Number.isFinite(v.p10) && Number.isFinite(v.p90)) vs.push(v)
+  if (vs.length === 0) return []
+  const min = Math.min(...vs.map((v) => v.p10)), span = Math.max(...vs.map((v) => v.p90)) - min
+  if (!(span > 0)) return []
+  return vs.map((v) => ({
+    option: v.option, leftPct: pct(v.p10, min, span), widthPct: Math.max(2, pct(v.p90, min, span) - pct(v.p10, min, span)),
+    medianPct: v.p50 === null || !Number.isFinite(v.p50) ? null : pct(v.p50, min, span), text: v.text, olumi: v.olumi,
+  }))
+}
+
+/** One bar's row: the option's number as the canvas numbers it (O1, …), and its range. */
+function ValueBarRow({ cardId, bar }: { cardId: string; bar: ValueBar }) {
+  const n = useCardNumber(bar.option)
+  return (
+    <div className="flex items-center gap-1.5" title={bar.text} role="img" aria-label={bar.text} data-testid={`view-values-${cardId}-${bar.option}`}>
+      <span className={`${typography.edgeLabel} w-6 flex-none text-text-light tabular-nums`}>{n ?? ''}</span>
+      <div className="relative flex-1" style={{ height: 4, background: 'var(--factor-light)', borderRadius: 2 }}>
+        <div className="absolute top-0 h-full" style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%`, background: 'var(--option)', borderRadius: 2 }} />
+        {bar.medianPct === null ? null : <div className="absolute" style={{ left: `${bar.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />}
+      </div>
+    </div>
+  )
+}
+
+/** v10's values band: under a worked-out figure's value line, one bar per option on the card's own axis. */
+export function ViewValuesBand({ card }: { card: ViewCard }) {
+  const bars = valueBars(card)
+  if (bars.length === 0) return null
+  return <div className="mt-1 space-y-0.5" data-testid={`view-values-${card.id}`}>{bars.map((b) => <ValueBarRow key={b.option} cardId={card.id} bar={b} />)}</div>
+}
+
+type Places = { readonly olumi: Element | null; readonly driver: Element | null; readonly band: Element | null; readonly values: Element | null }
 
 /** A View card as v10 draws its controls: DGAI's card, with the Olumi corner and the driver badge in the card's own named places. */
 export function ViewCardV10(props: NodeProps) {
   const box = useRef<HTMLDivElement>(null)
-  const [places, setPlaces] = useState<Places>({ olumi: null, driver: null, band: null })
+  const [places, setPlaces] = useState<Places>({ olumi: null, driver: null, band: null, values: null })
   const band = useOptionBands().get(props.id) ?? null
   // The card draws its places; v10 finds them each time the card is drawn from new data (a card that changes family gains or loses its
   // driver place).
   useLayoutEffect(() => {
     const at = (name: string) => box.current?.querySelector(`[data-slot="${name}"]`) ?? null
     const olumi = at(VIEW_CARD_SLOTS.olumiBadge), driver = at(VIEW_CARD_SLOTS.driverBadge), band = at(VIEW_CARD_SLOTS.outcomeBand)
-    setPlaces((p) => (p.olumi === olumi && p.driver === driver && p.band === band ? p : { olumi, driver, band }))
+    const values = at(VIEW_CARD_SLOTS.valuesBand)
+    setPlaces((p) => (p.olumi === olumi && p.driver === driver && p.band === band && p.values === values ? p : { olumi, driver, band, values }))
   }, [props.data])
   return (
     <V10Scope>
@@ -143,6 +222,7 @@ export function ViewCardV10(props: NodeProps) {
         {places.olumi === null ? null : createPortal(<NodeCornerOlumi nodeId={props.id} selected={props.selected === true} />, places.olumi)}
         {places.driver === null ? null : createPortal(<ViewDriverBadge card={(props.data as ViewCardData).card} />, places.driver)}
         {places.band === null || band === null ? null : createPortal(<ViewOptionBand id={props.id} band={band} />, places.band)}
+        {places.values === null ? null : createPortal(<ViewValuesBand card={(props.data as ViewCardData).card} />, places.values)}
       </div>
     </V10Scope>
   )
