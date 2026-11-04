@@ -106,7 +106,7 @@ describe('the block draws only a current View of the approved model (review 0004
   })
 
   it('draws nothing from a View that holds a proposal: its lines are the proposal\'s, not the approved model the canvas shows', () => {
-    useViewStore.setState({ view: { ...view, proposal: { id: 9, base: 1, heading: 'Olumi proposes 1 change', on: 'on version 1', removed: null, problem: null, marks: [] } }, error: null, status: 'ready' })
+    useViewStore.setState({ view: { ...view, proposal: { id: 9, base: 1, heading: 'Olumi proposes 1 change', on: 'on version 1', removed: null, problem: null, marks: [], changes: [], groups: null } }, error: null, status: 'ready' })
     expect(block()).toBeNull()
   })
 

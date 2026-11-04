@@ -1172,6 +1172,90 @@
         ],
         "additionalProperties": false
        }
+      },
+      "changes": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "top": {
+          "type": "boolean"
+         },
+         "text": {
+          "type": "string"
+         },
+         "detail": {
+          "type": "string"
+         },
+         "family": {
+          "type": "string"
+         },
+         "olumi": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "glyph": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "glyph",
+             "title"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
+         }
+        },
+        "required": [
+         "id",
+         "top",
+         "text",
+         "detail",
+         "family",
+         "olumi"
+        ],
+        "additionalProperties": false
+       }
+      },
+      "groups": {
+       "anyOf": [
+        {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "properties": {
+           "heading": {
+            "type": "string"
+           },
+           "lines": {
+            "type": "array",
+            "items": {
+             "type": "number"
+            }
+           }
+          },
+          "required": [
+           "heading",
+           "lines"
+          ],
+          "additionalProperties": false
+         }
+        },
+        {
+         "type": "null"
+        }
+       ]
       }
      },
      "required": [
@@ -1181,7 +1265,9 @@
       "on",
       "removed",
       "problem",
-      "marks"
+      "marks",
+      "changes",
+      "groups"
      ],
      "additionalProperties": false
     },

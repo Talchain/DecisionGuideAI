@@ -219,6 +219,21 @@ export type View = {
       status: string
       title: string
     }>
+    changes: Array<{
+      id: string
+      top: boolean
+      text: string
+      detail: string
+      family: string
+      olumi: {
+        glyph: string
+        title: string
+      } | null
+    }>
+    groups: Array<{
+      heading: string
+      lines: Array<number>
+    }> | null
   } | null
   collab: {
     alone: boolean

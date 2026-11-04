@@ -458,7 +458,26 @@
   "on": "on version 1",
   "removed": null,
   "problem": null,
-  "marks": []
+  "marks": [],
+  "changes": [
+   {
+    "id": "per_specialist",
+    "top": false,
+    "text": "↻ figure: per specialist",
+    "detail": "low 10 → 15\nhigh 30 → 35\nlikely 20 → 25",
+    "family": "quantity",
+    "olumi": null
+   },
+   {
+    "id": "start_delay",
+    "top": false,
+    "text": "↻ figure: start delay",
+    "detail": "figure 0 → 4",
+    "family": "quantity",
+    "olumi": null
+   }
+  ],
+  "groups": null
  },
  "collab": {
   "alone": true,
