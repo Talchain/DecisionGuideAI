@@ -29,6 +29,7 @@ import { V10_METHODS, withMethodPrefix } from '../presentation/V10MethodChips'
 import { ringCards } from './ring'
 import { Button } from '../components/ui/Button'
 import { VIEW_NOTE_SLOT } from './note'
+import { storiesHeadingOf, storiesOf } from './k5'
 import { ArrowUp, FlipVertical2, Globe, History, RefreshCw, SearchX, Zap } from 'lucide-react'
 import Tooltip from '../components/Tooltip'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
@@ -50,6 +51,37 @@ function Words({ parts, at }: { parts: Said; at: string }) {
         ? <sup key={i} data-view-cite={`${at}.${i}.cite`} title={p.cite} aria-label={p.cite}>◦</sup>
         : <span key={i} data-view={`${at}.${i}.text`}>{p.text}</span>))}
     </>
+  )
+}
+
+/**
+ * K5 "If it failed" (R3): the pre-mortem's stories on the reply they came with, under core's heading, each marked Olumi's with the key's
+ * own Olumi glyph (`model.key`); the option a story is about and the cards it rests on as label: value lines, in each card's own heading.
+ * Every word is core's (./k5.ts, ahead of core); a record that is not a card on the canvas is not named, and nothing is drawn without stories.
+ */
+function Stories({ answer, at }: { answer: NonNullable<ViewTurn['answer']>; at: string }) {
+  const model = useViewStore((s) => s.view?.model ?? null)
+  const stories = storiesOf(answer), heading = storiesHeadingOf(answer)
+  if (stories.length === 0 || heading === null) return null
+  const olumi = model?.key.find((k) => k.text === 'Olumi') ?? null
+  const headingOf = (id: string) => model?.cards.find((c) => c.id === id)?.heading ?? null
+  return (
+    <section data-testid="view-chat-stories" aria-label={heading}>
+      <p className={typography.panelHeader} data-view={`${at}.answer.stories_heading`}>{heading}</p>
+      <ol className="space-y-1.5">
+        {stories.map((st, i) => {
+          const option = st.option === null ? null : headingOf(st.option)
+          const rests = st.rests_on.flatMap((id) => { const h = headingOf(id); return h === null ? [] : [h] })
+          return (
+            <li key={i} data-story={i}>
+              <p>{olumi === null ? null : <span className="text-info" title={olumi.text} aria-label={olumi.text} data-story-mark="">{olumi.glyph} </span>}<span data-view={`${at}.answer.stories.${i}.text`}>{st.text}</span></p>
+              {option === null ? null : <p className={`${typography.chatMeta} text-text-light`} data-story-option="">Option: <span>{option}</span></p>}
+              {rests.length === 0 ? null : <p className={`${typography.chatMeta} text-text-light`} data-story-rests="">Rests on: <span>{rests.join(', ')}</span></p>}
+            </li>
+          )
+        })}
+      </ol>
+    </section>
   )
 }
 
@@ -76,6 +108,7 @@ function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: 
       <p tabIndex={t.answer.next.about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
         onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} /></p>
       {moves && t.answer.next.newest ? <MoveTap turn={t.id} next={t.answer.next} /> : null}
+      <Stories answer={t.answer} at={at} />
     </div>
   )
   // Who replied and the model version it read, under the reply, as DGAI's version chip (v10): core's words.
