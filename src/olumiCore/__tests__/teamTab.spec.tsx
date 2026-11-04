@@ -144,6 +144,27 @@ describe('every write goes to core\'s own route, and the View is read again afte
     await waitFor(() => expect(reread()).toBe(1))
     expect(posts()[0]).toMatchObject({ path: `/api/scenarios/${SID}/evidence`, body: { text: 'Two pilots stalled.', concerns: [card.id], stance: 'supports', op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } })
   })
+  it('asking Olumi to consider a piece of evidence posts to core\'s consider route with an op, then reads the View again (API v1.12)', async () => {
+    render(<TeamTab />)
+    expect(screen.queryByTestId('team-evidence-considered-by-5')).toBeNull()
+    fireEvent.click(screen.getByTestId('team-evidence-consider-5'))
+    await waitFor(() => expect(reread()).toBe(1))
+    expect(posts()).toEqual([{ method: 'POST', path: `/api/scenarios/${SID}/evidence/5/consider`, body: { op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } }])
+  })
+  it('what Olumi made of it, as core holds it: who asked, and core\'s why verbatim when it changed nothing; a proposal from it says so', () => {
+    const t = twoPeople(), ev = t.evidence[0]!
+    const why = { text: 'The model already allows churn this low.', title: 'Nothing to change: churn is already within the range.' }
+    useViewStore.setState({ view: { ...t, evidence: [{ ...ev, considered: { at: '2026-11-04T09:00:00Z', by: 'Ada', proposal: null, why } }] } })
+    render(<TeamTab />)
+    expect(screen.getByTestId('team-evidence-considered-by-5').textContent).toBe('Ada asked Olumi to consider this.')
+    const w = screen.getByTestId('team-evidence-why-5')
+    expect([w.textContent, w.getAttribute('title')]).toEqual([why.text, why.title])
+    cleanup()
+    useViewStore.setState({ view: { ...t, evidence: [{ ...ev, considered: { at: '2026-11-04T09:00:00Z', by: 'Ada', proposal: 12, why: null } }] } })
+    render(<TeamTab />)
+    expect(screen.getByTestId('team-evidence-considered-by-5').textContent).toBe('Ada asked Olumi to consider this. Olumi proposed a change from it.')
+    expect(screen.queryByTestId('team-evidence-why-5')).toBeNull()
+  })
   it('what evidence may bear on is the approved version\'s records, by core\'s label, held proposal or not; a record no longer in it is not offered', () => {
     useViewStore.setState({ view: twoPeople({}, { proposal: { id: 1, base: 1, heading: 'x', on: [], removed: [], problem: null, marks: [] } as unknown as View['proposal'] }) })
     render(<TeamTab />)

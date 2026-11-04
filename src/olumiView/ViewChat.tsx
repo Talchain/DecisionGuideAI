@@ -148,7 +148,9 @@ function ChangeLine({ c, i, ticked, toggle, busy }: { c: Change; i: number; tick
  * The proposal, as core's change card: its heading, the change list (flat, or under core's group headings over 12), and Approve (the whole
  * card), Approve ticked (exactly the ticked lines, core's `only` / `only_top`) and Set aside. A proposal held without a list has Approve alone.
  */
-function Proposal({ p, busy }: { p: NonNullable<View['proposal']>; busy: boolean }) {
+function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
+  // A proposal Olumi made on considering shared evidence (API v1.12) names who asked and the evidence, in its member's own words.
+  const from = p.from == null ? null : { by: p.from.asked_by, text: evidence.find((e) => e.id === p.from!.evidence)?.text ?? null }
   // A core before L8 serves no list (absent, never []): its card has Approve alone, as a proposal held without a list.
   const changes = p.changes ?? [], groups = p.groups ?? null
   // One line is the whole proposal: ticking it would only repeat Approve, so there are ticks from two lines (4 Nov drive at 1280).
@@ -165,6 +167,7 @@ function Proposal({ p, busy }: { p: NonNullable<View['proposal']>; busy: boolean
     <div className={`${typography.panelBody} rounded border border-border p-3 space-y-2`} data-testid="view-chat-proposal">
       <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span> <span data-view="proposal.on">{p.on}</span>
         {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>
+      {from === null ? null : <p className="text-text-light" data-testid="view-chat-proposal-from">Asked by <span data-view="proposal.from.asked_by">{from.by}</span>{from.text === null ? null : <>, from evidence: “<span data-testid="view-chat-proposal-from-evidence">{from.text}</span>”</>}</p>}
       {p.problem === null ? null : <p role="alert" data-view="proposal.problem">{p.problem}</p>}
       {p.marks.map((m, j) => <p key={j} title={m.title}><span data-view={`proposal.marks.${j}.what`}>{m.what}</span>: <span data-view={`proposal.marks.${j}.status`}>{m.status}</span></p>)}
       {changes.length === 0 ? null : groups === null
@@ -415,7 +418,7 @@ function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
     <section className={`${typography.panelBody} rounded-lg border border-info/40 bg-panel p-3 space-y-2 ring-1 ring-info/20`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
       <p className={typography.panelHeader}>Next step</p>
       <p>{NEXT_STEP_WORDS[step.kind]}</p>
-      {step.kind === 'approve' ? <Proposal key={view.proposal!.id} p={view.proposal!} busy={busy} /> : null}
+      {step.kind === 'approve' ? <Proposal key={view.proposal!.id} p={view.proposal!} busy={busy} evidence={view.evidence} /> : null}
       {step.kind === 'figure' ? (
         <div className="space-y-1">
           <p title={step.item.title} data-view={`run.waits_on.items.${view.model!.run!.waits_on!.items.indexOf(step.item)}.text`}>{step.item.text}</p>
