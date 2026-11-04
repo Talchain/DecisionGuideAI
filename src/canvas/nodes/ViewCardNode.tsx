@@ -13,6 +13,7 @@ import type { ViewCard as Card, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { askKindOf, CARD_WIDTH, drawKindOf, type RestsOnItem } from '../../olumiView/layout'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
+import { useCanvasStore } from '../store'
 import { useCardNumber, useRestsOnItem } from '../../olumiView/lens'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
@@ -77,7 +78,7 @@ export function ViewCard({ card, selected = false, restsOn = null, number = null
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
     <div
       style={{ width: CARD_WIDTH }}
-      className={`group relative ${typography.nodeLabel} rounded-md border bg-panel px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : ''}`}
+      className={`group relative text-[length:calc(12px*var(--canvas-label-scale,1))] leading-[1.35] font-sans text-text-body rounded-md border bg-panel px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : ''}`}
       data-view-card={id} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
       data-slot-outline="next-step"
     >
@@ -110,14 +111,14 @@ export function ViewCard({ card, selected = false, restsOn = null, number = null
           <Slot name={VIEW_CARD_SLOTS.figureSide} className="empty:hidden" />
         </div>
       )}
-      {card.figure?.edit ? <FigureEdit id={card.id} edit={card.figure.edit} {...(estimate ? { glyph: '✎', label: 'Give yours' } : {})} quiet={!selected} /> : null}
+      {card.figure?.edit ? <span className={selected ? '' : 'invisible group-hover:visible'} data-at-rest-hidden=""><FigureEdit id={card.id} edit={card.figure.edit} {...(estimate ? { glyph: '✎', label: 'Give yours' } : {})} quiet={!selected} /></span> : null}
       {card.rows.map((row, i) => (
         <span key={i} className="contents">
           <Row id={id} row={row} i={i} />
           {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
         </span>
       ))}
-      {card.badge === null ? null : <p><Badge cardId={id} badge={card.badge} at={id} /></p>}
+      {card.badge === null ? null : <p className={selected ? '' : 'invisible group-hover:visible'} data-at-rest-hidden=""><Badge cardId={id} badge={card.badge} at={id} /></p>}
       <Slot name={VIEW_CARD_SLOTS.marks} className="flex gap-1 empty:hidden" />
       <Slot name={VIEW_CARD_SLOTS.olumiBadge} className="absolute bottom-1 right-1 empty:hidden" />
       {more ? (
@@ -151,12 +152,16 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const { card } = data as ViewCardData
   const restsOn = useRestsOnItem(id)
   const number = useCardNumber(id)
+  const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] === id)
   return (
-    <div className="relative">
+    <div className="group/vcard relative">
       <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
       <ViewCard card={card} selected={selected === true} restsOn={restsOn} number={number} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
-      <NodeQuickActions nodeId={id} nodeType={askKindOf(card.family)} label={card.heading} placement="below" alwaysVisible={selected === true} />
+      {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
+      <div className={selected === true || noted ? '' : 'opacity-0 group-hover/vcard:opacity-100 focus-within:opacity-100'} data-olumi-controls="">
+        <NodeQuickActions nodeId={id} nodeType={askKindOf(card.family)} label={card.heading} placement="below" alwaysVisible={selected === true || noted} />
+      </div>
       <Slot name={VIEW_CARD_SLOTS.rail} className="absolute left-0 top-full empty:hidden" />
       <Handle type="source" position={Position.Bottom} isConnectable={false} className="!opacity-0" />
     </div>

@@ -23,11 +23,11 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   if (toSelected) active.add(target)
   if (!linkDrawn(link, active)) return null
   const [path, x, y] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
-  const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : 'var(--text-light, #6E6B6B)'
+  const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
   return (
     <g data-view-link={`links.${i}`} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
       <title>{link.title}</title>
-      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: 1.1, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
+      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: 1, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
       {link.label === '' ? null : (
         <text x={x} y={y} dy="0.35em" textAnchor="middle" className={`${typography.edgeLabel} fill-current`} paintOrder="stroke" stroke="var(--bg-canvas)" strokeWidth={3} data-view={`links.${i}.label`}>{link.label}</text>
       )}
