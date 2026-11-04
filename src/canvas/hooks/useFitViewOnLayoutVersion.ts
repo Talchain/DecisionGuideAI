@@ -14,6 +14,10 @@ import { releaseUserCameraClaim, userOwnsCamera, userOwnsCameraFor } from '../ut
 import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 import { currentModelKey } from '../utils/currentModelKey'
 import { drawnOnlyKey, subscribeDrawnOnly } from '../domain/livingKinds'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { productFitFloor } from '../../olumiView/camera'
+import { useViewStore } from '../../olumiView/store'
+import { QUESTION } from '../../olumiView/layout'
 
 /** The slice of canvas state the camera's readiness questions are asked of. */
 type CameraReadinessState = Pick<
@@ -179,6 +183,8 @@ export function useFitViewOnLayoutVersion(): void {
     )
     const padding = computeFitPadding()
     const duration = cameraDuration(400, reducedMotionRef.current)
+    // The olumi-core lane fits the whole of core's model (olumiView/camera.ts); every other lane keeps the legibility floor.
+    const floor = productFitFloor(isOlumiCoreLane(), LABEL_LEGIBLE_ZOOM)
 
     // ⭐⭐ WHEN THE FIT WOULD CLAMP, ANCHOR THE VIEW TO THE MODEL'S TOP.
     //
@@ -207,7 +213,7 @@ export function useFitViewOnLayoutVersion(): void {
         cam.paneWidth,
         cam.paneHeight,
         paddingToInsets(padding),
-        LABEL_LEGIBLE_ZOOM,
+        floor,
       )
       if (anchored) {
         setViewportRef.current(anchored, { duration })
@@ -241,7 +247,7 @@ export function useFitViewOnLayoutVersion(): void {
           bounds: getNodesBounds(nodes),
           pane: { width: cam.paneWidth, height: cam.paneHeight },
           padding,
-          minZoom: minZoom ?? LABEL_LEGIBLE_ZOOM,
+          minZoom: Math.min(minZoom ?? LABEL_LEGIBLE_ZOOM, floor),
           maxZoom: maxZoom ?? LABEL_LEGIBLE_ZOOM,
         }),
         { duration },
@@ -558,6 +564,28 @@ export function useFitViewOnLayoutVersion(): void {
   // so this never fits an empty canvas; the watcher derives the change from
   // `computeFitPadding` itself rather than from a list of things that move it
   // (see `reservedBoxWatcher.ts`).
+  // The olumi-core lane: each version of core's model is framed whole once all its cards are drawn and measured: on first open and
+  // after each new version (an approval, a figure set, a colleague's change). A version's cards land after the View, so wait for them.
+  const coreVersion = useViewStore((s) => (isOlumiCoreLane() && s.sid !== null && s.view?.version ? `${s.sid}:${s.view.version.id}` : ''))
+  const framedCoreVersionRef = useRef('')
+  useEffect(() => {
+    if (coreVersion === '' || framedCoreVersionRef.current === coreVersion) return
+    let raf = 0
+    let frames = 0
+    const tryFit = () => {
+      const cards = useViewStore.getState().view?.model?.cards ?? []
+      const ids = new Set([QUESTION, ...cards.map((c) => c.id)])
+      const measured = (getNodesRef.current?.() ?? []).filter((n) => ids.has(n.id) && n.measured?.width && n.measured?.height).length
+      if (measured < ids.size && ++frames < 120) { raf = requestAnimationFrame(tryFit); return }
+      if (measured === 0) return
+      framedCoreVersionRef.current = coreVersion
+      releaseUserCameraClaim()
+      fitNow.current()
+    }
+    raf = requestAnimationFrame(tryFit)
+    return () => cancelAnimationFrame(raf)
+  }, [coreVersion])
+
   useEffect(() => {
     return watchReservedBox(() => {
       if (!cameraHasATarget(useCanvasStore.getState())) return

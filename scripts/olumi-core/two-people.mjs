@@ -95,6 +95,14 @@ const tickLine = async (p, proposal, i, on = true) => {
   if (gi >= 0 && !(await box.isVisible())) await p.page.locator(`[data-view="proposal.groups.${gi}.heading"]`).click()
   await (on ? box.check({ timeout: T }) : box.uncheck({ timeout: T }))
 }
+/** The View's cards and question that lie outside the canvas a person can see (left of the dock), by id; [] when the whole model is in view. */
+const outOfView = async (p) => {
+  const f = await free(p)
+  return p.page.evaluate((f) => [...document.querySelectorAll('.react-flow__node-viewCard, .react-flow__node-viewQuestion')].filter((e) => {
+    const r = e.getBoundingClientRect()
+    return r.left < f.x - 1 || r.top < f.y - 1 || r.right > f.x + f.width + 1 || r.bottom > f.y + f.height + 1
+  }).map((e) => e.getAttribute('data-id')), f)
+}
 /** Core's own page for the scenario, opened by the same person (their cookie), as its text. */
 const corePage = async (p, sid) => {
   const other = await p.ctx.newPage()
@@ -122,6 +130,8 @@ await ada.page.waitForFunction(() => document.querySelectorAll('.react-flow__nod
 let v = await viewWhen(ada, sid, (x) => x.proposal === null)
 await ada.page.waitForTimeout(300)
 const cards = await ada.page.locator('.react-flow__node-viewCard').count()
+// The whole model in view on first open, left of the dock (live olumi-core-v3, 4 Nov: a real model opened cut off).
+check(await seen(ada, async () => (await outOfView(ada)).length === 0), `the whole model is in view on first open${(await outOfView(ada)).length ? ` (out: ${(await outOfView(ada)).join(', ')})` : ''}`)
 await shot(ada, '0-canvas-version-1')
 check(v.version?.n === 1 && v.proposal === null, 'core holds version 1 and nothing pending')
 check(cards === v.model.cards.length, `DGAI's canvas draws every card of core's View (${cards} of ${v.model.cards.length})`)
@@ -145,6 +155,12 @@ const covers = await ada.page.evaluate(() => {
   return [...document.querySelectorAll('.react-flow__node')].filter((e) => { const r = e.getBoundingClientRect(); return Math.min(n.right, r.right) > Math.max(n.left, r.left) && Math.min(n.bottom, r.bottom) > Math.max(n.top, r.top) }).map((e) => e.getAttribute('data-id'))
 })
 check(covers.length === 0, `Olumi's note covers no card${covers.length ? ` (covers ${covers.join(', ')})` : ''}`)
+// …and no canvas control (live, 4 Nov: it sat on the zoom controls).
+const onControls = await ada.page.evaluate(() => {
+  const n = document.querySelector('[data-testid="olumi-attention-card"]').getBoundingClientRect()
+  return ['nav[aria-label="Viewport controls"]', 'nav[aria-label="Canvas tools"]'].filter((sel) => { const e = document.querySelector(sel); if (!e) return false; const r = e.getBoundingClientRect(); return Math.min(n.right, r.right) > Math.max(n.left, r.left) && Math.min(n.bottom, r.bottom) > Math.max(n.top, r.top) })
+})
+check(onControls.length === 0, `Olumi's note covers no canvas control${onControls.length ? ` (covers ${onControls.join(', ')})` : ''}`)
 await shot(ada, '0-ada-model')
 
 // ── 1. Bea joins by her link, on the same address ───────────────────────────────────────────────────────────────────────────────
@@ -231,6 +247,7 @@ await ada.page.waitForFunction(() => document.querySelectorAll('.react-flow__nod
 v = await viewWhen(ada, sid, (x) => x.proposal === null && x.version?.n === 2)
 await ada.page.waitForTimeout(500)
 check(v.version.n === 2 && v.proposal === null, 'core holds version 2')
+check(await seen(ada, async () => (await outOfView(ada)).length === 0), 'the whole of version 2 is in view on Ada\'s canvas')
 check(await ada.page.locator('.react-flow__node-viewCard').count() === v.model.cards.length, 'Ada\'s canvas draws version 2\'s cards')
 await teamCheck(bea)
 check(await seen(bea, async () => await bea.page.locator('.react-flow__node-viewCard').count() === v.model.cards.length), 'Bea\'s canvas moved to version 2 on her next read')
