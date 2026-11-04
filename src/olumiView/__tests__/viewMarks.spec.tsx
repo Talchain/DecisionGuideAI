@@ -13,6 +13,7 @@ import { ViewCard } from '../../canvas/nodes/ViewCardNode'
 import { ViewQuestion } from '../../canvas/nodes/ViewQuestionNode'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
 import { useViewHover } from '../canvas'
+import { EdgeLabelLayer } from './edgeLabelLayer'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
 
@@ -50,8 +51,8 @@ describe('#1 the question', () => {
 
 // Drawn with its first card hovered: a premise or assumption link is drawn only then (linkDrawn; viewCanvas.spec folds them).
 const edge = (link: ViewLink, i = 0) => (useViewHover.setState({ id: link.from }), render(
-  <ReactFlowProvider><svg><ViewLinkEdge id="e" source="a" target="b" sourceX={0} sourceY={0} targetX={100} targetY={40}
-    sourcePosition={Position.Right} targetPosition={Position.Left} data={{ link, i }} /></svg></ReactFlowProvider>,
+  <ReactFlowProvider><EdgeLabelLayer><svg><ViewLinkEdge id="e" source="a" target="b" sourceX={0} sourceY={0} targetX={100} targetY={40}
+    sourcePosition={Position.Right} targetPosition={Position.Left} data={{ link, i }} /></svg></EdgeLabelLayer></ReactFlowProvider>,
 ).container)
 
 describe('#3 a link keeps its meaning', () => {

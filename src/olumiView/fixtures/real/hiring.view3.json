@@ -1,0 +1,1731 @@
+{
+ "schema": "olumi.view/3",
+ "id": "s_7657aadc0343",
+ "title": "Hiring for productivity and the next feature launch",
+ "commit": "export-1c1bc10",
+ "signature": "[12,null,[[11,\"approved\"],[13,\"discussion\"]],[],[\"Demo\"],[],[\"9\"]]",
+ "you": "Demo",
+ "you_id": "9",
+ "members": [
+  {
+   "id": "9",
+   "name": "Demo"
+  }
+ ],
+ "version": {
+  "id": 12,
+  "n": 1,
+  "label": "version 1",
+  "changed": []
+ },
+ "model": {
+  "question": {
+   "text": "Should we hire a Tech lead or two developers to boost productivity and meet our next feature-launch deadline?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": {
+    "records": [
+     "lead_delay",
+     "fractional_lead_delay"
+    ],
+    "text": "● +2",
+    "title": "quantity: Delay before a hired Tech lead contributes\nquantity: Delay before an external fractional lead contributes",
+    "label": "Expand 2 reasoning records",
+    "open": false,
+    "proposed": false,
+    "change": ""
+   }
+  },
+  "whole": false,
+  "cards": [
+   {
+    "id": "launch_window",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Time remaining until the feature-launch deadline",
+    "typed": false,
+    "detail": "Time remaining until the feature-launch deadline · quantity · Theirs: “our next feature-launch deadline on January 12th” (Demo) · 10 weeks · The host resolves the stated deadline into model periods. · Read as 12 Jan 2027 from your words: 9 weeks and 6 days from 4 Nov 2026. The model counts whole weeks, so Olumi counts it as 10 weeks (to 13 Jan 2027) for now; confirm it, or say 9 (to 6 Jan 2027).",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "12 Jan 2027",
+     "title": "10 weeks · The host resolves the stated deadline into model periods. · Read as 12 Jan 2027 from your words: 9 weeks and 6 days from 4 Nov 2026. The model counts whole weeks, so Olumi counts it as 10 weeks (to 13 Jan 2027) for now; confirm it, or say 9 (to 6 Jan 2027).",
+     "edit": {
+      "prompt": "New figure for “Time remaining until the feature-launch deadline” (week): one number, or a range like 150 to 400",
+      "ask": "For “Time remaining until the feature-launch deadline”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "remaining_work",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Remaining engineering effort for launch",
+    "typed": false,
+    "detail": "Remaining engineering effort for launch · quantity · Proposed by Olumi: An exploratory what-if spanning a relatively contained feature through a substantial multi-person delivery effort, including testing, integration and release work. This is not an estimate of Demo's backlog or a published typical rate. Software feature scope varies greatly, and no scope or estimate was supplied, so the range is deliberately broad; larger or smaller projects remain possible. What estimate or range would you use for the actual remaining work? · Plausible range: 80 to 2,000 hours",
+    "col": 1,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: An exploratory what-if spanning a relatively contained feature through a substantial multi-person delivery effort, including testing, integration and release work. This is not an estimate of Demo's backlog or a published typical rate. Software feature scope varies greatly, and no scope or estimate was supplied, so the range is deliberately broad; larger or smaller projects remain possible. What estimate or range would you use for the actual remaining work?"
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "80 to 2,000 hours",
+     "title": "Plausible range: 80 to 2,000 hours",
+     "edit": {
+      "prompt": "New figure for “Remaining engineering effort for launch” (hour): one number, or a range like 150 to 400",
+      "ask": "For “Remaining engineering effort for launch”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "calculation_blockers"
+     ],
+     "text": "❝ +1",
+     "title": "claim: The capacity comparison uses exploratory what-if ranges for remaining effort, current delivery capacity, leadership contribution, hiring delays and developer contribution. These are not evidence of likely delivery. Results depend on the capacity assumptions, including the premise that onboarding creates no additional existing-team delivery loss.",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "one_lead",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Tech lead capacity under the Tech lead option",
+    "typed": false,
+    "detail": "Tech lead capacity under the Tech lead option · quantity · Theirs: “a Tech lead” (Demo) · 1 person",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "1 person",
+     "title": "1 person",
+     "edit": {
+      "prompt": "New figure for “Tech lead capacity under the Tech lead option” (person): one number, or a range like 150 to 400",
+      "ask": "For “Tech lead capacity under the Tech lead option”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "two_developers",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Developer capacity under the developer option",
+    "typed": false,
+    "detail": "Developer capacity under the developer option · quantity · Theirs: “two developers” (Demo) · 2 people",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "2 people",
+     "title": "2 people",
+     "edit": {
+      "prompt": "New figure for “Developer capacity under the developer option” (person): one number, or a range like 150 to 400",
+      "ask": "For “Developer capacity under the developer option”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "no_additional_people",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "No additional capacity in this role",
+    "typed": false,
+    "detail": "No additional capacity in this role · quantity · Structure: Zero additional people in a role not included in the option. · 0 people",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0 people",
+     "title": "0 people",
+     "edit": {
+      "prompt": "New figure for “No additional capacity in this role” (person): one number, or a range like 150 to 400",
+      "ask": "For “No additional capacity in this role”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "fractional_lead",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Tech lead capacity under the mixed option",
+    "typed": false,
+    "detail": "Tech lead capacity under the mixed option · quantity · Proposed by Olumi: A part-time external lead is a distinct way to test whether leadership leverage and implementation capacity are both needed. This allocation is a proposal, not an availability claim. · 0.5 people",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A part-time external lead is a distinct way to test whether leadership leverage and implementation capacity are both needed. This allocation is a proposal, not an availability claim."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0.5 people",
+     "title": "0.5 people",
+     "edit": {
+      "prompt": "New figure for “Tech lead capacity under the mixed option” (person): one number, or a range like 150 to 400",
+      "ask": "For “Tech lead capacity under the mixed option”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "one_developer",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Developer capacity under the mixed option",
+    "typed": false,
+    "detail": "Developer capacity under the mixed option · quantity · Proposed by Olumi: The mixed option reserves an implementation role alongside fractional leadership rather than assuming leadership alone supplies the missing development capacity. · 1 person",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: The mixed option reserves an implementation role alongside fractional leadership rather than assuming leadership alone supplies the missing development capacity."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "1 person",
+     "title": "1 person",
+     "edit": {
+      "prompt": "New figure for “Developer capacity under the mixed option” (person): one number, or a range like 150 to 400",
+      "ask": "For “Developer capacity under the mixed option”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "developer_delay",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Delay before hired developers contribute",
+    "typed": false,
+    "detail": "Delay before hired developers contribute · quantity · Proposed by Olumi: A recruitment and initial orientation what-if, ranging from an available candidate to a search with notice and onboarding. It is not a forecast. Geography and pipeline are unspecified, so the library's country-specific recruiting rates are not applied. · Plausible range: 4 to 16 weeks",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A recruitment and initial orientation what-if, ranging from an available candidate to a search with notice and onboarding. It is not a forecast. Geography and pipeline are unspecified, so the library's country-specific recruiting rates are not applied."
+    },
+    "change": null,
+    "focus": true,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "4 to 16 weeks",
+     "title": "Plausible range: 4 to 16 weeks",
+     "edit": {
+      "prompt": "New figure for “Delay before hired developers contribute” (week): one number, or a range like 150 to 400",
+      "ask": "For “Delay before hired developers contribute”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "lead_contribution",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Weekly launch-work contribution enabled per additional Tech lead",
+    "typed": false,
+    "detail": "Weekly launch-work contribution enabled per additional Tech lead · quantity · Proposed by Olumi: An exploratory what-if ranging from no useful improvement at the current bottleneck to roughly a working week's additional launch-work capacity through direct work and unblocking others. This is not a published leadership productivity rate. The broad range reflects the absence of team-size and bottleneck evidence; it does not cover unusually large leadership leverage or a net harmful contribution. Those possibilities are not ruled out. What contribution would you expect from this role, and what observations support it? · Plausible range: 0 to 40 hours/person/week",
+    "col": 1,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: An exploratory what-if ranging from no useful improvement at the current bottleneck to roughly a working week's additional launch-work capacity through direct work and unblocking others. This is not a published leadership productivity rate. The broad range reflects the absence of team-size and bottleneck evidence; it does not cover unusually large leadership leverage or a net harmful contribution. Those possibilities are not ruled out. What contribution would you expect from this role, and what observations support it?"
+    },
+    "change": null,
+    "focus": true,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0 to 40 hours/person/week",
+     "title": "Plausible range: 0 to 40 hours/person/week",
+     "edit": {
+      "prompt": "New figure for “Weekly launch-work contribution enabled per additional Tech lead” (hour/person/week): one number, or a range like 150 to 400",
+      "ask": "For “Weekly launch-work contribution enabled per additional Tech lead”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "bottleneck_test",
+      "calculation_blockers"
+     ],
+     "text": "! ❝ +2",
+     "title": "challenge: Test whether the launch is constrained by implementation capacity, technical decisions, review, integration or an external dependency. More people may not increase delivery at the limiting step.\nclaim: The capacity comparison uses exploratory what-if ranges for remaining effort, current delivery capacity, leadership contribution, hiring delays and developer contribution. These are not evidence of likely delivery. Results depend on the capacity assumptions, including the premise that onboarding creates no additional existing-team delivery loss.",
+     "label": "Expand 2 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "weekly_delivery",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Weekly launch-work delivery capacity",
+    "typed": false,
+    "detail": "Weekly launch-work delivery capacity · quantity · Proposed by Olumi: A provisional effort-capacity measure combining current delivery with contributions from additional roles. · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A provisional effort-capacity measure combining current delivery with contributions from additional roles."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Hire a Tech lead: about 83.2 hours/week (32.5 to 211 hours/week) · Hire two developers: about 93.7 hours/week (39.4 to 222 hours/week) · Engage a fractional Tech lead and hire one developer: about 90.9 hours/week (43.5 to 219 hours/week)",
+     "title": "Modelled range at the end of week 10: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Hire a Tech lead: about 83.2 hours/week (32.5 to 211 hours/week); Hire two developers: about 93.7 hours/week (39.4 to 222 hours/week); Engage a fractional Tech lead and hire one developer: about 90.9 hours/week (43.5 to 219 hours/week). Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "baseline_delivery",
+      "added_leads",
+      "added_developers",
+      "developer_contribution",
+      "delivery_capacity",
+      "bottleneck_test",
+      "calculation_blockers"
+     ],
+     "text": "● = ! +7",
+     "title": "quantity: Current team's weekly delivery capacity\nquantity: Additional Tech lead capacity\nquantity: Additional developer capacity\nquantity: Weekly launch-work contribution per additional developer\nrelation: how Weekly launch-work delivery capacity is worked out\nchallenge: Test whether the launch is constrained by implementation capacity, technical decisions, review, integration or an external dependency. More people may not increase delivery at the limiting step.\nclaim: The capacity comparison uses exploratory what-if ranges for remaining effort, current delivery capacity, leadership contribution, hiring delays and developer contribution. These are not evidence of likely delivery. Results depend on the capacity assumptions, including the premise that onboarding creates no additional existing-team delivery loss.",
+     "label": "Expand 7 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": [
+     {
+      "option": "hire_tech_lead",
+      "text": "about 83.2 hours/week (32.5 to 211 hours/week)",
+      "p10": 32.53498188172996,
+      "p50": 83.22769737449713,
+      "p90": 210.96274369897193,
+      "if_absent": [],
+      "olumi": true
+     },
+     {
+      "option": "hire_two_developers",
+      "text": "about 93.7 hours/week (39.4 to 222 hours/week)",
+      "p10": 39.43722379586575,
+      "p50": 93.67436751399649,
+      "p90": 221.78996853903607,
+      "if_absent": [],
+      "olumi": true
+     },
+     {
+      "option": "fractional_lead_and_developer",
+      "text": "about 90.9 hours/week (43.5 to 219 hours/week)",
+      "p10": 43.504591399895865,
+      "p50": 90.94822510687641,
+      "p90": 219.44099695339543,
+      "if_absent": [],
+      "olumi": true
+     }
+    ],
+    "rests_on": []
+   },
+   {
+    "id": "onboarding_disruption",
+    "family": "assumption",
+    "glyph": "◇",
+    "heading": "Onboarding disruption",
+    "typed": true,
+    "detail": "The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated. · assumption · Proposed by Olumi: Replaces the unsized disruption event with an explicit conditional premise, not a claim that disruption is absent. No onboarding plan or evidence supports a chance or loss estimate, and a temporary onboarding loss cannot be faithfully represented by a persistent risk effect. Capacity results therefore rest on this premise. · Applied in the calculation",
+    "col": 2,
+    "h": 140,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Replaces the unsized disruption event with an explicit conditional premise, not a claim that disruption is absent. No onboarding plan or evidence supports a chance or loss estimate, and a temporary onboarding loss cannot be faithfully represented by a persistent risk effect. Capacity results therefore rest on this premise."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated.",
+    "badge": {
+     "records": [
+      "calculation_blockers"
+     ],
+     "text": "❝ +1",
+     "title": "claim: The capacity comparison uses exploratory what-if ranges for remaining effort, current delivery capacity, leadership contribution, hiring delays and developer contribution. These are not evidence of likely delivery. Results depend on the capacity assumptions, including the premise that onboarding creates no additional existing-team delivery loss.",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "productivity_target",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Proposed increase in weekly team delivery",
+    "typed": false,
+    "detail": "Proposed increase in weekly team delivery · quantity · Proposed by Olumi: A provisional material-improvement threshold for discussion, not a prediction. The brief gives no threshold for the desired productivity boost. · 10%",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A provisional material-improvement threshold for discussion, not a prediction. The brief gives no threshold for the desired productivity boost."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "10%",
+     "title": "10%",
+     "edit": {
+      "prompt": "New figure for “Proposed increase in weekly team delivery” (%): one number, or a range like 150 to 400",
+      "ask": "For “Proposed increase in weekly team delivery”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "boost_productivity",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Boost productivity",
+    "typed": false,
+    "detail": "Boost productivity · goal · Theirs: “boost productivity” (Demo)",
+    "col": 3,
+    "h": 130,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at least 10%",
+     "title": "Would average weekly delivery through the launch deadline capture the productivity boost you mean, and what improvement would count as worthwhile?",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Olumi’s proposal, for you to vet"
+     },
+     "measured": true
+    },
+    "reason": null,
+    "badge": {
+     "records": [
+      "productivity_scope",
+      "calculation_blockers"
+     ],
+     "text": "○ ❝ +2",
+     "title": "left out: Output per paid hour, delivery quality and productivity after the launch are not measured.\nclaim: The capacity comparison uses exploratory what-if ranges for remaining effort, current delivery capacity, leadership contribution, hiring delays and developer contribution. These are not evidence of likely delivery. Results depend on the capacity assumptions, including the premise that onboarding creates no additional existing-team delivery loss.",
+     "label": "Expand 2 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "meet_launch_deadline",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Meet the next feature-launch deadline",
+    "typed": false,
+    "detail": "Meet the next feature-launch deadline · goal · Theirs: “meet our next feature-launch deadline on January 12th” (Demo)",
+    "col": 3,
+    "h": 130,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at least 80 to 2,000 hours",
+     "title": "Can remaining engineering effort represent launch readiness, or are there external approvals, dependencies or release gates that must also be met?",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Olumi’s proposal, for you to vet"
+     },
+     "measured": true
+    },
+    "reason": null,
+    "badge": {
+     "records": [
+      "bottleneck_test",
+      "launch_readiness_gap",
+      "calculation_blockers"
+     ],
+     "text": "! ○ ❝ +3",
+     "title": "challenge: Test whether the launch is constrained by implementation capacity, technical decisions, review, integration or an external dependency. More people may not increase delivery at the limiting step.\nleft out: Sufficient engineering effort does not establish that all launch gates, dependencies or quality requirements are satisfied.\nclaim: The capacity comparison uses exploratory what-if ranges for remaining effort, current delivery capacity, leadership contribution, hiring delays and developer contribution. These are not evidence of likely delivery. Results depend on the capacity assumptions, including the premise that onboarding creates no additional existing-team delivery loss.",
+     "label": "Expand 3 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "capacity_reading",
+    "family": "assumption",
+    "glyph": "◇",
+    "heading": "Capacity reading",
+    "typed": true,
+    "detail": "Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant. · assumption · Proposed by Olumi: These conditions make a compact capacity comparison possible; none is established by the brief. · Applied in the calculation",
+    "col": 3,
+    "h": 140,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: These conditions make a compact capacity comparison possible; none is established by the brief."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant.",
+    "badge": {
+     "records": [
+      "calculation_blockers"
+     ],
+     "text": "❝ +1",
+     "title": "claim: The capacity comparison uses exploratory what-if ranges for remaining effort, current delivery capacity, leadership contribution, hiring delays and developer contribution. These are not evidence of likely delivery. Results depend on the capacity assumptions, including the premise that onboarding creates no additional existing-team delivery loss.",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": null,
+    "rests_on": []
+   },
+   {
+    "id": "hire_tech_lead",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Hire a Tech lead",
+    "typed": false,
+    "detail": "Hire a Tech lead · option · Theirs: “hire a Tech lead” (Demo)",
+    "col": 0,
+    "h": 158,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "about 26% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Boost productivity",
+      "aim_id": "boost_productivity",
+      "title": "If Olumi's estimates hold, the chance that 'Hire a Tech lead' meets 'Boost productivity', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before a hired Tech lead contributes', 'Weekly launch-work contribution enabled per additional Tech lead'. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated. It leaves out: Output per paid hour, delivery quality and productivity after the launch are not measured.",
+      "chance": 0.2604,
+      "outcome": null,
+      "estimate": null
+     },
+     {
+      "kind": "chance",
+      "value": "about 61% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Meet the next feature-launch deadline",
+      "aim_id": "meet_launch_deadline",
+      "title": "If Olumi's estimates hold, the chance that 'Hire a Tech lead' meets 'Meet the next feature-launch deadline', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before a hired Tech lead contributes', 'Weekly launch-work contribution enabled per additional Tech lead'. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated. It leaves out: Sufficient engineering effort does not establish that all launch gates, dependencies or quality requirements are satisfied.",
+      "chance": 0.6095,
+      "outcome": {
+       "low": 271.8432766148246,
+       "median": 716.671548534728,
+       "high": 2023.858746946086,
+       "unit": "hour",
+       "text": "between 272 and 2,020 hours (middle 717)",
+       "title": "If Olumi's estimates hold, under 'Hire a Tech lead', 'Weekly launch-work delivery capacity' in total in the window is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before a hired Tech lead contributes', 'Weekly launch-work contribution enabled per additional Tech lead'. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated. It leaves out: Sufficient engineering effort does not establish that all launch gates, dependencies or quality requirements are satisfied."
+      },
+      "estimate": null
+     }
+    ],
+    "driver": {
+     "text": "about 60% if 'Delay before a hired Tech lead contributes' is low, under 1% if it is high: Under 'Hire a Tech lead', the chance of meeting 'Boost productivity' moves most with 'Delay before a hired Tech lead contributes': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "about 60% if 'Delay before a hired Tech lead contributes' is low, under 1% if it is high: Under 'Hire a Tech lead', the chance of meeting 'Boost productivity' moves most with 'Delay before a hired Tech lead contributes': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "lead_delay",
+     "low": 0.5997599759975998,
+     "high": 0
+    },
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "cost_and_authority"
+     ],
+     "text": "○ +1",
+     "title": "left out: Hiring costs, budget availability and approval requirements are not compared.",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": null,
+    "rests_on": [
+     {
+      "id": "capacity_reading",
+      "whose": "olumi"
+     },
+     {
+      "id": "onboarding_disruption",
+      "whose": "olumi"
+     }
+    ],
+    "committed": null
+   },
+   {
+    "id": "hire_two_developers",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Hire two developers",
+    "typed": false,
+    "detail": "Hire two developers · option · Theirs: “hire a Tech lead or two developers” (Demo)",
+    "col": 0,
+    "h": 158,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "about 43% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Boost productivity",
+      "aim_id": "boost_productivity",
+      "title": "If Olumi's estimates hold, the chance that 'Hire two developers' meets 'Boost productivity', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before hired developers contribute', 'Weekly launch-work contribution per additional developer'. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated. It leaves out: Output per paid hour, delivery quality and productivity after the launch are not measured.",
+      "chance": 0.4331,
+      "outcome": null,
+      "estimate": null
+     },
+     {
+      "kind": "chance",
+      "value": "about 62% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Meet the next feature-launch deadline",
+      "aim_id": "meet_launch_deadline",
+      "title": "If Olumi's estimates hold, the chance that 'Hire two developers' meets 'Meet the next feature-launch deadline', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before hired developers contribute', 'Weekly launch-work contribution per additional developer'. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated. It leaves out: Sufficient engineering effort does not establish that all launch gates, dependencies or quality requirements are satisfied.",
+      "chance": 0.6225,
+      "outcome": {
+       "low": 298.68810926601174,
+       "median": 759.5417327177654,
+       "high": 2052.855905792724,
+       "unit": "hour",
+       "text": "between 299 and 2,050 hours (middle 760)",
+       "title": "If Olumi's estimates hold, under 'Hire two developers', 'Weekly launch-work delivery capacity' in total in the window is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before hired developers contribute', 'Weekly launch-work contribution per additional developer'. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated. It leaves out: Sufficient engineering effort does not establish that all launch gates, dependencies or quality requirements are satisfied."
+      },
+      "estimate": null
+     }
+    ],
+    "driver": {
+     "text": "about 85% if 'Delay before hired developers contribute' is low, under 1% if it is high: Under 'Hire two developers', the chance of meeting 'Boost productivity' moves most with 'Delay before hired developers contribute': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "about 85% if 'Delay before hired developers contribute' is low, under 1% if it is high: Under 'Hire two developers', the chance of meeting 'Boost productivity' moves most with 'Delay before hired developers contribute': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "developer_delay",
+     "low": 0.849084908490849,
+     "high": 0
+    },
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "cost_and_authority"
+     ],
+     "text": "○ +1",
+     "title": "left out: Hiring costs, budget availability and approval requirements are not compared.",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": null,
+    "rests_on": [
+     {
+      "id": "capacity_reading",
+      "whose": "olumi"
+     },
+     {
+      "id": "onboarding_disruption",
+      "whose": "olumi"
+     }
+    ],
+    "committed": null
+   },
+   {
+    "id": "fractional_lead_and_developer",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Engage a fractional Tech lead and hire one developer",
+    "typed": false,
+    "detail": "Engage a fractional Tech lead and hire one developer · option · Proposed by Olumi: A separate mixed route tests whether early technical direction and additional implementation capacity address different bottlenecks. It does not replace either of the stated alternatives and depends on suitable external leadership being available.",
+    "col": 0,
+    "h": 158,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A separate mixed route tests whether early technical direction and additional implementation capacity address different bottlenecks. It does not replace either of the stated alternatives and depends on suitable external leadership being available."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "about 67% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": {
+       "glyph": "◉",
+       "title": "If Olumi's estimates hold, 'Engage a fractional Tech lead and hire one developer' is more likely to achieve 'Boost productivity' in this model (about 67%, against about 43% for 'Hire two developers'); it rests on Olumi's estimate of 'Delay before hired developers contribute' — give yours with ✎. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before an external fractional lead contributes', 'Weekly launch-work contribution per additional developer', 'Weekly launch-work contribution enabled per additional Tech lead'. It rests on Olumi's proposed figures for 'Tech lead capacity under the mixed option', 'Developer capacity under the mixed option', not yet confirmed by them. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated; A suitable external lead must be available and able to provide useful technical direction with part-time access to the team. It leaves out: Output per paid hour, delivery quality and productivity after the launch are not measured."
+      },
+      "aim": "Boost productivity",
+      "aim_id": "boost_productivity",
+      "title": "If Olumi's estimates hold, the chance that 'Engage a fractional Tech lead and hire one developer' meets 'Boost productivity', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before hired developers contribute', 'Delay before an external fractional lead contributes', 'Weekly launch-work contribution per additional developer', 'Weekly launch-work contribution enabled per additional Tech lead'. It rests on Olumi's proposed figures for 'Tech lead capacity under the mixed option', 'Developer capacity under the mixed option', not yet confirmed by them. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated; A suitable external lead must be available and able to provide useful technical direction with part-time access to the team. It leaves out: Output per paid hour, delivery quality and productivity after the launch are not measured.",
+      "chance": 0.6727,
+      "outcome": null,
+      "estimate": null
+     },
+     {
+      "kind": "chance",
+      "value": "about 64% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": {
+       "glyph": "◉",
+       "title": "If Olumi's estimates hold, 'Engage a fractional Tech lead and hire one developer' is more likely to achieve 'Meet the next feature-launch deadline' in this model (about 64%, against about 62% for 'Hire two developers'); it rests on Olumi's estimate of 'Weekly launch-work contribution enabled per additional Tech lead' — give yours with ✎. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before hired developers contribute', 'Delay before an external fractional lead contributes', 'Weekly launch-work contribution per additional developer'. It rests on Olumi's proposed figures for 'Tech lead capacity under the mixed option', 'Developer capacity under the mixed option', not yet confirmed by them. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated; A suitable external lead must be available and able to provide useful technical direction with part-time access to the team. It leaves out: Sufficient engineering effort does not establish that all launch gates, dependencies or quality requirements are satisfied."
+      },
+      "aim": "Meet the next feature-launch deadline",
+      "aim_id": "meet_launch_deadline",
+      "title": "If Olumi's estimates hold, the chance that 'Engage a fractional Tech lead and hire one developer' meets 'Meet the next feature-launch deadline', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before hired developers contribute', 'Delay before an external fractional lead contributes', 'Weekly launch-work contribution per additional developer', 'Weekly launch-work contribution enabled per additional Tech lead'. It rests on Olumi's proposed figures for 'Tech lead capacity under the mixed option', 'Developer capacity under the mixed option', not yet confirmed by them. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated; A suitable external lead must be available and able to provide useful technical direction with part-time access to the team. It leaves out: Sufficient engineering effort does not establish that all launch gates, dependencies or quality requirements are satisfied.",
+      "chance": 0.6432,
+      "outcome": {
+       "low": 347.46683847149615,
+       "median": 789.4932549790819,
+       "high": 2099.611642152562,
+       "unit": "hour",
+       "text": "between 347 and 2,100 hours (middle 789)",
+       "title": "If Olumi's estimates hold, under 'Engage a fractional Tech lead and hire one developer', 'Weekly launch-work delivery capacity' in total in the window is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before hired developers contribute', 'Delay before an external fractional lead contributes', 'Weekly launch-work contribution per additional developer', 'Weekly launch-work contribution enabled per additional Tech lead'. It rests on Olumi's proposed figures for 'Tech lead capacity under the mixed option', 'Developer capacity under the mixed option', not yet confirmed by them. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated; A suitable external lead must be available and able to provide useful technical direction with part-time access to the team. It leaves out: Sufficient engineering effort does not establish that all launch gates, dependencies or quality requirements are satisfied."
+      },
+      "estimate": null
+     }
+    ],
+    "driver": {
+     "text": "about 93% if 'Current team's weekly delivery capacity' is low, about 31% if it is high: Under 'Engage a fractional Tech lead and hire one developer', the chance of meeting 'Boost productivity' moves most with 'Current team's weekly delivery capacity': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "about 93% if 'Current team's weekly delivery capacity' is low, about 31% if it is high: Under 'Engage a fractional Tech lead and hire one developer', the chance of meeting 'Boost productivity' moves most with 'Current team's weekly delivery capacity': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "baseline_delivery",
+     "low": 0.9273927392739274,
+     "high": 0.3102310231023102
+    },
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "cost_and_authority"
+     ],
+     "text": "○ +1",
+     "title": "left out: Hiring costs, budget availability and approval requirements are not compared.",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": null,
+    "rests_on": [
+     {
+      "id": "capacity_reading",
+      "whose": "olumi"
+     },
+     {
+      "id": "onboarding_disruption",
+      "whose": "olumi"
+     },
+     {
+      "id": "fractional_feasibility",
+      "whose": "olumi"
+     }
+    ],
+    "committed": null
+   },
+   {
+    "id": "fractional_feasibility",
+    "family": "condition",
+    "glyph": "⊢",
+    "heading": "prerequisite",
+    "typed": true,
+    "detail": "A suitable external lead must be available and able to provide useful technical direction with part-time access to the team. · prerequisite · Proposed by Olumi: The mixed option's shorter leadership delay and proportional contribution require an arrangement that may not be feasible for this team.",
+    "col": 0,
+    "h": 112,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: The mixed option's shorter leadership delay and proportional contribution require an arrangement that may not be feasible for this team."
+    },
+    "change": null,
+    "focus": true,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "A suitable external lead must be available and able to provide useful technical direction with part-time access to the team.",
+    "badge": null,
+    "values": null,
+    "rests_on": []
+   }
+  ],
+  "links": [
+   {
+    "from": "lead_contribution",
+    "to": "weekly_delivery",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "how much · Proposed by Olumi: Tests the proposed hiring mechanisms at the role-contribution level. Contributions begin after their option-specific delays. Additivity and constant post-onboarding contributions are provisional simplifications.",
+    "effect": null
+   },
+   {
+    "from": "weekly_delivery",
+    "to": "boost_productivity",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "effect": null
+   },
+   {
+    "from": "productivity_target",
+    "to": "boost_productivity",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target",
+    "effect": null
+   },
+   {
+    "from": "weekly_delivery",
+    "to": "meet_launch_deadline",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "effect": null
+   },
+   {
+    "from": "remaining_work",
+    "to": "meet_launch_deadline",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target",
+    "effect": null
+   },
+   {
+    "from": "hire_tech_lead",
+    "to": "one_lead",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "effect": null
+   },
+   {
+    "from": "one_lead",
+    "to": "weekly_delivery",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Additional Tech lead capacity · Proposed by Olumi: Tests the proposed hiring mechanisms at the role-contribution level. Contributions begin after their option-specific delays. Additivity and constant post-onboarding contributions are provisional simplifications.",
+    "effect": {
+     "text": "0 to 40 hours/person/week",
+     "title": "Weekly launch-work contribution enabled per additional Tech lead · Plausible range: 0 to 40 hours/person/week · worked out through Additional Tech lead capacity",
+     "figure": "lead_contribution"
+    }
+   },
+   {
+    "from": "hire_tech_lead",
+    "to": "no_additional_people",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "effect": null
+   },
+   {
+    "from": "no_additional_people",
+    "to": "weekly_delivery",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Additional developer capacity, Additional Tech lead capacity · Proposed by Olumi: Tests the proposed hiring mechanisms at the role-contribution level. Contributions begin after their option-specific delays. Additivity and constant post-onboarding contributions are provisional simplifications.",
+    "effect": null
+   },
+   {
+    "from": "hire_two_developers",
+    "to": "no_additional_people",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "effect": null
+   },
+   {
+    "from": "hire_two_developers",
+    "to": "two_developers",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "effect": null
+   },
+   {
+    "from": "two_developers",
+    "to": "weekly_delivery",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Additional developer capacity · Proposed by Olumi: Tests the proposed hiring mechanisms at the role-contribution level. Contributions begin after their option-specific delays. Additivity and constant post-onboarding contributions are provisional simplifications.",
+    "effect": {
+     "text": "10 to 25 hours/person/week",
+     "title": "Weekly launch-work contribution per additional developer · Plausible range: 10 to 25 hours/person/week · worked out through Additional developer capacity",
+     "figure": "developer_contribution"
+    }
+   },
+   {
+    "from": "fractional_lead_and_developer",
+    "to": "fractional_lead",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "effect": null
+   },
+   {
+    "from": "fractional_lead",
+    "to": "weekly_delivery",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Additional Tech lead capacity · Proposed by Olumi: Tests the proposed hiring mechanisms at the role-contribution level. Contributions begin after their option-specific delays. Additivity and constant post-onboarding contributions are provisional simplifications.",
+    "effect": {
+     "text": "0 to 40 hours/person/week",
+     "title": "Weekly launch-work contribution enabled per additional Tech lead · Plausible range: 0 to 40 hours/person/week · worked out through Additional Tech lead capacity",
+     "figure": "lead_contribution"
+    }
+   },
+   {
+    "from": "fractional_lead_and_developer",
+    "to": "one_developer",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "effect": null
+   },
+   {
+    "from": "one_developer",
+    "to": "weekly_delivery",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Additional developer capacity · Proposed by Olumi: Tests the proposed hiring mechanisms at the role-contribution level. Contributions begin after their option-specific delays. Additivity and constant post-onboarding contributions are provisional simplifications.",
+    "effect": {
+     "text": "10 to 25 hours/person/week",
+     "title": "Weekly launch-work contribution per additional developer · Plausible range: 10 to 25 hours/person/week · worked out through Additional developer capacity",
+     "figure": "developer_contribution"
+    }
+   },
+   {
+    "from": "capacity_reading",
+    "to": "page:question",
+    "kind": "reason",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant.",
+    "effect": null
+   },
+   {
+    "from": "capacity_reading",
+    "to": "meet_launch_deadline",
+    "kind": "reason",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant.",
+    "effect": null
+   },
+   {
+    "from": "capacity_reading",
+    "to": "boost_productivity",
+    "kind": "reason",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant.",
+    "effect": null
+   },
+   {
+    "from": "fractional_feasibility",
+    "to": "fractional_lead_and_developer",
+    "kind": "reason",
+    "label": "⊢",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "prerequisite: A suitable external lead must be available and able to provide useful technical direction with part-time access to the team.",
+    "effect": null
+   },
+   {
+    "from": "fractional_feasibility",
+    "to": "page:question",
+    "kind": "reason",
+    "label": "⊢",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "prerequisite: A suitable external lead must be available and able to provide useful technical direction with part-time access to the team.",
+    "effect": null
+   },
+   {
+    "from": "fractional_feasibility",
+    "to": "lead_contribution",
+    "kind": "reason",
+    "label": "⊢",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "prerequisite: A suitable external lead must be available and able to provide useful technical direction with part-time access to the team.",
+    "effect": null
+   },
+   {
+    "from": "onboarding_disruption",
+    "to": "weekly_delivery",
+    "kind": "reason",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated. · worked out through Weekly launch-work contribution per additional developer · Proposed by Olumi: Tests the proposed hiring mechanisms at the role-contribution level. Contributions begin after their option-specific delays. Additivity and constant post-onboarding contributions are provisional simplifications.",
+    "effect": null
+   },
+   {
+    "from": "onboarding_disruption",
+    "to": "lead_contribution",
+    "kind": "reason",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated.",
+    "effect": null
+   },
+   {
+    "from": "onboarding_disruption",
+    "to": "hire_tech_lead",
+    "kind": "reason",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated.",
+    "effect": null
+   },
+   {
+    "from": "onboarding_disruption",
+    "to": "hire_two_developers",
+    "kind": "reason",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated.",
+    "effect": null
+   },
+   {
+    "from": "onboarding_disruption",
+    "to": "fractional_lead_and_developer",
+    "kind": "reason",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated.",
+    "effect": null
+   }
+  ],
+  "run": {
+   "aim": "chance of ‘Boost productivity’",
+   "lead": "In this model, on current information, each option’s chance of ‘Boost productivity’:",
+   "all_withheld": false,
+   "most_likely": {
+    "text": "If Olumi's estimates hold, 'Engage a fractional Tech lead and hire one developer' is more likely to achieve 'Boost productivity' in this model (about 67%, against about 43% for 'Hire two developers'); it rests on Olumi's estimate of 'Delay before hired developers contribute' — give yours with ✎. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before an external fractional lead contributes', 'Weekly launch-work contribution per additional developer', 'Weekly launch-work contribution enabled per additional Tech lead'. It rests on Olumi's proposed figures for 'Tech lead capacity under the mixed option', 'Developer capacity under the mixed option', not yet confirmed by them. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated; A suitable external lead must be available and able to provide useful technical direction with part-time access to the team.",
+    "title": "If Olumi's estimates hold, 'Engage a fractional Tech lead and hire one developer' is more likely to achieve 'Boost productivity' in this model (about 67%, against about 43% for 'Hire two developers'); it rests on Olumi's estimate of 'Delay before hired developers contribute' — give yours with ✎. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before an external fractional lead contributes', 'Weekly launch-work contribution per additional developer', 'Weekly launch-work contribution enabled per additional Tech lead'. It rests on Olumi's proposed figures for 'Tech lead capacity under the mixed option', 'Developer capacity under the mixed option', not yet confirmed by them. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated; A suitable external lead must be available and able to provide useful technical direction with part-time access to the team. It leaves out: Output per paid hour, delivery quality and productivity after the launch are not measured.",
+    "estimate": "developer_delay"
+   },
+   "waits_on": null,
+   "notes": [
+    {
+     "text": "This leaves out: Output per paid hour, delivery quality and productivity after the launch are not measured.",
+     "title": "This leaves out: Output per paid hour, delivery quality and productivity after the launch are not measured."
+    },
+    {
+     "text": "about 61%: If Olumi's estimates hold, the chance that 'Hire a Tech lead' meets 'Meet the next feature-launch deadline', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before a hired Tech lead contributes', 'Weekly launch-work contribution enabled per additional Tech lead'. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated. It leaves out: Sufficient engineering effort does not establish that all launch gates, dependencies or quality requirements are satisfied.",
+     "title": "about 61%: If Olumi's estimates hold, the chance that 'Hire a Tech lead' meets 'Meet the next feature-launch deadline', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before a hired Tech lead contributes', 'Weekly launch-work contribution enabled per additional Tech lead'. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated. It leaves out: Sufficient engineering effort does not establish that all launch gates, dependencies or quality requirements are satisfied."
+    },
+    {
+     "text": "about 62%: If Olumi's estimates hold, the chance that 'Hire two developers' meets 'Meet the next feature-launch deadline', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before hired developers contribute', 'Weekly launch-work contribution per additional developer'. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated. It leaves out: Sufficient engineering effort does not establish that all launch gates, dependencies or quality requirements are satisfied.",
+     "title": "about 62%: If Olumi's estimates hold, the chance that 'Hire two developers' meets 'Meet the next feature-launch deadline', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before hired developers contribute', 'Weekly launch-work contribution per additional developer'. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated. It leaves out: Sufficient engineering effort does not establish that all launch gates, dependencies or quality requirements are satisfied."
+    },
+    {
+     "text": "about 64%: If Olumi's estimates hold, the chance that 'Engage a fractional Tech lead and hire one developer' meets 'Meet the next feature-launch deadline', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before hired developers contribute', 'Delay before an external fractional lead contributes', 'Weekly launch-work contribution per additional developer', 'Weekly launch-work contribution enabled per additional Tech lead'. It rests on Olumi's proposed figures for 'Tech lead capacity under the mixed option', 'Developer capacity under the mixed option', not yet confirmed by them. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated; A suitable external lead must be available and able to provide useful technical direction with part-time access to the team. It leaves out: Sufficient engineering effort does not establish that all launch gates, dependencies or quality requirements are satisfied.",
+     "title": "about 64%: If Olumi's estimates hold, the chance that 'Engage a fractional Tech lead and hire one developer' meets 'Meet the next feature-launch deadline', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before hired developers contribute', 'Delay before an external fractional lead contributes', 'Weekly launch-work contribution per additional developer', 'Weekly launch-work contribution enabled per additional Tech lead'. It rests on Olumi's proposed figures for 'Tech lead capacity under the mixed option', 'Developer capacity under the mixed option', not yet confirmed by them. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated; A suitable external lead must be available and able to provide useful technical direction with part-time access to the team. It leaves out: Sufficient engineering effort does not establish that all launch gates, dependencies or quality requirements are satisfied."
+    },
+    {
+     "text": "Olumi's what-if for 'Remaining engineering effort for launch', not their figure: 80 to 2,000 hours. Basis: An exploratory what-if spanning a relatively contained feature through a substantial multi-person delivery effort, including testing, integration and release work. This is not an estimate of Demo's backlog or a published typical rate. Software feature scope varies greatly, and no scope or estimate was supplied, so the range is deliberately broad; larger or smaller projects remain possible. What estimate or range would you use for the actual remaining work?.",
+     "title": "Olumi's what-if for 'Remaining engineering effort for launch', not their figure: 80 to 2,000 hours. Basis: An exploratory what-if spanning a relatively contained feature through a substantial multi-person delivery effort, including testing, integration and release work. This is not an estimate of Demo's backlog or a published typical rate. Software feature scope varies greatly, and no scope or estimate was supplied, so the range is deliberately broad; larger or smaller projects remain possible. What estimate or range would you use for the actual remaining work?."
+    },
+    {
+     "text": "Olumi's what-if for 'Current team's weekly delivery capacity', not their figure: 20 to 200 hours/week. Basis: An exploratory small-team capacity what-if, spanning limited weekly launch-work availability through several contributors' useful delivery effort. It is not attendance time, an observed baseline or a published productivity rate. The brief's comparison of individual hires suggests testing a small-team setting, but does not establish team size; the tenfold spread reflects that uncertainty and may not cover the actual team. What weekly delivery capacity, measured on the same effort basis as remaining work, would you substitute?.",
+     "title": "Olumi's what-if for 'Current team's weekly delivery capacity', not their figure: 20 to 200 hours/week. Basis: An exploratory small-team capacity what-if, spanning limited weekly launch-work availability through several contributors' useful delivery effort. It is not attendance time, an observed baseline or a published productivity rate. The brief's comparison of individual hires suggests testing a small-team setting, but does not establish team size; the tenfold spread reflects that uncertainty and may not cover the actual team. What weekly delivery capacity, measured on the same effort basis as remaining work, would you substitute?."
+    },
+    {
+     "text": "Olumi's what-if for 'Delay before a hired Tech lead contributes', not their figure: 4 to 20 weeks. Basis: An exploratory recruitment-to-useful-contribution range allowing for search, notice and initial orientation. It is deliberately wide because location, candidate pipeline and hiring arrangements are unknown; the geographically specific library rates cannot be assumed to apply.",
+     "title": "Olumi's what-if for 'Delay before a hired Tech lead contributes', not their figure: 4 to 20 weeks. Basis: An exploratory recruitment-to-useful-contribution range allowing for search, notice and initial orientation. It is deliberately wide because location, candidate pipeline and hiring arrangements are unknown; the geographically specific library rates cannot be assumed to apply."
+    },
+    {
+     "text": "Olumi's what-if for 'Delay before hired developers contribute', not their figure: 4 to 16 weeks. Basis: A recruitment and initial orientation what-if, ranging from an available candidate to a search with notice and onboarding. It is not a forecast. Geography and pipeline are unspecified, so the library's country-specific recruiting rates are not applied.",
+     "title": "Olumi's what-if for 'Delay before hired developers contribute', not their figure: 4 to 16 weeks. Basis: A recruitment and initial orientation what-if, ranging from an available candidate to a search with notice and onboarding. It is not a forecast. Geography and pipeline are unspecified, so the library's country-specific recruiting rates are not applied."
+    },
+    {
+     "text": "Olumi's what-if for 'Delay before an external fractional lead contributes', not their figure: 1 to 4 weeks. Basis: A short-engagement what-if allowing for finding an available contractor, contracting and initial access. The shorter range depends on an external engagement being feasible, not on evidence that a suitable person is available.",
+     "title": "Olumi's what-if for 'Delay before an external fractional lead contributes', not their figure: 1 to 4 weeks. Basis: A short-engagement what-if allowing for finding an available contractor, contracting and initial access. The shorter range depends on an external engagement being feasible, not on evidence that a suitable person is available."
+    },
+    {
+     "text": "Olumi's what-if for 'Weekly launch-work contribution per additional developer', not their figure: 10 to 25 hours/person/week. Basis: An exploratory range for useful launch-work effort after initial orientation, allowing substantial time for learning, coordination and review rather than treating all working hours as delivery. It is not a published productivity rate or a calibrated estimate of this team.",
+     "title": "Olumi's what-if for 'Weekly launch-work contribution per additional developer', not their figure: 10 to 25 hours/person/week. Basis: An exploratory range for useful launch-work effort after initial orientation, allowing substantial time for learning, coordination and review rather than treating all working hours as delivery. It is not a published productivity rate or a calibrated estimate of this team."
+    },
+    {
+     "text": "Olumi's what-if for 'Weekly launch-work contribution enabled per additional Tech lead', not their figure: 0 to 40 hours/person/week. Basis: An exploratory what-if ranging from no useful improvement at the current bottleneck to roughly a working week's additional launch-work capacity through direct work and unblocking others. This is not a published leadership productivity rate. The broad range reflects the absence of team-size and bottleneck evidence; it does not cover unusually large leadership leverage or a net harmful contribution. Those possibilities are not ruled out. What contribution would you expect from this role, and what observations support it?.",
+     "title": "Olumi's what-if for 'Weekly launch-work contribution enabled per additional Tech lead', not their figure: 0 to 40 hours/person/week. Basis: An exploratory what-if ranging from no useful improvement at the current bottleneck to roughly a working week's additional launch-work capacity through direct work and unblocking others. This is not a published leadership productivity rate. The broad range reflects the absence of team-size and bottleneck evidence; it does not cover unusually large leadership leverage or a net harmful contribution. Those possibilities are not ruled out. What contribution would you expect from this role, and what observations support it?."
+    }
+   ],
+   "science": [],
+   "sensitivity": {
+    "text": "These are its chances over the lowest and highest third of that figure's draws.",
+    "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+   }
+  },
+  "edit_base": 12,
+  "key": [
+   {
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "glyph": "?",
+    "text": "unsized"
+   },
+   {
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "glyph": "↻",
+    "text": "changed"
+   }
+  ],
+  "removed": [],
+  "aim": null
+ },
+ "proposal": null,
+ "collab": {
+  "alone": true,
+  "heading": "Your private views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own private view",
+  "can_reveal": false,
+  "waiting": null,
+  "commitments": [],
+  "owners": [
+   {
+    "id": "9",
+    "name": "Demo"
+   }
+  ],
+  "records": [
+   {
+    "id": "launch_window",
+    "family": "quantity",
+    "label": "Time remaining until the feature-launch deadline"
+   },
+   {
+    "id": "remaining_work",
+    "family": "quantity",
+    "label": "Remaining engineering effort for launch"
+   },
+   {
+    "id": "baseline_delivery",
+    "family": "quantity",
+    "label": "Current team's weekly delivery capacity"
+   },
+   {
+    "id": "added_leads",
+    "family": "quantity",
+    "label": "Additional Tech lead capacity"
+   },
+   {
+    "id": "added_developers",
+    "family": "quantity",
+    "label": "Additional developer capacity"
+   },
+   {
+    "id": "one_lead",
+    "family": "quantity",
+    "label": "Tech lead capacity under the Tech lead option"
+   },
+   {
+    "id": "two_developers",
+    "family": "quantity",
+    "label": "Developer capacity under the developer option"
+   },
+   {
+    "id": "no_additional_people",
+    "family": "quantity",
+    "label": "No additional capacity in this role"
+   },
+   {
+    "id": "fractional_lead",
+    "family": "quantity",
+    "label": "Tech lead capacity under the mixed option"
+   },
+   {
+    "id": "one_developer",
+    "family": "quantity",
+    "label": "Developer capacity under the mixed option"
+   },
+   {
+    "id": "lead_delay",
+    "family": "quantity",
+    "label": "Delay before a hired Tech lead contributes"
+   },
+   {
+    "id": "developer_delay",
+    "family": "quantity",
+    "label": "Delay before hired developers contribute"
+   },
+   {
+    "id": "fractional_lead_delay",
+    "family": "quantity",
+    "label": "Delay before an external fractional lead contributes"
+   },
+   {
+    "id": "developer_contribution",
+    "family": "quantity",
+    "label": "Weekly launch-work contribution per additional developer"
+   },
+   {
+    "id": "lead_contribution",
+    "family": "quantity",
+    "label": "Weekly launch-work contribution enabled per additional Tech lead"
+   },
+   {
+    "id": "weekly_delivery",
+    "family": "quantity",
+    "label": "Weekly launch-work delivery capacity"
+   },
+   {
+    "id": "delivery_capacity",
+    "family": "relation",
+    "label": "how Weekly launch-work delivery capacity is worked out"
+   },
+   {
+    "id": "productivity_target",
+    "family": "quantity",
+    "label": "Proposed increase in weekly team delivery"
+   },
+   {
+    "id": "boost_productivity",
+    "family": "goal",
+    "label": "Boost productivity"
+   },
+   {
+    "id": "meet_launch_deadline",
+    "family": "goal",
+    "label": "Meet the next feature-launch deadline"
+   },
+   {
+    "id": "hire_tech_lead",
+    "family": "option",
+    "label": "Hire a Tech lead"
+   },
+   {
+    "id": "hire_two_developers",
+    "family": "option",
+    "label": "Hire two developers"
+   },
+   {
+    "id": "fractional_lead_and_developer",
+    "family": "option",
+    "label": "Engage a fractional Tech lead and hire one developer"
+   },
+   {
+    "id": "capacity_reading",
+    "family": "assumption",
+    "label": "Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant."
+   },
+   {
+    "id": "bottleneck_test",
+    "family": "condition",
+    "label": "Test whether the launch is constrained by implementation capacity, technical decisions, review, integration or an external dependency. More people may not increase delivery at the limiting step."
+   },
+   {
+    "id": "fractional_feasibility",
+    "family": "condition",
+    "label": "A suitable external lead must be available and able to provide useful technical direction with part-time access to the team."
+   },
+   {
+    "id": "onboarding_disruption",
+    "family": "assumption",
+    "label": "The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated."
+   },
+   {
+    "id": "launch_readiness_gap",
+    "family": "left_out",
+    "label": "Sufficient engineering effort does not establish that all launch gates, dependencies or quality requirements are satisfied."
+   },
+   {
+    "id": "productivity_scope",
+    "family": "left_out",
+    "label": "Output per paid hour, delivery quality and productivity after the launch are not measured."
+   },
+   {
+    "id": "cost_and_authority",
+    "family": "left_out",
+    "label": "Hiring costs, budget availability and approval requirements are not compared."
+   },
+   {
+    "id": "calculation_blockers",
+    "family": "claim",
+    "label": "The capacity comparison uses exploratory what-if ranges for remaining effort, current delivery capacity, leadership contribution, hiring delays and developer contribution. These are not evidence of likely delivery. Results depend on the capacity assumptions, including the premise that onboarding creates no additional existing-team delivery loss."
+   }
+  ],
+  "dissent": []
+ },
+ "evidence": [],
+ "chat": [
+  {
+   "id": 11,
+   "by": "Demo",
+   "version": "version 1",
+   "earlier": false,
+   "status": null,
+   "said": "We need to decide whether to hire a Tech lead or two developers to boost productivity and meet our next feature-launch deadline on January 12th",
+   "answer": {
+    "answer": [
+     {
+      "text": "The hiring comparison turns on what is blocking delivery and whether hires can contribute before launch. The model does not yet establish which route fits your team: its workload, contribution and hiring delays are exploratory what-ifs, not team forecasts."
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "More implementation capacity may not help if technical decisions, review or external dependencies constrain delivery."
+      }
+     ],
+     [
+      {
+       "text": "The model measures delivery volume, not efficiency, and leaves launch gates and additional onboarding disruption unresolved."
+      }
+     ]
+    ],
+    "next": {
+     "label": "What evidence would settle it?",
+     "text": [
+      {
+       "text": "Ask the team to trace blocked launch work: would implementation help unblock it, or would technical direction? External blockers would challenge both hiring premises."
+      }
+     ],
+     "about": [
+      "bottleneck_test",
+      "lead_contribution",
+      "developer_contribution"
+     ],
+     "at": "bottleneck_test",
+     "newest": false,
+     "move": "gather_evidence"
+    }
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "choice": null
+  },
+  {
+   "id": 13,
+   "by": "Demo",
+   "version": "version 1",
+   "earlier": false,
+   "status": null,
+   "said": "What would change which option is most likely to boost productivity?",
+   "answer": {
+    "answer": [
+     {
+      "text": "If Olumi’s estimates for hiring delays and role contributions hold, “Engage a fractional Tech lead and hire one developer” is most likely to meet the model’s productivity target "
+     },
+     {
+      "cite": "If Olumi's estimates hold, 'Engage a fractional Tech lead and hire one developer' is more likely to achieve 'Boost productivity' in this model (about 67%, against about 43% for 'Hire two developers'); it rests on Olumi's estimate of 'Delay before hired developers contribute' — give yours with ✎. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Current team's weekly delivery capacity', 'Delay before an external fractional lead contributes', 'Weekly launch-work contribution per additional developer', 'Weekly launch-work contribution enabled per additional Tech lead'. It rests on Olumi's proposed figures for 'Tech lead capacity under the mixed option', 'Developer capacity under the mixed option', not yet confirmed by them. It rests on: Remaining work and delivery capacity use a common effort basis. Scope stays fixed, work can be scheduled within the window, and post-onboarding role contributions are additive and approximately constant; The capacity comparison assumes onboarding does not create an additional loss of existing-team delivery beyond the allowance implicit in the contribution estimates. Recruiting, mentoring and review could instead divert existing team members from launch work; that additional loss is not calculated; A suitable external lead must be available and able to provide useful technical direction with part-time access to the team. It leaves out: Output per paid hour, delivery quality and productivity after the launch are not measured."
+     },
+     {
+      "text": ". That comparison could change if developers contribute sooner, fractional leadership is unavailable, or leadership adds less useful delivery than assumed."
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "The target measures delivery volume before launch, not output per person or lasting productivity."
+      }
+     ],
+     [
+      {
+       "text": "Additional onboarding demands on the existing team are not calculated."
+      }
+     ]
+    ],
+    "next": {
+     "label": "What would change your mind?",
+     "text": [
+      {
+       "text": "Compare these premises with your candidate pipeline and blocked work. Which seems least credible, and what would you substitute?"
+      }
+     ],
+     "about": [
+      "developer_delay",
+      "fractional_feasibility",
+      "lead_contribution"
+     ],
+     "at": "developer_delay",
+     "newest": true,
+     "move": "what_would_change_your_mind"
+    }
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "choice": null
+  }
+ ],
+ "brief": "We need to decide whether to hire a Tech lead or two developers to boost productivity and meet our next feature-launch deadline on January 12th",
+ "gated": false
+}

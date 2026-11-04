@@ -16,6 +16,9 @@ const european = JSON.parse(readFileSync('src/olumiView/golden/european.view.jso
 const golden = { ...european, model: { ...european.model, cards: european.model.cards.map((c) => (c.driver ? { ...c, driver: { ...c.driver, figure: 'existing_market_acquisitions' } } : c)) } }
 // Version 2: core's bakery golden (18 cards), served as the same scenario's next version, for the after-a-new-version frame.
 const next = JSON.parse(readFileSync('src/olumiView/golden/bakery.view.json', 'utf8'))
+// THE REAL DENSE BOARDS (DL 4 Nov: three R2 defects showed only on real-AI models): the capacity View from github-3c's R2 witness store
+// (14 cards; Olumi's next step on its own card, test_net_contribution, with a Why) and the R2-shaped hiring View (19 cards).
+const real = ['capacity', 'hiring'].map((name) => ({ name, view: JSON.parse(readFileSync(`src/olumiView/fixtures/real/${name}.view3.json`, 'utf8')) }))
 const ok = (w) => console.log(`  ✓ ${w}`)
 function check(c, w) { if (!c) { console.error(`  ✗ ${w}`); process.exit(1) } ok(w) }
 
@@ -46,10 +49,10 @@ async function frame(view, label, whole = false) {
     const d = document.querySelector('[data-testid="outputs-dock"]').getBoundingClientRect()
     return [...document.querySelectorAll('.react-flow__node')].filter((e) => { const r = e.getBoundingClientRect(); return r.right > d.left + 1 && r.left < d.right && r.bottom > d.top && r.top < d.bottom }).map((e) => e.getAttribute('data-id'))
   })
-  // DL 4 Nov 17Z (readable first wins): a board that fits at 0.9 or more has no card under the dock; a wider one opens at 0.9 with the
+  // DL 4 Nov 17Z (readable first wins; R3: whole from 0.8): a board that fits at 0.8 or more has no card under the dock; a wider one opens at 0.9 with the
   // question and every option wholly in the visible rect (never under the dock), the rest reached by panning.
   const headIds = ['page:question', ...view.model.cards.filter((c) => c.family === 'option').map((c) => c.id)]
-  const fitsWhole = zoom > 0.9 + 0.005
+  const fitsWhole = zoom > 0.8 - 0.005 && Math.abs(zoom - 0.9) >= 0.005
   if (fitsWhole) check(underDock.length === 0, `${label}: fits at ${zoom.toFixed(3)}, no card under the dock${underDock.length ? ` (under it: ${underDock.join(', ')})` : ''}`)
   else console.log(`  · ${label}: cards under the dock at 0.9 (reached by panning): ${underDock.length === 0 ? 'none' : underDock.join(', ')}`)
   if (!fitsWhole) check(Math.abs(zoom - 0.9) < 0.005 && headIds.every((id) => !underDock.includes(id)), `${label}: zoom ${zoom.toFixed(3)} (0.9, never lower), the question and every option clear of the dock${headIds.some((id) => underDock.includes(id)) ? ` (under it: ${headIds.filter((id) => underDock.includes(id)).join(', ')})` : ''}`)
@@ -67,14 +70,14 @@ async function frame(view, label, whole = false) {
   return { zoom, out }
 }
 const first = await frame(golden, 'first open (european, 22 cards)')
-// Readable first (DL 4 Nov, then the original look): european fits whole only below 0.9, so it opens at 0.9, top-aligned, with the
+// Readable first (DL 4 Nov, then the original look; R3 whole from 0.8): european opens whole at 0.8 or more, else at 0.9, top-aligned, with the
 // question and every option in view (the top of the causal graph).
 const tops = golden.model.cards.filter((c) => c.family === 'option').map((c) => c.id)
 const topOut = await page.evaluate((ids) => {
   const dock = document.querySelector('[data-testid="outputs-dock"]').getBoundingClientRect(), pane = document.querySelector('.react-flow').getBoundingClientRect()
   return ids.filter((id) => { const r = document.querySelector(`.react-flow__node[data-id="${id}"]`)?.getBoundingClientRect(); return !r || r.left < pane.left - 1 || r.top < pane.top - 1 || r.right > dock.left + 1 || r.bottom > pane.bottom + 1 })
 }, ['page:question', ...tops])
-check(first.zoom >= 0.9 - 0.005 && first.zoom <= 1 && topOut.length === 0, `first open: zoom ${first.zoom.toFixed(3)}, the question and every option in view${topOut.length ? ` (out: ${topOut.join(', ')})` : ''}`)
+check(first.zoom >= 0.8 - 0.005 && first.zoom <= 1 && topOut.length === 0, `first open: zoom ${first.zoom.toFixed(3)}, the question and every option in view${topOut.length ? ` (out: ${topOut.join(', ')})` : ''}`)
 // The compact face: no card shows its status, reason, bound or premises until it is selected.
 // An assumption or condition (no figure, no rows) keeps what it says, its reason, on the face.
 const says = golden.model.cards.filter((c) => c.figure === null && c.rows.length === 0 && c.reason !== null).map((c) => `${c.id}.reason`)
@@ -116,4 +119,32 @@ await page.getByTestId('outputs-dock-tab-team').click()
 await page.getByTestId('team-check').click()
 // Bakery: readable first, as above.
 await frame(served, 'a new version (bakery, 18 cards)', true)
+// Each real board as the next version: drawn as the causal graph, framed readable, and Olumi's note, opened from its icon, covers no card
+// and is one note (one of each of its test ids, one reachable "Why"), as the real-AI witness checks it.
+let n = 3
+for (const { name, view } of real) {
+  served = { ...view, id: made.scenario, you_id: me.id, you: me.name, version: { ...view.version, id: golden.version.id + n, n, label: `version ${n}` } }
+  n += 1
+  // The note's panel case opens the Olumi tab for it, so the Team tab is pressed again before reading the next version.
+  await page.getByTestId('outputs-dock-tab-team').click()
+  await page.getByTestId('team-check').click()
+  await frame(served, `real ${name} (${view.model.cards.length} cards)`, true)
+  const at = [...view.chat].reverse().find((t) => t.answer?.next?.newest)?.answer?.next?.at ?? null
+  if (at === null) { ok(`real ${name}: no next step to open`); continue }
+  const icon = page.getByTestId('olumi-attention-card-icon')
+  await icon.waitFor({ timeout: 20000 })
+  await icon.click()
+  await page.getByTestId('olumi-attention-card').waitFor({ timeout: 20000 })
+  await page.waitForTimeout(800)
+  const note = await page.evaluate(() => {
+    const n = document.querySelector('[data-testid="olumi-attention-card"]').getBoundingClientRect()
+    const covers = [...document.querySelectorAll('.react-flow__node')].filter((e) => { const r = e.getBoundingClientRect(); return Math.min(n.right, r.right) > Math.max(n.left, r.left) && Math.min(n.bottom, r.bottom) > Math.max(n.top, r.top) }).map((e) => e.getAttribute('data-id'))
+    const ids = [...document.querySelectorAll('[data-testid^="olumi-attention-card"]')].map((e) => e.getAttribute('data-testid'))
+    const whys = [...document.querySelectorAll('[data-testid^="olumi-attention-card"] summary, [data-note-measure] summary')].filter((e) => !e.closest('[aria-hidden="true"], [inert]')).length
+    return { covers, dup: ids.filter((id, i) => ids.indexOf(id) !== i), whys, inPanel: document.querySelector('[data-testid="olumi-attention-card"]').hasAttribute('data-in-panel') }
+  })
+  check(note.covers.length === 0, `real ${name}: Olumi's note, opened at ${at}${note.inPanel ? ' (in the Olumi tab: no free spot on the canvas)' : ''}, covers no card${note.covers.length ? ` (covers ${note.covers.join(', ')})` : ''}`)
+  check(note.dup.length === 0 && note.whys <= 1, `real ${name}: one note: each test id once${note.dup.length ? ` (twice: ${note.dup.join(', ')})` : ''}, ${note.whys} reachable "Why"`)
+  if (SHOT) await page.screenshot({ path: SHOT.replace(/\.png$/, `-real-${name}.png`) })
+}
 await b.close()

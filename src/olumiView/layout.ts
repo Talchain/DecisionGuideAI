@@ -8,6 +8,8 @@ import type { Edge, Node } from '@xyflow/react'
 import type { ViewCard, ViewModel, ViewRow } from './client'
 import { layoutGraph } from '../canvas/utils/layout'
 import { wrapTiers } from '../canvas/utils/wrapTiers'
+import { basisIdsOf } from './standin'
+import { orderUnderParents } from '../canvas/utils/orderUnderParents'
 
 /** Every option card in the View's order, live or not (the Summary shows a withheld option's status and reason too). */
 export const allOptionCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.family === 'option')
@@ -125,10 +127,15 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   ]
   const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
   const laid = await layoutGraph(nodes, edges, { direction: 'DOWN' })
-  // A tier wider than four cards wraps (DL 4 Nov), so the board reads at fit as the original canvas does.
   const sized = new Map(nodes.map((n) => [n.id, n.measured as Size]))
-  const placed = wrapTiers(laid.nodes.map((n) => ({ id: n.id, x: n.position.x, y: n.position.y, ...sized.get(n.id)! })))
-  return packHead(placed, model.cards.filter((c) => c.family === 'option').map((c) => c.id), sized)
+  const options = model.cards.filter((c) => c.family === 'option').map((c) => c.id)
+  // The options packed under the question first (wrapped when too wide for the visible rect at 0.9); then every row below ordered under
+  // what it hangs from, so the links drop row to row (DL 4 Nov, R3: the subtrees stayed where the layout spread them); then a tier wider
+  // than four cards wraps (DL 4 Nov), so the board reads at fit as the original canvas does.
+  const head = packHead(new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }])), options, sized)
+  const boxes = [...head].map(([id, p]) => ({ id, ...p, ...sized.get(id)! }))
+  const under = orderUnderParents(boxes, edges.map((e) => [e.source, e.target] as const), new Set([QUESTION, ...options]))
+  return wrapTiers(under)
 }
 
 /**
@@ -197,7 +204,11 @@ export type RestsOnItem = { readonly id: string; readonly n: number; readonly ol
  * are the ones to check or set. A figure core works out from others (no edit) is not something the model rests on.
  */
 export function restsOnOf(model: ViewModel): { items: ReadonlyMap<string, RestsOnItem>; olumi: number } {
-  const picked = model.cards.filter((c) => (c.figure?.edit ?? null) !== null || c.family === 'assumption' || c.family === 'condition')
+  // And every card a Run finding rests on (stand-in `rests_on`: its what-ifs, estimates and approximations, by record id, on the card with
+  // that id or the card whose badge folds it), so each is marked on the lens whatever kind of card it is.
+  const basis = basisIdsOf(model)
+  const onBasis = (c: ViewCard) => basis.includes(c.id) || c.badge?.records.some((r) => basis.includes(r)) === true
+  const picked = model.cards.filter((c) => (c.figure?.edit ?? null) !== null || c.family === 'assumption' || c.family === 'condition' || onBasis(c))
   return { items: new Map(picked.map((c, i) => [c.id, { id: c.id, n: i + 1, olumi: c.olumi !== null }])), olumi: picked.filter((c) => c.olumi !== null).length }
 }
 

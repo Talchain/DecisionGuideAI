@@ -15,9 +15,26 @@ import { currentModel, useViewStore } from './store'
 import { clearWhatIf, useWhatIf } from './whatif'
 import { typography } from '../styles/typography'
 import type { OutputTab } from '../stores/uiStore'
+import { findingOf, mostLikelyBasisOf } from './standin'
 
 function Mark({ at, mark }: { at: string; mark: { glyph: string; title: string } | null }) {
   return mark === null ? null : <span data-view={`${at}.glyph`} title={mark.title} aria-label={mark.title}>{mark.glyph}</span>
+}
+
+/** Core's one line on what a finding rests on (stand-in `rests_on_text`), said once, quietly, under it; the marks are the Rests on lens's. */
+function RestsOnLine({ at, text }: { at: string; text: string | null }) {
+  return text === null ? null : <p className={`${typography.panelMeta} text-text-light`} data-view={`${at}.rests_on_text`}>{text}</p>
+}
+
+/** Under an option's chance row on the Analysis tab: core's finding in at most two sentences (stand-in `text`), then what it rests on. */
+function FindingLines({ at, row }: { at: string; row: ViewRow }) {
+  const f = findingOf(row)
+  return f.text === null && f.rests_on_text === null ? null : (
+    <>
+      {f.text === null ? null : <p data-view={`${at}.text`}>{f.text}</p>}
+      <RestsOnLine at={at} text={f.rests_on_text} />
+    </>
+  )
 }
 
 export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number }) {
@@ -95,6 +112,7 @@ function MostLikely({ model, ml }: { model: ViewModel; ml: NonNullable<ViewRun['
     <div title={ml.title}>
       <span data-view="run.most_likely.text">{ml.text}</span>
       {card === undefined ? null : <> <FigureEdit id={card.id} edit={card.figure!.edit} place="likely" glyph="✎" words={false} label={`Give your figure for ${card.heading}`} /></>}
+      <RestsOnLine at="run.most_likely" text={mostLikelyBasisOf(ml).rests_on_text} />
     </div>
   )
 }
@@ -226,7 +244,7 @@ export function ViewChances({ model }: { model: ViewModel }) {
       )}
       <SharedBlockers run={run} />
       <Sensitivity model={model} />
-      {optionCards(model).map((card) => <OptionLines key={card.id} card={card} />)}
+      {optionCards(model).map((card) => <OptionLines key={card.id} card={card} after={(row, i) => <FindingLines at={`${card.id}.rows.${i}`} row={row} />} />)}
       {run?.most_likely == null ? null : <MostLikely model={model} ml={run.most_likely} />}
       <Worth run={run} />
       {run === null || run.notes.length === 0 ? null : (

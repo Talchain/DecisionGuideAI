@@ -8,6 +8,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { OlumiAttentionCard, OLUMI_ATTENTION_CARD_TESTID, spotCovers } from '../OlumiAttentionCard'
 import { useCanvasStore } from '../../store'
 import { VIEW_NOTE_SLOT, VIEW_NOTE_TURN } from '../../../olumiView/note'
+import { ATTENTION_CARD_COPY } from '../OlumiAttentionCard'
 
 vi.mock('@xyflow/react', () => ({ useStore: (selector: (s: { transform: [number, number, number] }) => unknown) => selector({ transform: [0, 0, 1] }) }))
 vi.mock('../../../components/results/coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
@@ -19,16 +20,16 @@ const W = 1200, H = 800
 type R = { left: number; top: number; width: number; height: number }
 const rect = (r: R) => ({ ...r, x: r.left, y: r.top, right: r.left + r.width, bottom: r.top + r.height, toJSON: () => r }) as DOMRect
 /** The board as drawn: the anchor, and `others` (the cards around it) in screen px. */
-function board(others: R[], turnId: string | null = null, banner: R | null = null) {
+function board(others: R[], turnId: string | null = null, banner: R | null = null, ax = 500) {
   useCanvasStore.setState({
-    nodes: [{ id: 'a', type: 'factor', position: { x: 500, y: 300 }, measured: { width: 200, height: 80 }, data: {} } as never],
+    nodes: [{ id: 'a', type: 'factor', position: { x: ax, y: 300 }, measured: { width: 200, height: 80 }, data: {} } as never],
     edges: [],
     olumiAttention: { nodeIds: ['a'], edgeIds: [], note: { title: 'What would change your mind?', body: 'What evidence would settle it?' }, caveat: null, turnId, modelVersion: null },
   })
   return render(
     <div>
       <div className="react-flow">
-        <div className="react-flow__node" data-id="a" data-r={JSON.stringify({ left: 500, top: 300, width: 200, height: 80 })} />
+        <div className="react-flow__node" data-id="a" data-r={JSON.stringify({ left: ax, top: 300, width: 200, height: 80 })} />
         {others.map((o, i) => <div key={i} className="react-flow__node" data-id={`c${i}`} data-r={JSON.stringify(o)} />)}
       </div>
       {banner === null ? null : <div role="banner" data-r={JSON.stringify(banner)} />}
@@ -58,10 +59,27 @@ describe('the note on the core lane never covers a card', () => {
     board(full)
     await vi.waitFor(() => expect(screen.getByTestId('slot').querySelector(`[data-testid="${OLUMI_ATTENTION_CARD_TESTID}"]`)).not.toBeNull())
     expect(screen.getByTestId('slot').textContent).toContain('What evidence would settle it?')
-    const measure = screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-measure`)
-    expect([measure.style.visibility, measure.getAttribute('aria-hidden')]).toEqual(['hidden', 'true'])
+    const measure = document.querySelector<HTMLElement>('[data-note-measure]')!
+    expect([measure.style.visibility, measure.getAttribute('aria-hidden'), measure.hasAttribute('inert')]).toEqual(['hidden', 'true', true])
     expect(screen.getAllByTestId(OLUMI_ATTENTION_CARD_TESTID)).toHaveLength(1)
     await vi.waitFor(() => expect(revealed.n).toBe(1))
+  })
+
+  it('⛔ in the panel, the canvas copy that is only measured is not a second note (R2 witness, 4 Nov: two "Why" on a dense board, Playwright strict mode)', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    useCanvasStore.setState({ nodes: [], edges: [] })
+    board(full)
+    useCanvasStore.setState((s) => ({ olumiAttention: { ...s.olumiAttention!, note: { ...s.olumiAttention!.note!, why: ['Because the figure is Olumi\'s estimate.'] } } }))
+    await vi.waitFor(() => expect(screen.getByTestId('slot').querySelector(`[data-testid="${OLUMI_ATTENTION_CARD_TESTID}"]`)).not.toBeNull())
+    // Exactly one element per note test id, all in the panel's note.
+    const ids = [...document.querySelectorAll<HTMLElement>(`[data-testid^="${OLUMI_ATTENTION_CARD_TESTID}"]`)].map((e) => e.dataset['testid'])
+    expect(ids.length).toBeGreaterThan(1)
+    expect(new Set(ids).size, ids.join(' ')).toBe(ids.length)
+    // Exactly one "Why" a person or a screen reader can reach; the measured copy is hidden, inert, and holds no test id.
+    const whys = screen.getAllByText(ATTENTION_CARD_COPY.why).filter((e) => e.closest('[aria-hidden="true"], [inert]') === null)
+    expect(whys).toHaveLength(1)
+    const measure = document.querySelector<HTMLElement>('[data-note-measure]')!
+    expect([measure.getAttribute('aria-hidden'), measure.hasAttribute('inert'), measure.querySelectorAll('[data-testid]').length]).toEqual(['true', true, 0])
   })
 
   it('CONTRAST: a free spot exists → on the canvas, over no card, the tab left as it is', async () => {
@@ -109,6 +127,18 @@ describe('R1.1 (Paul\'s screen): on the core lane Olumi\'s next step is an icon 
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     board([], 'some-other-turn')
     expect(screen.queryByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`)).toBeNull()
+  })
+  it('⛔ the icon never sits under the dock (real capacity board on the R3 layout, 4 Nov: its card at the right edge, the icon unclickable): at the card\'s left edge when its right edge has no room', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    // The room ends at the window less the dock and a gap (jsdom: 1024 − 0 − 14 = 1010); the card's right edge is at 1000.
+    board([], turn, null, 800)
+    const icon = screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`)
+    expect(parseFloat(icon.style.left) + 24, icon.style.left).toBeLessThanOrEqual(1010)
+    expect(icon.style.left).toBe('774px')
+    // CONTRAST: with room on the right, beside its right edge as before.
+    cleanup()
+    board([], turn)
+    expect(screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`).style.left).toBe('702px')
   })
   it('the icon never sits under the top bar: below its bottom when the card\'s top is under it; at the card otherwise', async () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
