@@ -45,7 +45,7 @@ export function ViewDriverBadge({ card }: { card: ViewCardData['card'] }) {
   if (card.driver === null) return null
   const disclosure = (
     <span className="inline-flex items-start gap-1.5">
-      <OlumiAiIcon size={12} aria-hidden="true" className={`mt-[2px] flex-none ${CANVAS_GLYPH_SIZE_CLASSES[12]}`} />
+      <OlumiAiIcon size={12} aria-hidden="true" data-testid={`view-driver-mark-${card.id}`} className={`mt-[2px] flex-none ${CANVAS_GLYPH_SIZE_CLASSES[12]}`} />
       <span data-view={`${card.id}.driver.text`}>{card.driver.text}</span>
     </span>
   )

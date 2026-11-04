@@ -7,5 +7,7 @@
 export function ringCards(ids: readonly string[]): void {
   if (typeof document === 'undefined') return
   document.querySelectorAll('.react-flow__node.v10-lit').forEach((el) => el.classList.remove('v10-lit'))
-  for (const id of ids) document.querySelector(`.react-flow__node[data-id="${CSS.escape(id)}"]`)?.classList.add('v10-lit')
+  // A page without CSS.escape (jsdom) still finds the card: its id with quotes and backslashes escaped.
+  const esc = typeof CSS !== 'undefined' && typeof CSS.escape === 'function' ? CSS.escape : (s: string) => s.replace(/["\\]/g, (c) => `\\${c}`)
+  for (const id of ids) document.querySelector(`.react-flow__node[data-id="${esc(id)}"]`)?.classList.add('v10-lit')
 }
