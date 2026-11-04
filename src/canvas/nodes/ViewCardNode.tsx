@@ -58,12 +58,11 @@ export function ViewCard({ card, selected = false }: ViewCardData & { selected?:
     >
       <div className="flex items-baseline gap-1">
         <span data-view={`${id}.glyph`}>{card.glyph}</span>
-        <span className={typography.nodeTitle} data-view={`${id}.heading`}>{card.heading}</span>
+        {/* Core's detail ("… · quantity · Theirs: …") is its page's hover text, not a line: on the heading, whole (DL 4 Nov, Paul's rule). */}
+        <span className={typography.nodeTitle} title={card.detail === '' ? undefined : card.detail} data-view={`${id}.heading`}>{card.heading}</span>
         <Mark at={`${id}.olumi`} mark={card.olumi} />
         <Mark at={`${id}.change`} mark={card.change} />
       </div>
-      {/* At most two lines, the whole of core's words on hover (lane C: a first-time person reads the heading and the figure first). */}
-      {card.detail === '' ? null : <p className="line-clamp-2" title={card.detail} data-view={`${id}.detail`}>{card.detail}</p>}
       {card.status === null ? null : <p data-view={`${id}.status`}>{card.status}</p>}
       {card.reason === null ? null : <p data-view={`${id}.reason`}>{card.reason}</p>}
       {card.figure === null ? null : (

@@ -42,7 +42,7 @@ afterEach(() => { cleanup(); setTeamFetch(null); resetWrites(); useViewStore.set
 const posts = () => calls.filter((c) => c.method === 'POST')
 
 describe('lane C: a card reads heading and figure first', () => {
-  it('core\'s detail line is at most two lines, its whole words on hover; the figure\'s control keeps its place but shows only on hover, focus or selection', async () => {
+  it('core\'s detail is the heading\'s hover, never a line; the figure\'s control keeps its place but shows only on hover, focus or selection', async () => {
     const { QUIET } = await import('../FigureEdit')
     const detailed = view.model!.cards.find((c) => c.detail !== '')!
     const quiet = render(<ViewCard card={card} />).container
@@ -51,10 +51,26 @@ describe('lane C: a card reads heading and figure first', () => {
     const chosen = render(<ViewCard card={card} selected />).container
     expect(chosen.querySelector(`[data-testid="view-figure-edit-${card.id}"]`)?.className).not.toContain(QUIET)
     chosen.remove()
-    const d = render(<ViewCard card={detailed} />).container.querySelector<HTMLElement>(`[data-view="${detailed.id}.detail"]`)!
-    expect(d.textContent).toBe(detailed.detail)
-    expect(d.getAttribute('title')).toBe(detailed.detail)
-    expect(d.className).toContain('line-clamp-2')
+    // Core's detail is hover text, never a line (DL 4 Nov: it repeated the heading, said the kind word and spelled provenance out).
+    const drawn = render(<ViewCard card={detailed} />).container
+    expect(drawn.querySelector(`[data-view="${detailed.id}.detail"]`)).toBeNull()
+    expect(drawn.querySelector(`[data-view="${detailed.id}.heading"]`)?.getAttribute('title')).toBe(detailed.detail)
+  })
+})
+
+describe('a card says its heading once, with no kind word and no provenance spelled out (Paul: no static repeating text)', () => {
+  it('every quantity card of core\'s european golden: the heading once in the visible text, never " · quantity" or "Theirs:"; the words whole on hover', () => {
+    const quantities = view.model!.cards.filter((c) => c.family === 'quantity' && c.detail !== '')
+    expect(quantities.length).toBeGreaterThan(3)
+    for (const c of quantities) {
+      const el = render(<ViewCard card={c} />).container
+      const text = el.textContent ?? ''
+      expect(text.split(c.heading).length - 1, c.id).toBe(1)
+      expect(text, c.id).not.toContain(' · quantity')
+      expect(text, c.id).not.toContain('Theirs:')
+      expect(el.querySelector(`[data-view="${c.id}.heading"]`)?.getAttribute('title'), c.id).toBe(c.detail)
+      cleanup()
+    }
   })
 })
 
