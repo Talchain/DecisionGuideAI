@@ -342,6 +342,11 @@ const FOREIGN_RENDERED = [
   // is the ONE Olumi AI mark. An svg with no text; the card sizes it with the rail's counter-scaled glyph classes.
   // `OlumiAiIcon` left the canvas on 1 Oct 2026: the card's Ask Olumi door draws the full-colour brand mark <img>.
   'src/components/Tooltip.tsx',
+  // 4 Nov 2026 (core lane, R1): the View card's two controls. The fold badge has no size of its own: it inherits the View card's
+  // counter-scaled body (`text-[length:calc(12px*var(--canvas-label-scale,1))]`, ViewCardNode). The figure's ✎ editor sizes every word
+  // with `typography.nodeLabel` (11px × --canvas-label-scale). Both are drawn inside the transform and counter-scale with the card.
+  'src/olumiView/Badge.tsx',
+  'src/olumiView/FigureEdit.tsx',
 ] as const
 
 const TW_NAMED = new Set(['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl'])

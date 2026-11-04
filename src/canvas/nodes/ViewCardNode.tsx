@@ -14,6 +14,7 @@ import { typography } from '../../styles/typography'
 import { askKindOf, CARD_WIDTH, drawKindOf, type RestsOnItem } from '../../olumiView/layout'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { useCanvasStore } from '../store'
+import { useViewStore } from '../../olumiView/store'
 import { useCardNumber, useDriverOf, useRestsOnItem } from '../../olumiView/lens'
 import { Activity } from 'lucide-react'
 import { NodeQuickActions } from './shared/NodeQuickActions'
@@ -66,7 +67,7 @@ function Row({ id, row, i }: { id: string; row: ViewRow; i: number }) {
 }
 
 /** One View card, pure: a test draws it from a golden View. */
-export function ViewCard({ card, selected = false, restsOn = null, driverOf = null, number = null }: ViewCardData & { selected?: boolean; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null }) {
+export function ViewCard({ card, selected = false, restsOn = null, driverOf = null, number = null, kind = askKindOf(card.family) }: ViewCardData & { selected?: boolean; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null; kind?: ReturnType<typeof drawKindOf> }) {
   const id = card.id
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
@@ -97,7 +98,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       )}
       {/* The original canvas's connector glyph: the card's kind as its shape, on the top edge where its links arrive. */}
       <span className="absolute -top-[10px] left-1/2 -translate-x-1/2 leading-none" aria-hidden="true">
-        <NodeShapeIndicator nodeKind={drawKindOf(card)} size={18} stroke="var(--bg-panel)" strokeWidth={0.6} />
+        <NodeShapeIndicator nodeKind={kind} size={18} stroke="var(--bg-panel)" strokeWidth={0.6} />
       </span>
       <div className="flex items-baseline gap-1">
         <span className="sr-only" data-view={`${id}.glyph`}>{card.glyph}</span>
@@ -161,11 +162,14 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const restsOn = useRestsOnItem(id)
   const driverOf = useDriverOf(id)
   const number = useCardNumber(id)
+  // The card's role in core's model (`drawKindOf`): its shape on the canvas, the same on every version.
+  const model = useViewStore((st) => st.view?.model ?? null)
+  const kind = model === null ? askKindOf(card.family) : drawKindOf(card, model)
   const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] === id)
   return (
     <div className="group/vcard relative">
       <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
-      <ViewCard card={card} selected={selected === true} restsOn={restsOn} driverOf={driverOf} number={number} />
+      <ViewCard card={card} selected={selected === true} restsOn={restsOn} driverOf={driverOf} number={number} kind={kind} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
       <div className={selected === true || noted ? '' : 'opacity-0 group-hover/vcard:opacity-100 focus-within:opacity-100'} data-olumi-controls="">
