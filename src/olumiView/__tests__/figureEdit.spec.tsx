@@ -177,3 +177,30 @@ describe('worth checking first: the line\'s figure given with its ✎, as core\'
     expect(c.querySelector('[data-view-fact]')?.textContent).toBe(`${line.olumi ? `${line.olumi.glyph} ` : ''}${line.line}`)
   })
 })
+
+describe('the most likely line that rests on Olumi\'s estimate: its ✎ is that figure\'s own edit (core\'s most_likely.estimate, L7)', () => {
+  it('european names Olumi\'s estimate by its card\'s id: the ✎ after the line, named for that card, edits that figure', async () => {
+    const ml = view.model!.run!.most_likely!, est = view.model!.cards.find((c) => c.id === ml.estimate)!
+    expect(est.figure?.edit).toBeTruthy()
+    const c = render(<ViewChances model={view.model!} />).container
+    expect(c.querySelector('[data-view="run.most_likely.text"]')?.textContent).toBe(ml.text)
+    const btn = screen.getByTestId(`likely-edit-${est.id}`)
+    expect(btn.getAttribute('aria-label')).toBe(`Give your figure for ${est.heading}`)
+    expect(btn.textContent).toBe('✎')
+    fireEvent.click(btn)
+    fireEvent.change(screen.getByTestId(`likely-typed-${est.id}`), { target: { value: '40' } })
+    fireEvent.click(screen.getByTestId(`likely-set-${est.id}`))
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    expect((posts()[0]!.body as { quantity: string }).quantity).toBe(est.id)
+  })
+  it('must not change: no estimate, or an estimate no card offers an edit for (bakery\'s), draws the line alone', () => {
+    const ml = view.model!.run!.most_likely!
+    const none = { ...view.model!, run: { ...view.model!.run!, most_likely: { ...ml, estimate: null } } }
+    expect(render(<ViewChances model={none} />).container.querySelector('[data-testid^="likely-"]')).toBeNull()
+    cleanup()
+    const hidden = { ...view.model!, run: { ...view.model!.run!, most_likely: { ...ml, estimate: 'not_a_card' } } }
+    const c = render(<ViewChances model={hidden} />).container
+    expect(c.querySelector('[data-testid^="likely-"]')).toBeNull()
+    expect(c.querySelector('[data-view="run.most_likely.text"]')?.textContent).toBe(ml.text)
+  })
+})

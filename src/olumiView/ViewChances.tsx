@@ -83,6 +83,20 @@ export function WhatIfShown({ model }: { model: ViewModel }) {
   )
 }
 
+/**
+ * The most likely line in core's words. Where it rests on Olumi's estimate (core's `estimate`, the figure's own card id), the ✎ after it is
+ * that card's own edit, so the person can give theirs; nothing when no card of that id offers an edit (a figure not drawn, or a proposal held).
+ */
+function MostLikely({ model, ml }: { model: ViewModel; ml: NonNullable<ViewRun['most_likely']> }) {
+  const card = ml.estimate === null ? undefined : model.cards.find((c) => c.id === ml.estimate && c.figure?.edit)
+  return (
+    <div title={ml.title}>
+      <span data-view="run.most_likely.text">{ml.text}</span>
+      {card === undefined ? null : <> <FigureEdit id={card.id} edit={card.figure!.edit} place="likely" glyph="✎" words={false} label={`Give your figure for ${card.heading}`} /></>}
+    </div>
+  )
+}
+
 type WaitsOn = NonNullable<ViewRun['waits_on']>
 
 /** What the chances wait on, each item core's `‘label’` with its hover; a figure no one can size yet says so in the headline only. */
@@ -130,7 +144,7 @@ export function ViewChances({ model }: { model: ViewModel }) {
           {card.driver == null ? null : <p className={typography.panelMeta} title={card.driver.title} data-view={`${card.id}.driver.text`}>{card.driver.text}</p>}
         </div>
       ))}
-      {run?.most_likely == null ? null : <p title={run.most_likely.title} data-view="run.most_likely.text">{run.most_likely.text}</p>}
+      {run?.most_likely == null ? null : <MostLikely model={model} ml={run.most_likely} />}
       {/* Under the chances, each aim's figure most worth checking first (D3), as core's page draws it: its mark when it rests on Olumi's
           proposals, the line in core's words, the Run's whole reason on hover (olumi.view/3 model.run.science; PL review 4 Nov). */}
       {run?.science == null || run.science.length === 0 ? null : (
