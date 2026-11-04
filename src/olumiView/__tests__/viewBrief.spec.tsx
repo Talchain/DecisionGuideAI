@@ -4,18 +4,19 @@
  * from words written here, so the rows prove the Summary is View-fed.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: { auth: { getSession: async () => ({ data: { session: null } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }) } } }))
 import european from '../golden/european.view.json'
 import studio from '../golden/studio.view.json'
+import proposal from '../golden/proposal.view.json'
 import type { View } from '../client'
 import { TopBar } from '../../components/layout/TopBar'
 import { ToastProvider } from '../../canvas/ToastContext'
 import { useCanvasStore } from '../../canvas/store'
 import { useViewStore } from '../store'
 
-afterEach(() => { cleanup(); vi.unstubAllEnvs(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }) })
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none', stale: false }) })
 
 const open = (view: View) => {
   vi.stubEnv('VITE_OLUMI_CORE', '1')
@@ -59,6 +60,34 @@ describe('the lane\'s Summary draws the View', () => {
     expect(box.textContent).toContain(w.head)
     expect(box.textContent).toContain(w.text)
     for (const item of w.items) expect(within(box).getByText(item.text).getAttribute('title')).toBe(item.title)
+  })
+
+  // R1 review P1: the Summary states results only while they are the approved model's and current, as Analysis and Reasoning do
+  // (store.ts currentModel); otherwise it is not offered, rather than showing them unqualified.
+  const bar = (state: Record<string, unknown>) => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: 's_0123456789ab', status: 'ready', error: null, stale: false, ...state } as never)
+    render(<MemoryRouter><ToastProvider><TopBar scenarioTitle="T" onTitleChange={vi.fn()} onSave={vi.fn()} onShare={vi.fn()} /></ToastProvider></MemoryRouter>)
+  }
+  it('a proposal held, not yet approved: no Summary of the results, which are not the approved model\'s', () => {
+    bar({ view: { ...(european as unknown as View), proposal: (proposal as unknown as View).proposal } })
+    expect(screen.queryByTestId('view-brief-trigger')).toBeNull()
+  })
+  it('the canvas changed since the View was read (stale): no Summary of results that are no longer current', () => {
+    bar({ view: european as unknown as View, stale: true })
+    expect(screen.queryByTestId('view-brief-trigger')).toBeNull()
+  })
+  it('the last read failed: no Summary of the older results', () => {
+    bar({ view: european as unknown as View, error: 'Olumi could not be read just now. Try again in a moment.' })
+    expect(screen.queryByTestId('view-brief-trigger')).toBeNull()
+  })
+  it('an open Summary closes when a proposal arrives, and comes back once it is settled', () => {
+    const v = european as unknown as View
+    open(v)
+    act(() => { useViewStore.setState({ view: { ...v, proposal: (proposal as unknown as View).proposal } }) })
+    expect(screen.queryByTestId('view-brief-panel')).toBeNull()
+    act(() => { useViewStore.setState({ view: v }) })
+    expect(screen.getByTestId('view-brief-trigger')).toBeTruthy()
   })
 
   it('no model in the View (none yet, or a read that failed): no Summary control, rather than an empty one', () => {

@@ -10,7 +10,7 @@ import { FileText, X } from 'lucide-react'
 import { typography } from '../styles/typography'
 import { DECISION_BRIEF_TRIGGER_LABEL } from '../canvas/decisionBrief/DecisionBriefTrigger'
 import { allOptionCards } from './layout'
-import { useViewStore } from './store'
+import { currentModel, useViewStore } from './store'
 import type { View } from './types'
 
 type Model = NonNullable<View['model']>
@@ -67,7 +67,9 @@ export function ViewBriefBody({ model }: { model: Model }) {
 
 /** The top bar's Summary control on the lane, and its panel beside the canvas (non-modal, as the legacy one). */
 export function ViewBriefTrigger({ className = '' }: { className?: string }) {
-  const model = useViewStore((s) => s.view?.model ?? null)
+  // Only the approved, current model's results, as Analysis and Reasoning show them (store.ts currentModel): with a proposal held,
+  // a read that failed, or a canvas changed since the read, none is stated (R1 review P1).
+  const model = useViewStore(currentModel)
   const [open, setOpen] = useState(false)
   const close = useCallback(() => setOpen(false), [])
   useEffect(() => {
