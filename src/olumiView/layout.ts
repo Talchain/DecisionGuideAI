@@ -136,20 +136,47 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
  * question and the options did not fit across a 1280 canvas at 0.9. Each option row (the options alone on it) is drawn side by side, in
  * the View's order, `GAP_X` apart, centred under the question; nothing else moves. A row shared with another card is left as laid out.
  */
+/**
+ * The widest options row the camera holds wholly inside the visible rect at the readable floor (camera.ts READABLE_WHOLE_ZOOM, 0.9) on
+ * the smallest supported canvas: 1280 less the dock and the canvas padding leaves about 824px, so 915 units; 900 keeps a margin. A wider
+ * row (four options: 4 × 220 + 3 × 48 = 1024) wraps into balanced rows (DL 4 Nov, Codex P1-3), so the question and every option are seen.
+ */
+export const HEAD_ROW_MAX = 900
+
 export function packHead(places: Map<string, { x: number; y: number }>, options: readonly string[], size: ReadonlyMap<string, Size>): Map<string, { x: number; y: number }> {
   const q = places.get(QUESTION), qs = size.get(QUESTION)
   if (q === undefined || qs === undefined) return places
   const rows = new Map<number, string[]>()
   for (const [id, p] of places) if (id !== QUESTION) rows.set(p.y, [...(rows.get(p.y) ?? []), id])
   const out = new Map(places)
-  for (const ids of rows.values()) {
+  // Each wrapped options row moves every card below it down by the rows it added (from the laid-out places, so the order rows are met in
+  // does not matter).
+  const drops: { y: number; by: number }[] = []
+  for (const [y, ids] of rows) {
     if (!ids.every((id) => options.includes(id))) continue
     // In the View's order (core's), never re-sorted here.
-    const row = options.filter((id) => ids.includes(id)).map((id) => ({ id, w: size.get(id)?.width ?? W }))
+    const row = options.filter((id) => ids.includes(id)).map((id) => ({ id, w: size.get(id)?.width ?? W, h: size.get(id)?.height ?? 0 }))
     let width = GAP_X * (row.length - 1)
     for (const r of row) width += r.w
-    let x = q.x + qs.width / 2 - width / 2
-    for (const r of row) { out.set(r.id, { x, y: places.get(r.id)!.y }); x += r.w + GAP_X }
+    const lines = Math.max(1, Math.ceil(width / HEAD_ROW_MAX)), per = Math.ceil(row.length / lines)
+    let top = y
+    for (let i = 0; i < row.length; i += per) {
+      const line = row.slice(i, i + per)
+      let lw = GAP_X * (line.length - 1), lh = 0
+      for (const r of line) { lw += r.w; lh = Math.max(lh, r.h) }
+      let x = q.x + qs.width / 2 - lw / 2
+      for (const r of line) { out.set(r.id, { x, y: top }); x += r.w + GAP_X }
+      top += lh + GAP_Y
+    }
+    let first = 0
+    for (const r of row.slice(0, per)) first = Math.max(first, r.h)
+    if (top - GAP_Y > y + first) drops.push({ y, by: top - GAP_Y - (y + first) })
+  }
+  for (const [id, p] of places) {
+    if (id === QUESTION) continue
+    let by = 0
+    for (const d of drops) if (p.y > d.y) by += d.by
+    if (by > 0) out.set(id, { ...out.get(id)!, y: out.get(id)!.y + by })
   }
   return out
 }

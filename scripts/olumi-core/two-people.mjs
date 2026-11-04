@@ -230,6 +230,12 @@ for (const kept of ['olumi', 'results', 'analysisNew', 'team', 'compare', 'diagn
 // The lane's strip fits its rail at this width (MAX_LANE_PRESENTED_SURFACES): every tab drawn whole inside the rail and the window.
 const rail = await ada.page.getByTestId('outputs-dock-tab-team').evaluate((t0) => { const l = t0.closest('[role="tablist"]') ?? t0.parentElement; const r = l.getBoundingClientRect(); return { n: l.querySelectorAll('[role="tab"]').length, over: l.scrollHeight > l.clientHeight + 1 || l.scrollWidth > l.clientWidth + 1, out: [...l.querySelectorAll('[role="tab"]')].filter((t) => { const b = t.getBoundingClientRect(); return b.top < r.top - 1 || b.bottom > r.bottom + 1 || b.left < r.left - 1 || b.right > r.right + 1 || b.bottom > innerHeight || b.right > innerWidth }).map((t) => t.getAttribute('data-testid')) } })
 check(!rail.over && rail.out.length === 0, `the dock rail holds all ${rail.n} lane tabs whole at ${process.env.VIEW_W ?? 1440}px (overflow ${rail.over}; outside ${rail.out.join(',') || 'none'})`)
+// No tab's label is cut (DL 4 Nov: six lane surfaces, the dock's "…" holds controls, not surfaces): every element in each tab shows its whole text.
+const cut = await ada.page.getByTestId('outputs-dock-tab-team').evaluate((t0) => [...(t0.closest('[role="tablist"]') ?? t0.parentElement).querySelectorAll('[role="tab"]')]
+  .filter((t) => [t, ...t.querySelectorAll('*')].some((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflow !== 'visible')).map((t) => `${t.getAttribute('data-testid')}:${t.textContent}`))
+check(cut.length === 0, `no lane tab label is cut at ${process.env.VIEW_W ?? 1440}px (${cut.join(', ') || 'none'})`)
+await ada.page.getByTestId('outputs-dock-tab-team').evaluate((t0) => (t0.closest('[role="tablist"]') ?? t0.parentElement).scrollIntoView({ block: 'nearest' }))
+await shot(ada, `t-dock-tabs-${process.env.VIEW_W ?? 1440}`)
 // G6: Olumi's next step, beside the one card core names, in core's words.
 const next = v.chat.find((t) => t.answer?.next.newest)?.answer?.next
 check(next && next.at !== null, `core puts Olumi's next step beside one card (${next?.at})`)
