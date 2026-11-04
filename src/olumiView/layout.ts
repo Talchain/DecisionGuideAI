@@ -127,7 +127,31 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   const laid = await layoutGraph(nodes, edges, { direction: 'DOWN' })
   // A tier wider than four cards wraps (DL 4 Nov), so the board reads at fit as the original canvas does.
   const sized = new Map(nodes.map((n) => [n.id, n.measured as Size]))
-  return wrapTiers(laid.nodes.map((n) => ({ id: n.id, x: n.position.x, y: n.position.y, ...sized.get(n.id)! })))
+  const placed = wrapTiers(laid.nodes.map((n) => ({ id: n.id, x: n.position.x, y: n.position.y, ...sized.get(n.id)! })))
+  return packHead(placed, model.cards.filter((c) => c.family === 'option').map((c) => c.id), sized)
+}
+
+/**
+ * The options' row packed under the question (DL 4 Nov, "readable first wins"): the layout spreads the options over their children, so the
+ * question and the options did not fit across a 1280 canvas at 0.9. Each option row (the options alone on it) is drawn side by side, in
+ * the View's order, `GAP_X` apart, centred under the question; nothing else moves. A row shared with another card is left as laid out.
+ */
+export function packHead(places: Map<string, { x: number; y: number }>, options: readonly string[], size: ReadonlyMap<string, Size>): Map<string, { x: number; y: number }> {
+  const q = places.get(QUESTION), qs = size.get(QUESTION)
+  if (q === undefined || qs === undefined) return places
+  const rows = new Map<number, string[]>()
+  for (const [id, p] of places) if (id !== QUESTION) rows.set(p.y, [...(rows.get(p.y) ?? []), id])
+  const out = new Map(places)
+  for (const ids of rows.values()) {
+    if (!ids.every((id) => options.includes(id))) continue
+    // In the View's order (core's), never re-sorted here.
+    const row = options.filter((id) => ids.includes(id)).map((id) => ({ id, w: size.get(id)?.width ?? W }))
+    let width = GAP_X * (row.length - 1)
+    for (const r of row) width += r.w
+    let x = q.x + qs.width / 2 - width / 2
+    for (const r of row) { out.set(r.id, { x, y: places.get(r.id)!.y }); x += r.w + GAP_X }
+  }
+  return out
 }
 
 /**

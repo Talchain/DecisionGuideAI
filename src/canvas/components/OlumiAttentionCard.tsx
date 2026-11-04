@@ -100,6 +100,8 @@ export const ATTENTION_CARD_COPY = {
 export const isQuestion = (text: string | undefined): boolean => typeof text === 'string' && text.trim().endsWith('?')
 
 const CARD_WIDTH = 268
+/** The folded note's icon, square (`h-6 w-6`). */
+const ICON = 24
 const CARD_GAP = 14
 
 export const OLUMI_ATTENTION_CARD_TESTID = 'olumi-attention-card'
@@ -266,6 +268,22 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   // already (Next step, the chat), so the canvas shows them once only on a press, and never covers cards on its own. The card keeps
   // core's focus ring; the icon sits at its edge. Which reply's note was opened, so a newer reply's starts folded again.
   const [openedKey, setOpenedKey] = useState<string | null>(null)
+  // The icon never sits under the top bar or the lens bar (DL 4 Nov): the lowest bottom of those over its column, in its frame, measured
+  // after each render (an equal value bails out).
+  const iconRef = useRef<HTMLButtonElement>(null)
+  const iconLeft = useRef(0)
+  const [iconFloor, setIconFloor] = useState(0)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal floor bails out
+  useLayoutEffect(() => {
+    const frame = iconRef.current?.offsetParent?.getBoundingClientRect()
+    if (!frame) return
+    let floor = 0
+    for (const sel of ['[role="banner"]', '[data-testid="lens-bar"]']) {
+      const r = document.querySelector(sel)?.getBoundingClientRect()
+      if (r && r.width > 0 && r.left - frame.left < iconLeft.current + ICON && r.right - frame.left > iconLeft.current) floor = Math.max(floor, Math.round(r.bottom - frame.top + 4))
+    }
+    if (floor !== iconFloor) setIconFloor(floor)
+  })
   const [drawnNow, setDrawnNow] = useState<{ key: string; cards: Box[]; controls: Box[] }>({ key: '', cards: [], controls: [] })
   useEffect(() => {
     if (!(cardHeight > 0)) return
@@ -344,11 +362,12 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   if (folded) {
     inPanelNow.current = false
     const label = attention.note?.title ?? ATTENTION_CARD_COPY.olumi
+    iconLeft.current = anchorBox.x + anchorBox.w + 2
     return (
-      <button type="button" data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-icon`} data-anchor-id={anchorId} title={label} aria-label={label}
+      <button ref={iconRef} type="button" data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-icon`} data-anchor-id={anchorId} title={label} aria-label={label}
         onClick={() => setOpenedKey(attention.turnId ?? null)}
         className="pointer-events-auto inline-flex h-6 w-6 items-center justify-center rounded-full border border-panel-border bg-panel shadow-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
-        style={{ position: 'absolute', left: anchorBox.x + anchorBox.w + 2, top: anchorBox.y + 6, zIndex: 95 }}>
+        style={{ position: 'absolute', left: iconLeft.current, top: Math.max(anchorBox.y + 6, iconFloor), zIndex: 95 }}>
         <OlumiMark size={14} aria-hidden="true" />
       </button>
     )

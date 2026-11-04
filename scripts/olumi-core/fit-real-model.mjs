@@ -42,7 +42,13 @@ async function frame(view, label, whole = false) {
     const d = document.querySelector('[data-testid="outputs-dock"]').getBoundingClientRect()
     return [...document.querySelectorAll('.react-flow__node')].filter((e) => { const r = e.getBoundingClientRect(); return r.right > d.left + 1 && r.left < d.right && r.bottom > d.top && r.top < d.bottom }).map((e) => e.getAttribute('data-id'))
   })
-  check(underDock.length === 0, `${label}: no card under the dock${underDock.length ? ` (under it: ${underDock.join(', ')})` : ''}`)
+  // DL 4 Nov 17Z (readable first wins): a board that fits at 0.9 or more has no card under the dock; a wider one opens at 0.9 with the
+  // question and every option wholly in the visible rect (never under the dock), the rest reached by panning.
+  const headIds = ['page:question', ...view.model.cards.filter((c) => c.family === 'option').map((c) => c.id)]
+  const fitsWhole = zoom > 0.9 + 0.005
+  if (fitsWhole) check(underDock.length === 0, `${label}: fits at ${zoom.toFixed(3)}, no card under the dock${underDock.length ? ` (under it: ${underDock.join(', ')})` : ''}`)
+  else console.log(`  · ${label}: cards under the dock at 0.9 (reached by panning): ${underDock.length === 0 ? 'none' : underDock.join(', ')}`)
+  if (!fitsWhole) check(Math.abs(zoom - 0.9) < 0.005 && headIds.every((id) => !underDock.includes(id)), `${label}: zoom ${zoom.toFixed(3)} (0.9, never lower), the question and every option clear of the dock${headIds.some((id) => underDock.includes(id)) ? ` (under it: ${headIds.filter((id) => underDock.includes(id)).join(', ')})` : ''}`)
   const out = await page.evaluate(() => {
     const dock = document.querySelector('[data-testid="outputs-dock"]').getBoundingClientRect(), pane = document.querySelector('.react-flow').getBoundingClientRect()
     return [...document.querySelectorAll('.react-flow__node-viewCard, .react-flow__node-viewQuestion')].filter((e) => { const r = e.getBoundingClientRect(); return r.left < pane.left - 1 || r.top < pane.top - 1 || r.right > dock.left + 1 || r.bottom > pane.bottom + 1 }).map((e) => e.getAttribute('data-id'))
@@ -64,7 +70,7 @@ const topOut = await page.evaluate((ids) => {
   const dock = document.querySelector('[data-testid="outputs-dock"]').getBoundingClientRect(), pane = document.querySelector('.react-flow').getBoundingClientRect()
   return ids.filter((id) => { const r = document.querySelector(`.react-flow__node[data-id="${id}"]`)?.getBoundingClientRect(); return !r || r.left < pane.left - 1 || r.top < pane.top - 1 || r.right > dock.left + 1 || r.bottom > pane.bottom + 1 })
 }, ['page:question', ...tops])
-check(first.zoom >= 0.5 && first.zoom <= 1 && topOut.length === 0, `first open: zoom ${first.zoom.toFixed(3)}, the question and every option in view${topOut.length ? ` (out: ${topOut.join(', ')})` : ''}`)
+check(first.zoom >= 0.9 - 0.005 && first.zoom <= 1 && topOut.length === 0, `first open: zoom ${first.zoom.toFixed(3)}, the question and every option in view${topOut.length ? ` (out: ${topOut.join(', ')})` : ''}`)
 // The compact face: no card shows its status, reason, bound or premises until it is selected.
 // An assumption or condition (no figure, no rows) keeps what it says, its reason, on the face.
 const says = golden.model.cards.filter((c) => c.figure === null && c.rows.length === 0 && c.reason !== null).map((c) => `${c.id}.reason`)

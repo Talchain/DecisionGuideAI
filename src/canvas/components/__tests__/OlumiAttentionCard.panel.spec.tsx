@@ -19,7 +19,7 @@ const W = 1200, H = 800
 type R = { left: number; top: number; width: number; height: number }
 const rect = (r: R) => ({ ...r, x: r.left, y: r.top, right: r.left + r.width, bottom: r.top + r.height, toJSON: () => r }) as DOMRect
 /** The board as drawn: the anchor, and `others` (the cards around it) in screen px. */
-function board(others: R[], turnId: string | null = null) {
+function board(others: R[], turnId: string | null = null, banner: R | null = null) {
   useCanvasStore.setState({
     nodes: [{ id: 'a', type: 'factor', position: { x: 500, y: 300 }, measured: { width: 200, height: 80 }, data: {} } as never],
     edges: [],
@@ -31,6 +31,7 @@ function board(others: R[], turnId: string | null = null) {
         <div className="react-flow__node" data-id="a" data-r={JSON.stringify({ left: 500, top: 300, width: 200, height: 80 })} />
         {others.map((o, i) => <div key={i} className="react-flow__node" data-id={`c${i}`} data-r={JSON.stringify(o)} />)}
       </div>
+      {banner === null ? null : <div role="banner" data-r={JSON.stringify(banner)} />}
       <div {...{ [VIEW_NOTE_SLOT]: '' }} data-testid="slot" />
       <OlumiAttentionCard />
     </div>,
@@ -108,5 +109,13 @@ describe('R1.1 (Paul\'s screen): on the core lane Olumi\'s next step is an icon 
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     board([], 'some-other-turn')
     expect(screen.queryByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`)).toBeNull()
+  })
+  it('the icon never sits under the top bar: below its bottom when the card\'s top is under it; at the card otherwise', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    board([], turn, { left: 0, top: 0, width: W, height: 340 })
+    await vi.waitFor(() => expect(screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`).style.top).toBe('344px'))
+    cleanup()
+    board([], turn)
+    expect(screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`).style.top).toBe('306px')
   })
 })
