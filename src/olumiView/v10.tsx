@@ -117,7 +117,7 @@ export function ViewOptionBand({ id, band }: { id: string; band: OptionBand }) {
             style={{ left: `${band.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />
         )}
       </div>
-      <p className={`${typography.edgeLabel} text-text-light line-clamp-1`} data-view={band.at}>{band.text}</p>
+      <p className={`${typography.edgeLabel} text-text-light line-clamp-2`} data-view={band.at}>{band.text}</p>
     </div>
   )
 }
