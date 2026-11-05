@@ -286,7 +286,14 @@ const squash = (t) => t.replace(/\s+/g, ' ').trim()
 const whyWords = (v.chat.find((t) => t.answer?.next.newest)?.answer?.why ?? []).map((w) => squash(w.map((p) => p.text ?? '').join(''))).filter(Boolean)
 if (whyWords.length > 0) {
   const why = note.getByTestId('olumi-attention-card-why')
+  const turnBefore = (await view(ada, sid)).chat.filter((x) => x.answer).length
   await why.locator('summary').click()
+  const openNow = await why.evaluate((d) => d.open).catch(() => 'gone')
+  await ada.page.waitForTimeout(1000)
+  const openLater = await why.evaluate((d) => d.open).catch(() => 'gone'), turnAfter = (await view(ada, sid)).chat.filter((x) => x.answer).length
+  // Diagnostic (R6 witness, 5 Nov: the Why read folded on screen after the click): open right after the click and 1 s later, and whether
+  // a newer reply arrived meanwhile (the card refolds for a newer reply's note, OlumiAttentionCard openedKey).
+  console.log(`  · the note's Why: open after the click ${openNow}, 1 s later ${openLater}; replies in the chat ${turnBefore} → ${turnAfter}`)
   const said = squash(await why.innerText())
   console.log(`  · the note's Why on screen: ${JSON.stringify(said)} · core's reasons: ${JSON.stringify(whyWords)}`)
   await shot(ada, 'w-note-why-open')
