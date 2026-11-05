@@ -155,11 +155,21 @@ for (const { name, view } of real) {
     const n = document.querySelector('[data-testid="olumi-attention-card"]').getBoundingClientRect()
     const box = (r) => `${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}×${Math.round(r.height)}`
     // Each covered card with both rects, so an intermittent overlap names its geometry (1 run in 4 at 1440 on hiring, 4 Nov, cause open).
-    const covers = [...document.querySelectorAll('.react-flow__node')].filter((e) => { const r = e.getBoundingClientRect(); return Math.min(n.right, r.right) > Math.max(n.left, r.left) && Math.min(n.bottom, r.bottom) > Math.max(n.top, r.top) }).map((e) => `${e.getAttribute('data-id')} [card ${box(e.getBoundingClientRect())}; note ${box(n)}]`)
+    // The dock is drawn over the canvas, so where a note and a card overlap inside the dock the dock already covers that part of the card:
+    // the note covers it only where the overlap reaches outside the dock (R5, 5 Nov: the in-tab note at 1280 on capacity "covered" a card
+    // whose corner sat under the dock, x 936–990 × y 407–419, all inside the dock). A card under the dock is the camera's fit, printed below.
+    const dk = document.querySelector('[data-testid="outputs-dock"]')?.getBoundingClientRect() ?? null
+    const inDock = (l, t, r, b) => dk !== null && dk.width > 0 && l >= dk.left && r <= dk.right && t >= dk.top && b <= dk.bottom
+    const overlap = (a, r) => ({ l: Math.max(a.left, r.left), t: Math.max(a.top, r.top), r: Math.min(a.right, r.right), b: Math.min(a.bottom, r.bottom) })
+    const cards = [...document.querySelectorAll('.react-flow__node')]
+    const covers = cards.filter((e) => { const o = overlap(n, e.getBoundingClientRect()); return o.r > o.l && o.b > o.t && !inDock(o.l, o.t, o.r, o.b) }).map((e) => `${e.getAttribute('data-id')} [card ${box(e.getBoundingClientRect())}; note ${box(n)}]`)
+    const underDock = dk === null ? [] : cards.filter((e) => { const o = overlap(dk, e.getBoundingClientRect()); return o.r > o.l && o.b > o.t }).map((e) => `${e.getAttribute('data-id')} [card ${box(e.getBoundingClientRect())}; dock ${box(dk)}]`)
     const ids = [...document.querySelectorAll('[data-testid^="olumi-attention-card"]')].map((e) => e.getAttribute('data-testid'))
     const whys = [...document.querySelectorAll('[data-testid^="olumi-attention-card"] summary, [data-note-measure] summary')].filter((e) => !e.closest('[aria-hidden="true"], [inert]')).length
-    return { covers, dup: ids.filter((id, i) => ids.indexOf(id) !== i), whys, inPanel: document.querySelector('[data-testid="olumi-attention-card"]').hasAttribute('data-in-panel') }
+    return { covers, underDock, dup: ids.filter((id, i) => ids.indexOf(id) !== i), whys, inPanel: document.querySelector('[data-testid="olumi-attention-card"]').hasAttribute('data-in-panel') }
   })
+  // Diagnostic, never a failure: a card under the dock is the camera's fit (R5 layout item 1, stopped by Paul's directive), not the note.
+  if (note.underDock.length) console.log(`  · (diagnostic) real ${name} at ${at}: card(s) partly under the dock: ${note.underDock.join(', ')}`)
   check(note.covers.length === 0, `real ${name}: Olumi's note, opened at ${at}${note.inPanel ? ' (in the Olumi tab: no free spot on the canvas)' : ''}, covers no card${note.covers.length ? ` (covers ${note.covers.join(', ')})` : ''}`)
   const frames = await page.evaluate(() => { window.__sampling = false; return window.__canvasFrames })
   if (note.inPanel) check(frames === 0, `real ${name}: the note, which ends in the Olumi tab, was never painted on the canvas (${frames} frame(s))`)
