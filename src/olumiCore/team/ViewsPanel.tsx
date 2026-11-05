@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Lock, Share2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import type { View } from '../../olumiView/client'
+import { effectHeadingsOf, effectsOf, type EffectHeadings, type ViewEffect } from '../../olumiView/standin'
 import { teamApi, TeamApiError } from './api'
 import { useDraft } from './drafts'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWrites, useWriteSending } from './writes'
@@ -17,6 +18,44 @@ function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX.Elemen
       {figures.map((f, i) => (
         <li key={i} className={META} title={f.title} data-testid={`${at}-figure-${i}`}>
           <span className="text-text-header">{f.label}</span>: {f.text}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * D7 (R5; DL 4 Nov, finish line 3): what each figure on a revealed view does when the model's Run is run again with it, beside that view.
+ * Only core's fields (`effects`, read through standin.ts), no sentence composed and no value formatted (DL: the View carries every label and
+ * value): each status, and each row's label, as core gives it (`effect_headings`); the move as core words it (`gap_text`); the figure by the
+ * view's own label for it, else its card's heading; the aim, the options and the conditions by their cards' headings, by id; a null leader
+ * names nothing. A figure core did not run is listed under core's heading for that, its reason code not translated.
+ */
+function Effects({ at, view, figures, effects, headings }: { at: string; view: View; figures: Figure[]; effects: readonly ViewEffect[]; headings: EffectHeadings | null }): JSX.Element | null {
+  if (effects.length === 0 || headings === null) return null
+  const card = (id: string | null) => (id === null ? null : view.model?.cards.find((c) => c.id === id)?.heading ?? null)
+  const figure = (q: string) => figures.find((f) => f.quantity === q)?.label ?? card(q)
+  const Option = ({ id }: { id: string | null }) => { const h = card(id); return h === null ? null : <span className="text-text-header" data-effect-option="">{h}</span> }
+  // A row core labels: its label as core gives it, then the value; a core that gives no label for it draws no row (no words of the UI's own).
+  const Labelled = ({ label, at, children }: { label: string | undefined; at: string; children: JSX.Element | string | null }) =>
+    label === undefined || children === null ? null : <p {...{ [at]: '' }}><span>{label}</span> <span className="text-text-header">{children}</span></p>
+  return (
+    <ul className="m-0 grid list-none gap-1 p-0 pt-1.5" data-testid={`${at}-effects`}>
+      {effects.map((e) => (
+        <li key={e.quantity} className={META} data-effect={e.quantity}>
+          <p>
+            <span className="text-text-header" data-effect-figure="">{figure(e.quantity)}</span>
+            {'refused' in e ? null : <><span aria-hidden="true"> · </span><span data-effect-aim="">{card(e.goal)}</span></>}
+          </p>
+          <p className="text-text-header" data-effect-status="">{'refused' in e ? headings.refused : headings[e.status]}</p>
+          {'refused' in e ? null : (
+            <>
+              <Labelled label={headings.leader} at="data-effect-leader">{card(e.leader) === null ? null : <Option id={e.leader} />}</Labelled>
+              <Labelled label={headings.model_leader} at="data-effect-model-leader">{card(e.model_leader) === null ? null : <Option id={e.model_leader} />}</Labelled>
+              <Labelled label={headings.most} at="data-effect-most">{card(e.most) === null || (e.gap_text ?? null) === null ? null : <><Option id={e.most} /> <span data-effect-gap="">{e.gap_text}</span></>}</Labelled>
+              <Labelled label={headings.if_absent} at="data-effect-if-absent">{e.if_absent.length === 0 ? null : e.if_absent.flatMap((id) => { const h = card(id); return h === null ? [] : [h] }).join(', ')}</Labelled>
+            </>
+          )}
         </li>
       ))}
     </ul>
@@ -73,6 +112,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
               <p className={`${BODY} text-text-header`}>{v.by}</p>
               {v.skip ? <p className={META}>Chose not to answer.</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
               <Figures at={`team-revealed-${v.id}`} figures={v.figures} />
+              <Effects at={`team-revealed-${v.id}`} view={view} figures={v.figures} effects={effectsOf(v)} headings={effectHeadingsOf(c)} />
             </li>
           ))}
         </ul>

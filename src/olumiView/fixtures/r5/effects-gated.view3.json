@@ -1,0 +1,857 @@
+{
+ "schema": "olumi.view/3",
+ "id": "s_9a15360f4def",
+ "title": "Support capacity",
+ "commit": "c0ffee",
+ "signature": "[6,null,[[5,\"approved\"]],[[8,true],[9,true]],[\"Paul\",\"Sam\",\"Kim\"],[],[\"1\",\"2\",\"3\"]]",
+ "you": "Kim",
+ "you_id": "3",
+ "members": [
+  {
+   "id": "1",
+   "name": "Paul"
+  },
+  {
+   "id": "2",
+   "name": "Sam"
+  },
+  {
+   "id": "3",
+   "name": "Kim"
+  }
+ ],
+ "version": {
+  "id": 6,
+  "n": 1,
+  "label": "version 1",
+  "changed": []
+ },
+ "model": {
+  "question": {
+   "text": "Keep current staffing or add one specialist?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": {
+    "records": [
+     "team_morale",
+     "morale_link",
+     "lead_doubt",
+     "morale_left_out"
+    ],
+    "text": "● ↝ ⚑ +4",
+    "title": "quantity: team morale\nrelation: Add one specialist → team morale\ndissent: our team lead: A new hire may unsettle the team.\nleft out: How the team feels about a new hire",
+    "label": "Expand 4 reasoning records",
+    "open": false,
+    "proposed": false,
+    "change": ""
+   }
+  },
+  "whole": false,
+  "cards": [
+   {
+    "id": "existing_capacity",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "existing capacity",
+    "typed": false,
+    "detail": "existing capacity · quantity · Theirs: “our team resolves 80 tickets a week” · 80 tickets/week",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "80 tickets/week",
+     "title": "80 tickets/week",
+     "edit": {
+      "prompt": "New figure for “existing capacity” (ticket/week): one number, or a range like 150 to 400",
+      "ask": "For “existing capacity”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "failed": []
+   },
+   {
+    "id": "per_specialist",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "per specialist",
+    "typed": false,
+    "detail": "per specialist · quantity · Theirs: “each specialist adds about 20, somewhere between 10 and 30” · Plausible range: 10 to 30 tickets/week/specialist, most likely 20 tickets/week/specialist",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "10 to 30 tickets/week/specialist",
+     "title": "Plausible range: 10 to 30 tickets/week/specialist, most likely 20 tickets/week/specialist",
+     "edit": {
+      "prompt": "New figure for “per specialist” (ticket/week/specialist): one number, or a range like 150 to 400",
+      "ask": "For “per specialist”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "failed": []
+   },
+   {
+    "id": "one_specialist",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "one specialist",
+    "typed": false,
+    "detail": "one specialist · quantity · Theirs: “add one specialist” · 1 specialist",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "1 specialist",
+     "title": "1 specialist",
+     "edit": {
+      "prompt": "New figure for “one specialist” (specialist): one number, or a range like 150 to 400",
+      "ask": "For “one specialist”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "failed": []
+   },
+   {
+    "id": "total_capacity",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "total capacity",
+    "typed": false,
+    "detail": "total capacity · quantity · Proposed by Olumi: today plus what is added · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: today plus what is added"
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Keep current staffing: 80 tickets/week · Add one specialist: about 99.9 tickets/week (89.7 to 110 tickets/week)",
+     "title": "Modelled range at the end of week 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Keep current staffing: 80 tickets/week; Add one specialist: about 99.9 tickets/week (89.7 to 110 tickets/week). Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "specialists",
+      "added_capacity",
+      "added_def",
+      "total_def"
+     ],
+     "text": "● = +4",
+     "title": "quantity: specialists\nquantity: added capacity\nrelation: how added capacity is worked out\nrelation: how total capacity is worked out",
+     "label": "Expand 4 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": [
+     {
+      "option": "hold",
+      "text": "80 tickets/week",
+      "p10": 80,
+      "p50": 80,
+      "p90": 80,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     },
+     {
+      "option": "add_one",
+      "text": "about 99.9 tickets/week (89.7 to 110 tickets/week)",
+      "p10": 89.6795181966731,
+      "p50": 99.92980796070435,
+      "p90": 109.91851476864522,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "failed": []
+   },
+   {
+    "id": "capacity_target",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "capacity target",
+    "typed": false,
+    "detail": "capacity target · quantity · Theirs: “at least 100 tickets a week” · 100 tickets/week",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "100 tickets/week",
+     "title": "100 tickets/week",
+     "edit": {
+      "prompt": "New figure for “capacity target” (ticket/week): one number, or a range like 150 to 400",
+      "ask": "For “capacity target”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "failed": []
+   },
+   {
+    "id": "capacity_goal",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "At least 100 a week",
+    "typed": false,
+    "detail": "At least 100 a week · goal · Theirs: “at least 100 tickets a week”",
+    "col": 3,
+    "h": 102,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at least 100 tickets/week",
+     "title": "at least 100 tickets/week",
+     "olumi": null,
+     "measured": true
+    },
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "failed": []
+   },
+   {
+    "id": "hold",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Keep current staffing",
+    "typed": false,
+    "detail": "Keep current staffing · option · Theirs: “keep current staffing”",
+    "col": 0,
+    "h": 98,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "never met in this model",
+      "fixed": true,
+      "approx": "",
+      "olumi": null,
+      "likely": null,
+      "aim": "At least 100 a week",
+      "aim_id": "capacity_goal",
+      "title": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It leaves out: How the team feels about a new hire.",
+      "chance": 0,
+      "outcome": {
+       "low": 80,
+       "median": 80,
+       "high": 80,
+       "unit": "ticket/week",
+       "text": "80 tickets/week",
+       "title": "Under 'Keep current staffing', 'total capacity' is this in at least 8 draws in 10. It leaves out: How the team feels about a new hire."
+      },
+      "text": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [],
+       "approx": []
+      },
+      "if_approved": null,
+      "estimate": null
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "committed": null,
+    "failed": [],
+    "failed_reason": null
+   },
+   {
+    "id": "add_one",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Add one specialist",
+    "typed": false,
+    "detail": "Add one specialist · option · Theirs: “add one specialist”",
+    "col": 0,
+    "h": 124,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "about 50% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": null,
+      "likely": {
+       "glyph": "◉",
+       "title": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 50%, against under 1% for 'Keep current staffing'). It leaves out: How the team feels about a new hire."
+      },
+      "aim": "At least 100 a week",
+      "aim_id": "capacity_goal",
+      "title": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. It leaves out: How the team feels about a new hire.",
+      "chance": 0.4962,
+      "outcome": {
+       "low": 89.6795181966731,
+       "median": 99.92980796070435,
+       "high": 109.91851476864522,
+       "unit": "ticket/week",
+       "text": "between 89.7 and 110 tickets/week (middle 99.9)",
+       "title": "Under 'Add one specialist', 'total capacity' is likely to be in this range (8 draws in 10). It leaves out: How the team feels about a new hire."
+      },
+      "text": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [],
+       "approx": []
+      },
+      "if_approved": null,
+      "estimate": null
+     }
+    ],
+    "driver": {
+     "text": "under 1% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "under 1% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "per_specialist",
+     "low": 0,
+     "high": 1
+    },
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "morale_link",
+      "lead_doubt"
+     ],
+     "text": "↝ ⚑ +2",
+     "title": "relation: Add one specialist → team morale\ndissent: our team lead: A new hire may unsettle the team.",
+     "label": "Expand 2 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "committed": null,
+    "failed": [],
+    "failed_reason": null
+   }
+  ],
+  "links": [
+   {
+    "from": "per_specialist",
+    "to": "total_capacity",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”",
+    "effect": null
+   },
+   {
+    "from": "existing_capacity",
+    "to": "total_capacity",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "adds to · Theirs: “total is today plus the specialists”",
+    "effect": null
+   },
+   {
+    "from": "total_capacity",
+    "to": "capacity_goal",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "effect": null
+   },
+   {
+    "from": "capacity_target",
+    "to": "capacity_goal",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target",
+    "effect": null
+   },
+   {
+    "from": "add_one",
+    "to": "one_specialist",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "effect": null
+   },
+   {
+    "from": "one_specialist",
+    "to": "total_capacity",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through specialists, added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”",
+    "effect": null
+   }
+  ],
+  "run": {
+   "aim": "chance of ‘At least 100 a week’",
+   "lead": "In this model, on current information, each option’s chance of ‘At least 100 a week’:",
+   "all_withheld": false,
+   "most_likely": {
+    "text": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 50%, against under 1% for 'Keep current staffing').",
+    "title": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 50%, against under 1% for 'Keep current staffing'). It leaves out: How the team feels about a new hire.",
+    "rests_on": {
+     "reading": false,
+     "target": false,
+     "what_ifs": [],
+     "estimates": [],
+     "approx": []
+    },
+    "if_approved": null,
+    "estimate": null
+   },
+   "waits_on": null,
+   "notes": [
+    {
+     "text": "This leaves out: How the team feels about a new hire.",
+     "title": "This leaves out: How the team feels about a new hire."
+    }
+   ],
+   "science": [],
+   "sensitivity": {
+    "text": "These are its chances over the lowest and highest third of that figure's draws.",
+    "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+   },
+   "compared": [
+    {
+     "id": "F11",
+     "kind": "middle",
+     "line": "'Keep current staffing' · aim 'At least 100 a week' · on the middle figures: 80 tickets/week, misses it",
+     "hover": "option: 'Keep current staffing'; aim: 'At least 100 a week'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'total capacity' 80 tickets/week; target: >= 100 tickets/week; status: misses it. It leaves out: How the team feels about a new hire.",
+     "aim": "capacity_goal",
+     "option": "hold",
+     "versus": null,
+     "status": "missed",
+     "olumi": null
+    },
+    {
+     "id": "F12",
+     "kind": "middle",
+     "line": "'Add one specialist' · aim 'At least 100 a week' · on the middle figures: 100 tickets/week, meets it",
+     "hover": "option: 'Add one specialist'; aim: 'At least 100 a week'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'total capacity' 100 tickets/week; target: >= 100 tickets/week; status: meets it. It leaves out: How the team feels about a new hire.",
+     "aim": "capacity_goal",
+     "option": "add_one",
+     "versus": null,
+     "status": "met",
+     "olumi": null
+    }
+   ],
+   "compared_headings": {
+    "middle": "On the middle figures",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target"
+   }
+  },
+  "edit_base": 6,
+  "key": [
+   {
+    "id": "olumi",
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "id": "partly_olumi",
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "id": "approximate",
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "id": "assumption",
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "id": "dissent",
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "id": "challenge",
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "id": "focus",
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "id": "option",
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "id": "figure",
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "id": "aim",
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "id": "limit",
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "id": "risk",
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "id": "claim",
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "id": "evidence",
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "id": "prerequisite",
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "id": "outside_model",
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "id": "worked_out",
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "id": "unsized",
+    "glyph": "?",
+    "text": "unsized"
+   },
+   {
+    "id": "cannot_work_out",
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "id": "swing",
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "id": "most_likely",
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "id": "works_toward",
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "id": "works_against",
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "id": "both_ways",
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "id": "added",
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "id": "changed",
+    "glyph": "↻",
+    "text": "changed"
+   }
+  ],
+  "removed": [],
+  "aim": {
+   "quantity": "total_capacity",
+   "value": 100,
+   "unit": "ticket/week",
+   "text": "at least 100 tickets/week",
+   "title": "100 tickets/week",
+   "side": "at_least"
+  }
+ },
+ "proposal": null,
+ "collab": {
+  "alone": false,
+  "heading": "Team views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own view, private until revealed",
+  "can_reveal": false,
+  "waiting": "waiting for Paul, Sam",
+  "commitments": [],
+  "owners": [
+   {
+    "id": "1",
+    "name": "Paul"
+   },
+   {
+    "id": "2",
+    "name": "Sam"
+   },
+   {
+    "id": "3",
+    "name": "Kim"
+   }
+  ],
+  "records": [
+   {
+    "id": "existing_capacity",
+    "family": "quantity",
+    "label": "existing capacity"
+   },
+   {
+    "id": "per_specialist",
+    "family": "quantity",
+    "label": "per specialist"
+   },
+   {
+    "id": "specialists",
+    "family": "quantity",
+    "label": "specialists"
+   },
+   {
+    "id": "one_specialist",
+    "family": "quantity",
+    "label": "one specialist"
+   },
+   {
+    "id": "added_capacity",
+    "family": "quantity",
+    "label": "added capacity"
+   },
+   {
+    "id": "total_capacity",
+    "family": "quantity",
+    "label": "total capacity"
+   },
+   {
+    "id": "capacity_target",
+    "family": "quantity",
+    "label": "capacity target"
+   },
+   {
+    "id": "team_morale",
+    "family": "quantity",
+    "label": "team morale"
+   },
+   {
+    "id": "added_def",
+    "family": "relation",
+    "label": "how added capacity is worked out"
+   },
+   {
+    "id": "total_def",
+    "family": "relation",
+    "label": "how total capacity is worked out"
+   },
+   {
+    "id": "morale_link",
+    "family": "relation",
+    "label": "Add one specialist → team morale"
+   },
+   {
+    "id": "capacity_goal",
+    "family": "goal",
+    "label": "At least 100 a week"
+   },
+   {
+    "id": "hold",
+    "family": "option",
+    "label": "Keep current staffing"
+   },
+   {
+    "id": "add_one",
+    "family": "option",
+    "label": "Add one specialist"
+   },
+   {
+    "id": "lead_doubt",
+    "family": "dissent",
+    "label": "our team lead: A new hire may unsettle the team."
+   },
+   {
+    "id": "morale_left_out",
+    "family": "left_out",
+    "label": "How the team feels about a new hire"
+   }
+  ],
+  "dissent": [
+   {
+    "id": "lead_doubt",
+    "holder": "our team lead",
+    "position": "A new hire may unsettle the team.",
+    "holder_id": null,
+    "confirmed": null
+   }
+  ],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "The same chances in these draws",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without"
+  }
+ },
+ "evidence": [],
+ "chat": [
+  {
+   "id": 5,
+   "by": "Paul",
+   "version": "version 1",
+   "earlier": false,
+   "status": null,
+   "said": "Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing or add one specialist? We need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.",
+   "answer": {
+    "answer": [
+     {
+      "text": "Answer."
+     }
+    ],
+    "why": [],
+    "next": {
+     "label": "What evidence would settle it?",
+     "text": [
+      {
+       "text": "Check."
+      }
+     ],
+     "about": [],
+     "at": null,
+     "newest": true,
+     "move": "gather_evidence"
+    },
+    "stories": [],
+    "stories_heading": null
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "choice": null
+  }
+ ],
+ "brief": "Our team resolves 80 tickets a week. Each specialist adds about 20, somewhere between 10 and 30. Keep current staffing or add one specialist? We need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.",
+ "gated": true
+}

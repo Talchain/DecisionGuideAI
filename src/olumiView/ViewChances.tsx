@@ -29,12 +29,15 @@ function Mark({ at, mark }: { at: string; mark: { glyph: string; title: string }
 export function FindingLines({ at, row }: { at: string; row: ViewRow }) {
   const f = findingOf(row)
   return f.text === null ? null : (
-    <p data-view={`${at}.text`} title={f.rests_on_text ?? undefined} data-view-hover={f.rests_on_text === null ? undefined : `${at}.rests_on_text`}>{f.text}</p>
+    // The panel's body type, whatever it is drawn inside (the Summary's panel gave it none: R5, the look check's ~18 px line).
+    <p className={typography.panelBody} data-view={`${at}.text`} title={f.rests_on_text ?? undefined} data-view-hover={f.rests_on_text === null ? undefined : `${at}.rests_on_text`}>{f.text}</p>
   )
 }
 
 /** The hover for the most likely line: core's line on what it rests on when core gives one, else the line's own title. */
 export const mostLikelyHover = (ml: NonNullable<ViewRun['most_likely']>): string => mostLikelyBasisOf(ml).rests_on_text ?? ml.title
+
+const NBSP = '\u00a0'
 
 export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number }) {
   const at = `${card.id}.rows.${i}`
@@ -43,17 +46,18 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
       return (
         <div className="flex flex-wrap items-baseline gap-x-2" title={row.title} data-view-row={at}>
           <span data-view={`${at}.aim`}>{row.aim}</span>
-          <span className={typography.panelTabular}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
-          <Mark at={`${at}.olumi`} mark={row.olumi} />
-          <Mark at={`${at}.likely`} mark={row.likely} />
+          {/* Each mark follows the value's last word after a no-break space, so it wraps with that word, never alone (R5). */}
+          <span className={typography.panelTabular}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span>
+            {row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}
+            {row.likely === null ? null : <>{NBSP}<Mark at={`${at}.likely`} mark={row.likely} /></>}
+          </span>
         </div>
       )
     case 'limit':
       return (
         <div className="flex flex-wrap items-baseline gap-x-2" title={row.title} data-view-row={at}>
           <span data-view={`${at}.aim`}>{row.aim}</span>
-          <span className={typography.panelTabular} data-view={`${at}.value`}>{row.value}</span>
-          <Mark at={`${at}.olumi`} mark={row.olumi} />
+          <span className={typography.panelTabular}><span data-view={`${at}.value`}>{row.value}</span>{row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}</span>
         </div>
       )
     case 'none':

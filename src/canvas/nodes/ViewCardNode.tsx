@@ -13,6 +13,7 @@ import { useMemo } from 'react'
 import type { ViewCard as Card, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, type RestsOnItem } from '../../olumiView/layout'
+import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { useCanvasStore } from '../store'
 import { useViewStore } from '../../olumiView/store'
@@ -42,6 +43,7 @@ export const VIEW_CARD_SLOTS = {
 } as const
 const Slot = ({ name, className = '' }: { name: string; className?: string }) => <span data-slot={name} className={className} />
 
+const NBSP = '\u00a0'
 const Mark = ({ at, mark }: { at: string; mark: { glyph: string; title: string } | null }) => (
   mark === null ? null : <span title={mark.title} aria-label={mark.title} data-view={`${at}.glyph`}>{mark.glyph}</span>
 )
@@ -49,21 +51,35 @@ const Mark = ({ at, mark }: { at: string; mark: { glyph: string; title: string }
 /** One row of an option card, as core wrote it: a chance, a limit, or why there is none yet. */
 /** Core's ↻ "If approved" beside a Run-derived value while a pending proposal is shown (layout.ts ifApprovedMarkOf), bound to its key item. */
 type IfApproved = { glyph: string; title: string; i: number } | null
-const IfApprovedMark = ({ mark }: { mark: IfApproved }) => (
-  mark === null ? null : <span title={mark.title} aria-label={mark.title} data-if-approved="" data-view={`key.${mark.i}.glyph`}>{mark.glyph}</span>
+type ValueMark = { glyph: string; title: string; at: string } | null
+/**
+ * The mark beside one value: R5 core's own (`if_approved` on the value, only where the proposal moves it, its words verbatim), and on a core
+ * before R5 (no key) the R4 rule, every Run-derived value while a proposal is shown (`blanket`).
+ */
+function valueMark(x: object, at: string, blanket: IfApproved): ValueMark {
+  const core = ifApprovedFieldOf(x)
+  if (core !== undefined) return core === null ? null : { glyph: core.glyph, title: core.title, at: `${at}.if_approved.glyph` }
+  return blanket === null ? null : { glyph: blanket.glyph, title: blanket.title, at: `key.${blanket.i}.glyph` }
+}
+const IfApprovedMark = ({ mark }: { mark: ValueMark }) => (
+  mark === null ? null : <span title={mark.title} aria-label={mark.title} data-if-approved="" data-view={mark.at}>{mark.glyph}</span>
 )
 
 function Row({ id, row, i, ifApproved = null }: { id: string; row: ViewRow; i: number; ifApproved?: IfApproved }) {
   const at = `${id}.rows.${i}`
+  const moved = valueMark(row, at, ifApproved)
   switch (row.kind) {
     case 'chance':
       return (
-        <p className="flex flex-wrap items-baseline gap-x-1" title={row.title} data-view-row={at}>
-          <span data-view={`${at}.aim`}>{row.aim}</span>
-          <span className={typography.nodeValue}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
-          <Mark at={`${at}.olumi`} mark={row.olumi} />
-          <Mark at={`${at}.likely`} mark={row.likely} />
-          <IfApprovedMark mark={ifApproved} />
+        // Inline, never a flex row: each mark follows the value's last word after a no-break space, so it wraps with that word and never
+        // alone (R5, the real capacity board: a lone ◆ after "…does not happen").
+        <p title={row.title} data-view-row={at}>
+          <span data-view={`${at}.aim`}>{row.aim}</span>{' '}
+          <span className={typography.nodeValue}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span>
+            {row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}
+            {row.likely === null ? null : <>{NBSP}<Mark at={`${at}.likely`} mark={row.likely} /></>}
+            {moved === null ? null : <>{NBSP}<IfApprovedMark mark={moved} /></>}
+          </span>
         </p>
       )
     case 'limit':
@@ -77,12 +93,12 @@ function Row({ id, row, i, ifApproved = null }: { id: string; row: ViewRow; i: n
 }
 
 /** One option's row on a worked-out figure card: the option's number (O1, …) as the canvas numbers it, then core's line, two lines at most, whole on hover. */
-function OptionValueRow({ at, option, text, ifApproved = null }: { at: string; option: string; text: string; ifApproved?: IfApproved }) {
+function OptionValueRow({ at, option, text, mark = null }: { at: string; option: string; text: string; mark?: ValueMark }) {
   const n = useCardNumber(option)
   return (
     <p className="line-clamp-2" title={text} data-value-row={option}>
       {n === null ? null : <><span className="text-text-light font-normal tabular-nums" data-card-number={n}>{n}</span>{' '}</>}
-      <span data-view={at}>{text}</span>{ifApproved === null ? null : <>{' '}<IfApprovedMark mark={ifApproved} /></>}
+      <span data-view={at}>{text}</span>{mark === null ? null : <>{NBSP}<IfApprovedMark mark={mark} /></>}
     </p>
   )
 }
@@ -134,7 +150,8 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       </span>
       {ghost ? <p className="text-text-light" data-view={`${id}.change.title`}>{card.change!.title}</p> : null}
       {/* One block of inline words, so a wrapped title returns to the card's left edge under its number, as the original's did (R3 pristine). */}
-      <p data-view-title={id}>
+      {/* An option core gives a driver carries v10's 20 px driver badge at right-1 top-1, 12 px into this row: the title keeps that room. */}
+      <p data-view-title={id} className={card.family === 'option' && card.driver !== null ? 'pr-4' : undefined}>
         <span className="sr-only" data-view={`${id}.glyph`}>{card.glyph}</span>
         {number === null ? null : <><span className="text-text-light font-normal" data-card-number={number}>{number}</span>{' '}</>}
         {/* Core's detail ("… · quantity · Theirs: …") is its page's hover text, not a line: on the heading, whole (DL 4 Nov, Paul's rule). */}
@@ -154,7 +171,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
             // compact, two lines a row at most, the whole row on hover; core's sentence for every option stays the hover of the rows (R3 pristine).
             <div className={`${typography.nodeValue} min-w-0 flex-1 space-y-0.5 ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
               data-olumi={estimate || undefined} data-view-values={id}>
-              {card.values!.map((v, i) => <OptionValueRow key={v.option} at={`${id}.values.${i}.text`} option={v.option} text={v.text} ifApproved={ifApproved} />)}
+              {card.values!.map((v, i) => <OptionValueRow key={v.option} at={`${id}.values.${i}.text`} option={v.option} text={v.text} mark={valueMark(v, `${id}.values.${i}`, ifApproved)} />)}
             </div>
           ) : (
             <p className={`${typography.nodeValue} ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
@@ -164,14 +181,16 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
         </div>
       )}
       {card.figure === null ? null : <Slot name={VIEW_CARD_SLOTS.valuesBand} className="block empty:hidden" />}
-      {card.figure?.edit ? <span className={selected ? '' : 'invisible group-hover:visible'} data-at-rest-hidden=""><FigureEdit id={card.id} edit={card.figure.edit} {...(estimate ? { glyph: '✎', label: 'Give yours' } : {})} quiet={!selected} /></span> : null}
+      {/* At rest the ✎ shows on hover or selection; an OPEN editor (its form) or one holding focus stays shown whatever the pointer does
+          (R4 witness run 3: the card re-laid out taller moved from under the pointer and the re-laid node lost its selection, so Set hid). */}
+      {card.figure?.edit ? <span className={selected ? '' : 'invisible group-hover:visible has-[form]:visible focus-within:visible'} data-at-rest-hidden=""><FigureEdit id={card.id} edit={card.figure.edit} {...(estimate ? { glyph: '✎', label: 'Give yours' } : {})} quiet={!selected} /></span> : null}
       {card.rows.map((row, i) => (
         <span key={i} className="contents">
           <Row id={id} row={row} i={i} ifApproved={ifApproved} />
           {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
         </span>
       ))}
-      {card.badge === null ? null : <p className={selected ? '' : 'invisible group-hover:visible'} data-at-rest-hidden=""><Badge cardId={id} badge={card.badge} at={id} /></p>}
+      {card.badge === null ? null : <p className={selected ? '' : 'invisible group-hover:visible focus-within:visible'} data-at-rest-hidden=""><Badge cardId={id} badge={card.badge} at={id} /></p>}
       {/* An option the team committed to (olumi.view/3 `committed`, the newest commitment naming it): who, in the marks row; when, on hover. */}
       <span data-slot={VIEW_CARD_SLOTS.marks} className="flex gap-1 empty:hidden">
         {card.committed == null ? null : <span className="text-text-light" title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}

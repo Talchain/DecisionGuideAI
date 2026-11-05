@@ -45,11 +45,19 @@ import styles from '../canvas/conversation/Conversation.module.css'
 
 type Said = NonNullable<ViewTurn['answer']>['answer']
 
-function Words({ parts, at }: { parts: Said; at: string }) {
+/** How many cites core put in one block of a reply. */
+const citesIn = (parts: Said) => parts.flatMap((p) => ('cite' in p ? [p] : [])).length
+
+/**
+ * One block of a reply, in core's parts. Each cite is numbered by its place in the reply (`first` is this block's first number), with core's
+ * cite as its hover, verbatim (R5, the look check: a "◦" read as a stray dot). The number is a position, never a word of the UI's own.
+ */
+function Words({ parts, at, first = 1 }: { parts: Said; at: string; first?: number }) {
+  let n = first
   return (
     <>
       {parts.map((p, i) => ('cite' in p
-        ? <sup key={i} data-view-cite={`${at}.${i}.cite`} title={p.cite} aria-label={p.cite}>◦</sup>
+        ? <sup key={i} data-view-cite={`${at}.${i}.cite`} title={p.cite} aria-label={p.cite}>{n++}</sup>
         : <span key={i} data-view={`${at}.${i}.text`}>{p.text}</span>))}
     </>
   )
@@ -97,18 +105,22 @@ function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: 
     // One line under the reply, the whole of what was said on hover: a brief quoted in full repeated the person's own words (4 Nov drive).
     ? <p className={`${typography.chatMeta} text-text-light line-clamp-1`} title={t.said} data-testid="view-chat-in-reply">In reply to: <span data-view={`${at}.said`}>{t.said}</span></p>
     : <div className={styles.messageBubbleUser} data-testid="view-chat-said-bubble"><p className={typography.chatBody} data-view={`${at}.said`}>{t.said}</p></div>
+  // Each block's first cite number, in the reply's order: its answer, each Why line, its next step.
+  const whyFirst: number[] = []
+  let nextFirst = 1
+  if (t.answer !== null) { nextFirst += citesIn(t.answer.answer); for (const w of t.answer.why) { whyFirst.push(nextFirst); nextFirst += citesIn(w) } }
   const answer = t.answer === null ? null : (
     <div className={`${typography.chatBody} ${styles.markdownContent} ${styles.v2AssistantText} space-y-2`} data-testid="view-chat-answer">
       <p><Words parts={t.answer.answer} at={`${at}.answer.answer`} /></p>
       {t.answer.why.length === 0 ? null : (
         <details>
           <summary>Why</summary>
-          <ul className="list-disc pl-4">{t.answer.why.map((w, j) => <li key={j}><Words parts={w} at={`${at}.answer.why.${j}`} /></li>)}</ul>
+          <ul className="list-disc pl-4">{t.answer.why.map((w, j) => <li key={j}><Words parts={w} at={`${at}.answer.why.${j}`} first={whyFirst[j]} /></li>)}</ul>
         </details>
       )}
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
       <p tabIndex={t.answer.next.about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
-        onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} /></p>
+        onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>
       {moves && t.answer.next.newest ? <MoveTap turn={t.id} next={t.answer.next} /> : null}
       <Stories answer={t.answer} at={at} />
     </div>

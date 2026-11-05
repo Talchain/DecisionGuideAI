@@ -33,3 +33,36 @@ export function basisIdsOf(model: ViewModel): string[] {
   if (model.run?.most_likely != null) add(mostLikelyBasisOf(model.run.most_likely).rests_on)
   return out
 }
+
+/**
+ * R5 `if_approved` (poc-core-server, core wip/r5-if-approved c91f363, olumi.view/3, additive), read here until DGAI vendors that core: on each
+ * chance row, band entry and `run.most_likely`, core's own mark for a value a pending proposal moves ({ glyph, title }, title "if approved;
+ * now <the base version's value>"), null where nothing moves. Undefined on a core before R5 (no key), so the caller keeps its R4 rule there.
+ */
+export function ifApprovedFieldOf(x: object): { readonly glyph: string; readonly title: string } | null | undefined {
+  if (!('if_approved' in x)) return undefined
+  const v = (x as { if_approved?: { glyph: string; title: string } | null }).if_approved
+  return v == null ? null : v
+}
+
+/**
+ * R5 D7 view effects (science-coaching, core wip/science-d7-wire 307a70c and wip/science-d7-labels 066287e: `gap_text` and the row labels; olumi.view/3, additive), read here until DGAI vendors that core:
+ * on each shared view, `effects` (what each of its figures does when the model's Run is run again with it, typed, no words), and on the
+ * collab `effect_headings` (core's label for each status, and for a figure not run). A core before D7 has neither: no effects, no headings.
+ */
+export type ViewEffectRun = {
+  readonly quantity: string; readonly goal: string; readonly status: 'changes' | 'moves' | 'same'; readonly leader: string | null; readonly model_leader: string | null
+  readonly most: string | null; readonly gap_text?: string | null; readonly if_absent: readonly string[]
+}
+export type ViewEffect = ViewEffectRun | { readonly quantity: string; readonly refused: string }
+/** Core's labels: each status, a figure not run, and (core 066287e) the drawer's four row labels; a core before 066287e lacks those four. */
+export type EffectHeadings = { readonly changes: string; readonly moves: string; readonly same: string; readonly refused: string
+  readonly leader?: string; readonly model_leader?: string; readonly most?: string; readonly if_absent?: string }
+
+export function effectsOf(shared: object): readonly ViewEffect[] {
+  const e = (shared as { effects?: unknown }).effects
+  return Array.isArray(e) ? (e as ViewEffect[]) : []
+}
+export function effectHeadingsOf(collab: object): EffectHeadings | null {
+  return (collab as { effect_headings?: EffectHeadings | null }).effect_headings ?? null
+}
