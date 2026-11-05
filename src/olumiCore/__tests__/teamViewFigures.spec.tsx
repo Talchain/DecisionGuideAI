@@ -2,7 +2,7 @@
  * D7 from the screen (DL via github-3c, 5 Nov): "Add my view" carries the member's own figures, so a revealed view's what-ifs (D7) are
  * reachable without the API. One field per card core offers a figure edit for (`figure.edit`, labelled by the card's heading); each
  * figure goes to core as typed (`{ quantity, typed }`, read by core with the same parse as Set), with the approved version's number.
- * STAND-IN: core's views route takes `typed` from science's branch off 068f2f0 (SHA to come); re-pin then. Fixture: core's european golden.
+ * Core's views route takes `typed` (API v1.14; core wip/r6-integrate cfeb26b). Fixture: core's european golden.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'

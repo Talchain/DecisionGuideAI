@@ -105,7 +105,7 @@ export interface Invite { readonly id: string; readonly name: string; readonly b
 
 export const teamApi = {
   /** With figures (D7 from the screen, R5): each as the member typed it, which core reads with the same parse as Set, and the approved
-   *  version's number they were given against (core: required with any figure). STAND-IN: core's `typed` per figure, science's branch. */
+   *  version's number they were given against (core: required with any figure). Core's `typed` per figure (API v1.14, core cfeb26b). */
   giveView: (sid: string, text: string, figures: ReadonlyArray<{ readonly quantity: string; readonly typed: string }> = [], version: number | null = null) =>
     call<{ contribution: number }>('POST', `${base(sid)}/views`, figures.length === 0 ? { text } : { text, figures, version }),
   skipView: (sid: string) => call<{ contribution: number }>('POST', `${base(sid)}/views`, { skip: true }),
