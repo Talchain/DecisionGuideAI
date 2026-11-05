@@ -435,7 +435,10 @@ const d7a = await d7give(ada, 'Where we differ is a figure: here is mine.', [{ q
 const d7b = await d7give(bea, 'And mine, on the same figures.', [{ quantity: d7q1.id, value: d7end(d7q1, true) }, { quantity: d7q2.id, value: d7own(d7q2) }])
 check(d7a.ok && d7b.ok, `core takes each view with its figures, given against version ${d7v3.version.n} (Ada ${d7a.status}, Bea ${d7b.status}${d7a.ok && d7b.ok ? '' : `: ${JSON.stringify(d7a.ok ? d7b.body : d7a.body)}`})`)
 const d7ids = [d7a.body?.contribution, d7b.body?.contribution]
-check(await seen(ada, async () => { await teamCheck(ada); return await ada.page.getByTestId('team-reveal-go').isVisible({ timeout: 1000 }) }), 'the new round is ready, and Ada\'s Team tab offers its reveal')
+// One press, then the team rows' own cadence (a press every RECHECK_MS): pressed about once a second, each newer read dropped the answer
+// before it (store.ts, a newer read wins), so under DELAY_MS=3000 no answer ever landed (the integrator, on 00d1350).
+await teamCheck(ada)
+check(await seen(ada, async () => await ada.page.getByTestId('team-reveal-go').isVisible({ timeout: 1000 }), { recheck: true }), 'the new round is ready, and Ada\'s Team tab offers its reveal')
 await ada.page.getByTestId('team-reveal-go').click()
 // Within core's inline budget the effects are stored with the reveal; past it they come from the worker after it answers ([] until then).
 let d7v = await view3(ada, sid)
