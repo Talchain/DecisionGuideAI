@@ -419,7 +419,11 @@ const d7v3 = await view3(ada, sid)
 const d7form = (await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}`)).json(), sid)).version?.form ?? null
 const d7held = (d7form?.records ?? []).filter((r) => r.family === 'quantity' && r.role !== 'derived' && r.unit !== null && (r.assertion.kind === 'point' || r.assertion.kind === 'interval'))
 const d7driver = d7v3.model.cards.find((c) => c.family === 'option' && c.driver?.figure)?.driver.figure ?? null
-const d7q1 = d7held.find((r) => r.id === d7driver) ?? d7held[0], d7q2 = d7held.find((r) => r.id !== d7q1?.id)
+// The screen offers a field only for a card core gives a figure edit for (ViewsPanel `givable`), so the figures are chosen among those.
+const d7givable = new Set(d7v3.model.cards.filter((c) => c.figure?.edit).map((c) => c.id))
+check(d7driver === null || d7givable.has(d7driver), `the figure an option's chance moves most with ('${d7driver}') has a field in "Add my view"`)
+const d7offered = d7held.filter((r) => d7givable.has(r.id))
+const d7q1 = d7offered.find((r) => r.id === d7driver) ?? d7offered[0], d7q2 = d7offered.find((r) => r.id !== d7q1?.id)
 check(d7q1 !== undefined && d7q2 !== undefined, `the approved model holds two figures a member can give their own for ('${d7q1?.label}', '${d7q2?.label}')`)
 /** One end of the model's own figure for a quantity (its range's end, else half or double its value), inside its domain. */
 const d7end = (r, high) => {
@@ -427,10 +431,27 @@ const d7end = (r, high) => {
   return Math.min(Math.max(a.kind === 'interval' ? (high ? a.high : a.low) : (high ? a.value * 2 : a.value / 2), lo), hi)
 }
 const d7own = (r) => (r.assertion.kind === 'interval' ? (r.assertion.likely ?? (r.assertion.low + r.assertion.high) / 2) : r.assertion.value)
-const d7give = (p, text, figures) => p.page.evaluate(async ([s, body]) => {
-  const r = await fetch(`/api/scenarios/${s}/views`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
-  return { ok: r.ok, status: r.status, body: await r.json().catch(() => null) }
-}, [sid, { text, figures, version: d7v3.version.n }])
+/** A figure as a person types it: the number, with % for a figure on the 0–100 scale (the card's own convention). */
+const d7typed = (r, v) => `${Number(Number(v).toPrecision(6))}${r.unit === '%' ? '%' : ''}`
+/** D7 FROM THE SCREEN (R6, FL3-H): the member writes their view, types each figure into its card's field in "Add my view" and presses
+ *  Give; the result is core's answer to the POST the page sent. Before R6 this step posted with fetch, so no screen path was witnessed. */
+const d7give = async (p, text, figures) => {
+  await teamCheck(p)
+  await p.page.getByTestId('team-view-text').fill(text)
+  for (const f of figures) {
+    const r = d7held.find((x) => x.id === f.quantity), field = p.page.getByTestId(`team-view-figure-${f.quantity}`)
+    await field.waitFor({ timeout: T })
+    await field.fill(d7typed(r, f.value))
+  }
+  const [res] = await Promise.all([
+    p.page.waitForResponse((x) => x.url().endsWith(`/api/scenarios/${sid}/views`) && x.request().method() === 'POST', { timeout: T }),
+    p.page.getByTestId('team-view-give').click(),
+  ])
+  const sent = res.request().postDataJSON()
+  check(Array.isArray(sent?.figures) && sent.figures.length === figures.length && sent.figures.every((x) => typeof x.typed === 'string'),
+    `${p.name}'s view went from the screen with each figure as typed (${JSON.stringify(sent?.figures ?? null)})`)
+  return { ok: res.ok(), status: res.status(), body: await res.json().catch(() => null) }
+}
 const d7a = await d7give(ada, 'Where we differ is a figure: here is mine.', [{ quantity: d7q1.id, value: d7end(d7q1, false) }, { quantity: d7q2.id, value: d7own(d7q2) }])
 const d7b = await d7give(bea, 'And mine, on the same figures.', [{ quantity: d7q1.id, value: d7end(d7q1, true) }, { quantity: d7q2.id, value: d7own(d7q2) }])
 check(d7a.ok && d7b.ok, `core takes each view with its figures, given against version ${d7v3.version.n} (Ada ${d7a.status}, Bea ${d7b.status}${d7a.ok && d7b.ok ? '' : `: ${JSON.stringify(d7a.ok ? d7b.body : d7a.body)}`})`)
