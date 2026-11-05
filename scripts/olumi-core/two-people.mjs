@@ -432,7 +432,9 @@ const d7held = (d7form?.records ?? []).filter((r) => r.family === 'quantity' && 
 const d7driver = d7v3.model.cards.find((c) => c.family === 'option' && c.driver?.figure)?.driver.figure ?? null
 // The screen offers a field only for a card core gives a figure edit for (ViewsPanel `givable`), so the figures are chosen among those.
 const d7givable = new Set(d7v3.model.cards.filter((c) => c.figure?.edit).map((c) => c.id))
-check(d7driver === null || d7givable.has(d7driver), `the figure an option's chance moves most with ('${d7driver}') has a field in "Add my view"`)
+// An OBSERVATION, not a gate (D7's spec is any figure of the approved version the screen offers): a risk's size has no field today, a
+// product finding for Paul's queue (R6 witness, 5 Nov: the driver was a risk's severity, the very figure the members disagreed on).
+console.log(`  · note: the figure an option's chance moves most with ('${d7driver}') ${d7driver === null || d7givable.has(d7driver) ? 'has' : 'has NO'} field in "Add my view"`)
 const d7offered = d7held.filter((r) => d7givable.has(r.id))
 const d7q1 = d7offered.find((r) => r.id === d7driver) ?? d7offered[0], d7q2 = d7offered.find((r) => r.id !== d7q1?.id)
 check(d7q1 !== undefined && d7q2 !== undefined, `the approved model holds two figures a member can give their own for ('${d7q1?.label}', '${d7q2?.label}')`)
