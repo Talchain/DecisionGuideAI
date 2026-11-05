@@ -15,23 +15,10 @@ import { currentModel, useViewStore } from './store'
 import { clearWhatIf, useWhatIf } from './whatif'
 import { typography } from '../styles/typography'
 import type { OutputTab } from '../stores/uiStore'
-import { findingOf, mostLikelyBasisOf } from './standin'
+import { mostLikelyBasisOf } from './standin'
 
 function Mark({ at, mark }: { at: string; mark: { glyph: string; title: string } | null }) {
   return mark === null ? null : <span data-view={`${at}.glyph`} title={mark.title} aria-label={mark.title}>{mark.glyph}</span>
-}
-
-/**
- * Under an option's chance row on the Analysis tab: core's finding in at most two sentences (`text`), with core's line on what it rests
- * on (`rests_on_text`) as its hover, verbatim, never on screen: on real models that line runs to a paragraph (european, core 550ad5f),
- * the wall again (DL 4 Nov: provenance by icons and hover). The icons are the Rests on lens's marks on the cards it names.
- */
-export function FindingLines({ at, row }: { at: string; row: ViewRow }) {
-  const f = findingOf(row)
-  return f.text === null ? null : (
-    // The panel's body type, whatever it is drawn inside (the Summary's panel gave it none: R5, the look check's ~18 px line).
-    <p className={typography.panelBody} data-view={`${at}.text`} title={f.rests_on_text ?? undefined} data-view-hover={f.rests_on_text === null ? undefined : `${at}.rests_on_text`}>{f.text}</p>
-  )
 }
 
 /** The hover for the most likely line: core's line on what it rests on when core gives one, else the line's own title. */
@@ -272,7 +259,8 @@ export function ViewChances({ model }: { model: ViewModel }) {
       )}
       <SharedBlockers run={run} />
       <Sensitivity model={model} />
-      {optionCards(model).map((card) => <OptionLines key={card.id} card={card} after={(row, i) => <FindingLines at={`${card.id}.rows.${i}`} row={row} />} />)}
+      {/* Each chance's definition is core's row hover (its title), never body text (Paul's look check, R5 defect 2). */}
+      {optionCards(model).map((card) => <OptionLines key={card.id} card={card} />)}
       {run?.most_likely == null ? null : <MostLikely model={model} ml={run.most_likely} />}
       <Worth run={run} />
       {run === null || run.notes.length === 0 ? null : (

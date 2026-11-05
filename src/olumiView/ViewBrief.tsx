@@ -4,13 +4,13 @@
  * each option's chance rows, status and blockers, every string verbatim with core's hover. No sentence is written here and nothing is
  * worked out: an absent field draws nothing. Off the lane the legacy `DecisionBriefTrigger` (the adapter's saved model) stays.
  */
-import { Fragment, useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { FileText, X } from 'lucide-react'
 import { typography } from '../styles/typography'
 import { DECISION_BRIEF_TRIGGER_LABEL } from '../canvas/decisionBrief/DecisionBriefTrigger'
 import { allOptionCards } from './layout'
-import { FindingLines, mostLikelyHover } from './ViewChances'
+import { mostLikelyHover } from './ViewChances'
 import { currentModel, useViewStore } from './store'
 import type { View } from './types'
 
@@ -25,13 +25,9 @@ function OptionRows({ card }: { card: Card }) {
   return (
     <>
       {card.rows.map((row, i) => (
-        <Fragment key={i}>
-          <p title={row.title} className={typography.panelBody} data-view-brief-row={`${card.id}.${i}`}>
-            {row.kind === 'none' ? row.text : <>{row.aim} <span className={typography.panelTabular}>{row.kind === 'chance' ? row.approx : ''}{row.value}</span><MarkOf mark={row.olumi} />{row.kind === 'chance' ? <MarkOf mark={row.likely} /> : null}</>}
-          </p>
-          {/* Core's finding in at most two sentences, its line on what it rests on as the hover, as the Analysis tab draws them. */}
-          <FindingLines at={`${card.id}.rows.${i}`} row={row} />
-        </Fragment>
+        <p key={i} title={row.title} className={typography.panelBody} data-view-brief-row={`${card.id}.${i}`}>
+          {row.kind === 'none' ? row.text : <>{row.aim} <span className={typography.panelTabular}>{row.kind === 'chance' ? row.approx : ''}{row.value}</span><MarkOf mark={row.olumi} />{row.kind === 'chance' ? <MarkOf mark={row.likely} /> : null}</>}
+        </p>
       ))}
       {card.status === null ? null : <p className={typography.panelBody} data-view-brief-status={card.id}>{card.status}</p>}
       {card.reason === null ? null : <p className={typography.panelBody} data-view-brief-reason={card.id}>{card.reason}</p>}

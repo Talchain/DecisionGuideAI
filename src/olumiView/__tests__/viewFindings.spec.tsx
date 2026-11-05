@@ -34,25 +34,21 @@ const chanceRows = model.cards.flatMap((c) => c.rows.flatMap((r, i) => (r.kind =
 const occurrences = (hay: string, needle: string) => hay.split(needle).length - 1
 
 describe('each option\'s finding, not the wall', () => {
-  it('each option draws its finding in core\'s words, at most two sentences, and never the whole fact (the wall, still its hover)', () => {
+  // R5 look defect 2 (Paul's look check, 5 Nov): the finding sentence is a definition, so it is no longer drawn under the row; the row's
+  // hover is core's title, which opens with it (viewChanceHover.spec binds that on every golden).
+  it('each option draws no finding as body text, never the whole fact either; the row\'s hover is core\'s title', () => {
     expect(chanceRows.length).toBe(3)
     const c = render(<ViewChances model={model} />).container
     for (const { card, i, row } of chanceRows) {
-      const drawn = c.querySelector(`[data-view="${card.id}.rows.${i}.text"]`)?.textContent ?? ''
-      expect(drawn, card.id).toBe(row.text)
-      expect(drawn.match(/[.!?](\s|$)/g)?.length ?? 0, `${card.id}: sentences`).toBeLessThanOrEqual(2)
+      expect(c.querySelector(`[data-view="${card.id}.rows.${i}.text"]`), card.id).toBeNull()
+      expect(c.textContent?.includes(row.text), `${card.id}: the finding is not drawn as text`).toBe(false)
       expect(c.textContent?.includes(row.title), `${card.id}: the wall is not drawn as text`).toBe(false)
       expect(c.querySelector(`[data-view-row="${card.id}.rows.${i}"]`)?.getAttribute('title')).toBe(row.title)
     }
   })
-  it('core\'s rests_on_text is each finding\'s hover, verbatim (and the most likely line\'s), never drawn as text on screen', () => {
+  it('core\'s rests_on_text is never drawn as text on screen; the most likely line keeps it as its hover, verbatim', () => {
     const c = render(<ViewChances model={model} />).container, all = c.textContent ?? ''
-    for (const { card, i, row } of chanceRows) {
-      const f = c.querySelector(`[data-view-hover="${card.id}.rows.${i}.rests_on_text"]`)
-      expect(f?.getAttribute('title'), card.id).toBe(row.rests_on_text)
-      expect(f?.getAttribute('data-view'), card.id).toBe(`${card.id}.rows.${i}.text`)
-      expect(occurrences(all, row.rests_on_text), `${card.id}: not on screen`).toBe(0)
-    }
+    for (const { card, row } of chanceRows) expect(occurrences(all, row.rests_on_text), `${card.id}: not on screen`).toBe(0)
     expect(c.querySelector('[data-view-hover="run.most_likely.rests_on_text"]')?.getAttribute('title')).toBe('Rests on Olumi\'s reading of the aim.')
     expect(occurrences(all, 'Rests on Olumi\'s reading of the aim.')).toBe(0)
   })
@@ -63,17 +59,17 @@ describe('each option\'s finding, not the wall', () => {
     const plain = restsOnOf(golden.model!).items
     expect([plain.has('sales'), plain.has('oven_repair')]).toEqual([false, false])
   })
-  it('the Summary draws the same: each option\'s finding in core\'s words under its row with its basis as hover, the wall never as text', () => {
+  it('the Summary draws the same: no finding and no basis line as text, the wall never as text; the row\'s hover is core\'s title', () => {
     const c = render(<ViewBriefBody model={model} />).container, all = c.textContent ?? ''
     for (const { card, i, row } of chanceRows) {
-      expect(c.querySelector(`[data-view="${card.id}.rows.${i}.text"]`)?.textContent, card.id).toBe(row.text)
-      expect(c.querySelector(`[data-view-hover="${card.id}.rows.${i}.rests_on_text"]`)?.getAttribute('title'), card.id).toBe(row.rests_on_text)
+      expect(all.includes(row.text), `${card.id}: the finding is not drawn as text`).toBe(false)
+      expect(c.querySelector(`[data-view-brief-row="${card.id}.${i}"]`)?.getAttribute('title'), card.id).toBe(row.title)
       expect(occurrences(all, row.rests_on_text), card.id).toBe(0)
       expect(all.includes(row.title), `${card.id}: the wall is not drawn as text`).toBe(false)
     }
     expect(c.querySelector('[data-testid="view-brief-most-likely"]')?.getAttribute('title')).toBe('Rests on Olumi\'s reading of the aim.')
   })
-  it('core\'s own output (550ad5f) on every golden: each chance row\'s finding at most two sentences, drawn verbatim; each rests_on_text its hover, never on screen; every basis id on the lens', () => {
+  it('core\'s own output on every golden: each chance row\'s finding at most two sentences, opening its row\'s hover, never on screen; each rests_on_text never on screen; every basis id on the lens', () => {
     let rows = 0
     for (const g of ['app-launch', 'bakery', 'european', 'pricing', 'proposal', 's_ce285b3617bb', 'studio']) {
       const m = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${g}.view.json`), 'utf8')) as View).model!
@@ -83,11 +79,9 @@ describe('each option\'s finding, not the wall', () => {
         if (r.kind !== 'chance' || r.text === undefined) return
         rows += 1
         expect(r.text.match(/[.!?](\s|$)/g)?.length ?? 0, `${g} ${card.id}: sentences`).toBeLessThanOrEqual(2)
-        expect(c.querySelector(`[data-view="${card.id}.rows.${i}.text"]`)?.textContent, `${g} ${card.id}`).toBe(r.text)
-        if (r.rests_on_text !== undefined) {
-          expect(c.querySelector(`[data-view-hover="${card.id}.rows.${i}.rests_on_text"]`)?.getAttribute('title'), `${g} ${card.id}`).toBe(r.rests_on_text)
-          expect(all.includes(r.rests_on_text), `${g} ${card.id}: basis not on screen`).toBe(false)
-        }
+        expect(all.includes(r.text), `${g} ${card.id}: the finding is not on screen`).toBe(false)
+        expect(c.querySelector(`[data-view-row="${card.id}.rows.${i}"]`)?.getAttribute('title')?.startsWith(r.text), `${g} ${card.id}: it opens the row's hover`).toBe(true)
+        if (r.rests_on_text !== undefined) expect(all.includes(r.rests_on_text), `${g} ${card.id}: basis not on screen`).toBe(false)
         for (const id of [...(r.rests_on?.what_ifs ?? []), ...(r.rests_on?.estimates ?? []), ...(r.rests_on?.approx ?? [])]) {
           const on = m.cards.find((k) => k.id === id) ?? m.cards.find((k) => k.badge?.records.includes(id))
           if (on !== undefined) expect(items.has(on.id), `${g} ${card.id}: ${id} marked`).toBe(true)

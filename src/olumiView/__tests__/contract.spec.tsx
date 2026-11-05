@@ -88,10 +88,11 @@ describe('nothing the View says on a line is dropped (review 00049)', () => {
    * (olumi.view/3 at core c838f56: the run's low / median / high and unit, numbers for the option card's outcome band, the v10 slot under
    * status line 2), which no line of this block draws: deliberately exempt, so the band, not this list, owns it. Nor (core 550ad5f, the R3
    * Analysis wall) a finding's `rests_on` (record ids, the Rests on lens's marks) or its `rests_on_text` (the finding's hover, not words
-   * on screen: viewFindings.spec binds both); its `text` is drawn and walked here.
+   * on screen: viewFindings.spec binds both). Nor (R5 look defect 2, 5 Nov) a chance row's `text`, the chance's definition: it is the
+   * opening of the row's hover, core's `title`, asserted below for every line (viewChanceHover.spec binds it), never body text.
    */
   const shownStrings = (row: Record<string, unknown>, at: string): string[] => Object.entries(row).flatMap(([k, v]) =>
-    typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'aim_id' && k !== 'title' && k !== 'rests_on_text' ? [`${at}.${k}`] : [])
+    typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'aim_id' && k !== 'title' && k !== 'rests_on_text' && !(k === 'text' && row['kind'] === 'chance') ? [`${at}.${k}`] : [])
     : v !== null && typeof v === 'object' && k !== 'outcome' && k !== 'rests_on' ? shownStrings(v as Record<string, unknown>, `${at}.${k}`) : [])
   for (const n of GOLDEN) {
     it(`${n}: every word and mark on every option line is drawn, and each line carries core's hover`, () => {
