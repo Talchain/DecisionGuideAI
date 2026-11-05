@@ -406,6 +406,66 @@ v = await view(bea, sid)
 check(v.collab.shared.length === 2 && v.collab.mine.length === 0, 'core\'s View: two shared, none private')
 await shot(bea, '2-bea-revealed')
 
+// ── 2a. A member's figures as what-ifs (D7, core R5 066287e; ALPHA-PLAN FL3-H) ───────────────────────────────────────────────
+// After a reveal a new round opens as soon as anyone gives a view. Each gives a view with their own figures for figures of the approved
+// model. The Team tab has no figure entry, so the view goes in by core's own route from the person's own page (POST …/views with
+// `figures` and `version`, core API v1.11), never an admin key. Ada reveals the round; core runs each figure as a what-if on the model's
+// Run, on the same seed and draws, at most 3 per reveal in reveal order, so the 4th is not run (`limit`). No literal id or heading (real
+// AI names its own figures): the figure is the one core says an option's chance moves most with (`driver.figure`), at one end of the
+// model's own figure for it, so the answer can move; whether it changes which option is most likely or only moves the chances is core's
+// to say. Checked on core's typed v3 View, in core's words (`collab.effect_headings`, `gap_text`), never a format of ours.
+step('2a', 'Ada and Bea each give a view with their own figures; Ada reveals the round; core runs each figure as a what-if (D7)')
+const d7v3 = await view3(ada, sid)
+const d7form = (await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}`)).json(), sid)).version?.form ?? null
+const d7held = (d7form?.records ?? []).filter((r) => r.family === 'quantity' && r.role !== 'derived' && r.unit !== null && (r.assertion.kind === 'point' || r.assertion.kind === 'interval'))
+const d7driver = d7v3.model.cards.find((c) => c.family === 'option' && c.driver?.figure)?.driver.figure ?? null
+const d7q1 = d7held.find((r) => r.id === d7driver) ?? d7held[0], d7q2 = d7held.find((r) => r.id !== d7q1?.id)
+check(d7q1 !== undefined && d7q2 !== undefined, `the approved model holds two figures a member can give their own for ('${d7q1?.label}', '${d7q2?.label}')`)
+/** One end of the model's own figure for a quantity (its range's end, else half or double its value), inside its domain. */
+const d7end = (r, high) => {
+  const a = r.assertion, lo = r.domain?.lower ?? -Infinity, hi = r.domain?.upper ?? Infinity
+  return Math.min(Math.max(a.kind === 'interval' ? (high ? a.high : a.low) : (high ? a.value * 2 : a.value / 2), lo), hi)
+}
+const d7own = (r) => (r.assertion.kind === 'interval' ? (r.assertion.likely ?? (r.assertion.low + r.assertion.high) / 2) : r.assertion.value)
+const d7give = (p, text, figures) => p.page.evaluate(async ([s, body]) => {
+  const r = await fetch(`/api/scenarios/${s}/views`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  return { ok: r.ok, status: r.status, body: await r.json().catch(() => null) }
+}, [sid, { text, figures, version: d7v3.version.n }])
+const d7a = await d7give(ada, 'Where we differ is a figure: here is mine.', [{ quantity: d7q1.id, value: d7end(d7q1, false) }, { quantity: d7q2.id, value: d7own(d7q2) }])
+const d7b = await d7give(bea, 'And mine, on the same figures.', [{ quantity: d7q1.id, value: d7end(d7q1, true) }, { quantity: d7q2.id, value: d7own(d7q2) }])
+check(d7a.ok && d7b.ok, `core takes each view with its figures, given against version ${d7v3.version.n} (Ada ${d7a.status}, Bea ${d7b.status}${d7a.ok && d7b.ok ? '' : `: ${JSON.stringify(d7a.ok ? d7b.body : d7a.body)}`})`)
+const d7ids = [d7a.body?.contribution, d7b.body?.contribution]
+check(await seen(ada, async () => { await teamCheck(ada); return await ada.page.getByTestId('team-reveal-go').isVisible({ timeout: 1000 }) }), 'the new round is ready, and Ada\'s Team tab offers its reveal')
+await ada.page.getByTestId('team-reveal-go').click()
+// Within core's inline budget the effects are stored with the reveal; past it they come from the worker after it answers ([] until then).
+let d7v = await view3(ada, sid)
+for (const end = Date.now() + T; Date.now() < end; await ada.page.waitForTimeout(500)) {
+  d7v = await view3(ada, sid)
+  const s = (d7v.collab.shared ?? []).filter((x) => d7ids.includes(x.id))
+  if (s.length === 2 && s.every((x) => (x.effects ?? []).length > 0)) break
+}
+const d7shared = (d7v.collab.shared ?? []).filter((x) => d7ids.includes(x.id)), d7h = d7v.collab.effect_headings ?? null
+const d7effects = d7shared.flatMap((x) => (x.effects ?? []).map((e) => ({ ...e, by: x.by })))
+// Core's status for the driver figure must agree with core's own typed fields for it (github-3c, 5 Nov: a real model whose answer does not
+// move is a valid outcome, not a defect). `changes` only when the leader changes; `moves` only when the leader stays and the move is not
+// zero; `same` only when the leader stays and the move is within its own noise (its 95% interval holds zero, or no option moves at all).
+// A status its own fields contradict is ✗ (the negative control). Typed fields only: core's words are quoted, never parsed.
+// D7-STATUS-OK-BEGIN
+const d7statusOk = (e, h) => typeof h?.[e.status] === 'string' && h[e.status] !== '' && e.changes === (e.status === 'changes') && (
+  e.status === 'changes' ? e.leader !== e.model_leader
+    : e.status === 'moves' ? e.leader === e.model_leader && e.gap !== 0 && typeof e.gap_text === 'string' && e.gap_text !== ''
+      : e.status === 'same' ? e.leader === e.model_leader && (e.gap_text === null || (e.gap_low <= 0 && e.gap_high >= 0))
+        : false)
+// D7-STATUS-OK-END
+const d7ran = d7effects.filter((e) => e.quantity === d7q1.id && 'status' in e)
+check(d7shared.length === 2 && d7ran.length > 0 && d7ran.every((e) => d7statusOk(e, d7h)),
+  `core runs a figure for '${d7q1.label}' as a what-if on the same draws, and its status agrees with its own leaders and move: ${d7ran.map((e) => `${e.by}'s, "${d7h?.[e.status]}"${e.gap_text ? ` (${d7h?.most}: ${e.gap_text})` : ''}`).join('; ') || 'none run'}`)
+const d7limit = d7effects.filter((e) => e.refused === 'limit')
+check(d7limit.length === 1 && typeof d7h?.refused === 'string' && d7h.refused !== '',
+  `a reveal runs at most three figures: core does not run the fourth, and says so ("${d7h?.refused}"${d7limit.map((e) => `, ${e.by}'s '${e.quantity}'`).join('')})`)
+const d7bea = ((await view3(bea, sid)).collab.shared ?? []).filter((x) => d7ids.includes(x.id))
+check(d7bea.length === 2 && d7bea.every((x) => (x.effects ?? []).length > 0) && JSON.stringify(d7bea.map((x) => x.effects)) === JSON.stringify(d7shared.map((x) => x.effects)), 'Bea\'s View holds the same what-ifs as Ada\'s')
+
 // ── 3. The disagreement investigated: a challenge, through the chat ─────────────────────────────────────────────────────────────
 step(3, 'Bea investigates the disagreement: she asks Olumi in DGAI\'s chat (a question, no model change)')
 await tab(bea, 'olumi')
@@ -415,6 +475,25 @@ await bea.page.getByTestId('view-chat-working').waitFor({ state: 'detached', tim
 v = await view(bea, sid)
 check(v.chat.some((t) => t.said.includes('really add in the first month')), 'core holds Bea\'s question in the shared conversation')
 check(v.proposal === null && v.version.n === 1, 'a question changes nothing in the model')
+
+// ── 3a. A cold reopen (ALPHA-PLAN FL3-H) ─────────────────────────────────────────────────────────────────────────────────
+// Bea opens DGAI again from her own private link in a fresh browser (no cookie, nothing kept from the first), and asks a follow-up that
+// continues the conversation: the earlier turns are on her reopened screen, and her follow-up is answered in the same scenario's chat,
+// after them. Her first browser stays open for the steps after this one.
+step('3a', 'Bea reopens DGAI cold from her own link and asks a follow-up that continues the conversation')
+const d7cold = await person('Bea (reopened)', beaLink.pathname + beaLink.search)
+check(d7cold.page.url().includes(uuidOf(sid)), 'her own link, in a fresh browser, opens the same scenario in DGAI')
+await tab(d7cold, 'olumi')
+check(await seen(d7cold, async () => (await d7cold.page.locator('[data-view-turn]').allInnerTexts()).some((t) => t.includes('really add in the first month'))), 'the reopened chat shows her earlier question')
+await d7cold.page.fill('#view-chat-text', 'And after the first quarter?')
+await d7cold.page.getByRole('button', { name: 'Send', exact: true }).click()
+await d7cold.page.getByTestId('view-chat-working').waitFor({ state: 'detached', timeout: T }).catch(() => {})
+const d7chat = (await viewWhen(d7cold, sid, (x) => x.chat.some((t) => t.said.includes('after the first quarter') && (t.answer !== null || t.problem !== null)))).chat
+const d7was = d7chat.findIndex((t) => t.said.includes('really add in the first month')), d7now = d7chat.findIndex((t) => t.said.includes('after the first quarter'))
+check(d7was >= 0 && d7now > d7was && d7chat[d7now].by === 'Bea' && d7chat[d7now].answer !== null && d7chat[d7now].problem === null && d7chat[d7now].answer.next.newest === true,
+  'core keeps her follow-up in the same conversation, after her earlier question, and answers it there (its next step now the newest)')
+check(await seen(d7cold, async () => await d7cold.page.locator(`[data-view-turn="chat.${d7now}"] [data-testid="view-chat-answer"]`).count() === 1), 'the reopened screen shows Olumi\'s reply to the follow-up')
+await d7cold.ctx.close()
 
 // ── 4. Evidence ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 step(4, 'Bea adds evidence that challenges a card of the approved model')
