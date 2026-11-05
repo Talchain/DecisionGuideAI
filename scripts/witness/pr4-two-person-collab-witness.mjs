@@ -34,9 +34,13 @@
  * evidence file, and never put in a URL. Only lengths and SHA-256 prefixes.
  * The Supabase anon key is public by construction (it is in the shipped
  * bundle) but is still taken from the environment, never committed here.
+ * The owner account is ADMIN-CREATED (open sign-up is being closed on the
+ * shared project), so a live run also needs SUPABASE_SERVICE_ROLE_KEY in the
+ * environment, from a LOCAL env file only. It is sent on the admin call alone
+ * and never printed or written to the verdict.
  *
  * ── USAGE ─────────────────────────────────────────────────────────────────
- *   VITE_SUPABASE_URL=... VITE_SUPABASE_ANON_KEY=... \
+ *   VITE_SUPABASE_URL=... VITE_SUPABASE_ANON_KEY=... SUPABASE_SERVICE_ROLE_KEY=... \
  *   node scripts/witness/pr4-two-person-collab-witness.mjs \
  *     --origin https://staging--olumi.netlify.app \
  *     --scenario <uuid owned by the owner>        # optional; see leg 2
@@ -48,6 +52,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { createConfirmedUserAndSignIn, SERVICE_ROLE_KEY_ENV } from '../lib/supabase-admin-account.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const FIXTURES = path.join(HERE, 'fixtures', 'pr4-two-person-collab.json')
@@ -177,30 +182,39 @@ async function liveRun() {
 
   // ── leg 2: a REAL Supabase identity for the owner ──────────────────────
   // Throwaway, clearly labelled, reserved-TLD address. Never a real account.
+  // ADMIN-CREATED (30 Sep 2026): open sign-up is being closed on the shared
+  // Supabase project, so the owner is created with the admin API
+  // (auth.admin.createUser, email_confirm: true) and then signed in with the
+  // password grant on the public key. See scripts/lib/supabase-admin-account.mjs.
   const nonce = `${Date.now()}-${randomUUID().slice(0, 8)}`
   const ownerEmail = `olumi-witness+owner-${nonce}@example.test`
-  const ownerPassword = `Olumi-Witness-${nonce}-Aa1!`
-  const signupRes = await fetch(`${supabaseUrl}/auth/v1/signup`, {
-    method: 'POST',
-    headers: { apikey: anonKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: ownerEmail, password: ownerPassword }),
+  // Random, NOT derived from the nonce: the email (and so the nonce) is printed in
+  // the verdict, and an admin-created account persists until it is purged.
+  const ownerPassword = `Ow-${randomUUID()}-${randomUUID()}-Aa1!`
+  const owner = await createConfirmedUserAndSignIn({
+    supabaseUrl,
+    publicKey: anonKey,
+    serviceRoleKey: process.env[SERVICE_ROLE_KEY_ENV],
+    email: ownerEmail,
+    password: ownerPassword,
   })
-  const signup = await json(signupRes)
-  const accessToken = signup?.access_token ?? null
-  if (!accessToken) {
+  if (!owner.ok) {
     leg('2. owner identity (real Supabase session)', 'BLOCKED', {
-      http: signupRes.status,
-      code: signup?.error_code ?? signup?.code ?? null,
-      because: signup?.msg ?? 'no session returned',
-      remedy: 'Supabase → Authentication → Providers → Email: allow sign-ups, or pre-provision the witness account.',
+      http: owner.http,
+      step: owner.step,
+      because: owner.reason,
+      remedy:
+        `Export ${SERVICE_ROLE_KEY_ENV} from a LOCAL env file for this run (never commit it). ` +
+        'Do NOT re-open sign-up: witness accounts are admin-created.',
     })
     return
   }
+  const accessToken = owner.accessToken
   leg('2. owner identity (real Supabase session)', 'PASS', {
     owner_email: ownerEmail,
-    owner_user_id: signup?.user?.id ?? null,
+    owner_user_id: owner.userId,
     access_token_sha256_prefix: sha(accessToken),
-    method: 'email+password (auto-confirmed)',
+    method: 'admin createUser (email_confirm) + email/password sign-in',
   })
 
   // ── leg 3: the CONTROL, run before the acceptance path ─────────────────
