@@ -279,3 +279,26 @@ describe('where the note sits (Paul\'s pre-flight, 22 Oct: on the left it covere
     })
   })
 })
+
+describe('the note\'s Why is the note\'s, not the copy\'s (R6 witness, 5 Nov: open after the press, folded 1 s later)', () => {
+  const at = (turnId: string, why: string[]) => useCanvasStore.setState({
+    nodes: [{ id: ANCHOR, type: 'factor', position: { x: 0, y: 40 }, measured: { width: 200, height: 80 }, data: {} } as never],
+    edges: [],
+    olumiAttention: { nodeIds: [ANCHOR], edgeIds: [], note: { body: 'b', why } as never, caveat: null, turnId, modelVersion: null },
+  })
+  const why = () => screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-why`) as HTMLDetailsElement
+  const press = () => { why().open = !why().open; fireEvent(why(), new Event('toggle')) }
+  it('⭐ opened, it stays open when the note is drawn again; a newer reply\'s note starts folded', () => {
+    at('t1', ['The key premise is whether output holds.'])
+    const { rerender } = render(<OlumiAttentionCard />)
+    expect(why().open).toBe(false)
+    press()
+    expect(why().open).toBe(true)
+    at('t1', ['The key premise is whether output holds.'])
+    rerender(<OlumiAttentionCard />)
+    expect(why().open).toBe(true)
+    at('t2', ['A newer reason.'])
+    rerender(<OlumiAttentionCard />)
+    expect(why().open).toBe(false)
+  })
+})

@@ -283,6 +283,12 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   // already (Next step, the chat), so the canvas shows them once only on a press, and never covers cards on its own. The card keeps
   // core's focus ring; the icon sits at its edge. Which reply's note was opened, so a newer reply's starts folded again.
   const [openedKey, setOpenedKey] = useState<string | null>(null)
+  // ⛔ THE WHY'S OPEN STATE IS THE NOTE'S, NOT THE COPY'S (R6 witness, 5 Nov: open after the press, folded 1 s later, no newer reply).
+  // Opening it makes the note taller; with no room left on a real board the note is placed again in the Olumi tab, a new element, and
+  // an uncontrolled <details> there opened folded. Held here, every copy (canvas, tab, the measured one) draws it as the person left it;
+  // a newer reply's note starts folded, as `openedKey` does.
+  const whyKey = attention?.turnId ?? attention?.nodeIds[0] ?? attention?.edgeIds?.[0] ?? ''
+  const [whyOpenFor, setWhyOpenFor] = useState<string | null>(null)
   // The icon never sits under the top bar or the lens bar (DL 4 Nov): the lowest bottom of those over its column, in its frame, measured
   // after each render (an equal value bails out).
   const iconRef = useRef<HTMLButtonElement>(null)
@@ -591,7 +597,9 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
         ) : null}
         {note && note.why && note.why.length > 0 ? (
           // The producer's reasons, one press away, verbatim (W1 "Why ▸" on a finding): the chat's own disclosure, on the note.
-          <details className={`${typography.panelMeta} mt-1.5 text-text-body`} data-testid={live ? `${OLUMI_ATTENTION_CARD_TESTID}-why` : undefined}>
+          <details className={`${typography.panelMeta} mt-1.5 text-text-body`} data-testid={live ? `${OLUMI_ATTENTION_CARD_TESTID}-why` : undefined}
+            open={whyOpenFor === whyKey}
+            onToggle={(e) => { const o = e.currentTarget.open; if (live && o !== (whyOpenFor === whyKey)) setWhyOpenFor(o ? whyKey : null) }}>
             <summary className="cursor-pointer text-text-light">{ATTENTION_CARD_COPY.why}</summary>
             <ul className="mt-1 list-disc space-y-1 pl-4">{note.why.map((w, i) => <li key={i}>{w}</li>)}</ul>
           </details>
