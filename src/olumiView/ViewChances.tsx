@@ -50,6 +50,8 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
           <span className={typography.panelTabular}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span>
             {row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}
             {row.likely === null ? null : <>{NBSP}<Mark at={`${at}.likely`} mark={row.likely} /></>}
+            {/* R5 core's own mark where a pending proposal moves this value ("if approved; now …"), verbatim; none on a core before R5. */}
+            {row.if_approved == null ? null : <>{NBSP}<Mark at={`${at}.if_approved`} mark={row.if_approved} /></>}
           </span>
         </div>
       )
@@ -113,7 +115,7 @@ function MostLikely({ model, ml }: { model: ViewModel; ml: NonNullable<ViewRun['
   const card = ml.estimate === null ? undefined : model.cards.find((c) => c.id === ml.estimate && c.figure?.edit)
   return (
     <div title={mostLikelyHover(ml)} data-view-hover={mostLikelyBasisOf(ml).rests_on_text === null ? undefined : 'run.most_likely.rests_on_text'}>
-      <span data-view="run.most_likely.text">{ml.text}</span>
+      <span data-view="run.most_likely.text">{ml.text}</span>{ml.if_approved == null ? null : <>{NBSP}<Mark at="run.most_likely.if_approved" mark={ml.if_approved} /></>}
       {card === undefined ? null : <> <FigureEdit id={card.id} edit={card.figure!.edit} place="likely" glyph="✎" words={false} label={`Give your figure for ${card.heading}`} /></>}
     </div>
   )

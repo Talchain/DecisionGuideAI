@@ -14,9 +14,9 @@ import { ViewsPanel } from '../team/ViewsPanel'
 
 const read = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/r5', n), 'utf8'))
 type Effect = { quantity: string; status?: 'changes' | 'moves' | 'same'; refused?: string; goal?: string; leader?: string | null; model_leader?: string | null; most?: string | null; gap_text?: string | null; if_absent?: string[] }
-type Shared = View['collab']['shared'][number] & { effects: Effect[] }
+type Shared = Omit<View['collab']['shared'][number], 'effects'> & { effects: Effect[] }
 type Headings = Record<'changes' | 'moves' | 'same' | 'refused' | 'leader' | 'model_leader' | 'most' | 'if_absent', string>
-const sharedOf = (v: View) => v.collab.shared as Shared[]
+const sharedOf = (v: View) => v.collab.shared as unknown as Shared[]
 const headingsOf = (v: View) => (v.collab as unknown as { effect_headings: Headings }).effect_headings
 const headingOf = (v: View, id: string) => v.model!.cards.find((c) => c.id === id)!.heading
 const show = (v: View) => render(<ViewsPanel sid="s_x" view={v} onWrote={async () => true} />)

@@ -446,7 +446,8 @@
       "p50": 663.0754988387507,
       "p90": 1538.1500774262233,
       "if_absent": [],
-      "olumi": true
+      "olumi": true,
+      "if_approved": null
      },
      {
       "option": "single_country_test",
@@ -455,7 +456,8 @@
       "p50": 510.98840023662854,
       "p90": 1402.0826406474423,
       "if_absent": [],
-      "olumi": true
+      "olumi": true,
+      "if_approved": null
      },
      {
       "option": "no_new_european_entry",
@@ -464,7 +466,8 @@
       "p50": 471.7302972405148,
       "p90": 1408.9701836856868,
       "if_absent": [],
-      "olumi": true
+      "olumi": true,
+      "if_approved": null
      }
     ],
     "rests_on": [],
@@ -869,6 +872,7 @@
        "approx": []
       },
       "rests_on_text": "Rests on Olumi's reading of the aim, 3 what-ifs and 1 proposed figure; 4 assumptions and 1 condition.",
+      "if_approved": null,
       "estimate": null
      },
      {
@@ -1047,6 +1051,7 @@
        "approx": []
       },
       "rests_on_text": "Rests on Olumi's reading of the aim, 3 what-ifs and 1 proposed figure; 4 assumptions and 1 condition.",
+      "if_approved": null,
       "estimate": null
      },
      {
@@ -1186,6 +1191,7 @@
        "approx": []
       },
       "rests_on_text": "Rests on Olumi's reading of the aim, 1 what-if and 1 proposed figure; 4 assumptions.",
+      "if_approved": null,
       "estimate": null
      },
      {
@@ -1668,6 +1674,7 @@
      "approx": []
     },
     "rests_on_text": "Rests on Olumi's reading of the aim, 3 what-ifs and 1 proposed figure; 4 assumptions and 1 condition.",
+    "if_approved": null,
     "estimate": "broad_entry_acquisitions"
    },
    "waits_on": null,
@@ -2217,7 +2224,17 @@
     "label": "Monthly churn application frequency"
    }
   ],
-  "dissent": []
+  "dissent": [],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "The same chances in these draws",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without"
+  }
  },
  "evidence": [],
  "chat": [],

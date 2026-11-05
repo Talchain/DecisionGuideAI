@@ -243,7 +243,8 @@
       "p50": 369.96239436039934,
       "p90": 387.0940544324368,
       "if_absent": [],
-      "olumi": true
+      "olumi": true,
+      "if_approved": null
      },
      {
       "option": "longer_hours",
@@ -252,7 +253,8 @@
       "p50": 359.9971077421209,
       "p90": 379.7323179658307,
       "if_absent": [],
-      "olumi": false
+      "olumi": false,
+      "if_approved": null
      },
      {
       "option": "carry_on",
@@ -261,7 +263,8 @@
       "p50": 300,
       "p90": 300,
       "if_absent": [],
-      "olumi": false
+      "olumi": false,
+      "if_approved": null
      }
     ],
     "rests_on": [],
@@ -601,6 +604,7 @@
        "approx": []
       },
       "rests_on_text": "Rests on Olumi's what-if for 'extra sold per oven'.",
+      "if_approved": null,
       "estimate": null
      }
     ],
@@ -671,6 +675,7 @@
        "estimates": [],
        "approx": []
       },
+      "if_approved": null,
       "estimate": null
      }
     ],
@@ -741,6 +746,7 @@
        "estimates": [],
        "approx": []
       },
+      "if_approved": null,
       "estimate": null
      }
     ],
@@ -964,6 +970,7 @@
      ],
      "approx": []
     },
+    "if_approved": null,
     "estimate": "extra_sold_per_oven"
    },
    "waits_on": {
@@ -1357,7 +1364,17 @@
     "label": "The new oven needs a repair"
    }
   ],
-  "dissent": []
+  "dissent": [],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "The same chances in these draws",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without"
+  }
  },
  "evidence": [],
  "chat": [],

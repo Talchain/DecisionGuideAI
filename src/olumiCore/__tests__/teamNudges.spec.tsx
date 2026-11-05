@@ -21,7 +21,7 @@ const twoPeople = (over: Partial<View['collab']> = {}, view: Partial<View> = {})
   members: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Bea' }],
   collab: {
     alone: false, heading: 'Team views · 2', open: true,
-    shared: [{ id: 3, by: 'Bea', by_id: 'p_2', text: 'Hold until the pilot reports.', skip: false, figures: [] }],
+    shared: [{ id: 3, by: 'Bea', by_id: 'p_2', text: 'Hold until the pilot reports.', skip: false, figures: [], effects: [] }],
     mine: [{ id: 4, text: 'Enter one country first.', shared: false, skip: false, figures: [], can_share: false }],
     placeholder: 'Your own view, private until revealed', can_reveal: false, waiting: 'waiting for Bea',
     commitments: [{ id: 9, at: '2026-11-03T10:00:00Z', by: 'Ada', by_id: 'p_1', action: 'Pilot in Germany', owner: 'Bea', owner_id: 'p_2', expect: 'Ten customers by March', reconsider: 'Fewer than five by February', keeps: ['d_1'], option: null, version: null, expect_band: null, review_on: null,
@@ -29,6 +29,7 @@ const twoPeople = (over: Partial<View['collab']> = {}, view: Partial<View> = {})
     owners: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Bea' }],
     records: [...base.collab.records, { id: 'd_1', family: 'dissent', label: 'Bea: wait for the pilot' }, { id: 'gone', family: 'quantity', label: null }],
     dissent: [{ id: 'd_1', holder: 'Bea', position: 'Wait for the pilot before entering a second country.', holder_id: 'p_2', confirmed: null }],
+    effect_headings: base.collab.effect_headings,
     ...over,
   },
   evidence: [{ id: 5, at: '2026-11-03T09:00:00Z', by: 'Bea', by_id: 'p_2', text: 'Churn in DACH was 2 in 100.', source: 'https://example.org/churn', link: 'https://example.org/churn', concerns: [base.collab.records[0]!.id], stance: 'challenges', version: 1, considered: null }],
