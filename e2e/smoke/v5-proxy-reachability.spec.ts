@@ -162,16 +162,29 @@ test('OPTIONS /proxy/v5/turn handles empty-body preflight without 500', async ({
   expect(allowOrigin).not.toBeNull()
   expect(allowOrigin).toBe(STAGING_CEE_PROXY_ALLOWED_ORIGIN!)
   expect((allowMethods ?? '').toUpperCase()).toContain('POST')
-  // Real browsers will block the POST if these headers are missing from
-  // the preflight response. Asserting them surfaces CORS drift that
-  // would otherwise only manifest as a "CORS error" in users' browsers.
-  // Asserts every header the POST below actually sends is allowed by
-  // the preflight response. Real browsers will block the POST if any
-  // requested header is missing from this list.
+  // Asserts the CORS-UNSAFE headers the POST below sends are allowed by the
+  // preflight response. Real browsers block the POST if a cors-unsafe
+  // requested header is missing from this list, so asserting them surfaces
+  // CORS drift that would otherwise only manifest as a "CORS error" in
+  // users' browsers.
+  //
+  // `accept` is deliberately NOT asserted. It is a CORS-safelisted request
+  // header, so a browser does not check it against this list at all, and
+  // requiring it here produced a permanent false red: the deployed CEE
+  // preflight omits `accept`, yet a real browser sends the POST anyway.
+  // Measured 10 Sep 2026 from https://staging--olumi.netlify.app against
+  // cee-staging: a fetch carrying `Accept: application/json` reached the
+  // server and read a 422 body, while the contrast control — a header
+  // genuinely absent from CEE's allow-list (`X-Definitely-Not-Allowed`) —
+  // was BLOCKED with "Failed to fetch". The instrument therefore does
+  // discriminate; `accept` simply is not enforced.
+  //
+  // Finding, NOT fixed here (different repo): CEE answers OPTIONS and POST
+  // on this path with two DIFFERENT allow-header lists — the POST response
+  // does include `Accept`, the OPTIONS response does not.
   const allowHeadersRaw = response.headers()['access-control-allow-headers'] ?? null
   const allowHeadersCheck = headerListContainsAll(allowHeadersRaw, [
     'content-type',
-    'accept',
     'x-request-id',
   ])
   expect(
@@ -196,6 +209,20 @@ test('POST /proxy/v5/turn returns a V5 draft graph + analysis-ready envelope', a
     message: HIRING_BRIEF,
     stage: 'frame',
     turn_class: 'frame',
+    // REQUIRED by the shared contract. `MessageTurnPayloadSchema` declares
+    // `source: TurnSource` (NOT optional) — enum ["composer","chip",
+    // "chip_click","retry"] at @talchain/schemas 0.54.0
+    // (dist/boundary/enums.d.ts:24). Omitting it made this spec a broken
+    // alarm: CEE rejected every request at the ingress boundary with
+    // HTTP 422 INGRESS_CONTRACT_VIOLATION, issues[0] = {path: "source",
+    // message: "Required"}, so the gate could never pass and proved nothing.
+    //
+    // 'composer' is what the live UI sends for a free-text turn typed into
+    // the composer: `normaliseMessageSource()` in src/v5/buildPayload.ts
+    // returns 'composer' for every source that is not chip/chip_click/retry.
+    // That is the path this spec models — a plain brief plus an explicit
+    // "generate the model now" request.
+    source: 'composer',
     generate_model: true,
   }
 
