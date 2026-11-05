@@ -7,9 +7,12 @@
  * says); the card's other words open beside it on selection. Links run top to bottom, as the causal graph reads. Text is in the canvas
  * tokens, which carry the zoom counter-scale.
  */
-import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react'
+import { computeFitPadding } from '../utils/computeFitPadding'
+import { paddingToInsets } from '../utils/cameraComfort'
+import { panToKeepInView } from '../utils/keepInView'
 import { ChevronDown } from 'lucide-react'
-import { useMemo } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { ViewCard as Card, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, type RestsOnItem } from '../../olumiView/layout'
@@ -235,8 +238,46 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
  * #3): Ask Olumi and Challenge (which on this lane reach core: a challenge on core's own challenge route for this card, through the
  * Olumi tab, src/olumiView/ViewChat.tsx), and the card's coaching marker.
  */
+/**
+ * ⛔ AN OPEN EDITOR STAYS ON SCREEN (R5, github-3c on Paul's "visible through canvas reflow"; set-visible.mjs check 3: the card grew near the
+ * window's foot and Set ended 29 px below it). While this card's editor form is open, the canvas pans just enough to keep the whole form in
+ * the free canvas (the window less the camera's own insets: top bar, lens bar, dock), once per change of the form's place (its growth, or a
+ * re-layout that moves the card). Only the viewport moves: never the pointer, never focus.
+ */
+function useOpenEditorInView(): React.RefObject<HTMLDivElement> {
+  const rf = useReactFlow()
+  const box = useRef<HTMLDivElement>(null), last = useRef('')
+  const keep = useCallback(() => {
+    const form = box.current?.querySelector('form[data-testid^="view-figure-form-"]')
+    if (!form) { last.current = ''; return }
+    const r = form.getBoundingClientRect(), key = [r.left, r.top, r.right, r.bottom].map((v) => Math.round(v)).join(',')
+    if (key === last.current) return
+    last.current = key
+    const flow = document.querySelector('.react-flow'), f = flow?.getBoundingClientRect() ?? { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }
+    const pad = paddingToInsets(computeFitPadding(flow))
+    const { dx, dy } = panToKeepInView(r, { left: f.left + pad.left, top: f.top + pad.top, right: f.right - pad.right, bottom: f.bottom - pad.bottom })
+    if (dx === 0 && dy === 0) return
+    const v = rf.getViewport()
+    void rf.setViewport({ x: v.x + dx, y: v.y + dy, zoom: v.zoom })
+  }, [rf])
+  // After every render (a re-layout moves the card); an unchanged form place bails out
+  useLayoutEffect(() => { keep() })
+  // The form opening or growing (core's refusal under it, a wrapped line) is the editor's own state, with no render of this node.
+  useEffect(() => {
+    const el = box.current
+    if (el === null) return
+    const mo = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => keep())
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => keep())
+    mo?.observe(el, { childList: true, subtree: true })
+    ro?.observe(el)
+    return () => { mo?.disconnect(); ro?.disconnect() }
+  }, [keep])
+  return box
+}
+
 export function ViewCardNode({ id, data, selected }: NodeProps) {
   const { card } = data as ViewCardData
+  const inView = useOpenEditorInView()
   const restsOn = useRestsOnItem(id)
   const driverOf = useDriverOf(id)
   const number = useCardNumber(id)
@@ -251,7 +292,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const ifApproved = useMemo(() => ifApprovedMarkOf(view), [view])
   const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] === id)
   return (
-    <div className="group/vcard relative">
+    <div ref={inView} className="group/vcard relative">
       <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
       <ViewCard card={card} selected={selected === true} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
