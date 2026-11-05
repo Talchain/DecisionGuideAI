@@ -61,7 +61,7 @@ export function ViewLensBar(): JSX.Element {
         const selected = id === lens, Icon = LENS_ICON[id], count = id === 'rests_on' ? olumi : 0, waiting = !usable(id)
         return (
           <button key={id} ref={(el) => { if (el) buttons.current.set(id, el); else buttons.current.delete(id) }} type="button" role="radio"
-            aria-checked={selected} aria-disabled={waiting || undefined} tabIndex={selected ? 0 : -1} data-testid={`${LENS_BAR_TESTID}-${id}`} title={waiting ? LENS_COPY.needsRun : compact ? LENS_COPY.label[id] : LENS_COPY.hint[id]}
+            aria-checked={selected} aria-disabled={waiting || undefined} tabIndex={selected ? 0 : -1} data-testid={`${LENS_BAR_TESTID}-${id}`} title={waiting ? LENS_COPY.needsRun : compact || id === 'tradeoffs' ? LENS_COPY.label[id] : LENS_COPY.hint[id]}
             aria-label={id === 'rests_on' && count > 0 ? `${LENS_COPY.label[id]}, ${LENS_COPY.count.rests_on(count)}` : LENS_COPY.label[id]}
             onClick={() => { if (!waiting) useViewLens.setState({ lens: id }) }}
             className={`${typography.panelBody} inline-flex h-full items-center gap-1.5 rounded-full border px-3 transition-colors duration-200 ${selected ? 'border-panel-border bg-[var(--panel-tab-active-bg)] text-text-header' : waiting ? 'cursor-default border-transparent text-text-light/60' : 'border-transparent text-text-light hover:text-text-body'} ${ACTION_FOCUS}`}>
