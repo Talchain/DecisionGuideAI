@@ -31,7 +31,7 @@ import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { viewportCentredInFreePane } from '../canvas/utils/fitIntoFreePane'
 import { placeViewCards, useViewHover, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
-import { readableFirstViewport } from './camera'
+import { boardKeyOf, readableFirstViewport } from './camera'
 import { drawnHeightsKey, headOf, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
 import { useV10Lane, ViewCardV10 } from './v10'
@@ -78,7 +78,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
     const v = frameFor(viewNodes(getNodes()), pane.current)
     if (v) void setViewport(v, { duration: DURATION })
   }, [getNodes, setViewport])
-  const version = useViewStore((s) => (s.sid !== null && s.view?.version ? `${s.sid}:${s.view.version.id}` : ''))
+  const version = useViewStore((s) => boardKeyOf(s.sid, s.view))
   useEffect(() => {
     if (version === '') return
     userMoved.current = false
