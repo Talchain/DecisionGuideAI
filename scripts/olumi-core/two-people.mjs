@@ -223,9 +223,12 @@ check(tabbedTo?.inCard === keyCard.id, `keyboard: Enter selects a card and Tab r
 await ada.page.keyboard.press('Shift+Tab')
 const ring = await ada.page.evaluate((id) => { const el = document.querySelector(`.react-flow__node[data-id="${id}"]`); const cs = getComputedStyle(el); return { focus: document.activeElement === el && el.matches(':focus-visible'), outline: `${cs.outlineStyle} ${cs.outlineWidth}` } }, keyCard.id)
 check(ring.focus && ring.outline.startsWith('solid'), `keyboard: a focused card shows the canvas's focus ring (${ring.outline})`)
+// The lens after Model is the bar's own next button, read from the page (R6: Trade-offs sits second, lens.ts VIEW_LENSES), never a fixed id.
+const lensOrder = await ada.page.$$eval('[data-testid^="lens-bar-"][aria-checked]', (els) => els.map((e) => e.getAttribute('data-testid')))
+const nextLens = lensOrder[lensOrder.indexOf('lens-bar-full') + 1]
 await ada.page.getByTestId('lens-bar-full').focus()
 await ada.page.keyboard.press('ArrowRight')
-check(await ada.page.getByTestId('lens-bar-rests_on').getAttribute('aria-checked') === 'true' && await ada.page.evaluate(() => document.activeElement?.getAttribute('data-testid')) === 'lens-bar-rests_on', 'keyboard: the arrow keys move along the lens bar and switch the lens')
+check(nextLens !== undefined && await ada.page.getByTestId(nextLens).getAttribute('aria-checked') === 'true' && await ada.page.evaluate(() => document.activeElement?.getAttribute('data-testid')) === nextLens, `keyboard: the arrow keys move along the lens bar and switch the lens (Model → ${nextLens}; bar ${lensOrder.join(', ')})`)
 await ada.page.keyboard.press('ArrowLeft')
 check(await ada.page.getByTestId('lens-bar-full').getAttribute('aria-checked') === 'true', 'keyboard: back to Model')
 // Focusing a card pans it into view; Fit to view puts the board back as it opens, for the rows that follow.
