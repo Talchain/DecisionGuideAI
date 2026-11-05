@@ -93,6 +93,7 @@ import {
   openStrategicChallenge,
   genuineDecision,
   decisionWithLeaderWithheld,
+  withOutcomeWords,
 } from './analysisNewFixtures'
 
 const PROVENANCE = 'analysis-new-glance-input-provenance'
@@ -104,13 +105,14 @@ const PROVENANCE = 'analysis-new-glance-input-provenance'
  * Exactly one field is set here (`inputProvenance`), because the fixtures carry
  * no factor value sources and that is the field under test.
  */
-const glanceOf = (data: ResultsSectionDataReturn) =>
+const glanceOf = (data: ResultsSectionDataReturn, analysisIdentityIsCurrent = false) =>
   buildAnalysisNewViewModel({
     data,
     recommendations: [],
     isPreRun: false,
     isRunning: false,
     isStale: false,
+    analysisIdentityIsCurrent,
   }).atAGlance
 
 const draw = (glance: ReturnType<typeof glanceOf>) =>
@@ -197,7 +199,9 @@ describe('the condition line needs a reading to condition', () => {
     // Without this the fix above is indistinguishable from deleting the line.
     // Bound by IDENTITY (the kind attribute), never by a value another element
     // could satisfy.
-    draw({ ...glanceOf(genuineDecision()), inputProvenance: 'undetermined' })
+    // NO WIN SHARE (Paul 21 Oct): the reading it qualifies is now CEE's outcome words, on a current Run.
+    // A current Run also carries its conditional-input basis, which takes this line's place; this twin is about the line.
+    draw({ ...glanceOf(withOutcomeWords(genuineDecision()), true), inputProvenance: 'undetermined', conditionalInputBasis: null })
     const line = screen.getByTestId(PROVENANCE)
     expect(line).toHaveAttribute('data-input-provenance', 'undetermined')
     expect(line).toHaveTextContent(
@@ -223,7 +227,7 @@ describe('the condition line needs a reading to condition', () => {
      */
     const g = glanceOf(genuineDecision())
     expect(g.headline, 'precondition: the producer still names a leader in the DATA').not.toBeNull()
-    draw({ ...g, winShare: null, winFraction: null, inputProvenance: 'estimated' })
+    draw({ ...g, winShare: null, inputProvenance: 'estimated' })
     expect(screen.queryByTestId('analysis-new-glance-headline'), 'the leader is not rendered').toBeNull()
     expect(screen.queryByTestId('analysis-new-glance-win-share')).not.toBeInTheDocument()
     expect(

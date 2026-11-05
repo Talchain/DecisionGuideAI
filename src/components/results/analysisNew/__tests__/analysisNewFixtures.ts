@@ -499,3 +499,17 @@ export function manyFragileEdges(): ResultsSectionDataReturn {
 export const uncertaintyDerivedFindings = (
   vm: Pick<AnalysisNewViewModel, 'uncertainty' | 'sensitivity'>,
 ): AnalysisNewFinding[] => [...vm.sensitivity.findings, ...vm.uncertainty.findings]
+
+/**
+ * CEE's `OPTION_OUTCOME_WORDS` record (Paul 21 Oct: no win share), as the Run stores it beside the licence. The glance says
+ * these words verbatim (`optionOutcomeWords.ts`) where the share sentence used to be.
+ */
+export const OUTCOME_WORDS_RECORD = {
+  code: 'OPTION_OUTCOME_WORDS', severity: 'info', message: "Their likely ranges overlap, so this model can't clearly separate them.",
+  options: [{ option_id: 'o_3pl', words: 'With the data provided, Moving to a 3PL most likely gives about £1.2m (likely £0.9m–£1.5m).' }],
+  separation: 'overlap',
+} as const
+export const OUTCOME_READING = `${OUTCOME_WORDS_RECORD.options[0].words} ${OUTCOME_WORDS_RECORD.message}`
+export function withOutcomeWords(data: ResultsSectionDataReturn): ResultsSectionDataReturn {
+  return { ...data, confidence: { ...data.confidence, inferenceWarnings: [...(data.confidence?.inferenceWarnings ?? []), OUTCOME_WORDS_RECORD] } } as ResultsSectionDataReturn
+}
