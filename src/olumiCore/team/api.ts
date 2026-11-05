@@ -104,7 +104,10 @@ export interface OutcomeInput { readonly happened: string; readonly versus: stri
 export interface Invite { readonly id: string; readonly name: string; readonly by: string; readonly made: string; readonly expires: string | null; readonly status: string; readonly revocable: boolean }
 
 export const teamApi = {
-  giveView: (sid: string, text: string) => call<{ contribution: number }>('POST', `${base(sid)}/views`, { text }),
+  /** With figures (D7 from the screen, R5): each as the member typed it, which core reads with the same parse as Set, and the approved
+   *  version's number they were given against (core: required with any figure). STAND-IN: core's `typed` per figure, science's branch. */
+  giveView: (sid: string, text: string, figures: ReadonlyArray<{ readonly quantity: string; readonly typed: string }> = [], version: number | null = null) =>
+    call<{ contribution: number }>('POST', `${base(sid)}/views`, figures.length === 0 ? { text } : { text, figures, version }),
   skipView: (sid: string) => call<{ contribution: number }>('POST', `${base(sid)}/views`, { skip: true }),
   reveal: (sid: string) => call<{ revealed: number[] }>('POST', `${base(sid)}/reveal`),
   /** One's own view shown to the team before the round's reveal (olumi-core API v1.12, 3b2ba2d: `POST …/views/:id/reveal` → `{ revealed: [id] }`). */

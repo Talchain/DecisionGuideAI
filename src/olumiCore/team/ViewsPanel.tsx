@@ -70,6 +70,13 @@ function Effects({ at, view, figures, effects, headings }: { at: string; view: V
 export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element {
   const c = view.collab
   const [text, setText, dropText] = useDraft(`${sid}:view`, '')
+  // D7 from the screen (R5): a figure of the member's own for each card core offers a figure edit for, given with the view. Core takes
+  // figures of the approved version only, so none are offered before one, or while a pending proposal is the model shown.
+  const shownIsProposal = view.proposal !== null && view.model?.edit_base === null
+  const givable = view.version === null || shownIsProposal ? [] : (view.model?.cards ?? []).filter((card) => card.figure?.edit)
+  const [typed, setTyped] = useState<Record<string, string>>({})
+  const figures = givable.flatMap((card) => ((typed[card.id] ?? '').trim() === '' ? [] : [{ quantity: card.id, typed: typed[card.id]! }]))
+  const dropView = () => { dropText(); setTyped({}) }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // A view and a reveal have no operation id in core: one whose answer was lost may have been saved, so it is not sent again (`writes.ts`).
@@ -145,8 +152,20 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
           aria-label={c.placeholder} placeholder={c.placeholder} data-testid="team-view-text" className={`${FIELD} min-h-[72px]`}
           value={text} disabled={busy || sending || viewLocked} onChange={(e) => { setText(e.target.value); if (error) setError(null) }}
         />
+        {givable.length === 0 ? null : (
+          <div className="grid gap-1" data-testid="team-view-figures">
+            {givable.map((card) => (
+              <label key={card.id} className={`${META} grid gap-0.5`} title={card.figure!.edit!.prompt}>
+                <span className="text-text-header">{card.heading}</span>
+                <input type="text" autoComplete="off" spellCheck={false} data-testid={`team-view-figure-${card.id}`} className={FIELD} placeholder={card.figure!.text}
+                  value={typed[card.id] ?? ''} disabled={busy || sending || viewLocked}
+                  onChange={(e) => { const v = e.target.value; setTyped((t) => ({ ...t, [card.id]: v })); if (error) setError(null) }} />
+              </label>
+            ))}
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-3">
-          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === ''} onClick={() => void run(`${sid}:view`, () => teamApi.giveView(sid, text), dropText)}>Add my view</Button>
+          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === ''} onClick={() => void run(`${sid}:view`, () => teamApi.giveView(sid, text, figures, view.version?.n ?? null), dropView)}>Add my view</Button>
           <button
             type="button" data-testid="team-view-skip" disabled={busy || sending || viewLocked}
             className={`${META} cursor-pointer underline underline-offset-2 hover:text-text-body disabled:opacity-50`}
