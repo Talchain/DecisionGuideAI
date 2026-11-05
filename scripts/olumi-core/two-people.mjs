@@ -269,11 +269,14 @@ if (NOTE_TAB_AT) check(inTab, `with Ada's window at ${NOTE_TAB_AT.join('×')}, t
 const where = inTab ? 'in the Olumi tab (no free spot on the canvas)' : 'on the canvas'
 check((await note.innerText()).includes(nextWords), `Olumi's note ${where} says it: "${nextWords}"`)
 // W1 "Why ▸" on a finding: the reply's reasons behind the note's Why, in core's words.
-const whyWords = (v.chat.find((t) => t.answer?.next.newest)?.answer?.why ?? []).map((w) => w.map((p) => p.text ?? '').join('').trim()).filter(Boolean)
+// Compared with whitespace collapsed on both sides: a reason holding a fact cite is [text, cite, text], and the note draws its words only
+// (DGAI note.ts: cites are marks, not words), so the DOM keeps the double space the cite leaves and innerText collapses it (R4 witness, 5 Nov).
+const squash = (t) => t.replace(/\s+/g, ' ').trim()
+const whyWords = (v.chat.find((t) => t.answer?.next.newest)?.answer?.why ?? []).map((w) => squash(w.map((p) => p.text ?? '').join(''))).filter(Boolean)
 if (whyWords.length > 0) {
   const why = note.getByTestId('olumi-attention-card-why')
   await why.locator('summary').click()
-  const said = await why.innerText()
+  const said = squash(await why.innerText())
   check(whyWords.every((w) => said.includes(w)), `the note's Why says core's reasons ("${whyWords[0]}")`)
   await why.locator('summary').click()
 } else ok('this reply gives no reasons, so the note has no Why')
