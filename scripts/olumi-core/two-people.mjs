@@ -277,6 +277,8 @@ if (whyWords.length > 0) {
   const why = note.getByTestId('olumi-attention-card-why')
   await why.locator('summary').click()
   const said = squash(await why.innerText())
+  console.log(`  · the note's Why on screen: ${JSON.stringify(said)} · core's reasons: ${JSON.stringify(whyWords)}`)
+  await shot(ada, 'w-note-why-open')
   check(whyWords.every((w) => said.includes(w)), `the note's Why says core's reasons ("${whyWords[0]}")`)
   await why.locator('summary').click()
 } else ok('this reply gives no reasons, so the note has no Why')
@@ -523,6 +525,15 @@ await reasoning.getByRole('button', { name: 'Cancel', exact: true }).click()
 await tab(ada, 'olumi')
 
 // ── 5b. The person's own figure, changed on its card ────────────────────────────────────────────────────────────────────────────
+const setState = async (id, tag) => {
+  const b = ada.page.getByTestId(`view-figure-set-${id}`)
+  const st = await b.evaluate((e) => { const r = e.getBoundingClientRect(), cs = getComputedStyle(e), wrap = e.closest('[data-at-rest-hidden]'), pcs = wrap ? getComputedStyle(wrap) : null, par = getComputedStyle(e.parentElement)
+    return { visible: e.checkVisibility({ visibilityProperty: true, opacityProperty: true }), rect: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)], visibility: cs.visibility,
+      wrapper: pcs ? { visibility: pcs.visibility, display: pcs.display } : null, parent: { display: par.display, overflow: par.overflow }, inViewport: r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth } }).catch((x) => ({ error: String(x) }))
+  console.log(`  · Set button ${id} (${tag}): ${JSON.stringify(st)}`)
+  await shot(ada, `w-5b-set-${tag}`)
+  return st
+}
 step('5b', 'Ada changes a figure on its card in DGAI, typed as she would say it; core reads it and both screens show it')
 const editable = v.model.cards.find((c) => c.figure?.edit)
 check(editable !== undefined, `core offers a figure to change ("${editable?.heading}")`)
@@ -536,6 +547,7 @@ await shot(ada, '5b-reached')
 await ada.page.locator(`.react-flow__node[data-id="${editable.id}"]`).hover()
 await ada.page.getByTestId(`view-figure-edit-${editable.id}`).click()
 await ada.page.getByTestId(`view-figure-typed-${editable.id}`).fill('lots')
+await setState(editable.id, 'first')
 await ada.page.getByTestId(`view-figure-set-${editable.id}`).click()
 await ada.page.getByTestId(`view-figure-error-${editable.id}`).waitFor({ timeout: T })
 check((await ada.page.getByTestId(`view-figure-error-${editable.id}`).innerText()) === editable.figure.edit.ask, 'a figure core cannot read is refused in the card\'s own words')
@@ -566,6 +578,7 @@ check(await ada.page.locator('[data-whatif-mark]').count() === 0, 'Clear removes
 await ada.page.getByTestId('lens-bar-full').click()
 check(await ada.page.getByTestId('view-whatif-key').count() === 0, 'back on Model, the key is gone')
 await ada.page.getByTestId(`view-figure-typed-${editable.id}`).fill('15 to 25')
+await setState(editable.id, 'second')
 await ada.page.getByTestId(`view-figure-set-${editable.id}`).click()
 await ada.page.getByTestId(`view-figure-form-${editable.id}`).waitFor({ state: 'detached', timeout: T })
 v = await view(ada, sid)
