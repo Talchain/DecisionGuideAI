@@ -185,7 +185,8 @@
       "p50": 80,
       "p90": 80,
       "if_absent": [],
-      "olumi": false
+      "olumi": false,
+      "if_approved": null
      },
      {
       "option": "add_one",
@@ -194,7 +195,11 @@
       "p50": 104.92980796070435,
       "p90": 114.91851476864522,
       "if_absent": [],
-      "olumi": false
+      "olumi": false,
+      "if_approved": {
+       "glyph": "↻",
+       "title": "if approved; now about 99.9 tickets/week (89.7 to 110 tickets/week)"
+      }
      }
     ],
     "rests_on": [],
@@ -305,6 +310,7 @@
        "estimates": [],
        "approx": []
       },
+      "if_approved": null,
       "estimate": null
      }
     ],
@@ -365,6 +371,10 @@
        "what_ifs": [],
        "estimates": [],
        "approx": []
+      },
+      "if_approved": {
+       "glyph": "↻",
+       "title": "if approved; now about 50% chance"
       },
       "estimate": null
      }
@@ -543,6 +553,10 @@
      "what_ifs": [],
      "estimates": [],
      "approx": []
+    },
+    "if_approved": {
+     "glyph": "↻",
+     "title": "if approved; now If Olumi's estimates hold, 'Add one specialist' is more likely to achieve 'At least 100 a week' in this model (about 50%, against under 1% for 'Keep current staffing'); it rests on Olumi's estimate of 'per specialist' — give yours with ✎."
     },
     "estimate": null
    },
@@ -878,7 +892,17 @@
     "holder_id": null,
     "confirmed": null
    }
-  ]
+  ],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "The same chances in these draws",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without"
+  }
  },
  "evidence": [],
  "chat": [

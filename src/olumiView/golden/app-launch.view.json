@@ -1228,7 +1228,17 @@
     "label": "The supplied one-star rating is retained as the feared type of review associated with the negative-review risk. It is not used as a numerical measure of user trust or as a release threshold."
    }
   ],
-  "dissent": []
+  "dissent": [],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "The same chances in these draws",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without"
+  }
  },
  "evidence": [],
  "chat": [],

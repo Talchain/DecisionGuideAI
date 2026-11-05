@@ -179,7 +179,8 @@
       "p50": 6985.7864462053185,
       "p90": 7820.149703344684,
       "if_absent": [],
-      "olumi": true
+      "olumi": true,
+      "if_approved": null
      },
      {
       "option": "carry_on",
@@ -188,7 +189,8 @@
       "p50": 6200,
       "p90": 6200,
       "if_absent": [],
-      "olumi": false
+      "olumi": false,
+      "if_approved": null
      }
     ],
     "rests_on": [],
@@ -313,6 +315,7 @@
        "approx": []
       },
       "rests_on_text": "Rests on Olumi's what-if for 'cups change'.",
+      "if_approved": null,
       "estimate": null
      }
     ],
@@ -377,6 +380,7 @@
        "estimates": [],
        "approx": []
       },
+      "if_approved": null,
       "estimate": null
      }
     ],
@@ -493,6 +497,7 @@
      ],
      "approx": []
     },
+    "if_approved": null,
     "estimate": "cups_change"
    },
    "waits_on": null,
@@ -777,7 +782,17 @@
     "label": "Keep the price"
    }
   ],
-  "dissent": []
+  "dissent": [],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "The same chances in these draws",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without"
+  }
  },
  "evidence": [],
  "chat": [],

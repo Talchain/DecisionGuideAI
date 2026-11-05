@@ -106,6 +106,10 @@ export type View = {
           approx: Array<string>
         }
         rests_on_text?: string
+        if_approved: {
+          glyph: string
+          title: string
+        } | null
         estimate: string | null
       } | {
         kind: "limit"
@@ -159,6 +163,10 @@ export type View = {
         p90: number
         if_absent: Array<string>
         olumi: boolean
+        if_approved: {
+          glyph: string
+          title: string
+        } | null
       }> | null
       rests_on: Array<{
         id: string
@@ -220,6 +228,10 @@ export type View = {
           approx: Array<string>
         }
         rests_on_text?: string
+        if_approved: {
+          glyph: string
+          title: string
+        } | null
         estimate: string | null
       } | null
       waits_on: {
@@ -382,6 +394,40 @@ export type View = {
         high: number
         range_kind: "bounds" | "plausible"
       }>
+      effects: Array<{
+        quantity: string
+        goal: string
+        status: "changes" | "moves" | "same"
+        changes: boolean
+        leader: string | null
+        model_leader: string | null
+        depends: string | null
+        model_depends: string | null
+        estimate: string | null
+        model_estimate: string | null
+        most: string | null
+        gap: number
+        gap_low: number
+        gap_high: number
+        gap_text: string | null
+        olumi: boolean
+        rests: Array<string>
+        if_absent: Array<string>
+        options: Array<{
+          option: string
+          model: number
+          view: number
+          model_exact: boolean
+          view_exact: boolean
+          gap: number
+          gap_low: number
+          gap_high: number
+          differ: number
+        }>
+      } | {
+        quantity: string
+        refused: "no_such_figure" | "worked_out" | "structure" | "no_figure" | "no_unit" | "other_unit" | "not_a_figure" | "outside" | "option_left_out" | "cannot_run" | "runs_differently" | "too_large" | "other_draws" | "model_moved_on" | "limit"
+      }>
     }>
     mine: Array<{
       id: number
@@ -478,6 +524,16 @@ export type View = {
         tell: string | null
       } | null
     }>
+    effect_headings: {
+      changes: string
+      moves: string
+      same: string
+      refused: string
+      leader: string
+      model_leader: string
+      most: string
+      if_absent: string
+    }
   }
   evidence: Array<{
     id: number

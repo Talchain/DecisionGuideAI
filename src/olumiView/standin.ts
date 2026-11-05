@@ -38,6 +38,7 @@ export function basisIdsOf(model: ViewModel): string[] {
  * R5 `if_approved` (poc-core-server, core wip/r5-if-approved c91f363, olumi.view/3, additive), read here until DGAI vendors that core: on each
  * chance row, band entry and `run.most_likely`, core's own mark for a value a pending proposal moves ({ glyph, title }, title "if approved;
  * now <the base version's value>"), null where nothing moves. Undefined on a core before R5 (no key), so the caller keeps its R4 rule there.
+ * Vendored at the R5 core e72288c (types.ts carries it, required); this reader stays for fixtures and cores from before R5.
  */
 export function ifApprovedFieldOf(x: object): { readonly glyph: string; readonly title: string } | null | undefined {
   if (!('if_approved' in x)) return undefined
@@ -49,6 +50,7 @@ export function ifApprovedFieldOf(x: object): { readonly glyph: string; readonly
  * R5 D7 view effects (science-coaching, core wip/science-d7-wire 307a70c and wip/science-d7-labels 066287e: `gap_text` and the row labels; olumi.view/3, additive), read here until DGAI vendors that core:
  * on each shared view, `effects` (what each of its figures does when the model's Run is run again with it, typed, no words), and on the
  * collab `effect_headings` (core's label for each status, and for a figure not run). A core before D7 has neither: no effects, no headings.
+ * Vendored at the R5 core e72288c (types.ts carries both, required); these readers stay for fixtures and cores from before D7.
  */
 export type ViewEffectRun = {
   readonly quantity: string; readonly goal: string; readonly status: 'changes' | 'moves' | 'same'; readonly leader: string | null; readonly model_leader: string | null

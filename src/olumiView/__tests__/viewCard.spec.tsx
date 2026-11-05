@@ -127,7 +127,7 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
 })
 
 describe('the compact face (Paul 4 Nov: the causal graph reads; every word of core\'s still reachable)', () => {
-  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.text|rows\..*|badge.*)$/ // values: the figure's per-option rows (R3 pristine)
+  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.(text|if_approved\.glyph)|rows\..*|badge.*)$/ // values: the figure's per-option rows (R3 pristine) and core's R5 mark beside each
   const MORE = /^[^.]+\.(status|reason|bound\..*|premises\..*)$/
   for (const n of GOLDEN) {
     it(`${n}: unselected, a card shows only its glyph, heading, marks, figure and rows (an assumption its reason); the rest opens on selection`, () => {

@@ -17,9 +17,13 @@ import type { View } from '../client'
 import { ifApprovedMarkOf } from '../layout'
 import { ViewCard, ViewCardNode } from '../../canvas/nodes/ViewCardNode'
 import { useViewStore } from '../store'
+import { ViewChances } from '../ViewChances'
 
 const read = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', n), 'utf8'))
-const pending = read('proposal.view.json'), none = read('european.view.json')
+// The R4 rule is the fallback for a core before R5, which sends no `if_approved` key: since the R5 vendor (core e72288c) the goldens carry
+// core's own marks, so these rows read them with the key taken out, as such a core gives them.
+const beforeR5 = (v: View): View => JSON.parse(JSON.stringify(v, (k, x) => (k === 'if_approved' ? undefined : x)))
+const pending = beforeR5(read('proposal.view.json')), none = beforeR5(read('european.view.json'))
 const held: View = { ...pending, model: { ...pending.model!, edit_base: pending.version!.id } }
 const changed = pending.model!.key.findIndex((k) => k.id === 'changed')
 afterEach(() => { cleanup(); useViewStore.setState({ view: null }) })
@@ -67,8 +71,11 @@ describe('while core shows a pending proposal, every Run-derived line carries â†
  * `if_approved: { glyph, title }` (title "if approved; now <the base version's value>", in core's words), null where nothing moves. Drawn
  * verbatim beside the value; it replaces the blanket mark wherever core sends the key. Fixture: core's own proposal golden at c91f363.
  */
-describe('R5: core\'s own if_approved, only on the values a pending proposal moves', () => {
-  const r5: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/r5', 'proposal.view3.json'), 'utf8'))
+describe.each([
+  ['core c91f363\'s fixture', 'src/olumiView/fixtures/r5/proposal.view3.json'],
+  ['the vendored golden (core e72288c)', 'src/olumiView/golden/proposal.view.json'],
+])('R5: core\'s own if_approved, only on the values a pending proposal moves (%s)', (_name, file) => {
+  const r5: View = JSON.parse(readFileSync(path.resolve(file), 'utf8'))
   const blanket = ifApprovedMarkOf(r5)
   type Marked = { if_approved?: { glyph: string; title: string } | null }
 
@@ -88,6 +95,21 @@ describe('R5: core\'s own if_approved, only on the values a pending proposal mov
     }
     expect(seen).toContain('if approved; now about 50% chance')
     expect(seen).toContain(null)
+  })
+
+  it('the Analysis tab: each chance row and the most likely line carry core\'s mark verbatim where core gives one, none where null', () => {
+    const model = r5.model!
+    const { container } = render(<ViewChances model={model} />)
+    const seen: (string | null)[] = []
+    for (const card of model.cards.filter((c) => c.family === 'option' && c.status === null)) card.rows.forEach((r, i) => {
+      if (r.kind !== 'chance') return
+      const core = (r as Marked).if_approved ?? null, m = container.querySelector(`[data-view="${card.id}.rows.${i}.if_approved.glyph"]`)
+      expect([m?.textContent ?? null, m?.getAttribute('title') ?? null], `${card.id} ${i}`).toEqual(core === null ? [null, null] : [core.glyph, core.title])
+      seen.push(core?.title ?? null)
+    })
+    expect(seen.some((t) => t !== null) && seen.some((t) => t === null)).toBe(true)
+    const ml = (model.run?.most_likely ?? null) as Marked | null, m = container.querySelector('[data-view="run.most_likely.if_approved.glyph"]')
+    expect([m?.textContent ?? null, m?.getAttribute('title') ?? null]).toEqual(ml?.if_approved == null ? [null, null] : [ml.if_approved.glyph, ml.if_approved.title])
   })
 
   it('each option\'s value on a worked-out figure: core\'s mark where it moved, none where it did not', () => {

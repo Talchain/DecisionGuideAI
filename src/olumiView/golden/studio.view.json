@@ -213,7 +213,8 @@
       "p50": 2759.211381632416,
       "p90": 2876.256859711379,
       "if_absent": [],
-      "olumi": false
+      "olumi": false,
+      "if_approved": null
      },
      {
       "option": "weekend_workshops",
@@ -222,7 +223,8 @@
       "p50": 2580,
       "p90": 2580,
       "if_absent": [],
-      "olumi": true
+      "olumi": true,
+      "if_approved": null
      },
      {
       "option": "carry_on",
@@ -231,7 +233,8 @@
       "p50": 2400,
       "p90": 2400,
       "if_absent": [],
-      "olumi": false
+      "olumi": false,
+      "if_approved": null
      }
     ],
     "rests_on": [],
@@ -527,6 +530,7 @@
        "estimates": [],
        "approx": []
       },
+      "if_approved": null,
       "estimate": null
      }
     ],
@@ -632,6 +636,7 @@
        "approx": []
       },
       "rests_on_text": "Rests on Olumi's proposed figure for 'workshop extra'.",
+      "if_approved": null,
       "estimate": null
      }
     ],
@@ -696,6 +701,7 @@
        "estimates": [],
        "approx": []
       },
+      "if_approved": null,
       "estimate": null
      }
     ],
@@ -916,6 +922,7 @@
      ],
      "approx": []
     },
+    "if_approved": null,
     "estimate": "workshop_extra"
    },
    "waits_on": {
@@ -1287,7 +1294,17 @@
     "holder_id": null,
     "confirmed": null
    }
-  ]
+  ],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "The same chances in these draws",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without"
+  }
  },
  "evidence": [],
  "chat": [],

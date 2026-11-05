@@ -511,6 +511,29 @@
               "rests_on_text": {
                "type": "string"
               },
+              "if_approved": {
+               "anyOf": [
+                {
+                 "type": "object",
+                 "properties": {
+                  "glyph": {
+                   "type": "string"
+                  },
+                  "title": {
+                   "type": "string"
+                  }
+                 },
+                 "required": [
+                  "glyph",
+                  "title"
+                 ],
+                 "additionalProperties": false
+                },
+                {
+                 "type": "null"
+                }
+               ]
+              },
               "estimate": {
                "type": [
                 "string",
@@ -530,6 +553,7 @@
               "title",
               "chance",
               "outcome",
+              "if_approved",
               "estimate"
              ],
              "additionalProperties": false
@@ -811,6 +835,29 @@
               },
               "olumi": {
                "type": "boolean"
+              },
+              "if_approved": {
+               "anyOf": [
+                {
+                 "type": "object",
+                 "properties": {
+                  "glyph": {
+                   "type": "string"
+                  },
+                  "title": {
+                   "type": "string"
+                  }
+                 },
+                 "required": [
+                  "glyph",
+                  "title"
+                 ],
+                 "additionalProperties": false
+                },
+                {
+                 "type": "null"
+                }
+               ]
               }
              },
              "required": [
@@ -820,7 +867,8 @@
               "p50",
               "p90",
               "if_absent",
-              "olumi"
+              "olumi",
+              "if_approved"
              ],
              "additionalProperties": false
             }
@@ -1157,6 +1205,29 @@
               "rests_on_text": {
                "type": "string"
               },
+              "if_approved": {
+               "anyOf": [
+                {
+                 "type": "object",
+                 "properties": {
+                  "glyph": {
+                   "type": "string"
+                  },
+                  "title": {
+                   "type": "string"
+                  }
+                 },
+                 "required": [
+                  "glyph",
+                  "title"
+                 ],
+                 "additionalProperties": false
+                },
+                {
+                 "type": "null"
+                }
+               ]
+              },
               "estimate": {
                "type": [
                 "string",
@@ -1167,6 +1238,7 @@
              "required": [
               "text",
               "title",
+              "if_approved",
               "estimate"
              ],
              "additionalProperties": false
@@ -2047,6 +2119,209 @@
           }
          ]
         }
+       },
+       "effects": {
+        "type": "array",
+        "items": {
+         "anyOf": [
+          {
+           "type": "object",
+           "properties": {
+            "quantity": {
+             "type": "string"
+            },
+            "goal": {
+             "type": "string"
+            },
+            "status": {
+             "type": "string",
+             "enum": [
+              "changes",
+              "moves",
+              "same"
+             ]
+            },
+            "changes": {
+             "type": "boolean"
+            },
+            "leader": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "model_leader": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "depends": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "model_depends": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "estimate": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "model_estimate": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "most": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "gap": {
+             "type": "number"
+            },
+            "gap_low": {
+             "type": "number"
+            },
+            "gap_high": {
+             "type": "number"
+            },
+            "gap_text": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "olumi": {
+             "type": "boolean"
+            },
+            "rests": {
+             "type": "array",
+             "items": {
+              "type": "string"
+             }
+            },
+            "if_absent": {
+             "type": "array",
+             "items": {
+              "type": "string"
+             }
+            },
+            "options": {
+             "type": "array",
+             "items": {
+              "type": "object",
+              "properties": {
+               "option": {
+                "type": "string"
+               },
+               "model": {
+                "type": "number"
+               },
+               "view": {
+                "type": "number"
+               },
+               "model_exact": {
+                "type": "boolean"
+               },
+               "view_exact": {
+                "type": "boolean"
+               },
+               "gap": {
+                "type": "number"
+               },
+               "gap_low": {
+                "type": "number"
+               },
+               "gap_high": {
+                "type": "number"
+               },
+               "differ": {
+                "type": "number"
+               }
+              },
+              "required": [
+               "option",
+               "model",
+               "view",
+               "model_exact",
+               "view_exact",
+               "gap",
+               "gap_low",
+               "gap_high",
+               "differ"
+              ],
+              "additionalProperties": false
+             }
+            }
+           },
+           "required": [
+            "quantity",
+            "goal",
+            "status",
+            "changes",
+            "leader",
+            "model_leader",
+            "depends",
+            "model_depends",
+            "estimate",
+            "model_estimate",
+            "most",
+            "gap",
+            "gap_low",
+            "gap_high",
+            "gap_text",
+            "olumi",
+            "rests",
+            "if_absent",
+            "options"
+           ],
+           "additionalProperties": false
+          },
+          {
+           "type": "object",
+           "properties": {
+            "quantity": {
+             "type": "string"
+            },
+            "refused": {
+             "type": "string",
+             "enum": [
+              "no_such_figure",
+              "worked_out",
+              "structure",
+              "no_figure",
+              "no_unit",
+              "other_unit",
+              "not_a_figure",
+              "outside",
+              "option_left_out",
+              "cannot_run",
+              "runs_differently",
+              "too_large",
+              "other_draws",
+              "model_moved_on",
+              "limit"
+             ]
+            }
+           },
+           "required": [
+            "quantity",
+            "refused"
+           ],
+           "additionalProperties": false
+          }
+         ]
+        }
        }
       },
       "required": [
@@ -2055,7 +2330,8 @@
        "by_id",
        "text",
        "skip",
-       "figures"
+       "figures",
+       "effects"
       ],
       "additionalProperties": false
      }
@@ -2548,6 +2824,46 @@
       ],
       "additionalProperties": false
      }
+    },
+    "effect_headings": {
+     "type": "object",
+     "properties": {
+      "changes": {
+       "type": "string"
+      },
+      "moves": {
+       "type": "string"
+      },
+      "same": {
+       "type": "string"
+      },
+      "refused": {
+       "type": "string"
+      },
+      "leader": {
+       "type": "string"
+      },
+      "model_leader": {
+       "type": "string"
+      },
+      "most": {
+       "type": "string"
+      },
+      "if_absent": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "changes",
+      "moves",
+      "same",
+      "refused",
+      "leader",
+      "model_leader",
+      "most",
+      "if_absent"
+     ],
+     "additionalProperties": false
     }
    },
    "required": [
@@ -2562,7 +2878,8 @@
     "commitments",
     "owners",
     "records",
-    "dissent"
+    "dissent",
+    "effect_headings"
    ],
    "additionalProperties": false
   },
