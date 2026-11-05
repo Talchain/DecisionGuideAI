@@ -526,13 +526,26 @@ await ada.page.getByTestId('view-chat-proposal').waitFor({ timeout: T })
 await tab(ada, 'analysisNew')
 check(await ada.page.getByTestId('view-reasoning').count() === 0, 'while the proposal is held, the Reasoning tab draws no Run')
 await tab(ada, 'olumi')
+// The ticked count core implies when line 0 is ticked: line 0 and every non-top line core ties to it (`together.ids`), never more or fewer.
+// T5-TICK-OK-BEGIN
+const t5tickOk = (said, changes) => {
+  const first = changes[0], ties = first?.together?.ids ?? []
+  const n = 1 + changes.filter((c, i) => i !== 0 && !c.top && ties.includes(c.id)).length
+  const m = /Approve ticked · (\d+)\b/.exec(said), got = m ? Number(m[1]) : null
+  return { ok: got === n, n, got }
+}
+// T5-TICK-OK-END
 // L8: core's change list on the card, each line with its tick; ticking one offers "Approve ticked · 1" (approved whole here; step 9 ticks).
 const held = (await view(ada, sid)).proposal
 const ticks = await ada.page.locator('[data-testid^="view-change-tick-"]').count()
 if (held.changes.length > 1) {
   check(ticks === held.changes.length, `core's ${held.changes.length} change lines, each with its tick`)
   await tickLine(ada, held, 0)
-  check((await ada.page.getByTestId('view-approve-ticked').innerText()).includes('Approve ticked · 1'), 'one tick offers Approve ticked · 1')
+  // Ticking line 0 ticks the lines core says go with it (v3 `together`, R4: never an orphan), so the count is core's: 1 + the non-top
+  // lines whose id is in line 0's together.ids (github-3c, 5 Nov: a real proposal can tie them; the row assumed a lone line).
+  const t5changes = (await view3(ada, sid)).proposal?.changes ?? [], t5said = await ada.page.getByTestId('view-approve-ticked').innerText()
+  const t5 = t5tickOk(t5said, t5changes)
+  check(t5.ok, `ticking line 0 offers "Approve ticked · ${t5.n}", core's count with what goes with it (shown: ${t5.got ?? 'no count'}${t5changes[0]?.together ? `; core: "${t5changes[0].together.why}"` : '; a lone line'})`)
   await shot(ada, '5-proposal-ticked')
   await tickLine(ada, held, 0, false)
 } else check(held.changes.length === 1 && ticks === 0 && await ada.page.getByTestId('view-approve-ticked').count() === 0, 'core\'s one change line, with no tick: Approve is the whole of it')
