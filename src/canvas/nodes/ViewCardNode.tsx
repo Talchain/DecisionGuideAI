@@ -181,14 +181,16 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
         </div>
       )}
       {card.figure === null ? null : <Slot name={VIEW_CARD_SLOTS.valuesBand} className="block empty:hidden" />}
-      {card.figure?.edit ? <span className={selected ? '' : 'invisible group-hover:visible'} data-at-rest-hidden=""><FigureEdit id={card.id} edit={card.figure.edit} {...(estimate ? { glyph: '✎', label: 'Give yours' } : {})} quiet={!selected} /></span> : null}
+      {/* At rest the ✎ shows on hover or selection; an OPEN editor (its form) or one holding focus stays shown whatever the pointer does
+          (R4 witness run 3: the card re-laid out taller moved from under the pointer and the re-laid node lost its selection, so Set hid). */}
+      {card.figure?.edit ? <span className={selected ? '' : 'invisible group-hover:visible has-[form]:visible focus-within:visible'} data-at-rest-hidden=""><FigureEdit id={card.id} edit={card.figure.edit} {...(estimate ? { glyph: '✎', label: 'Give yours' } : {})} quiet={!selected} /></span> : null}
       {card.rows.map((row, i) => (
         <span key={i} className="contents">
           <Row id={id} row={row} i={i} ifApproved={ifApproved} />
           {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
         </span>
       ))}
-      {card.badge === null ? null : <p className={selected ? '' : 'invisible group-hover:visible'} data-at-rest-hidden=""><Badge cardId={id} badge={card.badge} at={id} /></p>}
+      {card.badge === null ? null : <p className={selected ? '' : 'invisible group-hover:visible focus-within:visible'} data-at-rest-hidden=""><Badge cardId={id} badge={card.badge} at={id} /></p>}
       {/* An option the team committed to (olumi.view/3 `committed`, the newest commitment naming it): who, in the marks row; when, on hover. */}
       <span data-slot={VIEW_CARD_SLOTS.marks} className="flex gap-1 empty:hidden">
         {card.committed == null ? null : <span className="text-text-light" title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}
