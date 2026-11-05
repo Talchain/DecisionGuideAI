@@ -78,11 +78,14 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, At>
   }
   const placeOf = (id: string): At => final.get(id)!
   const measured = (id: string) => (held.get(id)?.measured ? { measured: held.get(id)!.measured } : {})
+  // A card selected on the canvas, or put in front from the Model tab, stays selected across a re-layout (R5: an editor opening made the
+  // card taller, the re-laid node lost its selection, and the at-rest wrapper hid the open form's Set button).
+  const kept = (id: string) => ({ ...measured(id), ...(held.get(id)?.selected === true ? { selected: true } : {}) })
   // The question first, as core's page draws it (00057 #1): its text, its date, its badge, and the links to the question as a whole.
   const nodes = [
-    { id: QUESTION, type: VIEW_QUESTION, data: { question: model.question, width: q.width }, position: placeOf(QUESTION), ...measured(QUESTION) },
+    { id: QUESTION, type: VIEW_QUESTION, data: { question: model.question, width: q.width }, position: placeOf(QUESTION), ...kept(QUESTION) },
     // `label` is the card's heading, for the canvas's readers that name a node (the Olumi controls' asks among them, 00063 #3).
-    ...model.cards.map((card) => ({ id: card.id, type: VIEW_CARD, data: { card, label: card.heading }, position: placeOf(card.id), ...measured(card.id) })),
+    ...model.cards.map((card) => ({ id: card.id, type: VIEW_CARD, data: { card, label: card.heading }, position: placeOf(card.id), ...kept(card.id) })),
   ]
   // Each link keeps its meaning (00057 #3): its kind, sign, doubt, challenge and proposal, drawn by the View link edge.
   const edges = cardLinks(model).map(({ link, i }) => ({ id: `${link.from}->${link.to}:${link.kind}`, source: link.from, target: link.to, type: VIEW_LINK, data: { link, i } }))
