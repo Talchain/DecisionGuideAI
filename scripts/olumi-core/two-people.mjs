@@ -446,11 +446,20 @@ for (const end = Date.now() + T; Date.now() < end; await ada.page.waitForTimeout
 }
 const d7shared = (d7v.collab.shared ?? []).filter((x) => d7ids.includes(x.id)), d7h = d7v.collab.effect_headings ?? null
 const d7effects = d7shared.flatMap((x) => (x.effects ?? []).map((e) => ({ ...e, by: x.by })))
-// (a) or (b): core's status for the driver figure, as its typed fields say it (a changed answer names another option most likely).
-const d7ran = d7effects.filter((e) => e.quantity === d7q1.id && (e.status === 'changes' || e.status === 'moves'))
-check(d7shared.length === 2 && d7ran.length > 0 && d7ran.every((e) => typeof d7h?.[e.status] === 'string' && d7h[e.status] !== '' && e.changes === (e.status === 'changes')
-  && (e.status === 'changes') === (e.leader !== e.model_leader) && (e.most === null || (typeof e.gap_text === 'string' && e.gap_text !== ''))),
-  `core runs a figure for '${d7q1.label}' as a what-if on the same draws and says what it does, in its words: ${d7ran.map((e) => `${e.by}'s, "${d7h?.[e.status]}"${e.gap_text ? ` (${d7h?.most}: ${e.gap_text})` : ''}`).join('; ') || 'none run, or each the same chances'}`)
+// Core's status for the driver figure must agree with core's own typed fields for it (github-3c, 5 Nov: a real model whose answer does not
+// move is a valid outcome, not a defect). `changes` only when the leader changes; `moves` only when the leader stays and the move is not
+// zero; `same` only when the leader stays and the move is within its own noise (its 95% interval holds zero, or no option moves at all).
+// A status its own fields contradict is ✗ (the negative control). Typed fields only: core's words are quoted, never parsed.
+// D7-STATUS-OK-BEGIN
+const d7statusOk = (e, h) => typeof h?.[e.status] === 'string' && h[e.status] !== '' && e.changes === (e.status === 'changes') && (
+  e.status === 'changes' ? e.leader !== e.model_leader
+    : e.status === 'moves' ? e.leader === e.model_leader && e.gap !== 0 && typeof e.gap_text === 'string' && e.gap_text !== ''
+      : e.status === 'same' ? e.leader === e.model_leader && (e.gap_text === null || (e.gap_low <= 0 && e.gap_high >= 0))
+        : false)
+// D7-STATUS-OK-END
+const d7ran = d7effects.filter((e) => e.quantity === d7q1.id && 'status' in e)
+check(d7shared.length === 2 && d7ran.length > 0 && d7ran.every((e) => d7statusOk(e, d7h)),
+  `core runs a figure for '${d7q1.label}' as a what-if on the same draws, and its status agrees with its own leaders and move: ${d7ran.map((e) => `${e.by}'s, "${d7h?.[e.status]}"${e.gap_text ? ` (${d7h?.most}: ${e.gap_text})` : ''}`).join('; ') || 'none run'}`)
 const d7limit = d7effects.filter((e) => e.refused === 'limit')
 check(d7limit.length === 1 && typeof d7h?.refused === 'string' && d7h.refused !== '',
   `a reveal runs at most three figures: core does not run the fourth, and says so ("${d7h?.refused}"${d7limit.map((e) => `, ${e.by}'s '${e.quantity}'`).join('')})`)
