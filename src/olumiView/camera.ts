@@ -3,6 +3,8 @@
  * the landing fit cropped it (live olumi-core-v3, 4 Nov: cards cut off on the left). On this lane the product fit may go lower, so the
  * whole of core's model is in view on first open and after each new version; the person zooms in from there.
  */
+import type { View } from './client'
+
 export const CORE_LANE_FIT_FLOOR = 0.25
 
 /** The floor a product fit uses: the lane's, never above the product's own. */
@@ -34,4 +36,15 @@ export function readableFirstViewport(bounds: Rect, pane: { width: number; heigh
   const lo = insets.left - bounds.x * zoom, hi = insets.left + freeW - (bounds.x + bounds.width) * zoom
   const x = lo <= hi ? Math.min(hi, Math.max(lo, centred)) : centred
   return { zoom, x, y: insets.top - bounds.y * zoom }
+}
+
+/**
+ * The board the camera frames: each version of core's model, and before any version the first model, which core shows as a pending
+ * proposal (R5 look defect 4: framed only per version, that board was never framed and its question sat under the top and lens bars).
+ * A proposal held on a version keeps the version's key, so it does not move the camera. Empty when nothing is shown.
+ */
+export function boardKeyOf(sid: string | null, view: View | null): string {
+  if (sid === null || view === null) return ''
+  if (view.version) return `${sid}:v${view.version.id}`
+  return view.proposal ? `${sid}:p${view.proposal.id}` : ''
 }
