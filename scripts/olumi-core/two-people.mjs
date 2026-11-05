@@ -69,7 +69,7 @@ const person = async (name, link, to) => {
   if (to) await page.goto(`${BASE}/${to}`)
   return { name, ctx, page }
 }
-const view = (p, sid) => p.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view`)).json(), sid)
+const view = (p, sid) => p.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view?schema=3`)).json(), sid)
 /** The View as DGAI reads it (olumi.view/3): `can_share`, `gated` and v3's `waiting` live only here. */
 const view3 = (p, sid) => p.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view?schema=3`)).json(), sid)
 /** The View once core holds what was just asked for: a press answers asynchronously, so a read straight after the click can come first. */
