@@ -235,7 +235,15 @@ check(await ada.page.getByTestId('lens-bar-full').getAttribute('aria-checked') =
 await ada.page.getByRole('button', { name: 'Fit to view' }).click()
 await ada.page.waitForTimeout(800)
 // The lenses are back on from the View (DL 4 Nov): the bar offers only those the View fills, never a dead one.
-check(JSON.stringify(await ada.page.getByTestId('lens-bar').getByRole('radio').evaluateAll((bs) => bs.map((b) => b.getAttribute('data-testid')))) === JSON.stringify(['lens-bar-full', 'lens-bar-rests_on', 'lens-bar-what_changes', 'lens-bar-what_if']), 'the lens bar offers Model, Rests on, What would change and What if, and no lens the View cannot fill')
+check(JSON.stringify(await ada.page.getByTestId('lens-bar').getByRole('radio').evaluateAll((bs) => bs.map((b) => b.getAttribute('data-testid')))) === JSON.stringify(['lens-bar-full', 'lens-bar-tradeoffs', 'lens-bar-rests_on', 'lens-bar-what_changes', 'lens-bar-what_if']), 'the lens bar offers Model, Trade-offs (DL ruling 3, 5 Nov), Rests on, What would change and What if, and no lens the View cannot fill')
+// Trade-offs (R6, DL ruling 3): the grid shows, for each option, its own first row for each aim, by identity (`<option>.rows.<i>`).
+await ada.page.getByTestId('lens-bar-tradeoffs').click()
+await ada.page.getByTestId('view-tradeoffs-grid').waitFor({ timeout: T })
+const toCells = await ada.page.getByTestId('view-tradeoffs-grid').evaluate((g) => [...g.querySelectorAll('[data-view]')].map((e) => e.getAttribute('data-view')))
+const toWant = v.model.cards.filter((c) => c.family === 'option').flatMap((o) => [...new Set(o.rows.map((r) => r.aim_id).filter(Boolean))].map((a) => `${o.id}.rows.${o.rows.findIndex((r) => r.aim_id === a)}`))
+const toMiss = toWant.filter((w) => !toCells.some((c) => c.startsWith(`${w}.`)))
+check(toWant.length > 0 && toMiss.length === 0, `Trade-offs: the grid holds each option's own row for each aim (${toWant.length} cells; missing ${toMiss.join(', ') || 'none'})`)
+await ada.page.getByTestId('lens-bar-full').click()
 // Compare is core's own comparison of two approved versions (src/olumiCore/compare.tsx); Reasoning and Model are drawn from the View.
 for (const kept of ['olumi', 'results', 'analysisNew', 'team', 'compare', 'diagnostics']) check(await ada.page.getByTestId(`outputs-dock-tab-${kept}`).count() === 1, `the ${kept} tab is there`)
 // The lane's strip fits its rail at this width (MAX_LANE_PRESENTED_SURFACES): every tab drawn whole inside the rail and the window.
