@@ -2,7 +2,7 @@
  * The lenses on the core lane's canvas (DL 4 Nov: the hidden surfaces back on, fed from core's View only). The legacy lens bar reads the
  * legacy node shapes, which a View card does not carry; this lane draws its own (`ViewLensBar`), with the lenses the View can fill:
  * Model (no lens), Rests on (`restsOnOf`), What would change (`driversOf`, core's `driver.figure`) and What if (core's what-if on a copy,
- * `ViewWhatIfKey`). If it failed and Trade-offs need output core does not make yet. View only: a lens writes nothing.
+ * `ViewWhatIfKey`) and Trade-offs (core's option rows by aim, `ViewTradeOffsKey`). If it failed needs output core does not make yet. View only: a lens writes nothing.
  */
 import { useMemo } from 'react'
 import { create } from 'zustand'
@@ -11,8 +11,9 @@ import type { ViewCard } from './client'
 import { useViewStore } from './store'
 import { useWhatIf } from './whatif'
 
-export type ViewLens = 'full' | 'rests_on' | 'what_changes' | 'what_if'
-export const VIEW_LENSES: readonly ViewLens[] = ['full', 'rests_on', 'what_changes', 'what_if']
+export type ViewLens = 'full' | 'tradeoffs' | 'rests_on' | 'what_changes' | 'what_if'
+/** In the legacy bar's order (LENS_ORDER); Trade-offs is core's option rows side by side (ViewTradeOffsKey, DL ruling 3, 5 Nov). */
+export const VIEW_LENSES: readonly ViewLens[] = ['full', 'tradeoffs', 'rests_on', 'what_changes', 'what_if']
 export const useViewLens = create<{ lens: ViewLens }>(() => ({ lens: 'full' }))
 
 /** What the model on screen rests on, worked out once per View. */
