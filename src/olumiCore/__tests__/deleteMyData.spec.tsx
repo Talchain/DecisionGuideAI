@@ -106,6 +106,14 @@ describe('the notices on the olumi-core lane', () => {
     }
   })
 
+  it('a reload of /signed-out?deleted=1 still says the data is deleted, and never that the private link opens it again', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    // A reload: the address alone, no router state from the page's own navigation.
+    render(<MemoryRouter initialEntries={['/signed-out?deleted=1']}><Routes><Route path="/signed-out" element={<SignedOut />} /></Routes></MemoryRouter>)
+    expect(screen.getByTestId('olumi-core-signed-out').textContent).toBe('Your data is deleted.' + 'Terms' + 'Privacy')
+    expect(screen.queryByText('Your private link opens it again.')).toBeNull()
+  })
+
   it('the signed-out screen links to them too', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     render(<MemoryRouter initialEntries={['/signed-out']}><Routes><Route path="/signed-out" element={<SignedOut />} /></Routes></MemoryRouter>)
@@ -131,7 +139,7 @@ describe('Delete my data on the olumi-core lane', () => {
     expect(wire.map((r) => `${r.method} ${r.path}`)).toEqual(['GET /api/me', 'POST /api/me/delete', 'GET /api/me', 'POST /api/me/delete'])
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(screen.queryByTestId('canvas-page')).toBeNull()
-    expect(screen.getByTestId('olumi-core-signed-out').textContent).toBe('Your data is deleted' + 'Your private link no longer works. To use Olumi again, ask the person who invited you for a new link.' + 'Terms' + 'Privacy')
+    expect(screen.getByTestId('olumi-core-signed-out').textContent).toBe('Your data is deleted.' + 'Terms' + 'Privacy')
     expect(useMe.getState().me).toBeNull()
     expect(useViewStore.getState().sid).toBeNull()
   })

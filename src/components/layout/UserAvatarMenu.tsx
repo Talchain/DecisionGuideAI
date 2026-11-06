@@ -104,7 +104,7 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
   // Core has deleted the data, ended the link and cleared this browser's cookie (src/olumiCore/erase.ts forgot the person here).
   const onDeleted = useCallback(() => {
     setDeleting(false)
-    navigate('/signed-out', { replace: true, state: { deleted: true } })
+    navigate('/signed-out?deleted=1', { replace: true })
   }, [navigate])
 
   return (
