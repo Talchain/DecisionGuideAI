@@ -23,6 +23,16 @@ describe('wrapTiers', () => {
     for (const a of row) for (const b of row) if (a !== b && at.get(a.id)!.y === at.get(b.id)!.y) expect(Math.abs(at.get(a.id)!.x - at.get(b.id)!.x)).toBeGreaterThanOrEqual(200 + 32)
     expect(at.get('goal')!.y).toBe(300 + 2 * (80 + 24))
   })
+  it('keepOrder (option a2, 24 inside a wrapped row): each line is as tall as its own tallest card, so a short line leaves no gap under it', () => {
+    // Paul's hiring board (6 Nov): line one's cards drew at most 104 px and one card on line two 138, and line two sat 138 + 24 below line
+    // one, 34 px of empty room. Here line one (cards 0, 2, 4, 6) is 80 tall and line two holds a 140 card; the row below was laid 140 + 32
+    // under the row, as the family rows lay it.
+    const row = [0, 1, 2, 3, 4, 5, 6].map((i) => ({ ...box(`f${i}`, i * 250, 100), height: i === 3 ? 140 : 80 })), below = box('goal', 700, 100 + 140 + 32)
+    const at = wrapTiers([box('q', 600, 0), ...row, below], 4, 32, 24, true)
+    expect(row.filter((_, i) => i % 2 === 0).every((b) => at.get(b.id)!.y === 100)).toBe(true)
+    expect(row.filter((_, i) => i % 2 === 1).every((b) => at.get(b.id)!.y === 100 + 80 + 24)).toBe(true)
+    expect(at.get('goal')!.y).toBe(100 + 80 + 24 + 140 + 32) // under line two's tallest card by the family gap
+  })
   it('must not change: a board with no row wider than four keeps every place', () => {
     const boxes = [box('q', 0, 0), box('a', 0, 100), box('b', 300, 100), box('c', 600, 100), box('d', 900, 100)]
     expect([...wrapTiers(boxes)].map(([id, p]) => [id, p.x, p.y])).toEqual(boxes.map((b) => [b.id, b.x, b.y]))
