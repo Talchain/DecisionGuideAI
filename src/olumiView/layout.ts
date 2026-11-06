@@ -154,12 +154,10 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
   const elk = await layoutGraph(nodes, edges, { direction: 'DOWN' })
   const sized = new Map(nodes.map((n) => [n.id, n.measured as Size]))
-  // PROTOTYPE (poc/fit-prototype, for Paul's morning call; never served): the previous PoC's family rows. Each card's row is its family's,
-  // not its dependency depth: question / options / factors and assumptions / outcomes and risks / aims and limits. ELK keeps the x order.
-  const tierOf = new Map<string, number>([[QUESTION, 0], ...model.cards.map((c): [string, number] => {
-    const k = drawKindOf(c, model)
-    return [c.id, k === 'option' ? 1 : k === 'outcome' || k === 'risk' ? 3 : k === 'goal' || k === 'constraint' ? 4 : 2]
-  })])
+  // The previous PoC's family rows (Paul's item 1, option a2, 6 Nov: his hiring board opened with 7 of 17 cards off screen at 0.9): each
+  // card's row is its family's, not its dependency depth: question / options / factors and assumptions / outcomes and risks / aims and
+  // limits. ELK keeps the x order.
+  const tierOf = new Map<string, number>([[QUESTION, 0], ...model.cards.map((c): [string, number] => [c.id, familyTierOf(c, model)])])
   const tierY: number[] = []
   for (let t = 0, y = 0; t <= 4; t++) {
     tierY.push(y)
@@ -174,7 +172,7 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   const head = packHead(new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }])), options, sized)
   const boxes = [...head].map(([id, p]) => ({ id, ...p, ...sized.get(id)! }))
   const under = orderUnderParents(boxes, edges.map((e) => [e.source, e.target] as const), new Set([QUESTION, ...options]))
-  return wrapTiers(under, 4, 32, 24) // PROTOTYPE (a2): tighter rows
+  return wrapTiers(under, WRAP_PER_ROW, WRAP_GAP_X, WRAP_GAP_Y, true)
 }
 
 /**
@@ -188,8 +186,16 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
  * row (four options: 4 × 220 + 3 × 48 = 1024) wraps into balanced rows (DL 4 Nov, Codex P1-3), so the question and every option are seen.
  */
 export const HEAD_ROW_MAX = 900
-/** PROTOTYPE: the room between two family rows. */
-const FAMILY_ROW_GAP = 32
+/** The room between two family rows, and inside a wrapped row (option a2: tight enough that Paul's hiring board opens whole at 0.8). */
+export const FAMILY_ROW_GAP = 32
+const WRAP_PER_ROW = 4, WRAP_GAP_X = 32, WRAP_GAP_Y = 24
+/** The family row a card is drawn in: 0 question, 1 options, 2 factors and assumptions, 3 outcomes and risks, 4 aims and limits. */
+export const familyTierOf = (c: ViewCard, model: ViewModel): number => {
+  const k = drawKindOf(c, model)
+  return k === 'option' ? 1 : k === 'outcome' || k === 'risk' ? 3 : k === 'goal' || k === 'constraint' ? 4 : 2
+}
+/** On an option card, the row index of its first chance (drawn as the big line, the previous PoC's face); -1 when it has none. */
+export const leadChanceIndex = (card: ViewCard): number => (card.family === 'option' ? card.rows.findIndex((r) => r.kind === 'chance') : -1)
 
 export function packHead(places: Map<string, { x: number; y: number }>, options: readonly string[], size: ReadonlyMap<string, Size>): Map<string, { x: number; y: number }> {
   const q = places.get(QUESTION), qs = size.get(QUESTION)

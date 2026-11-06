@@ -155,7 +155,7 @@ export function ViewOptionBand({ id, band }: { id: string; band: OptionBand }) {
             style={{ left: `${band.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />
         )}
       </div>
-      {/* PROTOTYPE (a): the band's words on hover (the wrapper's title, the bar's label), not a line on the face. */}
+      {/* The band's words on hover (the wrapper's title, the bar's label) and in the DOM for readers, not a line on the face (option a2). */}
       <span className="sr-only" data-view={band.at}>{band.text}</span>
     </div>
   )

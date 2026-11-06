@@ -38,10 +38,15 @@ describe('a chance row\'s marks on the card never wrap alone and are never clipp
       expect(marks.contains(mark), m).toBe(true) // both in one run: neither alone
     }
     expect(marks.textContent).toBe('◆\u00a0◉')
-    expect(row.querySelector(`[data-view="${at}.aim"]`)!.className).toContain('truncate') // the aim on one line, whole on hover
-    expect(row.getAttribute('title')).toBe(card.rows[i]!.title)
-    const r = card.rows[i] as { aim: string; approx: string; value: string }
-    expect(row.textContent).toBe(`${r.aim}${r.approx}${r.value}◆\u00a0◉`)
+    // Option a2 (Paul's item 1, 6 Nov): this row is the option's first chance, so it is the previous PoC's big line: the aim is read by
+    // screen readers and is on the row's hover, not drawn; the value is clamped to two lines in the big type (a conditional value never
+    // overflows the card); the aim's target mark ◎ leads it. Every R5 check above holds unchanged.
+    expect(row.querySelector(`[data-view="${at}.aim"]`)!.className).toContain('sr-only')
+    expect(value.className).toContain('text-[20px]')
+    expect(value.className).not.toContain('whitespace-nowrap') // the big line may wrap to two lines, never overflow
+    const r = card.rows[i] as { aim: string; approx: string; value: string; title: string }
+    expect(row.getAttribute('title')).toBe(`${r.aim} · ${r.title}`)
+    expect(row.textContent).toBe(`${r.aim}◎${r.approx}${r.value}◆\u00a0◉`)
   })
 })
 

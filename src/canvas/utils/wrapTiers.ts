@@ -5,7 +5,13 @@
  */
 export type TierBox = { id: string; x: number; y: number; width: number; height: number }
 
-export function wrapTiers(boxes: readonly TierBox[], perRow = 4, gapX = 32, gapY = 48): Map<string, { x: number; y: number }> {
+/**
+ * `keepOrder` (option a2, family rows, 6 Nov): a wide row is staggered over its lines instead of chunked, card i on line i mod L, each a
+ * fixed step right of the one before, so the row's left-to-right order holds across lines (a card under the left option is never drawn
+ * right of one under the right option, so links drop row to row: DL 4 Nov R3). Cards on one line stay a card and a gap apart; the rows
+ * below move down by the same room as a chunked wrap.
+ */
+export function wrapTiers(boxes: readonly TierBox[], perRow = 4, gapX = 32, gapY = 48, keepOrder = false): Map<string, { x: number; y: number }> {
   const rows = new Map<number, TierBox[]>()
   for (const b of boxes) rows.set(b.y, [...(rows.get(b.y) ?? []), b])
   const out = new Map<string, { x: number; y: number }>()
@@ -15,6 +21,13 @@ export function wrapTiers(boxes: readonly TierBox[], perRow = 4, gapX = 32, gapY
     if (row.length <= perRow) { for (const b of row) out.set(b.id, { x: b.x, y: b.y + shift }); continue }
     const left = Math.min(...row.map((b) => b.x)), right = Math.max(...row.map((b) => b.x + b.width)), centre = (left + right) / 2
     const height = Math.max(...row.map((b) => b.height))
+    if (keepOrder) {
+      const lines = Math.ceil(row.length / perRow), widest = Math.max(...row.map((b) => b.width)), step = Math.ceil((widest + gapX) / lines) // whole units, so a line's cards are never closer than a card and a gap
+      const x0 = centre - ((row.length - 1) * step + widest) / 2
+      row.forEach((b, i) => out.set(b.id, { x: x0 + i * step, y: y + shift + (i % lines) * (height + gapY) }))
+      shift += (lines - 1) * (height + gapY)
+      continue
+    }
     for (let k = 0; k * perRow < row.length; k++) {
       const chunk = row.slice(k * perRow, (k + 1) * perRow)
       const span = chunk.reduce((w, b) => w + b.width, 0) + gapX * (chunk.length - 1)

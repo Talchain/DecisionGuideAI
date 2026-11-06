@@ -15,7 +15,7 @@ import { ChevronDown } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { ViewCard as Card, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
-import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, type RestsOnItem } from '../../olumiView/layout'
+import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, type RestsOnItem } from '../../olumiView/layout'
 import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { useCanvasStore } from '../store'
@@ -85,13 +85,13 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
           {moved === null ? null : <>{NBSP}<IfApprovedMark mark={moved} /></>}
         </span>
       ) : null
-      // PROTOTYPE (a), for Paul's option-face call; never served: the previous PoC's face. The option's first aim is one big chance with the
-      // aim's target mark (its aim on hover); every other aim is one small line, the aim cut short before its chance. Words are core's.
+      // The previous PoC's face (Paul's item 1, option a2): the option's first aim is one big chance with the aim's target mark, its aim in the
+      // DOM for readers and on hover; every other aim is one small line, the aim cut short before its chance, whole on hover. Words are core's.
       if (lead === true) return (
         <div title={`${row.aim} · ${row.title}`} data-view-row={at} className="flex items-baseline gap-1">
           <span className="sr-only" data-view={`${at}.aim`}>{row.aim}</span>
           <span aria-hidden="true" style={{ color: 'var(--goal)' }} className="text-[18px] leading-none">◎</span>
-          <span className="text-[20px] font-semibold leading-tight text-text-header whitespace-nowrap" data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
+          <span className="min-w-0 line-clamp-2 text-[20px] font-semibold leading-tight text-text-header" data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
           {markSpan}
         </div>
       )
@@ -122,7 +122,7 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
     case 'limit':
       return (
         <div className="flex items-baseline gap-1 text-text-light" title={`${row.aim} · ${row.title}`} data-view-row={at}>
-          {/* PROTOTYPE (a): one line, the limit cut short before its value. */}
+          {/* One line: the limit cut short before its value, whole on hover. */}
           <span className="min-w-0 truncate" data-view={`${at}.aim`}>{row.aim}</span> <span className={`${typography.nodeValue} flex-none whitespace-nowrap text-text-body`} data-row-value={at}><span data-view={`${at}.value`}>{row.value}</span></span>
           {row.olumi === null ? null : <span className="flex-none whitespace-nowrap" data-row-marks={at}><Mark at={`${at}.olumi`} mark={row.olumi} /></span>}
         </div>
@@ -148,7 +148,7 @@ function OptionValueRow({ at, option, text, mark = null }: { at: string; option:
 
 /** One View card, pure: a test draws it from a golden View. */
 export function ViewCard({ card, selected = false, restsOn = null, driverOf = null, number = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null }: ViewCardData & { selected?: boolean; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
-  const id = card.id
+  const id = card.id, lead = leadChanceIndex(card)
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
   // K5 (R3): Olumi's failure stories resting on this card, and an option's story most within the team's control (./k5.ts, ahead of core).
@@ -236,7 +236,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       {card.figure?.edit ? <span className={selected ? '' : 'invisible group-hover:visible has-[form]:visible focus-within:visible'} data-at-rest-hidden=""><FigureEdit id={card.id} edit={card.figure.edit} {...(estimate ? { glyph: '✎', label: 'Give yours' } : {})} quiet={!selected} /></span> : null}
       {card.rows.map((row, i) => (
         <span key={i} className="contents">
-          <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === card.rows.findIndex((r) => r.kind === 'chance')} />
+          <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === lead} />
           {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
         </span>
       ))}
