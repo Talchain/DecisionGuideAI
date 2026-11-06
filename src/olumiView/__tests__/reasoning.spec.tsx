@@ -10,8 +10,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View, ViewModel } from '../client'
 import { useViewStore } from '../store'
 import { optionCards } from '../layout'
-import { ViewReasoning, ViewReasoningBlock } from '../ViewReasoning'
-import { driverRange, ViewChances } from '../ViewChances'
+import { REASONING_LABELS, ViewReasoning, ViewReasoningBlock } from '../ViewReasoning'
+import { ViewChances } from '../ViewChances'
 import { clearWhatIf } from '../whatif'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
@@ -35,57 +35,64 @@ const unbound = (root: HTMLElement, also: string[]) => {
   return out
 }
 
-describe('the Reasoning tab draws the Run in core\'s words', () => {
+/** A View string by its `data-view` path: the brief from the View itself, the Run's from `run`, a card's from its id (as contract.spec). */
+function at(view: View, path: string): unknown {
+  if (path === 'brief') return view.brief
+  const m = view.model!, [id, ...rest] = path.split('.')
+  let x: unknown = id === 'run' ? m.run : m.cards.find((c) => c.id === id)
+  for (const k of rest) x = x === null || x === undefined ? undefined : (x as Record<string, unknown>)[k]
+  return x
+}
+const OWN = Object.values(REASONING_LABELS) as string[]
+
+describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Paul, 6 Nov; C1 4 Nov)', () => {
   for (const golden of ['bakery.view.json', 'european.view.json', 'studio.view.json', 'app-launch.view.json', 'pricing.view.json', 's_ce285b3617bb.view.json']) {
-    it(`${golden}: the lead, each option's rows and driver, and each worth line, each bound to its View string and in core's order; no word of its own`, () => {
+    it(`${golden}: glance, challenges, premises, what would change your mind and outcomes, every string bound to its View path; none of the Analysis tab's option rows`, () => {
       const view = read(golden), m = view.model!
       ready(view)
-      render(<ViewReasoning model={m} />)
+      render(<ViewReasoning model={m} brief={view.brief} />)
       const root = screen.getByTestId('view-reasoning')
-      const at = (p: string) => root.querySelector(`[data-view="${p}"]`)
-      if (m.run!.lead !== null) expect(at('run.lead')?.textContent).toBe(m.run!.lead)
-      expect([...root.querySelectorAll('[data-view-card]')].map((e) => e.getAttribute('data-view-card'))).toEqual(optionCards(m).map((c) => c.id))
-      for (const c of optionCards(m)) {
-        expect(at(`${c.id}.heading`)?.textContent).toBe(c.heading)
-        c.rows.forEach((r, i) => {
-          const row = root.querySelector(`[data-view-row="${c.id}.rows.${i}"]`)!
-          if (r.kind === 'none') expect(at(`${c.id}.rows.${i}.text`)?.textContent).toBe(r.text)
-          else { expect(at(`${c.id}.rows.${i}.value`)?.textContent).toBe(r.value); expect(at(`${c.id}.rows.${i}.aim`)?.textContent).toBe(r.aim); expect(row.getAttribute('title')).toBe(r.title) }
-          if (r.kind !== 'none' && r.olumi !== null) expect(at(`${c.id}.rows.${i}.olumi.glyph`)?.textContent).toBe(r.olumi.glyph)
-        })
-        if (c.driver !== null) {
-          const d = at(`${c.id}.driver.text`) ?? root.querySelector(`[data-view-label="${c.id}.driver.text"]`)
-          if (driverRange(c.driver) !== null) { expect(d?.getAttribute('aria-label')).toBe(c.driver.text); expect(d?.textContent).toBe('') }
-          else expect(d?.textContent).toBe(c.driver.text)
-          expect(d?.getAttribute('title')).toBe(c.driver.title)
-        }
-        else { expect(at(`${c.id}.driver.text`)).toBeNull(); expect(root.querySelector(`[data-view-label="${c.id}.driver.text"]`)).toBeNull() }
-      }
-      m.run!.science.forEach((l, i) => {
-        expect(at(`run.science.${i}.line`)?.textContent).toBe(l.line)
-        expect(root.querySelector(`[data-view-fact="${l.id}"]`)?.getAttribute('title')).toBe(l.hover)
-        if (l.olumi !== null) expect(at(`run.science.${i}.olumi.glyph`)?.textContent).toBe(l.olumi.glyph)
-      })
-      // A worth line's ✎ is led by core's own words for it (`figure.give.text`), drawn by the shared FigureEdit.
-      expect(unbound(root, m.run!.science.flatMap((l) => (l.figure?.give == null ? [] : [`${l.figure.give.text} `, '.'])))).toEqual([])
+      // Not the Analysis tab again: no chance row, no driver marker, no sensitivity line, no lead (they are the Analysis tab's).
+      expect(root.querySelector('[data-view-row]')).toBeNull()
+      expect(root.querySelector('[data-testid^="view-range-driver-"]')).toBeNull()
+      expect(root.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
+      expect(root.querySelector('[data-view="run.lead"]')).toBeNull()
+      // Every drawn View string is the View's own string at its path.
+      const bound = [...root.querySelectorAll<HTMLElement>('[data-view]')]
+      expect(bound.length).toBeGreaterThan(3)
+      for (const el of bound) expect(el.textContent, el.dataset['view']).toBe(at(view, el.dataset['view']!))
+      // The glance: the brief, each goal, and one mark per option, factor and risk card, by id, the card's own glyph, its heading on hover.
+      expect(root.querySelector('[data-view="brief"]')?.textContent).toBe(view.brief)
+      for (const g of m.cards.filter((c) => c.family === 'goal')) expect(root.querySelector(`[data-testid="view-reasoning-glance"] [data-view="${g.id}.heading"]`), g.id).not.toBeNull()
+      const marked = [...root.querySelectorAll<HTMLElement>('[data-glance-card]')]
+      expect(marked.map((e) => e.dataset['glanceCard'])).toEqual(['option', 'quantity', 'risk'].flatMap((f) => m.cards.filter((c) => c.family === f).map((c) => c.id)))
+      for (const e of marked) expect(e.getAttribute('title')).toBe(m.cards.find((c) => c.id === e.dataset['glanceCard'])!.heading)
+      // Challenge Your Thinking: exactly the cards core marks challenged.
+      expect([...root.querySelectorAll<HTMLElement>('[data-reasoning-challenge]')].map((e) => e.dataset['reasoningChallenge'])).toEqual(m.cards.filter((c) => c.challenged === true).map((c) => c.id))
+      // Assumptions and evidence: each premise core put on any card, once, by its words.
+      const texts = [...root.querySelectorAll('[data-reasoning-premise] [data-view$=".text"]')].map((e) => e.textContent)
+      expect(texts).toEqual([...new Set(m.cards.flatMap((c) => (c.premises ?? []).map((x) => x.text)))])
+      // What would change your mind: each worth line and each comparison, bound to its own fact (Worth/Compared, shared with Analysis).
+      ;(m.run!.science ?? []).forEach((l, i) => { expect(root.querySelector(`[data-view="run.science.${i}.line"]`)?.textContent).toBe(l.line) })
+      // Only the tab's own labels are unbound (and a worth line's ✎ lead, which is core's give text).
+      expect(unbound(root, [...OWN, ...(m.run!.science ?? []).flatMap((l) => (l.figure?.give == null ? [] : [`${l.figure.give.text} `, '.']))])).toEqual([])
     })
   }
 
-  it('each figure the person may set is offered to try, under its own heading, its figure on hover; none where core offers no edit', () => {
-    const view = read('bakery.view.json'), m = view.model!
-    ready(view)
-    render(<ViewReasoning model={m} />)
-    const settable = m.cards.filter((c) => c.figure?.edit)
-    expect(settable.length).toBeGreaterThan(0)
-    const rows = [...screen.getByTestId('view-reasoning-try').querySelectorAll('[data-reasoning-try]')]
-    expect(rows.map((r) => r.getAttribute('data-reasoning-try'))).toEqual(settable.map((c) => c.id))
-    rows.forEach((r, i) => {
-      expect(r.querySelector(`[data-view="${settable[i].id}.heading"]`)?.textContent).toBe(settable[i].heading)
-      expect(r.getAttribute('title')).toBe(settable[i].figure!.text)
-    })
-    cleanup()
-    render(<ViewReasoning model={{ ...m, cards: m.cards.map((c) => (c.figure === null ? c : { ...c, figure: { ...c.figure, edit: null } })) }} />)
-    expect(screen.queryByTestId('view-reasoning-try')).toBeNull()
+  it('the paul-hiring shape: a challenge, notes on cards and premises each drawn once, under the previous tab\'s headings in its order', () => {
+    const view = read('bakery.view.json'), m = structuredClone(view.model!)
+    const opt = m.cards.find((c) => c.family === 'option')!, fig = m.cards.find((c) => c.family === 'quantity')!
+    opt.premises = [{ glyph: '⊢', text: 'A shared premise.', title: 'A shared premise. · prerequisite' }]
+    fig.premises = [{ glyph: '⊢', text: 'A shared premise.', title: 'again' }, { glyph: '?', text: 'A note on the figure.', title: 'note' }]
+    const challenge = { ...opt, id: 'a_challenge', family: 'condition', heading: 'A challenge', reason: 'Demand may fall first.', challenged: true, rows: [], premises: [], driver: null }
+    m.cards.push(challenge as never)
+    ready({ ...view, model: m })
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    const root = screen.getByTestId('view-reasoning')
+    const order = [...root.querySelectorAll('section[aria-label]')].map((e) => e.getAttribute('aria-label'))
+    expect(order.slice(0, 2)).toEqual([REASONING_LABELS.challenge, REASONING_LABELS.premises])
+    expect(root.querySelector('[data-reasoning-challenge="a_challenge"] [data-view="a_challenge.reason"]')?.textContent).toBe('Demand may fall first.')
+    expect([...root.querySelectorAll('[data-reasoning-premise] [data-view$=".text"]')].map((e) => e.textContent)).toEqual(['A shared premise.', 'A note on the figure.'])
   })
 })
 
@@ -104,7 +111,7 @@ describe('pending is never shown as current', () => {
     }
     ready(bakery)
     rerender(<ViewReasoningBlock />)
-    expect(screen.getByTestId('view-reasoning').querySelector('[data-view="run.lead"]')?.textContent).toBe(bakery.model!.run!.lead)
+    expect(screen.getByTestId('view-reasoning').querySelector('[data-testid="view-reasoning-glance"]')).not.toBeNull()
   })
 })
 

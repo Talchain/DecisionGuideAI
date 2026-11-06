@@ -365,3 +365,20 @@ export function comparedGroupsOf(run: ViewRun | null): { group: ComparedGroup; h
   }
   return out
 }
+
+// ── The Reasoning tab's picks (Paul, 6 Nov: the previous PoC's sections; ViewReasoning.tsx draws them, picking is done only here) ──
+/** The cards of the given families, in the View's order (the model at a glance: options, factors, risks). */
+export const familyCards = (model: ViewModel, families: readonly string[]): ViewCard[] => model.cards.filter((c) => families.includes(c.family))
+/** The cards core marks `challenged` (a challenge, a disagreement, evidence that challenges), in the View's order. */
+export const challengedCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.challenged === true)
+const REASONING_FAMILIES = ['assumption', 'condition', 'claim', 'evidence', 'left_out']
+/** Every premise core put on any card, each once by its words (the first card it is on), then each reasoning card core draws whose words
+ *  are not already among them and that is not a challenge. */
+export function premisesOnce(model: ViewModel): { premises: { card: ViewCard; p: ViewCard['premises'][number]; j: number }[]; cards: ViewCard[] } {
+  const seen = new Set<string>()
+  const premises = model.cards.flatMap((c) => (c.premises ?? []).map((p, j) => ({ card: c, p, j }))).filter(({ p }) => (seen.has(p.text) ? false : (seen.add(p.text), true)))
+  const cards = model.cards.filter((c) => REASONING_FAMILIES.includes(c.family) && c.challenged !== true && c.reason !== null && !seen.has(c.reason))
+  return { premises, cards }
+}
+/** The options whose chance carries core's two driver chances (`driver.low` / `driver.high`, finite): the ones drawn as a marker. */
+export const markedOptions = (model: ViewModel): ViewCard[] => optionCards(model).filter((c) => c.driver != null && c.driver.low !== null && c.driver.high !== null && Number.isFinite(c.driver.low) && Number.isFinite(c.driver.high))

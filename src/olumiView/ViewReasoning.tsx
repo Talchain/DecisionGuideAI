@@ -1,35 +1,110 @@
 /**
  * The Reasoning tab on the olumi-core lane, drawn from the View (olumi.view/3) in place of `AnalysisNewTabBody`, which reads CEE's report
- * and has no source here. From the Run (`model.run`): its lead; each option's chance, limit, or why there is nothing yet, with what moves its
- * chance most; each aim's figure most worth checking first; core's comparisons under core's own headings; then each figure the person may set, to try on a copy with core's what-if
- * (`POST …/whatif`, nothing saved), the answer drawn at the top of this tab. Every word is core's, drawn exactly as it arrives, in core's
- * order: nothing is composed, ranked or recommended here, and the figures are on hover.
+ * and has no source here. Paul, 6 Nov ("the right-hand panel tabs' content is completely unacceptable… we did so much work on the
+ * previous version"): it follows the previous PoC's Reasoning tab (vision-audit-20261024 *-panel-reasoning.png), under C1 (4 Nov, DGAI's
+ * look on core's View), and no longer repeats the Analysis tab's per-option chance rows:
+ *   1. the model at a glance: the brief, the goal, and one mark per option, factor and risk (each card's own glyph, its heading on hover);
+ *   2. Challenge Your Thinking: the cards core marks `challenged` (a challenge, a disagreement, evidence that challenges);
+ *   3. Assumptions and evidence: every premise core puts on a card, and the reasoning cards core draws, each once;
+ *   4. What would change your mind: each aim's figure worth checking first, and core's comparisons;
+ *   5. each aim's outcome under every option on the aim's one axis (the previous tab's option bars);
+ *   6. Try a figure: core's what-if on a copy, nothing saved, the answer at the top of this tab.
+ * The previous tab's "Move towards commitment" sentences were written by DGAI (commitmentSynthesis.ts); core sends no such words, so that
+ * part is left out (UI formats no model value). Every word is core's, drawn exactly as it arrives, in core's order: nothing is composed,
+ * ranked or recommended here, and the figures are on hover. The section headings are this tab's own labels.
  *
  * Each drawn View string carries `data-view`, the path to the exact string it shows (design §3).
  */
+import type { ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow } from './client'
-import { bandPlace, olumiKey, optionBands, optionCards, outcomePlace, rowsCarryOutcome, settableFigures, type Place } from './layout'
+import { bandPlace, challengedCards, familyCards, olumiKey, optionBands, optionCards, outcomePlace, premisesOnce, rowsCarryOutcome, settableFigures, type Place } from './layout'
 import { currentModel, useViewStore } from './store'
-import { Compared, OptionLines, Sensitivity, SharedBlockers, WhatIfShown, Worth } from './ViewChances'
+import { Compared, WhatIfShown, Worth } from './ViewChances'
 import { typography } from '../styles/typography'
 
-export function ViewReasoning({ model }: { model: ViewModel }) {
+/** The tab's own labels (the previous PoC's Reasoning tab), the only words not core's. */
+export const REASONING_LABELS = {
+  brief: 'Brief', goal: 'Goal', options: 'Options', factors: 'Factors', risks: 'Risks',
+  challenge: 'Challenge Your Thinking', premises: 'Assumptions and evidence', change: 'What would change your mind', tryFigure: 'Try a figure',
+} as const
+/** The model at a glance: which card families each row marks (an aim's measured figure is a factor too, as the previous strip counted it). */
+const GLANCE: readonly { label: string; families: readonly string[]; testId: string }[] = [
+  { label: REASONING_LABELS.options, families: ['option'], testId: 'options' },
+  { label: REASONING_LABELS.factors, families: ['quantity'], testId: 'factors' },
+  { label: REASONING_LABELS.risks, families: ['risk'], testId: 'risks' },
+]
+
+function Section({ label, testId, children }: { label: string; testId: string; children: ReactNode }) {
+  return (
+    <section data-testid={`view-reasoning-${testId}`} aria-label={label} className="space-y-1 border-t border-panel-border/60 pt-3">
+      <p className={typography.panelHeader}>{label}</p>
+      {children}
+    </section>
+  )
+}
+
+export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief?: string | null }) {
   const run = model.run ?? null, settable = settableFigures(model)
+  const goals = familyCards(model, ['goal']), challenges = challengedCards(model)
+  // Each premise once, wherever core put it (an option's own premises, and the notes on the card they concern), by core's words.
+  const { premises, cards: reasoning } = premisesOnce(model)
+  const change = (run?.science?.length ?? 0) > 0 || (run?.compared?.length ?? 0) > 0
   return (
     <div className={`${typography.panelBody} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-3 px-4 py-3`} data-testid="view-reasoning">
       <WhatIfShown model={model} />
-      {run?.lead == null ? null : <p data-view="run.lead">{run.lead}</p>}
-      <SharedBlockers run={run} />
-      <Sensitivity model={model} />
-      {optionCards(model).map((card) => (rowsCarryOutcome(model)
-        ? <OptionLines key={card.id} card={card} after={(row, i) => <AimOutcome model={model} card={card} row={row} i={i} />} />
-        : <OptionLines key={card.id} card={card}><Bands model={model} option={card.id} /></OptionLines>))}
-      <Worth run={run} tab="analysisNew" />
-      <Compared run={run} />
+      <div data-testid="view-reasoning-glance" className="space-y-1">
+        {brief === null ? null : (
+          <div className="flex gap-2"><span className={`${typography.panelMeta} w-16 shrink-0`}>{REASONING_LABELS.brief}</span><span className="min-w-0 truncate" title={brief} data-view="brief">{brief}</span></div>
+        )}
+        {goals.map((g) => (
+          <div key={g.id} className="flex gap-2"><span className={`${typography.panelMeta} w-16 shrink-0`}>{REASONING_LABELS.goal}</span><span className="min-w-0 truncate" title={g.detail} data-view={`${g.id}.heading`}>{g.heading}</span></div>
+        ))}
+        {GLANCE.map((row) => {
+          const cards = familyCards(model, row.families)
+          return cards.length === 0 ? null : (
+            <div key={row.testId} className="flex items-center gap-2" data-testid={`view-reasoning-glance-${row.testId}`}>
+              <span className={`${typography.panelMeta} w-16 shrink-0`}>{row.label}</span>
+              <span className="flex flex-wrap gap-1">{cards.map((c) => <span key={c.id} title={c.heading} aria-label={c.heading} data-glance-card={c.id} data-view={`${c.id}.glyph`}>{c.glyph}</span>)}</span>
+            </div>
+          )
+        })}
+      </div>
+      {challenges.length === 0 ? null : (
+        <Section label={REASONING_LABELS.challenge} testId="challenge">
+          {challenges.map((c) => (
+            <div key={c.id} title={c.detail} data-reasoning-challenge={c.id}>
+              <span aria-hidden="true" data-view={`${c.id}.glyph`}>{c.glyph}</span>{' '}
+              <span className="font-medium" data-view={`${c.id}.heading`}>{c.heading}</span>
+              {c.reason === null || c.reason === c.heading ? null : <p className={typography.panelMeta} data-view={`${c.id}.reason`}>{c.reason}</p>}
+            </div>
+          ))}
+        </Section>
+      )}
+      {premises.length + reasoning.length === 0 ? null : (
+        <Section label={REASONING_LABELS.premises} testId="premises">
+          {premises.map(({ card, p, j }) => (
+            <p key={`${card.id}.${j}`} title={p.title} data-reasoning-premise={`${card.id}.${j}`}>
+              <span aria-hidden="true" data-view={`${card.id}.premises.${j}.glyph`}>{p.glyph}</span>{' '}<span data-view={`${card.id}.premises.${j}.text`}>{p.text}</span>
+            </p>
+          ))}
+          {reasoning.map((c) => (
+            <p key={c.id} title={c.detail} data-reasoning-card={c.id}>
+              <span aria-hidden="true" data-view={`${c.id}.glyph`}>{c.glyph}</span>{' '}<span data-view={`${c.id}.reason`}>{c.reason}</span>
+            </p>
+          ))}
+        </Section>
+      )}
+      {!change ? null : (
+        <Section label={REASONING_LABELS.change} testId="change">
+          <Worth run={run} tab="analysisNew" />
+          <Compared run={run} />
+        </Section>
+      )}
+      <Outcomes model={model} />
       {settable.length === 0 ? null : (
-        <div data-testid="view-reasoning-try" aria-label="Try a figure">
-          <p className={typography.panelHeader}>Try a figure</p>
+        <div data-testid="view-reasoning-try" aria-label={REASONING_LABELS.tryFigure} className="border-t border-panel-border/60 pt-3">
+          <p className={typography.panelHeader}>{REASONING_LABELS.tryFigure}</p>
           {settable.map((c) => (
             <div key={c.id} className="group" title={c.figure!.text} data-reasoning-try={c.id}>
               <span data-view={`${c.id}.heading`}>{c.heading}</span>{' '}
@@ -38,6 +113,49 @@ export function ViewReasoning({ model }: { model: ViewModel }) {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Each aim's outcome under every option, on the aim's one axis (the previous tab's option bars, core c838f56 `rows[].outcome`): the aim in
+ * core's words, then each option's heading, core's own line for its outcome (its range reading on hover) and a bar. From a core before
+ * the row outcome (e16a497): each option's outcome bands (`cards[].values`) instead. Nothing where core gives none.
+ */
+function Outcomes({ model }: { model: ViewModel }) {
+  const options = optionCards(model)
+  if (!rowsCarryOutcome(model)) {
+    const any = options.some((o) => optionBands(model, o.id).length > 0)
+    return !any ? null : (
+      <div data-testid="view-reasoning-outcomes" className="space-y-2 border-t border-panel-border/60 pt-3">
+        {options.map((o) => (
+          <div key={o.id} data-view-card={o.id}>
+            <div className={typography.panelHeader} data-view={`${o.id}.heading`}>{o.heading}</div>
+            <Bands model={model} option={o.id} />
+          </div>
+        ))}
+      </div>
+    )
+  }
+  // The aims in the order core's option rows give them; each aim's heading is core's row words where it first appears.
+  const aims: { aim: string; card: ViewCard; i: number }[] = []
+  for (const o of options) o.rows.forEach((r, i) => { if (r.kind === 'chance' && r.outcome != null && r.aim_id !== null && !aims.some((a) => a.aim === r.aim_id)) aims.push({ aim: r.aim_id, card: o, i }) })
+  return aims.length === 0 ? null : (
+    <div data-testid="view-reasoning-outcomes" className="space-y-3 border-t border-panel-border/60 pt-3">
+      {aims.map(({ aim, card, i }) => (
+        <div key={aim} data-reasoning-aim={aim}>
+          <p className={typography.panelHeader} data-view={`${card.id}.rows.${i}.aim`}>{(card.rows[i] as Extract<ViewRow, { kind: 'chance' }>).aim}</p>
+          {options.map((o) => {
+            const k = o.rows.findIndex((r) => r.kind === 'chance' && r.aim_id === aim && r.outcome != null)
+            return k < 0 ? null : (
+              <div key={o.id} data-view-card={o.id}>
+                <div className={typography.panelMeta} data-view={`${o.id}.heading`}>{o.heading}</div>
+                <AimOutcome model={model} card={o} row={o.rows[k]!} i={k} />
+              </div>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }
@@ -93,6 +211,6 @@ function Bands({ model, option }: { model: ViewModel; option: string }) {
 
 /** The tab's body: the approved model's View while it is current (`currentModel`), else nothing, so a held proposal never reads as the Run. */
 export function ViewReasoningBlock() {
-  const model = useViewStore(currentModel)
-  return model === null ? null : <ViewReasoning model={model} />
+  const model = useViewStore(currentModel), brief = useViewStore((st) => st.view?.brief ?? null)
+  return model === null ? null : <ViewReasoning model={model} brief={brief} />
 }

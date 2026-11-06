@@ -10,7 +10,7 @@
 import { Fragment, type ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow, ViewRun } from './client'
-import { comparedGroupsOf, optionCards, worthLinesOf } from './layout'
+import { comparedGroupsOf, markedOptions, optionCards, worthLinesOf } from './layout'
 import { currentModel, useViewStore } from './store'
 import { clearWhatIf, useWhatIf } from './whatif'
 import { typography } from '../styles/typography'
@@ -148,18 +148,22 @@ export function driverRange(d: Driver): { lowPct: number; highPct: number } | nu
  * between the chance when that figure is low (hollow ring) and when it is high (filled dot). The numbers place the marks and nothing else;
  * core's whole line is its label and hover (`data-view-label`: the path of the string drawn as the label, not as text). What the two chances are is said once for the panel (`Sensitivity`).
  */
-function DriverRange({ id, driver }: { id: string; driver: Driver }) {
+function DriverRange({ id, driver, figure = null }: { id: string; driver: Driver; figure?: ViewCard | null }) {
   const { lowPct, highPct } = driverRange(driver)!
   const left = Math.min(lowPct, highPct), width = Math.max(2, Math.abs(highPct - lowPct))
   const dot = { position: 'absolute', top: '50%', width: 8, height: 8, marginLeft: -4, marginTop: -4, borderRadius: 4 } as const
   return (
-    <div className="mt-1 py-1" role="img" aria-label={driver.text} title={driver.title} data-view-label={`${id}.driver.text`} data-testid={`view-range-driver-${id}`}>
-      <div className="relative" style={{ height: 4, background: 'var(--factor-light)', borderRadius: 2 }}>
-        <div className="absolute top-0 h-full" data-range-span style={{ left: `${left}%`, width: `${width}%`, background: 'var(--option)', borderRadius: 2 }} />
-        <div data-range-low style={{ ...dot, left: `${lowPct}%`, background: 'var(--surface-card)', border: '2px solid var(--option)' }} />
-        <div data-range-high style={{ ...dot, left: `${highPct}%`, background: 'var(--option)' }} />
+    <>
+      <div className="mt-1 py-1" role="img" aria-label={driver.text} title={driver.title} data-view-label={`${id}.driver.text`} data-testid={`view-range-driver-${id}`}>
+        <div className="relative" style={{ height: 4, background: 'var(--factor-light)', borderRadius: 2 }}>
+          <div className="absolute top-0 h-full" data-range-span style={{ left: `${left}%`, width: `${width}%`, background: 'var(--option)', borderRadius: 2 }} />
+          <div data-range-low style={{ ...dot, left: `${lowPct}%`, background: 'var(--surface-card)', border: '2px solid var(--option)' }} />
+          <div data-range-high style={{ ...dot, left: `${highPct}%`, background: 'var(--option)' }} />
+        </div>
       </div>
-    </div>
+      {/* The figure the marker is about, by its own card's heading (core's words), beside the marker, never inside its label element. */}
+      {figure === null ? null : <p className={typography.panelMeta} title={driver.title} data-driver-figure={id} data-view={`${figure.id}.heading`}>{figure.heading}</p>}
+    </>
   )
 }
 
@@ -170,21 +174,26 @@ function DriverRange({ id, driver }: { id: string; driver: Driver }) {
 export function Sensitivity({ model }: { model: ViewModel }) {
   const s = model.run?.sensitivity ?? null
   if (s === null) return null
-  let drawn = false
-  for (const c of optionCards(model)) if (c.driver != null && driverRange(c.driver) !== null) drawn = true
-  return drawn ? <p className={typography.panelMeta} title={s.title} data-view="run.sensitivity.text">{s.text}</p> : null
+  const marked = markedOptions(model)
+  // Never alone (Paul, 6 Nov: "that figure's draws" with no figure named): only when every marked option names its figure under its
+  // marker, by that figure's own card heading. A figure that is no card (folded) has no words here, so the line is left out.
+  const named = marked.length > 0 && marked.every((c) => figureCard(model, c.driver!) !== null)
+  return named ? <p className={typography.panelMeta} title={s.title} data-view="run.sensitivity.text">{s.text}</p> : null
 }
+
+/** The card of the figure an option's chance moves most with (`driver.figure`), when the canvas draws it; null when it is folded. */
+export const figureCard = (model: ViewModel, d: Driver): ViewCard | null => (d.figure === null ? null : model.cards.find((c) => c.id === d.figure) ?? null)
 
 /**
  * One option: its heading, each row (a chance, a limit, or why there is nothing yet) with what `after` draws under it, and what moves its
  * chance most, all core's; then `children`.
  */
-export function OptionLines({ card, after, children }: { card: ViewCard; after?: (row: ViewRow, i: number) => ReactNode; children?: ReactNode }) {
+export function OptionLines({ card, after, children, model }: { card: ViewCard; after?: (row: ViewRow, i: number) => ReactNode; children?: ReactNode; model?: ViewModel }) {
   return (
     <div data-view-card={card.id}>
       <div className={typography.panelHeader} data-view={`${card.id}.heading`}>{card.heading}</div>
       {card.rows.map((row, i) => <Fragment key={i}><Row card={card} row={row} i={i} />{after?.(row, i)}</Fragment>)}
-      {card.driver == null ? null : driverRange(card.driver) !== null ? <DriverRange id={card.id} driver={card.driver} />
+      {card.driver == null ? null : driverRange(card.driver) !== null ? <DriverRange id={card.id} driver={card.driver} figure={model === undefined ? null : figureCard(model, card.driver)} />
         : <p className={typography.panelMeta} title={card.driver.title} data-view={`${card.id}.driver.text`}>{card.driver.text}</p>}
       {children}
     </div>
@@ -260,7 +269,7 @@ export function ViewChances({ model }: { model: ViewModel }) {
       <SharedBlockers run={run} />
       <Sensitivity model={model} />
       {/* Each chance's definition is core's row hover (its title), never body text (Paul's look check, R5 defect 2). */}
-      {optionCards(model).map((card) => <OptionLines key={card.id} card={card} />)}
+      {optionCards(model).map((card) => <OptionLines key={card.id} card={card} model={model} />)}
       {run?.most_likely == null ? null : <MostLikely model={model} ml={run.most_likely} />}
       <Worth run={run} />
       {run === null || run.notes.length === 0 ? null : (

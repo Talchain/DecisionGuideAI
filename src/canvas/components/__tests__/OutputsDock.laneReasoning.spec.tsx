@@ -59,14 +59,12 @@ describe('the Reasoning tab on the olumi-core lane', () => {
     await dockOn('analysisNew')
     fireEvent.click(screen.getByTestId('outputs-dock-tab-analysisNew'))
     const body = screen.getByTestId('view-reasoning')
-    expect(body.querySelector('[data-view="run.lead"]')?.textContent).toBe(view.model.run.lead)
-    // Core's driver line, drawn once: as the text, or (the design lead's v10 marker, when the driver carries low/high) as the marker's
-    // label and hover, its path in `data-view-label` (ViewChances.tsx DriverRange).
-    const driver = view.model.cards.find((c: { id: string }) => c.id === 'second_oven').driver
-    const asText = body.querySelector('[data-view="second_oven.driver.text"]'), asMarker = body.querySelector('[data-view-label="second_oven.driver.text"]')
-    expect([asText, asMarker].filter((e) => e !== null).length, 'core\'s driver line drawn exactly once').toBe(1)
-    if (asMarker !== null) expect([asMarker.getAttribute('aria-label'), asMarker.getAttribute('title')]).toEqual([driver.text, driver.title])
-    else expect(asText?.textContent).toBe(driver.text)
+    // Paul, 6 Nov: the previous PoC's Reasoning sections, drawn from the View (ViewReasoning.tsx): the brief and the model at a glance.
+    expect(body.querySelector('[data-view="brief"]')?.textContent).toBe(view.brief)
+    expect(body.querySelector('[data-testid="view-reasoning-glance"]')).not.toBeNull()
+    // Each option's chance and core's driver line live in Analysis only: Reasoning draws neither (no duplicate).
+    expect(body.querySelector('[data-view="run.lead"]')).toBeNull()
+    expect(body.querySelectorAll('[data-view$=".driver.text"], [data-view-label$=".driver.text"]').length).toBe(0)
     expect(screen.queryByTestId('stub-legacy-reasoning')).toBeNull()
     expect(document.querySelectorAll('[data-testid="stub-reanalyse-bar"], [data-testid="stub-readiness-bar"]').length).toBe(0)
   })

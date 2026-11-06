@@ -9,7 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, fireEvent, render, renderHook, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, renderHook, waitFor } from '@testing-library/react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import type { View } from '../client'
@@ -17,7 +17,7 @@ import { currentModel, useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
 import { ViewChat, ViewComposer, ViewTurns, useViewChat, useAnswersAsks } from '../ViewChat'
 import { optionBands, useV10Lane, valueBars, ViewCardV10 } from '../v10'
-import { ViewChances } from '../ViewChances'
+import { driverRange, ViewChances } from '../ViewChances'
 import { ViewReasoning } from '../ViewReasoning'
 import { optionCards } from '../layout'
 
@@ -231,55 +231,72 @@ describe('v10 on the core lane', () => {
   })
 })
 
-describe('what the driver chances are, said once (core d1fe5e2 run.sensitivity; DL 4 Nov)', () => {
+describe('what the driver chances are: said once, and only beside the figures it is about (core d1fe5e2 run.sensitivity; Paul 6 Nov)', () => {
+  /** bakery with every marked option's figure pointed at a card the canvas draws (core's figure ids are often folded). */
+  const named = () => {
+    const m = structuredClone(golden('bakery').model!)
+    const fig = m.cards.find((c) => c.id === 'extra_hours_sold')!
+    for (const c of m.cards) if (c.driver) c.driver.figure = fig.id
+    return { m, fig }
+  }
   for (const n of ['bakery', 'european']) {
-    for (const [panel, Draw] of [['Analysis', ViewChances], ['Reasoning', ViewReasoning]] as const) {
-      it(`${n}, ${panel}: run.sensitivity in core's words with its hover, exactly once, at the head of the option rows`, () => {
-        const m = golden(n).model!
-        const { container } = render(<ReactFlowProvider><Draw model={m} /></ReactFlowProvider>)
-        const once = container.querySelectorAll('[data-view="run.sensitivity.text"]')
-        expect(once.length).toBe(1)
-        expect(once[0]!.textContent).toBe(m.run!.sensitivity.text)
-        expect(once[0]!.getAttribute('title')).toBe(m.run!.sensitivity.title)
-        const first = container.querySelector(`[data-view-card="${optionCards(m)[0]!.id}"]`)!
-        expect(once[0]!.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-        expect(once[0]!.closest('[data-view-card]')).toBeNull()
-      })
-    }
+    it(`${n}, Analysis: a marked option's figure is no card (folded), so the line is left out, never said alone; the markers stay, core's line their label`, () => {
+      const m = golden(n).model!
+      const { container } = render(<ReactFlowProvider><ViewChances model={m} /></ReactFlowProvider>)
+      expect(optionCards(m).some((c) => c.driver !== null && driverRange(c.driver) !== null && !m.cards.some((x) => x.id === c.driver!.figure))).toBe(true)
+      expect(container.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
+      expect(container.querySelectorAll('[data-testid^="view-range-driver-"]').length).toBeGreaterThan(0)
+    })
   }
 
-  it('no option carries driver chances: no sensitivity line', () => {
+  it('every marked option names its figure (its card\'s heading beside the marker): the line is drawn once, at the head of the option rows, in core\'s words', () => {
+    const { m, fig } = named()
+    const { container } = render(<ReactFlowProvider><ViewChances model={m} /></ReactFlowProvider>)
+    const once = container.querySelectorAll('[data-view="run.sensitivity.text"]')
+    expect(once.length).toBe(1)
+    expect(once[0]!.textContent).toBe(m.run!.sensitivity.text)
+    expect(once[0]!.getAttribute('title')).toBe(m.run!.sensitivity.title)
+    const first = container.querySelector(`[data-view-card="${optionCards(m)[0]!.id}"]`)!
+    expect(once[0]!.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    for (const c of optionCards(m)) {
+      if (c.driver === null || driverRange(c.driver) === null) continue
+      const label = container.querySelector(`[data-driver-figure="${c.id}"]`)
+      expect(label?.getAttribute('data-view'), c.id).toBe(`${fig.id}.heading`)
+      expect(label?.textContent, c.id).toBe(fig.heading)
+      expect(label?.closest('[data-view-label]'), c.id).toBeNull() // beside the marker, never inside its label element
+    }
+  })
+
+  it('must not change: no option carries driver chances: no sensitivity line; the Reasoning tab draws no marker and no line', () => {
     const m = structuredClone(golden('bakery').model!)
     for (const c of m.cards) if (c.driver) { c.driver.low = null; c.driver.high = null }
     expect(render(<ViewChances model={m} />).container.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
+    cleanup()
+    const r = render(<ReactFlowProvider><ViewReasoning model={named().m} /></ReactFlowProvider>).container
+    expect(r.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
+    expect(r.querySelector('[data-testid^="view-range-driver-"]')).toBeNull()
   })
 })
 
-describe('v10 driver marker (core d1fe5e2 driver.low/high, run.sensitivity once; DL 4 Nov)', () => {
+describe('v10 driver marker (core d1fe5e2 driver.low/high; DL 4 Nov)', () => {
   for (const n of ['bakery', 'european']) {
-    for (const [panel, draw] of [['Analysis', ViewChances], ['Reasoning', ViewReasoning]] as const) {
-      it(`${n}, ${panel}: each option's low→high marker sits at its own two chances, core's line its label, and what they are is said once`, () => {
-        const m = golden(n).model!
-        const { container } = render(<ReactFlowProvider>{draw === ViewChances ? <ViewChances model={m} /> : <ViewReasoning model={m} />}</ReactFlowProvider>)
-        let drawn = 0
-        for (const c of optionCards(m)) {
-          const mark = container.querySelector<HTMLElement>(`[data-testid="view-range-driver-${c.id}"]`)
-          if (c.driver === null || c.driver.low === null || c.driver.high === null) { expect(mark, c.id).toBeNull(); continue }
-          drawn++
-          expect(mark!.closest('[data-view-card]')?.getAttribute('data-view-card'), c.id).toBe(c.id)
-          expect(mark!.getAttribute('aria-label'), c.id).toBe(c.driver.text)
-          expect(mark!.querySelector<HTMLElement>('[data-range-low]')!.style.left, c.id).toBe(`${c.driver.low * 100}%`)
-          expect(mark!.querySelector<HTMLElement>('[data-range-high]')!.style.left, c.id).toBe(`${c.driver.high * 100}%`)
-        }
-        expect(drawn).toBeGreaterThan(1) // the probe reads real markers
-        const once = container.querySelectorAll('[data-view="run.sensitivity.text"]')
-        expect(once.length).toBe(1)
-        expect(once[0]!.textContent).toBe(m.run!.sensitivity.text)
-        expect(once[0]!.getAttribute('title')).toBe(m.run!.sensitivity.title)
-        // core's per-option sentence is no longer drawn as text, once or six times
-        for (const c of optionCards(m)) if (c.driver !== null && c.driver.low !== null) expect(container.textContent!.includes(c.driver.text), c.id).toBe(false)
-      })
-    }
+    it(`${n}, Analysis: each option's low→high marker sits at its own two chances, core's line its label, never drawn as text`, () => {
+      const m = golden(n).model!
+      const { container } = render(<ReactFlowProvider><ViewChances model={m} /></ReactFlowProvider>)
+      let drawn = 0
+      for (const c of optionCards(m)) {
+        const mark = container.querySelector<HTMLElement>(`[data-testid="view-range-driver-${c.id}"]`)
+        if (c.driver === null || c.driver.low === null || c.driver.high === null) { expect(mark, c.id).toBeNull(); continue }
+        drawn++
+        expect(mark!.closest('[data-view-card]')?.getAttribute('data-view-card'), c.id).toBe(c.id)
+        expect(mark!.getAttribute('aria-label'), c.id).toBe(c.driver.text)
+        expect(mark!.querySelector<HTMLElement>('[data-range-low]')!.style.left, c.id).toBe(`${c.driver.low * 100}%`)
+        expect(mark!.querySelector<HTMLElement>('[data-range-high]')!.style.left, c.id).toBe(`${c.driver.high * 100}%`)
+      }
+      expect(drawn).toBeGreaterThan(1) // the probe reads real markers
+      // core's per-option sentence is no longer drawn as text, once or six times
+      for (const c of optionCards(m)) if (c.driver !== null && c.driver.low !== null) expect(container.textContent!.includes(c.driver.text), c.id).toBe(false)
+    })
   }
 
   it('a View with no driver numbers draws the words as before and no sensitivity line', () => {
