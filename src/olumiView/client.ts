@@ -77,7 +77,7 @@ export const writes = {
   /** "Show me Olumi's figure instead" (`POST …/figure-first/show`): Olumi's figure and basis for the offered quantity; the entry is not offered again. */
   figureFirstShow: (sid: string, quantity: string, version: number) => call<FigureFirstShown>('POST', `${scenarioPath(sid)}/figure-first/show`, { quantity, version }),
   /** One plain question from the View's `session.methods` (core API `POST …/method`): a discussion-only turn, never a change to the model. */
-  method: (sid: string, method: string, op: string) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/method`, { method, op }),
+  method: (sid: string, method: string, op: string, option?: string) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/method`, option === undefined ? { method, op } : { method, op, option }),
   /**
    * The coach's next move, taken in one tap: a structured choice, never words (DL 16:36Z, option b). Core's route (API v1.12, "Taking the
    * offered coaching move by one tap", 400b672, in the View vendored at d1fe5e2): `{ move, at, op? }` with no `text`; the person's turn is

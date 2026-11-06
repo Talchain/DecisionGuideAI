@@ -10,7 +10,7 @@
 import { Fragment, type ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow, ViewRun, ViewTurn } from './client'
-import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, optionCards, SHARPEN_SHOWN, sharpenKindOf, sharpenRowsOf, tippingOf, worthLinesOf, type SharpenRow } from './layout'
+import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, optionCards, SHARPEN_SHOWN, sharpenKindOf, sharpenRowsOf, tippingOf, failureOf, restsOf, worthLinesOf, type SharpenRow } from './layout'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { MoveTap, Words } from './ViewChat'
 import { currentModel, useViewStore } from './store'
@@ -303,9 +303,22 @@ export function Tipping({ run }: { run: ViewRun | null }) {
           <span data-view={`run.tipping.${i}.line`}>{l.line}</span>
         </p>
       ))}
+      {t.silent.map((s) => <p key={s.aim} data-view-silent={s.aim}>{s.line}</p>)}
     </section>
   )
 }
+
+/** D5 and D8 on the Analysis tab, as D6 is drawn: core's sentence verbatim under core's heading, its hover as the title. */
+function FactCard({ testid, view, t }: { testid: string; view: string; t: { heading: string; lines: { line: { id: string; line: string; hover: string }; i: number }[] } | null }) {
+  return t === null ? null : (
+    <section className={BOX} data-testid={testid} aria-label={t.heading}>
+      <p className={typography.panelHeader} data-view={`${view}_heading`}>{t.heading}</p>
+      {t.lines.map(({ line: l, i }) => <p key={l.id} title={l.hover} data-view-fact={l.id}><span data-view={`${view}.${i}.line`}>{l.line}</span></p>)}
+    </section>
+  )
+}
+export const Failure = ({ run }: { run: ViewRun | null }) => <FactCard testid="view-run-failure" view="run.failure" t={failureOf(run)} />
+export const Rests = ({ run }: { run: ViewRun | null }) => <FactCard testid="view-run-rests" view="run.rests" t={restsOf(run)} />
 
 /**
  * The lines for one View model: pure, so a test draws it from a golden View. As the base dock (ViewOnlyRunChancesBlock): the Run's lead,
@@ -343,6 +356,8 @@ export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: r
       </section>
       <SuggestedNext chat={chat} />
       <Tipping run={run} />
+      <Failure run={run} />
+      <Rests run={run} />
       {worth === 0 ? null : (
         <section className={BOX} data-testid="view-run-behind" aria-label="Behind this result">
           <p className={typography.panelHeader}>Behind this result</p>
@@ -376,7 +391,7 @@ function SharpenCard({ model }: { model: ViewModel }) {
         <span data-view={`sharpen.${i}.lead`}>{row.lead}</span>{' '}
         <span className="font-semibold" data-view={`sharpen.${i}.emphasis`}>{row.emphasis}</span>
       </p>
-      <span role="img" aria-label={row.rationale} title={row.rationale} data-view-label={`sharpen.${i}.rationale`} data-testid={`view-run-sharpen-why-${row.id}`}
+      <span role="img" aria-label={row.rationale} title={row.rationale} data-view-hover={`sharpen.${i}.rationale`} data-testid={`view-run-sharpen-why-${row.id}`}
         className={`${typography.panelMeta} shrink-0 cursor-help`}>ⓘ</span>
     </div>
   )

@@ -13,6 +13,7 @@ import { setTeamFetch } from '../../olumiCore/team/api'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { ViewChat, ViewComposer, useViewChat } from '../ViewChat'
+import { useCanvasStore } from '../../canvas/store'
 
 const DIR = path.resolve('src/olumiView/fixtures/session')
 const fixture = (n: string): View => JSON.parse(readFileSync(path.join(DIR, `${n}.view3.json`), 'utf8'))
@@ -187,6 +188,22 @@ describe('a press asks that question as a discussion-only turn', () => {
     await act(async () => { release(new Response(JSON.stringify({ proposal: 6, discussion: true }), { status: 201 })) })
     await waitFor(() => expect(useViewChat.getState().busy).toBe(false))
     for (const b of methods(c)) expect(b.disabled, b.dataset['method']).toBe(false)
+  })
+
+  it('R17 D5: "What could go wrong?" sends the option the person has selected (only then); every other press sends none', async () => {
+    core(() => fixture('goal-understand'))
+    show(fixture('goal-understand'))
+    const c = renderTab()
+    useCanvasStore.setState({ selection: { nodeIds: new Set(['add_one']), edgeIds: new Set<string>(), anchorPosition: null } })
+    await press(methods(c).find((b) => b.dataset['method'] === 'go_wrong')!)
+    expect(posts[0]!.body).toEqual({ method: 'go_wrong', op: OP, option: 'add_one' })
+    useCanvasStore.setState({ selection: { nodeIds: new Set(['add_one', 'hold']), edgeIds: new Set<string>(), anchorPosition: null } })
+    await press(methods(c).find((b) => b.dataset['method'] === 'go_wrong')!)
+    expect(posts[1]!.body).toEqual({ method: 'go_wrong', op: OP })
+    useCanvasStore.setState({ selection: { nodeIds: new Set(['add_one']), edgeIds: new Set<string>(), anchorPosition: null } })
+    await press(methods(c).find((b) => b.dataset['method'] === 'rests')!)
+    expect(posts[2]!.body).toEqual({ method: 'rests', op: OP })
+    useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set<string>(), anchorPosition: null } })
   })
 
   it('the goal row is held while a turn is in flight too', () => {

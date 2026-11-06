@@ -15,7 +15,7 @@ import { newOp, READ_FAILED, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
 import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type ViewTurn } from './client'
 import { useViewStore } from './store'
-import { figureFirstOf, olumiKey, sessionOf, type Session } from './layout'
+import { figureFirstOf, olumiKey, optionInFocusOf, sessionOf, type Session } from './layout'
 import { derivedUuidOf } from '../olumiCore/team/sid'
 import { useCanvasStore } from '../canvas/store'
 import { setCurrentScenarioId } from '../canvas/store/scenarios'
@@ -403,9 +403,10 @@ export async function chooseGoal(goal: string | null): Promise<boolean> {
  * challenge's does. The same press after a dropped connection is sent with the same op id, so core answers (and pays) once.
  */
 export async function askMethod(method: string): Promise<boolean> {
-  const { sid, uuid } = useViewStore.getState()
+  const { sid, uuid, view } = useViewStore.getState()
   if (sid === null) return false
-  return write('method', method, (op) => writes.method(sid, method, op), false, uuid)
+  const option = method === 'go_wrong' && view !== null ? optionInFocusOf(view, useCanvasStore.getState().selection.nodeIds) : null
+  return write('method', option === null ? method : `${method}:${option}`, (op) => writes.method(sid, method, op, option ?? undefined), false, uuid)
 }
 
 /** The menu item core sends while it offers "Let us give our figure first" (API.md): a press opens its entry, never POST …/method. */
