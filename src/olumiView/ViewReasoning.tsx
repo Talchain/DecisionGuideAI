@@ -3,7 +3,8 @@
  * and has no source here. Paul, 6 Nov ("the right-hand panel tabs' content is completely unacceptable… we did so much work on the
  * previous version"): it follows the previous PoC's Reasoning tab (vision-audit-20261024 *-panel-reasoning.png), under C1 (4 Nov, DGAI's
  * look on core's View), and no longer repeats the Analysis tab's per-option chance rows:
- *   1. the model at a glance: the brief, the goal, and one mark per option, factor and risk (each card's own glyph, its heading on hover);
+ *   1. the model at a glance: the brief, the goal, and one mark per option, factor, risk and outcome in the canvas's shape and colour for
+ *      its kind (core's glyph kept for a reader, its heading on hover), with each row's count, as the previous strip;
  *   2. Challenge Your Thinking: the cards core marks `challenged` (a challenge, a disagreement, evidence that challenges);
  *   3. Assumptions and evidence: every premise core puts on a card, and the reasoning cards core draws, each once;
  *   4. What would change your mind: each aim's figure worth checking first, and core's comparisons;
@@ -18,22 +19,23 @@
 import type { ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow } from './client'
-import { bandPlace, challengedCards, familyCards, olumiKey, optionBands, optionCards, outcomePlace, premisesOnce, rowsCarryOutcome, settableFigures, type Place } from './layout'
+import type { GlanceKind } from './layout'
+import { bandPlace, challengedCards, familyCards, glanceRows, olumiKey, optionBands, optionCards, outcomePlace, premisesOnce, rowsCarryOutcome, settableFigures, type Place } from './layout'
 import { currentModel, useViewStore } from './store'
 import { Compared, WhatIfShown, Worth } from './ViewChances'
 import { typography } from '../styles/typography'
+import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 
 /** The tab's own labels (the previous PoC's Reasoning tab), the only words not core's. */
 export const REASONING_LABELS = {
-  brief: 'Brief', goal: 'Goal', options: 'Options', factors: 'Factors', risks: 'Risks',
+  brief: 'Brief', goal: 'Goal', options: 'Options', factors: 'Factors', risks: 'Risks', outcomes: 'Outcomes',
   challenge: 'Challenge Your Thinking', premises: 'Assumptions and evidence', change: 'What would change your mind', tryFigure: 'Try a figure',
 } as const
-/** The model at a glance: which card families each row marks (an aim's measured figure is a factor too, as the previous strip counted it). */
-const GLANCE: readonly { label: string; families: readonly string[]; testId: string }[] = [
-  { label: REASONING_LABELS.options, families: ['option'], testId: 'options' },
-  { label: REASONING_LABELS.factors, families: ['quantity'], testId: 'factors' },
-  { label: REASONING_LABELS.risks, families: ['risk'], testId: 'risks' },
-]
+/** The model at a glance: each row's label and test id, by the kind the canvas draws its cards as (layout.ts glanceRows picks them). */
+const GLANCE: Record<GlanceKind, { label: string; testId: string }> = {
+  option: { label: REASONING_LABELS.options, testId: 'options' }, factor: { label: REASONING_LABELS.factors, testId: 'factors' },
+  risk: { label: REASONING_LABELS.risks, testId: 'risks' }, outcome: { label: REASONING_LABELS.outcomes, testId: 'outcomes' },
+}
 
 function Section({ label, testId, children }: { label: string; testId: string; children: ReactNode }) {
   return (
@@ -55,20 +57,26 @@ export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief
       <WhatIfShown model={model} />
       <div data-testid="view-reasoning-glance" className="space-y-1">
         {brief === null ? null : (
-          <div className="flex gap-2"><span className={`${typography.panelMeta} w-16 shrink-0`}>{REASONING_LABELS.brief}</span><span className="min-w-0 truncate" title={brief} data-view="brief">{brief}</span></div>
+          <div className="flex gap-2"><span className={`${typography.panelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind="decision" size={10} />{REASONING_LABELS.brief}</span><span className="min-w-0 truncate" title={brief} data-view="brief">{brief}</span></div>
         )}
         {goals.map((g) => (
-          <div key={g.id} className="flex gap-2"><span className={`${typography.panelMeta} w-16 shrink-0`}>{REASONING_LABELS.goal}</span><span className="min-w-0 truncate" title={g.detail} data-view={`${g.id}.heading`}>{g.heading}</span></div>
+          <div key={g.id} className="flex gap-2"><span className={`${typography.panelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind="goal" size={10} />{REASONING_LABELS.goal}</span><span className="min-w-0 truncate" title={g.detail} data-view={`${g.id}.heading`}>{g.heading}</span></div>
         ))}
-        {GLANCE.map((row) => {
-          const cards = familyCards(model, row.families)
-          return cards.length === 0 ? null : (
-            <div key={row.testId} className="flex items-center gap-2" data-testid={`view-reasoning-glance-${row.testId}`}>
-              <span className={`${typography.panelMeta} w-16 shrink-0`}>{row.label}</span>
-              <span className="flex flex-wrap gap-1">{cards.map((c) => <span key={c.id} title={c.heading} aria-label={c.heading} data-glance-card={c.id} data-view={`${c.id}.glyph`}>{c.glyph}</span>)}</span>
-            </div>
-          )
-        })}
+        {/* As the previous strip: the kind's canvas shape before its label, one mark per card in the canvas's own shape and colour (core's
+            glyph kept for a reader, its heading on hover), and how many cards the row has, right-aligned. */}
+        {glanceRows(model).map(({ kind, cards }) => (
+          <div key={kind} className="flex items-center gap-2" data-testid={`view-reasoning-glance-${GLANCE[kind].testId}`}>
+            <span className={`${typography.panelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind={kind} size={10} />{GLANCE[kind].label}</span>
+            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+              {cards.map((c) => (
+                <span key={c.id} className="inline-flex" title={c.heading} aria-label={c.heading} data-glance-card={c.id} data-glance-kind={kind}>
+                  <NodeShapeIndicator nodeKind={kind} size={10} /><span className="sr-only" data-view={`${c.id}.glyph`}>{c.glyph}</span>
+                </span>
+              ))}
+            </span>
+            <span className={`${typography.panelMeta} shrink-0 tabular-nums`} data-glance-count={kind}>{cards.length}</span>
+          </div>
+        ))}
       </div>
       {challenges.length === 0 ? null : (
         <Section label={REASONING_LABELS.challenge} testId="challenge">

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import type { View, ViewModel } from '../client'
+import type { View, ViewCard, ViewModel } from '../client'
 import { useViewStore } from '../store'
 import { optionCards } from '../layout'
 import { REASONING_LABELS, ViewReasoning, ViewReasoningBlock } from '../ViewReasoning'
@@ -30,7 +30,8 @@ const LABELS = new Set(['Worth checking first', 'Try a figure', '✎', ' ', '\u0
 const unbound = (root: HTMLElement, also: string[]) => {
   const out: string[] = [], walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   for (let n = walk.nextNode(); n !== null; n = walk.nextNode()) {
-    if (n.parentElement!.closest('[data-view]') === null && !LABELS.has(n.textContent!) && !also.includes(n.textContent!)) out.push(n.textContent!)
+    // A glance row's count is the number of cards drawn (structure, code's), asserted by the glance rows below; never a View value.
+    if (n.parentElement!.closest('[data-view], [data-glance-count]') === null && !LABELS.has(n.textContent!) && !also.includes(n.textContent!)) out.push(n.textContent!)
   }
   return out
 }
@@ -44,6 +45,46 @@ function at(view: View, path: string): unknown {
   return x
 }
 const OWN = Object.values(REASONING_LABELS) as string[]
+
+// The glance as the previous PoC's strip (vision-audit-20261024 *-panel-reasoning.png; side-by-side 6 Nov): Options, Factors, Risks and
+// Outcomes, each mark in the canvas's own shape and colour for its kind, and how many cards each row has, right-aligned.
+describe('the Reasoning glance: the previous strip\'s rows, counts and canvas colours (side-by-side, 6 Nov)', () => {
+  const kinds = (m: ViewModel) => {
+    const through = new Set(m.links.filter((l) => l.kind === 'through').map((l) => l.to))
+    const q = m.cards.filter((c) => c.family === 'quantity')
+    return { options: m.cards.filter((c) => c.family === 'option'), factors: q.filter((c) => !through.has(c.id)), risks: m.cards.filter((c) => c.family === 'risk'), outcomes: q.filter((c) => through.has(c.id)) }
+  }
+  const FILL = { options: 'var(--option)', factors: 'var(--factor)', risks: 'var(--danger)', outcomes: 'var(--success)' } as const
+  for (const golden of ['bakery.view.json', 's_ce285b3617bb.view.json', 'pricing.view.json']) {
+    it(`catch: ${golden}: four rows, each with its cards by id and their count; an outcome is never counted as a factor`, () => {
+      const view = read(golden), m = view.model!, want = kinds(m)
+      ready(view)
+      render(<ViewReasoning model={m} brief={view.brief} />)
+      for (const [row, cards] of Object.entries(want)) {
+        const el = screen.getByTestId(`view-reasoning-glance-${row}`)
+        expect([...el.querySelectorAll<HTMLElement>('[data-glance-card]')].map((e) => e.dataset['glanceCard']), row).toEqual(cards.map((c) => c.id))
+        expect(el.querySelector('[data-glance-count]')?.textContent, row).toBe(String(cards.length))
+      }
+      expect(want.outcomes.length).toBeGreaterThan(0)
+    })
+    it(`catch: ${golden}: each mark is drawn in its kind's canvas colour, with core's glyph bound for a reader`, () => {
+      const view = read(golden), m = view.model!, want = kinds(m)
+      ready(view)
+      render(<ViewReasoning model={m} brief={view.brief} />)
+      for (const [row, cards] of Object.entries(want) as [keyof typeof FILL, ViewCard[]][]) for (const c of cards) {
+        const mark = screen.getByTestId(`view-reasoning-glance-${row}`).querySelector<HTMLElement>(`[data-glance-card="${c.id}"]`)!
+        expect(mark.querySelector('svg [fill]')?.getAttribute('fill'), `${row} ${c.id}`).toBe(FILL[row])
+        expect(mark.querySelector(`[data-view="${c.id}.glyph"]`)?.textContent).toBe(c.glyph)
+      }
+    })
+  }
+  it('an empty row still reads, with 0 (as the previous strip\'s "Outcomes 0")', () => {
+    const view = read('pricing.view.json'), m = { ...view.model!, cards: view.model!.cards.filter((c) => c.family !== 'risk') }
+    ready({ ...view, model: m })
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    expect(screen.getByTestId('view-reasoning-glance-risks').querySelector('[data-glance-count]')?.textContent).toBe('0')
+  })
+})
 
 describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Paul, 6 Nov; C1 4 Nov)', () => {
   for (const golden of ['bakery.view.json', 'european.view.json', 'studio.view.json', 'app-launch.view.json', 'pricing.view.json', 's_ce285b3617bb.view.json']) {
@@ -65,7 +106,8 @@ describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Pau
       expect(root.querySelector('[data-view="brief"]')?.textContent).toBe(view.brief)
       for (const g of m.cards.filter((c) => c.family === 'goal')) expect(root.querySelector(`[data-testid="view-reasoning-glance"] [data-view="${g.id}.heading"]`), g.id).not.toBeNull()
       const marked = [...root.querySelectorAll<HTMLElement>('[data-glance-card]')]
-      expect(marked.map((e) => e.dataset['glanceCard'])).toEqual(['option', 'quantity', 'risk'].flatMap((f) => m.cards.filter((c) => c.family === f).map((c) => c.id)))
+      const through = new Set(m.links.filter((l) => l.kind === 'through').map((l) => l.to)), fig = (o: boolean) => m.cards.filter((c) => c.family === 'quantity' && through.has(c.id) === o)
+      expect(marked.map((e) => e.dataset['glanceCard'])).toEqual([...m.cards.filter((c) => c.family === 'option'), ...fig(false), ...m.cards.filter((c) => c.family === 'risk'), ...fig(true)].map((c) => c.id))
       for (const e of marked) expect(e.getAttribute('title')).toBe(m.cards.find((c) => c.id === e.dataset['glanceCard'])!.heading)
       // Challenge Your Thinking: exactly the cards core marks challenged.
       expect([...root.querySelectorAll<HTMLElement>('[data-reasoning-challenge]')].map((e) => e.dataset['reasoningChallenge'])).toEqual(m.cards.filter((c) => c.challenged === true).map((c) => c.id))
