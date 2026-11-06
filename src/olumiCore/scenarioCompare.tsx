@@ -109,7 +109,7 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
   const showFigures = figures.some((f) => f.status !== 'same')
   return (
     <div className="grid gap-2" data-testid="scenario-compare-out">
-      <div className="sticky top-0 z-10 grid grid-cols-2 gap-3 bg-canvas py-1" data-testid="scenario-compare-heads">
+      <div className="sticky top-0 z-10 grid grid-cols-2 gap-3 bg-panel py-1" data-testid="scenario-compare-heads">
         {[c.a, c.b].map((s, i) => (
           <div key={i} className="grid content-start gap-0.5 break-words" data-compare-side={i === 0 ? 'a' : 'b'}>
             <p className={`${H}`} data-compare-name="">{s?.name}</p>

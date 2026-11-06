@@ -48,6 +48,13 @@ describe('where you differ: who leans where, in core\'s words', () => {
     expect(pic.querySelector('[data-differ-aim-heading]')?.textContent).toBe('At least 100 a week')
   })
 
+  it('the same figure given again in a later round with the same effect is one line', () => {
+    const again = { ...paul, id: 98 }
+    show(withShared([paul, again, bea]))
+    const lane = screen.getByTestId('team-differ').querySelector<HTMLElement>('[data-differ-option="add_one"]')!
+    expect([...lane.querySelectorAll('[data-differ-figure]')].map((e) => e.textContent)).toEqual(['existing capacity: 80 tickets/week', 'capacity target: 90 tickets/week'])
+  })
+
   it('only a figure that changes which option is most likely is emphasised', () => {
     const emph = { ...bea, effects: bea.effects.map((e) => (e.quantity === 'capacity_target' ? { ...e, status: 'changes' as const } : e)) }
     show(withShared([paul, emph]))

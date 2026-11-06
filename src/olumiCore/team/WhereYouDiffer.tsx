@@ -68,7 +68,8 @@ export function WhereYouDiffer({ view }: { view: View }): JSX.Element | null {
                     <p className={`${META} text-text-header`} data-differ-option-heading="">{k.heading}</p>
                     <ul className="m-0 grid list-none gap-2 p-0">
                       {people.map((id) => {
-                        const mine = here.filter((p) => p.leader === k.id && p.by_id === id)
+                        // The same figure given again in a later round, with the same effect, is one line, not two.
+                        const mine = here.filter((p) => p.leader === k.id && p.by_id === id).filter((p, i, all) => all.findIndex((q) => q.figure === p.figure && q.text === p.text && q.status === p.status) === i)
                         return (
                           <li key={id} data-differ-person={id} className={`${META} grid gap-1`}>
                             <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={AVATAR}>{mine[0]!.by.slice(0, 1).toUpperCase()}</span><span className="text-text-header" data-differ-by="">{mine[0]!.by}</span></span>
