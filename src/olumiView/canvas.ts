@@ -35,6 +35,13 @@ let causal: { key: string; places: Map<string, At> } | null = null
 let laying = 0
 /** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
 export const viewLaying = (): boolean => laying > 0
+/** True once the board on screen is laid out at the cards' drawn heights, with nothing being laid out (option a2, 6 Nov: a card face
+ *  shorter than core's estimate lays the board out again a few frames after it is drawn, so anything placed against the cards, such as
+ *  Olumi's note, waits for this). True with no View model. */
+export const viewSettled = (): boolean => {
+  const model = useViewStore.getState().view?.model ?? null
+  return model === null || (laying === 0 && causal?.key === causalKey(model, useCanvasStore.getState().nodes))
+}
 const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[]) =>
   JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to]), drawnHeightsKey(nodes)])
 

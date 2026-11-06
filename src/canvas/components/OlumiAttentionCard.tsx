@@ -40,6 +40,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { VIEW_NOTE_SLOT, VIEW_NOTE_TURN } from '../../olumiView/note'
+import { viewSettled } from '../../olumiView/canvas'
 import { useStore } from '@xyflow/react'
 import { ArrowUp, HelpCircle, History, Info, Lightbulb, MessageCircleQuestion, RefreshCw, Scale, X, type LucideIcon } from 'lucide-react'
 import { useCanvasStore } from '../store'
@@ -305,16 +306,21 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
     }
     if (floor !== iconFloor) setIconFloor(floor)
   })
-  const [drawnNow, setDrawnNow] = useState<{ key: string; cards: Box[]; controls: Box[] }>({ key: '', cards: [], controls: [] })
+  const [drawnNow, setDrawnNow] = useState<{ key: string; cards: Box[]; controls: Box[]; settled: boolean }>({ key: '', cards: [], controls: [], settled: false })
   useEffect(() => {
     if (!(cardHeight > 0)) return
-    const raf = requestAnimationFrame(() => {
+    let raf = 0
+    const measure = () => {
+      // On the lane the board is laid out again once the cards' drawn heights are known (option a2, 6 Nov: the note was painted on the canvas
+      // for a frame, then moved to the tab when the board settled). Until then the note is not shown, and this looks again next frame.
+      if (isOlumiCoreLane() && !viewSettled()) { setDrawnNow((was) => (was.settled ? { ...was, settled: false } : was)); raf = requestAnimationFrame(measure); return }
       // Whole px, rounded OUTWARD: a card a fraction of a pixel into a spot is in the way (rounded to the nearest, 0.4 px over read as free).
       const px = (b: Box): Box => { const x = Math.floor(b.x), y = Math.floor(b.y); return { x, y, w: Math.ceil(b.x + b.w) - x, h: Math.ceil(b.y + b.h) - y } }
       const cards = drawnCardBoxes(cardRef.current, anchorRef.current).map(px), controls = controlBoxes(cardRef.current).map(px)
       const key = JSON.stringify([cards, controls])
-      setDrawnNow((was) => (was.key === key ? was : { key, cards, controls }))
-    })
+      setDrawnNow((was) => (was.key === key && was.settled ? was : { key, cards, controls, settled: true }))
+    }
+    raf = requestAnimationFrame(measure)
     return () => cancelAnimationFrame(raf)
   })
 
@@ -625,7 +631,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   // ⛔ NEVER PAINTED BEFORE ITS SPOT IS KNOWN (integrator, 4 Nov, 900×560: on the canvas for a frame, then in the tab). On the lane the
   // note's place rests on the cards as drawn, measured a frame after it mounts; until then `inPanel` cannot be known, so it is drawn
   // invisible (still measured) and shown only once placed.
-  const placed = !isOlumiCoreLane() || (cardHeight > 0 && drawnNow.key !== '')
+  const placed = !isOlumiCoreLane() || (cardHeight > 0 && drawnNow.key !== '' && drawnNow.settled)
   const unseen = inPanel || !placed
   const onCanvas = shell({ ref: cardRef, ...(inPanel ? { 'data-note-measure': '', 'aria-hidden': true, inert: '' } : { 'data-testid': OLUMI_ATTENTION_CARD_TESTID }),
     style: { position: 'absolute', left, top, width: CARD_WIDTH, zIndex: 95, ...(unseen ? { visibility: 'hidden', pointerEvents: 'none' } : {}) } }, inPanel ? body(false) : content)
