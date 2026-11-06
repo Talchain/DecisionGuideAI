@@ -606,36 +606,45 @@ check(JSON.stringify((await view(bea, sid)).model) === JSON.stringify(v.model), 
 await shot(bea, '5-bea-version-2')
 
 // ── 5a. Reasoning, from core's View ─────────────────────────────────────────────────────────────────────────────────────────────
-step('5a', 'Ada opens Reasoning: version 2\'s Run in core\'s words and order, and a figure tried there on a copy')
-await tab(ada, 'analysisNew')
-const reasoning = ada.page.getByTestId('view-reasoning')
-await reasoning.waitFor({ timeout: T })
-const inReasoning = (p) => reasoning.locator(`[data-view="${p}"]`)
+step('5a', 'Ada reads version 2\'s Run: chances in Analysis, in core\'s words and order; Reasoning\'s outcomes; a figure tried on a copy')
+// Since DGAI 6e82ed1 (DL 6 Nov, the previous PoC's Reasoning sections) each option's chance, driver and what would change it are drawn
+// in Analysis (ViewChances) and not repeated in Reasoning; Reasoning keeps the outcomes and Try a figure. Every string is still bound.
+await tab(ada, 'results')
+const chances = ada.page.getByTestId('view-chances')
+await chances.waitFor({ timeout: T })
+const inChances = (p) => chances.locator(`[data-view="${p}"]`)
 // The page reads core's olumi.view/3 (src/olumiView/client.ts `viewPath`), which carries the Run's science lines: compared against that.
 const v3 = await ada.page.evaluate(async (s) => (await fetch(`/api/scenarios/${s}/view?schema=3`)).json(), sid)
 check(v3.version.id === v.version.id, 'core\'s olumi.view/3 is the same version')
 const options = v3.model.cards.filter((c) => c.family === 'option' && c.status === null)
-check(v3.model.run.lead === null || await inReasoning('run.lead').innerText() === v3.model.run.lead, `the Run's lead, as core says it`)
-check(JSON.stringify(await reasoning.locator('[data-view-card]').evaluateAll((es) => es.map((e) => e.getAttribute('data-view-card')))) === JSON.stringify(options.map((c) => c.id)), `each option in core's order (${options.length}), none ranked`)
+check(v3.model.run.lead === null || await inChances('run.lead').innerText() === v3.model.run.lead, `the Run's lead, as core says it`)
+check(JSON.stringify(await chances.locator('[data-view-card]').evaluateAll((es) => es.map((e) => e.getAttribute('data-view-card')))) === JSON.stringify(options.map((c) => c.id)), `each option in core's order (${options.length}), none ranked`)
 let bound = 0
 for (const c of options) {
-  if (await inReasoning(`${c.id}.heading`).innerText() !== c.heading) { check(false, `option "${c.heading}" in core's words`) }
+  if (await inChances(`${c.id}.heading`).innerText() !== c.heading) { check(false, `option "${c.heading}" in core's words`) }
   for (const [i, r] of c.rows.entries()) {
     const words = r.kind === 'none' ? [[`${c.id}.rows.${i}.text`, r.text]] : [[`${c.id}.rows.${i}.aim`, r.aim], [`${c.id}.rows.${i}.value`, r.value]]
-    for (const [at, text] of words) { if (await inReasoning(at).innerText() !== text) check(false, `${at} is core's "${text}"`); bound++ }
+    for (const [at, text] of words) { if (await inChances(at).innerText() !== text) check(false, `${at} is core's "${text}"`); bound++ }
   }
   if (c.driver !== null) {
     // with core's two chances (driver.low/high) the line is v10's low→high marker, core's words its label (data-view-label); else the words
     const marked = c.driver.low != null && c.driver.high != null
-    const got = marked ? await reasoning.locator(`[data-view-label="${c.id}.driver.text"]`).getAttribute('aria-label') : await inReasoning(`${c.id}.driver.text`).innerText()
+    const got = marked ? await chances.locator(`[data-view-label="${c.id}.driver.text"]`).getAttribute('aria-label') : await inChances(`${c.id}.driver.text`).innerText()
     if (got !== c.driver.text) check(false, `${c.id}'s driver line in core's words`); bound++
   }
 }
-{ const s = v3.model.run.sensitivity, n = await reasoning.locator('[data-view="run.sensitivity.text"]').count()
-  if (s != null && options.some((c) => c.driver?.low != null && c.driver?.high != null)) check(n === 1 && await inReasoning('run.sensitivity.text').innerText() === s.text, `what the driver chances are, said once in core's words (${n})`)
+{ const s = v3.model.run.sensitivity, n = await chances.locator('[data-view="run.sensitivity.text"]').count()
+  // Never alone (Paul, 6 Nov): said only when every marked option names its figure under its marker, by that figure's own card.
+  const marked = options.filter((c) => c.driver != null && Number.isFinite(c.driver.low) && Number.isFinite(c.driver.high))
+  const named = marked.length > 0 && marked.every((c) => c.driver.figure != null && v3.model.cards.some((k) => k.id === c.driver.figure))
+  if (s != null) check(named ? n === 1 && await inChances('run.sensitivity.text').innerText() === s.text : n === 0, `what the driver chances are, said once in core's words and only beside the figures it is about (${n}, named ${named})`)
 }
-for (const [i, l] of v3.model.run.science.entries()) { if (await inReasoning(`run.science.${i}.line`).innerText() !== l.line) check(false, `worth line ${l.id} in core's words`); bound++ }
+for (const [i, l] of v3.model.run.science.entries()) { if (await inChances(`run.science.${i}.line`).innerText() !== l.line) check(false, `worth line ${l.id} in core's words`); bound++ }
 check(bound > 0, `every option's chance or blocker, driver line and worth line drawn exactly as core's View says it (${bound} strings)`)
+await tab(ada, 'analysisNew')
+const reasoning = ada.page.getByTestId('view-reasoning')
+await reasoning.waitFor({ timeout: T })
+check(await reasoning.locator('[data-view="run.lead"], [data-view-label$=".driver.text"], [data-view$=".rows.0.value"]').count() === 0, 'Reasoning does not repeat Analysis\'s chances (no lead, chance value or driver marker)')
 // Each option's outcome band: since core c838f56 the aim's, under each chance row (`rows[].outcome`); from e16a497 each card's
 // (`cards[].values`) under the option. Core's own line, once each.
 const outcomes = options.flatMap((c) => c.rows.flatMap((r, i) => (r.kind === 'chance' && r.outcome != null ? [{ c, r, i }] : [])))
