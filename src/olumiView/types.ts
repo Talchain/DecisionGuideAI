@@ -131,6 +131,8 @@ export type View = {
         aim_id: string | null
         text: string
         title: string
+        timing?: string
+        timing_title?: string
       }>
       driver: {
         text: string
@@ -238,24 +240,6 @@ export type View = {
         } | null
         estimate: string | null
       } | null
-      readings: Array<{
-        aim_id: string
-        kind: "goal" | "limit"
-        source: "words" | "proposal" | "contradiction"
-        aggregation: string
-        text: string
-      }>
-      timing: Array<{
-        quantity: string
-        label: string
-        text: string
-        value_text: string
-        options: Array<string>
-        risks: Array<string>
-        low: number | null
-        high: number | null
-        unit: string | null
-      }>
       waits_on: {
         head: string
         label: string
@@ -275,6 +259,24 @@ export type View = {
       notes: Array<{
         text: string
         title: string
+      }>
+      readings: Array<{
+        aim_id: string
+        kind: "goal" | "limit"
+        source: "words" | "proposal" | "contradiction"
+        aggregation: string
+        text: string
+      }>
+      timing: Array<{
+        quantity: string
+        label: string
+        text: string
+        value_text: string
+        options: Array<string>
+        risks: Array<string>
+        low: number | null
+        high: number | null
+        unit: string | null
       }>
       science: Array<{
         id: string

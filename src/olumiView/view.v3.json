@@ -664,6 +664,12 @@
               },
               "title": {
                "type": "string"
+              },
+              "timing": {
+               "type": "string"
+              },
+              "timing_title": {
+               "type": "string"
               }
              },
              "required": [

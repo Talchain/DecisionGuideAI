@@ -146,11 +146,19 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
           {row.olumi === null ? null : <span className="flex-none whitespace-nowrap" data-row-marks={at}><Mark at={`${at}.olumi`} mark={row.olumi} /></span>}
         </div>
       )
-    case 'none':
+    case 'none': {
       // a core before view-dock serves no `text`: the row says its title, as before (00058 P1)
-      return row.text == null
+      const text = row.text == null
         ? <p className="line-clamp-2" data-view-row={at}><span data-view={`${at}.title`}>{row.title}</span></p>
         : <p className="line-clamp-2" title={row.title} data-view-row={at}><span data-view={`${at}.text`}>{row.text}</span></p>
+      // R20: core's timing sweep under a none row's words ("Under these timing assumptions: about X% if …"), drawn as the chance row's timing line is; absent on a core before it
+      return row.timing == null ? text : (
+        <>
+          {text}
+          <span className={`${typography.nodeLabel} block truncate text-text-light`} title={row.timing_title ?? row.timing} data-row-timing={at}><span data-view={`${at}.timing`}>{row.timing}</span></span>
+        </>
+      )
+    }
   }
 }
 

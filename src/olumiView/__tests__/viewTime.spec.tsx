@@ -130,3 +130,37 @@ describe('R19 timing on the chance row: a small second line beside the companion
     expect([b.textContent!.trim(), b.getAttribute('title')]).toEqual([TIMING_LINE, TIMING_TITLE])
   })
 })
+
+describe('R20 timing on a none row: core\'s sweep line under its text, drawn like the chance row\'s', () => {
+  const NONE_TEXT = 'No chance can be given for this option on the current information.'
+  const NONE_TIMING = 'Under these timing assumptions: about 35% if the start is in 1 month; about 12% if in 4 months'
+  const NONE_TITLE = `${NONE_TIMING}. This is Olumi's timing assumption, not your figure.`
+  const noneCard = (extra: object): { card: ViewCard; at: number } => {
+    const card = base.cards.find((c) => c.family === 'option')!
+    const none = { kind: 'none', text: NONE_TEXT, title: 'the whole reason', ...extra } as unknown as ViewCard['rows'][number]
+    return { card: { ...card, rows: [none, ...card.rows.filter((r) => r.kind !== 'none')] }, at: 0 }
+  }
+  it('catch: the text stays; the timing is its own muted, one-line, truncated element, title on hover, bound by its view path', () => {
+    const { card, at } = noneCard({ timing: NONE_TIMING, timing_title: NONE_TITLE })
+    const { container } = render(<DrawnCard card={card} />)
+    const key = `${card.id}.rows.${at}`
+    expect(container.querySelector(`[data-view="${key}.text"]`)!.textContent).toBe(NONE_TEXT)
+    const line = container.querySelector(`[data-row-timing="${key}"]`)!
+    expect([line.textContent, line.getAttribute('title')]).toEqual([NONE_TIMING, NONE_TITLE])
+    expect(container.querySelector(`[data-view="${key}.timing"]`)!.textContent).toBe(NONE_TIMING)
+    for (const c of ['truncate', 'block', 'text-text-light']) expect(line.className).toContain(c)
+    expect(container.textContent!.split(NONE_TIMING).length - 1).toBe(1)
+  })
+  it('catch: a timing with no timing_title hovers with the timing itself', () => {
+    const { card, at } = noneCard({ timing: NONE_TIMING })
+    const line = render(<DrawnCard card={card} />).container.querySelector(`[data-row-timing="${card.id}.rows.${at}"]`)!
+    expect(line.getAttribute('title')).toBe(NONE_TIMING)
+  })
+  it('negative: a none row without timing (an older core) draws no timing element, and still its text', () => {
+    const { card, at } = noneCard({})
+    const { container } = render(<DrawnCard card={card} />)
+    expect(container.querySelector(`[data-view="${card.id}.rows.${at}.text"]`)!.textContent).toBe(NONE_TEXT)
+    expect(container.querySelector(`[data-view="${card.id}.rows.${at}.timing"]`)).toBeNull()
+    expect(container.querySelector(`[data-row-timing="${card.id}.rows.${at}"]`)).toBeNull()
+  })
+})
