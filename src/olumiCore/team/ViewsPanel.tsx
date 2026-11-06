@@ -10,6 +10,10 @@ import { AVATAR, BODY, CARD, ERR, FIELD, H, META } from './ui'
 
 type Figure = View['collab']['shared'][number]['figures'][number]
 
+/** Core takes at most this many figures with one view (`MAX_VIEW_FIGURES`, olumi-core src/app/service.ts) and refuses more in its own words,
+ *  which are shown as core gives them. The form stops a fourth being entered; it does not choose which figures to offer. */
+const MAX_VIEW_FIGURES = 3
+
 /** The figures a person gave with their view, each in core's words (its `text`, with core's `title` on hover), in core's order. */
 function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX.Element | null {
   if (figures.length === 0) return null
@@ -76,6 +80,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
   const givable = view.version === null || shownIsProposal ? [] : (view.model?.cards ?? []).filter((card) => card.figure?.edit)
   const [typed, setTyped] = useState<Record<string, string>>({})
   const figures = givable.flatMap((card) => ((typed[card.id] ?? '').trim() === '' ? [] : [{ quantity: card.id, typed: typed[card.id]! }]))
+  const atCap = figures.length >= MAX_VIEW_FIGURES
   const dropView = () => { dropText(); setTyped({}) }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -154,18 +159,25 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
         />
         {givable.length === 0 ? null : (
           <div className="grid gap-1" data-testid="team-view-figures">
-            {givable.map((card) => (
+            {givable.map((card) => {
+              // A field already holding a figure stays editable; an empty one is held once three are entered, so a fourth cannot be given.
+              const held = atCap && (typed[card.id] ?? '').trim() === ''
+              return (
               <label key={card.id} className={`${META} grid gap-0.5`} title={card.figure!.edit!.prompt}>
                 <span className="text-text-header">{card.heading}</span>
-                <input type="text" autoComplete="off" spellCheck={false} data-testid={`team-view-figure-${card.id}`} className={FIELD} placeholder={card.figure!.text}
-                  value={typed[card.id] ?? ''} disabled={busy || sending || viewLocked}
+                <input type="text" autoComplete="off" spellCheck={false} data-testid={`team-view-figure-${card.id}`} className={FIELD}
+                  // Core's own neutral words for the entry (what to type, never a figure): Olumi's figure is not shown before the member's.
+                  placeholder={card.figure!.edit!.prompt}
+                  value={typed[card.id] ?? ''} disabled={busy || sending || viewLocked || held} data-held={held ? '' : undefined}
                   onChange={(e) => { const v = e.target.value; setTyped((t) => ({ ...t, [card.id]: v })); if (error) setError(null) }} />
               </label>
-            ))}
+              )
+            })}
+            {atCap && <p className={META} data-testid="team-view-figures-cap">Three figures at most go with one view.</p>}
           </div>
         )}
         <div className="flex flex-wrap items-center gap-3">
-          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === ''} onClick={() => void run(`${sid}:view`, () => teamApi.giveView(sid, text, figures, view.version?.n ?? null), dropView)}>Add my view</Button>
+          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > MAX_VIEW_FIGURES} onClick={() => void run(`${sid}:view`, () => teamApi.giveView(sid, text, figures, view.version?.n ?? null), dropView)}>Add my view</Button>
           <button
             type="button" data-testid="team-view-skip" disabled={busy || sending || viewLocked}
             className={`${META} cursor-pointer underline underline-offset-2 hover:text-text-body disabled:opacity-50`}

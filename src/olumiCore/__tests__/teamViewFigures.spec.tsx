@@ -75,4 +75,33 @@ describe('a view carries the member\'s own figures, as typed', () => {
     show({ ...view, proposal: { ...(base.proposal ?? {}), id: 9 } as View['proposal'], model: { ...view.model!, edit_base: null } })
     expect(document.querySelectorAll('[data-testid^="team-view-figure-"]').length).toBe(0)
   })
+  it('CATCH: no field shows the card\'s current figure (Olumi\'s) before the member enters their own; its placeholder is core\'s neutral words', () => {
+    show()
+    const shown = givable.filter((c) => c.figure!.text !== c.figure!.edit!.prompt)
+    expect(shown.length).toBeGreaterThan(0)
+    for (const c of givable) {
+      const ph = (field(c.id) as HTMLInputElement).placeholder
+      expect(ph).toBe(c.figure!.edit!.prompt)
+      expect(ph).not.toBe(c.figure!.text)
+      expect((field(c.id) as HTMLInputElement).value).toBe('')
+    }
+  })
+
+  it('CATCH: a fourth figure cannot be entered; the three stay editable, clearing one frees a field, and the post never carries four', async () => {
+    expect(givable.length).toBeGreaterThan(3)
+    show()
+    const [a, b, c, d] = givable
+    for (const [i, card] of [a!, b!, c!].entries()) fireEvent.change(field(card.id), { target: { value: String(10 + i) } })
+    expect((field(d!.id) as HTMLInputElement).disabled).toBe(true)
+    expect(screen.getByTestId('team-view-figures-cap')).toBeTruthy()
+    for (const card of [a!, b!, c!]) expect((field(card.id) as HTMLInputElement).disabled).toBe(false)
+    fireEvent.change(field(a!.id), { target: { value: '' } })
+    expect((field(d!.id) as HTMLInputElement).disabled).toBe(false)
+    expect(screen.queryByTestId('team-view-figures-cap')).toBeNull()
+    fireEvent.change(field(d!.id), { target: { value: '40' } })
+    fireEvent.change(screen.getByTestId('team-view-text'), { target: { value: 'x' } })
+    fireEvent.click(screen.getByTestId('team-view-give'))
+    await waitFor(() => expect(posts.length).toBe(1))
+    expect((posts[0] as { figures: unknown[] }).figures.length).toBe(3)
+  })
 })
