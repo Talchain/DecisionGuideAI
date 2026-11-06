@@ -174,7 +174,7 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   const head = packHead(new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }])), options, sized)
   const boxes = [...head].map(([id, p]) => ({ id, ...p, ...sized.get(id)! }))
   const under = orderUnderParents(boxes, edges.map((e) => [e.source, e.target] as const), new Set([QUESTION, ...options]))
-  return wrapTiers(under)
+  return wrapTiers(under, 4, 32, 24) // PROTOTYPE (a2): tighter rows
 }
 
 /**
@@ -189,7 +189,7 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
  */
 export const HEAD_ROW_MAX = 900
 /** PROTOTYPE: the room between two family rows. */
-const FAMILY_ROW_GAP = 56
+const FAMILY_ROW_GAP = 32
 
 export function packHead(places: Map<string, { x: number; y: number }>, options: readonly string[], size: ReadonlyMap<string, Size>): Map<string, { x: number; y: number }> {
   const q = places.get(QUESTION), qs = size.get(QUESTION)
