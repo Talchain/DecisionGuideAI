@@ -4,6 +4,7 @@ import { useViewStore } from '../olumiView/store'
 import { call, TeamApiError } from './team/api'
 import { BODY, CARD, ERR, H, META } from './team/ui'
 import { typography } from '../styles/typography'
+import { CompareWithScenario } from './scenarioCompare'
 
 /**
  * TWO APPROVED VERSIONS, AS CORE COMPARES THEM (olumi-core API.md v1.7, "Comparing two versions"): core's read-only
@@ -129,7 +130,10 @@ export function useLatestApproved(): number | null | undefined {
   return listed?.key === key ? listed.n : undefined
 }
 
-/** The dock's Compare tab on the olumi-core lane: the previous approved version against the latest, as core compares them. */
+/**
+ * The dock's Compare tab on the olumi-core lane: the previous approved version against the latest, as core compares them, and, beneath it,
+ * "Compare with another scenario" (core's `GET /api/compare`, scenarioCompare.tsx). The second half needs only an open scenario, not two versions.
+ */
 export function CoreCompareTab(): JSX.Element {
   const sid = useViewStore((s) => s.sid)
   const latest = useLatestApproved()
@@ -142,6 +146,7 @@ export function CoreCompareTab(): JSX.Element {
         : latest < 2
           ? <p className={BODY} data-testid="core-compare-one">Compare needs two approved versions. Approve a change to the model to make the second.</p>
           : <CoreCompare sid={sid} latest={latest} id="core-compare" auto boxed />}
+      {sid ? <CompareWithScenario sid={sid} /> : null}
     </div>
   )
 }
