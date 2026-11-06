@@ -223,121 +223,13 @@
     "failed": []
    },
    {
-    "id": "bridge_capacity_retained",
-    "family": "quantity",
-    "glyph": "●",
-    "heading": "Institutional fundraising capacity retained while pursuing angels",
-    "typed": false,
-    "detail": "Institutional fundraising capacity retained while pursuing angels · quantity · Proposed by Olumi: No typical rate known; replace with your figure. A first-guess band approximately 0.354–0.707 around 0.5 is widened on a ratio scale to 0.25–1. This tests displacement of institutional work by bridge fundraising, rather than assuming angel proceeds are free additions. · Plausible range: 25% to 100%, most likely 50%",
-    "col": 1,
-    "h": 88,
-    "olumi": {
-     "glyph": "◆",
-     "title": "Proposed by Olumi: No typical rate known; replace with your figure. A first-guess band approximately 0.354–0.707 around 0.5 is widened on a ratio scale to 0.25–1. This tests displacement of institutional work by bridge fundraising, rather than assuming angel proceeds are free additions."
-    },
-    "change": null,
-    "focus": false,
-    "challenged": false,
-    "doubt": false,
-    "figure": {
-     "text": "25% to 100%",
-     "title": "Plausible range: 25% to 100%, most likely 50%",
-     "edit": {
-      "prompt": "New figure for “Institutional fundraising capacity retained while pursuing angels” in %: one number, or a range like 40 to 70",
-      "ask": "For “Institutional fundraising capacity retained while pursuing angels”, type it in %: one number, or a range like 40 to 70."
-     }
-    },
-    "premises": [],
-    "rows": [],
-    "driver": null,
-    "status": null,
-    "bound": null,
-    "reason": null,
-    "badge": null,
-    "values": null,
-    "rests_on": [],
-    "failed": []
-   },
-   {
-    "id": "bridge_angel_opportunities",
-    "family": "quantity",
-    "glyph": "●",
-    "heading": "Qualified angel opportunities under the bridge route",
-    "typed": false,
-    "detail": "Qualified angel opportunities under the bridge route · quantity · Proposed by Olumi: No typical rate known; replace with your figure. A first-guess band of 2–8 around 4 is widened on a ratio scale. This is an exploratory volume of qualified angel opportunities, not an assertion that these investors are accessible. · Plausible range: 1 to 16 opportunities, most likely 4 opportunities",
-    "col": 1,
-    "h": 88,
-    "olumi": {
-     "glyph": "◆",
-     "title": "Proposed by Olumi: No typical rate known; replace with your figure. A first-guess band of 2–8 around 4 is widened on a ratio scale. This is an exploratory volume of qualified angel opportunities, not an assertion that these investors are accessible."
-    },
-    "change": null,
-    "focus": false,
-    "challenged": false,
-    "doubt": false,
-    "figure": {
-     "text": "1 to 16 opportunities",
-     "title": "Plausible range: 1 to 16 opportunities, most likely 4 opportunities",
-     "edit": {
-      "prompt": "New figure for “Qualified angel opportunities under the bridge route” (opportunity): one number, or a range like 150 to 400",
-      "ask": "For “Qualified angel opportunities under the bridge route”, type one number, or a range like 150 to 400."
-     }
-    },
-    "premises": [],
-    "rows": [],
-    "driver": null,
-    "status": null,
-    "bound": null,
-    "reason": null,
-    "badge": null,
-    "values": null,
-    "rests_on": [],
-    "failed": []
-   },
-   {
-    "id": "deferred_spend_burn_retained",
-    "family": "quantity",
-    "glyph": "●",
-    "heading": "Operating burn retained after temporary spend deferral",
-    "typed": false,
-    "detail": "Operating burn retained after temporary spend deferral · quantity · Proposed by Olumi: No typical rate known; replace with your figure. A first-guess deferrable burn share of 0.0625–0.25 around 0.125 is widened on a ratio scale to 0.03125–0.50 and represented as retained burn. This is a cash-timing what-if, not evidence that these savings are feasible or permanent. · Plausible range: 50% to 96.875%, most likely 87.5%",
-    "col": 1,
-    "h": 88,
-    "olumi": {
-     "glyph": "◆",
-     "title": "Proposed by Olumi: No typical rate known; replace with your figure. A first-guess deferrable burn share of 0.0625–0.25 around 0.125 is widened on a ratio scale to 0.03125–0.50 and represented as retained burn. This is a cash-timing what-if, not evidence that these savings are feasible or permanent."
-    },
-    "change": null,
-    "focus": false,
-    "challenged": false,
-    "doubt": false,
-    "figure": {
-     "text": "50% to 96.88%",
-     "title": "Plausible range: 50% to 96.875%, most likely 87.5%",
-     "edit": {
-      "prompt": "New figure for “Operating burn retained after temporary spend deferral” in %: one number, or a range like 40 to 70",
-      "ask": "For “Operating burn retained after temporary spend deferral”, type it in %: one number, or a range like 40 to 70."
-     }
-    },
-    "premises": [],
-    "rows": [],
-    "driver": null,
-    "status": null,
-    "bound": null,
-    "reason": null,
-    "badge": null,
-    "values": null,
-    "rests_on": [],
-    "failed": []
-   },
-   {
     "id": "net_funding",
     "family": "quantity",
     "glyph": "●",
     "heading": "Total net funding received during the window",
     "typed": false,
     "detail": "Total net funding received during the window · quantity · Proposed by Olumi: Combines institutional and angel net cash receipts. · Worked out from the figures it depends on",
-    "col": 2,
+    "col": 1,
     "h": 116,
     "olumi": {
      "glyph": "◆",
@@ -428,7 +320,7 @@
     "heading": "Cash surplus or shortfall at the funding window's end",
     "typed": false,
     "detail": "Cash surplus or shortfall at the funding window's end · quantity · Proposed by Olumi: A signed financing balance. A negative result means an unfunded shortfall, not a physically available negative cash balance. · Worked out from the figures it depends on",
-    "col": 3,
+    "col": 2,
     "h": 116,
     "olumi": {
      "glyph": "◆",
@@ -506,7 +398,7 @@
     "heading": "Secure funding within the funding window",
     "typed": false,
     "detail": "Secure funding within the funding window · goal · Theirs: “I need to accelerate securing funding within the next 2 months.”",
-    "col": 4,
+    "col": 3,
     "h": 130,
     "olumi": null,
     "change": null,
@@ -553,7 +445,7 @@
     "heading": "Pipeline approximation",
     "typed": true,
     "detail": "Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success. · assumption · Proposed by Olumi: Allows an initial mechanism-based comparison without inventing investor-specific outcomes. Actual fundraising is discrete and may be dominated by a single investor. · Applied in the calculation",
-    "col": 4,
+    "col": 3,
     "h": 140,
     "olumi": {
      "glyph": "◆",
@@ -592,7 +484,7 @@
     "heading": "Window accounting",
     "typed": true,
     "detail": "Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date. · assumption · Proposed by Olumi: A provisional window-total comparison. Immediate starts describe beginning the work, not immediate funding receipt or guaranteed implementation. · Applied in the calculation",
-    "col": 4,
+    "col": 3,
     "h": 112,
     "olumi": {
      "glyph": "◆",
@@ -621,7 +513,7 @@
     "heading": "Buy more operating time",
     "typed": false,
     "detail": "Buy more operating time · goal · Theirs: “a small amount of funding quicker to buy us more time”",
-    "col": 4,
+    "col": 3,
     "h": 130,
     "olumi": null,
     "change": null,
@@ -854,14 +746,16 @@
     "reason": null,
     "badge": {
      "records": [
+      "bridge_capacity_retained",
+      "bridge_angel_opportunities",
       "angel_speed_hypothesis",
       "overhead_tradeoff",
       "test_speed_bottleneck",
       "bridge_overhead_gap"
      ],
-     "text": "❝ ! ○ +4",
-     "title": "claim: Angels may provide smaller funding sooner than the investment firms currently being pursued. This remains a hypothesis to test against investor readiness and completion requirements.\nclaim: The value of an angel bridge depends on whether the extra operating time justifies its overhead.\nchallenge: Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck.\nleft out: The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
-     "label": "Expand 4 reasoning records",
+     "text": "● ❝ ! +6",
+     "title": "quantity: Institutional fundraising capacity retained while pursuing angels\nquantity: Qualified angel opportunities under the bridge route\nclaim: Angels may provide smaller funding sooner than the investment firms currently being pursued. This remains a hypothesis to test against investor readiness and completion requirements.\nclaim: The value of an angel bridge depends on whether the extra operating time justifies its overhead.\nchallenge: Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck.\nleft out: The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
+     "label": "Expand 6 reasoning records",
      "open": false,
      "proposed": false,
      "change": ""
@@ -1010,11 +904,14 @@
     "reason": null,
     "badge": {
      "records": [
+      "bridge_capacity_retained",
+      "bridge_angel_opportunities",
+      "deferred_spend_burn_retained",
       "bridge_overhead_gap"
      ],
-     "text": "○ +1",
-     "title": "left out: The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
-     "label": "Expand 1 reasoning records",
+     "text": "● ○ +4",
+     "title": "quantity: Institutional fundraising capacity retained while pursuing angels\nquantity: Qualified angel opportunities under the bridge route\nquantity: Operating burn retained after temporary spend deferral\nleft out: The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
+     "label": "Expand 4 reasoning records",
      "open": false,
      "proposed": false,
      "change": ""
@@ -1145,90 +1042,35 @@
    },
    {
     "from": "add_angel_bridge",
-    "to": "bridge_angel_opportunities",
-    "kind": "plain",
-    "label": "",
-    "doubt": false,
-    "alert": false,
-    "proposed": false,
-    "title": "option input",
-    "effect": null
-   },
-   {
-    "from": "bridge_angel_opportunities",
     "to": "net_funding",
     "kind": "through",
     "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Qualified angel opportunities worked during the funding window, Angel net funding received during the window · Proposed by Olumi: Only opportunities converting to cleared cash within the funding window contribute proceeds. · Proposed by Olumi: The two funding routes contribute to the same cash requirement.",
+    "title": "worked out through Qualified angel opportunities under the bridge route, Qualified angel opportunities worked during the funding window, Angel net funding received during the window, Institutional fundraising capacity retained while pursuing angels, Institutional fundraising capacity retained, Institutional net funding received during the window · Proposed by Olumi: Only opportunities converting to cleared cash within the funding window contribute proceeds. · Proposed by Olumi: The two funding routes contribute to the same cash requirement. · Proposed by Olumi: A pipeline-throughput approximation makes the potential displacement of institutional fundraising explicit.",
     "effect": null
    },
    {
-    "from": "add_angel_bridge",
-    "to": "bridge_capacity_retained",
-    "kind": "plain",
-    "label": "",
-    "doubt": false,
-    "alert": false,
-    "proposed": false,
-    "title": "option input",
-    "effect": null
-   },
-   {
-    "from": "bridge_capacity_retained",
+    "from": "bridge_and_spend_deferral",
     "to": "net_funding",
     "kind": "through",
     "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Institutional fundraising capacity retained, Institutional net funding received during the window · Proposed by Olumi: A pipeline-throughput approximation makes the potential displacement of institutional fundraising explicit. · Proposed by Olumi: The two funding routes contribute to the same cash requirement.",
+    "title": "worked out through Qualified angel opportunities under the bridge route, Qualified angel opportunities worked during the funding window, Angel net funding received during the window, Institutional fundraising capacity retained while pursuing angels, Institutional fundraising capacity retained, Institutional net funding received during the window · Proposed by Olumi: Only opportunities converting to cleared cash within the funding window contribute proceeds. · Proposed by Olumi: The two funding routes contribute to the same cash requirement. · Proposed by Olumi: A pipeline-throughput approximation makes the potential displacement of institutional fundraising explicit.",
     "effect": null
    },
    {
     "from": "bridge_and_spend_deferral",
-    "to": "bridge_angel_opportunities",
-    "kind": "plain",
-    "label": "",
-    "doubt": false,
-    "alert": false,
-    "proposed": false,
-    "title": "option input",
-    "effect": null
-   },
-   {
-    "from": "bridge_and_spend_deferral",
-    "to": "bridge_capacity_retained",
-    "kind": "plain",
-    "label": "",
-    "doubt": false,
-    "alert": false,
-    "proposed": false,
-    "title": "option input",
-    "effect": null
-   },
-   {
-    "from": "bridge_and_spend_deferral",
-    "to": "deferred_spend_burn_retained",
-    "kind": "plain",
-    "label": "",
-    "doubt": false,
-    "alert": false,
-    "proposed": false,
-    "title": "option input",
-    "effect": null
-   },
-   {
-    "from": "deferred_spend_burn_retained",
     "to": "end_cash_margin",
     "kind": "through",
     "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Operating burn retained, Net operating cash consumed during the window · Proposed by Olumi: A window-total cash calculation, not a monthly cash-flow forecast. · Proposed by Olumi: Reconciles opening liquidity, funding receipts and operating cash consumption over the same window.",
+    "title": "worked out through Operating burn retained after temporary spend deferral, Operating burn retained, Net operating cash consumed during the window · Proposed by Olumi: A window-total cash calculation, not a monthly cash-flow forecast. · Proposed by Olumi: Reconciles opening liquidity, funding receipts and operating cash consumption over the same window.",
     "effect": null
    },
    {
@@ -1299,13 +1141,13 @@
    },
    {
     "from": "deferral_feasibility",
-    "to": "deferred_spend_burn_retained",
+    "to": "end_cash_margin",
     "kind": "reason",
-    "label": "◇",
+    "label": "",
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "assumption: Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window.",
+    "title": "worked out through Operating burn retained after temporary spend deferral, Operating burn retained, Net operating cash consumed during the window · Proposed by Olumi: A window-total cash calculation, not a monthly cash-flow forecast. · Proposed by Olumi: Reconciles opening liquidity, funding receipts and operating cash consumption over the same window.",
     "effect": null
    },
    {
@@ -1458,10 +1300,42 @@
    },
    "compared": [],
    "compared_headings": {
-    "middle": "On the middle figures",
+    "middle": "With every figure at its most likely value, or the middle of its range where none is given",
     "better": "Compared with carrying on",
-    "unresolved": "Can't be told apart from the target"
-   }
+    "unresolved": "Can't be told apart from the target, with every figure at its most likely value, or the middle of its range where none is given"
+   },
+   "tipping": [],
+   "tipping_heading": "What would have to be true",
+   "tipping_aims": [
+    {
+     "aim": "secure_funding",
+     "lines": [],
+     "silent": [
+      {
+       "crossing": null,
+       "reason": "not_recorded",
+       "text": "this version's Run did not keep why nothing is said about what would have to be true for this aim",
+       "line": "This version's Run did not keep why nothing is said about what would have to be true for this aim."
+      }
+     ]
+    },
+    {
+     "aim": "cash_survival",
+     "lines": [],
+     "silent": [
+      {
+       "crossing": null,
+       "reason": "not_recorded",
+       "text": "this version's Run did not keep why nothing is said about what would have to be true for this aim",
+       "line": "This version's Run did not keep why nothing is said about what would have to be true for this aim."
+      }
+     ]
+    }
+   ],
+   "failure": [],
+   "failure_heading": "What could go wrong",
+   "rests": [],
+   "rests_heading": "How much rests on Olumi's guesses"
   },
   "edit_base": 15,
   "key": [
@@ -1609,7 +1483,16 @@
    "text": "more than £0",
    "title": "£0",
    "side": "at_least"
-  }
+  },
+  "sharpen": [
+   {
+    "id": "risk_count",
+    "lead": "No risks captured yet.",
+    "emphasis": "A pre-mortem typically surfaces failure modes before they arrive.",
+    "rationale": "Pre-mortem (Klein): imagine the choice failed, then ask what went wrong. It typically surfaces risks that planning misses.",
+    "move": "pre_mortem"
+   }
+  ]
  },
  "proposal": null,
  "collab": {
@@ -1869,8 +1752,15 @@
    "leader": "Most likely with theirs",
    "model_leader": "With the model's",
    "most": "Moves most",
-   "if_absent": "Worked out without"
-  }
+   "if_absent": "Worked out without",
+   "no_leader": "No option clearly most likely with theirs",
+   "no_model_leader": "No option clearly most likely with the model's"
+  },
+  "suggested_triggers_caption": "Olumi's suggestion, and optional: use it only if it fits your reasoning, change it, or leave it out.",
+  "suggested_triggers": [],
+  "max_view_figures": 3,
+  "view_figures_limit_text": "Up to three figures go with one view.",
+  "private_view_prompt": null
  },
  "evidence": [],
  "chat": [
@@ -1969,5 +1859,85 @@
   }
  ],
  "brief": "I need to accelerate securing funding within the next 2 months. We've been focused on investment firms that do deals between £1-2 million, mostly based in the UK. We'll keep sending cold emails and trying to find warm connections, but I want to explore alternatives to support the funding process, as we'll run out of money soon. For example, angel investors might be able to provide a small amount of funding quicker to buy us more time, but we would need to decide whether the overhead would be worth it.",
- "gated": false
+ "gated": false,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": null
+ }
 }

@@ -11,7 +11,7 @@ import { cleanup, render } from '@testing-library/react'
 import type { View, ViewModel } from '../client'
 import { ViewChances } from '../ViewChances'
 
-const model = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8')) as View).model!
+const model = (JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real/bakery-r5.view3.json'), 'utf8')) as View).model!
 afterEach(cleanup)
 const worth = model.run!.science[0]!
 /** The model with lines of kinds this page does not know beside its worth line (core's D2, not served yet). */

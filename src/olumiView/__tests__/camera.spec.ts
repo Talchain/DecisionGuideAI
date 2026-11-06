@@ -1,7 +1,7 @@
 /**
  * The core lane's landing camera (live olumi-core-v3, 4 Nov: a real model opened cut off on the left). The product fit frames the model
  * by the same two steps as `useFitViewOnLayoutVersion`'s fitNow: anchored to the top when the fit would clamp at its floor, else centred
- * in the free pane. Fixture: core's european golden (22 cards, a real drafted model), twice, placed as the canvas places it (DGAI's causal layout), on a 1280 × 900 canvas
+ * in the free pane. Fixture: core's european golden as vendored at R5 (22 cards, a real drafted model; kept as fixtures/real/european-22cards.view3.json when the R17 vendor replaced the golden with a 17-card model), twice, placed as the canvas places it (DGAI's causal layout), on a 1280 × 900 canvas
  * with the dock on the right.
  */
 import { describe, expect, it } from 'vitest'
@@ -14,7 +14,7 @@ import { paddingToInsets, topAnchoredViewportWhenClamped } from '../../canvas/ut
 import { viewportCentredInFreePane } from '../../canvas/utils/fitIntoFreePane'
 import { LABEL_LEGIBLE_ZOOM } from '../../canvas/utils/zoomLegibility'
 
-const model = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'european.view.json'), 'utf8')) as View).model!
+const model = (JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', 'european-22cards.view3.json'), 'utf8')) as View).model!
 const q = questionPlace(model), places = await causalPlaces(model, new Map(), q.width)
 const one = [{ ...places.get(QUESTION)!, w: q.width, h: 85 }, ...model.cards.map((c) => ({ ...places.get(c.id)!, w: CARD_WIDTH, h: c.h }))]
 // A board larger than the canvas holds at 0.5: the european model, and the same again below it (44 cards).

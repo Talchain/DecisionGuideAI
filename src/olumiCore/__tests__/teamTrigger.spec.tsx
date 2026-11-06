@@ -24,7 +24,10 @@ const LINE = { id: 'F40', kind: 'chance', line: "'Test one country' · aim 'Reac
 const LINE2 = { id: 'F41', kind: 'lead', line: "'Broader entry' · aim 'Reach 800 customers' · 'Churn' would have to be below about 3%", hover: 'F41 hover', aim: 'reach_customer_target', option: 'broader_entry', olumi: null }
 const SUG = { option: 'single_country_test', aim: 'reach_customer_target', fact: 'F40', kind: 'chance', text: 'Reconsider if ‘New customers’ falls below about 41' }
 const SUG_OTHER = { option: 'broader_entry', aim: 'reach_customer_target', fact: 'F41', kind: 'lead', text: 'Reconsider if ‘Churn’ rises above about 3%' }
-const withTipping = (tipping: unknown[], tipping_heading: string | undefined): NonNullable<View['model']> => ({ ...base.model!, run: { ...base.model!.run!, tipping, ...(tipping_heading === undefined ? {} : { tipping_heading }) } as never })
+const withTipping = (tipping: unknown[], tipping_heading: string | undefined): NonNullable<View['model']> => ({ ...base.model!, run: { ...base.model!.run!, tipping, tipping_aims: [], tipping_heading: tipping_heading as string } as never })
+
+// A core before D6: no tipping fields at all (the golden now carries them, with silent lines for an aim that has no crossing).
+const withoutTipping = ((): NonNullable<View['model']> => { const { tipping: _t, tipping_heading: _h, tipping_aims: _a, ...run } = base.model!.run!; return { ...base.model!, run } as never })()
 
 const teamView = (over: Record<string, unknown> = {}): View => ({
   ...base, id: SID, you: 'Ada', you_id: 'p_1', members: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Bea' }],
@@ -72,7 +75,7 @@ describe('the Run\'s "what would have to be true" lines (Analysis tab)', () => {
     expect(container.textContent!.split(HEADING).length - 1).toBe(1)
   })
   it('CONTRAST: a core without the field, without a heading, or with no lines draws nothing', () => {
-    for (const m of [base.model!, withTipping([LINE], undefined), withTipping([], HEADING)]) { const { container } = render(<ViewChances model={m} />); expect(container.querySelector('[data-testid="view-run-tipping"]')).toBeNull(); cleanup() }
+    for (const m of [withoutTipping, withTipping([LINE], undefined), withTipping([], HEADING)]) { const { container } = render(<ViewChances model={m} />); expect(container.querySelector('[data-testid="view-run-tipping"]')).toBeNull(); cleanup() }
   })
 })
 
@@ -89,6 +92,13 @@ describe('the reconsider trigger on a commitment: Olumi proposes, the person aut
     fireEvent.click(screen.getByTestId('team-commitment-save'))
     await waitFor(() => expect(posts()).toHaveLength(1))
     expect(posts()[0]!.body).not.toHaveProperty('trigger')
+  })
+  it('R17: the line over the suggestions is core\'s own caption, verbatim', async () => {
+    serve({ ...teamView(), collab: { ...teamView().collab, suggested_triggers_caption: 'CAPTION from core' } } as View)
+    render(<TeamTab />)
+    openForm('')
+    fireEvent.change(screen.getByTestId('team-c-option'), { target: { value: 'single_country_test' } })
+    expect(screen.getByTestId('team-suggested-trigger-caption').textContent).toBe('CAPTION from core')
   })
   it('tapped: trigger { fact } goes with the commitment; tapped twice: it does not; the reconsider words stay the person\'s own', async () => {
     serve(teamView())

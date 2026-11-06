@@ -305,6 +305,65 @@ export type View = {
         better: string
         unresolved: string
       }
+      tipping: Array<{
+        id: string
+        kind: "chance" | "lead"
+        line: string
+        hover: string
+        aim: string
+        option: string
+        versus: string | null
+        figure: {
+          id: string
+          label: string
+          whose: "theirs" | "olumi" | "mixed"
+        }
+        side: "above" | "below"
+        at: number
+        low: number
+        high: number
+        olumi: {
+          glyph: string
+          title: string
+        } | null
+      }>
+      tipping_heading: string
+      tipping_aims: Array<{
+        aim: string
+        lines: Array<string>
+        silent: Array<{
+          crossing: "chance" | "lead" | null
+          reason: "not_worked_out" | "not_separated" | "no_figure" | "holds" | "never_above" | "unclear" | "capped" | "not_recorded"
+          text: string
+          line: string
+        }>
+      }>
+      failure: Array<{
+        id: string
+        line: string
+        hover: string
+        aim: string
+        option: string
+        figures: Array<{
+          id: string
+          label: string
+          whose: "theirs" | "olumi" | "mixed" | null
+          third: "low" | "high"
+        }>
+      }>
+      failure_heading: string
+      rests: Array<{
+        id: string
+        kind: "goal" | "limit"
+        line: string
+        hover: string
+        aim: string
+        option: string
+        olumi_share: number
+        person_share: number
+        unassigned: number
+      }>
+      rests_heading: string
     } | null
     edit_base: number | null
     key: Array<{
@@ -325,6 +384,13 @@ export type View = {
       title: string
       side: "at_least" | "at_most"
     } | null
+    sharpen: Array<{
+      id: "shared_mechanism" | "option_breadth" | "risk_count"
+      lead: string
+      emphasis: string
+      rationale: string
+      move: string | null
+    }>
   } | null
   proposal: {
     id: number
@@ -502,6 +568,25 @@ export type View = {
         text: string
       } | null
       review_on: string | null
+      trigger: {
+        fact: string
+        kind: "chance" | "lead"
+        option: string
+        aim: string
+        versus: string | null
+        figure: string
+        text: string
+        finding: string
+        version: number
+        stale: {
+          reasons: Array<{
+            element: "held" | "risk" | "comparator" | "unit" | "crossing"
+            id: string | null
+            text: string
+          }>
+          text: string
+        } | null
+      } | null
     }>
     owners: Array<{
       id: string
@@ -533,7 +618,20 @@ export type View = {
       model_leader: string
       most: string
       if_absent: string
+      no_leader: string
+      no_model_leader: string
     }
+    suggested_triggers_caption: string
+    suggested_triggers: Array<{
+      option: string
+      aim: string
+      fact: string
+      kind: "chance" | "lead"
+      text: string
+    }>
+    max_view_figures: number
+    view_figures_limit_text: string
+    private_view_prompt: string | null
   }
   evidence: Array<{
     id: number
@@ -608,4 +706,81 @@ export type View = {
   }>
   brief: string
   gated: boolean
+  session: {
+    goal: {
+      id: string
+      text: string
+    } | null
+    set_by: string | null
+    goals: Array<{
+      id: string
+      text: string
+    }>
+    methods: Array<{
+      id: string
+      text: string
+      first: boolean
+    }>
+    figure_first: {
+      offer: {
+        quantity: string
+        label: string
+        text: string
+      } | null
+      given: {
+        view: number
+        quantity: string
+        label: string
+        at: string
+        theirs: {
+          quantity: string
+          label: string
+          text: string
+          title: string
+          unit: string
+          version: number
+          value: number
+        } | {
+          quantity: string
+          label: string
+          text: string
+          title: string
+          unit: string
+          version: number
+          low: number
+          high: number
+          range_kind: "bounds" | "plausible"
+        }
+        olumi: {
+          text: string
+          title: string
+          basis: string
+          version: number
+          low: number
+          high: number
+          likely: number | null
+          unit: string
+        }
+        seen_before: {
+          status: "approved_it" | "acted_after" | "unknown"
+          text: string
+        }
+        adopted: {
+          which: "theirs" | "olumi"
+          where: "model" | "view"
+          version: number | null
+          view: number | null
+          text: string
+        } | null
+        note: string
+      } | null
+      headings: {
+        theirs: string
+        olumi: string
+        basis: string
+        seen: string
+        adopted: string
+      }
+    } | null
+  }
 }

@@ -128,42 +128,6 @@
     "failed": []
    },
    {
-    "id": "workshop_extra",
-    "family": "quantity",
-    "glyph": "●",
-    "heading": "workshop extra",
-    "typed": false,
-    "detail": "workshop extra · quantity · Proposed by Olumi: Olumi's proposed size for weekend workshops. · 15 classes/month",
-    "col": 1,
-    "h": 88,
-    "olumi": {
-     "glyph": "◆",
-     "title": "Proposed by Olumi: Olumi's proposed size for weekend workshops."
-    },
-    "change": null,
-    "focus": false,
-    "challenged": false,
-    "doubt": false,
-    "figure": {
-     "text": "15 classes/month",
-     "title": "15 classes/month",
-     "edit": {
-      "prompt": "New figure for “workshop extra” (class/month): one number, or a range like 150 to 400",
-      "ask": "For “workshop extra”, type one number, or a range like 150 to 400."
-     }
-    },
-    "premises": [],
-    "rows": [],
-    "driver": null,
-    "status": null,
-    "bound": null,
-    "reason": null,
-    "badge": null,
-    "values": null,
-    "rests_on": [],
-    "failed": []
-   },
-   {
     "id": "takings",
     "family": "quantity",
     "glyph": "●",
@@ -585,7 +549,7 @@
     "typed": false,
     "detail": "Weekend workshops · option · Proposed by Olumi: Olumi's estimate",
     "col": 0,
-    "h": 98,
+    "h": 126,
     "olumi": {
      "glyph": "◆",
      "title": "Proposed by Olumi: Olumi's estimate"
@@ -644,7 +608,17 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null,
+    "badge": {
+     "records": [
+      "workshop_extra"
+     ],
+     "text": "● +1",
+     "title": "quantity: workshop extra",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
     "values": null,
     "rests_on": [],
     "committed": null,
@@ -874,24 +848,13 @@
    },
    {
     "from": "weekend_workshops",
-    "to": "workshop_extra",
-    "kind": "plain",
-    "label": "",
-    "doubt": false,
-    "alert": false,
-    "proposed": false,
-    "title": "option input",
-    "effect": null
-   },
-   {
-    "from": "workshop_extra",
     "to": "takings",
     "kind": "through",
     "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through extra classes, classes · Proposed by Olumi: Olumi's estimate",
+    "title": "worked out through workshop extra, extra classes, classes · Proposed by Olumi: Olumi's estimate",
     "effect": null
    }
   ],
@@ -969,7 +932,7 @@
     {
      "id": "F16",
      "kind": "middle",
-     "line": "'Evening classes' · aim 'Take £2,640 a month' · on the middle figures: £2,760/month, meets it",
+     "line": "'Evening classes' · aim 'Take £2,640 a month': £2,760/month, meets it",
      "hover": "option: 'Evening classes'; aim: 'Take £2,640 a month'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'takings' £2,760/month; target: >= £2,640/month; status: meets it.",
      "aim": "takings_goal",
      "option": "evening_classes",
@@ -980,7 +943,7 @@
     {
      "id": "F17",
      "kind": "middle",
-     "line": "'Weekend workshops' · aim 'Take £2,640 a month' · on the middle figures: £2,580/month, misses it",
+     "line": "'Weekend workshops' · aim 'Take £2,640 a month': £2,580/month, misses it",
      "hover": "option: 'Weekend workshops'; aim: 'Take £2,640 a month'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'takings' £2,580/month; target: >= £2,640/month; status: misses it. It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them.",
      "aim": "takings_goal",
      "option": "weekend_workshops",
@@ -994,7 +957,7 @@
     {
      "id": "F18",
      "kind": "middle",
-     "line": "'Carry on as now' · aim 'Take £2,640 a month' · on the middle figures: £2,400/month, misses it",
+     "line": "'Carry on as now' · aim 'Take £2,640 a month': £2,400/month, misses it",
      "hover": "option: 'Carry on as now'; aim: 'Take £2,640 a month'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'takings' £2,400/month; target: >= £2,640/month; status: misses it.",
      "aim": "takings_goal",
      "option": "carry_on",
@@ -1004,10 +967,57 @@
     }
    ],
    "compared_headings": {
-    "middle": "On the middle figures",
+    "middle": "With every figure at its most likely value, or the middle of its range where none is given",
     "better": "Compared with carrying on",
-    "unresolved": "Can't be told apart from the target"
-   }
+    "unresolved": "Can't be told apart from the target, with every figure at its most likely value, or the middle of its range where none is given"
+   },
+   "tipping": [
+    {
+     "id": "F19",
+     "kind": "chance",
+     "line": "For 'Evening classes' to meet 'Take £2,640 a month' more often than not, 'evening extra' would have to be above about 19.7 classes/month (between 18.3 and 20.8 classes/month).",
+     "hover": "In this model, for 'Evening classes' to meet 'Take £2,640 a month' more often than not, 'evening extra' (the person's range) would have to be above about 19.7 classes/month: where its chance over slices of that figure's draws crosses a half, between 18.3 and 20.8 classes/month in this Run's draws.",
+     "aim": "takings_goal",
+     "option": "evening_classes",
+     "versus": null,
+     "figure": {
+      "id": "evening_extra",
+      "label": "evening extra",
+      "whose": "theirs"
+     },
+     "side": "above",
+     "at": 19.71225358961612,
+     "low": 18.306817242402225,
+     "high": 20.724167759610125,
+     "olumi": null
+    }
+   ],
+   "tipping_heading": "What would have to be true",
+   "tipping_aims": [
+    {
+     "aim": "takings_goal",
+     "lines": [
+      "F19"
+     ],
+     "silent": []
+    },
+    {
+     "aim": "keep_members",
+     "lines": [],
+     "silent": [
+      {
+       "crossing": null,
+       "reason": "not_recorded",
+       "text": "this version's Run did not keep why nothing is said about what would have to be true for this aim",
+       "line": "This version's Run did not keep why nothing is said about what would have to be true for this aim."
+      }
+     ]
+    }
+   ],
+   "failure": [],
+   "failure_heading": "What could go wrong",
+   "rests": [],
+   "rests_heading": "How much rests on Olumi's guesses"
   },
   "edit_base": 1,
   "key": [
@@ -1155,7 +1165,16 @@
    "text": "at least £2,640/month",
    "title": "£2,640/month",
    "side": "at_least"
-  }
+  },
+  "sharpen": [
+   {
+    "id": "risk_count",
+    "lead": "No risks captured yet.",
+    "emphasis": "A pre-mortem typically surfaces failure modes before they arrive.",
+    "rationale": "Pre-mortem (Klein): imagine the choice failed, then ask what went wrong. It typically surfaces risks that planning misses.",
+    "move": "pre_mortem"
+   }
+  ]
  },
  "proposal": null,
  "collab": {
@@ -1303,11 +1322,106 @@
    "leader": "Most likely with theirs",
    "model_leader": "With the model's",
    "most": "Moves most",
-   "if_absent": "Worked out without"
-  }
+   "if_absent": "Worked out without",
+   "no_leader": "No option clearly most likely with theirs",
+   "no_model_leader": "No option clearly most likely with the model's"
+  },
+  "suggested_triggers_caption": "Olumi's suggestion, and optional: use it only if it fits your reasoning, change it, or leave it out.",
+  "suggested_triggers": [
+   {
+    "option": "evening_classes",
+    "aim": "takings_goal",
+    "fact": "F19",
+    "kind": "chance",
+    "text": "Reconsider if 'evening extra' comes in below about 19.7 classes/month (between 18.3 and 20.8 classes/month): in this model, 'Evening classes' then meets 'Take £2,640 a month' less often than not."
+   }
+  ],
+  "max_view_figures": 3,
+  "view_figures_limit_text": "Up to three figures go with one view.",
+  "private_view_prompt": null
  },
  "evidence": [],
  "chat": [],
  "brief": "Should the studio add evening classes?",
- "gated": true
+ "gated": true,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": null
+ }
 }

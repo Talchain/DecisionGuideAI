@@ -19,10 +19,10 @@ const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
 const GOLDEN = ['pricing', 'studio', 'bakery', 'european', 'app-launch', 's_ce285b3617bb', 'proposal'] as const
 
-/** The View string a `data-view` path names: `run.<field>…` under the model's Run, else `<card id>.<field>…` under its cards. */
+/** The View string a `data-view` path names: `run.<field>…` under the model's Run, `sharpen.<i>.<field>` under the model's prompts (the R17 goldens carry them), else `<card id>.<field>…` under its cards. */
 function at(model: ViewModel, path: string): unknown {
   const [id, ...rest] = path.split('.')
-  let x: unknown = id === 'run' ? model.run : model.cards.find((c) => c.id === id)
+  let x: unknown = id === 'run' ? model.run : id === 'sharpen' ? model.sharpen : model.cards.find((c) => c.id === id)
   for (const k of rest) x = x === null || x === undefined ? undefined : (x as Record<string, unknown>)[k]
   return x
 }

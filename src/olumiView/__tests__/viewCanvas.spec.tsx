@@ -21,7 +21,7 @@ vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'u1
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: 'u1', accessToken: null }), supabase: {} }))
 vi.mock('../../canvas/nodes/shared/savedGraph', () => ({ useSavedGraphRead: () => ({ status: 'none' }), useSavedGraph: () => null }))
 
-const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
+const golden = (n: string, dir = 'golden', ext = 'view'): View => JSON.parse(readFileSync(path.resolve('src/olumiView', dir, `${n}.${ext}.json`), 'utf8'))
 const ids = () => useCanvasStore.getState().nodes.slice(1).map((n) => n.id)
 
 beforeEach(() => { lane.on = true; hydrate.mockClear(); useCanvasStore.setState({ nodes: [], edges: [], pendingLayout: true, currentScenarioId: null }) })
@@ -184,7 +184,7 @@ describe('the reason links fold away (DL 4 Nov: "the dashed premise and assumpti
 describe('the cards as the original canvas numbers and draws them', () => {
   it('european: options O1–O3, a figure a person sets is a factor (F), one core works out an outcome (OC), assumptions A, the aim unnumbered', async () => {
     const { cardNumbersOf, drawKindOf } = await import('../layout')
-    const model = golden('european').model!, n = cardNumbersOf(model)
+    const model = golden('european-22cards', 'fixtures/real', 'view3').model!, n = cardNumbersOf(model)
     expect(model.cards.filter((c) => c.family === 'option').map((c) => n.get(c.id))).toEqual(['O1', 'O2', 'O3'])
     expect([n.get('starting_customers'), n.get('customers'), n.get('entry_interpretation'), n.get('reach_customer_target')]).toEqual(['F1', 'OC1', 'A1', undefined])
     expect([drawKindOf(model.cards.find((c) => c.id === 'customers')!, model), drawKindOf(model.cards.find((c) => c.id === 'starting_customers')!, model)]).toEqual(['outcome', 'factor'])

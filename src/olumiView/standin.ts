@@ -6,7 +6,7 @@
  * a structured `rests_on` and core's own one line, `rests_on_text`. Carried on each chance row (`model.cards[].rows[]`, kind 'chance')
  * and on `model.run.most_likely`. The card-level `rests_on: { id, whose }[]` is a different field and is untouched.
  */
-import type { ViewModel, ViewRow, ViewRun } from './client'
+import type { View, ViewModel, ViewRow, ViewRun } from './client'
 
 /** What a finding rests on: the reading and the target as yes/no; the figures as record ids, by how they enter it. */
 export type RestsOnBasis = { readonly reading: boolean; readonly target: boolean; readonly what_ifs: readonly string[]; readonly estimates: readonly string[]; readonly approx: readonly string[] }
@@ -58,8 +58,7 @@ export type ViewEffectRun = {
 }
 export type ViewEffect = ViewEffectRun | { readonly quantity: string; readonly refused: string }
 /** Core's labels: each status, a figure not run, and (core 066287e) the drawer's four row labels; a core before 066287e lacks those four. */
-export type EffectHeadings = { readonly changes: string; readonly moves: string; readonly same: string; readonly refused: string
-  readonly leader?: string; readonly model_leader?: string; readonly most?: string; readonly if_absent?: string }
+export type EffectHeadings = Pick<View['collab']['effect_headings'], 'changes' | 'moves' | 'same' | 'refused'> & Partial<Omit<View['collab']['effect_headings'], 'changes' | 'moves' | 'same' | 'refused'>>
 
 export function effectsOf(shared: object): readonly ViewEffect[] {
   const e = (shared as { effects?: unknown }).effects

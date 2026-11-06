@@ -367,13 +367,13 @@ export function cardNumbersOf(model: ViewModel): ReadonlyMap<string, string> {
 /** The top of the causal graph, which the camera centres on when a board is too large to read whole: the question and the options. */
 export const headOf = (model: ViewModel): ReadonlySet<string> => new Set([QUESTION, ...model.cards.filter((c) => c.family === 'option').map((c) => c.id)])
 
-// R4 compared lines (compared.ts holds their stand-in types and per-line rules): which lines this page draws, and their groups. Picking
+// R4 compared lines (compared.ts holds their per-line rules): which lines this page draws, and their groups. Picking
 // lives here, the one layout module.
 /** Core's compared lines this page draws, each with its place in `run.compared` (its View path): only the kinds it knows. */
 export function comparedLinesOf(run: ViewRun | null): { line: ComparedLine; i: number }[] {
-  const all = (run as { compared?: unknown } | null)?.compared
+  const all = run?.compared
   if (!Array.isArray(all)) return []
-  return (all as ComparedLine[]).map((line, i) => ({ line, i })).filter(({ line }) => COMPARED_KINDS.has(line.kind))
+  return all.map((line, i) => ({ line, i })).filter(({ line }) => COMPARED_KINDS.has(line.kind))
 }
 
 /** The groups to draw, in the order core first lists a line of each, each with its heading and lines; a group with no heading is left out. */
@@ -388,12 +388,41 @@ export function comparedGroupsOf(run: ViewRun | null): { group: ComparedGroup; h
   return out
 }
 
-/** The Run's D6 lines under core's own heading (`run.tipping`, `run.tipping_heading`; tipping.ts), each with its place in the array (its View path); null when core sends no heading or no line. */
-export function tippingOf(run: ViewRun | null): { heading: string; lines: { line: TippingLine; i: number }[] } | null {
-  const r = run as { tipping?: unknown; tipping_heading?: unknown } | null
-  if (r === null || !Array.isArray(r.tipping) || !nonEmpty(r.tipping_heading)) return null
-  const lines = (r.tipping as TippingLine[]).map((line, i) => ({ line, i })).filter(({ line }) => nonEmpty(line?.line))
-  return lines.length === 0 ? null : { heading: r.tipping_heading, lines }
+/**
+ * The Run's D6 lines under core's own heading (`run.tipping`, `run.tipping_heading`; tipping.ts), each with its place in the array (its View path),
+ * and, for an aim with no crossing, core's one line saying why (`run.tipping_aims[].silent[].line`), once per aim; null when core sends no heading
+ * or nothing to draw.
+ */
+export function tippingOf(run: ViewRun | null): { heading: string; lines: { line: TippingLine; i: number }[]; silent: { aim: string; line: string }[] } | null {
+  if (run === null || !Array.isArray(run.tipping) || !nonEmpty(run.tipping_heading)) return null
+  const lines = run.tipping.map((line, i) => ({ line, i })).filter(({ line }) => nonEmpty(line?.line))
+  const silent = (Array.isArray(run.tipping_aims) ? run.tipping_aims : []).flatMap((a) => {
+    if (a.lines.length > 0) return []
+    const first = (a.silent ?? []).find((s) => nonEmpty(s?.line))
+    return first === undefined ? [] : [{ aim: a.aim, line: first.line }]
+  })
+  return lines.length === 0 && silent.length === 0 ? null : { heading: run.tipping_heading, lines, silent }
+}
+
+/**
+ * D5 (`run.failure`) and D8 (`run.rests`) under core's own headings: each line core's sentence, in core's order, with its hover; nothing without
+ * a heading or a line. D5 is empty until a person names or commits to an option; D8's shares are positions only and are never drawn as numbers.
+ */
+export function failureOf(run: ViewRun | null) { return factsOf(run?.failure_heading, run?.failure) }
+export function restsOf(run: ViewRun | null) { return factsOf(run?.rests_heading, run?.rests) }
+function factsOf<T extends { id: string; line: string; hover: string }>(heading: string | undefined, all: readonly T[] | undefined): { heading: string; lines: { line: T; i: number }[] } | null {
+  if (!nonEmpty(heading) || !Array.isArray(all)) return null
+  const lines = all.map((line, i) => ({ line, i })).filter(({ line }) => nonEmpty(line?.line))
+  return lines.length === 0 ? null : { heading, lines }
+}
+
+/**
+ * The option the person has in front of them (D5, "What could go wrong?": core's facts are about an option the person names or commits to):
+ * the one option card among the selected canvas nodes, by its id; null when none or more than one is selected (core then asks which they lean towards).
+ */
+export function optionInFocusOf(view: { model: ViewModel | null }, selected: ReadonlySet<string>): string | null {
+  const options = (view.model?.cards ?? []).filter((c) => c.family === 'option' && selected.has(c.id))
+  return options.length === 1 ? options[0]!.id : null
 }
 
 // ── The Reasoning tab's picks (Paul, 6 Nov: the previous PoC's sections; ViewReasoning.tsx draws them, picking is done only here) ──

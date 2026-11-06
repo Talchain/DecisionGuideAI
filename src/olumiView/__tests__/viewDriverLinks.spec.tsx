@@ -16,7 +16,7 @@ import { useViewStore } from '../store'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from './edgeLabelLayer'
 
-const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))
+const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real/bakery-r5.view3.json'), 'utf8'))
 const model = view.model!
 afterEach(() => { cleanup(); useViewLens.setState({ lens: 'full' }); useViewStore.setState({ view: null }) })
 

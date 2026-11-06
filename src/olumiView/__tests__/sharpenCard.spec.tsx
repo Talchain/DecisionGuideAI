@@ -17,7 +17,9 @@ import { useMe } from '../../olumiCore/me'
 const base = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8')) as View).model!
 afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
 const worth = base.run!.science[0]!
-const model: ViewModel = { ...base, run: { ...base.run!, science: [0, 1, 2].map((k) => ({ ...worth, id: `W${k}`, line: `${worth.line} (${k})` })) } }
+// The R17 goldens carry core's `sharpen`; this fixture is the View of a core before it, so the field is taken off.
+const { sharpen: _sharpen, ...baseWithout } = base
+const model = { ...baseWithout, run: { ...base.run!, science: [0, 1, 2].map((k) => ({ ...worth, id: `W${k}`, line: `${worth.line} (${k})` })) } } as unknown as ViewModel
 const before = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
 
 const SHARPEN = [
@@ -39,7 +41,7 @@ describe('Sharpen your thinking', () => {
     SHARPEN.forEach((r, i) => {
       expect(card.querySelector(`[data-view="sharpen.${i}.lead"]`)!.textContent).toBe(r.lead)
       expect(card.querySelector(`[data-view="sharpen.${i}.emphasis"]`)!.textContent).toBe(r.emphasis)
-      const why = card.querySelector(`[data-view-label="sharpen.${i}.rationale"]`)!
+      const why = card.querySelector(`[data-view-hover="sharpen.${i}.rationale"]`)!
       expect([why.getAttribute('aria-label'), why.getAttribute('title')]).toEqual([r.rationale, r.rationale])
     })
   })

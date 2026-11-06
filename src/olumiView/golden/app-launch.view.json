@@ -121,7 +121,7 @@
     "heading": "Explain the release decision without unfair team blame",
     "typed": false,
     "detail": "Explain the release decision without unfair team blame · goal · Theirs: “make it sound super technical and smart so he doesnt just blame my team”",
-    "col": 3,
+    "col": 2,
     "h": 130,
     "olumi": null,
     "change": null,
@@ -166,7 +166,7 @@
     "heading": "Avoid damaging users' experience and trust",
     "typed": false,
     "detail": "Avoid damaging users' experience and trust · goal · Theirs: “if we launch broken apps people will give us 1 star reviews”",
-    "col": 3,
+    "col": 2,
     "h": 130,
     "olumi": null,
     "change": null,
@@ -209,7 +209,7 @@
     "heading": "Release time minus repair and validation time",
     "typed": false,
     "detail": "Release time minus repair and validation time · quantity · Proposed by Olumi: A signed schedule margin: a negative value represents insufficient time under this simplified schedule. · Worked out from the figures it depends on",
-    "col": 2,
+    "col": 1,
     "h": 116,
     "olumi": {
      "glyph": "◆",
@@ -299,7 +299,7 @@
     "heading": "Allow time for repair and validation",
     "typed": false,
     "detail": "Allow time for repair and validation · goal · Proposed by Olumi: A testable schedule criterion for exploring the concern about releasing a known defect; it does not establish product safety.",
-    "col": 3,
+    "col": 2,
     "h": 130,
     "olumi": {
      "glyph": "◆",
@@ -408,42 +408,6 @@
     "failed_reason": null
    },
    {
-    "id": "delayed_release_offset",
-    "family": "quantity",
-    "glyph": "●",
-    "heading": "Postponed release time from now",
-    "typed": false,
-    "detail": "Postponed release time from now · quantity · Proposed by Olumi: An exploratory postponed-release window, measured from now rather than added to the original date. Deliberately widened on a ratio scale; no typical rate known; replace with your figure. It is neither a recommendation nor a commitment that the defect will be resolved by then. · Plausible range: 4 to 16 weeks",
-    "col": 1,
-    "h": 88,
-    "olumi": {
-     "glyph": "◆",
-     "title": "Proposed by Olumi: An exploratory postponed-release window, measured from now rather than added to the original date. Deliberately widened on a ratio scale; no typical rate known; replace with your figure. It is neither a recommendation nor a commitment that the defect will be resolved by then."
-    },
-    "change": null,
-    "focus": false,
-    "challenged": false,
-    "doubt": false,
-    "figure": {
-     "text": "4 to 16 weeks",
-     "title": "Plausible range: 4 to 16 weeks",
-     "edit": {
-      "prompt": "New figure for “Postponed release time from now” (week): one number, or a range like 150 to 400",
-      "ask": "For “Postponed release time from now”, type one number, or a range like 150 to 400."
-     }
-    },
-    "premises": [],
-    "rows": [],
-    "driver": null,
-    "status": null,
-    "bound": null,
-    "reason": null,
-    "badge": null,
-    "values": null,
-    "rests_on": [],
-    "failed": []
-   },
-   {
     "id": "option_delay",
     "family": "option",
     "glyph": "▣",
@@ -500,6 +464,7 @@
       "campaign_commitment",
       "expected_marketing_reaction",
       "initial_position",
+      "delayed_release_offset",
       "technical_diagnosis",
       "conditional_integrity_reason",
       "conditional_validation_reason",
@@ -508,9 +473,9 @@
       "disconfirm_full_delay",
       "boss_brief_structure"
      ],
-     "text": "❝ ! +11",
-     "title": "claim: Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied.\nclaim: Marketing has already bought ads for Q4. The amount, campaign dates and ability to redirect or reschedule them are not supplied.\nclaim: The user expects strong opposition from marketing if the release is delayed; this is not a reported position from marketing.\nclaim: The user currently favors postponement and wants a technical explanation that avoids unfairly blaming the development team.\nchallenge: Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nclaim: Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.\nclaim: Potential reason for delay: if the campaign sends more users into an unresolved defective flow, paid acquisition may amplify exposure to the problem rather than deliver its intended benefit. The campaign destination and affected flow must be checked.\nchallenge: Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses.\nchallenge: Test the strongest countercase to postponement: the defect may be limited, recoverable or safely isolated. Conversely, delaying the date without fixing and verifying the underlying problem would not itself protect users.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.",
-     "label": "Expand 11 reasoning records",
+     "text": "❝ ● ! +12",
+     "title": "claim: Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied.\nclaim: Marketing has already bought ads for Q4. The amount, campaign dates and ability to redirect or reschedule them are not supplied.\nclaim: The user expects strong opposition from marketing if the release is delayed; this is not a reported position from marketing.\nclaim: The user currently favors postponement and wants a technical explanation that avoids unfairly blaming the development team.\nquantity: Postponed release time from now\nchallenge: Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nclaim: Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.\nclaim: Potential reason for delay: if the campaign sends more users into an unresolved defective flow, paid acquisition may amplify exposure to the problem rather than deliver its intended benefit. The campaign destination and affected flow must be checked.\nchallenge: Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses.\nchallenge: Test the strongest countercase to postponement: the defect may be limited, recoverable or safely isolated. Conversely, delaying the date without fixing and verifying the underlying problem would not itself protect users.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.",
+     "label": "Expand 12 reasoning records",
      "open": false,
      "proposed": false,
      "change": ""
@@ -747,24 +712,13 @@
    },
    {
     "from": "option_delay",
-    "to": "delayed_release_offset",
-    "kind": "plain",
-    "label": "",
-    "doubt": false,
-    "alert": false,
-    "proposed": false,
-    "title": "option input",
-    "effect": null
-   },
-   {
-    "from": "delayed_release_offset",
     "to": "readiness_margin",
     "kind": "through",
     "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Time available before release · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
+    "title": "worked out through Postponed release time from now, Time available before release · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
     "effect": null
    },
    {
@@ -888,10 +842,30 @@
    },
    "compared": [],
    "compared_headings": {
-    "middle": "On the middle figures",
+    "middle": "With every figure at its most likely value, or the middle of its range where none is given",
     "better": "Compared with carrying on",
-    "unresolved": "Can't be told apart from the target"
-   }
+    "unresolved": "Can't be told apart from the target, with every figure at its most likely value, or the middle of its range where none is given"
+   },
+   "tipping": [],
+   "tipping_heading": "What would have to be true",
+   "tipping_aims": [
+    {
+     "aim": "allow_readiness_work",
+     "lines": [],
+     "silent": [
+      {
+       "crossing": null,
+       "reason": "not_recorded",
+       "text": "this version's Run did not keep why nothing is said about what would have to be true for this aim",
+       "line": "This version's Run did not keep why nothing is said about what would have to be true for this aim."
+      }
+     ]
+    }
+   ],
+   "failure": [],
+   "failure_heading": "What could go wrong",
+   "rests": [],
+   "rests_heading": "How much rests on Olumi's guesses"
   },
   "edit_base": 1,
   "key": [
@@ -1027,7 +1001,16 @@
    }
   ],
   "removed": [],
-  "aim": null
+  "aim": null,
+  "sharpen": [
+   {
+    "id": "risk_count",
+    "lead": "One risk captured.",
+    "emphasis": "A pre-mortem typically surfaces failure modes you have not listed.",
+    "rationale": "Pre-mortem (Klein): imagine the choice failed, then ask what went wrong. It typically surfaces risks that planning misses.",
+    "move": "pre_mortem"
+   }
+  ]
  },
  "proposal": null,
  "collab": {
@@ -1237,11 +1220,98 @@
    "leader": "Most likely with theirs",
    "model_leader": "With the model's",
    "most": "Moves most",
-   "if_absent": "Worked out without"
-  }
+   "if_absent": "Worked out without",
+   "no_leader": "No option clearly most likely with theirs",
+   "no_model_leader": "No option clearly most likely with the model's"
+  },
+  "suggested_triggers_caption": "Olumi's suggestion, and optional: use it only if it fits your reasoning, change it, or leave it out.",
+  "suggested_triggers": [],
+  "max_view_figures": 3,
+  "view_figures_limit_text": "Up to three figures go with one view.",
+  "private_view_prompt": null
  },
  "evidence": [],
  "chat": [],
  "brief": "How can I make a technically defensible case to my boss for delaying the app update, while testing whether a full delay is necessary?",
- "gated": true
+ "gated": true,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": null
+ }
 }

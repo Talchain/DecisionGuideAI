@@ -17,8 +17,8 @@ import { resetWrites } from '../../olumiCore/team/writes'
 import { useMe } from '../../olumiCore/me'
 
 const SID = 's_0123456789ab'
-const golden = (n: string): View => ({ ...JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8')), id: SID })
-const view = golden('european')
+// Pins the R5 european model's cards (the R17 vendor replaced the golden): kept as fixtures/real/european-22cards.view3.json.
+const view: View = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', 'european-22cards.view3.json'), 'utf8')), id: SID }
 const card = view.model!.cards.find((c) => c.figure?.edit)!
 const plain = view.model!.cards.find((c) => c.figure !== null && c.figure.edit === null)
 
