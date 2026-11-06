@@ -307,7 +307,10 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   })
   const [drawnNow, setDrawnNow] = useState<{ key: string; cards: Box[]; controls: Box[] }>({ key: '', cards: [], controls: [] })
   useEffect(() => {
-    if (!(cardHeight > 0)) return
+    // Folded (or not yet measured): what was measured for an earlier note, or another board, is dropped, so an opened note is shown only
+    // once the cards are measured for it (option a2, 6 Nov: opened on the real hiring board after the capacity one, it was placed against
+    // capacity's cards and painted on the canvas for a frame before it moved to the Olumi tab).
+    if (!(cardHeight > 0)) { setDrawnNow((was) => (was.key === '' ? was : { key: '', cards: [], controls: [] })); return }
     const raf = requestAnimationFrame(() => {
       // Whole px, rounded OUTWARD: a card a fraction of a pixel into a spot is in the way (rounded to the nearest, 0.4 px over read as free).
       const px = (b: Box): Box => { const x = Math.floor(b.x), y = Math.floor(b.y); return { x, y, w: Math.ceil(b.x + b.w) - x, h: Math.ceil(b.y + b.h) - y } }
