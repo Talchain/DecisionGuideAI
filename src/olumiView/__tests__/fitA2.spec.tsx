@@ -49,11 +49,12 @@ describe('the option face', () => {
     const c = render(<ViewCard card={card} />).container
     const lead = c.querySelector<HTMLElement>(`[data-view-row="${card.id}.rows.0"]`)!, next = c.querySelector<HTMLElement>(`[data-view-row="${card.id}.rows.1"]`)!
     const r0 = card.rows[0] as { aim: string; title: string; value: string }, r1 = card.rows[1] as { aim: string; title: string; value: string }
-    expect(lead.querySelector(`[data-row-value="${card.id}.rows.0"]`)!.className).toContain('text-[20px]')
+    // The 17px variant (coordinator, 6 Nov: measure whether "about 46% chance" fits one line on a 220 px card; at 20px it wrapped): was 20px.
+    expect(lead.querySelector(`[data-row-value="${card.id}.rows.0"]`)!.className).toContain('text-[17px]')
     expect(lead.querySelector(`[data-view="${card.id}.rows.0.aim"]`)!.className).toContain('sr-only')
     expect(lead.getAttribute('title')).toBe(`${r0.aim} · ${r0.title}`)
     expect(next.querySelector(`[data-view="${card.id}.rows.1.aim"]`)!.className).toContain('truncate')
-    expect(next.querySelector(`[data-row-value="${card.id}.rows.1"]`)!.className).not.toContain('text-[20px]')
+    expect(next.querySelector(`[data-row-value="${card.id}.rows.1"]`)!.className).not.toContain('text-[17px]') // the second aim stays small
     expect(next.getAttribute('title')).toBe(`${r1.aim} · ${r1.title}`)
     expect(c.textContent).toContain(r0.value); expect(c.textContent).toContain(r1.value) // core's words, verbatim
   })

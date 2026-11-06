@@ -42,7 +42,7 @@ describe('a chance row\'s marks on the card never wrap alone and are never clipp
     // screen readers and is on the row's hover, not drawn; the value is clamped to two lines in the big type (a conditional value never
     // overflows the card); the aim's target mark ◎ leads it. Every R5 check above holds unchanged.
     expect(row.querySelector(`[data-view="${at}.aim"]`)!.className).toContain('sr-only')
-    expect(value.className).toContain('text-[20px]')
+    expect(value.className).toContain('text-[17px]') // the 17px variant of the big chance (coordinator, 6 Nov); was 20px
     expect(value.className).not.toContain('whitespace-nowrap') // the big line may wrap to two lines, never overflow
     const r = card.rows[i] as { aim: string; approx: string; value: string; title: string }
     expect(row.getAttribute('title')).toBe(`${r.aim} · ${r.title}`)

@@ -91,7 +91,7 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
         <div title={`${row.aim} · ${row.title}`} data-view-row={at} className="flex items-baseline gap-1">
           <span className="sr-only" data-view={`${at}.aim`}>{row.aim}</span>
           <span aria-hidden="true" style={{ color: 'var(--goal)' }} className="text-[18px] leading-none">◎</span>
-          <span className="min-w-0 line-clamp-2 text-[20px] font-semibold leading-tight text-text-header" data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
+          <span className="min-w-0 line-clamp-2 text-[17px] font-semibold leading-tight text-text-header" data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
           {markSpan}
         </div>
       )
