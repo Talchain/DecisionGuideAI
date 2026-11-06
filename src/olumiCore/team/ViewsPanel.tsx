@@ -6,6 +6,7 @@ import { effectHeadingsOf, effectsOf, type EffectHeadings, type ViewEffect } fro
 import { teamApi, TeamApiError } from './api'
 import { useDraft } from './drafts'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWrites, useWriteSending } from './writes'
+import { WhereYouDiffer } from './WhereYouDiffer'
 import { AVATAR, BODY, CARD, ERR, FIELD, H, META } from './ui'
 
 type Figure = View['collab']['shared'][number]['figures'][number]
@@ -129,6 +130,8 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
           ))}
         </ul>
       )}
+
+      {!view.gated && <WhereYouDiffer view={view} />}
 
       {c.mine.length > 0 && (
         <ul className="m-0 grid list-none gap-1.5 p-0" data-testid="team-mine">

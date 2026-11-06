@@ -7,6 +7,7 @@
  */
 import { useEffect } from 'react'
 import { isReading, useViewStore } from './store'
+import { noteMoved } from './notice'
 
 export const POLL_MS = 10_000
 
@@ -24,7 +25,11 @@ export function useViewPoll(on: boolean): void {
       // (Hidden, no re-read is timed: `next` sets none, and hiding clears the one set.)
       if (sid !== null && view !== null && !isReading()) {
         going = true
+        const was = view.version?.n ?? 0
         try { await useViewStore.getState().refresh() } finally { going = false }
+        // A newer approved version arrived (another member's approval): say so in words, once, with who approved it (`notice.ts`).
+        const now = useViewStore.getState()
+        if (now.at === null && now.sid === sid && now.view !== null && (now.view.version?.n ?? 0) > was) void noteMoved(sid, now.view.version!.n)
       }
       next()
     }

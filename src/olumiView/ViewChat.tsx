@@ -32,6 +32,7 @@ import { Button } from '../components/ui/Button'
 import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
 import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
+import { noteSaved, noticeWords, useModelNotice } from './notice'
 import { ArrowRight, ArrowUp, FlipVertical2, Globe, History, MessageCircleQuestion, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
 import Tooltip from '../components/Tooltip'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
@@ -253,10 +254,10 @@ function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; bus
           </ul>
         )}
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={busy} className={CHIP_PRIMARY_CLASS} onClick={() => void act(() => writes.approve(p.id, p.base), true)}>Approve</button>
+        <button type="button" disabled={busy} className={CHIP_PRIMARY_CLASS} onClick={() => void act(() => writes.approve(p.id, p.base).then(noteSaved), true)}>Approve</button>
         {!tickable ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
-            className={CHIP_CLASS} onClick={() => void act(() => writes.approve(p.id, p.base, pick), true)}>Approve ticked · {chosen}</button>
+            className={CHIP_CLASS} onClick={() => void act(() => writes.approve(p.id, p.base, pick).then(noteSaved), true)}>Approve ticked · {chosen}</button>
         )}
         <button type="button" disabled={busy} className={CHIP_CLASS} onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
       </div>
@@ -736,10 +737,18 @@ export function ViewChat() {
         {ffMine && ffOpen ? <FigureFirstEntryPanel held={held} onGive={give} onShow={show} onClose={closeFigureFirst} /> : null}
         {ffMine && ffShown ? <FigureFirstShownPanel onClose={() => useFigureFirst.setState({ shown: null })} /> : null}
         {ff?.given == null ? null : <FigureFirstSideBySide given={ff.given} headings={ff.headings} />}
+        <ModelNoticeLine />
         {view === null ? null : <ViewConversation chat={view.chat} moves />}
       </div>
     </div>
   )
+}
+
+/** The newest line of the conversation about the model's version: the person's own approval saved, or another member's approval arrived. */
+function ModelNoticeLine() {
+  const notice = useModelNotice((s) => s.notice), sid = useViewStore((s) => s.sid)
+  if (notice === null || notice.sid !== sid) return null
+  return <p role="status" className={`${typography.panelMeta} text-text-header`} data-testid="view-model-notice" data-notice={notice.kind}>{noticeWords(notice)}</p>
 }
 
 export const DRAFTING_WORDS = 'Olumi is drafting a model from your brief. A first model can take a few minutes.'
