@@ -10,7 +10,8 @@
 import { Fragment, type ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow, ViewRun, ViewTurn } from './client'
-import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, optionCards, worthLinesOf } from './layout'
+import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, optionCards, SHARPEN_SHOWN, sharpenKindOf, sharpenRowsOf, worthLinesOf, type SharpenRow } from './layout'
+import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { MoveTap, Words } from './ViewChat'
 import { currentModel, useViewStore } from './store'
 import { clearWhatIf, useWhatIf } from './whatif'
@@ -328,6 +329,7 @@ export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: r
           <Worth run={run} shown={BEHIND_SHOWN} />
         </section>
       )}
+      <SharpenCard model={model} />
       {run === null || run.notes.length === 0 ? null : (
         <details className={BOX} data-testid="view-run-notes">
           <summary className={`${typography.panelMeta} cursor-pointer text-info`}>About these numbers</summary>
@@ -335,6 +337,40 @@ export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: r
         </details>
       )}
     </div>
+  )
+}
+
+/**
+ * Sharpen your thinking (the previous PoC's block, Paul's 6 Nov side-by-side; vision-audit-20261024 paul-funding-09-panel-analysis.png):
+ * core's prompts about the model's shape (`model.sharpen`), each with its family's mark, its lead, its emphasis in bold and its rationale
+ * on the ⓘ hover, all core's words; the first two shown, the rest behind "+N more". Nothing when core sends none.
+ */
+function SharpenCard({ model }: { model: ViewModel }) {
+  const rows = sharpenRowsOf(model)
+  if (rows.length === 0) return null
+  const split = firstFew(rows, SHARPEN_SHOWN)
+  const line = ({ row, i }: { row: SharpenRow; i: number }) => (
+    <div key={row.id} className="flex gap-2" data-sharpen={row.id}>
+      <span className="mt-1 shrink-0"><NodeShapeIndicator nodeKind={sharpenKindOf(row.id)} size={10} /></span>
+      <p className="min-w-0 flex-1">
+        <span data-view={`sharpen.${i}.lead`}>{row.lead}</span>{' '}
+        <span className="font-semibold" data-view={`sharpen.${i}.emphasis`}>{row.emphasis}</span>
+      </p>
+      <span role="img" aria-label={row.rationale} title={row.rationale} data-view-label={`sharpen.${i}.rationale`} data-testid={`view-run-sharpen-why-${row.id}`}
+        className={`${typography.panelMeta} shrink-0 cursor-help`}>ⓘ</span>
+    </div>
+  )
+  return (
+    <section className={BOX} data-testid="view-run-sharpen" aria-label="Sharpen your thinking">
+      <p className={typography.panelHeader}>Sharpen your thinking</p>
+      {split.shown.map(line)}
+      {split.more.length === 0 ? null : (
+        <details data-testid="view-run-sharpen-more" className="space-y-2">
+          <summary className={`${typography.panelMeta} cursor-pointer text-info`}>{`+${split.more.length} more`}</summary>
+          {split.more.map(line)}
+        </details>
+      )}
+    </section>
   )
 }
 

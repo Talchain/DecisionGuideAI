@@ -422,3 +422,22 @@ export function newestNextOf(chat: readonly ViewTurn[] | null | undefined): { tu
   const cites = [a.answer, ...a.why].flatMap((parts) => parts.flatMap((p) => ('cite' in p ? [p] : []))).length
   return { turn, k, next: a.next, first: 1 + cites }
 }
+
+// ── Sharpen your thinking (olumi.view/3 `model.sharpen`, core view/sharpen.ts; ViewChances.tsx draws them, picking is done only here) ──
+/** One of core's prompts about the model's shape: its words (lead, emphasis, rationale) and the coach move it relates to. */
+export type SharpenRow = { id: string; lead: string; emphasis: string; rationale: string; move: string | null }
+/** How many prompts the card shows before "+N more" holds the rest (the previous PoC's two-row cap). */
+export const SHARPEN_SHOWN = 2
+/** Core's prompts in core's order, each with its index (its View path, `sharpen.<i>`); [] when core sends none, as a core before the field
+ *  (read before the schema is vendored, as compared.ts and k5.ts read theirs: a View without the field draws nothing). */
+export function sharpenRowsOf(model: ViewModel): { row: SharpenRow; i: number }[] {
+  const raw = (model as { sharpen?: unknown }).sharpen
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((r: unknown, i) => {
+    const x = r as Partial<SharpenRow> | null
+    return x && typeof x.id === 'string' && typeof x.lead === 'string' && typeof x.emphasis === 'string' && typeof x.rationale === 'string'
+      ? [{ row: { id: x.id, lead: x.lead, emphasis: x.emphasis, rationale: x.rationale, move: typeof x.move === 'string' ? x.move : null }, i }] : []
+  })
+}
+/** The canvas family a prompt is about, for its mark: a risk prompt is about risks, every other one about the options. */
+export const sharpenKindOf = (id: string): 'risk' | 'option' => (id === 'risk_count' ? 'risk' : 'option')
