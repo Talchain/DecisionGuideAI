@@ -24,21 +24,38 @@ const bea: Sh = { ...paul, id: 99, by: 'Bea', by_id: 'p_bea', effects: paul.effe
 afterEach(cleanup)
 
 describe('where you differ: who leans where, in core\'s words', () => {
-  it('CATCH: each person stands in the lane of the option core placed for their figure, with core\'s status words; the model\'s own leader carries core\'s label', () => {
+  it('CATCH: one chip per person per lane, each figure under them as "label: text" with a status mark carrying core\'s words; the model\'s leader as core\'s field label with its value', () => {
     show(withShared([paul, bea]))
     const pic = screen.getByTestId('team-differ')
     const lane = (id: string) => pic.querySelector<HTMLElement>(`[data-differ-option="${id}"]`)!
     const names = (id: string) => [...lane(id).querySelectorAll('[data-differ-by]')].map((e) => e.textContent)
-    expect(names('add_one')).toEqual(['Paul', 'Paul'])
-    expect(names('hold')).toEqual(['Bea', 'Bea'])
+    expect(names('add_one')).toEqual(['Paul']) // once, though two of Paul's figures place him here
+    expect(names('hold')).toEqual(['Bea'])
     expect(lane('add_one').querySelector('[data-differ-option-heading]')?.textContent).toBe('Add one specialist')
     expect(lane('hold').querySelector('[data-differ-option-heading]')?.textContent).toBe('Keep current staffing')
-    expect(lane('add_one').querySelector('[data-differ-model]')?.textContent).toBe(headings['model_leader'])
-    expect(lane('hold').querySelector('[data-differ-model]')).toBeNull()
-    const statuses = [...lane('hold').querySelectorAll('[data-differ-status]')].map((e) => e.textContent)
-    expect(statuses).toEqual([headings['same'], headings['moves']])
-    expect([...lane('add_one').querySelectorAll('[data-differ-figure]')].map((e) => e.textContent)).toEqual(['existing capacity', 'capacity target'])
+    // The model's leader: core's label and its value, once per aim, never a fragment and never in a lane.
+    expect([...pic.querySelectorAll('[data-differ-model]')].map((e) => e.textContent)).toEqual([`${headings['model_leader']}: Add one specialist`])
+    expect(lane('add_one').querySelector('[data-differ-model]')).toBeNull()
+    // Each figure: their label and their figure's own words; the mark carries core's heading for its status as its hover.
+    expect([...lane('add_one').querySelectorAll('[data-differ-figure]')].map((e) => e.textContent)).toEqual(['existing capacity: 80 tickets/week', 'capacity target: 90 tickets/week'])
+    expect([...lane('add_one').querySelectorAll('[data-differ-status]')].map((e) => e.getAttribute('title'))).toEqual([headings['same'], headings['moves']])
+    // Core's status words are never drawn per figure: only in the mark's hover and once in the legend.
+    expect(lane('add_one').textContent).not.toContain(headings['same'])
+    expect(pic.textContent!.split(headings['same']).length - 1).toBe(1)
+    expect(pic.textContent!.split(headings['moves']).length - 1).toBe(1)
+    expect(pic.querySelector('[data-testid="team-differ-legend"]')?.textContent).toBe(`${headings['moves']}${headings['same']}`)
+    expect(pic.querySelectorAll('[data-differ-leader-label]')).toHaveLength(1)
     expect(pic.querySelector('[data-differ-aim-heading]')?.textContent).toBe('At least 100 a week')
+  })
+
+  it('only a figure that changes which option is most likely is emphasised', () => {
+    const emph = { ...bea, effects: bea.effects.map((e) => (e.quantity === 'capacity_target' ? { ...e, status: 'changes' as const } : e)) }
+    show(withShared([paul, emph]))
+    const lane = screen.getByTestId('team-differ').querySelector<HTMLElement>('[data-differ-option="hold"]')!
+    const row = (st: string) => lane.querySelector<HTMLElement>(`[data-differ-fig-status="${st}"]`)!
+    expect(row('changes').className).toContain('font-medium')
+    expect(row('same').className).not.toContain('font-medium')
+    expect(screen.getByTestId('team-differ-legend').textContent).toContain(headings['changes'])
   })
 
   it('a person core placed no option for is named, not hidden', () => {
