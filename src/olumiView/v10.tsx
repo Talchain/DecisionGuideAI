@@ -155,7 +155,8 @@ export function ViewOptionBand({ id, band }: { id: string; band: OptionBand }) {
             style={{ left: `${band.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />
         )}
       </div>
-      <p className={`${typography.edgeLabel} text-text-light line-clamp-2`} data-view={band.at}>{band.text}</p>
+      {/* PROTOTYPE (a): the band's words on hover (the wrapper's title, the bar's label), not a line on the face. */}
+      <span className="sr-only" data-view={band.at}>{band.text}</span>
     </div>
   )
 }

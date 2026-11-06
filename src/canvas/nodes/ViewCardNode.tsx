@@ -68,7 +68,7 @@ const IfApprovedMark = ({ mark }: { mark: ValueMark }) => (
   mark === null ? null : <span title={mark.title} aria-label={mark.title} data-if-approved="" data-view={mark.at}>{mark.glyph}</span>
 )
 
-function Row({ id, row, i, ifApproved = null }: { id: string; row: ViewRow; i: number; ifApproved?: IfApproved }) {
+function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: ViewRow; i: number; ifApproved?: IfApproved; lead?: boolean | null }) {
   const at = `${id}.rows.${i}`
   const moved = valueMark(row, at, ifApproved)
   // The compact face (C1, 4 Nov: details on hover or selection; R3 pristine: two lines a row at most, the whole row on hover), every word
@@ -78,6 +78,31 @@ function Row({ id, row, i, ifApproved = null }: { id: string; row: ViewRow; i: n
   switch (row.kind) {
     case 'chance': {
       const marks = row.olumi !== null || row.likely !== null || moved !== null
+      const markSpan = marks ? (
+        <span className="flex-none whitespace-nowrap" data-row-marks={at}>
+          {row.olumi === null ? null : <Mark at={`${at}.olumi`} mark={row.olumi} />}
+          {row.likely === null ? null : <>{row.olumi === null ? null : NBSP}<Mark at={`${at}.likely`} mark={row.likely} /></>}
+          {moved === null ? null : <>{NBSP}<IfApprovedMark mark={moved} /></>}
+        </span>
+      ) : null
+      // PROTOTYPE (a), for Paul's option-face call; never served: the previous PoC's face. The option's first aim is one big chance with the
+      // aim's target mark (its aim on hover); every other aim is one small line, the aim cut short before its chance. Words are core's.
+      if (lead === true) return (
+        <div title={`${row.aim} · ${row.title}`} data-view-row={at} className="flex items-baseline gap-1">
+          <span className="sr-only" data-view={`${at}.aim`}>{row.aim}</span>
+          <span aria-hidden="true" style={{ color: 'var(--goal)' }} className="text-[18px] leading-none">◎</span>
+          <span className="text-[20px] font-semibold leading-tight text-text-header whitespace-nowrap" data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
+          {markSpan}
+        </div>
+      )
+      if (lead === false) return (
+        <div title={`${row.aim} · ${row.title}`} data-view-row={at} className="flex items-baseline gap-1 text-text-light">
+          <span aria-hidden="true" style={{ color: 'var(--goal)' }}>◎</span>
+          <span className="min-w-0 truncate" data-view={`${at}.aim`}>{row.aim}</span>
+          <span className={`${typography.nodeValue} flex-none whitespace-nowrap text-text-body`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
+          {markSpan}
+        </div>
+      )
       return (
         <div title={row.title} data-view-row={at}>
           <span className="block truncate" data-view={`${at}.aim`}>{row.aim}</span>
@@ -96,8 +121,9 @@ function Row({ id, row, i, ifApproved = null }: { id: string; row: ViewRow; i: n
     }
     case 'limit':
       return (
-        <div className="flex items-baseline gap-1" title={row.title} data-view-row={at}>
-          <span className="line-clamp-2 min-w-0" data-row-value={at}><span data-view={`${at}.aim`}>{row.aim}</span> <span className={typography.nodeValue} data-view={`${at}.value`}>{row.value}</span></span>
+        <div className="flex items-baseline gap-1 text-text-light" title={`${row.aim} · ${row.title}`} data-view-row={at}>
+          {/* PROTOTYPE (a): one line, the limit cut short before its value. */}
+          <span className="min-w-0 truncate" data-view={`${at}.aim`}>{row.aim}</span> <span className={`${typography.nodeValue} flex-none whitespace-nowrap text-text-body`} data-row-value={at}><span data-view={`${at}.value`}>{row.value}</span></span>
           {row.olumi === null ? null : <span className="flex-none whitespace-nowrap" data-row-marks={at}><Mark at={`${at}.olumi`} mark={row.olumi} /></span>}
         </div>
       )
@@ -113,7 +139,7 @@ function Row({ id, row, i, ifApproved = null }: { id: string; row: ViewRow; i: n
 function OptionValueRow({ at, option, text, mark = null }: { at: string; option: string; text: string; mark?: ValueMark }) {
   const n = useCardNumber(option)
   return (
-    <p className="line-clamp-2" title={text} data-value-row={option}>
+    <p className="truncate" title={text} data-value-row={option}>
       {n === null ? null : <><span className="text-text-light font-normal tabular-nums" data-card-number={n}>{n}</span>{' '}</>}
       <span data-view={at}>{text}</span>{mark === null ? null : <>{NBSP}<IfApprovedMark mark={mark} /></>}
     </p>
@@ -203,7 +229,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       {card.figure?.edit ? <span className={selected ? '' : 'invisible group-hover:visible has-[form]:visible focus-within:visible'} data-at-rest-hidden=""><FigureEdit id={card.id} edit={card.figure.edit} {...(estimate ? { glyph: '✎', label: 'Give yours' } : {})} quiet={!selected} /></span> : null}
       {card.rows.map((row, i) => (
         <span key={i} className="contents">
-          <Row id={id} row={row} i={i} ifApproved={ifApproved} />
+          <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === card.rows.findIndex((r) => r.kind === 'chance')} />
           {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
         </span>
       ))}
