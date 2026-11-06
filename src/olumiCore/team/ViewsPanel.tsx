@@ -6,14 +6,11 @@ import { effectHeadingsOf, effectsOf, type EffectHeadings, type ViewEffect } fro
 import { teamApi, TeamApiError } from './api'
 import { useDraft } from './drafts'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWrites, useWriteSending } from './writes'
-import { WhereYouDiffer } from './WhereYouDiffer'
+import { differPlaced, WhereYouDiffer } from './WhereYouDiffer'
+import { nonEmpty } from '../../olumiView/tipping'
 import { AVATAR, BODY, CARD, ERR, FIELD, H, META } from './ui'
 
 type Figure = View['collab']['shared'][number]['figures'][number]
-
-/** Core takes at most this many figures with one view (`MAX_VIEW_FIGURES`, olumi-core src/app/service.ts) and refuses more in its own words,
- *  which are shown as core gives them. The form stops a fourth being entered; it does not choose which figures to offer. */
-const MAX_VIEW_FIGURES = 3
 
 /** The figures a person gave with their view, each in core's words (its `text`, with core's `title` on hover), in core's order. */
 function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX.Element | null {
@@ -36,14 +33,16 @@ function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX.Elemen
  * view's own label for it, else its card's heading; the aim, the options and the conditions by their cards' headings, by id; a null leader
  * names nothing. A figure core did not run is listed under core's heading for that, its reason code not translated.
  */
-function Effects({ at, view, figures, effects, headings }: { at: string; view: View; figures: Figure[]; effects: readonly ViewEffect[]; headings: EffectHeadings | null }): JSX.Element | null {
+function Effects({ at, view, by: by_id, figures, effects, headings }: { at: string; view: View; by: string; figures: Figure[]; effects: readonly ViewEffect[]; headings: EffectHeadings | null }): JSX.Element | null {
   if (effects.length === 0 || headings === null) return null
+  // A figure the "Where you differ" picture already places shows its status there (the mark and the legend): not said again here.
+  const placed = differPlaced(view)
   const card = (id: string | null) => (id === null ? null : view.model?.cards.find((c) => c.id === id)?.heading ?? null)
   const figure = (q: string) => figures.find((f) => f.quantity === q)?.label ?? card(q)
   const Option = ({ id }: { id: string | null }) => { const h = card(id); return h === null ? null : <span className="text-text-header" data-effect-option="">{h}</span> }
   // A row core labels: its label as core gives it, then the value; a core that gives no label for it draws no row (no words of the UI's own).
   const Labelled = ({ label, at, children }: { label: string | undefined; at: string; children: JSX.Element | string | null }) =>
-    label === undefined || children === null ? null : <p {...{ [at]: '' }}><span>{label}</span> <span className="text-text-header">{children}</span></p>
+    label === undefined || children === null ? null : <p {...{ [at]: '' }}><span>{label}</span>{': '}<span className="text-text-header">{children}</span></p>
   return (
     <ul className="m-0 grid list-none gap-1 p-0 pt-1.5" data-testid={`${at}-effects`}>
       {effects.map((e) => (
@@ -52,11 +51,13 @@ function Effects({ at, view, figures, effects, headings }: { at: string; view: V
             <span className="text-text-header" data-effect-figure="">{figure(e.quantity)}</span>
             {'refused' in e ? null : <><span aria-hidden="true"> · </span><span data-effect-aim="">{card(e.goal)}</span></>}
           </p>
-          <p className="text-text-header" data-effect-status="">{'refused' in e ? headings.refused : headings[e.status]}</p>
+          {'refused' in e || placed?.has(`${by_id}:${e.quantity}`) !== true ? <p className="text-text-header" data-effect-status="">{'refused' in e ? headings.refused : headings[e.status]}</p> : null}
           {'refused' in e ? null : (
             <>
               <Labelled label={headings.leader} at="data-effect-leader">{card(e.leader) === null ? null : <Option id={e.leader} />}</Labelled>
+              {e.leader === null && e.status === 'changes' && headings.no_leader !== undefined ? <p data-effect-no-leader="">{headings.no_leader}</p> : null}
               <Labelled label={headings.model_leader} at="data-effect-model-leader">{card(e.model_leader) === null ? null : <Option id={e.model_leader} />}</Labelled>
+              {e.model_leader === null && e.status === 'changes' && headings.no_model_leader !== undefined ? <p data-effect-no-model-leader="">{headings.no_model_leader}</p> : null}
               <Labelled label={headings.most} at="data-effect-most">{card(e.most) === null || (e.gap_text ?? null) === null ? null : <><Option id={e.most} /> <span data-effect-gap="">{e.gap_text}</span></>}</Labelled>
               <Labelled label={headings.if_absent} at="data-effect-if-absent">{e.if_absent.length === 0 ? null : e.if_absent.flatMap((id) => { const h = card(id); return h === null ? [] : [h] }).join(', ')}</Labelled>
             </>
@@ -81,7 +82,9 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
   const givable = view.version === null || shownIsProposal ? [] : (view.model?.cards ?? []).filter((card) => card.figure?.edit)
   const [typed, setTyped] = useState<Record<string, string>>({})
   const figures = givable.flatMap((card) => ((typed[card.id] ?? '').trim() === '' ? [] : [{ quantity: card.id, typed: typed[card.id]! }]))
-  const atCap = figures.length >= MAX_VIEW_FIGURES
+  // Core's own limit (`collab.max_view_figures`) and its words for it (`view_figures_limit_text`); a core that sends none sets no cap here.
+  const maxFigures = typeof c.max_view_figures === 'number' ? c.max_view_figures : Infinity
+  const atCap = figures.length >= maxFigures
   const dropView = () => { dropText(); setTyped({}) }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -125,7 +128,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
               <p className={`${BODY} text-text-header`}>{v.by}</p>
               {v.skip ? <p className={META}>Chose not to answer.</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
               <Figures at={`team-revealed-${v.id}`} figures={v.figures} />
-              <Effects at={`team-revealed-${v.id}`} view={view} figures={v.figures} effects={effectsOf(v)} headings={effectHeadingsOf(c)} />
+              <Effects at={`team-revealed-${v.id}`} view={view} by={v.by_id} figures={v.figures} effects={effectsOf(v)} headings={effectHeadingsOf(c)} />
             </li>
           ))}
         </ul>
@@ -176,11 +179,12 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
               </label>
               )
             })}
-            {atCap && <p className={META} data-testid="team-view-figures-cap">Three figures at most go with one view.</p>}
+            {atCap && nonEmpty(c.view_figures_limit_text) && <p className={META} data-testid="team-view-figures-cap">{c.view_figures_limit_text}</p>}
           </div>
         )}
+        {nonEmpty(c.private_view_prompt) && <p className={META} data-testid="team-view-private-prompt">{c.private_view_prompt}</p>}
         <div className="flex flex-wrap items-center gap-3">
-          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > MAX_VIEW_FIGURES} onClick={() => void run(`${sid}:view`, () => teamApi.giveView(sid, text, figures, view.version?.n ?? null), dropView)}>Add my view</Button>
+          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures} onClick={() => void run(`${sid}:view`, () => teamApi.giveView(sid, text, figures, view.version?.n ?? null), dropView)}>Add my view</Button>
           <button
             type="button" data-testid="team-view-skip" disabled={busy || sending || viewLocked}
             className={`${META} cursor-pointer underline underline-offset-2 hover:text-text-body disabled:opacity-50`}
