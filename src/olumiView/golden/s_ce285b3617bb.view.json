@@ -588,6 +588,8 @@
       "chance": 1,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 63607.44669711203,
        "median": 662368.9160430939,
@@ -615,6 +617,8 @@
       "chance": 1,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 124944.15626344438,
        "median": 724886.0121820148,
@@ -709,6 +713,8 @@
       "chance": 1,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 82441.7770250563,
        "median": 506337.3200206752,
@@ -736,6 +742,8 @@
       "chance": 1,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 143137.43069631341,
        "median": 569419.9814489953,
@@ -871,6 +879,8 @@
       "chance": 1,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 82441.7770250563,
        "median": 506337.3200206752,
@@ -898,6 +908,8 @@
       "chance": 1,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 169274.94143110016,
        "median": 593470.0182295068,
@@ -1305,6 +1317,8 @@
      "title": "Olumi's what-if for 'Operating burn retained after temporary spend deferral', not their figure: 0.5 to 0.969. Basis: No typical rate known; replace with your figure. A first-guess deferrable burn share of 0.0625–0.25 around 0.125 is widened on a ratio scale to 0.03125–0.50 and represented as retained burn. This is a cash-timing what-if, not evidence that these savings are feasible or permanent."
     }
    ],
+   "readings": [],
+   "timing": [],
    "science": [],
    "sensitivity": {
     "text": "These are its chances over the lowest and highest third of that figure's draws.",
@@ -1326,8 +1340,8 @@
       {
        "crossing": null,
        "reason": "not_recorded",
-       "text": "this version's Run did not keep why nothing is said about what would have to be true for this aim",
-       "line": "This version's Run did not keep why nothing is said about what would have to be true for this aim."
+       "text": "nothing is said about what would have to be true for 'Secure funding within the funding window': this version was saved before Olumi kept the reason",
+       "line": "Nothing is said about what would have to be true for 'Secure funding within the funding window': this version was saved before Olumi kept the reason."
       }
      ]
     },
@@ -1338,8 +1352,8 @@
       {
        "crossing": null,
        "reason": "not_recorded",
-       "text": "this version's Run did not keep why nothing is said about what would have to be true for this aim",
-       "line": "This version's Run did not keep why nothing is said about what would have to be true for this aim."
+       "text": "nothing is said about what would have to be true for 'Buy more operating time': this version was saved before Olumi kept the reason",
+       "line": "Nothing is said about what would have to be true for 'Buy more operating time': this version was saved before Olumi kept the reason."
       }
      ]
     }
@@ -1823,6 +1837,7 @@
    "broke": null,
    "problem": null,
    "marks": [],
+   "by_id": "5",
    "choice": null
   },
   {
@@ -1867,6 +1882,7 @@
    "broke": null,
    "problem": null,
    "marks": [],
+   "by_id": "5",
    "choice": null
   }
  ],
@@ -1950,6 +1966,7 @@
     "first": false
    }
   ],
-  "figure_first": null
+  "figure_first": null,
+  "pre_mortem": null
  }
 }

@@ -296,6 +296,8 @@
       "chance": 0,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 80,
        "median": 80,
@@ -360,6 +362,8 @@
       "chance": 0.739,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 94.6795181966731,
        "median": 104.92980796070435,
@@ -571,6 +575,8 @@
      "title": "This leaves out: How the team feels about a new hire."
     }
    ],
+   "readings": [],
+   "timing": [],
    "science": [],
    "sensitivity": {
     "text": "These are its chances over the lowest and highest third of that figure's draws.",
@@ -1008,6 +1014,7 @@
    "broke": null,
    "problem": null,
    "marks": [],
+   "by_id": "p_1",
    "choice": null
   },
   {
@@ -1042,6 +1049,7 @@
    "broke": null,
    "problem": null,
    "marks": [],
+   "by_id": "p_1",
    "choice": null
   }
  ],
@@ -1125,6 +1133,7 @@
     "first": false
    }
   ],
-  "figure_first": null
+  "figure_first": null,
+  "pre_mortem": null
  }
 }

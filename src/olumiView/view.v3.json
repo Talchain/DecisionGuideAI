@@ -435,6 +435,18 @@
                 "null"
                ]
               },
+              "timing": {
+               "type": [
+                "string",
+                "null"
+               ]
+              },
+              "timing_title": {
+               "type": [
+                "string",
+                "null"
+               ]
+              },
               "outcome": {
                "anyOf": [
                 {
@@ -566,6 +578,8 @@
               "chance",
               "companion",
               "companion_title",
+              "timing",
+              "timing_title",
               "outcome",
               "if_approved",
               "estimate"
@@ -1367,6 +1381,108 @@
             "additionalProperties": false
            }
           },
+          "readings": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "properties": {
+             "aim_id": {
+              "type": "string"
+             },
+             "kind": {
+              "type": "string",
+              "enum": [
+               "goal",
+               "limit"
+              ]
+             },
+             "source": {
+              "type": "string",
+              "enum": [
+               "words",
+               "proposal",
+               "contradiction"
+              ]
+             },
+             "aggregation": {
+              "type": "string"
+             },
+             "text": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "aim_id",
+             "kind",
+             "source",
+             "aggregation",
+             "text"
+            ],
+            "additionalProperties": false
+           }
+          },
+          "timing": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "properties": {
+             "quantity": {
+              "type": "string"
+             },
+             "label": {
+              "type": "string"
+             },
+             "text": {
+              "type": "string"
+             },
+             "value_text": {
+              "type": "string"
+             },
+             "options": {
+              "type": "array",
+              "items": {
+               "type": "string"
+              }
+             },
+             "risks": {
+              "type": "array",
+              "items": {
+               "type": "string"
+              }
+             },
+             "low": {
+              "type": [
+               "number",
+               "null"
+              ]
+             },
+             "high": {
+              "type": [
+               "number",
+               "null"
+              ]
+             },
+             "unit": {
+              "type": [
+               "string",
+               "null"
+              ]
+             }
+            },
+            "required": [
+             "quantity",
+             "label",
+             "text",
+             "value_text",
+             "options",
+             "risks",
+             "low",
+             "high",
+             "unit"
+            ],
+            "additionalProperties": false
+           }
+          },
           "science": {
            "type": "array",
            "items": {
@@ -1978,6 +2094,8 @@
           "most_likely",
           "waits_on",
           "notes",
+          "readings",
+          "timing",
           "science",
           "sensitivity",
           "compared",
@@ -3811,6 +3929,12 @@
        "additionalProperties": false
       }
      },
+     "by_id": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
      "choice": {
       "anyOf": [
        {
@@ -3846,6 +3970,7 @@
      "broke",
      "problem",
      "marks",
+     "by_id",
      "choice"
     ],
     "additionalProperties": false
@@ -4243,6 +4368,93 @@
        "type": "null"
       }
      ]
+    },
+    "pre_mortem": {
+     "anyOf": [
+      {
+       "type": "object",
+       "properties": {
+        "state": {
+         "type": "string",
+         "enum": [
+          "closed",
+          "wrote",
+          "chose"
+         ]
+        },
+        "held": {
+         "type": "boolean"
+        },
+        "heading": {
+         "type": "string"
+        },
+        "gate": {
+         "type": "string"
+        },
+        "question": {
+         "type": "string"
+        },
+        "show": {
+         "type": "string"
+        },
+        "after": {
+         "type": "string"
+        },
+        "held_text": {
+         "type": "string"
+        },
+        "max_reasons": {
+         "type": "number"
+        },
+        "max_chars": {
+         "type": "number"
+        },
+        "mine": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "properties": {
+           "id": {
+            "type": "number"
+           },
+           "at": {
+            "type": "string"
+           },
+           "reasons": {
+            "type": "array",
+            "items": {
+             "type": "string"
+            }
+           }
+          },
+          "required": [
+           "id",
+           "at",
+           "reasons"
+          ],
+          "additionalProperties": false
+         }
+        }
+       },
+       "required": [
+        "state",
+        "held",
+        "heading",
+        "gate",
+        "question",
+        "show",
+        "after",
+        "held_text",
+        "max_reasons",
+        "max_chars",
+        "mine"
+       ],
+       "additionalProperties": false
+      },
+      {
+       "type": "null"
+      }
+     ]
     }
    },
    "required": [
@@ -4250,7 +4462,8 @@
     "set_by",
     "goals",
     "methods",
-    "figure_first"
+    "figure_first",
+    "pre_mortem"
    ],
    "additionalProperties": false
   }

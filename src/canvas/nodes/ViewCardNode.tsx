@@ -13,9 +13,9 @@ import { paddingToInsets } from '../utils/cameraComfort'
 import { panToKeepInView } from '../utils/keepInView'
 import { ChevronDown } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
-import type { ViewCard as Card, ViewRow } from '../../olumiView/client'
+import type { ViewCard as Card, ViewReading, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
-import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, type RestsOnItem } from '../../olumiView/layout'
+import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, readingOf, type RestsOnItem } from '../../olumiView/layout'
 import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { useCanvasStore } from '../store'
@@ -69,9 +69,14 @@ const IfApprovedMark = ({ mark }: { mark: ValueMark }) => (
 )
 
 /** R18 fix 1: core's short companion words under a chance ("about 50% without Olumi's suggested risk"): muted, one line, cut short with core's
- *  full sentence on hover. Nothing formatted here; absent on a core before it (and where the chance rests on no suggested risk). */
+ *  full sentence on hover. R19: beside it, core's timing line for the same chance ("about 41% if 'Tech lead start delay' is 1 month; under 1% if 4
+ *  months"), the same muted, one-line, cut-short look with `timing_title` on hover. Nothing formatted here; each absent on a core before it (and
+ *  where the chance rests on no suggested risk, or no timing assumption moves it by 10 points). */
 const Companion = ({ row, at }: { row: Extract<ViewRow, { kind: 'chance' }>; at: string }) => (
-  row.companion == null ? null : <span className={`${typography.nodeLabel} block truncate text-text-light`} title={row.companion_title ?? row.companion} data-row-companion={at}><span data-view={`${at}.companion`}>{row.companion}</span></span>
+  <>
+    {row.companion == null ? null : <span className={`${typography.nodeLabel} block truncate text-text-light`} title={row.companion_title ?? row.companion} data-row-companion={at}><span data-view={`${at}.companion`}>{row.companion}</span></span>}
+    {row.timing == null ? null : <span className={`${typography.nodeLabel} block truncate text-text-light`} title={row.timing_title ?? row.timing} data-row-timing={at}><span data-view={`${at}.timing`}>{row.timing}</span></span>}
+  </>
 )
 
 function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: ViewRow; i: number; ifApproved?: IfApproved; lead?: boolean | null }) {
@@ -164,7 +169,7 @@ function OptionValueRow({ at, option, text, mark = null }: { at: string; option:
 }
 
 /** One View card, pure: a test draws it from a golden View. */
-export function ViewCard({ card, selected = false, restsOn = null, driverOf = null, number = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null }: ViewCardData & { selected?: boolean; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
+export function ViewCard({ card, selected = false, restsOn = null, driverOf = null, number = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null, reading = null }: ViewCardData & { reading?: ViewReading | null; selected?: boolean; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
   const id = card.id, lead = leadChanceIndex(card)
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
@@ -230,6 +235,11 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
         // previous PoC's "Target: …" line (DL 6 Nov: a label names the outcome alone, so the number is never hidden behind a selection).
         <p className={typography.nodeValue} title={card.bound.title}><span data-view={`${id}.bound.text`}>{card.bound.text}</span>
           {card.bound.olumi === null ? null : <> <Mark at={`${id}.bound.olumi`} mark={card.bound.olumi} /></>}</p>
+      )}
+      {reading === null ? null : (
+        // R19: how the Run reads this aim over its window, core's sentence once, under the target. Olumi's own reading is Olumi's colour (it is a
+        // proposal the person can change); one their words state, or one that contradicts them, is quiet. Whole on hover; two lines at most.
+        <p className={`${typography.nodeLabel} line-clamp-2 ${reading.source === 'proposal' ? 'text-info' : 'text-text-light'}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>
       )}
       {card.figure === null ? null : (
         <div className="flex items-baseline gap-1">
@@ -356,7 +366,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   return (
     <div ref={inView} className={`group/vcard relative${preMortem === 'other' ? ' opacity-40' : ''}`} data-premortem={preMortem ?? undefined}>
       <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
-      <ViewCard card={card} selected={selected === true} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} />
+      <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={selected === true} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
       <div className={selected === true || noted ? '' : 'opacity-0 group-hover/vcard:opacity-100 focus-within:opacity-100'} data-olumi-controls="">

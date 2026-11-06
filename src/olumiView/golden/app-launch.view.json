@@ -835,6 +835,8 @@
      "title": "Olumi's what-if for 'Postponed release time from now', not their figure: 4 to 16 weeks. Basis: An exploratory postponed-release window, measured from now rather than added to the original date. Deliberately widened on a ratio scale; no typical rate known; replace with your figure. It is neither a recommendation nor a commitment that the defect will be resolved by then."
     }
    ],
+   "readings": [],
+   "timing": [],
    "science": [],
    "sensitivity": {
     "text": "These are its chances over the lowest and highest third of that figure's draws.",
@@ -856,8 +858,8 @@
       {
        "crossing": null,
        "reason": "not_recorded",
-       "text": "this version's Run did not keep why nothing is said about what would have to be true for this aim",
-       "line": "This version's Run did not keep why nothing is said about what would have to be true for this aim."
+       "text": "nothing is said about what would have to be true for 'Allow time for repair and validation': this version was saved before Olumi kept the reason",
+       "line": "Nothing is said about what would have to be true for 'Allow time for repair and validation': this version was saved before Olumi kept the reason."
       }
      ]
     }
@@ -1312,6 +1314,7 @@
     "first": false
    }
   ],
-  "figure_first": null
+  "figure_first": null,
+  "pre_mortem": null
  }
 }

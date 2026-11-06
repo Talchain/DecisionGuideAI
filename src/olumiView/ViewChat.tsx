@@ -15,6 +15,7 @@ import { newOp, READ_FAILED, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
 import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type ViewTurn } from './client'
 import { useViewStore } from './store'
+import { usePreMortemGate, useViewLens } from './lens'
 import { figureFirstOf, olumiKey, optionInFocusOf, sessionOf, type Session } from './layout'
 import { derivedUuidOf } from '../olumiCore/team/sid'
 import { useCanvasStore } from '../canvas/store'
@@ -406,7 +407,51 @@ export async function askMethod(method: string): Promise<boolean> {
   const { sid, uuid, view } = useViewStore.getState()
   if (sid === null) return false
   const option = method === 'go_wrong' && view !== null ? optionInFocusOf(view, useCanvasStore.getState().selection.nodeIds) : null
-  return write('method', option === null ? method : `${method}:${option}`, (op) => writes.method(sid, method, op, option ?? undefined), false, uuid)
+  let refused = false
+  const sent = await write('method', option === null ? method : `${method}:${option}`, async (op) => {
+    try { return await writes.method(sid, method, op, option ?? undefined) } catch (e) { if (method === PRE_MORTEM && e instanceof TeamApiError && e.status === 409) refused = true; throw e }
+  }, false, uuid)
+  if (refused) await openPreMortemEntry()
+  return sent
+}
+
+/** The pre-mortem move (core's `session.methods` id, and the coach's next move). */
+const PRE_MORTEM = 'pre_mortem'
+
+/**
+ * A tap on the pre-mortem move while the person's gate is closed is core's `409` with the gate sentence, and no AI call. The tap opens the entry
+ * instead (the "If it failed" key, where core's question, their box and "Show me Olumi's now" are drawn): the View is read again first, so a gate that has
+ * opened since (another tab) shows Olumi's stories rather than the entry. The composer carries nothing: the refusal is not a message to correct.
+ */
+async function openPreMortemEntry(): Promise<boolean> {
+  useViewChat.setState({ said: null })
+  await useViewStore.getState().refresh()
+  if (useViewStore.getState().view?.session?.pre_mortem?.state !== 'closed') return false
+  useViewLens.setState({ lens: 'premortem' })
+  return true
+}
+
+const toGate = (said: string | null): void => usePreMortemGate.setState({ said })
+
+/**
+ * "Write mine first" (core `POST …/pre-mortem`): their own reasons, one per line (core takes 1 to `max_reasons`, each up to `max_chars`; it refuses the rest in
+ * its own words, said in the entry). Then the View is read again: the gate is open for them, and Olumi's stories show. No AI call.
+ */
+export async function giveReasons(): Promise<boolean> {
+  const { sid } = useViewStore.getState(), { text } = usePreMortemGate.getState()
+  if (sid === null) return false
+  const reasons: string[] = []
+  for (const line of text.split('\n')) { const r = line.trim(); if (r !== '') reasons.push(r) }       // their own sentences, as typed: nothing of the View's
+  const sent = await act(() => writes.preMortem(sid, reasons), false, toGate)
+  if (sent) usePreMortemGate.setState({ text: '' })
+  return sent
+}
+
+/** "Show me Olumi's now" (core `POST …/pre-mortem/show`): a logged choice, no reasons written; then the View is read again. */
+export async function showOlumisNow(): Promise<boolean> {
+  const { sid } = useViewStore.getState()
+  if (sid === null) return false
+  return act(() => writes.preMortemShow(sid), false, toGate)
 }
 
 /** The menu item core sends while it offers "Let us give our figure first" (API.md): a press opens its entry, never POST …/method. */
@@ -485,6 +530,8 @@ async function takeMove(turn: number, next: Next): Promise<boolean> {
   const sent = await write(`move:${next.move}`, String(turn), async (op) => {
     try { return await writes.move(sid, next.move, next.at, op) } catch (e) { if (e instanceof TeamApiError && e.status === 409) stale = true; throw e }
   }, false, uuid)
+  // The pre-mortem tap with the gate closed is also a 409: it opens the entry; any other 409 is the stale move below.
+  if (stale && next.move === PRE_MORTEM && await openPreMortemEntry()) return sent
   if (stale) {
     useViewChat.setState({ gone: moveKey(sid, turn, next.move) })
     await useViewStore.getState().refresh()

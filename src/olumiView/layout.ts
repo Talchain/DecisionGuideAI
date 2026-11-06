@@ -5,7 +5,7 @@
  */
 import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../canvas/domain/vocabulary'
 import type { Edge, Node } from '@xyflow/react'
-import type { View, ViewCard, ViewModel, ViewRow, ViewRun, ViewTurn } from './client'
+import type { View, ViewCard, ViewModel, ViewReading, ViewRow, ViewRun, ViewTurn } from './client'
 import { nonEmpty, type TippingLine } from './tipping'
 import { COMPARED_KINDS, comparedHeadingOf, groupOf, type ComparedGroup, type ComparedLine } from './compared'
 import { layoutGraph } from '../canvas/utils/layout'
@@ -589,4 +589,22 @@ export function figureAxisOf(given: Pick<FigureFirstGiven, 'theirs' | 'olumi'>):
   const room = (hi - lo) * 0.08, a = lo - room, span = hi - lo + 2 * room
   const at = (v: number) => ((v - a) / span) * 100
   return { theirs: { from: at(tl), to: at(th) }, olumi: { from: at(o.low), to: at(o.high) }, likely: o.likely === null ? null : at(o.likely) }
+}
+
+// ── R19 time treatment (olumi.view/3 `model.run.readings` and `model.run.timing`), drawn once and verbatim ─────────────────────────────────
+/** How the Run reads this aim or limit over its window (core's sentence), or null: none for it, or a core before R19. Drawn once, under the aim's own card. */
+export const readingOf = (model: ViewModel, id: string): ViewReading | null => model.run?.readings?.find((r) => r.aim_id === id) ?? null
+
+/** The straight form of a label inside core's quotes, so a label matches however the sentence quotes it. */
+const bare = (x: string): string => x.replace(/[\u2018\u2019\u201c\u201d'"]/g, '').toLowerCase()
+/**
+ * The Run's notes without the generic Olumi what-if note for a quantity `run.timing` already says once ("Olumi's what-if for 'X', not their figure: …").
+ * Core keeps that note on the quantity (API.md "Time treatment (R19)"); a page that draws `run.timing` skips it so the same assumption is not said twice.
+ * Matched on core's own opening and the timing entry's label; any other note is kept whole.
+ */
+export function notesBesideTiming(run: ViewRun): ViewRun['notes'] {
+  const timing = run.timing ?? []
+  if (timing.length === 0) return run.notes
+  const said = timing.map((t) => bare(`Olumi's what-if for ${t.label}, not their figure`))
+  return run.notes.filter((n) => !said.some((w) => bare(n.text).startsWith(w)))
 }

@@ -263,6 +263,8 @@
       "chance": 0.4921,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 6187.801740508874,
        "median": 6985.7864462053185,
@@ -345,6 +347,8 @@
       "chance": 0,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 6200,
        "median": 6200,
@@ -477,6 +481,8 @@
      "title": "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
     }
    ],
+   "readings": [],
+   "timing": [],
    "science": [],
    "sensitivity": {
     "text": "These are its chances over the lowest and highest third of that figure's draws.",
@@ -927,6 +933,7 @@
     "first": false
    }
   ],
-  "figure_first": null
+  "figure_first": null,
+  "pre_mortem": null
  }
 }

@@ -3,18 +3,25 @@
  * The person writes their own reasons it could fail first, so Olumi's do not steer them; once a turn of theirs opens with those words
  * (read from core's View, so it holds after a reload) Olumi's stories show, each in core's number and words with Olumi's own mark, and
  * the cards it rests on, which stand in front on the canvas while the rest recede (`usePreMortemOf`). Every story word is core's
- * (`cards[].failed`); the UI adds only the words around them. View only: the press puts words in the message box and sends nothing.
+ * (`cards[].failed`); the UI adds only the words around them.
+ *
+ * R19: core now gates this per member, typed (`session.pre_mortem`): while `state` is 'closed' Olumi's stories are withheld by core, and the key draws
+ * core's entry (its question, a box for their own reasons, "Show me Olumi's now", its note); sending writes them (`POST …/pre-mortem`, 1 to 5 reasons,
+ * one per line) or logs the choice (`…/pre-mortem/show`), and the View read again opens the stories. A View with no gate state keeps the earlier press
+ * (words in the message box, nothing sent), bound to the member by id.
  */
-import { X } from 'lucide-react'
+import { ArrowUp, X } from 'lucide-react'
 import { typography } from '../styles/typography'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
 import { OVERLAY_BAND_BOTTOM, OVERLAY_BAND_HEIGHT, OVERLAY_BAND_LEFT_PAD } from '../canvas/components/CanvasOverlayBand'
 import { LENS_COPY, LENS_ICON } from '../canvas/artefacts/lenses'
 import { LENS_KEY_COPY } from '../canvas/artefacts/lensKeyCopy'
 import { revealOlumiSurface } from '../canvas/conversation/revealOlumi'
-import { askMethod, useViewChat } from './ViewChat'
-import { useFailureStories, useMineWritten, useViewLens, WRITE_MINE_DRAFT } from './lens'
+import { askMethod, giveReasons, showOlumisNow, useViewChat } from './ViewChat'
+import { useFailureStories, useMineWritten, usePreMortemGate, useViewLens, WRITE_MINE_DRAFT } from './lens'
+import { CHIP_CLASS } from '../v5/blocks/chipClass'
 import { useViewStore } from './store'
+import type { ViewPreMortem } from './client'
 
 const KEY_GAP = 8
 export const PREMORTEM_COPY = {
@@ -44,6 +51,8 @@ export function ViewPreMortemKey(): JSX.Element | null {
   const offered = useViewStore((s) => s.view?.session?.methods.some((m) => m.id === MOVE) ?? false)
   const mine = useMineWritten(), stories = useFailureStories()
   const typed = useViewChat((s) => s.text.trimStart().startsWith(WRITE_MINE_DRAFT.trimEnd()))
+  const gate = useViewStore((s) => s.view?.session?.pre_mortem ?? null)
+  const entry = gate !== null && gate.state === 'closed' ? gate : null
   if (!on || model === null) return null
   const Icon = LENS_ICON.premortem
   return (
@@ -52,14 +61,14 @@ export function ViewPreMortemKey(): JSX.Element | null {
       style={{ left: OVERLAY_BAND_LEFT_PAD, bottom: OVERLAY_BAND_BOTTOM + OVERLAY_BAND_HEIGHT + KEY_GAP, width: 'min(420px, calc(100vw - 480px))', maxHeight: 'min(52vh, 460px)' }}>
       <header className="flex items-center gap-2 px-4 pb-2 pt-3">
         <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
-        <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`}>{LENS_COPY.label.premortem}</h2>
+        <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`} data-view={entry === null ? undefined : 'session.pre_mortem.heading'}>{entry === null ? LENS_COPY.label.premortem : entry.heading}</h2>
         <button type="button" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} title={LENS_KEY_COPY.close} data-testid="view-premortem-key-close"
           className={`inline-flex h-7 w-7 flex-none items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body ${ACTION_FOCUS}`}>
           <X aria-hidden="true" className="h-4 w-4" />
         </button>
       </header>
       <div className="min-h-0 flex-1 space-y-3 overflow-auto px-4 pb-4">
-        {!mine ? (
+        {entry !== null ? <PreMortemEntry gate={entry} /> : !mine ? (
           <>
             <p className={`${typography.panelBody} text-text-body`} data-testid="view-premortem-first">{typed ? PREMORTEM_COPY.waiting : PREMORTEM_COPY.first}</p>
             <button type="button" onClick={writeMine} data-testid="view-premortem-write-mine"
@@ -92,5 +101,31 @@ export function ViewPreMortemKey(): JSX.Element | null {
         )}
       </div>
     </section>
+  )
+}
+
+/** Core's entry while the gate is closed: its note when a reply is being withheld, its question, their box, send, "Show me Olumi's now" and its closing note. */
+function PreMortemEntry({ gate }: { gate: ViewPreMortem }): JSX.Element {
+  const { text, said } = usePreMortemGate()
+  const busy = useViewChat((s) => s.busy)
+  const empty = text.trim() === ''
+  return (
+    <div className="space-y-2" data-testid="view-premortem-entry">
+      {gate.held ? <p className={`${typography.panelBody} text-text-body`} data-testid="view-premortem-gate" data-view="session.pre_mortem.gate">{gate.gate}</p> : null}
+      <p id="view-pm-question" className={`${typography.panelBody} text-text-body`} data-view="session.pre_mortem.question">{gate.question}</p>
+      <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (!busy && !empty) void giveReasons() }}>
+        <textarea aria-labelledby="view-pm-question" rows={3} value={text} disabled={busy} data-testid="view-premortem-reasons"
+          className={`${typography.chatBody} block w-full resize-none rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:opacity-40`}
+          onChange={(e) => usePreMortemGate.setState({ text: e.target.value, said: null })}
+          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !busy && !empty) { e.preventDefault(); void giveReasons() } }} />
+        <button type="submit" disabled={busy || empty} aria-label="Send" title="Send" data-testid="view-premortem-send"
+          className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-30">
+          <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      </form>
+      {said === null ? null : <p role="alert" className="text-danger" data-testid="view-premortem-said">{said}</p>}
+      <button type="button" disabled={busy} onClick={() => void showOlumisNow()} className={CHIP_CLASS} data-testid="view-premortem-show" data-view="session.pre_mortem.show">{gate.show}</button>
+      <p className={`${typography.chatMeta} text-text-light`} data-view="session.pre_mortem.after">{gate.after}</p>
+    </div>
   )
 }

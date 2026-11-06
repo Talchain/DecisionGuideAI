@@ -99,11 +99,22 @@ export function useFailureStories(): FailureStory[] {
   return useMemo(() => (model === null ? [] : failureStoriesOf(model)), [model])
 }
 
-/** True once this person has sent their own reasons it failed (a turn of theirs opening with the "Write mine first" words), read from core's View so it survives a reload. */
+/** The pre-mortem gate's own panel state (R19: `session.pre_mortem`): what they have typed, and core's words for a write that did not go through. */
+export const usePreMortemGate = create<{ text: string; said: string | null }>(() => ({ text: '', said: null }))
+
+/**
+ * Whether Olumi's failure stories are open to this person. Core's gate is typed and per member (`session.pre_mortem.state`: 'wrote' once they
+ * submitted their own reasons, 'chose' once they asked for Olumi's); it is never read from chat. Only a View with no gate state at all (an export
+ * with none) falls back to the earlier rule: a turn of theirs opening with the "Write mine first" words, bound to them by the member's id
+ * (`chat[].by_id` against `you_id`), never by their display name (two members can share one).
+ */
 export function useMineWritten(): boolean {
   const view = useViewStore((s) => s.view)
+  if (view === null) return false
+  const gate = view.session?.pre_mortem ?? null
+  if (gate !== null) return gate.state !== 'closed'
   const opening = WRITE_MINE_DRAFT.trimEnd()
-  return view !== null && view.chat.some((t) => t.by === view.you && t.said.trimStart().startsWith(opening))
+  return view.chat.some((t) => t.by_id !== null && t.by_id === view.you_id && t.said.trimStart().startsWith(opening))
 }
 
 /** 'rests' for a card Olumi's stories rest on, 'other' for any other card, while the If it failed lens is on with Olumi's stories shown; else null. */

@@ -10,7 +10,7 @@
 import { Fragment, type ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow, ViewRun, ViewTurn } from './client'
-import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, optionCards, SHARPEN_SHOWN, sharpenKindOf, sharpenRowsOf, tippingOf, failureOf, restsOf, worthLinesOf, type SharpenRow } from './layout'
+import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, notesBesideTiming, optionCards, SHARPEN_SHOWN, sharpenKindOf, sharpenRowsOf, tippingOf, failureOf, restsOf, worthLinesOf, type SharpenRow } from './layout'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { MoveTap, Words } from './ViewChat'
 import { currentModel, useViewStore } from './store'
@@ -44,6 +44,8 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
           </span>
           {/* R18 fix 1: core's short companion ("about 50% without Olumi's suggested risk"), muted, its full sentence on hover; null otherwise. */}
           {row.companion == null ? null : <span className={`${typography.panelMeta} basis-full`} title={row.companion_title ?? row.companion} data-view={`${at}.companion`}>{row.companion}</span>}
+          {/* R19: core's timing line, the same muted second line beside the companion; its whole sentence on hover; null unless material. */}
+          {row.timing == null ? null : <span className={`${typography.panelMeta} basis-full`} title={row.timing_title ?? row.timing} data-view={`${at}.timing`}>{row.timing}</span>}
         </div>
       )
     case 'limit':
@@ -322,6 +324,18 @@ function FactCard({ testid, view, t }: { testid: string; view: string; t: { head
 export const Failure = ({ run }: { run: ViewRun | null }) => <FactCard testid="view-run-failure" view="run.failure" t={failureOf(run)} />
 export const Rests = ({ run }: { run: ViewRun | null }) => <FactCard testid="view-run-rests" view="run.rests" t={restsOf(run)} />
 
+/** R19: Olumi's timing assumptions, once, in core's words ("Olumi's timing assumption, not your figure: 'X' is 1 to 4 months."); the generic what-if note for the same
+ *  quantity is skipped beside it (layout.ts `notesBesideTiming`). Nothing when core sends none. */
+export function TimingAssumptions({ run }: { run: ViewRun | null }) {
+  const timing = run?.timing ?? []
+  if (timing.length === 0) return null
+  return (
+    <div className="space-y-1" data-testid="view-run-timing">
+      {timing.map((t, i) => <p key={t.quantity} className={typography.panelMeta} data-timing={t.quantity} data-view={`run.timing.${i}.text`}>{t.text}</p>)}
+    </div>
+  )
+}
+
 /**
  * The lines for one View model: pure, so a test draws it from a golden View. As the base dock (ViewOnlyRunChancesBlock): the Run's lead,
  * then, when every option waits (`all_withheld`), the waits-on headline; a reason every option shares (`shared_blockers`), said once
@@ -351,6 +365,7 @@ export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: r
         <Sensitivity model={model} />
         {/* Each chance's definition is core's row hover (its title), never body text (Paul's look check, R5 defect 2). */}
         <div className="space-y-3">{optionCards(model).map((card) => <OptionLines key={card.id} card={card} model={model} />)}</div>
+        <TimingAssumptions run={run} />
         {run?.most_likely == null ? null : <MostLikely model={model} ml={run.most_likely} />}
         {run === null || run.waits_on === null || headline ? null : (
           <p data-testid="view-run-waits-on"><span data-view="run.waits_on.label">{run.waits_on.label}</span>{' '}<WaitsOnItems w={run.waits_on} unknown={false} /></p>
@@ -367,10 +382,10 @@ export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: r
         </section>
       )}
       <SharpenCard model={model} />
-      {run === null || run.notes.length === 0 ? null : (
+      {run === null || notesBesideTiming(run).length === 0 ? null : (
         <details className={BOX} data-testid="view-run-notes">
           <summary className={`${typography.panelMeta} cursor-pointer text-info`}>About these numbers</summary>
-          {run.notes.map((n, i) => <p key={i} className={typography.panelMeta} title={n.title} data-view={`run.notes.${i}.text`}>{n.text}</p>)}
+          {notesBesideTiming(run).map((n, i) => <p key={i} className={typography.panelMeta} title={n.title} data-view={`run.notes.${run.notes.indexOf(n)}.text`}>{n.text}</p>)}
         </details>
       )}
     </div>

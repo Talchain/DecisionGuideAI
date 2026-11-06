@@ -91,6 +91,8 @@ export type View = {
         chance: number | null
         companion: string | null
         companion_title: string | null
+        timing: string | null
+        timing_title: string | null
         outcome: {
           low: number
           median: number | null
@@ -236,6 +238,24 @@ export type View = {
         } | null
         estimate: string | null
       } | null
+      readings: Array<{
+        aim_id: string
+        kind: "goal" | "limit"
+        source: "words" | "proposal" | "contradiction"
+        aggregation: string
+        text: string
+      }>
+      timing: Array<{
+        quantity: string
+        label: string
+        text: string
+        value_text: string
+        options: Array<string>
+        risks: Array<string>
+        low: number | null
+        high: number | null
+        unit: string | null
+      }>
       waits_on: {
         head: string
         label: string
@@ -701,6 +721,7 @@ export type View = {
       status: string
       title: string
     }>
+    by_id: string | null
     choice: {
       move: string
       label: string
@@ -783,6 +804,23 @@ export type View = {
         seen: string
         adopted: string
       }
+    } | null
+    pre_mortem: {
+      state: "closed" | "wrote" | "chose"
+      held: boolean
+      heading: string
+      gate: string
+      question: string
+      show: string
+      after: string
+      held_text: string
+      max_reasons: number
+      max_chars: number
+      mine: Array<{
+        id: number
+        at: string
+        reasons: Array<string>
+      }>
     } | null
   }
 }

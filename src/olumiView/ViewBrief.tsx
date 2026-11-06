@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom'
 import { FileText, X } from 'lucide-react'
 import { typography } from '../styles/typography'
 import { DECISION_BRIEF_TRIGGER_LABEL } from '../canvas/decisionBrief/DecisionBriefTrigger'
-import { allOptionCards } from './layout'
+import { allOptionCards, notesBesideTiming } from './layout'
 import { mostLikelyHover } from './ViewChances'
 import { currentModel, useViewStore } from './store'
 import type { View } from './types'
@@ -26,7 +26,7 @@ function OptionRows({ card }: { card: Card }) {
     <>
       {card.rows.map((row, i) => (
         <p key={i} title={row.title} className={typography.panelBody} data-view-brief-row={`${card.id}.${i}`}>
-          {row.kind === 'none' ? row.text : <>{row.aim} <span className={typography.panelTabular}>{row.kind === 'chance' ? row.approx : ''}{row.value}</span>{row.kind === 'chance' && row.companion != null ? <span className={typography.panelMeta} title={row.companion_title ?? row.companion} data-view-brief-companion={`${card.id}.${i}`}> {row.companion}</span> : null}<MarkOf mark={row.olumi} />{row.kind === 'chance' ? <MarkOf mark={row.likely} /> : null}</>}
+          {row.kind === 'none' ? row.text : <>{row.aim} <span className={typography.panelTabular}>{row.kind === 'chance' ? row.approx : ''}{row.value}</span>{row.kind === 'chance' && row.companion != null ? <span className={typography.panelMeta} title={row.companion_title ?? row.companion} data-view-brief-companion={`${card.id}.${i}`}> {row.companion}</span> : null}{row.kind === 'chance' && row.timing != null ? <span className={typography.panelMeta} title={row.timing_title ?? row.timing} data-view-brief-timing-row={`${card.id}.${i}`}> {row.timing}</span> : null}<MarkOf mark={row.olumi} />{row.kind === 'chance' ? <MarkOf mark={row.likely} /> : null}</>}
         </p>
       ))}
       {card.status === null ? null : <p className={typography.panelBody} data-view-brief-status={card.id}>{card.status}</p>}
@@ -45,7 +45,8 @@ export function ViewBriefBody({ model }: { model: Model }) {
         <section className="flex flex-col gap-1" data-testid="view-brief-run">
           {run.lead === null ? null : <p className={typography.panelBody}>{run.lead}</p>}
           {run.most_likely === null ? null : <p className={typography.panelBody} title={mostLikelyHover(run.most_likely)} data-testid="view-brief-most-likely">{run.most_likely.text}</p>}
-          {run.notes.map((n, i) => <p key={`n${i}`} className={typography.panelBody} title={n.title}>{n.text}</p>)}
+          {notesBesideTiming(run).map((n, i) => <p key={`n${i}`} className={typography.panelBody} title={n.title}>{n.text}</p>)}
+          {(run.timing ?? []).map((t) => <p key={`t${t.quantity}`} className={typography.panelBody} data-view-brief-timing={t.quantity}>{t.text}</p>)}
           {(run.shared_blockers ?? []).map((b, i) => <p key={`b${i}`} className={typography.panelBody}>{b.text}</p>)}
           {run.waits_on === null ? null : (
             <div data-testid="view-brief-waits">

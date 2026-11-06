@@ -585,6 +585,8 @@
       "chance": 0.4068,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 385.5223869967669,
        "median": 672.3120978393197,
@@ -804,6 +806,8 @@
       "chance": 0.3343,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 381.82714779739615,
        "median": 528.2946318905693,
@@ -954,6 +958,8 @@
       "chance": 0.3312,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 381.59168076573525,
        "median": 471.7302972405148,
@@ -1438,6 +1444,16 @@
      "title": "Olumi's what-if for 'Single-country test investment what-if', not their figure: £12,500 to £200,000. Basis: no typical rate known; replace with your figure. Uncalibrated total commitment for a deliberately narrower test: an initial £25,000–£100,000 guess widened twofold on a ratio scale to £12,500–£200,000. This is not a supplier quote or a spending recommendation."
     }
    ],
+   "readings": [
+    {
+     "aim_id": "reach_customer_target",
+     "kind": "goal",
+     "source": "proposal",
+     "aggregation": "max",
+     "text": "Olumi reads this at its highest within 12 months; change it if you meant at the end, over the period or on average."
+    }
+   ],
+   "timing": [],
    "science": [
     {
      "id": "F33",
@@ -2148,6 +2164,7 @@
     "first": false
    }
   ],
-  "figure_first": null
+  "figure_first": null,
+  "pre_mortem": null
  }
 }

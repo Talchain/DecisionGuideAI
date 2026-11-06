@@ -480,6 +480,8 @@
       "chance": 0.893,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 2636.536440533496,
        "median": 2759.211381632416,
@@ -585,6 +587,8 @@
       "chance": 0,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 2580,
        "median": 2580,
@@ -665,6 +669,8 @@
       "chance": 0,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 2400,
        "median": 2400,
@@ -929,6 +935,8 @@
     ]
    },
    "notes": [],
+   "readings": [],
+   "timing": [],
    "science": [],
    "sensitivity": {
     "text": "These are its chances over the lowest and highest third of that figure's draws.",
@@ -1014,8 +1022,8 @@
       {
        "crossing": null,
        "reason": "not_recorded",
-       "text": "this version's Run did not keep why nothing is said about what would have to be true for this aim",
-       "line": "This version's Run did not keep why nothing is said about what would have to be true for this aim."
+       "text": "nothing is said about what would have to be true for 'Keep at least 140 members': this version was saved before Olumi kept the reason",
+       "line": "Nothing is said about what would have to be true for 'Keep at least 140 members': this version was saved before Olumi kept the reason."
       }
      ]
     }
@@ -1428,6 +1436,7 @@
     "first": false
    }
   ],
-  "figure_first": null
+  "figure_first": null,
+  "pre_mortem": null
  }
 }

@@ -29,7 +29,7 @@ const MINE = 'My reasons it failed: the hire never ramps up.'
 const withStories = (stories = true, mine = false): View => ({
   ...base,
   model: { ...base.model!, cards: base.model!.cards.map((c) => ({ ...c, ...(stories ? failedOn[c.id] : {}) }) as ViewCard) },
-  chat: mine ? [...base.chat, { ...base.chat[0]!, id: 99, by: base.you, said: MINE, answer: null }] : base.chat,
+  chat: mine ? [...base.chat, { ...base.chat[0]!, id: 99, by: base.you, by_id: base.you_id, said: MINE, answer: null }] : base.chat,
 })
 const show = (v: View) => { useViewStore.setState({ view: v }); useViewLens.setState({ lens: 'premortem' }); useViewChat.setState({ text: '' }); return render(<ViewPreMortemKey />) }
 afterEach(() => { cleanup(); useViewStore.setState({ view: null }); useViewLens.setState({ lens: 'full' }); useViewChat.setState({ text: '' }) })
@@ -77,9 +77,10 @@ describe('the "If it failed" lens on the lane', () => {
     expect(items[1]!.querySelector('[data-testid="view-premortem-control"]')).toBeNull()
   })
 
-  it('someone else\'s turn that opens with those words is not theirs: Olumi\'s stories stay behind Write mine first', () => {
+  it('someone else\'s turn that opens with those words is not theirs, even under the same display name: "theirs" is the member\'s id (`by_id` against `you_id`), never `by` (a View with no gate state)', () => {
     const v = withStories(true, true)
-    show({ ...v, you: 'Someone else' })
+    expect(v.chat.at(-1)!.by).toBe(v.you)                                   // contrast: the display name matches
+    show({ ...v, you_id: 'p_2' })
     expect(screen.queryByTestId('view-premortem-stories')).toBeNull()
     expect(screen.getByTestId('view-premortem-write-mine')).toBeTruthy()
   })

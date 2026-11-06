@@ -519,6 +519,8 @@
       "chance": 0.7162,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 336.6150549257873,
        "median": 369.96239436039934,
@@ -607,6 +609,8 @@
       "chance": 0.4999,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 339.4744945801455,
        "median": 359.9971077421209,
@@ -690,6 +694,8 @@
       "chance": 0,
       "companion": null,
       "companion_title": null,
+      "timing": null,
+      "timing_title": null,
       "outcome": {
        "low": 300,
        "median": 300,
@@ -935,6 +941,8 @@
      "title": "Olumi's what-if for 'extra sold per oven', not their figure: 60 to 90 loaves/week/oven. Basis: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes."
     }
    ],
+   "readings": [],
+   "timing": [],
    "science": [
     {
      "id": "F20",
@@ -1500,6 +1508,7 @@
     "first": false
    }
   ],
-  "figure_first": null
+  "figure_first": null,
+  "pre_mortem": null
  }
 }

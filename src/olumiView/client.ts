@@ -17,6 +17,9 @@ export type ViewLink = ViewModel['links'][number]
 export type ViewRow = ViewCard['rows'][number]
 export type ViewTurn = View['chat'][number]
 export type ViewRun = NonNullable<ViewModel['run']>
+export type ViewReading = ViewRun['readings'][number]
+export type ViewTiming = ViewRun['timing'][number]
+export type ViewPreMortem = NonNullable<View['session']['pre_mortem']>
 
 /** What the person has opened: badges (card id → the records it holds) and every figure on or off. */
 export interface Opened { readonly open: ReadonlyMap<string, readonly string[]>; readonly all: boolean }
@@ -76,6 +79,10 @@ export const writes = {
   figureFirstGive: (sid: string, quantity: string, version: number, text: string, typed: string) => call<{ contribution: number }>('POST', `${scenarioPath(sid)}/figure-first`, { quantity, version, text, typed }),
   /** "Show me Olumi's figure instead" (`POST …/figure-first/show`): Olumi's figure and basis for the offered quantity; the entry is not offered again. */
   figureFirstShow: (sid: string, quantity: string, version: number) => call<FigureFirstShown>('POST', `${scenarioPath(sid)}/figure-first/show`, { quantity, version }),
+  /** "Write mine first" (core API `POST …/pre-mortem`, R19): their own reasons it could fail, 1 to `max_reasons` sentences; opens Olumi's stories for them alone. No AI call. */
+  preMortem: (sid: string, reasons: string[]) => call<{ pre_mortem: number; state: 'wrote' }>('POST', `${scenarioPath(sid)}/pre-mortem`, { reasons }),
+  /** "Show me Olumi's now" (`POST …/pre-mortem/show`): a logged choice that opens Olumi's stories for them alone; writes no reasons. No AI call. */
+  preMortemShow: (sid: string) => call<{ state: 'chose' | 'wrote' }>('POST', `${scenarioPath(sid)}/pre-mortem/show`, {}),
   /** One plain question from the View's `session.methods` (core API `POST …/method`): a discussion-only turn, never a change to the model. */
   method: (sid: string, method: string, op: string, option?: string) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/method`, option === undefined ? { method, op } : { method, op, option }),
   /**
