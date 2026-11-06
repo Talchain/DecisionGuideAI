@@ -26,7 +26,7 @@ function OptionRows({ card }: { card: Card }) {
     <>
       {card.rows.map((row, i) => (
         <p key={i} title={row.title} className={typography.panelBody} data-view-brief-row={`${card.id}.${i}`}>
-          {row.kind === 'none' ? row.text : <>{row.aim} <span className={typography.panelTabular}>{row.kind === 'chance' ? row.approx : ''}{row.value}</span><MarkOf mark={row.olumi} />{row.kind === 'chance' ? <MarkOf mark={row.likely} /> : null}</>}
+          {row.kind === 'none' ? row.text : <>{row.aim} <span className={typography.panelTabular}>{row.kind === 'chance' ? row.approx : ''}{row.value}</span>{row.kind === 'chance' && row.companion != null ? <span className={typography.panelMeta} title={row.companion_title ?? row.companion} data-view-brief-companion={`${card.id}.${i}`}> {row.companion}</span> : null}<MarkOf mark={row.olumi} />{row.kind === 'chance' ? <MarkOf mark={row.likely} /> : null}</>}
         </p>
       ))}
       {card.status === null ? null : <p className={typography.panelBody} data-view-brief-status={card.id}>{card.status}</p>}

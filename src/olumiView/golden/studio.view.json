@@ -478,6 +478,8 @@
       "aim_id": "takings_goal",
       "title": "The chance that 'Evening classes' meets 'Take £2,640 a month', in this model on current information.",
       "chance": 0.893,
+      "companion": null,
+      "companion_title": null,
       "outcome": {
        "low": 2636.536440533496,
        "median": 2759.211381632416,
@@ -581,6 +583,8 @@
       "aim_id": "takings_goal",
       "title": "With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them.",
       "chance": 0,
+      "companion": null,
+      "companion_title": null,
       "outcome": {
        "low": 2580,
        "median": 2580,
@@ -659,6 +663,8 @@
       "aim_id": "takings_goal",
       "title": "With the model's figures, 'Carry on as now' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
       "chance": 0,
+      "companion": null,
+      "companion_title": null,
       "outcome": {
        "low": 2400,
        "median": 2400,

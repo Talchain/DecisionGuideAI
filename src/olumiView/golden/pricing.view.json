@@ -261,6 +261,8 @@
       "aim_id": "profit_goal",
       "title": "If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change'.",
       "chance": 0.4921,
+      "companion": null,
+      "companion_title": null,
       "outcome": {
        "low": 6187.801740508874,
        "median": 6985.7864462053185,
@@ -341,6 +343,8 @@
       "aim_id": "profit_goal",
       "title": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
       "chance": 0,
+      "companion": null,
+      "companion_title": null,
       "outcome": {
        "low": 6200,
        "median": 6200,

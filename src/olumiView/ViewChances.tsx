@@ -42,6 +42,8 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
             {/* R5 core's own mark where a pending proposal moves this value ("if approved; now …"), verbatim; none on a core before R5. */}
             {row.if_approved == null ? null : <>{NBSP}<Mark at={`${at}.if_approved`} mark={row.if_approved} /></>}
           </span>
+          {/* R18 fix 1: core's short companion ("about 50% without Olumi's suggested risk"), muted, its full sentence on hover; null otherwise. */}
+          {row.companion == null ? null : <span className={`${typography.panelMeta} basis-full`} title={row.companion_title ?? row.companion} data-view={`${at}.companion`}>{row.companion}</span>}
         </div>
       )
     case 'limit':

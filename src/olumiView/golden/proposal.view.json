@@ -294,6 +294,8 @@
       "aim_id": "capacity_goal",
       "title": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It leaves out: How the team feels about a new hire.",
       "chance": 0,
+      "companion": null,
+      "companion_title": null,
       "outcome": {
        "low": 80,
        "median": 80,
@@ -356,6 +358,8 @@
       "aim_id": "capacity_goal",
       "title": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. It leaves out: How the team feels about a new hire.",
       "chance": 0.739,
+      "companion": null,
+      "companion_title": null,
       "outcome": {
        "low": 94.6795181966731,
        "median": 104.92980796070435,

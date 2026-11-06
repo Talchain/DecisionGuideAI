@@ -68,6 +68,12 @@ const IfApprovedMark = ({ mark }: { mark: ValueMark }) => (
   mark === null ? null : <span title={mark.title} aria-label={mark.title} data-if-approved="" data-view={mark.at}>{mark.glyph}</span>
 )
 
+/** R18 fix 1: core's short companion words under a chance ("about 50% without Olumi's suggested risk"): muted, one line, cut short with core's
+ *  full sentence on hover. Nothing formatted here; absent on a core before it (and where the chance rests on no suggested risk). */
+const Companion = ({ row, at }: { row: Extract<ViewRow, { kind: 'chance' }>; at: string }) => (
+  row.companion == null ? null : <span className={`${typography.nodeLabel} block truncate text-text-light`} title={row.companion_title ?? row.companion} data-row-companion={at}><span data-view={`${at}.companion`}>{row.companion}</span></span>
+)
+
 function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: ViewRow; i: number; ifApproved?: IfApproved; lead?: boolean | null }) {
   const at = `${id}.rows.${i}`
   const moved = valueMark(row, at, ifApproved)
@@ -88,20 +94,26 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
       // The previous PoC's face (Paul's item 1, option a2): the option's first aim is one big chance with the aim's target mark, its aim in the
       // DOM for readers and on hover; every other aim is one small line, the aim cut short before its chance, whole on hover. Words are core's.
       if (lead === true) return (
-        <div title={`${row.aim} · ${row.title}`} data-view-row={at} className="flex items-baseline gap-1">
+        <div title={`${row.aim} · ${row.title}`} data-view-row={at}>
+        <div className="flex items-baseline gap-1">
           <span className="sr-only" data-view={`${at}.aim`}>{row.aim}</span>
           <span aria-hidden="true" style={{ color: 'var(--goal)' }} className="text-[18px] leading-none">◎</span>
           <span className="min-w-0 line-clamp-2 text-[17px] font-semibold leading-tight text-text-header" data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
           {markSpan}
         </div>
+        <Companion row={row} at={at} />
+        </div>
       )
       if (lead === false) return (
-        <div title={`${row.aim} · ${row.title}`} data-view-row={at} className="flex items-baseline gap-1 text-text-light">
+        <div title={`${row.aim} · ${row.title}`} data-view-row={at}>
+        <div className="flex items-baseline gap-1 text-text-light">
           <span aria-hidden="true" style={{ color: 'var(--goal)' }}>◎</span>
           <span className="min-w-0 truncate" data-view={`${at}.aim`}>{row.aim}</span>
           {/* The chance whole when it is short; a long one (core's conditional wording) wraps to two lines at most inside the card. */}
           <span className={`${typography.nodeValue} flex-none max-w-[65%] line-clamp-2 text-text-body`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
           {markSpan}
+        </div>
+        <Companion row={row} at={at} />
         </div>
       )
       return (
@@ -117,6 +129,7 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
               </span>
             ) : null}
           </span>
+          <Companion row={row} at={at} />
         </div>
       )
     }

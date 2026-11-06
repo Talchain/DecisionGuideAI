@@ -423,6 +423,18 @@
                 "null"
                ]
               },
+              "companion": {
+               "type": [
+                "string",
+                "null"
+               ]
+              },
+              "companion_title": {
+               "type": [
+                "string",
+                "null"
+               ]
+              },
               "outcome": {
                "anyOf": [
                 {
@@ -552,6 +564,8 @@
               "aim_id",
               "title",
               "chance",
+              "companion",
+              "companion_title",
               "outcome",
               "if_approved",
               "estimate"

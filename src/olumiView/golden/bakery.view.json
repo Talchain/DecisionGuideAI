@@ -517,6 +517,8 @@
       "aim_id": "sell_360",
       "title": "If Olumi's estimates hold, the chance that 'A second oven' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven'.",
       "chance": 0.7162,
+      "companion": null,
+      "companion_title": null,
       "outcome": {
        "low": 336.6150549257873,
        "median": 369.96239436039934,
@@ -603,6 +605,8 @@
       "aim_id": "sell_360",
       "title": "The chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information.",
       "chance": 0.4999,
+      "companion": null,
+      "companion_title": null,
       "outcome": {
        "low": 339.4744945801455,
        "median": 359.9971077421209,
@@ -684,6 +688,8 @@
       "aim_id": "sell_360",
       "title": "The chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information.",
       "chance": 0,
+      "companion": null,
+      "companion_title": null,
       "outcome": {
        "low": 300,
        "median": 300,

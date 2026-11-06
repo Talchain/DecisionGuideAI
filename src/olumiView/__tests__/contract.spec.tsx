@@ -167,7 +167,12 @@ describe('the Run beside the chances says what the base dock said, word for word
       if (head === null) expect(o.most_likely).toBeNull()
       else expect(o.most_likely === head || o.most_likely?.startsWith(`${head} `), `${head} | ${o.most_likely}`).toBe(true)
       if (hover !== null) expect(hover.length).toBeLessThanOrEqual(120)
-      expect(texts(container, '[data-view^="run.notes."]')).toEqual(o.notes)
+      // R18 (core fixes 4: A1 "This comparison depends on...", E1 "Assumption to check: ...") adds two kinds of note the base dock never said: the
+      // dock's own notes stay in its order and words; the additive ones are drawn too (viewCompanion.spec binds them).
+      const R18 = /^(This comparison depends on Olumi's assumed option effects\.|Assumption to check: )/
+      const drawn = texts(container, '[data-view^="run.notes."]')
+      expect(drawn.filter((t) => !R18.test(t ?? ''))).toEqual(o.notes)
+      expect(drawn.filter((t) => R18.test(t ?? '')), 'every additive R18 note core sends is drawn').toEqual(model.run!.notes.map((x) => x.text).filter((t) => R18.test(t)))
       if (o.waits_on === null) expect(container.querySelector('[data-testid="view-run-waits-on"]')).toBeNull()
       else {
         // When every option waits (core 534203e on), what they wait on heads the dock (its head and text), not the "Waits on:" line.

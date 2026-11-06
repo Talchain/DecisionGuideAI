@@ -89,6 +89,8 @@ export type View = {
         aim_id: string
         title: string
         chance: number | null
+        companion: string | null
+        companion_title: string | null
         outcome: {
           low: number
           median: number | null
