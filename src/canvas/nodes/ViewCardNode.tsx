@@ -71,27 +71,41 @@ const IfApprovedMark = ({ mark }: { mark: ValueMark }) => (
 function Row({ id, row, i, ifApproved = null }: { id: string; row: ViewRow; i: number; ifApproved?: IfApproved }) {
   const at = `${id}.rows.${i}`
   const moved = valueMark(row, at, ifApproved)
+  // The compact face (C1, 4 Nov: details on hover or selection; R3 pristine: two lines a row at most, the whole row on hover), every word
+  // core's and verbatim. A chance row: its aim on one line, its value on at most two, so the number always shows (the aim leads and runs
+  // two lines on real models: the brewery board's option cards drew ~250 px). Each mark sits in its own column beside the value, so a clamp
+  // never hides it and it never wraps alone onto a line (R5's rule, kept by the column rather than a no-break space).
   switch (row.kind) {
-    case 'chance':
+    case 'chance': {
+      const marks = row.olumi !== null || row.likely !== null || moved !== null
       return (
-        // Inline, never a flex row: each mark follows the value's last word after a no-break space, so it wraps with that word and never
-        // alone (R5, the real capacity board: a lone ◆ after "…does not happen").
-        <p title={row.title} data-view-row={at}>
-          <span data-view={`${at}.aim`}>{row.aim}</span>{' '}
-          <span className={typography.nodeValue}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span>
-            {row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}
-            {row.likely === null ? null : <>{NBSP}<Mark at={`${at}.likely`} mark={row.likely} /></>}
-            {moved === null ? null : <>{NBSP}<IfApprovedMark mark={moved} /></>}
+        <div title={row.title} data-view-row={at}>
+          <span className="block truncate" data-view={`${at}.aim`}>{row.aim}</span>
+          <span className="flex items-baseline gap-1">
+            <span className={`${typography.nodeValue} line-clamp-2 min-w-0`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
+            {marks ? (
+              <span className="flex-none whitespace-nowrap" data-row-marks={at}>
+                {row.olumi === null ? null : <Mark at={`${at}.olumi`} mark={row.olumi} />}
+                {row.likely === null ? null : <>{row.olumi === null ? null : NBSP}<Mark at={`${at}.likely`} mark={row.likely} /></>}
+                {moved === null ? null : <>{NBSP}<IfApprovedMark mark={moved} /></>}
+              </span>
+            ) : null}
           </span>
-        </p>
+        </div>
       )
+    }
     case 'limit':
-      return <p title={row.title} data-view-row={at}><span data-view={`${at}.aim`}>{row.aim}</span> <span className={typography.nodeValue} data-view={`${at}.value`}>{row.value}</span> <Mark at={`${at}.olumi`} mark={row.olumi} /></p>
+      return (
+        <div className="flex items-baseline gap-1" title={row.title} data-view-row={at}>
+          <span className="line-clamp-2 min-w-0" data-row-value={at}><span data-view={`${at}.aim`}>{row.aim}</span> <span className={typography.nodeValue} data-view={`${at}.value`}>{row.value}</span></span>
+          {row.olumi === null ? null : <span className="flex-none whitespace-nowrap" data-row-marks={at}><Mark at={`${at}.olumi`} mark={row.olumi} /></span>}
+        </div>
+      )
     case 'none':
       // a core before view-dock serves no `text`: the row says its title, as before (00058 P1)
       return row.text == null
-        ? <p data-view-row={at}><span data-view={`${at}.title`}>{row.title}</span></p>
-        : <p title={row.title} data-view-row={at}><span data-view={`${at}.text`}>{row.text}</span></p>
+        ? <p className="line-clamp-2" data-view-row={at}><span data-view={`${at}.title`}>{row.title}</span></p>
+        : <p className="line-clamp-2" title={row.title} data-view-row={at}><span data-view={`${at}.text`}>{row.text}</span></p>
   }
 }
 
