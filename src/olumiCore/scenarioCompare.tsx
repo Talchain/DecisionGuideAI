@@ -138,12 +138,12 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
 const PICK = `${typography.panelBody} min-h-[28px] min-w-0 max-w-full rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
 
 /** The person's other scenarios (`GET /api/me` `scenarios[]`), read once; null while reading, [] when there is none. */
-function useOtherScenarios(sid: string): { id: string; title: string }[] | null | 'error' {
-  const [list, setList] = useState<{ id: string; title: string }[] | null | 'error'>(null)
+function useOtherScenarios(sid: string): { id: string; title: string; label: string }[] | null | 'error' {
+  const [list, setList] = useState<{ id: string; title: string; label: string }[] | null | 'error'>(null)
   useEffect(() => {
     let live = true
-    call<{ scenarios?: { id?: unknown; title?: unknown }[] }>('GET', '/api/me')
-      .then((r) => { if (live) setList(arr(r?.scenarios).flatMap((s) => (typeof s?.id === 'string' && typeof s.title === 'string' && s.id !== sid ? [{ id: s.id, title: s.title }] : []))) })
+    call<{ scenarios?: { id?: unknown; title?: unknown; label?: unknown }[] }>('GET', '/api/me')
+      .then((r) => { if (live) setList(arr(r?.scenarios).flatMap((s) => (typeof s?.id === 'string' && typeof s.title === 'string' && s.id !== sid ? [{ id: s.id, title: s.title, label: typeof s.label === 'string' && s.label.trim() !== '' ? s.label : s.title }] : []))) })
       .catch(() => { if (live) setList('error') })
     return () => { live = false }
   }, [sid])
@@ -180,7 +180,7 @@ export function CompareWithScenario({ sid }: { sid: string }): JSX.Element {
         : (
           <div className="flex flex-wrap items-center gap-2">
             <select aria-label="Scenario to compare with" data-testid="scenario-compare-pick" className={PICK} value={pick} disabled={busy} onChange={(e) => { setPicked(e.target.value); setShown(null); setError(null) }}>
-              {list.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
+              {list.map((s) => <option key={s.id} value={s.id} title={s.title}>{s.label}</option>)}
             </select>
             <Button size="sm" variant="secondary" data-testid="scenario-compare-go" disabled={busy} onClick={() => void go()}>Compare</Button>
           </div>

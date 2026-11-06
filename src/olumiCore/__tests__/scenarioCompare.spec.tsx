@@ -67,6 +67,12 @@ describe('compare with another scenario: the picker and the request', () => {
     await screen.findByTestId('scenario-compare-out')
     expect(paths.filter((p) => p.startsWith('/api/compare'))).toEqual(['/api/compare?a=s_a&b=s_c'])
   })
+  it('R17: the picker draws core\'s own `label` (two scenarios sharing a title are told apart), the value stays the id and the title is its hover', async () => {
+    setTeamFetch((async () => new Response(JSON.stringify({ me: { id: 'p_1', name: 'Ada' }, scenarios: [{ id: 's_a', title: 'Rota', label: 'Rota (saved 1 Nov)' }, { id: 's_b', title: 'Rota', label: 'Rota (saved 6 Nov 14:20 UTC)' }, { id: 's_c', title: 'Launch', label: 'Launch' }] }), { status: 200 })) as unknown as typeof fetch)
+    render(<CompareWithScenario sid="s_a" />)
+    const pick = (await screen.findByTestId('scenario-compare-pick')) as HTMLSelectElement
+    expect([...pick.options].map((o) => [o.value, o.textContent, o.title])).toEqual([['s_b', 'Rota (saved 6 Nov 14:20 UTC)', 'Rota'], ['s_c', 'Launch', 'Launch']])
+  })
   it('no other scenario: said once, no picker; a refusal is core\'s own words', async () => {
     setTeamFetch((async () => new Response(JSON.stringify({ me: { id: 'p_1', name: 'Ada' }, scenarios: [{ id: 's_a', title: 'Rota' }] }), { status: 200 })) as unknown as typeof fetch)
     render(<CompareWithScenario sid="s_a" />)

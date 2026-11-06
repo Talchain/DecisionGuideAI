@@ -8,7 +8,7 @@ import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from './wri
 import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
 import { dissentWords } from './DissentPanel'
 import { currentModel, useViewStore } from '../../olumiView/store'
-import { savedTriggerOf } from '../../olumiView/tipping'
+import { nonEmpty, savedTriggerOf } from '../../olumiView/tipping'
 import { suggestedTriggersFor } from './triggers'
 
 interface CommitmentDraft { open: boolean; action: string; owner: string; expect: string; reconsider: string; keeps: string[]; option?: string; reviewOn?: string; trigger?: string }
@@ -128,7 +128,7 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
           <textarea id="team-c-reconsider" data-testid="team-c-reconsider" className={`${FIELD} min-h-[56px]`} value={reconsider} disabled={busy} onChange={(e) => put({ reconsider: e.target.value })} />
           {suggestions.length > 0 && (
             <div className="grid gap-1" data-testid="team-c-triggers">
-              <p className={META}>Olumi suggests a trigger. Take it only if it fits.</p>
+              {nonEmpty(c.suggested_triggers_caption) && <p className={META} data-testid="team-suggested-trigger-caption">{c.suggested_triggers_caption}</p>}
               {suggestions.map((t) => {
                 const on = taken?.fact === t.fact
                 return (
