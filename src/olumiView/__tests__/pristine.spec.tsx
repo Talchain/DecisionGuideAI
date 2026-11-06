@@ -1,6 +1,6 @@
 /**
  * R3 "pristine" (DL 4 Nov, from the R2-vs-Paul's-staging gap list): a card title is one block of inline words, so a wrapped title returns
- * to the card's left edge; core's reason and the outcome band's line wrap to two lines before an ellipsis; the lens bar draws icon-only,
+ * to the card's left edge; core's reason wraps to two lines before an ellipsis (the outcome band's words are hover and reader text since option a2); the lens bar draws icon-only,
  * each label on hover, when its labelled width does not fit beside the pill, so it keeps the top row.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -43,11 +43,16 @@ describe('core\'s words wrap to two lines before an ellipsis (R3 pristine 4)', (
     expect(p.className).not.toContain('line-clamp-1')
   })
 
-  it('the outcome band\'s line', () => {
-    const at = 'x.rows.0.outcome.text'
-    const p = render(<ViewOptionBand id="x" band={{ at, text: 'between 272 and 2,020 hours of engineering effort, in this model', title: '', leftPct: 10, widthPct: 70, medianPct: 40, aim: null }} />).container.querySelector(`[data-view="${at}"]`)!
-    expect(p.className).toContain('line-clamp-2')
+  it('the outcome band\'s words: in the DOM whole and on hover, no longer a line on the face (option a2)', () => {
+    // Option a2 (Paul's item 1, 6 Nov): the band's words left the face (they drew a two-line row on every option card) for the bar's hover
+    // and label and the reader text; was a two-line line. Still whole, never cut to one line.
+    const at = 'x.rows.0.outcome.text', text = 'between 272 and 2,020 hours of engineering effort, in this model'
+    const c = render(<ViewOptionBand id="x" band={{ at, text, title: '', leftPct: 10, widthPct: 70, medianPct: 40, aim: null }} />).container
+    const p = c.querySelector(`[data-view="${at}"]`)!
+    expect(p.textContent).toBe(text)
+    expect(p.className).toContain('sr-only')
     expect(p.className).not.toContain('line-clamp-1')
+    expect(c.querySelector('[data-testid="view-option-band-x"]')!.getAttribute('title')).toBe(text)
   })
 })
 
@@ -107,13 +112,14 @@ describe('a worked-out figure with a line per option is drawn a row per option, 
     ],
   } as typeof base
 
-  it('three options: three rows in core\'s order, each core\'s line verbatim, two lines at most, whole on hover; the sentence is the rows\' hover', () => {
+  it('three options: three rows in core\'s order, each core\'s line verbatim, one line, whole on hover; the sentence is the rows\' hover', () => {
     const c = render(<ViewCard card={card} />).container
     const rows = [...c.querySelectorAll<HTMLElement>('[data-value-row]')]
     expect(rows.map((r) => r.getAttribute('data-value-row'))).toEqual(['keep_staffing', 'add_specialist', 'share_specialist'])
     rows.forEach((r, i) => {
       expect(r.querySelector(`[data-view="total_capacity.values.${i}.text"]`)?.textContent).toBe(card.values![i]!.text)
-      expect(r.className).toContain('line-clamp-2')
+      // Option a2 (Paul's item 1, 6 Nov): one line a value, cut short (its ↻ mark beside it, never cut), whole on hover; was two lines.
+      expect(r.querySelector(`[data-view="total_capacity.values.${i}.text"]`)!.className).toContain('truncate')
       expect(r.getAttribute('title')).toBe(card.values![i]!.text)
     })
     expect(c.querySelector('[data-view="total_capacity.figure.text"]')).toBeNull() // not also the run-on sentence

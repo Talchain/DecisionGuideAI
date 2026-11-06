@@ -134,7 +134,7 @@ function useOptionBands(): ReadonlyMap<string, OptionBand> {
 /** v10's outcome band (#/canvas2's look), drawn from core: the bar and tick on the shared axis, and core's line beneath, its hover core's. */
 export function ViewOptionBand({ id, band }: { id: string; band: OptionBand }) {
   return (
-    <div className="mt-1 min-w-0" data-testid={`view-option-band-${id}`} title={band.title}>
+    <div className="mt-1 min-w-0" data-testid={`view-option-band-${id}`} title={band.title === '' ? band.text : `${band.text}\n${band.title}`}>
       <div className="relative" role="img" aria-label={band.text} style={{ height: 6, background: 'var(--factor-light)', borderRadius: 3 }}>
         {band.aim === null ? (
           <div className="absolute top-0 h-full" data-testid={`view-option-band-range-${id}`}
@@ -155,7 +155,8 @@ export function ViewOptionBand({ id, band }: { id: string; band: OptionBand }) {
             style={{ left: `${band.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />
         )}
       </div>
-      {/* The band's words on hover (the wrapper's title, the bar's label) and in the DOM for readers, not a line on the face (option a2). */}
+      {/* The band's words on hover (first in the wrapper's title, core's hover after them), as the bar's label and in the DOM for readers, not a
+          line on the face (option a2). */}
       <span className="sr-only" data-view={band.at}>{band.text}</span>
     </div>
   )

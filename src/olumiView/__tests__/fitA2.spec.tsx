@@ -64,5 +64,40 @@ describe('the option face', () => {
     expect(words.textContent).toBe(band.text)
     expect(words.className).toContain('sr-only')
     expect(c.querySelector('[role="img"]')!.getAttribute('aria-label')).toBe(band.text)
+    // On hover (Codex fit-a2 r1: the hover held only core's explanation, so the range's numbers were nowhere on screen): the words first.
+    expect(c.querySelector('[data-testid="view-option-band-o1"]')!.getAttribute('title')).toBe(`${band.text}\n${band.title}`)
+  })
+  it('catch: a long second chance (core\'s conditional wording) is held inside the card, two lines at most, its marks beside it', () => {
+    // Codex fit-a2 r1: a one-line second chance could not shrink or wrap, so a long one ran past the 220 px card and pushed its marks out.
+    // The wording is core's own, from the capacity board (add_specialist), set on the hiring card's second aim.
+    const words = real('capacity').cards.find((c) => c.id === 'add_specialist')!.rows[0] as { value: string }
+    const long = { ...card, rows: card.rows.map((r, i) => (i === 1 ? { ...r, value: words.value } : r)) } as typeof card
+    const c = render(<ViewCard card={long} />).container
+    const value = c.querySelector<HTMLElement>(`[data-row-value="${card.id}.rows.1"]`)!
+    expect(value.textContent).toBe(words.value)
+    expect(value.className).not.toContain('whitespace-nowrap')
+    expect(value.className).toContain('line-clamp-2'); expect(value.className).toContain('max-w-[65%]')
+    expect(value.querySelector('[data-row-marks]')).toBeNull() // the marks in their own column, never inside the clamped value
+    expect(value.parentElement!.querySelector(`[data-row-marks="${card.id}.rows.1"]`)).not.toBeNull()
+  })
+})
+
+describe('one-line worked-out values', () => {
+  it('catch: the ↻ mark keeps its own column, so cutting a long line short never hides it', () => {
+    // Codex fit-a2 r1: the whole row was cut short, and on the proposal golden the ↻ after add_one's long value was cut off with it.
+    const pending = JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'proposal.view.json'), 'utf8')) as View
+    const worked = pending.model!.cards.find((c) => c.figure !== null && (c.values?.length ?? 0) > 1)!
+    const c = render(<ViewCard card={worked} ifApproved={{ glyph: '↻', title: 'If approved', i: 0 }} />).container
+    const rows = [...c.querySelectorAll<HTMLElement>('[data-value-row]')]
+    expect(rows.length).toBe(worked.values!.length)
+    rows.forEach((r, i) => {
+      const text = r.querySelector<HTMLElement>(`[data-view="${worked.id}.values.${i}.text"]`)!
+      expect(text.textContent).toBe(worked.values![i]!.text)
+      expect(text.className).toContain('truncate') // one line, whole on hover
+      expect(r.getAttribute('title')).toBe(worked.values![i]!.text)
+      const mark = r.querySelector<HTMLElement>('[data-if-approved]')
+      if (mark !== null) expect(mark.closest('.truncate'), `${worked.id} row ${i}`).toBeNull()
+    })
+    expect(rows.some((r) => r.querySelector('[data-if-approved]') !== null)).toBe(true) // core's own ↻ on add_one's value
   })
 })

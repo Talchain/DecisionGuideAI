@@ -99,7 +99,8 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
         <div title={`${row.aim} · ${row.title}`} data-view-row={at} className="flex items-baseline gap-1 text-text-light">
           <span aria-hidden="true" style={{ color: 'var(--goal)' }}>◎</span>
           <span className="min-w-0 truncate" data-view={`${at}.aim`}>{row.aim}</span>
-          <span className={`${typography.nodeValue} flex-none whitespace-nowrap text-text-body`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
+          {/* The chance whole when it is short; a long one (core's conditional wording) wraps to two lines at most inside the card. */}
+          <span className={`${typography.nodeValue} flex-none max-w-[65%] line-clamp-2 text-text-body`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
           {markSpan}
         </div>
       )
@@ -122,8 +123,8 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
     case 'limit':
       return (
         <div className="flex items-baseline gap-1 text-text-light" title={`${row.aim} · ${row.title}`} data-view-row={at}>
-          {/* One line: the limit cut short before its value, whole on hover. */}
-          <span className="min-w-0 truncate" data-view={`${at}.aim`}>{row.aim}</span> <span className={`${typography.nodeValue} flex-none whitespace-nowrap text-text-body`} data-row-value={at}><span data-view={`${at}.value`}>{row.value}</span></span>
+          {/* One line: the limit cut short before its value, whole on hover; a long value wraps to two lines at most inside the card. */}
+          <span className="min-w-0 truncate" data-view={`${at}.aim`}>{row.aim}</span> <span className={`${typography.nodeValue} flex-none max-w-[65%] line-clamp-2 text-text-body`} data-row-value={at}><span data-view={`${at}.value`}>{row.value}</span></span>
           {row.olumi === null ? null : <span className="flex-none whitespace-nowrap" data-row-marks={at}><Mark at={`${at}.olumi`} mark={row.olumi} /></span>}
         </div>
       )
@@ -135,13 +136,16 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
   }
 }
 
-/** One option's row on a worked-out figure card: the option's number (O1, …) as the canvas numbers it, then core's line, two lines at most, whole on hover. */
+/**
+ * One option's row on a worked-out figure card: the option's number (O1, …) as the canvas numbers it, then core's line on one line, cut
+ * short and whole on hover (option a2). The ↻ mark keeps its own column, so the cut never hides it.
+ */
 function OptionValueRow({ at, option, text, mark = null }: { at: string; option: string; text: string; mark?: ValueMark }) {
   const n = useCardNumber(option)
   return (
-    <p className="truncate" title={text} data-value-row={option}>
-      {n === null ? null : <><span className="text-text-light font-normal tabular-nums" data-card-number={n}>{n}</span>{' '}</>}
-      <span data-view={at}>{text}</span>{mark === null ? null : <>{NBSP}<IfApprovedMark mark={mark} /></>}
+    <p className="flex items-baseline gap-1" title={text} data-value-row={option}>
+      {n === null ? null : <><span className="flex-none text-text-light font-normal tabular-nums" data-card-number={n}>{n}</span>{' '}</>}
+      <span className="min-w-0 truncate" data-view={at}>{text}</span>{mark === null ? null : <span className="flex-none"><IfApprovedMark mark={mark} /></span>}
     </p>
   )
 }
