@@ -9,6 +9,11 @@ import { call, setPagePerson } from './team/api'
 /** Signs this browser out of olumi-core; throws (a TeamApiError, in core's or the page's words) when it did not go through. */
 export async function signOutOfOlumi(): Promise<void> {
   await call<{ signedOut: boolean }>('POST', '/api/me/signout', {})
+  forgetThisPerson()
+}
+
+/** Once core has signed this browser out (Sign out, or Delete my data): nothing of the person's is kept in the page's memory. */
+export function forgetThisPerson(): void {
   setPagePerson(null)
   useMe.setState({ me: null, status: 'ready' })
   useViewStore.setState(useViewStore.getInitialState(), true)

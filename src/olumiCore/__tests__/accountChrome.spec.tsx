@@ -1,7 +1,8 @@
 /**
  * The olumi-core lane has no accounts behind it (the Supabase address is dead on purpose), so the account chrome that leads there
  * must not be offered: a person is who their private link says. What core does serve is Sign out (`POST /api/me/signout`: this
- * browser only), so the lane's menu offers that alone and lands on the signed-out screen (DL 4 Nov). Off the lane nothing changes.
+ * browser only), which lands on the signed-out screen (DL 4 Nov), the terms and the privacy notice, and Delete my data (core batch R15;
+ * its own rows are in deleteMyData.spec.tsx). Off the lane nothing changes.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
@@ -47,8 +48,8 @@ const lanePage = () => render(
 
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); useMe.setState({ me: null, status: 'none' }); setTeamFetch(null); setPagePerson(null); asked = [] })
 
-describe('the account menu on the olumi-core lane: Sign out, and nothing else', () => {
-  it('says whose private link this page was opened with, and offers Sign out alone: nothing that cannot work', () => {
+describe('the account menu on the olumi-core lane: what core serves, and nothing else', () => {
+  it('says whose private link this page was opened with, and offers only what core serves: nothing that cannot work', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     useMe.setState({ me: { id: 'p_1', name: 'Ada' }, status: 'ready' })
     lanePage()
@@ -56,7 +57,7 @@ describe('the account menu on the olumi-core lane: Sign out, and nothing else', 
     expect(mark.getAttribute('title')).toBe('You are using Olumi through Ada’s private link')
     expect(mark.textContent).toBe('A')
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }))
-    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Sign out'])
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Terms', 'Privacy', 'Sign out', 'Delete my data'])
     for (const gone of [/Profile settings/, /My scenarios/, /Sign in/, /Delete account/]) expect(screen.queryByText(gone)).toBeNull()
   })
 
@@ -68,7 +69,7 @@ describe('the account menu on the olumi-core lane: Sign out, and nothing else', 
     lanePage()
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }))
     await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Sign out' })) })
-    expect(screen.getByTestId('olumi-core-signed-out').textContent).toBe('You’re signed out' + 'Your private link opens it again.')
+    expect(screen.getByTestId('olumi-core-signed-out').textContent).toBe('You’re signed out' + 'Your private link opens it again.' + 'Terms' + 'Privacy')
     expect(screen.queryByTestId('canvas-page')).toBeNull()
     expect(useMe.getState().me).toBeNull()
     expect(useViewStore.getState().sid).toBeNull()

@@ -3,12 +3,12 @@
  *
  * Shows a circular avatar with the user's display_name initial (or email initial).
  * Click opens dropdown: display name, email, "My decisions", "Profile settings", divider, "Sign out". On the olumi-core lane:
- * whose private link it is, and Sign out.
+ * whose private link it is, the terms and the privacy notice, Sign out, and Delete my data.
  */
 
 import { useState, useRef, useEffect, useCallback, type RefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Settings, LogOut, LayoutGrid } from 'lucide-react'
+import { Settings, LogOut, LayoutGrid, FileText, ShieldCheck, Trash2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
@@ -17,6 +17,8 @@ import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { useMe } from '../../olumiCore/me'
 import { signOutOfOlumi } from '../../olumiCore/signout'
 import { TeamApiError } from '../../olumiCore/team/api'
+import { NOTICES } from '../../olumiCore/notices'
+import { DeleteMyDataDialog } from '../../olumiCore/DeleteMyDataDialog'
 
 function getInitial(profile: { display_name?: string | null; email?: string | null } | null, user: { email?: string } | null): string {
   const name = profile?.display_name || user?.email || ''
@@ -62,9 +64,13 @@ function useMenuDismiss(open: boolean, setOpen: (open: boolean) => void, ref: Re
 
 /**
  * On the olumi-core lane the person is who their private link says, and there is no account behind this build: no sign in, no
- * profile to save, no account to delete (the Supabase address is dead on purpose, so each of them would hang or fail). The menu
- * says whose private link this page was opened with and offers the one thing core serves: Sign out (`POST /api/me/signout`, this
- * browser only; the link opens it again and other members stay signed in), which lands on the signed-out screen.
+ * profile to save (the Supabase address is dead on purpose, so each would hang or fail). The menu says whose private link this page
+ * was opened with and offers what core serves:
+ *   - the terms and the privacy notice (core's `/terms` and `/privacy`, each in a new tab);
+ *   - Sign out (`POST /api/me/signout`, this browser only; the link opens it again and other members stay signed in);
+ *   - Delete my data (`POST /api/me/delete`): a dialog shows core's own sentences for what would go before anything is deleted
+ *     (src/olumiCore/DeleteMyDataDialog.tsx).
+ * Sign out and a completed deletion both land on the signed-out screen.
  */
 function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
   const person = useMe((s) => s.me)
@@ -72,8 +78,14 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The delete dialog outlives the menu: the menu closes when it opens, and a press inside the dialog must not close it.
+  const [deleting, setDeleting] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const mark = useRef<HTMLButtonElement>(null)
+  const refocus = useRef(false)
   useMenuDismiss(open, setOpen, ref)
+  // A cancelled dialog gives the focus back to the account menu's button, once the dialog (and its focus trap) has gone.
+  useEffect(() => { if (!deleting && refocus.current) { refocus.current = false; mark.current?.focus() } }, [deleting])
   const initial = (person?.name ?? '').charAt(0).toUpperCase() || '?'
   const words = person ? `You are using Olumi through ${person.name}’s private link` : 'You are using Olumi through your private link'
 
@@ -88,9 +100,17 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
     } finally { setBusy(false) }
   }, [navigate])
 
+  const closeDelete = useCallback(() => { refocus.current = true; setDeleting(false) }, [])
+  // Core has deleted the data, ended the link and cleared this browser's cookie (src/olumiCore/erase.ts forgot the person here).
+  const onDeleted = useCallback(() => {
+    setDeleting(false)
+    navigate('/signed-out', { replace: true, state: { deleted: true } })
+  }, [navigate])
+
   return (
     <div ref={ref} className="relative">
       <button
+        ref={mark}
         type="button"
         onClick={() => {
           const next = !open
@@ -114,6 +134,27 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
             <p className={`${typography.bodySmall} text-text-light`}>{words}</p>
           </div>
           <div className="py-1">
+            {NOTICES.map(({ label, href }) => {
+              const Icon = href === '/privacy' ? ShieldCheck : FileText
+              return (
+                <a
+                  key={href}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  role="menuitem"
+                  title="Opens in a new tab"
+                  data-testid={`olumi-core-notice-${href.slice(1)}`}
+                  onClick={() => setOpen(false)}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
+                >
+                  <Icon className="h-4 w-4 text-text-light" aria-hidden="true" />
+                  <span className={typography.bodySmall}>{label}</span>
+                </a>
+              )
+            })}
+          </div>
+          <div className="py-1">
             <button
               type="button"
               role="menuitem"
@@ -126,9 +167,20 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
               <span className={typography.bodySmall}>Sign out</span>
             </button>
             {error && <p role="alert" data-testid="olumi-core-sign-out-error" className={`${typography.caption} px-4 pb-2 text-danger`}>{error}</p>}
+            <button
+              type="button"
+              role="menuitem"
+              data-testid="olumi-core-delete-my-data"
+              onClick={() => { setOpen(false); setError(null); setDeleting(true) }}
+              className="flex w-full items-center gap-2 px-4 py-2 text-left text-danger hover:bg-panel-hover transition-colors duration-fast"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+              <span className={typography.bodySmall}>Delete my data</span>
+            </button>
           </div>
         </div>
       )}
+      {deleting && <DeleteMyDataDialog onCancel={closeDelete} onDeleted={onDeleted} />}
     </div>
   )
 }
