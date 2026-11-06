@@ -88,6 +88,30 @@ describe('the Compare tab', () => {
   })
 })
 
+// The panel's design language (Paul, 6 Nov side-by-side: native full-width selects and bare text lines): on the dock's Compare tab each list
+// sits in the panel's card under a panel heading and the version pickers are compact; inside the Team tab's own section it stays inline.
+describe('the Compare tab reads in the panel\'s design language', () => {
+  it('catch: three cards with panel headings, compact pickers; the words unchanged; inline (no cards) where another section holds it', async () => {
+    render(<CoreCompareTab />)
+    await waitFor(() => expect(screen.getByTestId('core-compare-out')).toBeTruthy())
+    const parts = [...screen.getByTestId('core-compare-out').querySelectorAll('[data-compare-part]')]
+    expect(parts.map((p) => p.getAttribute('data-compare-part'))).toEqual(['versions', 'changes', 'results'])
+    for (const p of parts) {
+      expect(p.className, p.getAttribute('data-compare-part')!).toMatch(/\bborder\b.*\bbg-panel\b|\bbg-panel\b.*\bborder\b/)
+      expect(p.querySelector('h4')?.className).toContain('text-sm')
+    }
+    expect(parts.map((p) => p.querySelector('h4')?.textContent)).toEqual(['Who proposed and approved', 'What changed', 'How the results moved'])
+    for (const t of ['core-compare-from', 'core-compare-to']) expect(screen.getByTestId(t).className, t).not.toContain('w-full')
+    // The words are core's and unchanged: the result's line reads as before.
+    expect(screen.getByTestId('core-compare-results').textContent).toBe('‘Add one specialist’ on ‘At least 100 a week’: about 50% chance → about 40% chance ◆ (down)')
+    cleanup()
+    // CONTRAST: the Team tab's compare, inside its own section, stays inline.
+    render(<CoreCompare sid={SID} latest={2} id="team-compare" auto />)
+    await waitFor(() => expect(screen.getByTestId('team-compare-out')).toBeTruthy())
+    expect(screen.getByTestId('team-compare-out').querySelectorAll('[data-compare-part]').length).toBe(0)
+  })
+})
+
 describe('Version history on the lane', () => {
   it('lists core\'s versions, newest first, with who approved each, and compares any two through core', async () => {
     render(<CoreVersions />)

@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Button } from '../components/ui/Button'
 import { useViewStore } from '../olumiView/store'
 import { call, TeamApiError } from './team/api'
-import { BODY, ERR, FIELD, META } from './team/ui'
+import { BODY, CARD, ERR, H, META } from './team/ui'
+import { typography } from '../styles/typography'
 
 /**
  * TWO APPROVED VERSIONS, AS CORE COMPARES THEM (olumi-core API.md v1.7, "Comparing two versions"): core's read-only
@@ -35,29 +36,37 @@ export function ChangeItem({ l }: { l: Compared['changes'][number] }): JSX.Eleme
 
 /** The comparison as core read it, in three short lists. `id` prefixes each list's test id, one per surface; `who: false` leaves out the
  *  first list where the surface names the version's people itself (the version history's record). */
-export function ComparedLists({ c, id = 'team-compare', who = true }: { c: Compared; id?: string; who?: boolean }): JSX.Element {
+export function ComparedLists({ c, id = 'team-compare', who = true, boxed = false }: { c: Compared; id?: string; who?: boolean; boxed?: boolean }): JSX.Element {
   const list = (items: JSX.Element[], empty: string, part: string) => (items.length
-    ? <ul className="m-0 grid list-none gap-1 p-0" data-testid={`${id}-${part}`}>{items}</ul>
+    ? <ul className="m-0 grid list-none gap-1.5 p-0" data-testid={`${id}-${part}`}>{items}</ul>
     : <p className={META} data-testid={`${id}-${part}-none`}>{empty}</p>)
+  // `boxed` (the dock's Compare tab, a whole panel of its own): each list in the panel's card under its heading (the dock's design language,
+  // Paul's 6 Nov side-by-side). Inline (the Team tab's and the version history's, already inside their own sections): a heading line. The
+  // words are the same either way.
+  const part = (name: string, heading: string, body: JSX.Element) => (boxed
+    ? <section className={CARD} data-compare-part={name} aria-label={heading}><h4 className={H}>{heading}</h4>{body}</section>
+    : <Fragment key={name}><p className={`${BODY} text-text-header`}>{heading}</p>{body}</Fragment>)
   return (
     <div className="grid gap-2" data-testid={`${id}-out`}>
-      {who && <>
-        <p className={`${BODY} text-text-header`}>Who proposed and approved</p>
-        {list(c.versions.map((v) => <li key={v.n} className={BODY}>Version {v.n}: {whoOf(v)}</li>), 'None', 'versions')}
-      </>}
-      <p className={`${BODY} text-text-header`}>What changed</p>
-      {list(c.changes.map((l, i) => <ChangeItem key={i} l={l} />), 'No change to the model', 'changes')}
-      <p className={`${BODY} text-text-header`}>How the results moved</p>
-      {list(c.results.map((r, i) => <li key={i} className={BODY}>{what(r)}: <SideText s={r.before} /> → <SideText s={r.after} /> <span className="text-text-light">({MOVE[r.move]})</span></li>), 'No results in either version', 'results')}
+      {who && part('versions', 'Who proposed and approved',
+        list(c.versions.map((v) => <li key={v.n} className={BODY}><span className="text-text-header">Version {v.n}:</span> {whoOf(v)}</li>), 'None', 'versions'))}
+      {part('changes', 'What changed', list(c.changes.map((l, i) => <ChangeItem key={i} l={l} />), 'No change to the model', 'changes'))}
+      {part('results', 'How the results moved', list(c.results.map((r, i) => (
+        // What the result is about on its own line, then before → after and how it moved: one result, two short lines.
+        <li key={i} className={`${BODY} grid`}><span className="text-text-header">{what(r)}:</span>{' '}<span><SideText s={r.before} /> → <SideText s={r.after} /> <span className="text-text-light">({MOVE[r.move]})</span></span></li>
+      )), 'No results in either version', 'results'))}
     </div>
   )
 }
+
+/** The version pickers' compact field (the dock's measure: never the full-width answer field, which stacked two tall boxes). */
+const PICK = `${typography.panelBody} min-h-[28px] rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
 
 /**
  * Pick two of the scenario's `latest` versions and read core's comparison. `auto`: read the previous version against the latest at once
  * (the Compare tab, "previous against this"); otherwise only on Compare (the Team tab and the version history).
  */
-export function CoreCompare({ sid, latest, id, auto = false }: { sid: string; latest: number; id: string; auto?: boolean }): JSX.Element {
+export function CoreCompare({ sid, latest, id, auto = false, boxed = false }: { sid: string; latest: number; id: string; auto?: boolean; boxed?: boolean }): JSX.Element {
   const [from, setFrom] = useState<number | null>(null)
   const [to, setTo] = useState<number | null>(null)
   const [shown, setShown] = useState<Compared | null>(null)
@@ -84,17 +93,17 @@ export function CoreCompare({ sid, latest, id, auto = false }: { sid: string; la
   return (
     <div className="grid gap-2" data-testid={`${id}-picker`}>
       <div className="flex flex-wrap items-center gap-2">
-        <select aria-label="Earlier version" data-testid={`${id}-from`} className={`${FIELD} w-auto`} value={f} disabled={busy} onChange={(e) => setFrom(Number(e.target.value))}>
+        <select aria-label="Earlier version" data-testid={`${id}-from`} className={PICK} value={f} disabled={busy} onChange={(e) => setFrom(Number(e.target.value))}>
           {versions.map((n) => <option key={n} value={n}>version {n}</option>)}
         </select>
         <span className={BODY}>with</span>
-        <select aria-label="Later version" data-testid={`${id}-to`} className={`${FIELD} w-auto`} value={t} disabled={busy} onChange={(e) => setTo(Number(e.target.value))}>
+        <select aria-label="Later version" data-testid={`${id}-to`} className={PICK} value={t} disabled={busy} onChange={(e) => setTo(Number(e.target.value))}>
           {versions.map((n) => <option key={n} value={n}>version {n}</option>)}
         </select>
         <Button size="sm" variant="secondary" data-testid={`${id}-go`} disabled={busy} onClick={() => void go(f, t)}>Compare</Button>
       </div>
       {error && <p role="alert" className={ERR} data-testid={`${id}-error`}>{error}</p>}
-      <div aria-live="polite">{shown ? <ComparedLists c={shown} id={id} /> : null}</div>
+      <div aria-live="polite">{shown ? <ComparedLists c={shown} id={id} boxed={boxed} /> : null}</div>
     </div>
   )
 }
@@ -132,7 +141,7 @@ export function CoreCompareTab(): JSX.Element {
         ? <p className={BODY} data-testid="core-compare-none">Start a model in the chat first. Compare reads the versions you approve.</p>
         : latest < 2
           ? <p className={BODY} data-testid="core-compare-one">Compare needs two approved versions. Approve a change to the model to make the second.</p>
-          : <CoreCompare sid={sid} latest={latest} id="core-compare" auto />}
+          : <CoreCompare sid={sid} latest={latest} id="core-compare" auto boxed />}
     </div>
   )
 }

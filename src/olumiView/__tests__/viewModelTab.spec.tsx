@@ -9,6 +9,7 @@ import path from 'node:path'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import type { View } from '../client'
 import { drawKindOf, linkEndHeading, modelGroupsOf } from '../layout'
+import { MODEL_OUTLINE_LABELS } from '../ViewModelTab'
 import { ViewModelTab } from '../ViewModelTab'
 import { registerFocusHelpers } from '../../canvas/utils/focusHelpers'
 import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../../canvas/domain/vocabulary'
@@ -33,6 +34,7 @@ describe('the Model tab, from the View', () => {
 
   it('drawn: the question, each card\'s heading and figure in core\'s words, every link from its card to its card', () => {
     const c = render(<ViewModelTab model={model} />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
     expect(c.querySelector('[data-view="model.question.text"]')?.textContent).toBe(model.question.text)
     for (const card of modelGroupsOf(model).flatMap((g) => g.cards)) {
       const row = c.querySelector(`[data-model-row="${card.id}"]`)!
@@ -51,8 +53,43 @@ describe('the Model tab, from the View', () => {
     const focus = vi.fn()
     const off = registerFocusHelpers(focus, () => undefined)
     const c = render(<ViewModelTab model={model} />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
     fireEvent.click(c.querySelector('[data-model-row="customers"]')!)
     expect(focus).toHaveBeenCalledWith('customers')
     off()
+  })
+})
+
+// The previous PoC's outline (Paul, 6 Nov side-by-side: every item expanded, no colours, no filter): the question above five closed
+// headings, each with its kind's canvas shape in its family colour and its count; "Expand all" opens them; a filter opens what matches.
+describe('the Model tab reads as the previous PoC\'s outline', () => {
+  it('catch: closed on open, each heading its shape, colour and count; Expand all opens every group; a filter narrows by heading', () => {
+    const c = render(<ViewModelTab model={model} />).container
+    expect(c.querySelector('h3')?.textContent).toBe(MODEL_OUTLINE_LABELS.title)
+    expect(c.querySelector('[data-testid="view-model-question"] [data-view="model.question.text"]')?.textContent).toBe(model.question.text)
+    expect(c.querySelectorAll('[data-model-row]').length).toBe(0) // closed on open
+    const groups = modelGroupsOf(model)
+    for (const g of groups) {
+      if (g.cards.length === 0 && g.id !== 'goal') continue
+      const toggle = c.querySelector(`[data-model-group-toggle="${g.id}"]`)!
+      expect(toggle.getAttribute('aria-expanded'), g.id).toBe('false')
+      expect(c.querySelector(`[data-model-group-count="${g.id}"]`)?.textContent, g.id).toBe(String(g.cards.length + (g.id === 'goal' ? 1 : 0)))
+    }
+    expect(c.querySelector('[data-model-group-toggle="options"] rect')?.getAttribute('fill')).toBe('var(--option)')
+    expect(c.querySelector('[data-model-group-toggle="factors"] circle')?.getAttribute('fill')).toBe('var(--factor)')
+    expect(c.querySelector('[data-model-group-toggle="goal"] polygon')?.getAttribute('fill')).toBe('var(--goal)')
+    expect(c.querySelector('[data-model-group-count="relationships"]')?.textContent).toBe(String(model.links.length))
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    expect(c.querySelectorAll('[data-model-row]').length).toBe(groups.reduce((n, g) => n + g.cards.length, 0))
+    expect(c.querySelector('[data-testid="view-model-toggle-all"]')?.textContent).toBe(MODEL_OUTLINE_LABELS.collapse)
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    expect(c.querySelectorAll('[data-model-row]').length).toBe(0)
+    // A filter: one option's heading opens its group with that row alone; words nothing carries say so.
+    const option = groups.find((g) => g.id === 'options')!.cards[0]!
+    fireEvent.change(c.querySelector('[data-testid="view-model-filter"]')!, { target: { value: option.heading.toUpperCase() } })
+    expect([...c.querySelectorAll('[data-model-row]')].map((r) => r.getAttribute('data-model-row'))).toEqual([option.id])
+    fireEvent.change(c.querySelector('[data-testid="view-model-filter"]')!, { target: { value: 'zzqx no such words' } })
+    expect(c.querySelectorAll('[data-model-row]').length).toBe(0)
+    expect(c.querySelector('[data-testid="view-model-no-match"]')?.textContent).toBe(MODEL_OUTLINE_LABELS.none)
   })
 })

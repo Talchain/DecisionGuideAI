@@ -203,6 +203,10 @@ for (const c of v.model.cards.slice(0, 4)) check(await ada.page.locator(`.react-
 // The Model tab, drawn from the View (DL 4 Nov, R2): the legacy outline's groups; a row's press puts its card in front.
 await tab(ada, 'diagnostics')
 await ada.page.getByTestId('view-model-tab').waitFor({ timeout: T })
+// The outline opens closed, as the previous PoC's (6 Nov): five headings with counts; Expand all opens every group.
+check(await ada.page.locator('[data-model-row]').count() === 0 && await ada.page.locator('[data-model-group-toggle]').count() > 0, 'the Model tab opens as an outline: closed groups, each with its count')
+await shot(ada, '0a-model-outline')
+await ada.page.getByTestId('view-model-toggle-all').click()
 const modelRows = await ada.page.locator('[data-model-row]').count()
 check(modelRows > 0 && await ada.page.locator('[data-model-group="relationships"] [data-model-link]').count() === v.model.links.length, `the Model tab lists the model's cards by group (${modelRows}) and every link (${v.model.links.length})`)
 const rowId = await ada.page.locator('[data-model-row]').first().getAttribute('data-model-row')
