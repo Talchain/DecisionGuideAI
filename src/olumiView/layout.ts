@@ -152,8 +152,21 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
     ...model.cards.map((c): Node => { const kind = askKindOf(c.family); return { id: c.id, type: kind, data: { kind }, position: { x: 0, y: 0 }, measured: at(c.id, W, c.h) } }),
   ]
   const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
-  const laid = await layoutGraph(nodes, edges, { direction: 'DOWN' })
+  const elk = await layoutGraph(nodes, edges, { direction: 'DOWN' })
   const sized = new Map(nodes.map((n) => [n.id, n.measured as Size]))
+  // PROTOTYPE (poc/fit-prototype, for Paul's morning call; never served): the previous PoC's family rows. Each card's row is its family's,
+  // not its dependency depth: question / options / factors and assumptions / outcomes and risks / aims and limits. ELK keeps the x order.
+  const tierOf = new Map<string, number>([[QUESTION, 0], ...model.cards.map((c): [string, number] => {
+    const k = drawKindOf(c, model)
+    return [c.id, k === 'option' ? 1 : k === 'outcome' || k === 'risk' ? 3 : k === 'goal' || k === 'constraint' ? 4 : 2]
+  })])
+  const tierY: number[] = []
+  for (let t = 0, y = 0; t <= 4; t++) {
+    tierY.push(y)
+    const hs = [...tierOf].filter(([, k]) => k === t).map(([id]) => sized.get(id)?.height ?? 0)
+    if (hs.length) y += Math.max(...hs) + FAMILY_ROW_GAP
+  }
+  const laid = { ...elk, nodes: elk.nodes.map((n) => ({ ...n, position: { x: n.position.x, y: tierY[tierOf.get(n.id) ?? 2]! } })) }
   const options = model.cards.filter((c) => c.family === 'option').map((c) => c.id)
   // The options packed under the question first (wrapped when too wide for the visible rect at 0.9); then every row below ordered under
   // what it hangs from, so the links drop row to row (DL 4 Nov, R3: the subtrees stayed where the layout spread them); then a tier wider
@@ -175,6 +188,8 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
  * row (four options: 4 × 220 + 3 × 48 = 1024) wraps into balanced rows (DL 4 Nov, Codex P1-3), so the question and every option are seen.
  */
 export const HEAD_ROW_MAX = 900
+/** PROTOTYPE: the room between two family rows. */
+const FAMILY_ROW_GAP = 56
 
 export function packHead(places: Map<string, { x: number; y: number }>, options: readonly string[], size: ReadonlyMap<string, Size>): Map<string, { x: number; y: number }> {
   const q = places.get(QUESTION), qs = size.get(QUESTION)
