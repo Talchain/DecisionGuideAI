@@ -138,7 +138,8 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
   // A worked-out figure with a line per option (core's `values`, two or more) is drawn a row per option, not as one run-on sentence that
   // grows the card past the screen (R3 pristine: OC1 on the capacity model ran 8 lines).
   const perOption = card.figure !== null && (card.values?.length ?? 0) > 1
-  const more = card.status !== null || (card.reason !== null && !says) || card.bound !== null || card.premises.length > 0
+  // An aim's or limit's target is on its face (below), so it no longer opens the card's other words.
+  const more = card.status !== null || (card.reason !== null && !says) || card.premises.length > 0
   return (
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
     <div
@@ -181,6 +182,12 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
         // The original's ⌄ on a card with more to say: a press selects the card, which opens its other words beside it.
         : more ? <ChevronDown aria-hidden="true" data-more-cue="" className="absolute right-1.5 top-2 h-3.5 w-3.5 text-text-light" /> : null}
       {says ? <p className="line-clamp-2" title={card.reason!} data-view={`${id}.reason`}>{card.reason}</p> : null}
+      {card.bound === null ? null : (
+        // An aim's or limit's target, core's own words from its target record ("at least 10%"), on the face under the heading, as the
+        // previous PoC's "Target: …" line (DL 6 Nov: a label names the outcome alone, so the number is never hidden behind a selection).
+        <p className={typography.nodeValue} title={card.bound.title}><span data-view={`${id}.bound.text`}>{card.bound.text}</span>
+          {card.bound.olumi === null ? null : <> <Mark at={`${id}.bound.olumi`} mark={card.bound.olumi} /></>}</p>
+      )}
       {card.figure === null ? null : (
         <div className="flex items-baseline gap-1">
           {perOption ? (
@@ -226,16 +233,12 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       </span>
       <Slot name={VIEW_CARD_SLOTS.olumiBadge} className="absolute bottom-1 right-1 empty:hidden" />
       {more ? (
-        // The card's other words (its status, reason, bound and premises), every one core's, beside the card while it is selected: the
+        // The card's other words (its status, reason and premises), every one core's, beside the card while it is selected: the
         // face stays compact so the causal graph reads (Paul 4 Nov), and opening them never changes the card's drawn height.
         <div hidden={!selected} className={`absolute left-full top-0 z-10 ml-2 space-y-1 rounded-lg border border-border bg-panel p-3 shadow-sm ${typography.nodeLabel}`}
           style={{ width: CARD_WIDTH }} data-view-more={id}>
           {card.status === null ? null : <p data-view={`${id}.status`}>{card.status}</p>}
           {card.reason === null || says ? null : <p data-view={`${id}.reason`}>{card.reason}</p>}
-          {card.bound === null ? null : (
-            <p title={card.bound.title}><span data-view={`${id}.bound.text`}>{card.bound.text}</span>
-              {card.bound.olumi === null ? null : <> <Mark at={`${id}.bound.olumi`} mark={card.bound.olumi} /></>}</p>
-          )}
           {card.premises.map((p, j) => (
             // One line each, cut with an ellipsis, the glyph first and the whole on hover, as core's page draws a premise (.premise: nowrap,
             // ellipsis): a premise shared by several options otherwise repeated in full on each card (DL 4 Nov).
