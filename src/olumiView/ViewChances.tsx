@@ -203,14 +203,18 @@ export function OptionLines({ card, after, children, model }: { card: ViewCard; 
 
 type Science = NonNullable<ViewRun['science']>[number]
 
-/** One worth line: its mark when it rests on Olumi's proposals, the line in core's words, the Run's whole reason on hover. */
+/** One worth line: its mark when it rests on Olumi's proposals, the line in core's words, the Run's whole reason on hover; core's give
+ *  words and ✎ on a line of their own under it. */
 function WorthLine({ l, i, tab }: { l: Science; i: number; tab?: OutputTab }) {
   return (
     <div title={l.hover} data-view-fact={l.id}>
-      {l.olumi === null ? null : <><span title={l.olumi.title} aria-label={l.olumi.title} data-view={`run.science.${i}.olumi.glyph`}>{l.olumi.glyph}</span> </>}
-      <span data-view={`run.science.${i}.line`}>{l.line}</span>
-      {l.figure?.mark == null ? null : <> <span title={l.figure.mark.title} aria-label={l.figure.mark.title} data-view={`run.science.${i}.figure.mark.glyph`}>{l.figure.mark.glyph}</span></>}
-      {l.figure?.give == null ? null : <> <FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} tab={tab} /></>}
+      <p>
+        {l.olumi === null ? null : <><span title={l.olumi.title} aria-label={l.olumi.title} data-view={`run.science.${i}.olumi.glyph`}>{l.olumi.glyph}</span> </>}
+        <span data-view={`run.science.${i}.line`}>{l.line}</span>
+        {l.figure?.mark == null ? null : <> <span title={l.figure.mark.title} aria-label={l.figure.mark.title} data-view={`run.science.${i}.figure.mark.glyph`}>{l.figure.mark.glyph}</span></>}
+      </p>
+      {/* Core's give words and ✎ on their own line under the worth line, never run on after it as one sentence (6 Nov side-by-side). */}
+      {l.figure?.give == null ? null : <div className={typography.panelMeta} data-worth-give={l.id}><FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} tab={tab} /></div>}
     </div>
   )
 }

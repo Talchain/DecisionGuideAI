@@ -15,9 +15,10 @@ import type { View, ViewModel } from '../client'
 import { ViewChances } from '../ViewChances'
 import { BEHIND_SHOWN } from '../layout'
 import { useViewStore } from '../store'
+import { useMe } from '../../olumiCore/me'
 
 const base = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8')) as View).model!
-afterEach(() => { cleanup(); useViewStore.setState({ sid: null }) })
+afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
 const worth = base.run!.science[0]!
 const model: ViewModel = { ...base, run: { ...base.run!, science: [0, 1, 2, 3].map((k) => ({ ...worth, id: `W${k}`, line: `${worth.line} (${k})` })) } }
 const before = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
@@ -66,6 +67,18 @@ describe('Analysis in the previous PoC\'s sections', () => {
     expect(render(<ViewChances model={v.model!} />).container.querySelector('[data-testid="view-run-next-step"]')).toBeNull()
     const old = { ...v.chat[0]!, answer: { ...v.chat[0]!.answer!, next: { ...next, newest: false } } }
     expect(render(<ViewChances model={v.model!} chat={[old]} />).container.querySelector('[data-testid="view-run-next-step"]')).toBeNull()
+  })
+  it('a worth line\'s give words and ✎ sit on their own line under it, never run on after the line as one sentence', () => {
+    // The give control shows only for the person whose page it is (FigureEdit): this View, read, with its own person.
+    const view = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8')) as View
+    useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: 's_test', view, status: 'ready', error: null, stale: false })
+    useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
+    const c = render(<ViewChances model={base} />).container
+    const line = c.querySelector('[data-view="run.science.0.line"]')!, give = c.querySelector(`[data-testid="worth-give-${worth.figure!.id}"]`)!
+    const block = give.closest(`[data-worth-give="${worth.id}"]`)!
+    expect([line.parentElement!.contains(give), block !== null, block.className.includes('text-[11px]')]).toEqual([false, true, true])
+    expect(block.previousElementSibling).toBe(line.parentElement)
+    expect(block.textContent).toBe(`${worth.figure!.give!.text} ✎.`) // FigureEdit's own sentence close
   })
   it('two worth lines or fewer: no "+N more"', () => {
     const c = render(<ViewChances model={base} />).container
