@@ -39,7 +39,7 @@ const GLANCE: Record<GlanceKind, { label: string; testId: string }> = {
 
 function Section({ label, testId, children }: { label: string; testId: string; children: ReactNode }) {
   return (
-    <section data-testid={`view-reasoning-${testId}`} aria-label={label} className="space-y-1 border-t border-panel-border/60 pt-3">
+    <section data-testid={`view-reasoning-${testId}`} aria-label={label} className="space-y-1 pt-2">
       <p className={typography.panelHeader}>{label}</p>
       {children}
     </section>
@@ -111,7 +111,7 @@ export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief
       )}
       <Outcomes model={model} />
       {settable.length === 0 ? null : (
-        <div data-testid="view-reasoning-try" aria-label={REASONING_LABELS.tryFigure} className="border-t border-panel-border/60 pt-3">
+        <div data-testid="view-reasoning-try" aria-label={REASONING_LABELS.tryFigure} className="pt-2">
           <p className={typography.panelHeader}>{REASONING_LABELS.tryFigure}</p>
           {settable.map((c) => (
             <div key={c.id} className="group" title={c.figure!.text} data-reasoning-try={c.id}>
@@ -135,7 +135,7 @@ function Outcomes({ model }: { model: ViewModel }) {
   if (!rowsCarryOutcome(model)) {
     const any = options.some((o) => optionBands(model, o.id).length > 0)
     return !any ? null : (
-      <div data-testid="view-reasoning-outcomes" className="space-y-2 border-t border-panel-border/60 pt-3">
+      <div data-testid="view-reasoning-outcomes" className="space-y-2 pt-2">
         {options.map((o) => (
           <div key={o.id} data-view-card={o.id}>
             <div className={typography.panelHeader} data-view={`${o.id}.heading`}>{o.heading}</div>
@@ -149,7 +149,7 @@ function Outcomes({ model }: { model: ViewModel }) {
   const aims: { aim: string; card: ViewCard; i: number }[] = []
   for (const o of options) o.rows.forEach((r, i) => { if (r.kind === 'chance' && r.outcome != null && r.aim_id !== null && !aims.some((a) => a.aim === r.aim_id)) aims.push({ aim: r.aim_id, card: o, i }) })
   return aims.length === 0 ? null : (
-    <div data-testid="view-reasoning-outcomes" className="space-y-3 border-t border-panel-border/60 pt-3">
+    <div data-testid="view-reasoning-outcomes" className="space-y-3 pt-2">
       {aims.map(({ aim, card, i }) => (
         <div key={aim} data-reasoning-aim={aim}>
           <p className={typography.panelHeader} data-view={`${card.id}.rows.${i}.aim`}>{(card.rows[i] as Extract<ViewRow, { kind: 'chance' }>).aim}</p>
