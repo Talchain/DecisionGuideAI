@@ -78,11 +78,15 @@ const topOut = await page.evaluate((ids) => {
   return ids.filter((id) => { const r = document.querySelector(`.react-flow__node[data-id="${id}"]`)?.getBoundingClientRect(); return !r || r.left < pane.left - 1 || r.top < pane.top - 1 || r.right > dock.left + 1 || r.bottom > pane.bottom + 1 })
 }, ['page:question', ...tops])
 check(first.zoom >= 0.8 - 0.005 && first.zoom <= 1 && topOut.length === 0, `first open: zoom ${first.zoom.toFixed(3)}, the question and every option in view${topOut.length ? ` (out: ${topOut.join(', ')})` : ''}`)
-// The compact face: no card shows its status, reason, bound or premises until it is selected.
+// The compact face: no card shows its status, reason or premises until it is selected.
 // An assumption or condition (no figure, no rows) keeps what it says, its reason, on the face.
 const says = golden.model.cards.filter((c) => c.figure === null && c.rows.length === 0 && c.reason !== null).map((c) => `${c.id}.reason`)
-const folded = await page.evaluate((says) => [...document.querySelectorAll('[data-view$=".status"], [data-view$=".reason"], [data-view*=".bound."], [data-view*=".premises."]')].filter((e) => e.getClientRects().length > 0 && !says.includes(e.getAttribute('data-view'))).map((e) => e.getAttribute('data-view')), says)
+const folded = await page.evaluate((says) => [...document.querySelectorAll('[data-view$=".status"], [data-view$=".reason"], [data-view*=".premises."]')].filter((e) => e.getClientRects().length > 0 && !says.includes(e.getAttribute('data-view'))).map((e) => e.getAttribute('data-view')), says)
 check(folded.length === 0, `on open, every card shows its compact face${folded.length ? ` (shown: ${folded.join(', ')})` : ''}`)
+// An aim's or limit's target is on its face (DL 6 Nov: a label names the outcome alone, so the number is never hidden): core's words, each.
+const bounds = golden.model.cards.filter((c) => c.bound != null).map((c) => [`${c.id}.bound.text`, c.bound.text])
+const boundOff = await page.evaluate((bs) => bs.filter(([at, text]) => { const e = document.querySelector(`[data-view="${at}"]`); return !e || e.getClientRects().length === 0 || e.textContent !== text }).map(([at]) => at), bounds)
+check(bounds.length > 0 && boundOff.length === 0, `on open, every aim and limit shows its target on its face in core's words (${bounds.length}${boundOff.length ? `; missing: ${boundOff.join(', ')}` : ''})`)
 // The premise and assumption links fold away until one of their cards is hovered or selected; every causal link is drawn (DL 4 Nov).
 const kinds = async () => page.evaluate(() => [...document.querySelectorAll('[data-view-link]')].map((g) => g.getAttribute('data-kind')))
 const causal = golden.model.links.filter((l) => l.kind !== 'reason').length, folded0 = (await kinds()).filter((k) => k === 'reason').length
