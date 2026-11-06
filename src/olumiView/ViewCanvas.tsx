@@ -38,6 +38,7 @@ import { useV10Lane, ViewCardV10 } from './v10'
 import { ViewLensBar } from './ViewLensBar'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
+import { ViewPreMortemKey } from './ViewPreMortemKey'
 
 // Each card is drawn with v10's controls (./v10): the card itself, and the Olumi corner that asks about it.
 const nodeTypes = { [VIEW_CARD]: ViewCardV10, [VIEW_QUESTION]: ViewQuestionNode }
@@ -152,6 +153,7 @@ function ViewFlow() {
       {hasModel ? <ViewLensBar /> : null}
       {hasModel ? <ViewWhatIfKey /> : null}
       {hasModel ? <ViewTradeOffsKey /> : null}
+      {hasModel ? <ViewPreMortemKey /> : null}
       <OlumiAttentionCard />
       <OutputsDock />
     </>

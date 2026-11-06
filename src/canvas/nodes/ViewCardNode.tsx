@@ -20,7 +20,7 @@ import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { useCanvasStore } from '../store'
 import { useViewStore } from '../../olumiView/store'
-import { useCardNumber, useDriverOf, useRestsOnItem, useTriedOn } from '../../olumiView/lens'
+import { useCardNumber, useDriverOf, usePreMortemOf, useRestsOnItem, useTriedOn } from '../../olumiView/lens'
 import { WHAT_IF_COPY } from '../artefacts/whatIfCopy'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
@@ -327,6 +327,8 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const inView = useOpenEditorInView()
   const restsOn = useRestsOnItem(id)
   const driverOf = useDriverOf(id)
+  // If it failed: a card Olumi's stories rest on stands in front, the rest recede (core's `failed`; View only).
+  const preMortem = usePreMortemOf(id)
   const number = useCardNumber(id)
   const tried = useTriedOn(id)
   // The applied-edit pulse (pulseArrivals.ts, appliedEditPulse.ts): the original card's ring on a card an approval or edit just applied.
@@ -339,7 +341,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const ifApproved = useMemo(() => ifApprovedMarkOf(view), [view])
   const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] === id)
   return (
-    <div ref={inView} className="group/vcard relative">
+    <div ref={inView} className={`group/vcard relative${preMortem === 'other' ? ' opacity-40' : ''}`} data-premortem={preMortem ?? undefined}>
       <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
       <ViewCard card={card} selected={selected === true} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>

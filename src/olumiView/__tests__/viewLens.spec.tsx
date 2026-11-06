@@ -56,7 +56,7 @@ describe('the lane\'s lens bar', () => {
   it('Model, Trade-offs and Rests on, Rests on counting Olumi\'s to check or set; a press switches the lens', () => {
     useViewStore.setState({ view })
     render(<ViewLensBar />)
-    expect(screen.getAllByRole('radio').map((b) => b.textContent)).toEqual(['Model', 'Trade-offs', 'Rests on11', 'What would change', 'What if'])
+    expect(screen.getAllByRole('radio').map((b) => b.textContent)).toEqual(['Model', 'Trade-offs', 'Rests on11', 'If it failed', 'What would change', 'What if'])
     // Trade-offs on this lane is core's option rows by aim, not the legacy routes along links: its hover is its label, never that hint.
     expect(screen.getByTestId('lens-bar-tradeoffs').getAttribute('title')).toBe('Trade-offs')
     expect(screen.getByTestId('lens-bar-rests_on').getAttribute('aria-label')).toBe('Rests on, 11 to check or set')

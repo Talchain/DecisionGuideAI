@@ -239,7 +239,7 @@ check(await ada.page.getByTestId('lens-bar-full').getAttribute('aria-checked') =
 await ada.page.getByRole('button', { name: 'Fit to view' }).click()
 await ada.page.waitForTimeout(800)
 // The lenses are back on from the View (DL 4 Nov): the bar offers only those the View fills, never a dead one.
-check(JSON.stringify(await ada.page.getByTestId('lens-bar').getByRole('radio').evaluateAll((bs) => bs.map((b) => b.getAttribute('data-testid')))) === JSON.stringify(['lens-bar-full', 'lens-bar-tradeoffs', 'lens-bar-rests_on', 'lens-bar-what_changes', 'lens-bar-what_if']), 'the lens bar offers Model, Trade-offs (DL ruling 3, 5 Nov), Rests on, What would change and What if, and no lens the View cannot fill')
+check(JSON.stringify(await ada.page.getByTestId('lens-bar').getByRole('radio').evaluateAll((bs) => bs.map((b) => b.getAttribute('data-testid')))) === JSON.stringify(['lens-bar-full', 'lens-bar-tradeoffs', 'lens-bar-rests_on', 'lens-bar-premortem', 'lens-bar-what_changes', 'lens-bar-what_if']), 'the lens bar offers Model, Trade-offs (DL ruling 3, 5 Nov), Rests on, If it failed, What would change and What if, and no lens the View cannot fill')
 // Trade-offs (R6, DL ruling 3): the grid shows, for each option, its own first row for each aim, by identity (`<option>.rows.<i>`).
 await ada.page.getByTestId('lens-bar-tradeoffs').click()
 await ada.page.getByTestId('view-tradeoffs-grid').waitFor({ timeout: T })
