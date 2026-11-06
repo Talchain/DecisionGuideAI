@@ -582,15 +582,18 @@ function SessionGoal({ session, held }: { session: Session; held: boolean }) {
       </div>
     )
   }
+  // The question, then core's goals two by two: the dock is too narrow for four on one line, and a wrapped row reads ragged.
   return (
-    <div role="group" aria-labelledby="view-session-goal-question" className="flex flex-wrap items-center gap-1.5" data-testid="view-session-goal">
-      <span id="view-session-goal-question" className={`${typography.chatMeta} text-text-light`}>{GOAL_QUESTION}</span>
-      {session.goals.map((g, i) => (
-        <button key={g.id} type="button" disabled={held} onClick={() => choose(g.id)} aria-pressed={g.id === goal?.id}
-          className={CHIP_CLASS} data-goal={g.id} data-testid="view-session-goal-option">
-          <span data-view={`session.goals.${i}.text`}>{g.text}</span>
-        </button>
-      ))}
+    <div role="group" aria-labelledby="view-session-goal-question" className="space-y-1.5" data-testid="view-session-goal">
+      <p id="view-session-goal-question" className={`${typography.chatMeta} text-text-light`}>{GOAL_QUESTION}</p>
+      <div className="grid grid-cols-2 gap-1.5">
+        {session.goals.map((g, i) => (
+          <button key={g.id} type="button" disabled={held} onClick={() => choose(g.id)} aria-pressed={g.id === goal?.id}
+            className={CHIP_CLASS} data-goal={g.id} data-testid="view-session-goal-option">
+            <span data-view={`session.goals.${i}.text`}>{g.text}</span>
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
@@ -606,12 +609,18 @@ export const FIRST_FOR_GOAL = 'Suits what you came here for'
  * that question as a discussion-only turn; while any turn is in flight the whole menu is held.
  */
 function MethodMenu({ session, held }: { session: Session; held: boolean }) {
+  const box = useRef<HTMLDivElement>(null)
+  // The reply lands as the newest turn, under the menu: once it is drawn, it is brought into view, so a press is seen to be answered.
+  const ask = (id: string) => void askMethod(id).then((sent) => {
+    if (!sent) return
+    requestAnimationFrame(() => box.current?.closest('[data-testid="view-chat"]')?.querySelector('[data-testid="view-chat-latest"]')?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }))
+  })
   return (
-    <div className="rounded-lg border border-panel-border bg-panel p-3" data-testid="view-session-menu">
-      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={MENU_NAME}>
-        <span className="inline-flex h-6 w-6 flex-none items-center justify-center text-info" title={MENU_NAME} aria-hidden="true"><MessageCircleQuestion className="h-4 w-4" /></span>
+    <div ref={box} className="flex items-start gap-2 rounded-lg border border-panel-border bg-panel p-3" data-testid="view-session-menu">
+      <span className="mt-1 inline-flex h-5 w-5 flex-none items-center justify-center text-info" title={MENU_NAME} aria-hidden="true"><MessageCircleQuestion className="h-4 w-4" /></span>
+      <div className="flex min-w-0 flex-wrap gap-1.5" role="group" aria-label={MENU_NAME}>
         {session.methods.map((m, i) => (
-          <button key={m.id} type="button" disabled={held} onClick={() => void askMethod(m.id)} title={m.first ? FIRST_FOR_GOAL : undefined}
+          <button key={m.id} type="button" disabled={held} onClick={() => ask(m.id)} title={m.first ? FIRST_FOR_GOAL : undefined}
             className={`${CHIP_CLASS}${m.first ? ' font-medium' : ''}`} data-method={m.id} data-first={m.first ? '' : undefined} data-testid="view-session-method">
             {m.first ? <span className="h-1.5 w-1.5 flex-none rounded-full bg-info" aria-hidden="true" data-testid="view-session-method-first" /> : null}
             <span data-view={`session.methods.${i}.text`}>{m.text}</span>

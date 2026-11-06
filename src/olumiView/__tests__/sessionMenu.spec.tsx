@@ -5,7 +5,7 @@
  * 8c4fc92, no AI calls) after: a first model approved (`no-goal`), then `POST …/goal { goal: 'understand' }` (`goal-understand`), then
  * `POST …/method { method: 'find_first' }` (`after-find-first`).
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
@@ -149,6 +149,10 @@ describe('a press asks that question as a discussion-only turn', () => {
     const before = fixture('goal-understand'), after = fixture('after-find-first')
     core(() => after, () => new Response(JSON.stringify({ proposal: 6, discussion: true }), { status: 201 }))
     show(before)
+    const scrolled: Element[] = []
+    const scroll = vi.fn(function (this: Element) { scrolled.push(this) })
+    const own = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView')
+    Object.defineProperty(Element.prototype, 'scrollIntoView', { value: scroll, configurable: true, writable: true })
     const c = renderTab()
     await press(methods(c).find((b) => b.dataset['method'] === 'find_first')!)
     await waitFor(() => expect(reads).toContain(VIEW_PATH))
@@ -158,6 +162,10 @@ describe('a press asks that question as a discussion-only turn', () => {
     await waitFor(() => expect(c.querySelector(`[data-view="chat.${last}.said"]`)?.textContent).toBe('What should we find out first?'))
     expect(at(after, `chat.${last}.answer.answer.0.text`)).toBe('The model stays as it is. What a specialist adds is the figure that matters most here.')
     expect(c.querySelector(`[data-view="chat.${last}.answer.answer.0.text"]`)!.textContent).toBe(at(after, `chat.${last}.answer.answer.0.text`))
+    // The reply is brought into view once drawn (it lands under the menu).
+    await waitFor(() => expect(scrolled).toEqual([c.querySelector('[data-testid="view-chat-latest"]')]))
+    if (own === undefined) delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView
+    else Object.defineProperty(Element.prototype, 'scrollIntoView', own)
     // Core's guarantee, as served: the model and the version are what they were.
     expect(after.model).toEqual(before.model)
     expect(after.version).toEqual(before.version)
