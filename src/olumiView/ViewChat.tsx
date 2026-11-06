@@ -31,7 +31,7 @@ import { ringCards } from './ring'
 import { Button } from '../components/ui/Button'
 import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
-import { ArrowUp, FlipVertical2, Globe, History, RefreshCw, SearchX, Zap } from 'lucide-react'
+import { ArrowRight, ArrowUp, FlipVertical2, Globe, History, RefreshCw, SearchX, Zap } from 'lucide-react'
 import Tooltip from '../components/Tooltip'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
@@ -52,7 +52,7 @@ const citesIn = (parts: Said) => parts.flatMap((p) => ('cite' in p ? [p] : [])).
  * One block of a reply, in core's parts. Each cite is numbered by its place in the reply (`first` is this block's first number), with core's
  * cite as its hover, verbatim (R5, the look check: a "◦" read as a stray dot). The number is a position, never a word of the UI's own.
  */
-function Words({ parts, at, first = 1 }: { parts: Said; at: string; first?: number }) {
+export function Words({ parts, at, first = 1 }: { parts: Said; at: string; first?: number }) {
   let n = first
   return (
     <>
@@ -404,13 +404,17 @@ async function takeMove(turn: number, next: Next): Promise<boolean> {
   return sent
 }
 
-/** The newest reply's move as one tap, in the shell's button, with core's label for it. */
-function MoveTap({ turn, next }: { turn: number; next: Next }) {
+/** The newest reply's move as one tap, in the shell's button, with core's label for it. `arrow` (the Analysis tab's "Suggested next
+ *  step", as the previous PoC drew it): the same tap as a round arrow, core's label as its name and hover. */
+export function MoveTap({ turn, next, arrow = false }: { turn: number; next: Next; arrow?: boolean }) {
   const sid = useViewStore((s) => s.sid)
   const busy = useViewChat((s) => s.busy), gone = useViewChat((s) => s.gone ?? null)
   if (sid === null || typeof next.move !== 'string' || next.move === '' || gone === moveKey(sid, turn, next.move)) return null
   return (
-    <div><Button size="sm" variant="secondary" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{next.label}</Button></div>
+    arrow
+      ? <button type="button" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)} aria-label={next.label} title={next.label}
+          className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-primary text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-40"><ArrowRight className="h-4 w-4" aria-hidden="true" /></button>
+      : <div><Button size="sm" variant="secondary" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{next.label}</Button></div>
   )
 }
 
