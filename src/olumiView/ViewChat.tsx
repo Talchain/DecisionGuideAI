@@ -11,11 +11,11 @@
  */
 import { create } from 'zustand'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { newOp, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
+import { newOp, READ_FAILED, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
-import { writes, type View, type ViewTurn } from './client'
+import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type ViewTurn } from './client'
 import { useViewStore } from './store'
-import { olumiKey, sessionOf, type Session } from './layout'
+import { figureFirstOf, olumiKey, sessionOf, type Session } from './layout'
 import { derivedUuidOf } from '../olumiCore/team/sid'
 import { useCanvasStore } from '../canvas/store'
 import { setCurrentScenarioId } from '../canvas/store/scenarios'
@@ -31,6 +31,7 @@ import { ringCards } from './ring'
 import { Button } from '../components/ui/Button'
 import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
+import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
 import { ArrowRight, ArrowUp, FlipVertical2, Globe, History, MessageCircleQuestion, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
 import Tooltip from '../components/Tooltip'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
@@ -292,18 +293,22 @@ export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new M
 export const PAST_HELD = 'Go back to the latest version to change the model.'
 
 /** One write, then the View read again. An approval changes the model: the View is stale until the new one lands (00051). */
-async function act(f: () => Promise<unknown>, changesModel = false): Promise<boolean> {
+/** Where a write's words go when it does not go through: the composer's line, unless the write has its own panel (the figure-first entry). */
+const toComposer = (said: string | null): void => useViewChat.setState({ said })
+
+async function act(f: () => Promise<unknown>, changesModel = false, sink: (said: string | null) => void = toComposer): Promise<boolean> {
   if (useViewChat.getState().busy) return false
-  if (useViewStore.getState().at !== null) { useViewChat.setState({ said: PAST_HELD }); return false }
-  useViewChat.setState({ busy: true, said: null })
+  if (useViewStore.getState().at !== null) { sink(PAST_HELD); return false }
+  useViewChat.setState({ busy: true })
+  sink(null)
   try {
     await f()
     const views = useViewStore.getState()
     const shown = await (changesModel ? views.modelChanged() : views.refresh())
-    if (!shown) useViewChat.setState({ said: SAVED_NOT_SHOWN })
+    if (!shown) sink(SAVED_NOT_SHOWN)
     return true
   } catch (e) {
-    useViewChat.setState({ said: e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.' })
+    sink(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
     return false
   } finally { useViewChat.setState({ busy: false }) }
 }
@@ -401,6 +406,66 @@ export async function askMethod(method: string): Promise<boolean> {
   if (sid === null) return false
   return write('method', method, (op) => writes.method(sid, method, op), false, uuid)
 }
+
+/** The menu item core sends while it offers "Let us give our figure first" (API.md): a press opens its entry, never POST …/method. */
+export const FIGURE_FIRST = 'figure_first'
+
+/**
+ * Open the blind entry (`GET …/figure-first`, a read that writes nothing), keeping core's headings from the View (the show answer has none).
+ * Opened again when the View moves on while it is open (ViewChat), keeping what was typed. A refused read says core's words in the panel.
+ */
+export async function openFigureFirst(): Promise<boolean> {
+  const { sid, uuid, view } = useViewStore.getState()
+  if (sid === null || view === null) return false
+  const keep = useFigureFirst.getState().uuid === uuid ? {} : { typed: '', text: '' }
+  useFigureFirst.setState({ ...keep, uuid, reading: true, said: null, shown: null, headings: figureFirstOf(view)?.headings ?? null })
+  try {
+    const entry = await writes.figureFirstEntry(sid)
+    if (entry === null || typeof entry !== 'object' || typeof entry.quantity !== 'string' || typeof entry.version !== 'number' || typeof entry.heading !== 'string'
+      || typeof entry.question !== 'string' || typeof entry.ask !== 'string' || typeof entry.note !== 'string' || typeof entry.show !== 'string') throw new TeamApiError(0, VIEW_SHAPE_CHANGED)
+    if (useViewStore.getState().uuid !== uuid) return false
+    useFigureFirst.setState({ entry, signature: view.signature, reading: false })
+    return true
+  } catch (e) {
+    useFigureFirst.setState({ entry: null, signature: null, reading: false, said: e instanceof TeamApiError ? e.message : READ_FAILED })
+    return false
+  }
+}
+
+const toPanel = (said: string | null): void => useFigureFirst.setState({ said })
+
+/**
+ * Their figure and their words for the offered quantity (`POST …/figure-first { quantity, version, text, typed }`), the quantity and version
+ * the entry was read with; the figure goes as typed and core reads it (or refuses in the card's ask, said in the panel). One write at a time,
+ * then the View read again: it then holds their figure beside Olumi's, and the entry closes.
+ */
+export async function giveFigureFirst(): Promise<boolean> {
+  const { sid } = useViewStore.getState(), { entry, typed, text } = useFigureFirst.getState()
+  if (sid === null || entry === null) return false
+  const sent = await act(() => writes.figureFirstGive(sid, entry.quantity, entry.version, text, typed), false, toPanel)
+  if (sent) useFigureFirst.setState({ entry: null, signature: null, typed: '', text: '' })
+  return sent
+}
+
+/** "Show me Olumi's figure instead" (`POST …/figure-first/show { quantity, version }`): Olumi's figure and basis, drawn under the headings kept. */
+export async function showOlumiFigure(): Promise<boolean> {
+  const { sid } = useViewStore.getState(), { entry, headings } = useFigureFirst.getState()
+  if (sid === null || entry === null) return false
+  let got = null as FigureFirstShown | null
+  const sent = await act(async () => {
+    const r = await writes.figureFirstShow(sid, entry.quantity, entry.version)
+    if (r === null || typeof r !== 'object' || typeof r.olumi?.text !== 'string' || typeof r.olumi.title !== 'string' || typeof r.olumi.basis !== 'string') throw new TeamApiError(0, VIEW_SHAPE_CHANGED)
+    got = r
+  }, false, toPanel)
+  if (sent && got !== null) useFigureFirst.setState({ entry: null, signature: null, shown: { ...got, headings }, typed: '', text: '' })
+  return sent
+}
+
+const closeFigureFirst = () => useFigureFirst.setState({ ...FIGURE_FIRST_CLOSED })
+
+/** Bring a panel of the Olumi tab into view once drawn (a press is seen to be answered). */
+const bringIntoView = (from: Element | null, testid: string) =>
+  requestAnimationFrame(() => from?.closest('[data-testid="view-chat"]')?.querySelector(`[data-testid="${testid}"]`)?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }))
 
 type Next = NonNullable<ViewTurn['answer']>['next']
 const moveKey = (sid: string, turn: number, move: string) => `${sid}\u0000${turn}\u0000${move}`
@@ -611,10 +676,10 @@ export const FIRST_FOR_GOAL = 'Suits what you came here for'
 function MethodMenu({ session, held }: { session: Session; held: boolean }) {
   const box = useRef<HTMLDivElement>(null)
   // The reply lands as the newest turn, under the menu: once it is drawn, it is brought into view, so a press is seen to be answered.
-  const ask = (id: string) => void askMethod(id).then((sent) => {
-    if (!sent) return
-    requestAnimationFrame(() => box.current?.closest('[data-testid="view-chat"]')?.querySelector('[data-testid="view-chat-latest"]')?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }))
-  })
+  // "Let us give our figure first" opens its own entry (never a question to Olumi); every other item asks its question.
+  const ask = (id: string) => (id === FIGURE_FIRST
+    ? void openFigureFirst().then(() => bringIntoView(box.current, 'view-figure-first-entry'))
+    : void askMethod(id).then((sent) => { if (sent) bringIntoView(box.current, 'view-chat-latest') }))
   return (
     <div ref={box} className="flex items-start gap-2 rounded-lg border border-panel-border bg-panel p-3" data-testid="view-session-menu">
       <span className="mt-1 inline-flex h-5 w-5 flex-none items-center justify-center text-info" title={MENU_NAME} aria-hidden="true"><MessageCircleQuestion className="h-4 w-4" /></span>
@@ -640,8 +705,26 @@ export function ViewChat() {
   // Core's session block (canon wave step 1): what the team came for, then the menu; a View without it draws neither.
   const session = view === null ? null : sessionOf(view)
   const held = busy || past !== null
+  // "Let us give our figure first": the entry and Olumi's figure shown instead are this scenario's only; the side by side is the View's.
+  const ff = view === null ? null : figureFirstOf(view)
+  const uuid = useViewStore((s) => s.uuid)
+  const ffMine = useFigureFirst((s) => s.uuid === uuid)
+  const ffOpen = useFigureFirst((s) => s.entry !== null || s.said !== null || s.reading)
+  const ffShown = useFigureFirst((s) => s.shown !== null)
+  const tab = useRef<HTMLDivElement>(null)
+  // The View moved on while the entry is open (a new version, the offer gone, a goal set): read the entry again while core still offers
+  // it, else close it (their figure then stands beside Olumi's, drawn from the View). Read against the signature it was opened with.
+  const signature = view?.signature ?? null
+  useEffect(() => {
+    const st = useFigureFirst.getState()
+    if (st.entry === null || st.uuid !== useViewStore.getState().uuid || signature === null || st.signature === signature) return
+    if (ff?.offer == null) closeFigureFirst()
+    else void openFigureFirst()
+  }, [signature]) // eslint-disable-line react-hooks/exhaustive-deps
+  const give = () => void giveFigureFirst().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-given') })
+  const show = () => void showOlumiFigure().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-shown') })
   return (
-    <div className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
+    <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
         {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
         {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
@@ -650,6 +733,9 @@ export function ViewChat() {
         {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
         <div {...{ [VIEW_NOTE_SLOT]: '' }} />
         {session === null ? null : <MethodMenu session={session} held={held} />}
+        {ffMine && ffOpen ? <FigureFirstEntryPanel held={held} onGive={give} onShow={show} onClose={closeFigureFirst} /> : null}
+        {ffMine && ffShown ? <FigureFirstShownPanel onClose={() => useFigureFirst.setState({ shown: null })} /> : null}
+        {ff?.given == null ? null : <FigureFirstSideBySide given={ff.given} headings={ff.headings} />}
         {view === null ? null : <ViewConversation chat={view.chat} moves />}
       </div>
     </div>

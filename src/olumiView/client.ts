@@ -46,6 +46,17 @@ export async function readView(sid: string, opened: Opened = NOTHING_OPENED, at:
   return v as View
 }
 
+/** The blind entry core serves for "Let us give our figure first" (API.md, `GET …/figure-first`): every word core's, no figure of Olumi's. */
+export type FigureFirstEntry = {
+  quantity: string; label: string; unit: string; version: number; heading: string; question: string; ask: string; note: string
+  feeds: { id: string; label: string; kind: 'figure' | 'aim' | 'limit' }[]; feeds_text: string | null; show: string
+}
+/** What "Show me Olumi's figure instead" answers (API.md, `POST …/figure-first/show`): Olumi's figure in its card's words, and its basis. */
+export type FigureFirstShown = {
+  quantity: string; label: string
+  olumi: { text: string; title: string; basis: string; version: number; low: number; high: number; likely: number | null; unit: string }
+}
+
 /**
  * The writes, straight to core's v1 routes on this origin (View API design §2: no adapter). Each carries an op id where core takes one,
  * so a write re-sent after a dropped connection is saved once. After any of them the caller reads the View again.
@@ -57,6 +68,14 @@ export const writes = {
   challenge: (sid: string, kind: string, record: string, op: string) => call<{ proposal: number | null }>('POST', `${scenarioPath(sid)}/challenge`, { kind, record, op }),
   /** What the team came for (core API `POST …/goal`, canon wave step 1): one of the View's `session.goals[].id`, or null to clear. No AI call. */
   goal: (sid: string, goal: string | null, op: string) => call<{ goal: number }>('POST', `${scenarioPath(sid)}/goal`, { goal, op }),
+  /** "Let us give our figure first" (core API `GET …/figure-first`, wave step 4): the blind entry for the figure offered to this person, in
+   *  core's words. It never carries Olumi's figure or its basis; reading it writes nothing. */
+  figureFirstEntry: (sid: string) => call<FigureFirstEntry>('GET', `${scenarioPath(sid)}/figure-first`),
+  /** Their figure, as typed, with their words (`POST …/figure-first`): stored as their own private view of that quantity; no model change. The
+   *  body is exactly the route's (no op: core reads these fields only; a repeat after it was saved is core's 409, and the View then shows it). */
+  figureFirstGive: (sid: string, quantity: string, version: number, text: string, typed: string) => call<{ contribution: number }>('POST', `${scenarioPath(sid)}/figure-first`, { quantity, version, text, typed }),
+  /** "Show me Olumi's figure instead" (`POST …/figure-first/show`): Olumi's figure and basis for the offered quantity; the entry is not offered again. */
+  figureFirstShow: (sid: string, quantity: string, version: number) => call<FigureFirstShown>('POST', `${scenarioPath(sid)}/figure-first/show`, { quantity, version }),
   /** One plain question from the View's `session.methods` (core API `POST …/method`): a discussion-only turn, never a change to the model. */
   method: (sid: string, method: string, op: string) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/method`, { method, op }),
   /**

@@ -491,3 +491,64 @@ export function sessionOf(view: View): Session | null {
   if (goals.length !== raw.goals.length || methods.length !== raw.methods.length) return null
   return { goal, set_by: typeof raw.set_by === 'string' ? raw.set_by : null, goals, methods }
 }
+
+// ── "Let us give our figure first" (olumi.view/3 `session.figure_first`, core src/app/figure-first.ts; ViewFigureFirst.tsx draws it) ──
+type Words = { text: string; title: string }
+export type FigureFirstGiven = {
+  label: string
+  theirs: Words & ({ value: number } | { low: number; high: number })
+  olumi: Words & { basis: string; low: number; high: number; likely: number | null }
+  seen_before: { text: string }
+  adopted: { text: string } | null
+  note: string
+}
+export type FigureFirstHeadings = { theirs: string; olumi: string; basis: string; seen: string; adopted: string }
+export type FigureFirst = { offer: { quantity: string; label: string; text: string } | null; given: FigureFirstGiven | null; headings: FigureFirstHeadings }
+const str = (x: unknown): x is string => typeof x === 'string'
+const num = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
+/**
+ * The View's `session.figure_first` for this viewer, read by shape before the schema is vendored (as sessionOf): the offer, the figure they
+ * gave beside Olumi's, and core's headings. Only the words are drawn; the numbers place the two figures on one axis (figureAxisOf) and are
+ * never written out. A View without it, or with a part this page cannot read, draws none of it (null).
+ */
+export function figureFirstOf(view: View): FigureFirst | null {
+  const raw = ((view as { session?: { figure_first?: unknown } }).session?.figure_first ?? null) as Record<string, unknown> | null
+  if (raw === null || typeof raw !== 'object') return null
+  const h = raw['headings'] as Record<string, unknown> | null | undefined
+  if (!h || !str(h['theirs']) || !str(h['olumi']) || !str(h['basis']) || !str(h['seen']) || !str(h['adopted'])) return null
+  const headings: FigureFirstHeadings = { theirs: h['theirs'], olumi: h['olumi'], basis: h['basis'], seen: h['seen'], adopted: h['adopted'] }
+  const o = raw['offer'] as Record<string, unknown> | null | undefined
+  const offer = o == null ? null : str(o['quantity']) && str(o['label']) && str(o['text']) ? { quantity: o['quantity'], label: o['label'], text: o['text'] } : undefined
+  const g = raw['given'] as Record<string, unknown> | null | undefined
+  let given: FigureFirstGiven | null | undefined = null
+  if (g != null) {
+    const t = g['theirs'] as Record<string, unknown> | undefined, ol = g['olumi'] as Record<string, unknown> | undefined
+    const seen = g['seen_before'] as Record<string, unknown> | undefined, ad = g['adopted'] as Record<string, unknown> | null | undefined
+    const theirs = t && str(t['text']) && str(t['title'])
+      ? num(t['value']) ? { text: t['text'], title: t['title'], value: t['value'] } : num(t['low']) && num(t['high']) ? { text: t['text'], title: t['title'], low: t['low'], high: t['high'] } : null
+      : null
+    const olumi = ol && str(ol['text']) && str(ol['title']) && str(ol['basis']) && num(ol['low']) && num(ol['high'])
+      ? { text: ol['text'], title: ol['title'], basis: ol['basis'], low: ol['low'], high: ol['high'], likely: num(ol['likely']) ? ol['likely'] : null } : null
+    const adopted = ad == null ? null : str(ad['text']) ? { text: ad['text'] } : undefined
+    given = theirs && olumi && seen && str(seen['text']) && str(g['label']) && str(g['note']) && adopted !== undefined
+      ? { label: g['label'], theirs, olumi, seen_before: { text: seen['text'] }, adopted, note: g['note'] } : undefined
+  }
+  if (offer === undefined || given === undefined) return null
+  return { offer, given, headings }
+}
+
+/** Where a figure sits on the side by side's one axis, in % of its width: a range from–to, or one value (from = to). */
+export type AxisSpan = { from: number; to: number }
+/**
+ * Both figures on ONE shared axis (geometry only, nothing written out): the axis runs from the lowest end either figure gives to the highest,
+ * with a little room each side, so each is placed exactly where its own numbers put it. No distance or overlap is worked out or shown.
+ */
+export function figureAxisOf(given: Pick<FigureFirstGiven, 'theirs' | 'olumi'>): { theirs: AxisSpan; olumi: AxisSpan; likely: number | null } {
+  const t = given.theirs, o = given.olumi
+  const [tl, th] = 'value' in t ? [t.value, t.value] : [t.low, t.high]
+  const lo = Math.min(tl, o.low), hi = Math.max(th, o.high)
+  if (!(hi > lo)) return { theirs: { from: 50, to: 50 }, olumi: { from: 50, to: 50 }, likely: o.likely === null ? null : 50 }
+  const room = (hi - lo) * 0.08, a = lo - room, span = hi - lo + 2 * room
+  const at = (v: number) => ((v - a) / span) * 100
+  return { theirs: { from: at(tl), to: at(th) }, olumi: { from: at(o.low), to: at(o.high) }, likely: o.likely === null ? null : at(o.likely) }
+}
