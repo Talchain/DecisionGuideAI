@@ -9,8 +9,9 @@
  */
 import { Fragment, type ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
-import type { ViewCard, ViewModel, ViewRow, ViewRun } from './client'
-import { comparedGroupsOf, markedOptions, optionCards, worthLinesOf } from './layout'
+import type { ViewCard, ViewModel, ViewRow, ViewRun, ViewTurn } from './client'
+import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, optionCards, worthLinesOf } from './layout'
+import { MoveTap, Words } from './ViewChat'
 import { currentModel, useViewStore } from './store'
 import { clearWhatIf, useWhatIf } from './whatif'
 import { typography } from '../styles/typography'
@@ -200,24 +201,40 @@ export function OptionLines({ card, after, children, model }: { card: ViewCard; 
   )
 }
 
+type Science = NonNullable<ViewRun['science']>[number]
+
+/** One worth line: its mark when it rests on Olumi's proposals, the line in core's words, the Run's whole reason on hover. */
+function WorthLine({ l, i, tab }: { l: Science; i: number; tab?: OutputTab }) {
+  return (
+    <div title={l.hover} data-view-fact={l.id}>
+      {l.olumi === null ? null : <><span title={l.olumi.title} aria-label={l.olumi.title} data-view={`run.science.${i}.olumi.glyph`}>{l.olumi.glyph}</span> </>}
+      <span data-view={`run.science.${i}.line`}>{l.line}</span>
+      {l.figure?.mark == null ? null : <> <span title={l.figure.mark.title} aria-label={l.figure.mark.title} data-view={`run.science.${i}.figure.mark.glyph`}>{l.figure.mark.glyph}</span></>}
+      {l.figure?.give == null ? null : <> <FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} tab={tab} /></>}
+    </div>
+  )
+}
+
 /**
  * Each aim's figure most worth checking first (D3), as core's page draws it: its mark when it rests on Olumi's proposals, the line in core's
  * words, the Run's whole reason on hover (olumi.view/3 model.run.science; PL review 4 Nov). `tab`: where a try from its ✎ is drawn.
+ * `shown` (the Analysis tab's "Behind this result"): the first lines shown, the rest behind "+N more", each at its own View path; its
+ * heading then reads as a sub-heading of that box.
  */
-export function Worth({ run, tab }: { run: ViewRun | null; tab?: OutputTab }) {
+export function Worth({ run, tab, shown }: { run: ViewRun | null; tab?: OutputTab; shown?: number }) {
   // Only the science kinds this page knows; any other kind is drawn as nothing, never as a worth line (core's D2 adds kinds).
   const worth = run?.science == null ? [] : worthLinesOf(run.science)
+  const split = firstFew(worth, shown ?? worth.length)
   return worth.length === 0 ? null : (
-    <div data-testid="view-run-worth" aria-label="Worth checking first">
-      <p className={typography.panelHeader}>Worth checking first</p>
-      {worth.map(({ line: l, i }) => (
-        <div key={l.id} title={l.hover} data-view-fact={l.id}>
-          {l.olumi === null ? null : <><span title={l.olumi.title} aria-label={l.olumi.title} data-view={`run.science.${i}.olumi.glyph`}>{l.olumi.glyph}</span> </>}
-          <span data-view={`run.science.${i}.line`}>{l.line}</span>
-          {l.figure?.mark == null ? null : <> <span title={l.figure.mark.title} aria-label={l.figure.mark.title} data-view={`run.science.${i}.figure.mark.glyph`}>{l.figure.mark.glyph}</span></>}
-          {l.figure?.give == null ? null : <> <FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} tab={tab} /></>}
-        </div>
-      ))}
+    <div data-testid="view-run-worth" aria-label="Worth checking first" className="space-y-1">
+      <p className={shown === undefined ? typography.panelHeader : `${typography.panelMeta} text-text-light`}>Worth checking first</p>
+      {split.shown.map(({ line: l, i }) => <WorthLine key={l.id} l={l} i={i} tab={tab} />)}
+      {split.more.length === 0 ? null : (
+        <details data-testid="view-run-worth-more" className="space-y-1">
+          <summary className={`${typography.panelMeta} cursor-pointer text-info`}>{`+${split.more.length} more`}</summary>
+          {split.more.map(({ line: l, i }) => <WorthLine key={l.id} l={l} i={i} tab={tab} />)}
+        </details>
+      )}
     </div>
   )
 }
@@ -246,6 +263,26 @@ export function Compared({ run }: { run: ViewRun | null }) {
   )
 }
 
+/** A section box of the Analysis tab (the previous PoC's cards): the panel surface, a full opacity border, never a single side. */
+const BOX = 'space-y-2 rounded-lg border border-panel-border bg-panel p-3'
+
+/**
+ * The coach's newest next step (`chat[].answer.next`, newest), as the previous PoC's "Suggested next step" card (paul-funding-09): core's
+ * label and words verbatim at their View paths, and the conversation's own move tap as the arrow (never an act of this page's own).
+ */
+function SuggestedNext({ chat }: { chat: readonly ViewTurn[] | null }) {
+  const n = newestNextOf(chat)
+  return n === null ? null : (
+    <section className={BOX} data-testid="view-run-next-step" aria-label="Suggested next step">
+      <p className={`${typography.panelMeta} text-text-light`}>Suggested next step</p>
+      <div className="flex items-start gap-2">
+        <p className="min-w-0 flex-1"><span className="font-medium" data-view={`chat.${n.k}.answer.next.label`}>{n.next.label}</span> <Words parts={n.next.text} at={`chat.${n.k}.answer.next.text`} first={n.first} /></p>
+        <MoveTap turn={n.turn.id} next={n.next} arrow />
+      </div>
+    </section>
+  )
+}
+
 /**
  * The lines for one View model: pure, so a test draws it from a golden View. As the base dock (ViewOnlyRunChancesBlock): the Run's lead,
  * then, when every option waits (`all_withheld`), the waits-on headline; a reason every option shares (`shared_blockers`), said once
@@ -253,32 +290,45 @@ export function Compared({ run }: { run: ViewRun | null }) {
  * its chance most; the
  * most likely option; the notes; and, when not every option waits, what the chances wait on. Every word is the View's.
  */
-export function ViewChances({ model }: { model: ViewModel }) {
+export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: readonly ViewTurn[] | null }) {
   const run = model.run ?? null // absent from a core before view-dock (00058 P1)
   const headline = run !== null && run.all_withheld && run.waits_on !== null
+  const worth = run?.science == null ? 0 : worthLinesOf(run.science).length
+  // The previous PoC's boxed sections (Paul, 6 Nov; vision-audit-20261024 cafe-09-panel-analysis.png): the chances first, the headline
+  // (DL #87); then "Behind this result"; then the notes behind a closed disclosure. Each option's driver stays under its own option
+  // (contract.spec: "drawn under that option"), with what its two chances are said once above the options.
   return (
     <div className={`${typography.panelBody} space-y-3`} data-testid="view-chances">
       <WhatIfShown model={model} />
-      {run?.lead == null ? null : <p data-view="run.lead">{run.lead}</p>}
-      {!headline ? null : (
-        <div data-testid="view-run-waits-headline">
-          <p className={typography.panelMeta} data-view="run.waits_on.head">{run.waits_on!.head}</p>
-          <p><span data-view="run.waits_on.text">{run.waits_on!.text}</span>{': '}<WaitsOnItems w={run.waits_on!} unknown /></p>
-        </div>
+      <section className={BOX} data-testid="view-run-headline" aria-label="Each option's chance">
+        {run?.lead == null ? null : <p className={typography.panelHeader} data-view="run.lead">{run.lead}</p>}
+        {!headline ? null : (
+          <div data-testid="view-run-waits-headline">
+            <p className={typography.panelMeta} data-view="run.waits_on.head">{run.waits_on!.head}</p>
+            <p><span data-view="run.waits_on.text">{run.waits_on!.text}</span>{': '}<WaitsOnItems w={run.waits_on!} unknown /></p>
+          </div>
+        )}
+        <SharedBlockers run={run} />
+        <Sensitivity model={model} />
+        {/* Each chance's definition is core's row hover (its title), never body text (Paul's look check, R5 defect 2). */}
+        <div className="space-y-3">{optionCards(model).map((card) => <OptionLines key={card.id} card={card} model={model} />)}</div>
+        {run?.most_likely == null ? null : <MostLikely model={model} ml={run.most_likely} />}
+        {run === null || run.waits_on === null || headline ? null : (
+          <p data-testid="view-run-waits-on"><span data-view="run.waits_on.label">{run.waits_on.label}</span>{' '}<WaitsOnItems w={run.waits_on} unknown={false} /></p>
+        )}
+      </section>
+      <SuggestedNext chat={chat} />
+      {worth === 0 ? null : (
+        <section className={BOX} data-testid="view-run-behind" aria-label="Behind this result">
+          <p className={typography.panelHeader}>Behind this result</p>
+          <Worth run={run} shown={BEHIND_SHOWN} />
+        </section>
       )}
-      <SharedBlockers run={run} />
-      <Sensitivity model={model} />
-      {/* Each chance's definition is core's row hover (its title), never body text (Paul's look check, R5 defect 2). */}
-      {optionCards(model).map((card) => <OptionLines key={card.id} card={card} model={model} />)}
-      {run?.most_likely == null ? null : <MostLikely model={model} ml={run.most_likely} />}
-      <Worth run={run} />
       {run === null || run.notes.length === 0 ? null : (
-        <div data-testid="view-run-notes">
+        <details className={BOX} data-testid="view-run-notes">
+          <summary className={`${typography.panelMeta} cursor-pointer text-info`}>About these numbers</summary>
           {run.notes.map((n, i) => <p key={i} className={typography.panelMeta} title={n.title} data-view={`run.notes.${i}.text`}>{n.text}</p>)}
-        </div>
-      )}
-      {run === null || run.waits_on === null || headline ? null : (
-        <p data-testid="view-run-waits-on"><span data-view="run.waits_on.label">{run.waits_on.label}</span>{' '}<WaitsOnItems w={run.waits_on} unknown={false} /></p>
+        </details>
       )}
     </div>
   )
@@ -286,6 +336,6 @@ export function ViewChances({ model }: { model: ViewModel }) {
 
 /** The block on the olumi-core lane: the page's View of the approved model, or nothing while none is current (`currentModel`). */
 export function ViewChancesBlock() {
-  const model = useViewStore(currentModel)
-  return model === null ? null : <ViewChances model={model} />
+  const model = useViewStore(currentModel), chat = useViewStore((s) => s.view?.chat ?? null)
+  return model === null ? null : <ViewChances model={model} chat={chat} />
 }

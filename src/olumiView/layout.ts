@@ -5,7 +5,7 @@
  */
 import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../canvas/domain/vocabulary'
 import type { Edge, Node } from '@xyflow/react'
-import type { View, ViewCard, ViewModel, ViewRow, ViewRun } from './client'
+import type { View, ViewCard, ViewModel, ViewRow, ViewRun, ViewTurn } from './client'
 import { COMPARED_KINDS, comparedHeadingOf, groupOf, type ComparedGroup, type ComparedLine } from './compared'
 import { layoutGraph } from '../canvas/utils/layout'
 import { wrapTiers } from '../canvas/utils/wrapTiers'
@@ -382,3 +382,18 @@ export function premisesOnce(model: ViewModel): { premises: { card: ViewCard; p:
 }
 /** The options whose chance carries core's two driver chances (`driver.low` / `driver.high`, finite): the ones drawn as a marker. */
 export const markedOptions = (model: ViewModel): ViewCard[] => optionCards(model).filter((c) => c.driver != null && c.driver.low !== null && c.driver.high !== null && Number.isFinite(c.driver.low) && Number.isFinite(c.driver.high))
+
+// ── The Analysis tab's sections (Paul, 6 Nov: the previous PoC's boxed sections; ViewChances.tsx draws them, picking is done only here) ──
+/** How many worth lines "Behind this result" shows before "+N more" holds the rest (the previous PoC's "+3 more"). */
+export const BEHIND_SHOWN = 2
+/** A list split at `n`: the first `n` shown, the rest behind a disclosure, each keeping its place and its View path. */
+export const firstFew = <T>(items: readonly T[], n: number): { shown: T[]; more: T[] } => ({ shown: items.slice(0, n), more: items.slice(n) })
+/** The coach's newest next step (olumi.view/3 `chat[].answer.next`, the one core marks `newest`), with its turn's place (its View path,
+ *  `chat.<k>`) and its first cite number as the conversation numbers it (after the reply's answer and Why lines); null when none. */
+export function newestNextOf(chat: readonly ViewTurn[] | null | undefined): { turn: ViewTurn; k: number; next: NonNullable<ViewTurn['answer']>['next']; first: number } | null {
+  const k = (chat ?? []).findIndex((t) => t.answer?.next.newest === true)
+  if (k < 0) return null
+  const turn = chat![k]!, a = turn.answer!
+  const cites = [a.answer, ...a.why].flatMap((parts) => parts.flatMap((p) => ('cite' in p ? [p] : []))).length
+  return { turn, k, next: a.next, first: 1 + cites }
+}
