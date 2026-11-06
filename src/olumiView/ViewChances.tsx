@@ -10,7 +10,7 @@
 import { Fragment, type ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow, ViewRun, ViewTurn } from './client'
-import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, optionCards, SHARPEN_SHOWN, sharpenKindOf, sharpenRowsOf, worthLinesOf, type SharpenRow } from './layout'
+import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, optionCards, SHARPEN_SHOWN, sharpenKindOf, sharpenRowsOf, tippingOf, worthLinesOf, type SharpenRow } from './layout'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { MoveTap, Words } from './ViewChat'
 import { currentModel, useViewStore } from './store'
@@ -289,6 +289,25 @@ function SuggestedNext({ chat }: { chat: readonly ViewTurn[] | null }) {
 }
 
 /**
+ * D6, what would have to be true (olumi.view/3 `model.run.tipping`, tipping.ts): each line core's own under core's own heading
+ * (`tipping_heading`), its hover the Run's text, Olumi's mark when core gives one. Never among the "Behind this result" lines.
+ */
+export function Tipping({ run }: { run: ViewRun | null }) {
+  const t = tippingOf(run)
+  return t === null ? null : (
+    <section className={BOX} data-testid="view-run-tipping" aria-label={t.heading}>
+      <p className={typography.panelHeader} data-view="run.tipping_heading">{t.heading}</p>
+      {t.lines.map(({ line: l, i }) => (
+        <p key={l.id} title={l.hover} data-view-fact={l.id}>
+          {l.olumi == null ? null : <><span title={l.olumi.title} aria-label={l.olumi.title}>{l.olumi.glyph}</span> </>}
+          <span data-view={`run.tipping.${i}.line`}>{l.line}</span>
+        </p>
+      ))}
+    </section>
+  )
+}
+
+/**
  * The lines for one View model: pure, so a test draws it from a golden View. As the base dock (ViewOnlyRunChancesBlock): the Run's lead,
  * then, when every option waits (`all_withheld`), the waits-on headline; a reason every option shares (`shared_blockers`), said once
  * above the options as core's page says it, since each covered card carries only the mark; each option with its lines and what moves
@@ -323,6 +342,7 @@ export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: r
         )}
       </section>
       <SuggestedNext chat={chat} />
+      <Tipping run={run} />
       {worth === 0 ? null : (
         <section className={BOX} data-testid="view-run-behind" aria-label="Behind this result">
           <p className={typography.panelHeader}>Behind this result</p>

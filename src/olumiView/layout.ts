@@ -6,6 +6,7 @@
 import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../canvas/domain/vocabulary'
 import type { Edge, Node } from '@xyflow/react'
 import type { View, ViewCard, ViewModel, ViewRow, ViewRun, ViewTurn } from './client'
+import { nonEmpty, type TippingLine } from './tipping'
 import { COMPARED_KINDS, comparedHeadingOf, groupOf, type ComparedGroup, type ComparedLine } from './compared'
 import { layoutGraph } from '../canvas/utils/layout'
 import { wrapTiers } from '../canvas/utils/wrapTiers'
@@ -385,6 +386,14 @@ export function comparedGroupsOf(run: ViewRun | null): { group: ComparedGroup; h
     if (at) at.lines.push(x); else out.push({ group: g, heading, lines: [x] })
   }
   return out
+}
+
+/** The Run's D6 lines under core's own heading (`run.tipping`, `run.tipping_heading`; tipping.ts), each with its place in the array (its View path); null when core sends no heading or no line. */
+export function tippingOf(run: ViewRun | null): { heading: string; lines: { line: TippingLine; i: number }[] } | null {
+  const r = run as { tipping?: unknown; tipping_heading?: unknown } | null
+  if (r === null || !Array.isArray(r.tipping) || !nonEmpty(r.tipping_heading)) return null
+  const lines = (r.tipping as TippingLine[]).map((line, i) => ({ line, i })).filter(({ line }) => nonEmpty(line?.line))
+  return lines.length === 0 ? null : { heading: r.tipping_heading, lines }
 }
 
 // ── The Reasoning tab's picks (Paul, 6 Nov: the previous PoC's sections; ViewReasoning.tsx draws them, picking is done only here) ──

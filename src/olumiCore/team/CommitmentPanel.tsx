@@ -8,8 +8,10 @@ import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from './wri
 import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
 import { dissentWords } from './DissentPanel'
 import { currentModel, useViewStore } from '../../olumiView/store'
+import { savedTriggerOf } from '../../olumiView/tipping'
+import { suggestedTriggersFor } from './triggers'
 
-interface CommitmentDraft { open: boolean; action: string; owner: string; expect: string; reconsider: string; keeps: string[]; option?: string; reviewOn?: string }
+interface CommitmentDraft { open: boolean; action: string; owner: string; expect: string; reconsider: string; keeps: string[]; option?: string; reviewOn?: string; trigger?: string }
 const EMPTY: CommitmentDraft = { open: false, action: '', owner: '', expect: '', reconsider: '', keeps: [], option: '', reviewOn: '' }
 
 /**
@@ -36,6 +38,10 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
   // Only dissent the approved model still records: a kept id core no longer holds is dropped, never sent.
   const keeps = (d.keeps ?? []).filter((id) => c.dissent.some((x) => x.id === id))
   const labelOf = (id: string) => view.collab.records.find((r) => r.id === id)?.label ?? null
+  // Olumi's suggested trigger (D6) for the option chosen: optional, and sent only when the person took it. A taken one core no longer
+  // suggests for this option (the model moved, another option chosen) is dropped, never sent.
+  const suggestions = suggestedTriggersFor(c, chosen?.id ?? null)
+  const taken = suggestions.find((t) => t.fact === d.trigger) ?? null
   const put = (p: Partial<CommitmentDraft>) => setD((x) => ({ ...x, ...p }))
   const [mine, setBusy] = useState(false)
   const sending = useWriteSending(`${sid}:commitment`)
@@ -49,7 +55,7 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
     if (!ready || locked) return
     setBusy(true); setError(null)
     try {
-      await runWrite(`${sid}:commitment`, { op: false }, null, () => teamApi.addCommitment(sid, { action, owner, expect, reconsider, keeps, option: chosen?.id ?? null, version: view.version?.n ?? null, review_on: reviewOn === '' ? null : reviewOn }))
+      await runWrite(`${sid}:commitment`, { op: false }, null, () => teamApi.addCommitment(sid, { action, owner, expect, reconsider, keeps, option: chosen?.id ?? null, version: view.version?.n ?? null, review_on: reviewOn === '' ? null : reviewOn, trigger: taken === null ? null : taken.fact }))
       dropDraft()
       await onWrote()
     } catch (e) {
@@ -72,6 +78,13 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
               <div><dt className={META}>What would make us reconsider</dt><dd className={`${BODY} m-0 whitespace-pre-wrap break-words`}>{k.reconsider}</dd></div>
               {k.expect_band != null && <div data-testid={`team-commitment-band-${k.id}`}><dt className={META}>The model's band for it then</dt><dd className={`${BODY} m-0`}>{k.expect_band.text}</dd></div>}
             </dl>
+            {savedTriggerOf(k) !== null && (
+              <div data-testid={`team-commitment-trigger-${k.id}`}>
+                <p className={META}>Trigger Olumi suggested, taken</p>
+                <p className={`${BODY} break-words`}>{savedTriggerOf(k)!.text}</p>
+                {savedTriggerOf(k)!.stale !== null && <p className={`${BODY} break-words text-danger`} role="status" data-testid={`team-commitment-trigger-stale-${k.id}`}>{savedTriggerOf(k)!.stale!.text}</p>}
+              </div>
+            )}
             {k.keeps.map(labelOf).some((l) => l !== null) && <p className={META} data-testid={`team-commitment-keeps-${k.id}`}>Keeps open: {k.keeps.map(labelOf).filter((l): l is string => l !== null).join('; ')}</p>}
             {/* Each kept dissent's tell, in its holder's own words (board 20). */}
             {c.dissent.filter((x) => k.keeps.includes(x.id) && x.confirmed?.tell != null).map((x) => (
@@ -113,6 +126,21 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
           )}
           <label htmlFor="team-c-reconsider" className={LABEL}>What would make us reconsider</label>
           <textarea id="team-c-reconsider" data-testid="team-c-reconsider" className={`${FIELD} min-h-[56px]`} value={reconsider} disabled={busy} onChange={(e) => put({ reconsider: e.target.value })} />
+          {suggestions.length > 0 && (
+            <div className="grid gap-1" data-testid="team-c-triggers">
+              <p className={META}>Olumi suggests a trigger. Take it only if it fits.</p>
+              {suggestions.map((t) => {
+                const on = taken?.fact === t.fact
+                return (
+                  <button key={t.fact} type="button" aria-pressed={on} data-testid={`team-c-trigger-${t.fact}`} disabled={busy}
+                    onClick={() => put({ trigger: on ? '' : t.fact })}
+                    className={`${BODY} flex min-h-[28px] items-start gap-2 rounded-md border px-2 py-1 text-left break-words ${on ? 'border-info bg-info/10' : 'border-panel-border bg-panel'}`}>
+                    <span aria-hidden="true" className="flex-none">{on ? '✓' : '+'}</span><span>{t.text}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
           <label htmlFor="team-c-review-on" className={LABEL}>When to review it (optional)</label>
           <input id="team-c-review-on" type="date" data-testid="team-c-review-on" className={FIELD} value={reviewOn} disabled={busy} onChange={(e) => put({ reviewOn: e.target.value })} />
           {c.dissent.length > 0 && (
