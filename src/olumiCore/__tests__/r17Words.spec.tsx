@@ -39,6 +39,10 @@ describe('per-person effect rows read "<label>: <value>" and do not repeat what 
     show(viewOf([paul, bea]))
     expect(screen.getByTestId('team-differ')).toBeTruthy()
     expect(document.querySelectorAll(`[data-testid="team-revealed-${paul.id}-effects"] [data-effect-status]`)).toHaveLength(0)
+    // nor the leader rows the lanes already carry; the move (not in a lane) stays
+    const rowsOf = `[data-testid="team-revealed-${paul.id}-effects"]`
+    expect(document.querySelectorAll(`${rowsOf} [data-effect-leader], ${rowsOf} [data-effect-model-leader], ${rowsOf} [data-effect-no-leader]`)).toHaveLength(0)
+    expect(document.querySelectorAll(`${rowsOf} [data-effect-most]`).length).toBeGreaterThan(0)
     cleanup()
     show(viewOf([paul]))
     expect(screen.queryByTestId('team-differ')).toBeNull()

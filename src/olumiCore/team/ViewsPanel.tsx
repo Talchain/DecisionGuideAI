@@ -35,8 +35,10 @@ function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX.Elemen
  */
 function Effects({ at, view, by: by_id, figures, effects, headings }: { at: string; view: View; by: string; figures: Figure[]; effects: readonly ViewEffect[]; headings: EffectHeadings | null }): JSX.Element | null {
   if (effects.length === 0 || headings === null) return null
-  // A figure the "Where you differ" picture already places shows its status there (the mark and the legend): not said again here.
+  // A figure the "Where you differ" picture already places shows there its status (the mark and the legend), its most-likely option (its lane)
+  // and the model's (once per aim): none of these is said again in its row.
   const placed = differPlaced(view)
+  const inLane = (q: string) => placed?.has(`${by_id}:${q}`) === true
   const card = (id: string | null) => (id === null ? null : view.model?.cards.find((c) => c.id === id)?.heading ?? null)
   const figure = (q: string) => figures.find((f) => f.quantity === q)?.label ?? card(q)
   const Option = ({ id }: { id: string | null }) => { const h = card(id); return h === null ? null : <span className="text-text-header" data-effect-option="">{h}</span> }
@@ -51,13 +53,13 @@ function Effects({ at, view, by: by_id, figures, effects, headings }: { at: stri
             <span className="text-text-header" data-effect-figure="">{figure(e.quantity)}</span>
             {'refused' in e ? null : <><span aria-hidden="true"> · </span><span data-effect-aim="">{card(e.goal)}</span></>}
           </p>
-          {'refused' in e || placed?.has(`${by_id}:${e.quantity}`) !== true ? <p className="text-text-header" data-effect-status="">{'refused' in e ? headings.refused : headings[e.status]}</p> : null}
+          {'refused' in e || !inLane(e.quantity) ? <p className="text-text-header" data-effect-status="">{'refused' in e ? headings.refused : headings[e.status]}</p> : null}
           {'refused' in e ? null : (
             <>
-              <Labelled label={headings.leader} at="data-effect-leader">{card(e.leader) === null ? null : <Option id={e.leader} />}</Labelled>
-              {e.leader === null && e.status === 'changes' && headings.no_leader !== undefined ? <p data-effect-no-leader="">{headings.no_leader}</p> : null}
-              <Labelled label={headings.model_leader} at="data-effect-model-leader">{card(e.model_leader) === null ? null : <Option id={e.model_leader} />}</Labelled>
-              {e.model_leader === null && e.status === 'changes' && headings.no_model_leader !== undefined ? <p data-effect-no-model-leader="">{headings.no_model_leader}</p> : null}
+              <Labelled label={headings.leader} at="data-effect-leader">{inLane(e.quantity) || card(e.leader) === null ? null : <Option id={e.leader} />}</Labelled>
+              {!inLane(e.quantity) && e.leader === null && e.status === 'changes' && headings.no_leader !== undefined ? <p data-effect-no-leader="">{headings.no_leader}</p> : null}
+              <Labelled label={headings.model_leader} at="data-effect-model-leader">{inLane(e.quantity) || card(e.model_leader) === null ? null : <Option id={e.model_leader} />}</Labelled>
+              {!inLane(e.quantity) && e.model_leader === null && e.status === 'changes' && headings.no_model_leader !== undefined ? <p data-effect-no-model-leader="">{headings.no_model_leader}</p> : null}
               <Labelled label={headings.most} at="data-effect-most">{card(e.most) === null || (e.gap_text ?? null) === null ? null : <><Option id={e.most} /> <span data-effect-gap="">{e.gap_text}</span></>}</Labelled>
               <Labelled label={headings.if_absent} at="data-effect-if-absent">{e.if_absent.length === 0 ? null : e.if_absent.flatMap((id) => { const h = card(id); return h === null ? [] : [h] }).join(', ')}</Labelled>
             </>
