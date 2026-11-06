@@ -55,6 +55,10 @@ export const writes = {
   create: (brief: string, op: string) => call<{ scenario: string; proposal: number | null }>('POST', '/api/scenarios', { brief, op }),
   message: (sid: string, text: string, op: string) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/messages`, { text, op }),
   challenge: (sid: string, kind: string, record: string, op: string) => call<{ proposal: number | null }>('POST', `${scenarioPath(sid)}/challenge`, { kind, record, op }),
+  /** What the team came for (core API `POST …/goal`, canon wave step 1): one of the View's `session.goals[].id`, or null to clear. No AI call. */
+  goal: (sid: string, goal: string | null, op: string) => call<{ goal: number }>('POST', `${scenarioPath(sid)}/goal`, { goal, op }),
+  /** One plain question from the View's `session.methods` (core API `POST …/method`): a discussion-only turn, never a change to the model. */
+  method: (sid: string, method: string, op: string) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/method`, { method, op }),
   /**
    * The coach's next move, taken in one tap: a structured choice, never words (DL 16:36Z, option b). Core's route (API v1.12, "Taking the
    * offered coaching move by one tap", 400b672, in the View vendored at d1fe5e2): `{ move, at, op? }` with no `text`; the person's turn is

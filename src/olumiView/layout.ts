@@ -462,3 +462,32 @@ export function sharpenRowsOf(model: ViewModel): { row: SharpenRow; i: number }[
 }
 /** The canvas family a prompt is about, for its mark: a risk prompt is about risks, every other one about the options. */
 export const sharpenKindOf = (id: string): 'risk' | 'option' => (id === 'risk_count' ? 'risk' : 'option')
+
+// ── The session goal and the menu of plain questions (olumi.view/3 `session`, core src/app/session.ts; ViewChat.tsx draws them) ──
+/** One goal or one question as core words it: its id (what a press sends) and its text (what is drawn, verbatim). */
+export type SessionItem = { id: string; text: string }
+export type SessionMethod = SessionItem & { first: boolean }
+export type Session = { goal: SessionItem | null; set_by: string | null; goals: SessionItem[]; methods: SessionMethod[] }
+const itemOf = (x: unknown): SessionItem | null => {
+  const r = x as Partial<SessionItem> | null
+  return r !== null && typeof r === 'object' && typeof r.id === 'string' && typeof r.text === 'string' ? { id: r.id, text: r.text } : null
+}
+/**
+ * The View's session block exactly as core sent it: the goals and the questions in core's order, none dropped (an order, never a filter:
+ * `first` is only an emphasis). Read before the schema is vendored, as compared.ts and sharpenRowsOf read theirs, by shape only, never
+ * against a list of ids of the page's own. A View without the block, or with any entry this page cannot read, draws none of it (null):
+ * a menu with a question silently missing would say every question is there when one is not.
+ */
+export function sessionOf(view: View): Session | null {
+  const raw = (view as { session?: unknown }).session as { goal?: unknown; set_by?: unknown; goals?: unknown; methods?: unknown } | null | undefined
+  if (raw === null || typeof raw !== 'object' || !Array.isArray(raw.goals) || !Array.isArray(raw.methods)) return null
+  const goal = raw.goal === null ? null : itemOf(raw.goal)
+  if (raw.goal !== null && goal === null) return null
+  const goals = raw.goals.flatMap((g: unknown) => { const i = itemOf(g); return i === null ? [] : [i] })
+  const methods = raw.methods.flatMap((m: unknown) => {
+    const i = itemOf(m), first = (m as { first?: unknown } | null)?.first
+    return i === null || typeof first !== 'boolean' ? [] : [{ ...i, first }]
+  })
+  if (goals.length !== raw.goals.length || methods.length !== raw.methods.length) return null
+  return { goal, set_by: typeof raw.set_by === 'string' ? raw.set_by : null, goals, methods }
+}

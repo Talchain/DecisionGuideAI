@@ -15,7 +15,7 @@ import { newOp, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
 import { writes, type View, type ViewTurn } from './client'
 import { useViewStore } from './store'
-import { olumiKey } from './layout'
+import { olumiKey, sessionOf, type Session } from './layout'
 import { derivedUuidOf } from '../olumiCore/team/sid'
 import { useCanvasStore } from '../canvas/store'
 import { setCurrentScenarioId } from '../canvas/store/scenarios'
@@ -31,7 +31,7 @@ import { ringCards } from './ring'
 import { Button } from '../components/ui/Button'
 import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
-import { ArrowRight, ArrowUp, FlipVertical2, Globe, History, RefreshCw, SearchX, Zap } from 'lucide-react'
+import { ArrowRight, ArrowUp, FlipVertical2, Globe, History, MessageCircleQuestion, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
 import Tooltip from '../components/Tooltip'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
@@ -381,6 +381,27 @@ async function challenge(kind: string, record: string, text: string, at = { sid:
   return sent
 }
 
+/**
+ * What the team came for (core `POST …/goal`, canon wave step 1): one of the View's goal ids, or null to clear it. No AI call and no change
+ * to the model; core orders the menu by it. One write at a time, with its op id, then the View read again (its `session` then says it).
+ */
+export async function chooseGoal(goal: string | null): Promise<boolean> {
+  const { sid, uuid } = useViewStore.getState()
+  if (sid === null) return false
+  return write('goal', goal ?? '', (op) => writes.goal(sid, goal, op), false, uuid)
+}
+
+/**
+ * One plain question from the menu (core `POST …/method`): core sends it as a discussion-only turn on the challenges' path, so it never
+ * changes the model or a pending proposal (core's guarantee). Its reply lands as the newest turn when the View is read again, as a
+ * challenge's does. The same press after a dropped connection is sent with the same op id, so core answers (and pays) once.
+ */
+export async function askMethod(method: string): Promise<boolean> {
+  const { sid, uuid } = useViewStore.getState()
+  if (sid === null) return false
+  return write('method', method, (op) => writes.method(sid, method, op), false, uuid)
+}
+
 type Next = NonNullable<ViewTurn['answer']>['next']
 const moveKey = (sid: string, turn: number, move: string) => `${sid}\u0000${turn}\u0000${move}`
 
@@ -531,19 +552,95 @@ function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
   )
 }
 
+/** The question the goal picker asks: the page's own words for core's `session.goals` (canon wave step 1). */
+export const GOAL_QUESTION = 'What did you come here for?'
+
+/**
+ * What the team came for (canon wave step 1; Paul: asked at the start, always changeable). With no goal: one small row of core's goals,
+ * in core's order and words. With one: a compact chip of core's words for it, which reopens the row to change it, and a clear (null).
+ * Who set it is the chip's hover (`set_by`, a member's name). Nothing here touches the model.
+ */
+function SessionGoal({ session, held }: { session: Session; held: boolean }) {
+  const [changing, setChanging] = useState(false)
+  const goal = session.goal
+  const choose = (id: string | null) => { setChanging(false); if (id !== (goal?.id ?? null)) void chooseGoal(id) }
+  if (goal !== null && !changing) {
+    return (
+      <div className="flex" data-testid="view-session-goal">
+        <span className={`inline-flex items-center gap-1 rounded-[14px] border border-field bg-panel pl-2.5 pr-1 ${typography.chatBody}`} data-testid="view-session-goal-chip">
+          <Target className="h-3.5 w-3.5 text-info" aria-hidden="true" />
+          <button type="button" disabled={held} onClick={() => setChanging(true)} title={session.set_by === null ? undefined : `Set by ${session.set_by}`}
+            aria-label={`${GOAL_QUESTION} ${goal.text}. Change it`} data-testid="view-session-goal-change"
+            className="py-1 text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-40">
+            <span data-view="session.goal.text">{goal.text}</span>
+          </button>
+          <button type="button" disabled={held} onClick={() => choose(null)} aria-label={`Clear: ${goal.text}`} title={`Clear: ${goal.text}`} data-testid="view-session-goal-clear"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-40">
+            <X className="h-3 w-3" aria-hidden="true" />
+          </button>
+        </span>
+      </div>
+    )
+  }
+  return (
+    <div role="group" aria-labelledby="view-session-goal-question" className="flex flex-wrap items-center gap-1.5" data-testid="view-session-goal">
+      <span id="view-session-goal-question" className={`${typography.chatMeta} text-text-light`}>{GOAL_QUESTION}</span>
+      {session.goals.map((g, i) => (
+        <button key={g.id} type="button" disabled={held} onClick={() => choose(g.id)} aria-pressed={g.id === goal?.id}
+          className={CHIP_CLASS} data-goal={g.id} data-testid="view-session-goal-option">
+          <span data-view={`session.goals.${i}.text`}>{g.text}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** The menu's name for assistive technology; on screen it is the question glyph (visual indicators, not default text: Paul, 24 Oct). */
+export const MENU_NAME = 'Questions to explore with Olumi'
+/** What the quiet emphasis on a question means, for its hover and for assistive technology. */
+export const FIRST_FOR_GOAL = 'Suits what you came here for'
+
+/**
+ * The menu of plain questions (canon wave step 1; Paul's 18 Sep "Methods you can run", made prominent): every question core sends, in
+ * core's order and words, none hidden; the ones that suit the goal (`first`) carry a quiet emphasis, never a filter. A press asks Olumi
+ * that question as a discussion-only turn; while any turn is in flight the whole menu is held.
+ */
+function MethodMenu({ session, held }: { session: Session; held: boolean }) {
+  return (
+    <div className="rounded-lg border border-panel-border bg-panel p-3" data-testid="view-session-menu">
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={MENU_NAME}>
+        <span className="inline-flex h-6 w-6 flex-none items-center justify-center text-info" title={MENU_NAME} aria-hidden="true"><MessageCircleQuestion className="h-4 w-4" /></span>
+        {session.methods.map((m, i) => (
+          <button key={m.id} type="button" disabled={held} onClick={() => void askMethod(m.id)} title={m.first ? FIRST_FOR_GOAL : undefined}
+            className={`${CHIP_CLASS}${m.first ? ' font-medium' : ''}`} data-method={m.id} data-first={m.first ? '' : undefined} data-testid="view-session-method">
+            {m.first ? <span className="h-1.5 w-1.5 flex-none rounded-full bg-info" aria-hidden="true" data-testid="view-session-method-first" /> : null}
+            <span data-view={`session.methods.${i}.text`}>{m.text}</span>
+            {m.first ? <span className="sr-only"> ({FIRST_FOR_GOAL})</span> : null}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /** The tab on the core lane: the next step, then the conversation, newest first, from the View (the composer is the dock's footer). */
 export function ViewChat() {
   useAnswersAsks()
   const view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
-  const busy = useViewChat((s) => s.busy)
+  const busy = useViewChat((s) => s.busy), past = useViewStore((s) => s.at)
+  // Core's session block (canon wave step 1): what the team came for, then the menu; a View without it draws neither.
+  const session = view === null ? null : sessionOf(view)
+  const held = busy || past !== null
   return (
     <div className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
         {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
         {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
+        {session === null ? null : <SessionGoal session={session} held={held} />}
         {view === null ? null : <NextStepCard view={view} busy={busy} />}
         {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
         <div {...{ [VIEW_NOTE_SLOT]: '' }} />
+        {session === null ? null : <MethodMenu session={session} held={held} />}
         {view === null ? null : <ViewConversation chat={view.chat} moves />}
       </div>
     </div>
