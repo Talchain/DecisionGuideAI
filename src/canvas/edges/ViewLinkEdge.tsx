@@ -8,7 +8,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, useStore, type EdgeProps } from '@xyflow/react'
 import { linkWordsAt } from './linkWordsPlace'
-import { railOf } from './linkRail'
+import { railOf, railSlots } from './linkRail'
 import type { ViewLink } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { linkDrawn } from '../../olumiView/layout'
@@ -32,6 +32,15 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // The cards as React Flow holds them (flow units), and the words' own drawn size: the words sit off every card (linkWordsPlace.ts).
   const nodeLookup = useStore((s) => s.nodeLookup)
   const cards = useMemo(() => [...nodeLookup.values()].map((n) => ({ x: n.internals.positionAbsolute.x, y: n.internals.positionAbsolute.y, w: n.measured.width ?? 0, h: n.measured.height ?? 0 })), [nodeLookup])
+  // R25: a link into a card above its source (an outcome into its aim beside the question) runs round the board (linkRail.ts).
+  const boxOf = (n: string) => { const v = nodeLookup.get(n); return v ? { x: v.internals.positionAbsolute.x, y: v.internals.positionAbsolute.y, w: v.measured.width ?? 0, h: v.measured.height ?? 0 } : null }
+  const from = boxOf(source), to = boxOf(target)
+  // Each rail link has its own rail (PL 7 Nov): the slots of every drawn link into the head row, by their sources across the board.
+  const edges = useStore((s) => s.edges)
+  const slot = useMemo(() => {
+    const ls = edges.flatMap((e) => { const f = boxOf(e.source), t = boxOf(e.target); return f && t ? [{ id: e.id, from: f, to: t }] : [] })
+    return railSlots(ls, cards).get(id) ?? 0
+  }, [edges, cards, id]) // eslint-disable-line react-hooks/exhaustive-deps -- boxOf reads nodeLookup, which `cards` follows
   const wordsRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
   // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal size bails out
@@ -41,10 +50,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // or focused (links are focusable; Enter selects), or a card at either end is hovered or selected, and on a driver link.
   const near = selected || driver || active.has(source) || active.has(target)
   const effect = near ? link.effect ?? null : null
-  // R25: a link into a card above its source (an outcome into its aim beside the question) runs round the board (linkRail.ts).
-  const boxOf = (n: string) => { const v = nodeLookup.get(n); return v ? { x: v.internals.positionAbsolute.x, y: v.internals.positionAbsolute.y, w: v.measured.width ?? 0, h: v.measured.height ?? 0 } : null }
-  const from = boxOf(source), to = boxOf(target)
-  const rail = from && to ? railOf(from, to, cards) : null
+  const rail = from && to ? railOf(from, to, cards, slot) : null
   const [bezier, midX, midY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
   const path = rail?.path ?? bezier
   const { x, y } = rail ?? linkWordsAt(path, cards, size, { x: midX, y: midY })
