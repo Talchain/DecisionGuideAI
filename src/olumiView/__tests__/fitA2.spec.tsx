@@ -38,11 +38,19 @@ describe('family rows', () => {
     for (const id of aims) expect(p.get(id)!.y, id).toBeLessThan(p.get(QUESTION)!.y + 300)
     for (const [a, pa] of p) for (const [b, pb] of p) if (tier(a) < tier(b) && tier(b) < 5) expect(pa.y, `${a} above ${b}`).toBeLessThan(pb.y)
   })
-  it('must not change: a small board (pricing, no family wider than four) has one row per family present, and nothing overlaps', async () => {
+  it('must not change: a small board (pricing, no family wider than five, and only the factors that wide) has one row per family present, and nothing overlaps', async () => {
     const m = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'pricing.view.json'), 'utf8')) as View).model!, { p, ys } = await rowsOf(m)
     const tiers = new Set([0, ...m.cards.map((c) => familyTierOf(c, m))])
-    expect([...tiers].every((t) => t === 0 || m.cards.filter((c) => familyTierOf(c, m) === t).length <= 4)).toBe(true)
-    expect(ys.length).toBe(tiers.size - (tiers.has(5) ? 1 : 0)) // R25: the aims share the question's row
+    // core a0e144f6: the figure the Run names as what moves the option's chance most, `cups_change`, is its own card, so the factors family (tier 3)
+    // is five wide (measured: margin, margin_raised, cups_now, cups_change, profit_target), the one family that is; every other family is at most four.
+    const width = (t: number) => m.cards.filter((c) => familyTierOf(c, m) === t).map((c) => c.id)
+    expect(width(3)).toEqual(['margin', 'margin_raised', 'cups_now', 'cups_change', 'profit_target'])
+    expect([...tiers].every((t) => t === 0 || t === 3 || width(t).length <= 4)).toBe(true)
+    // R25: the aims share the question's row; one row per family, but the five-wide factors family wraps (a tier wider than four does: WRAP_PER_ROW) into
+    // two rows of four and one, so it is the one family that takes two.
+    expect(ys.length).toBe(tiers.size - (tiers.has(5) ? 1 : 0) + 1)
+    expect([...new Set(width(3).map((id) => Math.round(p.get(id)!.y)))].length).toBe(2)
+    for (const t of [...tiers].filter((x) => x !== 0 && x !== 3 && x !== 5)) expect(new Set(width(t).map((id) => Math.round(p.get(id)!.y))).size, `family ${t}: one row`).toBe(1)
     const boxes = [...p].map(([id, x]) => ({ id, ...x }))
     for (const a of boxes) for (const b of boxes) if (a.id < b.id && a.y === b.y) expect(Math.abs(a.x - b.x), `${a.id}/${b.id}`).toBeGreaterThanOrEqual(220)
   })

@@ -247,13 +247,36 @@ describe('what the driver chances are: said once, and only beside the figures it
     for (const c of m.cards) if (c.driver) c.driver.figure = fig.id
     return { m, fig }
   }
+  // core a0e144f6: the figure the Run names as what moves an option's chance most is its own card, so on the goldens every marked option names it
+  // (before, these figures were folded into a badge, the line was left out and only the markers were drawn). Bound by id and exact heading.
+  const figuresOf: Record<string, Record<string, [string, string]>> = {
+    bakery: { second_oven: ['extra_sold_per_oven', 'extra sold per oven'], longer_hours: ['extra_hours_sold', 'extra hours sold'] },
+    european: { broader_entry: ['existing_market_acquisitions', 'New customers from existing markets'], single_country_test: ['existing_market_acquisitions', 'New customers from existing markets'],
+      no_new_european_entry: ['existing_market_acquisitions', 'New customers from existing markets'] },
+  }
+  // A record id a badge folds and no card draws, to keep the old fold case as the negative.
+  const foldedOf: Record<string, string> = { bakery: 'ovens_added', european: 'percent_conversion' }
   for (const n of ['bakery', 'european']) {
-    it(`${n}, Analysis: a marked option's figure is no card (folded), so the line is left out, never said alone; the markers stay, core's line their label`, () => {
+    it(`${n}, Analysis: a marked option's figure is its own card, so the line is said once and each marker names it; a figure folded into a badge still leaves the line out`, () => {
       const m = golden(n).model!
+      const marked = optionCards(m).filter((c) => c.driver !== null && driverRange(c.driver) !== null)
+      expect(marked.map((c) => [c.id, c.driver!.figure])).toEqual(Object.entries(figuresOf[n]!).map(([id, [fig]]) => [id, fig]))
       const { container } = render(<ReactFlowProvider><ViewChances model={m} /></ReactFlowProvider>)
-      expect(optionCards(m).some((c) => c.driver !== null && driverRange(c.driver) !== null && !m.cards.some((x) => x.id === c.driver!.figure))).toBe(true)
-      expect(container.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
+      expect(container.querySelectorAll('[data-view="run.sensitivity.text"]').length).toBe(1)
       expect(container.querySelectorAll('[data-testid^="view-range-driver-"]').length).toBeGreaterThan(0)
+      for (const [id, [fig, heading]] of Object.entries(figuresOf[n]!)) {
+        expect(m.cards.some((x) => x.id === fig), `${fig} is a card`).toBe(true)
+        const label = container.querySelector(`[data-driver-figure="${id}"]`)
+        expect([label?.getAttribute('data-view'), label?.textContent], id).toEqual([`${fig}.heading`, heading])
+      }
+      cleanup()
+      // CONTRAST: point one marked option at a record only a badge folds: no card, so the line is left out, never said alone; the markers stay.
+      const folded = structuredClone(m)
+      expect(folded.cards.some((x) => x.id === foldedOf[n])).toBe(false)
+      folded.cards.find((c) => c.id === marked[0]!.id)!.driver!.figure = foldedOf[n]!
+      const f = render(<ReactFlowProvider><ViewChances model={folded} /></ReactFlowProvider>).container
+      expect(f.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
+      expect(f.querySelectorAll('[data-testid^="view-range-driver-"]').length).toBeGreaterThan(0)
     })
   }
 
