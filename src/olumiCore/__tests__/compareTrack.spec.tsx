@@ -167,6 +167,8 @@ describe('side by side: the connected track is for comparable aims only', () => 
     expect(container.querySelector('[data-compare-track]')).toBeNull()
     expect(container.querySelector('[data-compare-track-key]')).toBeNull()
     expect(container.querySelectorAll('[data-compare-value]').length).toBe(2)
+  })
+})
 
 // ── UI audit of e646e3a8 (UI session, 7 Nov): the rows read the real marks the track draws, never ShiftTrack's own props ──────────────────
 /** Where a drawn mark sits, as a percentage of the track: read from the mark's own style (PanelFigure markerLeft), never from a data attribute. */
