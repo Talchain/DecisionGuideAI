@@ -92,8 +92,8 @@ describe('the Reasoning glance: the previous strip\'s rows, counts and canvas co
 
 describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Paul, 6 Nov; C1 4 Nov)', () => {
   // R24: a figure the options set that feeds another figure and no aim is a driver, glanced with the factors, not the outcomes (layout.isDriver).
-  // Pinned by id: core 6192ad6b's app-launch has one (option_delay sets release_offset, which feeds readiness_margin); no other golden here does.
-  const DRIVERS: Record<string, string[]> = { 'app-launch.view.json': ['release_offset'] }
+  // Pinned by id: core 6192ad6b's app-launch has one (option_delay sets release_offset, which feeds readiness_margin) and its european one (two options set the editable `churn_rate`, which feeds `customers`); no other golden here does.
+  const DRIVERS: Record<string, string[]> = { 'app-launch.view.json': ['release_offset'], 'european.view.json': ['churn_rate'] }
   for (const golden of ['bakery.view.json', 'european.view.json', 'studio.view.json', 'app-launch.view.json', 'pricing.view.json', 's_ce285b3617bb.view.json']) {
     it(`${golden}: glance, challenges, premises, what would change your mind and outcomes, every string bound to its View path; none of the Analysis tab's option rows`, () => {
       const view = read(golden), m = view.model!

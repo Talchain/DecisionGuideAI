@@ -82,12 +82,13 @@ describe('R24 drivers and the head row (R25, Paul 7 Nov: drivers in their own ro
       expect(right - left, `${head.length} head cards`).toBeLessThanOrEqual(760)
     }
   })
-  it('CONTRAST: a driver is only a figure the options set that feeds another figure and no aim; every golden and real fixture is pinned by card id', () => {
+  it('CONTRAST: the drivers on every golden and real fixture are exactly these, pinned by card id', () => {
     const goldens = ['bakery', 'european', 'pricing', 'studio', 's_ce285b3617bb', 'app-launch', 'proposal', 'whatif'].map((n) => [n, (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8')) as View).model!] as const)
     const boards = [...goldens, ...['hiring', 'capacity', 'european-22cards', 'bakery-r5', 'together'].map((n) => [n, real(n)] as const)]
-    // core 6192ad6b's app-launch golden has an option (option_delay) set a figure (release_offset) that feeds another figure (readiness_margin):
-    // its one driver. Monthly churn (european) is set by two options but is measured by a limit, an aim, so it is no driver: it feeds an aim directly.
-    const want: Record<string, string[]> = { 'app-launch': ['release_offset'] }
+    // Drivers by structure (layout.isDriver): core 6192ad6b's app-launch has option_delay set release_offset, which feeds readiness_margin; its
+    // european has two options set the person-stated monthly churn (`churn_rate`, editable), which feeds `customers`. A figure core works out
+    // from others stays an outcome in the viewKinds contrast; these two are set by the options, so they sit in the drivers' own row.
+    const want: Record<string, string[]> = { 'app-launch': ['release_offset'], european: ['churn_rate'] }
     for (const [n, m] of boards) expect(m.cards.filter((c) => familyTierOf(c, m) === 2).map((c) => c.id), n).toEqual(want[n] ?? [])
   })
 })
