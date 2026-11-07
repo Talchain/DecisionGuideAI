@@ -86,6 +86,24 @@ describe('remove a link', () => {
     fireEvent.click(screen.getByTestId('view-link-remove-yes-evening_mood'))
     await waitFor(() => expect(screen.getByTestId('view-link-remove-error-evening_mood')).toHaveTextContent('Removing this link leaves "total capacity" with nothing that works it out. Give its figure first, or remove it too.'))
     expect(useModelNotice.getState().notice).toBeNull()
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('view-link-remove-keep-evening_mood'))) // a refusal leaves focus on Keep
+  })
+  it('catch (PL round 1be400fd): focus is never dropped: the ask takes it on Keep, Keep and Escape hand it back to Remove link, and a removal hands it to the card the link leaves', async () => {
+    draw(removable, true)
+    const card = document.body.appendChild(document.createElement('div'))
+    card.className = 'react-flow__node'; card.tabIndex = 0; card.dataset.id = removable.from
+    const opener = () => screen.getByTestId('view-link-remove-open-evening_mood')
+    const keep = () => screen.getByTestId('view-link-remove-keep-evening_mood')
+    opener().focus(); fireEvent.click(opener())
+    expect(document.activeElement).toBe(keep())
+    fireEvent.click(keep())
+    expect(document.activeElement).toBe(opener())
+    fireEvent.click(opener()); fireEvent.keyDown(keep(), { key: 'Escape' })
+    expect(document.activeElement).toBe(opener())
+    fireEvent.click(opener()); fireEvent.click(screen.getByTestId('view-link-remove-yes-evening_mood'))
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    await waitFor(() => expect(document.activeElement).toBe(card))
+    card.remove()
   })
   it('catch: focus alone offers it too, and focus on the control keeps the link named', () => {
     useViewFocusLink.setState({ id: 'a->b:plain' })

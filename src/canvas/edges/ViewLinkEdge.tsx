@@ -128,7 +128,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
         <EdgeLabelRenderer>
           <div ref={attachCtl} data-link-remove-at={`links.${i}`}
             style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${ctlAt?.x ?? x}px, ${ctlAt?.y ?? y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z + 1, ...(ctlAt === null ? { visibility: 'hidden' as const } : {}) }}>
-            <LinkRemove edge={id} remove={link.remove} />
+            <LinkRemove edge={id} from={source} remove={link.remove} />
           </div>
         </EdgeLabelRenderer>
       ) : null}
