@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { typography } from '../../styles/typography'
 import { TeamApiError } from '../team/api'
-import { accountsApi, whenOf, type Org, type OrgInvite, type Role } from './api'
+import { accountsApi, mine, whenOf, type Org, type OrgInvite, type Role } from './api'
 import { BODY, CARD, ERR, FIELD, LINK, META, SELECT, SignedInFrame, useWho } from './Frame'
 
 const ROLE_WORD: Record<Role, string> = { owner: 'Owner', member: 'Member' }
@@ -23,15 +23,22 @@ export default function OrganisationPage(): JSX.Element {
   const [asking, setAsking] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const hasAccount = who.status === 'in' && who.account !== null
+  // The person this page was opened for: every read below must name them (`mine`), or it is dropped and said.
+  const page = who.status === 'in' && who.account !== null ? who.me.id : null
   const read = useCallback(async () => {
+    if (page === null) return
     try {
       const o = await accountsApi.org()
+      mine(o, o?.you?.id, page)
       setOrg(o)
-      if (o.you.role === 'owner') setInvites((await accountsApi.invites()).invites ?? [])
+      if (o.you.role === 'owner') {
+        const r = await accountsApi.invites()
+        mine(r, r?.you_id, page)
+        setInvites(r.invites ?? [])
+      }
     } catch (e) { setError(said(e, 'Olumi could not be read just now. Try again in a moment.')) }
-  }, [])
-  useEffect(() => { if (hasAccount) void read() }, [hasAccount, read])
+  }, [page])
+  useEffect(() => { void read() }, [read])
   const act = async (f: () => Promise<unknown>) => {
     setBusy(true); setError(null)
     try { await f(); await read() } catch (e) { setError(said(e, 'That did not go through. Nothing was changed.')) } finally { setBusy(false) }
