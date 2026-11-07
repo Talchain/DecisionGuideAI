@@ -29,6 +29,65 @@
   "whole": false,
   "cards": [
    {
+    "id": "margin",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "margin",
+    "typed": false,
+    "detail": "margin · quantity · Theirs: “each cup earns us £1.55” · £1.55/cup",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "£1.55/cup",
+     "title": "£1.55/cup",
+     "edit": {
+      "prompt": "New figure for “margin” (GBP/cup): one number, or a range like 150 to 400",
+      "ask": "For “margin”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": [
+     {
+      "option": "raise_price",
+      "text": "£2/cup",
+      "p10": 2,
+      "p50": 2,
+      "p90": 2,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     },
+     {
+      "option": "carry_on",
+      "text": "£1.55/cup",
+      "p10": 1.55,
+      "p50": 1.55,
+      "p90": 1.55,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “each cup earns us £1.55”"
+    },
+    "failed": []
+   },
+   {
     "id": "margin_raised",
     "family": "quantity",
     "glyph": "●",
@@ -59,6 +118,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “so each cup earns £2.00”"
+    },
     "failed": []
    },
    {
@@ -92,6 +156,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “sells 4,000 coffees a month”"
+    },
     "failed": []
    },
    {
@@ -124,16 +193,15 @@
     "reason": null,
     "badge": {
      "records": [
-      "margin",
       "rise_on",
       "cups_change",
       "cups",
       "cups_rel",
       "profit_rel"
      ],
-     "text": "● = +6",
-     "title": "quantity: margin\nquantity: rise on\nquantity: cups change\nquantity: cups\nrelation: how cups is worked out\nrelation: how profit is worked out",
-     "label": "Expand 6 reasoning records",
+     "text": "● = +5",
+     "title": "quantity: rise on\nquantity: cups change\nquantity: cups\nrelation: how cups is worked out\nrelation: how profit is worked out",
+     "label": "Expand 5 reasoning records",
      "open": false,
      "proposed": false,
      "change": ""
@@ -161,6 +229,11 @@
      }
     ],
     "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Olumi's estimate"
+    },
     "failed": []
    },
    {
@@ -194,6 +267,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “make at least £7,000 a month”"
+    },
     "failed": []
    },
    {
@@ -225,6 +303,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “make at least £7,000 a month”"
+    },
     "failed": []
    },
    {
@@ -259,7 +342,7 @@
       },
       "aim": "Make £7,000 a month",
       "aim_id": "profit_goal",
-      "title": "If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change'.",
+      "title": "If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month).",
       "chance": 0.4921,
       "companion": null,
       "companion_title": null,
@@ -271,7 +354,7 @@
        "high": 7820.149703344684,
        "unit": "GBP/month",
        "text": "between £6,190 and £7,820/month (middle £6,990)",
-       "title": "If Olumi's estimates hold, under 'Raise the price by 45p', 'profit' is likely to be in this range (8 draws in 10). It rests on Olumi's what-if ranges for 'cups change'."
+       "title": "If Olumi's estimates hold, under 'Raise the price by 45p', 'profit' is likely to be in this range (8 draws in 10). It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month)."
       },
       "text": "If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information.",
       "rests_on": {
@@ -313,6 +396,11 @@
     },
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “raise the price by 45p”"
+    },
     "committed": null,
     "failed": [],
     "failed_reason": null
@@ -376,6 +464,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “keep it as it is”"
+    },
     "committed": null,
     "failed": [],
     "failed_reason": null
@@ -391,7 +484,20 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through cups · Proposed by Olumi: Olumi's estimate",
-    "effect": null
+    "effect": null,
+    "remove": null
+   },
+   {
+    "from": "margin",
+    "to": "profit",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "multiplies · Proposed by Olumi: Olumi's estimate",
+    "effect": null,
+    "remove": null
    },
    {
     "from": "profit",
@@ -402,7 +508,8 @@
     "alert": false,
     "proposed": false,
     "title": "measured by",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "profit_target",
@@ -413,7 +520,8 @@
     "alert": false,
     "proposed": false,
     "title": "target",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "raise_price",
@@ -424,18 +532,20 @@
     "alert": false,
     "proposed": false,
     "title": "option input",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "margin_raised",
-    "to": "profit",
-    "kind": "through",
-    "label": "",
+    "to": "margin",
+    "kind": "replaces",
+    "label": "replaces",
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through margin · Proposed by Olumi: Olumi's estimate",
-    "effect": null
+    "title": "replaces margin",
+    "effect": null,
+    "remove": null
    },
    {
     "from": "raise_price",
@@ -450,7 +560,8 @@
      "text": "−900 to −100 cups/month",
      "title": "cups change · Plausible range: −900 to −100 cups/month · worked out through rise switched on, rise on, cups",
      "figure": "cups_change"
-    }
+    },
+    "remove": null
    }
   ],
   "run": {
@@ -472,6 +583,8 @@
      "approx": []
     },
     "if_approved": null,
+    "option": "raise_price",
+    "aim_id": "profit_goal",
     "estimate": "cups_change"
    },
    "waits_on": null,
@@ -493,7 +606,7 @@
      "id": "F12",
      "kind": "middle",
      "line": "'Raise the price by 45p' · aim 'Make £7,000 a month': £7,000/month, meets it",
-     "hover": "option: 'Raise the price by 45p'; aim: 'Make £7,000 a month'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'profit' £7,000/month; target: >= £7,000/month; status: meets it. It rests on Olumi's what-if ranges for 'cups change'.",
+     "hover": "option: 'Raise the price by 45p'; aim: 'Make £7,000 a month'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'profit' £7,000/month; target: >= £7,000/month; status: meets it. It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month).",
      "aim": "profit_goal",
      "option": "raise_price",
      "versus": null,
@@ -569,7 +682,19 @@
      "unassigned": 0.019216946263188595
     }
    ],
-   "rests_heading": "How much rests on Olumi's guesses"
+   "rests_heading": "How much rests on Olumi's guesses",
+   "lenses": [
+    {
+     "id": "goal",
+     "label": "Chance of meeting the aim",
+     "title": "In this model, on current information, each option’s chance of meeting ‘Make £7,000 a month’."
+    },
+    {
+     "id": "outcome",
+     "label": "Likely outcome",
+     "title": "In this model, on current information, what each option’s outcome for ‘Make £7,000 a month’ is likely to be (8 draws in 10)."
+    }
+   ]
   },
   "edit_base": 1,
   "key": [

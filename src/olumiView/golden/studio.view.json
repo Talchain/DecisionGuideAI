@@ -59,6 +59,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “£12 a class”"
+    },
     "failed": []
    },
    {
@@ -92,6 +97,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “teaches 200 classes a month”"
+    },
     "failed": []
    },
    {
@@ -125,6 +135,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “somewhere between 20 and 40 evening classes a month”"
+    },
     "failed": []
    },
    {
@@ -202,6 +217,11 @@
      }
     ],
     "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Olumi's estimate"
+    },
     "failed": []
    },
    {
@@ -235,6 +255,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “take at least £2,640 a month”"
+    },
     "failed": []
    },
    {
@@ -268,6 +293,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “has 150 members”"
+    },
     "failed": []
    },
    {
@@ -301,6 +331,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “keep at least 140 members”"
+    },
     "failed": []
    },
    {
@@ -337,6 +372,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: No one can measure how members feel yet; repeat bookings might show it."
+    },
     "failed": []
    },
    {
@@ -377,6 +417,11 @@
     },
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link."
+    },
     "failed": []
    },
    {
@@ -408,6 +453,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “take at least £2,640 a month”"
+    },
     "failed": []
    },
    {
@@ -439,6 +489,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “keep at least 140 members”"
+    },
     "failed": []
    },
    {
@@ -515,6 +570,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “add evening classes”"
+    },
     "committed": null,
     "failed": [],
     "failed_reason": null
@@ -543,6 +603,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “Members have asked for evening slots”"
+    },
     "failed": []
    },
    {
@@ -629,6 +694,11 @@
     },
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: Olumi's estimate"
+    },
     "committed": null,
     "failed": [],
     "failed_reason": null
@@ -698,6 +768,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “carry on as now”"
+    },
     "committed": null,
     "failed": [],
     "failed_reason": null
@@ -713,7 +788,8 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through classes · Proposed by Olumi: Olumi's estimate",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "class_fee",
@@ -724,7 +800,8 @@
     "alert": false,
     "proposed": false,
     "title": "multiplies · Proposed by Olumi: Olumi's estimate",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "evening_classes",
@@ -735,7 +812,11 @@
     "alert": false,
     "proposed": false,
     "title": "link in words: up, likely; Members have asked for evening slots. · Theirs: “Members have asked for evening slots”",
-    "effect": null
+    "effect": null,
+    "remove": {
+     "record": "evening_mood",
+     "part": null
+    }
    },
    {
     "from": "member_mood",
@@ -745,8 +826,9 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "link in words: conditional, unsure; Happier members stay only if the evening slots suit them; see the condition and the dissent on this link. · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link.",
-    "effect": null
+    "title": "link in words: depends on conditions, unsure; Happier members stay only if the evening slots suit them; see the condition and the dissent on this link. · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link.",
+    "effect": null,
+    "remove": null
    },
    {
     "from": "evening_mood",
@@ -757,7 +839,8 @@
     "alert": false,
     "proposed": false,
     "title": "relation: Evening classes → How members feel",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "evening_mood",
@@ -768,7 +851,8 @@
     "alert": false,
     "proposed": false,
     "title": "relation: Evening classes → How members feel",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "mood_members",
@@ -779,7 +863,8 @@
     "alert": false,
     "proposed": false,
     "title": "relation: How members feel → members",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "mood_members",
@@ -790,7 +875,8 @@
     "alert": false,
     "proposed": false,
     "title": "relation: How members feel → members",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "takings",
@@ -801,7 +887,8 @@
     "alert": false,
     "proposed": false,
     "title": "measured by",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "takings_target",
@@ -812,7 +899,8 @@
     "alert": false,
     "proposed": false,
     "title": "target",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "members",
@@ -823,7 +911,8 @@
     "alert": false,
     "proposed": false,
     "title": "measured by",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "members_target",
@@ -834,7 +923,8 @@
     "alert": false,
     "proposed": false,
     "title": "target",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "evening_classes",
@@ -845,7 +935,8 @@
     "alert": false,
     "proposed": false,
     "title": "option input",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "evening_extra",
@@ -856,7 +947,8 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through extra classes, classes · Proposed by Olumi: Olumi's estimate",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "weekend_workshops",
@@ -867,7 +959,8 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through workshop extra, extra classes, classes · Proposed by Olumi: Olumi's estimate",
-    "effect": null
+    "effect": null,
+    "remove": null
    }
   ],
   "run": {
@@ -898,6 +991,8 @@
      "approx": []
     },
     "if_approved": null,
+    "option": "evening_classes",
+    "aim_id": "takings_goal",
     "estimate": "workshop_extra"
    },
    "waits_on": {
@@ -1031,7 +1126,19 @@
    "failure": [],
    "failure_heading": "What could go wrong",
    "rests": [],
-   "rests_heading": "How much rests on Olumi's guesses"
+   "rests_heading": "How much rests on Olumi's guesses",
+   "lenses": [
+    {
+     "id": "goal",
+     "label": "Chance of meeting the aim",
+     "title": "In this model, on current information, each option’s chance of meeting ‘Take £2,640 a month’."
+    },
+    {
+     "id": "outcome",
+     "label": "Likely outcome",
+     "title": "In this model, on current information, what each option’s outcome for ‘Take £2,640 a month’ is likely to be (8 draws in 10)."
+    }
+   ]
   },
   "edit_base": 1,
   "key": [

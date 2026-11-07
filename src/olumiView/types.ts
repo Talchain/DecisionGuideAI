@@ -178,6 +178,11 @@ export type View = {
         id: string
         whose: "theirs" | "olumi" | "mixed"
       }>
+      author?: {
+        by: "person" | "brief" | "olumi" | "mixed"
+        text: string
+        title: string
+      } | null
       committed?: {
         by: string
         at: string
@@ -225,6 +230,11 @@ export type View = {
       shared_blockers?: Array<{
         aim_id: string
         options: Array<string>
+        text: string
+      }>
+      coverage?: Array<{
+        aim_id: string
+        option: string
         text: string
       }>
       most_likely: {

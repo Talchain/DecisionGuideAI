@@ -936,6 +936,39 @@
            "additionalProperties": false
           }
          },
+         "author": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "by": {
+              "type": "string",
+              "enum": [
+               "person",
+               "brief",
+               "olumi",
+               "mixed"
+              ]
+             },
+             "text": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "by",
+             "text",
+             "title"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
          "committed": {
           "anyOf": [
            {
@@ -1210,6 +1243,29 @@
             "required": [
              "aim_id",
              "options",
+             "text"
+            ],
+            "additionalProperties": false
+           }
+          },
+          "coverage": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "properties": {
+             "aim_id": {
+              "type": "string"
+             },
+             "option": {
+              "type": "string"
+             },
+             "text": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "aim_id",
+             "option",
              "text"
             ],
             "additionalProperties": false
