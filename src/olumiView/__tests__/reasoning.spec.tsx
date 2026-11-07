@@ -41,7 +41,8 @@ const unbound = (root: HTMLElement, also: string[]) => {
 function at(view: View, path: string): unknown {
   if (path === 'brief') return view.brief
   const m = view.model!, [id, ...rest] = path.split('.')
-  let x: unknown = id === 'run' ? m.run : m.cards.find((c) => c.id === id)
+  // `key.N.glyph`: core's key entry N (the Olumi mark beside an outcome band), a path on the model like `run`.
+  let x: unknown = id === 'run' ? m.run : id === 'key' ? m.key : m.cards.find((c) => c.id === id)
   for (const k of rest) x = x === null || x === undefined ? undefined : (x as Record<string, unknown>)[k]
   return x
 }
@@ -90,6 +91,9 @@ describe('the Reasoning glance: the previous strip\'s rows, counts and canvas co
 })
 
 describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Paul, 6 Nov; C1 4 Nov)', () => {
+  // R24: a figure the options set that feeds another figure and no aim is a driver, glanced with the factors, not the outcomes (layout.isDriver).
+  // Pinned by id: core 6192ad6b's app-launch has one (option_delay sets release_offset, which feeds readiness_margin); no other golden here does.
+  const DRIVERS: Record<string, string[]> = { 'app-launch.view.json': ['release_offset'] }
   for (const golden of ['bakery.view.json', 'european.view.json', 'studio.view.json', 'app-launch.view.json', 'pricing.view.json', 's_ce285b3617bb.view.json']) {
     it(`${golden}: glance, challenges, premises, what would change your mind and outcomes, every string bound to its View path; none of the Analysis tab's option rows`, () => {
       const view = read(golden), m = view.model!
@@ -110,7 +114,7 @@ describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Pau
       expect(root.querySelector('[data-view="brief"]')?.textContent).toBe(view.brief)
       for (const g of m.cards.filter((c) => c.family === 'goal')) expect(root.querySelector(`[data-testid="view-reasoning-glance"] [data-view="${g.id}.heading"]`), g.id).not.toBeNull()
       const marked = [...root.querySelectorAll<HTMLElement>('[data-glance-card]')]
-      const through = new Set(m.links.filter((l) => l.kind === 'through').map((l) => l.to)), fig = (o: boolean) => m.cards.filter((c) => c.family === 'quantity' && through.has(c.id) === o)
+      const through = new Set(m.links.filter((l) => l.kind === 'through').map((l) => l.to)), fig = (o: boolean) => m.cards.filter((c) => c.family === 'quantity' && (through.has(c.id) && !(DRIVERS[golden] ?? []).includes(c.id)) === o)
       expect(marked.map((e) => e.dataset['glanceCard'])).toEqual([...m.cards.filter((c) => c.family === 'option'), ...fig(false), ...m.cards.filter((c) => c.family === 'risk'), ...fig(true)].map((c) => c.id))
       for (const e of marked) expect(e.getAttribute('title')).toBe(m.cards.find((c) => c.id === e.dataset['glanceCard'])!.heading)
       // Challenge Your Thinking: exactly the cards core marks challenged.

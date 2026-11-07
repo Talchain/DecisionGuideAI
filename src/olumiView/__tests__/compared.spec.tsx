@@ -8,7 +8,7 @@
  * template (view/science.ts) with core's unresolved value (run/middle.ts `STATUS_VALUE`).
  */
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import golden from '../golden/european.view.json'
 import type { View, ViewModel } from '../client'
 import { ViewReasoning } from '../ViewReasoning'
@@ -29,9 +29,18 @@ const withCompared = (compared: unknown[], headings: unknown): ViewModel => {
   return { ...v.model!, run: { ...v.model!.run!, compared, compared_headings: headings } as never }
 }
 
+// The Reasoning tab holds core's worth and compared lines in its closed row "What would change your mind" (R25: ViewReasoning, parts.tsx
+// SectionRow): they are in the DOM once the row is opened, as a reader opens it. A model with neither has no row to open.
+const show = (model: ViewModel) => {
+  const r = render(<ViewReasoning model={model} />)
+  const toggle = screen.queryByTestId('view-reasoning-change-toggle')
+  if (toggle !== null) fireEvent.click(toggle)
+  return r
+}
+
 describe('core\'s comparisons, each under core\'s own heading for it', () => {
   it('each line is drawn once, verbatim, under its group\'s heading, in core\'s order; Olumi\'s mark when core gives one', () => {
-    const { container } = render(<ViewReasoning model={withCompared(COMPARED, HEADINGS)} />)
+    const { container } = show(withCompared(COMPARED, HEADINGS))
     const groups = [...screen.getByTestId('view-run-compared').querySelectorAll('[data-testid^="view-run-compared-"]')]
     expect(groups.map((g) => g.querySelector('p')!.textContent)).toEqual([HEADINGS.middle, HEADINGS.unresolved, HEADINGS.better])
     expect([...screen.getByTestId('view-run-compared-middle').querySelectorAll('[data-view-fact]')].map((d) => d.textContent)).toEqual([`◆ ${COMPARED[0]!.line}`])
@@ -42,14 +51,14 @@ describe('core\'s comparisons, each under core\'s own heading for it', () => {
       expect(container.querySelector(`[data-view-fact="${c.id}"]`)!.getAttribute('title')).toBe(c.hover)
     }
   })
-  it('each group sits apart from the next, in the panel\'s own rhythm (space-y-3, as the panel\'s sections)', () => {
-    render(<ViewReasoning model={withCompared(COMPARED, HEADINGS)} />)
+  it('each group sits apart from the next, in the panel\'s own rhythm (space-y-3 between groups; the Reasoning tab\'s sections are space-y-6 apart since R25)', () => {
+    show(withCompared(COMPARED, HEADINGS))
     const panel = screen.getByTestId('view-reasoning'), box = screen.getByTestId('view-run-compared')
-    expect(panel.classList.contains('space-y-3')).toBe(true)
+    expect(panel.classList.contains('space-y-6')).toBe(true)
     expect(box.classList.contains('space-y-3')).toBe(true)
   })
   it('an unknown kind draws nothing, and a group core gives no heading for draws nothing', () => {
-    const { container } = render(<ViewReasoning model={withCompared(COMPARED, { middle: 'H middle', later: 'H later' })} />) // a heading for a kind this page does not know, too
+    const { container } = show(withCompared(COMPARED, { middle: 'H middle', later: 'H later' })) // a heading for a kind this page does not know, too
     expect(container.textContent).not.toContain('a kind this page does not know')
     expect(container.textContent).not.toContain('H later')
     expect(screen.queryByTestId('view-run-compared-better')).toBeNull()
@@ -58,14 +67,14 @@ describe('core\'s comparisons, each under core\'s own heading for it', () => {
     expect(screen.getByTestId('view-run-compared-middle')).toBeTruthy()
   })
   it('a core without compared (or without headings) draws no comparison at all', () => {
-    render(<ViewReasoning model={withCompared(COMPARED, undefined)} />)
+    show(withCompared(COMPARED, undefined))
     expect(screen.queryByTestId('view-run-compared')).toBeNull()
   })
   it('the worth lines are unaffected: "Worth checking first" holds core\'s science lines alone, never a compared one', () => {
-    const plain = render(<ViewReasoning model={(golden as unknown as View).model!} />)
+    const plain = show((golden as unknown as View).model!)
     const before = screen.getByTestId('view-run-worth').textContent
     plain.unmount()
-    render(<ViewReasoning model={withCompared(COMPARED, HEADINGS)} />)
+    show(withCompared(COMPARED, HEADINGS))
     expect(screen.getByTestId('view-run-worth').textContent).toBe(before)
     for (const c of COMPARED) expect(screen.getByTestId('view-run-worth').textContent).not.toContain(c.line)
   })
