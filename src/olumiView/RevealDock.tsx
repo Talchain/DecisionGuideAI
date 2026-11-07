@@ -21,9 +21,9 @@ import { TeamApiError } from '../olumiCore/team/api'
 import { OlumiAiIcon } from '../components/results/analysisNew/OlumiAiIcon'
 import { Effects } from '../olumiCore/team/ViewsPanel'
 import { AVATAR, BODY, CARD, H, META } from '../olumiCore/team/ui'
-import type { View, ViewRow } from './client'
+import type { View } from './client'
 import { effectHeadingsOf, effectsOf } from './standin'
-import { cardOfQuantity, chipOf, nextOf, revealOf, stanceOf, useReveal, useTriedCards, type CardChip, type Shared } from './reveal'
+import { cardOfQuantity, chipOf, movedOptions, nextOf, revealOf, stanceOf, triedPathLinks, useReveal, useTriedCards, type CardChip, type Shared } from './reveal'
 import { useViewStore } from './store'
 import { clearWhatIf, tryWhatIf, useWhatIf } from './whatif'
 import { SideBySide } from './WhatIfCompare'
@@ -77,15 +77,10 @@ function Tried({ view, v }: { view: View; v: Shared }): JSX.Element | null {
   // The card their view sits on, and each option whose chance line core words differently on the copy, are lit while it is shown.
   useEffect(() => {
     if (current === null || model === null || f === null) return
-    // An option is lit when, for the same aim, core words its chance differently on the copy than on the saved model.
-    const chances = (rows: readonly ViewRow[]) => new Map(rows.flatMap((r) => (r.kind === 'chance' ? [[r.aim_id, r.value] as const] : [])))
-    const moved = current.variant.rows.filter((o) => {
-      const saved = chances(model.cards.find((c) => c.id === o.option_id)?.rows ?? [])
-      return [...chances(o.rows)].some(([aim, value]) => saved.has(aim) && saved.get(aim) !== value)
-    }).map((o) => o.option_id)
+    const moved = movedOptions(model, current.variant.rows)
     const at = cardOfQuantity(view, f.quantity)
-    useTriedCards.setState({ ids: [...(at === null ? [] : [at]), ...moved] })
-    return () => useTriedCards.setState({ ids: [] })
+    useTriedCards.setState({ ids: [...(at === null ? [] : [at]), ...moved], links: triedPathLinks(model, at, moved) })
+    return () => useTriedCards.setState({ ids: [], links: [] })
   }, [current, model, f, view])
   // What the try shows is brought into view as it appears (no motion when the person asks for less).
   const box = useRef<HTMLDivElement>(null)

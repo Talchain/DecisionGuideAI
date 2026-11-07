@@ -15,6 +15,7 @@ import { LinkRemove, useRemovingLink } from '../../olumiView/LinkRemove'
 import { linkDrawn } from '../../olumiView/layout'
 import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
 import { useDriverLink } from '../../olumiView/lens'
+import { useTriedCards } from '../../olumiView/reveal'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
 
 export type ViewLinkData = { link: ViewLink; i: number }
@@ -38,6 +39,8 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const toSelected = useStore((s) => s.nodeLookup.get(target)?.selected === true)
   // What would change: a link leaving (or sized by) a figure an option's chance moves most with is drawn wider, in ink.
   const driver = useDriverLink(i)
+  // V11 change 4: on a path from the tried figure's card to what it moves: the person's act, so the header ink (never Olumi's blue).
+  const tried = useTriedCards((s) => s.links.includes(i))
   const active = new Set<string>()
   if (hovered !== null) active.add(hovered)
   if (fromSelected) active.add(source)
@@ -99,12 +102,12 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     const shownWords = words && !hidden ? [{ id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : []
     return linkWordsAt(path, [...cards, ...shownWords], ctl, { x: midX, y: midY })
   }, [offering, ctl, words, hidden, x, y, size, path, cards, midX, midY])
-  if (!driver && !focused && !removing && !linkDrawn(link, active)) return null
-  const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
+  if (!driver && !tried && !focused && !removing && !linkDrawn(link, active)) return null
+  const stroke = tried ? 'var(--text-header)' : link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
   return (
-    <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
+    <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-tried-link={tried ? '' : undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
       <title>{link.title}</title>
-      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: driver ? 2.5 : 1, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
+      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: tried ? 2 : driver ? 2.5 : 1, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
       {words && !hidden && placed.leaderTo ? (
         <path data-view-link-leader={`links.${i}`} d={`M ${x},${y} L ${placed.leaderTo.x},${placed.leaderTo.y}`} fill="none" stroke={stroke} strokeWidth={1} strokeDasharray="2 3" />
       ) : null}
