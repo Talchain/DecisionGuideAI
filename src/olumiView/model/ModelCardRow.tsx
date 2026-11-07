@@ -48,14 +48,15 @@ function AuthorMark({ card }: { card: ViewCard }) {
 }
 
 /** An option's line for one aim, compact: the aim on the left, core's value and its marks on the right (the crafted value column); the
- *  whole sentence on hover. The companion and timing lines stay the Analysis tab's. */
+ *  whole sentence on hover. A row core gives no chance (`none`) draws its words whole. The companion and timing lines stay the Analysis tab's. */
 function OptionLine({ card, row, i }: { card: ViewCard; row: ViewRow; i: number }) {
   const at = `${card.id}.rows.${i}`
   if (row.kind === 'none') {
     const words = row.text ?? row.title
     return (
       <span className={`${typography.viewPanelMeta} block text-text-light`} title={row.title === words ? undefined : row.title} data-view-row={at}>
-        <span className="line-clamp-2" title={words} data-view={row.text == null ? `${at}.title` : `${at}.text`}>{words}</span>
+        {/* R25 (Paul's finish line, no cut text): core's words whole, wrapping, never clamped with the rest on hover only. */}
+        <span data-view={row.text == null ? `${at}.title` : `${at}.text`}>{words}</span>
       </span>
     )
   }
