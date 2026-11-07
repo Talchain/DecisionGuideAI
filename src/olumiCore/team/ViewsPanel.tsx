@@ -9,6 +9,7 @@ import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWrites, useWriteSending } 
 import { differPlaced, WhereYouDiffer } from './WhereYouDiffer'
 import { nonEmpty } from '../../olumiView/tipping'
 import { AVATAR, BODY, CARD, ERR, FIELD, H, META } from './ui'
+import { sendDoubts, ViewDoubts } from './ViewDoubts'
 
 type Figure = View['collab']['shared'][number]['figures'][number]
 
@@ -184,9 +185,10 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
             {atCap && nonEmpty(c.view_figures_limit_text) && <p className={META} data-testid="team-view-figures-cap">{c.view_figures_limit_text}</p>}
           </div>
         )}
+        <ViewDoubts sid={sid} view={view} disabled={busy || sending || viewLocked} />
         {nonEmpty(c.private_view_prompt) && <p className={META} data-testid="team-view-private-prompt">{c.private_view_prompt}</p>}
         <div className="flex flex-wrap items-center gap-3">
-          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures} onClick={() => void run(`${sid}:view`, () => teamApi.giveView(sid, text, figures, view.version?.n ?? null), dropView)}>Add my view</Button>
+          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures} onClick={() => void run(`${sid}:view`, () => teamApi.giveView(sid, text, figures, view.version?.n ?? null).then(async (r) => { await sendDoubts(sid, r.contribution); return r }), dropView)}>Add my view</Button>
           <button
             type="button" data-testid="team-view-skip" disabled={busy || sending || viewLocked}
             className={`${META} cursor-pointer underline underline-offset-2 hover:text-text-body disabled:opacity-50`}
