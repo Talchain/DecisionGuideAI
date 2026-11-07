@@ -188,11 +188,14 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
       {/* 1232 polish (track 4 step 3): the option's name is the row's label (12px) and core's chance is its finding, full weight on every
           row (none dims), so the eye lands on the chance first. */}
       <span id={labelId} className={`${TYPE.meta} block w-full break-words text-text-body`} data-view={`${card.id}.heading`}>{card.heading}</span>
-      <span className="flex w-full items-baseline gap-1.5">
-        <span className="flex-none text-primary" data-testid="port-row-mark">{leader ? <Mark at={`${at}.likely`} mark={chance!.likely} /> : null}</span>
-        <span className={`${TYPE.body} min-w-0 flex-1 break-words font-semibold text-text-header`} data-testid="port-row-readout">{readout}</span>
-        <Chevron aria-hidden="true" className={`h-3.5 w-3.5 flex-none self-center text-text-light ${expandable ? '' : 'invisible'}`} />
-      </span>
+      {/* A row whose reason is said once above (`saidAbove`) and has nothing to open is its option's name alone: no empty finding line. */}
+      {saidAbove && !expandable ? null : (
+        <span className="flex w-full items-baseline gap-1.5">
+          <span className="flex-none text-primary" data-testid="port-row-mark">{leader ? <Mark at={`${at}.likely`} mark={chance!.likely} /> : null}</span>
+          <span className={`${TYPE.body} min-w-0 flex-1 break-words font-semibold text-text-header`} data-testid="port-row-readout">{readout}</span>
+          <Chevron aria-hidden="true" className={`h-3.5 w-3.5 flex-none self-center text-text-light ${expandable ? '' : 'invisible'}`} />
+        </span>
+      )}
       {lens === 'outcome' && (
         <span aria-hidden="true" className="relative block h-5 w-full" data-testid="port-row-track">
           <span className="absolute inset-x-0 top-1/2 h-px bg-panel-border" />

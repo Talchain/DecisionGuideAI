@@ -27,6 +27,7 @@ describe('the Analysis panel says a shared reason once', () => {
       expect(sr, `${card.id} shared row`).not.toBeNull()
       expect(sr.querySelector(`[data-view="${card.id}.heading"]`)!.textContent).toBe(card.heading)
       expect(sr.querySelector(`[data-view="${card.id}.rows.${s}.text"]`), `${card.id}: no repeat`).toBeNull()
+      expect(sr.querySelector('[data-testid="port-row-readout"]'), `${card.id}: no empty finding line`).toBeNull()
       expect(sr.getAttribute('title')).toBe(card.rows[s]!.title)
       expect(or.querySelector(`[data-view="${card.id}.rows.${o}.text"]`)!.textContent, `${card.id}: its own`).toBe((card.rows[o] as { text: string }).text)
     }
@@ -47,5 +48,15 @@ describe('the Analysis panel says a shared reason once', () => {
       expect(c.querySelector(`[data-view="${card.id}.rows.${i}.text"]`), `${card.id} row ${i}`).toBeNull()
     })
     expect(rows).toBeGreaterThan(blockers.length)
+  })
+
+  it('must not change: a covered row with something to open keeps its line and its open control, with no repeat in it', () => {
+    const v = hosting, [shared] = v.model!.run!.shared_blockers!
+    const c = render(<AnalysisHeroPanel model={v.model!} chat={v.chat} rowAction={(e) => <span data-testid="row-act" data-for={e.card.id}>act</span>} />).container
+    for (const card of optionCards(v.model!)) {
+      const s = card.rows.findIndex((r) => r.kind === 'none' && r.aim_id === shared!.aim_id), sr = rowEl(c, card.id, s)!
+      expect(sr.querySelector('[data-testid="port-row-readout"]')!.textContent, card.id).toBe('')
+      expect(sr.querySelector('button[aria-expanded]'), card.id).not.toBeNull()
+    }
   })
 })
