@@ -5,6 +5,7 @@ import { call, TeamApiError } from './team/api'
 import { BODY, CARD, ERR, H, META } from './team/ui'
 import { typography } from '../styles/typography'
 import { CompareWithScenario } from './scenarioCompare'
+import { markOf, ShiftTrack, TrackKey } from './compareTrack'
 
 /**
  * TWO APPROVED VERSIONS, AS CORE COMPARES THEM (olumi-core API.md v1.7, "Comparing two versions"): core's read-only
@@ -12,18 +13,24 @@ import { CompareWithScenario } from './scenarioCompare'
  * and how each saved result moved, every word and mark core's; nothing is computed here. One module for the dock's Compare tab, the
  * version history panel and the Team tab.
  */
-type Side = { value: string; title: string; olumi: { glyph: string; title: string } | null }
+/** `chance` (core wip/compare, 7 Nov): core's own number behind the value (0 to 1), which places the shift track's mark. */
+type Side = { value: string; title: string; olumi: { glyph: string; title: string } | null; chance?: number | null }
+/** `label` and `move_text` (core wip/compare, 7 Nov): core's own words for what the result is about and how it moved. */
 export type Move = { kind: 'chance' | 'limit' | 'most_likely'; option: string | null; optionLabel: string | null; aim: string; condition: string | null
-  before: Side | null; after: Side | null; move: 'up' | 'down' | 'changed' | 'unchanged' | 'new' | 'gone' }
-export type Compared = { versions: { n: number; at: string; proposedBy: string | null; briefBy: string | null; approvedBy: string }[]
+  before: Side | null; after: Side | null; move: 'up' | 'down' | 'changed' | 'unchanged' | 'new' | 'gone'; label?: string; move_text?: string }
+/** `who` (core wip/compare, 7 Nov): core's own words for who proposed and approved the version. */
+export type Compared = { versions: { n: number; at: string; proposedBy: string | null; briefBy: string | null; approvedBy: string; who?: string }[]
   changes: { text: string; detail: string; mark: { glyph: string; title: string } | null }[]; results: Move[] }
 
-/** Core's page's words for a move (olumi-core src/page/review.ts MOVE), and for what a result is about. */
-const MOVE: Record<Move['move'], string> = { up: 'up', down: 'down', changed: 'changed', unchanged: 'unchanged', new: 'new', gone: 'no longer worked out' }
-export const what = (r: Move) => (r.kind === 'most_likely' ? `Most likely to achieve ‘${r.aim}’${r.condition ?? ''}` : `‘${r.optionLabel ?? r.option ?? ''}’ ${r.kind === 'limit' ? 'within' : 'on'} ‘${r.aim}’`)
-
-/** Who proposed and approved one version, in /record's words (olumi-core record-page.ts). */
-export const whoOf = (v: Compared['versions'][number]) => `proposed by ${v.proposedBy ?? 'unknown'}${v.briefBy ? `, from ${v.briefBy}'s brief` : ''} · approved by ${v.approvedBy}`
+/**
+ * Core's own words for a move, for what a result is about and for who proposed and approved a version (`move_text`, `label`, `who`: core
+ * wip/compare, 7 Nov, from its page's review.ts). Drawn verbatim. Only a core that predates those fields gets the page's same words built here
+ * (the fallback below, the old path), so an older serving core still reads.
+ */
+const MOVE_BEFORE_CORE_WORDS: Record<Move['move'], string> = { up: 'up', down: 'down', changed: 'changed', unchanged: 'unchanged', new: 'new', gone: 'no longer worked out' }
+const moveWords = (r: Move) => r.move_text ?? MOVE_BEFORE_CORE_WORDS[r.move]
+export const what = (r: Move) => r.label ?? (r.kind === 'most_likely' ? `Most likely to achieve ‘${r.aim}’${r.condition ?? ''}` : `‘${r.optionLabel ?? r.option ?? ''}’ ${r.kind === 'limit' ? 'within' : 'on'} ‘${r.aim}’`)
+export const whoOf = (v: Compared['versions'][number]) => v.who ?? `proposed by ${v.proposedBy ?? 'unknown'}${v.briefBy ? `, from ${v.briefBy}'s brief` : ''} · approved by ${v.approvedBy}`
 
 export function SideText({ s }: { s: Side | null }) {
   if (s === null) return <span className="text-text-light">none</span>
@@ -54,8 +61,13 @@ export function ComparedLists({ c, id = 'team-compare', who = true, boxed = fals
       {part('changes', 'What changed', list(c.changes.map((l, i) => <ChangeItem key={i} l={l} />), 'No change to the model', 'changes'))}
       {part('results', 'How the results moved', list(c.results.map((r, i) => (
         // What the result is about on its own line, then before → after and how it moved: one result, two short lines.
-        <li key={i} className={`${BODY} grid`}><span className="text-text-header">{what(r)}:</span>{' '}<span><SideText s={r.before} /> → <SideText s={r.after} /> <span className="text-text-light">({MOVE[r.move]})</span></span></li>
+        <li key={i} className={`${BODY} grid`}><span className="text-text-header">{what(r)}:</span>{' '}<span><SideText s={r.before} /> → <SideText s={r.after} /> <span className="text-text-light">({moveWords(r)})</span></span>
+          {/* The earlier DGAI's shift track: the earlier version hollow, the later filled, where core gives each its number. */}
+          {r.kind !== 'most_likely' ? <ShiftTrack first={r.before ? markOf(r.before.chance, r.before.value) : null} second={r.after ? markOf(r.after.chance, r.after.value) : null} /> : null}
+        </li>
       )), 'No results in either version', 'results'))}
+      {c.results.some((r) => r.kind !== 'most_likely' && (markOf(r.before?.chance, '') || markOf(r.after?.chance, '')))
+        ? <TrackKey first={`Version ${Math.min(...c.versions.map((v) => v.n))}`} second={`Version ${Math.max(...c.versions.map((v) => v.n))}`} /> : null}
     </div>
   )
 }
@@ -137,10 +149,10 @@ export function useLatestApproved(): number | null | undefined {
 export function CoreCompareTab(): JSX.Element {
   const sid = useViewStore((s) => s.sid)
   const latest = useLatestApproved()
-  if (sid && latest === undefined) return <div data-testid="core-compare-tab" className="grid gap-3 px-3 py-3 pb-6"><p className={META} data-testid="core-compare-loading">Reading the versions…</p></div>
+  if (sid && latest === undefined) return <div data-testid="core-compare-tab" className="mx-auto grid w-full max-w-[440px] gap-3 px-3 py-3 pb-6"><p className={META} data-testid="core-compare-loading">Reading the versions…</p></div>
   return (
     // The Compare row pads itself (`padding: 'self'` in the shell contract): the shell's own measure, as the Team tab gets it.
-    <div data-testid="core-compare-tab" className="grid gap-3 px-3 py-3 pb-6">
+    <div data-testid="core-compare-tab" className="mx-auto grid w-full max-w-[440px] gap-3 px-3 py-3 pb-6">
       {!sid || latest === null || latest === undefined
         ? <p className={BODY} data-testid="core-compare-none">Start a model in the chat first. Compare reads the versions you approve.</p>
         : latest < 2
