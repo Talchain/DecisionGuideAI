@@ -5,7 +5,7 @@
  *
  * Every model word is core's, drawn verbatim under its View path; headings and buttons are UI chrome (`MODEL_EDIT_WORDS`).
  */
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, FileText, LocateFixed, Pencil, Type, User } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
@@ -18,10 +18,10 @@ import { linkEndHeading } from '../layout'
 import { authorAnyOf } from './author'
 import { MODEL_EDIT_WORDS as W, openEditor, readAfter, useModelEdit } from './editing'
 import { ASIDE_WORDS } from '../FigureEdit'
-import { focusIsWith, RECIPE } from './editors'
-import { useModelTab } from './state'
+import { RECIPE } from './editors'
+import { HELD_PREFIX, heldRow, useModelTab } from './state'
 import { linkEndPath, linksOf, strengthCardOf, targetCardOf } from './targets'
-import { AskOlumi, RemoveLink } from './structure'
+import { AskOlumi, RemoveLink, useMounted } from './structure'
 
 const SECTION = `${typography.viewPanelMeta} m-0 mb-1 text-text-light`
 const ICON = 'h-3.5 w-3.5 flex-none'
@@ -145,56 +145,58 @@ export function LinkDetail({ model, link, row }: { model: ViewModel; link: ViewL
 
 /**
  * Olumi's change is held: core takes no direct edit until it is approved or set aside (`edit_base` null). Said once, at the head of the tab,
- * with core's heading for it, and a two-step set-aside (the canvas's HeldEditOffer route: `POST …/discard`, nothing in it applied). Once
- * core has set it aside it no longer reads as waiting: if the View read after it fails (one a newer read overtook is that read's to
- * settle), it says so in the canvas's words, and it is never sent twice.
+ * with core's heading for it, and a two-step set-aside (the canvas's HeldEditOffer route: `POST …/discard`, nothing in it applied). It is
+ * one write of the tab's (`useModelTab.busy`), so a notice drawn again while core has it says so and sends nothing more. If the View read
+ * after it fails (one a newer read overtook is that read's to settle), the tab draws no View and says, in the canvas's words, that core set
+ * it aside; a refusal that lands while no notice is drawn is said on the tab the same way, and on that change's notice once it is drawn
+ * again (never on another change's: it goes once the View no longer holds the change it was about).
  */
 export function HeldNotice() {
   const { sid, held } = useModelEdit()
   const [asking, setAsking] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [aside, setAside] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const box = useRef<HTMLDivElement>(null)
-  const said = useRef<HTMLParagraphElement>(null)
+  const mounted = useMounted()
+  const key = sid === null || held === null ? '' : `${sid}:discard:${held.id}`
+  const row = held === null ? null : heldRow(held.id)
+  const busy = useModelTab((s) => key !== '' && s.busy === key)
+  const refused = useModelTab((s) => (row !== null && s.receipt?.row === row && s.receipt.unseen === undefined ? s.receipt.words : null))
+  // A refusal about a change this View no longer holds (decided elsewhere meanwhile) is no one's to read: it goes.
+  const moot = useModelTab((s) => s.receipt !== null && s.receipt.row.startsWith(HELD_PREFIX) && s.receipt.unseen === undefined && s.receipt.row !== row)
+  useEffect(() => { if (moot) useModelTab.getState().say(null) }, [moot])
   if (held === null || sid === null) return null
-  const done = aside === held.id
   const setItAside = async () => {
-    if (busy || done) return
+    if (useModelTab.getState().busy !== null) return
     const id = held.id
-    setBusy(true); setError(null)
+    const here = () => useViewStore.getState().sid === sid
+    setError(null); if (refused !== null) useModelTab.getState().say(null)
+    useModelTab.getState().setBusy(key)
     try {
       await writes.discard(id)
       const shown = await readAfter(sid, () => useViewStore.getState().refresh(), () => useViewStore.getState().view?.proposal?.id !== id)
-      if (shown === 'failed') {
-        // Core set it aside; the View could not show it. Said once, never sent again, and focus that was here moves to what it says.
-        const had = focusIsWith(box.current)
-        setAside(id); setError(ASIDE_WORDS.notShown)
-        if (had) setTimeout(() => said.current?.focus(), 0)
-      }
+      if (shown === 'failed') useModelTab.getState().say({ row: heldRow(id), words: ASIDE_WORDS.notShown, tone: 'failed', unseen: { n: null, view: useViewStore.getState().view } })
       setAsking(false)
     } catch (e) {
-      setError(e instanceof TeamApiError ? e.message : W.heldFailed)
-    } finally { setBusy(false) }
+      const words = e instanceof TeamApiError ? e.message : W.heldFailed
+      if (!here()) return
+      if (mounted.current) setError(words); else useModelTab.getState().say({ row: heldRow(id), words, tone: 'failed' })
+    } finally {
+      if (useModelTab.getState().busy === key) useModelTab.getState().setBusy(null)
+    }
   }
-  if (done) return (
-    <div className="rounded-lg border border-panel-border bg-panel p-3" data-testid="view-model-held" data-held-set-aside={held.id}>
-      <p ref={said} tabIndex={-1} role="alert" className={`${typography.viewPanelMeta} m-0 text-text-body ${ACTION_FOCUS}`} data-testid="view-model-held-done">{error}</p>
-    </div>
-  )
+  const said = error ?? refused
   return (
-    <div ref={box} className="space-y-2 rounded-lg border border-panel-border bg-panel p-3" data-testid="view-model-held">
+    <div className="space-y-2 rounded-lg border border-panel-border bg-panel p-3" data-testid="view-model-held">
       <p className="m-0 text-text-header">{W.heldLead}</p>
       <p className={`${typography.viewPanelMeta} m-0 text-text-light`}><span data-view="proposal.heading">{held.heading}</span> · <span data-view="proposal.on">{held.on}</span></p>
       <p className={`${typography.viewPanelMeta} m-0 text-text-body`}>{W.heldBody}</p>
-      {error === null ? null : <p role="alert" className={RECIPE.error} data-testid="view-model-held-error">{error}</p>}
+      {said === null ? null : <p role="alert" className={RECIPE.error} data-testid="view-model-held-error">{said}</p>}
       {asking ? (
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" autoFocus aria-disabled={busy || undefined} onClick={() => void setItAside()} className={RECIPE.secondary} data-testid="view-model-held-confirm">{W.heldConfirm}</button>
           <button type="button" aria-disabled={busy || undefined} onClick={() => { if (!busy) { setAsking(false); setError(null) } }} className={RECIPE.quiet}>{W.heldKeep}</button>
         </div>
       ) : (
-        <button type="button" onClick={() => setAsking(true)} className={RECIPE.action} data-testid="view-model-held-aside">{W.heldAside}</button>
+        <button type="button" aria-disabled={busy || undefined} onClick={() => { if (!busy) setAsking(true) }} className={RECIPE.action} data-testid="view-model-held-aside">{W.heldAside}</button>
       )}
       {busy ? <p role="status" className={RECIPE.status} data-testid="view-model-held-sending">{W.settingAside}</p> : null}
     </div>

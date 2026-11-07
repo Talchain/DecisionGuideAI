@@ -23,7 +23,7 @@ import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { KIND_GLYPH } from '../canvas/model-tab-v2/rowPresentation'
 import type { ViewCard, ViewModel } from './client'
 import { cardNumbersOf, drawKindOf, modelOutlineOf, outcomeRiskKinds, type OutlineGroupId } from './layout'
-import { useViewStore } from './store'
+import { shownModel, useViewStore } from './store'
 import { ModelCardRow } from './model/ModelCardRow'
 import { LinkRow } from './model/LinkRow'
 import { HeldNotice } from './model/detail'
@@ -31,6 +31,7 @@ import { AddFigureRow, AskOlumi } from './model/structure'
 import { MODEL_EDIT_WORDS } from './model/editing'
 import { authorKeyOf } from './model/premises'
 import { groupRow, useModelTab, type Receipt } from './model/state'
+import { focusIsWith, sayReceipt } from './model/editors'
 import { linkRowOf } from './model/targets'
 
 /** The previous PoC's outline chrome (legacy `ModelTabV2Panel.tsx`): its title, its filter's words and its expand control's. UI words, not
@@ -122,15 +123,57 @@ function GroupNote({ said }: { said: Receipt | null }) {
   )
 }
 
-export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
-  const numbers = useMemo(() => cardNumbersOf(model), [model])
+/**
+ * While the View is not valid (`model` null: a read on its way after a change, or one that failed), the tab draws no value of it and offers
+ * no edit (Codex review-ui 6): one line says what is happening, and what a write came to if it could not be shown. The tab itself stays
+ * on screen, so its open groups and filter are as the person left them when the next View lands; their drafts stay in the tab's state
+ * (`editing`, `adding`). Focus that was on a control the tab no longer draws goes to what the write came to; focus put elsewhere stays.
+ */
+function NotCurrent() {
+  const error = useViewStore((s) => s.error)
+  const saving = useModelTab((s) => s.busy !== null)
+  const unshown = useModelTab((s) => (s.receipt?.tone === 'failed' ? s.receipt.words : null))
+  const said = useRef<HTMLParagraphElement>(null)
+  useEffect(() => { if (unshown !== null && focusIsWith(null)) said.current?.focus() }, [unshown])
+  const calm = error === null || saving
+  return (
+    <div className="space-y-1" data-testid="view-model-not-current">
+      <p role={calm ? 'status' : 'alert'} className={`${typography.viewPanelMeta} m-0 ${calm ? 'text-text-light' : 'text-danger'}`} data-testid="view-model-not-current-why">
+        {saving ? MODEL_EDIT_WORDS.saving : error ?? MODEL_EDIT_WORDS.reading}
+      </p>
+      {unshown === null ? null : <p ref={said} tabIndex={-1} role="alert" className={`${typography.viewPanelMeta} m-0 text-danger ${ACTION_FOCUS}`} data-testid="view-model-not-current-unshown">{unshown}</p>}
+    </div>
+  )
+}
+
+export function ViewModelTab({ model }: { model: ViewModel | null }): JSX.Element {
+  const numbers = useMemo<ReadonlyMap<string, string>>(() => (model === null ? new Map() : cardNumbersOf(model)), [model])
   // Another scenario starts with nothing open, no editor and no receipt (review a4d73faf): ids are scenario-local.
   const sid = useViewStore((s) => s.sid)
   useEffect(() => { useModelTab.getState().follow(sid) }, [sid])
+  // A write said as saved but not shown (it landed while the tab drew nothing) is shown by any later View this tab draws: core's version is
+  // said in its place, on the same row or group.
+  const view = useViewStore((s) => s.view)
+  const unseen = useModelTab((s) => (s.receipt?.unseen !== undefined ? s.receipt : null))
+  useEffect(() => {
+    if (model === null || unseen === null || unseen.unseen === undefined || sid === null || view === unseen.unseen.view) return
+    if (unseen.unseen.n === null) useModelTab.getState().say(null)
+    else sayReceipt(sid, unseen.row, { n: unseen.unseen.n })
+  }, [model, unseen, view, sid])
   // Closed on open (the previous PoC's outline: five headings with counts, the question above them); a filter opens what it matches.
   const [opened, setOpened] = useState<ReadonlySet<GroupId>>(new Set())
   const [filter, setFilter] = useState('')
-  const outline = useMemo(() => modelOutlineOf(model, filter), [model, filter])
+  const outline = useMemo(() => (model === null ? null : modelOutlineOf(model, filter)), [model, filter])
+  const groupSaid = useModelTab((s) => (s.receipt !== null && s.receipt.row.startsWith('group:') ? s.receipt : null))
+  if (model === null || outline === null) return (
+    <div className={`${typography.viewPanelBody} space-y-2 pb-4`} data-testid="view-model-tab">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className={`${typography.panelHeader} m-0 text-text-header`}>{MODEL_OUTLINE_LABELS.title}</h3>
+        <ExpertSwitch />
+      </div>
+      <NotCurrent />
+    </div>
+  )
   const { searching, groups: shown, links, ids } = outline
   const isOpen = (id: GroupId, count: number) => (searching ? count > 0 : opened.has(id))
   const allOpen = ids.every((id) => opened.has(id))
@@ -143,7 +186,6 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
   const linkCount = !searching ? model.links.length : links.length
   // A write a group's own row cannot answer for says what it came to on its group (UI audit of e8ebab94): a link removed (its row is gone);
   // Add a figure or Remove link refused after their form left the screen. Relationships stays drawn while it says so.
-  const groupSaid = useModelTab((s) => (s.receipt !== null && s.receipt.row.startsWith('group:') ? s.receipt : null))
   const saidOn = (id: GroupId) => (groupSaid?.row === groupRow(id) ? groupSaid : null)
   const linksSaid = saidOn('relationships')
   return (
@@ -208,8 +250,13 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
   )
 }
 
-/** The tab's body for the scenario on screen: the View's model, or nothing before core holds one. */
+/**
+ * The tab's body for the scenario on screen: the View's model while it is valid (store.ts `shownModel`, the shared gate the Analysis and
+ * Reasoning tabs draw from: no failed read, nothing changed since it was read), the tab saying why while it is not, or nothing before core
+ * holds a View at all.
+ */
 export function ViewModelTabBlock(): JSX.Element | null {
-  const model = useViewStore((s) => s.view?.model ?? null)
-  return model === null ? null : <ViewModelTab model={model} />
+  const model = useViewStore(shownModel)
+  const hadView = useViewStore((s) => s.view !== null)
+  return model === null && !hadView ? null : <ViewModelTab model={model} />
 }

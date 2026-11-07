@@ -17,7 +17,7 @@
  *
  * Every label is core's (`figure.edit.prompt`) or UI chrome (`MODEL_EDIT_WORDS`). Nothing typed is read, converted or rounded here.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 import { useUIStore } from '../../stores/uiStore'
@@ -26,9 +26,9 @@ import { runWrite, useWriteSending } from '../../olumiCore/team/writes'
 import { writes } from '../client'
 import { useViewStore } from '../store'
 import { noteEditSaved, noticeWords } from '../notice'
-import { tryWhatIf } from '../whatif'
+import { clearWhatIf, tryWhatIf, useWhatIf } from '../whatif'
 import { editKey, MODEL_EDIT_WORDS as W, readAfterSave, useModelEdit } from './editing'
-import { useModelTab, type Editing } from './state'
+import { tagOf, useModelTab, type Editing } from './state'
 
 /**
  * The tab's control recipes, from the lane's own (chipClass, AddFigure): one name per role, so no control is styled twice. The person's own
@@ -65,10 +65,29 @@ export function focusIsWith(el: Element | null): boolean {
   return a === null || a === document.body || (el !== null && el.contains(a))
 }
 
+/**
+ * Focus a field as it is drawn: the one a press has just opened takes it (`fresh`); one drawn again once the View is valid after a while
+ * without one (its draft kept) takes it back only from nowhere, never from the chat or another field. `tag` null: not drawn.
+ */
+export function useFocusOnDraw(field: RefObject<HTMLElement | null>, tag: string | null): void {
+  useEffect(() => {
+    const el = field.current
+    if (tag !== null && el !== null && (useModelTab.getState().take(tag) || focusIsWith(null))) el.focus()
+  }, [field, tag])
+}
+
 /** Core's version number in a write's answer, when it gives one. */
 export const versionOf = (saved: unknown): number | null => {
   const n = (saved as { n?: unknown } | null)?.n
   return typeof n === 'number' && Number.isInteger(n) ? n : null
+}
+
+/**
+ * A write that landed but no View has shown, said where its control was once that control has left the screen (the tab draws nothing while
+ * the View is not valid): on its row or group, until a later View shows it (`ViewModelTab` settles it as core's version).
+ */
+export function sayUnseen(row: string, saved: unknown): void {
+  useModelTab.getState().say({ row, words: W.savedNotShown, tone: 'failed', unseen: { n: versionOf(saved), view: useViewStore.getState().view } })
 }
 
 /** A row id inside a quoted attribute selector (a link's row holds `:` and `>`, which a quoted value keeps as they are). */
@@ -103,6 +122,7 @@ function useSave(mine: Editing, key: string, focusOn: 'value' | 'name') {
   const [error, setError] = useState<string | null>(null)
   const field = useRef<HTMLInputElement>(null)
   const form = useRef<HTMLFormElement>(null)
+  useFocusOnDraw(field, tagOf(mine))
   const sending = useWriteSending(key)
   const busy = useModelTab((s) => s.busy === key)
   // Another write of this tab is with core: this editor's presses do nothing until it settles, and look it (inert, still focusable).
@@ -115,7 +135,7 @@ function useSave(mine: Editing, key: string, focusOn: 'value' | 'name') {
     if (focusIsWith(form.current)) setTimeout(() => field.current?.focus(), 0)
   }
   const run = async (send: () => Promise<unknown>) => {
-    if (useModelTab.getState().busy !== null || mine.landed !== undefined) return
+    if (useModelTab.getState().busy !== null) return
     setError(null); useModelTab.getState().setBusy(key)
     try {
       const saved = await send()
@@ -123,8 +143,9 @@ function useSave(mine: Editing, key: string, focusOn: 'value' | 'name') {
       noteEditSaved(saved)
       const shown = await readAfterSave(mine.sid)
       if (shown === 'moved') return
-      // Saved, not shown: said, and never sent again from this editor (only Cancel is live); a later read that lands settles it.
-      if (shown === 'failed') { useModelTab.getState().land(mine, { n: versionOf(saved), view: useViewStore.getState().view }); fail(W.savedNotShown); return }
+      // Saved, not shown: nothing of it is to be sent again, so the editor closes, and its row says so until a later View shows it (the tab
+      // draws nothing while the View is not valid, so the row says it once one lands; `ViewModelTab` settles it as core's version).
+      if (shown === 'failed') { useModelTab.getState().closeIf(mine); sayUnseen(mine.row, saved); return }
       useModelTab.getState().setBusy(null)
       useModelTab.getState().closeIf(mine)
       sayReceipt(mine.sid, mine.row, saved)
@@ -137,19 +158,7 @@ function useSave(mine: Editing, key: string, focusOn: 'value' | 'name') {
   }
   const cancel = () => { useModelTab.getState().closeIf(mine); focusRow(mine.row, focusOn) }
   const pending = sending || busy
-  const landed = mine.landed !== undefined
-  // A later read that lands (a View other than the one on screen when the write landed unseen) shows the save: the editor closes and says
-  // core's version, as it would have (UI audit of 3f7817bd: "saved, not shown" never outlives the View that showed it).
-  const readNow = useViewStore((s) => (s.error === null && !s.stale ? s.view : null))
-  useEffect(() => {
-    const l = mine.landed
-    if (l === undefined || readNow === null || readNow === l.view) return
-    useModelTab.getState().closeIf(mine)
-    if (l.n !== null) sayReceipt(mine.sid, mine.row, { n: l.n })
-  }, [mine, readNow])
-  // Its words come with it: an editor drawn again after its write landed unseen still says so (the flag lives with `editing`).
-  const said = error ?? (landed ? W.savedNotShown : null)
-  return { error: said, setError, field, form, run, cancel, pending, other, landed, inert: pending || other || landed }
+  return { error, setError, field, form, run, cancel, pending, other, inert: pending || other }
 }
 
 /**
@@ -160,7 +169,7 @@ export function FigureEditor({ mine, edit }: { mine: Editing & { readonly what: 
   const { row, quantity, sid, base, typed } = mine
   const [trying, setTrying] = useState(false)
   const key = editKey.figure(sid, quantity)
-  const { error, setError, field, form, run, cancel, pending, other, landed, inert } = useSave(mine, key, 'value')
+  const { error, setError, field, form, run, cancel, pending, other, inert } = useSave(mine, key, 'value')
   const withdrawn = useWithdrawn()
   const id = `model-edit-${row}`
   // Core has stopped offering the edit since it opened (a change of Olumi's is now held): the typing stays, nothing is sent, and it says why.
@@ -179,6 +188,7 @@ export function FigureEditor({ mine, edit }: { mine: Editing & { readonly what: 
     try {
       await tryWhatIf(sid, base, quantity, typed)
       if (here()) useUIStore.getState().forceActivateOutputTab('results') // never raised over another scenario
+      else if (useWhatIf.getState().shown?.sid === sid) clearWhatIf() // the page left it, or the person was forgotten: none of it stays
     } catch (e) {
       if (here()) setError(e instanceof TeamApiError ? e.message : W.triedFailed)
     } finally { setTrying(false) }
@@ -190,7 +200,7 @@ export function FigureEditor({ mine, edit }: { mine: Editing & { readonly what: 
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !pending) cancel() }}
       onClick={(e) => e.stopPropagation()}>
       <label htmlFor={id} className={RECIPE.label} data-view-edit-prompt={quantity}>{edit.prompt}</label>
-      <input ref={field} id={id} autoFocus autoComplete="off" spellCheck={false} value={typed} readOnly={pending || landed} data-model-editor-input={row}
+      <input ref={field} id={id} autoComplete="off" spellCheck={false} value={typed} readOnly={pending} data-model-editor-input={row}
         onChange={(e) => { useModelTab.getState().type(mine, e.target.value); if (error) setError(null) }} className={`${RECIPE.input} tabular-nums`} />
       {error === null ? null : <p role="alert" className={RECIPE.error} data-model-editor-error={row}>{error}</p>}
       {withdrawn === null ? null : <p role="status" className={RECIPE.status} data-model-editor-withdrawn={row}>{withdrawn}</p>}
@@ -210,7 +220,7 @@ export function FigureEditor({ mine, edit }: { mine: Editing & { readonly what: 
 export function RenameEditor({ mine }: { mine: Editing & { readonly what: 'rename' } }): JSX.Element {
   const { row, sid, base, typed } = mine
   const key = editKey.rename(sid, row)
-  const { error, setError, field, form, run, cancel, pending, other, landed, inert } = useSave(mine, key, 'name')
+  const { error, setError, field, form, run, cancel, pending, other, inert } = useSave(mine, key, 'name')
   const withdrawn = useWithdrawn()
   const id = `model-rename-${row}`
   const offered = withdrawn === null
@@ -227,7 +237,7 @@ export function RenameEditor({ mine }: { mine: Editing & { readonly what: 'renam
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !pending) cancel() }}
       onClick={(e) => e.stopPropagation()}>
       <label htmlFor={id} className={RECIPE.label}>{W.newName}</label>
-      <input ref={field} id={id} autoFocus autoComplete="off" maxLength={120} value={typed} readOnly={pending || landed} data-model-renamer-input={row}
+      <input ref={field} id={id} autoComplete="off" maxLength={120} value={typed} readOnly={pending} data-model-renamer-input={row}
         onFocus={(e) => e.currentTarget.select()} onChange={(e) => { useModelTab.getState().type(mine, e.target.value); if (error) setError(null) }} className={RECIPE.input} />
       {error === null ? null : <p role="alert" className={RECIPE.error} data-model-renamer-error={row}>{error}</p>}
       {withdrawn === null ? null : <p role="status" className={RECIPE.status} data-model-renamer-withdrawn={row}>{withdrawn}</p>}
