@@ -71,6 +71,17 @@ describe('R24 drivers and the head row (R25, Paul 7 Nov: drivers in their own ro
     expect(p.get('o1')!.y).toBeLessThan(p.get('lever_a')!.y)
     expect(p.get('lever_a')!.y).toBeLessThan(p.get('cash')!.y)
   })
+  it('catch (DL 7 Nov: an aim, then O3 and O4 of a four-option board, ran under the dock at 1232): on every golden and real board the head (the question, the aims beside it and every options row) is at most 760 wide, inside the visible canvas at 1232 at 1.0', async () => {
+    const goldens = ['bakery', 'european', 'pricing', 'studio', 's_ce285b3617bb', 'app-launch', 'proposal', 'whatif'].map((n) => (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8')) as View).model!)
+    const hosting = real('hosting')
+    expect(hosting.cards.filter((c) => c.family === 'option')).toHaveLength(4) // precondition: the four-option real board
+    for (const m of [...goldens, ...['hiring', 'capacity', 'european-22cards', 'bakery-r5', 'together'].map(real), hosting, r24]) {
+      const qw = questionPlace(m).width, p = await causalPlaces(m, new Map(), qw)
+      const head = [QUESTION, ...m.cards.filter((c) => { const t = familyTierOf(c, m); return t === 1 || t === 5 }).map((c) => c.id)]
+      const left = Math.min(...head.map((id) => p.get(id)!.x)), right = Math.max(...head.map((id) => p.get(id)!.x + (id === QUESTION ? qw : CARD_WIDTH)))
+      expect(right - left, `${head.length} head cards`).toBeLessThanOrEqual(760)
+    }
+  })
   it('CONTRAST: no board before R24 has a driver (every golden and real fixture), so their kinds and rows are as before', () => {
     const goldens = ['bakery', 'european', 'pricing', 'studio', 's_ce285b3617bb', 'app-launch', 'proposal', 'whatif'].map((n) => (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8')) as View).model!)
     for (const m of [...goldens, ...['hiring', 'capacity', 'european-22cards', 'bakery-r5', 'together'].map(real)]) expect(m.cards.filter((c) => familyTierOf(c, m) === 2)).toEqual([])

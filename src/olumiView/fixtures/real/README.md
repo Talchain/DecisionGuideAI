@@ -18,3 +18,7 @@ These two Views are the real models. They're fixtures for `fit-real-model.mjs`, 
   - Source: `~/olumi-work/local-dgai/demo-case0/hiring.view3.r2-1c1bc10.json`, unchanged.
 - **`together.view3.json`:** a proposal with Olumi's figure and the option that sets it, which core marks as a pair (`proposal.changes[].together`, R4, API v1.13).
   - Source: core `wip/r4-science` 1dd2ca9's own approve path (`src/app/__tests__/confirm-selected.test.ts`, the R4 pair: `two_specialists`, `add_two`, plus an unpaired `c_extra`). Read as `ViewV3.parse(viewOf(svc.view(...), undefined, 3))` with no AI calls. Unedited.
+
+- **`hosting.view3.json`:** a real fresh brief about managed hosting, scenario `s_0aa84c97289f` (R25, DL 7 Nov).
+  - Source: the DL's live candidate check `20261107T032625Z-a5829-live` (core a582999d, 7 calls). Read as `olumi.view/3` from a copy of that store on a local core at 29a198cf with no AI key, as a member minted for the read. No hand edits.
+  - Card `own_hosting`, row 1 (`kind: 'none'`): core's whole Run sentence, 789 characters, which drew ~25 lines a card. It binds `viewDisclosed.spec`.

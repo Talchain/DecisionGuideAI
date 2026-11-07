@@ -223,7 +223,7 @@ export function flankHead(places: ReadonlyMap<string, { x: number; y: number }>,
  * the smallest supported canvas: 1280 less the dock and the canvas padding leaves about 824px, so 915 units; 900 keeps a margin. A wider
  * row (four options: 4 × 220 + 3 × 48 = 1024) wraps into balanced rows (DL 4 Nov, Codex P1-3), so the question and every option are seen.
  */
-export const HEAD_ROW_MAX = 900
+export const HEAD_ROW_MAX = 760 // R25 (DL 7 Nov, 4-option hosting board at 1232): the visible canvas at the 1.0 floor, as the head row; was 900 at 0.9
 /** The room between two family rows, and inside a wrapped row (option a2: tight enough that Paul's hiring board opens whole at 0.8). */
 export const FAMILY_ROW_GAP = 32
 const WRAP_PER_ROW = 4, WRAP_GAP_X = 32, WRAP_GAP_Y = 24

@@ -12,7 +12,7 @@ import { computeFitPadding } from '../utils/computeFitPadding'
 import { paddingToInsets } from '../utils/cameraComfort'
 import { panToKeepInView } from '../utils/keepInView'
 import { ChevronDown } from 'lucide-react'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ViewCard as Card, ViewReading, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, readingOf, type RestsOnItem } from '../../olumiView/layout'
@@ -78,6 +78,31 @@ const Companion = ({ row, at }: { row: Extract<ViewRow, { kind: 'chance' }>; at:
     {row.timing == null ? null : <span className={`${typography.viewLabel} block text-text-light`} title={row.timing_title ?? row.timing} data-row-timing={at}><span data-view={`${at}.timing`}>{row.timing}</span></span>}
   </>
 )
+
+/**
+ * A LINE THAT CAN CARRY A WHOLE RUN SENTENCE (R25, DL 7 Nov: on a real fresh brief a 'none' row quoted an unmeasured figure's whole
+ * note, ~25 lines a card, and the board could not be read). Three lines at most, then a real control that opens core's words in place
+ * (a button, keyboard reachable, aria-expanded), never hover only. The words are whole in the DOM either way; a short line has no control.
+ */
+export const SHOW_ALL = 'Show all', SHOW_LESS = 'Show less'
+export function Disclosed({ at, className = '', title, children }: { at: string; className?: string; title?: string; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState(false)
+  const [over, setOver] = useState(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render while closed; an equal answer bails out
+  useLayoutEffect(() => { const el = ref.current; if (el !== null && !open) { const o = el.scrollHeight > el.clientHeight + 1; if (o !== over) setOver(o) } })
+  const id = `disclosed-${at.replace(/[^A-Za-z0-9_-]/g, '-')}`
+  return (
+    <div className={className} data-view-row={at}>
+      <div ref={ref} id={id} title={title} className={open ? undefined : 'line-clamp-3'} data-disclosure={over || open ? (open ? 'open' : 'closed') : undefined}>{children}</div>
+      {over || open ? (
+        <button type="button" aria-expanded={open} aria-controls={id} data-show-all={at}
+          onClick={(e) => { e.stopPropagation(); setOpen(!open) }}
+          className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2`}>{open ? SHOW_LESS : SHOW_ALL}</button>
+      ) : null}
+    </div>
+  )
+}
 
 function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: ViewRow; i: number; ifApproved?: IfApproved; lead?: boolean | null }) {
   const at = `${id}.rows.${i}`
@@ -151,8 +176,8 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
     case 'none': {
       // a core before view-dock serves no `text`: the row says its title, as before (00058 P1)
       const text = row.text == null
-        ? <p data-view-row={at}><span data-view={`${at}.title`}>{row.title}</span></p>
-        : <p title={row.title} data-view-row={at}><span data-view={`${at}.text`}>{row.text}</span></p>
+        ? <Disclosed at={at}><span data-view={`${at}.title`}>{row.title}</span></Disclosed>
+        : <Disclosed at={at} title={row.title}><span data-view={`${at}.text`}>{row.text}</span></Disclosed>
       // R20: core's timing sweep under a none row's words ("Under these timing assumptions: about X% if …"), drawn as the chance row's timing line is; absent on a core before it
       return row.timing == null ? text : (
         <>
@@ -242,7 +267,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       {card.family === 'option' ? <Slot name={VIEW_CARD_SLOTS.driverBadge} className="absolute right-1 top-1 empty:hidden" />
         // The original's ⌄ on a card with more to say: a press selects the card, which opens its other words beside it.
         : more ? <ChevronDown aria-hidden="true" data-more-cue="" className="absolute right-1.5 top-2 h-3.5 w-3.5 text-text-light" /> : null}
-      {says ? <p title={card.reason!} data-view={`${id}.reason`}>{card.reason}</p> : null}
+      {says ? <Disclosed at={`${id}.reason-line`} title={card.reason!}><span data-view={`${id}.reason`}>{card.reason}</span></Disclosed> : null}
       {card.bound === null ? null : (
         // An aim's or limit's target, core's own words from its target record ("at least 10%"), on the face under the heading, as the
         // previous PoC's "Target: …" line (DL 6 Nov: a label names the outcome alone, so the number is never hidden behind a selection).
