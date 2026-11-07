@@ -20,11 +20,8 @@ import type { View } from '../client'
 import { research, type ResearchChoice, type ResearchItem, type ResearchProposal } from './api'
 
 const POLL_MS = 3_000
-const STANCE: Record<ResearchProposal['stance'], string> = { supports: 'Supports the model as it is', challenges: 'Challenges the model as it is', unclear: 'Not clear against the model' }
-const STRENGTH: Record<ResearchProposal['strength'], string> = { strong: 'Strong', moderate: 'Moderate', weak: 'Weak' }
 /** A piece of evidence's stance in the Team tab's own words (EvidencePanel STANCES). */
 const EVIDENCE_STANCE: Record<string, string> = { supports: 'Supports it', challenges: 'Challenges it', unclear: 'Not clear yet' }
-const CHOSEN: Record<ResearchChoice, string> = { accept: 'Attached as evidence', reject: 'Set aside', set_range: 'Range set and attached as evidence' }
 const failed = (e: unknown) => (e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
 
 /** The record a selection names: a card's own id; a link's relation record (the View's `links[].remove.record`), else none. */
@@ -51,20 +48,19 @@ function Proposal({ sid, item, p, base, onWrote }: { sid: string; item: Research
     } catch (e) { setError(failed(e)) }
   }
   const link = linkOf(p.url)
-  let host = p.url
-  try { host = new URL(p.url).hostname.replace(/^www\./, '') } catch { /* shown as given */ }
+  const l = p.lines
   return (
     <li data-research-proposal={p.k} data-olumi="" data-provisional="" className="grid gap-1.5 rounded-[12px] border border-dashed border-info/60 bg-panel p-2.5">
-      <p className={`${META} text-info`} title={p.mark} aria-label={p.mark}>Olumi’s proposal · provisional</p>
+      <p className={`${META} text-info`} title={p.mark} aria-label={p.mark} data-research-line="badge">{l.badge}</p>
       <p className={H}>{link ? <a href={link} target="_blank" rel="noreferrer noopener" className="underline decoration-info/50 underline-offset-2">{p.title}</a> : p.title}</p>
-      <p className={META}>{host} · {p.published ?? 'undated'}</p>
-      <blockquote className={`${BODY} m-0 border-l-2 border-panel-border pl-2 italic`}>“{p.quote}”</blockquote>
-      <p className={BODY}><span className={LABEL + ' inline'}>Suggests </span>{p.implies.words}</p>
-      <p className={META}><span className="text-text-header">Relevance:</span> {p.relevance}</p>
-      <p className={META}><span className="text-text-header">Strength:</span> {STRENGTH[p.strength]}. {p.strength_why}</p>
-      <p className={META} data-stance={p.stance}>{STANCE[p.stance]}</p>
-      {p.choice ? (
-        <p className={`${META} text-text-header`} data-research-choice={p.choice.choice}>{CHOSEN[p.choice.choice]} by {p.choice.by}</p>
+      <p className={META} data-research-line="where">{l.where}</p>
+      <blockquote className={`${BODY} m-0 border-l-2 border-panel-border pl-2 italic`} data-research-line="quote">{p.quote}</blockquote>
+      <p className={BODY} data-research-line="suggests">{l.suggests}</p>
+      <p className={META} data-research-line="relevance">{l.relevance}</p>
+      <p className={META} data-research-line="strength">{l.strength}</p>
+      <p className={META} data-research-line="stance" data-stance={p.stance}>{l.stance}</p>
+      {l.choice ? (
+        <p className={`${META} text-text-header`} data-research-choice={p.choice?.choice} data-research-line="choice">{l.choice}</p>
       ) : (
         <div className="flex flex-wrap items-center gap-1.5">
           <Button size="sm" variant="secondary" disabled={sending} onClick={() => void choose('accept')} data-research-accept={p.k}>Attach as evidence</Button>
@@ -72,7 +68,7 @@ function Proposal({ sid, item, p, base, onWrote }: { sid: string; item: Research
           <Button size="sm" variant="ghost" disabled={sending} onClick={() => void choose('reject')} data-research-reject={p.k}>Set aside</Button>
         </div>
       )}
-      {!p.choice && !p.settable && p.implies.kind === 'range' && p.why_not ? <p className={META}>Cannot set the range: {p.why_not}.</p> : null}
+      {!l.choice && l.cannot_set ? <p className={META} data-research-line="cannot_set">{l.cannot_set}</p> : null}
       {error ? <p className={ERR}>{error}</p> : null}
     </li>
   )
@@ -95,8 +91,13 @@ function Attached({ sid, view, record, onWrote }: { sid: string; view: View; rec
           <li key={e.id} className="grid gap-1 rounded-[10px] border border-panel-border p-2" data-evidence={e.id}>
             <p className={BODY}>{e.text}</p>
             <p className={META}>{e.by} · {EVIDENCE_STANCE[e.stance] ?? e.stance}{e.link ? <> · <a href={e.link} target="_blank" rel="noreferrer noopener" className="underline">source</a></> : null}</p>
-            {e.considered ? <p className={META}>Olumi considered it{e.considered.proposal !== null ? ': it proposed a change, shown in the chat' : e.considered.why ? `: ${e.considered.why.text}` : ''}</p>
-              : <div><Button size="sm" variant="ghost" onClick={() => void consider(e.id)} data-research-consider={e.id}>Ask Olumi what it changes</Button></div>}
+            {e.considered ? (
+              // As the Team tab's evidence list draws it (EvidencePanel `Considered`): label and value, and core's reply verbatim.
+              <>
+                <p className={META} data-research-considered={e.id}>Considered, asked by: <span className="text-text-header">{e.considered.by}</span></p>
+                {e.considered.why ? <p className={`${META} whitespace-pre-wrap break-words`} title={e.considered.why.title}>{e.considered.why.text}</p> : null}
+              </>
+            ) : <div><Button size="sm" variant="ghost" onClick={() => void consider(e.id)} data-research-consider={e.id}>Ask Olumi what it changes</Button></div>}
           </li>
         ))}
       </ul>
@@ -135,10 +136,10 @@ function Panel({ sid, view, record, about, right, onClose }: { sid: string; view
     <aside role="dialog" aria-label={`Evidence for ${about}`} data-research-panel={record} style={{ right }}
       className={`${CARD} fixed top-[108px] z-[60] w-[380px] max-h-[calc(100vh-176px)] overflow-y-auto shadow-lg`}>
       <div className="flex items-start justify-between gap-2">
-        <p className={H}>Evidence for “{about}”</p>
+        <p className={H}>{latest?.heading ?? about}</p>
         <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close">Close</Button>
       </div>
-      <p className={META}>Olumi searches the web and proposes sources. Nothing in the model changes until you choose.</p>
+      {latest ? <p className={META}>{latest.intro}</p> : null}
       {latest === null || latest.status !== 'searching' ? (
         <div><Button size="sm" variant="secondary" disabled={sending} onClick={() => void start()} data-research-start={record}>{latest === null ? 'Search the web' : 'Search again'}</Button></div>
       ) : null}
