@@ -12,6 +12,8 @@
 //   {"model":"rich"}      the capacity case plus a risk, a limit ("no more than 120"), Olumi's what-if ranges set by options,
 //                         a disputed and an unknown influence, and a figure still asked for (the model-audit shapes)
 //   {"model":"target_interval"}   the aim's target is a range
+//   {"model":"olumi_range"}  'per specialist' is Olumi's own range (10 to 30), and a message saying "narrow" has Olumi narrow it to
+//                         15 to 25: the held change core's proposal.verdict calls unsupported when nothing shared is attached (zero calls)
 //   {"markers":true}      the first coach reply cites Run findings by marker ({F3} chance, {F5} most likely), so a
 //                         reply read back later must keep the figures it was written with
 // Failure injection for the error screens: a control file (OLUMI_CONTROL, JSON, read on every call), e.g.
@@ -59,6 +61,12 @@ function rich() {
   if (add.family === 'option') add.sets.push({ quantity: 'spend', to: 'hire_spend', starts_after: 0 });
   return f;
 }
+function olumiRange() {
+  const f = capacity();
+  const r = f.records.find((x) => x.id === 'per_specialist')!;
+  if (r.family === 'quantity') r.origin = olumi('a typical specialist') as never;
+  return f;
+}
 function targetInterval() {
   const f = capacity();
   const r = f.records.find((x) => x.id === 'capacity_target')!;
@@ -71,14 +79,15 @@ const caller = (async (o: Parameters<typeof callStructured>[0]) => {
   if (c.delay_ms) await new Promise((r) => setTimeout(r, c.delay_ms));
   if (c.fail === kind) throw new Error('scripted AI failure');
   let parsed: unknown;
-  if (kind === 'draft') { coachTurn = 0; parsed = c.model === 'rich' ? rich() : c.model === 'target_interval' ? targetInterval() : capacity(); }
+  if (kind === 'draft') { coachTurn = 0; parsed = c.model === 'rich' ? rich() : c.model === 'target_interval' ? targetInterval() : c.model === 'olumi_range' ? olumiRange() : capacity(); }
   else if (kind === 'coach') {
     const next = coaches[Math.min(coachTurn++, coaches.length - 1)]!;
     parsed = markers() && next === coaches[0] ? { ...next, answer: 'In this model {F3} for adding a specialist. Also: {F5}.' } : next;
   }
   else {
     const said = lastUser(o);
-    parsed = /absence/i.test(said)
+    const narrowed = (): unknown => { const r = olumiRange().records.find((x) => x.id === 'per_specialist')!; return { ...none, records: [{ ...r, assertion: { kind: 'interval', low: 15, high: 25, range_kind: 'plausible', likely: 20 }, origin: olumi('a narrower typical specialist') }] }; };
+    parsed = /\bnarrow/i.test(said) ? narrowed() : /absence/i.test(said)
       ? { ...none, records: [q('staff_absence', 'ticket/week', 'fact', { kind: 'interval', low: 2, high: 10, range_kind: 'plausible', likely: 5 }, olumi('typical absence for a small team'))] }
       : /third option/i.test(said)
         ? { ...none, records: [q('two_specialists', 'specialist', 'fact', { kind: 'point', value: 2, approximate: false }, person('add two specialists')), { family: 'option', id: 'add_two', label: 'Add two specialists', status: 'live', carry_on: false, developed_from: null, sets: [{ quantity: 'specialists', to: 'two_specialists', starts_after: 0 }], origin: person('add two specialists') }] }

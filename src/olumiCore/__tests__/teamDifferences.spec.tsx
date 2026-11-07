@@ -10,7 +10,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { View } from '../../olumiView/client'
 import { setPagePerson, setTeamFetch } from '../team/api'
 import { resetWrites } from '../team/writes'
-import { resetDifferences } from '../team/differences'
+import { differencesShape, resetDifferences } from '../team/differences'
 import { draftOf, resetDrafts } from '../team/drafts'
 import { DifferencesPanel } from '../team/DifferencesPanel'
 import { useWhatIf } from '../../olumiView/whatif'
@@ -107,5 +107,19 @@ describe('where your explanations differ', () => {
     const again = render(<DifferencesPanel sid="s_x" view={view({ gated: true })} onWrote={async () => true} />)
     await new Promise((r) => setTimeout(r, 20))
     expect(again.container.querySelector('[data-testid="team-differences"]')).toBeNull()
+  })
+
+  it('reads core\'s stance words as given; a read without them is kept, and a malformed list is dropped while the read is kept', () => {
+    const words = [{ id: 'know', text: 'I know this from experience' }, { id: 'suspect', text: 'I suspect this' }]
+    expect(differencesShape({ ...core, stances: words })!.stances).toEqual(words)
+    const bare = { ...core }; delete (bare as { stances?: unknown }).stances
+    const kept = differencesShape(bare)!
+    expect(kept.differences).toEqual(core.differences)
+    expect('stances' in kept).toBe(false)
+    for (const bad of [[{ id: 1, text: 'x' }], 'know', [null]]) {
+      const r = differencesShape({ ...core, stances: bad })!
+      expect(r.differences).toEqual(core.differences)
+      expect(r.stances).toBeUndefined()
+    }
   })
 })
