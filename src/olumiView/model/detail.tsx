@@ -21,6 +21,7 @@ import { ASIDE_WORDS } from '../FigureEdit'
 import { RECIPE } from './editors'
 import { useModelTab } from './state'
 import { linksOf, strengthCardOf, targetCardOf } from './targets'
+import { AskOlumi, RemoveLink } from './structure'
 
 const SECTION = `${typography.viewPanelMeta} m-0 mb-1 text-text-light`
 const ICON = 'h-3.5 w-3.5 flex-none'
@@ -116,6 +117,7 @@ export function CardDetail({ model, card }: { model: ViewModel; card: ViewCard }
         {canEdit ? <Action at="rename" icon={<Type aria-hidden="true" className={ICON} />} label={W.rename} onPress={() => edit({ row: card.id, what: 'rename' })} /> : null}
         <Action at="canvas" icon={<LocateFixed aria-hidden="true" className={ICON} />} label={W.showOnCanvas} onPress={() => focusNodeById(card.id)} />
       </div>
+      <AskOlumi at={`change:${card.id}`} label={W.askChange} draft={`${W.askChangeDraft} “${card.heading}”: `} />
       <Whose card={card} expert={expert} keyEntries={model.key} />
       <Links model={model} card={card} expert={expert} />
       {expert ? <Science card={card} /> : null}
@@ -137,6 +139,7 @@ export function LinkDetail({ model, link, i }: { model: ViewModel; link: ViewLin
         <Action at="from" icon={<ArrowLeft aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.from)} onPress={() => focusNodeById(link.from)} />
         <Action at="to" icon={<ArrowRight aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.to)} onPress={() => focusNodeById(link.to)} />
       </div>
+      {base === null ? null : <RemoveLink link={link} row={row} />}
     </div>
   )
 }

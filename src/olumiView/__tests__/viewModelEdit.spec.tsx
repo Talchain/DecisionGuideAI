@@ -276,3 +276,42 @@ describe('whose it is, and another scenario', () => {
     expect(c.querySelector(`[data-model-detail="${figure.id}"]`)).toBeNull()
   })
 })
+
+describe('adding and taking away', () => {
+  it('HIGH: Add a figure sends the name, the figure as typed and the unit on the base it opened on; the form closes once the new View lands', async () => {
+    answer = { status: 201, body: { version: 2, n: 2, receipt: 'r', record: 'q_new' } }
+    const c = draw()
+    fireEvent.click(c.querySelector('[data-model-add-figure="open"]')!)
+    useViewStore.setState({ view: { ...wire, model: { ...wire.model!, edit_base: 7 } } }) // a background re-read moves the live base on
+    fireEvent.change(c.querySelector('[data-model-add-figure="name"]')!, { target: { value: ' Sales team ' } })
+    fireEvent.change(c.querySelector('[data-model-add-figure="typed"]')!, { target: { value: '4 to 6' } })
+    fireEvent.change(c.querySelector('[data-model-add-figure="unit"]')!, { target: { value: 'people' } })
+    fireEvent.click(c.querySelector('[data-model-add-figure="add"]')!)
+    await waitFor(() => expect(c.querySelector('[data-model-add-figure="form"]')).toBeNull())
+    expect(posts().map((p) => p.path)).toEqual([`/api/scenarios/${SID}/figures`])
+    const body = posts()[0]!.body as Record<string, unknown>
+    expect([body['base'], body['label'], body['typed'], body['unit']]).toEqual([1, 'Sales team', '4 to 6', 'people'])
+  })
+
+  it('HIGH: Remove link asks once, then posts core\'s remove object verbatim on the base it opened on (labelled fixture: this wire View marks no line removable)', async () => {
+    // ⚠ LABELLED FIXTURE: core marks a line removable with `links[].remove` (core view.ts removalsOf); none in this golden, so one line is
+    // given the shape core serves ({ record, part }, as the R25 part witness recorded it: { record: 'total_def', part: 'existing_capacity' }).
+    const k = wire.model!.links.findIndex((l) => l.kind === 'plain')
+    const removable = { ...wire, model: { ...wire.model!, links: wire.model!.links.map((l, i) => (i === k ? { ...l, remove: { record: 'rel_x', part: 'part_y' } } : l)) } }
+    view = removable
+    useViewStore.setState({ view })
+    const c = draw(removable)
+    fireEvent.click(c.querySelector(`[data-model-select="links.${k}"]`)!)
+    fireEvent.click(c.querySelector(`[data-model-remove-link-open="links.${k}"]`)!)
+    expect(posts()).toEqual([]) // asked first
+    fireEvent.click(c.querySelector(`[data-model-remove-link-yes="links.${k}"]`)!)
+    await waitFor(() => expect(posts().map((p) => p.path)).toEqual([`/api/scenarios/${SID}/links/remove`]))
+    const body = posts()[0]!.body as Record<string, unknown>
+    expect([body['base'], body['record'], body['part'], typeof body['op']]).toEqual([1, 'rel_x', 'part_y', 'string'])
+    // CONTRAST: the detail of a line core does not mark is open, and offers no removal.
+    const other = wire.model!.links.findIndex((_, i) => i !== k)
+    fireEvent.click(c.querySelector(`[data-model-select="links.${other}"]`)!)
+    expect(c.querySelector(`[data-model-detail="links.${other}"]`)).not.toBeNull()
+    expect(c.querySelector(`[data-model-remove-link-open="links.${other}"]`)).toBeNull()
+  })
+})

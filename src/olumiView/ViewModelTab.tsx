@@ -27,6 +27,7 @@ import { useViewStore } from './store'
 import { ModelCardRow } from './model/ModelCardRow'
 import { LinkRow } from './model/LinkRow'
 import { HeldNotice } from './model/detail'
+import { AddFigureRow, AskOlumi } from './model/structure'
 import { MODEL_EDIT_WORDS } from './model/editing'
 import { authorKeyOf } from './model/premises'
 import { useModelTab } from './model/state'
@@ -144,6 +145,9 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
                 </li>
               ) : null}
               {g.rows.map((c) => <ModelCardRow key={c.id} card={c} number={numbers.get(c.id) ?? null} kind={drawKindOf(c, model)} model={model} />)}
+              {searching ? null : g.id === 'factors' ? <AddFigureRow />
+                : g.id === 'options' ? <li className="px-2 pt-1"><AskOlumi at="options" label={MODEL_EDIT_WORDS.askOption} draft={MODEL_EDIT_WORDS.askOptionDraft} /></li>
+                  : g.id === 'outcomes-risks' ? <li className="px-2 pt-1"><AskOlumi at="risks" label={MODEL_EDIT_WORDS.askRisk} draft={MODEL_EDIT_WORDS.askRiskDraft} /></li> : null}
             </Group>
           )
         })}
@@ -151,6 +155,7 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
           <Group id="relationships" title={MODEL_GROUP_TITLE.relationships} count={!searching ? model.links.length : links.length}
             open={isOpen('relationships', !searching ? model.links.length : links.length)} onToggle={() => toggle('relationships')} mark={<KindMark id="relationships" cards={[]} model={model} />}>
             {links.map(({ l, i, from, to }) => <LinkRow key={i} model={model} link={l} i={i} from={from} to={to} />)}
+            {searching ? null : <li className="px-2 pt-1"><AskOlumi at="links" label={MODEL_EDIT_WORDS.askLink} draft={MODEL_EDIT_WORDS.askLinkDraft} /></li>}
           </Group>
         )}
       </div>
