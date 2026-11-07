@@ -1,4 +1,4 @@
-import { Navigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { typography } from '../styles/typography'
 import { coreLaneHasAccounts } from './lane'
 import { NOTICES } from './notices'
@@ -21,6 +21,8 @@ export function SignedOut(): JSX.Element {
           <>
             <h1 className={`${typography.h4} text-text-header`}>You’re signed out</h1>
             <p className={`${typography.bodySmall} mt-2 text-text-body`}>Your private link opens it again.</p>
+            {/* PoC accounts (src/olumiCore/accounts/): a person with an email and password signs back in here. */}
+            <p className={`${typography.bodySmall} mt-2`}><Link to="/signin" className="text-info underline underline-offset-2 hover:no-underline" data-testid="olumi-core-signed-out-signin">Sign in with your email and password</Link></p>
           </>
         )}
         <nav aria-label="Notices" className={`${typography.caption} mt-6 flex justify-center gap-4 text-text-light`} data-testid="olumi-core-notices">

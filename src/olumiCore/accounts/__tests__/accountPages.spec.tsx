@@ -1,0 +1,167 @@
+/**
+ * The PoC account pages on the olumi-core lane (src/olumiCore/accounts/), against core's own routes as core answers them
+ * (`/api/account/*`, `/api/org/*`, core wip/accounts): what each page sends, what it shows from core's answer, and where it goes.
+ * The fake core below answers in core's exact shapes; the real routes' rows are core's `src/server/__tests__/accounts.test.ts`.
+ */
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { render, screen, fireEvent, cleanup, act, waitFor } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { setPagePerson, setTeamFetch } from '../../team/api'
+import { nav } from '../api'
+import SignInPage from '../SignInPage'
+import SignUpPage from '../SignUpPage'
+import MyScenariosPage from '../MyScenariosPage'
+import OrganisationPage from '../OrganisationPage'
+import AccountPage from '../AccountPage'
+
+type Reply = { status?: number; body: unknown }
+type Asked = { method: string; path: string; body: unknown }
+let asked: Asked[] = []
+/** Core as this browser sees it: `answer` replies to each request, anything else is core's 404. */
+const core = (answer: (method: string, path: string, body: unknown) => Reply | undefined) => setTeamFetch((async (input: RequestInfo | URL, init?: RequestInit) => {
+  const path = String(input), method = init?.method ?? 'GET', body = init?.body ? JSON.parse(String(init.body)) : undefined
+  asked.push({ method, path, body })
+  const r = answer(method, path, body) ?? { status: 404, body: { error: 'not found' } }
+  return new Response(JSON.stringify(r.body), { status: r.status ?? 200 })
+}) as typeof fetch)
+const posts = () => asked.filter((a) => a.method === 'POST')
+
+const ANA = { id: '7', name: 'Ana' }, BO = { id: '9', name: 'Bo' }
+const OWNER = { email: 'ana@example.com', org: { id: 'o_0123456789ab', name: 'Northwind', role: 'owner' } }
+const SCENARIOS = [
+  { id: 's_a00000000002', title: 'Office move', label: 'Office move', open: '/#/scenario/00000000-0000-4000-8000-a00000000002', version: 3, last_activity: '2026-11-07T14:02:00.000Z', your_last: '2026-11-07T13:00:00.000Z', members: [ANA, BO] },
+  { id: 's_a00000000001', title: 'Hiring plan', label: 'Hiring plan', open: '/#/scenario/00000000-0000-4000-8000-a00000000001', version: null, last_activity: '2026-11-06T09:00:00.000Z', your_last: null, members: [ANA] },
+]
+const at = (path: string, page: JSX.Element, route = path) => render(
+  <MemoryRouter initialEntries={[path]}>
+    <Routes>
+      <Route path={route} element={page} />
+      <Route path="/signin" element={<div data-testid="at-signin" />} />
+      <Route path="/canvas" element={<div data-testid="at-canvas" />} />
+      <Route path="/scenario/:id" element={<div data-testid="at-scenario" />} />
+    </Routes>
+  </MemoryRouter>,
+)
+/** CLAUDE.md §3–4: Olumi proposes and the person decides; no page calls Olumi a decision tool or ranks anything for them. */
+const NEVER = /\b(best|winner|recommend\w*|decision tool)\b/i
+
+afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); asked = []; vi.restoreAllMocks() })
+
+describe('sign in', () => {
+  it('sends exactly the email and password, shows core\'s refusal in its own words, and on success loads home afresh', async () => {
+    let right = false
+    core((m, p) => p === '/api/me' ? { body: { me: null } }
+      : m === 'POST' && p === '/api/account/signin' ? (right ? { body: { me: ANA, account: OWNER } } : { status: 401, body: { error: 'That email and password do not match an Olumi account.' } }) : undefined)
+    const land = vi.spyOn(nav, 'landSignedIn').mockImplementation(() => undefined)
+    at('/signin', <SignInPage />)
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ana@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'not-the-one-1' } })
+    await act(async () => { fireEvent.click(screen.getByTestId('account-signin-go')) })
+    expect((await screen.findByTestId('account-signin-error')).textContent).toBe('That email and password do not match an Olumi account.')
+    expect(land).not.toHaveBeenCalled()
+    expect(posts()).toEqual([{ method: 'POST', path: '/api/account/signin', body: { email: 'ana@example.com', password: 'not-the-one-1' } }])
+    right = true
+    await act(async () => { fireEvent.click(screen.getByTestId('account-signin-go')) })
+    await waitFor(() => expect(land).toHaveBeenCalledTimes(1))
+    expect(document.body.textContent).not.toMatch(NEVER)
+  })
+})
+
+describe('sign up', () => {
+  it('a person signed in by a private link adds an email and password to that same person (attach), their name filled in', async () => {
+    core((m, p) => p === '/api/me' ? { body: { me: { id: '3', name: 'Sam' }, account: null } }
+      : m === 'POST' && p === '/api/account/signup' ? { status: 201, body: { me: { id: '3', name: 'Sam' }, account: OWNER } } : undefined)
+    const land = vi.spyOn(nav, 'landSignedIn').mockImplementation(() => undefined)
+    at('/signup', <SignUpPage />)
+    expect(await screen.findByText(/This adds an email and password to Sam/)).toBeTruthy()
+    await waitFor(() => expect((screen.getByLabelText('Your name') as HTMLInputElement).value).toBe('Sam'))
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'sam@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'sam-password-1' } })
+    await act(async () => { fireEvent.click(screen.getByTestId('account-signup-go')) })
+    await waitFor(() => expect(land).toHaveBeenCalledTimes(1))
+    expect(posts().at(-1)).toEqual({ method: 'POST', path: '/api/account/signup', body: { name: 'Sam', email: 'sam@example.com', password: 'sam-password-1', attach: true } })
+    expect(document.body.textContent).not.toMatch(NEVER)
+  })
+})
+
+describe('My scenarios (home)', () => {
+  it('lists exactly the scenarios core lists, in its order, each opening its own scenario; New scenario starts one from a brief', async () => {
+    core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/account/scenarios' ? { body: { scenarios: SCENARIOS } } : undefined)
+    at('/', <MyScenariosPage />)
+    await screen.findByTestId('my-scenarios')
+    expect(screen.getAllByRole('listitem').map((li) => li.getAttribute('data-testid'))).toEqual(['my-scenario-s_a00000000002', 'my-scenario-s_a00000000001'])
+    const move = screen.getByTestId('my-scenario-s_a00000000002')
+    expect(move.textContent).toContain('Version 3')
+    expect(move.textContent).toContain('On it: Ana, Bo')
+    expect(screen.getByTestId('my-scenario-s_a00000000001').textContent).toContain('No saved model yet')
+    expect(screen.getByTestId('my-scenario-open-s_a00000000002').getAttribute('href')).toBe('/scenario/00000000-0000-4000-8000-a00000000002')
+    expect(document.body.textContent).not.toMatch(NEVER)
+    fireEvent.click(screen.getByTestId('my-scenario-open-s_a00000000002'))
+    expect(screen.getByTestId('at-scenario')).toBeTruthy()
+  })
+
+  it('New scenario goes to the canvas, where a brief starts one', async () => {
+    core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/account/scenarios' ? { body: { scenarios: [] } } : undefined)
+    at('/', <MyScenariosPage />)
+    expect((await screen.findByTestId('my-scenarios-empty')).textContent).toContain('writing a brief')
+    fireEvent.click(screen.getByTestId('my-scenarios-new'))
+    expect(screen.getByTestId('at-canvas')).toBeTruthy()
+  })
+
+  it('signed out, home goes to sign in and asks core for no scenario', async () => {
+    core((_m, p) => p === '/api/me' ? { body: { me: null } } : undefined)
+    at('/', <MyScenariosPage />)
+    await screen.findByTestId('at-signin')
+    expect(asked.map((a) => a.path)).toEqual(['/api/me'])
+  })
+})
+
+describe('the organisation', () => {
+  const ORG = { org: { id: 'o_0123456789ab', name: 'Northwind' }, you: { id: '7', role: 'owner' }, members: [{ id: '7', name: 'Ana', role: 'owner', joined: '2026-11-07T10:00:00.000Z', email: 'ana@example.com' }, { id: '9', name: 'Bo', role: 'member', joined: '2026-11-07T11:00:00.000Z', email: 'bo@example.com' }] }
+  it('an owner makes a one-use link (shown once), and removes a member only after saying they are signed out at once', async () => {
+    let members = ORG.members
+    core((m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/org' ? { body: { ...ORG, members } } : p === '/api/org/invites' && m === 'GET' ? { body: { invites: [] } }
+      : p === '/api/org/invites' ? { status: 201, body: { id: '41', link: '/#/join/abcdefghijklmnopqrstuvwxyz012345', expires: '2026-11-21T10:00:00.000Z' } }
+      : p === '/api/org/members/9/remove' ? (members = members.filter((x) => x.id !== '9'), { body: { removed: '9' } }) : undefined)
+    at('/organisation', <OrganisationPage />)
+    await screen.findByTestId('org-member-9')
+    expect(screen.getByTestId('org-member-9').textContent).toContain('bo@example.com')
+    await act(async () => { fireEvent.click(screen.getByTestId('org-invite-go')) })
+    expect((await screen.findByTestId('org-invite-link') as HTMLInputElement).value).toBe(`${window.location.origin}/#/join/abcdefghijklmnopqrstuvwxyz012345`)
+    fireEvent.click(screen.getByTestId('org-remove-9'))
+    expect(screen.getByTestId('org-remove-ask-9').textContent).toContain('Remove Bo? They are signed out at once.')
+    expect(posts().map((x) => x.path)).toEqual(['/api/org/invites'])
+    await act(async () => { fireEvent.click(screen.getByTestId('org-remove-yes-9')) })
+    await waitFor(() => expect(screen.queryByTestId('org-member-9')).toBeNull())
+    expect(posts().map((x) => x.path)).toEqual(['/api/org/invites', '/api/org/members/9/remove'])
+    expect(document.body.textContent).not.toMatch(NEVER)
+  })
+
+  it('a member sees who is in it, with no emails and no invite, role or remove controls', async () => {
+    const member = { ...ORG, you: { id: '9', role: 'member' }, members: ORG.members.map(({ email: _e, ...m }) => m) }
+    core((_m, p) => p === '/api/me' ? { body: { me: BO, account: { ...OWNER, email: 'bo@example.com', org: { ...OWNER.org, role: 'member' } } } } : p === '/api/org' ? { body: member } : undefined)
+    at('/organisation', <OrganisationPage />)
+    await screen.findByTestId('org-member-7')
+    for (const id of ['org-invite-go', 'org-remove-7', 'org-role-7']) expect(screen.queryByTestId(id)).toBeNull()
+    expect(screen.getByText('Only an owner of Northwind can invite or remove people.')).toBeTruthy()
+    expect(asked.map((a) => a.path)).not.toContain('/api/org/invites')
+  })
+})
+
+describe('the account page', () => {
+  it('saves a new name and changes the password with the current one, saying how many other browsers were signed out', async () => {
+    core((m, p, b) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/account/name' ? { body: { name: (b as { name: string }).name } }
+      : p === '/api/account/password' && m === 'POST' ? { body: { changed: true, signed_out_elsewhere: 2 } } : undefined)
+    at('/account', <AccountPage />)
+    await waitFor(() => expect((screen.getByTestId('account-name') as HTMLInputElement).value).toBe('Ana'))
+    expect(screen.getByTestId('account-email').textContent).toBe('ana@example.com')
+    fireEvent.change(screen.getByTestId('account-name'), { target: { value: 'Ana Diaz' } })
+    await act(async () => { fireEvent.click(screen.getByTestId('account-name-go')) })
+    expect((await screen.findByTestId('account-name-saved')).textContent).toBe('Saved. Your colleagues now see Ana Diaz.')
+    fireEvent.change(screen.getByLabelText('Current password'), { target: { value: 'old-password-1' } })
+    fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'new-password-2' } })
+    await act(async () => { fireEvent.click(screen.getByTestId('account-password-go')) })
+    expect((await screen.findByTestId('account-password-said')).textContent).toBe('Password changed. Signed out of 2 other browsers.')
+    expect(posts().map((x) => [x.path, x.body])).toEqual([['/api/account/name', { name: 'Ana Diaz' }], ['/api/account/password', { current: 'old-password-1', next: 'new-password-2' }]])
+  })
+})
