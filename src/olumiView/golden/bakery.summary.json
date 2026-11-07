@@ -33,6 +33,7 @@
     "views": "Views shared",
     "commitments": "Commitments and what they expect",
     "expect": "Expected",
+    "expect_range": "Its range in this model when committed",
     "reconsider": "Reconsider if",
     "review_on": "Review on",
     "outcomes": "What happened",
