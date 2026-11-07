@@ -25,7 +25,7 @@ import type { ViewCard, ViewModel, ViewRow } from '../client'
 import { authorOf } from './author'
 import { premiseGroupsOf } from './premises'
 import { MODEL_EDIT_WORDS as W, openEditor, useModelEdit } from './editing'
-import { FigureEditor, RenameEditor } from './editors'
+import { FigureEditor, RenameEditor, WithdrawnNote } from './editors'
 import { CardDetail } from './detail'
 import { useModelTab } from './state'
 import { targetCardOf } from './targets'
@@ -210,9 +210,9 @@ export function ModelCardRow({ card, number, kind, model }: {
           )}
         </span>
       </div>
-      {editing?.what === 'figure' && editingFigure !== null ? (
+      {editing?.what !== 'figure' ? null : editingFigure !== null ? (
         <div className="pb-2 pl-8 pr-2"><FigureEditor key={editing.quantity} mine={editing} edit={editingFigure} /></div>
-      ) : null}
+      ) : <div className="pb-2 pl-8 pr-2"><WithdrawnNote mine={editing} /></div>}
       <Premises card={card} keyEntries={model.key} expert={expert} />
       {open ? <CardDetail model={model} card={card} /> : null}
     </li>

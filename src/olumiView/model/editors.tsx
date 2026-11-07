@@ -30,13 +30,19 @@ import { tryWhatIf } from '../whatif'
 import { editKey, MODEL_EDIT_WORDS as W, readAfterSave, useModelEdit } from './editing'
 import { useModelTab, type Editing } from './state'
 
-/** The tab's control recipes, from the lane's own (chipClass, AddFigure): one name per role, so no control is styled twice. */
+/**
+ * The tab's control recipes, from the lane's own (chipClass, AddFigure): one name per role, so no control is styled twice. The person's own
+ * controls are grey, Olumi's hand-offs alone are blue (`olumi`): blue is Olumi's only. Nothing dims (UI audit of 3f7817bd): a control that
+ * cannot act keeps its full weight, and a line says why ("Saving…", "Another change is saving…").
+ */
 export const RECIPE = {
-  primary: `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-full bg-primary px-3 text-text-on-color hover:bg-primary/90 disabled:cursor-default disabled:opacity-40 ${ACTION_FOCUS}`,
-  secondary: `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-full px-1.5 text-info hover:underline disabled:cursor-default disabled:opacity-40 ${ACTION_FOCUS}`,
-  action: `${typography.viewPanelMeta} inline-flex min-h-[24px] cursor-pointer items-center gap-1 rounded-sm text-info hover:underline ${ACTION_FOCUS}`,
-  quiet: `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-sm px-1 text-text-light hover:text-text-body hover:underline disabled:opacity-40 ${ACTION_FOCUS}`,
-  input: `${typography.viewPanelBody} h-9 w-full rounded-md border border-field bg-panel px-2.5 text-text-body placeholder:text-text-light read-only:opacity-70 ${ACTION_FOCUS}`,
+  // The person's commit is an ink pill: `bg-primary` is Olumi's info blue by token (brand.css: --primary-rgb is --info-rgb).
+  primary: `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-full bg-text-header px-3 text-text-on-color hover:bg-text-header/90 disabled:cursor-default aria-disabled:cursor-default ${ACTION_FOCUS}`,
+  secondary: `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-sm px-1.5 text-text-light hover:text-text-body hover:underline disabled:cursor-default aria-disabled:cursor-default ${ACTION_FOCUS}`,
+  action: `${typography.viewPanelMeta} inline-flex min-h-[24px] cursor-pointer items-center gap-1 rounded-sm text-text-light hover:text-text-body hover:underline aria-disabled:cursor-default ${ACTION_FOCUS}`,
+  quiet: `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-sm px-1 text-text-light hover:text-text-body hover:underline disabled:cursor-default aria-disabled:cursor-default ${ACTION_FOCUS}`,
+  olumi: `${typography.viewPanelMeta} inline-flex min-h-[28px] cursor-pointer items-center gap-1.5 rounded-sm px-1 text-info hover:underline ${ACTION_FOCUS}`,
+  input: `${typography.viewPanelBody} h-9 w-full rounded-md border border-field bg-panel px-2.5 text-text-body placeholder:text-text-light ${ACTION_FOCUS}`,
   label: `${typography.viewPanelMeta} block text-text-light`,
   error: `${typography.viewPanelMeta} m-0 text-danger`,
   status: `${typography.viewPanelMeta} m-0 text-text-light`,
@@ -59,6 +65,12 @@ export function focusIsWith(el: Element | null): boolean {
   return a === null || a === document.body || (el !== null && el.contains(a))
 }
 
+/** Core's version number in a write's answer, when it gives one. */
+export const versionOf = (saved: unknown): number | null => {
+  const n = (saved as { n?: unknown } | null)?.n
+  return typeof n === 'number' && Number.isInteger(n) ? n : null
+}
+
 /** A row id inside a quoted attribute selector (a link's row holds `:` and `>`, which a quoted value keeps as they are). */
 export const rowSel = (row: string): string => row.replace(/["\\]/g, '\\$&')
 
@@ -73,7 +85,7 @@ export function focusRow(row: string, on: 'value' | 'name'): void {
 }
 
 /** Why Save is off while the editor is still open: core withdrew its offer to take the edit (edit_base null). */
-function useWithdrawn(): string | null {
+export function useWithdrawn(): string | null {
   const { base, held } = useModelEdit()
   const at = useViewStore((s) => s.at)
   if (base !== null) return null
@@ -103,7 +115,7 @@ function useSave(mine: Editing, key: string, focusOn: 'value' | 'name') {
     if (focusIsWith(form.current)) setTimeout(() => field.current?.focus(), 0)
   }
   const run = async (send: () => Promise<unknown>) => {
-    if (useModelTab.getState().busy !== null) return
+    if (useModelTab.getState().busy !== null || mine.landed !== undefined) return
     setError(null); useModelTab.getState().setBusy(key)
     try {
       const saved = await send()
@@ -111,7 +123,8 @@ function useSave(mine: Editing, key: string, focusOn: 'value' | 'name') {
       noteEditSaved(saved)
       const shown = await readAfterSave(mine.sid)
       if (shown === 'moved') return
-      if (shown === 'failed') { fail(W.savedNotShown); return }
+      // Saved, not shown: said, and never sent again from this editor (only Cancel is live); a later read that lands settles it.
+      if (shown === 'failed') { useModelTab.getState().land(mine, { n: versionOf(saved), view: useViewStore.getState().view }); fail(W.savedNotShown); return }
       useModelTab.getState().setBusy(null)
       useModelTab.getState().closeIf(mine)
       sayReceipt(mine.sid, mine.row, saved)
@@ -123,7 +136,20 @@ function useSave(mine: Editing, key: string, focusOn: 'value' | 'name') {
     }
   }
   const cancel = () => { useModelTab.getState().closeIf(mine); focusRow(mine.row, focusOn) }
-  return { error, setError, field, form, run, cancel, pending: sending || busy, other }
+  const pending = sending || busy
+  const landed = mine.landed !== undefined
+  // A later read that lands (a View other than the one on screen when the write landed unseen) shows the save: the editor closes and says
+  // core's version, as it would have (UI audit of 3f7817bd: "saved, not shown" never outlives the View that showed it).
+  const readNow = useViewStore((s) => (s.error === null && !s.stale ? s.view : null))
+  useEffect(() => {
+    const l = mine.landed
+    if (l === undefined || readNow === null || readNow === l.view) return
+    useModelTab.getState().closeIf(mine)
+    if (l.n !== null) sayReceipt(mine.sid, mine.row, { n: l.n })
+  }, [mine, readNow])
+  // Its words come with it: an editor drawn again after its write landed unseen still says so (the flag lives with `editing`).
+  const said = error ?? (landed ? W.savedNotShown : null)
+  return { error: said, setError, field, form, run, cancel, pending, other, landed, inert: pending || other || landed }
 }
 
 /**
@@ -134,7 +160,7 @@ export function FigureEditor({ mine, edit }: { mine: Editing & { readonly what: 
   const { row, quantity, sid, base, typed } = mine
   const [trying, setTrying] = useState(false)
   const key = editKey.figure(sid, quantity)
-  const { error, setError, field, form, run, cancel, pending, other } = useSave(mine, key, 'value')
+  const { error, setError, field, form, run, cancel, pending, other, landed, inert } = useSave(mine, key, 'value')
   const withdrawn = useWithdrawn()
   const id = `model-edit-${row}`
   // Core has stopped offering the edit since it opened (a change of Olumi's is now held): the typing stays, nothing is sent, and it says why.
@@ -142,15 +168,19 @@ export function FigureEditor({ mine, edit }: { mine: Editing & { readonly what: 
   const blank = typed.trim() === ''
 
   const save = () => {
-    if (blank || pending || !offered) return
+    if (blank || inert || !offered) return
     void run(() => runWrite(key, { op: true }, { base, quantity, typed }, (op) => writes.edit(sid, base, quantity, typed, op!)))
   }
   /** The same figure on a copy, nothing saved (core's what-if), drawn over the chances on the Analysis tab, as the canvas card's is. */
   const tryIt = async () => {
-    if (blank || pending || trying || !offered || useModelTab.getState().busy !== null) return
+    if (blank || inert || trying || !offered || useModelTab.getState().busy !== null) return
+    const here = () => useViewStore.getState().sid === sid
     setError(null); setTrying(true)
-    try { await tryWhatIf(sid, base, quantity, typed); useUIStore.getState().forceActivateOutputTab('results') } catch (e) {
-      setError(e instanceof TeamApiError ? e.message : W.triedFailed)
+    try {
+      await tryWhatIf(sid, base, quantity, typed)
+      if (here()) useUIStore.getState().forceActivateOutputTab('results') // never raised over another scenario
+    } catch (e) {
+      if (here()) setError(e instanceof TeamApiError ? e.message : W.triedFailed)
     } finally { setTrying(false) }
   }
 
@@ -160,16 +190,18 @@ export function FigureEditor({ mine, edit }: { mine: Editing & { readonly what: 
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !pending) cancel() }}
       onClick={(e) => e.stopPropagation()}>
       <label htmlFor={id} className={RECIPE.label} data-view-edit-prompt={quantity}>{edit.prompt}</label>
-      <input ref={field} id={id} autoFocus autoComplete="off" spellCheck={false} value={typed} readOnly={pending} data-model-editor-input={row}
+      <input ref={field} id={id} autoFocus autoComplete="off" spellCheck={false} value={typed} readOnly={pending || landed} data-model-editor-input={row}
         onChange={(e) => { useModelTab.getState().type(mine, e.target.value); if (error) setError(null) }} className={`${RECIPE.input} tabular-nums`} />
       {error === null ? null : <p role="alert" className={RECIPE.error} data-model-editor-error={row}>{error}</p>}
       {withdrawn === null ? null : <p role="status" className={RECIPE.status} data-model-editor-withdrawn={row}>{withdrawn}</p>}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <button type="submit" disabled={blank || !offered} aria-disabled={pending || other || undefined} className={`${RECIPE.primary} ${pending || other ? 'opacity-60' : ''}`} data-model-editor-save={row}>{W.setFigure}</button>
-        <button type="button" disabled={blank || !offered} aria-disabled={pending || other || trying || undefined} onClick={() => void tryIt()} className={`${RECIPE.secondary} ${pending || other || trying ? 'opacity-60' : ''}`} data-model-editor-try={row}>{W.tryIt}</button>
+        <button type="submit" disabled={blank || !offered} aria-disabled={inert || undefined} className={RECIPE.primary} data-model-editor-save={row}>{W.setFigure}</button>
+        <button type="button" disabled={blank || !offered} aria-disabled={inert || trying || undefined} onClick={() => void tryIt()} className={RECIPE.secondary} data-model-editor-try={row}>{W.tryIt}</button>
         <button type="button" aria-disabled={pending || undefined} onClick={() => { if (!pending) cancel() }} className={RECIPE.quiet} data-model-editor-cancel={row}>{W.cancel}</button>
       </div>
-      {pending ? <p role="status" className={RECIPE.status} data-model-editor-sending={row}>{W.saving}</p> : null}
+      {pending ? <p role="status" className={RECIPE.status} data-model-editor-sending={row}>{W.saving}</p>
+        : other ? <p role="status" className={RECIPE.status} data-model-editor-waiting={row}>{W.savingOther}</p>
+          : trying ? <p role="status" className={RECIPE.status} data-model-editor-trying={row}>{W.trying}</p> : null}
     </form>
   )
 }
@@ -178,14 +210,14 @@ export function FigureEditor({ mine, edit }: { mine: Editing & { readonly what: 
 export function RenameEditor({ mine }: { mine: Editing & { readonly what: 'rename' } }): JSX.Element {
   const { row, sid, base, typed } = mine
   const key = editKey.rename(sid, row)
-  const { error, setError, field, form, run, cancel, pending, other } = useSave(mine, key, 'name')
+  const { error, setError, field, form, run, cancel, pending, other, landed, inert } = useSave(mine, key, 'name')
   const withdrawn = useWithdrawn()
   const id = `model-rename-${row}`
   const offered = withdrawn === null
   const label = typed.trim()
 
   const save = () => {
-    if (label === '' || pending || !offered) return
+    if (label === '' || inert || !offered) return
     void run(() => runWrite(key, { op: true }, { base, record: row, label }, (op) => writes.rename(sid, base, row, label, op!)))
   }
 
@@ -195,15 +227,31 @@ export function RenameEditor({ mine }: { mine: Editing & { readonly what: 'renam
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !pending) cancel() }}
       onClick={(e) => e.stopPropagation()}>
       <label htmlFor={id} className={RECIPE.label}>{W.newName}</label>
-      <input ref={field} id={id} autoFocus autoComplete="off" maxLength={120} value={typed} readOnly={pending} data-model-renamer-input={row}
+      <input ref={field} id={id} autoFocus autoComplete="off" maxLength={120} value={typed} readOnly={pending || landed} data-model-renamer-input={row}
         onFocus={(e) => e.currentTarget.select()} onChange={(e) => { useModelTab.getState().type(mine, e.target.value); if (error) setError(null) }} className={RECIPE.input} />
       {error === null ? null : <p role="alert" className={RECIPE.error} data-model-renamer-error={row}>{error}</p>}
       {withdrawn === null ? null : <p role="status" className={RECIPE.status} data-model-renamer-withdrawn={row}>{withdrawn}</p>}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <button type="submit" disabled={label === '' || !offered} aria-disabled={pending || other || undefined} className={`${RECIPE.primary} ${pending || other ? 'opacity-60' : ''}`} data-model-renamer-save={row}>{W.saveName}</button>
-        <button type="button" aria-disabled={pending || undefined} onClick={() => { if (!pending) cancel() }} className={RECIPE.quiet}>{W.cancel}</button>
+        <button type="submit" disabled={label === '' || !offered} aria-disabled={inert || undefined} className={RECIPE.primary} data-model-renamer-save={row}>{W.saveName}</button>
+        <button type="button" aria-disabled={pending || undefined} onClick={() => { if (!pending) cancel() }} className={RECIPE.quiet} data-model-renamer-cancel={row}>{W.cancel}</button>
       </div>
-      {pending ? <p role="status" className={RECIPE.status}>{W.saving}</p> : null}
+      {pending ? <p role="status" className={RECIPE.status} data-model-renamer-sending={row}>{W.saving}</p>
+        : other ? <p role="status" className={RECIPE.status} data-model-renamer-waiting={row}>{W.savingOther}</p> : null}
     </form>
+  )
+}
+
+/**
+ * Core withdrew the edit an editor was open on (Olumi's change is held, or an earlier version is drawn): without core's offer the editor is
+ * not drawn, so its row says why, keeps the typing for when core offers the edit again, and lets the person drop it (UI audit of 3f7817bd:
+ * an editor never disappears silently).
+ */
+export function WithdrawnNote({ mine }: { mine: Editing }): JSX.Element {
+  const words = useWithdrawn() ?? W.withdrawn
+  return (
+    <div className="mt-2 flex flex-wrap items-baseline gap-x-2" data-model-editor-kept={mine.row} onClick={(e) => e.stopPropagation()}>
+      <p role="status" className={RECIPE.status}>{words}</p>
+      <button type="button" onClick={() => { useModelTab.getState().closeIf(mine); focusRow(mine.row, 'value') }} className={RECIPE.quiet} data-model-editor-drop={mine.row}>{W.cancel}</button>
+    </div>
   )
 }

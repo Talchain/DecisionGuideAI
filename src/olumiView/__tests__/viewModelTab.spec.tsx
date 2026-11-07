@@ -13,7 +13,7 @@ import { MODEL_OUTLINE_LABELS } from '../ViewModelTab'
 import { ViewModelTab } from '../ViewModelTab'
 import { MODEL_ROW_LABELS } from '../model/ModelCardRow'
 import { resetModelTab, useModelTab } from '../model/state'
-import { linkRowOf } from '../model/targets'
+import { linkEndPath, linkRowOf } from '../model/targets'
 import { authorKeyOf } from '../model/premises'
 import { registerFocusHelpers } from '../../canvas/utils/focusHelpers'
 import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../../canvas/domain/vocabulary'
@@ -356,5 +356,29 @@ describe('the key, and what the Model tab deliberately does not draw', () => {
     expect(line.contains(strength)).toBe(false)
     expect(strength.className).toContain('block')
     expect(line.compareDocumentPosition(strength) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+
+describe('the Model tab: every model word carries its View path', () => {
+  it('catch (UI audit of 3f7817bd): each link end is drawn at its own path (its card\'s heading, or the question), its words the words there', () => {
+    const c = render(<ViewModelTab model={model} />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    let n = 0
+    model.links.forEach((l, i) => {
+      const line = c.querySelector(`[data-model-link-line="${linkRowOf(model, i)}"]`)!
+      for (const end of [l.from, l.to]) {
+        const path = linkEndPath(model, end)
+        expect(path, `links.${i} ${end}`).toBeDefined()
+        expect(line.querySelector(`[data-view="${path}"]`)?.textContent, `links.${i} ${end}`).toBe(linkEndHeading(model, end))
+        n++
+      }
+    })
+    expect(n).toBe(model.links.length * 2)
+    // And in a link's detail, its two ends' actions.
+    fireEvent.click(c.querySelector(`[data-model-select="${linkRowOf(model, 0)}"]`)!)
+    const l = model.links[0]!
+    const detail = c.querySelector(`[data-model-detail="${linkRowOf(model, 0)}"]`)!
+    expect(detail.querySelector(`[data-model-action="from"] [data-view="${linkEndPath(model, l.from)}"]`)?.textContent).toBe(linkEndHeading(model, l.from))
+    expect(detail.querySelector(`[data-model-action="to"] [data-view="${linkEndPath(model, l.to)}"]`)?.textContent).toBe(linkEndHeading(model, l.to))
   })
 })

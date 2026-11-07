@@ -100,7 +100,7 @@ export const MODEL_EDIT_WORDS = {
   addFigure: 'Add a figure', name: 'Name', figure: 'Figure', unit: 'Unit (optional)', add: 'Add', figureHint: 'One number, or a range like 150 to 400',
   removeLink: 'Remove link', removeAsk: 'Remove this link?', remove: 'Remove', keep: 'Keep',
   links: 'Links', restsOn: 'Rests on', whose: 'Whose', about: 'About', whatWouldChange: 'What would change it',
-  saving: 'Saving…', changeTarget: 'Change target', changeLimit: 'Change limit', changeStrength: 'Change strength',
+  saving: 'Saving…', savingOther: 'Another change is saving…', trying: 'Trying it without saving…', changeTarget: 'Change target', changeLimit: 'Change limit', changeStrength: 'Change strength',
   heldLead: 'Olumi’s pending change is waiting for you.',
   heldBody: 'Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.',
   heldAside: 'Set it aside', heldConfirm: 'Set aside', heldKeep: 'Keep it',
