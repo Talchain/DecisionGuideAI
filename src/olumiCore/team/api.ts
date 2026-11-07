@@ -69,7 +69,9 @@ export async function call<T>(method: 'GET' | 'POST', path: string, body?: unkno
       // Same origin only: the browser then sends `Sec-Fetch-Site: same-origin`, the one value (with `none`) core accepts for a write.
       credentials: 'same-origin',
       mode: 'same-origin',
-      headers: { 'content-type': 'application/json' },
+      // Every write names the person this page was opened as (from the /api/me it drew the page with); core refuses it, before saving, when the
+      // browser's cookie is someone else's now (core review N1 item 1: a cookie switched after any separate check still saved as the wrong person).
+      headers: method === 'POST' && pagePerson !== null ? { 'content-type': 'application/json', 'x-olumi-as': pagePerson } : { 'content-type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     })
   } catch {
