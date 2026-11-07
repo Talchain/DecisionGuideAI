@@ -384,7 +384,11 @@ async function send(): Promise<void> {
  * A challenge on one card, to core's challenge route; one that does not go through is held for the same resend (`held`). A resend goes to
  * the scenario it was made in, with that scenario's op, whichever scenario is on screen now (review 00003 #2): it is the same write.
  */
-async function challenge(kind: string, record: string, text: string, at = { sid: useViewStore.getState().sid, uuid: useViewStore.getState().uuid }): Promise<boolean> {
+/** The four challenge kinds core's challenge route takes (writes.challenge), as the chips and asks send them. */
+export const CHALLENGE_KINDS = ['assumption', 'opposite', 'disconfirming', 'outside'] as const
+export type ChallengeKind = (typeof CHALLENGE_KINDS)[number]
+/** Exported for the port's ChallengeCard "Respond" (DL 7 Nov, port ruling R3): the one write path for a challenge, unchanged. */
+export async function challenge(kind: string, record: string, text: string, at = { sid: useViewStore.getState().sid, uuid: useViewStore.getState().uuid }): Promise<boolean> {
   const { sid, uuid } = at
   if (sid === null) return false
   const sent = await write(`challenge:${kind}:${record}`, text, (op) => writes.challenge(sid, kind, record, op), false, uuid)
@@ -558,7 +562,7 @@ export function MoveTap({ turn, next, arrow = false }: { turn: number; next: Nex
 }
 
 /** core's four challenges (API `POST …/challenge` `kind`), by the press's chip id. */
-const CHALLENGES: Readonly<Record<string, string>> = { 'ask:challenge': 'assumption', 'ask:method-opposite': 'opposite', 'ask:falsify': 'disconfirming', 'ask:method-outside-view': 'outside' }
+const CHALLENGES: Readonly<Record<string, ChallengeKind>> = { 'ask:challenge': 'assumption', 'ask:method-opposite': 'opposite', 'ask:falsify': 'disconfirming', 'ask:method-outside-view': 'outside' }
 
 export type Press = { id?: string; parameters?: Record<string, unknown>; message: string }
 
