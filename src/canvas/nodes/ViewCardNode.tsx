@@ -110,12 +110,11 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
       )
       if (lead === false) return (
         <div title={`${row.aim} · ${row.title}`} data-view-row={at}>
-        <div className="flex flex-wrap items-baseline gap-x-1 text-text-light">
-          <span aria-hidden="true" style={{ color: 'var(--goal)' }}>◎</span>
-          {/* R25 (Paul's 6 Nov test: aims cut to "Crea…"): the aim wraps whole, never cut; the chance follows, below when it must. */}
-          <span className="min-w-0" data-view={`${at}.aim`}>{row.aim}</span>
-          {/* The chance whole; a long one (core's conditional wording) wraps inside the card, never cut (R25). */}
-          <span className={`${typography.viewValue} flex-none max-w-[65%] text-text-body`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
+        {/* R25 (Paul's 6 Nov test: aims cut to "Crea…"): the aim whole, its ◎ inline so it never stands alone on a line; then the chance on its
+            own line, whole, its marks beside it (a long one, core's conditional wording, wraps inside the card, never cut). */}
+        <p className="text-text-light"><span aria-hidden="true" style={{ color: 'var(--goal)' }}>◎</span> <span data-view={`${at}.aim`}>{row.aim}</span></p>
+        <div className="flex items-baseline gap-x-1">
+          <span className={`${typography.viewValue} min-w-0 text-text-body`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
           {markSpan}
         </div>
         <Companion row={row} at={at} />

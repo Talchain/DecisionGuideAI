@@ -8,8 +8,8 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { typography } from '../../styles/typography'
 import { cleanup, render } from '@testing-library/react'
-import type { View } from '../client'
-import { causalPlaces, familyTierOf, questionPlace, QUESTION } from '../layout'
+import type { View, ViewModel } from '../client'
+import { CARD_WIDTH, causalPlaces, drawKindOf, familyTierOf, QUESTION_FLANKED_W, questionPlace, QUESTION } from '../layout'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
 import { ViewOptionBand } from '../v10'
 
@@ -24,23 +24,56 @@ describe('family rows', () => {
   // A board shaped like Paul's 6 Nov hiring board (3 options, 8 factors and assumptions, worked-out figures, 2 aims and a limit): the real
   // dense hiring fixture with its last five factor cards (and their links) taken out. Depth rows drew his board 8 rows tall.
   const paulShaped = () => {
-    const m = structuredClone(real('hiring')), drop = new Set(m.cards.filter((c) => familyTierOf(c, m) === 2).slice(8).map((c) => c.id))
+    const m = structuredClone(real('hiring')), drop = new Set(m.cards.filter((c) => familyTierOf(c, m) === 3).slice(8).map((c) => c.id))
     return { ...m, cards: m.cards.filter((c) => !drop.has(c.id)), links: m.links.filter((l) => !drop.has(l.from) && !drop.has(l.to)) }
   }
   it('catch: a board shaped like Paul\'s is at most six rows tall, each family below the one before', async () => {
     const m = paulShaped(), { p, ys } = await rowsOf(m)
-    expect(m.cards.filter((c) => familyTierOf(c, m) === 2)).toHaveLength(8)
+    expect(m.cards.filter((c) => familyTierOf(c, m) === 3)).toHaveLength(8)
     expect(ys.length).toBeLessThanOrEqual(6)
+    // R25: the aims and the limit (row 5) are the head of the board, beside the question; every other family below the one before.
     const tier = (id: string) => (id === QUESTION ? 0 : familyTierOf(m.cards.find((c) => c.id === id)!, m))
-    for (const [a, pa] of p) for (const [b, pb] of p) if (tier(a) < tier(b)) expect(pa.y, `${a} above ${b}`).toBeLessThan(pb.y)
+    const aims = [...p.keys()].filter((id) => tier(id) === 5)
+    expect(aims.length).toBe(2) // its two aims (the limit is a row on its aim card)
+    for (const id of aims) expect(p.get(id)!.y, id).toBeLessThan(p.get(QUESTION)!.y + 300)
+    for (const [a, pa] of p) for (const [b, pb] of p) if (tier(a) < tier(b) && tier(b) < 5) expect(pa.y, `${a} above ${b}`).toBeLessThan(pb.y)
   })
   it('must not change: a small board (pricing, no family wider than four) has one row per family present, and nothing overlaps', async () => {
     const m = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'pricing.view.json'), 'utf8')) as View).model!, { p, ys } = await rowsOf(m)
     const tiers = new Set([0, ...m.cards.map((c) => familyTierOf(c, m))])
     expect([...tiers].every((t) => t === 0 || m.cards.filter((c) => familyTierOf(c, m) === t).length <= 4)).toBe(true)
-    expect(ys.length).toBe(tiers.size)
+    expect(ys.length).toBe(tiers.size - (tiers.has(5) ? 1 : 0)) // R25: the aims share the question's row
     const boxes = [...p].map(([id, x]) => ({ id, ...x }))
     for (const a of boxes) for (const b of boxes) if (a.id < b.id && a.y === b.y) expect(Math.abs(a.x - b.x), `${a.id}/${b.id}`).toBeGreaterThanOrEqual(220)
+  })
+})
+
+describe('R24 drivers and the head row (R25, Paul 7 Nov: drivers in their own row, the aims in view at 1232)', () => {
+  // The R24 shape (core 0a5f8e69): options set levers (`through`), the levers feed the outcomes, the outcomes are what the aims read.
+  const card = (id: string, family: string, h = 120) => ({ id, family, h }) as unknown as ViewModel['cards'][number]
+  const link = (from: string, to: string, kind = 'plain') => ({ from, to, kind, label: '', doubt: false, alert: false, proposed: false, title: '', effect: null }) as unknown as ViewModel['links'][number]
+  const r24 = {
+    cards: [card('aim_cash', 'goal'), card('aim_deals', 'goal'), card('o1', 'option'), card('o2', 'option'), card('lever_a', 'quantity'), card('lever_b', 'quantity'), card('cash', 'quantity'), card('deals', 'quantity'), card('slip', 'risk')],
+    links: [link('o1', 'lever_a', 'through'), link('o2', 'lever_a', 'through'), link('o1', 'lever_b', 'through'), link('o2', 'lever_b', 'through'),
+      link('lever_a', 'cash'), link('lever_b', 'deals'), link('slip', 'cash'), link('cash', 'aim_cash'), link('deals', 'aim_deals')],
+  } as unknown as ViewModel
+  const kind = (id: string) => drawKindOf(r24.cards.find((c) => c.id === id)!, r24), tier = (id: string) => familyTierOf(r24.cards.find((c) => c.id === id)!, r24)
+  it('catch: the levers the options set are drivers (F, a row of their own under the options); what they feed are the outcomes (OC)', () => {
+    expect(['lever_a', 'lever_b'].map((id) => [kind(id), tier(id)])).toEqual([['factor', 2], ['factor', 2]])
+    expect(['cash', 'deals'].map((id) => [kind(id), tier(id)])).toEqual([['outcome', 4], ['outcome', 4]])
+  })
+  it('catch: the aims sit beside the question, one each side, and the rows go options, drivers, outcomes', async () => {
+    const p = await causalPlaces(r24, new Map(), questionPlace(r24).width), q = p.get(QUESTION)!
+    expect(questionPlace(r24).width).toBe(QUESTION_FLANKED_W)
+    expect([p.get('aim_cash')!.y, p.get('aim_deals')!.y]).toEqual([q.y, q.y])
+    expect(p.get('aim_cash')!.x + CARD_WIDTH).toBeLessThanOrEqual(q.x)
+    expect(p.get('aim_deals')!.x).toBeGreaterThanOrEqual(q.x + QUESTION_FLANKED_W)
+    expect(p.get('o1')!.y).toBeLessThan(p.get('lever_a')!.y)
+    expect(p.get('lever_a')!.y).toBeLessThan(p.get('cash')!.y)
+  })
+  it('CONTRAST: no board before R24 has a driver (every golden and real fixture), so their kinds and rows are as before', () => {
+    const goldens = ['bakery', 'european', 'pricing', 'studio', 's_ce285b3617bb', 'app-launch', 'proposal', 'whatif'].map((n) => (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8')) as View).model!)
+    for (const m of [...goldens, ...['hiring', 'capacity', 'european-22cards', 'bakery-r5', 'together'].map(real)]) expect(m.cards.filter((c) => familyTierOf(c, m) === 2)).toEqual([])
   })
 })
 
@@ -78,7 +111,7 @@ describe('the option face', () => {
     const value = c.querySelector<HTMLElement>(`[data-row-value="${card.id}.rows.1"]`)!
     expect(value.textContent).toBe(words.value)
     expect(value.className).not.toContain('whitespace-nowrap')
-    expect(value.className).not.toMatch(/line-clamp|truncate/); expect(value.className).toContain('max-w-[65%]') // R25 (Paul's finish line: no cut text): whole, wrapping inside the card
+    expect(value.className).not.toMatch(/line-clamp|truncate/); expect(value.className).toContain('min-w-0') // R25 (Paul's finish line: no cut text): whole, on its own line, wrapping inside the card
     expect(value.querySelector('[data-row-marks]')).toBeNull() // the marks in their own column, never inside the clamped value
     expect(value.parentElement!.querySelector(`[data-row-marks="${card.id}.rows.1"]`)).not.toBeNull()
   })

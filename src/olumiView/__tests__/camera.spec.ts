@@ -98,12 +98,13 @@ describe('readable first, whole when it fits (DL 4 Nov: whole at 0.272 unreadabl
     const ids = model.cards.filter((c) => c.family === 'option').map((c) => c.id)
     expect(new Set(ids.map((id) => places.get(id)!.y)).size).toBe(1)
   })
-  it('R3 (DL 4 Nov, Paul\'s original): a board that fits whole at 0.8 to 0.9 is shown whole (the product\'s fit, null here); just below 0.8 it opens at the 0.9 floor', () => {
+  it('R25 (Paul 7 Nov, three sizes by role at a 1.0 floor; was R3\'s 0.8): a board that fits whole at the floor is shown whole (the product\'s fit, null here); just below it opens at the floor, so text is never drawn under its authored size', () => {
     const freeW = pane.width - insets.left - insets.right, freeH = pane.height - insets.top - insets.bottom
     const at = (z: number) => ({ x: 0, y: 0, width: freeW / z, height: freeH / z })
-    expect(readableFirstViewport(at(0.85), pane, insets)).toBeNull()
+    expect([READABLE_WHOLE_ZOOM, WHOLE_FIT_ZOOM]).toEqual([1, 1])
+    expect(readableFirstViewport(at(1.05), pane, insets)).toBeNull()
     expect(readableFirstViewport(at(WHOLE_FIT_ZOOM), pane, insets)).toBeNull()
-    expect(readableFirstViewport(at(0.79), pane, insets)?.zoom).toBe(READABLE_WHOLE_ZOOM)
+    expect(readableFirstViewport(at(0.85), pane, insets)?.zoom).toBe(READABLE_WHOLE_ZOOM)
   })
   it('must not change: a board that fits whole at 0.9 or more is the product\'s own whole fit (null here)', () => {
     const small = [one[0]!, ...one.slice(1, 3)].map((b) => ({ ...b, x: b.x / 4, y: b.y / 4, w: b.w / 4, h: b.h / 4 }))

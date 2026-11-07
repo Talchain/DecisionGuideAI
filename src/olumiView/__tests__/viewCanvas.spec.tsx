@@ -84,13 +84,15 @@ describe('the View draws the canvas', () => {
 
 describe('the causal graph, not core\'s columns (Paul 4 Nov: "the horizontal model is an absolute mess")', () => {
   for (const n of ['european', 'bakery']) {
-    it(`${n}: the question on top, options below it, the goal below the options; no two cards overlap`, async () => {
+    it(`${n}: the question on top with the goal beside it (R25), the options below both; no two cards overlap`, async () => {
       const model = golden(n).model!
       await layViewCanvas(model)
       const nodes = useCanvasStore.getState().nodes, y = (id: string) => nodes.find((x) => x.id === id)!.position.y
       const byFamily = (f: string) => model.cards.filter((c) => askKindOf(c.family) === f).map((c) => y(c.id))
       expect(Math.max(...byFamily('option'))).toBeGreaterThan(y(QUESTION))
-      expect(Math.min(...byFamily('goal'))).toBeGreaterThan(Math.max(...byFamily('option')))
+      // R25 (Paul 7 Nov: the aims in view at 1232): the aims are the head of the board, beside the question, above the options.
+      expect(byFamily('goal').every((g) => g === y(QUESTION))).toBe(true)
+      expect(Math.min(...byFamily('option'))).toBeGreaterThan(Math.max(...model.cards.filter((c) => askKindOf(c.family) === 'goal').map((c) => y(c.id) + c.h)))
       const box = (id: string) => { const c = model.cards.find((x) => x.id === id)!, p = nodes.find((x) => x.id === id)!.position; return [p.x, p.y, p.x + CARD_WIDTH, p.y + c.h] }
       for (const a of model.cards) for (const b of model.cards) {
         if (a.id >= b.id) continue
@@ -113,7 +115,9 @@ describe('the canvas keeps what core\'s page shows (00057)', () => {
     await layViewCanvas(model)
     const { nodes, edges } = useCanvasStore.getState()
     expect([nodes[0]!.id, nodes[0]!.type]).toEqual([QUESTION, VIEW_QUESTION])
-    expect(nodes.slice(1).every((n) => n.position.y > nodes[0]!.position.y)).toBe(true)
+    // Every card below it, but the aims, which sit beside it (R25).
+    const aim = new Set(model.cards.filter((c) => askKindOf(c.family) === 'goal' || askKindOf(c.family) === 'constraint').map((c) => c.id))
+    expect(nodes.slice(1).every((n) => (aim.has(n.id) ? n.position.y === nodes[0]!.position.y : n.position.y > nodes[0]!.position.y))).toBe(true)
     expect((nodes[0]!.data as { question: unknown }).question).toBe(model.question)
     const toQuestion = model.links.filter((l) => l.to === QUESTION)
     expect(toQuestion.length).toBeGreaterThan(0)

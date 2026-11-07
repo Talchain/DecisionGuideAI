@@ -8,6 +8,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, useStore, type EdgeProps } from '@xyflow/react'
 import { linkWordsAt } from './linkWordsPlace'
+import { railOf } from './linkRail'
 import type { ViewLink } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { linkDrawn } from '../../olumiView/layout'
@@ -36,11 +37,16 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal size bails out
   useLayoutEffect(() => { const el = wordsRef.current; if (el && (el.offsetWidth !== size.w || el.offsetHeight !== size.h)) setSize({ w: el.offsetWidth, h: el.offsetHeight }) })
   if (!driver && !linkDrawn(link, active)) return null
-  const [path, midX, midY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
-  const { x, y } = linkWordsAt(path, cards, size, { x: midX, y: midY })
+  // R25: a link into a card above its source (an outcome into its aim beside the question) runs round the board (linkRail.ts).
+  const boxOf = (n: string) => { const v = nodeLookup.get(n); return v ? { x: v.internals.positionAbsolute.x, y: v.internals.positionAbsolute.y, w: v.measured.width ?? 0, h: v.measured.height ?? 0 } : null }
+  const from = boxOf(source), to = boxOf(target)
+  const rail = from && to ? railOf(from, to, cards) : null
+  const [bezier, midX, midY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
+  const path = rail?.path ?? bezier
+  const { x, y } = rail ?? linkWordsAt(path, cards, size, { x: midX, y: midY })
   const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
   return (
-    <g data-view-link={`links.${i}`} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
+    <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
       <title>{link.title}</title>
       <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: driver ? 2.5 : 1, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
       {link.label === '' && link.effect == null ? null : (

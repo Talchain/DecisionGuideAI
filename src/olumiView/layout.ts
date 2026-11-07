@@ -115,9 +115,17 @@ export const QUESTION = 'page:question'
 /** How wide the question's card is: two cards and the gap between them, as the original canvas draws its decision card (DL 4 Nov, the
  *  original look; core's page drew it as wide as its columns, up to 900px, which ran under the dock at a readable zoom). The causal
  *  layout places it, at the top. */
-export function questionPlace(_model: ViewModel): { width: number } {
-  return { width: 2 * W + GAP_X }
+export function questionPlace(model: ViewModel): { width: number } {
+  // R25 (Paul 7 Nov: the aims in view at 1232): with an aim on each side the head row is the question between them, so it is narrower,
+  // and the row (2 × 220 + 2 × 16 + 320 = 792) fits the visible canvas at 1232 at the 1.0 floor.
+  return { width: aimsOf(model).length >= 2 ? QUESTION_FLANKED_W : 2 * W + GAP_X }
 }
+/** The question's width between two aims (R25). */
+export const QUESTION_FLANKED_W = 320
+/** The room between the question and an aim beside it (R25). */
+export const HEAD_GAP = 16
+/** The aims and limits, in the View's order: drawn beside the question, the head of the board (R25). */
+export const aimsOf = (model: ViewModel): string[] => model.cards.filter((c) => { const k = askKindOf(c.family); return k === 'goal' || k === 'constraint' }).map((c) => c.id)
 
 /** The View's links whose both ends are drawn (a card or the question), each with its place in the View's list, in its order. */
 export const cardLinks = (model: ViewModel): { link: ViewModel['links'][number]; i: number }[] => {
@@ -148,17 +156,20 @@ type Size = { width: number; height: number }
  */
 export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, questionWidth: number): Promise<Map<string, { x: number; y: number }>> {
   const at = (id: string, w: number, h: number): Size => size.get(id) ?? { width: w, height: h }
+  // R25 (Paul 7 Nov: "aims in view" at 1232): the aims and limits are the head of the board, beside the question (`flankHead`), so the
+  // rows below are the options, their drivers, the factors, then the outcomes and risks; the links into an aim run round the board.
+  const aims = new Set(aimsOf(model))
   const nodes: Node[] = [
     { id: QUESTION, type: 'decision', data: { kind: 'decision' }, position: { x: 0, y: 0 }, measured: at(QUESTION, questionWidth, 85) },
-    ...model.cards.map((c): Node => { const kind = askKindOf(c.family); return { id: c.id, type: kind, data: { kind }, position: { x: 0, y: 0 }, measured: at(c.id, W, c.h) } }),
+    ...model.cards.filter((c) => !aims.has(c.id)).map((c): Node => { const kind = askKindOf(c.family); return { id: c.id, type: kind, data: { kind }, position: { x: 0, y: 0 }, measured: at(c.id, W, c.h) } }),
   ]
-  const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
+  const edges: Edge[] = cardLinks(model).filter(({ link }) => !aims.has(link.from) && !aims.has(link.to)).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
   const elk = await layoutGraph(nodes, edges, { direction: 'DOWN' })
   const sized = new Map(nodes.map((n) => [n.id, n.measured as Size]))
   // The previous PoC's family rows (Paul's item 1, option a2, 6 Nov: his hiring board opened with 7 of 17 cards off screen at 0.9): each
   // card's row is its family's, not its dependency depth: question / options / factors and assumptions / outcomes and risks / aims and
   // limits. ELK keeps the x order.
-  const tierOf = new Map<string, number>([[QUESTION, 0], ...model.cards.map((c): [string, number] => [c.id, familyTierOf(c, model)])])
+  const tierOf = new Map<string, number>([[QUESTION, 0], ...model.cards.filter((c) => !aims.has(c.id)).map((c): [string, number] => [c.id, familyTierOf(c, model)])])
   const tierY: number[] = []
   for (let t = 0, y = 0; t <= 4; t++) {
     tierY.push(y)
@@ -173,7 +184,32 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   const head = packHead(new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }])), options, sized)
   const boxes = [...head].map(([id, p]) => ({ id, ...p, ...sized.get(id)! }))
   const under = orderUnderParents(boxes, edges.map((e) => [e.source, e.target] as const), new Set([QUESTION, ...options]))
-  return wrapTiers(under, WRAP_PER_ROW, WRAP_GAP_X, WRAP_GAP_Y, true)
+  const aimSizes = new Map([...aims].map((id) => [id, at(id, W, model.cards.find((c) => c.id === id)!.h)] as const))
+  return flankHead(wrapTiers(under, WRAP_PER_ROW, WRAP_GAP_X, WRAP_GAP_Y, true), [...aims], new Map([...sized, ...aimSizes]))
+}
+
+/**
+ * The head of the board (R25, Paul 7 Nov: the aims in view at 1232): the aims and limits beside the question, in the View's order, the
+ * first on its left and the next on its right (one aim: on its right), more stacked under those. Every other card moves down by what the
+ * head adds below the question, so nothing overlaps. Positions only.
+ */
+export function flankHead(places: ReadonlyMap<string, { x: number; y: number }>, aims: readonly string[], size: ReadonlyMap<string, Size>): Map<string, { x: number; y: number }> {
+  const q = places.get(QUESTION), qs = size.get(QUESTION), out = new Map(places)
+  if (q === undefined || qs === undefined || aims.length === 0) return out
+  const sides = aims.length === 1 ? [[], [...aims]] : [aims.filter((_, i) => i % 2 === 0), aims.filter((_, i) => i % 2 === 1)]
+  let tallest = qs.height
+  sides.forEach((ids, side) => {
+    let y = q.y
+    for (const id of ids) {
+      const w = size.get(id)?.width ?? W, h = size.get(id)?.height ?? 0
+      out.set(id, { x: side === 0 ? q.x - HEAD_GAP - w : q.x + qs.width + HEAD_GAP, y })
+      y += h + GAP_Y
+    }
+    if (ids.length) tallest = Math.max(tallest, y - GAP_Y - q.y)
+  })
+  const by = tallest - qs.height
+  if (by > 0) for (const [id, p] of places) if (id !== QUESTION) out.set(id, { x: p.x, y: p.y + by })
+  return out
 }
 
 /**
@@ -190,10 +226,11 @@ export const HEAD_ROW_MAX = 900
 /** The room between two family rows, and inside a wrapped row (option a2: tight enough that Paul's hiring board opens whole at 0.8). */
 export const FAMILY_ROW_GAP = 32
 const WRAP_PER_ROW = 4, WRAP_GAP_X = 32, WRAP_GAP_Y = 24
-/** The family row a card is drawn in: 0 question, 1 options, 2 factors and assumptions, 3 outcomes and risks, 4 aims and limits. */
+/** The family row a card is drawn in: 0 question, 1 options, 2 the options' drivers (R24), 3 factors and assumptions, 4 outcomes and risks,
+ *  5 aims and limits (drawn beside the question instead, `flankHead`). */
 export const familyTierOf = (c: ViewCard, model: ViewModel): number => {
   const k = drawKindOf(c, model)
-  return k === 'option' ? 1 : k === 'outcome' || k === 'risk' ? 3 : k === 'goal' || k === 'constraint' ? 4 : 2
+  return k === 'option' ? 1 : isDriver(c, model) ? 2 : k === 'outcome' || k === 'risk' ? 4 : k === 'goal' || k === 'constraint' ? 5 : 3
 }
 /** On an option card, the row index of its first chance (drawn as the big line, the previous PoC's face); -1 when it has none. */
 export const leadChanceIndex = (card: ViewCard): number => (card.family === 'option' ? card.rows.findIndex((r) => r.kind === 'chance') : -1)
@@ -347,8 +384,28 @@ export const worthLinesOf = <T extends { kind: string }>(science: readonly T[]):
  * figure core works out from others (a `through` link arrives at it) is an outcome, any other figure a factor; the rest as `askKindOf`.
  * Never by whether it can be edited now: core withdraws every edit while a proposal is held and on a past version (R1 P1).
  */
-export const drawKindOf = (c: ViewCard, model: ViewModel): 'factor' | 'outcome' | 'risk' | 'goal' | 'option' | 'constraint' =>
-  c.family === 'quantity' && model.links.some((l) => l.to === c.id && l.kind === 'through') ? 'outcome' : askKindOf(c.family)
+export const drawKindOf = (c: ViewCard, model: ViewModel): 'factor' | 'outcome' | 'risk' | 'goal' | 'option' | 'constraint' => {
+  if (c.family !== 'quantity') return askKindOf(c.family)
+  // R24 (core 0a5f8e69: options → drivers → outcome → aim): a figure the options set is a driver, drawn as a factor in its own row; the
+  // figures the drivers feed are the outcomes the aims read. No board before R24 has a driver (every golden and real fixture), so for
+  // those the rule is the one before: a figure a `through` link arrives at is worked out from others, an outcome.
+  if (isDriver(c, model)) return 'factor'
+  if (model.links.some((l) => l.to === c.id && l.kind === 'through')) return 'outcome'
+  return model.links.some((l) => l.to === c.id && isDriverId(l.from, model)) ? 'outcome' : 'factor'
+}
+const familyOf = (model: ViewModel, id: string): string | undefined => model.cards.find((c) => c.id === id)?.family
+/**
+ * A driver (R24, DL 7 Nov "show drivers"): a figure every `through` link into which comes from an option (the options set it), which feeds
+ * another figure and no aim directly. Positions and shape only; its words are core's.
+ */
+export function isDriver(c: ViewCard, model: ViewModel): boolean {
+  if (c.family !== 'quantity') return false
+  const into = model.links.filter((l) => l.to === c.id && l.kind === 'through')
+  if (into.length === 0 || into.some((l) => familyOf(model, l.from) !== 'option')) return false
+  const out = model.links.filter((l) => l.from === c.id).map((l) => familyOf(model, l.to))
+  return out.includes('quantity') && !out.some((f) => f === 'goal' || f === 'constraint')
+}
+const isDriverId = (id: string, model: ViewModel): boolean => { const c = model.cards.find((x) => x.id === id); return c !== undefined && isDriver(c, model) }
 const PREFIX: Record<string, string> = { option: 'O', factor: 'F', outcome: 'OC', risk: 'R', constraint: 'C' }
 /** Each card's number as the original canvas numbers them (O1, F1, OC1, …), per kind in the View's order; an assumption or condition
  *  is A1, …; the aim has none. */
@@ -364,8 +421,9 @@ export function cardNumbersOf(model: ViewModel): ReadonlyMap<string, string> {
   return out
 }
 
-/** The top of the causal graph, which the camera centres on when a board is too large to read whole: the question and the options. */
-export const headOf = (model: ViewModel): ReadonlySet<string> => new Set([QUESTION, ...model.cards.filter((c) => c.family === 'option').map((c) => c.id)])
+/** The top of the causal graph, which the camera centres on when a board is too large to read whole: the question, the aims beside it
+ *  (R25) and the options. */
+export const headOf = (model: ViewModel): ReadonlySet<string> => new Set([QUESTION, ...aimsOf(model), ...model.cards.filter((c) => c.family === 'option').map((c) => c.id)])
 
 // R4 compared lines (compared.ts holds their per-line rules): which lines this page draws, and their groups. Picking
 // lives here, the one layout module.

@@ -10,11 +10,14 @@ export const CORE_LANE_FIT_FLOOR = 0.25
 /** The floor a product fit uses: the lane's, never above the product's own. */
 export const productFitFloor = (coreLane: boolean, legible: number): number => (coreLane ? Math.min(CORE_LANE_FIT_FLOOR, legible) : legible)
 
-/** The readable floor (DL 4 Nov, the original look: text at about 11–12px on screen): a board that does not fit whole opens at this zoom. */
-export const READABLE_WHOLE_ZOOM = 0.9
+/** The readable floor: a board that does not fit whole opens at this zoom. R25 (Paul 7 Nov, three sizes by role, 12/14/18): 1.0, so the
+ *  sizes on screen are the sizes authored and none is under 12px; was 0.9 (DL 4 Nov), which drew 12px as 10.75. Paul chooses 1.0 or 0.9
+ *  from shots of his board; this one constant reverts it. */
+export const READABLE_WHOLE_ZOOM = 1
 
-/** The zoom at or above which the whole board is shown at once (DL 4 Nov, R3: Paul's original fits the whole board when it reads at 0.8). */
-export const WHOLE_FIT_ZOOM = 0.8
+/** The zoom at or above which the whole board is shown at once: the readable floor (R25), so a whole-board fit never draws text under
+ *  12px; was 0.8 (DL 4 Nov, R3). */
+export const WHOLE_FIT_ZOOM = READABLE_WHOLE_ZOOM
 
 type Rect = { x: number; y: number; width: number; height: number }
 type Insets = { top: number; right: number; bottom: number; left: number }
