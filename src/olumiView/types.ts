@@ -904,7 +904,7 @@ export type View = {
         family: string | null
         label: string | null
       }
-      stance: "observed" | "expects" | "unsure" | "would_try" | "others_miss"
+      stance: "know" | "suspect" | "unsure" | "would_try" | "others_may_miss"
       stance_text: string
       source: string | null
       pill: string
@@ -941,6 +941,11 @@ export type View = {
             family: string | null
             label: string | null
           } | null
+          pill: string | null
+          people: Array<{
+            id: string
+            name: string
+          }>
         }>
       }>
     }

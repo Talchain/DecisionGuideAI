@@ -1,7 +1,7 @@
 /**
  * Strategy lane, slice 1: the strategy overview as a read-only projection of core's `strategy.overview` (the question, the aim, the routes
  * in play, claims with the crux first, assumptions, open questions, risks, the views given, evidence, commitments). Each line is a stored
- * word with its holder's initial; a section with nothing shows core's own sentence for that. Under the aim, core's definitional gate in
+ * word with core's state pill and its holders' initials; a section with nothing shows core's own sentence for that. Under the aim, core's definitional gate in
  * words. First in the Team tab's panel list (TeamTab.tsx, by agreement with the V11 build, 7 Nov), folded until opened; null without the key.
  */
 import { useState } from 'react'
@@ -31,12 +31,14 @@ export function StrategyOverviewSection({ view }: { view: View | null }): JSX.El
               {sec.lines.length === 0 ? <p className={META}>{sec.empty}</p> : (
                 <ul className="m-0 grid list-none gap-1 p-0">
                   {sec.lines.map((l) => (
-                    <li key={l.id} className="grid grid-cols-[22px_minmax(0,1fr)] items-start gap-2" data-strategy-line={l.id}>
-                      {l.by === null ? <span aria-hidden="true" /> : <span aria-hidden="true" className={AVATAR} title={l.by}>{initial(l.by)}</span>}
+                    <li key={l.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2" data-strategy-line={l.id}>
                       <p className={`${BODY} flex flex-wrap items-baseline gap-x-2`}>
                         <span>{l.text}</span>
-                        {l.kind_text === null ? null : <span className={`${META} rounded-full border border-panel-border px-2 py-0.5`}>{l.kind_text}</span>}
+                        {l.pill === null ? null : <span className={`${META} rounded-full border border-panel-border px-2 py-0.5`} data-strategy-pill="">{l.pill}</span>}
                       </p>
+                      <span className="inline-flex flex-none" aria-label={l.people.map((p) => p.name).join(', ')}>
+                        {l.people.slice(0, 3).map((p, i) => <span key={p.id} aria-hidden="true" className={`${AVATAR} ${i > 0 ? '-ml-1.5' : ''}`} title={p.name}>{initial(p.name)}</span>)}
+                      </span>
                     </li>
                   ))}
                 </ul>

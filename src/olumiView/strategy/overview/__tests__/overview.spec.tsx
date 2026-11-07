@@ -1,6 +1,7 @@
 /**
- * Strategy Overview page (7 Nov 2026): the rows read from a REAL View (fixtures/strategy/growth-reveal.view3.json). Bound by identity:
- * card ids, item ids, people's names and the fixture's own mark sentences, read from the fixture and never retyped.
+ * Strategy Overview page (7 Nov 2026): core's `strategy.overview.sections` drawn as the approved board's two columns, read from a REAL View
+ * (fixtures/strategy/growth-reveal.view3.json). Bound by identity: section ids and headings, line ids, the fixture's own pills and holders,
+ * read from the fixture and never retyped. The page makes no word of its own beyond "Overview" and "Close".
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -9,76 +10,56 @@ import path from 'node:path'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { View } from '../../../client'
 import { StrategyOverviewPage } from '../StrategyOverviewPage'
+import { overviewOf } from '../overview'
 import { useOverview } from '../useOverview'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal.view3.json'), 'utf8'))
 const S = view.strategy!
-const cards = view.model!.cards
-const ids = (family: string) => cards.filter((c) => c.family === family).map((c) => c.id)
-const evidenceMark = view.collab.marks!.find((m) => m.kind === 'evidence')!
-const AIM_FIGURES = ['arr_target', 'arr_2027']
-const FACTORS = ids('quantity').filter((id) => !AIM_FIGURES.includes(id))
+const section = (id: string) => S.overview.sections.find((s) => s.id === id)!
 
 afterEach(() => cleanup())
 
 const group = (name: string) => within(screen.getByRole('region', { name }))
 const rowIds = (name: string) => group(name).queryAllByRole('listitem').map((r) => r.getAttribute('data-row'))
 const row = (id: string) => document.querySelector(`[data-row="${id}"]`) as HTMLElement
-const pillOf = (id: string) => within(row(id)).getByTestId('pill').textContent
-const holdersOf = (id: string) => within(row(id)).getAllByTestId('holder').map((h) => h.getAttribute('aria-label'))
+const pillOf = (id: string) => within(row(id)).queryByTestId('pill')?.textContent ?? ''
+const holdersOf = (id: string) => within(row(id)).queryAllByTestId('holder').map((h) => h.getAttribute('aria-label'))
 
-describe('Strategy Overview page (real View)', () => {
-  it('each group lists the right ids in order', () => {
+describe('Strategy Overview page (real View, core’s sections)', () => {
+  it('draws core’s eight groups in the board’s order, each line by id, with core’s pill and holders; counts where the board counts', () => {
     render(<StrategyOverviewPage view={view} onClose={() => {}} />)
-    expect(rowIds('Question')).toEqual(['question'])
-    expect(rowIds('Aim')).toEqual(ids('goal'))
-    expect(rowIds('Routes')).toEqual(ids('option'))
-    expect(rowIds('Assumptions')).toEqual(S.items.filter((i) => i.kind === 'assumption').map((i) => i.id))
-    expect(rowIds('Factors')).toEqual(FACTORS)
-    expect(FACTORS).not.toContain('arr_target')
-    expect(rowIds('Risks')).toEqual(ids('risk'))
-    expect(rowIds('Open questions')).toEqual(S.items.filter((i) => i.kind === 'question').map((i) => i.id))
-    expect(group('Routes').getByTestId('count')).toHaveTextContent(String(ids('option').length))
-    expect(group('Factors').getByTestId('count')).toHaveTextContent(String(FACTORS.length))
+    expect(S.overview.sections.map((s) => s.heading)).toEqual(['Question', 'Aim', 'Routes', 'Assumptions', 'Factors', 'Risks', 'Open questions', 'Commitments'])
+    for (const s of S.overview.sections) {
+      expect(rowIds(s.heading)).toEqual(s.lines.map((l) => l.id))
+      for (const l of s.lines) { expect(pillOf(l.id)).toBe(l.pill ?? ''); expect(holdersOf(l.id)).toEqual(l.people.map((p) => p.name)); expect(row(l.id)).toHaveTextContent(l.text) }
+    }
+    for (const id of ['routes', 'factors']) expect(group(section(id).heading).getByTestId('count')).toHaveTextContent(String(section(id).lines.length))
+    // The fixture's own facts, so a wrong producer cannot pass: the three marks are the factors' pills; Olumi holds what it inferred.
+    expect(S.marks.length).toBe(3)
+    for (const m of S.marks) { expect(pillOf(m.card)).toBe(m.text); expect(holdersOf(m.card)).toEqual(m.people.map((p) => p.name)) }
+    expect(pillOf('pilot_conversion')).toBe('Olumi inferred'); expect(holdersOf('pilot_conversion')).toEqual(['Olumi'])
+    const assumption = S.items.find((i) => i.kind === 'assumption')!
+    expect(pillOf(assumption.id)).toBe('Untested'); expect(holdersOf(assumption.id)).toEqual([assumption.by])
   })
 
-  it('the question and the aim read the model; the pills are the fixture’s own sentences, in the order mark, evidence, brief', () => {
-    render(<StrategyOverviewPage view={view} onClose={() => {}} />)
-    expect(row('question')).toHaveTextContent(view.model!.question.text)
-    expect(row(ids('goal')[0])).toHaveTextContent(cards.find((c) => c.family === 'goal')!.heading)
-    for (const m of S.marks) expect(pillOf(m.card)).toBe(m.text)
-    expect(pillOf('cross_team_adoption')).not.toBe(evidenceMark.text)
-    expect(evidenceMark.card).toBe('cross_team_adoption')
-    expect(pillOf('pilot_conversion')).toBe('From the brief')
-    for (const id of [...ids('option'), ...ids('risk')]) expect(pillOf(id)).toBe('From the brief')
-    expect(pillOf(S.items.find((i) => i.kind === 'assumption')!.id)).toBe('Untested')
-    expect(pillOf(S.items.find((i) => i.kind === 'question')!.id)).toBe(S.items.find((i) => i.kind === 'question')!.kind_text)
-  })
-
-  it('holders are the mark’s people, else the brief’s author; an item’s holder is its by', () => {
-    render(<StrategyOverviewPage view={view} onClose={() => {}} />)
-    for (const m of S.marks) expect(holdersOf(m.card)).toEqual(m.people.map((p) => p.name))
-    expect(holdersOf('pilot_conversion')).toEqual([view.members[0].name])
-    for (const i of S.items.filter((x) => x.kind === 'assumption' || x.kind === 'question')) expect(holdersOf(i.id)).toEqual([i.by])
-  })
-
-  it('Olumi’s own question says so; a missing strategy key draws no rows but the page stays honest', () => {
-    const olumi = { ...view, strategy: { ...S, items: [{ ...S.items.find((i) => i.kind === 'question')!, id: 'iq', by: 'Olumi' }] } } as View
+  it('an Olumi-asked question is core’s pill with Olumi as holder; without the key the page has no rows', () => {
+    const q = section('questions')
+    const olumi = { ...view, strategy: { ...S, overview: { ...S.overview, sections: S.overview.sections.map((s) => (s.id !== 'questions' ? s : { ...s, lines: [...s.lines, { ...q.lines[0]!, id: 'olumi-question:1', text: 'Fixture: what did the two pilot teams actually do?', pill: 'Olumi asks', people: [{ id: 'olumi', name: 'Olumi' }], by: 'Olumi', by_id: 'olumi' }] })) } } } as View
     render(<StrategyOverviewPage view={olumi} onClose={() => {}} />)
-    expect(pillOf('iq')).toBe('Olumi asks')
-    expect(holdersOf('iq')).toEqual(['Olumi'])
+    expect(pillOf('olumi-question:1')).toBe('Olumi asks')
+    expect(holdersOf('olumi-question:1')).toEqual(['Olumi'])
     cleanup()
-    const none = { ...view, strategy: undefined } as View
-    render(<StrategyOverviewPage view={none} onClose={() => {}} />)
-    expect(rowIds('Assumptions')).toEqual([])
-    expect(rowIds('Routes')).toEqual(ids('option'))
+    expect(overviewOf({ ...view, strategy: undefined } as View)).toEqual([])
+    render(<StrategyOverviewPage view={{ ...view, strategy: undefined } as View} onClose={() => {}} />)
+    expect(document.querySelectorAll('[data-row]')).toHaveLength(0)
   })
 
-  it('Commitments shows the empty sentence; Close calls onClose; the store opens and closes', () => {
+  it('Commitments shows core’s empty sentence; Close calls onClose; the store opens and closes', () => {
     const onClose = vi.fn()
     render(<StrategyOverviewPage view={view} onClose={onClose} />)
-    expect(view.collab.commitments).toEqual([])
-    expect(group('Commitments').getByText('No commitments recorded yet.')).toBeInTheDocument()
+    expect(section('commitments').lines).toEqual([])
+    expect(group('Commitments').getByText(section('commitments').empty)).toBeInTheDocument()
+    expect(section('commitments').empty).toBe('No commitments recorded yet.')
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(useOverview.getState().open).toBe(false)
@@ -86,10 +67,11 @@ describe('Strategy Overview page (real View)', () => {
     useOverview.getState().hide(); expect(useOverview.getState().open).toBe(false)
   })
 
-  it('says no best, winner, recommendation, confidence or percentage', () => {
+  it('says no best, winner, recommendation, confidence or percentage, with a contrast that finds a served pill', () => {
     const { container } = render(<StrategyOverviewPage view={view} onClose={() => {}} />)
     const text = container.textContent ?? ''
     expect(text).toContain('Overview')
+    expect(text).toContain('From the brief')
     expect(text).not.toMatch(/best|winner|recommend|confidence|%/i)
   })
 })

@@ -4938,11 +4938,11 @@
        "stance": {
         "type": "string",
         "enum": [
-         "observed",
-         "expects",
+         "know",
+         "suspect",
          "unsure",
          "would_try",
-         "others_miss"
+         "others_may_miss"
         ]
        },
        "stance_text": {
@@ -5128,6 +5128,31 @@
                "type": "null"
               }
              ]
+            },
+            "pill": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "people": {
+             "type": "array",
+             "items": {
+              "type": "object",
+              "properties": {
+               "id": {
+                "type": "string"
+               },
+               "name": {
+                "type": "string"
+               }
+              },
+              "required": [
+               "id",
+               "name"
+              ],
+              "additionalProperties": false
+             }
             }
            },
            "required": [
@@ -5136,7 +5161,9 @@
             "by",
             "by_id",
             "kind_text",
-            "ref"
+            "ref",
+            "pill",
+            "people"
            ],
            "additionalProperties": false
           }
