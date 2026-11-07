@@ -7,7 +7,7 @@
  * says); the card's other words open beside it on selection. Links run top to bottom, as the causal graph reads. Text is in the canvas
  * tokens, which carry the zoom counter-scale.
  */
-import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react'
+import { Handle, Position, useReactFlow, useStore, type NodeProps } from '@xyflow/react'
 import { computeFitPadding } from '../utils/computeFitPadding'
 import { paddingToInsets } from '../utils/cameraComfort'
 import { panToKeepInView } from '../utils/keepInView'
@@ -18,6 +18,8 @@ import { typography } from '../../styles/typography'
 import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, readingOf, type RestsOnItem } from '../../olumiView/layout'
 import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
+import { panelSide } from './panelSide'
+import { cardBoxesOf, sameBoxes, type CardBox } from '../edges/ViewLinkEdge'
 import { useCanvasStore } from '../store'
 import { useViewStore } from '../../olumiView/store'
 import { useViewFocusCard } from '../../olumiView/canvas'
@@ -209,7 +211,7 @@ function OptionValueRow({ at, option, text, mark = null }: { at: string; option:
 }
 
 /** One View card, pure: a test draws it from a golden View. */
-export function ViewCard({ card, selected = false, restsOn = null, driverOf = null, number = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null, reading = null }: ViewCardData & { reading?: ViewReading | null; selected?: boolean; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
+export function ViewCard({ card, selected = false, side = 'right', restsOn = null, driverOf = null, number = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null, reading = null }: ViewCardData & { reading?: ViewReading | null; selected?: boolean; side?: 'right' | 'left'; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
   const id = card.id, lead = leadChanceIndex(card)
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
@@ -344,7 +346,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
         // The card's other words (its status, reason and premises), every one core's, beside the card while it is selected: the
         // face stays compact so the causal graph reads (Paul 4 Nov), and opening them never changes the card's drawn height. A card's
         // Rename is in the dock's "Selected:" row (SelectedRename.tsx), so a card with nothing more opens nothing over its neighbour.
-        <div hidden={!selected} className={`absolute left-full top-0 z-10 ml-2 space-y-1 rounded-lg border border-border bg-panel p-3 shadow-sm ${typography.viewLabel}`}
+        <div hidden={!selected} data-panel-side={side} className={`absolute ${side === 'left' ? 'right-full mr-2' : 'left-full ml-2'} top-0 z-10 space-y-1 rounded-lg border border-border bg-panel p-3 shadow-sm ${typography.viewLabel}`}
           style={{ width: CARD_WIDTH }} data-view-more={id}>
           {/* Core writes the change a line per field ("Proposed change\nlow 10 → 15\n…"): its lines kept. */}
           {changed ? <p className="whitespace-pre-line" data-view={`${id}.change.title`}>{card.change!.title}</p> : null}
@@ -403,6 +405,9 @@ function useOpenEditorInView(): React.RefObject<HTMLDivElement> {
   return box
 }
 
+const NO_BOXES: CardBox[] = []
+const noBoxes = (): CardBox[] => NO_BOXES
+
 export function ViewCardNode({ id, data, selected }: NodeProps) {
   const { card } = data as ViewCardData
   const inView = useOpenEditorInView()
@@ -430,10 +435,18 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const focused = named && here !== null && root.current !== null && (root.current.contains(here) || root.current.closest('.react-flow__node') === here)
   const open = selected === true || focused
   const attach = useCallback((el: HTMLDivElement | null) => { root.current = el; (inView as React.MutableRefObject<HTMLDivElement | null>).current = el }, [inView])
+  // Open, its words go on the side with room (panelSide.ts, DL 7 Nov): every card's box is read only while this one is open.
+  const boxes = useStore(open ? cardBoxesOf : noBoxes, sameBoxes)
+  const [panelH, setPanelH] = useState(0)
+  useLayoutEffect(() => { if (open) setPanelH(root.current?.querySelector<HTMLElement>('[data-view-more]')?.offsetHeight ?? 0) }, [open, card])
+  const side = useMemo(() => {
+    const me = boxes.find((b) => b.id === id)
+    return me === undefined ? 'right' : panelSide(me, { w: CARD_WIDTH, h: panelH > 0 ? panelH : me.h }, boxes.filter((b) => b.id !== id))
+  }, [boxes, id, panelH])
   return (
     <div ref={attach} className={`group/vcard relative${preMortem === 'other' ? ' opacity-40' : ''}`} data-premortem={preMortem ?? undefined}>
       <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
-      <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={open} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} />
+      <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={open} side={side} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
       <div className={selected === true || noted ? '' : 'opacity-0 group-hover/vcard:opacity-100 focus-within:opacity-100'} data-olumi-controls="">

@@ -19,7 +19,7 @@ import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
 
 export type ViewLinkData = { link: ViewLink; i: number }
 
-type CardBox = { readonly id: string; readonly x: number; readonly y: number; readonly w: number; readonly h: number }
+export type CardBox = { readonly id: string; readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 /**
  * The cards as React Flow holds them now (flow units). React Flow refills one `nodeLookup` Map in place (xyflow adoptUserNodes), so a
  * memo keyed on the Map kept the boxes of the edge's first render, before the cards were laid out and measured, and the words then sat
@@ -28,7 +28,7 @@ type CardBox = { readonly id: string; readonly x: number; readonly y: number; re
  */
 export const cardBoxesOf = (s: ReactFlowState): CardBox[] =>
   [...s.nodeLookup.values()].map((n) => ({ id: n.id, x: n.internals.positionAbsolute.x, y: n.internals.positionAbsolute.y, w: n.measured.width ?? 0, h: n.measured.height ?? 0 }))
-const sameBoxes = (a: CardBox[], b: CardBox[]) =>
+export const sameBoxes = (a: CardBox[], b: CardBox[]) =>
   a.length === b.length && a.every((p, k) => { const q = b[k]!; return p.id === q.id && p.x === q.x && p.y === q.y && p.w === q.w && p.h === q.h })
 
 export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd, selected = false }: EdgeProps) {
