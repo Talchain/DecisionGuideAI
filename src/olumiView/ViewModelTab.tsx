@@ -115,16 +115,15 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
                   className={`flex w-full cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-panel-hover ${ACTION_FOCUS}`}>
                   <span aria-hidden="true" className="w-4 flex-none text-center text-text-light">{KIND_GLYPH.relationship}</span>
                   <span className="min-w-0 flex-1">
+                    {/* Core's label is a mark (◇, ⊢, ↝, +): it follows the last word, as on the canvas; the strength is line 2. */}
                     <span className="block break-words text-text-header">
                       <span>{from}</span>
                       <span aria-hidden="true" className="text-text-light"> → </span>
                       <span>{to}</span>
+                      {l.label === '' ? null : <>{'\u00a0'}<span className="text-text-light" data-view={`links.${i}.label`}>{l.label}</span></>}
                     </span>
-                    {l.label === '' && l.effect == null ? null : (
-                      <span className={`${typography.viewPanelMeta} mt-0.5 flex flex-wrap items-baseline gap-x-2 text-text-light`}>
-                        {l.label === '' ? null : <span data-view={`links.${i}.label`}>{l.label}</span>}
-                        {l.effect == null ? null : <span className="tabular-nums" title={l.effect.title} data-view={`links.${i}.effect.text`}>{l.effect.text}</span>}
-                      </span>
+                    {l.effect == null ? null : (
+                      <span className={`${typography.viewPanelMeta} mt-0.5 block tabular-nums text-text-light`} title={l.effect.title} data-view={`links.${i}.effect.text`}>{l.effect.text}</span>
                     )}
                   </span>
                 </button>
