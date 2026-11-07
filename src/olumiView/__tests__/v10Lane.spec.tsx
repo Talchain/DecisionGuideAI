@@ -39,18 +39,26 @@ afterEach(() => {
 })
 
 describe('v10 on the core lane', () => {
-  it('the method chips sit above the composer and fill its prefix, keeping what was typed; nothing is sent; none for a brief', () => {
-    const { container, unmount } = render(<ViewComposer />)
+  it('the method chips sit behind "More ways to think about this" (DL ruling 7 Nov: one next move visible) and fill the composer\'s prefix, keeping what was typed; nothing is sent; none for a brief', () => {
+    const { container, unmount } = render(<><ViewChat /><ViewComposer /></>)
     const box = container.querySelector<HTMLTextAreaElement>('#view-chat-text')!
+    expect(container.querySelector('[data-testid="view-composer"] [data-testid="v10-method-chips"]')).toBeNull() // not the composer's row
+    const chips = container.querySelector('[data-testid="view-more-ways"] [data-testid="v10-method-chips"]')!
+    expect(chips).not.toBeNull()
     fireEvent.change(box, { target: { value: 'the 30p rise' } })
-    fireEvent.click(container.querySelector('[data-testid="v10-method-assumption"]')!)
+    fireEvent.click(chips.querySelector('[data-testid="v10-method-assumption"]')!)
     expect(box.value).toBe('Challenge it: the 30p rise')
-    fireEvent.click(container.querySelector('[data-testid="v10-method-opposite"]')!)
+    fireEvent.click(chips.querySelector('[data-testid="v10-method-opposite"]')!)
     expect(box.value).toBe('Argue the opposite of: the 30p rise') // swaps the prefix, never stacks it
     expect(posts).toBe(0)
     unmount()
+    // A scenario with no version yet takes its brief: no methods for it (the View is read, so More ways could draw).
+    useViewStore.setState({ view: { ...view, version: null, proposal: null } as View })
+    const drafting = render(<><ViewChat /><ViewComposer /></>)
+    expect(drafting.container.querySelector('[data-testid="v10-method-chips"]')).toBeNull()
+    drafting.unmount()
     useViewStore.setState({ sid: null, view: null }) // no scenario yet: the composer takes the brief
-    expect(render(<ViewComposer />).container.querySelector('[data-testid="v10-method-chips"]')).toBeNull()
+    expect(render(<><ViewChat /><ViewComposer /></>).container.querySelector('[data-testid="v10-method-chips"]')).toBeNull()
   })
 
   it('a card\'s Olumi corner, not the rail\'s door, puts "About <card>: " in the composer and sends nothing', () => {

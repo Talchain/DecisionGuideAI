@@ -36,7 +36,6 @@ import { storiesHeadingOf, storiesOf } from './k5'
 import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
 import { noteSaved, noticeWords, useModelNotice } from './notice'
 import { ArrowRight, ArrowUp, FlipVertical2, Globe, History, MessageCircleQuestion, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
-import Tooltip from '../components/Tooltip'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 
@@ -757,6 +756,28 @@ function MethodMenu({ session, held }: { session: Session; held: boolean }) {
  * a card's padding 12px (p-3); related items 8px (space-y-2); a label to its content 4px (space-y-1). The waiting change sits inside the
  * Next step card with no second border or padding of its own (the double padding is gone).
  */
+/**
+ * v10's methods (DGAI's reasoning moves' glyphs and words): each fills the composer with its prefix, keeping what was typed, for the person
+ * to finish; nothing is sent. R25 (DL ruling 7 Nov, Paul 6 Nov: one next move visible, the methods behind "More ways"): drawn inside the
+ * disclosure, each with its name, no longer as the composer's icon row.
+ */
+function MethodChips() {
+  return (
+    <span role="group" aria-label="Ways to test the model" className="flex flex-wrap items-center gap-1" data-testid="v10-method-chips">
+      {V10_METHODS.map(({ key, label, prefix }) => {
+        const Icon = METHOD_GLYPHS[key]
+        return (
+          <button key={key} type="button" data-testid={`v10-method-${key}`}
+            className={`${typography.viewPanelBody} inline-flex min-h-[24px] items-center gap-1.5 rounded-md px-2 text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            onClick={() => { useViewChat.setState({ text: withMethodPrefix(prefix, useViewChat.getState().text) }); document.getElementById('view-chat-text')?.focus() }}>
+            <Icon className="w-3.5 h-3.5 text-text-light" aria-hidden="true" />{label}
+          </button>
+        )
+      })}
+    </span>
+  )
+}
+
 /** The disclosure holding what the team came for and every method (R25: depth one click away, never above Olumi's reply). */
 export const MORE_WAYS = 'More ways to think about this'
 
@@ -792,6 +813,9 @@ export function ViewChat() {
   const offers = step !== null && (step.kind !== 'figure' || isForThisPage(view!, me))
   const newest = view === null || view.chat.length === 0 ? null : view.chat[view.chat.length - 1]!
   const tucked = offers && newest?.answer?.next.newest ? newest : null
+  // The methods, behind More ways (none for a brief, or while a write holds the composer they fill).
+  const sid = useViewStore((s) => s.sid)
+  const methods = view !== null && !held && !takesBrief(sid, view)
   const give = () => void giveFigureFirst().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-given') })
   const show = () => void showOlumiFigure().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-shown') })
   return (
@@ -811,10 +835,11 @@ export function ViewChat() {
         {ffMine && ffOpen ? <FigureFirstEntryPanel held={held} onGive={give} onShow={show} onClose={closeFigureFirst} /> : null}
         {ffMine && ffShown ? <FigureFirstShownPanel onClose={() => useFigureFirst.setState({ shown: null })} /> : null}
         {ff?.given == null ? null : <FigureFirstSideBySide given={ff.given} headings={ff.headings} />}
-        {session === null && tucked === null ? null : (
+        {session === null && tucked === null && !methods ? null : (
           <details className="space-y-4" data-testid="view-more-ways">
             <summary className={`${typography.viewPanelBody} flex min-h-[44px] cursor-pointer items-center text-info`}>{MORE_WAYS}</summary>
             {tucked === null ? null : <div data-testid="view-more-ways-move"><MoveTap turn={tucked.id} next={tucked.answer!.next} /></div>}
+            {methods ? <MethodChips /> : null}
             {session === null ? null : <><SessionGoal session={session} held={held} /><MethodMenu session={session} held={held} /></>}
           </details>
         )}
@@ -893,23 +918,6 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
           rows={brief ? 6 : 2} value={text} placeholder={placeholder} aria-describedby={brief ? 'view-brief-intro' : undefined} disabled={held}
           onChange={(e) => useViewChat.setState({ text: e.target.value })} />
         <div className="flex items-center justify-end gap-1 px-2 pb-1" data-testid="view-composer-actions">
-          {/* v10's methods as the composer's icon row (DGAI's reasoning moves' place and glyphs): each fills the box with its prefix,
-              keeping what was typed, for the person to finish; nothing is sent. None for a brief or while a write holds the box. */}
-          {brief || held ? null : (
-            <span role="group" aria-label="Ways to test the model" className="mr-auto flex items-center gap-1" data-testid="v10-method-chips">
-              {V10_METHODS.map(({ key, label, prefix }) => {
-                const Icon = METHOD_GLYPHS[key]
-                return (
-                  <Tooltip key={key} asChild content={label}>
-                    <button type="button" aria-label={label} className={quiet} data-testid={`v10-method-${key}`}
-                      onClick={() => { useViewChat.setState({ text: withMethodPrefix(prefix, useViewChat.getState().text) }); box.current?.focus() }}>
-                      <Icon className="w-3.5 h-3.5" aria-hidden="true" />
-                    </button>
-                  </Tooltip>
-                )
-              })}
-            </span>
-          )}
           {analysisAction === undefined ? null : (
             <button type="button" onClick={analysisAction.onRun} disabled={past !== null || analysisAction.isRunning || !analysisAction.canRun} aria-label={analysisAction.label}
               title={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} className={quiet} data-testid="view-composer-analyse">
