@@ -27,7 +27,7 @@ import { useCardNumber, useDriverOf, usePreMortemOf, useRestsOnItem, useTriedOn 
 import { WHAT_IF_COPY } from '../artefacts/whatIfCopy'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
-import { Badge } from '../../olumiView/Badge'
+import { Badge, badgeWords } from '../../olumiView/Badge'
 import { FigureEdit, HeldEditOffer } from '../../olumiView/FigureEdit'
 import { failedOf, failedReasonOf } from '../../olumiView/k5'
 
@@ -328,7 +328,11 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
           {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
         </span>
       ))}
-      {card.badge === null ? null : <p className={selected ? '' : 'invisible group-hover:visible focus-within:visible'} data-at-rest-hidden=""><Badge cardId={id} badge={card.badge} at={id} /></p>}
+      {/* DL 7 Nov: a badge core names in words ("1 open question") is on the face at rest, one 12px line: what is folded in is seen at first
+          glance. A badge with no words (glyphs only) still shows on hover, focus or selection. */}
+      {card.badge === null ? null : badgeWords(card.badge) !== null
+        ? <p className={typography.viewPanelMeta} data-badge-at-rest={id}><Badge cardId={id} badge={card.badge} at={id} /></p>
+        : <p className={selected ? '' : 'invisible group-hover:visible focus-within:visible'} data-at-rest-hidden=""><Badge cardId={id} badge={card.badge} at={id} /></p>}
       {/* An option the team committed to (olumi.view/3 `committed`, the newest commitment naming it): who, in the marks row; when, on hover. */}
       <span data-slot={VIEW_CARD_SLOTS.marks} className="flex gap-1 empty:hidden">
         {card.committed == null ? null : <span className="text-text-light" title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}

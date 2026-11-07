@@ -136,6 +136,18 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
     expect(bare.querySelector(`[data-view="${card.id}.badge.words"]`)).toBeNull()
     expect(bare.querySelector(`[data-view="${card.id}.badge.text"]`)?.textContent).toBe(card.badge!.text)
   })
+  it('DL 7 Nov: unselected, a badge core names in words is on the face at rest, its words visible; one with glyphs only stays on hover', () => {
+    const card = golden('european').model!.cards.find((c) => c.badge !== null)!
+    const rest = render(<ViewCard card={{ ...card, badge: { ...card.badge!, words: '1 open question' } as never }} selected={false} />).container
+    const words = rest.querySelector<HTMLElement>(`[data-view="${card.id}.badge.words"]`)!
+    expect(words.textContent).toBe('1 open question')
+    expect(words.closest('[data-at-rest-hidden]')).toBeNull()
+    expect(words.closest('.invisible')).toBeNull()
+    expect(words.closest(`[data-badge-at-rest="${card.id}"]`)?.className).toContain('text-[12px]')
+    rest.remove()
+    const glyphs = render(<ViewCard card={card} selected={false} />).container
+    expect(glyphs.querySelector(`[data-view="${card.id}.badge.text"]`)?.closest('[data-at-rest-hidden]')?.classList.contains('invisible')).toBe(true)
+  })
 })
 
 describe('the compact face (Paul 4 Nov: the causal graph reads; every word of core\'s still reachable)', () => {
