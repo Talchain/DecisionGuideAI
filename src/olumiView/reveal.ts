@@ -19,7 +19,7 @@
  * read through the readers below, so a View from an older core draws by the interim rule.
  */
 import { create } from 'zustand'
-import type { View } from './client'
+import type { View, ViewModel, ViewRow } from './client'
 import { effectsOf, type ViewEffect, type ViewEffectRun } from './standin'
 
 export type Shared = View['collab']['shared'][number]
@@ -203,7 +203,39 @@ export function marksOn(r: Reveal | null, card: string): { readonly chips: reado
  * The cards lit while a person's figure is tried from the dock (the card their view sits on, and each option whose chance moves): the
  * person's own act, so a neutral ring in the header ink, never Olumi's blue (v10's `v10-lit` ring is Olumi's pointing).
  */
-export const useTriedCards = create<{ readonly ids: readonly string[] }>()(() => ({ ids: [] }))
+export const useTriedCards = create<{ readonly ids: readonly string[]; readonly links: readonly number[] }>()(() => ({ ids: [], links: [] }))
+
+/** An option is moved by a try when, for the same aim, core words its chance differently on the copy than on the saved model. */
+export function movedOptions(model: Pick<ViewModel, 'cards'>, copy: readonly { readonly option_id: string; readonly rows: readonly ViewRow[] }[]): string[] {
+  const chances = (rows: readonly ViewRow[]) => new Map(rows.flatMap((r) => (r.kind === 'chance' ? [[r.aim_id, r.value] as const] : [])))
+  return copy.filter((o) => {
+    const saved = chances(model.cards.find((c) => c.id === o.option_id)?.rows ?? [])
+    return [...chances(o.rows)].some(([aim, value]) => saved.has(aim) && saved.get(aim) !== value)
+  }).map((o) => o.option_id)
+}
+
+/**
+ * The links lit while a figure is tried: every link of the model (by index) on a directed path from the card the figure sits on (`start`) to a
+ * lit option or to any aim (a `goal` card). A link is on such a path when its source is reachable from the start (or is it) and its target
+ * reaches a target (or is one), which is why options linking INTO quantities count. Links with an end that is no card ("page:question") are
+ * ignored. Reads core's links only; composes nothing.
+ */
+export function triedPathLinks(model: Pick<ViewModel, 'cards' | 'links'>, start: string | null, lit: readonly string[]): number[] {
+  const cards = new Set(model.cards.map((c) => c.id))
+  if (start === null || !cards.has(start)) return []
+  const targets = new Set([...lit, ...model.cards.filter((c) => c.family === 'goal').map((c) => c.id)].filter((id) => cards.has(id) && id !== start))
+  const edges = model.links.flatMap((l, i) => (cards.has(l.from) && cards.has(l.to) ? [{ i, from: l.from, to: l.to }] : []))
+  const reach = (seed: Iterable<string>, next: (e: { from: string; to: string }) => readonly [string, string]) => {
+    const seen = new Set(seed)
+    for (let grew = true; grew;) {
+      grew = false
+      for (const e of edges) { const [a, b] = next(e); if (seen.has(a) && !seen.has(b)) { seen.add(b); grew = true } }
+    }
+    return seen
+  }
+  const fwd = reach([start], (e) => [e.from, e.to]), bwd = reach(targets, (e) => [e.to, e.from])
+  return edges.filter((e) => fwd.has(e.from) && bwd.has(e.to)).map((e) => e.i)
+}
 
 /**
  * What a person opens from the canvas, which the dock draws: one revealed view (`selected`) or one piece of evidence (`evidence`), never
