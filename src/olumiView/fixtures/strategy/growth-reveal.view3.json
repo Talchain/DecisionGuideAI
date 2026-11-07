@@ -1,6 +1,6 @@
 {
  "schema": "olumi.view/3",
- "id": "s_96897e2acfd1",
+ "id": "s_98e93f5d2389",
  "title": "2027 growth strategy",
  "commit": "strategy-seed",
  "signature": "[6,null,[[5,\"approved\"]],[[12,true],[13,true],[14,true]],[\"Maya\",\"Tom\",\"Priya\"],[],[\"1\",\"2\",\"3\"]]",
@@ -1328,7 +1328,7 @@
  "evidence": [
   {
    "id": 16,
-   "at": "2026-11-07T18:16:46.064Z",
+   "at": "2026-11-07T18:26:58.088Z",
    "by": "Maya",
    "by_id": "1",
    "text": "Pilot team B adopted in six weeks once a lead owned the rollout.",
@@ -1489,7 +1489,7 @@
     "kind": "claim",
     "kind_text": "Claim",
     "text": "Adoption needs an owner inside each team.",
-    "at": "2026-11-07T18:16:46.056Z",
+    "at": "2026-11-07T18:26:58.080Z",
     "by": "Priya",
     "by_id": "3",
     "concerns": [
@@ -1512,7 +1512,7 @@
     "kind": "assumption",
     "kind_text": "Assumption",
     "text": "Value is visible within the first quarter.",
-    "at": "2026-11-07T18:16:46.057Z",
+    "at": "2026-11-07T18:26:58.081Z",
     "by": "Tom",
     "by_id": "2",
     "concerns": [
@@ -1535,7 +1535,7 @@
     "kind": "question",
     "kind_text": "Open question",
     "text": "How fast did the two pilot teams adopt?",
-    "at": "2026-11-07T18:16:46.058Z",
+    "at": "2026-11-07T18:26:58.082Z",
     "by": "Maya",
     "by_id": "1",
     "concerns": [
@@ -1741,111 +1741,138 @@
    "sections": [
     {
      "id": "question",
-     "heading": "The question",
+     "heading": "Question",
      "empty": "No question yet.",
      "lines": [
       {
        "id": "question",
        "text": "How should we win with enterprise product teams?",
-       "by": null,
-       "by_id": null,
+       "by": "Maya",
+       "by_id": "1",
        "kind_text": null,
-       "ref": null
+       "ref": null,
+       "pill": "From the brief",
+       "people": [
+        {
+         "id": "1",
+         "name": "Maya"
+        }
+       ]
       }
      ]
     },
     {
      "id": "aim",
-     "heading": "The aim",
+     "heading": "Aim",
      "empty": "No aim recorded yet.",
      "lines": [
       {
        "id": "sustainable_enterprise_growth",
        "text": "Sustainable enterprise growth",
-       "by": null,
-       "by_id": null,
+       "by": "Maya",
+       "by_id": "1",
        "kind_text": null,
        "ref": {
         "id": "sustainable_enterprise_growth",
         "family": "goal",
         "label": "Sustainable enterprise growth"
-       }
+       },
+       "pill": "From the brief",
+       "people": [
+        {
+         "id": "1",
+         "name": "Maya"
+        }
+       ]
       }
      ]
     },
     {
      "id": "routes",
-     "heading": "Routes in play",
+     "heading": "Routes",
      "empty": "No routes yet.",
      "lines": [
       {
        "id": "product_team_beachhead",
        "text": "Product-team beachhead",
-       "by": null,
-       "by_id": null,
+       "by": "Maya",
+       "by_id": "1",
        "kind_text": null,
        "ref": {
         "id": "product_team_beachhead",
         "family": "option",
         "label": "Product-team beachhead"
-       }
+       },
+       "pill": "From the brief",
+       "people": [
+        {
+         "id": "1",
+         "name": "Maya"
+        }
+       ]
       },
       {
        "id": "top_down_enterprise_sale",
        "text": "Top-down enterprise sale",
-       "by": null,
-       "by_id": null,
+       "by": "Maya",
+       "by_id": "1",
        "kind_text": null,
        "ref": {
         "id": "top_down_enterprise_sale",
         "family": "option",
         "label": "Top-down enterprise sale"
-       }
+       },
+       "pill": "From the brief",
+       "people": [
+        {
+         "id": "1",
+         "name": "Maya"
+        }
+       ]
       },
       {
        "id": "partner_led_pilots",
        "text": "Partner-led pilots",
-       "by": null,
-       "by_id": null,
+       "by": "Maya",
+       "by_id": "1",
        "kind_text": null,
        "ref": {
         "id": "partner_led_pilots",
         "family": "option",
         "label": "Partner-led pilots"
-       }
+       },
+       "pill": "From the brief",
+       "people": [
+        {
+         "id": "1",
+         "name": "Maya"
+        }
+       ]
       },
       {
        "id": "self_serve_platform",
        "text": "Self-serve platform",
-       "by": null,
-       "by_id": null,
+       "by": "Maya",
+       "by_id": "1",
        "kind_text": null,
        "ref": {
         "id": "self_serve_platform",
         "family": "option",
         "label": "Self-serve platform"
-       }
-      }
-     ]
-    },
-    {
-     "id": "claims",
-     "heading": "What we hold to be true",
-     "empty": "No claims recorded yet.",
-     "lines": [
-      {
-       "id": "i9",
-       "text": "Adoption needs an owner inside each team.",
-       "by": "Priya",
-       "by_id": "3",
-       "kind_text": "Claim",
-       "ref": null
+       },
+       "pill": "From the brief",
+       "people": [
+        {
+         "id": "1",
+         "name": "Maya"
+        }
+       ]
       }
      ]
     },
     {
      "id": "assumptions",
-     "heading": "What would have to be true",
+     "heading": "Assumptions",
      "empty": "No assumptions recorded yet.",
      "lines": [
       {
@@ -1854,7 +1881,135 @@
        "by": "Tom",
        "by_id": "2",
        "kind_text": "Assumption",
-       "ref": null
+       "ref": null,
+       "pill": "Untested",
+       "people": [
+        {
+         "id": "2",
+         "name": "Tom"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "factors",
+     "heading": "Factors",
+     "empty": "No factors yet.",
+     "lines": [
+      {
+       "id": "speed_to_value",
+       "text": "Speed to value",
+       "by": "Priya",
+       "by_id": "3",
+       "kind_text": null,
+       "ref": {
+        "id": "speed_to_value",
+        "family": "quantity",
+        "label": "Speed to value"
+       },
+       "pill": "Priya, Tom and Maya observed it",
+       "people": [
+        {
+         "id": "3",
+         "name": "Priya"
+        },
+        {
+         "id": "2",
+         "name": "Tom"
+        },
+        {
+         "id": "1",
+         "name": "Maya"
+        }
+       ]
+      },
+      {
+       "id": "cross_team_adoption",
+       "text": "Cross-team adoption",
+       "by": "Priya",
+       "by_id": "3",
+       "kind_text": null,
+       "ref": {
+        "id": "cross_team_adoption",
+        "family": "quantity",
+        "label": "Cross-team adoption"
+       },
+       "pill": "Priya and Tom differ",
+       "people": [
+        {
+         "id": "3",
+         "name": "Priya"
+        },
+        {
+         "id": "2",
+         "name": "Tom"
+        }
+       ]
+      },
+      {
+       "id": "implementation_effort",
+       "text": "Implementation effort",
+       "by": "Priya",
+       "by_id": "3",
+       "kind_text": null,
+       "ref": {
+        "id": "implementation_effort",
+        "family": "quantity",
+        "label": "Implementation effort"
+       },
+       "pill": "Only Priya knew",
+       "people": [
+        {
+         "id": "3",
+         "name": "Priya"
+        }
+       ]
+      },
+      {
+       "id": "pilot_conversion",
+       "text": "Pilot conversion",
+       "by": "Olumi",
+       "by_id": "olumi",
+       "kind_text": null,
+       "ref": {
+        "id": "pilot_conversion",
+        "family": "quantity",
+        "label": "Pilot conversion"
+       },
+       "pill": "Olumi inferred",
+       "people": [
+        {
+         "id": "olumi",
+         "name": "Olumi"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "risks",
+     "heading": "Risks",
+     "empty": "No risks recorded yet.",
+     "lines": [
+      {
+       "id": "execution_complexity",
+       "text": "Execution complexity",
+       "by": "Maya",
+       "by_id": "1",
+       "kind_text": null,
+       "ref": {
+        "id": "execution_complexity",
+        "family": "risk",
+        "label": "Execution complexity"
+       },
+       "pill": "From the brief",
+       "people": [
+        {
+         "id": "1",
+         "name": "Maya"
+        }
+       ]
       }
      ]
     },
@@ -1869,143 +2024,21 @@
        "by": "Maya",
        "by_id": "1",
        "kind_text": "Open question",
-       "ref": null
-      }
-     ]
-    },
-    {
-     "id": "risks",
-     "heading": "Risks",
-     "empty": "No risks recorded yet.",
-     "lines": [
-      {
-       "id": "execution_complexity",
-       "text": "Execution complexity",
-       "by": null,
-       "by_id": null,
-       "kind_text": null,
-       "ref": {
-        "id": "execution_complexity",
-        "family": "risk",
-        "label": "Execution complexity"
-       }
-      }
-     ]
-    },
-    {
-     "id": "views",
-     "heading": "Views given",
-     "empty": "No views given yet.",
-     "lines": [
-      {
-       "id": "view:12:cross_team_adoption",
-       "text": "Adoption stalled until someone owned the change. It took two quarters.",
-       "by": "Priya",
-       "by_id": "3",
-       "kind_text": "Observed, two rollouts",
-       "ref": {
-        "id": "cross_team_adoption",
-        "family": "quantity",
-        "label": "Cross-team adoption"
-       }
-      },
-      {
-       "id": "view:12:speed_to_value",
-       "text": "Pilots showed value within a month.",
-       "by": "Priya",
-       "by_id": "3",
-       "kind_text": "Observed, two rollouts",
-       "ref": {
-        "id": "speed_to_value",
-        "family": "quantity",
-        "label": "Speed to value"
-       }
-      },
-      {
-       "id": "view:12:implementation_effort",
-       "text": "Integration took a quarter each time.",
-       "by": "Priya",
-       "by_id": "3",
-       "kind_text": "Observed, two rollouts",
-       "ref": {
-        "id": "implementation_effort",
-        "family": "quantity",
-        "label": "Implementation effort"
-       }
-      },
-      {
-       "id": "view:13:cross_team_adoption",
-       "text": "Teams adopt fast once they see value. It won't be our constraint.",
-       "by": "Tom",
-       "by_id": "2",
-       "kind_text": "Expects",
-       "ref": {
-        "id": "cross_team_adoption",
-        "family": "quantity",
-        "label": "Cross-team adoption"
-       }
-      },
-      {
-       "id": "view:13:speed_to_value",
-       "text": "Our two pilots showed value within weeks.",
-       "by": "Tom",
-       "by_id": "2",
-       "kind_text": "Observed, two pilots",
-       "ref": {
-        "id": "speed_to_value",
-        "family": "quantity",
-        "label": "Speed to value"
-       }
-      },
-      {
-       "id": "view:14:cross_team_adoption",
-       "text": "Would ask the two pilot teams how fast.",
-       "by": "Maya",
-       "by_id": "1",
-       "kind_text": "Unsure",
-       "ref": {
-        "id": "cross_team_adoption",
-        "family": "quantity",
-        "label": "Cross-team adoption"
-       }
-      },
-      {
-       "id": "view:14:speed_to_value",
-       "text": "The pilots showed value within a month.",
-       "by": "Maya",
-       "by_id": "1",
-       "kind_text": "Observed, two pilots",
-       "ref": {
-        "id": "speed_to_value",
-        "family": "quantity",
-        "label": "Speed to value"
-       }
-      }
-     ]
-    },
-    {
-     "id": "evidence",
-     "heading": "Evidence",
-     "empty": "No evidence brought yet.",
-     "lines": [
-      {
-       "id": "evidence:16",
-       "text": "Pilot team B adopted in six weeks once a lead owned the rollout.",
-       "by": "Maya",
-       "by_id": "1",
-       "kind_text": null,
-       "ref": {
-        "id": "cross_team_adoption",
-        "family": "quantity",
-        "label": "Cross-team adoption"
-       }
+       "ref": null,
+       "pill": null,
+       "people": [
+        {
+         "id": "1",
+         "name": "Maya"
+        }
+       ]
       }
      ]
     },
     {
      "id": "commitments",
      "heading": "Commitments",
-     "empty": "No commitments yet.",
+     "empty": "No commitments recorded yet.",
      "lines": []
     }
    ]

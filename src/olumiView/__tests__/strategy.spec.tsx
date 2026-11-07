@@ -80,11 +80,16 @@ describe('the strategy overview (real View)', () => {
     fireEvent.click(screen.getByTestId('strategy-overview-toggle'))
     const body = screen.getByTestId('strategy-overview-body')
     expect([...body.querySelectorAll('section')].map((s) => s.getAttribute('aria-label'))).toEqual(S.overview.sections.map((s) => s.heading))
-    const claim = S.items.find((i) => i.kind === 'claim')!
-    expect(claim.by).toBe('Priya')
-    const claims = within(body).getByTestId('strategy-overview-claims')
-    expect(within(claims).getByText(claim.text)).toBeInTheDocument()
-    expect(claims.querySelector(`[data-strategy-line="${claim.id}"] [title="Priya"]`)).toHaveTextContent('P')
+    expect(S.overview.sections.map((s) => s.heading)).toEqual(['Question', 'Aim', 'Routes', 'Assumptions', 'Factors', 'Risks', 'Open questions', 'Commitments'])
+    const assumption = S.items.find((i) => i.kind === 'assumption')!
+    expect(assumption.by).toBe('Tom')
+    const assumptions = within(body).getByTestId('strategy-overview-assumptions')
+    expect(within(assumptions).getByText(assumption.text)).toBeInTheDocument()
+    expect(assumptions.querySelector(`[data-strategy-line="${assumption.id}"] [data-strategy-pill]`)).toHaveTextContent('Untested')
+    expect(assumptions.querySelector(`[data-strategy-line="${assumption.id}"] [title="Tom"]`)).toHaveTextContent('T')
+    // A factor's pill is the reveal's mark sentence and its holders the mark's people, as core sends them.
+    const factors = within(body).getByTestId('strategy-overview-factors')
+    for (const m of S.marks) expect(factors.querySelector(`[data-strategy-line="${m.card}"] [data-strategy-pill]`)).toHaveTextContent(m.text)
     const commitments = within(body).getByTestId('strategy-overview-commitments')
     expect(S.overview.sections.find((s) => s.id === 'commitments')!.lines).toEqual([])
     expect(commitments).toHaveTextContent(S.overview.sections.find((s) => s.id === 'commitments')!.empty)
