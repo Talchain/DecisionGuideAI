@@ -26,9 +26,11 @@ const option = approved.model!.cards.find((c) => c.family === 'option')!
 const MARK = "Olumi's proposal from a web search. Check the source before you rely on it."
 const proposal = (k: number, over: Partial<ResearchProposal> = {}): ResearchProposal => ({ k, title: `Source ${k}`, url: `https://example.org/s${k}`, published: '2025-03-01', quote: `Passage ${k} says 90 to 120.`,
   implies: { kind: 'range', low: 90, high: 120, unit: 'ticket/week', words: '90 to 120 tickets/week' }, relevance: 'A survey of similar teams.', strength: 'moderate', strength_why: 'A credible survey.',
-  settable: true, why_not: null, by: 'olumi', provisional: true, mark: MARK, stance: 'challenges', choice: null, ...over })
-const item = (over: Partial<ResearchItem> = {}): ResearchItem => ({ id: 41, record: figure.id, about: figure.heading, kind: 'figure', at: '2026-11-07T15:00:00Z', by: 'Paul', by_id: approved.you_id!, version: 1, in_model: true,
-  status: 'found', said: null, look_for: [], proposals: [proposal(1), proposal(2, { settable: false, why_not: 'the source gives it in ticket/day, not ticket/week' })], ...over })
+  settable: true, why_not: null, by: 'olumi', provisional: true, mark: MARK, stance: 'challenges', choice: null,
+  // Core's own sentences (wip/research-r2 linesOf), deliberately unlike anything the page could compose from the fields above.
+  lines: { badge: `core badge ${k}`, where: `core where ${k}`, suggests: `core suggests ${k}`, relevance: `core relevance ${k}`, strength: `core strength ${k}`, stance: `core stance ${k}`, cannot_set: null, choice: null }, ...over })
+const item = (over: Partial<ResearchItem> = {}): ResearchItem => ({ id: 41, record: figure.id, about: figure.heading, heading: 'core heading', intro: 'core intro', kind: 'figure', at: '2026-11-07T15:00:00Z', by: 'Paul', by_id: approved.you_id!, version: 1, in_model: true,
+  status: 'found', said: null, look_for: [], proposals: [proposal(1), proposal(2, { settable: false, why_not: 'core why not', implies: { kind: 'none', words: 'core no range' } })].map((p) => p.k === 2 ? { ...p, lines: { ...p.lines, suggests: 'core no range' } } : p), ...over })
 
 let calls: Array<{ method: string; path: string; body: unknown }> = []
 let list: ResearchItem[] = []
@@ -67,18 +69,22 @@ describe('Find evidence', () => {
     fireEvent.click(screen.getByText('Find evidence'))
     await waitFor(() => expect(panel()?.querySelectorAll('[data-research-proposal]')).toHaveLength(2))
     const cards = [...panel()!.querySelectorAll('[data-research-proposal]')] as HTMLElement[]
-    for (const c of cards) {
+    for (const [i, c] of cards.entries()) {
       expect(c).toHaveAttribute('data-olumi')
       expect(c).toHaveAttribute('data-provisional')
-      expect(c).toHaveTextContent('Olumi’s proposal · provisional')
       expect(c.querySelector(`[title="${MARK}"]`)).not.toBeNull()
+      // Every sentence is core's, drawn verbatim: each line's text is exactly core's string, and nothing else is said around it.
+      const k = i + 1, want = list[0]!.proposals[i]!.lines
+      for (const [name, text] of Object.entries(want)) if (text !== null) expect(c.querySelector(`[data-research-line="${name}"]`)!.textContent).toBe(text)
+      expect(c.querySelector('[data-research-line="quote"]')!.textContent).toBe(`Passage ${k} says 90 to 120.`)
     }
-    expect(cards[0]).toHaveTextContent('“Passage 1 says 90 to 120.”')
-    expect(cards[0]).toHaveTextContent('90 to 120 tickets/week')
+    expect(panel()!.textContent).toContain('core heading')
+    expect(panel()!.textContent).toContain('core intro')
     expect(cards[0]!.querySelector('a')).toHaveAttribute('href', 'https://example.org/s1')
     expect(cards[0]!.querySelector('[data-research-range]')).not.toBeNull()
     expect(cards[1]!.querySelector('[data-research-range]')).toBeNull()
-    expect(cards[1]).toHaveTextContent('Cannot set the range: the source gives it in ticket/day, not ticket/week.')
+    expect(cards[1]!.querySelector('[data-research-line="cannot_set"]')).toBeNull() // core said no range in `suggests`; nothing composed here
+    expect(panel()!.textContent).not.toMatch(/Suggests|Relevance:|Strength:|Cannot set the range|Olumi’s proposal/)
     expect(posts()).toHaveLength(0)
     fireEvent.click(cards[0]!.querySelector('[data-research-accept="1"]')!)
     await waitFor(() => expect(posts().map((c) => c.path)).toContain(`/api/scenarios/${SID}/research/41/choice`))
