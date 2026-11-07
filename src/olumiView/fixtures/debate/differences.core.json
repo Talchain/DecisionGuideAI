@@ -1,0 +1,115 @@
+{
+ "scenario": "s_cfbb993aa8b1",
+ "version": 1,
+ "heading": "Where your explanations differ",
+ "headings": {
+  "sides": "Your figures",
+  "options": "Chance of meeting the aim",
+  "model": "With the model's figure",
+  "settle": "What would tell your explanations apart",
+  "steps": "What you decided",
+  "dissent": "Keep this as a disagreement",
+  "research": "Agree to find out",
+  "commit": "Commit to a next step"
+ },
+ "empty": "Once two of you have revealed different figures for the same card, they show here side by side, with what each does to the chances.",
+ "gated": false,
+ "differences": [
+  {
+   "record": "per_specialist",
+   "label": "per specialist",
+   "goal": "capacity_goal",
+   "goal_label": "At least 100 a week",
+   "status": "moves",
+   "status_text": "With either figure, 'Add one specialist' is the option most likely to achieve 'At least 100 a week'; the chances move between them. The chance that 'Add one specialist' achieves 'At least 100 a week' is about 7% with Paul's figure and about 94% with Sam's figure.",
+   "sides": [
+    {
+     "view": 8,
+     "holder": "Paul",
+     "holder_id": "1",
+     "figure": "5 to 19 tickets/week/specialist",
+     "title": "Plausible range: 5 to 19 tickets/week/specialist",
+     "leader": "add_one",
+     "text": "Paul: 5 to 19 tickets/week/specialist"
+    },
+    {
+     "view": 9,
+     "holder": "Sam",
+     "holder_id": "2",
+     "figure": "22 to 40 tickets/week/specialist",
+     "title": "Plausible range: 22 to 40 tickets/week/specialist",
+     "leader": "add_one",
+     "text": "Sam: 22 to 40 tickets/week/specialist"
+    }
+   ],
+   "options": [
+    {
+     "option": "hold",
+     "label": "Keep current staffing",
+     "model": "0%",
+     "chances": [
+      {
+       "holder_id": "1",
+       "chance": 0,
+       "text": "0%"
+      },
+      {
+       "holder_id": "2",
+       "chance": 0,
+       "text": "0%"
+      }
+     ]
+    },
+    {
+     "option": "add_one",
+     "label": "Add one specialist",
+     "model": "about 39%",
+     "chances": [
+      {
+       "holder_id": "1",
+       "chance": 0.0706,
+       "text": "about 7%"
+      },
+      {
+       "holder_id": "2",
+       "chance": 0.9377,
+       "text": "about 94%"
+      }
+     ]
+    }
+   ],
+   "settle": [
+    {
+     "kind": "crossing",
+     "fact": "F13",
+     "text": "In this model's draws the result turns on 'per specialist': 'per specialist' would have to be above about 19.9 tickets/week/specialist (between 19.1 and 20.5 tickets/week/specialist). Sam's figure is on one side of that point and Paul's on the other, so a measured figure for 'per specialist' that lands clearly on one side would tell your explanations apart."
+    },
+    {
+     "kind": "diagnostic",
+     "fact": null,
+     "text": "Evidence tells your figures apart only if it is more likely under one than the other: for example a recorded figure for 'per specialist' from a past period or a comparable case, checked against each of yours. Evidence that fits both does not settle it."
+    }
+   ],
+   "steps": [
+    {
+     "id": 11,
+     "at": "2026-11-07T15:05:32.189Z",
+     "by": "Sam",
+     "by_id": "2",
+     "step": "dissent",
+     "version": 1,
+     "text": "Sam kept this as a disagreement: both figures stay as they are, and neither is taken as the model's."
+    },
+    {
+     "id": 12,
+     "at": "2026-11-07T15:05:32.215Z",
+     "by": "Paul",
+     "by_id": "1",
+     "step": "research",
+     "version": 1,
+     "text": "Paul agreed to find out: until then both figures stay as they are."
+    }
+   ]
+  }
+ ]
+}
