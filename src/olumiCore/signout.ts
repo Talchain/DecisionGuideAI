@@ -3,6 +3,8 @@
  * still works and opens it again, and every other member stays signed in. Then nothing of this person's is kept in the page's memory.
  */
 import { useViewStore } from '../olumiView/store'
+import { forgetModelTab } from '../olumiView/model/state'
+import { clearWhatIf } from '../olumiView/whatif'
 import { useMe } from './me'
 import { call, setPagePerson } from './team/api'
 
@@ -17,4 +19,6 @@ export function forgetThisPerson(): void {
   setPagePerson(null)
   useMe.setState({ me: null, status: 'ready' })
   useViewStore.setState(useViewStore.getInitialState(), true)
+  forgetModelTab() // the Model tab's drafts, open editors and receipts (Codex review-ui 3)
+  clearWhatIf() // a figure they tried without saving, as they typed it
 }

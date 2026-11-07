@@ -9,7 +9,7 @@
  * request is never sent twice from two places (`runWrite`).
  */
 import type { View } from '../client'
-import { isReading, useViewStore } from '../store'
+import { isReading, shownModel, useViewStore } from '../store'
 import { isForThisPage, useMe } from '../../olumiCore/me'
 import { useModelTab, type EditTarget } from './state'
 
@@ -21,8 +21,13 @@ export type ModelEdit = {
   readonly held: { readonly id: number; readonly heading: string; readonly on: string } | null
 }
 
-function modelEditOf(sid: string | null, view: View | null, at: number | null, me: Parameters<typeof isForThisPage>[1]): ModelEdit {
-  if (sid === null || view === null || at !== null || !isForThisPage(view, me)) return { sid, base: null, held: null }
+type ViewNow = { readonly sid: string | null; readonly view: View | null; readonly at: number | null; readonly error: string | null; readonly stale: boolean }
+
+/** Only a valid View offers an edit: the shared gate the tabs draw from (store.ts `shownModel`: no failed read, nothing changed since it
+ *  was read), so a stale or failed one never offers its old base (Codex review-ui 6). */
+function modelEditOf(s: ViewNow, me: Parameters<typeof isForThisPage>[1]): ModelEdit {
+  const { sid, view, at } = s
+  if (sid === null || view === null || at !== null || shownModel(s) === null || !isForThisPage(view, me)) return { sid, base: null, held: null }
   const p = view.proposal
   const held = p !== null && p.base !== null && (view.model?.edit_base ?? null) === null ? { id: p.id, heading: p.heading, on: p.on } : null
   return { sid, base: view.model?.edit_base ?? null, held }
@@ -32,14 +37,15 @@ export function useModelEdit(): ModelEdit {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const at = useViewStore((s) => s.at)
+  const error = useViewStore((s) => s.error)
+  const stale = useViewStore((s) => s.stale)
   const me = useMe((s) => s.me)
-  return modelEditOf(sid, view, at, me)
+  return modelEditOf({ sid, view, at, error, stale }, me)
 }
 
 /** The same gate, as it stands at a press (outside a render). */
 export function modelEditNow(): ModelEdit {
-  const { sid, view, at } = useViewStore.getState()
-  return modelEditOf(sid, view, at, useMe.getState().me)
+  return modelEditOf(useViewStore.getState(), useMe.getState().me)
 }
 
 /**
@@ -100,7 +106,7 @@ export const MODEL_EDIT_WORDS = {
   addFigure: 'Add a figure', name: 'Name', figure: 'Figure', unit: 'Unit (optional)', add: 'Add', figureHint: 'One number, or a range like 150 to 400',
   removeLink: 'Remove link', removeAsk: 'Remove this link?', remove: 'Remove', keep: 'Keep',
   links: 'Links', restsOn: 'Rests on', whose: 'Whose', about: 'About', whatWouldChange: 'What would change it',
-  saving: 'Saving…', savingOther: 'Another change is saving…', trying: 'Trying it without saving…', changeTarget: 'Change target', changeLimit: 'Change limit', changeStrength: 'Change strength',
+  saving: 'Saving…', reading: 'Reading the model…', savingOther: 'Another change is saving…', trying: 'Trying it without saving…', changeTarget: 'Change target', changeLimit: 'Change limit', changeStrength: 'Change strength',
   heldLead: 'Olumi’s pending change is waiting for you.',
   heldBody: 'Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.',
   heldAside: 'Set it aside', heldConfirm: 'Set aside', heldKeep: 'Keep it',
