@@ -22,6 +22,8 @@ import { research, type ResearchChoice, type ResearchItem, type ResearchProposal
 const POLL_MS = 3_000
 const STANCE: Record<ResearchProposal['stance'], string> = { supports: 'Supports the model as it is', challenges: 'Challenges the model as it is', unclear: 'Not clear against the model' }
 const STRENGTH: Record<ResearchProposal['strength'], string> = { strong: 'Strong', moderate: 'Moderate', weak: 'Weak' }
+/** A piece of evidence's stance in the Team tab's own words (EvidencePanel STANCES). */
+const EVIDENCE_STANCE: Record<string, string> = { supports: 'Supports it', challenges: 'Challenges it', unclear: 'Not clear yet' }
 const CHOSEN: Record<ResearchChoice, string> = { accept: 'Attached as evidence', reject: 'Set aside', set_range: 'Range set and attached as evidence' }
 const failed = (e: unknown) => (e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
 
@@ -92,7 +94,7 @@ function Attached({ sid, view, record, onWrote }: { sid: string; view: View; rec
         {rows.map((e) => (
           <li key={e.id} className="grid gap-1 rounded-[10px] border border-panel-border p-2" data-evidence={e.id}>
             <p className={BODY}>{e.text}</p>
-            <p className={META}>{e.by} · {e.stance}{e.link ? <> · <a href={e.link} target="_blank" rel="noreferrer noopener" className="underline">source</a></> : null}</p>
+            <p className={META}>{e.by} · {EVIDENCE_STANCE[e.stance] ?? e.stance}{e.link ? <> · <a href={e.link} target="_blank" rel="noreferrer noopener" className="underline">source</a></> : null}</p>
             {e.considered ? <p className={META}>Olumi considered it{e.considered.proposal !== null ? ': it proposed a change, shown in the chat' : e.considered.why ? `: ${e.considered.why.text}` : ''}</p>
               : <div><Button size="sm" variant="ghost" onClick={() => void consider(e.id)} data-research-consider={e.id}>Ask Olumi what it changes</Button></div>}
           </li>
@@ -103,7 +105,7 @@ function Attached({ sid, view, record, onWrote }: { sid: string; view: View; rec
   )
 }
 
-function Panel({ sid, view, record, about, onClose }: { sid: string; view: View; record: string; about: string; onClose: () => void }): JSX.Element {
+function Panel({ sid, view, record, about, right, onClose }: { sid: string; view: View; record: string; about: string; right: number; onClose: () => void }): JSX.Element {
   const [items, setItems] = useState<ResearchItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const key = `${sid}:research:${record}`
@@ -130,8 +132,8 @@ function Panel({ sid, view, record, about, onClose }: { sid: string; view: View;
   const latest = items && items.length ? items[0]! : null
   const base = view.model?.edit_base ?? null
   return createPortal(
-    <aside role="dialog" aria-label={`Evidence for ${about}`} data-research-panel={record}
-      className={`${CARD} fixed right-4 top-[72px] z-50 w-[380px] max-h-[calc(100vh-150px)] overflow-y-auto shadow-lg`}>
+    <aside role="dialog" aria-label={`Evidence for ${about}`} data-research-panel={record} style={{ right }}
+      className={`${CARD} fixed top-[108px] z-[60] w-[380px] max-h-[calc(100vh-176px)] overflow-y-auto shadow-lg`}>
       <div className="flex items-start justify-between gap-2">
         <p className={H}>Evidence for “{about}”</p>
         <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close">Close</Button>
@@ -167,12 +169,15 @@ export function FindEvidence({ s }: { s: { id: string; kind: 'node' | 'edge' } }
   const at = useViewStore((x) => x.at)
   const me = useMe((x) => x.me)
   const [open, setOpen] = useState<string | null>(null)
+  // The panel opens over the board, just left of the dock that holds this button, so it never sits under the dock or covers its row.
+  const [right, setRight] = useState(16)
   const target = recordOf(view, s)
   if (sid === null || view === null || at !== null || target === null || !isForThisPage(view, me)) return null
   return (
     <>
-      <Button size="sm" variant="ghost" onClick={() => setOpen(open === target.record ? null : target.record)} data-research-find={target.record}>Find evidence</Button>
-      {open === target.record ? <Panel sid={sid} view={view} record={target.record} about={target.about} onClose={() => setOpen(null)} /> : null}
+      <Button size="sm" variant="ghost" data-research-find={target.record}
+        onClick={(e) => { const dock = e.currentTarget.closest('aside') ?? e.currentTarget; setRight(Math.max(16, window.innerWidth - dock.getBoundingClientRect().left + 12)); setOpen(open === target.record ? null : target.record) }}>Find evidence</Button>
+      {open === target.record ? <Panel sid={sid} view={view} record={target.record} about={target.about} right={right} onClose={() => setOpen(null)} /> : null}
     </>
   )
 }
