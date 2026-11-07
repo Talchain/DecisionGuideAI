@@ -154,7 +154,10 @@ describe('the crafted Model tab, from the View', () => {
     expect(glyphs[0]!.getAttribute('aria-label')).toBe(marked.olumi!.title)
     expect(glyphs[0]!.parentElement!.querySelector(`[data-view="${marked.id}.figure.text"]`)).not.toBeNull() // beside its figure
     const unmarked = model.cards.find((k) => k.figure !== null && k.olumi === null)!
-    expect(c.querySelector(`[data-model-row="${unmarked.id}"] [role="img"]`)).toBeNull() // CONTRAST: absence drawn as absence
+    // CONTRAST: absence drawn as absence. Olumi's mark only: the golden now carries `author` on every card (core a62f0899 on), so a person's figure
+    // draws its own icon (role img, `data-view-author`, bound on the wire in the author test below), never Olumi's glyph.
+    expect(c.querySelector(`[data-model-row="${unmarked.id}"] [data-view="${unmarked.id}.olumi.glyph"]`)).toBeNull()
+    expect(c.querySelector(`[data-model-row="${unmarked.id}"] [data-view-author="${unmarked.id}"]`)?.getAttribute('data-author-by')).toBe('person')
     expect([...c.querySelectorAll('[data-testid="view-model-key"] [data-view-key]')].map((k) => k.textContent)).toEqual(
       model.key.filter((k) => k.id === 'olumi').map((k) => `${k.glyph} ${k.text}`)) // ◆ only: no card here is partly Olumi's
   })
@@ -202,7 +205,15 @@ describe('the crafted Model tab, from the View', () => {
     expect(c.querySelector('[data-view-author="investment_cap"]')).toBeNull() // a shape core never sends: nothing
     expect(c.querySelector('[data-view-author="customers"]')).toBeNull() // Olumi's: core's ◆ alone, drawn once
     expect(c.querySelectorAll('[data-view="customers.olumi.glyph"]').length).toBe(1)
-    expect(c.querySelector('[data-view-author="customer_target"]')).toBeNull() // CONTRAST: no author, no icon
+    // The golden gives `customer_target` a person's author: its icon is core's words (identity by id and text).
+    expect(c.querySelector('[data-view-author="customer_target"]')?.getAttribute('aria-label')).toBe('The team’s figure')
+    // CONTRAST: the same card with no author draws no icon
+    cleanup()
+    set('customer_target', null)
+    const bare = render(<ViewModelTab model={withAuthor} />).container
+    fireEvent.click(bare.querySelector('[data-testid="view-model-toggle-all"]')!)
+    expect(bare.querySelector('[data-model-row="customer_target"]')).not.toBeNull()
+    expect(bare.querySelector('[data-view-author="customer_target"]')).toBeNull()
   })
 })
 
