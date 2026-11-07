@@ -28,26 +28,44 @@ export const mostLikelyHover = (ml: NonNullable<ViewRun['most_likely']>): string
 
 const NBSP = '\u00a0'
 
+/**
+ * An option's chance of meeting one aim (a chance row, `cards[].rows[]` kind 'chance'): the aim and core's value with its marks, its
+ * companion and timing lines, all core's words at their paths, and the chance on its track. The one drawing of a chance, on the Analysis
+ * tab's option lines and the Reasoning tab's rack alike (DL ruling 1, 7 Nov), so the same fact is drawn by one component.
+ */
+export function ChanceTrack({ card, row, i }: { card: ViewCard; row: Extract<ViewRow, { kind: 'chance' }>; i: number }) {
+  const at = `${card.id}.rows.${i}`
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2" title={row.title} data-view-row={at}>
+      <span data-view={`${at}.aim`}>{row.aim}</span>
+      {/* Each mark follows the value's last word after a no-break space, so it wraps with that word, never alone (R5). */}
+      <span className={typography.viewPanelTabular}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span>
+        {row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}
+        {row.likely === null ? null : <>{NBSP}<Mark at={`${at}.likely`} mark={row.likely} /></>}
+        {/* R5 core's own mark where a pending proposal moves this value ("if approved; now …"), verbatim; none on a core before R5. */}
+        {row.if_approved == null ? null : <>{NBSP}<Mark at={`${at}.if_approved`} mark={row.if_approved} /></>}
+      </span>
+      {/* R18 fix 1: core's short companion ("about 50% without Olumi's suggested risk"), muted, its full sentence on hover; null otherwise. */}
+      {row.companion == null ? null : <span className={`${typography.viewPanelMeta} basis-full`} title={row.companion_title ?? row.companion} data-view={`${at}.companion`}>{row.companion}</span>}
+      {/* R19: core's timing line, the same muted second line beside the companion; its whole sentence on hover; null unless material. */}
+      {row.timing == null ? null : <span className={`${typography.viewPanelMeta} basis-full`} title={row.timing_title ?? row.timing} data-view={`${at}.timing`}>{row.timing}</span>}
+      {/* The chance on its own 0–100 track (DL ruling 1, 7 Nov: one ChanceTrack for the Analysis and Reasoning tabs): the fill is core's
+          number (`chance`, 0–1) and nothing else, at least 2px when it is above 0, so a small chance is never drawn as none; no track when
+          core sends no number. Positions only: the words are core's, above. */}
+      {typeof row.chance !== 'number' ? null : (
+        <span aria-hidden="true" className="relative mt-1 block h-1.5 basis-full rounded-full bg-panel-border/50" data-chance-track={at}>
+          <span data-chance-fill className="absolute inset-y-0 left-0 rounded-full bg-text-light/60" style={{ width: `${Math.min(Math.max(row.chance, 0), 1) * 100}%`, minWidth: row.chance > 0 ? '2px' : undefined }} />
+        </span>
+      )}
+    </div>
+  )
+}
+
 export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number }) {
   const at = `${card.id}.rows.${i}`
   switch (row.kind) {
     case 'chance':
-      return (
-        <div className="flex flex-wrap items-baseline gap-x-2" title={row.title} data-view-row={at}>
-          <span data-view={`${at}.aim`}>{row.aim}</span>
-          {/* Each mark follows the value's last word after a no-break space, so it wraps with that word, never alone (R5). */}
-          <span className={typography.viewPanelTabular}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span>
-            {row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}
-            {row.likely === null ? null : <>{NBSP}<Mark at={`${at}.likely`} mark={row.likely} /></>}
-            {/* R5 core's own mark where a pending proposal moves this value ("if approved; now …"), verbatim; none on a core before R5. */}
-            {row.if_approved == null ? null : <>{NBSP}<Mark at={`${at}.if_approved`} mark={row.if_approved} /></>}
-          </span>
-          {/* R18 fix 1: core's short companion ("about 50% without Olumi's suggested risk"), muted, its full sentence on hover; null otherwise. */}
-          {row.companion == null ? null : <span className={`${typography.viewPanelMeta} basis-full`} title={row.companion_title ?? row.companion} data-view={`${at}.companion`}>{row.companion}</span>}
-          {/* R19: core's timing line, the same muted second line beside the companion; its whole sentence on hover; null unless material. */}
-          {row.timing == null ? null : <span className={`${typography.viewPanelMeta} basis-full`} title={row.timing_title ?? row.timing} data-view={`${at}.timing`}>{row.timing}</span>}
-        </div>
-      )
+      return <ChanceTrack card={card} row={row} i={i} />
     case 'limit':
       return (
         <div className="flex flex-wrap items-baseline gap-x-2" title={row.title} data-view-row={at}>

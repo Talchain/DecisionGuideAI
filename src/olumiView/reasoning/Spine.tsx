@@ -16,10 +16,9 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { ViewCard, ViewModel } from '../client'
 import { familyCards, glanceRows, type GlanceKind } from '../layout'
-import { attCards } from '../ring'
+import { pressCard, ringFrom } from './tabRing'
 import type { REASONING_LABELS } from '../ViewReasoning'
 import { Clamped } from './parts'
-import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { useCanvasStore } from '../../canvas/store'
 import { NodeShapeIndicator } from '../../canvas/nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
@@ -50,16 +49,10 @@ export function Spine({ model, brief, labels }: { model: ViewModel; brief: strin
   const present = new Set(order.map((c) => c.id))
   const ringed = new Set([...(family === null ? [] : rows.find((r) => r.kind === family)?.cards ?? []).map((c) => c.id), ...[hover, focus].filter((x): x is string => x !== null && present.has(x))])
   const key = [...ringed].join('\n')
-  useEffect(() => { attCards(key === '' ? [] : key.split('\n')) }, [key])
-  useEffect(() => () => attCards([]), [])
+  useEffect(() => { ringFrom('glance', key === '' ? [] : key.split('\n')) }, [key])
+  useEffect(() => () => ringFrom('glance', []), [])
 
-  // Pressing a selected card's mark lets go of that card only: the rest of a multi-selection stays as it is.
-  const press = (id: string) => {
-    const canvas = useCanvasStore.getState()
-    if (!selected.has(id)) focusNodeById(id)
-    else if (selected.size > 1) canvas.selectNodes([...selected].filter((x) => x !== id))
-    else canvas.clearSelection()
-  }
+  const press = pressCard
   const go = (i: number) => {
     if (order.length === 0) return
     const k = ((i % order.length) + order.length) % order.length
