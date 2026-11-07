@@ -65,7 +65,7 @@ export function People({ view }: { view: View | null }) {
             </button>
           )
         })}
-        {more <= 0 ? null : <span className={`${TYPE.meta} tabular-nums text-text-light`} data-people-more data-count>{`+${more}`}</span>}
+        {more <= 0 ? null : <span className={`${TYPE.meta} tabular-nums text-text-body`} data-people-more data-count>{`+${more}`}</span>}
       </div>
       {open === null ? null : (
         <div className="space-y-1" data-testid="view-reasoning-people-open" data-people-open={open.id}>
