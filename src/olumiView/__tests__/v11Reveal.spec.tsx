@@ -104,11 +104,14 @@ describe('try their figure in place (V11 change 4)', () => {
     expect(posts).toEqual([{ path: `/api/scenarios/${real.id}/whatif`, body: { base: real.model!.edit_base, variants: [{ edits: [{ quantity: 'diagnostic_time_to_contract', typed: PRIYA.figures[0]!.text }] }] } }])
     const tried = await screen.findByTestId('reveal-dock-tried')
     expect(tried).toHaveTextContent(whatif.variants[0].edits[0].words)
-    const diag = tried.querySelector('[data-whatif-key-option="paid_enterprise_diagnostic"]') as HTMLElement
+    const aim = tried.querySelector('[data-side-by-side-aim="generate_revenue_quickly"]') as HTMLElement
+    const diag = aim.querySelector(`[data-side-by-side-option="${DIAG}"]`) as HTMLElement
+    // Only the option whose chance core words differently on the copy is marked as changed.
+    expect([...aim.querySelectorAll('[data-changed]')].map((e) => e.getAttribute('data-side-by-side-option'))).toEqual([DIAG])
     const savedChance = real.model!.cards.find((c) => c.id === DIAG)!.rows.find((r) => r.kind === 'chance')!
     const triedChance = whatif.variants[0].rows.find((o: { option_id: string }) => o.option_id === DIAG).rows.find((r: { kind: string }) => r.kind === 'chance')
-    expect(diag).toHaveTextContent((savedChance as { value: string }).value)
-    expect(diag).toHaveTextContent(triedChance.value)
+    expect(diag.querySelector('[data-side-by-side-saved]')!.textContent).toBe((savedChance as { value: string }).value)
+    expect(diag.querySelector('[data-side-by-side-copy]')!.textContent).toBe(triedChance.value)
     expect(screen.queryByTestId('reveal-dock-consequence')).toBeNull()
     fireEvent.click(screen.getByTestId('reveal-dock-untry'))
     await waitFor(() => expect(screen.queryByTestId('reveal-dock-tried')).toBeNull())

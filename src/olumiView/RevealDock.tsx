@@ -8,7 +8,7 @@
  *
  * V11 change 4, "Try <person>'s figure" in place: their figure run by core's what-if on a copy of the version shown (./whatif.ts, olumi-core
  * `POST …/whatif`, no AI call, nothing saved), typed as core words their figure. Each option's saved chance beside its what-if chance, in
- * core's rows (./WhatIfCompare.tsx, the What if lens's own); the card their view sits on and the options whose chance line changes are lit
+ * core's words (./WhatIfCompare.tsx SideBySide); the card their view sits on and the options whose chance line changes are lit
  * on the canvas (v10's ring); "Back to the model" drops the what-if. Saving the what-if or proposing it as a shared change needs core
  * routes this build does not have yet (asked of the DL).
  */
@@ -20,12 +20,12 @@ import { TeamApiError } from '../olumiCore/team/api'
 import { OlumiAiIcon } from '../components/results/analysisNew/OlumiAiIcon'
 import { Effects } from '../olumiCore/team/ViewsPanel'
 import { AVATAR, BODY, CARD, H, META } from '../olumiCore/team/ui'
-import type { View } from './client'
+import type { View, ViewRow } from './client'
 import { effectHeadingsOf, effectsOf } from './standin'
 import { cardOfQuantity, nextOf, revealOf, useReveal, type Shared } from './reveal'
 import { useViewStore } from './store'
 import { clearWhatIf, tryWhatIf, useWhatIf } from './whatif'
-import { Compare } from './WhatIfCompare'
+import { SideBySide } from './WhatIfCompare'
 import { ringCards } from './ring'
 
 const initial = (by: string) => by.slice(0, 1).toUpperCase()
@@ -74,20 +74,29 @@ function Tried({ view, v }: { view: View; v: Shared }): JSX.Element | null {
   // The card their view sits on, and each option whose chance line core words differently on the copy, are lit while it is shown.
   useEffect(() => {
     if (current === null || model === null || f === null) return
+    // An option is lit when, for the same aim, core words its chance differently on the copy than on the saved model.
+    const chances = (rows: readonly ViewRow[]) => new Map(rows.flatMap((r) => (r.kind === 'chance' ? [[r.aim_id, r.value] as const] : [])))
     const moved = current.variant.rows.filter((o) => {
-      const saved = model.cards.find((c) => c.id === o.option_id)?.rows.filter((r) => r.kind === 'chance').map((r) => r.value).join('|')
-      return saved !== o.rows.filter((r) => r.kind === 'chance').map((r) => r.value).join('|')
+      const saved = chances(model.cards.find((c) => c.id === o.option_id)?.rows ?? [])
+      return [...chances(o.rows)].some(([aim, value]) => saved.has(aim) && saved.get(aim) !== value)
     }).map((o) => o.option_id)
     const at = cardOfQuantity(view, f.quantity)
     ringCards([...(at === null ? [] : [at]), ...moved])
     return () => ringCards([])
   }, [current, model, f, view])
+  // What the try shows is brought into view as it appears (no motion when the person asks for less).
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (current === null) return
+    const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+    box.current?.scrollIntoView?.({ block: 'start', behavior: still ? 'auto' : 'smooth' })
+  }, [current])
   if (current === null || model === null) return null
   return (
-    <div className={`${CARD} gap-3`} data-testid="reveal-dock-tried">
+    <div ref={box} className={`${CARD} scroll-mt-2 gap-3`} data-testid="reveal-dock-tried">
       {current.variant.edits.map((e, i) => <p key={e.quantity} className={`${BODY} font-medium text-text-header`} data-view={`whatif.edits.${i}.words`}>{e.words}</p>)}
       <p className={META}>{WHAT_IF_COPY.nothingSaved}</p>
-      <div className={BODY}><Compare model={model} shown={current} /></div>
+      <div className={BODY}><SideBySide model={model} shown={current} /></div>
     </div>
   )
 }
@@ -183,8 +192,10 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
         </ul>
       )}
 
-      <div className="mt-auto grid gap-3 pt-2">
-        <Next view={view} />
+      {/* Olumi's one line for what matters next; while their figure is tried, the copy's own line (above) says it instead. */}
+      {tried ? null : <div className="mt-auto"><Next view={view} /></div>}
+      {/* Only the actions stay in view while the dock scrolls, so the next move is one press away and never covers what it shows. */}
+      <div className={`sticky bottom-0 z-10 bg-panel pb-1 pt-2 ${tried ? 'mt-auto' : ''}`}>
         <TryActions view={view} v={v} />
       </div>
     </section>
