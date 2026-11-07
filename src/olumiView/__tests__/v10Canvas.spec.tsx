@@ -54,7 +54,17 @@ describe('the mounted core-lane canvas', () => {
     fireEvent.focusIn(pane.querySelector('g.react-flow__edge')!)
     expect(useViewFocusLink.getState().id).toBe('a->b:plain')
     fireEvent.focusOut(pane.querySelector('g.react-flow__edge')!)
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) }) // focus going nowhere is decided once the page settles
     expect(useViewFocusLink.getState().id).toBeNull()
+    // Catch (7 Nov run 0758): a control replaced by its own press ("Remove link" → its ask) takes focus with it; the link stays named.
+    pane.insertAdjacentHTML('beforeend', '<div data-link-for="a->b:plain"><button data-press="">Remove link</button></div>')
+    const press = pane.querySelector('[data-press]')!
+    fireEvent.focusIn(press)
+    expect(useViewFocusLink.getState().id).toBe('a->b:plain')
+    fireEvent.focusOut(press, { relatedTarget: null }); press.remove()
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(useViewFocusLink.getState().id).toBe('a->b:plain')
+    useViewFocusLink.setState({ id: null })
     // A card: focus on a control inside it names the card (plan v3: its words open on keyboard focus); leaving names none.
     pane.insertAdjacentHTML('beforeend', '<div class="react-flow__node" data-id="c1"><button>✎</button></div>')
     fireEvent.focusIn(pane.querySelector('.react-flow__node[data-id="c1"] button')!)
@@ -65,6 +75,7 @@ describe('the mounted core-lane canvas', () => {
     fireEvent.focusOut(pane.querySelector('.react-flow__node[data-id="c1"] button')!, { relatedTarget: inCard })
     expect(useViewFocusCard.getState().id).toBe('c1')
     fireEvent.focusOut(inCard, { relatedTarget: null })
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
     expect(useViewFocusCard.getState().id).toBeNull()
     // Focus landing anywhere outside the canvas (the dock's "Add a figure") names no card (DL 7 Nov run 0717: F1 stayed open beside the next).
     const outside = document.body.appendChild(document.createElement('button'))

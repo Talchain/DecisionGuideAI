@@ -134,7 +134,20 @@ function ViewFlow() {
   // a figure" never reached a canvas handler, and a card stayed open beside another).
   useEffect(() => {
     const into = (e: FocusEvent) => { useViewFocusLink.setState({ id: focusedLinkOf(e.target) }); useViewFocusCard.setState({ id: focusedCardOf(e.target) }) }
-    const out = (e: FocusEvent) => { useViewFocusLink.setState({ id: focusedLinkOf(e.relatedTarget) }); useViewFocusCard.setState({ id: focusedCardOf(e.relatedTarget) }) }
+    const out = (e: FocusEvent) => {
+      // Focus going nowhere is decided once the page settles. A control replaced by its own press ("Remove link" → its ask; an editor that
+      // closed) takes the page's focus with it: that is not the person leaving, so the link or card it was in stays named (7 Nov run 0758:
+      // the ask vanished on its first press, so no line could be removed). Leaving to nothing focusable still names none.
+      if (e.relatedTarget === null && e.target instanceof Node) {
+        const left = e.target
+        setTimeout(() => {
+          const here = document.activeElement
+          if (left.isConnected && (here === null || here === document.body)) { useViewFocusLink.setState({ id: null }); useViewFocusCard.setState({ id: null }) }
+        }, 0)
+        return
+      }
+      useViewFocusLink.setState({ id: focusedLinkOf(e.relatedTarget) }); useViewFocusCard.setState({ id: focusedCardOf(e.relatedTarget) })
+    }
     document.addEventListener('focusin', into)
     document.addEventListener('focusout', out)
     return () => { document.removeEventListener('focusin', into); document.removeEventListener('focusout', out); useViewFocusCard.setState({ id: null }); useViewFocusLink.setState({ id: null }) }
