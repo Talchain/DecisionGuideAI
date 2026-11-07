@@ -270,8 +270,9 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
           show on hover, focus or selection (FigureEdit's glyph form, Paul 24 Oct: no static repeating text). Never hidden, so an open
           editor or its Set button can never be hidden either (R4 witness run 3). */}
       {card.figure?.edit ? <span data-figure-edit-wrap=""><FigureEdit id={card.id} edit={card.figure.edit} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} quiet={!selected} /></span>
-        // While a proposal is held core offers no edit: ✎ offers to set it aside and edit (R25), on any figure the approved model has.
-        : card.figure !== null && card.change?.kind !== 'added' ? <span data-figure-edit-wrap=""><HeldEditOffer id={card.id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null}
+        // While a proposal is held core offers no edit: ✎ offers to set it aside and edit (R25), on a figure the approved model has that the
+        // person sets (never an outcome core works out from others, which core never offers to edit; witnessed on Paul's board copy).
+        : card.figure !== null && card.change?.kind !== 'added' && kind !== 'outcome' ? <span data-figure-edit-wrap=""><HeldEditOffer id={card.id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null}
       {card.rows.map((row, i) => (
         <span key={i} className="contents">
           <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === lead} />

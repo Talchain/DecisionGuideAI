@@ -81,9 +81,13 @@ describe('✎ while a proposal is held: set aside, then edit on the base core re
     expect(screen.getByTestId(`view-figure-aside-done-${card.id}`)).toBeInTheDocument()
     expect(useModelNotice.getState().notice).toBeNull()
   })
-  it('must not change: a card the proposal adds gets no offer; with no proposal held, ✎ is the plain edit', () => {
+  it('must not change: a card the proposal adds, or an outcome core works out (never editable), gets no offer; with no proposal held, ✎ is the plain edit', () => {
     useViewStore.setState({ view: added })
     render(<Live id={card.id} />)
+    expect(screen.queryByTestId(`view-figure-aside-edit-${card.id}`)).toBeNull()
+    cleanup()
+    useViewStore.setState({ view: held })
+    render(<ViewCard card={held.model!.cards.find((c) => c.id === card.id)!} kind="outcome" />)
     expect(screen.queryByTestId(`view-figure-aside-edit-${card.id}`)).toBeNull()
     cleanup()
     useViewStore.setState({ view: approved })
