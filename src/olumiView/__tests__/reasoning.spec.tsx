@@ -901,6 +901,19 @@ describe('the people strip: the views core shares, read-only, each played in cor
     expect(calls).toEqual([])
   })
 
+  it('where the Team tab\'s "Where you differ" picture would place a figure, the strip still says all of it (no picture is beside it here)', () => {
+    const view = structuredClone(r5('effects')), c = view.collab, h = c.effect_headings!, [paul, sam] = c.shared
+    const run = paul!.effects!.find((e) => 'status' in e) as Extract<NonNullable<typeof paul>['effects'][number], { status: string }>
+    run.leader = 'add_one'
+    sam!.effects = [{ ...run, status: 'moves', leader: 'hold' }] as never
+    ready(view)
+    render(<ViewReasoningBlock />)
+    fireEvent.click(chip(paul!.id))
+    const row = screen.getByTestId('view-reasoning-people-open').querySelector(`[data-effect="${run.quantity}"]`)!
+    expect(row.querySelector('[data-effect-status]')?.textContent).toBe(h[run.status as 'changes'])
+    expect(row.querySelector('[data-effect-leader] [data-effect-option]')?.textContent).toBe(view.model!.cards.find((k) => k.id === 'add_one')!.heading)
+  })
+
   it('hovering a chip rings the cards that view\'s figures sit on', () => {
     const view = r5('effects'), paul = view.collab.shared[0]!
     for (const k of view.model!.cards) document.body.insertAdjacentHTML('beforeend', `<div class="react-flow__node" data-id="${k.id}"></div>`)
