@@ -253,8 +253,9 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       <span className="absolute -top-[10px] left-1/2 -translate-x-1/2 leading-none" aria-hidden="true">
         <NodeShapeIndicator nodeKind={kind} size={18} stroke="var(--bg-panel)" strokeWidth={0.6} />
       </span>
-      {/* R25 (DL 7 Nov, Paul's rule: visual indicators, not default text): a proposed addition is the dashed border; core's words for it
-          ("Proposed addition") are for readers and the card's hover, never a printed line. */}
+      {/* R25 (DL 7 Nov, Paul's rule: visual indicators, not default text): a proposed addition is shown by its info-coloured border on a
+          translucent card (solid, never dashed: dashed means core doubts it) and core's + mark; core's words for it ("Proposed addition") are
+          for readers and the mark's hover, never a printed line. */}
       {ghost ? <p className="sr-only" data-view={`${id}.change.title`}>{card.change!.title}</p> : null}
       {/* One block of inline words, so a wrapped title returns to the card's left edge under its number, as the original's did (R3 pristine). */}
       {/* An option core gives a driver carries v10's 20 px driver badge at right-1 top-1, 12 px into this row: the title keeps that room. */}
