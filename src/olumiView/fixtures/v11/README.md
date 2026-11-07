@@ -30,3 +30,8 @@
   which adds `evidence[].chain` and `proposal.verdict` (null here: no proposal is held on this copy) and the one stance vocabulary
   ("Observed", "Expects", "Others may miss"). Neither piece of evidence was put to Olumi, so each chain is observation lines, claim and
   model estimate, with no inference step. Every word and value is core's output.
+- `capacity-narrowing.view3.json`: a REAL View from olumi-core wip/debate-n1 e0dfc603 run with the SCRIPTED AI of DGAI poc/debate-ui
+  af207d87 (scripts/olumi-core/test-harness/scripted-core.ts.txt, control `{"model":"olumi_range"}`; no AI provider is called), on its
+  own fresh store, read as the scenario's owner: the capacity case's first model approved, then "Please narrow the range for a
+  specialist." leaves Olumi's held change narrowing "per specialist" from 10 to 30 to 15 to 25, with core's `verdict`
+  `supported: false`. After a piece of evidence concerning per_specialist was attached, core's verdict read null (checked over HTTP).

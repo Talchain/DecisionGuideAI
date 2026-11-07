@@ -144,15 +144,19 @@ describe('core’s requested chain (REQUESTED-FIELD FIXTURE: shape asked of the 
   })
 })
 
-describe('V11 change 6: core’s verdict on a held proposal (real proposal; verdict is a REQUESTED-FIELD FIXTURE)', () => {
+describe('V11 change 6: core’s verdict on a held proposal (the refused case is real core output; the supported case needs an AI turn, so stays a FIXTURE)', () => {
   const held: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-proposal.view3.json'), 'utf8'))
   const p = held.proposal!
-  it('a change the evidence does not support shows core’s words and what would, and no Approve; Set aside stays', () => {
-    const refused = { ...p, verdict: { supported: false, text: 'FIXTURE: Evidence does not support this change.', asks: 'FIXTURE: Buying evidence would.' } } as typeof p
-    render(<Proposal p={refused} busy={false} evidence={[]} />)
+  it('a change the evidence does not support shows core’s words and what would, and no Approve; Set aside stays (REAL: core n1 e0dfc603)', () => {
+    // A real held proposal: the scripted core (DGAI poc/debate-ui af207d87, no AI provider) narrows Olumi's own range for "per specialist".
+    const narrowing: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'capacity-narrowing.view3.json'), 'utf8'))
+    const held2 = narrowing.proposal!
+    const verdict = (held2 as unknown as { verdict: { supported: boolean; text: string; asks: string } }).verdict
+    expect(verdict.supported).toBe(false)
+    render(<Proposal p={held2} busy={false} evidence={[]} />)
     expect(screen.getByTestId('view-proposal-verdict').getAttribute('data-supported')).toBe('false')
-    expect(screen.getByTestId('view-proposal-verdict')).toHaveTextContent('FIXTURE: Evidence does not support this change.')
-    expect(screen.getByTestId('view-proposal-verdict-asks').textContent).toBe('FIXTURE: Buying evidence would.')
+    expect(screen.getByTestId('view-proposal-verdict')).toHaveTextContent(verdict.text)
+    expect(screen.getByTestId('view-proposal-verdict-asks').textContent).toBe(verdict.asks)
     expect(screen.queryByTestId('view-approve')).toBeNull()
     expect(screen.queryByTestId('view-approve-ticked')).toBeNull()
     expect(screen.getByRole('button', { name: 'Set aside' })).toBeTruthy()
