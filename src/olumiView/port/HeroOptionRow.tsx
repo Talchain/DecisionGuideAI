@@ -3,7 +3,7 @@
  * (mark · option name · readout · chevron, then the track on its own row), the same bar and dot, the same disclosure. Every word is core's,
  * drawn verbatim at its View path (`data-view`); the row's hover is core's definition of the chance (`row.title`).
  *
- * What changed in the port, by rule:
+ * What changed in the port, by rule (and layout: stacked, see HERO_ROW_STACK):
  * - The rank badge, "Option N" and the sr-only "highest on this view" are gone (no rank, no designation of the UI's own). The first column
  *   holds core's own most-likely mark (`row.likely`, ◉, its sentence as the accessible name) and is empty otherwise.
  * - The goal lens's readout is core's chance (`row.value`), the headline (DL #87). It draws no track: a chance is not a range.
@@ -22,9 +22,12 @@ import { driverRange } from '../ViewChances'
 import { TYPE } from './type'
 import { driverRowOf, trackPct, type AimRow, type TippingLine } from './pick'
 
-/** The row grid (prototype v6 two-line anatomy), as the crafted row: mark · name · readout · chevron, then the track spanning name and readout. */
-export const HERO_ROW_GRID = 'grid w-full grid-cols-[1.5rem_minmax(0,1fr)_minmax(0,1fr)_0.875rem] items-center gap-x-2 gap-y-1 rounded-lg px-2 py-1.5 text-left'
-export const HERO_ROW_TRACK_SPAN = 'col-start-2 col-span-3'
+/**
+ * The row, stacked for the 347px dock (UI's 1232 look, 7 Nov): the option name on its own full-width line, never cut; under it core's
+ * likely mark, the readout and its marks, with the chevron at the right of that line; then the track (outcome lens). No indent; a 44px
+ * target. (The crafted grid put the name in a narrow column beside the readout, which wrapped long names to five lines.)
+ */
+export const HERO_ROW_STACK = 'flex w-full min-h-[44px] flex-col gap-0.5 rounded-lg px-2 py-1.5 text-left'
 /** Solid light-token fills, never opacity modifiers (those compile to nothing on this theme: the "invisible bars" defect). */
 export const HERO_BAR_FILL = {
   // eslint-disable-next-line brand-tokens/no-bare-light-bg -- chart data-mark fill, the crafted row's prototype-mapped DS exception (issue 222)
@@ -130,14 +133,14 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
 
   const grid = (
     <>
-      <span className="flex h-6 w-6 flex-none items-center justify-center text-primary" data-testid="port-row-mark">
-        {leader ? <Mark at={`${at}.likely`} mark={chance!.likely} /> : null}
+      <span id={labelId} className={`${TYPE.body} block w-full break-words font-medium text-text-header`} data-view={`${card.id}.heading`}>{card.heading}</span>
+      <span className="flex w-full items-baseline gap-1.5">
+        <span className="flex-none text-primary" data-testid="port-row-mark">{leader ? <Mark at={`${at}.likely`} mark={chance!.likely} /> : null}</span>
+        <span className={`${TYPE.body} min-w-0 flex-1 break-words ${leader ? 'text-text-header' : 'text-text-body'}`} data-testid="port-row-readout">{readout}</span>
+        <Chevron aria-hidden="true" className={`h-3.5 w-3.5 flex-none self-center text-text-light ${expandable ? '' : 'invisible'}`} />
       </span>
-      <span id={labelId} className={`${TYPE.body} min-w-0 break-words font-medium text-text-header`} data-view={`${card.id}.heading`}>{card.heading}</span>
-      <span className={`${TYPE.body} min-w-0 break-words text-right ${leader ? 'text-text-header' : 'text-text-body'}`} data-testid="port-row-readout">{readout}</span>
-      <Chevron aria-hidden="true" className={`h-3.5 w-3.5 flex-none text-text-light ${expandable ? '' : 'invisible'}`} />
       {lens === 'outcome' && (
-        <span aria-hidden="true" className={`${HERO_ROW_TRACK_SPAN} relative block h-5 min-w-0`} data-testid="port-row-track">
+        <span aria-hidden="true" className="relative block h-5 w-full" data-testid="port-row-track">
           <span className="absolute inset-x-0 top-1/2 h-px bg-panel-border" />
           <span
             data-testid="port-row-bar"
@@ -161,16 +164,16 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
     <div data-testid="port-option-row" data-view-row={at} data-option-id={card.id} data-leader={leader ? 'true' : 'false'} title={row.title}>
       {expandable ? (
         <button type="button" onClick={onToggle} aria-expanded={isOpen} aria-controls={regionId}
-          className={`${HERO_ROW_GRID} transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset ${isOpen ? 'bg-panel-hover' : ''}`}>
+          className={`${HERO_ROW_STACK} transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset ${isOpen ? 'bg-panel-hover' : ''}`}>
           {grid}
         </button>
-      ) : <div className={HERO_ROW_GRID}>{grid}</div>}
+      ) : <div className={HERO_ROW_STACK}>{grid}</div>}
       {/* What this chance rests on, in core's words, at rest (DL 7 Nov: the place Paul sees Olumi's proposed target, in place of a bare ◆). */}
       {chance?.rests_on_text == null || chance.rests_on_text === '' ? null : (
-        <p className={`${TYPE.meta} pb-1 pl-10 pr-2 text-text-light`} data-testid="port-row-rests-on" data-view={`${at}.rests_on_text`}>{chance.rests_on_text}</p>
+        <p className={`${TYPE.meta} px-2 pb-1 text-text-light`} data-testid="port-row-rests-on" data-view={`${at}.rests_on_text`}>{chance.rests_on_text}</p>
       )}
       {expandable && isOpen && (
-        <div id={regionId} role="region" aria-labelledby={labelId} data-testid="port-option-detail" className="space-y-1 pb-2 pl-10 pr-2 pt-0.5">
+        <div id={regionId} role="region" aria-labelledby={labelId} data-testid="port-option-detail" className="space-y-1 px-2 pb-2 pt-0.5">
           {otherReadout}
           {companion}
           {timing}
