@@ -6,7 +6,7 @@
  * controls; the new card is put in front once it is drawn. Every refusal is core's own words; the saved version is core's receipt; the
  * UI reads, rounds and formats nothing (core reads the figure as typed, and its unit).
  */
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { typography } from '../styles/typography'
 import { VIEW_CHIP_CLASS } from '../v5/blocks/chipClass'
@@ -45,11 +45,14 @@ function useAboveViewportControls(): number | null {
     const measure = () => {
       const bar = document.querySelector('nav[aria-label="Viewport controls"]')
       const r = bar?.getBoundingClientRect()
-      setBottom(r && r.height > 0 ? Math.round(window.innerHeight - r.top + GAP) : null)
+      setBottom(r && r.height > 0 ? window.innerHeight - r.top + GAP : null) // pixels only; no model value is touched here
     }
     measure()
     window.addEventListener('resize', measure)
-    return () => window.removeEventListener('resize', measure)
+    const nav = document.querySelector('nav[aria-label="Viewport controls"]')
+    const ro = nav && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    if (nav && ro) ro.observe(nav)
+    return () => { window.removeEventListener('resize', measure); ro?.disconnect() }
   }, [])
   return bottom
 }
@@ -67,12 +70,16 @@ export function AddFigure(): JSX.Element | null {
   const [base, setBase] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const opener = useRef<HTMLButtonElement>(null)
+  const figureBox = useRef<HTMLInputElement>(null)
+  // Closing hands focus back to "Add a figure" once it is drawn again (PL 7 Nov: it is not mounted while the form is open).
+  const [returning, setReturning] = useState(false)
+  useEffect(() => { if (!open && returning) { opener.current?.focus(); setReturning(false) } }, [open, returning])
   const key = `${sid}:add-figure`
   const sending = useWriteSending(key)
   const live = view?.model?.edit_base ?? null
   if (sid === null || view === null || at !== null || (!open && live === null) || !isForThisPage(view, me)) return null
 
-  const close = () => { setOpen(false); setError(null); opener.current?.focus() }
+  const close = () => { setOpen(false); setError(null); setReturning(true) }
   const add = async () => {
     const name = label.trim(), figure = typed.trim(), u = unit.trim()
     if (name === '' || figure === '' || sending || base === null) return
@@ -81,27 +88,29 @@ export function AddFigure(): JSX.Element | null {
       const saved = await runWrite(key, { op: true }, { base, label: name, typed: figure, unit: u }, (op) => writes.addFigure(sid, base, name, figure, u === '' ? null : u, op!))
       noteEditSaved(saved)
       if (await useViewStore.getState().modelChanged()) {
-        setOpen(false); setLabel(''); setTyped(''); setUnit('')
+        setLabel(''); setTyped(''); setUnit(''); close()
         focusWhenDrawn(saved.record) // the new card, theirs, in front once drawn
       } else setError('Saved, but Olumi could not show it just now. Reload the page to see it.')
     } catch (e) {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
+      setTimeout(() => figureBox.current?.focus(), 0) // back to the words, once they are editable again
     }
   }
   const field = `${typography.viewPanelBody} w-full min-h-[44px] rounded border border-border bg-panel px-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`
   return (
-    <div className="absolute left-3 z-[5]" style={{ bottom: bottom ?? 196 }} data-testid="view-add-figure">
+    // Fixed, as the zoom controls it sits above are, so the window-measured place is the place it is drawn (checker, slice 2a).
+    <div className="fixed left-3 z-[5]" style={{ bottom: bottom ?? 196 }} data-testid="view-add-figure">
       {open ? (
         <form className={`nodrag nopan w-[260px] space-y-2 rounded-lg border border-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`} data-testid="view-add-figure-form"
           onSubmit={(e) => { e.preventDefault(); void add() }} onKeyDown={(e) => { if (e.key === 'Escape' && !sending) close() }}>
           <label className="block space-y-1"><span className={typography.viewPanelMeta}>{ADD_FIGURE_WORDS.name}</span>
-            <input autoFocus autoComplete="off" maxLength={120} value={label} disabled={sending} data-testid="view-add-figure-name"
+            <input autoFocus autoComplete="off" value={label} disabled={sending} data-testid="view-add-figure-name"
               onChange={(e) => { setLabel(e.target.value); if (error) setError(null) }} className={field} /></label>
           <label className="block space-y-1"><span className={typography.viewPanelMeta}>{ADD_FIGURE_WORDS.figure}</span>
-            <input autoComplete="off" maxLength={200} value={typed} disabled={sending} placeholder={ADD_FIGURE_WORDS.figureHint} data-testid="view-add-figure-typed"
+            <input ref={figureBox} autoComplete="off" value={typed} disabled={sending} placeholder={ADD_FIGURE_WORDS.figureHint} data-testid="view-add-figure-typed"
               onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }} className={field} /></label>
           <label className="block space-y-1"><span className={typography.viewPanelMeta}>{ADD_FIGURE_WORDS.unit}</span>
-            <input autoComplete="off" maxLength={40} value={unit} disabled={sending} data-testid="view-add-figure-unit"
+            <input autoComplete="off" value={unit} disabled={sending} data-testid="view-add-figure-unit"
               onChange={(e) => { setUnit(e.target.value); if (error) setError(null) }} className={field} /></label>
           {error === null ? null : <p role="alert" className="text-danger" data-testid="view-add-figure-error">{error}</p>}
           <div className="flex gap-2">

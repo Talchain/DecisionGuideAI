@@ -18,7 +18,7 @@ export type ModelNotice = { readonly kind: 'saved' | 'moved'; readonly n: number
 export const useModelNotice = create<{ readonly notice: ModelNotice | null }>()(() => ({ notice: null }))
 
 export const noticeWords = (x: ModelNotice): string =>
-  x.kind === 'saved' ? (x.by === null ? `Version ${x.n} saved.` : `Version ${x.n} saved. Approved by ${x.by}.`) : `Model changed to version ${x.n}. Approved by ${x.by ?? 'someone'}.`
+  x.kind === 'saved' ? (x.by === null ? `Version ${x.n} saved.` : `Version ${x.n} saved. Approved by ${x.by}.`) : `Model changed to version ${x.n} by ${x.by ?? 'someone'}.`
 
 /** The person's own approval landed: version `n`, approved by the name this page was opened for. */
 export function noteSaved(answer: unknown, approved = true): void {

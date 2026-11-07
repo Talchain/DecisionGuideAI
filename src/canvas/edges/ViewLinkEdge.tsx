@@ -11,6 +11,7 @@ import { linkWordsAt, type Placed } from './linkWordsPlace'
 import { railOf, railSlots, railWordsAt } from './linkRail'
 import type { ViewLink } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
+import { LinkRemove } from '../../olumiView/LinkRemove'
 import { linkDrawn } from '../../olumiView/layout'
 import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
 import { useDriverLink } from '../../olumiView/lens'
@@ -100,6 +101,15 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
           </div>
         </EdgeLabelRenderer>
       )}
+      {/* R25 slice 2b: where core names the one record this line stands for (`remove`), the selected or focused link offers to take it off,
+          under its words (or at its middle when it has none), in the label layer above the cards. */}
+      {(selected || focused) && link.remove != null ? (
+        <EdgeLabelRenderer>
+          <div style={{ position: 'absolute', transform: `translate(-50%, 0) translate(${x}px, ${y + (words && !hidden ? size.h / 2 + 4 : 8)}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z + 1 }}>
+            <LinkRemove edge={id} record={link.remove.record} />
+          </div>
+        </EdgeLabelRenderer>
+      ) : null}
     </g>
   )
 }

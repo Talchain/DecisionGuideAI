@@ -53,7 +53,7 @@ describe('rename a card', () => {
     await waitFor(() => expect(posts()).toHaveLength(1))
     expect(posts()[0]!.path).toBe(`/api/scenarios/${SID}/rename`)
     expect(posts()[0]!.body).toMatchObject({ base, record: card.id, label: 'Hire a specialist' })
-    await waitFor(() => expect(useModelNotice.getState().notice).toMatchObject({ kind: 'saved', n: 3 }))
+    await waitFor(() => expect(useModelNotice.getState().notice).toMatchObject({ kind: 'saved', n: 3, by: null })) // a direct edit: no "Approved by"
   })
   it('a refusal is core\'s own words, and nothing reads as saved', async () => {
     answer = { status: 409, body: { error: 'this was changed on a different version; reload and rename it again' } }

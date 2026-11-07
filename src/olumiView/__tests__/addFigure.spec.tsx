@@ -63,8 +63,22 @@ describe('add a figure', () => {
     expect(posts()[0]!.path).toBe(`/api/scenarios/${SID}/figures`)
     expect(posts()[0]!.body).toMatchObject({ base, label: 'Weekly churn', typed: '10 to 30' })
     expect(posts()[0]!.body).not.toHaveProperty('unit')
-    await waitFor(() => expect(useModelNotice.getState().notice).toMatchObject({ kind: 'saved', n: 3 }))
+    await waitFor(() => expect(useModelNotice.getState().notice).toMatchObject({ kind: 'saved', n: 3, by: null })) // a direct edit: no "Approved by"
     await waitFor(() => expect(screen.queryByTestId('view-add-figure-form')).toBeNull())
+    // Core's own record is the card brought in front, once drawn; another card drawn first is not.
+    act(() => { useCanvasStore.setState({ nodes: [{ id: 'some_other_card', position: { x: 0, y: 0 }, data: {} }] } as never) })
+    expect(focused).toEqual([])
+    act(() => { useCanvasStore.setState({ nodes: [{ id: 'some_other_card', position: { x: 0, y: 0 }, data: {} }, { id: 'weekly_churn', position: { x: 0, y: 0 }, data: {} }] } as never) })
+    expect(focused).toEqual(['weekly_churn'])
+  })
+  it('catch (PL 7 Nov): Cancel or Escape hands focus back to "Add a figure", so a keyboard user keeps their place', () => {
+    render(<AddFigure />)
+    fireEvent.click(screen.getByTestId('view-add-figure-open'))
+    fireEvent.click(screen.getByText('Cancel'))
+    expect(document.activeElement).toBe(screen.getByTestId('view-add-figure-open'))
+    fireEvent.click(screen.getByTestId('view-add-figure-open'))
+    fireEvent.keyDown(screen.getByTestId('view-add-figure-name'), { key: 'Escape' })
+    expect(document.activeElement).toBe(screen.getByTestId('view-add-figure-open'))
   })
   it('a unit, when given, goes as the person typed it (core reads it)', async () => {
     render(<AddFigure />)

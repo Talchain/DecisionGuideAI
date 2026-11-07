@@ -1126,6 +1126,25 @@
             "type": "null"
            }
           ]
+         },
+         "remove": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "record": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "record"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
          }
         },
         "required": [
@@ -1137,7 +1156,8 @@
          "alert",
          "proposed",
          "title",
-         "effect"
+         "effect",
+         "remove"
         ],
         "additionalProperties": false
        }
@@ -1262,6 +1282,18 @@
                 }
                ]
               },
+              "option": {
+               "type": [
+                "string",
+                "null"
+               ]
+              },
+              "aim_id": {
+               "type": [
+                "string",
+                "null"
+               ]
+              },
               "estimate": {
                "type": [
                 "string",
@@ -1273,6 +1305,8 @@
               "text",
               "title",
               "if_approved",
+              "option",
+              "aim_id",
               "estimate"
              ],
              "additionalProperties": false
@@ -2091,6 +2125,33 @@
           },
           "rests_heading": {
            "type": "string"
+          },
+          "lenses": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "properties": {
+             "id": {
+              "type": "string",
+              "enum": [
+               "goal",
+               "outcome"
+              ]
+             },
+             "label": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "id",
+             "label",
+             "title"
+            ],
+            "additionalProperties": false
+           }
           }
          },
          "required": [
@@ -2112,7 +2173,8 @@
           "failure",
           "failure_heading",
           "rests",
-          "rests_heading"
+          "rests_heading",
+          "lenses"
          ],
          "additionalProperties": false
         },

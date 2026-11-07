@@ -99,6 +99,8 @@ export const writes = {
   edit: (sid: string, base: number, quantity: string, typed: string, op: string) => call<{ version: number; n: number; receipt: string }>('POST', `${scenarioPath(sid)}/edit`, { base, quantity, typed, op }),
   /** R25: their own name for a card (DL contract 02:14Z): saved at once as a person-authored version, only the name changes. */
   rename: (sid: string, base: number, record: string, label: string, op: string) => call<{ version: number; n: number; receipt: string }>('POST', `${scenarioPath(sid)}/rename`, { base, record, label, op }),
+  /** R25: one link taken off (core API, R25 7 Nov): the relation record core names on the line (`links[].remove.record`), saved at once. */
+  removeLink: (sid: string, base: number, record: string, op: string) => call<{ version: number; n: number; receipt: string }>('POST', `${scenarioPath(sid)}/links/remove`, { base, record, op }),
   /** R25: a figure card in the person's own words (core API, R25 7 Nov): saved at once as their version; `record` is the new card's id. */
   addFigure: (sid: string, base: number, label: string, typed: string, unit: string | null, op: string) =>
     call<{ version: number; n: number; receipt: string; record: string }>('POST', `${scenarioPath(sid)}/figures`, unit === null ? { base, label, typed, op } : { base, label, typed, unit, op }),

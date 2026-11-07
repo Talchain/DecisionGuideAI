@@ -70,7 +70,7 @@ describe('✎ while a proposal is held: set aside, then edit on the base core re
     fireEvent.click(screen.getByTestId(`view-figure-set-${card.id}`))
     await waitFor(() => expect(posts()).toHaveLength(2))
     expect(posts()[1]!.body).toMatchObject({ base, quantity: card.id, typed: '12' })
-    await waitFor(() => expect(useModelNotice.getState().notice).toMatchObject({ kind: 'saved', n: 2 }))
+    await waitFor(() => expect(useModelNotice.getState().notice).toMatchObject({ kind: 'saved', n: 2, by: null })) // a direct edit: no "Approved by"
   })
   it('acceptance row: set aside succeeds and core refuses the edit: the set-aside is still said, the refusal in core\'s words, nothing saved', async () => {
     editAnswer = { status: 409, body: { error: 'the model changed; edit the figure again' } }

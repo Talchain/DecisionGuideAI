@@ -213,6 +213,9 @@ export type View = {
         title: string
         figure: string
       } | null
+      remove: {
+        record: string
+      } | null
     }>
     run: {
       aim: string | null
@@ -238,6 +241,8 @@ export type View = {
           glyph: string
           title: string
         } | null
+        option: string | null
+        aim_id: string | null
         estimate: string | null
       } | null
       waits_on: {
@@ -388,6 +393,11 @@ export type View = {
         unassigned: number
       }>
       rests_heading: string
+      lenses: Array<{
+        id: "goal" | "outcome"
+        label: string
+        title: string
+      }>
     } | null
     edit_base: number | null
     key: Array<{

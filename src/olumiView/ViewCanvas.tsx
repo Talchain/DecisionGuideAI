@@ -118,18 +118,25 @@ function ViewFlow() {
   const edges = useCanvasStore((s) => s.edges)
   const onNodesChange = useCallback((changes: NodeChange[]) => useCanvasStore.getState().onNodesChange(changes), [])
   const userMoved = useRef(false)
+  // Each move the person makes themselves: a card waiting to be brought in front never overrides one (checker, slice 2a).
+  const movedAt = useRef(0)
   const fit = useViewCamera(userMoved)
   // A Model tab row puts its card in front (`focusNodeById`): selected, and the camera centred on it at the zoom the person has. Only the
   // node focus is registered: the legacy fit and pan seams stay unregistered on this lane, so the applied-edit pulse never moves the
   // camera off the question and options (fit-real-model, bakery).
   const { setCenter, getZoom, getInternalNode } = useReactFlow()
+  const focusCall = useRef(0)
+  useEffect(() => () => { focusCall.current += 1 }, [])
   // Which card or link holds keyboard focus is the canvas's while it is up: nothing is left open once it goes (checker, slice 1).
   useEffect(() => () => { useViewFocusCard.setState({ id: null }); useViewFocusLink.setState({ id: null }) }, [])
   useEffect(() => registerFocusHelpers((id) => {
     // A card just added is in the canvas's nodes before React Flow has measured it, and its measured height lays the board out again: wait
     // until it is measured, no layout is running and it has kept its place for a frame (up to ~2 s), then bring it in front.
     let last = ''
+    const call = ++focusCall.current, moves = movedAt.current
     const go = (tries: number) => {
+      // A newer call, the person moving the board themselves, or the canvas leaving: this one is dropped.
+      if (call !== focusCall.current || moves !== movedAt.current) return
       const n = getInternalNode(id)
       const here = n === undefined || !n.measured.width ? '' : `${n.internals.positionAbsolute.x},${n.internals.positionAbsolute.y}`
       const settled = here !== '' && !viewLaying() && here === last
@@ -144,7 +151,7 @@ function ViewFlow() {
   }, () => undefined), [setCenter, getZoom, getInternalNode])
   const { zoomIn, zoomOut, zoomTo } = useReactFlow()
   const hasModel = useViewStore((s) => (s.view?.model?.cards.length ?? 0) > 0)
-  const mine = (e: unknown) => { if (e) userMoved.current = true }
+  const mine = (e: unknown) => { if (e) { userMoved.current = true; movedAt.current += 1 } }
   return (
     <>
       <ReactFlow

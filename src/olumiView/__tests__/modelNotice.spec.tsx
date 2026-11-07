@@ -44,7 +44,8 @@ describe('the model moved, in words', () => {
     served = at(2); versions = [{ n: 1, by: 'Ada' }, { n: 2, by: 'Bea' }]
     await tick(POLL_MS + 10)
     const n = useModelNotice.getState().notice!
-    expect([n.kind, noticeWords(n)]).toEqual(['moved', 'Model changed to version 2. Approved by Bea.'])
+    // Neutral (checker, slice 2a): core's versions name who made each, not whether it was an approval or their own direct edit.
+    expect([n.kind, noticeWords(n)]).toEqual(['moved', 'Model changed to version 2 by Bea.'])
   })
   it('CONTRAST: a version the person approved themselves (another tab, a figure edit) is not "changed" to them', async () => {
     renderHook(() => useViewPoll(true))
