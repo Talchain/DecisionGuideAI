@@ -122,6 +122,8 @@ function ViewFlow() {
   // node focus is registered: the legacy fit and pan seams stay unregistered on this lane, so the applied-edit pulse never moves the
   // camera off the question and options (fit-real-model, bakery).
   const { setCenter, getZoom, getInternalNode } = useReactFlow()
+  // Which card or link holds keyboard focus is the canvas's while it is up: nothing is left open once it goes (checker, slice 1).
+  useEffect(() => () => { useViewFocusCard.setState({ id: null }); useViewFocusLink.setState({ id: null }) }, [])
   useEffect(() => registerFocusHelpers((id) => {
     const n = getInternalNode(id)
     if (n === undefined) return
@@ -139,7 +141,10 @@ function ViewFlow() {
         nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
         onNodeMouseEnter={(_, n) => useViewHover.setState({ id: n.id })} onNodeMouseLeave={() => useViewHover.setState({ id: null })}
         onFocus={(e) => { useViewFocusLink.setState({ id: focusedLinkOf(e.target) }); useViewFocusCard.setState({ id: focusedCardOf(e.target) }) }}
-        onBlur={() => { useViewFocusLink.setState({ id: null }); useViewFocusCard.setState({ id: null }) }}
+        // Leaving reads where focus goes next, so a move between two controls of one card never closes it for a render (checker, slice 1).
+        onBlur={(e) => { useViewFocusLink.setState({ id: focusedLinkOf(e.relatedTarget) }); useViewFocusCard.setState({ id: focusedCardOf(e.relatedTarget) }) }}
+        // A press on the empty canvas lets go of any card or link held by focus (a removed control fires no blur).
+        onPaneClick={() => { useViewFocusLink.setState({ id: null }); useViewFocusCard.setState({ id: null }) }}
         onMoveStart={mine} panOnDrag={PAN_BUTTONS} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}
         nodesConnectable={false} edgesFocusable elevateEdgesOnSelect={false} deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE} selectionKeyCode={null} multiSelectionKeyCode={null}
         proOptions={{ hideAttribution: true }} data-testid="view-canvas"

@@ -59,8 +59,19 @@ describe('the mounted core-lane canvas', () => {
     pane.insertAdjacentHTML('beforeend', '<div class="react-flow__node" data-id="c1"><button>✎</button></div>')
     fireEvent.focusIn(pane.querySelector('.react-flow__node[data-id="c1"] button')!)
     expect([useViewFocusCard.getState().id, useViewFocusLink.getState().id]).toEqual(['c1', null])
-    fireEvent.focusOut(pane.querySelector('.react-flow__node[data-id="c1"] button')!)
+    // Moving between two controls of the card keeps it named (no close for a render); leaving the canvas names none.
+    pane.querySelector('.react-flow__node[data-id="c1"]')!.insertAdjacentHTML('beforeend', '<button data-second="">Rename</button>')
+    const inCard = pane.querySelector('.react-flow__node[data-id="c1"] [data-second]')!
+    fireEvent.focusOut(pane.querySelector('.react-flow__node[data-id="c1"] button')!, { relatedTarget: inCard })
+    expect(useViewFocusCard.getState().id).toBe('c1')
+    fireEvent.focusOut(inCard, { relatedTarget: null })
     expect(useViewFocusCard.getState().id).toBeNull()
+    // A press on the empty canvas lets go; so does the canvas leaving.
+    fireEvent.focusIn(inCard)
+    fireEvent.click(container.querySelector('.react-flow__pane')!)
+    expect(useViewFocusCard.getState().id).toBeNull()
+    fireEvent.focusIn(inCard)
     unmount()
+    expect(useViewFocusCard.getState().id).toBeNull()
   })
 })

@@ -47,6 +47,8 @@ describe('proposed, changed and kept cards are told apart at rest', () => {
     const open = render(<ViewCard card={changed} selected />).container
     const words = open.querySelector<HTMLElement>(`[data-view-more] [data-view="${changed.id}.change.title"]`)!
     expect(words.textContent).toBe(changed.change!.title)
+    expect(changed.change!.title).toContain('\n') // core writes a line per changed field…
+    expect(words.className).toContain('whitespace-pre-line') // …and they stay lines (checker, slice 1)
     expect(open.querySelector('[data-view-more]')!.hasAttribute('hidden')).toBe(false)
   })
   it('CONTRAST: a kept card has the plain border and no change words; a proposed addition is the translucent ghost, not "changed"', () => {

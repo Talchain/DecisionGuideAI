@@ -350,7 +350,8 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
         <div hidden={!selected} className={`absolute left-full top-0 z-10 ml-2 space-y-1 rounded-lg border border-border bg-panel p-3 shadow-sm ${typography.viewLabel}`}
           style={{ width: CARD_WIDTH }} data-view-more={id}>
           {renamable ? <Rename id={id} heading={card.heading} shown /> : null}
-          {changed ? <p data-view={`${id}.change.title`}>{card.change!.title}</p> : null}
+          {/* Core writes the change a line per field ("Proposed change\nlow 10 → 15\n…"): its lines kept. */}
+          {changed ? <p className="whitespace-pre-line" data-view={`${id}.change.title`}>{card.change!.title}</p> : null}
           {card.status === null ? null : <p data-view={`${id}.status`}>{card.status}</p>}
           {card.reason === null || says ? null : <p data-view={`${id}.reason`}>{card.reason}</p>}
           {card.premises.map((p, j) => (
