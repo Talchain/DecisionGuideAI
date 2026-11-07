@@ -10,6 +10,7 @@ import { differPlaced, WhereYouDiffer } from './WhereYouDiffer'
 import { nonEmpty } from '../../olumiView/tipping'
 import { AVATAR, BODY, CARD, ERR, FIELD, H, META } from './ui'
 import { sendDoubts, ViewDoubts } from './ViewDoubts'
+import { StrategyCompose } from '../../olumiView/strategy/StrategyCompose'
 
 type Figure = View['collab']['shared'][number]['figures'][number]
 
@@ -203,6 +204,8 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
         </div>
         {viewLocked ? <p role="alert" data-testid="team-views-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="team-views-error" className={ERR}>{error}</p>}
       </div>
+      {/* Strategy lane (N2, Paul's yes via the DL): a view on one card with a stance and a source, core's POST …/views with items; null until core's vocabulary answers. */}
+      <StrategyCompose sid={sid} view={view} onWrote={onWrote} />
     </section>
   )
 }
