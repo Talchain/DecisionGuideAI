@@ -94,13 +94,39 @@ describe('the dock’s source and the rest of an evidence chip (real Views)', ()
   })
 })
 
+describe('core’s chain as served (real View, core wip/debate-n1 53477b92, seed 3; not put to Olumi, so no inference step)', () => {
+  const n1: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-chain.view3.json'), 'utf8'))
+  const e = n1.evidence[0]!
+  const steps = chainOf(e)!
+  it('draws core’s observation lines as one step, then the claim and the model estimate in core’s words, each with core’s status', () => {
+    expect(steps.map((st) => st.level)).toEqual(['observation', 'observation', 'claim', 'estimate'])
+    useViewStore.setState({ view: n1, sid: n1.id })
+    useReveal.setState({ evidence: e.id })
+    render(<EvidenceDock view={n1} />)
+    const chain = screen.getByTestId('evidence-dock-chain')
+    expect([...chain.querySelectorAll('[data-evidence-step]')].map((x) => x.getAttribute('data-evidence-step'))).toEqual(['observation', 'claim', 'estimate'])
+    expect(screen.getByTestId('evidence-dock-words').textContent).toBe(steps[0]!.text)
+    expect(steps[0]!.text).toBe(e.text)
+    expect(screen.getByTestId('evidence-dock-source').textContent).toBe(steps[1]!.text)
+    const claim = chain.querySelector('[data-evidence-step="claim"]')!, estimate = chain.querySelector('[data-evidence-step="estimate"]')!
+    expect(claim).toHaveTextContent(steps[2]!.text)
+    expect(claim.querySelector('[data-evidence-status]')!.textContent).toBe(steps[2]!.status)
+    expect(estimate).toHaveTextContent(steps[3]!.text)
+    expect(estimate.querySelector('[data-evidence-status]')!.textContent).toBe(steps[3]!.status)
+    // The step's record is drawn as its own card here, and core's words already name it: no second heading.
+    expect(n1.model!.cards.some((c) => c.id === steps[2]!.card)).toBe(true)
+    expect(claim.querySelector('[data-evidence-step-card]')).toBeNull()
+    expect(chain.querySelector('[data-evidence-step="inference"]')).toBeNull()
+  })
+})
+
 describe('core’s requested chain (REQUESTED-FIELD FIXTURE: shape asked of the DL 7 Nov, values invented placeholders)', () => {
   it('draws each step in core’s words and status, the observation as the person’s own, and Olumi’s reply beneath', () => {
     const steps = [
       { level: 'observation', text: PRIYA.text, status: null, card: null },
       { level: 'claim', text: 'FIXTURE: enterprise contracts here take most of a year to sign', status: 'FIXTURE: Supported', card: null },
       { level: 'inference', text: 'FIXTURE: a paid diagnostic would take as long', status: 'FIXTURE: Not established', card: null },
-      { level: 'estimate', text: 'FIXTURE: the estimate stays as it is', status: 'FIXTURE: unchanged', card: DIAG },
+      { level: 'estimate', text: 'FIXTURE: the estimate stays as it is', status: 'FIXTURE: unchanged', card: 'diagnostic_time_to_contract' },
     ]
     const shaped: View = { ...real, evidence: real.evidence.map((e) => (e.id === PRIYA.id
       ? { ...e, chain: steps, considered: { at: e.at, by: 'Maya', proposal: null, why: { text: 'FIXTURE: Olumi’s reply', title: 'FIXTURE' } } }
@@ -111,7 +137,9 @@ describe('core’s requested chain (REQUESTED-FIELD FIXTURE: shape asked of the 
     const chain = screen.getByTestId('evidence-dock-chain')
     expect([...chain.querySelectorAll('[data-evidence-step]')].map((e) => e.getAttribute('data-evidence-step'))).toEqual(['observation', 'claim', 'inference', 'estimate'])
     expect(chain.querySelector('[data-evidence-step="inference"]')).toHaveTextContent('FIXTURE: Not established')
-    expect(chain.querySelector('[data-evidence-step="estimate"]')).toHaveTextContent(real.model!.cards.find((c) => c.id === DIAG)!.heading)
+    // A record folded into an option (this View draws it in the diagnostic's badge): the step says which card it sits on.
+    expect(real.model!.cards.some((c) => c.id === 'diagnostic_time_to_contract')).toBe(false)
+    expect(chain.querySelector('[data-evidence-step="estimate"] [data-evidence-step-card]')!.textContent).toBe(real.model!.cards.find((c) => c.id === DIAG)!.heading)
     expect(screen.getByTestId('evidence-dock-considered').textContent).toBe('FIXTURE: Olumi’s reply')
   })
 })

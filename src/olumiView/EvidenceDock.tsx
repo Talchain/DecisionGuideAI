@@ -18,12 +18,12 @@ import { useReturnFocus } from './RevealDock'
 
 const initial = (by: string) => (Array.from(by)[0] ?? '').toUpperCase()
 
-/** The dock's own names for the four steps (Paul's V11: observation → claim → causal inference → model estimate). */
+/** The dock's own names for the four steps (Paul's V11: observation → claim → causal inference → model estimate; the approved board's names). */
 const STEP: Record<ChainStep['level'], string> = {
-  observation: 'What was seen',
-  claim: 'What it supports',
-  inference: 'What it would imply',
-  estimate: 'What the model uses',
+  observation: 'Observation',
+  claim: 'Claim',
+  inference: 'Causal inference',
+  estimate: 'Model estimate',
 }
 
 /** True when the dock should draw the open evidence: one is open and the View holds it. */
@@ -55,20 +55,41 @@ function Seen({ e }: { e: Evidence }): JSX.Element {
   )
 }
 
-/** Core's chain, step by step, each in core's words with its status; the card a step sits on by its heading. */
+/**
+ * Core's chain, step by step, each in core's words with its status; the card a step sits on by its heading (core names a record: the card
+ * that draws it, its own or the option whose badge holds it). Core's observation lines (the words as given, then "Source: …") are one
+ * step: the person, then each line in core's words, the source a link only where it is a plain web address.
+ */
 function Chain({ view, e, steps }: { view: View; e: Evidence; steps: readonly ChainStep[] }): JSX.Element {
-  const heading = (id: string | null) => (id === null ? null : view.model?.cards.find((c) => c.id === id)?.heading ?? null)
+  // Only where the record sits inside another card (an option's own figure): that card's heading says where. A record drawn as its own
+  // card is already named in core's words for the step.
+  const heading = (id: string | null) => {
+    const at = id === null ? null : cardOfQuantity(view, id)
+    return at === null || at === id ? null : view.model?.cards.find((c) => c.id === at)?.heading ?? null
+  }
+  const seen = steps.filter((st) => st.level === 'observation'), rest = steps.filter((st) => st.level !== 'observation')
+  const link = e.link === null ? null : linkOf(e.link)
   return (
     <ol className="m-0 grid list-none gap-4 p-0" data-testid="evidence-dock-chain">
-      {steps.map((st, i) => (
+      {seen.length === 0 ? null : (
+        <Step label={STEP.observation} at="observation">
+          <div className={CARD} data-testid="evidence-dock-seen">
+            <p className={`${BODY} flex items-center gap-2 font-medium text-text-header`}><span aria-hidden="true" className={AVATAR}>{initial(e.by)}</span>{e.by}</p>
+            {seen.map((st, i) => (i === 0
+              ? <p key={i} className={`${BODY} whitespace-pre-wrap break-words`} data-testid="evidence-dock-words">{st.text}</p>
+              : link !== null && i === seen.length - 1
+                ? <a key={i} className={`${META} break-all underline underline-offset-2 hover:text-text-body`} href={link} target="_blank" rel="noreferrer noopener" data-testid="evidence-dock-source">{st.text}</a>
+                : <p key={i} className={`${META} break-words`} data-testid="evidence-dock-source">{st.text}</p>))}
+          </div>
+        </Step>
+      )}
+      {rest.map((st, i) => (
         <Step key={i} label={STEP[st.level]} at={st.level}>
-          {st.level === 'observation' ? <Seen e={e} /> : (
-            <div className={`${CARD} gap-1.5`}>
-              {heading(st.card) === null ? null : <p className={`${META} text-text-header`}>{heading(st.card)}</p>}
-              <p className={BODY}>{st.text}</p>
-              {st.status === null ? null : <p className={`${META} font-medium text-text-header`} data-evidence-status="">{st.status}</p>}
-            </div>
-          )}
+          <div className={`${CARD} gap-1.5`}>
+            {heading(st.card) === null ? null : <p className={`${META} text-text-header`} data-evidence-step-card="">{heading(st.card)}</p>}
+            <p className={BODY}>{st.text}</p>
+            {st.status === null ? null : <p className={`${META} font-medium text-text-header`} data-evidence-status="">{st.status}</p>}
+          </div>
         </Step>
       ))}
     </ol>

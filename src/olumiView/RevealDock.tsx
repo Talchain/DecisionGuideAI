@@ -15,7 +15,7 @@ import { Eye, X } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { OlumiAiIcon } from '../components/results/analysisNew/OlumiAiIcon'
 import { Effects } from '../olumiCore/team/ViewsPanel'
-import { AVATAR, BODY, CARD, H, META } from '../olumiCore/team/ui'
+import { AVATAR, BODY, H, META } from '../olumiCore/team/ui'
 import type { View } from './client'
 import { effectHeadingsOf, effectsOf } from './standin'
 import { chipOf, nextOf, openChipOf, revealOf, stanceOf, useReveal, type CardChip, type Shared } from './reveal'
@@ -184,13 +184,17 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
 
       {others.length === 0 ? null : <div className="grid gap-5" data-testid="reveal-dock-others">{others.map((x) => <Person key={x.id} v={x} />)}</div>}
 
-      {/* Olumi's one question for what matters next, with one primary action and a quiet way to leave the difference open. */}
-      <div className="mt-auto grid gap-3 rounded-2xl bg-panel-hover p-4" data-testid="reveal-dock-foot">
-        <Next view={view} />
-        <div className="flex flex-wrap items-center gap-3">
-          <Button size="sm" variant="primary" data-testid="reveal-dock-bring-evidence" onClick={() => bringEvidence(() => select(null))}>Bring evidence</Button>
-          <button type="button" data-testid="reveal-dock-keep-open" onClick={close}
-            className={`${BODY} cursor-pointer rounded-full px-2 py-1 text-text-light hover:text-text-header`}>Keep it open</button>
+      {/* Olumi's one question for what matters next, with one primary action and a quiet way to leave the difference open. It stays at the
+          dock's foot while the views above it scroll, so the action is always in reach (1232 x 704: the views alone fill the dock). It reaches
+          down over the dock body's own padding, so nothing scrolls past beneath it. */}
+      <div className="sticky -bottom-3 mt-auto bg-panel pb-3 pt-2">
+        <div className="grid gap-3 rounded-2xl bg-panel-hover p-4" data-testid="reveal-dock-foot">
+          <Next view={view} />
+          <div className="flex flex-wrap items-center gap-3">
+            <Button size="sm" variant="primary" data-testid="reveal-dock-bring-evidence" onClick={() => bringEvidence(() => select(null))}>Bring evidence</Button>
+            <button type="button" data-testid="reveal-dock-keep-open" onClick={close}
+              className={`${BODY} cursor-pointer rounded-full px-2 py-1 text-text-light hover:text-text-header`}>Keep it open</button>
+          </div>
         </div>
       </div>
     </section>

@@ -26,3 +26,7 @@
   the diagnostic's time to contract. Core sends `collab.marks` of three of its four kinds (no "shared" mark on this board): "Priya and Tom differ" (disagreement, with
   core's `reading` and `options`), "Only Maya raised it" (unique), "Priya and Tom added evidence" (evidence, its ids in `evidence`), and
   `collab.next`. Every word and value is core's output.
+- `consulting-chain.view3.json`: the same seed-3 copy read as "Maya" through olumi-core wip/debate-n1 53477b92 (zero calls, ledger 0),
+  which adds `evidence[].chain` and `proposal.verdict` (null here: no proposal is held on this copy) and the one stance vocabulary
+  ("Observed", "Expects", "Others may miss"). Neither piece of evidence was put to Olumi, so each chain is observation lines, claim and
+  model estimate, with no inference step. Every word and value is core's output.
