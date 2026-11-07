@@ -105,11 +105,15 @@ export interface OutcomeInput { readonly happened: string; readonly versus: stri
 /** A colleague a member invited into the scenario (API v1.8), as core lists them; never their link. */
 export interface Invite { readonly id: string; readonly name: string; readonly by: string; readonly made: string; readonly expires: string | null; readonly status: string; readonly revocable: boolean }
 
+/** The strategy lane's view on one card (olumi-core wip/strategy-n2c 5bfc55d7, API.md "Strategy"): on the same POST …/views as the view's
+ *  text and figures (service.ts `contribute`, `items`), stored on the private view and revealed with it. */
+export interface ViewItem { readonly about: string; readonly stance: string; readonly text: string; readonly source: string | null }
+
 export const teamApi = {
   /** With figures (D7 from the screen, R5): each as the member typed it, which core reads with the same parse as Set, and the approved
    *  version's number they were given against (core: required with any figure). Core's `typed` per figure (API v1.14, core cfeb26b). */
-  giveView: (sid: string, text: string, figures: ReadonlyArray<{ readonly quantity: string; readonly typed: string }> = [], version: number | null = null) =>
-    call<{ contribution: number }>('POST', `${base(sid)}/views`, figures.length === 0 ? { text } : { text, figures, version }),
+  giveView: (sid: string, text: string, figures: ReadonlyArray<{ readonly quantity: string; readonly typed: string }> = [], version: number | null = null, more: { readonly items?: readonly ViewItem[]; readonly op?: string | null } = {}) =>
+    call<{ contribution: number }>('POST', `${base(sid)}/views`, { ...(figures.length === 0 ? { text } : { text, figures, version }), ...(more.items === undefined || more.items.length === 0 ? {} : { items: more.items }), ...(more.op == null ? {} : { op: more.op }) }),
   skipView: (sid: string) => call<{ contribution: number }>('POST', `${base(sid)}/views`, { skip: true }),
   reveal: (sid: string) => call<{ revealed: number[] }>('POST', `${base(sid)}/reveal`),
   /** One's own view shown to the team before the round's reveal (olumi-core API v1.12, 3b2ba2d: `POST …/views/:id/reveal` → `{ revealed: [id] }`). */

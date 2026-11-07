@@ -124,7 +124,8 @@ describe('every write goes to core\'s own route, and the View is read again afte
     fireEvent.change(screen.getByTestId('team-view-text'), { target: { value: '  wait a quarter ' } })
     fireEvent.click(screen.getByTestId('team-view-give'))
     await waitFor(() => expect(reread()).toBe(1))
-    expect(posts()[0]).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/views`, body: { text: '  wait a quarter ' } })
+    // With core's operation id for a view (API v1.24, olumi-core API.md:1044-1050): a lost answer resends the same op, never a second view.
+    expect(posts()[0]).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/views`, body: { text: '  wait a quarter ', op: expect.any(String) } })
     fireEvent.click(screen.getByTestId('team-view-skip'))
     await waitFor(() => expect(reread()).toBe(2))
     expect(posts()[1]!.body).toEqual({ skip: true })
