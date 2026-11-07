@@ -7,7 +7,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render } from '@testing-library/react'
+import { act, cleanup, render } from '@testing-library/react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View, ViewModel } from '../client'
 import { ViewCard, ViewCardNode } from '../../canvas/nodes/ViewCardNode'
@@ -74,16 +74,35 @@ describe('full text opens on selection and keyboard focus, never cut', () => {
       expect(row.querySelector(`[data-view="${card.id}.premises.${j}.text"]`)!.textContent).toBe(p.text)
     })
   })
-  const node = (card: ViewModel['cards'][number]) => render(
-    <ReactFlowProvider><ViewCardNode {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: VIEW_CARD } as unknown as NodeProps)} /></ReactFlowProvider>,
-  ).container.querySelector<HTMLElement>('[data-view-more]')!
+  // As React Flow draws a card: its focusable node wrapper round the card.
+  const node = (card: ViewModel['cards'][number]) => {
+    const tree = () => (
+      <ReactFlowProvider><div className="react-flow__node" data-id={card.id} tabIndex={0}>
+        <ViewCardNode {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: VIEW_CARD } as unknown as NodeProps)} />
+      </div></ReactFlowProvider>
+    )
+    const { container: c, rerender } = render(tree())
+    return { wrap: c.querySelector<HTMLElement>('.react-flow__node')!, more: () => c.querySelector<HTMLElement>('[data-view-more]')!, redraw: () => rerender(tree()) }
+  }
   it('catch: keyboard focus on a card (not selected) opens its other words; focus on another card does not', () => {
     const card = cardOf(real('capacity'), 'add_specialist')
-    useViewFocusCard.setState({ id: card.id })
-    expect(node(card).hasAttribute('hidden')).toBe(false)
-    cleanup()
-    useViewFocusCard.setState({ id: 'some-other-card' })
-    expect(node(card).hasAttribute('hidden')).toBe(true)
+    const n = node(card)
+    act(() => { n.wrap.focus(); useViewFocusCard.setState({ id: card.id }) })
+    expect(n.more().hasAttribute('hidden')).toBe(false)
+    act(() => { useViewFocusCard.setState({ id: 'some-other-card' }) })
+    expect(n.more().hasAttribute('hidden')).toBe(true)
+  })
+  it('catch (DL 7 Nov run 0717): a card whose focus has gone (its control unmounted, so no blur came) closes on its next draw, though the name is stale', () => {
+    const card = cardOf(real('capacity'), 'add_specialist')
+    const n = node(card)
+    const away = document.body.appendChild(document.createElement('button'))
+    act(() => { n.wrap.focus(); useViewFocusCard.setState({ id: card.id }) })
+    expect(n.more().hasAttribute('hidden')).toBe(false)
+    act(() => { away.focus() })
+    expect(useViewFocusCard.getState().id).toBe(card.id) // no listener here: the name is stale, as when the focused control unmounts
+    n.redraw() // the card draws again (a new version, a selection)
+    expect(n.more().hasAttribute('hidden')).toBe(true)
+    away.remove()
   })
   it('the canvas reads which card has focus from React Flow\'s node, also when focus is on a control inside it', () => {
     const host = document.createElement('div')

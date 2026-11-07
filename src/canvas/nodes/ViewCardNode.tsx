@@ -426,10 +426,16 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const ifApproved = useMemo(() => ifApprovedMarkOf(view), [view])
   const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] === id)
   // Keyboard focus on the card (or inside it) opens its other words as selection does (plan v3: full text on selection or keyboard focus).
-  const focused = useViewFocusCard((f) => f.id === id)
+  // Only while the page's focus really is there: a control removed after its save (an editor, a rename) moves focus to the page with no
+  // blur, which left a card open beside another (DL 7 Nov, run 0717 shot 4c).
+  const root = useRef<HTMLDivElement | null>(null)
+  const named = useViewFocusCard((f) => f.id === id)
+  const here = typeof document === 'undefined' ? null : document.activeElement
+  const focused = named && here !== null && root.current !== null && (root.current.contains(here) || root.current.closest('.react-flow__node') === here)
   const open = selected === true || focused
+  const attach = useCallback((el: HTMLDivElement | null) => { root.current = el; (inView as React.MutableRefObject<HTMLDivElement | null>).current = el }, [inView])
   return (
-    <div ref={inView} className={`group/vcard relative${preMortem === 'other' ? ' opacity-40' : ''}`} data-premortem={preMortem ?? undefined}>
+    <div ref={attach} className={`group/vcard relative${preMortem === 'other' ? ' opacity-40' : ''}`} data-premortem={preMortem ?? undefined}>
       <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
       <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={open} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>

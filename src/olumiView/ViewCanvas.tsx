@@ -128,7 +128,16 @@ function ViewFlow() {
   const focusCall = useRef(0)
   useEffect(() => () => { focusCall.current += 1 }, [])
   // Which card or link holds keyboard focus is the canvas's while it is up: nothing is left open once it goes (checker, slice 1).
-  useEffect(() => () => { useViewFocusCard.setState({ id: null }); useViewFocusLink.setState({ id: null }) }, [])
+  // Focus anywhere on the page (the dock, the composer, a control outside the canvas) says which card or link holds it, if any; leaving reads
+  // where it goes next, so a move between two controls of one card never closes it for a render (DL 7 Nov run 0717: focus moving to "Add
+  // a figure" never reached a canvas handler, and a card stayed open beside another).
+  useEffect(() => {
+    const into = (e: FocusEvent) => { useViewFocusLink.setState({ id: focusedLinkOf(e.target) }); useViewFocusCard.setState({ id: focusedCardOf(e.target) }) }
+    const out = (e: FocusEvent) => { useViewFocusLink.setState({ id: focusedLinkOf(e.relatedTarget) }); useViewFocusCard.setState({ id: focusedCardOf(e.relatedTarget) }) }
+    document.addEventListener('focusin', into)
+    document.addEventListener('focusout', out)
+    return () => { document.removeEventListener('focusin', into); document.removeEventListener('focusout', out); useViewFocusCard.setState({ id: null }); useViewFocusLink.setState({ id: null }) }
+  }, [])
   useEffect(() => registerFocusHelpers((id) => {
     // A card just added is in the canvas's nodes before React Flow has measured it, and its measured height lays the board out again: wait
     // until it is measured, no layout is running and it has kept its place for a frame (up to ~2 s), then bring it in front.
@@ -157,9 +166,6 @@ function ViewFlow() {
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
         onNodeMouseEnter={(_, n) => useViewHover.setState({ id: n.id })} onNodeMouseLeave={() => useViewHover.setState({ id: null })}
-        onFocus={(e) => { useViewFocusLink.setState({ id: focusedLinkOf(e.target) }); useViewFocusCard.setState({ id: focusedCardOf(e.target) }) }}
-        // Leaving reads where focus goes next, so a move between two controls of one card never closes it for a render (checker, slice 1).
-        onBlur={(e) => { useViewFocusLink.setState({ id: focusedLinkOf(e.relatedTarget) }); useViewFocusCard.setState({ id: focusedCardOf(e.relatedTarget) }) }}
         // A press on the empty canvas lets go of any card or link held by focus (a removed control fires no blur).
         onPaneClick={() => { useViewFocusLink.setState({ id: null }); useViewFocusCard.setState({ id: null }) }}
         onMoveStart={mine} panOnDrag={PAN_BUTTONS} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}

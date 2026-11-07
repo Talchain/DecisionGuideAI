@@ -66,6 +66,12 @@ describe('the mounted core-lane canvas', () => {
     expect(useViewFocusCard.getState().id).toBe('c1')
     fireEvent.focusOut(inCard, { relatedTarget: null })
     expect(useViewFocusCard.getState().id).toBeNull()
+    // Focus landing anywhere outside the canvas (the dock's "Add a figure") names no card (DL 7 Nov run 0717: F1 stayed open beside the next).
+    const outside = document.body.appendChild(document.createElement('button'))
+    fireEvent.focusIn(inCard)
+    fireEvent.focusIn(outside)
+    expect(useViewFocusCard.getState().id).toBeNull()
+    outside.remove()
     // A press on the empty canvas lets go; so does the canvas leaving.
     fireEvent.focusIn(inCard)
     fireEvent.click(container.querySelector('.react-flow__pane')!)
