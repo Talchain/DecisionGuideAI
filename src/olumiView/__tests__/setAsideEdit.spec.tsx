@@ -81,6 +81,17 @@ describe('✎ while a proposal is held: set aside, then edit on the base core re
     expect(screen.getByTestId(`view-figure-aside-done-${card.id}`)).toBeInTheDocument()
     expect(useModelNotice.getState().notice).toBeNull()
   })
+  it('catch (PL 7 Nov): an open editor keeps the base it opened on; a background re-read to a newer version never moves the draft onto it', async () => {
+    useViewStore.setState({ view: approved })
+    render(<Live id={card.id} />)
+    fireEvent.click(screen.getByTestId(`view-figure-edit-${card.id}`))
+    // Someone else's version lands while the person types: the View now offers edits on a newer base.
+    useViewStore.setState({ view: { ...approved, model: { ...approved.model!, edit_base: base + 7 } } as View })
+    fireEvent.change(screen.getByTestId(`view-figure-typed-${card.id}`), { target: { value: '12' } })
+    fireEvent.click(screen.getByTestId(`view-figure-set-${card.id}`))
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    expect(posts()[0]!.body).toMatchObject({ base, quantity: card.id }) // core then refuses a stale base in its own words
+  })
   it('must not change: a card the proposal adds, or an outcome core works out (never editable), gets no offer; with no proposal held, ✎ is the plain edit', () => {
     useViewStore.setState({ view: added })
     render(<Live id={card.id} />)

@@ -93,13 +93,18 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
   const [asideFor] = useState(() => place === 'view-figure' && useAsideEdit.getState().id === id)
   const [open, setOpen] = useState(asideFor)
   useEffect(() => { if (asideFor) useAsideEdit.setState({ id: null }) }, [asideFor])
+  // The base the editor opened on (PL 7 Nov): a background re-read while the person types never moves their draft onto a newer version;
+  // core refuses an edit on any base but the latest in its own words ("this figure was edited on a different version").
+  const live = view?.model?.edit_base ?? null
+  const [opened, setOpened] = useState<number | null>(() => (asideFor ? live : null))
   const [typed, setTyped] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [trying, setTrying] = useState(false)
   const key = `${sid}:edit:${id}`
   const sending = useWriteSending(key)
-  const base = view?.model?.edit_base ?? null
-  if (!edit || sid === null || base === null || view === null || !isForThisPage(view, me)) return null
+  if (!edit || sid === null || live === null || view === null || !isForThisPage(view, me)) return null
+  const base = open && opened !== null ? opened : live
+  const openNow = () => { setOpened(live); setOpen(true) }
 
   const save = async () => {
     if (typed.trim() === '' || sending) return
@@ -128,9 +133,9 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
   if (!open) {
     return (
       glyph === undefined
-        ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={() => setOpen(true)}
+        ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow}
           className={`nodrag ${typography.viewLabel} cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
-        : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} onClick={() => setOpen(true)} aria-label={label} title={edit.ask}
+        : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow} aria-label={label} title={edit.ask}
           className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-info`}>
           <span aria-hidden="true" data-testid={`${place}-glyph-${id}`}>{glyph}</span>
           {words ? <>{' '}<span aria-hidden="true" data-testid={`${place}-words-${id}`} className={`underline underline-offset-2 ${quiet ? QUIET_WORDS : ''}`}>{label}</span></> : null}
