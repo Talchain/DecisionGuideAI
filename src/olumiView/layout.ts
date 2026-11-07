@@ -667,3 +667,18 @@ export function notesBesideTiming(run: ViewRun): ViewRun['notes'] {
   const said = timing.map((t) => bare(`Olumi's what-if for ${t.label}, not their figure`))
   return run.notes.filter((n) => !said.some((w) => bare(n.text).startsWith(w)))
 }
+
+/**
+ * COACHING ON ITS CARD (track 4 step 2, DL 7 Nov), THE ONE ADAPTER from a reply's next step to the cards it names: today core's
+ * `next.about` (record ids, which the canvas uses as its card ids), each once, in core's order. When the DL's coaching field lands, only
+ * this body changes; a record that is not a card maps to its card HERE. An id with no card on the canvas lights nothing (ring.ts).
+ */
+export function nextCardsOf(next: { readonly about: readonly string[] }): readonly string[] {
+  return [...new Set(next.about)]
+}
+/** The cards the newest next step keeps lit at rest: its cards in core's order, less any already in the person's focus (a card they
+ *  selected, or the card Olumi's note is open on): one focus per screen. */
+export function restingRingOf(cards: readonly string[], inFocus: readonly string[]): readonly string[] {
+  return cards.filter((id) => !inFocus.includes(id))
+}
+

@@ -16,7 +16,7 @@ import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocu
 import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type ViewTurn } from './client'
 import { useViewStore } from './store'
 import { usePreMortemGate, useViewLens } from './lens'
-import { figureFirstOf, olumiKey, optionInFocusOf, sessionOf, type Session } from './layout'
+import { figureFirstOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
 import { derivedUuidOf } from '../olumiCore/team/sid'
 import { isForThisPage, useMe } from '../olumiCore/me'
 import { useCanvasStore } from '../canvas/store'
@@ -29,7 +29,7 @@ import type { AIInputBarProps } from '../canvas/components/AIInputBar'
 import { useUIStore } from '../stores/uiStore'
 import { FigureEdit } from './FigureEdit'
 import { V10_METHODS, withMethodPrefix } from '../presentation/V10MethodChips'
-import { ringCards } from './ring'
+import { endRing, pointRing, restRing } from './ring'
 import { Button } from '../components/ui/Button'
 import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
@@ -98,12 +98,24 @@ function Stories({ answer, at }: { answer: NonNullable<ViewTurn['answer']>; at: 
   )
 }
 
+const NO_CARDS: readonly string[] = []
+
 /** One turn of the conversation as the View holds it. `answerFirst`: Olumi's reply above the words it answers (the newest turn, lane C). */
 function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: string; answerFirst?: boolean; moves?: boolean }) {
   // The cards this turn's next step lit are cleared if the turn leaves the page while they are lit (Codex review dgai-v10 00002 ledger).
+  const about = t.answer === null ? NO_CARDS : nextCardsOf(t.answer.next)
   const lit = useRef(false)
-  useEffect(() => () => { if (lit.current) ringCards([]) }, [])
-  const ring = (on: boolean) => { lit.current = on; ringCards(on ? t.answer?.next.about ?? [] : []) }
+  useEffect(() => () => { if (lit.current) endRing() }, [])
+  const ring = (on: boolean) => { lit.current = on; if (on) pointRing(about); else endRing() }
+  // Coaching on its card (track 4 step 2): the newest reply's next step keeps the cards it names lit at rest (ring.ts). The card Olumi's
+  // note is open on steps out, as a selected card does in ring.ts: one focus per screen. Keyed by value, so an equal reply rewrites nothing.
+  const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] ?? null)
+  const restKey = answerFirst ? restingRingOf(about, noted === null ? NO_CARDS : [noted]).join('\u0000') : ''
+  useEffect(() => {
+    if (!answerFirst) return undefined
+    restRing(restKey === '' ? NO_CARDS : restKey.split('\u0000'))
+    return () => restRing(NO_CARDS)
+  }, [answerFirst, restKey])
   const said = answerFirst
     // One line under the reply, the whole of what was said on hover: a brief quoted in full repeated the person's own words (4 Nov drive).
     ? <p className={`${typography.viewPanelMeta} text-text-light`} title={t.said} data-testid="view-chat-in-reply">In reply to: <span data-view={`${at}.said`}>{t.said}</span></p>
@@ -122,7 +134,7 @@ function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: 
         </details>
       )}
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
-      <p tabIndex={t.answer.next.about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
+      <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
         onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>
       {moves && t.answer.next.newest ? <MoveTap turn={t.id} next={t.answer.next} /> : null}
       <Stories answer={t.answer} at={at} />
