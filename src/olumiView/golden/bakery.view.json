@@ -105,6 +105,47 @@
     "failed": []
    },
    {
+    "id": "extra_sold_per_oven",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "extra sold per oven",
+    "typed": false,
+    "detail": "extra sold per oven · quantity · Proposed by Olumi: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes. · Plausible range: 60 to 90 loaves/week/oven",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "60 to 90 loaves/week/oven",
+     "title": "Plausible range: 60 to 90 loaves/week/oven",
+     "edit": {
+      "prompt": "New figure for “extra sold per oven” (loaf/week/oven): one number, or a range like 150 to 400",
+      "ask": "For “extra sold per oven”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes."
+    },
+    "failed": []
+   },
+   {
     "id": "extra_hours_sold",
     "family": "quantity",
     "glyph": "●",
@@ -173,13 +214,12 @@
     "badge": {
      "records": [
       "ovens_added",
-      "extra_sold_per_oven",
       "hours_on",
       "sales_rel"
      ],
-     "text": "● = +4",
-     "title": "quantity: ovens added\nquantity: extra sold per oven\nquantity: hours on\nrelation: how sales is worked out",
-     "label": "Expand 4 reasoning records",
+     "text": "● = +3",
+     "title": "quantity: ovens added\nquantity: hours on\nrelation: how sales is worked out",
+     "label": "Expand 3 reasoning records",
      "open": false,
      "proposed": false,
      "change": ""
@@ -848,6 +888,18 @@
     "remove": null
    },
    {
+    "from": "extra_sold_per_oven",
+    "to": "sales",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "how much · Proposed by Olumi: Olumi's estimate",
+    "effect": null,
+    "remove": null
+   },
+   {
     "from": "extra_hours_sold",
     "to": "sales",
     "kind": "plain",
@@ -977,13 +1029,13 @@
    },
    {
     "from": "oven_repair",
-    "to": "sales",
-    "kind": "through",
+    "to": "extra_sold_per_oven",
+    "kind": "plain",
     "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through extra sold per oven · Proposed by Olumi: Olumi's estimate",
+    "title": "may change",
     "effect": null,
     "remove": null
    }

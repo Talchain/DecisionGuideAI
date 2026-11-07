@@ -309,6 +309,81 @@
     "failed": []
    },
    {
+    "id": "existing_market_acquisitions",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "New customers from existing markets",
+    "typed": false,
+    "detail": "New customers from existing markets · quantity · Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated what-if, not a forecast: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No sector or acquisition history was supplied. · Plausible range: 10 to 160 customers/month",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated what-if, not a forecast: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No sector or acquisition history was supplied."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "10 to 160 customers/month",
+     "title": "Plausible range: 10 to 160 customers/month",
+     "edit": {
+      "prompt": "New figure for “New customers from existing markets” (customer/month): one number, or a range like 150 to 400",
+      "ask": "For “New customers from existing markets”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated what-if, not a forecast: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No sector or acquisition history was supplied."
+    },
+    "failed": []
+   },
+   {
+    "id": "customer_flow_assumptions",
+    "family": "assumption",
+    "glyph": "◇",
+    "heading": "Customer flow assumptions",
+    "typed": true,
+    "detail": "Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets. · assumption · Proposed by Olumi: Minimal stock-flow conventions. The brief does not specify revenue churn, cohort behaviour, cannibalisation or management-capacity effects. · Applied in the calculation",
+    "col": 1,
+    "h": 112,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Minimal stock-flow conventions. The brief does not specify revenue churn, cohort behaviour, cannibalisation or management-capacity effects."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: Minimal stock-flow conventions. The brief does not specify revenue churn, cohort behaviour, cannibalisation or management-capacity effects."
+    },
+    "failed": []
+   },
+   {
     "id": "customers",
     "family": "quantity",
     "glyph": "●",
@@ -340,7 +415,6 @@
      "records": [
       "percent_conversion",
       "churn_fraction",
-      "existing_market_acquisitions",
       "europe_acquisitions",
       "total_acquisitions",
       "customer_losses",
@@ -350,9 +424,9 @@
       "customer_stock",
       "monthly_churn_frequency"
      ],
-     "text": "● = +11",
-     "title": "quantity: Percentage to fraction\nquantity: Monthly churn fraction\nquantity: New customers from existing markets\nquantity: Incremental European customer acquisitions\nquantity: Total monthly new customers\nquantity: Monthly customers lost\nrelation: how Monthly churn fraction is worked out\nrelation: how Total monthly new customers is worked out\nrelation: how Monthly customers lost is worked out\nrelation: how Customer base is worked out\nquantity: Monthly churn application frequency",
-     "label": "Expand 11 reasoning records",
+     "text": "● = +10",
+     "title": "quantity: Percentage to fraction\nquantity: Monthly churn fraction\nquantity: Incremental European customer acquisitions\nquantity: Total monthly new customers\nquantity: Monthly customers lost\nrelation: how Monthly churn fraction is worked out\nrelation: how Total monthly new customers is worked out\nrelation: how Monthly customers lost is worked out\nrelation: how Customer base is worked out\nquantity: Monthly churn application frequency",
+     "label": "Expand 10 reasoning records",
      "open": false,
      "proposed": false,
      "change": ""
@@ -527,40 +601,6 @@
      "by": "olumi",
      "text": "Proposed by Olumi",
      "title": "Proposed by Olumi: Supplies a testable reading while leaving target scope and deadline open for correction."
-    },
-    "failed": []
-   },
-   {
-    "id": "customer_flow_assumptions",
-    "family": "assumption",
-    "glyph": "◇",
-    "heading": "Customer flow assumptions",
-    "typed": true,
-    "detail": "Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets. · assumption · Proposed by Olumi: Minimal stock-flow conventions. The brief does not specify revenue churn, cohort behaviour, cannibalisation or management-capacity effects. · Applied in the calculation",
-    "col": 3,
-    "h": 112,
-    "olumi": {
-     "glyph": "◆",
-     "title": "Proposed by Olumi: Minimal stock-flow conventions. The brief does not specify revenue churn, cohort behaviour, cannibalisation or management-capacity effects."
-    },
-    "change": null,
-    "focus": false,
-    "challenged": false,
-    "doubt": false,
-    "figure": null,
-    "premises": [],
-    "rows": [],
-    "driver": null,
-    "status": null,
-    "bound": null,
-    "reason": "Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
-    "badge": null,
-    "values": null,
-    "rests_on": [],
-    "author": {
-     "by": "olumi",
-     "text": "Proposed by Olumi",
-     "title": "Proposed by Olumi: Minimal stock-flow conventions. The brief does not specify revenue churn, cohort behaviour, cannibalisation or management-capacity effects."
     },
     "failed": []
    },
@@ -1225,6 +1265,18 @@
     "remove": null
    },
    {
+    "from": "existing_market_acquisitions",
+    "to": "customers",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Total monthly new customers · Proposed by Olumi: Arithmetic identity for monthly new customers. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "effect": null,
+    "remove": null
+   },
+   {
     "from": "customers",
     "to": "customers",
     "kind": "through",
@@ -1466,13 +1518,13 @@
    },
    {
     "from": "customer_flow_assumptions",
-    "to": "customers",
+    "to": "existing_market_acquisitions",
     "kind": "reason",
-    "label": "",
+    "label": "◇",
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "worked out through New customers from existing markets, Total monthly new customers · Proposed by Olumi: Arithmetic identity for monthly new customers. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "title": "assumption: Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
     "effect": null,
     "remove": null
    },

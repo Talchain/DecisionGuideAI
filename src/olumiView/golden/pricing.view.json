@@ -164,6 +164,47 @@
     "failed": []
    },
    {
+    "id": "cups_change",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "cups change",
+    "typed": false,
+    "detail": "cups change · quantity · Proposed by Olumi: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month. · Plausible range: −900 to −100 cups/month",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "−900 to −100 cups/month",
+     "title": "Plausible range: −900 to −100 cups/month",
+     "edit": {
+      "prompt": "New figure for “cups change” (cup/month): one number, or a range like 150 to 400",
+      "ask": "For “cups change”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
+    },
+    "failed": []
+   },
+   {
     "id": "profit",
     "family": "quantity",
     "glyph": "●",
@@ -194,14 +235,13 @@
     "badge": {
      "records": [
       "rise_on",
-      "cups_change",
       "cups",
       "cups_rel",
       "profit_rel"
      ],
-     "text": "● = +5",
-     "title": "quantity: rise on\nquantity: cups change\nquantity: cups\nrelation: how cups is worked out\nrelation: how profit is worked out",
-     "label": "Expand 5 reasoning records",
+     "text": "● = +4",
+     "title": "quantity: rise on\nquantity: cups\nrelation: how cups is worked out\nrelation: how profit is worked out",
+     "label": "Expand 4 reasoning records",
      "open": false,
      "proposed": false,
      "change": ""
@@ -477,6 +517,18 @@
   "links": [
    {
     "from": "cups_now",
+    "to": "profit",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through cups · Proposed by Olumi: Olumi's estimate",
+    "effect": null,
+    "remove": null
+   },
+   {
+    "from": "cups_change",
     "to": "profit",
     "kind": "through",
     "label": "",
