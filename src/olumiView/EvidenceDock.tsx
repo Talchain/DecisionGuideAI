@@ -118,14 +118,14 @@ function Considered({ view, e }: { view: View; e: Evidence }): JSX.Element | nul
 }
 
 /** The other evidence core gathers in the same chip ("Priya and Tom added evidence"): each opens in its bringer's name. */
-function AlsoHere({ view, e, card, ids }: { view: View; e: Evidence; card: string; ids: readonly number[] }): JSX.Element | null {
+function AlsoHere({ view, e, card, chip, ids }: { view: View; e: Evidence; card: string; chip: string; ids: readonly number[] }): JSX.Element | null {
   const select = useReveal((s) => s.selectEvidence)
   const rest = ids.flatMap((id) => { const x = view.evidence.find((y) => y.id === id); return x === undefined || x.id === e.id ? [] : [x] })
   if (rest.length === 0) return null
   return (
     <div className="flex flex-wrap items-center gap-3" data-testid="evidence-dock-also">
       {rest.map((x) => (
-        <button key={x.id} type="button" data-evidence-also={x.id} onClick={() => select(x.id, card)}
+        <button key={x.id} type="button" data-evidence-also={x.id} onClick={() => select(x.id, card, chip)}
           className={`${META} inline-flex min-h-6 cursor-pointer items-center gap-1.5 text-text-body underline underline-offset-2 hover:text-text-header`}>
           <span aria-hidden="true" className={AVATAR}>{initial(x.by)}</span>{x.by}’s evidence
         </button>
@@ -161,7 +161,7 @@ export function EvidenceDock({ view }: { view: View }): JSX.Element | null {
         </ol>
       )}
       <Considered view={view} e={e} />
-      {chip === null ? null : <AlsoHere view={view} e={e} card={chip.card} ids={chip.evidence} />}
+      {chip === null ? null : <AlsoHere view={view} e={e} card={chip.card} chip={chip.key} ids={chip.evidence} />}
     </section>
   )
 }

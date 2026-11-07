@@ -23,7 +23,7 @@ const DIAG = 'paid_enterprise_diagnostic'
 
 beforeEach(() => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-a88ba245176e', sid: real.id, view: real, status: 'ready', error: null, stale: false, at: null })
-  useReveal.setState({ selected: null, evidence: null, card: null, kind: null })
+  useReveal.setState({ selected: null, evidence: null, card: null, chip: null })
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
@@ -78,12 +78,13 @@ describe('the dock’s source and the rest of an evidence chip (real Views)', ()
     const st: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-stance.view3.json'), 'utf8'))
     const [first, second] = st.evidence
     useViewStore.setState({ view: st, sid: st.id })
-    useReveal.setState({ evidence: first!.id, card: DIAG, kind: 'evidence' })
+    const EVID = `${(st.collab as unknown as { marks: { card: string; kind: string }[] }).marks.find((m) => m.kind === 'evidence')!.card}:evidence`
+    useReveal.setState({ evidence: first!.id, card: DIAG, chip: EVID })
     render(<EvidenceDock view={st} />)
     const also = screen.getByTestId('evidence-dock-also').querySelector(`[data-evidence-also="${second!.id}"]`) as HTMLElement
     expect(also.textContent).toBe(`${second!.by.slice(0, 1)}${second!.by}’s evidence`)
     fireEvent.click(also)
-    expect(useReveal.getState()).toMatchObject({ evidence: second!.id, card: DIAG, kind: 'evidence' })
+    expect(useReveal.getState()).toMatchObject({ evidence: second!.id, card: DIAG, chip: EVID })
     expect(screen.getByTestId('evidence-dock-words').textContent).toBe(second!.text)
   })
   it('CONTRAST: opened from a document mark (no chip), there is no switch', () => {

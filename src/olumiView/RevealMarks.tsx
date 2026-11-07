@@ -10,23 +10,23 @@ import { useUIStore } from '../stores/uiStore'
 import { typography } from '../styles/typography'
 import { useViewStore } from './store'
 import { CARD_WIDTH } from './layout'
-import { marksOn, openChipOf, revealOf, useReveal, type CardChip, type Mark, type MarkKind } from './reveal'
+import { marksOn, openChipOf, revealOf, useReveal, type CardChip, type Mark } from './reveal'
 import { evidenceOn } from './evidence'
 
 /** Nothing opens on an earlier version: it is drawn as it was, without the dock. */
 const onEarlier = () => useViewStore.getState().at !== null
 
 /** Open one view in the dock (and, from a chip, the card it concerns and which of its chips: its ring is the one selection ring). */
-export function openView(id: number, card: string | null = null, kind: MarkKind | null = null): void {
+export function openView(id: number, card: string | null = null, chip: string | null = null): void {
   if (onEarlier()) return
-  useReveal.getState().select(id, card, kind)
+  useReveal.getState().select(id, card, chip)
   useUIStore.getState().forceActivateOutputTab('team')
 }
 
-/** Open one piece of evidence in the dock (from a chip, with the card it sits on). */
-export function openEvidence(id: number, card: string | null = null): void {
+/** Open one piece of evidence in the dock (from a chip, with the card it sits on and that chip). */
+export function openEvidence(id: number, card: string | null = null, chip: string | null = null): void {
   if (onEarlier()) return
-  useReveal.getState().selectEvidence(id, card)
+  useReveal.getState().selectEvidence(id, card, chip)
   useUIStore.getState().forceActivateOutputTab('team')
 }
 
@@ -123,11 +123,11 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
         : chips.filter((m) => chip.views.includes(m.view)).map((m) => markWords(m, heading(m)))
       const hover = [chip.text, ...detail].join('\n')
       // No ring of its own when open: the card's ring is the one selection ring (approved v2.1); the open chip is raised.
-      const on = openChip !== null && openChip.card === chip.card && openChip.kind === chip.kind
+      const on = openChip?.key === chip.key
       return (
-        <button key={chip.kind} type="button" aria-pressed={on} aria-label={hover.replace(/\n/g, ' · ')} title={hover} data-reveal-card-chip={card} data-reveal-kind={chip.kind}
+        <button key={chip.key} type="button" aria-pressed={on} aria-label={hover.replace(/\n/g, ' · ')} title={hover} data-reveal-card-chip={card} data-reveal-kind={chip.kind}
           data-reveal-chip={chip.kind === 'evidence' ? undefined : chip.views[0]} data-reveal-evidence-chip={chip.kind === 'evidence' ? chip.evidence[0] : undefined}
-          onClick={(e) => { e.stopPropagation(); if (chip.kind === 'evidence') openEvidence(chip.evidence[0]!, card); else openView(chip.views[0]!, card, chip.kind) }}
+          onClick={(e) => { e.stopPropagation(); if (chip.kind === 'evidence') openEvidence(chip.evidence[0]!, card, chip.key); else openView(chip.views[0]!, card, chip.key) }}
           className={`pointer-events-auto inline-flex h-6 max-w-full cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel pl-0.5 pr-2.5 ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${i === 0 ? 'flex-none' : 'min-w-0'} ${on ? 'shadow-2' : ''}`}>
           <People people={chip.people} />
           <span className="truncate" data-reveal-chip-text="">{chip.text}</span>

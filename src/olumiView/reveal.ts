@@ -86,6 +86,8 @@ export function coreMarksOf(view: View): readonly CoreMark[] | undefined {
 
 /** Core's mark drawn as one chip under a card: its words, its views (in core's order) and their people. */
 export interface CardChip {
+  /** Which mark this is, stable across reads: core's record id and the mark's kind (core gives one mark per record and kind). */
+  readonly key: string
   readonly card: string
   readonly kind: MarkKind
   readonly text: string
@@ -199,7 +201,9 @@ function readReveal(view: View): Reveal | null {
       ? cm.evidence.flatMap((id) => { const e = view.evidence.find((x) => x.id === id); return e === undefined ? [] : [{ id, by: e.by }] })
       : cm.views.flatMap((id) => { const v = views.find((x) => x.id === id); return v === undefined ? [] : [{ id, by: v.by }] })
     if (people.length === 0) continue
-    const chip: CardChip = { card, kind: cm.kind, text: cm.text, views: cm.kind === 'evidence' ? [] : people.map((p) => p.id), evidence: cm.kind === 'evidence' ? people.map((p) => p.id) : [], people, reading: cm.reading, options: cm.options }
+    const key = `${cm.card}:${cm.kind}`
+    if ((cardChips.get(card) ?? []).some((c) => c.key === key)) continue
+    const chip: CardChip = { key, card, kind: cm.kind, text: cm.text, views: cm.kind === 'evidence' ? [] : people.map((p) => p.id), evidence: cm.kind === 'evidence' ? people.map((p) => p.id) : [], people, reading: cm.reading, options: cm.options }
     cardChips.set(card, [...(cardChips.get(card) ?? []), chip])
   }
   for (const [card, list] of cardChips) cardChips.set(card, [...list].sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind]))
@@ -232,24 +236,34 @@ export const useReveal = create<{
   readonly evidence: number | null
   /** The card whose chip was opened (its ring is the one selection ring on the board); null when opened another way. */
   readonly card: string | null
-  /** Which of that card's chips (a card may have two: "Priya and Tom differ", "Priya and Tom added evidence"). */
-  readonly kind: MarkKind | null
-  readonly select: (id: number | null, card?: string | null, kind?: MarkKind | null) => void
-  readonly selectEvidence: (id: number | null, card?: string | null) => void
+  /** Which of that card's chips was opened, by its key (a card may have several: "Priya and Tom differ", "Priya and Tom added evidence"). */
+  readonly chip: string | null
+  readonly select: (id: number | null, card?: string | null, chip?: string | null) => void
+  readonly selectEvidence: (id: number | null, card?: string | null, chip?: string | null) => void
 }>()((set) => ({
   selected: null,
   evidence: null,
   card: null,
-  kind: null,
-  select: (id, card = null, kind = null) => set({ selected: id, card: id === null ? null : card, kind: id === null || card === null ? null : kind, evidence: null }),
-  selectEvidence: (id, card = null) => set({ evidence: id, card: id === null ? null : card, kind: id === null || card === null ? null : 'evidence', selected: null }),
+  chip: null,
+  select: (id, card = null, chip = null) => set({ selected: id, card: id === null ? null : card, chip: id === null || card === null ? null : chip, evidence: null }),
+  selectEvidence: (id, card = null, chip = null) => set({ evidence: id, card: id === null ? null : card, chip: id === null || card === null ? null : chip, selected: null }),
 }))
 
-/** The chip open on the board now (core's mark), or null: the opened card's chip of the opened kind that holds the open view or evidence. */
-export function openChipOf(r: Reveal | null, open: { readonly selected: number | null; readonly evidence: number | null; readonly card: string | null; readonly kind: MarkKind | null }): CardChip | null {
+/**
+ * The chip open on the board now (core's mark), or null: the opened card's chip with the opened key that still holds the open view or
+ * evidence; opened without a key (an older caller), the card's first chip that holds it. A key the View no longer has opens no chip.
+ */
+export function openChipOf(r: Reveal | null, open: { readonly selected: number | null; readonly evidence: number | null; readonly card: string | null; readonly chip: string | null }): CardChip | null {
   if (r === null || open.card === null) return null
-  return (r.cardChips.get(open.card) ?? []).find((c) => (open.kind === null || c.kind === open.kind)
-    && (open.selected !== null ? c.views.includes(open.selected) : open.evidence !== null && c.evidence.includes(open.evidence))) ?? null
+  const holds = (c: CardChip) => (open.selected !== null ? c.views.includes(open.selected) : open.evidence !== null && c.evidence.includes(open.evidence))
+  const list = r.cardChips.get(open.card) ?? []
+  return list.find((c) => (open.chip === null || c.key === open.chip) && holds(c)) ?? null
+}
+
+/** The canvas's nodes with the open card's node marked `v11-open` (ring.ts steps out of it: one focus per screen); the same array when none is open. */
+export function withOpenCard<N extends { readonly id: string; readonly className?: string }>(nodes: N[], card: string | null): N[] {
+  if (card === null || !nodes.some((n) => n.id === card)) return nodes
+  return nodes.map((n) => (n.id === card ? { ...n, className: [n.className, 'v11-open'].filter(Boolean).join(' ') } : n))
 }
 
 /**
@@ -259,7 +273,7 @@ export function openChipOf(r: Reveal | null, open: { readonly selected: number |
 useViewStore.subscribe((s, prev) => {
   const r = useReveal.getState()
   if (r.selected === null && r.evidence === null && r.card === null) return
-  const clear = () => useReveal.setState({ selected: null, evidence: null, card: null, kind: null })
+  const clear = () => useReveal.setState({ selected: null, evidence: null, card: null, chip: null })
   if (s.sid !== prev.sid || s.uuid !== prev.uuid || s.at !== prev.at) return clear()
   if (s.view === prev.view || s.view === null) return
   if (r.selected !== null && !s.view.collab.shared.some((v) => v.id === r.selected)) return clear()

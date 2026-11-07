@@ -30,9 +30,11 @@ export function useReturnFocus(open: number | null): (close: () => void) => void
   const opener = useRef<HTMLElement | null>(null)
   useEffect(() => {
     if (open === null || typeof document === 'undefined') return
+    // Only a control outside the docks is an opener. A press inside the dock (its button may be gone, leaving focus on the body) or a
+    // click that gave nothing focus keeps the opener already held; the dock unmounts on close, so none outlives it.
     const a = document.activeElement
-    if (a instanceof HTMLElement && a.closest('[data-testid="reveal-dock"], [data-testid="evidence-dock"]') !== null) return
-    opener.current = a instanceof HTMLElement && a !== document.body ? a : null
+    if (!(a instanceof HTMLElement) || a === document.body || a.closest('[data-testid="reveal-dock"], [data-testid="evidence-dock"]') !== null) return
+    opener.current = a
   }, [open])
   return (close) => {
     const o = opener.current
