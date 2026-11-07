@@ -45,7 +45,7 @@ import type { ViewCard, ViewModel } from './client'
 import { useViewStore } from './store'
 import { keyNamesBlueRange } from './layout'
 import { useCardNumber } from './lens'
-import { CardViewChips, CardViewInitials } from './RevealMarks'
+import { CardEvidenceMarks, CardViewChips, CardViewInitials } from './RevealMarks'
 import { useTriedCards } from './reveal'
 
 /** v10's rulings for the whole lane while its canvas is up: the attribute v10's stylesheets are scoped to. */
@@ -232,8 +232,9 @@ export function ViewCardV10(props: NodeProps) {
         {places.driver === null ? null : createPortal(<ViewDriverBadge card={(props.data as ViewCardData).card} />, places.driver)}
         {places.band === null || band === null ? null : createPortal(<ViewOptionBand id={props.id} band={band} />, places.band)}
         {places.values === null ? null : createPortal(<ViewValuesBand card={(props.data as ViewCardData).card} />, places.values)}
-        {/* V11: the team's revealed views on the card they are about (./reveal.ts): initials in the marks row, the disagreement below. */}
-        {places.marks === null ? null : createPortal(<CardViewInitials card={props.id} />, places.marks)}
+        {/* V11: the team's revealed views on the card they are about (./reveal.ts): initials in the marks row, the disagreement below; the
+            team's evidence on the cards it concerns (./evidence.ts), beside the initials. */}
+        {places.marks === null ? null : createPortal(<><CardViewInitials card={props.id} /><CardEvidenceMarks card={props.id} /></>, places.marks)}
         {places.rail === null ? null : createPortal(<CardViewChips card={props.id} />, places.rail)}
       </div>
     </V10Scope>

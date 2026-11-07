@@ -3,17 +3,49 @@
  * as initials in its marks row; below it, on its outgoing link, the consequential disagreement as a chip. Selecting either opens that view
  * in the dock (the Team tab). Every word is core's: the person's name, their figure's label and text, core's heading for the effect.
  */
-import { GitFork } from 'lucide-react'
+import { FileText, GitFork } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
 import { typography } from '../styles/typography'
 import { useViewStore } from './store'
 import { CARD_WIDTH } from './layout'
 import { marksOn, revealOf, useReveal, type Mark } from './reveal'
+import { evidenceOn } from './evidence'
 
 /** Open one view in the dock. */
 export function openView(id: number): void {
   useReveal.getState().select(id)
   useUIStore.getState().forceActivateOutputTab('team')
+}
+
+/** Open one piece of evidence in the dock. */
+export function openEvidence(id: number): void {
+  useReveal.getState().selectEvidence(id)
+  useUIStore.getState().forceActivateOutputTab('team')
+}
+
+/**
+ * V11 change 1: each piece of evidence the team shared, on the cards it concerns, as a document mark in the card's marks row (beside the
+ * people's initials). Its hover and accessible name are who brought it and their words, as given.
+ */
+export function CardEvidenceMarks({ card }: { card: string }): JSX.Element | null {
+  const view = useViewStore((s) => s.view)
+  const open = useReveal((s) => s.evidence)
+  const items = evidenceOn(view, card)
+  if (items.length === 0) return null
+  return (
+    <span className="nodrag inline-flex gap-1" data-testid={`evidence-marks-${card}`}>
+      {items.map((e) => {
+        const on = open === e.id, words = `${e.by} · ${e.text}`
+        return (
+          <button key={e.id} type="button" aria-pressed={on} aria-label={words} title={e.source === null ? words : `${words} · ${e.source}`} data-evidence-mark={e.id}
+            onClick={(ev) => { ev.stopPropagation(); openEvidence(e.id) }}
+            className={`pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border bg-canvas text-text-body transition-colors duration-fast hover:border-text-header ${on ? 'border-text-header ring-1 ring-text-header' : 'border-panel-border'}`}>
+            <FileText aria-hidden="true" className="h-3 w-3" />
+          </button>
+        )
+      })}
+    </span>
+  )
 }
 
 const initial = (by: string) => by.slice(0, 1).toUpperCase()

@@ -146,8 +146,18 @@ export function marksOn(r: Reveal | null, card: string): { readonly chips: reado
  */
 export const useTriedCards = create<{ readonly ids: readonly string[] }>()(() => ({ ids: [] }))
 
-/** The view a person opens from the canvas; the dock draws it. Null when none is open. */
-export const useReveal = create<{ readonly selected: number | null; readonly select: (id: number | null) => void }>()((set) => ({
+/**
+ * What a person opens from the canvas, which the dock draws: one revealed view (`selected`) or one piece of evidence (`evidence`), never
+ * both. Null when none is open.
+ */
+export const useReveal = create<{
+  readonly selected: number | null
+  readonly evidence: number | null
+  readonly select: (id: number | null) => void
+  readonly selectEvidence: (id: number | null) => void
+}>()((set) => ({
   selected: null,
-  select: (id) => set({ selected: id }),
+  evidence: null,
+  select: (id) => set({ selected: id, evidence: null }),
+  selectEvidence: (id) => set({ evidence: id, selected: null }),
 }))

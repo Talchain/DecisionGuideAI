@@ -13,6 +13,7 @@ import { ViewsPanel } from './ViewsPanel'
 import { BODY, CARD, ERR, H, META } from './ui'
 import { TEAM_PAST_HELD } from './writes'
 import { RevealDock, revealDockShown } from '../../olumiView/RevealDock'
+import { EvidenceDock, evidenceDockShown } from '../../olumiView/EvidenceDock'
 import { useReveal } from '../../olumiView/reveal'
 
 /**
@@ -31,10 +32,14 @@ export function TeamTab(): JSX.Element {
   const past = useViewStore((s) => s.at)
   const me = useMe((s) => s.me)
   const shown: View | null = view !== null && isForThisPage(view, me) ? view : null
-  // V11: a view opened from its mark on the canvas fills the tab (one focus); closing it brings the team's panels back.
+  // V11: a view or a piece of evidence opened from its mark on the canvas fills the tab (one focus); closing it brings the panels back.
   const opened = useReveal((s) => s.selected)
+  const openedEvidence = useReveal((s) => s.evidence)
   if (shown !== null && sid && past === null && revealDockShown(shown, opened)) {
     return <div data-testid="team-tab" className="grid min-h-full pb-6"><RevealDock view={shown} /></div>
+  }
+  if (shown !== null && sid && past === null && evidenceDockShown(shown, openedEvidence)) {
+    return <div data-testid="team-tab" className="grid min-h-full pb-6"><EvidenceDock view={shown} /></div>
   }
 
   return (

@@ -12,3 +12,6 @@
   `effects[].chip`, `collab.next`), read as "Maya" on a fresh copy of the same board, seed 2 (7 Nov): Priya and Tom give different
   figures for "Time to first signed contract for the paid diagnostic" (6 to 12 vs 1 to 3 months; core: both `disagreement`, Tom's effect
   `changes` with core's chip sentence, core's round question in `next`); Maya's figure is on another card (`unique`). Seeded demo people.
+- `consulting-evidence.view3.json`: the same REAL View (core eaab1331, seed 2) after two pieces of evidence were added through core's
+  zero-call `POST …/evidence` by the seeded Priya and Tom (words in `~/olumi-work/v11-serve/seed.env`). Not considered by Olumi (that
+  is an AI turn, refused on the zero-call core), so `considered` is null and core sends no `chain` yet.
