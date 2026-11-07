@@ -29,7 +29,8 @@ type Cell = { value: string; title: string; olumi: Mark | null; lead: string | n
 type Line = { text: string; title: string }
 type Side = { id: string; title: string; name: string; note: string | null; kind?: string; about?: string | null }
 type AimSide = { label: string; measure: string; target: string | null }
-type OptionSide = { cells: Cell[]; uncertainty?: Line | null; driver?: (Line & { figure: string; label: string }) | null }
+/** `moves_most` (a saved what-if's side, core wip/compare cc13ef0c): which of its changes, on its own, moves this chance most, in core's words. */
+type OptionSide = { cells: Cell[]; uncertainty?: Line | null; driver?: (Line & { figure: string; label: string }) | null; moves_most?: (Line & { figure: string }) | null }
 type OptionRow = { label: string; only_in: 'a' | 'b' | null; only_in_text: string | null; a: OptionSide | null; b: OptionSide | null }
 export type AimStatus = 'comparable' | 'different_target' | 'not_comparable' | 'only_a' | 'only_b'
 type AimRow = { label: string; kind: 'aim' | 'limit'; status: AimStatus | string; limitation: string | null; only_in_text: string | null; a: AimSide | null; b: AimSide | null; options: OptionRow[]
@@ -61,6 +62,7 @@ function Cells({ side }: { side: OptionSide | null }): JSX.Element {
       {/* Core's own range for what the aim measures under this option (its uncertainty), and the figure its chance moves most with. */}
       {side?.uncertainty && words(side.uncertainty.text) ? <p className={META} title={side.uncertainty.title} data-compare-uncertainty="">{side.uncertainty.text}</p> : null}
       {side?.driver && words(side.driver.text) ? <p className={META} title={side.driver.title} data-compare-driver={side.driver.figure}>{side.driver.text}</p> : null}
+      {side?.moves_most && words(side.moves_most.text) ? <p className={`${BODY} break-words`} title={side.moves_most.title} data-compare-moves={side.moves_most.figure}>{side.moves_most.text}</p> : null}
     </div>
   )
 }
@@ -231,13 +233,16 @@ function Pick({ id, label, groups, value, disabled, onChange }: { id: string; la
  * name. Core tries it on a copy of the approved version shown and keeps it with its Run; nothing in the model changes. Core's refusal is
  * drawn in its own words.
  */
+/** At most this many figures in one what-if from this form (core takes up to 20). */
+const WHATIF_FIGURES = 5
+
 function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => void }): JSX.Element | null {
   const view = useViewStore((s) => s.view), at = useViewStore((s) => s.at)
   const model = useViewStore(shownModel)
   const figures = arr(model?.cards).filter((c) => c.figure?.edit != null)
   const base = at === null ? view?.version?.id ?? null : null
-  const [quantity, setQuantity] = useState<string | null>(null)
-  const [typed, setTyped] = useState('')
+  // Each row is one figure of the model and what the person types for it; one row to start, more on "Add another figure".
+  const [rows, setRows] = useState<{ quantity: string | null; typed: string }[]>([{ quantity: null, typed: '' }])
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -245,18 +250,25 @@ function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => vo
   // While a change waits for approval no card offers its figure (core's `figure.edit` is null): said once, so the form is not just missing.
   if (base !== null && figures.length === 0 && view?.proposal != null) return <p className={META} data-testid="whatif-save-waiting">Approve or set aside the waiting change to save a what-if here.</p>
   if (base === null || figures.length === 0) return null
-  const pick = quantity !== null && figures.some((c) => c.id === quantity) ? quantity : figures[0]!.id
-  const card = figures.find((c) => c.id === pick)!
-  const ready = typed.trim() !== '' && name.trim() !== '' && !busy
+  // A row's figure: its own pick, else the first figure no earlier row has taken.
+  const picks: string[] = []
+  for (const r of rows) {
+    const own = r.quantity !== null && figures.some((c) => c.id === r.quantity) ? r.quantity : null
+    picks.push(own ?? figures.find((c) => !picks.includes(c.id))?.id ?? figures[0]!.id)
+  }
+  const twice = new Set(picks).size !== picks.length
+  const ready = name.trim() !== '' && rows.every((r) => r.typed.trim() !== '') && !twice && !busy
+  const set = (i: number, patch: Partial<{ quantity: string | null; typed: string }>) => { setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r))); setError(null) }
   const save = async () => {
     if (!ready) return
+    const edits = rows.map((r, i) => ({ quantity: picks[i]!, typed: r.typed }))
     // The same request re-sent keeps its operation id, so core saves it once.
-    const key = JSON.stringify([base, pick, typed, name])
+    const key = JSON.stringify([base, edits, name])
     if (op.current?.key !== key) op.current = { key, op: newOp() }
     setBusy(true); setError(null)
     try {
-      const r = await call<{ whatif: string }>('POST', `/api/scenarios/${encodeURIComponent(sid)}/whatifs`, { base, name, edits: [{ quantity: pick, typed }], op: op.current.op })
-      setTyped(''); setName(''); op.current = null
+      const r = await call<{ whatif: string }>('POST', `/api/scenarios/${encodeURIComponent(sid)}/whatifs`, { base, name, edits, op: op.current.op })
+      setRows([{ quantity: null, typed: '' }]); setName(''); op.current = null
       onSaved(r.whatif)
     } catch (e) {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through.')
@@ -266,18 +278,27 @@ function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => vo
     <form className={`${CARD}`} data-testid="whatif-save" aria-label="Save a what-if" onSubmit={(e) => { e.preventDefault(); void save() }}>
       <h4 className={H}>Save a what-if</h4>
       <p className={META}>Tried on a copy of version {view?.version?.n}; the model itself does not change.</p>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="grid gap-1">
-          <span className={META}>Figure</span>
-          <select aria-label="Figure to try" data-testid="whatif-save-figure" className={PICK} value={pick} disabled={busy} onChange={(e) => { setQuantity(e.target.value); setError(null) }}>
-            {figures.map((c) => <option key={c.id} value={c.id} title={c.figure!.title}>{c.heading}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1">
-          <span className={META} title={card.figure!.edit!.ask}>{card.figure!.edit!.prompt}</span>
-          <input data-testid="whatif-save-typed" className={FIELD} value={typed} disabled={busy} placeholder={card.figure!.text} onChange={(e) => { setTyped(e.target.value); setError(null) }} />
-        </label>
-      </div>
+      {rows.map((r, i) => {
+        const card = figures.find((c) => c.id === picks[i])!
+        return (
+          <div key={i} className="grid gap-2 sm:grid-cols-2" data-whatif-row={i}>
+            <label className="grid gap-1">
+              <span className={META}>Figure</span>
+              <select aria-label="Figure to try" data-testid="whatif-save-figure" className={PICK} value={picks[i]} disabled={busy} onChange={(e) => set(i, { quantity: e.target.value })}>
+                {figures.map((c) => <option key={c.id} value={c.id} title={c.figure!.title}>{c.heading}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-1">
+              <span className={META} title={card.figure!.edit!.ask}>{card.figure!.edit!.prompt}</span>
+              <input data-testid="whatif-save-typed" className={FIELD} value={r.typed} disabled={busy} placeholder={card.figure!.text} onChange={(e) => set(i, { typed: e.target.value })} />
+            </label>
+            {rows.length > 1 ? <div className="sm:col-span-2"><Button size="sm" variant="ghost" data-testid="whatif-save-remove" disabled={busy} onClick={() => { setRows((rs) => rs.filter((_, j) => j !== i)); setError(null) }}>Remove this figure</Button></div> : null}
+          </div>
+        )
+      })}
+      {twice ? <p className={ERR} data-testid="whatif-save-twice">Each figure once in a what-if.</p> : null}
+      {rows.length < Math.min(WHATIF_FIGURES, figures.length)
+        ? <div><Button size="sm" variant="ghost" data-testid="whatif-save-more" disabled={busy} onClick={() => { setRows((rs) => [...rs, { quantity: null, typed: '' }]); setError(null) }}>Add another figure</Button></div> : null}
       <label className="grid gap-1">
         <span className={META}>Name this what-if</span>
         <input data-testid="whatif-save-name" className={FIELD} value={name} disabled={busy} maxLength={80} onChange={(e) => { setName(e.target.value); setError(null) }} />

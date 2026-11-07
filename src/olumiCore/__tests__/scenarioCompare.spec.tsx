@@ -233,3 +233,45 @@ describe('compare side by side: two sides from this scenario, its versions, its 
     useViewStore.setState({ view: null, sid: null })
   })
 })
+
+describe('a what-if of several figures, and the change that moves each chance most', () => {
+  const twoFigures = () => useViewStore.setState({ sid: 's_a', at: null, error: null, stale: false, view: { proposal: null, version: { id: 41, n: 2, label: 'v2', changed: [] },
+    model: { cards: [{ id: 'today', heading: 'today', figure: { text: '80 tickets/week', title: 'T', edit: { prompt: 'Tickets a week today', ask: 'A' } } },
+      { id: 'target', heading: 'target', figure: { text: '100 tickets/week', title: 'T', edit: { prompt: 'The target', ask: 'A' } } }] } } as never })
+  it('"Add another figure" takes the next figure; both are posted as typed, in order, with one op', async () => {
+    routed(); twoFigures()
+    render(<CompareWithScenario sid="s_a" />)
+    const form = await screen.findByTestId('whatif-save')
+    fireEvent.click(within(form).getByTestId('whatif-save-more'))
+    const [f1, f2] = within(form).getAllByTestId('whatif-save-figure') as HTMLSelectElement[]
+    expect([f1!.value, f2!.value]).toEqual(['today', 'target'])
+    const [t1, t2] = within(form).getAllByTestId('whatif-save-typed')
+    fireEvent.change(t1!, { target: { value: '95' } }); fireEvent.change(t2!, { target: { value: '110' } })
+    fireEvent.change(within(form).getByTestId('whatif-save-name'), { target: { value: 'Busier and higher' } })
+    fireEvent.click(within(form).getByTestId('whatif-save-go'))
+    await waitFor(() => expect(paths.some((p) => p.startsWith('POST /api/scenarios/s_a/whatifs'))).toBe(true))
+    const body = JSON.parse(paths.find((p) => p.startsWith('POST /api/scenarios/s_a/whatifs'))!.slice('POST /api/scenarios/s_a/whatifs '.length)) as { edits: unknown }
+    expect(body.edits).toEqual([{ quantity: 'today', typed: '95' }, { quantity: 'target', typed: '110' }])
+    useViewStore.setState({ view: null, sid: null })
+  })
+  it('the same figure twice is said and cannot be saved', async () => {
+    routed(); twoFigures()
+    render(<CompareWithScenario sid="s_a" />)
+    const form = await screen.findByTestId('whatif-save')
+    fireEvent.click(within(form).getByTestId('whatif-save-more'))
+    fireEvent.change(within(form).getAllByTestId('whatif-save-figure')[1]!, { target: { value: 'today' } })
+    for (const t of within(form).getAllByTestId('whatif-save-typed')) fireEvent.change(t, { target: { value: '90' } })
+    fireEvent.change(within(form).getByTestId('whatif-save-name'), { target: { value: 'Twice' } })
+    expect(within(form).getByTestId('whatif-save-twice').textContent).toBe('Each figure once in a what-if.')
+    expect((within(form).getByTestId('whatif-save-go') as HTMLButtonElement).disabled).toBe(true)
+    useViewStore.setState({ view: null, sid: null })
+  })
+  it("the what-if's side says, in core's words, which of its changes moves this chance most on its own", () => {
+    const c = JSON.parse(JSON.stringify(PAIR)) as ScenarioComparison
+    const row = (c.aims[0]!.options as unknown as { b: Record<string, unknown> }[])[0]!
+    row.b = { ...row.b, moves_most: { text: 'On its own, ‘today’ takes this chance from about 50% to about 97%, more than any other change in this what-if.', title: 'Set "today" to 95.', figure: 'today' } }
+    const { container } = render(<ScenarioComparisonView c={c} />)
+    const line = container.querySelector('[data-compare-moves]')!
+    expect([line.textContent, line.getAttribute('title'), line.getAttribute('data-compare-moves')]).toEqual(['On its own, ‘today’ takes this chance from about 50% to about 97%, more than any other change in this what-if.', 'Set "today" to 95.', 'today'])
+  })
+})
