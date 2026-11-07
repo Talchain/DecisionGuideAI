@@ -1,0 +1,81 @@
+/**
+ * The ported analysis components' one picking module (as `../layout.ts` is for the View tabs): which View rows go where, in the View's own
+ * order. Nothing here formats, rounds, sorts or words a value; the numbers it reads place marks on a track and are never drawn.
+ */
+import type { ViewCard, ViewModel, ViewRow, ViewRun } from '../client'
+import { optionCards } from '../layout'
+
+/** One row of one option, at its View path (`<card id>.rows.<i>`). */
+export type AimRow = { card: ViewCard; row: ViewRow; i: number }
+/** Every option's rows about one aim: the aim's words are core's `row.aim`, drawn from the first row that carries them. */
+export type AimGroup = { aimId: string | null; aim: { text: string; at: string } | null; rows: AimRow[] }
+
+/**
+ * Every compared option's rows, grouped by the aim each is about: the aims in the order they first appear, each option in core's card
+ * order. Nothing is sorted by its chance and nothing is dropped (a row with no aim keeps a group of its own, with no heading).
+ */
+export function aimGroupsOf(model: ViewModel): AimGroup[] {
+  const groups: AimGroup[] = []
+  const byId = new Map<string | null, AimGroup>()
+  for (const card of optionCards(model)) {
+    card.rows.forEach((row, i) => {
+      const id = row.aim_id ?? null
+      let g = byId.get(id)
+      if (g === undefined) { g = { aimId: id, aim: null, rows: [] }; byId.set(id, g); groups.push(g) }
+      if (g.aim === null && row.kind !== 'none' && row.aim !== '') g.aim = { text: row.aim, at: `${card.id}.rows.${i}.aim` }
+      g.rows.push({ card, row, i })
+    })
+  }
+  return groups
+}
+
+/** Where one aim's outcome bands sit on a shared track: their lowest low and highest high, only when every band is in one unit. Layout only. */
+export function outcomeDomainOf(rows: readonly AimRow[]): { min: number; max: number } | null {
+  let min = Infinity, max = -Infinity, unit: string | null | undefined
+  for (const { row } of rows) {
+    if (row.kind !== 'chance' || row.outcome == null) continue
+    const o = row.outcome
+    if (unit === undefined) unit = o.unit
+    else if (unit !== o.unit) return null
+    if (!Number.isFinite(o.low) || !Number.isFinite(o.high)) continue
+    min = Math.min(min, o.low)
+    max = Math.max(max, o.high)
+  }
+  return Number.isFinite(min) && Number.isFinite(max) && max > min ? { min, max } : null
+}
+
+/** A fraction of a track as a percent, held to the track. Layout only: never drawn as a number. */
+export const trackPct = (fraction: number): number => Math.max(0, Math.min(100, fraction * 100))
+
+export type TippingLine = NonNullable<ViewRun['tipping']>[number]
+
+/** Core's "what would have to be true" lines for one option and one aim, at their View paths (`run.tipping.<i>`). */
+export function tippingFor(run: ViewRun | null, option: string, aim: string | null): { line: TippingLine; i: number }[] {
+  const out: { line: TippingLine; i: number }[] = []
+  ;(run?.tipping ?? []).forEach((line, i) => { if (line.option === option && line.aim === aim && line.line !== '') out.push({ line, i }) })
+  return out
+}
+
+/** The index of a card's first chance row: its driver (what moves its chance most) is drawn there once, never on every aim's row. */
+export const driverRowOf = (card: ViewCard): number => card.rows.findIndex((r) => r.kind === 'chance')
+
+/** Core's analysis lens words (olumi.view/3 `run.lenses`, wip/core-port-fields): one per lens this Run has data for; [] from a core without them. */
+export type Lens = { id: 'goal' | 'outcome'; label: string; title: string }
+/** Each lens core sends that this page draws, with its index in `run.lenses` (its View path). */
+export function lensesOf(run: ViewRun | null): (Lens & { i: number })[] {
+  const l = (run as { lenses?: unknown } | null)?.lenses
+  const out: (Lens & { i: number })[] = []
+  if (!Array.isArray(l)) return out
+  ;(l as Partial<Lens>[]).forEach((x, i) => {
+    if ((x?.id === 'goal' || x?.id === 'outcome') && typeof x.label === 'string' && x.label !== '') out.push({ id: x.id, label: x.label, title: typeof x.title === 'string' ? x.title : x.label, i })
+  })
+  return out
+}
+
+export type Reading = ViewRun['readings'][number]
+/** Core's reading of one aim (`run.readings`, how Olumi reads the aim's words), at its View path. */
+export function readingsFor(run: ViewRun | null, aim: string | null): { reading: Reading; i: number }[] {
+  const out: { reading: Reading; i: number }[] = []
+  ;(run?.readings ?? []).forEach((reading, i) => { if (reading.aim_id === aim && reading.text !== '') out.push({ reading, i }) })
+  return out
+}
