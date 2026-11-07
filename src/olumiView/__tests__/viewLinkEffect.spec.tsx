@@ -16,10 +16,11 @@ const model = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery
 afterEach(cleanup)
 /** The edge with only the props it reads (React Flow passes the rest). */
 const Edge = ViewLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
-const edge = (i: number) => render(
+// R25 (2A): strength words show while the link is selected (or focused, or an end card active); these rows read a selected link.
+const edge = (i: number, selected = true) => render(
   <ReactFlowProvider><EdgeLabelLayer><svg>
     <Edge id={`l${i}`} source={model.links[i]!.from} target={model.links[i]!.to} sourceX={0} sourceY={0} targetX={100} targetY={100}
-      sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link: model.links[i]!, i }} />
+      sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link: model.links[i]!, i }} selected={selected} />
   </svg></EdgeLabelLayer></ReactFlowProvider>,
 ).container
 
@@ -42,7 +43,7 @@ describe('a link core sizes says its strength on the line', () => {
         if (l.effect == null) return
         n += 1
         const c = render(<ReactFlowProvider><EdgeLabelLayer><svg><Edge id={`l${i}`} source={l.from} target={l.to} sourceX={0} sourceY={0} targetX={100} targetY={100}
-          sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link: l, i }} /></svg></EdgeLabelLayer></ReactFlowProvider>).container
+          sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link: l, i }} selected /></svg></EdgeLabelLayer></ReactFlowProvider>).container
         expect(c.querySelector(`[data-view="links.${i}.effect.text"]`)?.textContent, `${g} links.${i}`).toBe(l.effect.text)
         cleanup()
       })
@@ -55,6 +56,12 @@ describe('a link core sizes says its strength on the line', () => {
     expect(t.closest('.react-flow__edgelabel-renderer')).not.toBeNull()
     expect(t.closest('svg')).toBeNull()
     expect(Number((t.closest('[data-view-link-words]') as HTMLElement).style.zIndex)).toBeGreaterThan(0)
+  })
+  it('R25 (plan v3 item 7, Paul\'s 2A): at rest a sized link keeps its sign but not its strength words; selecting it shows them', () => {
+    const i = sized[0]!
+    expect(edge(i, false).querySelector(`[data-view="links.${i}.effect.text"]`)).toBeNull()
+    cleanup()
+    expect(edge(i, true).querySelector(`[data-view="links.${i}.effect.text"]`)?.textContent).toBe(model.links[i]!.effect!.text)
   })
   it('CONTRAST: a link with no effect draws no strength words', () => {
     const plain = model.links.findIndex((l) => l.effect == null && l.kind !== 'reason')

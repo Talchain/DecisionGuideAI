@@ -18,7 +18,7 @@ import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
 
 export type ViewLinkData = { link: ViewLink; i: number }
 
-export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps) {
+export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd, selected = false }: EdgeProps) {
   const { link, i } = data as ViewLinkData
   const hovered = useViewHover((h) => h.id)
   const fromSelected = useStore((s) => s.nodeLookup.get(source)?.selected === true)
@@ -37,6 +37,10 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal size bails out
   useLayoutEffect(() => { const el = wordsRef.current; if (el && (el.offsetWidth !== size.w || el.offsetHeight !== size.h)) setSize({ w: el.offsetWidth, h: el.offsetHeight }) })
   if (!driver && !linkDrawn(link, active)) return null
+  // R25 (plan v3 item 7, Paul's 2A): at rest a link says its sign and any "!"; its strength in core's words shows while the link is selected
+  // or focused (links are focusable; Enter selects), or a card at either end is hovered or selected, and on a driver link.
+  const near = selected || driver || active.has(source) || active.has(target)
+  const effect = near ? link.effect ?? null : null
   // R25: a link into a card above its source (an outcome into its aim beside the question) runs round the board (linkRail.ts).
   const boxOf = (n: string) => { const v = nodeLookup.get(n); return v ? { x: v.internals.positionAbsolute.x, y: v.internals.positionAbsolute.y, w: v.measured.width ?? 0, h: v.measured.height ?? 0 } : null }
   const from = boxOf(source), to = boxOf(target)
@@ -49,7 +53,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
       <title>{link.title}</title>
       <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: driver ? 2.5 : 1, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
-      {link.label === '' && link.effect == null ? null : (
+      {link.label === '' && effect === null ? null : (
         // The words on the line sit in React Flow's label layer, above a resting card (z 0) and below a selected one (1000), so a card
         // never cuts them (DL 4 Nov, R3: "…week" clipped under a card); the line itself stays under the cards. They sit at the nearest point
         // along the path clear of every card (R5 item 3), so they never cover a card's text either.
@@ -58,7 +62,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
             style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, background: 'var(--bg-canvas)', pointerEvents: 'none' }}>
             {link.label === '' ? null : <span data-view={`links.${i}.label`}>{link.label}</span>}
             {/* Its strength in core's words (`effect`, core 685e725), with core's hover; under the sign when the link has one. */}
-            {link.effect == null ? null : <span title={link.effect.title} style={{ pointerEvents: 'auto' }} data-view={`links.${i}.effect.text`}>{link.effect.text}</span>}
+            {effect === null ? null : <span title={effect.title} style={{ pointerEvents: 'auto' }} data-view={`links.${i}.effect.text`}>{effect.text}</span>}
           </div>
         </EdgeLabelRenderer>
       )}

@@ -139,7 +139,7 @@ function ViewFlow() {
         nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
         onNodeMouseEnter={(_, n) => useViewHover.setState({ id: n.id })} onNodeMouseLeave={() => useViewHover.setState({ id: null })}
         onMoveStart={mine} panOnDrag={PAN_BUTTONS} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}
-        nodesConnectable={false} edgesFocusable={false} elevateEdgesOnSelect={false} deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE} selectionKeyCode={null} multiSelectionKeyCode={null}
+        nodesConnectable={false} edgesFocusable elevateEdgesOnSelect={false} deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE} selectionKeyCode={null} multiSelectionKeyCode={null}
         proOptions={{ hideAttribution: true }} data-testid="view-canvas"
       >
         <Background variant={BackgroundVariant.Dots} gap={16} />
