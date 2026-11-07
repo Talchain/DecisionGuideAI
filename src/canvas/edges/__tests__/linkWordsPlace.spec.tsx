@@ -28,11 +28,12 @@ const boxOver = (p: { x: number; y: number }, s: { w: number; h: number }, c: B)
   p.x - s.w / 2 < c.x + c.w && p.x + s.w / 2 > c.x && p.y - s.h / 2 < c.y + c.h && p.y + s.h / 2 > c.y
 /** Where the edge drew its words (the last translate of their transform). */
 const drawnAt = (el: HTMLElement) => { const m = /translate\(([-\d.e]+)px, ([-\d.e]+)px\)$/.exec(el.style.transform)!; return { x: Number(m[1]), y: Number(m[2]) } }
-/** jsdom lays nothing out: the words measure as the browser measured them. */
-function measureWordsAs(size: { w: number; h: number }): () => void {
+/** jsdom lays nothing out: the words measure as the browser measured them (a size, or a size by what the words hold). */
+function measureWordsAs(size: { w: number; h: number } | ((el: HTMLElement) => { w: number; h: number })): () => void {
+  const of = (el: HTMLElement) => (typeof size === 'function' ? size(el) : size)
   const was = { w: Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')!, h: Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')! }
-  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get(this: HTMLElement) { return this.hasAttribute('data-view-link-words') ? size.w : 0 } })
-  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get(this: HTMLElement) { return this.hasAttribute('data-view-link-words') ? size.h : 0 } })
+  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get(this: HTMLElement) { return this.hasAttribute('data-view-link-words') ? of(this).w : 0 } })
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get(this: HTMLElement) { return this.hasAttribute('data-view-link-words') ? of(this).h : 0 } })
   return () => { Object.defineProperty(HTMLElement.prototype, 'offsetWidth', was.w); Object.defineProperty(HTMLElement.prototype, 'offsetHeight', was.h) }
 }
 let api: ReturnType<typeof useStoreApi> | null = null
@@ -81,6 +82,7 @@ describe('words off their path stay with their link (PL 7 Nov: never detached; D
   // A vertical link (x = 0, y 0 to 400) covered end to end: a card over its upper part, a wider one over the rest and its middle.
   const vertical = getBezierPath({ sourceX: 0, sourceY: 0, targetX: 0, targetY: 400, sourcePosition: Position.Bottom, targetPosition: Position.Top })
   const vpath = vertical[0], vmid = { x: vertical[1], y: vertical[2] }, size = { w: 11, h: 18 }
+  const PINNED_LEADER_Y = 111.42467 // computed once (7 Nov) and pinned: the ordering (nearest the middle first, the first clear ring) fixes it
   const toLink = (p: { x: number; y: number }) => (p.y >= 0 && p.y <= 400 ? Math.abs(p.x) : Math.hypot(p.x, p.y < 0 ? p.y : p.y - 400))
   it('catch: the words take the clear point nearest the LINK (not its middle), within REACH, with a leader to the link beyond NEAR', () => {
     // The only room within REACH is beside the link's upper part, more than REACH from its middle (y 200): rings round the middle alone miss it.
@@ -92,6 +94,10 @@ describe('words off their path stay with their link (PL 7 Nov: never detached; D
     expect(at.leaderTo, 'a leader joins words farther than NEAR to their link').toBeDefined()
     expect(Math.abs(at.leaderTo!.x)).toBeLessThan(0.01) // on the link
     expect(at.far).toBeUndefined()
+    // Pinned (review 7 Nov: a range lets any clear point pass): the first clear ring, 72 out, round the point of the link nearest its middle
+    // that has room beside it, and the leader runs to that point.
+    expect(Math.hypot(at.x - at.leaderTo!.x, at.y - at.leaderTo!.y)).toBeCloseTo(72, 5)
+    expect(at.leaderTo!.y).toBeCloseTo(PINNED_LEADER_Y, 3)
   })
   it('must not change: words that find room within NEAR of their link need no leader', () => {
     const narrow = { x: -15, y: -50, w: 30, h: 500 }
@@ -107,6 +113,37 @@ describe('words off their path stay with their link (PL 7 Nov: never detached; D
     expect(at.far).toBe(true)
     expect(at.leaderTo).toEqual(vmid)
   })
+  it('catch (review 7 Nov): two far links\' words sit by their own links, never in one pile', () => {
+    // Two rows of cards with a 32-unit gap; two links run along the gap; their words (two lines) are taller than the gap.
+    const rowA = { x: -400, y: 0, w: 1800, h: 100 }, rowB = { x: -400, y: 132, w: 1800, h: 100 }
+    const along = (x1: number, x2: number) => getBezierPath({ sourceX: x1, sourceY: 116, targetX: x2, targetY: 116, sourcePosition: Position.Right, targetPosition: Position.Left })
+    const [pa, ax, ay] = along(100, 900), [pb, bx, by] = along(300, 1000)
+    const sa = { w: 150, h: 40 }, sb = { w: 130, h: 40 }
+    const a = linkWordsAt(pa, [rowA, rowB], sa, { x: ax, y: ay }), b = linkWordsAt(pb, [rowA, rowB], sb, { x: bx, y: by })
+    expect(a.far && b.far).toBe(true)
+    for (const [p, s] of [[a, sa], [b, sb]] as const) for (const c of [rowA, rowB]) expect(boxOver(p, s, c)).toBe(false)
+    expect(boxOver(a, sa, { x: b.x - sb.w / 2, y: b.y - sb.h / 2, w: sb.w, h: sb.h }), `${JSON.stringify(a)} and ${JSON.stringify(b)}`).toBe(false)
+  })
+  it('catch (review 7 Nov): a sign that fits by its link at rest comes back after its strength words (too big to fit) were shown and left', () => {
+    // At rest the words are "!" alone (11x18), which fits in the 32-unit gap; near, the strength joins it (150x40), which does not.
+    const restore = measureWordsAs((el) => (el.querySelector('[data-view$=".effect.text"]') ? { w: 150, h: 40 } : { w: 11, h: 18 }))
+    try {
+      const rows = [{ id: 'rowA', x: -400, y: 0, w: 1800, h: 100 }, { id: 'rowB', x: -400, y: 132, w: 1800, h: 100 }]
+      const link = { from: 'a', to: 'b', kind: 'causal', label: '!', title: 't', doubt: false, alert: true, proposed: false, effect: { text: 'a strength in core\'s words', title: 't' } } as unknown as ViewLink
+      const draw = (selected: boolean) => <ReactFlowProvider initialNodes={rows.map(node)}><EdgeLabelLayer><svg>
+        <Edge id="e" source="a" target="b" sourceX={100} sourceY={116} targetX={900} targetY={116} sourcePosition={Position.Right} targetPosition={Position.Left} data={{ link, i: 0 }} selected={selected} />
+      </svg></EdgeLabelLayer></ReactFlowProvider>
+      const r = render(draw(false))
+      const words = () => r.container.querySelector<HTMLElement>('[data-view-link-words="links.0"]')!
+      expect(words().style.visibility).toBe('')
+      r.rerender(draw(true))
+      expect(words().querySelector('[data-view$=".effect.text"]')).not.toBeNull()
+      r.rerender(draw(false))
+      expect(words().style.visibility, 'the sign is back at rest').toBe('')
+      expect(drawnAt(words()).y).toBeCloseTo(116, 5) // in the gap, on its link
+      expect(r.container.querySelector('[data-view-link-leader]')).toBeNull()
+    } finally { restore() }
+  })
   it('catch at the renderer: far words are not drawn at rest; with the link near they are, joined to it by their leader', () => {
     const restore = measureWordsAs(size)
     try {
@@ -116,14 +153,19 @@ describe('words off their path stay with their link (PL 7 Nov: never detached; D
         <Edge id="e" source="a" target="b" sourceX={0} sourceY={0} targetX={0} targetY={400} sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link, i: 0 }} selected={selected} />
       </svg></EdgeLabelLayer></ReactFlowProvider>).container
       const rest = draw(false)
-      expect(rest.querySelector('[data-view-link-words="links.0"]')).toBeNull()
+      // Hidden, not removed (still measured).
+      expect(rest.querySelector<HTMLElement>('[data-view-link-words="links.0"]')?.style.visibility).toBe('hidden')
       expect(rest.querySelector('[data-view-link-leader]')).toBeNull()
       cleanup()
       const near = draw(true)
       const at = drawnAt(near.querySelector<HTMLElement>('[data-view-link-words="links.0"]')!)
       expect(boxOver(at, size, everywhere)).toBe(false)
-      const d = near.querySelector('[data-view-link-leader="links.0"]')?.getAttribute('d')
-      expect(d).toBe(`M ${at.x},${at.y} L ${vmid.x},${vmid.y}`)
+      expect(near.querySelector<HTMLElement>('[data-view-link-words="links.0"]')!.style.visibility).toBe('')
+      const leader = near.querySelector('[data-view-link-leader="links.0"]')!
+      expect(leader.getAttribute('d')).toBe(`M ${at.x},${at.y} L ${vmid.x},${vmid.y}`)
+      // In the link's own stroke, so it reads as part of it.
+      const line = near.querySelector<SVGPathElement>('g[data-view-link="links.0"] path.react-flow__edge-path')!
+      expect(leader.getAttribute('stroke')).toBe(line.style.stroke)
     } finally { restore() }
   })
   it('the words describe their link to a screen reader: they carry the id its edge names (React Flow\'s aria-describedby)', () => {
@@ -152,6 +194,12 @@ describe('on the canvas, the edge places its words against the cards as React Fl
       paul.links.forEach((l, i) => {
         const at = drawnAt(c.querySelector<HTMLElement>(`[data-view-link-words="links.${i}"]`)!)
         for (const card of paul.cards) expect(boxOver(at, l.words, card), `${l.edge}: ${JSON.stringify(at)} over ${card.id}`).toBe(false)
+        // And on its own line (review 7 Nov: off every card is not enough): within a unit of a point of the link's path, with no leader.
+        const [d] = getBezierPath({ sourceX: l.sourceX, sourceY: l.sourceY, targetX: l.targetX, targetY: l.targetY, sourcePosition: Position.Bottom, targetPosition: Position.Top })
+        const v = d.match(/-?[\d.]+(?:e-?\d+)?/g)!.map(Number), P = (t: number, k: 0 | 1) => (1 - t) ** 3 * v[k]! + 3 * (1 - t) ** 2 * t * v[2 + k]! + 3 * (1 - t) * t * t * v[4 + k]! + t ** 3 * v[6 + k]!
+        const gap = Math.min(...Array.from({ length: 2001 }, (_, k) => Math.hypot(P(k / 2000, 0) - at.x, P(k / 2000, 1) - at.y)))
+        expect(gap, `${l.edge} words ${gap.toFixed(2)} from their line`).toBeLessThan(1)
+        expect(c.querySelector(`[data-view-link-leader="links.${i}"]`)).toBeNull()
       })
     } finally { restore() }
   })

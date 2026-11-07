@@ -63,24 +63,28 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   }, [])
   // A link with keyboard focus (links are focusable) is drawn and says its words, as a selected one does (DL 7 Nov: focus alone).
   const focused = useViewFocusLink((f) => f.id === id)
+  const rail = from && to ? railOf(from, to, cards, slot) : null
+  const [bezier, midX, midY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
+  const path = rail?.path ?? bezier
+  // Placed again only when the path, the cards or the words' size change (the off-path search is the costly part). A rail's path fixes its rail.
+  const placed: Placed = useMemo(() => (rail ? railWordsAt(rail, size, cards) : linkWordsAt(path, cards, size, { x: midX, y: midY })),
+    [path, cards, size, midX, midY]) // eslint-disable-line react-hooks/exhaustive-deps -- `rail` follows `path`
   if (!driver && !focused && !linkDrawn(link, active)) return null
   // R25 (plan v3 item 7, Paul's 2A): at rest a link says its sign and any "!"; its strength in core's words shows while the link is selected
   // or focused, or a card at either end is hovered or selected, and on a driver link.
   const near = selected || focused || driver || active.has(source) || active.has(target)
   const effect = near ? link.effect ?? null : null
-  const rail = from && to ? railOf(from, to, cards, slot) : null
-  const [bezier, midX, midY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
-  const path = rail?.path ?? bezier
-  const placed: Placed = rail ? railWordsAt(rail, size, cards) : linkWordsAt(path, cards, size, { x: midX, y: midY })
   const { x, y } = placed
-  // Words with no clear room within reach of their link (PL/DL 7 Nov: never detached) show only while the link is near, with their leader.
-  const words = (link.label !== '' || effect !== null) && (placed.far !== true || near)
+  const words = link.label !== '' || effect !== null
+  // Words with no room within reach of their link (PL/DL 7 Nov: never detached) are hidden at rest and shown, with their leader, while the
+  // link is near. Hidden, not removed, so they are still measured: as the strength words leave, the sign alone may fit by the link again.
+  const hidden = placed.far === true && !near
   const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
   return (
     <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
       <title>{link.title}</title>
       <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: driver ? 2.5 : 1, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
-      {words && placed.leaderTo ? (
+      {words && !hidden && placed.leaderTo ? (
         <path data-view-link-leader={`links.${i}`} d={`M ${x},${y} L ${placed.leaderTo.x},${placed.leaderTo.y}`} fill="none" stroke={stroke} strokeWidth={1} strokeDasharray="2 3" />
       ) : null}
       {!words ? null : (
@@ -89,7 +93,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
         // along the path clear of every card (R5 item 3), so they never cover a card's text either.
         <EdgeLabelRenderer>
           <div ref={attachWords} id={linkWordsIdOf(i)} className={`nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 text-text-body`} data-view-link-words={`links.${i}`}
-            style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, background: 'var(--bg-canvas)', pointerEvents: 'none' }}>
+            style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, background: 'var(--bg-canvas)', pointerEvents: 'none', ...(hidden ? { visibility: 'hidden' as const } : {}) }}>
             {link.label === '' ? null : <span data-view={`links.${i}.label`}>{link.label}</span>}
             {/* Its strength in core's words (`effect`, core 685e725), with core's hover; under the sign when the link has one. */}
             {effect === null ? null : <span title={effect.title} style={{ pointerEvents: 'auto' }} data-view={`links.${i}.effect.text`}>{effect.text}</span>}

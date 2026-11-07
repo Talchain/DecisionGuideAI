@@ -30,8 +30,10 @@ const STEPS = [0.5, ...Array.from({ length: 9 }, (_, k) => [0.5 - 0.05 * (k + 1)
 const FINE = Array.from({ length: 49 }, (_, k) => [0.5 - 0.01 * (k + 1), 0.5 + 0.01 * (k + 1)]).flat()
 /** Off the path: rings round points along it (nearest the middle first), 16 points a ring, rings RING_STEP apart, out to REACH. */
 const RING_STEP = 8, RING_POINTS = 16, ROOM = 4
-/** Words within NEAR of their link read as its words; from NEAR out to REACH a leader joins them to it; past REACH, the board's edge. */
-export const NEAR = 24, REACH = 96
+/** Words within NEAR of their link read as its words; from NEAR out to REACH a leader joins them to it. Past REACH (out to FAR_OUT, in
+    coarser rings) they are far: still at the clear point nearest their own link, with a leader, shown only while the link is near. */
+export const NEAR = 24, REACH = 96, FAR_OUT = 480
+const FAR_STEP = 16
 /** The path's points the off-path search rings round, nearest the middle first. */
 const ALONG = Array.from({ length: 51 }, (_, k) => (k + 1) / 52).sort((a, b) => Math.abs(a - 0.5) - Math.abs(b - 0.5))
 
@@ -52,7 +54,15 @@ export function linkWordsAt(path: string, cards: readonly Box[], size: { readonl
       if (clear(p)) return r > NEAR ? { ...p, leaderTo: q } : p
     }
   }
-  // None within reach: past the right edge of every card, which touches none of them, with a leader to the link's middle; far from their
-  // link, so the edge shows them only while the link is near (focused, selected or an end card active), never detached at rest.
+  // None within reach: far. Still the clear point nearest this link (so two far links' words sit by their own links, not in one pile),
+  // in coarser rings; the edge shows them only while the link is near (focused, selected or an end card active), never detached at rest.
+  const coarse = along.filter((_, k) => k % 2 === 0)
+  for (let r = REACH + FAR_STEP; r <= FAR_OUT; r += FAR_STEP) {
+    for (const q of coarse) for (let k = 0; k < RING_POINTS; k++) {
+      const a = (2 * Math.PI * k) / RING_POINTS, p = { x: q.x + r * Math.cos(a), y: q.y + r * Math.sin(a) }
+      if (clear(p)) return { ...p, leaderTo: q, far: true }
+    }
+  }
+  // Nothing clear even there: past the right edge of every card, which touches none of them, with a leader to the link's middle.
   return { x: Math.max(mid.x, ...cards.map((c) => c.x + c.w)) + ROOM + size.w / 2, y: mid.y, leaderTo: { x: mid.x, y: mid.y }, far: true }
 }

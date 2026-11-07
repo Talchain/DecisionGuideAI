@@ -6,11 +6,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, render } from '@testing-library/react'
+import { act, fireEvent, render } from '@testing-library/react'
 import type { View } from '../client'
 import { currentModel } from '../store'
 import { useCanvasStore } from '../../canvas/store'
-import { drawViewCanvas } from '../canvas'
+import { drawViewCanvas, useViewFocusLink } from '../canvas'
 import { causalPlaces, questionPlace } from '../layout'
 import { ViewCanvas } from '../ViewCanvas'
 
@@ -41,5 +41,20 @@ describe('the mounted core-lane canvas', () => {
     expect(badges.length > 0 && badges.every((e) => e.closest('[data-slot="driver-badge"]') !== null)).toBe(true)
     unmount()
     expect(document.documentElement.dataset['presentation']).toBeUndefined()
+  })
+  it('catch (DL 7 Nov: words on focus alone): focus landing on a link\'s edge in the mounted canvas names that link; leaving it names none', async () => {
+    const model = currentModel({ view: golden('bakery'), error: null, stale: false })!
+    const places = await causalPlaces(model, new Map(), questionPlace(model).width)
+    act(() => { drawViewCanvas(model, places) })
+    const { container, unmount } = render(<div style={{ width: 1440, height: 900 }}><ViewCanvas /></div>)
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
+    // React Flow's focusable edge wrapper as it draws one (jsdom measures no card, so it draws no edge of its own here).
+    const pane = container.querySelector('[data-testid="view-canvas"]')!
+    pane.insertAdjacentHTML('beforeend', '<svg><g class="react-flow__edge" data-id="a->b:plain" tabindex="0"><path></path></g></svg>')
+    fireEvent.focusIn(pane.querySelector('g.react-flow__edge')!)
+    expect(useViewFocusLink.getState().id).toBe('a->b:plain')
+    fireEvent.focusOut(pane.querySelector('g.react-flow__edge')!)
+    expect(useViewFocusLink.getState().id).toBeNull()
+    unmount()
   })
 })
