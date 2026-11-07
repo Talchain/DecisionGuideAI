@@ -18,6 +18,17 @@ import { noteEditSaved } from './notice'
 
 export const REMOVE_LINK_WORDS = { open: 'Remove link', ask: 'Remove this link?', remove: 'Remove', keep: 'Keep' } as const
 
+type Removal = { readonly record: string; readonly part?: string | null }
+const removalKey = (sid: string | null, remove: Removal): string => `${sid}:remove-link:${remove.part == null ? remove.record : `${remove.record}.${remove.part}`}`
+/**
+ * Is this line's removal on its way to core now? While it is, the link keeps its ask on screen whatever focus or hover does (Codex delta
+ * 4960db98): the edge mounts it on this as well as on selection or focus, so a refusal always has its ask to land in.
+ */
+export function useRemovingLink(remove: Removal | null | undefined): boolean {
+  const sid = useViewStore((s) => s.sid)
+  return useWriteSending(remove == null ? '' : removalKey(sid, remove))
+}
+
 /**
  * `edge`: the link's React Flow edge id, so focus on these controls keeps the link named (focusedLinkOf). `from`: the card the link leaves,
  * where focus goes once the link is removed (its control goes with it). Focus is never dropped (PL round 1be400fd): the ask takes it on
@@ -36,13 +47,13 @@ export function LinkRemove({ edge, from, remove }: { edge: string; from: string;
   const [focusTo, setFocusTo] = useState<'keep' | 'open' | null>(null)
   const keepRef = useRef<HTMLButtonElement | null>(null)
   const openRef = useRef<HTMLButtonElement | null>(null)
-  const key = `${sid}:remove-link:${id}`
+  const key = removalKey(sid, remove)
   const sending = useWriteSending(key)
   const live = view?.model?.edit_base ?? null
   // The control that had focus is replaced by the next one on each press, so focus is moved on purpose once it is drawn and enabled.
   useEffect(() => {
     const el = focusTo === 'keep' ? keepRef.current : focusTo === 'open' ? openRef.current : null
-    if (el === null || el.disabled) return
+    if (el === null) return
     el.focus()
     setFocusTo(null)
   }, [focusTo, asking, sending])
@@ -71,9 +82,11 @@ export function LinkRemove({ edge, from, remove }: { edge: string; from: string;
       {asking ? (
         <div className="flex flex-wrap items-center gap-1">
           <span>{REMOVE_LINK_WORDS.ask}</span>
-          <button type="button" disabled={sending} data-testid={`view-link-remove-yes-${id}`} onClick={() => void take()}
-            className={`${quiet} rounded bg-primary text-text-on-color disabled:opacity-50`}>{REMOVE_LINK_WORDS.remove}</button>
-          <button ref={keepRef} type="button" disabled={sending} data-testid={`view-link-remove-keep-${id}`} onClick={close} className={`${quiet} text-text-light underline underline-offset-2`}>{REMOVE_LINK_WORDS.keep}</button>
+          {/* Never `disabled` while sending: a browser takes focus off a disabled control, and the ask then lost its link (Codex delta
+              4960db98). They say so (aria-disabled) and ignore a press instead. */}
+          <button type="button" aria-disabled={sending || undefined} data-testid={`view-link-remove-yes-${id}`} onClick={() => void take()}
+            className={`${quiet} rounded bg-primary text-text-on-color ${sending ? 'opacity-50' : ''}`}>{REMOVE_LINK_WORDS.remove}</button>
+          <button ref={keepRef} type="button" aria-disabled={sending || undefined} data-testid={`view-link-remove-keep-${id}`} onClick={() => { if (!sending) close() }} className={`${quiet} text-text-light underline underline-offset-2 ${sending ? 'opacity-50' : ''}`}>{REMOVE_LINK_WORDS.keep}</button>
         </div>
       ) : (
         <button ref={openRef} type="button" data-testid={`view-link-remove-open-${id}`} onClick={() => { setBase(live); setError(null); setAsking(true); setFocusTo('keep') }}

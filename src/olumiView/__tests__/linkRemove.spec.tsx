@@ -37,12 +37,16 @@ const draw = (link: ViewLink, selected: boolean) => render(
 
 let calls: Array<{ method: string; path: string; body: unknown }> = []
 let answer: { status: number; body: unknown } = { status: 201, body: { version: 9, n: 4, receipt: 'links-remove:9' } }
+/** When set, a POST waits for it: the removal is on its way until the row lets it land. */
+let hold: Promise<void> | null = null
+const REFUSED = 'Removing this link leaves "total capacity" with nothing that works it out. Give its figure first, or remove it too.'
 beforeEach(() => {
-  calls = []; answer = { status: 201, body: { version: 9, n: 4, receipt: 'links-remove:9' } }
+  calls = []; hold = null; answer = { status: 201, body: { version: 9, n: 4, receipt: 'links-remove:9' } }
   setTeamFetch((async (u: unknown, init?: RequestInit) => {
     const method = init?.method ?? 'GET', p = String(u)
     calls.push({ method, path: p, body: init?.body ? JSON.parse(String(init.body)) : undefined })
     if (method === 'GET') return new Response(JSON.stringify(approved), { status: 200 })
+    if (hold !== null) await hold
     return new Response(JSON.stringify(answer.body), { status: answer.status })
   }) as unknown as typeof fetch)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: approved, status: 'ready', error: null, stale: false, at: null })
@@ -104,6 +108,40 @@ describe('remove a link', () => {
     await waitFor(() => expect(posts()).toHaveLength(1))
     await waitFor(() => expect(document.activeElement).toBe(card))
     card.remove()
+  })
+  it('catch (Codex delta 4960db98): on a focus-only link a refused removal keeps its ask on screen and hands focus to Keep; the pressed control is never disabled, so focus never leaves it', async () => {
+    let release = (): void => undefined
+    hold = new Promise<void>((done) => { release = done })
+    answer = { status: 409, body: { error: REFUSED } }
+    useViewFocusLink.setState({ id: 'a->b:plain' }) // focus only: not selected, no hover
+    draw(removable, false)
+    fireEvent.click(screen.getByTestId('view-link-remove-open-evening_mood'))
+    const yes = screen.getByTestId('view-link-remove-yes-evening_mood')
+    yes.focus(); fireEvent.click(yes)
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    // What a browser and the canvas do in flight: a disabled control loses focus, and the canvas, seeing focus on the page, un-names the link.
+    const pressed = document.activeElement
+    if (pressed instanceof HTMLButtonElement && pressed.disabled) act(() => { pressed.blur(); useViewFocusLink.setState({ id: null }) })
+    expect(yes).not.toBeDisabled()
+    expect(yes).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.queryByTestId('view-link-remove-keep-evening_mood')).not.toBeNull()
+    await act(async () => { release(); await hold })
+    await waitFor(() => expect(screen.getByTestId('view-link-remove-error-evening_mood')).toHaveTextContent(REFUSED))
+    expect(screen.queryByTestId('view-link-remove-keep-evening_mood')).not.toBeNull()
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('view-link-remove-keep-evening_mood')))
+  })
+  it('catch (Codex delta 4960db98): while a removal is on its way its ask stays mounted whatever focus does; once it lands, the focus rule is back', async () => {
+    let release = (): void => undefined
+    hold = new Promise<void>((done) => { release = done })
+    useViewFocusLink.setState({ id: 'a->b:plain' })
+    draw(removable, false)
+    fireEvent.click(screen.getByTestId('view-link-remove-open-evening_mood'))
+    fireEvent.click(screen.getByTestId('view-link-remove-yes-evening_mood'))
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    act(() => { useViewFocusLink.setState({ id: null }) }) // focus goes elsewhere mid-flight
+    expect(screen.queryByTestId('view-link-remove-keep-evening_mood')).not.toBeNull()
+    await act(async () => { release(); await hold })
+    await waitFor(() => expect(screen.queryByTestId('view-link-remove-keep-evening_mood')).toBeNull()) // CONTRAST: held only while on its way
   })
   it('catch: focus alone offers it too, and focus on the control keeps the link named', () => {
     useViewFocusLink.setState({ id: 'a->b:plain' })

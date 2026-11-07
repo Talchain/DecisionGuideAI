@@ -11,7 +11,7 @@ import { linkWordsAt, type Placed } from './linkWordsPlace'
 import { railOf, railSlots, railWordsAt } from './linkRail'
 import type { ViewLink } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
-import { LinkRemove } from '../../olumiView/LinkRemove'
+import { LinkRemove, useRemovingLink } from '../../olumiView/LinkRemove'
 import { linkDrawn } from '../../olumiView/layout'
 import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
 import { useDriverLink } from '../../olumiView/lens'
@@ -64,6 +64,8 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   }, [])
   // A link with keyboard focus (links are focusable) is drawn and says its words, as a selected one does (DL 7 Nov: focus alone).
   const focused = useViewFocusLink((f) => f.id === id)
+  // A removal on its way keeps the link and its ask drawn, whatever focus does (Codex delta 4960db98).
+  const removing = useRemovingLink(link.remove)
   const rail = from && to ? railOf(from, to, cards, slot) : null
   const [bezier, midX, midY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
   const path = rail?.path ?? bezier
@@ -82,7 +84,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // The remove control (R25 slice 2b) goes by the words' own rule: at the point nearest the link where its measured box touches no card
   // and not the link's words (DL 7 Nov: under the words it covered OC1 "total capacity" at every width). Measured as it attaches and
   // whenever its size changes (its ask is wider than its button); until measured it is not shown.
-  const offering = (selected || focused) && link.remove != null
+  const offering = (selected || focused || removing) && link.remove != null
   const [ctl, setCtl] = useState({ w: 0, h: 0 })
   const ctlSeen = useRef<ResizeObserver | null>(null)
   const attachCtl = useCallback((el: HTMLDivElement | null) => {
@@ -97,7 +99,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     const shownWords = words && !hidden ? [{ id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : []
     return linkWordsAt(path, [...cards, ...shownWords], ctl, { x: midX, y: midY })
   }, [offering, ctl, words, hidden, x, y, size, path, cards, midX, midY])
-  if (!driver && !focused && !linkDrawn(link, active)) return null
+  if (!driver && !focused && !removing && !linkDrawn(link, active)) return null
   const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
   return (
     <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
