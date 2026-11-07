@@ -221,6 +221,7 @@ import { PortAnalysisTab } from '../../olumiView/port/PortAnalysisTab'
 import { ViewModelTabBlock } from '../../olumiView/ViewModelTab'
 import { ViewReasoningBlock } from '../../olumiView/ViewReasoning'
 import { useAnswersAsks, ViewChat, ViewComposer } from '../../olumiView/ViewChat'
+import { selectedRename } from '../../olumiView/SelectedRename'
 import { focusDockedOlumi } from '../conversation/dockedOlumiFocus'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
 
@@ -4586,7 +4587,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             body's overflow from clipping these. */}
         {aiPanelV2On && effectiveIsOpen ? (
           <div className="flex-shrink-0" data-testid="ai-panel-footer-stack">
-            <SelectionPill />
+            <SelectionPill after={isOlumiCoreLane() ? selectedRename : undefined} />
             {/* Wave F-B: StaleAnalysisBadge retired — third stale surface in
                 one dock, and its rerun bypassed the canonical runner. The
                 freshness strip owns stale + Rerun. */}

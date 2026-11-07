@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef } from 'react'
+import { memo, useCallback, useRef, type ReactNode } from 'react'
 import { MessageCircleQuestion } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { CHIP_CLASS } from '../../v5/blocks/chipClass'
@@ -52,7 +52,8 @@ import { useInspectorPresenceStore } from '../stores/inspectorPresenceStore'
 /** Guard window for the single-flight ref — long enough to swallow a double-click. */
 const REFIRE_GUARD_MS = 500
 
-export const SelectionPill = memo(function SelectionPill() {
+/** `after`: what a lane offers for this selection at the end of the row (the olumi-core lane: a card's Rename, DL 7 Nov); none elsewhere. */
+export const SelectionPill = memo(function SelectionPill({ after }: { after?: (s: { id: string; kind: 'node' | 'edge' }) => ReactNode } = {}) {
   const selection = useSelectionContext()
   // Subscribed, not read imperatively: the controls must appear the moment a
   // conversation host registers, without waiting for an unrelated re-render.
@@ -139,6 +140,7 @@ export const SelectionPill = memo(function SelectionPill() {
           Ask about this
         </button>
       )}
+      {after?.(selection)}
     </div>
   )
 })
