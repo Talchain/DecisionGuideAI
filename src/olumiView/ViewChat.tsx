@@ -747,7 +747,10 @@ function MethodMenu({ session, held }: { session: Session; held: boolean }) {
   )
 }
 
-/** The tab on the core lane: the next step, then the conversation, newest first, from the View (the composer is the dock's footer). */
+/** The disclosure holding what the team came for and every method (R25: depth one click away, never above Olumi's reply). */
+export const MORE_WAYS = 'More ways to think about this'
+
+/** The tab on the core lane: Olumi's latest reply, the next step, then more ways to think, from the View (the composer is the dock's footer). */
 export function ViewChat() {
   useAnswersAsks()
   const view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
@@ -778,16 +781,23 @@ export function ViewChat() {
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
         {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
         {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
-        {session === null ? null : <SessionGoal session={session} held={held} />}
+        {/* R25 (Paul 7 Nov, plan v3 item 4: reasoning first): Olumi's latest reply above the fold, then the one next move (and any change
+            waiting, its group lines and problems in view), then every method behind one disclosure, ranked by nobody here. */}
+        <ModelNoticeLine />
+        {view === null ? null : <ViewConversation chat={view.chat} moves />}
         {view === null ? null : <NextStepCard view={view} busy={busy} />}
         {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
         <div {...{ [VIEW_NOTE_SLOT]: '' }} />
-        {session === null ? null : <MethodMenu session={session} held={held} />}
         {ffMine && ffOpen ? <FigureFirstEntryPanel held={held} onGive={give} onShow={show} onClose={closeFigureFirst} /> : null}
         {ffMine && ffShown ? <FigureFirstShownPanel onClose={() => useFigureFirst.setState({ shown: null })} /> : null}
         {ff?.given == null ? null : <FigureFirstSideBySide given={ff.given} headings={ff.headings} />}
-        <ModelNoticeLine />
-        {view === null ? null : <ViewConversation chat={view.chat} moves />}
+        {session === null ? null : (
+          <details className="space-y-3" data-testid="view-more-ways">
+            <summary className={`${typography.viewPanelBody} flex min-h-[44px] cursor-pointer items-center text-info`}>{MORE_WAYS}</summary>
+            <SessionGoal session={session} held={held} />
+            <MethodMenu session={session} held={held} />
+          </details>
+        )}
       </div>
     </div>
   )

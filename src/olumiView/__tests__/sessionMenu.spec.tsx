@@ -114,6 +114,22 @@ describe('with a goal: a compact chip in core\'s words, changeable and clearable
   })
 })
 
+describe('reasoning first (R25, Paul 7 Nov, plan v3 item 4): Olumi\'s reply above the next step; every method behind one disclosure', () => {
+  it('catch: the latest reply is drawn before the next step, and the goal and every method sit in a closed "More ways to think about this"', () => {
+    const view = fixture('goal-understand')
+    show(view)
+    const c = renderTab()
+    const reply = c.querySelector('[data-testid="view-chat-latest"]'), more = c.querySelector<HTMLDetailsElement>('[data-testid="view-more-ways"]')!
+    expect(reply).not.toBeNull()
+    const next = c.querySelector('[data-testid="view-next-step"]')
+    if (next !== null) expect(reply!.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(more.open).toBe(false)
+    expect(more.querySelector('summary')!.textContent).toBe('More ways to think about this')
+    expect(methods(c).every((b) => more.contains(b))).toBe(true)
+    expect(more.contains(c.querySelector('[data-testid="view-session-menu"]'))).toBe(true)
+  })
+})
+
 describe('the menu: every question in the View\'s order, the goal\'s first quietly emphasised, none hidden', () => {
   it.each(['no-goal', 'goal-understand'])('%s: every question core sends is drawn, in core\'s order and words', (name) => {
     const view = fixture(name), s = sessionIn(view)
