@@ -8,8 +8,11 @@
  *   3. a what-if shown on this version, by the one gate the what-if box draws by (`useWhatIfOn`): the box's own label, "What-if, not
  *      saved", and its own act, Clear, which drops it (nothing was saved, so nothing is undone). The box under it then draws no label of
  *      its own, so the state is said once.
- * A past View carries no proposal and nothing to try (core: `proposal` and `edit_base` are null at `at`), so at most one applies; the order
- * only settles a View that broke that. Nothing at rest, and nothing while the View is stale or a read failed: the block draws no tab then.
+ * A past View carries no proposal and nothing to try (core: `proposal` and `edit_base` are null at `at`). A proposal and a what-if CAN be
+ * on screen together: core holds a proposal back from a viewer who has not given their own view yet (view.ts `heldProposal`), serving
+ * `proposal` while the canvas draws the approved version, whose `edit_base` stays set, so a what-if tried there stays shown. The strip
+ * then says the proposal, and the what-if box keeps its own label and Clear: `useTabState` is the one answer both read, so the box goes
+ * unlabelled only when the strip says the what-if. Nothing at rest, and nothing while the View is stale or a read failed (no tab then).
  * Dashed is a state, never a value (DS v5): the info border for Olumi's proposal, the light border for the person's own look or try.
  */
 import { useViewStore } from '../store'
@@ -26,17 +29,25 @@ export const pastLine = (n: number): string => `Version ${n} is on the canvas, a
 
 const STRIP = `${TYPE.meta} flex min-h-[36px] items-center gap-2 rounded-lg border-[1.5px] border-dashed px-3 py-1 text-text-header`
 
-export function StateStrip({ model }: { model: ViewModel }) {
+/** The tab's one state, in the strip's order (a proposal held, a past version looked at, a what-if shown on this version), or null. */
+export type TabState = 'proposal' | 'past' | 'whatif' | null
+export function useTabState(model: ViewModel | null): TabState {
   const proposal = useViewStore((s) => s.view?.proposal ?? null), at = useViewStore((s) => s.at)
   const whatIf = useWhatIfOn(model)
-  if (proposal !== null) {
+  return proposal !== null ? 'proposal' : at !== null ? 'past' : whatIf !== null ? 'whatif' : null
+}
+
+/** The strip for the state the block read (`useTabState`), so the strip and the what-if box below it act on one answer. */
+export function StateStrip({ state }: { state: TabState }) {
+  const proposal = useViewStore((s) => s.view?.proposal ?? null), at = useViewStore((s) => s.at)
+  if (state === 'proposal' && proposal !== null) {
     return (
       <div className={`${STRIP} border-info`} role="status" data-testid="view-reasoning-state" data-state="proposal">
         <p className="m-0 min-w-0" data-testid="view-tabs-held-proposal"><span data-view-proposal="heading">{proposal.heading}</span> <span data-view-proposal="on">{proposal.on}</span></p>
       </div>
     )
   }
-  if (at !== null) {
+  if (state === 'past' && at !== null) {
     return (
       <div className={`${STRIP} border-text-light`} role="status" data-testid="view-reasoning-state" data-state="past">
         <p className="m-0 min-w-0 flex-1" data-testid="view-reasoning-past">{pastLine(at)}</p>
@@ -44,7 +55,7 @@ export function StateStrip({ model }: { model: ViewModel }) {
       </div>
     )
   }
-  if (whatIf !== null) {
+  if (state === 'whatif') {
     return (
       <div className={`${STRIP} border-text-light`} role="status" data-testid="view-reasoning-state" data-state="whatif">
         <p className="m-0 min-w-0 flex-1" data-testid="view-reasoning-whatif">{STATE_WORDS.whatIf}</p>

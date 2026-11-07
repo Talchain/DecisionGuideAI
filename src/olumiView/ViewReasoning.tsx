@@ -32,7 +32,7 @@ import { bandPlace, challengedCards, comparedGroupsOf, familyCards, glanceRows, 
 import { shownModel, useViewStore } from './store'
 import { Compared, WhatIfShown, Worth } from './ViewChances'
 import { Clamped, Door, SectionRow, SignalRow, ZoneTitle } from './reasoning/parts'
-import { StateStrip } from './reasoning/StateStrip'
+import { StateStrip, useTabState } from './reasoning/StateStrip'
 import { typography } from '../styles/typography'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 
@@ -253,7 +253,8 @@ function Bands({ model, option }: { model: ViewModel; option: string }) {
  * base, a past version or a what-if each said once with its way back, so nothing that is not the latest approved model reads as it.
  */
 export function ViewReasoningBlock() {
-  const model = useViewStore(shownModel), brief = useViewStore((st) => st.view?.brief ?? null)
-  // The strip sits on the tab's own 16px gutter (it draws none of its own); nothing at all, and no gap, at rest.
-  return model === null ? null : <><div className="px-4 pt-3 empty:hidden"><StateStrip model={model} /></div><ViewReasoning model={model} brief={brief} stated /></>
+  const model = useViewStore(shownModel), brief = useViewStore((st) => st.view?.brief ?? null), state = useTabState(model)
+  // The strip sits on the tab's own 16px gutter (it draws none of its own); nothing at all, and no gap, at rest. The what-if box drops its
+  // own label only when the strip is the one saying the what-if (one answer, `useTabState`), never under a proposal's strip.
+  return model === null ? null : <><div className="px-4 pt-3 empty:hidden"><StateStrip state={state} /></div><ViewReasoning model={model} brief={brief} stated={state === 'whatif'} /></>
 }

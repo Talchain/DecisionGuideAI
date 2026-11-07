@@ -67,9 +67,9 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
  * The what-if shown on this model's version, or null: the one gate for every block that draws it or says it is there (the what-if box
  * below, and the Reasoning tab's state strip), so the two never disagree about whether a what-if is on screen.
  */
-export function useWhatIfOn(model: ViewModel) {
+export function useWhatIfOn(model: ViewModel | null) {
   const sid = useViewStore((s) => s.sid), shown = useWhatIf((s) => s.shown)
-  return shown === null || shown.sid !== sid || shown.base !== model.edit_base ? null : shown
+  return model === null || shown === null || shown.sid !== sid || shown.base !== model.edit_base ? null : shown
 }
 
 /**

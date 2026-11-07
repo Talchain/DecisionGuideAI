@@ -222,6 +222,24 @@ describe('the tab says its state once, above it', () => {
     expect(screen.queryByTestId('view-whatif')).toBeNull()
   })
 
+  it('a proposal held back while a what-if is shown: the strip says the proposal, and the what-if box keeps its own label and Clear', () => {
+    // Core holds a proposal back from a viewer who has not given their own view (view.ts `heldProposal`): it serves `proposal`, but the
+    // canvas draws the approved version, whose `edit_base` stays set, so a what-if tried on it stays shown. Never unlabelled under the
+    // proposal's strip, where it would read as the proposal's figures.
+    const held = read('proposal.view.json'), base = 41, v = { ...held, model: { ...held.model!, edit_base: base } }
+    expect(held.proposal).not.toBeNull()
+    ready(v)
+    show(base, v.id)
+    const { container } = render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('view-reasoning-state').dataset['state']).toBe('proposal')
+    expect(screen.queryByTestId('view-reasoning-whatif')).toBeNull()
+    expect(screen.getByTestId('view-whatif-clear')).not.toBeNull()
+    expect(screen.getByTestId('view-whatif').querySelector('[data-view="whatif.edits.0.words"]')!.textContent).toBe(variant.edits[0]!.words)
+    expect(container.textContent!.split('What-if, not saved')).toHaveLength(2)
+    fireEvent.click(screen.getByTestId('view-whatif-clear'))
+    expect(useWhatIf.getState().shown).toBeNull()
+  })
+
   it('at rest, the latest approved model with nothing tried: no strip, and the tab starts at its own top', () => {
     ready(read('bakery.view.json'))
     const { container } = render(<ViewReasoningBlock />)
