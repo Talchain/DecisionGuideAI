@@ -23,13 +23,24 @@
     "withheld": "Not worked out",
     "driver": "Moves most with",
     "changes": "What would change it",
-    "committed": "Committed to by",
+    "committed": "Committed",
+    "owner": "owner",
+    "recorded": "recorded by",
     "assumptions": "Key assumptions",
     "figures": "Figures the chances rest on",
+    "prerequisites": "What must hold",
+    "challenges": "Challenges raised",
+    "risks": "Risks in the model",
+    "not_applied": "Not applied in the calculation",
     "evidence": "Evidence",
     "disagreements": "Disagreements, as they stand",
     "confirmed": "Confirmed by the holder",
     "tell": "What would tell them they are wrong",
+    "kept_open": "Kept open by",
+    "keeps": "Keeps open",
+    "the_question": "the question",
+    "not_in_version": "a card not in this version",
+    "unclear": "unclear about",
     "views": "Views shared",
     "commitments": "Commitments and what they expect",
     "expect": "Expected",
@@ -37,12 +48,17 @@
     "reconsider": "Reconsider if",
     "review_on": "Review on",
     "outcomes": "What happened",
+    "reconsidered": "what would make us reconsider happened",
+    "verdict": "Verdict on",
+    "verdict_resolved": "resolved",
+    "verdict_partly_right": "partly right",
+    "verdict_not_yet_known": "not yet known",
     "missing": "What is missing or left out",
     "left_out": "Left out of the model",
+    "unsized": "Risks with no size yet",
     "empty": "None recorded",
-    "theirs": "their figure",
-    "olumi": "Olumi’s estimate",
-    "mixed": "their figure, Olumi’s range",
+    "legend_olumi": "◆ marks what Olumi proposed, or what rests on Olumi’s proposals.",
+    "legend_mixed": "◐ marks a person’s figure that Olumi read as a range.",
     "footer": "Model-relative findings for further reasoning, from the saved version named above. Olumi proposes; the team authors and decides."
   },
   "chances": {
@@ -98,7 +114,8 @@
           "text": "For 'A second oven' to stay more likely than 'Open two hours longer' to achieve 'Sell at least 360 loaves a week', 'extra hours sold' would have to be below about 60.5 loaves/week (between 59 and 61.1 loaves/week)."
         }
       ],
-      "committed": null
+      "committed": null,
+      "status": null
     },
     {
       "id": "longer_hours",
@@ -128,7 +145,8 @@
         "figure": "extra_hours_sold"
       },
       "changes": [],
-      "committed": null
+      "committed": null,
+      "status": null
     },
     {
       "id": "carry_on",
@@ -155,7 +173,8 @@
       ],
       "driver": null,
       "changes": [],
-      "committed": null
+      "committed": null,
+      "status": null
     }
   ],
   "assumptions": [],
@@ -163,8 +182,22 @@
     {
       "id": "extra_sold_per_oven",
       "label": "extra sold per oven",
-      "text": null,
-      "whose": "olumi"
+      "text": "60 to 90 loaves/week/oven",
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+    }
+  ],
+  "risks": [
+    {
+      "id": "oven_repair",
+      "heading": "The new oven needs a repair",
+      "whose": {
+        "by": "person",
+        "text": "Stated by the team",
+        "words": "1 in 5 new ovens need a repair in the first months",
+        "mark": null
+      },
+      "unsized": null
     }
   ],
   "evidence": [],
@@ -237,17 +270,6 @@
       "parts": [
         {
           "text": "Each option in this model, on current information",
-          "strong": false,
-          "href": null,
-          "mark": null
-        }
-      ]
-    },
-    {
-      "tag": "p",
-      "parts": [
-        {
-          "text": "In this model, on current information, each option’s chance of ‘Sell at least 360 loaves a week’:",
           "strong": false,
           "href": null,
           "mark": null
@@ -549,10 +571,27 @@
       ]
     },
     {
-      "tag": "p",
+      "tag": "h3",
       "parts": [
         {
-          "text": "None recorded",
+          "text": "Risks in the model",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "li",
+      "parts": [
+        {
+          "text": "The new oven needs a repair",
+          "strong": false,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": " — Stated by the team",
           "strong": false,
           "href": null,
           "mark": null
@@ -574,8 +613,14 @@
       "tag": "li",
       "parts": [
         {
-          "text": "extra sold per oven",
+          "text": "extra sold per oven: ",
           "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "60 to 90 loaves/week/oven",
+          "strong": false,
           "href": null,
           "mark": null
         },
@@ -692,6 +737,17 @@
         },
         {
           "text": " — What would the second oven cost?",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "meta",
+      "parts": [
+        {
+          "text": "◆ marks what Olumi proposed, or what rests on Olumi’s proposals.",
           "strong": false,
           "href": null,
           "mark": null

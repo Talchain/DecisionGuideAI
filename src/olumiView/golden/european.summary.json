@@ -23,13 +23,24 @@
     "withheld": "Not worked out",
     "driver": "Moves most with",
     "changes": "What would change it",
-    "committed": "Committed to by",
+    "committed": "Committed",
+    "owner": "owner",
+    "recorded": "recorded by",
     "assumptions": "Key assumptions",
     "figures": "Figures the chances rest on",
+    "prerequisites": "What must hold",
+    "challenges": "Challenges raised",
+    "risks": "Risks in the model",
+    "not_applied": "Not applied in the calculation",
     "evidence": "Evidence",
     "disagreements": "Disagreements, as they stand",
     "confirmed": "Confirmed by the holder",
     "tell": "What would tell them they are wrong",
+    "kept_open": "Kept open by",
+    "keeps": "Keeps open",
+    "the_question": "the question",
+    "not_in_version": "a card not in this version",
+    "unclear": "unclear about",
     "views": "Views shared",
     "commitments": "Commitments and what they expect",
     "expect": "Expected",
@@ -37,12 +48,17 @@
     "reconsider": "Reconsider if",
     "review_on": "Review on",
     "outcomes": "What happened",
+    "reconsidered": "what would make us reconsider happened",
+    "verdict": "Verdict on",
+    "verdict_resolved": "resolved",
+    "verdict_partly_right": "partly right",
+    "verdict_not_yet_known": "not yet known",
     "missing": "What is missing or left out",
     "left_out": "Left out of the model",
+    "unsized": "Risks with no size yet",
     "empty": "None recorded",
-    "theirs": "their figure",
-    "olumi": "Olumi’s estimate",
-    "mixed": "their figure, Olumi’s range",
+    "legend_olumi": "◆ marks what Olumi proposed, or what rests on Olumi’s proposals.",
+    "legend_mixed": "◐ marks a person’s figure that Olumi read as a range.",
     "footer": "Model-relative findings for further reasoning, from the saved version named above. Olumi proposes; the team authors and decides."
   },
   "chances": {
@@ -110,7 +126,8 @@
           "text": "For 'Enter multiple European countries' to meet 'Reach 800 customers' more often than not, 'Broader-entry acquisition what-if' would have to be above about 121 customers/month (between 95.3 and 173 customers/month)."
         }
       ],
-      "committed": null
+      "committed": null,
+      "status": null
     },
     {
       "id": "single_country_test",
@@ -160,7 +177,8 @@
         "figure": "existing_market_acquisitions"
       },
       "changes": [],
-      "committed": null
+      "committed": null,
+      "status": null
     },
     {
       "id": "no_new_european_entry",
@@ -207,7 +225,8 @@
         "figure": "existing_market_acquisitions"
       },
       "changes": [],
-      "committed": null
+      "committed": null,
+      "status": null
     }
   ],
   "assumptions": [
@@ -439,34 +458,40 @@
     {
       "id": "existing_market_acquisitions",
       "label": "New customers from existing markets",
-      "text": null,
-      "whose": "olumi"
+      "text": "10 to 160 customers/month",
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
     },
     {
       "id": "broad_entry_acquisitions",
       "label": "Broader-entry acquisition what-if",
-      "text": null,
-      "whose": "olumi"
+      "text": "10 to 160 customers/month",
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
     },
     {
       "id": "expansion_churn",
       "label": "Post-entry churn what-if",
-      "text": null,
-      "whose": "olumi"
+      "text": "4 to 20.25%",
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
     },
     {
       "id": "horizon",
       "label": "Proposed comparison horizon",
-      "text": null,
-      "whose": "olumi"
+      "text": "12 months",
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
     },
     {
       "id": "pilot_acquisitions",
       "label": "Single-country test acquisition what-if",
-      "text": null,
-      "whose": "olumi"
+      "text": "2.5 to 40 customers/month",
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
     }
   ],
+  "risks": [],
   "evidence": [],
   "disagreements": [],
   "views": [],
@@ -557,17 +582,6 @@
       "parts": [
         {
           "text": "Each option in this model, on current information",
-          "strong": false,
-          "href": null,
-          "mark": null
-        }
-      ]
-    },
-    {
-      "tag": "p",
-      "parts": [
-        {
-          "text": "In this model, on current information, each option’s chance of ‘Reach 800 customers’:",
           "strong": false,
           "href": null,
           "mark": null
@@ -1066,6 +1080,17 @@
       ]
     },
     {
+      "tag": "h3",
+      "parts": [
+        {
+          "text": "What must hold",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
       "tag": "li",
       "parts": [
         {
@@ -1082,6 +1107,17 @@
             "glyph": "◆",
             "title": "Proposed by Olumi"
           }
+        }
+      ]
+    },
+    {
+      "tag": "h3",
+      "parts": [
+        {
+          "text": "Challenges raised",
+          "strong": false,
+          "href": null,
+          "mark": null
         }
       ]
     },
@@ -1140,8 +1176,14 @@
       "tag": "li",
       "parts": [
         {
-          "text": "New customers from existing markets",
+          "text": "New customers from existing markets: ",
           "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "10 to 160 customers/month",
+          "strong": false,
           "href": null,
           "mark": null
         },
@@ -1157,8 +1199,14 @@
       "tag": "li",
       "parts": [
         {
-          "text": "Broader-entry acquisition what-if",
+          "text": "Broader-entry acquisition what-if: ",
           "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "10 to 160 customers/month",
+          "strong": false,
           "href": null,
           "mark": null
         },
@@ -1174,8 +1222,14 @@
       "tag": "li",
       "parts": [
         {
-          "text": "Post-entry churn what-if",
+          "text": "Post-entry churn what-if: ",
           "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "4 to 20.25%",
+          "strong": false,
           "href": null,
           "mark": null
         },
@@ -1191,8 +1245,14 @@
       "tag": "li",
       "parts": [
         {
-          "text": "Proposed comparison horizon",
+          "text": "Proposed comparison horizon: ",
           "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "12 months",
+          "strong": false,
           "href": null,
           "mark": null
         },
@@ -1208,8 +1268,14 @@
       "tag": "li",
       "parts": [
         {
-          "text": "Single-country test acquisition what-if",
+          "text": "Single-country test acquisition what-if: ",
           "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "2.5 to 40 customers/month",
+          "strong": false,
           "href": null,
           "mark": null
         },
@@ -1370,6 +1436,17 @@
             "glyph": "◆",
             "title": "Proposed by Olumi"
           }
+        }
+      ]
+    },
+    {
+      "tag": "meta",
+      "parts": [
+        {
+          "text": "◆ marks what Olumi proposed, or what rests on Olumi’s proposals.",
+          "strong": false,
+          "href": null,
+          "mark": null
         }
       ]
     },

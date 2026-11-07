@@ -119,9 +119,9 @@ describe('the top bar\'s Summary on the lane', () => {
     expect(asked).toEqual([`/api/scenarios/${SID}/summary`])
     const s = europeanSummary as unknown as Summary
     expect(within(page).getAllByRole('heading', { level: 1 })[0]!.textContent).toBe(said(s.blocks[0]!))
-    expect(within(page).getByTestId('summary-download').getAttribute('href')).toBe(`/api/scenarios/${SID}/summary?format=md`)
+    expect(within(page).getByTestId('summary-download').getAttribute('href')).toBe(`/api/scenarios/${SID}/summary?at=1&format=md`)
     expect(within(page).getByTestId('summary-download').textContent).toBe(SUMMARY_DOWNLOAD_LABEL)
-    expect(within(page).getByTestId('summary-print').getAttribute('href')).toBe(`/api/scenarios/${SID}/summary?format=html`)
+    expect(within(page).getByTestId('summary-print').getAttribute('href')).toBe(`/api/scenarios/${SID}/summary?at=1&format=html`)
     expect(within(page).getByTestId('summary-print').textContent).toBe(SUMMARY_PRINT_LABEL)
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.queryByTestId('summary-page')).toBeNull()
@@ -154,5 +154,59 @@ describe('the top bar\'s Summary on the lane', () => {
     act(() => { useViewStore.setState({ view: null, status: 'loading' }) })
     render(<MemoryRouter><ToastProvider><TopBar scenarioTitle="T" onTitleChange={vi.fn()} onSave={vi.fn()} onShare={vi.fn()} /></ToastProvider></MemoryRouter>)
     expect(screen.queryByTestId('summary-trigger')).toBeNull()
+  })
+  it('the exports are pinned to the version read: a newer save between the read and the click never exports another version', async () => {
+    const at3 = { ...(europeanSummary as unknown as Summary), version: { id: 3, n: 3, at: '2026-11-03T00:00:00.000Z', by: 'Paul' } }
+    setTeamFetch((async () => new Response(JSON.stringify(at3), { status: 200 })) as unknown as typeof fetch)
+    bar(european as unknown as View)
+    fireEvent.click(screen.getByTestId('summary-trigger'))
+    await waitFor(() => expect(screen.getByTestId('summary-document')).toBeTruthy())
+    expect(screen.getByTestId('summary-download').getAttribute('href')).toBe(`/api/scenarios/${SID}/summary?at=3&format=md`)
+    expect(screen.getByTestId('summary-print').getAttribute('href')).toBe(`/api/scenarios/${SID}/summary?at=3&format=html`)
+  })
+  it('showing the latest, the page reads again when the latest saved version changes', async () => {
+    const asked: string[] = []
+    setTeamFetch((async (path: string) => { asked.push(path); return new Response(JSON.stringify(europeanSummary), { status: 200 }) }) as unknown as typeof fetch)
+    bar(european as unknown as View)
+    fireEvent.click(screen.getByTestId('summary-trigger'))
+    await waitFor(() => expect(screen.getByTestId('summary-document')).toBeTruthy())
+    expect(asked).toEqual([`/api/scenarios/${SID}/summary`])
+    const v = european as unknown as View
+    act(() => { useViewStore.setState({ view: { ...v, version: { ...v.version!, id: 2, n: 2 } } }) })
+    await waitFor(() => expect(asked).toEqual([`/api/scenarios/${SID}/summary`, `/api/scenarios/${SID}/summary`]))
+  })
+  it('the page does not reappear unasked: the scenario changes (or nothing is saved) while it is open, then a version is there again', async () => {
+    setTeamFetch((async () => new Response(JSON.stringify(europeanSummary), { status: 200 })) as unknown as typeof fetch)
+    bar(european as unknown as View)
+    fireEvent.click(screen.getByTestId('summary-trigger'))
+    await waitFor(() => expect(screen.getByTestId('summary-document')).toBeTruthy())
+    act(() => { useViewStore.setState({ sid: null, view: null }) })
+    expect(screen.queryByTestId('summary-page')).toBeNull()
+    act(() => { useViewStore.setState({ sid: SID, view: european as unknown as View }) })
+    expect(screen.queryByTestId('summary-page')).toBeNull()
+    cleanup()
+  })
+  it('the dialog traps Tab: from the last control it wraps to the first, and Shift+Tab from the first to the last', async () => {
+    setTeamFetch((async () => new Response(JSON.stringify(europeanSummary), { status: 200 })) as unknown as typeof fetch)
+    bar(european as unknown as View)
+    fireEvent.click(screen.getByTestId('summary-trigger'))
+    await waitFor(() => expect(screen.getByTestId('summary-document')).toBeTruthy())
+    const page = screen.getByTestId('summary-page')
+    const stops = [...page.querySelectorAll<HTMLElement>('a[href], button')]
+    const first = stops[0]!, last = stops[stops.length - 1]!
+    expect(last).toBe(screen.getByTestId('summary-close'))
+    last.focus()
+    expect(fireEvent.keyDown(last, { key: 'Tab' })).toBe(false)
+    expect(document.activeElement).toBe(first)
+    expect(fireEvent.keyDown(first, { key: 'Tab', shiftKey: true })).toBe(false)
+    expect(document.activeElement).toBe(last)
+  })
+  it('a mark is an image with the mark\'s title as its name, and the space sits outside it', () => {
+    const s = GOLDEN['studio']!
+    const { container } = render(<SummaryDocument summary={s} />)
+    const part = s.blocks.flatMap((b) => b.parts).find((p) => p.mark)!
+    const mark = within(container).getAllByRole('img').find((m) => m.getAttribute('aria-label') === part.mark!.title)!
+    expect(mark.getAttribute('title')).toBe(part.mark!.title)
+    expect(mark.textContent).toBe(part.mark!.glyph)
   })
 })
