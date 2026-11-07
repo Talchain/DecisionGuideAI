@@ -26,9 +26,9 @@ const option = approved.model!.cards.find((c) => c.family === 'option')!
 const MARK = "Olumi's proposal from a web search. Check the source before you rely on it."
 const proposal = (k: number, over: Partial<ResearchProposal> = {}): ResearchProposal => ({ k, title: `Source ${k}`, url: `https://example.org/s${k}`, published: '2025-03-01', quote: `Passage ${k} says 90 to 120.`,
   implies: { kind: 'range', low: 90, high: 120, unit: 'ticket/week', words: '90 to 120 tickets/week' }, relevance: 'A survey of similar teams.', strength: 'moderate', strength_why: 'A credible survey.',
-  settable: true, why_not: null, by: 'olumi', provisional: true, mark: MARK, stance: 'challenges', choice: null,
+  settable: true, why_not: null, by: 'olumi', provisional: true, mark: MARK, stance: 'challenges', choice: null, checked: k === 1,
   // Core's own sentences (wip/research-r2 linesOf), deliberately unlike anything the page could compose from the fields above.
-  lines: { badge: `core badge ${k}`, where: `core where ${k}`, suggests: `core suggests ${k}`, relevance: `core relevance ${k}`, strength: `core strength ${k}`, stance: `core stance ${k}`, cannot_set: null, choice: null }, ...over })
+  lines: { passage: `core passage ${k}`, badge: `core badge ${k}`, where: `core where ${k}`, suggests: `core suggests ${k}`, relevance: `core relevance ${k}`, strength: `core strength ${k}`, stance: `core stance ${k}`, cannot_set: null, choice: null }, ...over })
 const item = (over: Partial<ResearchItem> = {}): ResearchItem => ({ id: 41, record: figure.id, about: figure.heading, heading: 'core heading', intro: 'core intro', kind: 'figure', at: '2026-11-07T15:00:00Z', by: 'Paul', by_id: approved.you_id!, version: 1, in_model: true,
   status: 'found', said: null, look_for: [], proposals: [proposal(1), proposal(2, { settable: false, why_not: 'core why not', implies: { kind: 'none', words: 'core no range' } })].map((p) => p.k === 2 ? { ...p, lines: { ...p.lines, suggests: 'core no range' } } : p), ...over })
 
@@ -76,7 +76,10 @@ describe('Find evidence', () => {
       // Every sentence is core's, drawn verbatim: each line's text is exactly core's string, and nothing else is said around it.
       const k = i + 1, want = list[0]!.proposals[i]!.lines
       for (const [name, text] of Object.entries(want)) if (text !== null) expect(c.querySelector(`[data-research-line="${name}"]`)!.textContent).toBe(text)
-      expect(c.querySelector('[data-research-line="quote"]')!.textContent).toBe(`Passage ${k} says 90 to 120.`)
+      // Core checked proposal 1's passage against page text it holds (a quotation); proposal 2's is Olumi's unverified summary, never drawn as a quote.
+      expect(c.querySelector('blockquote') !== null).toBe(k === 1)
+      expect(c.querySelector('[data-research-line="passage"]')!.hasAttribute('data-checked')).toBe(k === 1)
+      expect(c.textContent).not.toContain(`Passage ${k} says`) // the raw field is never drawn; only core's passage line
     }
     expect(panel()!.textContent).toContain('core heading')
     expect(panel()!.textContent).toContain('core intro')

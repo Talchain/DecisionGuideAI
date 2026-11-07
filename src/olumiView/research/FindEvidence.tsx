@@ -54,7 +54,10 @@ function Proposal({ sid, item, p, base, onWrote }: { sid: string; item: Research
       <p className={`${META} text-info`} title={p.mark} aria-label={p.mark} data-research-line="badge">{l.badge}</p>
       <p className={H}>{link ? <a href={link} target="_blank" rel="noreferrer noopener" className="underline decoration-info/50 underline-offset-2">{p.title}</a> : p.title}</p>
       <p className={META} data-research-line="where">{l.where}</p>
-      <blockquote className={`${BODY} m-0 border-l-2 border-panel-border pl-2 italic`} data-research-line="quote">{p.quote}</blockquote>
+      {/* Core's passage line verbatim: a quotation only where core checked it against page text it holds, else Olumi's unverified summary. */}
+      {p.checked
+        ? <blockquote className={`${BODY} m-0 border-l-2 border-panel-border pl-2 italic`} data-research-line="passage" data-checked="">{l.passage}</blockquote>
+        : <p className={BODY} data-research-line="passage">{l.passage}</p>}
       <p className={BODY} data-research-line="suggests">{l.suggests}</p>
       <p className={META} data-research-line="relevance">{l.relevance}</p>
       <p className={META} data-research-line="strength">{l.strength}</p>
