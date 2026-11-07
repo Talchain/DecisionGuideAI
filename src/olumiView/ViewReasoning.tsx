@@ -1,59 +1,78 @@
 /**
  * The Reasoning tab on the olumi-core lane, drawn from the View (olumi.view/3) in place of `AnalysisNewTabBody`, which reads CEE's report
- * and has no source here. Paul, 6 Nov ("the right-hand panel tabs' content is completely unacceptable… we did so much work on the
- * previous version"): it follows the previous PoC's Reasoning tab (vision-audit-20261024 *-panel-reasoning.png), under C1 (4 Nov, DGAI's
- * look on core's View), and no longer repeats the Analysis tab's per-option chance rows:
- *   1. the model at a glance: the brief, the goal, and one mark per option, factor, risk and outcome in the canvas's shape and colour for
- *      its kind (core's glyph kept for a reader, its heading on hover), with each row's count, as the previous strip;
- *   2. Challenge Your Thinking: the cards core marks `challenged` (a challenge, a disagreement, evidence that challenges), each with
- *      core's Olumi mark where core gives one (`cards[].olumi`);
- *   3. Assumptions and evidence: every premise core puts on a card, and the reasoning cards core draws, each once (a card's Olumi mark too);
- *   4. What would change your mind: each aim's figure worth checking first, and core's comparisons;
- *   5. each aim's outcome under every option on the aim's one axis (the previous tab's option bars);
- *   6. Try a figure: core's what-if on a copy, nothing saved, the answer at the top of this tab.
- * The previous tab's "Move towards commitment" sentences were written by DGAI (commitmentSynthesis.ts); core sends no such words, so that
- * part is left out (UI formats no model value). Every word is core's, drawn exactly as it arrives, in core's order: nothing is composed,
- * ranked or recommended here, and the figures are on hover. The section headings are this tab's own labels.
+ * and has no source here. Paul, 6 and 7 Nov ("we did so much work on the previous version"; reinstate the crafted Reasoning tab): the
+ * crafted Reasoning V2 composition (`analysisNew/prototype/ReasoningPanelV3.tsx`, served 24 Oct, vision-audit-20261024
+ * *-panel-reasoning.png) on core's View, with its parts ported in `reasoning/parts.tsx`. Top to bottom:
+ *   1. a what-if tried here, its answer first;
+ *   2. the model at a glance: the brief, the goal, and one mark per option, factor, risk and outcome in the canvas's shape and colour for
+ *      its kind (core's glyph kept for a reader, its heading on hover), with each row's count, as the crafted strip;
+ *   3. Challenge Your Thinking (the crafted `ChallengeCard`): each card core marks `challenged`, its heading as the zone's question (14px,
+ *      weight 400) led by core's glyph, its reason under it, whole; and under them the crafted "Assumptions and evidence" door
+ *      (`ReasoningSignals`, closed at rest), holding every premise core puts on a card and the reasoning cards core draws, each once, in
+ *      the crafted `SignalRow` grid with core's Olumi mark in the end column;
+ *   4. What would change your mind (the crafted `SectionShell` row, closed, with its count): each aim's figure worth checking first, and
+ *      core's comparisons;
+ *   5. each aim's outcome under every option on the aim's one axis (the crafted option bars);
+ *   6. Try a figure, behind the same row: core's what-if on a copy, nothing saved, the answer at the top of this tab.
+ * Not ported, by the DL's port rulings (7 Nov 08:30Z/08:41Z): `CommitmentSummary` (R2: its sentences were DGAI's, and the Team tab owns
+ * commitments); ChallengeCard's Respond (R3: core's challenge route carries no words, so the composer is the one home for them); the
+ * method strip, the ask box and the action bar (the conversation already carries core's `session.methods` and the composer: one home per
+ * content, R4). Every word is core's, drawn exactly as it arrives, in core's order: nothing is composed, ranked or recommended here, and the
+ * figures are on hover. The section headings are this tab's own labels; a count is how many rows a disclosure holds.
  *
  * Each drawn View string carries `data-view`, the path to the exact string it shows (design §3).
  */
-import type { ReactNode } from 'react'
+import { Activity, FlaskConical } from 'lucide-react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow } from './client'
 import type { GlanceKind } from './layout'
-import { bandPlace, challengedCards, familyCards, glanceRows, olumiKey, optionBands, optionCards, outcomePlace, premisesOnce, rowsCarryOutcome, settableFigures, type Place } from './layout'
+import { bandPlace, challengedCards, comparedGroupsOf, familyCards, glanceRows, olumiKey, optionBands, optionCards, outcomePlace, premisesOnce, rowsCarryOutcome, settableFigures, worthLinesOf, type Place } from './layout'
 import { shownModel, useViewStore } from './store'
 import { HeldProposalLine } from './ViewChances'
 import { Compared, WhatIfShown, Worth } from './ViewChances'
+import { Clamped, Door, SectionRow, SignalRow, ZoneTitle } from './reasoning/parts'
 import { typography } from '../styles/typography'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 
-/** The tab's own labels (the previous PoC's Reasoning tab), the only words not core's. */
+/** The tab's own labels (the crafted Reasoning tab's), the only words not core's. */
 export const REASONING_LABELS = {
   brief: 'Brief', goal: 'Goal', options: 'Options', factors: 'Factors', risks: 'Risks', outcomes: 'Outcomes',
   challenge: 'Challenge Your Thinking', premises: 'Assumptions and evidence', change: 'What would change your mind', tryFigure: 'Try a figure',
+  more: 'More', less: 'Less',
 } as const
+/** A brief longer than this is held to two lines at rest (about 50 characters a line at 14px in the dock's narrowest column). */
+const BRIEF_CLAMP_CHARS = 100
 /** The model at a glance: each row's label and test id, by the kind the canvas draws its cards as (layout.ts glanceRows picks them). */
 const GLANCE: Record<GlanceKind, { label: string; testId: string }> = {
   option: { label: REASONING_LABELS.options, testId: 'options' }, factor: { label: REASONING_LABELS.factors, testId: 'factors' },
   risk: { label: REASONING_LABELS.risks, testId: 'risks' }, outcome: { label: REASONING_LABELS.outcomes, testId: 'outcomes' },
 }
 
-function Section({ label, testId, children }: { label: string; testId: string; children: ReactNode }) {
-  return (
-    <section data-testid={`view-reasoning-${testId}`} aria-label={label} className="space-y-1 pt-2">
-      <p className={typography.panelHeader}>{label}</p>
-      {children}
-    </section>
-  )
-}
-
 /**
  * Core's own mark on a card Olumi added (`cards[].olumi`, as the canvas draws it): its glyph, with core's words on hover and for a reader,
  * so Olumi's additions stay visibly Olumi's here too. Nothing on a card core does not mark (a person's own).
  */
-function OlumiMark({ card }: { card: ViewCard }) {
-  return card.olumi === null ? null : <>{'\u00a0'}<span title={card.olumi.title} aria-label={card.olumi.title} data-view={`${card.id}.olumi.glyph`}>{card.olumi.glyph}</span></>
+function OlumiMark({ card, inline = true }: { card: ViewCard; inline?: boolean }) {
+  if (card.olumi === null) return null
+  const mark = <span className="text-text-light" title={card.olumi.title} aria-label={card.olumi.title} data-view={`${card.id}.olumi.glyph`}>{card.olumi.glyph}</span>
+  return inline ? <>{' '}{mark}</> : mark
+}
+
+/**
+ * The crafted ChallengeCard's question (analysisNew/sections/ChallengeCard.tsx), one per card core marks challenged: the card's heading as
+ * the zone's question on its own line, 14px at weight 400, led by a quiet mark (core's glyph for the card, in place of the crafted dot),
+ * core's Olumi mark after it; then its reason, indented under it, in full. The crafted one-line clamp is not ported: no core words are cut.
+ */
+function Challenge({ card: c }: { card: ViewCard }) {
+  return (
+    <div title={c.detail} data-reasoning-challenge={c.id}>
+      <p className={`${typography.panelQuestion} m-0 mb-1 mt-2 flex min-w-0 gap-2 text-text-header`} data-testid="view-reasoning-challenge-question">
+        <span className="text-text-light" aria-hidden="true" data-view={`${c.id}.glyph`}>{c.glyph}</span>
+        <span className="min-w-0"><span data-view={`${c.id}.heading`}>{c.heading}</span><OlumiMark card={c} /></span>
+      </p>
+      {c.reason === null || c.reason === c.heading ? null : <p className={`${typography.viewPanelMeta} m-0 mb-1 pl-3 text-text-light`} data-testid="view-reasoning-challenge-reason" data-view={`${c.id}.reason`}>{c.reason}</p>}
+    </div>
+  )
 }
 
 export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief?: string | null }) {
@@ -61,80 +80,74 @@ export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief
   const goals = familyCards(model, ['goal']), challenges = challengedCards(model)
   // Each premise once, wherever core put it (an option's own premises, and the notes on the card they concern), by core's words.
   const { premises, cards: reasoning } = premisesOnce(model)
-  const change = (run?.science?.length ?? 0) > 0 || (run?.compared?.length ?? 0) > 0
+  const notes = premises.length + reasoning.length
+  // What would change your mind holds core's worth lines and its compared lines, as Worth and Compared draw them (a group core gives no
+  // heading for is drawn as nothing, so it is not counted).
+  const change = (run?.science == null ? 0 : worthLinesOf(run.science).length) + comparedGroupsOf(run).flatMap((g) => g.lines).length
   return (
-    <div className={`${typography.viewPanelBody} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-3 px-4 py-3`} data-testid="view-reasoning">
+    <div className={`${typography.viewPanelBody} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-6 px-4 py-3`} data-testid="view-reasoning">
       <WhatIfShown model={model} />
-      <div data-testid="view-reasoning-glance" className="space-y-1">
+      <div data-testid="view-reasoning-glance" className="space-y-1.5">
         {brief === null ? null : (
-          <div className="flex gap-2"><span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind="decision" size={10} />{REASONING_LABELS.brief}</span><span className="min-w-0" title={brief} data-view="brief">{brief}</span></div>
+          <div className="flex items-baseline gap-2"><span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5 text-text-light`}><NodeShapeIndicator nodeKind="decision" size={10} />{REASONING_LABELS.brief}</span><span className="min-w-0" title={brief}><Clamped long={brief.length > BRIEF_CLAMP_CHARS} labels={REASONING_LABELS} testId="view-reasoning-brief"><span data-view="brief">{brief}</span></Clamped></span></div>
         )}
         {goals.map((g) => (
-          <div key={g.id} className="flex gap-2"><span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind="goal" size={10} />{REASONING_LABELS.goal}</span><span className="min-w-0" title={g.detail} data-view={`${g.id}.heading`}>{g.heading}</span></div>
+          <div key={g.id} className="flex items-baseline gap-2"><span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5 text-text-light`}><NodeShapeIndicator nodeKind="goal" size={10} />{REASONING_LABELS.goal}</span><span className="min-w-0" title={g.detail} data-view={`${g.id}.heading`}>{g.heading}</span></div>
         ))}
-        {/* As the previous strip: the kind's canvas shape before its label, one mark per card in the canvas's own shape and colour (core's
+        {/* As the crafted strip: the kind's canvas shape before its label, one mark per card in the canvas's own shape and colour (core's
             glyph kept for a reader, its heading on hover), and how many cards the row has, right-aligned. */}
         {glanceRows(model).map(({ kind, cards }) => (
           <div key={kind} className="flex items-center gap-2" data-testid={`view-reasoning-glance-${GLANCE[kind].testId}`}>
-            <span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind={kind} size={10} />{GLANCE[kind].label}</span>
-            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+            <span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5 text-text-light`}><NodeShapeIndicator nodeKind={kind} size={10} />{GLANCE[kind].label}</span>
+            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
               {cards.map((c) => (
                 <span key={c.id} className="inline-flex" title={c.heading} aria-label={c.heading} data-glance-card={c.id} data-glance-kind={kind}>
                   <NodeShapeIndicator nodeKind={kind} size={10} /><span className="sr-only" data-view={`${c.id}.glyph`}>{c.glyph}</span>
                 </span>
               ))}
             </span>
-            <span className={`${typography.viewPanelMeta} shrink-0 tabular-nums`} data-glance-count={kind}>{cards.length}</span>
+            <span className={`${typography.viewPanelMeta} shrink-0 tabular-nums text-text-light`} data-glance-count={kind}>{cards.length}</span>
           </div>
         ))}
       </div>
-      {challenges.length === 0 ? null : (
-        <Section label={REASONING_LABELS.challenge} testId="challenge">
-          {challenges.map((c) => (
-            // The crafted ChallengeCard's question (analysisNew/sections/ChallengeCard.tsx): the card's heading as the zone's question on its
-            // own line, 14px at weight 400, led by a quiet mark (here core's glyph for the card, in place of the crafted dot); then its reason,
-            // indented under it, in full. The crafted 1-line clamp is not ported: no core words are cut (audit: cut 0).
-            <div key={c.id} title={c.detail} data-reasoning-challenge={c.id}>
-              <p className={`${typography.panelQuestion} m-0 mb-1 mt-2 flex min-w-0 gap-2 text-text-header`} data-testid="view-reasoning-challenge-question">
-                <span className="text-text-light" aria-hidden="true" data-view={`${c.id}.glyph`}>{c.glyph}</span>
-                <span className="min-w-0"><span data-view={`${c.id}.heading`}>{c.heading}</span><OlumiMark card={c} /></span>
-              </p>
-              {c.reason === null || c.reason === c.heading ? null : <p className={`${typography.viewPanelMeta} m-0 mb-1 pl-3 text-text-light`} data-testid="view-reasoning-challenge-reason" data-view={`${c.id}.reason`}>{c.reason}</p>}
+      {challenges.length + notes === 0 ? null : (
+        <section data-testid="view-reasoning-challenge" aria-label={REASONING_LABELS.challenge} className="space-y-1">
+          <ZoneTitle>{REASONING_LABELS.challenge}</ZoneTitle>
+          {challenges.map((c) => <Challenge key={c.id} card={c} />)}
+          {notes === 0 ? null : (
+            <div className="pt-1">
+              <Door label={REASONING_LABELS.premises} count={notes} testId="premises">
+                {premises.map(({ card, p, j }) => (
+                  <SignalRow key={`${card.id}.${j}`} title={p.title} data-reasoning-premise={`${card.id}.${j}`} mark={<span data-view={`${card.id}.premises.${j}.glyph`}>{p.glyph}</span>}>
+                    <span data-view={`${card.id}.premises.${j}.text`}>{p.text}</span>
+                  </SignalRow>
+                ))}
+                {reasoning.map((c) => (
+                  <SignalRow key={c.id} title={c.detail} data-reasoning-card={c.id} mark={<span data-view={`${c.id}.glyph`}>{c.glyph}</span>} end={<OlumiMark card={c} inline={false} />}>
+                    <span data-view={`${c.id}.reason`}>{c.reason}</span>
+                  </SignalRow>
+                ))}
+              </Door>
             </div>
-          ))}
-        </Section>
+          )}
+        </section>
       )}
-      {premises.length + reasoning.length === 0 ? null : (
-        <Section label={REASONING_LABELS.premises} testId="premises">
-          {premises.map(({ card, p, j }) => (
-            <p key={`${card.id}.${j}`} title={p.title} data-reasoning-premise={`${card.id}.${j}`}>
-              <span aria-hidden="true" data-view={`${card.id}.premises.${j}.glyph`}>{p.glyph}</span>{' '}<span data-view={`${card.id}.premises.${j}.text`}>{p.text}</span>
-            </p>
-          ))}
-          {reasoning.map((c) => (
-            <p key={c.id} title={c.detail} data-reasoning-card={c.id}>
-              <span aria-hidden="true" data-view={`${c.id}.glyph`}>{c.glyph}</span>{' '}<span data-view={`${c.id}.reason`}>{c.reason}</span><OlumiMark card={c} />
-            </p>
-          ))}
-        </Section>
-      )}
-      {!change ? null : (
-        <Section label={REASONING_LABELS.change} testId="change">
+      {change === 0 ? null : (
+        <SectionRow title={REASONING_LABELS.change} Icon={Activity} count={change} testId="change">
           <Worth run={run} tab="analysisNew" />
           <Compared run={run} />
-        </Section>
+        </SectionRow>
       )}
       <Outcomes model={model} />
       {settable.length === 0 ? null : (
-        <div data-testid="view-reasoning-try" aria-label={REASONING_LABELS.tryFigure} className="pt-2">
-          <p className={typography.panelHeader}>{REASONING_LABELS.tryFigure}</p>
+        <SectionRow title={REASONING_LABELS.tryFigure} Icon={FlaskConical} count={settable.length} testId="try">
           {settable.map((c) => (
             <div key={c.id} className="group" title={c.figure!.text} data-reasoning-try={c.id}>
               <span data-view={`${c.id}.heading`}>{c.heading}</span>{' '}
               <FigureEdit id={c.id} edit={c.figure!.edit} place="reasoning" glyph="✎" quiet label="Try a figure" tab="analysisNew" primary="try" />
             </div>
           ))}
-        </div>
+        </SectionRow>
       )}
     </div>
   )
@@ -235,5 +248,6 @@ function Bands({ model, option }: { model: ViewModel; option: string }) {
 /** The tab's body: the View's model as shown (`shownModel`); a held proposal's under its heading (`HeldProposalLine`), never unlabelled. */
 export function ViewReasoningBlock() {
   const model = useViewStore(shownModel), brief = useViewStore((st) => st.view?.brief ?? null)
-  return model === null ? null : <><HeldProposalLine /><ViewReasoning model={model} brief={brief} /></>
+  // The held proposal's line sits on the tab's own 16px gutter (it draws none of its own); nothing at all when no proposal is held.
+  return model === null ? null : <><div className="px-4 pt-3 empty:hidden"><HeldProposalLine /></div><ViewReasoning model={model} brief={brief} /></>
 }

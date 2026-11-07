@@ -7,8 +7,11 @@
  *
  * View only: a row's press puts its card in front on the canvas (the canvas's own focus, `focusNodeById`). Changing the model stays the
  * card's ✎ and the chat. Assumptions and conditions are the Rests on lens's; the legacy outline has no group for them either.
+ *
+ * R25 (Paul 7 Nov, reinstate the crafted Model tab): each row is the crafted tab's two-line row with its mark and its Insights
+ * disclosure (`model/ModelCardRow.tsx`), a link the same two lines, and a quiet key for the authorship marks on screen, in core's words.
  */
-import { Fragment, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { typography } from '../styles/typography'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
@@ -17,36 +20,10 @@ import { focusNodeById } from '../canvas/utils/focusHelpers'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { KIND_GLYPH } from '../canvas/model-tab-v2/rowPresentation'
 import type { ViewCard, ViewModel } from './client'
-import { cardNumbersOf, modelOutlineOf, outcomeRiskKinds, type OutlineGroupId } from './layout'
+import { cardNumbersOf, drawKindOf, modelOutlineOf, outcomeRiskKinds, type OutlineGroupId } from './layout'
 import { useViewStore } from './store'
-import { Row } from './ViewChances'
-
-const Mark = ({ at, mark }: { at: string; mark: { glyph: string; title: string } | null }) =>
-  mark === null ? null : <span title={mark.title} aria-label={mark.title} data-view={`${at}.glyph`}>{mark.glyph}</span>
-
-function CardRow({ card, number }: { card: ViewCard; number: string | null }) {
-  return (
-    <li>
-      <button type="button" onClick={() => focusNodeById(card.id)} data-model-row={card.id}
-        className={`w-full cursor-pointer rounded px-1 py-1 text-left hover:bg-panel-hover ${ACTION_FOCUS}`}>
-        <span className="flex items-baseline gap-1">
-          {number === null ? null : <span className="text-text-light">{number}</span>}
-          <span className="text-text-header" title={card.detail === '' ? undefined : card.detail} data-view={`${card.id}.heading`}>{card.heading}</span>
-          <Mark at={`${card.id}.olumi`} mark={card.olumi} />
-          <Mark at={`${card.id}.change`} mark={card.change} />
-        </span>
-        {/* An aim's or limit's target, as its card on the canvas says it (core's `bound`, with Olumi's mark where Olumi gave it): an aim in
-            the outline without its target was half of it (Model-tab port contract, 7 Nov). Nothing when core sends none. */}
-        {card.bound === null ? null : (
-          <span className="block" title={card.bound.title}><span data-view={`${card.id}.bound.text`}>{card.bound.text}</span>
-            {card.bound.olumi === null ? null : <> <Mark at={`${card.id}.bound.olumi`} mark={card.bound.olumi} /></>}</span>
-        )}
-        {card.figure === null ? null : <span className="block" title={card.figure.title} data-view={`${card.id}.figure.text`}>{card.figure.text}</span>}
-        {card.rows.map((row, i) => <Row key={i} card={card} row={row} i={i} />)}
-      </button>
-    </li>
-  )
-}
+import { ModelCardRow } from './model/ModelCardRow'
+import { authorKeyOf } from './model/premises'
 
 /** The previous PoC's outline chrome (legacy `ModelTabV2Panel.tsx`): its title, its filter's words and its expand control's. UI words, not
  *  model words: nothing here says anything about the model. */
@@ -78,7 +55,7 @@ function Group({ id, title, count, open, onToggle, mark, children }: { id: Group
         <span>{title}</span>
         <span className={`${typography.viewPanelMeta} ml-1 text-text-light`} data-model-group-count={id}>{count}</span>
       </button>
-      {open ? <ul className="mb-1 ml-5 mt-0.5 space-y-0.5">{children}</ul> : null}
+      {open ? <ul className="m-0 mb-2 ml-3 mt-0.5 list-none space-y-0.5 p-0">{children}</ul> : null}
     </section>
   )
 }
@@ -93,6 +70,7 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
   const allOpen = ids.every((id) => opened.has(id))
   const toggle = (id: GroupId) => setOpened((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const anyMatch = shown.some((g) => g.rows.length > 0 || g.question) || links.length > 0
+  const authorKey = useMemo(() => authorKeyOf(model, shown.flatMap((g) => g.cards)), [model, shown])
   return (
     <div className={`${typography.viewPanelBody} space-y-2 pb-4`} data-testid="view-model-tab">
       <div className="flex items-center justify-between gap-2">
@@ -116,12 +94,15 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
           return (
             <Group key={g.id} id={g.id} title={g.title} count={count} open={isOpen(g.id, count)} onToggle={() => toggle(g.id)} mark={<KindMark id={g.id} cards={g.cards} model={model} />}>
               {g.id === 'goal' && g.question ? (
-                <li className="px-1 py-1">
-                  <span className="text-text-header" data-view="model.question.text">{model.question.text}</span>
-                  {model.aim == null ? null : <span className="block" title={model.aim.title} data-view="model.aim.text">{model.aim.text}</span>}
+                <li className="flex items-start gap-2 px-2 py-1.5">
+                  <span aria-hidden="true" className="w-4 flex-none" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words text-text-header" data-view="model.question.text">{model.question.text}</span>
+                    {model.aim == null ? null : <span className={`${typography.viewPanelTabular} mt-0.5 block text-text-body`} title={model.aim.title} data-view="model.aim.text">{model.aim.text}</span>}
+                  </span>
                 </li>
               ) : null}
-              {g.rows.map((c) => <CardRow key={c.id} card={c} number={numbers.get(c.id) ?? null} />)}
+              {g.rows.map((c) => <ModelCardRow key={c.id} card={c} number={numbers.get(c.id) ?? null} kind={drawKindOf(c, model)} keyEntries={model.key} />)}
             </Group>
           )
         })}
@@ -131,18 +112,33 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
             {links.map(({ l, i, from, to }) => (
               <li key={i}>
                 <button type="button" onClick={() => focusNodeById(l.from)} data-model-link={`links.${i}`} title={l.title}
-                  className={`w-full cursor-pointer rounded px-1 py-1 text-left hover:bg-panel-hover ${ACTION_FOCUS}`}>
-                  <span>{from}</span>
-                  <span aria-hidden="true"> → </span>
-                  <span>{to}</span>
-                  {l.label === '' ? null : <Fragment> <span data-view={`links.${i}.label`}>{l.label}</span></Fragment>}
-                  {l.effect == null ? null : <span className="block text-text-light" title={l.effect.title} data-view={`links.${i}.effect.text`}>{l.effect.text}</span>}
+                  className={`flex w-full cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-panel-hover ${ACTION_FOCUS}`}>
+                  <span aria-hidden="true" className="w-4 flex-none text-center text-text-light">{KIND_GLYPH.relationship}</span>
+                  <span className="min-w-0 flex-1">
+                    {/* Core's label is a mark (◇, ⊢, ↝, +): it follows the last word, as on the canvas; the strength is line 2. */}
+                    <span className="block break-words text-text-header">
+                      <span>{from}</span>
+                      <span aria-hidden="true" className="text-text-light"> → </span>
+                      <span>{to}</span>
+                      {l.label === '' ? null : <>{'\u00a0'}<span className="text-text-light" data-view={`links.${i}.label`}>{l.label}</span></>}
+                    </span>
+                    {l.effect == null ? null : (
+                      <span className={`${typography.viewPanelMeta} mt-0.5 block tabular-nums text-text-light`} title={l.effect.title} data-view={`links.${i}.effect.text`}>{l.effect.text}</span>
+                    )}
+                  </span>
                 </button>
               </li>
             ))}
           </Group>
         )}
       </div>
+      {/* The key to the authorship marks on screen (the crafted tab's ValueProvenanceKey: a mark nobody can read is a private code), in
+          core's key words; nothing when no row carries one. */}
+      {authorKey.length === 0 ? null : (
+        <p className={`${typography.viewPanelMeta} m-0 flex flex-wrap gap-x-4 border-t border-panel-border pt-3 text-text-light`} data-testid="view-model-key">
+          {authorKey.map((k) => <span key={k.id} data-view-key={k.id}><span aria-hidden="true">{k.glyph}</span> <span>{k.text}</span></span>)}
+        </p>
+      )}
     </div>
   )
 }

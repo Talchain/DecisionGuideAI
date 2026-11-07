@@ -35,6 +35,9 @@ describe('a whole Run sentence on a card: three lines, then Show all', () => {
     const btn = c.querySelector<HTMLButtonElement>(`[data-show-all="${at}"]`)!
     expect(btn.tagName).toBe('BUTTON')
     expect([btn.textContent, btn.getAttribute('aria-expanded')]).toEqual([SHOW_ALL, 'false'])
+    // 1232 polish (track 4 step 3): a plain control, never Olumi's blue (blue means Olumi only)
+    expect(btn.className).toContain('text-text-light')
+    expect(btn.className).not.toContain('text-info')
     const box = c.querySelector<HTMLElement>(`#${btn.getAttribute('aria-controls')}`)!
     expect(box.className).toContain('line-clamp-3')
     expect(box.querySelector(`[data-view="${at}.text"]`)!.textContent).toBe(long.text)
