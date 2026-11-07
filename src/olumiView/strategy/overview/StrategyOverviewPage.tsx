@@ -6,7 +6,8 @@ import { X } from 'lucide-react'
 import type { View } from '../../client'
 import { typography } from '../../../styles/typography'
 import { META, BODY, H } from '../../../olumiCore/team/ui'
-import { MAX_HOLDERS, overviewOf, type Family, type Group, type Row } from './overview'
+import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
+import { MAX_HOLDERS, overviewOf, type Family, type Group, type Holder, type Row } from './overview'
 
 const SHAPE: Record<Family, string> = {
   question: 'bg-text-light [clip-path:polygon(50%_0,93%_25%,93%_75%,50%_100%,7%_75%,7%_25%)]',
@@ -18,11 +19,14 @@ const SHAPE: Record<Family, string> = {
 }
 const AVATAR = `inline-grid h-[22px] w-[22px] flex-none place-items-center rounded-full border border-panel-border bg-canvas ${typography.viewPanelMeta} font-semibold leading-none text-text-body`
 
-function Holders({ names }: { names: string[] }): JSX.Element {
+/** Each holder as a disc with their initial; Olumi as a disc with Olumi's mark (the board's `who ol`), never a letter. */
+function Holders({ holders }: { holders: Holder[] }): JSX.Element {
   return (
     <span className="flex justify-end">
-      {names.slice(0, MAX_HOLDERS).map((n, i) => (
-        <span key={`${n}-${i}`} data-testid="holder" title={n} aria-label={n} className={`${AVATAR} ${i > 0 ? '-ml-[7px] shadow-[0_0_0_2px_rgb(var(--bg-panel-rgb))]' : ''}`}>{n.slice(0, 1).toUpperCase()}</span>
+      {holders.slice(0, MAX_HOLDERS).map((h, i) => (
+        <span key={`${h.id}-${i}`} data-testid="holder" data-holder={h.id} title={h.name} aria-label={h.name} className={`${AVATAR} ${i > 0 ? '-ml-[7px] shadow-[0_0_0_2px_rgb(var(--bg-panel-rgb))]' : ''}`}>
+          {h.id === 'olumi' ? <OlumiAiIcon size={14} aria-hidden="true" /> : (Array.from(h.name)[0] ?? '').toUpperCase()}
+        </span>
       ))}
     </span>
   )
@@ -31,10 +35,10 @@ function Holders({ names }: { names: string[] }): JSX.Element {
 function Line({ row }: { row: Row }): JSX.Element {
   return (
     <li data-row={row.id} className="grid min-h-[36px] grid-cols-[14px_minmax(0,1fr)_auto_64px] items-center gap-2.5 rounded-md px-0 py-1.5">
-      <span aria-hidden="true" className={`h-[14px] w-[14px] ${SHAPE[row.family]}`} />
+      <span aria-hidden="true" data-shape={row.family} className={`h-[14px] w-[14px] ${SHAPE[row.family]}`} />
       <span className={`${BODY} text-text-header`}>{row.title}</span>
       {row.pill === '' ? <span /> : <span data-testid="pill" className={`whitespace-nowrap rounded-full border px-2 py-0.5 ${typography.viewPanelMeta} font-medium text-text-body ${row.info ? 'border-info/30' : 'border-panel-border'}`}>{row.pill}</span>}
-      <Holders names={row.holders} />
+      <Holders holders={row.holders} />
     </li>
   )
 }

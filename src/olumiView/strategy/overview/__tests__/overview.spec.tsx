@@ -48,10 +48,23 @@ describe('Strategy Overview page (real View, core’s sections)', () => {
     render(<StrategyOverviewPage view={olumi} onClose={() => {}} />)
     expect(pillOf('olumi-question:1')).toBe('Olumi asks')
     expect(holdersOf('olumi-question:1')).toEqual(['Olumi'])
+    // Olumi holds it as its mark in the disc, never a letter "O" (design item 3); a person keeps their initial.
+    const disc = within(row('olumi-question:1')).getByTestId('holder')
+    expect(disc.querySelector('svg')).not.toBeNull()
+    expect(disc.textContent).toBe('')
+    expect(within(row(q.lines[0]!.id)).getAllByTestId('holder').every((h) => h.querySelector('svg') === null && h.textContent !== '')).toBe(true)
     cleanup()
     expect(overviewOf({ ...view, strategy: undefined } as View)).toEqual([])
     render(<StrategyOverviewPage view={{ ...view, strategy: undefined } as View} onClose={() => {}} />)
     expect(document.querySelectorAll('[data-row]')).toHaveLength(0)
+  })
+
+  it('every route is drawn with the option square, even a line core sends without its card (design item 3)', () => {
+    const routes = section('routes')
+    const bare = { ...view, strategy: { ...S, overview: { ...S.overview, sections: S.overview.sections.map((s) => (s.id !== 'routes' ? s : { ...s, lines: s.lines.map((l) => ({ ...l, ref: null })) })) } } } as View
+    render(<StrategyOverviewPage view={bare} onClose={() => {}} />)
+    expect(routes.lines.length).toBeGreaterThan(0)
+    for (const l of routes.lines) expect(row(l.id).querySelector('[data-shape]')!.getAttribute('data-shape')).toBe('option')
   })
 
   it('Commitments shows core’s empty sentence; Close calls onClose; the store opens and closes', () => {
