@@ -38,6 +38,7 @@ import { useV10Lane, ViewCardV10 } from './v10'
 import { useDockFullHeight } from './dockFullHeight'
 import { ViewLensBar } from './ViewLensBar'
 import { AddFigure } from './AddFigure'
+import { DraftingBoard } from './DraftingBoard'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
 import { ViewPreMortemKey } from './ViewPreMortemKey'
@@ -181,6 +182,8 @@ function ViewFlow() {
         onFitView={() => { userMoved.current = false; fit() }}
         onAutoArrange={() => { const model = useViewStore.getState().view?.model; if (model) void placeViewCards(model) }}
       />
+      {/* While a brief drafts, the empty board says so (plan v3 drafting state). */}
+      {hasModel ? null : <DraftingBoard />}
       {/* R25 slice 2: the board's own control to add a figure card in the person's words (core's …/figures), above the zoom controls. */}
       {hasModel ? <AddFigure /> : null}
       {hasModel ? <ViewLensBar /> : null}

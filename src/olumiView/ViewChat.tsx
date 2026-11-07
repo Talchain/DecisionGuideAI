@@ -351,7 +351,7 @@ function watchPageMoves(): void {
 }
 
 /** Core holds no model and no proposal for this scenario (none yet, or its first draft was set aside): a message is a new brief (00052 #6). */
-const takesBrief = (sid: string | null, view: View | null) => sid === null || (view !== null && view.version === null && view.proposal === null)
+export const takesBrief = (sid: string | null, view: View | null) => sid === null || (view !== null && view.version === null && view.proposal === null)
 
 const opKey = (uuid: string | null, kind: string, text: string) => `${uuid ?? '-'}\u0000${kind}\u0000${text}`
 
@@ -855,6 +855,7 @@ function ModelNoticeLine() {
   return <p role="status" className={`${typography.viewPanelMeta} text-text-header`} data-testid="view-model-notice" data-notice={notice.kind}>{noticeWords(notice)}</p>
 }
 
+export const DRAFTING_TITLE = 'Drafting your model'
 export const DRAFTING_WORDS = 'Olumi is drafting a model from your brief. A first model can take a few minutes.'
 export const THINKING_WORDS = 'Olumi is thinking…'
 
@@ -904,7 +905,8 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
     <div className={`${typography.viewPanelBody} px-2 pb-2 pt-1 space-y-2`} data-testid="view-composer">
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
       {/* While a write is in flight the composer is held: it says why (lane audit 5.7), in core's page's words. */}
-      {busy ? <Working brief={brief} /> : null}
+      {/* A brief's drafting is said on the board (DraftingBoard.tsx), once; a message being answered is said here. */}
+      {busy && !brief ? <Working brief={false} /> : null}
       {past === null ? null : (
         <p className="flex flex-wrap items-center gap-2" data-testid="view-composer-past">
           <span>Version {past} is on the canvas, as it was. {PAST_HELD}</span>
@@ -912,10 +914,11 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
         </p>
       )}
       <label className={brief ? typography.panelHeader : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
-      {brief ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
+      {/* What to write, until it is written: once the brief is sent, the box holds it and the board says what happens. */}
+      {brief && !busy ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
       <div className="relative bg-panel border border-panel-border rounded-lg transition-colors focus-within:border-info">
         <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light pt-2 pb-1 px-3`}
-          rows={brief ? 6 : 2} value={text} placeholder={placeholder} aria-describedby={brief ? 'view-brief-intro' : undefined} disabled={held}
+          rows={brief ? 6 : 2} value={text} placeholder={placeholder} aria-describedby={brief && !busy ? 'view-brief-intro' : undefined} disabled={held}
           onChange={(e) => useViewChat.setState({ text: e.target.value })} />
         <div className="flex items-center justify-end gap-1 px-2 pb-1" data-testid="view-composer-actions">
           {analysisAction === undefined ? null : (
