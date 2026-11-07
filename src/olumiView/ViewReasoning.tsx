@@ -17,6 +17,8 @@
  *      core's comparisons;
  *   5. each aim's outcome under every option on the aim's one axis (the crafted option bars);
  *   6. Try a figure, behind the same row: core's what-if on a copy, nothing saved, the answer at the top of this tab.
+ * Above the glance, at its right, the one depth switch, Advanced (`reasoning/Advanced.tsx`, the redesign's §4): off by default; on, grouped bays under
+ * the glance, one open at a time, each in step with its canvas lens.
  * Not ported, by the DL's port rulings (7 Nov 08:30Z/08:41Z): `CommitmentSummary` (R2: its sentences were DGAI's, and the Team tab owns
  * commitments); ChallengeCard's Respond (R3: core's challenge route carries no words, so the composer is the one home for them); the
  * method strip, the ask box and the action bar (the conversation already carries core's `session.methods` and the composer: one home per
@@ -33,6 +35,7 @@ import { shownModel, useViewStore } from './store'
 import { Compared, WhatIfShown, Worth } from './ViewChances'
 import { Door, SectionRow, SignalRow, ZoneTitle } from './reasoning/parts'
 import { Spine } from './reasoning/Spine'
+import { ADVANCED_LABEL, AdvancedBays, AdvancedToggle, useAdvanced } from './reasoning/Advanced'
 import { StateStrip, useTabState } from './reasoning/StateStrip'
 import { typography } from '../styles/typography'
 
@@ -40,7 +43,7 @@ import { typography } from '../styles/typography'
 export const REASONING_LABELS = {
   brief: 'Brief', goal: 'Goal', options: 'Options', factors: 'Factors', risks: 'Risks', outcomes: 'Outcomes',
   challenge: 'Challenge Your Thinking', premises: 'Assumptions and evidence', change: 'What would change your mind', tryFigure: 'Try a figure',
-  more: 'More', less: 'Less', glance: 'The model at a glance',
+  more: 'More', less: 'Less', glance: 'The model at a glance', advanced: ADVANCED_LABEL,
 } as const
 
 /**
@@ -80,10 +83,13 @@ export function ViewReasoning({ model, brief = null, stated = false }: { model: 
   // What would change your mind holds core's worth lines and its compared lines, as Worth and Compared draw them (a group core gives no
   // heading for is drawn as nothing, so it is not counted).
   const change = (run?.science == null ? 0 : worthLinesOf(run.science).length) + comparedGroupsOf(run).flatMap((g) => g.lines).length
+  const [advanced, setAdvanced] = useAdvanced()
   return (
     <div className={`${typography.viewPanelBody} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-6 px-4 py-3`} data-testid="view-reasoning">
       <WhatIfShown model={model} labelled={!stated} />
+      <div className="flex justify-end"><AdvancedToggle on={advanced} onChange={setAdvanced} /></div>
       <Spine model={model} brief={brief} labels={REASONING_LABELS} />
+      {advanced ? <AdvancedBays model={model} /> : null}
       {challenges.length + notes === 0 ? null : (
         <section data-testid="view-reasoning-challenge" aria-label={REASONING_LABELS.challenge} className="space-y-1">
           <ZoneTitle>{REASONING_LABELS.challenge}</ZoneTitle>

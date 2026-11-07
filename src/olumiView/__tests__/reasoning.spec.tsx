@@ -20,6 +20,9 @@ import { useMe } from '../../olumiCore/me'
 import { useUIStore } from '../../stores/uiStore'
 import { useCanvasStore } from '../../canvas/store'
 import { registerFocusHelpers } from '../../canvas/utils/focusHelpers'
+import { ADVANCED_KEY } from '../reasoning/Advanced'
+import { SHARPEN_TITLE } from '../ViewChances'
+import { useViewLens } from '../lens'
 
 const read = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', n), 'utf8'))
 const ready = (view: View, more: object = {}) => {
@@ -695,5 +698,155 @@ describe('the crafted rest state: the challenge open, depth closed behind counte
     render(<ViewReasoning model={short.model!} brief={short.brief} />)
     expect(screen.queryByTestId('view-reasoning-brief')).toBeNull()
     expect(screen.getByTestId('view-reasoning-glance').querySelector('[data-view="brief"]')?.textContent).toBe(short.brief)
+  })
+})
+
+// The redesign's Advanced switch (reasoning-redesign-SPEC.md §4): off by default and remembered per viewer; on, core's tipping, rests,
+// failure and sharpen lines in bays under the glance, one open at a time, each bay in step with its canvas lens.
+describe('the Advanced switch: depth on demand, in step with the canvas lens', () => {
+  const pill = () => screen.getByTestId('view-reasoning-advanced')
+  const bay = (id: string) => screen.queryByTestId(`view-reasoning-bay-${id}`)
+  const bayToggle = (id: string) => screen.getByTestId(`view-reasoning-bay-${id}-toggle`)
+  const region = (id: string) => screen.queryByTestId(`view-reasoning-bay-${id}-region`)
+  const clone = (v: View): View => JSON.parse(JSON.stringify(v))
+  const show = (view: View) => { ready(view); return render(<ViewReasoning model={view.model!} brief={view.brief} />) }
+  beforeEach(() => { localStorage.clear(); useViewLens.setState({ lens: 'full' }) })
+  afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); useViewLens.setState({ lens: 'full' }) })
+
+  it('is off at rest, with no bays; pressing it turns it on and remembers it for this viewer; pressing again turns it off', () => {
+    const { unmount } = show(read('bakery.view.json'))
+    expect([pill().textContent, pill().getAttribute('aria-pressed')]).toEqual([REASONING_LABELS.advanced, 'false'])
+    expect(screen.queryByTestId('view-reasoning-bays')).toBeNull()
+    fireEvent.click(pill())
+    expect(pill().getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByTestId('view-reasoning-bays')).toBeInTheDocument()
+    expect(localStorage.getItem(ADVANCED_KEY)).toBe('1')
+    unmount()
+    show(read('bakery.view.json'))
+    expect(pill().getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(pill())
+    expect([pill().getAttribute('aria-pressed'), localStorage.getItem(ADVANCED_KEY)]).toEqual(['false', '0'])
+    expect(screen.queryByTestId('view-reasoning-bays')).toBeNull()
+  })
+
+  it('negative: storage that refuses leaves it off and still lets it be turned on', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('denied') })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('denied') })
+    show(read('bakery.view.json'))
+    expect(pill().getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(pill())
+    expect(pill().getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByTestId('view-reasoning-bays')).toBeInTheDocument()
+  })
+
+  it('catch: bakery: each bay is titled by core\'s heading at its path, counts its rows, and opens onto core\'s lines at their own paths, the heading said once', () => {
+    localStorage.setItem(ADVANCED_KEY, '1')
+    const view = read('bakery.view.json'), m = view.model!, run = m.run!
+    show(view)
+    expect([...screen.getByTestId('view-reasoning-bays').querySelectorAll('[data-testid$="-toggle"]')].map((b) => b.getAttribute('data-testid'))).toEqual(['view-reasoning-bay-tipping-toggle', 'view-reasoning-bay-rests-toggle', 'view-reasoning-bay-sharpen-toggle'])
+    for (const [id, head, rows] of [['tipping', 'run.tipping_heading', run.tipping.length], ['rests', 'run.rests_heading', run.rests.length]] as const) {
+      const title = bayToggle(id).querySelector(`[data-view="${head}"]`)
+      expect(title?.textContent, id).toBe(at(view, head))
+      expect(bay(id)!.querySelector('[data-count]')?.textContent, id).toBe(String(rows))
+      expect(region(id), id).toBeNull()
+      fireEvent.click(bayToggle(id))
+      const lines = [...region(id)!.querySelectorAll<HTMLElement>(`[data-view^="run.${id}."]`)]
+      expect(lines.length, id).toBe(rows)
+      for (const l of lines) expect(l.textContent, l.dataset['view']).toBe(at(view, l.dataset['view']!))
+      expect(bay(id)!.querySelectorAll(`[data-view="${head}"]`).length, id).toBe(1)
+    }
+    fireEvent.click(bayToggle('sharpen'))
+    expect(bayToggle('sharpen').textContent).toContain(SHARPEN_TITLE)
+    expect(region('sharpen')!.querySelectorAll('[data-sharpen]').length).toBe(m.sharpen!.length)
+  })
+
+  it('catch: pricing: the sharpen bay holds every row core sends, with no "+N more" of its own (the bay is the disclosure)', () => {
+    localStorage.setItem(ADVANCED_KEY, '1')
+    const view = read('pricing.view.json'), m = view.model!
+    show(view)
+    fireEvent.click(bayToggle('sharpen'))
+    expect([...region('sharpen')!.querySelectorAll<HTMLElement>('[data-sharpen]')].map((e) => e.dataset['sharpen'])).toEqual(m.sharpen!.map((s) => (s as { id: string }).id))
+    expect(region('sharpen')!.querySelector('details')).toBeNull()
+    expect(region('sharpen')!.textContent).not.toContain(SHARPEN_TITLE)
+  })
+
+  it('opens one bay at a time', () => {
+    localStorage.setItem(ADVANCED_KEY, '1')
+    show(read('bakery.view.json'))
+    fireEvent.click(bayToggle('tipping'))
+    fireEvent.click(bayToggle('rests'))
+    expect([region('tipping'), bayToggle('tipping').getAttribute('aria-expanded')]).toEqual([null, 'false'])
+    expect(bayToggle('rests').getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(bayToggle('sharpen'))
+    expect([region('rests'), region('sharpen')]).toEqual([null, expect.anything()])
+  })
+
+  it('a bay sets its canvas lens and closing it gives the canvas back; another bay\'s lens replaces it; turning Advanced off gives it back', () => {
+    localStorage.setItem(ADVANCED_KEY, '1')
+    show(read('bakery.view.json'))
+    fireEvent.click(bayToggle('rests'))
+    expect(useViewLens.getState().lens).toBe('rests_on')
+    fireEvent.click(bayToggle('rests'))
+    expect(useViewLens.getState().lens).toBe('full')
+    fireEvent.click(bayToggle('tipping'))
+    expect(useViewLens.getState().lens).toBe('what_changes')
+    fireEvent.click(bayToggle('rests'))
+    expect(useViewLens.getState().lens).toBe('rests_on')
+    fireEvent.click(bayToggle('sharpen'))
+    expect(useViewLens.getState().lens).toBe('full')
+    fireEvent.click(bayToggle('rests'))
+    fireEvent.click(pill())
+    expect(useViewLens.getState().lens).toBe('full')
+  })
+
+  it('a lens pressed on the canvas opens its bay; closing that bay leaves the canvas\'s own lens alone', () => {
+    localStorage.setItem(ADVANCED_KEY, '1')
+    show(read('bakery.view.json'))
+    act(() => { useViewLens.setState({ lens: 'rests_on' }) })
+    expect(bayToggle('rests').getAttribute('aria-expanded')).toBe('true')
+    act(() => { useViewLens.setState({ lens: 'what_changes' }) })
+    expect([bayToggle('tipping').getAttribute('aria-expanded'), region('rests')]).toEqual(['true', null])
+    fireEvent.click(bayToggle('tipping'))
+    expect(useViewLens.getState().lens).toBe('what_changes')
+  })
+
+  it('negative: the If it failed bay never opens the gated lens, and a person\'s own lens is left as it is', () => {
+    localStorage.setItem(ADVANCED_KEY, '1')
+    const view = clone(read('bakery.view.json')), run = view.model!.run!
+    run.failure = run.rests.map((r) => ({ ...r, id: `${r.id}_f` })) as never
+    show(view)
+    act(() => { useViewLens.setState({ lens: 'tradeoffs' }) })
+    fireEvent.click(bayToggle('failure'))
+    expect(region('failure')!.querySelectorAll('[data-view^="run.failure."]').length).toBe(run.failure.length)
+    expect(useViewLens.getState().lens).toBe('tradeoffs')
+    fireEvent.click(bayToggle('failure'))
+    expect(useViewLens.getState().lens).toBe('tradeoffs')
+  })
+
+  it('negative: with no figure the options move most with, the tipping bay opens no lens (the lens bar would say it waits)', () => {
+    localStorage.setItem(ADVANCED_KEY, '1')
+    const view = clone(read('bakery.view.json'))
+    for (const c of view.model!.cards) c.driver = null
+    show(view)
+    fireEvent.click(bayToggle('tipping'))
+    expect([region('tipping') !== null, useViewLens.getState().lens]).toEqual([true, 'full'])
+  })
+
+  it('negative: capacity-v3 sends no tipping, rests, failure or sharpen: no bays at all, the switch still there', () => {
+    localStorage.setItem(ADVANCED_KEY, '1')
+    show(read('capacity-v3.view.json'))
+    expect(pill().getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByTestId('view-reasoning-bays')).toBeNull()
+  })
+
+  it('catch: european, every bay open in turn: every word drawn is bound to its View string or is the tab\'s own label', () => {
+    localStorage.setItem(ADVANCED_KEY, '1')
+    const view = read('european.view.json'), m = view.model!
+    const root = show(view).container
+    for (const id of ['tipping', 'rests', 'sharpen']) {
+      fireEvent.click(bayToggle(id))
+      expect(unbound(screen.getByTestId('view-reasoning-bays'), [...OWN, SHARPEN_TITLE, ...(m.sharpen ?? []).map(() => 'ⓘ'), ...m.run!.tipping.flatMap((l) => (l.olumi == null ? [] : [l.olumi.glyph]))]), id).toEqual([])
+    }
+    expect(root).toBeTruthy()
   })
 })

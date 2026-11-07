@@ -37,8 +37,16 @@ function Count({ n, testId }: { n: number; testId?: string }) {
  * The crafted section row (`SectionShell`): heading wraps the button (the accordion pattern), an icon in a 24px box, the title, the count
  * and a chevron on the right; the region under it, unmounted while closed.
  */
-export function SectionRow({ title, Icon, count, defaultOpen = false, testId, children }: { title: string; Icon?: Glyph; count: number; defaultOpen?: boolean; testId: string; children: ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen)
+export function SectionRow({ title, Icon, count, defaultOpen = false, testId, children, open: held, onOpenChange, titleView }: {
+  title: string; Icon?: Glyph; count: number; defaultOpen?: boolean; testId: string; children: ReactNode
+  /** Held by the caller (the Advanced bays: one open at a time), with `onOpenChange` told of each press; else the row holds its own. */
+  open?: boolean; onOpenChange?: (open: boolean) => void
+  /** The `data-view` path when the title is core's own words (an Advanced bay titled by core's heading). */
+  titleView?: string
+}) {
+  const [own, setOwn] = useState(defaultOpen)
+  const open = held ?? own
+  const setOpen = (f: (o: boolean) => boolean) => { const next = f(open); if (held === undefined) setOwn(next); onOpenChange?.(next) }
   const region = useId()
   return (
     <section aria-label={title} data-testid={`view-reasoning-${testId}`} data-disclosure={open ? 'open' : 'closed'}>
@@ -46,7 +54,7 @@ export function SectionRow({ title, Icon, count, defaultOpen = false, testId, ch
         <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? region : undefined} data-testid={`view-reasoning-${testId}-toggle`}
           className={`flex min-h-[24px] w-full items-center gap-3 rounded py-2 text-left hover:opacity-80 ${ACTION_FOCUS}`}>
           {Icon === undefined ? null : <span className="flex h-6 w-6 shrink-0 items-center justify-center"><Icon className={`${icon('row')} text-text-light`} aria-hidden={true} /></span>}
-          <span className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`}>{title}</span>
+          <span className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`} data-view={titleView}>{title}</span>
           <Count n={count} testId={`view-reasoning-${testId}-count`} />
           <ChevronRight className={`${icon('section')} shrink-0 text-text-light transition-transform motion-reduce:transition-none ${open ? 'rotate-90' : ''}`} aria-hidden={true} />
         </button>

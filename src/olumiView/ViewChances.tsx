@@ -306,12 +306,13 @@ function SuggestedNext({ chat }: { chat: readonly ViewTurn[] | null }) {
 /**
  * D6, what would have to be true (olumi.view/3 `model.run.tipping`, tipping.ts): each line core's own under core's own heading
  * (`tipping_heading`), its hover the Run's text, Olumi's mark when core gives one. Never among the "Behind this result" lines.
+ * `headed={false}` where core's heading is already the title of what holds it (the Reasoning tab's Advanced bay): the lines alone.
  */
-export function Tipping({ run }: { run: ViewRun | null }) {
+export function Tipping({ run, headed = true }: { run: ViewRun | null; headed?: boolean }) {
   const t = tippingOf(run)
-  return t === null ? null : (
-    <section className={BOX} data-testid="view-run-tipping" aria-label={t.heading}>
-      <p className={typography.panelHeader} data-view="run.tipping_heading">{t.heading}</p>
+  if (t === null) return null
+  const lines = (
+    <>
       {t.lines.map(({ line: l, i }) => (
         <p key={l.id} title={l.hover} data-view-fact={l.id}>
           {l.olumi == null ? null : <><span title={l.olumi.title} aria-label={l.olumi.title}>{l.olumi.glyph}</span> </>}
@@ -319,21 +320,29 @@ export function Tipping({ run }: { run: ViewRun | null }) {
         </p>
       ))}
       {t.silent.map((s) => <p key={s.aim} data-view-silent={s.aim}>{s.line}</p>)}
-    </section>
+    </>
   )
+  return headed ? (
+    <section className={BOX} data-testid="view-run-tipping" aria-label={t.heading}>
+      <p className={typography.panelHeader} data-view="run.tipping_heading">{t.heading}</p>
+      {lines}
+    </section>
+  ) : <div className="space-y-2" data-testid="view-run-tipping">{lines}</div>
 }
 
-/** D5 and D8 on the Analysis tab, as D6 is drawn: core's sentence verbatim under core's heading, its hover as the title. */
-function FactCard({ testid, view, t }: { testid: string; view: string; t: { heading: string; lines: { line: { id: string; line: string; hover: string }; i: number }[] } | null }) {
-  return t === null ? null : (
+/** D5 and D8 on the Analysis tab, as D6 is drawn: core's sentence verbatim under core's heading, its hover as the title (`headed` as Tipping). */
+function FactCard({ testid, view, t, headed }: { testid: string; view: string; t: { heading: string; lines: { line: { id: string; line: string; hover: string }; i: number }[] } | null; headed: boolean }) {
+  if (t === null) return null
+  const lines = t.lines.map(({ line: l, i }) => <p key={l.id} title={l.hover} data-view-fact={l.id}><span data-view={`${view}.${i}.line`}>{l.line}</span></p>)
+  return headed ? (
     <section className={BOX} data-testid={testid} aria-label={t.heading}>
       <p className={typography.panelHeader} data-view={`${view}_heading`}>{t.heading}</p>
-      {t.lines.map(({ line: l, i }) => <p key={l.id} title={l.hover} data-view-fact={l.id}><span data-view={`${view}.${i}.line`}>{l.line}</span></p>)}
+      {lines}
     </section>
-  )
+  ) : <div className="space-y-2" data-testid={testid}>{lines}</div>
 }
-export const Failure = ({ run }: { run: ViewRun | null }) => <FactCard testid="view-run-failure" view="run.failure" t={failureOf(run)} />
-export const Rests = ({ run }: { run: ViewRun | null }) => <FactCard testid="view-run-rests" view="run.rests" t={restsOf(run)} />
+export const Failure = ({ run, headed = true }: { run: ViewRun | null; headed?: boolean }) => <FactCard testid="view-run-failure" view="run.failure" t={failureOf(run)} headed={headed} />
+export const Rests = ({ run, headed = true }: { run: ViewRun | null; headed?: boolean }) => <FactCard testid="view-run-rests" view="run.rests" t={restsOf(run)} headed={headed} />
 
 /** R19: Olumi's timing assumptions, once, in core's words ("Olumi's timing assumption, not your figure: 'X' is 1 to 4 months."); the generic what-if note for the same
  *  quantity is skipped beside it (layout.ts `notesBesideTiming`). Nothing when core sends none. */
@@ -408,7 +417,9 @@ export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: r
  * core's prompts about the model's shape (`model.sharpen`), each with its family's mark, its lead, its emphasis in bold and its rationale
  * on the ⓘ hover, all core's words; the first two shown, the rest behind "+N more". Nothing when core sends none.
  */
-function SharpenCard({ model }: { model: ViewModel }) {
+export const SHARPEN_TITLE = 'Sharpen your thinking'
+/** `headed={false}` inside a holder that already titles it and is itself the disclosure (the Reasoning tab's Advanced bay): every row, no heading, no box. */
+export function SharpenCard({ model, headed = true }: { model: ViewModel; headed?: boolean }) {
   const rows = sharpenRowsOf(model)
   if (rows.length === 0) return null
   const split = firstFew(rows, SHARPEN_SHOWN)
@@ -423,9 +434,10 @@ function SharpenCard({ model }: { model: ViewModel }) {
         className={`${typography.viewPanelMeta} shrink-0 cursor-help`}>ⓘ</span>
     </div>
   )
+  if (!headed) return <div className="space-y-2" data-testid="view-run-sharpen">{rows.map((r) => line(r))}</div>
   return (
-    <section className={BOX} data-testid="view-run-sharpen" aria-label="Sharpen your thinking">
-      <p className={typography.panelHeader}>Sharpen your thinking</p>
+    <section className={BOX} data-testid="view-run-sharpen" aria-label={SHARPEN_TITLE}>
+      <p className={typography.panelHeader}>{SHARPEN_TITLE}</p>
       {split.shown.map(line)}
       {split.more.length === 0 ? null : (
         <details data-testid="view-run-sharpen-more" className="space-y-2">
