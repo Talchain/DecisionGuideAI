@@ -77,9 +77,10 @@ describe('coaching on its card: the newest reply\'s next step keeps the cards it
     await waitFor(() => expect(lit()).toEqual(sorted(NAMED.filter((id) => id !== NAMED[1]))))
     nodeEl(NAMED[1]!).classList.remove('selected')
     await waitFor(() => expect(lit()).toEqual(sorted(NAMED)))
-    // a V11 view chip open on a card (v11-build marks its node `v11-open`): the open chip wins, the card steps out
+    // a V11 view chip open on a card (v11-build marks its node `v11-open`): the open view is the one focus, so the whole resting ring
+    // steps out while it is open (UI ruling 7 Nov), and comes back when it closes
     nodeEl(NAMED[0]!).classList.add('v11-open')
-    await waitFor(() => expect(lit()).toEqual(sorted(NAMED.filter((id) => id !== NAMED[0]))))
+    await waitFor(() => expect(lit()).toEqual([]))
     nodeEl(NAMED[0]!).classList.remove('v11-open')
     await waitFor(() => expect(lit()).toEqual(sorted(NAMED)))
     act(() => { useCanvasStore.setState({ olumiAttention: { nodeIds: [NAMED[2]!] } } as never) })

@@ -119,9 +119,11 @@ export interface HeroOptionRowProps {
   figure?: ViewCard | null
   /** Anything the caller mounts at the end of the detail (e.g. the figure's ✎). */
   children?: ReactNode
+  /** This row's reason is one every option shares, said once at the panel's head (layout.ts `saidOnce`): the row draws no repeat. */
+  saidAbove?: boolean
 }
 
-export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping = [], figure = null, children }: HeroOptionRowProps) {
+export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping = [], figure = null, children, saidAbove = false }: HeroOptionRowProps) {
   const regionId = useId(), labelId = useId()
   const { card, row, i } = entry
   const at = `${card.id}.rows.${i}`
@@ -131,8 +133,10 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
   // The readout, in core's words: the chance on the goal lens; on the outcome lens the outcome band, and nothing where a row has none
   // (never the chance or a limit's value under "Likely outcome": checker, 7 Nov). A row that says why it has nothing says so on both.
   const outcomeReadout = lens === 'outcome' && chance?.outcome != null
+  // A reason every option shares is said once at the panel's head (strategy audit 7 Nov: "it belongs once, in the panel"): its row names
+  // its option and draws no repeat; core's row title stays its hover.
   const readout = row.kind === 'none'
-    ? (row.text == null ? <span data-view={`${at}.title`}>{row.title}</span> : <span data-view={`${at}.text`}>{row.text}</span>)
+    ? saidAbove ? null : (row.text == null ? <span data-view={`${at}.title`}>{row.title}</span> : <span data-view={`${at}.text`}>{row.text}</span>)
     : lens === 'outcome'
       ? (outcomeReadout ? <span data-view={`${at}.outcome.text`} title={chance!.outcome!.title}>{chance!.outcome!.text}</span> : null)
       : (
@@ -184,11 +188,14 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
       {/* 1232 polish (track 4 step 3): the option's name is the row's label (12px) and core's chance is its finding, full weight on every
           row (none dims), so the eye lands on the chance first. */}
       <span id={labelId} className={`${TYPE.meta} block w-full break-words text-text-body`} data-view={`${card.id}.heading`}>{card.heading}</span>
-      <span className="flex w-full items-baseline gap-1.5">
-        <span className="flex-none text-primary" data-testid="port-row-mark">{leader ? <Mark at={`${at}.likely`} mark={chance!.likely} /> : null}</span>
-        <span className={`${TYPE.body} min-w-0 flex-1 break-words font-semibold text-text-header`} data-testid="port-row-readout">{readout}</span>
-        <Chevron aria-hidden="true" className={`h-3.5 w-3.5 flex-none self-center text-text-light ${expandable ? '' : 'invisible'}`} />
-      </span>
+      {/* A row whose reason is said once above (`saidAbove`) and has nothing to open is its option's name alone: no empty finding line. */}
+      {saidAbove && !expandable ? null : (
+        <span className="flex w-full items-baseline gap-1.5">
+          <span className="flex-none text-primary" data-testid="port-row-mark">{leader ? <Mark at={`${at}.likely`} mark={chance!.likely} /> : null}</span>
+          <span className={`${TYPE.body} min-w-0 flex-1 break-words font-semibold text-text-header`} data-testid="port-row-readout">{readout}</span>
+          <Chevron aria-hidden="true" className={`h-3.5 w-3.5 flex-none self-center text-text-light ${expandable ? '' : 'invisible'}`} />
+        </span>
+      )}
       {lens === 'outcome' && (
         <span aria-hidden="true" className="relative block h-5 w-full" data-testid="port-row-track">
           <span className="absolute inset-x-0 top-1/2 h-px bg-panel-border" />

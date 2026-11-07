@@ -682,3 +682,15 @@ export function restingRingOf(cards: readonly string[], inFocus: readonly string
   return cards.filter((id) => !inFocus.includes(id))
 }
 
+/**
+ * The aims whose one shared reason covers this option (core's `run.shared_blockers`, by aim id and option id, never by its words). Core
+ * says that reason once for every option it covers, and the panel draws it once (ViewChances `SharedBlockers`); the card and the panel's option row leave
+ * the row to it, and the card shows its title until a figure exists (V11, the boards Paul approved on 7 Nov). Core still sends each covered card its short
+ * row, so a canvas that does not read the field keeps saying something. Fails closed: a core before the field covers nothing.
+ */
+export function sharedAimsOf(run: ViewRun | null | undefined, option: string): readonly string[] {
+  return (run?.shared_blockers ?? []).filter((b) => b.options.includes(option)).map((b) => b.aim_id)
+}
+/** This row is an option's short row for an aim whose shared reason the panel says once (`sharedAimsOf`): draw no repeat of it. */
+export const saidOnce = (run: ViewRun | null | undefined, option: string, row: ViewRow): boolean =>
+  row.kind === 'none' && row.aim_id !== null && sharedAimsOf(run, option).includes(row.aim_id)

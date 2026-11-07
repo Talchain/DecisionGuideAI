@@ -3,9 +3,12 @@
  * and has no source here. Paul, 6 and 7 Nov ("we did so much work on the previous version"; reinstate the crafted Reasoning tab): the
  * crafted Reasoning V2 composition (`analysisNew/prototype/ReasoningPanelV3.tsx`, served 24 Oct, vision-audit-20261024
  * *-panel-reasoning.png) on core's View, with its parts ported in `reasoning/parts.tsx`. Top to bottom:
+ *   0. above the tab, its state, said once (`reasoning/StateStrip.tsx`, the redesign's head row): a proposal held, a past version looked
+ *      at, or a what-if shown, each with its way back; nothing at rest;
  *   1. a what-if tried here, its answer first;
  *   2. the model at a glance: the brief, the goal, and one mark per option, factor, risk and outcome in the canvas's shape and colour for
- *      its kind (core's glyph kept for a reader, its heading on hover), with each row's count, as the crafted strip;
+ *      its kind (core's glyph kept for a reader, its heading on hover), with each row's count, as the crafted strip; each mark a control
+ *      that rings, selects and follows its card on the canvas (`reasoning/Spine.tsx`, the redesign's spine);
  *   3. Challenge Your Thinking (the crafted `ChallengeCard`): each card core marks `challenged`, its heading as the zone's question (14px,
  *      weight 400) led by core's glyph, its reason under it, whole; and under them the crafted "Assumptions and evidence" door
  *      (`ReasoningSignals`, closed at rest), holding every premise core puts on a card and the reasoning cards core draws, each once, in
@@ -25,28 +28,20 @@
 import { Activity, FlaskConical } from 'lucide-react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow } from './client'
-import type { GlanceKind } from './layout'
-import { bandPlace, challengedCards, comparedGroupsOf, familyCards, glanceRows, olumiKey, optionBands, optionCards, outcomePlace, premisesOnce, rowsCarryOutcome, settableFigures, worthLinesOf, type Place } from './layout'
+import { bandPlace, challengedCards, comparedGroupsOf, olumiKey, optionBands, optionCards, outcomePlace, premisesOnce, rowsCarryOutcome, settableFigures, worthLinesOf, type Place } from './layout'
 import { shownModel, useViewStore } from './store'
-import { HeldProposalLine } from './ViewChances'
 import { Compared, WhatIfShown, Worth } from './ViewChances'
-import { Clamped, Door, SectionRow, SignalRow, ZoneTitle } from './reasoning/parts'
+import { Door, SectionRow, SignalRow, ZoneTitle } from './reasoning/parts'
+import { Spine } from './reasoning/Spine'
+import { StateStrip, useTabState } from './reasoning/StateStrip'
 import { typography } from '../styles/typography'
-import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 
 /** The tab's own labels (the crafted Reasoning tab's), the only words not core's. */
 export const REASONING_LABELS = {
   brief: 'Brief', goal: 'Goal', options: 'Options', factors: 'Factors', risks: 'Risks', outcomes: 'Outcomes',
   challenge: 'Challenge Your Thinking', premises: 'Assumptions and evidence', change: 'What would change your mind', tryFigure: 'Try a figure',
-  more: 'More', less: 'Less',
+  more: 'More', less: 'Less', glance: 'The model at a glance',
 } as const
-/** A brief longer than this is held to two lines at rest (about 50 characters a line at 14px in the dock's narrowest column). */
-const BRIEF_CLAMP_CHARS = 100
-/** The model at a glance: each row's label and test id, by the kind the canvas draws its cards as (layout.ts glanceRows picks them). */
-const GLANCE: Record<GlanceKind, { label: string; testId: string }> = {
-  option: { label: REASONING_LABELS.options, testId: 'options' }, factor: { label: REASONING_LABELS.factors, testId: 'factors' },
-  risk: { label: REASONING_LABELS.risks, testId: 'risks' }, outcome: { label: REASONING_LABELS.outcomes, testId: 'outcomes' },
-}
 
 /**
  * Core's own mark on a card Olumi added (`cards[].olumi`, as the canvas draws it): its glyph, with core's words on hover and for a reader,
@@ -75,9 +70,10 @@ function Challenge({ card: c }: { card: ViewCard }) {
   )
 }
 
-export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief?: string | null }) {
+/** `stated`: the tab's state is said above it (`ViewReasoningBlock`'s StateStrip), so the what-if box here draws no label of its own. */
+export function ViewReasoning({ model, brief = null, stated = false }: { model: ViewModel; brief?: string | null; stated?: boolean }) {
   const run = model.run ?? null, settable = settableFigures(model)
-  const goals = familyCards(model, ['goal']), challenges = challengedCards(model)
+  const challenges = challengedCards(model)
   // Each premise once, wherever core put it (an option's own premises, and the notes on the card they concern), by core's words.
   const { premises, cards: reasoning } = premisesOnce(model)
   const notes = premises.length + reasoning.length
@@ -86,30 +82,8 @@ export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief
   const change = (run?.science == null ? 0 : worthLinesOf(run.science).length) + comparedGroupsOf(run).flatMap((g) => g.lines).length
   return (
     <div className={`${typography.viewPanelBody} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-6 px-4 py-3`} data-testid="view-reasoning">
-      <WhatIfShown model={model} />
-      <div data-testid="view-reasoning-glance" className="space-y-1.5">
-        {brief === null ? null : (
-          <div className="flex items-baseline gap-2"><span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5 text-text-light`}><NodeShapeIndicator nodeKind="decision" size={10} />{REASONING_LABELS.brief}</span><span className="min-w-0" title={brief}><Clamped long={brief.length > BRIEF_CLAMP_CHARS} labels={REASONING_LABELS} testId="view-reasoning-brief"><span data-view="brief">{brief}</span></Clamped></span></div>
-        )}
-        {goals.map((g) => (
-          <div key={g.id} className="flex items-baseline gap-2"><span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5 text-text-light`}><NodeShapeIndicator nodeKind="goal" size={10} />{REASONING_LABELS.goal}</span><span className="min-w-0" title={g.detail} data-view={`${g.id}.heading`}>{g.heading}</span></div>
-        ))}
-        {/* As the crafted strip: the kind's canvas shape before its label, one mark per card in the canvas's own shape and colour (core's
-            glyph kept for a reader, its heading on hover), and how many cards the row has, right-aligned. */}
-        {glanceRows(model).map(({ kind, cards }) => (
-          <div key={kind} className="flex items-center gap-2" data-testid={`view-reasoning-glance-${GLANCE[kind].testId}`}>
-            <span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5 text-text-light`}><NodeShapeIndicator nodeKind={kind} size={10} />{GLANCE[kind].label}</span>
-            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-              {cards.map((c) => (
-                <span key={c.id} className="inline-flex" title={c.heading} aria-label={c.heading} data-glance-card={c.id} data-glance-kind={kind}>
-                  <NodeShapeIndicator nodeKind={kind} size={10} /><span className="sr-only" data-view={`${c.id}.glyph`}>{c.glyph}</span>
-                </span>
-              ))}
-            </span>
-            <span className={`${typography.viewPanelMeta} shrink-0 tabular-nums text-text-light`} data-glance-count={kind}>{cards.length}</span>
-          </div>
-        ))}
-      </div>
+      <WhatIfShown model={model} labelled={!stated} />
+      <Spine model={model} brief={brief} labels={REASONING_LABELS} />
       {challenges.length + notes === 0 ? null : (
         <section data-testid="view-reasoning-challenge" aria-label={REASONING_LABELS.challenge} className="space-y-1">
           <ZoneTitle>{REASONING_LABELS.challenge}</ZoneTitle>
@@ -245,9 +219,13 @@ function Bands({ model, option }: { model: ViewModel; option: string }) {
   )
 }
 
-/** The tab's body: the View's model as shown (`shownModel`); a held proposal's under its heading (`HeldProposalLine`), never unlabelled. */
+/**
+ * The tab's body: the View's model as shown (`shownModel`), headed by its state (`StateStrip`): a held proposal under core's heading and
+ * base, a past version or a what-if each said once with its way back, so nothing that is not the latest approved model reads as it.
+ */
 export function ViewReasoningBlock() {
-  const model = useViewStore(shownModel), brief = useViewStore((st) => st.view?.brief ?? null)
-  // The held proposal's line sits on the tab's own 16px gutter (it draws none of its own); nothing at all when no proposal is held.
-  return model === null ? null : <><div className="px-4 pt-3 empty:hidden"><HeldProposalLine /></div><ViewReasoning model={model} brief={brief} /></>
+  const model = useViewStore(shownModel), brief = useViewStore((st) => st.view?.brief ?? null), state = useTabState(model)
+  // The strip sits on the tab's own 16px gutter (it draws none of its own); nothing at all, and no gap, at rest. The what-if box drops its
+  // own label only when the strip is the one saying the what-if (one answer, `useTabState`), never under a proposal's strip.
+  return model === null ? null : <><div className="px-4 pt-3 empty:hidden"><StateStrip state={state} /></div><ViewReasoning model={model} brief={brief} stated={state === 'whatif'} /></>
 }
