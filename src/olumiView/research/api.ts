@@ -19,7 +19,7 @@ export type ResearchProposal = {
   stance: 'supports' | 'challenges' | 'unclear'
   choice: { choice: ResearchChoice; by: string; at: string; evidence: number | null; version: number | null } | null
   /** Every sentence the page shows for this proposal, written by core against the model now: drawn verbatim, never composed here. */
-  lines: { badge: string; where: string; suggests: string; relevance: string; strength: string; stance: string; cannot_set: string | null; choice: string | null }
+  lines: { passage: string; badge: string; where: string; suggests: string; relevance: string; strength: string; stance: string; cannot_set: string | null; choice: string | null }
 }
 export type ResearchItem = {
   id: number; record: string; about: string; heading: string; intro: string; kind: 'figure' | 'link' | 'assumption'; at: string; by: string; by_id: string; version: number; in_model: boolean
