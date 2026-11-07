@@ -25,7 +25,9 @@ export function strategyOf(view: View | null): Strategy | null {
 export function strategyMarkOn(view: View | null, card: string): StrategyMark | null {
   const s = strategyOf(view)
   if (s === null) return null
-  if (marksOn(revealOf(view), card).chip !== null) return null
+  // Core's reveal speaks the views' marks itself once its collab.marks carries them (view/reveal.ts on wip/debate-n1): then this card's chips are
+  // V11's, in its order, and this shim draws nothing. An evidence chip alone is not the views' mark, so it does not hide this one.
+  if (marksOn(revealOf(view), card).cardChips.some((c) => c.kind !== 'evidence')) return null
   return s.marks.find((m) => m.card === card) ?? null
 }
 

@@ -14,7 +14,7 @@ import { resetWrites } from '../../olumiCore/team/writes'
 import { StrategyCompose } from '../strategy/StrategyCompose'
 
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal.view3.json'), 'utf8'))
-const VOCAB = { kinds: [{ id: 'claim', text: 'Claim' }], stances: [{ id: 'know', text: 'Observed' }, { id: 'suspect', text: 'Expects' }, { id: 'unsure', text: 'Unsure' }, { id: 'would_try', text: 'Would try' }, { id: 'others_may_miss', text: 'Others may miss' }], limits: { text: 400, source: 200, concerns: 8, items: 8 } }
+const VOCAB = { kinds: [{ id: 'claim', text: 'Claim' }], stances: [{ id: 'know', text: 'What I know', word: 'Observed' }, { id: 'suspect', text: 'What I suspect', word: 'Expects' }, { id: 'unsure', text: 'Unsure', word: 'Unsure' }, { id: 'would_try', text: 'What I would try', word: 'Would try' }, { id: 'others_may_miss', text: 'What others may miss', word: 'Others may miss' }], limits: { text: 400, source: 200, concerns: 8, items: 8 } }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 
 let posts: { url: string; body: unknown }[]

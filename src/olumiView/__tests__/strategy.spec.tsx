@@ -15,6 +15,7 @@ import { strategyMarkOn, strategyOf, viewLinesOf } from '../strategy/strategy'
 import { StrategyChips } from '../strategy/StrategyChips'
 import { StrategyViewLines } from '../strategy/StrategyViewLines'
 import { StrategyOverviewSection } from '../strategy/StrategyOverview'
+import { CardViewChips } from '../RevealMarks'
 
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal.view3.json'), 'utf8'))
 const none: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-reveal.view3.json'), 'utf8'))
@@ -50,6 +51,26 @@ describe('core’s strategy marks on the canvas (real View)', () => {
     useViewStore.setState({ view: none })
     const { container } = render(<StrategyChips card="time_to_contract" />)
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+describe('core’s own reveal marks the views (served View, olumi-core wip/strategy-n1 297e0c15)', () => {
+  // On the debate lane's base, core's collab.marks carries the words-only marks itself: V11's chip draws them, in its order, with the dock and
+  // camera that follow; the strategy shim draws nothing, so no card has two chips for one mark.
+  const n1: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal-n1.view3.json'), 'utf8'))
+  it('the contested card’s chips are V11’s, disagreement first, in core’s words; the shim yields', () => {
+    useViewStore.setState({ view: n1 })
+    expect(strategyMarkOn(n1, 'cross_team_adoption')).toBeNull()
+    expect(strategyMarkOn(n1, 'speed_to_value')).toBeNull()
+    const { container } = render(<StrategyChips card="cross_team_adoption" />)
+    expect(container).toBeEmptyDOMElement()
+    cleanup()
+    render(<CardViewChips card="cross_team_adoption" />)
+    const chips = [...screen.getByTestId('reveal-chips-cross_team_adoption').querySelectorAll('[data-reveal-card-chip]')]
+    expect(chips.map((c) => [c.getAttribute('data-reveal-kind'), c.querySelector('[data-reveal-chip-text]')?.textContent])).toEqual([['disagreement', 'Priya and Tom differ'], ['evidence', 'Maya added evidence']])
+    cleanup()
+    render(<CardViewChips card="speed_to_value" />)
+    expect(screen.getByTestId('reveal-chips-speed_to_value').querySelector('[data-reveal-chip-text]')).toHaveTextContent('Priya, Tom and Maya observed it')
   })
 })
 

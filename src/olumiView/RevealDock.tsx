@@ -19,6 +19,7 @@ import { AVATAR, BODY, H, META } from '../olumiCore/team/ui'
 import type { View } from './client'
 import { effectHeadingsOf, effectsOf } from './standin'
 import { chipOf, nextOf, openChipOf, revealOf, stanceOf, useReveal, type CardChip, type Shared } from './reveal'
+import { useViewStore } from './store'
 import { StrategyViewLines } from './strategy/StrategyViewLines'
 
 const initial = (by: string) => (Array.from(by)[0] ?? '').toUpperCase()
@@ -83,6 +84,7 @@ export function revealDockShown(view: View | null, selected: number | null): boo
 
 /** One person's view in the panel: who, their stance word (core's, when sent), their words and their figure. */
 function Person({ v }: { v: Shared }): JSX.Element {
+  const view = useViewStore((s) => s.view) // the View the dock reads, for the strategy lane's lines under this person
   const stance = stanceOf(v)
   return (
     <article className="grid grid-cols-[22px_minmax(0,1fr)] items-start gap-2.5" data-testid={`reveal-dock-view-${v.id}`}>
@@ -94,7 +96,7 @@ function Person({ v }: { v: Shared }): JSX.Element {
         </p>
         <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid="reveal-dock-words">{v.text}</p>
         <Figures v={v} />
-        <StrategyViewLines view={view} v={v} />
+        {view === null ? null : <StrategyViewLines view={view} v={v} />}
       </div>
     </article>
   )
