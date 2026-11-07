@@ -287,3 +287,39 @@ describe('each option\'s outcome band', () => {
     expect(screen.getByTestId('view-chances').querySelectorAll('[data-outcome], [data-band]').length).toBe(0)
   })
 })
+
+// Olumi's additions stay visibly Olumi's (DL product rules, 7 Nov): on the real boards every challenged and reasoning card is Olumi's
+// (`cards[].olumi`), and the canvas marks it; the tab marks it too, with core's glyph and core's words on hover, and never a person's card.
+describe('Olumi\'s mark on the challenged and reasoning cards, as core gives it', () => {
+  const real = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', `${n}.view3.json`), 'utf8'))
+  const rows = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>('[data-reasoning-challenge], [data-reasoning-card]')]
+  const idOf = (e: HTMLElement) => e.dataset['reasoningChallenge'] ?? e.dataset['reasoningCard']!
+  for (const name of ['hiring', 'capacity', 'european-22cards', 'hosting']) {
+    it(`catch: ${name}: each drawn challenged or reasoning card carries core's Olumi mark in its own row, its words on hover`, () => {
+      const view = real(name), m = view.model!
+      ready(view)
+      const root = render(<ViewReasoning model={m} brief={view.brief} />).container
+      const drawn = rows(root)
+      expect(drawn.length).toBeGreaterThan(0)
+      for (const e of drawn) {
+        const c = m.cards.find((x) => x.id === idOf(e))!, mark = e.querySelector(`[data-view="${c.id}.olumi.glyph"]`)
+        expect(c.olumi, c.id).not.toBeNull()
+        expect([mark?.textContent, mark?.getAttribute('title'), mark?.getAttribute('aria-label')], c.id).toEqual([c.olumi!.glyph, c.olumi!.title, c.olumi!.title])
+      }
+      expect(unbound(root, [...OWN, ...(m.run!.science ?? []).flatMap((l) => (l.figure?.give == null ? [] : [`${l.figure.give.text} `, '.']))])).toEqual([])
+    })
+  }
+
+  it('negative: a card core does not mark as Olumi\'s (a person\'s own) draws no mark, while its neighbours keep theirs', () => {
+    const view = real('hiring'), m = structuredClone(view.model!)
+    ready({ ...view, model: m })
+    const first = rows(render(<ViewReasoning model={m} brief={view.brief} />).container)
+    expect(first.length).toBeGreaterThan(1)
+    const theirs = idOf(first[0]!), others = first.slice(1).map(idOf)
+    cleanup()
+    m.cards.find((c) => c.id === theirs)!.olumi = null
+    const root = render(<ViewReasoning model={m} brief={view.brief} />).container
+    expect(root.querySelector(`[data-view="${theirs}.olumi.glyph"]`)).toBeNull()
+    for (const id of others) expect(root.querySelector(`[data-view="${id}.olumi.glyph"]`), id).not.toBeNull()
+  })
+})

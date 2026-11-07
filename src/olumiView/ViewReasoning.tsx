@@ -5,8 +5,9 @@
  * look on core's View), and no longer repeats the Analysis tab's per-option chance rows:
  *   1. the model at a glance: the brief, the goal, and one mark per option, factor, risk and outcome in the canvas's shape and colour for
  *      its kind (core's glyph kept for a reader, its heading on hover), with each row's count, as the previous strip;
- *   2. Challenge Your Thinking: the cards core marks `challenged` (a challenge, a disagreement, evidence that challenges);
- *   3. Assumptions and evidence: every premise core puts on a card, and the reasoning cards core draws, each once;
+ *   2. Challenge Your Thinking: the cards core marks `challenged` (a challenge, a disagreement, evidence that challenges), each with
+ *      core's Olumi mark where core gives one (`cards[].olumi`);
+ *   3. Assumptions and evidence: every premise core puts on a card, and the reasoning cards core draws, each once (a card's Olumi mark too);
  *   4. What would change your mind: each aim's figure worth checking first, and core's comparisons;
  *   5. each aim's outcome under every option on the aim's one axis (the previous tab's option bars);
  *   6. Try a figure: core's what-if on a copy, nothing saved, the answer at the top of this tab.
@@ -47,6 +48,14 @@ function Section({ label, testId, children }: { label: string; testId: string; c
   )
 }
 
+/**
+ * Core's own mark on a card Olumi added (`cards[].olumi`, as the canvas draws it): its glyph, with core's words on hover and for a reader,
+ * so Olumi's additions stay visibly Olumi's here too. Nothing on a card core does not mark (a person's own).
+ */
+function OlumiMark({ card }: { card: ViewCard }) {
+  return card.olumi === null ? null : <>{'\u00a0'}<span title={card.olumi.title} aria-label={card.olumi.title} data-view={`${card.id}.olumi.glyph`}>{card.olumi.glyph}</span></>
+}
+
 export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief?: string | null }) {
   const run = model.run ?? null, settable = settableFigures(model)
   const goals = familyCards(model, ['goal']), challenges = challengedCards(model)
@@ -84,7 +93,7 @@ export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief
           {challenges.map((c) => (
             <div key={c.id} title={c.detail} data-reasoning-challenge={c.id}>
               <span aria-hidden="true" data-view={`${c.id}.glyph`}>{c.glyph}</span>{' '}
-              <span className="font-medium" data-view={`${c.id}.heading`}>{c.heading}</span>
+              <span className="font-medium" data-view={`${c.id}.heading`}>{c.heading}</span><OlumiMark card={c} />
               {c.reason === null || c.reason === c.heading ? null : <p className={typography.viewPanelMeta} data-view={`${c.id}.reason`}>{c.reason}</p>}
             </div>
           ))}
@@ -99,7 +108,7 @@ export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief
           ))}
           {reasoning.map((c) => (
             <p key={c.id} title={c.detail} data-reasoning-card={c.id}>
-              <span aria-hidden="true" data-view={`${c.id}.glyph`}>{c.glyph}</span>{' '}<span data-view={`${c.id}.reason`}>{c.reason}</span>
+              <span aria-hidden="true" data-view={`${c.id}.glyph`}>{c.glyph}</span>{' '}<span data-view={`${c.id}.reason`}>{c.reason}</span><OlumiMark card={c} />
             </p>
           ))}
         </Section>
