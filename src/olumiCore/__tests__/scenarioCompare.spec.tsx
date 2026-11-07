@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { CompareWithScenario, ScenarioComparisonView, type ScenarioComparison } from '../scenarioCompare'
 import { setTeamFetch } from '../team/api'
+import { useViewStore } from '../../olumiView/store'
 
 const MARK = { glyph: '◆', title: 'Rests on Olumi’s proposals' }
 const LEAD = "If Olumi's estimates hold"
@@ -146,5 +147,89 @@ describe('compare with another scenario: core\'s words, drawn as given', () => {
     expect(d.querySelector('[data-compare-figure="same"]')).toBeNull()
     expect(container.textContent).not.toMatch(/\b(best|winner|recommend|better|worse|ahead|leads)\b/i)
     expect(within(d).queryByText('Per specialist')).toBeNull()
+  })
+})
+
+// ── wip/compare (7 Nov): any two sides, saved what-ifs, and each option's driver and uncertainty (core src/app/compare-pair.ts) ──────────
+const WHATIF = { id: 'w_7', name: 'Busier week', by: 'Ada', at: '2026-11-07T15:00:00Z', version: 2, edits: [{ quantity: 'today', label: 'today', words: 'Set "today" to 90 tickets/week.' }], about: 'What-if on version 2 of ‘Rota’, saved by Ada: Set "today" to 90 tickets/week.' }
+const PAIR: ScenarioComparison = {
+  schema: 'olumi.compare/1',
+  a: { id: 's_a', title: 'Rota', name: 'Rota', note: null, kind: 'scenario', about: null } as never,
+  b: { id: 'w_7', title: 'Busier week', name: 'Busier week (what-if)', note: null, kind: 'whatif', about: WHATIF.about } as never,
+  aims: [{ label: 'Reach 100 a week', kind: 'aim', status: 'comparable', limitation: null, only_in: null, only_in_text: null,
+    a: { id: 'g', label: 'Reach 100 a week', measure: 'M', target: 'at least 100 tickets/week' }, b: { id: 'g', label: 'Reach 100 a week', measure: 'M', target: 'at least 100 tickets/week' },
+    most_likely: { a: cell("'Add one specialist' is the option most likely to achieve 'Reach 100 a week'"), b: cell("'Add one specialist' is the option most likely to achieve 'Reach 100 a week'") },
+    options: [{ label: 'Add one specialist', only_in: null, only_in_text: null,
+      a: { status: 'live', cells: [cell('about 50%')], uncertainty: { text: 'between 90 and 110 tickets/week (middle 100)', title: 'U-a' }, driver: { text: "about 10% if 'per specialist' is low, about 90% if it is high", title: 'D-a', figure: 'per_specialist', label: 'per specialist' } },
+      b: { status: 'live', cells: [cell('about 90%')], uncertainty: { text: 'between 100 and 120 tickets/week (middle 110)', title: 'U-b' }, driver: { text: "about 70% if 'per specialist' is low, about 100% if it is high", title: 'D-b', figure: 'per_specialist', label: 'per specialist' } } }] }] as never,
+  differences: { options: [], figures: [{ label: 'today', status: 'differs', a: { text: '80 tickets/week', olumi: null, by: 'Ada' }, b: { text: '90 tickets/week', olumi: null, by: 'Ada, in this what-if' }, only_in: null, only_in_text: null, limitation: null }] },
+  limits: [],
+} as never
+const routed = (over: Record<string, unknown> = {}) => setTeamFetch((async (u: unknown, init?: { method?: string; body?: string }) => {
+  const p = String(u); paths.push(init?.method === 'POST' ? `POST ${p} ${init.body}` : p)
+  const body = p === '/api/me' ? { scenarios: [{ id: 's_a', title: 'Rota' }, { id: 's_c', title: 'Launch' }] }
+    : p === '/api/scenarios/s_a/whatifs' ? (init?.method === 'POST' ? { whatif: 'w_8', name: 'Quieter week', version: 2 } : { whatifs: [WHATIF] })
+    : p === '/api/scenarios/s_a/versions' ? { versions: [{ n: 1 }, { n: 2 }] } : PAIR
+  return new Response(JSON.stringify(over[p] ?? body), { status: init?.method === 'POST' ? 201 : 200 })
+}) as unknown as typeof fetch)
+
+describe('compare side by side: two sides from this scenario, its versions, its saved what-ifs and other scenarios', () => {
+  it('the second side offers other scenarios, then the saved what-ifs, then earlier versions; the newest what-if is picked first and asked for by its ref', async () => {
+    routed()
+    render(<CompareWithScenario sid="s_a" />)
+    await waitFor(() => expect([...(screen.getByTestId('scenario-compare-pick') as HTMLSelectElement).options].map((o) => o.value)).toEqual(['s_c', 'w_7', 's_a@1']))
+    const b = screen.getByTestId('scenario-compare-pick') as HTMLSelectElement
+    expect([...b.querySelectorAll('optgroup')].map((g) => g.label)).toEqual(['Your other scenarios', 'Saved what-ifs', 'This scenario'])
+    expect(b.value).toBe('w_7')
+    expect([...b.options].find((o) => o.value === 'w_7')!.textContent).toBe('What-if: Busier week')
+    // The first side: this scenario now, its earlier version, the what-if, other scenarios; never called a scenario when it is a what-if.
+    expect([...(screen.getByTestId('scenario-compare-pick-a') as HTMLSelectElement).options].map((o) => [o.value, o.textContent])).toEqual([['s_a', 'This scenario now (version 2)'], ['s_a@1', 'Version 1'], ['w_7', 'What-if: Busier week'], ['s_c', 'Launch']])
+    fireEvent.click(screen.getByTestId('scenario-compare-go'))
+    await screen.findByTestId('scenario-compare-out')
+    expect(paths.filter((p) => p.startsWith('/api/compare'))).toEqual(['/api/compare?a=s_a&b=w_7'])
+    fireEvent.change(screen.getByTestId('scenario-compare-pick-a'), { target: { value: 's_a@1' } })
+    fireEvent.change(screen.getByTestId('scenario-compare-pick'), { target: { value: 's_a' } })
+    fireEvent.click(screen.getByTestId('scenario-compare-go'))
+    await waitFor(() => expect(paths.filter((p) => p.startsWith('/api/compare')).at(-1)).toBe('/api/compare?a=s_a%401&b=s_a'))
+  })
+  it("each option's chance with core's uncertainty and main driver under it, each aim's most-likely line, and who brought each differing figure in: all verbatim, nothing ranked", () => {
+    const { container } = render(<ScenarioComparisonView c={PAIR} />)
+    expect([...container.querySelectorAll('[data-compare-side]')].map((e) => e.getAttribute('data-compare-kind'))).toEqual(['scenario', 'whatif'])
+    expect(container.querySelector('[data-compare-side="b"] [data-compare-about]')!.textContent).toBe(WHATIF.about)
+    const row = container.querySelector('[data-compare-option="paired"]')!
+    const sides = [...row.querySelectorAll('[data-compare-cells]')]
+    expect(sides.map((s) => [s.querySelector('[data-compare-value]')!.textContent, s.querySelector('[data-compare-uncertainty]')!.textContent, s.querySelector('[data-compare-driver]')!.textContent]))
+      .toEqual([['about 50%', 'between 90 and 110 tickets/week (middle 100)', "about 10% if 'per specialist' is low, about 90% if it is high"], ['about 90%', 'between 100 and 120 tickets/week (middle 110)', "about 70% if 'per specialist' is low, about 100% if it is high"]])
+    expect([sides[0]!.querySelector('[data-compare-driver]')!.getAttribute('data-compare-driver'), sides[0]!.querySelector('[data-compare-driver]')!.getAttribute('title')]).toEqual(['per_specialist', 'D-a'])
+    expect([...container.querySelectorAll('[data-compare-most-likely]')].map((e) => e.textContent)).toEqual(Array(2).fill("'Add one specialist' is the option most likely to achieve 'Reach 100 a week'"))
+    expect([...container.querySelectorAll('[data-compare-figure="differs"] [data-compare-by]')].map((e) => e.textContent)).toEqual(['Ada', 'Ada, in this what-if'])
+    expect(container.textContent).not.toMatch(/\b(best|winner|recommend|better|worse|ahead|leads)\b/i)
+  })
+  it('save a what-if: a figure core lets the person set, typed as they type it, and a name; posted on the version shown with an op, then set beside this scenario', async () => {
+    routed()
+    useViewStore.setState({ sid: 's_a', at: null, error: null, stale: false, view: { proposal: null, version: { id: 41, n: 2, label: 'v2', changed: [] },
+      model: { cards: [{ id: 'today', heading: 'today', figure: { text: '80 tickets/week', title: 'T', edit: { prompt: 'Tickets a week today', ask: 'Type a number of tickets a week' } } },
+        { id: 'aim', heading: 'Reach 100', figure: null }] } } as never })
+    render(<CompareWithScenario sid="s_a" />)
+    const form = await screen.findByTestId('whatif-save')
+    expect([...(within(form).getByTestId('whatif-save-figure') as HTMLSelectElement).options].map((o) => o.value)).toEqual(['today'])
+    fireEvent.change(within(form).getByTestId('whatif-save-typed'), { target: { value: '70' } })
+    fireEvent.change(within(form).getByTestId('whatif-save-name'), { target: { value: 'Quieter week' } })
+    fireEvent.click(within(form).getByTestId('whatif-save-go'))
+    await waitFor(() => expect(paths.filter((p) => p.startsWith('/api/compare')).at(-1)).toBe('/api/compare?a=s_a&b=w_8'))
+    const posted = paths.find((p) => p.startsWith('POST /api/scenarios/s_a/whatifs'))!
+    const body = JSON.parse(posted.slice('POST /api/scenarios/s_a/whatifs '.length)) as { base: number; name: string; edits: unknown; op: string }
+    expect([body.base, body.name, body.edits]).toEqual([41, 'Quieter week', [{ quantity: 'today', typed: '70' }]])
+    expect(body.op).toMatch(/^[A-Za-z0-9-]{8,64}$/)
+    useViewStore.setState({ view: null, sid: null })
+  })
+  it('while a change waits for approval no card offers its figure, so the form says why it is not there instead of vanishing', async () => {
+    routed()
+    useViewStore.setState({ sid: 's_a', at: null, error: null, stale: false, view: { proposal: { id: 9 }, version: { id: 41, n: 2, label: 'v2', changed: [] },
+      model: { cards: [{ id: 'today', heading: 'today', figure: { text: '80 tickets/week', title: 'T', edit: null } }] } } as never })
+    render(<CompareWithScenario sid="s_a" />)
+    expect((await screen.findByTestId('whatif-save-waiting')).textContent).toBe('Approve or set aside the waiting change to save a what-if here.')
+    expect(screen.queryByTestId('whatif-save')).toBeNull()
+    useViewStore.setState({ view: null, sid: null })
   })
 })
