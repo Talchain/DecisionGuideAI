@@ -1,0 +1,712 @@
+{
+  "schema": "olumi.summary/1",
+  "scenario": "s_000000000003",
+  "title": "Second oven or longer hours?",
+  "version": {
+    "id": 1,
+    "n": 1,
+    "at": "2026-11-02T00:00:00.000Z",
+    "by": "Paul"
+  },
+  "question": {
+    "text": "Should the bakery buy a second oven or open longer?",
+    "decide_by": null
+  },
+  "headings": {
+    "page": "Summary",
+    "version": "Saved version",
+    "none": "Nothing has been approved yet, so there is no saved model to summarise.",
+    "question": "The question",
+    "decide_by": "Decide by",
+    "chances": "Each option in this model, on current information",
+    "range": "Outcome range",
+    "withheld": "Not worked out",
+    "driver": "Moves most with",
+    "changes": "What would change it",
+    "committed": "Committed to by",
+    "assumptions": "Key assumptions",
+    "figures": "Figures the chances rest on",
+    "evidence": "Evidence",
+    "disagreements": "Disagreements, as they stand",
+    "confirmed": "Confirmed by the holder",
+    "tell": "What would tell them they are wrong",
+    "views": "Views shared",
+    "commitments": "Commitments and what they expect",
+    "expect": "Expected",
+    "reconsider": "Reconsider if",
+    "review_on": "Review on",
+    "outcomes": "What happened",
+    "missing": "What is missing or left out",
+    "left_out": "Left out of the model",
+    "empty": "None recorded",
+    "theirs": "their figure",
+    "olumi": "Olumi’s estimate",
+    "mixed": "their figure, Olumi’s range",
+    "footer": "Model-relative findings for further reasoning, from the saved version named above. Olumi proposes; the team authors and decides."
+  },
+  "chances": {
+    "lead": "In this model, on current information, each option’s chance of ‘Sell at least 360 loaves a week’:",
+    "most_likely": {
+      "text": "If Olumi's estimates hold, 'A second oven' is more likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'); it rests on Olumi's estimate of 'extra sold per oven'.",
+      "rests_on": null,
+      "option": "second_oven"
+    },
+    "shared": [],
+    "unchanged": []
+  },
+  "options": [
+    {
+      "id": "second_oven",
+      "heading": "A second oven",
+      "olumi": null,
+      "rows": [
+        {
+          "kind": "withheld",
+          "aim_id": "within_budget",
+          "reason": "Can't yet say if 'Within the £3,000' holds: 'oven price' is missing.",
+          "detail": "'Within the £3,000' waits on the answers to: 'oven price'."
+        },
+        {
+          "kind": "chance",
+          "aim_id": "sell_360",
+          "aim": "Sell at least 360 loaves a week",
+          "value": "about 72% chance",
+          "chance": 0.7162,
+          "text": "If Olumi's estimates hold, the chance that 'A second oven' meets 'Sell at least 360 loaves a week', in this model on current information.",
+          "rests_on": "Rests on Olumi's what-if for 'extra sold per oven'.",
+          "range": "between 337 and 387 loaves/week (middle 370)",
+          "olumi": {
+            "glyph": "◆",
+            "title": "Rests on Olumi’s proposals"
+          }
+        }
+      ],
+      "driver": {
+        "text": "about 53% if 'extra sold per oven' is low, about 81% if it is high: Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are its chances over the lowest and highest third of that figure's draws.",
+        "figure": "extra_sold_per_oven"
+      },
+      "changes": [
+        {
+          "id": "F24",
+          "aim_id": "sell_360",
+          "text": "For 'A second oven' to meet 'Sell at least 360 loaves a week' more often than not, 'extra sold per oven' would have to be above about 60.1 loaves/week/oven (between 57.7 and 61 loaves/week/oven)."
+        },
+        {
+          "id": "F25",
+          "aim_id": "sell_360",
+          "text": "For 'A second oven' to stay more likely than 'Open two hours longer' to achieve 'Sell at least 360 loaves a week', 'extra hours sold' would have to be below about 60.5 loaves/week (between 59 and 61.1 loaves/week)."
+        }
+      ],
+      "committed": null
+    },
+    {
+      "id": "longer_hours",
+      "heading": "Open two hours longer",
+      "olumi": null,
+      "rows": [
+        {
+          "kind": "withheld",
+          "aim_id": "within_budget",
+          "reason": "Can't yet say if 'Within the £3,000' holds: 'oven price' is missing.",
+          "detail": "'Within the £3,000' waits on the answers to: 'oven price'."
+        },
+        {
+          "kind": "chance",
+          "aim_id": "sell_360",
+          "aim": "Sell at least 360 loaves a week",
+          "value": "about 50% chance",
+          "chance": 0.4999,
+          "text": "The chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information.",
+          "rests_on": null,
+          "range": "between 339 and 380 loaves/week (middle 360)",
+          "olumi": null
+        }
+      ],
+      "driver": {
+        "text": "under 1% if 'extra hours sold' is low, over 99% if it is high: Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are its chances over the lowest and highest third of that figure's draws.",
+        "figure": "extra_hours_sold"
+      },
+      "changes": [],
+      "committed": null
+    },
+    {
+      "id": "carry_on",
+      "heading": "Carry on as now",
+      "olumi": null,
+      "rows": [
+        {
+          "kind": "withheld",
+          "aim_id": "within_budget",
+          "reason": "Can't yet say if 'Within the £3,000' holds: 'oven price' is missing.",
+          "detail": "'Within the £3,000' waits on the answers to: 'oven price'."
+        },
+        {
+          "kind": "chance",
+          "aim_id": "sell_360",
+          "aim": "Sell at least 360 loaves a week",
+          "value": "under 1% chance",
+          "chance": 0,
+          "text": "The chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information.",
+          "rests_on": null,
+          "range": "300 loaves/week",
+          "olumi": null
+        }
+      ],
+      "driver": null,
+      "changes": [],
+      "committed": null
+    }
+  ],
+  "assumptions": [],
+  "figures": [
+    {
+      "id": "extra_sold_per_oven",
+      "label": "extra sold per oven",
+      "text": null,
+      "whose": "olumi"
+    }
+  ],
+  "evidence": [],
+  "disagreements": [],
+  "views": [],
+  "views_held": null,
+  "commitments": [],
+  "missing": {
+    "waits_on": {
+      "head": "Chance of meeting the goal",
+      "text": "waits on 1 figure",
+      "items": [
+        {
+          "id": "oven_price",
+          "text": "‘oven price’",
+          "title": "What would the second oven cost?",
+          "unknown": null
+        }
+      ]
+    },
+    "left_out": []
+  },
+  "blocks": [
+    {
+      "tag": "h1",
+      "parts": [
+        {
+          "text": "Summary: Second oven or longer hours?",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "meta",
+      "parts": [
+        {
+          "text": "Saved version 1 · Paul · 2026-11-02",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "h2",
+      "parts": [
+        {
+          "text": "The question",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "p",
+      "parts": [
+        {
+          "text": "Should the bakery buy a second oven or open longer?",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "h2",
+      "parts": [
+        {
+          "text": "Each option in this model, on current information",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "p",
+      "parts": [
+        {
+          "text": "In this model, on current information, each option’s chance of ‘Sell at least 360 loaves a week’:",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "p",
+      "parts": [
+        {
+          "text": "If Olumi's estimates hold, 'A second oven' is more likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'); it rests on Olumi's estimate of 'extra sold per oven'.",
+          "strong": true,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "h3",
+      "parts": [
+        {
+          "text": "A second oven",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "li",
+      "parts": [
+        {
+          "text": "Not worked out: ",
+          "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "Can't yet say if 'Within the £3,000' holds: 'oven price' is missing.",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "li",
+      "parts": [
+        {
+          "text": "Sell at least 360 loaves a week: ",
+          "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "about 72% chance",
+          "strong": true,
+          "href": null,
+          "mark": {
+            "glyph": "◆",
+            "title": "Rests on Olumi’s proposals"
+          }
+        },
+        {
+          "text": " — If Olumi's estimates hold, the chance that 'A second oven' meets 'Sell at least 360 loaves a week', in this model on current information.",
+          "strong": false,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": " · Outcome range: ",
+          "strong": false,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "between 337 and 387 loaves/week (middle 370)",
+          "strong": false,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": " · ",
+          "strong": false,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "Rests on Olumi's what-if for 'extra sold per oven'.",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "li",
+      "parts": [
+        {
+          "text": "Moves most with: ",
+          "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "about 53% if 'extra sold per oven' is low, about 81% if it is high: Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are its chances over the lowest and highest third of that figure's draws.",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "li",
+      "parts": [
+        {
+          "text": "What would change it: ",
+          "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "For 'A second oven' to meet 'Sell at least 360 loaves a week' more often than not, 'extra sold per oven' would have to be above about 60.1 loaves/week/oven (between 57.7 and 61 loaves/week/oven).",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "li",
+      "parts": [
+        {
+          "text": "What would change it: ",
+          "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "For 'A second oven' to stay more likely than 'Open two hours longer' to achieve 'Sell at least 360 loaves a week', 'extra hours sold' would have to be below about 60.5 loaves/week (between 59 and 61.1 loaves/week).",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "h3",
+      "parts": [
+        {
+          "text": "Open two hours longer",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "li",
+      "parts": [
+        {
+          "text": "Not worked out: ",
+          "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "Can't yet say if 'Within the £3,000' holds: 'oven price' is missing.",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "li",
+      "parts": [
+        {
+          "text": "Sell at least 360 loaves a week: ",
+          "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "about 50% chance",
+          "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": " — The chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information.",
+          "strong": false,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": " · Outcome range: ",
+          "strong": false,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "between 339 and 380 loaves/week (middle 360)",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "li",
+      "parts": [
+        {
+          "text": "Moves most with: ",
+          "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "under 1% if 'extra hours sold' is low, over 99% if it is high: Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are its chances over the lowest and highest third of that figure's draws.",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "h3",
+      "parts": [
+        {
+          "text": "Carry on as now",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "li",
+      "parts": [
+        {
+          "text": "Not worked out: ",
+          "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "Can't yet say if 'Within the £3,000' holds: 'oven price' is missing.",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "li",
+      "parts": [
+        {
+          "text": "Sell at least 360 loaves a week: ",
+          "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "under 1% chance",
+          "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": " — The chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information.",
+          "strong": false,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": " · Outcome range: ",
+          "strong": false,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "300 loaves/week",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "h2",
+      "parts": [
+        {
+          "text": "Key assumptions",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "p",
+      "parts": [
+        {
+          "text": "None recorded",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "h3",
+      "parts": [
+        {
+          "text": "Figures the chances rest on",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "li",
+      "parts": [
+        {
+          "text": "extra sold per oven",
+          "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": " (Olumi’s estimate)",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "h2",
+      "parts": [
+        {
+          "text": "Evidence",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "p",
+      "parts": [
+        {
+          "text": "None recorded",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "h2",
+      "parts": [
+        {
+          "text": "Disagreements, as they stand",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "p",
+      "parts": [
+        {
+          "text": "None recorded",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "h2",
+      "parts": [
+        {
+          "text": "Commitments and what they expect",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "p",
+      "parts": [
+        {
+          "text": "None recorded",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "h2",
+      "parts": [
+        {
+          "text": "What is missing or left out",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "p",
+      "parts": [
+        {
+          "text": "Chance of meeting the goal: ",
+          "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "waits on 1 figure",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "li",
+      "parts": [
+        {
+          "text": "‘oven price’",
+          "strong": false,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": " — What would the second oven cost?",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
+      "tag": "meta",
+      "parts": [
+        {
+          "text": "Model-relative findings for further reasoning, from the saved version named above. Olumi proposes; the team authors and decides.",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    }
+  ]
+}
