@@ -14,6 +14,7 @@ import { useReveal } from '../reveal'
 import { chainOf, evidenceOn } from '../evidence'
 import { CardEvidenceMarks } from '../RevealMarks'
 import { EvidenceDock, evidenceDockShown } from '../EvidenceDock'
+import { Proposal } from '../ViewChat'
 
 /** A real View (core wip/debate eaab1331 on a copy of Paul's board; seeded demo people; fixtures/v11/README.md). */
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-evidence.view3.json'), 'utf8'))
@@ -81,5 +82,30 @@ describe('core’s requested chain (REQUESTED-FIELD FIXTURE: shape asked of the 
     expect(chain.querySelector('[data-evidence-step="inference"]')).toHaveTextContent('FIXTURE: Not established')
     expect(chain.querySelector('[data-evidence-step="estimate"]')).toHaveTextContent(real.model!.cards.find((c) => c.id === DIAG)!.heading)
     expect(screen.getByTestId('evidence-dock-considered').textContent).toBe('FIXTURE: Olumi’s reply')
+  })
+})
+
+describe('V11 change 6: core’s verdict on a held proposal (real proposal; verdict is a REQUESTED-FIELD FIXTURE)', () => {
+  const held: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-proposal.view3.json'), 'utf8'))
+  const p = held.proposal!
+  it('a change the evidence does not support shows core’s words and what would, and no Approve; Set aside stays', () => {
+    const refused = { ...p, verdict: { supported: false, text: 'FIXTURE: Evidence does not support this change.', asks: 'FIXTURE: Buying evidence would.' } } as typeof p
+    render(<Proposal p={refused} busy={false} evidence={[]} />)
+    expect(screen.getByTestId('view-proposal-verdict').getAttribute('data-supported')).toBe('false')
+    expect(screen.getByTestId('view-proposal-verdict')).toHaveTextContent('FIXTURE: Evidence does not support this change.')
+    expect(screen.getByTestId('view-proposal-verdict-asks').textContent).toBe('FIXTURE: Buying evidence would.')
+    expect(screen.queryByTestId('view-approve')).toBeNull()
+    expect(screen.queryByTestId('view-approve-ticked')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Set aside' })).toBeTruthy()
+  })
+  it('CONTRAST: a supported change keeps Approve beside core’s words; a core without a verdict offers Approve as before', () => {
+    const ok = { ...p, verdict: { supported: true, text: 'FIXTURE: The evidence supports this change.', asks: null } } as typeof p
+    const { unmount } = render(<Proposal p={ok} busy={false} evidence={[]} />)
+    expect(screen.getByTestId('view-approve')).toBeTruthy()
+    expect(screen.getByTestId('view-proposal-verdict').getAttribute('data-supported')).toBe('true')
+    unmount()
+    render(<Proposal p={p} busy={false} evidence={[]} />)
+    expect(screen.getByTestId('view-approve')).toBeTruthy()
+    expect(screen.queryByTestId('view-proposal-verdict')).toBeNull()
   })
 })

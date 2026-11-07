@@ -45,7 +45,7 @@ import type { ViewCard, ViewModel } from './client'
 import { useViewStore } from './store'
 import { keyNamesBlueRange } from './layout'
 import { useCardNumber } from './lens'
-import { CardEvidenceMarks, CardViewChips, CardViewInitials } from './RevealMarks'
+import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from './RevealMarks'
 import { useReveal, useTriedCards } from './reveal'
 
 /** v10's rulings for the whole lane while its canvas is up: the attribute v10's stylesheets are scoped to. */
@@ -234,6 +234,7 @@ export function ViewCardV10(props: NodeProps) {
         {places.olumi === null ? null : createPortal(<NodeCornerOlumi nodeId={props.id} selected={props.selected === true} />, places.olumi)}
         {places.driver === null ? null : createPortal(<ViewDriverBadge card={(props.data as ViewCardData).card} />, places.driver)}
         {places.band === null || band === null ? null : createPortal(<ViewOptionBand id={props.id} band={band} />, places.band)}
+        {places.band === null ? null : createPortal(<OptionMarkLine card={props.id} />, places.band)}
         {places.values === null ? null : createPortal(<ViewValuesBand card={(props.data as ViewCardData).card} />, places.values)}
         {/* V11: the team's revealed views on the card they are about (./reveal.ts): initials in the marks row, the disagreement below; the
             team's evidence on the cards it concerns (./evidence.ts), beside the initials. */}

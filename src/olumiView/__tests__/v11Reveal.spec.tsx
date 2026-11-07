@@ -12,7 +12,7 @@ import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { marksOn, revealOf, useReveal } from '../reveal'
-import { CardViewChips, CardViewInitials } from '../RevealMarks'
+import { CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
 import { RevealDock } from '../RevealDock'
 import { clearWhatIf, useWhatIf } from '../whatif'
 import { setTeamFetch } from '../../olumiCore/team/api'
@@ -128,6 +128,17 @@ describe('core’s per-card marks (real View, core wip/debate-r2 5a61369a)', () 
     expect(screen.getByTestId('reveal-dock-bring-evidence')).toHaveTextContent('Bring evidence')
     fireEvent.click(screen.getByTestId('reveal-dock-keep-open'))
     expect(useReveal.getState()).toMatchObject({ selected: null, card: null })
+  })
+  it('while a chip is open, an option card shows core’s words for it from the mark (REQUESTED-FIELD FIXTURE); none when closed', () => {
+    const shaped = { ...marked, collab: { ...marked.collab, marks: (marked.collab as unknown as { marks: object[] }).marks.map((m, i) => (i === 0
+      ? { ...m, options: [{ option: DIAG, text: 'FIXTURE: 49% → under 1% with Priya’s figure' }] } : m)) } } as unknown as View
+    useViewStore.setState({ view: shaped })
+    const { rerender } = render(<OptionMarkLine card={DIAG} />)
+    expect(document.querySelector(`[data-reveal-option-line="${DIAG}"]`)).toBeNull()
+    act(() => { useReveal.setState({ selected: id('Priya'), card: DIAG, evidence: null }) })
+    rerender(<OptionMarkLine card={DIAG} />)
+    expect(document.querySelector(`[data-reveal-option-line="${DIAG}"]`)!.textContent).toBe('FIXTURE: 49% → under 1% with Priya’s figure')
+    expect(document.querySelector('[data-reveal-option-line="add_consulting"]')).toBeNull()
   })
   it('with core’s requested stance and reading (REQUESTED-FIELD FIXTURE values), each is drawn as given', () => {
     const shaped = { ...marked, collab: { ...marked.collab,

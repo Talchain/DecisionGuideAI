@@ -17,3 +17,6 @@
   is an AI turn, refused on the zero-call core), so `considered` is null and core sends no `chain` yet.
 - `consulting-marks.view3.json`: the same REAL View (seed 2 with evidence) read through olumi-core wip/debate-r2 5a61369a, which adds
   `collab.marks` (one per record the revealed views concern, core's own short words: "Priya and Tom differ", "Only Maya raised it").
+- `consulting-proposal.view3.json`: a REAL View from olumi-core e38d9f4c on a fresh copy of Paul's board read as the seeded "Priya",
+  before anything was approved: Olumi's held proposal 11 ("Olumi proposes 15 changes"). The specs add core's requested
+  `proposal.verdict` to a copy in code, labelled FIXTURE.

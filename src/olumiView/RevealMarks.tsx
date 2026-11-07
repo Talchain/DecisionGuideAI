@@ -139,3 +139,17 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
     </div>
   )
 }
+
+/**
+ * Approved v2.1: "Where the case has chances: the option card itself shows '71% → 34% with Priya's range' ... The panel does not repeat it."
+ * While a chip is open, each option card core names in that mark's `options` (requested of core 7 Nov) shows core's words for it, under its
+ * chance. Nothing is drawn from an older core, and nothing is composed here.
+ */
+export function OptionMarkLine({ card }: { card: string }): JSX.Element | null {
+  const view = useViewStore((s) => s.view)
+  const open = useReveal((s) => s.card)
+  if (open === null) return null
+  const text = revealOf(view)?.cardChips.get(open)?.options.find((o) => o.option === card)?.text ?? null
+  if (text === null) return null
+  return <p className={`${typography.viewLabel} mt-1 font-medium text-text-header`} data-reveal-option-line={card}>{text}</p>
+}

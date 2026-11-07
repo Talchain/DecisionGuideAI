@@ -14,6 +14,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { newOp, READ_FAILED, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
 import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type ViewTurn } from './client'
+import { verdictOf } from './verdict'
 import { useViewStore } from './store'
 import { usePreMortemGate, useViewLens } from './lens'
 import { figureFirstOf, olumiKey, optionInFocusOf, sessionOf, type Session } from './layout'
@@ -203,7 +204,7 @@ function ChangeLine({ c, i, ticked, toggle, busy }: { c: Change; i: number; tick
  * The proposal, as core's change card: its heading, the change list (flat, or under core's group headings over 12), and Approve (the whole
  * card), Approve ticked (exactly the ticked lines, core's `only` / `only_top`) and Set aside. A proposal held without a list has Approve alone.
  */
-function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
+export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
   // A proposal Olumi made on considering shared evidence (API v1.12) names who asked and the evidence, in its member's own words.
   const from = p.from == null ? null : { by: p.from.asked_by, text: evidence.find((e) => e.id === p.from!.evidence)?.text ?? null }
   // A core before L8 serves no list (absent, never []): its card has Approve alone, as a proposal held without a list.
@@ -222,6 +223,7 @@ function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; bus
   for (const c of changes) if (ticked.has(keyOf(c))) (c.top ? pick.only_top : pick.only).push(c.id)
   const chosen = pick.only.length + pick.only_top.length
   const line = (i: number) => { const c = changes[i]!; return <ChangeLine key={keyOf(c)} c={c} i={i} ticked={tickable ? ticked.has(keyOf(c)) : null} toggle={toggle} busy={busy} /> }
+  const verdict = verdictOf(p)
   return (
     <div className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
       <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span> <span data-view="proposal.on">{p.on}</span>
@@ -258,9 +260,17 @@ function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; bus
             })}
           </ul>
         )}
+      {/* V11 change 6: core's verdict on the change, before any approval (./verdict.ts). Not supported: core's words, what would support it,
+          and no Approve; the person may still set it aside. */}
+      {verdict === undefined ? null : (
+        <div className="grid gap-1" data-testid="view-proposal-verdict" data-supported={verdict.supported}>
+          <p className={verdict.supported ? 'text-text-body' : 'font-medium text-text-header'}>{verdict.text}</p>
+          {verdict.asks === null ? null : <p className="text-text-light" data-testid="view-proposal-verdict-asks">{verdict.asks}</p>}
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} onClick={() => void act(() => writes.approve(p.id, p.base).then(noteSaved), true)}>Approve</button>
-        {!tickable ? null : (
+        {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => void act(() => writes.approve(p.id, p.base).then(noteSaved), true)}>Approve</button>}
+        {!tickable || verdict?.supported === false ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
             className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => void act(() => writes.approve(p.id, p.base, pick).then(noteSaved), true)}>Approve ticked · {chosen}</button>
         )}
