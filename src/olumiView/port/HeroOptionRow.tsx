@@ -98,7 +98,7 @@ function ThreeLines({ id, title, children }: { id: string; title?: string; child
       <p ref={ref} id={id} title={title} className={`${TYPE.meta} text-text-body ${open ? '' : 'line-clamp-4'}`}>{children}</p>
       {over || open ? (
         <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}
-          className={`${TYPE.meta} inline-flex min-h-[24px] items-center text-info underline underline-offset-2`}>{open ? SHOW_LESS : SHOW_ALL}</button>
+          className={`${TYPE.meta} inline-flex min-h-[24px] items-center text-text-light underline underline-offset-2`}>{open ? SHOW_LESS : SHOW_ALL}</button>
       ) : null}
     </div>
   )
@@ -181,10 +181,12 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
 
   const grid = (
     <>
-      <span id={labelId} className={`${TYPE.body} block w-full break-words font-medium text-text-header`} data-view={`${card.id}.heading`}>{card.heading}</span>
+      {/* 1232 polish (track 4 step 3): the option's name is the row's label (12px) and core's chance is its finding, full weight on every
+          row (none dims), so the eye lands on the chance first. */}
+      <span id={labelId} className={`${TYPE.meta} block w-full break-words text-text-body`} data-view={`${card.id}.heading`}>{card.heading}</span>
       <span className="flex w-full items-baseline gap-1.5">
         <span className="flex-none text-primary" data-testid="port-row-mark">{leader ? <Mark at={`${at}.likely`} mark={chance!.likely} /> : null}</span>
-        <span className={`${TYPE.body} min-w-0 flex-1 break-words ${leader ? 'text-text-header' : 'text-text-body'}`} data-testid="port-row-readout">{readout}</span>
+        <span className={`${TYPE.body} min-w-0 flex-1 break-words font-semibold text-text-header`} data-testid="port-row-readout">{readout}</span>
         <Chevron aria-hidden="true" className={`h-3.5 w-3.5 flex-none self-center text-text-light ${expandable ? '' : 'invisible'}`} />
       </span>
       {lens === 'outcome' && (

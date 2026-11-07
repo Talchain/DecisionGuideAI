@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import type { View } from '../../client'
 import { HeroOptionRow, type HeroLensId } from '../HeroOptionRow'
+import { TYPE } from '../type'
 import { aimGroupsOf, outcomeDomainOf, tippingFor, type AimRow } from '../pick'
 import { figureCard } from '../../ViewChances'
 import { expectAllBound, viewOf } from './viewAt'
@@ -219,3 +220,37 @@ describe('the outcome lens: core\'s band on the aim\'s shared track, no leader',
     expect(n).toBe(1)
   })
 })
+
+// 1232 polish (track 4 step 3, against the Reveal Paul approved 7 Nov): the chance is the finding and the name its label; blue is Olumi's only.
+describe('the row reads its finding first', () => {
+  it('catch: core\'s chance is full weight on the leader and on every other row (none dims); the option name is the 12px label', () => {
+    for (const [card, leader] of [['second_oven', 'true'], ['carry_on', 'false']] as const) {
+      const { row, container } = draw(real, card, 1)
+      expect(row.dataset['leader']).toBe(leader)
+      const readout = container.querySelector('[data-testid="port-row-readout"]')!
+      expect(readout.querySelector(`[data-view="${card}.rows.1.value"]`)).not.toBeNull()
+      expect(readout.className.split(' ')).toEqual(expect.arrayContaining(['font-semibold', 'text-text-header']))
+      expect(readout.className).not.toContain('text-text-body')
+      const name = container.querySelector(`[data-view="${card}.heading"]`)!
+      expect(name.className.startsWith(TYPE.meta)).toBe(true)
+      expect(name.className).not.toContain('font-medium')
+      cleanup()
+    }
+  })
+
+  it('the headline\'s Show all is a plain control, never Olumi\'s blue', () => {
+    const sh = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight'), ch = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight')
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get: () => 200 })
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => 40 })
+    try {
+      const { container } = draw(golden, 'second_oven', 1)
+      const btn = container.querySelector('[data-testid="port-row-headline"] button[aria-expanded]')!
+      expect(btn.className).toContain('text-text-light')
+      expect(btn.className).not.toContain('text-info')
+    } finally {
+      if (sh) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', sh)
+      if (ch) Object.defineProperty(HTMLElement.prototype, 'clientHeight', ch)
+    }
+  })
+})
+
