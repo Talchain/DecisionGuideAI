@@ -15,10 +15,11 @@
  * - The detail holds core's lines only: the other lens's readout, the companion, timing, what moves the chance most (`driver`) and what
  *   would have to be true (`run.tipping`) for this option and aim. No sentence is built here.
  */
-import { useId, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { ViewCard } from '../client'
 import { driverRange } from '../ViewChances'
+import { SHOW_ALL, SHOW_LESS } from '../../canvas/nodes/ViewCardNode'
 import { TYPE } from './type'
 import { driverRowOf, trackPct, type AimRow, type TippingLine } from './pick'
 
@@ -44,24 +45,61 @@ function Mark({ at, mark }: { at: string; mark: { glyph: string; title: string }
   return mark == null ? null : <span data-view={`${at}.glyph`} title={mark.title} aria-label={mark.title}>{mark.glyph}</span>
 }
 
-/** What moves this option's chance most, in core's words, with v10's low→high marker when core gives both chances (layout only). */
-function Driver({ card, figure }: { card: ViewCard; figure: ViewCard | null }) {
+/**
+ * v10's low→high marker for what moves this option's chance most: a track from no chance to certain, the span between the chance when
+ * that figure is low (hollow ring) and when it is high (filled dot), and, on the headline, the chance itself (a tick). The numbers place
+ * the marks and nothing else; the marker's name is core's driver sentence, never a range the UI writes.
+ */
+function DriverTrack({ card, chance = null, labelled = false }: { card: ViewCard; chance?: number | null; labelled?: boolean }) {
+  const d = card.driver
+  const range = d == null ? null : driverRange(d)
+  if (d == null || range === null) return null
+  const left = Math.min(range.lowPct, range.highPct), width = Math.max(2, Math.abs(range.highPct - range.lowPct))
+  const tick = chance === null || !Number.isFinite(chance) ? null : trackPct(chance)
+  return (
+    <span {...(labelled ? { role: 'img', 'aria-label': d.text, title: d.title } : { 'aria-hidden': true })}
+      className="relative mt-1 block h-1 rounded-full bg-panel-border" data-testid={`port-row-driver-range-${card.id}`}>
+      <span className="absolute top-0 h-full rounded-full bg-option" style={{ left: `${left}%`, width: `${width}%` }} />
+      <span className="absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-option bg-panel" style={{ left: `${range.lowPct}%` }} />
+      <span className="absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-option" style={{ left: `${range.highPct}%` }} />
+      {tick === null ? null : <span className="absolute -top-1 h-3 w-0.5 -translate-x-1/2 rounded-full" style={{ left: `${tick}%`, background: 'var(--text-header)' }} data-testid={`port-row-driver-chance-${card.id}`} />}
+    </span>
+  )
+}
+
+/** What moves this option's chance most, in core's words, in the detail: its sentence (unless the headline already says it), the marker
+ *  when the headline does not draw it, and the figure's name. */
+function Driver({ card, figure, words, track }: { card: ViewCard; figure: ViewCard | null; words: boolean; track: boolean }) {
   const d = card.driver
   if (d == null) return null
-  const range = driverRange(d)
-  const left = range === null ? 0 : Math.min(range.lowPct, range.highPct)
-  const width = range === null ? 0 : Math.max(2, Math.abs(range.highPct - range.lowPct))
   return (
     <div data-testid={`port-row-driver-${card.id}`} title={d.title}>
-      <p className={`${TYPE.body} text-text-body`} data-view={`${card.id}.driver.text`}>{d.text}</p>
-      {range === null ? null : (
-        <span aria-hidden="true" className="relative mt-1 block h-1 rounded-full bg-panel-border" data-testid={`port-row-driver-range-${card.id}`}>
-          <span className="absolute top-0 h-full rounded-full bg-option" style={{ left: `${left}%`, width: `${width}%` }} />
-          <span className="absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-option bg-panel" style={{ left: `${range.lowPct}%` }} />
-          <span className="absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-option" style={{ left: `${range.highPct}%` }} />
-        </span>
-      )}
+      {words ? <p className={`${TYPE.body} text-text-body`} data-view={`${card.id}.driver.text`}>{d.text}</p> : null}
+      {track ? <DriverTrack card={card} /> : null}
       {figure === null ? null : <p className={`${TYPE.meta} text-text-light`} data-view={`${figure.id}.heading`}>{figure.heading}</p>}
+    </div>
+  )
+}
+
+/**
+ * One of core's lines on the headline, whole in the DOM: supporting size (12px, under the 14px chance), four lines at most, then a real
+ * control that opens it in place (a button, keyboard reachable, aria-expanded), never hover only (R25: no cut text); a short line has no
+ * control. The card's `Disclosed`, sized for the dock: measured at 1232, four 12px lines keep core's tipping figure and threshold
+ * ("…would have to be above about 60.1 loaves/week/oven") on the face, where three 14px lines cut it before the number.
+ */
+function ThreeLines({ id, title, children }: { id: string; title?: string; children: ReactNode }) {
+  const ref = useRef<HTMLParagraphElement>(null)
+  const [open, setOpen] = useState(false)
+  const [over, setOver] = useState(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render while closed; an equal answer bails out
+  useLayoutEffect(() => { const el = ref.current; if (el !== null && !open) { const o = el.scrollHeight > el.clientHeight + 1; if (o !== over) setOver(o) } })
+  return (
+    <div>
+      <p ref={ref} id={id} title={title} className={`${TYPE.meta} text-text-body ${open ? '' : 'line-clamp-4'}`}>{children}</p>
+      {over || open ? (
+        <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}
+          className={`${TYPE.meta} inline-flex min-h-[24px] items-center text-info underline underline-offset-2`}>{open ? SHOW_LESS : SHOW_ALL}</button>
+      ) : null}
     </div>
   )
 }
@@ -121,8 +159,18 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
     : <p className={`${TYPE.body} text-text-body`} title={chance.outcome.title} data-view={`${at}.outcome.text`}>{chance.outcome.text}</p>
   const companion = chance?.companion == null ? null : <p className={`${TYPE.meta} text-text-light`} title={chance.companion_title ?? chance.companion} data-view={`${at}.companion`}>{chance.companion}</p>
   const timing = chance?.timing == null ? null : <p className={`${TYPE.meta} text-text-light`} title={chance.timing_title ?? chance.timing} data-view={`${at}.timing`}>{chance.timing}</p>
-  const driver = chance !== null && card.driver != null && driverRowOf(card) === i ? <Driver card={card} figure={figure} /> : null
-  const lines = tipping.map(({ line: l, i: k }) => (
+  // THE HEADLINE (DL 7 Nov, track 4 step 1): on the goal lens, under core's chance, at rest and never behind the chevron:
+  //  - its uncertainty: v10's marker of how far the chance moves with the figure it moves most with, the chance ticked on it (core's
+  //    `driver.low/high` and `chance` place the marks; the marker's name is core's driver sentence);
+  //  - what would change it: this option's own "what would have to be true" line for this aim (`run.tipping`, kind chance), verbatim,
+  //    which names that figure and where it tips; where core gives none, core's driver sentence itself.
+  // Win share stays out of it (supporting detail, never called a chance); every other line stays in the detail.
+  const driverRow = chance !== null && card.driver != null && driverRowOf(card) === i
+  const headTrack = lens === 'goal' && driverRow && driverRange(card.driver!) !== null
+  const headLine = lens !== 'goal' || chance === null ? null : (tipping.find(({ line: l }) => l.kind === 'chance' && l.line !== '') ?? null)
+  const headDriverWords = lens === 'goal' && driverRow && headLine === null
+  const driver = driverRow && (!headDriverWords || !headTrack || figure !== null) ? <Driver card={card} figure={figure} words={!headDriverWords} track={!headTrack} /> : null
+  const lines = tipping.filter((t) => t !== headLine).map(({ line: l, i: k }) => (
     <p key={l.id} className={`${TYPE.body} text-text-body`} title={l.hover} data-view-fact={l.id}>
       {l.olumi == null ? null : <><span title={l.olumi.title} aria-label={l.olumi.title}>{l.olumi.glyph}</span> </>}
       <span data-view={`run.tipping.${k}.line`}>{l.line}</span>
@@ -168,6 +216,19 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
           {grid}
         </button>
       ) : <div className={HERO_ROW_STACK}>{grid}</div>}
+      {headTrack || headLine !== null || headDriverWords ? (
+        <div className="space-y-1 px-2 pb-1" data-testid="port-row-headline">
+          {headTrack ? <DriverTrack card={card} chance={chance!.chance} labelled /> : null}
+          {headLine !== null ? (
+            <ThreeLines id={`${regionId}-tip`} title={headLine.line.hover}>
+              {headLine.line.olumi == null ? null : <><span title={headLine.line.olumi.title} aria-label={headLine.line.olumi.title}>{headLine.line.olumi.glyph}</span> </>}
+              <span data-view-fact={headLine.line.id} data-view={`run.tipping.${headLine.i}.line`}>{headLine.line.line}</span>
+            </ThreeLines>
+          ) : headDriverWords ? (
+            <ThreeLines id={`${regionId}-drv`} title={card.driver!.title}><span data-view={`${card.id}.driver.text`}>{card.driver!.text}</span></ThreeLines>
+          ) : null}
+        </div>
+      ) : null}
       {/* What this chance rests on, in core's words, at rest (DL 7 Nov: the place Paul sees Olumi's proposed target, in place of a bare ◆). */}
       {chance?.rests_on_text == null || chance.rests_on_text === '' ? null : (
         <p className={`${TYPE.meta} px-2 pb-1 text-text-light`} data-testid="port-row-rests-on" data-view={`${at}.rests_on_text`}>{chance.rests_on_text}</p>

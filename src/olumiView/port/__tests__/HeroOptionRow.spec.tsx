@@ -89,8 +89,57 @@ describe('the ported option row, goal lens: the chance is the headline, in core\
   })
 })
 
+describe('the headline at rest (track 4 step 1): the chance, its uncertainty, and what would change it, in core\'s words', () => {
+  const chanceLine = (v: View, option: string, aim: string | null) => {
+    const k = v.model!.run!.tipping.findIndex((t) => t.option === option && t.aim === aim && t.kind === 'chance' && t.line !== '')
+    return k < 0 ? null : { k, line: v.model!.run!.tipping[k]! }
+  }
+
+  it('catch: under the chance, closed, v10\'s marker named by core\'s driver sentence with the chance ticked on it, then this option\'s own "what would have to be true" line verbatim', () => {
+    const { container, entry } = draw(golden, 'second_oven', 1)
+    const c = entry.card, r = entry.row as Extract<typeof entry.row, { kind: 'chance' }>
+    const head = container.querySelector('[data-testid="port-row-headline"]')!
+    expect(head).not.toBeNull()
+    expect(head.closest('button')).toBeNull() // at rest, beside the row's toggle, never inside it
+    expect(container.querySelector('[data-testid="port-option-detail"]')).toBeNull() // closed
+    const track = head.querySelector('[data-testid="port-row-driver-range-second_oven"]')!
+    expect([track.getAttribute('role'), track.getAttribute('aria-label'), track.getAttribute('title')]).toEqual(['img', c.driver!.text, c.driver!.title])
+    expect(head.querySelector('[data-testid="port-row-driver-chance-second_oven"]')!.getAttribute('style')).toContain(`left: ${r.chance! * 100}%`)
+    const want = chanceLine(golden, 'second_oven', r.aim_id)!
+    const line = head.querySelector(`[data-view="run.tipping.${want.k}.line"]`)!
+    expect([line.textContent, line.getAttribute('data-view-fact')]).toEqual([want.line.line, want.line.id])
+    expect(line.closest('[title]')!.getAttribute('title')).toBe(want.line.hover)
+    expect(head.textContent).not.toMatch(/\b(best|winner|recommend)/i)
+    expect(expectAllBound(golden, container, expect)).toBeGreaterThan(3)
+  })
+
+  it('negative: an option core gives no driver and no tipping line keeps its face as it was: no headline block at all', () => {
+    const v = viewOf('golden/whatif')
+    const c = v.model!.cards.find((x) => x.family === 'option' && x.rows.some((r) => r.kind === 'chance'))!
+    expect(c.driver ?? null).toBeNull()
+    const { container } = draw(v, c.id, c.rows.findIndex((r) => r.kind === 'chance'))
+    expect(container.querySelector('[data-testid="port-row-headline"]')).toBeNull()
+  })
+
+  it('a driver but no tipping line: core\'s driver sentence is the headline\'s line, once, never repeated in the detail', () => {
+    const v = structuredClone(golden)
+    v.model!.run!.tipping = []
+    const { container } = draw(v, 'second_oven', 1, 'goal', true)
+    const c = v.model!.cards.find((x) => x.id === 'second_oven')!
+    const words = container.querySelectorAll('[data-view="second_oven.driver.text"]')
+    expect(words.length).toBe(1)
+    expect(words[0]!.textContent).toBe(c.driver!.text)
+    expect(words[0]!.closest('[data-testid="port-row-headline"]')).not.toBeNull()
+  })
+
+  it('negative: the outcome lens draws no headline (the goal lens owns the chance)', () => {
+    const { container } = draw(golden, 'second_oven', 1, 'outcome')
+    expect(container.querySelector('[data-testid="port-row-headline"]')).toBeNull()
+  })
+})
+
 describe('the detail: core\'s lines for this option and aim only', () => {
-  it('opened: the outcome band (as an outcome, not the chance), the driver once with its marker, and this option\'s tipping lines', () => {
+  it('opened: the outcome band (as an outcome, not the chance), the driver\'s sentence and figure, and this option\'s other tipping lines; nothing the headline already shows', () => {
     const { container } = draw(golden, 'second_oven', 1, 'goal', true)
     const m = golden.model!, c = m.cards.find((x) => x.id === 'second_oven')!
     const r = c.rows[1] as Extract<(typeof c.rows)[number], { kind: 'chance' }>
@@ -98,9 +147,12 @@ describe('the detail: core\'s lines for this option and aim only', () => {
     expect(detail.querySelector('[data-view="second_oven.rows.1.outcome.text"]')!.textContent).toBe(r.outcome!.text)
     expect(detail.querySelector('[data-view="second_oven.driver.text"]')!.textContent).toBe(c.driver!.text)
     expect(detail.querySelector('[data-testid="port-row-driver-second_oven"]')!.getAttribute('title')).toBe(c.driver!.title)
-    expect(detail.querySelector('[data-testid="port-row-driver-range-second_oven"]')).not.toBeNull()
-    const drawn = [...detail.querySelectorAll<HTMLElement>('[data-view^="run.tipping."]')].map((e) => e.dataset['view'])
-    const want = m.run!.tipping.flatMap((t, i) => (t.option === 'second_oven' && t.aim === r.aim_id ? [`run.tipping.${i}.line`] : []))
+    // the marker is drawn once, on the headline
+    expect(container.querySelectorAll('[data-testid="port-row-driver-range-second_oven"]').length).toBe(1)
+    expect(detail.querySelector('[data-testid="port-row-driver-range-second_oven"]')).toBeNull()
+    // every tipping line for this option and aim is drawn exactly once, across the headline and the detail
+    const drawn = [...container.querySelectorAll<HTMLElement>('[data-view^="run.tipping."]')].map((e) => e.dataset['view']).sort()
+    const want = m.run!.tipping.flatMap((t, i) => (t.option === 'second_oven' && t.aim === r.aim_id ? [`run.tipping.${i}.line`] : [])).sort()
     expect(want.length).toBeGreaterThan(0)
     expect(drawn).toEqual(want)
     expect(expectAllBound(golden, container, expect)).toBeGreaterThan(4)
