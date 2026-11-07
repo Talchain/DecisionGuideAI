@@ -13,6 +13,7 @@ import { MODEL_OUTLINE_LABELS } from '../ViewModelTab'
 import { ViewModelTab } from '../ViewModelTab'
 import { MODEL_ROW_LABELS } from '../model/ModelCardRow'
 import { resetModelTab, useModelTab } from '../model/state'
+import { linkRowOf } from '../model/targets'
 import { registerFocusHelpers } from '../../canvas/utils/focusHelpers'
 import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../../canvas/domain/vocabulary'
 
@@ -244,6 +245,15 @@ describe('the Model tab: an option row core gives no chance keeps its words whol
 })
 
 
+describe('the Model tab: the question at its head is drawn whole', () => {
+  it('catch (R25, no cut text): the question is core\'s words whole, with no clamp on it or around it (the restyle of 3a576eb6 had cut it to two lines)', () => {
+    const c = render(<ViewModelTab model={model} />).container
+    const q = c.querySelector('[data-testid="view-model-question"] [data-view="model.question.text"]')!
+    expect(q.textContent).toBe(model.question.text)
+    for (let a: Element | null = q; a !== null && a !== c; a = a.parentElement) expect(a.className).not.toMatch(/line-clamp|truncate/)
+  })
+})
+
 // UI audit of cc75a10a (7 Nov): the key names only the marks drawn; the deliberate Model-tab changes are bound by identity, so reverting
 // either goes red.
 describe('the key, and what the Model tab deliberately does not draw', () => {
@@ -296,7 +306,7 @@ describe('the key, and what the Model tab deliberately does not draw', () => {
     sized.links[k] = { ...sized.links[k]!, effect: { text: '1.5 to 2', title: 'z', figure: 'starting_customers' } }
     const c = render(<ViewModelTab model={sized} />).container
     fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
-    const line = c.querySelector(`[data-model-link-line="links.${k}"]`)!
+    const line = c.querySelector(`[data-model-link-line="${linkRowOf(sized, k)}"]`)!
     const label = line.querySelector(`[data-view="links.${k}.label"]`)!
     expect(label.textContent).toBe(sized.links[k]!.label)
     // After its words: the label's text follows the link's "to" heading, and nothing of the line follows the label.

@@ -5,7 +5,7 @@
  * structural (an option, a risk, a link) is Olumi's to propose and the person's to approve, so the tab hands it to the chat with a draft
  * the person can change before sending (`requestAsk`, the inspector's hand-off), and says it goes there.
  */
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MessageSquare, Plus } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { TeamApiError } from '../../olumiCore/team/api'
@@ -17,103 +17,139 @@ import type { ViewLink } from '../client'
 import { writes } from '../client'
 import { useViewStore } from '../store'
 import { noteEditSaved } from '../notice'
-import { editKey, MODEL_EDIT_WORDS as W, useModelEdit } from './editing'
-import { RECIPE, sayReceipt } from './editors'
-import { useModelTab } from './state'
+import { editKey, MODEL_EDIT_WORDS as W, readAfterSave, useModelEdit } from './editing'
+import { focusIsWith, RECIPE, sayReceipt } from './editors'
+import { FACTORS_ROW, RELATIONSHIPS_ROW, useModelTab } from './state'
+
+/** Is this control still on screen? A refusal that lands after it left (its group closed, a filter typed) is said on its group instead. */
+function useMounted() {
+  const on = useRef(true)
+  useEffect(() => { on.current = true; return () => { on.current = false } }, [])
+  return on
+}
+
+/** What a form opened on: the scenario and core's version at the press that opened it (base-at-open; a later one never takes it). */
+type Opened = { readonly sid: string; readonly base: number }
 
 /** Add a figure card, in place at the foot of Factors: name, figure as typed, unit if they give one; core reads the figure and its unit. */
 export function AddFigureRow(): JSX.Element | null {
   const { sid, base: live } = useModelEdit()
-  const [open, setOpen] = useState(false)
-  const [base, setBase] = useState<number | null>(null)
+  const [opened, setOpened] = useState<Opened | null>(null)
   const [label, setLabel] = useState('')
   const [typed, setTyped] = useState('')
   const [unit, setUnit] = useState('')
   const [error, setError] = useState<string | null>(null)
   const opener = useRef<HTMLButtonElement>(null)
-  const key = editKey.addFigure(sid)
+  const mounted = useMounted()
+  const key = editKey.addFigure(opened?.sid ?? sid)
   const sending = useWriteSending(key)
-  if (sid === null || (!open && live === null)) return null
-  const close = () => { setOpen(false); setError(null); setTimeout(() => opener.current?.focus(), 0) }
+  const pending = useModelTab((s) => s.busy === key) || sending
+  const other = useModelTab((s) => s.busy !== null && s.busy !== key)
+  if (sid === null || (opened === null && live === null)) return null
+  const close = () => { setOpened(null); setError(null); setTimeout(() => opener.current?.focus(), 0) }
   const add = async () => {
     const name = label.trim(), figure = typed.trim(), u = unit.trim()
-    if (name === '' || figure === '' || sending || base === null) return
-    setError(null)
+    if (name === '' || figure === '' || pending || opened === null || useModelTab.getState().busy !== null) return
+    const { sid: at, base } = opened
+    const here = () => useViewStore.getState().sid === at
+    const fail = (words: string) => { if (mounted.current) setError(words); else useModelTab.getState().say({ row: FACTORS_ROW, words, tone: 'failed' }) }
+    setError(null); useModelTab.getState().setBusy(key)
     try {
-      const saved = await runWrite(key, { op: true }, { base, label: name, typed: figure, unit: u }, (op) => writes.addFigure(sid, base, name, figure, u === '' ? null : u, op!))
+      const saved = await runWrite(key, { op: true }, { base, label: name, typed: figure, unit: u }, (op) => writes.addFigure(at, base, name, figure, u === '' ? null : u, op!))
+      if (!here()) return
       noteEditSaved(saved)
-      if (await useViewStore.getState().modelChanged()) {
-        setLabel(''); setTyped(''); setUnit(''); setOpen(false)
-        sayReceipt(saved.record, saved)
-        focusWhenDrawn(saved.record) // the new card, theirs, in front on the canvas once drawn
-      } else setError(W.savedNotShown)
+      const shown = await readAfterSave(at)
+      if (shown === 'moved') return
+      if (shown === 'failed') { fail(W.savedNotShown); return }
+      setLabel(''); setTyped(''); setUnit(''); setOpened(null)
+      sayReceipt(at, saved.record, saved)
+      focusWhenDrawn(saved.record) // the new card, theirs, in front on the canvas once drawn
     } catch (e) {
-      setError(e instanceof TeamApiError ? e.message : W.failed)
+      if (here()) fail(e instanceof TeamApiError ? e.message : W.failed)
+    } finally {
+      if (useModelTab.getState().busy === key) useModelTab.getState().setBusy(null)
     }
   }
-  if (!open) return (
+  if (opened === null) return (
     <li className="px-2 pt-1">
-      <button ref={opener} type="button" onClick={() => { setBase(live); setError(null); setOpen(true) }} className={`${RECIPE.action} gap-1.5`} data-model-add-figure="open">
+      <button ref={opener} type="button" onClick={() => { if (live !== null) { setOpened({ sid, base: live }); setError(null) } }} className={`${RECIPE.action} gap-1.5`} data-model-add-figure="open">
         <Plus aria-hidden="true" className="h-3.5 w-3.5" /><span>{W.addFigure}</span>
       </button>
     </li>
   )
   return (
     <li className="px-2 pt-1">
-      <form className="space-y-2 rounded-lg border border-panel-border bg-panel p-3" data-model-add-figure="form"
-        onSubmit={(e) => { e.preventDefault(); void add() }} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !sending) close() }}>
+      <form className="space-y-2 rounded-lg border border-panel-border bg-panel p-3" data-model-add-figure="form" aria-busy={pending || undefined}
+        onSubmit={(e) => { e.preventDefault(); void add() }} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !pending) close() }}>
         <label className="block space-y-1"><span className={RECIPE.label}>{W.name}</span>
-          <input autoFocus autoComplete="off" value={label} disabled={sending} data-model-add-figure="name" onChange={(e) => { setLabel(e.target.value); if (error) setError(null) }} className={RECIPE.input} /></label>
+          <input autoFocus autoComplete="off" value={label} readOnly={pending} data-model-add-figure="name" onChange={(e) => { setLabel(e.target.value); if (error) setError(null) }} className={RECIPE.input} /></label>
         <label className="block space-y-1"><span className={RECIPE.label}>{W.figure}</span>
-          <input autoComplete="off" value={typed} disabled={sending} placeholder={W.figureHint} data-model-add-figure="typed" onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }} className={`${RECIPE.input} tabular-nums`} /></label>
+          <input autoComplete="off" value={typed} readOnly={pending} placeholder={W.figureHint} data-model-add-figure="typed" onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }} className={`${RECIPE.input} tabular-nums`} /></label>
         <label className="block space-y-1"><span className={RECIPE.label}>{W.unit}</span>
-          <input autoComplete="off" value={unit} disabled={sending} data-model-add-figure="unit" onChange={(e) => { setUnit(e.target.value); if (error) setError(null) }} className={RECIPE.input} /></label>
+          <input autoComplete="off" value={unit} readOnly={pending} data-model-add-figure="unit" onChange={(e) => { setUnit(e.target.value); if (error) setError(null) }} className={RECIPE.input} /></label>
         {error === null ? null : <p role="alert" className={RECIPE.error} data-model-add-figure="error">{error}</p>}
         <div className="flex flex-wrap items-center gap-2">
-          <button type="submit" disabled={sending || label.trim() === '' || typed.trim() === ''} className={RECIPE.primary} data-model-add-figure="add">
-            {sending ? <span role="status">{W.saving}</span> : W.add}
-          </button>
-          <button type="button" disabled={sending} onClick={close} className={RECIPE.quiet}>{W.cancel}</button>
+          <button type="submit" disabled={label.trim() === '' || typed.trim() === ''} aria-disabled={pending || other || undefined} className={`${RECIPE.primary} ${pending || other ? 'opacity-60' : ''}`} data-model-add-figure="add">{W.add}</button>
+          <button type="button" aria-disabled={pending || undefined} onClick={() => { if (!pending) close() }} className={RECIPE.quiet}>{W.cancel}</button>
         </div>
+        {pending ? <p role="status" className={RECIPE.status} data-model-add-figure="sending">{W.saving}</p> : null}
       </form>
     </li>
   )
 }
 
-/** Remove a link core marks removable: asked once, then core's `remove` object posted verbatim; core names what depends on it if it refuses. */
+/**
+ * Remove a link core marks removable: asked once, then core's `remove` object posted verbatim; core names what depends on it if it
+ * refuses. Once the View shows it gone, its detail closes (only if it is still the one open) and the Relationships group says core's
+ * version, since the link's own row is gone; focus goes to that group's heading if it was here.
+ */
 export function RemoveLink({ link, row }: { link: ViewLink; row: string }): JSX.Element | null {
   const { sid, base: live } = useModelEdit()
   const remove = link.remove
-  const [asking, setAsking] = useState(false)
-  const [base, setBase] = useState<number | null>(null)
+  const [opened, setOpened] = useState<Opened | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const key = remove == null ? '' : editKey.removeLink(sid, remove)
+  const mounted = useMounted()
+  const key = remove == null ? '' : editKey.removeLink(opened?.sid ?? sid, remove)
   const sending = useWriteSending(key)
-  if (remove == null || sid === null || (!asking && live === null)) return null
+  const pending = useModelTab((s) => s.busy === key && key !== '') || sending
+  const other = useModelTab((s) => s.busy !== null && s.busy !== key)
+  if (remove == null || sid === null || (opened === null && live === null)) return null
   const take = async () => {
-    if (sending || base === null) return
-    setError(null)
+    if (pending || opened === null || useModelTab.getState().busy !== null) return
+    const { sid: at, base } = opened
+    const here = () => useViewStore.getState().sid === at
+    const fail = (words: string) => { if (mounted.current) setError(words); else useModelTab.getState().say({ row: RELATIONSHIPS_ROW, words, tone: 'failed' }) }
+    setError(null); useModelTab.getState().setBusy(key)
     try {
-      const saved = await runWrite(key, { op: true }, { base, ...remove }, (op) => writes.removeLink(sid, base, remove, op!))
+      const saved = await runWrite(key, { op: true }, { base, ...remove }, (op) => writes.removeLink(at, base, remove, op!))
+      if (!here()) return
       noteEditSaved(saved)
-      if (await useViewStore.getState().modelChanged()) { useModelTab.getState().toggle(row) } else setError(W.savedNotShown)
+      const shown = await readAfterSave(at)
+      if (shown === 'moved') return
+      if (shown === 'failed') { fail(W.savedNotShown); return }
+      useModelTab.getState().setBusy(null)
+      useModelTab.getState().close(row)
+      sayReceipt(at, RELATIONSHIPS_ROW, saved)
+      // Focus that was here (now gone with its row) goes to the group's heading, where core's version is said; focus elsewhere stays.
+      setTimeout(() => { if (focusIsWith(null)) document.querySelector<HTMLElement>('[data-model-group-toggle="relationships"]')?.focus() }, 0)
     } catch (e) {
-      setError(e instanceof TeamApiError ? e.message : W.failed)
+      if (here()) fail(e instanceof TeamApiError ? e.message : W.failed)
+    } finally {
+      if (useModelTab.getState().busy === key) useModelTab.getState().setBusy(null)
     }
   }
   return (
     <div className="space-y-2" data-model-remove-link={row} onClick={(e) => e.stopPropagation()}>
-      {asking ? (
+      {opened !== null ? (
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label={W.removeAsk}>
           <span className="text-text-body">{W.removeAsk}</span>
-          <button type="button" autoFocus aria-disabled={sending || undefined} onClick={() => void take()} className={`${RECIPE.secondary} ${sending ? 'opacity-50' : ''}`} data-model-remove-link-yes={row}>
-            {sending ? <span role="status">{W.saving}</span> : W.remove}
-          </button>
-          <button type="button" aria-disabled={sending || undefined} onClick={() => { if (!sending) { setAsking(false); setError(null) } }} className={RECIPE.quiet}>{W.keep}</button>
+          <button type="button" autoFocus aria-disabled={pending || other || undefined} onClick={() => void take()} className={`${RECIPE.secondary} ${pending || other ? 'opacity-50' : ''}`} data-model-remove-link-yes={row}>{W.remove}</button>
+          <button type="button" aria-disabled={pending || undefined} onClick={() => { if (!pending) { setOpened(null); setError(null) } }} className={RECIPE.quiet}>{W.keep}</button>
         </div>
       ) : (
-        <button type="button" onClick={() => { setBase(live); setError(null); setAsking(true) }} className={RECIPE.action} data-model-remove-link-open={row}>{W.removeLink}</button>
+        <button type="button" onClick={() => { if (live !== null) { setOpened({ sid, base: live }); setError(null) } }} className={RECIPE.action} data-model-remove-link-open={row}>{W.removeLink}</button>
       )}
+      {pending ? <p role="status" className={RECIPE.status} data-model-remove-link-sending={row}>{W.saving}</p> : null}
       {error === null ? null : <p role="alert" className={RECIPE.error} data-model-remove-link-error={row}>{error}</p>}
     </div>
   )

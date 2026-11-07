@@ -1,7 +1,9 @@
 /**
  * ONE LINK OF THE MODEL TAB (the crafted tab's Relationships row): from its card to its card in their own headings, with core's mark for
- * its kind or sign (◇ ⊢ ↝ +, after the last word, as the canvas draws it). Expert adds core's strength line. The row's press opens its
- * detail (its two ends; its removal and its strength's editor where core offers them) and puts its first card in front on the canvas.
+ * its kind or sign (◇ ⊢ ↝ +, after the last word, as the canvas draws it). Expert adds core's strength line; in Plain it shows while the
+ * row is open, beside its detail's Change strength, so the action always names something on screen. The row's press opens its detail (its
+ * two ends; its removal and its strength's editor where core offers them) and puts its first card in front on the canvas. Its row is
+ * `linkRowOf` (what it joins); its View paths stay core's (`links.<i>…`).
  */
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
@@ -13,8 +15,7 @@ import { MODEL_EDIT_WORDS as W } from './editing'
 import { LinkDetail } from './detail'
 import { useModelTab } from './state'
 
-export function LinkRow({ model, link, i, from, to }: { model: ViewModel; link: ViewLink; i: number; from: string; to: string }) {
-  const row = `links.${i}`
+export function LinkRow({ model, link, i, row, from, to }: { model: ViewModel; link: ViewLink; i: number; row: string; from: string; to: string }) {
   const expert = useModelTab((s) => s.expert)
   const open = useModelTab((s) => s.open === row)
   const editing = useModelTab((s) => (s.editing?.row === row && s.editing.what === 'figure' ? s.editing : null))
@@ -34,7 +35,7 @@ export function LinkRow({ model, link, i, from, to }: { model: ViewModel; link: 
             <span>{to}</span>
             {link.label !== '' ? <span className="text-text-light">{' '}<span data-view={`links.${i}.label`}>{link.label}</span></span> : null}
           </button>
-          {expert && link.effect != null ? (
+          {(expert || open) && link.effect != null ? (
             <span className={`${typography.viewPanelMeta} mt-0.5 block tabular-nums text-text-light`} title={link.effect.title} data-view={`links.${i}.effect.text`}>{link.effect.text}</span>
           ) : null}
           {receipt === null ? null : (
@@ -44,9 +45,9 @@ export function LinkRow({ model, link, i, from, to }: { model: ViewModel; link: 
         </span>
       </div>
       {editing !== null && editingFigure !== null ? (
-        <div className="pb-2 pl-8 pr-2"><FigureEditor key={editing.quantity} row={row} quantity={editing.quantity} edit={editingFigure} /></div>
+        <div className="pb-2 pl-8 pr-2"><FigureEditor key={editing.quantity} mine={editing} edit={editingFigure} /></div>
       ) : null}
-      {open ? <LinkDetail model={model} link={link} i={i} /> : null}
+      {open ? <LinkDetail model={model} link={link} row={row} /> : null}
     </li>
   )
 }

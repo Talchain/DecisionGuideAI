@@ -5,7 +5,7 @@
  *
  * Every model word is core's, drawn verbatim under its View path; headings and buttons are UI chrome (`MODEL_EDIT_WORDS`).
  */
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, FileText, LocateFixed, Pencil, Type, User } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
@@ -16,9 +16,9 @@ import { writes } from '../client'
 import { useViewStore } from '../store'
 import { linkEndHeading } from '../layout'
 import { authorAnyOf } from './author'
-import { MODEL_EDIT_WORDS as W, useModelEdit } from './editing'
+import { MODEL_EDIT_WORDS as W, openEditor, readAfter, useModelEdit } from './editing'
 import { ASIDE_WORDS } from '../FigureEdit'
-import { RECIPE } from './editors'
+import { focusIsWith, RECIPE } from './editors'
 import { useModelTab } from './state'
 import { linksOf, strengthCardOf, targetCardOf } from './targets'
 import { AskOlumi, RemoveLink } from './structure'
@@ -105,16 +105,15 @@ function Science({ card }: { card: ViewCard }) {
 export function CardDetail({ model, card }: { model: ViewModel; card: ViewCard }) {
   const expert = useModelTab((s) => s.expert)
   const { base } = useModelEdit()
-  const edit = useModelTab((s) => s.edit)
   const canEdit = base !== null
   const target = canEdit ? targetCardOf(model, card) : null
   return (
     <div id={`model-detail-${card.id}`} role="region" aria-label={card.heading} className="mb-2 ml-8 mr-2 mt-0.5 space-y-2.5" data-model-detail={card.id}
-      onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); useModelTab.getState().toggle(card.id) } }}>
+      onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); useModelTab.getState().close(card.id) } }}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5" data-model-actions={card.id}>
-        {canEdit && card.figure?.edit != null ? <Action at="figure" icon={<Pencil aria-hidden="true" className={ICON} />} label={W.changeFigure} onPress={() => edit({ row: card.id, what: 'figure', quantity: card.id })} /> : null}
-        {target === null ? null : <Action at="target" icon={<Pencil aria-hidden="true" className={ICON} />} label={card.family === 'limit' ? W.changeLimit : W.changeTarget} onPress={() => edit({ row: card.id, what: 'figure', quantity: target.id })} />}
-        {canEdit ? <Action at="rename" icon={<Type aria-hidden="true" className={ICON} />} label={W.rename} onPress={() => edit({ row: card.id, what: 'rename' })} /> : null}
+        {canEdit && card.figure?.edit != null ? <Action at="figure" icon={<Pencil aria-hidden="true" className={ICON} />} label={W.changeFigure} onPress={() => openEditor({ row: card.id, what: 'figure', quantity: card.id })} /> : null}
+        {target === null ? null : <Action at="target" icon={<Pencil aria-hidden="true" className={ICON} />} label={card.family === 'limit' ? W.changeLimit : W.changeTarget} onPress={() => openEditor({ row: card.id, what: 'figure', quantity: target.id })} />}
+        {canEdit ? <Action at="rename" icon={<Type aria-hidden="true" className={ICON} />} label={W.rename} onPress={() => openEditor({ row: card.id, what: 'rename' }, card.heading)} /> : null}
         <Action at="canvas" icon={<LocateFixed aria-hidden="true" className={ICON} />} label={W.showOnCanvas} onPress={() => focusNodeById(card.id)} />
       </div>
       <AskOlumi at={`change:${card.id}`} label={W.askChange} draft={`${W.askChangeDraft} “${card.heading}”: `} />
@@ -125,17 +124,16 @@ export function CardDetail({ model, card }: { model: ViewModel; card: ViewCard }
   )
 }
 
-/** A link's detail: its two ends (each pressing to its card), and where core offers it, its strength's editor. */
-export function LinkDetail({ model, link, i }: { model: ViewModel; link: ViewLink; i: number }) {
+/** A link's detail: its two ends (each pressing to its card), and where core offers it, its strength's editor (its row shows the
+ *  strength while open, so the action names something on screen in Plain too) and its removal. */
+export function LinkDetail({ model, link, row }: { model: ViewModel; link: ViewLink; row: string }) {
   const { base } = useModelEdit()
-  const edit = useModelTab((s) => s.edit)
   const strength = base === null ? null : strengthCardOf(model, link)
-  const row = `links.${i}`
   return (
     <div id={`model-detail-${row}`} role="region" aria-label={`${linkEndHeading(model, link.from)} → ${linkEndHeading(model, link.to)}`} className="mb-2 ml-8 mr-2 mt-1 space-y-3" data-model-detail={row}
-      onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); useModelTab.getState().toggle(row) } }}>
+      onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); useModelTab.getState().close(row) } }}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5" data-model-actions={row}>
-        {strength === null ? null : <Action at="strength" icon={<Pencil aria-hidden="true" className={ICON} />} label={W.changeStrength} onPress={() => edit({ row, what: 'figure', quantity: strength.id })} />}
+        {strength === null ? null : <Action at="strength" icon={<Pencil aria-hidden="true" className={ICON} />} label={W.changeStrength} onPress={() => openEditor({ row, what: 'figure', quantity: strength.id })} />}
         <Action at="from" icon={<ArrowLeft aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.from)} onPress={() => focusNodeById(link.from)} />
         <Action at="to" icon={<ArrowRight aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.to)} onPress={() => focusNodeById(link.to)} />
       </div>
@@ -146,43 +144,58 @@ export function LinkDetail({ model, link, i }: { model: ViewModel; link: ViewLin
 
 /**
  * Olumi's change is held: core takes no direct edit until it is approved or set aside (`edit_base` null). Said once, at the head of the tab,
- * with core's heading for it, and a two-step set-aside (the canvas's HeldEditOffer route: `POST …/discard`, nothing in it applied).
+ * with core's heading for it, and a two-step set-aside (the canvas's HeldEditOffer route: `POST …/discard`, nothing in it applied). Once
+ * core has set it aside it no longer reads as waiting: if the View read after it fails (one a newer read overtook is that read's to
+ * settle), it says so in the canvas's words, and it is never sent twice.
  */
 export function HeldNotice() {
-  const { held } = useModelEdit()
+  const { sid, held } = useModelEdit()
   const [asking, setAsking] = useState(false)
   const [busy, setBusy] = useState(false)
   const [aside, setAside] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
-  if (held === null) return null
-  // Set aside already (core took it) but the View could not be read since: said once, and never sent twice (FigureEdit's notShown rule).
+  const box = useRef<HTMLDivElement>(null)
+  const said = useRef<HTMLParagraphElement>(null)
+  if (held === null || sid === null) return null
   const done = aside === held.id
   const setItAside = async () => {
     if (busy || done) return
+    const id = held.id
     setBusy(true); setError(null)
     try {
-      await writes.discard(held.id)
-      setAside(held.id)
-      if (!(await useViewStore.getState().refresh())) setError(ASIDE_WORDS.notShown)
+      await writes.discard(id)
+      const shown = await readAfter(sid, () => useViewStore.getState().refresh(), () => useViewStore.getState().view?.proposal?.id !== id)
+      if (shown === 'failed') {
+        // Core set it aside; the View could not show it. Said once, never sent again, and focus that was here moves to what it says.
+        const had = focusIsWith(box.current)
+        setAside(id); setError(ASIDE_WORDS.notShown)
+        if (had) setTimeout(() => said.current?.focus(), 0)
+      }
       setAsking(false)
     } catch (e) {
       setError(e instanceof TeamApiError ? e.message : W.heldFailed)
     } finally { setBusy(false) }
   }
+  if (done) return (
+    <div className="rounded-lg border border-panel-border bg-panel p-3" data-testid="view-model-held" data-held-set-aside={held.id}>
+      <p ref={said} tabIndex={-1} role="alert" className={`${typography.viewPanelMeta} m-0 text-text-body ${ACTION_FOCUS}`} data-testid="view-model-held-done">{error}</p>
+    </div>
+  )
   return (
-    <div className="space-y-2 rounded-lg border border-panel-border bg-panel p-3" data-testid="view-model-held">
+    <div ref={box} className="space-y-2 rounded-lg border border-panel-border bg-panel p-3" data-testid="view-model-held">
       <p className="m-0 text-text-header">{W.heldLead}</p>
       <p className={`${typography.viewPanelMeta} m-0 text-text-light`}><span data-view="proposal.heading">{held.heading}</span> · <span data-view="proposal.on">{held.on}</span></p>
       <p className={`${typography.viewPanelMeta} m-0 text-text-body`}>{W.heldBody}</p>
       {error === null ? null : <p role="alert" className={RECIPE.error} data-testid="view-model-held-error">{error}</p>}
-      {done ? null : asking ? (
+      {asking ? (
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" autoFocus disabled={busy} onClick={() => void setItAside()} className={RECIPE.secondary} data-testid="view-model-held-confirm">{W.heldConfirm}</button>
-          <button type="button" disabled={busy} onClick={() => { setAsking(false); setError(null) }} className={RECIPE.quiet}>{W.heldKeep}</button>
+          <button type="button" autoFocus aria-disabled={busy || undefined} onClick={() => void setItAside()} className={`${RECIPE.secondary} ${busy ? 'opacity-50' : ''}`} data-testid="view-model-held-confirm">{W.heldConfirm}</button>
+          <button type="button" aria-disabled={busy || undefined} onClick={() => { if (!busy) { setAsking(false); setError(null) } }} className={RECIPE.quiet}>{W.heldKeep}</button>
         </div>
       ) : (
         <button type="button" onClick={() => setAsking(true)} className={RECIPE.action} data-testid="view-model-held-aside">{W.heldAside}</button>
       )}
+      {busy ? <p role="status" className={RECIPE.status} data-testid="view-model-held-sending">{W.settingAside}</p> : null}
     </div>
   )
 }

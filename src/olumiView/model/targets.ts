@@ -23,3 +23,14 @@ export const strengthCardOf = (model: ViewModel, link: ViewLink): ViewCard | nul
 
 export const linksOf = (model: ViewModel, id: string): { l: ViewLink; i: number }[] =>
   model.links.map((l, i) => ({ l, i })).filter(({ l }) => l.from === id || l.to === id)
+
+/**
+ * A link's row in this tab, by what it joins, never by where it sits in `links`: a line removed above it (here, or by a teammate) never
+ * moves an open detail, editor or receipt onto the next line (UI audit of e8ebab94). Core sends no link id (asked of the DL); no View in
+ * 17 goldens and wires has two lines between the same two cards, and a second one would still get its own row (`#1`).
+ */
+export function linkRowOf(model: ViewModel, i: number): string {
+  const l = model.links[i]!
+  const before = model.links.slice(0, i).filter((k) => k.from === l.from && k.to === l.to).length
+  return before === 0 ? `link:${l.from}>${l.to}` : `link:${l.from}>${l.to}#${before}`
+}

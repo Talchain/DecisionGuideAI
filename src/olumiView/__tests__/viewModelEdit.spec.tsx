@@ -13,10 +13,14 @@ import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { setTeamFetch } from '../../olumiCore/team/api'
-import { resetWrites } from '../../olumiCore/team/writes'
+import { NOT_CONFIRMED, resetWrites, useWrites } from '../../olumiCore/team/writes'
 import { useMe } from '../../olumiCore/me'
-import { ViewModelTab } from '../ViewModelTab'
-import { resetModelTab, useModelTab } from '../model/state'
+import { useModelNotice } from '../notice'
+import { ASIDE_WORDS } from '../FigureEdit'
+import { ViewModelTab, ViewModelTabBlock } from '../ViewModelTab'
+import { FACTORS_ROW, RELATIONSHIPS_ROW, resetModelTab, useModelTab } from '../model/state'
+import { MODEL_EDIT_WORDS } from '../model/editing'
+import { linkRowOf } from '../model/targets'
 
 const SID = 's_0123456789ab'
 const wire: View = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', 'european-22cards.view3.json'), 'utf8')), id: SID }
@@ -30,24 +34,39 @@ let answer: { status: number; body: unknown } = { status: 201, body: { version: 
 let gate: Promise<void> | null = null
 let release: () => void = () => undefined
 const hold = () => { gate = new Promise<void>((r) => { release = r }) }
+/** Holds each View read begun from now until its own release (a read keeps the gate it began under), so a spec can order two reads. */
+let readGate: Promise<void> | null = null
+const holdReads = (): (() => void) => { let r: () => void = () => undefined; readGate = new Promise<void>((res) => { r = res }); return () => r() }
+/** The next n View reads fail (core 500); the next n POSTs lose their answer (the connection drops after the request left). */
+let readFails = 0
+let drops = 0
 beforeEach(() => {
   view = wire
   gate = null
+  readGate = null
+  readFails = 0
+  drops = 0
   calls = []
   answer = { status: 201, body: { version: 2, n: 2, receipt: 'r' } }
   setTeamFetch((async (u: unknown, init?: RequestInit) => {
     const method = init?.method ?? 'GET'
     calls.push({ method, path: String(u), body: init?.body ? JSON.parse(String(init.body)) : undefined })
     if (method === 'GET' && String(u) === '/api/me') return new Response(JSON.stringify({ me: { id: wire.you_id, name: wire.you } }), { status: 200 })
-    if (method === 'GET') return new Response(JSON.stringify(view), { status: 200 })
+    if (method === 'GET') {
+      const held = readGate
+      if (held !== null) await held
+      if (readFails > 0) { readFails -= 1; return new Response(JSON.stringify({ error: 'down' }), { status: 500 }) }
+      return new Response(JSON.stringify(view), { status: 200 })
+    }
     if (gate !== null) await gate
+    if (drops > 0) { drops -= 1; throw new TypeError('Failed to fetch') }
     return new Response(JSON.stringify(answer.body), { status: answer.status })
   }) as unknown as typeof fetch)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view, status: 'ready', error: null, stale: false, at: null })
   useMe.setState({ me: { id: wire.you_id, name: wire.you }, status: 'ready' })
 })
 afterEach(() => {
-  cleanup(); setTeamFetch(null); resetWrites()
+  cleanup(); setTeamFetch(null); resetWrites(); useModelNotice.setState({ notice: null })
   try { localStorage.clear() } catch { /* none */ }
   resetModelTab()
   useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none', at: null }); useMe.setState({ me: null, status: 'none' })
@@ -164,11 +183,12 @@ describe('a figure is changed where it stands', () => {
     view = sized
     useViewStore.setState({ view })
     const c = draw(sized)
-    fireEvent.click(c.querySelector(`[data-model-select="links.${k}"]`)!)
-    fireEvent.click(c.querySelector(`[data-model-detail="links.${k}"] [data-model-action="strength"]`)!)
+    const row = linkRowOf(sized.model!, k)
+    fireEvent.click(c.querySelector(`[data-model-select="${row}"]`)!)
+    fireEvent.click(c.querySelector(`[data-model-detail="${row}"] [data-model-action="strength"]`)!)
     expect(c.querySelector(`[data-view-edit-prompt="${figure.id}"]`)?.textContent).toBe(figure.figure!.edit!.prompt)
-    fireEvent.change(c.querySelector(`[data-model-editor-input="links.${k}"]`)!, { target: { value: '2' } })
-    fireEvent.click(c.querySelector(`[data-model-editor-save="links.${k}"]`)!)
+    fireEvent.change(c.querySelector(`[data-model-editor-input="${row}"]`)!, { target: { value: '2' } })
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${row}"]`)!)
     await waitFor(() => expect(posts().length).toBe(1))
     const body = posts()[0]!.body as Record<string, unknown>
     expect([posts()[0]!.path, body['base'], body['quantity'], body['typed']]).toEqual([`/api/scenarios/${SID}/edit`, 1, figure.id, '2'])
@@ -311,17 +331,578 @@ describe('adding and taking away', () => {
     view = removable
     useViewStore.setState({ view })
     const c = draw(removable)
-    fireEvent.click(c.querySelector(`[data-model-select="links.${k}"]`)!)
-    fireEvent.click(c.querySelector(`[data-model-remove-link-open="links.${k}"]`)!)
+    const row = linkRowOf(removable.model!, k)
+    fireEvent.click(c.querySelector(`[data-model-select="${row}"]`)!)
+    fireEvent.click(c.querySelector(`[data-model-remove-link-open="${row}"]`)!)
     expect(posts()).toEqual([]) // asked first
-    fireEvent.click(c.querySelector(`[data-model-remove-link-yes="links.${k}"]`)!)
+    fireEvent.click(c.querySelector(`[data-model-remove-link-yes="${row}"]`)!)
     await waitFor(() => expect(posts().map((p) => p.path)).toEqual([`/api/scenarios/${SID}/links/remove`]))
     const body = posts()[0]!.body as Record<string, unknown>
     expect([body['base'], body['record'], body['part'], typeof body['op']]).toEqual([1, 'rel_x', 'part_y', 'string'])
     // CONTRAST: the detail of a line core does not mark is open, and offers no removal.
-    const other = wire.model!.links.findIndex((_, i) => i !== k)
-    fireEvent.click(c.querySelector(`[data-model-select="links.${other}"]`)!)
-    expect(c.querySelector(`[data-model-detail="links.${other}"]`)).not.toBeNull()
-    expect(c.querySelector(`[data-model-remove-link-open="links.${other}"]`)).toBeNull()
+    const other = linkRowOf(removable.model!, wire.model!.links.findIndex((_, i) => i !== k))
+    fireEvent.click(c.querySelector(`[data-model-select="${other}"]`)!)
+    expect(c.querySelector(`[data-model-detail="${other}"]`)).not.toBeNull()
+    expect(c.querySelector(`[data-model-remove-link-open="${other}"]`)).toBeNull()
+  })
+})
+
+// ── UI audit of e8ebab94 (7 Nov): every write path the tab offers, bound by identity (route, exact body, write key, base at the press) ──
+/** Core's own refusals (core a62f0899 src/app/service.ts: /edit at 1647-1648; rename, remove and add `EDIT_WORDS.stale` at 186). */
+const CORE = {
+  editStale: 'this figure was edited on a different version',
+  stale: (verb: 'rename' | 'remove' | 'add') => `this was changed on a different version; reload and ${verb} it again`,
+}
+const sendingKeys = () => Object.keys(useWrites.getState().sending)
+const viewReads = () => calls.filter((x) => x.method === 'GET' && x.path.includes('/view'))
+const typeIn = (c: HTMLElement, sel: string, value: string) => fireEvent.change(c.querySelector(sel)!, { target: { value } })
+const goal = wire.model!.cards.find((k) => k.id === 'reach_customer_target')!
+const target = wire.model!.cards.find((k) => k.id === 'customer_target')!
+const limit = wire.model!.cards.find((k) => k.id === 'investment_limit')!
+const cap = wire.model!.cards.find((k) => k.id === 'investment_cap')!
+const plainLink = wire.model!.links.findIndex((l) => l.kind === 'plain')
+/** ⚠ LABELLED FIXTURE (as the rows above): one plain line sized by an editable figure and removable in core's { record, part } shape. */
+const useFixture = (): View => {
+  view = { ...wire, model: { ...wire.model!, links: wire.model!.links.map((l, i) => (i === plainLink ? { ...l, effect: { text: '1.5', title: 'x', figure: figure.id }, remove: { record: 'rel_x', part: 'part_y' } } : l)) } }
+  useViewStore.setState({ view })
+  return view
+}
+/** A background re-read moves the live base on (core approved version 7 meanwhile); the View the next read answers is unchanged. */
+const moveBase = () => act(() => { useViewStore.setState({ view: { ...view, model: { ...view.model!, edit_base: 7 } } }) })
+/** The View with one figure's words changed, as core answers once a save has landed. */
+const withFigure = (v: View, id: string, text: string): View => ({ ...v, model: { ...v.model!, cards: v.model!.cards.map((k) => (k.id === id ? { ...k, figure: { ...k.figure!, text } } : k)) } })
+/** A held View as core serves one (core view.ts:133/244/315: while a proposal is pending, edit_base and every figure's edit are null). */
+const heldView = (v: View): View => ({ ...v, proposal: { id: 9, base: 1, heading: 'Olumi proposes 1 change', on: 'on version 1' } as unknown as View['proposal'],
+  model: { ...v.model!, edit_base: null, cards: v.model!.cards.map((k) => (k.figure === null ? k : { ...k, figure: { ...k.figure, edit: null } })) } })
+const openFigure = (c: HTMLElement, id: string, typed: string) => {
+  fireEvent.click(c.querySelector(`[data-model-value-edit="${id}"]`)!)
+  typeIn(c, `[data-model-editor-input="${id}"]`, typed)
+}
+const openLink = (c: HTMLElement, row: string) => fireEvent.click(c.querySelector(`[data-model-select="${row}"]`)!)
+
+describe('the write key is the canvas editor\'s, and it is held while core has the write', () => {
+  it('HIGH: Change figure holds `<sid>:edit:<quantity>` and nothing else, until the View read after it lands', async () => {
+    hold()
+    const c = draw()
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    expect(sendingKeys()).toEqual([`${SID}:edit:${figure.id}`])
+    expect(useModelTab.getState().busy).toBe(`${SID}:edit:${figure.id}`)
+    release()
+    await waitFor(() => expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).toBeNull())
+    expect([sendingKeys(), useModelTab.getState().busy]).toEqual([[], null])
+  })
+
+  it('HIGH: Rename holds `<sid>:rename:<record>`', async () => {
+    hold()
+    const c = draw()
+    fireEvent.click(c.querySelector(`[data-model-select="${figure.id}"]`)!)
+    fireEvent.click(c.querySelector(`[data-model-detail="${figure.id}"] [data-model-action="rename"]`)!)
+    typeIn(c, `[data-model-renamer-input="${figure.id}"]`, 'Customers today')
+    fireEvent.click(c.querySelector(`[data-model-renamer-save="${figure.id}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    expect(sendingKeys()).toEqual([`${SID}:rename:${figure.id}`])
+    release()
+    await waitFor(() => expect(c.querySelector(`[data-model-renamer="${figure.id}"]`)).toBeNull())
+  })
+
+  it('HIGH: Add a figure holds `<sid>:add-figure`', async () => {
+    answer = { status: 201, body: { version: 2, n: 2, receipt: 'r', record: 'q_new' } }
+    hold()
+    const c = draw()
+    fireEvent.click(c.querySelector('[data-model-add-figure="open"]')!)
+    typeIn(c, '[data-model-add-figure="name"]', 'Sales team')
+    typeIn(c, '[data-model-add-figure="typed"]', '4 to 6')
+    fireEvent.click(c.querySelector('[data-model-add-figure="add"]')!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    expect(sendingKeys()).toEqual([`${SID}:add-figure`])
+    release()
+    await waitFor(() => expect(c.querySelector('[data-model-add-figure="form"]')).toBeNull())
+  })
+
+  it('HIGH: Remove link holds `<sid>:remove-link:<record>.<part>` (labelled fixture)', async () => {
+    const v = useFixture()
+    const row = linkRowOf(v.model!, plainLink)
+    hold()
+    const c = draw(v)
+    openLink(c, row)
+    fireEvent.click(c.querySelector(`[data-model-remove-link-open="${row}"]`)!)
+    fireEvent.click(c.querySelector(`[data-model-remove-link-yes="${row}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    expect(sendingKeys()).toEqual([`${SID}:remove-link:rel_x.part_y`])
+    release()
+    await waitFor(() => expect(useModelTab.getState().busy).toBeNull())
+  })
+})
+
+describe('what an editor opened on is what core gets: the base at the press, exact bodies', () => {
+  it('HIGH: Rename sends the base it opened on, as exactly { base, record, label, op }', async () => {
+    const c = draw()
+    fireEvent.click(c.querySelector(`[data-model-select="${figure.id}"]`)!)
+    fireEvent.click(c.querySelector(`[data-model-detail="${figure.id}"] [data-model-action="rename"]`)!)
+    moveBase()
+    typeIn(c, `[data-model-renamer-input="${figure.id}"]`, '  Customers today  ')
+    fireEvent.click(c.querySelector(`[data-model-renamer-save="${figure.id}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    expect(posts()[0]).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/rename`, body: { base: 1, record: figure.id, label: 'Customers today', op: expect.any(String) } })
+  })
+
+  it('HIGH: Remove link sends the base its ask opened on, as exactly { base, record, part, op } (labelled fixture)', async () => {
+    const v = useFixture()
+    const row = linkRowOf(v.model!, plainLink)
+    const c = draw(v)
+    openLink(c, row)
+    fireEvent.click(c.querySelector(`[data-model-remove-link-open="${row}"]`)!)
+    moveBase()
+    fireEvent.click(c.querySelector(`[data-model-remove-link-yes="${row}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    expect(posts()[0]).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/links/remove`, body: { base: 1, record: 'rel_x', part: 'part_y', op: expect.any(String) } })
+  })
+
+  it('HIGH: an aim\'s target and a limit\'s bound send their own figure on the base they opened on, as exactly { base, quantity, typed, op }', async () => {
+    const c = draw()
+    openFigure(c, goal.id, '900')
+    moveBase()
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${goal.id}"]`)!)
+    await waitFor(() => expect(c.querySelector(`[data-model-editor="${goal.id}"]`)).toBeNull())
+    openFigure(c, limit.id, 'at most 450,000')
+    moveBase()
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${limit.id}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(2))
+    expect(posts().map((p) => p.body)).toEqual([
+      { base: 1, quantity: target.id, typed: '900', op: expect.any(String) },
+      { base: 1, quantity: cap.id, typed: 'at most 450,000', op: expect.any(String) },
+    ])
+  })
+
+  it('HIGH: a link\'s strength sends its sizing figure on the base it opened on, as exactly { base, quantity, typed, op } (labelled fixture)', async () => {
+    const v = useFixture()
+    const row = linkRowOf(v.model!, plainLink)
+    const c = draw(v)
+    openLink(c, row)
+    fireEvent.click(c.querySelector(`[data-model-detail="${row}"] [data-model-action="strength"]`)!)
+    moveBase()
+    typeIn(c, `[data-model-editor-input="${row}"]`, '2')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${row}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    expect(posts()[0]).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/edit`, body: { base: 1, quantity: figure.id, typed: '2', op: expect.any(String) } })
+  })
+
+  it('catch: the typing and the base stay with the editor when its group closes and opens again', async () => {
+    const c = draw()
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector('[data-model-group-toggle="factors"]')!)
+    expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).toBeNull()
+    moveBase()
+    fireEvent.click(c.querySelector('[data-model-group-toggle="factors"]')!)
+    expect((c.querySelector(`[data-model-editor-input="${figure.id}"]`) as HTMLInputElement).value).toBe('450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    expect(posts()[0]!.body).toEqual({ base: 1, quantity: figure.id, typed: '450', op: expect.any(String) })
+  })
+})
+
+describe('core refuses: its own words in the editor that asked, the typing kept', () => {
+  it('HIGH: a stale base on a figure: core\'s words, the typing kept, the field focused; nothing read, nothing said as saved', async () => {
+    answer = { status: 409, body: { error: CORE.editStale } }
+    const c = draw()
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(c.querySelector(`[data-model-editor-error="${figure.id}"]`)?.textContent).toBe(CORE.editStale))
+    const input = c.querySelector(`[data-model-editor-input="${figure.id}"]`) as HTMLInputElement
+    expect(input.value).toBe('450')
+    await waitFor(() => expect(document.activeElement).toBe(input))
+    expect(c.querySelector(`[data-model-saved="${figure.id}"]`)).toBeNull()
+    expect(viewReads()).toEqual([])
+  })
+
+  it('HIGH: a target, a bound, a strength and a name each say core\'s refusal under their own field, the typing kept', async () => {
+    const v = useFixture()
+    const row = linkRowOf(v.model!, plainLink)
+    const c = draw(v)
+    const refused = async (at: string, sel: string, typed: string, words: string, field = `[data-model-editor-input="${at}"]`) => {
+      answer = { status: 409, body: { error: words } }
+      fireEvent.click(c.querySelector(sel)!)
+      await waitFor(() => expect(c.querySelector(`[data-model-editor-error="${at}"], [data-model-renamer-error="${at}"]`)?.textContent).toBe(words))
+      expect((c.querySelector(field) as HTMLInputElement).value).toBe(typed)
+      fireEvent.click(c.querySelector(`[data-model-editor="${at}"] [data-model-editor-cancel], [data-model-renamer="${at}"] button[type="button"]`)!)
+    }
+    openFigure(c, goal.id, '900')
+    await refused(goal.id, `[data-model-editor-save="${goal.id}"]`, '900', CORE.editStale)
+    openFigure(c, limit.id, '450')
+    await refused(limit.id, `[data-model-editor-save="${limit.id}"]`, '450', CORE.editStale)
+    openLink(c, row)
+    fireEvent.click(c.querySelector(`[data-model-detail="${row}"] [data-model-action="strength"]`)!)
+    typeIn(c, `[data-model-editor-input="${row}"]`, '2')
+    await refused(row, `[data-model-editor-save="${row}"]`, '2', CORE.editStale)
+    fireEvent.click(c.querySelector(`[data-model-select="${figure.id}"]`)!)
+    fireEvent.click(c.querySelector(`[data-model-detail="${figure.id}"] [data-model-action="rename"]`)!)
+    typeIn(c, `[data-model-renamer-input="${figure.id}"]`, 'Customers today')
+    await refused(figure.id, `[data-model-renamer-save="${figure.id}"]`, 'Customers today', CORE.stale('rename'), `[data-model-renamer-input="${figure.id}"]`)
+    expect(posts().length).toBe(4)
+    expect(viewReads()).toEqual([])
+    expect(c.querySelector('[data-model-saved]')).toBeNull()
+  })
+
+  it('HIGH: Add a figure and Remove link say core\'s refusal in their own place, the form and the ask kept (labelled fixture)', async () => {
+    const v = useFixture()
+    const row = linkRowOf(v.model!, plainLink)
+    const c = draw(v)
+    answer = { status: 409, body: { error: CORE.stale('add') } }
+    fireEvent.click(c.querySelector('[data-model-add-figure="open"]')!)
+    typeIn(c, '[data-model-add-figure="name"]', 'Sales team')
+    typeIn(c, '[data-model-add-figure="typed"]', '4 to 6')
+    fireEvent.click(c.querySelector('[data-model-add-figure="add"]')!)
+    await waitFor(() => expect(c.querySelector('[data-model-add-figure="error"]')?.textContent).toBe(CORE.stale('add')))
+    expect((c.querySelector('[data-model-add-figure="name"]') as HTMLInputElement).value).toBe('Sales team')
+    answer = { status: 409, body: { error: CORE.stale('remove') } }
+    openLink(c, row)
+    fireEvent.click(c.querySelector(`[data-model-remove-link-open="${row}"]`)!)
+    fireEvent.click(c.querySelector(`[data-model-remove-link-yes="${row}"]`)!)
+    await waitFor(() => expect(c.querySelector(`[data-model-remove-link-error="${row}"]`)?.textContent).toBe(CORE.stale('remove')))
+    expect(c.querySelector(`[data-model-remove-link-yes="${row}"]`)).not.toBeNull() // the ask stays, nothing removed
+    expect(viewReads()).toEqual([])
+  })
+})
+
+describe('the offer withdrawn while an editor is open (Olumi\'s change held meanwhile)', () => {
+  const block = () => {
+    const c = render(<ViewModelTabBlock />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    return c
+  }
+  it('catch: a figure\'s editor leaves with core\'s offer, keeping the typing; back once core offers again, its base the one it opened on', async () => {
+    answer = { status: 409, body: { error: CORE.editStale } }
+    const c = block()
+    openFigure(c, figure.id, '450')
+    act(() => { useViewStore.setState({ view: heldView(wire) }) })
+    expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).toBeNull() // core offers no edit while it waits
+    expect(c.querySelector('[data-testid="view-model-held"]')).not.toBeNull()
+    act(() => { useViewStore.setState({ view: { ...wire, model: { ...wire.model!, edit_base: 2 } } }) }) // set aside: version 2 offered
+    expect((c.querySelector(`[data-model-editor-input="${figure.id}"]`) as HTMLInputElement).value).toBe('450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(c.querySelector(`[data-model-editor-error="${figure.id}"]`)?.textContent).toBe(CORE.editStale))
+    expect(posts()[0]!.body).toEqual({ base: 1, quantity: figure.id, typed: '450', op: expect.any(String) })
+  })
+
+  it('catch: a name\'s editor stays with Save off and says why; the typing kept; nothing is sent', () => {
+    const c = block()
+    fireEvent.click(c.querySelector(`[data-model-select="${figure.id}"]`)!)
+    fireEvent.click(c.querySelector(`[data-model-detail="${figure.id}"] [data-model-action="rename"]`)!)
+    typeIn(c, `[data-model-renamer-input="${figure.id}"]`, 'Customers today')
+    act(() => { useViewStore.setState({ view: heldView(wire) }) })
+    expect(c.querySelector(`[data-model-renamer-withdrawn="${figure.id}"]`)?.textContent).toBe(MODEL_EDIT_WORDS.withdrawnHeld)
+    expect((c.querySelector(`[data-model-renamer-save="${figure.id}"]`) as HTMLButtonElement).disabled).toBe(true)
+    expect((c.querySelector(`[data-model-renamer-input="${figure.id}"]`) as HTMLInputElement).value).toBe('Customers today')
+    fireEvent.submit(c.querySelector(`[data-model-renamer="${figure.id}"]`)!)
+    expect(posts()).toEqual([])
+    // CONTRAST: offered again, the line goes and Save is on.
+    act(() => { useViewStore.setState({ view: wire }) })
+    expect(c.querySelector(`[data-model-renamer-withdrawn="${figure.id}"]`)).toBeNull()
+    expect((c.querySelector(`[data-model-renamer-save="${figure.id}"]`) as HTMLButtonElement).disabled).toBe(false)
+  })
+})
+
+describe('an editor closes only once the View read after the save shows it', () => {
+  it('HIGH: while the read is on its way the editor stays, saying Saving…, and the old figure stands; it closes once the new one is drawn', async () => {
+    const releaseRead = holdReads()
+    view = withFigure(wire, figure.id, '450 to 520')
+    const c = render(<ViewModelTabBlock />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    openFigure(c, figure.id, '450 to 520')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(viewReads().length).toBe(1))
+    expect(c.querySelector(`[data-model-editor-sending="${figure.id}"]`)?.textContent).toBe('Saving…')
+    expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).not.toBeNull()
+    expect(c.querySelector(`[data-view="${figure.id}.figure.text"]`)?.textContent).toBe(figure.figure!.text)
+    releaseRead()
+    await waitFor(() => expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).toBeNull())
+    expect(c.querySelector(`[data-view="${figure.id}.figure.text"]`)?.textContent).toBe('450 to 520')
+    expect(c.querySelector(`[data-model-saved="${figure.id}"]`)?.textContent).toBe('Version 2 saved.')
+  })
+
+  it('HIGH: a read that fails keeps the editor, says it was saved but not shown, the typing kept, no receipt', async () => {
+    readFails = 1
+    const c = draw()
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(c.querySelector(`[data-model-editor-error="${figure.id}"]`)?.textContent).toBe(MODEL_EDIT_WORDS.savedNotShown))
+    expect((c.querySelector(`[data-model-editor-input="${figure.id}"]`) as HTMLInputElement).value).toBe('450')
+    expect(c.querySelector(`[data-model-saved="${figure.id}"]`)).toBeNull()
+    expect(useModelTab.getState().busy).toBeNull()
+  })
+
+  it('HIGH: a read a newer one overtook is not a failed one: the editor waits for the newer read, then closes with core\'s version', async () => {
+    const releaseOurs = holdReads()
+    const c = draw()
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(viewReads().length).toBe(1))
+    const releaseNewer = holdReads()
+    void useViewStore.getState().refresh() // a newer read (the person opened a badge, say) overtakes the save's own
+    await waitFor(() => expect(viewReads().length).toBe(2))
+    releaseOurs()
+    await new Promise((r) => setTimeout(r, 200))
+    expect(c.querySelector(`[data-model-editor-error="${figure.id}"]`)).toBeNull() // not "could not show it": the newer read settles it
+    expect(c.querySelector(`[data-model-editor-sending="${figure.id}"]`)?.textContent).toBe('Saving…')
+    releaseNewer()
+    await waitFor(() => expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).toBeNull())
+    expect(c.querySelector(`[data-model-saved="${figure.id}"]`)?.textContent).toBe('Version 2 saved.')
+  })
+})
+
+describe('a lost answer is sent again with the same op, never as a second write', () => {
+  it('HIGH: the connection drops once: the same request goes again with the same op, and the save lands once', async () => {
+    drops = 1
+    const c = draw()
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).toBeNull())
+    expect(posts().length).toBe(2)
+    expect(posts()[1]!.body).toEqual(posts()[0]!.body)
+    expect(c.querySelector(`[data-model-saved="${figure.id}"]`)?.textContent).toBe('Version 2 saved.')
+  })
+
+  it('HIGH: dropped twice: core\'s answer unconfirmed is said, the typing kept; Save again sends the same op', async () => {
+    drops = 2
+    const c = draw()
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(c.querySelector(`[data-model-editor-error="${figure.id}"]`)?.textContent).toBe(NOT_CONFIRMED))
+    expect((c.querySelector(`[data-model-editor-input="${figure.id}"]`) as HTMLInputElement).value).toBe('450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).toBeNull())
+    expect(posts().length).toBe(3)
+    expect(new Set(posts().map((p) => (p.body as { op: string }).op)).size).toBe(1)
+  })
+})
+
+describe('a save that lands after the page moved to another scenario says nothing there', () => {
+  it('HIGH: no notice, no View read, no receipt and no editor closed in the scenario now on screen', async () => {
+    hold()
+    const c = draw()
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    act(() => { useViewStore.setState({ sid: 's_ffffffffffff' }) })
+    // The other scenario's own editor, open on a card of the same id (ids are scenario-local).
+    act(() => { useModelTab.getState().edit({ row: figure.id, what: 'figure', quantity: figure.id, sid: 's_ffffffffffff', base: 4, typed: '9' }) })
+    release()
+    await waitFor(() => expect(sendingKeys()).toEqual([]))
+    await new Promise((r) => setTimeout(r, 50))
+    expect(useModelNotice.getState().notice).toBeNull()
+    expect(viewReads()).toEqual([])
+    expect(useModelTab.getState().receipt).toBeNull()
+    expect(useModelTab.getState().editing).toEqual({ row: figure.id, what: 'figure', quantity: figure.id, sid: 's_ffffffffffff', base: 4, typed: '9' })
+  })
+
+  it('HIGH: a refusal that lands after the move is said nowhere in the new scenario', async () => {
+    answer = { status: 409, body: { error: CORE.editStale } }
+    hold()
+    const c = draw()
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    act(() => { useViewStore.setState({ sid: 's_ffffffffffff' }) })
+    release()
+    await waitFor(() => expect(sendingKeys()).toEqual([]))
+    await new Promise((r) => setTimeout(r, 50))
+    // Nowhere: not on a row (the receipt), not under a field, not as an editor left open for it.
+    expect(useModelTab.getState().receipt).toBeNull()
+    expect(c.querySelector('[data-model-editor-error], [data-model-failed]')).toBeNull()
+    expect(useModelTab.getState().editing).toBeNull()
+  })
+})
+
+describe('Remove link: what it came to, said where the person was', () => {
+  it('HIGH: once the View shows the line gone, its detail closes and the Relationships group says core\'s version (labelled fixture)', async () => {
+    const v = useFixture()
+    const row = linkRowOf(v.model!, plainLink)
+    const c = render(<ViewModelTabBlock />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    openLink(c, row)
+    fireEvent.click(c.querySelector(`[data-model-remove-link-open="${row}"]`)!)
+    view = { ...v, model: { ...v.model!, links: v.model!.links.filter((_, i) => i !== plainLink) } } // core's View after the removal
+    fireEvent.click(c.querySelector(`[data-model-remove-link-yes="${row}"]`)!)
+    await waitFor(() => expect(c.querySelector(`[data-model-saved="${RELATIONSHIPS_ROW}"]`)?.textContent).toBe('Version 2 saved.'))
+    expect(c.querySelector(`[data-model-link="${row}"]`)).toBeNull()
+    expect(useModelTab.getState().open).toBeNull()
+    expect(c.querySelector('[data-model-group="relationships"]')!.contains(c.querySelector(`[data-model-saved="${RELATIONSHIPS_ROW}"]`))).toBe(true)
+  })
+
+  it('catch: a row opened while core had the removal stays open (the removal closes only its own detail)', async () => {
+    const v = useFixture()
+    const row = linkRowOf(v.model!, plainLink)
+    hold()
+    const c = draw(v)
+    openLink(c, row)
+    fireEvent.click(c.querySelector(`[data-model-remove-link-open="${row}"]`)!)
+    fireEvent.click(c.querySelector(`[data-model-remove-link-yes="${row}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    fireEvent.click(c.querySelector(`[data-model-select="${derived.id}"]`)!)
+    release()
+    await waitFor(() => expect(useModelTab.getState().busy).toBeNull())
+    expect(useModelTab.getState().open).toBe(derived.id)
+  })
+
+  it('catch: a line removed above an open one never moves its detail onto the next line (rows by what they join)', () => {
+    const k = wire.model!.links.length - 1
+    const c = render(<ViewModelTabBlock />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    const row = linkRowOf(wire.model!, k)
+    openLink(c, row)
+    // A teammate's version takes the first line away: every later line moves up one place in `links`.
+    const fewer = { ...wire, model: { ...wire.model!, links: wire.model!.links.slice(1) } }
+    act(() => { useViewStore.setState({ view: fewer }) })
+    const open = [...c.querySelectorAll('[data-model-detail]')].map((d) => d.getAttribute('data-model-detail'))
+    expect(open).toEqual([linkRowOf(fewer.model!, k - 1)])
+    expect(linkRowOf(fewer.model!, k - 1)).toBe(row)
+  })
+})
+
+describe('the minors of the audit', () => {
+  it('catch: while core has one write, Save, Add and Remove each send nothing', async () => {
+    const v = useFixture()
+    const row = linkRowOf(v.model!, plainLink)
+    hold()
+    const c = draw(v)
+    fireEvent.click(c.querySelector('[data-model-add-figure="open"]')!)
+    typeIn(c, '[data-model-add-figure="name"]', 'Sales team')
+    typeIn(c, '[data-model-add-figure="typed"]', '4 to 6')
+    openLink(c, row)
+    fireEvent.click(c.querySelector(`[data-model-remove-link-open="${row}"]`)!)
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    fireEvent.click(c.querySelector('[data-model-add-figure="add"]')!)
+    fireEvent.click(c.querySelector(`[data-model-remove-link-yes="${row}"]`)!)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(posts().map((p) => p.path)).toEqual([`/api/scenarios/${SID}/edit`])
+    release()
+    await waitFor(() => expect(useModelTab.getState().busy).toBeNull())
+  })
+
+  it('catch: in Plain a line\'s strength shows while its row is open, beside its detail\'s Change strength; closed, it does not (labelled fixture)', () => {
+    const v = useFixture()
+    const row = linkRowOf(v.model!, plainLink)
+    const c = draw(v)
+    expect(useModelTab.getState().expert).toBe(false)
+    expect(c.querySelector(`[data-view="links.${plainLink}.effect.text"]`)).toBeNull()
+    openLink(c, row)
+    expect(c.querySelector(`[data-model-item="${row}"] [data-view="links.${plainLink}.effect.text"]`)?.textContent).toBe('1.5')
+    expect(c.querySelector(`[data-model-detail="${row}"] [data-model-action="strength"]`)).not.toBeNull()
+  })
+
+  it('catch: once Olumi\'s change is set aside it no longer reads as waiting, even when the View read after it fails', async () => {
+    view = heldView(wire)
+    useViewStore.setState({ view })
+    readFails = 1
+    hold()
+    const c = draw(view)
+    fireEvent.click(c.querySelector('[data-testid="view-model-held-aside"]')!)
+    const confirm = c.querySelector('[data-testid="view-model-held-confirm"]') as HTMLButtonElement
+    confirm.focus()
+    fireEvent.click(confirm)
+    // While core has it: the notice's own words, the pressed control inert but never disabled.
+    await waitFor(() => expect(c.querySelector('[data-testid="view-model-held-sending"]')?.textContent).toBe(MODEL_EDIT_WORDS.settingAside))
+    expect([confirm.disabled, confirm.getAttribute('aria-disabled')]).toEqual([false, 'true'])
+    release()
+    await waitFor(() => expect(c.querySelector('[data-testid="view-model-held-done"]')?.textContent).toBe(ASIDE_WORDS.notShown))
+    const done = c.querySelector('[data-testid="view-model-held-done"]')!
+    expect(done.getAttribute('role')).toBe('alert')
+    await waitFor(() => expect(document.activeElement).toBe(done))
+    const notice = c.querySelector('[data-testid="view-model-held"]')!
+    expect(notice.textContent).not.toContain(MODEL_EDIT_WORDS.heldLead)
+    expect(notice.querySelector('[data-testid="view-model-held-aside"], [data-testid="view-model-held-confirm"]')).toBeNull()
+    expect(posts().map((p) => p.path)).toEqual(['/api/proposals/9/discard'])
+  })
+
+  it('catch: a person who moved on while core had the save keeps their focus where they put it', async () => {
+    hold()
+    const c = draw()
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    const filter = c.querySelector('[data-testid="view-model-filter"]') as HTMLInputElement
+    filter.focus()
+    release()
+    await waitFor(() => expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).toBeNull())
+    await new Promise((r) => setTimeout(r, 20))
+    expect(document.activeElement).toBe(filter)
+    // CONTRAST: one who stayed gets focus back on the figure they changed.
+    openFigure(c, figure.id, '460')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(document.activeElement).toBe(c.querySelector(`[data-model-value-edit="${figure.id}"]`)))
+  })
+})
+
+describe('the review of 9e40765e: what a write says when its form has gone, and presses while another write is with core', () => {
+  it('HIGH: Add a figure refused after Factors was closed says core\'s words on the Factors group', async () => {
+    answer = { status: 409, body: { error: CORE.stale('add') } }
+    hold()
+    const c = draw()
+    fireEvent.click(c.querySelector('[data-model-add-figure="open"]')!)
+    typeIn(c, '[data-model-add-figure="name"]', 'Sales team')
+    typeIn(c, '[data-model-add-figure="typed"]', '4 to 6')
+    fireEvent.click(c.querySelector('[data-model-add-figure="add"]')!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    fireEvent.click(c.querySelector('[data-model-group-toggle="factors"]')!) // the form leaves the screen with its group
+    release()
+    await waitFor(() => expect(c.querySelector(`[data-model-failed="${FACTORS_ROW}"]`)?.textContent).toBe(CORE.stale('add')))
+    const note = c.querySelector(`[data-model-failed="${FACTORS_ROW}"]`)!
+    expect(note.getAttribute('role')).toBe('alert')
+    expect(c.querySelector('[data-model-group="factors"]')!.contains(note)).toBe(true) // under its heading, the group still closed
+  })
+
+  it('HIGH: Remove link refused after Relationships was closed says core\'s words on the Relationships group (labelled fixture)', async () => {
+    const v = useFixture()
+    const row = linkRowOf(v.model!, plainLink)
+    answer = { status: 409, body: { error: CORE.stale('remove') } }
+    hold()
+    const c = draw(v)
+    openLink(c, row)
+    fireEvent.click(c.querySelector(`[data-model-remove-link-open="${row}"]`)!)
+    fireEvent.click(c.querySelector(`[data-model-remove-link-yes="${row}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    fireEvent.click(c.querySelector('[data-model-group-toggle="relationships"]')!)
+    release()
+    await waitFor(() => expect(c.querySelector(`[data-model-failed="${RELATIONSHIPS_ROW}"]`)?.textContent).toBe(CORE.stale('remove')))
+  })
+
+  it('catch: while another write is with core, an open editor\'s Set figure and Try, and Add, are inert (aria-disabled, never disabled) and send nothing', async () => {
+    answer = { status: 201, body: { version: 2, n: 2, receipt: 'r', record: 'q_new' } }
+    hold()
+    const c = draw()
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector('[data-model-add-figure="open"]')!)
+    typeIn(c, '[data-model-add-figure="name"]', 'Sales team')
+    typeIn(c, '[data-model-add-figure="typed"]', '4 to 6')
+    fireEvent.click(c.querySelector('[data-model-add-figure="add"]')!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    const save = c.querySelector(`[data-model-editor-save="${figure.id}"]`) as HTMLButtonElement
+    const tryIt = c.querySelector(`[data-model-editor-try="${figure.id}"]`) as HTMLButtonElement
+    expect([save.disabled, save.getAttribute('aria-disabled'), tryIt.disabled, tryIt.getAttribute('aria-disabled')]).toEqual([false, 'true', false, 'true'])
+    fireEvent.click(save)
+    fireEvent.click(tryIt)
+    await new Promise((r) => setTimeout(r, 30))
+    expect(posts().map((p) => p.path)).toEqual([`/api/scenarios/${SID}/figures`])
+    release()
+    await waitFor(() => expect(useModelTab.getState().busy).toBeNull())
+    expect(save.getAttribute('aria-disabled')).toBeNull() // CONTRAST: once it settles, Save is live again
+  })
+
+  it('catch: Try without saving never disables itself while core works out the what-if (house rule: the pressed control stays focusable)', async () => {
+    answer = { status: 200, body: { variants: [] } }
+    hold()
+    const c = draw()
+    openFigure(c, figure.id, '450')
+    const tryIt = c.querySelector(`[data-model-editor-try="${figure.id}"]`) as HTMLButtonElement
+    tryIt.focus()
+    fireEvent.click(tryIt)
+    await waitFor(() => expect(posts().map((p) => p.path)).toEqual([`/api/scenarios/${SID}/whatif`]))
+    expect([tryIt.disabled, tryIt.getAttribute('aria-disabled'), document.activeElement === tryIt]).toEqual([false, 'true', true])
+    release()
+    await waitFor(() => expect(tryIt.getAttribute('aria-disabled')).toBeNull())
   })
 })

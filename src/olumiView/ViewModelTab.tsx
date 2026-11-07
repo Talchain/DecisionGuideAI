@@ -30,7 +30,8 @@ import { HeldNotice } from './model/detail'
 import { AddFigureRow, AskOlumi } from './model/structure'
 import { MODEL_EDIT_WORDS } from './model/editing'
 import { authorKeyOf } from './model/premises'
-import { useModelTab } from './model/state'
+import { groupRow, useModelTab, type Receipt } from './model/state'
+import { linkRowOf } from './model/targets'
 
 /** The previous PoC's outline chrome (legacy `ModelTabV2Panel.tsx`): its title, its filter's words and its expand control's. UI words, not
  *  model words: nothing here says anything about the model. */
@@ -51,8 +52,9 @@ function KindMark({ id, cards, model }: { id: GroupId; cards: readonly ViewCard[
   return k === undefined ? null : <NodeShapeIndicator nodeKind={k} size={8} />
 }
 
-/** One group: a heading row that opens and closes it (chevron, kind mark, title, count), and its rows only while open. */
-function Group({ id, title, count, open, onToggle, mark, children }: { id: GroupId; title: string; count: number; open: boolean; onToggle: () => void; mark: ReactNode; children: ReactNode }) {
+/** One group: a heading row that opens and closes it (chevron, kind mark, title, count), a note under it whether open or closed (what a
+ *  change to the group came to), and its rows only while open. */
+function Group({ id, title, count, open, onToggle, mark, note, children }: { id: GroupId; title: string; count: number; open: boolean; onToggle: () => void; mark: ReactNode; note?: ReactNode; children: ReactNode }) {
   return (
     <section aria-label={title} data-model-group={id} data-open={open}>
       <button type="button" aria-expanded={open} aria-label={`${title}, ${count} ${count === 1 ? 'element' : 'elements'}`} onClick={onToggle}
@@ -62,6 +64,7 @@ function Group({ id, title, count, open, onToggle, mark, children }: { id: Group
         <span>{title}</span>
         <span className={`${typography.viewPanelMeta} ml-1 text-text-light`} data-model-group-count={id}>{count}</span>
       </button>
+      {note}
       {open ? <ul className="m-0 mb-2 ml-2 mt-0.5 list-none space-y-0.5 p-0">{children}</ul> : null}
     </section>
   )
@@ -95,6 +98,15 @@ function ExpertSwitch() {
   )
 }
 
+/** What a write on a group came to, said under its heading (`groupRow`): core's version, or core's refusal when its form left the screen. */
+function GroupNote({ said }: { said: Receipt | null }) {
+  if (said === null) return null
+  return (
+    <p role={said.tone === 'failed' ? 'alert' : 'status'} className={`${typography.viewPanelMeta} m-0 ml-6 ${said.tone === 'failed' ? 'text-danger' : 'text-text-light'}`}
+      data-model-saved={said.tone === 'saved' ? said.row : undefined} data-model-failed={said.tone === 'failed' ? said.row : undefined}>{said.words}</p>
+  )
+}
+
 export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
   const numbers = useMemo(() => cardNumbersOf(model), [model])
   // Another scenario starts with nothing open, no editor and no receipt (review a4d73faf): ids are scenario-local.
@@ -114,6 +126,11 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
     return (g.cards.length > 0 || g.id === 'goal') && isOpen(g.id, count) ? g.rows : []
   })
   const authorKey = authorKeyOf(model, drawn)
+  // A write a group's own row cannot answer for says what it came to on its group (UI audit of e8ebab94): a link removed (its row is gone);
+  // Add a figure or Remove link refused after their form left the screen. Relationships stays drawn while it says so.
+  const groupSaid = useModelTab((s) => (s.receipt !== null && s.receipt.row.startsWith('group:') ? s.receipt : null))
+  const saidOn = (id: GroupId) => (groupSaid?.row === groupRow(id) ? groupSaid : null)
+  const linksSaid = saidOn('relationships')
   return (
     <div className={`${typography.viewPanelBody} space-y-2 pb-4`} data-testid="view-model-tab">
       <div className="flex items-center justify-between gap-2">
@@ -122,7 +139,8 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
       </div>
       <input type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={MODEL_OUTLINE_LABELS.filter} aria-label={MODEL_OUTLINE_LABELS.filterName}
         data-testid="view-model-filter" className={`${typography.viewPanelBody} w-full min-w-0 rounded-md border border-field bg-panel px-3 py-1.5 text-text-body placeholder:text-text-light ${ACTION_FOCUS}`} />
-      <p className="m-0 line-clamp-2 py-1" title={model.question.text} data-testid="view-model-question">
+      {/* R25 (Paul's finish line, no cut text): the question whole, wrapping; never two lines with the rest on hover only. */}
+      <p className="m-0 break-words py-1" data-testid="view-model-question">
         <span className={`${typography.viewPanelMeta} font-medium text-text-body`}>{MODEL_OUTLINE_LABELS.question}</span>{' '}
         <span className="text-text-header" data-view="model.question.text">{model.question.text}</span>
       </p>
@@ -139,7 +157,8 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
           if (g.cards.length === 0 && g.id !== 'goal') return null
           const count = !searching ? g.cards.length + (g.id === 'goal' ? 1 : 0) : g.rows.length + (g.question ? 1 : 0)
           return (
-            <Group key={g.id} id={g.id} title={g.title} count={count} open={isOpen(g.id, count)} onToggle={() => toggle(g.id)} mark={<KindMark id={g.id} cards={g.cards} model={model} />}>
+            <Group key={g.id} id={g.id} title={g.title} count={count} open={isOpen(g.id, count)} onToggle={() => toggle(g.id)} mark={<KindMark id={g.id} cards={g.cards} model={model} />}
+              note={<GroupNote said={saidOn(g.id)} />}>
               {g.id === 'goal' && g.question ? (
                 <li className="flex items-start gap-2 px-2 py-1.5">
                   <span aria-hidden="true" className="w-4 flex-none" />
@@ -156,10 +175,11 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
             </Group>
           )
         })}
-        {model.links.length === 0 ? null : (
+        {model.links.length === 0 && linksSaid === null ? null : (
           <Group id="relationships" title={MODEL_GROUP_TITLE.relationships} count={!searching ? model.links.length : links.length}
-            open={isOpen('relationships', !searching ? model.links.length : links.length)} onToggle={() => toggle('relationships')} mark={<KindMark id="relationships" cards={[]} model={model} />}>
-            {links.map(({ l, i, from, to }) => <LinkRow key={i} model={model} link={l} i={i} from={from} to={to} />)}
+            open={isOpen('relationships', !searching ? model.links.length : links.length)} onToggle={() => toggle('relationships')} mark={<KindMark id="relationships" cards={[]} model={model} />}
+            note={<GroupNote said={linksSaid} />}>
+            {links.map(({ l, i, from, to }) => { const row = linkRowOf(model, i); return <LinkRow key={row} model={model} link={l} i={i} row={row} from={from} to={to} /> })}
             {searching ? null : <li className="px-2 pt-1"><AskOlumi at="links" label={MODEL_EDIT_WORDS.askLink} draft={MODEL_EDIT_WORDS.askLinkDraft} /></li>}
           </Group>
         )}

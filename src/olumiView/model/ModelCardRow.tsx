@@ -24,7 +24,7 @@ import { NodeShapeIndicator } from '../../canvas/nodes/NodeShapeIndicator'
 import type { ViewCard, ViewModel, ViewRow } from '../client'
 import { authorOf } from './author'
 import { premiseGroupsOf } from './premises'
-import { MODEL_EDIT_WORDS as W, useModelEdit } from './editing'
+import { MODEL_EDIT_WORDS as W, openEditor, useModelEdit } from './editing'
 import { FigureEditor, RenameEditor } from './editors'
 import { CardDetail } from './detail'
 import { useModelTab } from './state'
@@ -150,7 +150,7 @@ export function ModelCardRow({ card, number, kind, model }: {
   const target = canEdit ? targetCardOf(model, card) : null
   const editingFigure = editing?.what === 'figure' ? model.cards.find((c) => c.id === editing.quantity)?.figure?.edit ?? null : null
   const select = () => { useModelTab.getState().toggle(card.id); focusNodeById(card.id) }
-  const editFigure = (quantity: string) => useModelTab.getState().edit({ row: card.id, what: 'figure', quantity })
+  const editFigure = (quantity: string) => openEditor({ row: card.id, what: 'figure', quantity })
   // Whose the figure is sits beside the figure (the crafted value cell's mark); a card with no figure carries it beside its name.
   const onFigure = card.figure !== null
   const reading = expert && card.figure !== null && card.figure.title !== '' && card.figure.title !== card.figure.text ? card.figure.title : null
@@ -160,7 +160,7 @@ export function ModelCardRow({ card, number, kind, model }: {
         className={`group flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 transition-colors duration-fast hover:bg-panel-hover ${open ? 'ring-1 ring-inset ring-border-emphasis' : ''}`}>
         <span aria-hidden="true" className="mt-1.5 flex w-4 flex-none justify-center"><NodeShapeIndicator nodeKind={kind} size={11} /></span>
         <span className="min-w-0 flex-1">
-          {editing?.what === 'rename' ? <RenameEditor row={card.id} heading={card.heading} /> : (
+          {editing?.what === 'rename' ? <RenameEditor mine={editing} /> : (
             <span className="flex items-baseline gap-1.5">
               {number === null ? null : <span className={`${typography.viewPanelMeta} flex-none tabular-nums text-text-light`} data-model-row-number={card.id}>{number}</span>}
               <span className="min-w-0 break-words text-text-header">
@@ -169,7 +169,7 @@ export function ModelCardRow({ card, number, kind, model }: {
                 <span role="button" tabIndex={0} aria-expanded={open} aria-controls={open ? `model-detail-${card.id}` : undefined} data-model-select={card.id}
                   onClick={(e) => { e.stopPropagation(); select() }}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); select() } }}
-                  onDoubleClick={canEdit ? (e) => { e.stopPropagation(); useModelTab.getState().edit({ row: card.id, what: 'rename' }) } : undefined}
+                  onDoubleClick={canEdit ? (e) => { e.stopPropagation(); openEditor({ row: card.id, what: 'rename' }, card.heading) } : undefined}
                   className={`cursor-pointer rounded-sm ${ACTION_FOCUS}`}>
                   <span title={card.detail === '' ? undefined : card.detail} data-view={`${card.id}.heading`}>{card.heading}</span>
                 </span>
@@ -211,7 +211,7 @@ export function ModelCardRow({ card, number, kind, model }: {
         </span>
       </div>
       {editing?.what === 'figure' && editingFigure !== null ? (
-        <div className="pb-2 pl-8 pr-2"><FigureEditor key={editing.quantity} row={card.id} quantity={editing.quantity} edit={editingFigure} /></div>
+        <div className="pb-2 pl-8 pr-2"><FigureEditor key={editing.quantity} mine={editing} edit={editingFigure} /></div>
       ) : null}
       <Premises card={card} keyEntries={model.key} expert={expert} />
       {open ? <CardDetail model={model} card={card} /> : null}
