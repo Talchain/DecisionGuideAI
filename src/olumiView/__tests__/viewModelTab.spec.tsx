@@ -14,6 +14,7 @@ import { ViewModelTab } from '../ViewModelTab'
 import { MODEL_ROW_LABELS } from '../model/ModelCardRow'
 import { resetModelTab, useModelTab } from '../model/state'
 import { linkRowOf } from '../model/targets'
+import { authorKeyOf } from '../model/premises'
 import { registerFocusHelpers } from '../../canvas/utils/focusHelpers'
 import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../../canvas/domain/vocabulary'
 
@@ -266,6 +267,43 @@ describe('the key, and what the Model tab deliberately does not draw', () => {
     expect(c.querySelector('[data-testid="view-model-key"]')).toBeNull()
     fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
     expect(keyTexts(c)).toContain(`${olumi.glyph} ${olumi.text}`)
+  })
+
+  it('catch (UI review of ddaedeed): in every state the key is exactly the key of the rows on screen: first open, each group alone, each pair, all open, every heading as a filter', () => {
+    // Two Views: the european golden (◆ only) and the hosting wire, where ◐ sits on a Factors row that is not the group's first, so a key
+    // read from fewer rows or groups than are drawn (a first row, a first group) or from more (an open group's hidden cards) names the wrong marks.
+    const hosting: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real/hosting.view3.json'), 'utf8'))
+    for (const [name, m, words] of [['european', model, ['customers', 'investment', 'threshold']], ['hosting', hosting.model!, []]] as const) {
+      cleanup()
+      const c = render(<ViewModelTab model={m} />).container
+      const keyIds = () => [...c.querySelectorAll('[data-testid="view-model-key"] [data-view-key]')].map((k) => k.getAttribute('data-view-key'))
+      const onScreen = () => {
+        const ids = new Set([...c.querySelectorAll('[data-model-row]')].map((r) => r.getAttribute('data-model-row')))
+        return m.cards.filter((k) => ids.has(k.id))
+      }
+      const seen = new Set<string>()
+      const holds = (state: string) => {
+        const want = authorKeyOf(m, onScreen()).map((k) => k.id)
+        expect(keyIds(), `${name}: ${state}`).toEqual(want)
+        seen.add(want.join(','))
+      }
+      const toggle = (id: string) => fireEvent.click(c.querySelector(`[data-model-group-toggle="${id}"]`)!)
+      holds('first open')
+      const groups = [...c.querySelectorAll('[data-model-group-toggle]')].map((t) => t.getAttribute('data-model-group-toggle')!)
+      expect(groups.length).toBeGreaterThan(3)
+      for (const id of groups) { toggle(id); holds(`${id} alone`); toggle(id) }
+      for (const [x, y] of groups.flatMap((g, i) => groups.slice(i + 1).map((h) => [g, h] as const))) { toggle(x); toggle(y); holds(`${x} with ${y}`); toggle(x); toggle(y) }
+      fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+      holds('all open')
+      for (const text of [...words, ...m.cards.map((k) => k.heading), 'zzz no such card']) {
+        fireEvent.change(c.querySelector('[data-testid="view-model-filter"]')!, { target: { value: text } })
+        holds(`filter "${text}"`)
+      }
+      // CONTRAST: the states differ in the marks they draw, so the rule is exercised, never trivially empty or trivially full.
+      expect(seen.has(''), name).toBe(true)
+      expect(seen.has('olumi'), name).toBe(true)
+      if (name === 'hosting') expect([...seen].some((k) => k.includes('partly_olumi')) && [...seen].some((k) => k === 'olumi')).toBe(true)
+    }
   })
 
   it('catch: a filter that hides every marked card leaves no key; one that shows a marked card brings it back', () => {
