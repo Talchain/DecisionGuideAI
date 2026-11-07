@@ -223,4 +223,13 @@ describe('compare side by side: two sides from this scenario, its versions, its 
     expect(body.op).toMatch(/^[A-Za-z0-9-]{8,64}$/)
     useViewStore.setState({ view: null, sid: null })
   })
+  it('while a change waits for approval no card offers its figure, so the form says why it is not there instead of vanishing', async () => {
+    routed()
+    useViewStore.setState({ sid: 's_a', at: null, error: null, stale: false, view: { proposal: { id: 9 }, version: { id: 41, n: 2, label: 'v2', changed: [] },
+      model: { cards: [{ id: 'today', heading: 'today', figure: { text: '80 tickets/week', title: 'T', edit: null } }] } } as never })
+    render(<CompareWithScenario sid="s_a" />)
+    expect((await screen.findByTestId('whatif-save-waiting')).textContent).toBe('Approve or set aside the waiting change to save a what-if here.')
+    expect(screen.queryByTestId('whatif-save')).toBeNull()
+    useViewStore.setState({ view: null, sid: null })
+  })
 })

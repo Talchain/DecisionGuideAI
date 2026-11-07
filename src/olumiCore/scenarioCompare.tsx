@@ -229,6 +229,8 @@ function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => vo
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const op = useRef<{ key: string; op: string } | null>(null)
+  // While a change waits for approval no card offers its figure (core's `figure.edit` is null): said once, so the form is not just missing.
+  if (base !== null && figures.length === 0 && view?.proposal != null) return <p className={META} data-testid="whatif-save-waiting">Approve or set aside the waiting change to save a what-if here.</p>
   if (base === null || figures.length === 0) return null
   const pick = quantity !== null && figures.some((c) => c.id === quantity) ? quantity : figures[0]!.id
   const card = figures.find((c) => c.id === pick)!
