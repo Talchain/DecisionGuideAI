@@ -91,10 +91,15 @@ export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief
       {challenges.length === 0 ? null : (
         <Section label={REASONING_LABELS.challenge} testId="challenge">
           {challenges.map((c) => (
+            // The crafted ChallengeCard's question (analysisNew/sections/ChallengeCard.tsx): the card's heading as the zone's question on its
+            // own line, 14px at weight 400, led by a quiet mark (here core's glyph for the card, in place of the crafted dot); then its reason,
+            // indented under it, in full. The crafted 1-line clamp is not ported: no core words are cut (audit: cut 0).
             <div key={c.id} title={c.detail} data-reasoning-challenge={c.id}>
-              <span aria-hidden="true" data-view={`${c.id}.glyph`}>{c.glyph}</span>{' '}
-              <span className="font-medium" data-view={`${c.id}.heading`}>{c.heading}</span><OlumiMark card={c} />
-              {c.reason === null || c.reason === c.heading ? null : <p className={typography.viewPanelMeta} data-view={`${c.id}.reason`}>{c.reason}</p>}
+              <p className={`${typography.panelQuestion} m-0 mb-1 mt-2 flex min-w-0 gap-2 text-text-header`} data-testid="view-reasoning-challenge-question">
+                <span className="text-text-light" aria-hidden="true" data-view={`${c.id}.glyph`}>{c.glyph}</span>
+                <span className="min-w-0"><span data-view={`${c.id}.heading`}>{c.heading}</span><OlumiMark card={c} /></span>
+              </p>
+              {c.reason === null || c.reason === c.heading ? null : <p className={`${typography.viewPanelMeta} m-0 mb-1 pl-3 text-text-light`} data-testid="view-reasoning-challenge-reason" data-view={`${c.id}.reason`}>{c.reason}</p>}
             </div>
           ))}
         </Section>

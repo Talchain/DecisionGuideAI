@@ -323,3 +323,24 @@ describe('Olumi\'s mark on the challenged and reasoning cards, as core gives it'
     for (const id of others) expect(root.querySelector(`[data-view="${id}.olumi.glyph"]`), id).not.toBeNull()
   })
 })
+
+// The crafted ChallengeCard's look (analysisNew/sections/ChallengeCard.tsx), ported onto each challenged card: the heading as the zone's
+// question on its own line (14px, weight 400) led by core's glyph, then core's reason indented under it, whole: never clamped or cut.
+describe('the challenge rows in the crafted ChallengeCard\'s look', () => {
+  const real = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', `${n}.view3.json`), 'utf8'))
+  it('catch: capacity\'s challenge: core\'s glyph, then its heading as the question line; its reason under it, indented and whole', () => {
+    const view = real('capacity'), m = view.model!, c = m.cards.find((x) => x.challenged === true)!
+    expect(c.reason).not.toBeNull()
+    ready(view)
+    const row = render(<ViewReasoning model={m} brief={view.brief} />).container.querySelector<HTMLElement>(`[data-reasoning-challenge="${c.id}"]`)!
+    const q = row.querySelector<HTMLElement>('[data-testid="view-reasoning-challenge-question"]')!
+    expect(q.className).toContain('text-sm font-normal')
+    expect(q.firstElementChild!.getAttribute('data-view')).toBe(`${c.id}.glyph`)
+    expect(q.querySelector(`[data-view="${c.id}.heading"]`)!.textContent).toBe(c.heading)
+    const r = row.querySelector<HTMLElement>('[data-testid="view-reasoning-challenge-reason"]')!
+    expect(q.nextElementSibling).toBe(r)
+    expect([r.getAttribute('data-view'), r.textContent]).toEqual([`${c.id}.reason`, c.reason])
+    expect(r.className).toContain('pl-3')
+    for (const e of [q, r, ...row.querySelectorAll<HTMLElement>('*')]) expect(e.className).not.toMatch(/line-clamp|truncate/)
+  })
+})
