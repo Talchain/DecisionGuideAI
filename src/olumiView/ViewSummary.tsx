@@ -10,6 +10,7 @@ import { Download, FileText, Printer, X } from 'lucide-react'
 import { typography } from '../styles/typography'
 import { DECISION_BRIEF_TRIGGER_LABEL } from '../canvas/decisionBrief/DecisionBriefTrigger'
 import { useViewStore } from './store'
+import { useMe } from '../olumiCore/me'
 import { readSummary, summaryGroups, summaryPath, type Summary, type SummaryBlock, type SummaryPart } from './summary'
 
 export const SUMMARY_DOWNLOAD_LABEL = 'Download Markdown'
@@ -56,12 +57,14 @@ export function SummaryDocument({ summary }: { summary: Summary }) {
 export function SummaryPage({ sid, at, onClose }: { sid: string; at: number | null; onClose: () => void }) {
   const [state, setState] = useState<{ summary: Summary } | { error: string } | null>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+  // The person the page is for: each read is bound to them, and a change of person reads again (summary.ts readSummary).
+  const person = useMe((s) => s.me?.id ?? null)
   useEffect(() => {
     let live = true
     setState(null)
-    readSummary(sid, at).then((summary) => { if (live) setState({ summary }) }, (e: unknown) => { if (live) setState({ error: e instanceof Error && e.message !== '' ? e.message : SUMMARY_FAILED }) })
+    readSummary(sid, at, person).then((summary) => { if (live) setState({ summary }) }, (e: unknown) => { if (live) setState({ error: e instanceof Error && e.message !== '' ? e.message : SUMMARY_FAILED }) })
     return () => { live = false }
-  }, [sid, at])
+  }, [sid, at, person])
   useEffect(() => { closeRef.current?.focus() }, [])
   const exportLink = 'inline-flex items-center gap-1.5 rounded-md border border-panel-border px-2.5 py-1.5 text-sm text-text-header hover:bg-panel-hover'
   return (
@@ -72,8 +75,13 @@ export function SummaryPage({ sid, at, onClose }: { sid: string; at: number | nu
           <FileText size={14} aria-hidden="true" />
           <span className="text-sm font-semibold text-text-header">{DECISION_BRIEF_TRIGGER_LABEL}</span>
           <span className="flex-1" />
-          <a href={summaryPath(sid, at, 'md')} download className={exportLink} data-testid="summary-download"><Download size={14} aria-hidden="true" />{SUMMARY_DOWNLOAD_LABEL}</a>
-          <a href={summaryPath(sid, at, 'html')} target="_blank" rel="noopener noreferrer" className={exportLink} data-testid="summary-print"><Printer size={14} aria-hidden="true" />{SUMMARY_PRINT_LABEL}</a>
+          {/* The exports only beside a Summary this page has read for its own person. */}
+          {state !== null && 'summary' in state ? (
+            <>
+              <a href={summaryPath(sid, at, 'md')} download className={exportLink} data-testid="summary-download"><Download size={14} aria-hidden="true" />{SUMMARY_DOWNLOAD_LABEL}</a>
+              <a href={summaryPath(sid, at, 'html')} target="_blank" rel="noopener noreferrer" className={exportLink} data-testid="summary-print"><Printer size={14} aria-hidden="true" />{SUMMARY_PRINT_LABEL}</a>
+            </>
+          ) : null}
           <button ref={closeRef} type="button" onClick={onClose} className="rounded-md p-1.5 text-text-light hover:bg-panel-hover hover:text-text-header" aria-label="Close summary" data-testid="summary-close">
             <X size={14} aria-hidden="true" />
           </button>

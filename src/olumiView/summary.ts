@@ -5,6 +5,7 @@
  * the browser prints to PDF). Nothing here words, orders or formats anything: the three say the same words because core wrote them once.
  */
 import { call, TeamApiError } from '../olumiCore/team/api'
+import { NOT_FOR_THIS_PAGE, useMe } from '../olumiCore/me'
 
 export const SUMMARY_SCHEMA = 'olumi.summary/1'
 /** Core answered in a shape this page was not built for: said, never drawn as if it were this one. */
@@ -36,10 +37,20 @@ export function summaryPath(sid: string, at: number | null = null, format: Summa
   return `/api/scenarios/${encodeURIComponent(sid)}/summary${s === '' ? '' : `?${s}`}`
 }
 
-export async function readSummary(sid: string, at: number | null = null): Promise<Summary> {
+/**
+ * The read is bound to the person the page was opened for (`person`, taken when the read is asked for: `me.ts`). A Summary carries no reader
+ * (it is the same for every member), so once it is answered core is asked whose private link this browser holds now, and a read answered
+ * after another link was opened here is dropped in the person's words (NOT_FOR_THIS_PAGE), never drawn (Codex, integrated review 7 Nov).
+ * While the page cannot say who it is for (no person read yet), the read stands, as `isForThisPage` lets a View stand.
+ */
+export async function readSummary(sid: string, at: number | null = null, person: string | null = useMe.getState().me?.id ?? null): Promise<Summary> {
   const s = await call<{ schema?: unknown; version?: { n?: unknown } | null; blocks?: unknown }>('GET', summaryPath(sid, at))
   if (s === null || typeof s !== 'object' || s.schema !== SUMMARY_SCHEMA || !Array.isArray(s.blocks)) throw new TeamApiError(0, SUMMARY_SHAPE_CHANGED)
   if (at !== null && s.version?.n !== at) throw new TeamApiError(0, SUMMARY_VERSION_NOT_SERVED)
+  if (person !== null) {
+    const now = await call<{ me?: { id?: unknown } | null }>('GET', '/api/me')
+    if ((typeof now?.me?.id === 'string' ? now.me.id : null) !== person) throw new TeamApiError(409, NOT_FOR_THIS_PAGE)
+  }
   return s as Summary
 }
 
