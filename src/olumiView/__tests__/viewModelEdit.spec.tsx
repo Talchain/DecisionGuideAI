@@ -1208,6 +1208,17 @@ describe('Codex review-ui blockers 3 and 6 (N2)', () => {
     expect(useWhatIf.getState().shown).toBeNull()
   })
 
+  it('DL 7 Nov: forgetting the person drops the requests they typed into unconfirmed writes, and their saved notice; a lock stays', () => {
+    const typed = JSON.stringify({ text: 'my private view 4,321' })
+    useWrites.setState({ attempts: { [`${SID}:evidence`]: { op: 'op-1', request: typed } }, locked: { [`${SID}:view`]: true }, sending: {} })
+    useModelNotice.setState({ notice: { kind: 'saved', n: 2, by: 'Priya', sid: SID } })
+    forgetThisPerson()
+    expect(useWrites.getState().attempts).toEqual({})
+    expect(JSON.stringify(useWrites.getState())).not.toMatch(/my private/)
+    expect(useWrites.getState().locked).toEqual({ [`${SID}:view`]: true }) // it may have saved: a reload still says
+    expect(useModelNotice.getState().notice).toBeNull()
+  })
+
   const block = () => {
     const c = render(<ViewModelTabBlock />).container
     fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)

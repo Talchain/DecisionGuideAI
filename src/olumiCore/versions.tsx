@@ -103,7 +103,6 @@ export function CoreVersions(): JSX.Element {
       {past !== null && (
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="secondary" data-testid="core-versions-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</Button>
-          <span className={META}>Version {past} is on the canvas, as it was</span>
         </div>
       )}
       <ul className="m-0 grid list-none gap-1 p-0" data-testid="core-versions-list">

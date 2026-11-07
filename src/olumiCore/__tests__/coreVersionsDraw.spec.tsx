@@ -66,6 +66,7 @@ describe('a past version on the canvas, by the person\'s choice', () => {
     expect(useViewStore.getState().at).toBe(1)
     await waitFor(() => expect(screen.getAllByTestId('core-version-row').find((r) => r.getAttribute('aria-current') === 'true')?.getAttribute('data-version')).toBe('1'))
     expect(screen.queryByTestId('core-version-1-draw')).toBeNull() // the version drawn offers no Draw
+    expect(screen.getByTestId('core-versions-back').parentElement?.textContent).toBe('Back to the latest') // no version sentence the page composes (DL 7 Nov)
     fireEvent.click(screen.getByTestId('core-versions-back'))
     await waitFor(() => expect(useViewStore.getState().view?.version?.n).toBe(2))
     expect(useViewStore.getState().at).toBeNull()
@@ -111,7 +112,7 @@ describe('nothing is written while a past version is drawn', () => {
     render(<ViewComposer analysisAction={{ label: 'Run analysis', canRun: true, isRunning: false, onRun: () => {} } as never} />)
     expect((document.querySelector('#view-chat-text') as HTMLTextAreaElement).disabled).toBe(true)
     expect((screen.getByTestId('view-composer-analyse') as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByTestId('view-composer-past').textContent).toContain(`Version 1 is on the canvas, as it was. ${PAST_HELD}`)
+    expect(screen.getByTestId('view-composer-past').textContent).toBe(`${PAST_HELD}Back to the latest`) // no version sentence the page composes (DL 7 Nov)
     expect(screen.getByTestId('view-composer-back')).toBeTruthy()
   })
   it('an ask from the canvas is not sent: its words wait in the message box, and it says why', async () => {
@@ -143,7 +144,7 @@ describe('R1 review 1: the Team tab writes nothing to the live scenario while a 
     expect(screen.getByTestId('team-view-text').matches(':disabled')).toBe(true)
     expect(screen.getByTestId('team-commitment-open').matches(':disabled')).toBe(true)
     expect(screen.getByTestId('team-invite-name').matches(':disabled')).toBe(false)
-    expect(screen.getByTestId('team-past').textContent).toContain(`Version 1 is on the canvas, as it was. ${TEAM_PAST_HELD}`)
+    expect(screen.getByTestId('team-past').textContent).toBe(`${TEAM_PAST_HELD}Back to the latest`) // no version sentence the page composes (DL 7 Nov)
     fireEvent.click(screen.getByTestId('team-past-back'))
     expect(useViewStore.getState().at).toBe(1) // the read is on its way; the back goes through the store's look
   })

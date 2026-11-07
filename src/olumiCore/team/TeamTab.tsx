@@ -59,7 +59,7 @@ export function TeamTab(): JSX.Element {
         <>
           {past !== null && (
             <div className={`${CARD} flex flex-wrap items-center gap-2`} data-testid="team-past">
-              <span className={BODY}>Version {past} is on the canvas, as it was. {TEAM_PAST_HELD}</span>
+              <span className={BODY}>{TEAM_PAST_HELD}</span>
               <Button size="sm" variant="secondary" data-testid="team-past-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</Button>
             </div>
           )}

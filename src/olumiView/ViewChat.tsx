@@ -913,7 +913,7 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
       {busy && !brief ? <Working brief={false} /> : null}
       {past === null ? null : (
         <p className="flex flex-wrap items-center gap-2" data-testid="view-composer-past">
-          <span>Version {past} is on the canvas, as it was. {PAST_HELD}</span>
+          <span>{PAST_HELD}</span>
           <button type="button" className="rounded px-2 py-1 border border-border" data-testid="view-composer-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</button>
         </p>
       )}
