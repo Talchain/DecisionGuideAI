@@ -1,6 +1,6 @@
 {
  "schema": "olumi.view/3",
- "id": "s_dce34a963188",
+ "id": "s_96897e2acfd1",
  "title": "2027 growth strategy",
  "commit": "strategy-seed",
  "signature": "[6,null,[[5,\"approved\"]],[[12,true],[13,true],[14,true]],[\"Maya\",\"Tom\",\"Priya\"],[],[\"1\",\"2\",\"3\"]]",
@@ -285,7 +285,7 @@
      "title": "Proposed by Olumi: a driver the beachhead route rests on"
     },
     "change": null,
-    "focus": false,
+    "focus": true,
     "challenged": false,
     "doubt": true,
     "figure": {
@@ -1328,7 +1328,7 @@
  "evidence": [
   {
    "id": 16,
-   "at": "2026-11-07T17:40:53.706Z",
+   "at": "2026-11-07T18:16:46.064Z",
    "by": "Maya",
    "by_id": "1",
    "text": "Pilot team B adopted in six weeks once a lead owned the rollout.",
@@ -1350,9 +1350,38 @@
    "earlier": false,
    "status": null,
    "said": "We are a B2B software company planning our 2027 growth strategy. How should we win with enterprise product teams? We could start inside product teams as a beachhead, sell top-down to the enterprise, run partner-led pilots, or build a self-serve platform. We want sustainable enterprise growth: £50M ARR by 2027. What worries us is execution complexity: slow or partial rollouts.",
-   "answer": null,
+   "answer": {
+    "answer": [
+     {
+      "text": "Seeded for the strategy demo: Olumi does not reply on this link (no provider key), so this sentence is a fixture, not Olumi."
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "Seeded fixture."
+      }
+     ]
+    ],
+    "next": {
+     "label": "What evidence would settle it?",
+     "text": [
+      {
+       "text": "Seeded fixture: what did the two pilot teams actually do?"
+      }
+     ],
+     "about": [
+      "cross_team_adoption"
+     ],
+     "at": "cross_team_adoption",
+     "newest": true,
+     "move": "gather_evidence"
+    },
+    "stories": [],
+    "stories_heading": null
+   },
    "broke": null,
-   "problem": "repair call failed",
+   "problem": null,
    "marks": [],
    "by_id": "1",
    "choice": null
@@ -1460,7 +1489,7 @@
     "kind": "claim",
     "kind_text": "Claim",
     "text": "Adoption needs an owner inside each team.",
-    "at": "2026-11-07T17:40:53.695Z",
+    "at": "2026-11-07T18:16:46.056Z",
     "by": "Priya",
     "by_id": "3",
     "concerns": [
@@ -1483,7 +1512,7 @@
     "kind": "assumption",
     "kind_text": "Assumption",
     "text": "Value is visible within the first quarter.",
-    "at": "2026-11-07T17:40:53.696Z",
+    "at": "2026-11-07T18:16:46.057Z",
     "by": "Tom",
     "by_id": "2",
     "concerns": [
@@ -1506,7 +1535,7 @@
     "kind": "question",
     "kind_text": "Open question",
     "text": "How fast did the two pilot teams adopt?",
-    "at": "2026-11-07T17:40:53.697Z",
+    "at": "2026-11-07T18:16:46.058Z",
     "by": "Maya",
     "by_id": "1",
     "concerns": [
@@ -1541,7 +1570,7 @@
      "family": "quantity",
      "label": "Cross-team adoption"
     },
-    "stance": "observed",
+    "stance": "know",
     "stance_text": "Observed",
     "source": "two rollouts",
     "pill": "Observed, two rollouts",
@@ -1557,7 +1586,7 @@
      "family": "quantity",
      "label": "Speed to value"
     },
-    "stance": "observed",
+    "stance": "know",
     "stance_text": "Observed",
     "source": "two rollouts",
     "pill": "Observed, two rollouts",
@@ -1573,7 +1602,7 @@
      "family": "quantity",
      "label": "Implementation effort"
     },
-    "stance": "observed",
+    "stance": "know",
     "stance_text": "Observed",
     "source": "two rollouts",
     "pill": "Observed, two rollouts",
@@ -1589,7 +1618,7 @@
      "family": "quantity",
      "label": "Cross-team adoption"
     },
-    "stance": "expects",
+    "stance": "suspect",
     "stance_text": "Expects",
     "source": null,
     "pill": "Expects",
@@ -1605,7 +1634,7 @@
      "family": "quantity",
      "label": "Speed to value"
     },
-    "stance": "observed",
+    "stance": "know",
     "stance_text": "Observed",
     "source": "two pilots",
     "pill": "Observed, two pilots",
@@ -1637,7 +1666,7 @@
      "family": "quantity",
      "label": "Speed to value"
     },
-    "stance": "observed",
+    "stance": "know",
     "stance_text": "Observed",
     "source": "two pilots",
     "pill": "Observed, two pilots",
@@ -1650,8 +1679,7 @@
     "kind": "disagreement",
     "views": [
      12,
-     13,
-     14
+     13
     ],
     "people": [
      {
@@ -1661,13 +1689,9 @@
      {
       "id": "2",
       "name": "Tom"
-     },
-     {
-      "id": "1",
-      "name": "Maya"
      }
     ],
-    "text": "Priya, Tom and Maya differ"
+    "text": "Priya and Tom differ"
    },
    {
     "card": "speed_to_value",
@@ -1691,7 +1715,7 @@
       "name": "Maya"
      }
     ],
-    "text": "Priya, Tom and Maya share a view"
+    "text": "Priya, Tom and Maya observed it"
    },
    {
     "card": "implementation_effort",

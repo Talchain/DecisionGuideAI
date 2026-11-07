@@ -26,10 +26,10 @@ beforeEach(() => { useViewStore.setState({ uuid: '00000000-0000-4000-8000-bfb575
 afterEach(() => cleanup())
 
 describe('core’s strategy marks on the canvas (real View)', () => {
-  it('one mark per card the revealed views speak to, in core’s words and kinds; none on a card nobody spoke to; none at all without the key', () => {
+  it('one mark per card the revealed views speak to, in core’s words and kinds (held positions differ; the same stance is said as what it is, never as agreement); none on a card nobody spoke to; none without the key', () => {
     expect(S.marks.map((m) => [m.card, m.kind, m.text])).toEqual([
-      ['cross_team_adoption', 'disagreement', 'Priya, Tom and Maya differ'],
-      ['speed_to_value', 'shared', 'Priya, Tom and Maya share a view'],
+      ['cross_team_adoption', 'disagreement', 'Priya and Tom differ'],
+      ['speed_to_value', 'shared', 'Priya, Tom and Maya observed it'],
       ['implementation_effort', 'unique', 'Only Priya knew'],
     ])
     expect(strategyMarkOn(real, 'pilot_conversion')).toBeNull()
@@ -39,9 +39,11 @@ describe('core’s strategy marks on the canvas (real View)', () => {
   it('the chip shows the people’s initials and core’s sentence; selecting it opens the first person’s view; nothing renders without the key', () => {
     render(<StrategyChips card="cross_team_adoption" />)
     const chip = screen.getByTestId('strategy-chips-cross_team_adoption').querySelector('button') as HTMLElement
-    expect(chip.querySelector('[data-strategy-chip-text]')).toHaveTextContent('Priya, Tom and Maya differ')
+    // Maya is unsure, which is not a position: she is neither a party to the disagreement nor an initial on its chip.
+    expect(chip.querySelector('[data-strategy-chip-text]')).toHaveTextContent('Priya and Tom differ')
     expect(chip.getAttribute('data-strategy-kind')).toBe('disagreement')
-    expect(chip.textContent!.startsWith('PTM')).toBe(true)
+    expect(chip.textContent!.startsWith('PT')).toBe(true)
+    expect(chip.textContent!.startsWith('PTM')).toBe(false)
     fireEvent.click(chip)
     expect(useReveal.getState().selected).toBe(PRIYA.id)
     cleanup()
