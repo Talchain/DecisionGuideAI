@@ -430,7 +430,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   // While core's View shows a pending proposal, its Run is the proposal's: each Run-derived line says "If approved" (DL ruling, R4).
   const ifApproved = useMemo(() => ifApprovedMarkOf(view), [view])
   // The aims whose shared reason the panel says once for this option (layout.ts sharedAimsOf): its card leaves those rows to it.
-  const shared = useMemo(() => sharedAimsOf(view, id), [view, id])
+  const shared = useMemo(() => sharedAimsOf(view?.model?.run, id), [view, id])
   const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] === id)
   // Keyboard focus on the card (or inside it) opens its other words as selection does (plan v3: full text on selection or keyboard focus).
   // Only while the page's focus really is there: a control removed after its save (an editor, a rename) moves focus to the page with no

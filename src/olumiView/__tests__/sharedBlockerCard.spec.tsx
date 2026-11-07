@@ -73,8 +73,8 @@ describe('a reason every option shares is said once, in the panel; the cards sho
     const v = structuredClone(hosting), b = v.model!.run!.shared_blockers![0]!
     const [named, other] = options(v)
     b.options = [named!.id]
-    expect(sharedAimsOf(v, named!.id)).toEqual([b.aim_id])
-    expect(sharedAimsOf(v, other!.id)).toEqual([])
+    expect(sharedAimsOf(v.model!.run, named!.id)).toEqual([b.aim_id])
+    expect(sharedAimsOf(v.model!.run, other!.id)).toEqual([])
     const i = noneAt(other!, b.aim_id)
     expect(rowText(draw(v, other!), other!.id, i)!.textContent).toBe((other!.rows[i] as { text: string }).text)
     cleanup()
