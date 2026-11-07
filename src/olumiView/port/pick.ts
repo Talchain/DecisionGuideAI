@@ -107,3 +107,35 @@ export function driverCardsOf(model: ViewModel): ViewCard[] {
   for (const card of optionCards(model)) if (card.driver != null && card.driver.text !== '') out.push(card)
   return out
 }
+
+export type Premise = ViewCard['premises'][number]
+/**
+ * One card's premises grouped by core's mark for them (`premises[].glyph`), each group named by core's key word for that mark
+ * (`model.key[].text`, e.g. "assumption", "prerequisite", "challenge"), in the order the marks first appear; each premise at its path.
+ */
+export function premiseGroupsOf(model: ViewModel, card: ViewCard): { glyph: string; key: { text: string; i: number } | null; items: { p: Premise; j: number }[] }[] {
+  const groups: { glyph: string; key: { text: string; i: number } | null; items: { p: Premise; j: number }[] }[] = []
+  card.premises.forEach((p, j) => {
+    if (p.text === '') return
+    let g = groups.find((x) => x.glyph === p.glyph)
+    if (g === undefined) {
+      const i = model.key.findIndex((k) => k.glyph === p.glyph)
+      g = { glyph: p.glyph, key: i < 0 ? null : { text: model.key[i]!.text, i }, items: [] }
+      groups.push(g)
+    }
+    g.items.push({ p, j })
+  })
+  return groups
+}
+
+/** One act-on-it row from core: a figure the chances wait on (`run.waits_on.items`), or a prompt about the model's shape (`model.sharpen`). */
+export type ActRow =
+  | { kind: 'wait'; key: string; i: number; item: NonNullable<ViewRun['waits_on']>['items'][number] }
+  | { kind: 'sharpen'; key: string; i: number; item: ViewModel['sharpen'][number] }
+/** Core's act-on-it rows in core's own order within each source: what the chances wait on first, then the prompts. Nothing ranked. */
+export function actRowsOf(model: ViewModel): ActRow[] {
+  const out: ActRow[] = []
+  ;(model.run?.waits_on?.items ?? []).forEach((item, i) => { if (item.text !== '') out.push({ kind: 'wait', key: `wait:${item.id}`, i, item }) })
+  ;(model.sharpen ?? []).forEach((item, i) => { if (item.lead !== '' || item.emphasis !== '') out.push({ kind: 'sharpen', key: `sharpen:${item.id}`, i, item }) })
+  return out
+}
