@@ -11,6 +11,8 @@
  *      that rings, selects and follows its card on the canvas (`reasoning/Spine.tsx`, the redesign's spine);
  *   2b. the option rack (`reasoning/Rack.tsx`, the redesign's Z3; DL ruling 1, 7 Nov): each option's chance through the one readout the
  *      Analysis tab's option row draws it with (`port/HeroOptionRow` HeroReadout), in core's order, beside the marks of what it rests on;
+ *   2c. the people strip (`reasoning/People.tsx`, the redesign's Z4; DL ruling 2, 7 Nov): read-only, one chip per view core shares,
+ *      pressed to play its figures' effects in the Team tab's own components;
  *   3. Challenge Your Thinking (the crafted `ChallengeCard`): each card core marks `challenged`, its heading as the zone's question (14px,
  *      weight 400) led by core's glyph, its reason under it, whole; and under them the crafted "Assumptions and evidence" door
  *      (`ReasoningSignals`, closed at rest), holding every premise core puts on a card and the reasoning cards core draws, each once, in
@@ -36,6 +38,7 @@ import { Compared, WhatIfShown, Worth } from './ViewChances'
 import { Door, SectionRow, SignalRow, ZoneTitle } from './reasoning/parts'
 import { Spine } from './reasoning/Spine'
 import { Rack } from './reasoning/Rack'
+import { People } from './reasoning/People'
 import { StateStrip, useTabState } from './reasoning/StateStrip'
 import { typography } from '../styles/typography'
 
@@ -75,6 +78,7 @@ function Challenge({ card: c }: { card: ViewCard }) {
 
 /** `stated`: the tab's state is said above it (`ViewReasoningBlock`'s StateStrip), so the what-if box here draws no label of its own. */
 export function ViewReasoning({ model, brief = null, stated = false }: { model: ViewModel; brief?: string | null; stated?: boolean }) {
+  const view = useViewStore((st) => st.view)
   const run = model.run ?? null, settable = settableFigures(model)
   const challenges = challengedCards(model)
   // Each premise once, wherever core put it (an option's own premises, and the notes on the card they concern), by core's words.
@@ -88,6 +92,7 @@ export function ViewReasoning({ model, brief = null, stated = false }: { model: 
       <WhatIfShown model={model} labelled={!stated} />
       <Spine model={model} brief={brief} labels={REASONING_LABELS} />
       <Rack model={model} />
+      <People view={view} />
       {challenges.length + notes === 0 ? null : (
         <section data-testid="view-reasoning-challenge" aria-label={REASONING_LABELS.challenge} className="space-y-1">
           <ZoneTitle>{REASONING_LABELS.challenge}</ZoneTitle>
