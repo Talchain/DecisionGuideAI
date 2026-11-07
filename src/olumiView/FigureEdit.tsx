@@ -4,7 +4,8 @@
  * typed (`POST …/edit` `typed`, API v1.9), and core reads it as its own page does; a figure it cannot read comes back as that card's
  * `figure.edit.ask`, shown here. Nothing is parsed or converted on this page. The edit is the person's: applied at once, then Olumi replies.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { create } from 'zustand'
 import { tryWhatIf } from './whatif'
 import { useUIStore, type OutputTab } from '../stores/uiStore'
 import { typography } from '../styles/typography'
@@ -13,6 +14,7 @@ import { runWrite, useWriteSending } from '../olumiCore/team/writes'
 import { isForThisPage, useMe } from '../olumiCore/me'
 import { writes } from './client'
 import { useViewStore } from './store'
+import { noteSaved } from './notice'
 
 /**
  * `id`: the quantity (a card's id, or a waits-on item's); `edit`: core's words for changing it; `label`: the button's words; `place`: where
@@ -24,11 +26,73 @@ export const QUIET = 'opacity-0 group-hover:opacity-100 focus-visible:opacity-10
 /** With a `glyph` the glyph is the cue and always shows; the words show only on hover, focus or selection (Paul: no static repeating text). */
 export const QUIET_WORDS = 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
 
+/**
+ * SET ASIDE AND EDIT (R25, Paul's 6 Nov test: "I can't find manual editing"; on his finish line, DL 7 Nov). While a proposal is held core
+ * offers no edit (`edit_base` null by contract, core view.ts), so ✎ offers to set the proposal aside first: it shows what is set aside
+ * (core's heading and base), sets it aside on the person's press, reads the View again, and opens this card's editor on the base that read
+ * returns, never an earlier one; core refuses an edit on any other base in its own words. Two receipts: "set aside" in the editor, then
+ * core's saved version. An edit that then fails leaves the set-aside said and the failure in core's words; nothing reads as saved.
+ */
+export const useAsideEdit = create<{ readonly id: string | null }>()(() => ({ id: null }))
+export const ASIDE_WORDS = {
+  offer: 'Set aside the pending change and edit',
+  first: 'To change this figure, Olumi\'s pending change is set aside first. Nothing in it is applied.',
+  confirm: 'Set aside and edit',
+  done: 'The pending change is set aside. Your figure is saved only when you set it.',
+  notShown: 'Set aside, but Olumi could not show the model just now. Reload the page to edit.',
+} as const
+
+export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figure' }: { id: string; label?: string; place?: string }): JSX.Element | null {
+  const sid = useViewStore((s) => s.sid)
+  const view = useViewStore((s) => s.view)
+  const at = useViewStore((s) => s.at)
+  const me = useMe((s) => s.me)
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const p = view?.proposal ?? null
+  if (p === null || view === null || sid === null || at !== null || p.base === null || view.model?.edit_base !== null || !isForThisPage(view, me)) return null
+  const aside = async () => {
+    if (busy) return
+    setBusy(true); setError(null)
+    try {
+      await writes.discard(p.id)
+      // The editor opens on this card once the View read after the set-aside draws its edit (core's new `edit_base`).
+      useAsideEdit.setState({ id })
+      if (!(await useViewStore.getState().refresh())) setError(ASIDE_WORDS.notShown)
+    } catch (e) {
+      useAsideEdit.setState({ id: null })
+      setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was set aside.')
+    } finally { setBusy(false) }
+  }
+  if (!open) return (
+    <button type="button" data-testid={`${place}-aside-edit-${id}`} onClick={() => setOpen(true)} aria-label={`${label}: ${ASIDE_WORDS.offer}`} title={ASIDE_WORDS.offer}
+      className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-info`}><span aria-hidden="true">✎</span></button>
+  )
+  return (
+    <div className="nodrag nopan grid gap-1" role="group" aria-label={ASIDE_WORDS.offer} data-testid={`${place}-aside-${id}`}
+      onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !busy) { setOpen(false); setError(null) } }}>
+      <p className={typography.viewLabel}>{ASIDE_WORDS.first}</p>
+      <p className={`${typography.viewLabel} text-text-light`}><span data-view="proposal.heading">{p.heading}</span> · <span data-view="proposal.on">{p.on}</span></p>
+      {error && <p role="alert" data-testid={`${place}-aside-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
+      <div className="flex gap-2">
+        <button type="button" autoFocus disabled={busy} onClick={() => void aside()} data-testid={`${place}-aside-confirm-${id}`}
+          className={`${typography.viewLabel} min-h-[24px] cursor-pointer rounded bg-primary px-2 py-0.5 text-text-on-color disabled:opacity-50`}>{ASIDE_WORDS.confirm}</button>
+        <button type="button" disabled={busy} onClick={() => { setOpen(false); setError(null) }}
+          className={`${typography.viewLabel} min-h-[24px] cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+
 export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab = 'results', primary = 'set' }: { id: string; edit: { prompt: string; ask: string } | null; label?: string; place?: string; quiet?: boolean; glyph?: string; words?: boolean; lead?: string; tab?: OutputTab; primary?: 'set' | 'try' }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
-  const [open, setOpen] = useState(false)
+  // Opened by a set-aside on this card (R25): open at once, with the set-aside said until the editor closes.
+  const [asideFor] = useState(() => place === 'view-figure' && useAsideEdit.getState().id === id)
+  const [open, setOpen] = useState(asideFor)
+  useEffect(() => { if (asideFor) useAsideEdit.setState({ id: null }) }, [asideFor])
   const [typed, setTyped] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [trying, setTrying] = useState(false)
@@ -41,7 +105,9 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
     if (typed.trim() === '' || sending) return
     setError(null)
     try {
-      await runWrite(key, { op: true }, { base, quantity: id, typed }, (op) => writes.edit(sid, base, id, typed, op!))
+      const saved = await runWrite(key, { op: true }, { base, quantity: id, typed }, (op) => writes.edit(sid, base, id, typed, op!))
+      // Core's 201 IS saved (R25, DL ruling: no AI call on its path): its version is said at once, as an approval's is.
+      noteSaved(saved)
       // Saved: the editor closes once the new View shows it; a View that could not be read says so here, never the old figure as current.
       if (await useViewStore.getState().modelChanged()) { setOpen(false); setTyped('') }
       else setError('Saved, but Olumi could not show it just now. Reload the page to see it.')
@@ -75,6 +141,7 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
     <form className="nodrag nopan grid gap-1" data-testid={`${place}-form-${id}`}
       onSubmit={(e) => { e.preventDefault(); void (primary === 'try' ? tryIt() : save()) }}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !sending) { setOpen(false); setError(null) } }}>
+      {asideFor ? <p className={`${typography.viewLabel} text-text-light`} data-testid={`${place}-aside-done-${id}`}>{ASIDE_WORDS.done}</p> : null}
       <label htmlFor={`${place}-${id}`} className={typography.viewLabel}>{edit.prompt}</label>
       <input id={`${place}-${id}`} data-testid={`${place}-typed-${id}`} autoFocus autoComplete="off" spellCheck={false}
         value={typed} disabled={sending} onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}

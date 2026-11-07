@@ -25,7 +25,7 @@ import { WHAT_IF_COPY } from '../artefacts/whatIfCopy'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { Badge } from '../../olumiView/Badge'
-import { FigureEdit } from '../../olumiView/FigureEdit'
+import { FigureEdit, HeldEditOffer } from '../../olumiView/FigureEdit'
 import { failedOf, failedReasonOf } from '../../olumiView/k5'
 
 export type ViewCardData = { card: Card }
@@ -269,7 +269,9 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       {/* R25 (Paul's 6 Nov test: "I can't find manual editing"): wherever core offers an edit, the ✎ shows at rest as the cue; its words
           show on hover, focus or selection (FigureEdit's glyph form, Paul 24 Oct: no static repeating text). Never hidden, so an open
           editor or its Set button can never be hidden either (R4 witness run 3). */}
-      {card.figure?.edit ? <span data-figure-edit-wrap=""><FigureEdit id={card.id} edit={card.figure.edit} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} quiet={!selected} /></span> : null}
+      {card.figure?.edit ? <span data-figure-edit-wrap=""><FigureEdit id={card.id} edit={card.figure.edit} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} quiet={!selected} /></span>
+        // While a proposal is held core offers no edit: ✎ offers to set it aside and edit (R25), on any figure the approved model has.
+        : card.figure !== null && card.change?.kind !== 'added' ? <span data-figure-edit-wrap=""><HeldEditOffer id={card.id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null}
       {card.rows.map((row, i) => (
         <span key={i} className="contents">
           <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === lead} />
