@@ -11,6 +11,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { Position, ReactFlowProvider } from '@xyflow/react'
 import type { View, ViewLink } from '../client'
 import { useViewStore } from '../store'
+import { resetRemovingLinks } from '../LinkRemove'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from './edgeLabelLayer'
 import { focusedLinkOf, useViewFocusLink } from '../canvas'
@@ -53,7 +54,7 @@ beforeEach(() => {
   useMe.setState({ me: { id: approved.you_id, name: approved.you }, status: 'ready' })
 })
 afterEach(() => {
-  cleanup(); setTeamFetch(null); resetWrites(); useModelNotice.setState({ notice: null }); useViewFocusLink.setState({ id: null })
+  cleanup(); setTeamFetch(null); resetWrites(); resetRemovingLinks(); useModelNotice.setState({ notice: null }); useViewFocusLink.setState({ id: null })
   useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null } as never)
 })
 const posts = () => calls.filter((c) => c.method === 'POST')
@@ -142,6 +143,26 @@ describe('remove a link', () => {
     expect(screen.queryByTestId('view-link-remove-keep-evening_mood')).not.toBeNull()
     await act(async () => { release(); await hold })
     await waitFor(() => expect(screen.queryByTestId('view-link-remove-keep-evening_mood')).toBeNull()) // CONTRAST: held only while on its way
+  })
+  it('catch (Codex final delta 21205785): focus leaves during the removal, then a refusal: the ask is still there, with core\'s words, and Keep has focus', async () => {
+    let release = (): void => undefined
+    hold = new Promise<void>((done) => { release = done })
+    answer = { status: 409, body: { error: REFUSED } }
+    // As the canvas does (ViewCanvas focusin): focus names the link it lands in.
+    const name = (e: FocusEvent): void => { useViewFocusLink.setState({ id: focusedLinkOf(e.target) }) }
+    document.addEventListener('focusin', name)
+    try {
+      useViewFocusLink.setState({ id: 'a->b:plain' })
+      draw(removable, false)
+      fireEvent.click(screen.getByTestId('view-link-remove-open-evening_mood'))
+      fireEvent.click(screen.getByTestId('view-link-remove-yes-evening_mood'))
+      await waitFor(() => expect(posts()).toHaveLength(1))
+      act(() => { (document.activeElement as HTMLElement | null)?.blur(); useViewFocusLink.setState({ id: null }) }) // focus leaves mid-flight
+      await act(async () => { release(); await hold })
+      await waitFor(() => expect(screen.getByTestId('view-link-remove-error-evening_mood')).toHaveTextContent(REFUSED))
+      expect(screen.queryByTestId('view-link-remove-keep-evening_mood')).not.toBeNull()
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('view-link-remove-keep-evening_mood')))
+    } finally { document.removeEventListener('focusin', name) }
   })
   it('catch: focus alone offers it too, and focus on the control keeps the link named', () => {
     useViewFocusLink.setState({ id: 'a->b:plain' })

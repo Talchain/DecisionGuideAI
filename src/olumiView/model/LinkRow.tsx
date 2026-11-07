@@ -27,7 +27,7 @@ export function LinkRow({ model, link, i, from, to }: { model: ViewModel; link: 
         className={`flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 transition-colors duration-fast hover:bg-panel-hover ${open ? 'ring-1 ring-inset ring-border-emphasis' : ''}`}>
         <span aria-hidden="true" className="w-4 flex-none text-center text-text-light">{KIND_GLYPH.relationship}</span>
         <span className="min-w-0 flex-1">
-          <button type="button" aria-expanded={open} aria-controls={open ? `model-detail-${row}` : undefined} data-model-select={row}
+          <button type="button" aria-expanded={open} aria-controls={open ? `model-detail-${row}` : undefined} data-model-select={row} data-model-link-line={row}
             onClick={(e) => { e.stopPropagation(); select() }} className={`block min-h-[24px] w-full cursor-pointer break-words rounded-sm text-left text-text-header ${ACTION_FOCUS}`}>
             <span>{from}</span>
             <span role="img" aria-label={W.to} className="text-text-light"> → </span>

@@ -30,8 +30,9 @@ const LABELS = new Set(['Worth checking first', 'Try a figure', '✎', ' ', '\u0
 const unbound = (root: HTMLElement, also: string[]) => {
   const out: string[] = [], walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   for (let n = walk.nextNode(); n !== null; n = walk.nextNode()) {
-    // A glance row's count is the number of cards drawn (structure, code's), asserted by the glance rows below; never a View value.
-    if (n.parentElement!.closest('[data-view], [data-glance-count]') === null && !LABELS.has(n.textContent!) && !also.includes(n.textContent!)) out.push(n.textContent!)
+    // A glance row's count is the number of cards drawn (structure, code's), asserted by the glance rows below; never a View value. So is a
+    // disclosure's count (`data-count`), asserted against the rows it opens onto in 'the crafted rest state' below.
+    if (n.parentElement!.closest('[data-view], [data-glance-count], [data-count]') === null && !LABELS.has(n.textContent!) && !also.includes(n.textContent!)) out.push(n.textContent!)
   }
   return out
 }
@@ -45,6 +46,8 @@ function at(view: View, path: string): unknown {
   return x
 }
 const OWN = Object.values(REASONING_LABELS) as string[]
+/** Opens every closed door and section row in the tab (the crafted rest state keeps depth closed), so every row can be read. */
+const openAll = (root: HTMLElement) => { for (const b of root.querySelectorAll<HTMLElement>('[data-testid^="view-reasoning-"][data-testid$="-toggle"][aria-expanded="false"]')) fireEvent.click(b) }
 
 // The glance as the previous PoC's strip (vision-audit-20261024 *-panel-reasoning.png; side-by-side 6 Nov): Options, Factors, Risks and
 // Outcomes, each mark in the canvas's own shape and colour for its kind, and how many cards each row has, right-aligned.
@@ -93,6 +96,7 @@ describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Pau
       ready(view)
       render(<ViewReasoning model={m} brief={view.brief} />)
       const root = screen.getByTestId('view-reasoning')
+      openAll(root)
       // Not the Analysis tab again: no chance row, no driver marker, no sensitivity line, no lead (they are the Analysis tab's).
       expect(root.querySelector('[data-view-row]')).toBeNull()
       expect(root.querySelector('[data-testid^="view-range-driver-"]')).toBeNull()
@@ -131,6 +135,7 @@ describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Pau
     ready({ ...view, model: m })
     render(<ViewReasoning model={m} brief={view.brief} />)
     const root = screen.getByTestId('view-reasoning')
+    openAll(root)
     const order = [...root.querySelectorAll('section[aria-label]')].map((e) => e.getAttribute('aria-label'))
     expect(order.slice(0, 2)).toEqual([REASONING_LABELS.challenge, REASONING_LABELS.premises])
     expect(root.querySelector('[data-reasoning-challenge="a_challenge"] [data-view="a_challenge.reason"]')?.textContent).toBe('Demand may fall first.')
@@ -179,6 +184,7 @@ describe('try a figure: core\'s what-if, from the Reasoning tab', () => {
 
   it('one POST to core\'s what-if with the figure as typed, nothing saved; the answer drawn at the top of this tab, which stays fronted', async () => {
     render(<ViewReasoning model={view.model!} />)
+    fireEvent.click(screen.getByTestId('view-reasoning-try-toggle'))
     fireEvent.click(screen.getByTestId(`reasoning-edit-${id}`))
     fireEvent.change(screen.getByTestId(`reasoning-typed-${id}`), { target: { value: '5' } })
     fireEvent.click(screen.getByTestId(`reasoning-try-${id}`))
@@ -191,6 +197,7 @@ describe('try a figure: core\'s what-if, from the Reasoning tab', () => {
 
   it('under "Try a figure", Enter tries on a copy and never saves: no edit route, no new version', async () => {
     render(<ViewReasoning model={view.model!} />)
+    fireEvent.click(screen.getByTestId('view-reasoning-try-toggle'))
     fireEvent.click(screen.getByTestId(`reasoning-edit-${id}`))
     fireEvent.change(screen.getByTestId(`reasoning-typed-${id}`), { target: { value: '5' } })
     fireEvent.submit(screen.getByTestId(`reasoning-form-${id}`))
@@ -299,6 +306,7 @@ describe('Olumi\'s mark on the challenged and reasoning cards, as core gives it'
       const view = real(name), m = view.model!
       ready(view)
       const root = render(<ViewReasoning model={m} brief={view.brief} />).container
+      openAll(root)
       const drawn = rows(root)
       expect(drawn.length).toBeGreaterThan(0)
       for (const e of drawn) {
@@ -313,12 +321,15 @@ describe('Olumi\'s mark on the challenged and reasoning cards, as core gives it'
   it('negative: a card core does not mark as Olumi\'s (a person\'s own) draws no mark, while its neighbours keep theirs', () => {
     const view = real('hiring'), m = structuredClone(view.model!)
     ready({ ...view, model: m })
-    const first = rows(render(<ViewReasoning model={m} brief={view.brief} />).container)
+    const opened = render(<ViewReasoning model={m} brief={view.brief} />).container
+    openAll(opened)
+    const first = rows(opened)
     expect(first.length).toBeGreaterThan(1)
     const theirs = idOf(first[0]!), others = first.slice(1).map(idOf)
     cleanup()
     m.cards.find((c) => c.id === theirs)!.olumi = null
     const root = render(<ViewReasoning model={m} brief={view.brief} />).container
+    openAll(root)
     expect(root.querySelector(`[data-view="${theirs}.olumi.glyph"]`)).toBeNull()
     for (const id of others) expect(root.querySelector(`[data-view="${id}.olumi.glyph"]`), id).not.toBeNull()
   })
@@ -342,5 +353,74 @@ describe('the challenge rows in the crafted ChallengeCard\'s look', () => {
     expect([r.getAttribute('data-view'), r.textContent]).toEqual([`${c.id}.reason`, c.reason])
     expect(r.className).toContain('pl-3')
     for (const e of [q, r, ...row.querySelectorAll<HTMLElement>('*')]) expect(e.className).not.toMatch(/line-clamp|truncate/)
+  })
+})
+
+// The crafted Reasoning V2 rest state (ReasoningPanelV3, served 24 Oct): one focus open (the challenge), depth behind one door and closed
+// section rows, each with how many rows it opens onto. A closed region is unmounted, so nothing behind a door is walked or read.
+describe('the crafted rest state: the challenge open, depth closed behind counted doors', () => {
+  const real = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', `${n}.view3.json`), 'utf8'))
+  const toggle = (id: string) => screen.getByTestId(`view-reasoning-${id}-toggle`)
+  const count = (id: string) => screen.getByTestId(`view-reasoning-${id}`).querySelector('[data-count]')?.textContent
+
+  it('catch: capacity: the question is drawn at rest; the premises and reasoning cards sit behind the closed door, its count the rows it opens onto', () => {
+    const view = real('capacity'), m = view.model!
+    ready(view)
+    const root = render(<ViewReasoning model={m} brief={view.brief} />).container
+    const c = m.cards.find((x) => x.challenged === true)!
+    expect(root.querySelector(`[data-reasoning-challenge="${c.id}"] [data-view="${c.id}.heading"]`)?.textContent).toBe(c.heading)
+    expect(toggle('premises').getAttribute('aria-expanded')).toBe('false')
+    expect(root.querySelectorAll('[data-reasoning-premise], [data-reasoning-card]').length).toBe(0)
+    fireEvent.click(toggle('premises'))
+    expect(toggle('premises').getAttribute('aria-expanded')).toBe('true')
+    expect(toggle('premises').getAttribute('aria-controls')).toBe(screen.getByTestId('view-reasoning-premises-region').id)
+    const drawn = [...root.querySelectorAll<HTMLElement>('[data-reasoning-premise], [data-reasoning-card]')].map((e) => e.dataset['reasoningPremise'] ?? e.dataset['reasoningCard'])
+    const seen = new Set<string>(), want: string[] = []
+    for (const k of m.cards) (k.premises ?? []).forEach((p, j) => { if (!seen.has(p.text)) { seen.add(p.text); want.push(`${k.id}.${j}`) } })
+    for (const k of m.cards) if (['assumption', 'condition', 'claim', 'evidence', 'left_out'].includes(k.family) && k.challenged !== true && k.reason !== null && !seen.has(k.reason)) want.push(k.id)
+    expect(drawn).toEqual(want)
+    expect(count('premises')).toBe(String(want.length))
+    fireEvent.click(toggle('premises'))
+    expect(root.querySelectorAll('[data-reasoning-premise], [data-reasoning-card]').length).toBe(0)
+  })
+
+  it('catch: european: "What would change your mind" is a closed row; its count is its worth and compared lines, each drawn at its own path once opened', () => {
+    const view = read('european.view.json'), m = view.model!, run = m.run!
+    ready(view)
+    const root = render(<ViewReasoning model={m} brief={view.brief} />).container
+    const worth = (run.science ?? []).flatMap((l, i) => (l.kind === 'worth' ? [`run.science.${i}.line`] : [])), compared = run.compared.map((_, i) => `run.compared.${i}.line`)
+    expect(worth.length * compared.length).toBeGreaterThan(0)
+    expect(toggle('change').getAttribute('aria-expanded')).toBe('false')
+    for (const at of [...worth, ...compared]) expect(root.querySelector(`[data-view="${at}"]`), at).toBeNull()
+    expect(count('change')).toBe(String(worth.length + compared.length))
+    fireEvent.click(toggle('change'))
+    for (const at of [...worth, ...compared]) expect(root.querySelector(`[data-view="${at}"]`), at).not.toBeNull()
+  })
+
+  it('negative: a board with no worth or compared lines draws no such row, and none with no premises or reasoning cards draws no door', () => {
+    const view = read('capacity-v3.view.json'), m = view.model!
+    ready(view)
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    expect(screen.queryByTestId('view-reasoning-change')).toBeNull()
+    expect(screen.queryByTestId('view-reasoning-premises')).toBeNull()
+    expect(screen.queryByTestId('view-reasoning-challenge')).toBeNull()
+  })
+
+  it('a long brief is held to two lines with the crafted More, whole in the page and on hover; a short brief is drawn whole with no act', () => {
+    const long = read('s_ce285b3617bb.view.json')
+    ready(long)
+    const { unmount } = render(<ViewReasoning model={long.model!} brief={long.brief} />)
+    const held = screen.getByTestId('view-reasoning-brief')
+    expect([held.dataset['disclosure'], held.querySelector('[data-view="brief"]')?.textContent]).toEqual(['closed', long.brief])
+    expect(held.querySelector('.line-clamp-2')).not.toBeNull()
+    fireEvent.click(screen.getByTestId('view-reasoning-brief-more'))
+    expect([held.dataset['disclosure'], screen.getByTestId('view-reasoning-brief-more').textContent]).toEqual(['open', REASONING_LABELS.less])
+    expect(held.querySelector('.line-clamp-2')).toBeNull()
+    unmount()
+    const short = read('pricing.view.json')
+    ready(short)
+    render(<ViewReasoning model={short.model!} brief={short.brief} />)
+    expect(screen.queryByTestId('view-reasoning-brief')).toBeNull()
+    expect(screen.getByTestId('view-reasoning-glance').querySelector('[data-view="brief"]')?.textContent).toBe(short.brief)
   })
 })

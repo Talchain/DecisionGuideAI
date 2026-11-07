@@ -220,3 +220,93 @@ describe('the crafted Model tab, from the View', () => {
     expect(c.querySelector('[data-view-author="customer_target"]')).toBeNull() // CONTRAST: no author, no icon
   })
 })
+
+// R25 (Paul's finish line: no cut text). An option with no chance in this model says why in core's words; the Model tab draws them whole.
+describe('the Model tab: an option row core gives no chance keeps its words whole', () => {
+  it('catch: each none row of core\'s app-launch golden is drawn at its path, whole, with no clamp on it or around it', () => {
+    const v: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/app-launch.view.json'), 'utf8'))
+    const c = render(<ViewModelTab model={v.model!} />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    let n = 0
+    for (const card of v.model!.cards.filter((k) => k.family === 'option')) {
+      card.rows.forEach((r, i) => {
+        if (r.kind !== 'none') return
+        const words = r.text ?? r.title
+        const el = c.querySelector(`[data-view="${card.id}.rows.${i}.${r.text == null ? 'title' : 'text'}"]`)
+        expect(el, `${card.id}.rows.${i}`).not.toBeNull()
+        expect(el!.textContent).toBe(words)
+        for (let a: Element | null = el; a !== null && a !== c; a = a.parentElement) expect(a.className, `${card.id}.rows.${i}`).not.toMatch(/line-clamp|truncate/)
+        n++
+      })
+    }
+    expect(n).toBeGreaterThan(2)
+  })
+})
+
+
+// UI audit of cc75a10a (7 Nov): the key names only the marks drawn; the deliberate Model-tab changes are bound by identity, so reverting
+// either goes red.
+describe('the key, and what the Model tab deliberately does not draw', () => {
+  const keyTexts = (c: HTMLElement) => [...c.querySelectorAll('[data-testid="view-model-key"] [data-view-key]')].map((k) => k.textContent)
+  const olumi = model.key.find((k) => k.id === 'olumi')!
+
+  it('catch: on first open every group is closed and no mark is drawn, so no key; opened, the key names the marks on screen', () => {
+    const c = render(<ViewModelTab model={model} />).container
+    expect(c.querySelectorAll('[data-model-row]').length).toBe(0)
+    expect(c.querySelector('[data-testid="view-model-key"]')).toBeNull()
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    expect(keyTexts(c)).toContain(`${olumi.glyph} ${olumi.text}`)
+  })
+
+  it('catch: a filter that hides every marked card leaves no key; one that shows a marked card brings it back', () => {
+    const plain = model.cards.find((k) => k.id === 'starting_customers')!
+    const marked = model.cards.find((k) => k.id === 'customers')!
+    expect([plain.olumi, marked.olumi?.glyph]).toEqual([null, olumi.glyph])
+    const c = render(<ViewModelTab model={model} />).container
+    fireEvent.change(c.querySelector('[data-testid="view-model-filter"]')!, { target: { value: plain.heading } })
+    expect([...c.querySelectorAll('[data-model-row]')].map((r) => r.getAttribute('data-model-row'))).toEqual([plain.id])
+    expect(c.querySelector('[data-testid="view-model-key"]')).toBeNull()
+    fireEvent.change(c.querySelector('[data-testid="view-model-filter"]')!, { target: { value: marked.heading } })
+    expect(c.querySelector(`[data-model-row="${marked.id}"]`)).not.toBeNull()
+    expect(keyTexts(c)).toContain(`${olumi.glyph} ${olumi.text}`)
+  })
+
+  it('catch: an option row\'s companion line shows in Plain and in Expert (Olumi\'s part stays visible to be challenged); its timing line only in Expert', () => {
+    // ⚠ LABELLED FIXTURE: no golden carries a companion or timing line on a Model-tab option, so one chance row is given both.
+    const withLines = structuredClone(model)
+    const option = withLines.cards.find((k) => k.family === 'option' && k.rows.some((r) => r.kind === 'chance'))!
+    const i = option.rows.findIndex((r) => r.kind === 'chance')
+    Object.assign(option.rows[i]!, { companion: 'about 50% without it', companion_title: 'x', timing: 'by month 6', timing_title: 'y' })
+    const c = render(<ViewModelTab model={withLines} />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    const at = `${option.id}.rows.${i}`
+    const line = (what: string) => c.querySelector(`[data-view-row="${at}"] [data-view="${at}.${what}"]`)
+    expect(useModelTab.getState().expert).toBe(false)
+    expect(line('companion')?.textContent).toBe('about 50% without it')
+    expect(line('timing')).toBeNull()
+    fireEvent.click(c.querySelector('[data-model-expert-arm="expert"]')!)
+    expect(line('companion')?.textContent).toBe('about 50% without it')
+    expect(line('timing')?.textContent).toBe('by month 6')
+  })
+
+  it('catch: a link\'s label is a mark after its words, on its first line; its strength (Expert) is line 2, outside that line', () => {
+    // ⚠ LABELLED FIXTURE: no golden has a labelled link with a strength, so the first labelled link is given one.
+    const sized = structuredClone(model)
+    const k = sized.links.findIndex((l) => l.label !== '')
+    sized.links[k] = { ...sized.links[k]!, effect: { text: '1.5 to 2', title: 'z', figure: 'starting_customers' } }
+    const c = render(<ViewModelTab model={sized} />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    const line = c.querySelector(`[data-model-link-line="links.${k}"]`)!
+    const label = line.querySelector(`[data-view="links.${k}.label"]`)!
+    expect(label.textContent).toBe(sized.links[k]!.label)
+    // After its words: the label's text follows the link's "to" heading, and nothing of the line follows the label.
+    expect(line.textContent!.endsWith(`${linkEndHeading(sized, sized.links[k]!.to)}\u00a0${sized.links[k]!.label}`)).toBe(true)
+    expect(c.querySelector(`[data-view="links.${k}.effect.text"]`)).toBeNull() // Plain: the strength is Expert's
+    fireEvent.click(c.querySelector('[data-model-expert-arm="expert"]')!)
+    const strength = c.querySelector(`[data-view="links.${k}.effect.text"]`)!
+    expect(line.isConnected).toBe(true)
+    expect(line.contains(strength)).toBe(false)
+    expect(strength.className).toContain('block')
+    expect(line.compareDocumentPosition(strength) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})

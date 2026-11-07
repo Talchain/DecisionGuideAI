@@ -8,6 +8,7 @@
  * removes. Every refusal is core's own words (it names what depends on the link); the saved version is core's receipt.
  */
 import { useEffect, useRef, useState } from 'react'
+import { create } from 'zustand'
 import { typography } from '../styles/typography'
 import { TeamApiError } from '../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../olumiCore/team/writes'
@@ -21,12 +22,25 @@ export const REMOVE_LINK_WORDS = { open: 'Remove link', ask: 'Remove this link?'
 type Removal = { readonly record: string; readonly part?: string | null }
 const removalKey = (sid: string | null, remove: Removal): string => `${sid}:remove-link:${remove.part == null ? remove.record : `${remove.record}.${remove.part}`}`
 /**
- * Is this line's removal on its way to core now? While it is, the link keeps its ask on screen whatever focus or hover does (Codex delta
- * 4960db98): the edge mounts it on this as well as on selection or focus, so a refusal always has its ask to land in.
+ * Lines whose removal is unsettled: from the press until a refusal has handed focus to Keep, or a success has moved it on. The write runner's
+ * own `sending` ends before the refusal is handled (writes.ts), so it cannot hold the ask open (Codex final delta 21205785).
+ */
+const useUnsettled = create<{ readonly keys: Readonly<Record<string, true>> }>(() => ({ keys: {} }))
+const unsettled = (key: string, on: boolean): void => useUnsettled.setState((s) => {
+  if (on) return { keys: { ...s.keys, [key]: true } }
+  const { [key]: _settled, ...rest } = s.keys
+  return { keys: rest }
+})
+/** For specs. */
+export function resetRemovingLinks(): void { useUnsettled.setState({ keys: {} }) }
+/**
+ * Is this line's removal unsettled? While it is, the link keeps its ask on screen whatever focus or hover does (Codex deltas 4960db98 and
+ * 21205785): the edge mounts it on this as well as on selection or focus, so a refusal always has its ask to land in.
  */
 export function useRemovingLink(remove: Removal | null | undefined): boolean {
   const sid = useViewStore((s) => s.sid)
-  return useWriteSending(remove == null ? '' : removalKey(sid, remove))
+  const key = remove == null ? '' : removalKey(sid, remove)
+  return useUnsettled((s) => s.keys[key] === true)
 }
 
 /**
@@ -55,19 +69,27 @@ export function LinkRemove({ edge, from, remove }: { edge: string; from: string;
     const el = focusTo === 'keep' ? keepRef.current : focusTo === 'open' ? openRef.current : null
     if (el === null) return
     el.focus()
+    if (focusTo === 'keep') unsettled(key, false) // a refusal is handled once Keep has focus
     setFocusTo(null)
-  }, [focusTo, asking, sending])
+  }, [focusTo, asking, sending, key])
+  // Leaving the board settles it too.
+  useEffect(() => () => unsettled(key, false), [key])
   if (sid === null || view === null || at !== null || (!asking && live === null) || !isForThisPage(view, me)) return null
 
   const take = async () => {
     if (sending || base === null) return
     setError(null)
+    unsettled(key, true)
     try {
       const saved = await runWrite(key, { op: true }, { base, ...remove }, (op) => writes.removeLink(sid, base, remove, op!))
       noteEditSaved(saved)
-      const shown = await useViewStore.getState().modelChanged()
+      if (!(await useViewStore.getState().modelChanged())) {
+        setError('Saved, but Olumi could not show it just now. Reload the page to see it.')
+        setFocusTo('keep')
+        return
+      }
       Array.from(document.querySelectorAll<HTMLElement>('.react-flow__node')).find((n) => n.dataset.id === from)?.focus()
-      if (!shown) setError('Saved, but Olumi could not show it just now. Reload the page to see it.')
+      unsettled(key, false)
     } catch (e) {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
       setFocusTo('keep')

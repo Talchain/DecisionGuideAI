@@ -61,16 +61,17 @@ const EditCue = ({ open }: { open: boolean }) => (
 )
 
 /** An option's line for one aim, compact: the aim on the left, core's value and its marks on the right (the crafted value column); the
- *  whole sentence on hover. Core's companion line (how much the chance owes to a suggestion of Olumi's) shows in both: Olumi's part must
- *  stay visible to be challenged. Expert adds the timing line. A long "cannot be worked out" sentence is cut to two lines in Plain until
- *  its row is opened. */
-function OptionLine({ card, row, i, expert, open }: { card: ViewCard; row: ViewRow; i: number; expert: boolean; open: boolean }) {
+ *  whole sentence on hover. A row core gives no chance (`none`) draws its words whole in both views (R25: no cut text). Core's companion
+ *  line (how much the chance owes to a suggestion of Olumi's) shows in both: Olumi's part must stay visible to be challenged. Expert
+ *  adds the timing line. */
+function OptionLine({ card, row, i, expert }: { card: ViewCard; row: ViewRow; i: number; expert: boolean }) {
   const at = `${card.id}.rows.${i}`
   if (row.kind === 'none') {
     const words = row.text ?? row.title
     return (
       <span className={`${typography.viewPanelMeta} block text-text-light`} title={row.title === words ? undefined : row.title} data-view-row={at}>
-        <span className={expert || open ? 'block' : 'line-clamp-2'} title={expert || open ? undefined : words} data-view={row.text == null ? `${at}.title` : `${at}.text`}>{words}</span>
+        {/* R25 (Paul's finish line, no cut text): core's words whole, wrapping, never clamped with the rest on hover only. */}
+        <span data-view={row.text == null ? `${at}.title` : `${at}.text`}>{words}</span>
       </span>
     )
   }
@@ -201,7 +202,7 @@ export function ModelCardRow({ card, number, kind, model }: {
           )}
           {reading === null ? null : <span className={`${typography.viewPanelMeta} mt-0.5 block break-words text-text-light`} data-view={`${card.id}.figure.title`}>{reading}</span>}
           {card.rows.length === 0 ? null : (
-            <span className="mt-1 block space-y-0.5">{card.rows.map((row, i) => <OptionLine key={i} card={card} row={row} i={i} expert={expert} open={open} />)}</span>
+            <span className="mt-1 block space-y-0.5">{card.rows.map((row, i) => <OptionLine key={i} card={card} row={row} i={i} expert={expert} />)}</span>
           )}
           {receipt === null ? null : (
             <span role={receipt.tone === 'failed' ? 'alert' : 'status'} className={`${typography.viewPanelMeta} mt-0.5 block ${receipt.tone === 'failed' ? 'text-danger' : 'text-text-light'}`}
