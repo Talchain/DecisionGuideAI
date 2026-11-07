@@ -12,12 +12,15 @@ import { drawKindOf, linkEndHeading, modelGroupsOf } from '../layout'
 import { MODEL_OUTLINE_LABELS } from '../ViewModelTab'
 import { ViewModelTab } from '../ViewModelTab'
 import { MODEL_ROW_LABELS } from '../model/ModelCardRow'
+import { resetModelTab, useModelTab } from '../model/state'
+import { linkRowOf } from '../model/targets'
+import { authorKeyOf } from '../model/premises'
 import { registerFocusHelpers } from '../../canvas/utils/focusHelpers'
 import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../../canvas/domain/vocabulary'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/european.view.json'), 'utf8'))
 const model = view.model!
-afterEach(cleanup)
+afterEach(() => { cleanup(); try { localStorage.clear() } catch { /* none */ } resetModelTab() })
 
 describe('the Model tab, from the View', () => {
   it('the legacy groups in order; each card in the group its canvas kind says, assumptions and conditions in none', () => {
@@ -116,9 +119,10 @@ describe('the Model tab reads as the previous PoC\'s outline', () => {
 describe('the crafted Model tab, from the View', () => {
   const open = () => { const c = render(<ViewModelTab model={model} />).container; fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!); return c }
 
-  it('catch: a card\'s premises sit behind its own closed disclosure, each in core\'s words under core\'s key word for its glyph; a card with none has none', () => {
+  it('catch (Expert): a card\'s premises sit behind its own closed disclosure, each in core\'s words under core\'s key word for its glyph; a card with none has none', () => {
     const focus = vi.fn()
     const off = registerFocusHelpers(focus, () => undefined)
+    useModelTab.getState().setExpert(true)
     const c = open()
     const card = model.cards.find((k) => k.id === 'broader_entry')!
     expect(card.premises.length).toBeGreaterThan(1)
@@ -143,6 +147,19 @@ describe('the crafted Model tab, from the View', () => {
     expect(c.querySelector(`[data-model-row="${bare.id}"]`)).not.toBeNull()
     expect(c.querySelector(`[data-model-premises-toggle="${bare.id}"]`)).toBeNull()
     off()
+  })
+
+  it('Plain keeps the premises one press away, each with its glyph and core\'s words, without the Expert headings', () => {
+    expect(useModelTab.getState().expert).toBe(false) // Plain on a first visit
+    const c = open()
+    const card = model.cards.find((k) => k.id === 'broader_entry')!
+    fireEvent.click(c.querySelector(`[data-model-premises-toggle="${card.id}"]`)!)
+    card.premises.forEach((p, i) => {
+      const item = c.querySelector(`[data-view-premise="${card.id}.premises.${i}"]`)!
+      expect(item.querySelector(`[data-view="${card.id}.premises.${i}.text"]`)?.textContent, `premise ${i}`).toBe(p.text)
+      expect(item.textContent, `premise ${i}`).toBe(`${p.glyph}${p.text}`)
+    })
+    expect(c.querySelector(`[data-model-premises="${card.id}"] [data-view-key]`)).toBeNull() // CONTRAST: no Expert headings
   })
 
   it('catch: Olumi\'s mark sits on the figure it marks, once, with core\'s hover; an unmarked figure carries none; the key names only marks on screen', () => {
@@ -229,6 +246,15 @@ describe('the Model tab: an option row core gives no chance keeps its words whol
 })
 
 
+describe('the Model tab: the question at its head is drawn whole', () => {
+  it('catch (R25, no cut text): the question is core\'s words whole, with no clamp on it or around it (the restyle of 3a576eb6 had cut it to two lines)', () => {
+    const c = render(<ViewModelTab model={model} />).container
+    const q = c.querySelector('[data-testid="view-model-question"] [data-view="model.question.text"]')!
+    expect(q.textContent).toBe(model.question.text)
+    for (let a: Element | null = q; a !== null && a !== c; a = a.parentElement) expect(a.className).not.toMatch(/line-clamp|truncate/)
+  })
+})
+
 // UI audit of cc75a10a (7 Nov): the key names only the marks drawn; the deliberate Model-tab changes are bound by identity, so reverting
 // either goes red.
 describe('the key, and what the Model tab deliberately does not draw', () => {
@@ -241,6 +267,43 @@ describe('the key, and what the Model tab deliberately does not draw', () => {
     expect(c.querySelector('[data-testid="view-model-key"]')).toBeNull()
     fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
     expect(keyTexts(c)).toContain(`${olumi.glyph} ${olumi.text}`)
+  })
+
+  it('catch (UI review of ddaedeed): in every state the key is exactly the key of the rows on screen: first open, each group alone, each pair, all open, every heading as a filter', () => {
+    // Two Views: the european golden (◆ only) and the hosting wire, where ◐ sits on a Factors row that is not the group's first, so a key
+    // read from fewer rows or groups than are drawn (a first row, a first group) or from more (an open group's hidden cards) names the wrong marks.
+    const hosting: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real/hosting.view3.json'), 'utf8'))
+    for (const [name, m, words] of [['european', model, ['customers', 'investment', 'threshold']], ['hosting', hosting.model!, []]] as const) {
+      cleanup()
+      const c = render(<ViewModelTab model={m} />).container
+      const keyIds = () => [...c.querySelectorAll('[data-testid="view-model-key"] [data-view-key]')].map((k) => k.getAttribute('data-view-key'))
+      const onScreen = () => {
+        const ids = new Set([...c.querySelectorAll('[data-model-row]')].map((r) => r.getAttribute('data-model-row')))
+        return m.cards.filter((k) => ids.has(k.id))
+      }
+      const seen = new Set<string>()
+      const holds = (state: string) => {
+        const want = authorKeyOf(m, onScreen()).map((k) => k.id)
+        expect(keyIds(), `${name}: ${state}`).toEqual(want)
+        seen.add(want.join(','))
+      }
+      const toggle = (id: string) => fireEvent.click(c.querySelector(`[data-model-group-toggle="${id}"]`)!)
+      holds('first open')
+      const groups = [...c.querySelectorAll('[data-model-group-toggle]')].map((t) => t.getAttribute('data-model-group-toggle')!)
+      expect(groups.length).toBeGreaterThan(3)
+      for (const id of groups) { toggle(id); holds(`${id} alone`); toggle(id) }
+      for (const [x, y] of groups.flatMap((g, i) => groups.slice(i + 1).map((h) => [g, h] as const))) { toggle(x); toggle(y); holds(`${x} with ${y}`); toggle(x); toggle(y) }
+      fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+      holds('all open')
+      for (const text of [...words, ...m.cards.map((k) => k.heading), 'zzz no such card']) {
+        fireEvent.change(c.querySelector('[data-testid="view-model-filter"]')!, { target: { value: text } })
+        holds(`filter "${text}"`)
+      }
+      // CONTRAST: the states differ in the marks they draw, so the rule is exercised, never trivially empty or trivially full.
+      expect(seen.has(''), name).toBe(true)
+      expect(seen.has('olumi'), name).toBe(true)
+      if (name === 'hosting') expect([...seen].some((k) => k.includes('partly_olumi')) && [...seen].some((k) => k === 'olumi')).toBe(true)
+    }
   })
 
   it('catch: a filter that hides every marked card leaves no key; one that shows a marked card brings it back', () => {
@@ -256,7 +319,7 @@ describe('the key, and what the Model tab deliberately does not draw', () => {
     expect(keyTexts(c)).toContain(`${olumi.glyph} ${olumi.text}`)
   })
 
-  it('catch: an option row draws no companion or timing line (they stay the Analysis tab\'s), even where core sends them', () => {
+  it('catch: an option row\'s companion line shows in Plain and in Expert (Olumi\'s part stays visible to be challenged); its timing line only in Expert', () => {
     // ⚠ LABELLED FIXTURE: no golden carries a companion or timing line on a Model-tab option, so one chance row is given both.
     const withLines = structuredClone(model)
     const option = withLines.cards.find((k) => k.family === 'option' && k.rows.some((r) => r.kind === 'chance'))!
@@ -264,25 +327,32 @@ describe('the key, and what the Model tab deliberately does not draw', () => {
     Object.assign(option.rows[i]!, { companion: 'about 50% without it', companion_title: 'x', timing: 'by month 6', timing_title: 'y' })
     const c = render(<ViewModelTab model={withLines} />).container
     fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
-    expect(c.querySelector(`[data-view-row="${option.id}.rows.${i}"]`)).not.toBeNull()
-    expect(c.querySelector(`[data-view="${option.id}.rows.${i}.companion"]`)).toBeNull()
-    expect(c.querySelector(`[data-view="${option.id}.rows.${i}.timing"]`)).toBeNull()
-    expect(c.querySelector('[data-view$=".companion"], [data-view$=".timing"]')).toBeNull()
+    const at = `${option.id}.rows.${i}`
+    const line = (what: string) => c.querySelector(`[data-view-row="${at}"] [data-view="${at}.${what}"]`)
+    expect(useModelTab.getState().expert).toBe(false)
+    expect(line('companion')?.textContent).toBe('about 50% without it')
+    expect(line('timing')).toBeNull()
+    fireEvent.click(c.querySelector('[data-model-expert-arm="expert"]')!)
+    expect(line('companion')?.textContent).toBe('about 50% without it')
+    expect(line('timing')?.textContent).toBe('by month 6')
   })
 
-  it('catch: a link\'s label is a mark after its words, on its first line; its strength is line 2, outside that line', () => {
+  it('catch: a link\'s label is a mark after its words, on its first line; its strength (Expert) is line 2, outside that line', () => {
     // ⚠ LABELLED FIXTURE: no golden has a labelled link with a strength, so the first labelled link is given one.
     const sized = structuredClone(model)
     const k = sized.links.findIndex((l) => l.label !== '')
     sized.links[k] = { ...sized.links[k]!, effect: { text: '1.5 to 2', title: 'z', figure: 'starting_customers' } }
     const c = render(<ViewModelTab model={sized} />).container
     fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
-    const line = c.querySelector(`[data-model-link-line="links.${k}"]`)!
+    const line = c.querySelector(`[data-model-link-line="${linkRowOf(sized, k)}"]`)!
     const label = line.querySelector(`[data-view="links.${k}.label"]`)!
     expect(label.textContent).toBe(sized.links[k]!.label)
     // After its words: the label's text follows the link's "to" heading, and nothing of the line follows the label.
     expect(line.textContent!.endsWith(`${linkEndHeading(sized, sized.links[k]!.to)}\u00a0${sized.links[k]!.label}`)).toBe(true)
+    expect(c.querySelector(`[data-view="links.${k}.effect.text"]`)).toBeNull() // Plain: the strength is Expert's
+    fireEvent.click(c.querySelector('[data-model-expert-arm="expert"]')!)
     const strength = c.querySelector(`[data-view="links.${k}.effect.text"]`)!
+    expect(line.isConnected).toBe(true)
     expect(line.contains(strength)).toBe(false)
     expect(strength.className).toContain('block')
     expect(line.compareDocumentPosition(strength) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
