@@ -8,7 +8,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, useStore, type EdgeProps } from '@xyflow/react'
 import { linkWordsAt } from './linkWordsPlace'
-import { railOf, railSlots } from './linkRail'
+import { railOf, railSlots, railWordsAt } from './linkRail'
 import type { ViewLink } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { linkDrawn } from '../../olumiView/layout'
@@ -53,7 +53,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const rail = from && to ? railOf(from, to, cards, slot) : null
   const [bezier, midX, midY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
   const path = rail?.path ?? bezier
-  const { x, y } = rail ?? linkWordsAt(path, cards, size, { x: midX, y: midY })
+  const { x, y } = rail ? railWordsAt(rail, size, cards) : linkWordsAt(path, cards, size, { x: midX, y: midY })
   const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
   return (
     <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>

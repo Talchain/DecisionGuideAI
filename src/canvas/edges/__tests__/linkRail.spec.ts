@@ -4,7 +4,7 @@
  * through any card but its two ends; every other link keeps its curve.
  */
 import { describe, expect, it } from 'vitest'
-import { RAIL_GAP, RAIL_STEP, railOf, railSlots, type Box } from '../linkRail'
+import { RAIL_GAP, RAIL_STEP, railOf, railSlots, railWordsAt, type Box } from '../linkRail'
 
 // Paul's board shape at 1.0: two aims beside the question; options; drivers; outcomes and risks in one row (the outcome row).
 const aimL = { x: 243, y: 0, w: 220, h: 115 }, question = { x: 479, y: 0, w: 272, h: 145 }, aimR = { x: 767, y: 0, w: 220, h: 192 }
@@ -36,10 +36,31 @@ describe('a link into an aim beside the question runs round the board, through n
       for (const p of points(r.path)) for (const c of others) expect(inside(p, c), `${JSON.stringify(p)} in ${JSON.stringify(c)}`).toBe(false)
     }
   })
-  it('the rail is outside the board on the aim\'s side, and its words sit on it, off every card', () => {
+  it('the rail is outside the board on the aim\'s side', () => {
     const right = Math.max(...cards.map((c) => c.x + c.w)), r = railOf(outcomeR, aimR, cards)!
     expect(r.x).toBe(right + RAIL_GAP)
-    expect(cards.some((c) => inside({ x: r.x, y: r.y }, c))).toBe(false)
+  })
+  // PL 7 Nov: the words' measured box, not a point, must clear every card (a box wider than the rail's room reached the edge cards).
+  const overlaps = (p: { x: number; y: number }, s: { w: number; h: number }, c: Box) =>
+    p.x - s.w / 2 < c.x + c.w && p.x + s.w / 2 > c.x && p.y - s.h / 2 < c.y + c.h && p.y + s.h / 2 > c.y
+  it('catch: on every rail, in its first two slots, a wide two-line label\'s box intersects no card', () => {
+    const size = { w: 120, h: 36 }
+    for (const [from, to] of [[outcomeR, aimR], [outcomeL, aimL], [riskB, aimR]] as const) for (const slot of [0, 1]) {
+      const r = railOf(from, to, cards, slot)!, p = railWordsAt(r, size, cards)
+      for (const c of cards) expect(overlaps(p, size, c), `slot ${slot} ${JSON.stringify(p)} over ${JSON.stringify(c)}`).toBe(false)
+    }
+  })
+  it('catch: where cards line the board\'s edge the whole way up, the box moves out past the edge, still across its rail', () => {
+    // A column at the right edge with no gap from the aims' row down to the outcome row: no point of the climb is clear.
+    const wall = [{ x: 1000, y: 0, w: 127, h: 630 }, { x: 907, y: 630, w: 220, h: 600 }]
+    const board = [aimL, question, aimR, option, outcomeL, riskB, ...wall, { ...outcomeR, y: 1230 }]
+    const size = { w: 120, h: 36 }, r = railOf(board[7]!, aimR, board)!, p = railWordsAt(r, size, board)
+    for (const c of board) expect(overlaps(p, size, c), `${JSON.stringify(p)} over ${JSON.stringify(c)}`).toBe(false)
+    expect(p.x - size.w / 2 < r.x && r.x < p.x + size.w / 2).toBe(true)
+  })
+  it('must not change: a small label stays on its rail at the middle of the climb', () => {
+    const r = railOf(outcomeR, aimR, cards)!
+    expect(railWordsAt(r, { w: 20, h: 20 }, cards)).toEqual({ x: r.x, y: r.y })
   })
   it('catch: two links into the same side get their own rails, in the order of their sources across the board', () => {
     const links = [{ id: 'a', from: outcomeR, to: aimR }, { id: 'b', from: outcomeR2, to: aimR }]
