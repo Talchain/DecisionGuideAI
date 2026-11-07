@@ -61,7 +61,7 @@ const draw = (v: View = view) => {
 }
 
 describe('a figure is changed where it stands', () => {
-  it('catch: ✎ sits at rest on a figure core lets the person set, and on none it does not (a worked-out figure)', () => {
+  it('catch: a figure core lets the person set carries ✎ (shown on hover, focus and an open row), and a worked-out figure does not', () => {
     const c = draw()
     expect(c.querySelector(`[data-model-value-edit="${figure.id}"] [data-model-edit-cue]`)).not.toBeNull()
     expect(c.querySelector(`[data-model-row="${derived.id}"] [data-model-edit-cue]`)).toBeNull() // CONTRAST
@@ -183,6 +183,16 @@ describe('a row opens its detail', () => {
     expect([...detail.querySelectorAll('[data-model-action]')].map((a) => a.getAttribute('data-model-action'))).toEqual(['figure', 'rename', 'canvas'])
     expect(c.querySelector(`[data-model-select="${figure.id}"]`)?.getAttribute('aria-expanded')).toBe('true')
     fireEvent.click(c.querySelector(`[data-model-select="${figure.id}"]`)!)
+    expect(c.querySelector(`[data-model-detail="${figure.id}"]`)).toBeNull()
+  })
+
+  it('the name is a keyboard control: Enter opens the row\'s detail, Space closes it', () => {
+    const c = draw()
+    const name = c.querySelector(`[data-model-select="${figure.id}"]`)!
+    expect([name.getAttribute('role'), name.getAttribute('tabindex')]).toEqual(['button', '0'])
+    fireEvent.keyDown(name, { key: 'Enter' })
+    expect(c.querySelector(`[data-model-detail="${figure.id}"]`)).not.toBeNull()
+    fireEvent.keyDown(name, { key: ' ' })
     expect(c.querySelector(`[data-model-detail="${figure.id}"]`)).toBeNull()
   })
 

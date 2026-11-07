@@ -68,8 +68,8 @@ function Group({ id, title, count, open, onToggle, mark, children }: { id: Group
 }
 
 /**
- * Plain | Expert: the crafted tab's one detail switch, drawn as the lane's own segmented control (the lens bar's radiogroup recipe,
- * `ViewLensBar.tsx`): arrow keys move along it, the chosen arm is the only one in the tab order.
+ * Plain | Expert: the crafted tab's one detail switch, in its own look (legacy `ModelTabV2Panel`: a pill pair, the chosen arm filled), with
+ * the lens bar's keyboard (`ViewLensBar.tsx`): arrow keys move along it, the chosen arm is the only one in the tab order.
  */
 function ExpertSwitch() {
   const expert = useModelTab((s) => s.expert)
@@ -80,8 +80,8 @@ function ExpertSwitch() {
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); choose(true) }
     if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); choose(false) }
   }
-  const arm = (on: boolean) => `${typography.viewPanelMeta} inline-flex h-7 items-center rounded-full border px-2.5 transition-colors duration-fast ${ACTION_FOCUS} ${on
-    ? 'border-panel-border bg-[var(--panel-tab-active-bg)] text-text-header' : 'border-transparent text-text-light hover:text-text-body'}`
+  const arm = (on: boolean) => `${typography.viewPanelMeta} inline-flex h-7 items-center rounded-full px-2.5 transition-colors duration-fast ${ACTION_FOCUS} ${on
+    ? 'bg-primary text-text-on-color' : 'text-text-light hover:text-text-body'}`
   return (
     <div role="radiogroup" aria-label={MODEL_EDIT_WORDS.detail} onKeyDown={onKey} data-testid="view-model-expert"
       className="inline-flex flex-none items-center gap-0.5 rounded-full border border-panel-border bg-panel p-0.5">
@@ -117,8 +117,8 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
       </div>
       <input type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={MODEL_OUTLINE_LABELS.filter} aria-label={MODEL_OUTLINE_LABELS.filterName}
         data-testid="view-model-filter" className={`${typography.viewPanelBody} w-full min-w-0 rounded-md border border-field bg-panel px-3 py-1.5 text-text-body placeholder:text-text-light ${ACTION_FOCUS}`} />
-      <p className="m-0 py-1" data-testid="view-model-question">
-        <span className={`${typography.viewPanelMeta} text-text-light`}>{MODEL_OUTLINE_LABELS.question}</span>{' '}
+      <p className="m-0 line-clamp-2 py-1" title={model.question.text} data-testid="view-model-question">
+        <span className={`${typography.viewPanelMeta} font-medium text-text-body`}>{MODEL_OUTLINE_LABELS.question}</span>{' '}
         <span className="text-text-header" data-view="model.question.text">{model.question.text}</span>
       </p>
       <HeldNotice />

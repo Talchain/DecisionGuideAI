@@ -30,10 +30,10 @@ function Section({ title, children, at }: { title: string; children: ReactNode; 
   return <section aria-label={title} data-model-detail-section={at}><h4 className={SECTION}>{title}</h4>{children}</section>
 }
 
-/** A detail action: the lane's secondary chip with its icon (one filled control per view: the open editor's Save). */
+/** A detail action, as the crafted tab's group actions were: a quiet text action with its icon, never a boxed chip. */
 function Action({ icon, label, onPress, at }: { icon: ReactNode; label: string; onPress: () => void; at: string }) {
   return (
-    <button type="button" onClick={(e) => { e.stopPropagation(); onPress() }} className={`${RECIPE.action} gap-1.5`} data-model-action={at}>
+    <button type="button" onClick={(e) => { e.stopPropagation(); onPress() }} className={RECIPE.action} data-model-action={at}>
       {icon}<span>{label}</span>
     </button>
   )
@@ -109,9 +109,9 @@ export function CardDetail({ model, card }: { model: ViewModel; card: ViewCard }
   const canEdit = base !== null
   const target = canEdit ? targetCardOf(model, card) : null
   return (
-    <div id={`model-detail-${card.id}`} role="region" aria-label={card.heading} className="mb-2 ml-8 mr-2 mt-1 space-y-3" data-model-detail={card.id}
+    <div id={`model-detail-${card.id}`} role="region" aria-label={card.heading} className="mb-2 ml-8 mr-2 mt-0.5 space-y-2.5" data-model-detail={card.id}
       onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); useModelTab.getState().toggle(card.id) } }}>
-      <div className="flex flex-wrap gap-1.5" data-model-actions={card.id}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5" data-model-actions={card.id}>
         {canEdit && card.figure?.edit != null ? <Action at="figure" icon={<Pencil aria-hidden="true" className={ICON} />} label={W.changeFigure} onPress={() => edit({ row: card.id, what: 'figure', quantity: card.id })} /> : null}
         {target === null ? null : <Action at="target" icon={<Pencil aria-hidden="true" className={ICON} />} label={card.family === 'limit' ? W.changeLimit : W.changeTarget} onPress={() => edit({ row: card.id, what: 'figure', quantity: target.id })} />}
         {canEdit ? <Action at="rename" icon={<Type aria-hidden="true" className={ICON} />} label={W.rename} onPress={() => edit({ row: card.id, what: 'rename' })} /> : null}
@@ -134,7 +134,7 @@ export function LinkDetail({ model, link, i }: { model: ViewModel; link: ViewLin
   return (
     <div id={`model-detail-${row}`} role="region" aria-label={`${linkEndHeading(model, link.from)} → ${linkEndHeading(model, link.to)}`} className="mb-2 ml-8 mr-2 mt-1 space-y-3" data-model-detail={row}
       onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); useModelTab.getState().toggle(row) } }}>
-      <div className="flex flex-wrap gap-1.5" data-model-actions={row}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5" data-model-actions={row}>
         {strength === null ? null : <Action at="strength" icon={<Pencil aria-hidden="true" className={ICON} />} label={W.changeStrength} onPress={() => edit({ row, what: 'figure', quantity: strength.id })} />}
         <Action at="from" icon={<ArrowLeft aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.from)} onPress={() => focusNodeById(link.from)} />
         <Action at="to" icon={<ArrowRight aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.to)} onPress={() => focusNodeById(link.to)} />

@@ -10,15 +10,14 @@
  *   hands focus back to what opened the editor;
  * - an editor closes only itself, and a refusal that lands after its editor left the screen (a group closed, a filter typed) is said on its
  *   row instead (review a4d73faf);
- * - 14px entry and 44px targets (DS v5 §2.1; the lane's main-target floor), `border-field` (the control border that renders); one filled
- *   control while an editor is open: its own Save.
+ * - the crafted tab's look (Paul 7 Nov: "the previous model tab was better looking"): a compact 14px field (DS v5 §2.1), its Save a small
+ *   filled pill, the other choices text actions, as legacy "Review change" / "Discard" were; `border-field`, the control border that renders.
  *
  * Every label is core's (`figure.edit.prompt`) or UI chrome (`MODEL_EDIT_WORDS`). Nothing typed is read, converted or rounded here.
  */
 import { useEffect, useRef, useState } from 'react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
-import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../../v5/blocks/chipClass'
 import { useUIStore } from '../../stores/uiStore'
 import { TeamApiError } from '../../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../../olumiCore/team/writes'
@@ -31,11 +30,11 @@ import { useModelTab, type Editing } from './state'
 
 /** The tab's control recipes, from the lane's own (chipClass, AddFigure): one name per role, so no control is styled twice. */
 export const RECIPE = {
-  primary: VIEW_CHIP_PRIMARY_CLASS,
-  secondary: VIEW_CHIP_CLASS.replace('min-h-[28px]', 'min-h-[44px]'),
-  action: VIEW_CHIP_CLASS,
-  quiet: `${typography.viewPanelBody} inline-flex min-h-[44px] cursor-pointer items-center px-2 text-text-light underline underline-offset-2 hover:text-text-body disabled:opacity-40 ${ACTION_FOCUS}`,
-  input: `${typography.viewPanelBody} w-full min-h-[44px] rounded-md border border-field bg-panel px-3 text-text-body placeholder:text-text-light read-only:opacity-70 ${ACTION_FOCUS}`,
+  primary: `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-full bg-primary px-3 text-text-on-color hover:bg-primary/90 disabled:cursor-default disabled:opacity-40 ${ACTION_FOCUS}`,
+  secondary: `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-full px-1.5 text-info hover:underline disabled:cursor-default disabled:opacity-40 ${ACTION_FOCUS}`,
+  action: `${typography.viewPanelMeta} inline-flex min-h-[24px] cursor-pointer items-center gap-1 rounded-sm text-info hover:underline ${ACTION_FOCUS}`,
+  quiet: `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-sm px-1 text-text-light hover:text-text-body hover:underline disabled:opacity-40 ${ACTION_FOCUS}`,
+  input: `${typography.viewPanelBody} h-9 w-full rounded-md border border-field bg-panel px-2.5 text-text-body placeholder:text-text-light read-only:opacity-70 ${ACTION_FOCUS}`,
   label: `${typography.viewPanelMeta} block text-text-light`,
   error: `${typography.viewPanelMeta} m-0 text-danger`,
   status: `${typography.viewPanelMeta} m-0 text-text-light`,
@@ -134,7 +133,7 @@ export function FigureEditor({ row, quantity, edit }: { row: string; quantity: s
       <input ref={field} id={id} autoFocus autoComplete="off" spellCheck={false} value={typed} readOnly={sending} data-model-editor-input={row}
         onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }} className={`${RECIPE.input} tabular-nums`} />
       {error === null ? null : <p role="alert" className={RECIPE.error} data-model-editor-error={row}>{error}</p>}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <button type="submit" disabled={blank || !offered} aria-disabled={sending || undefined} className={`${RECIPE.primary} ${sending ? 'opacity-60' : ''}`} data-model-editor-save={row}>{W.setFigure}</button>
         <button type="button" disabled={blank || trying || !offered} aria-disabled={sending || undefined} onClick={() => void tryIt()} className={RECIPE.secondary} data-model-editor-try={row}>{W.tryIt}</button>
         <button type="button" aria-disabled={sending || undefined} onClick={() => { if (!sending) cancel() }} className={RECIPE.quiet} data-model-editor-cancel={row}>{W.cancel}</button>
@@ -172,7 +171,7 @@ export function RenameEditor({ row, heading }: { row: string; heading: string })
       <input ref={field} id={id} autoFocus autoComplete="off" maxLength={120} value={typed} readOnly={sending} data-model-renamer-input={row}
         onFocus={(e) => e.currentTarget.select()} onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }} className={RECIPE.input} />
       {error === null ? null : <p role="alert" className={RECIPE.error} data-model-renamer-error={row}>{error}</p>}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <button type="submit" disabled={label === '' || !offered} aria-disabled={sending || undefined} className={`${RECIPE.primary} ${sending ? 'opacity-60' : ''}`} data-model-renamer-save={row}>{W.saveName}</button>
         <button type="button" aria-disabled={sending || undefined} onClick={() => { if (!sending) cancel() }} className={RECIPE.quiet}>{W.cancel}</button>
       </div>

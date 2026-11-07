@@ -54,8 +54,11 @@ function AuthorMark({ card }: { card: ViewCard }) {
   )
 }
 
-/** ✎, the at-rest cue that a figure can be changed (the canvas card's own, R25). */
-const EditCue = () => <Pencil aria-hidden="true" data-model-edit-cue="" className="ml-1.5 inline h-3.5 w-3.5 flex-none align-middle text-info" />
+/** ✎, the cue that a figure can be changed: shown on the row's hover, on focus, and while its row is open, in the quiet grey of the row's
+ *  other marks (the crafted tab showed no pencils at rest; Paul 7 Nov: "the previous model tab was better looking"). */
+const EditCue = ({ open }: { open: boolean }) => (
+  <Pencil aria-hidden="true" data-model-edit-cue="" className={`ml-1.5 inline h-3.5 w-3.5 flex-none align-middle text-text-light transition-opacity duration-fast ${open ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'}`} />
+)
 
 /** An option's line for one aim, compact: the aim on the left, core's value and its marks on the right (the crafted value column); the
  *  whole sentence on hover. Core's companion line (how much the chance owes to a suggestion of Olumi's) shows in both: Olumi's part must
@@ -160,12 +163,15 @@ export function ModelCardRow({ card, number, kind, model }: {
             <span className="flex items-baseline gap-1.5">
               {number === null ? null : <span className={`${typography.viewPanelMeta} flex-none tabular-nums text-text-light`} data-model-row-number={card.id}>{number}</span>}
               <span className="min-w-0 break-words text-text-header">
-                <button type="button" aria-expanded={open} aria-controls={open ? `model-detail-${card.id}` : undefined} data-model-select={card.id}
+                {/* A real inline control (role=button, Enter and Space), not a <button>: a browser lays a <button> out as inline-block, so a long
+                    name wrapped as one block and its number dropped to the name's last line. */}
+                <span role="button" tabIndex={0} aria-expanded={open} aria-controls={open ? `model-detail-${card.id}` : undefined} data-model-select={card.id}
                   onClick={(e) => { e.stopPropagation(); select() }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); select() } }}
                   onDoubleClick={canEdit ? (e) => { e.stopPropagation(); useModelTab.getState().edit({ row: card.id, what: 'rename' }) } : undefined}
-                  className={`inline cursor-pointer rounded-sm text-left ${ACTION_FOCUS}`}>
+                  className={`cursor-pointer rounded-sm ${ACTION_FOCUS}`}>
                   <span title={card.detail === '' ? undefined : card.detail} data-view={`${card.id}.heading`}>{card.heading}</span>
-                </button>
+                </span>
                 {onFigure ? null : <><CoreMark at={`${card.id}.olumi`} mark={card.olumi} /><AuthorMark card={card} /></>}
                 <CoreMark at={`${card.id}.change`} mark={card.change} />
               </span>
@@ -180,7 +186,7 @@ export function ModelCardRow({ card, number, kind, model }: {
           ) : (
             <button type="button" onClick={(e) => { e.stopPropagation(); editFigure(target.id) }} title={card.bound.title} data-model-value-edit={card.id}
               className={`${typography.viewPanelTabular} mt-0.5 block min-h-[24px] cursor-pointer rounded-sm text-left text-text-body hover:text-text-header ${ACTION_FOCUS}`}>
-              <span className="sr-only">{card.family === 'limit' ? W.changeLimit : W.changeTarget}: </span><span data-view={`${card.id}.bound.text`}>{card.bound.text}</span><CoreMark at={`${card.id}.bound.olumi`} mark={card.bound.olumi} /><EditCue />
+              <span className="sr-only">{card.family === 'limit' ? W.changeLimit : W.changeTarget}: </span><span data-view={`${card.id}.bound.text`}>{card.bound.text}</span><CoreMark at={`${card.id}.bound.olumi`} mark={card.bound.olumi} /><EditCue open={open} />
             </button>
           )}
           {card.figure === null ? null : figureEdit === null ? (
@@ -190,7 +196,7 @@ export function ModelCardRow({ card, number, kind, model }: {
           ) : (
             <button type="button" onClick={(e) => { e.stopPropagation(); editFigure(card.id) }} title={card.figure.title} data-model-value-edit={card.id}
               className={`${typography.viewPanelTabular} mt-0.5 block min-h-[24px] cursor-pointer break-words rounded-sm text-left text-text-body hover:text-text-header ${ACTION_FOCUS}`}>
-              <span className="sr-only">{W.changeFigure}: </span><span data-view={`${card.id}.figure.text`}>{card.figure.text}</span><CoreMark at={`${card.id}.olumi`} mark={card.olumi} /><AuthorMark card={card} /><EditCue />
+              <span className="sr-only">{W.changeFigure}: </span><span data-view={`${card.id}.figure.text`}>{card.figure.text}</span><CoreMark at={`${card.id}.olumi`} mark={card.olumi} /><AuthorMark card={card} /><EditCue open={open} />
             </button>
           )}
           {reading === null ? null : <span className={`${typography.viewPanelMeta} mt-0.5 block break-words text-text-light`} data-view={`${card.id}.figure.title`}>{reading}</span>}
