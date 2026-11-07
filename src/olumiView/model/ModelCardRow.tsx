@@ -163,7 +163,7 @@ export function ModelCardRow({ card, number, kind, model }: {
                 <button type="button" aria-expanded={open} aria-controls={open ? `model-detail-${card.id}` : undefined} data-model-select={card.id}
                   onClick={(e) => { e.stopPropagation(); select() }}
                   onDoubleClick={canEdit ? (e) => { e.stopPropagation(); useModelTab.getState().edit({ row: card.id, what: 'rename' }) } : undefined}
-                  className={`cursor-pointer rounded-sm text-left ${ACTION_FOCUS}`}>
+                  className={`inline cursor-pointer rounded-sm text-left ${ACTION_FOCUS}`}>
                   <span title={card.detail === '' ? undefined : card.detail} data-view={`${card.id}.heading`}>{card.heading}</span>
                 </button>
                 {onFigure ? null : <><CoreMark at={`${card.id}.olumi`} mark={card.olumi} /><AuthorMark card={card} /></>}
