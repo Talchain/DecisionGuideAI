@@ -23,13 +23,24 @@
     "withheld": "Not worked out",
     "driver": "Moves most with",
     "changes": "What would change it",
-    "committed": "Committed to by",
+    "committed": "Committed",
+    "owner": "owner",
+    "recorded": "recorded by",
     "assumptions": "Key assumptions",
     "figures": "Figures the chances rest on",
+    "prerequisites": "What must hold",
+    "challenges": "Challenges raised",
+    "risks": "Risks in the model",
+    "not_applied": "Not applied in the calculation",
     "evidence": "Evidence",
     "disagreements": "Disagreements, as they stand",
     "confirmed": "Confirmed by the holder",
     "tell": "What would tell them they are wrong",
+    "kept_open": "Kept open by",
+    "keeps": "Keeps open",
+    "the_question": "the question",
+    "not_in_version": "a card not in this version",
+    "unclear": "unclear about",
     "views": "Views shared",
     "commitments": "Commitments and what they expect",
     "expect": "Expected",
@@ -37,12 +48,17 @@
     "reconsider": "Reconsider if",
     "review_on": "Review on",
     "outcomes": "What happened",
+    "reconsidered": "what would make us reconsider happened",
+    "verdict": "Verdict on",
+    "verdict_resolved": "resolved",
+    "verdict_partly_right": "partly right",
+    "verdict_not_yet_known": "not yet known",
     "missing": "What is missing or left out",
     "left_out": "Left out of the model",
+    "unsized": "Risks with no size yet",
     "empty": "None recorded",
-    "theirs": "their figure",
-    "olumi": "Olumi’s estimate",
-    "mixed": "their figure, Olumi’s range",
+    "legend_olumi": "◆ marks what Olumi proposed, or what rests on Olumi’s proposals.",
+    "legend_mixed": "◐ marks a person’s figure that Olumi read as a range.",
     "footer": "Model-relative findings for further reasoning, from the saved version named above. Olumi proposes; the team authors and decides."
   },
   "chances": {
@@ -105,7 +121,8 @@
           "text": "For 'Evening classes' to meet 'Take £2,640 a month' more often than not, 'evening extra' would have to be above about 19.7 classes/month (between 18.3 and 20.8 classes/month)."
         }
       ],
-      "committed": null
+      "committed": null,
+      "status": null
     },
     {
       "id": "weekend_workshops",
@@ -138,7 +155,8 @@
       ],
       "driver": null,
       "changes": [],
-      "committed": null
+      "committed": null,
+      "status": null
     },
     {
       "id": "carry_on",
@@ -165,7 +183,8 @@
       ],
       "driver": null,
       "changes": [],
-      "committed": null
+      "committed": null,
+      "status": null
     }
   ],
   "assumptions": [
@@ -196,9 +215,11 @@
       "id": "workshop_extra",
       "label": "workshop extra",
       "text": null,
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
     }
   ],
+  "risks": [],
   "evidence": [],
   "disagreements": [
     {
@@ -231,14 +252,14 @@
         },
         {
           "id": "evening_mood",
-          "text": "‘evening_mood’",
-          "title": "evening_mood",
+          "text": "‘Evening classes → How members feel’",
+          "title": "Evening classes → How members feel",
           "unknown": null
         },
         {
           "id": "mood_members",
-          "text": "‘mood_members’",
-          "title": "mood_members",
+          "text": "‘How members feel → members’",
+          "title": "How members feel → members",
           "unknown": null
         }
       ]
@@ -295,17 +316,6 @@
       "parts": [
         {
           "text": "Each option in this model, on current information",
-          "strong": false,
-          "href": null,
-          "mark": null
-        }
-      ]
-    },
-    {
-      "tag": "p",
-      "parts": [
-        {
-          "text": "In this model, on current information, each option’s chance of ‘Take £2,640 a month’:",
           "strong": false,
           "href": null,
           "mark": null
@@ -604,6 +614,17 @@
       ]
     },
     {
+      "tag": "h3",
+      "parts": [
+        {
+          "text": "Challenges raised",
+          "strong": false,
+          "href": null,
+          "mark": null
+        }
+      ]
+    },
+    {
       "tag": "li",
       "parts": [
         {
@@ -761,12 +782,6 @@
           "mark": null
         },
         {
-          "text": " — No one can measure how members feel yet; repeat bookings might show it.",
-          "strong": false,
-          "href": null,
-          "mark": null
-        },
-        {
           "text": ", which no one can size yet (No one can measure how members feel yet; repeat bookings might show it)",
           "strong": false,
           "href": null,
@@ -778,13 +793,7 @@
       "tag": "li",
       "parts": [
         {
-          "text": "‘evening_mood’",
-          "strong": false,
-          "href": null,
-          "mark": null
-        },
-        {
-          "text": " — evening_mood",
+          "text": "‘Evening classes → How members feel’",
           "strong": false,
           "href": null,
           "mark": null
@@ -795,13 +804,18 @@
       "tag": "li",
       "parts": [
         {
-          "text": "‘mood_members’",
+          "text": "‘How members feel → members’",
           "strong": false,
           "href": null,
           "mark": null
-        },
+        }
+      ]
+    },
+    {
+      "tag": "meta",
+      "parts": [
         {
-          "text": " — mood_members",
+          "text": "◆ marks what Olumi proposed, or what rests on Olumi’s proposals.",
           "strong": false,
           "href": null,
           "mark": null

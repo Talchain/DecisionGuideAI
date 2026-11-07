@@ -32,7 +32,7 @@ function Part({ part }: { part: SummaryPart }) {
   return (
     <>
       {part.strong ? <b className="font-medium">{words}</b> : words}
-      {part.mark === null ? null : <span title={part.mark.title} aria-label={part.mark.title}> {part.mark.glyph}</span>}
+      {part.mark === null ? null : <>{' '}<span role="img" title={part.mark.title} aria-label={part.mark.title}>{part.mark.glyph}</span></>}
     </>
   )
 }
@@ -59,16 +59,30 @@ export function SummaryPage({ sid, at, onClose }: { sid: string; at: number | nu
   const closeRef = useRef<HTMLButtonElement>(null)
   // The person the page is for: each read is bound to them, and a change of person reads again (summary.ts readSummary).
   const person = useMe((s) => s.me?.id ?? null)
+  // Showing the latest: the latest saved version's number, so a newer save reads again rather than leaving an older version as current.
+  const latest = useViewStore((s) => (at === null ? s.view?.version?.n ?? null : null))
   useEffect(() => {
     let live = true
     setState(null)
     readSummary(sid, at, person).then((summary) => { if (live) setState({ summary }) }, (e: unknown) => { if (live) setState({ error: e instanceof Error && e.message !== '' ? e.message : SUMMARY_FAILED }) })
     return () => { live = false }
-  }, [sid, at, person])
+  }, [sid, at, person, latest])
   useEffect(() => { closeRef.current?.focus() }, [])
+  // The exports are of the version this page read, not of whatever is latest by the time they are clicked.
+  const readN = state !== null && 'summary' in state && state.summary.version !== null ? state.summary.version.n : at
+  // Tab never leaves the dialog: from the last control it wraps to the first, and Shift+Tab from the first to the last.
+  const trap = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab') return
+    const stops = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'))
+    const first = stops[0], last = stops[stops.length - 1]
+    if (first === undefined || last === undefined) return
+    const here = document.activeElement
+    if (!e.shiftKey && (here === last || !e.currentTarget.contains(here))) { e.preventDefault(); first.focus() }
+    else if (e.shiftKey && (here === first || !e.currentTarget.contains(here))) { e.preventDefault(); last.focus() }
+  }
   const exportLink = 'inline-flex items-center gap-1.5 rounded-md border border-panel-border px-2.5 py-1.5 text-sm text-text-header hover:bg-panel-hover'
   return (
-    <div role="dialog" aria-modal="true" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-page"
+    <div role="dialog" aria-modal="true" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-page" onKeyDown={trap}
       className="fixed inset-0 z-[1600] flex justify-center bg-black/20 px-3 pb-3 pt-14" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="flex w-full max-w-[820px] flex-col rounded-lg border border-panel-border bg-panel shadow-panel">
         <div className="flex items-center gap-2 border-b border-panel-border px-4 py-2.5">
@@ -78,8 +92,8 @@ export function SummaryPage({ sid, at, onClose }: { sid: string; at: number | nu
           {/* The exports only beside a Summary this page has read for its own person. */}
           {state !== null && 'summary' in state ? (
             <>
-              <a href={summaryPath(sid, at, 'md')} download className={exportLink} data-testid="summary-download"><Download size={14} aria-hidden="true" />{SUMMARY_DOWNLOAD_LABEL}</a>
-              <a href={summaryPath(sid, at, 'html')} target="_blank" rel="noopener noreferrer" className={exportLink} data-testid="summary-print"><Printer size={14} aria-hidden="true" />{SUMMARY_PRINT_LABEL}</a>
+              <a href={summaryPath(sid, readN, 'md')} download className={exportLink} data-testid="summary-download"><Download size={14} aria-hidden="true" />{SUMMARY_DOWNLOAD_LABEL}</a>
+              <a href={summaryPath(sid, readN, 'html')} target="_blank" rel="noopener noreferrer" className={exportLink} data-testid="summary-print"><Printer size={14} aria-hidden="true" />{SUMMARY_PRINT_LABEL}</a>
             </>
           ) : null}
           <button ref={closeRef} type="button" onClick={onClose} className="rounded-md p-1.5 text-text-light hover:bg-panel-hover hover:text-text-header" aria-label="Close summary" data-testid="summary-close">
@@ -103,6 +117,8 @@ export function ViewSummaryTrigger({ className = '' }: { className?: string }) {
   const saved = useViewStore((s) => s.view !== null && s.view.version !== null)
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
+  // A page opened for one scenario is closed when the scenario changes, never kept open behind a control that is not there.
+  useEffect(() => { setOpen(false) }, [sid])
   // Closing hands focus back to the control that opened the page.
   const close = useCallback(() => { setOpen(false); trigger.current?.focus() }, [])
   useEffect(() => {
