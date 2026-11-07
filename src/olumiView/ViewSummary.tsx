@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Download, FileText, Printer, X } from 'lucide-react'
 import { typography } from '../styles/typography'
+import Tooltip from '../components/Tooltip'
 import { DECISION_BRIEF_TRIGGER_LABEL } from '../canvas/decisionBrief/DecisionBriefTrigger'
 import { useViewStore } from './store'
 import { useMe } from '../olumiCore/me'
@@ -110,8 +111,10 @@ export function SummaryPage({ sid, at, onClose }: { sid: string; at: number | nu
   )
 }
 
-/** The top bar's Summary control on the lane: shown once core holds a saved version of this scenario; opens the page. */
-export function ViewSummaryTrigger({ className = '' }: { className?: string }) {
+/** The top bar's Summary control on the lane: shown once core holds a saved version of this scenario; opens the page. Its tooltip wraps
+ *  the button alone: the page is portalled from here, and React carries a portal's focus and pointer events up to the tooltip around it,
+ *  so a tooltip around both opened over the page whenever a control inside it took focus (a real Chromium, 7 Nov). */
+export function ViewSummaryTrigger({ className = '', tooltip = null }: { className?: string; tooltip?: string | null }) {
   const sid = useViewStore((s) => s.sid)
   const at = useViewStore((s) => s.at)
   const saved = useViewStore((s) => s.view !== null && s.view.version !== null)
@@ -130,9 +133,11 @@ export function ViewSummaryTrigger({ className = '' }: { className?: string }) {
   if (sid === null || !saved) return null
   return (
     <>
-      <button ref={trigger} type="button" onClick={() => setOpen(true)} className={className} aria-expanded={open} aria-haspopup="dialog" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-trigger">
-        <FileText size={14} aria-hidden="true" />
-      </button>
+      <Tooltip content={tooltip}>
+        <button ref={trigger} type="button" onClick={() => setOpen(true)} className={className} aria-expanded={open} aria-haspopup="dialog" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-trigger">
+          <FileText size={14} aria-hidden="true" />
+        </button>
+      </Tooltip>
       {open && createPortal(<SummaryPage sid={sid} at={at} onClose={close} />, document.body)}
     </>
   )
