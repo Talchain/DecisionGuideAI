@@ -69,7 +69,7 @@ describe('the account menu on the olumi-core lane: what core serves, and nothing
     lanePage()
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }))
     await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Sign out' })) })
-    expect(screen.getByTestId('olumi-core-signed-out').textContent).toBe('You’re signed out' + 'Your private link opens it again.' + 'Terms' + 'Privacy')
+    expect(screen.getByTestId('olumi-core-signed-out').textContent).toBe('You’re signed out' + 'Your private link opens it again.' + 'Sign in with your email and password' + 'Terms' + 'Privacy')
     expect(screen.queryByTestId('canvas-page')).toBeNull()
     expect(useMe.getState().me).toBeNull()
     expect(useViewStore.getState().sid).toBeNull()

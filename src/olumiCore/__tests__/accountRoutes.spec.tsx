@@ -21,11 +21,17 @@ vi.mock('../../pages/ProfileSettingsPage', () => stub('route-profile'))
 vi.mock('../../components/auth/LoginPage', () => stub('route-login'))
 vi.mock('../../pages/ScenarioComparePage', () => stub('route-compare'))
 vi.mock('../../pages/PanelSetupPage', () => stub('route-panel-setup'))
+vi.mock('../accounts/MyScenariosPage', () => stub('route-my-scenarios'))
+vi.mock('../accounts/SignInPage', () => stub('route-signin'))
+vi.mock('../accounts/SignUpPage', () => stub('route-signup'))
+vi.mock('../accounts/JoinPage', () => stub('route-join'))
+vi.mock('../accounts/OrganisationPage', () => stub('route-organisation'))
+vi.mock('../accounts/AccountPage', () => stub('route-account'))
 
 import AppPoC from '../../poc/AppPoC'
 
 const ACCOUNT_PAGES = [
-  ['/profile', 'route-profile'], ['/login', 'route-login'], ['/scenarios', 'route-scenarios'], ['/', 'route-scenarios'],
+  ['/profile', 'route-profile'], ['/login', 'route-login'], ['/scenarios', 'route-scenarios'],
   ['/scenario/00000000-0000-4000-8000-437f3c107bdd/compare', 'route-compare'], ['/scenario/00000000-0000-4000-8000-437f3c107bdd/panel', 'route-panel-setup'],
 ] as const
 
@@ -49,6 +55,32 @@ describe('account pages on the olumi-core lane', () => {
     await waitFor(() => expect(screen.getByTestId(testid)).toBeInTheDocument())
     expect(screen.queryByTestId('route-canvas')).not.toBeInTheDocument()
   })
+
+  // PoC accounts (src/olumiCore/accounts/): on the lane home is My scenarios; off it, home is the scenario list it was.
+  it('home on the lane is My scenarios, never the canvas or the legacy list', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    renderAt('#/')
+    await waitFor(() => expect(screen.getByTestId('route-my-scenarios')).toBeInTheDocument())
+    expect(screen.queryByTestId('route-scenarios')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('route-canvas')).not.toBeInTheDocument()
+  })
+  it('CONTROL, off the lane: home is the scenario list', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '')
+    renderAt('#/')
+    await waitFor(() => expect(screen.getByTestId('route-scenarios')).toBeInTheDocument())
+    expect(screen.queryByTestId('route-my-scenarios')).not.toBeInTheDocument()
+  })
+  it.each([['/signin', 'route-signin'], ['/signup', 'route-signup'], ['/join/abcdefghijklmnop', 'route-join'], ['/organisation', 'route-organisation'], ['/account', 'route-account']] as const)(
+    'on the lane %s is its account page; off the lane it goes home', async (path, testid) => {
+      vi.stubEnv('VITE_OLUMI_CORE', '1')
+      const lane = renderAt(`#${path}`)
+      await waitFor(() => expect(screen.getByTestId(testid)).toBeInTheDocument())
+      lane.unmount()
+      vi.stubEnv('VITE_OLUMI_CORE', '')
+      renderAt(`#${path}`)
+      await waitFor(() => expect(screen.getByTestId('route-scenarios')).toBeInTheDocument())
+      expect(screen.queryByTestId(testid)).not.toBeInTheDocument()
+    })
 
   it('the canvas itself, and a scenario address, are untouched on the lane', async () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
