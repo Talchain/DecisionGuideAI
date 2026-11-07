@@ -13,6 +13,8 @@ import { resetWrites } from '../team/writes'
 import { resetDifferences } from '../team/differences'
 import { draftOf, resetDrafts } from '../team/drafts'
 import { DifferencesPanel } from '../team/DifferencesPanel'
+import { useWhatIf } from '../../olumiView/whatif'
+import { useViewLens } from '../../olumiView/lens'
 
 const core = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/debate/differences.core.json'), 'utf8'))
 const fx: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/r5', 'effects.view3.json'), 'utf8'))
@@ -38,7 +40,7 @@ describe('where your explanations differ', () => {
     const d = core.differences[0]
     expect(screen.getByTestId('team-differences-heading').textContent).toBe(core.heading)
     expect(screen.getByTestId('team-difference-per_specialist-capacity_goal-status').textContent).toBe(d.status_text)
-    expect([...card.querySelectorAll('[data-difference-side]')].map((e) => e.textContent)).toEqual(['PPaul: 5 to 19 tickets/week/specialist', 'SSam: 22 to 40 tickets/week/specialist'])
+    expect([...card.querySelectorAll('[data-difference-side] [data-difference-figure]')].map((e) => e.textContent)).toEqual(['Paul: 5 to 19 tickets/week/specialist', 'Sam: 22 to 40 tickets/week/specialist'])
     const row = card.querySelector('[data-difference-option="add_one"]')!
     expect(row.querySelector('[data-difference-chance="1"]')!.textContent).toBe('about 7%')
     expect(row.querySelector('[data-difference-chance="2"]')!.textContent).toBe('about 94%')
@@ -67,6 +69,19 @@ describe('where your explanations differ', () => {
     fireEvent.click(await screen.findByTestId('team-difference-link:total_def:existing_capacity-capacity_goal-dissent'))
     await waitFor(() => expect(sent.filter((s) => s.method === 'POST')).toHaveLength(1))
     expect(sent.find((s) => s.method === 'POST')!.url).toBe('/api/scenarios/s_x/differences/link:total_def:existing_capacity/steps')
+  })
+
+  it('"Preview on the canvas" runs that person\'s figure as core\'s what-if (nothing saved) and turns the What if lens on', async () => {
+    const fig = { quantity: 'per_specialist', label: 'per specialist', text: '22 to 40 tickets/week/specialist', title: 't', unit: 'ticket/week/specialist', version: 1, low: 22, high: 40, range_kind: 'plausible' }
+    const v = view({ version: { ...fx.version!, id: 6 }, collab: { ...fx.collab, shared: [{ ...fx.collab.shared[0]!, id: core.differences[0].sides[1].view, figures: [fig] }] } } as Partial<View>)
+    const variant = { hypothetical: true, edits: [], blocked: null, stopped: null, moved: true, why_not: null, rows: [], most_likely: null }
+    const sent = serve((s) => (s.url.endsWith('/whatif') ? { status: 200, body: { scenario: 's_x', version: { id: 6, n: 1 }, hypothetical: true, saved: false, variants: [variant] } } : { status: 200, body: core }))
+    render(<DifferencesPanel sid="s_x" view={v} onWrote={async () => true} />)
+    fireEvent.click(await screen.findByTestId('team-difference-per_specialist-capacity_goal-preview-2'))
+    await waitFor(() => expect(useWhatIf.getState().shown).not.toBeNull())
+    expect(sent.find((s) => s.url.endsWith('/whatif'))!.body).toEqual({ base: 6, variants: [{ edits: [{ quantity: 'per_specialist', value: { kind: 'interval', low: 22, high: 40 } }] }] })
+    expect(useViewLens.getState().lens).toBe('what_if')
+    useWhatIf.setState({ shown: null }); useViewLens.setState({ lens: 'full' })
   })
 
   it('draws nothing on a core without the route, or for a gated viewer', async () => {
