@@ -74,18 +74,17 @@ const IfApprovedMark = ({ mark }: { mark: ValueMark }) => (
  *  where the chance rests on no suggested risk, or no timing assumption moves it by 10 points). */
 const Companion = ({ row, at }: { row: Extract<ViewRow, { kind: 'chance' }>; at: string }) => (
   <>
-    {row.companion == null ? null : <span className={`${typography.viewLabel} block truncate text-text-light`} title={row.companion_title ?? row.companion} data-row-companion={at}><span data-view={`${at}.companion`}>{row.companion}</span></span>}
-    {row.timing == null ? null : <span className={`${typography.viewLabel} block truncate text-text-light`} title={row.timing_title ?? row.timing} data-row-timing={at}><span data-view={`${at}.timing`}>{row.timing}</span></span>}
+    {row.companion == null ? null : <span className={`${typography.viewLabel} block text-text-light`} title={row.companion_title ?? row.companion} data-row-companion={at}><span data-view={`${at}.companion`}>{row.companion}</span></span>}
+    {row.timing == null ? null : <span className={`${typography.viewLabel} block text-text-light`} title={row.timing_title ?? row.timing} data-row-timing={at}><span data-view={`${at}.timing`}>{row.timing}</span></span>}
   </>
 )
 
 function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: ViewRow; i: number; ifApproved?: IfApproved; lead?: boolean | null }) {
   const at = `${id}.rows.${i}`
   const moved = valueMark(row, at, ifApproved)
-  // The compact face (C1, 4 Nov: details on hover or selection; R3 pristine: two lines a row at most, the whole row on hover), every word
-  // core's and verbatim. A chance row: its aim on one line, its value on at most two, so the number always shows (the aim leads and runs
-  // two lines on real models: the brewery board's option cards drew ~250 px). Each mark sits in its own column beside the value, so a clamp
-  // never hides it and it never wraps alone onto a line (R5's rule, kept by the column rather than a no-break space).
+  // The compact face (C1, 4 Nov: details on hover or selection), every word core's and verbatim, and every line whole (R25, Paul's finish
+  // line: no cut text, after his 6 Nov test cut aims to "Crea…" and numbers mid-range). Each mark sits in its own column beside the value,
+  // so it never wraps alone onto a line (R5's rule, kept by the column rather than a no-break space).
   switch (row.kind) {
     case 'chance': {
       const marks = row.olumi !== null || row.likely !== null || moved !== null
@@ -103,7 +102,7 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
         <div className="flex items-baseline gap-1">
           <span className="sr-only" data-view={`${at}.aim`}>{row.aim}</span>
           <span aria-hidden="true" style={{ color: 'var(--goal)' }} className={typography.viewHeadline}>◎</span>
-          <span className={`min-w-0 line-clamp-2 ${typography.viewHeadline} text-text-header`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
+          <span className={`min-w-0 ${typography.viewHeadline} text-text-header`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
           {markSpan}
         </div>
         <Companion row={row} at={at} />
@@ -111,11 +110,12 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
       )
       if (lead === false) return (
         <div title={`${row.aim} · ${row.title}`} data-view-row={at}>
-        <div className="flex items-baseline gap-1 text-text-light">
+        <div className="flex flex-wrap items-baseline gap-x-1 text-text-light">
           <span aria-hidden="true" style={{ color: 'var(--goal)' }}>◎</span>
-          <span className="min-w-0 truncate" data-view={`${at}.aim`}>{row.aim}</span>
-          {/* The chance whole when it is short; a long one (core's conditional wording) wraps to two lines at most inside the card. */}
-          <span className={`${typography.viewValue} flex-none max-w-[65%] line-clamp-2 text-text-body`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
+          {/* R25 (Paul's 6 Nov test: aims cut to "Crea…"): the aim wraps whole, never cut; the chance follows, below when it must. */}
+          <span className="min-w-0" data-view={`${at}.aim`}>{row.aim}</span>
+          {/* The chance whole; a long one (core's conditional wording) wraps inside the card, never cut (R25). */}
+          <span className={`${typography.viewValue} flex-none max-w-[65%] text-text-body`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
           {markSpan}
         </div>
         <Companion row={row} at={at} />
@@ -123,9 +123,9 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
       )
       return (
         <div title={row.title} data-view-row={at}>
-          <span className="block truncate" data-view={`${at}.aim`}>{row.aim}</span>
+          <span className="block" data-view={`${at}.aim`}>{row.aim}</span>
           <span className="flex items-baseline gap-1">
-            <span className={`${typography.viewValue} line-clamp-2 min-w-0`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
+            <span className={`${typography.viewValue} min-w-0`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
             {marks ? (
               <span className="flex-none whitespace-nowrap" data-row-marks={at}>
                 {row.olumi === null ? null : <Mark at={`${at}.olumi`} mark={row.olumi} />}
@@ -140,22 +140,22 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
     }
     case 'limit':
       return (
-        <div className="flex items-baseline gap-1 text-text-light" title={`${row.aim} · ${row.title}`} data-view-row={at}>
-          {/* One line: the limit cut short before its value, whole on hover; a long value wraps to two lines at most inside the card. */}
-          <span className="min-w-0 truncate" data-view={`${at}.aim`}>{row.aim}</span> <span className={`${typography.viewValue} flex-none max-w-[65%] line-clamp-2 text-text-body`} data-row-value={at}><span data-view={`${at}.value`}>{row.value}</span></span>
+        <div className="flex flex-wrap items-baseline gap-x-1 text-text-light" title={`${row.aim} · ${row.title}`} data-view-row={at}>
+          {/* The limit and its value both whole (R25: no cut text); a long value wraps inside the card. */}
+          <span className="min-w-0" data-view={`${at}.aim`}>{row.aim}</span> <span className={`${typography.viewValue} flex-none max-w-[65%] text-text-body`} data-row-value={at}><span data-view={`${at}.value`}>{row.value}</span></span>
           {row.olumi === null ? null : <span className="flex-none whitespace-nowrap" data-row-marks={at}><Mark at={`${at}.olumi`} mark={row.olumi} /></span>}
         </div>
       )
     case 'none': {
       // a core before view-dock serves no `text`: the row says its title, as before (00058 P1)
       const text = row.text == null
-        ? <p className="line-clamp-2" data-view-row={at}><span data-view={`${at}.title`}>{row.title}</span></p>
-        : <p className="line-clamp-2" title={row.title} data-view-row={at}><span data-view={`${at}.text`}>{row.text}</span></p>
+        ? <p data-view-row={at}><span data-view={`${at}.title`}>{row.title}</span></p>
+        : <p title={row.title} data-view-row={at}><span data-view={`${at}.text`}>{row.text}</span></p>
       // R20: core's timing sweep under a none row's words ("Under these timing assumptions: about X% if …"), drawn as the chance row's timing line is; absent on a core before it
       return row.timing == null ? text : (
         <>
           {text}
-          <span className={`${typography.viewLabel} block truncate text-text-light`} title={row.timing_title ?? row.timing} data-row-timing={at}><span data-view={`${at}.timing`}>{row.timing}</span></span>
+          <span className={`${typography.viewLabel} block text-text-light`} title={row.timing_title ?? row.timing} data-row-timing={at}><span data-view={`${at}.timing`}>{row.timing}</span></span>
         </>
       )
     }
@@ -171,7 +171,8 @@ function OptionValueRow({ at, option, text, mark = null }: { at: string; option:
   return (
     <p className="flex items-baseline gap-1" title={text} data-value-row={option}>
       {n === null ? null : <><span className="flex-none text-text-light font-normal tabular-nums" data-card-number={n}>{n}</span>{' '}</>}
-      <span className="min-w-0 truncate" data-view={at}>{text}</span>{mark === null ? null : <span className="flex-none"><IfApprovedMark mark={mark} /></span>}
+      {/* R25 (Paul's 6 Nov test: "6.73 months (2.61 …"): an option's value wraps whole, never cut mid-number. */}
+      <span className="min-w-0" data-view={at}>{text}</span>{mark === null ? null : <span className="flex-none"><IfApprovedMark mark={mark} /></span>}
     </p>
   )
 }
@@ -237,7 +238,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       {card.family === 'option' ? <Slot name={VIEW_CARD_SLOTS.driverBadge} className="absolute right-1 top-1 empty:hidden" />
         // The original's ⌄ on a card with more to say: a press selects the card, which opens its other words beside it.
         : more ? <ChevronDown aria-hidden="true" data-more-cue="" className="absolute right-1.5 top-2 h-3.5 w-3.5 text-text-light" /> : null}
-      {says ? <p className="line-clamp-2" title={card.reason!} data-view={`${id}.reason`}>{card.reason}</p> : null}
+      {says ? <p title={card.reason!} data-view={`${id}.reason`}>{card.reason}</p> : null}
       {card.bound === null ? null : (
         // An aim's or limit's target, core's own words from its target record ("at least 10%"), on the face under the heading, as the
         // previous PoC's "Target: …" line (DL 6 Nov: a label names the outcome alone, so the number is never hidden behind a selection).
@@ -246,14 +247,14 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       )}
       {reading === null ? null : (
         // R19: how the Run reads this aim over its window, core's sentence once, under the target. Olumi's own reading is Olumi's colour (it is a
-        // proposal the person can change); one their words state, or one that contradicts them, is quiet. Whole on hover; two lines at most.
-        <p className={`${typography.viewLabel} line-clamp-2 ${reading.source === 'proposal' ? 'text-info' : 'text-text-light'}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>
+        // proposal the person can change); one their words state, or one that contradicts them, is quiet. Whole on the face (R25: no cut text).
+        <p className={`${typography.viewLabel} ${reading.source === 'proposal' ? 'text-info' : 'text-text-light'}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>
       )}
       {card.figure === null ? null : (
         <div className="flex items-baseline gap-1">
           {perOption ? (
             // One row per option, core's own line for it (`values[].text`), after the option's number as the canvas numbers it: the face stays
-            // compact, two lines a row at most, the whole row on hover; core's sentence for every option stays the hover of the rows (R3 pristine).
+            // compact, every row whole (R25: no cut text); core's sentence for every option stays the hover of the rows (R3 pristine).
             <div className={`${typography.viewValue} min-w-0 flex-1 space-y-0.5 ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
               data-olumi={estimate || undefined} data-view-values={id}>
               {card.values!.map((v, i) => <OptionValueRow key={v.option} at={`${id}.values.${i}.text`} option={v.option} text={v.text} mark={valueMark(v, `${id}.values.${i}`, ifApproved)} />)}

@@ -61,7 +61,7 @@ export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief
           <div className="flex gap-2"><span className={`${typography.panelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind="decision" size={10} />{REASONING_LABELS.brief}</span><span className="min-w-0 truncate" title={brief} data-view="brief">{brief}</span></div>
         )}
         {goals.map((g) => (
-          <div key={g.id} className="flex gap-2"><span className={`${typography.panelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind="goal" size={10} />{REASONING_LABELS.goal}</span><span className="min-w-0 truncate" title={g.detail} data-view={`${g.id}.heading`}>{g.heading}</span></div>
+          <div key={g.id} className="flex gap-2"><span className={`${typography.panelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind="goal" size={10} />{REASONING_LABELS.goal}</span><span className="min-w-0" title={g.detail} data-view={`${g.id}.heading`}>{g.heading}</span></div>
         ))}
         {/* As the previous strip: the kind's canvas shape before its label, one mark per card in the canvas's own shape and colour (core's
             glyph kept for a reader, its heading on hover), and how many cards the row has, right-aligned. */}

@@ -34,13 +34,12 @@ describe('a card title wraps to the card\'s left edge (R3 pristine 3)', () => {
   })
 })
 
-describe('core\'s words wrap to two lines before an ellipsis (R3 pristine 4)', () => {
+describe('core\'s words on the face are whole, never cut (R3 pristine 4; R25, Paul\'s finish line: no cut text)', () => {
   it('a card\'s reason line', () => {
     const card = golden('european').model!.cards.find((c) => c.reason !== null && c.figure === null && c.rows.length === 0)!
     const p = render(<ViewCard card={card} />).container.querySelector(`[data-view="${card.id}.reason"]`)!
     expect(p.textContent).toBe(card.reason) // the probe draws a real reason line
-    expect(p.className).toContain('line-clamp-2')
-    expect(p.className).not.toContain('line-clamp-1')
+    expect(p.className).not.toMatch(/line-clamp|truncate/)
   })
 
   it('the outcome band\'s words: in the DOM whole and on hover, no longer a line on the face (option a2)', () => {
@@ -112,14 +111,14 @@ describe('a worked-out figure with a line per option is drawn a row per option, 
     ],
   } as typeof base
 
-  it('three options: three rows in core\'s order, each core\'s line verbatim, one line, whole on hover; the sentence is the rows\' hover', () => {
+  it('three options: three rows in core\'s order, each core\'s line verbatim and whole, also on hover; the sentence is the rows\' hover', () => {
     const c = render(<ViewCard card={card} />).container
     const rows = [...c.querySelectorAll<HTMLElement>('[data-value-row]')]
     expect(rows.map((r) => r.getAttribute('data-value-row'))).toEqual(['keep_staffing', 'add_specialist', 'share_specialist'])
     rows.forEach((r, i) => {
       expect(r.querySelector(`[data-view="total_capacity.values.${i}.text"]`)?.textContent).toBe(card.values![i]!.text)
-      // Option a2 (Paul's item 1, 6 Nov): one line a value, cut short (its ↻ mark beside it, never cut), whole on hover; was two lines.
-      expect(r.querySelector(`[data-view="total_capacity.values.${i}.text"]`)!.className).toContain('truncate')
+      // R25 (Paul's finish line, 7 Nov: no cut text; his 6 Nov test cut "6.73 months (2.61 …"): whole; was one line cut short (option a2).
+      expect(r.querySelector(`[data-view="total_capacity.values.${i}.text"]`)!.className).not.toMatch(/line-clamp|truncate/)
       expect(r.getAttribute('title')).toBe(card.values![i]!.text)
     })
     expect(c.querySelector('[data-view="total_capacity.figure.text"]')).toBeNull() // not also the run-on sentence

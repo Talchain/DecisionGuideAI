@@ -7,6 +7,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { typography } from '../../styles/typography'
 import { cleanup, render } from '@testing-library/react'
 import type { View } from '../client'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
@@ -27,7 +28,7 @@ describe('a chance row\'s marks on the card never wrap alone and are never clipp
     const c = render(<ViewCard card={card} />).container
     const row = c.querySelector<HTMLElement>(`[data-view-row="${at}"]`)!
     const value = row.querySelector<HTMLElement>(`[data-row-value="${at}"]`)!, marks = row.querySelector<HTMLElement>(`[data-row-marks="${at}"]`)!
-    expect(value.className).toContain('line-clamp-2')
+    expect(value.className).not.toMatch(/line-clamp|truncate/) // R25 (Paul's finish line: no cut text): the value wraps whole
     expect(value.contains(row.querySelector(`[data-view="${at}.value"]`))).toBe(true)
     expect(marks.className).toContain('whitespace-nowrap')
     expect(marks.className).toContain('flex-none')
@@ -42,7 +43,7 @@ describe('a chance row\'s marks on the card never wrap alone and are never clipp
     // screen readers and is on the row's hover, not drawn; the value is clamped to two lines in the big type (a conditional value never
     // overflows the card); the aim's target mark ◎ leads it. Every R5 check above holds unchanged.
     expect(row.querySelector(`[data-view="${at}.aim"]`)!.className).toContain('sr-only')
-    expect(value.className).toContain('text-[17px]') // the 17px variant of the big chance (coordinator, 6 Nov); was 20px
+    expect(value.className).toContain(typography.viewHeadline) // R25 scale A (Paul 7 Nov): the headline role, 18px; was 17px, before that 20px
     expect(value.className).not.toContain('whitespace-nowrap') // the big line may wrap to two lines, never overflow
     const r = card.rows[i] as { aim: string; approx: string; value: string; title: string }
     expect(row.getAttribute('title')).toBe(`${r.aim} · ${r.title}`)

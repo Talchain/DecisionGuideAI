@@ -1,11 +1,12 @@
 /**
  * Option a2 (Paul's item 1, 6 Nov: his hiring board opened with 7 of 17 cards off screen at 0.9): (1) the previous PoC's family rows, so a
  * dense board is a few rows tall and its order under the options is kept; (2) the previous PoC's option face: the first aim's chance in
- * the big line, every other aim one line whole on hover, and the outcome band's words in the DOM and on hover rather than a face line.
+ * the big line, every other aim small and whole (R25: no cut text), and the outcome band's words in the DOM and on hover rather than a face line.
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { typography } from '../../styles/typography'
 import { cleanup, render } from '@testing-library/react'
 import type { View } from '../client'
 import { causalPlaces, familyTierOf, questionPlace, QUESTION } from '../layout'
@@ -45,16 +46,16 @@ describe('family rows', () => {
 
 describe('the option face', () => {
   const m = real('hiring'), card = m.cards.find((c) => c.id === 'hire_tech_lead')!
-  it('catch: the first aim is the big line (aim for readers and on hover); the second aim is one line, cut short, whole on hover', () => {
+  it('catch: the first aim is the big line (aim for readers and on hover); the second aim is small and whole (R25: no cut text)', () => {
     const c = render(<ViewCard card={card} />).container
     const lead = c.querySelector<HTMLElement>(`[data-view-row="${card.id}.rows.0"]`)!, next = c.querySelector<HTMLElement>(`[data-view-row="${card.id}.rows.1"]`)!
     const r0 = card.rows[0] as { aim: string; title: string; value: string }, r1 = card.rows[1] as { aim: string; title: string; value: string }
     // The 17px variant (coordinator, 6 Nov: measure whether "about 46% chance" fits one line on a 220 px card; at 20px it wrapped): was 20px.
-    expect(lead.querySelector(`[data-row-value="${card.id}.rows.0"]`)!.className).toContain('text-[17px]')
+    expect(lead.querySelector(`[data-row-value="${card.id}.rows.0"]`)!.className).toContain(typography.viewHeadline) // R25 scale A (Paul 7 Nov): the headline role, 18px; was 17px
     expect(lead.querySelector(`[data-view="${card.id}.rows.0.aim"]`)!.className).toContain('sr-only')
     expect(lead.getAttribute('title')).toBe(`${r0.aim} · ${r0.title}`)
-    expect(next.querySelector(`[data-view="${card.id}.rows.1.aim"]`)!.className).toContain('truncate')
-    expect(next.querySelector(`[data-row-value="${card.id}.rows.1"]`)!.className).not.toContain('text-[17px]') // the second aim stays small
+    expect(next.querySelector(`[data-view="${card.id}.rows.1.aim"]`)!.className).not.toMatch(/line-clamp|truncate/) // R25 (Paul's finish line: no cut text): whole
+    expect(next.querySelector(`[data-row-value="${card.id}.rows.1"]`)!.className).not.toContain(typography.viewHeadline) // the second aim stays small
     expect(next.getAttribute('title')).toBe(`${r1.aim} · ${r1.title}`)
     expect(c.textContent).toContain(r0.value); expect(c.textContent).toContain(r1.value) // core's words, verbatim
   })
@@ -68,7 +69,7 @@ describe('the option face', () => {
     // On hover (Codex fit-a2 r1: the hover held only core's explanation, so the range's numbers were nowhere on screen): the words first.
     expect(c.querySelector('[data-testid="view-option-band-o1"]')!.getAttribute('title')).toBe(`${band.text}\n${band.title}`)
   })
-  it('catch: a long second chance (core\'s conditional wording) is held inside the card, two lines at most, its marks beside it', () => {
+  it('catch: a long second chance (core\'s conditional wording) is held inside the card, whole, its marks beside it', () => {
     // Codex fit-a2 r1: a one-line second chance could not shrink or wrap, so a long one ran past the 220 px card and pushed its marks out.
     // The wording is core's own, from the capacity board (add_specialist), set on the hiring card's second aim.
     const words = real('capacity').cards.find((c) => c.id === 'add_specialist')!.rows[0] as { value: string }
@@ -77,14 +78,14 @@ describe('the option face', () => {
     const value = c.querySelector<HTMLElement>(`[data-row-value="${card.id}.rows.1"]`)!
     expect(value.textContent).toBe(words.value)
     expect(value.className).not.toContain('whitespace-nowrap')
-    expect(value.className).toContain('line-clamp-2'); expect(value.className).toContain('max-w-[65%]')
+    expect(value.className).not.toMatch(/line-clamp|truncate/); expect(value.className).toContain('max-w-[65%]') // R25 (Paul's finish line: no cut text): whole, wrapping inside the card
     expect(value.querySelector('[data-row-marks]')).toBeNull() // the marks in their own column, never inside the clamped value
     expect(value.parentElement!.querySelector(`[data-row-marks="${card.id}.rows.1"]`)).not.toBeNull()
   })
 })
 
-describe('one-line worked-out values', () => {
-  it('catch: the ↻ mark keeps its own column, so cutting a long line short never hides it', () => {
+describe('worked-out values, a row per option, whole (R25)', () => {
+  it('catch: the ↻ mark keeps its own column, so a long line wrapping never hides it', () => {
     // Codex fit-a2 r1: the whole row was cut short, and on the proposal golden the ↻ after add_one's long value was cut off with it.
     const pending = JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'proposal.view.json'), 'utf8')) as View
     const worked = pending.model!.cards.find((c) => c.figure !== null && (c.values?.length ?? 0) > 1)!
@@ -94,10 +95,10 @@ describe('one-line worked-out values', () => {
     rows.forEach((r, i) => {
       const text = r.querySelector<HTMLElement>(`[data-view="${worked.id}.values.${i}.text"]`)!
       expect(text.textContent).toBe(worked.values![i]!.text)
-      expect(text.className).toContain('truncate') // one line, whole on hover
+      expect(text.className).not.toMatch(/line-clamp|truncate/) // R25 (Paul's finish line: no cut text): whole, and on hover
       expect(r.getAttribute('title')).toBe(worked.values![i]!.text)
       const mark = r.querySelector<HTMLElement>('[data-if-approved]')
-      if (mark !== null) expect(mark.closest('.truncate'), `${worked.id} row ${i}`).toBeNull()
+      if (mark !== null) expect(mark.closest('.truncate, [class*="line-clamp"]'), `${worked.id} row ${i}`).toBeNull()
     })
     expect(rows.some((r) => r.querySelector('[data-if-approved]') !== null)).toBe(true) // core's own ↻ on add_one's value
   })

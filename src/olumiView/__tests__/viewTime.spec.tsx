@@ -107,7 +107,7 @@ describe('R19 timing on the chance row: a small second line beside the companion
     const key = `${card.id}.rows.${at}`
     const line = container.querySelector(`[data-row-timing="${key}"]`)!
     expect([line.textContent, line.getAttribute('title')]).toEqual([TIMING_LINE, TIMING_TITLE])
-    expect(line.className).toContain('truncate'); expect(line.className).toContain('block'); expect(line.className).toContain('text-text-light')
+    expect(line.className).not.toMatch(/line-clamp|truncate/); expect(line.className).toContain('block') // R25: whole, never cut; expect(line.className).toContain('text-text-light')
     expect(container.querySelector(`[data-view="${key}.value"]`)!.textContent).toBe('about 39% chance')
     expect(container.textContent!.split(TIMING_LINE).length - 1).toBe(1)
   })
@@ -148,7 +148,7 @@ describe('R20 timing on a none row: core\'s sweep line under its text, drawn lik
     const line = container.querySelector(`[data-row-timing="${key}"]`)!
     expect([line.textContent, line.getAttribute('title')]).toEqual([NONE_TIMING, NONE_TITLE])
     expect(container.querySelector(`[data-view="${key}.timing"]`)!.textContent).toBe(NONE_TIMING)
-    for (const c of ['truncate', 'block', 'text-text-light']) expect(line.className).toContain(c)
+    for (const c of ['block', 'text-text-light']) expect(line.className).toContain(c); expect(line.className).not.toMatch(/line-clamp|truncate/) // R25: whole, never cut
     expect(container.textContent!.split(NONE_TIMING).length - 1).toBe(1)
   })
   it('catch: a timing with no timing_title hovers with the timing itself', () => {

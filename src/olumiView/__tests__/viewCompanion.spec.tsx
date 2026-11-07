@@ -42,7 +42,7 @@ describe('R18 fix 1: the companion is a small second line under the chance, neve
     const line = container.querySelector(`[data-row-companion="${key}"]`)!
     expect(line.textContent).toBe(COMPANION)
     expect(line.getAttribute('title')).toBe(TITLE)
-    expect(line.className).toContain('truncate')
+    expect(line.className).not.toMatch(/line-clamp|truncate/) // R25 (Paul's 6 Nov test: text cut mid-sentence): whole, never cut
     expect(line.className).toContain('block')
     expect(container.querySelector(`[data-view="${key}.value"]`)!.textContent).not.toContain('without')
   })
