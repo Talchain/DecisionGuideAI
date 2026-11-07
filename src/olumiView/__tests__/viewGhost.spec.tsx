@@ -30,14 +30,18 @@ describe('a card the proposal adds is drawn as a ghost', () => {
     expect(el.className).not.toContain('border-dashed')
     expect(c.querySelector('[data-view="added_one.change.title"]')?.textContent).toBe('Proposed addition')
   })
-  it('CONTRAST: a card the proposal changes, and one it keeps, are drawn as before', () => {
-    for (const card of [changed, kept]) {
-      const el = root(render(<ViewCard card={card} />).container)
-      expect(el.dataset['proposedCard'], card.id).toBeUndefined()
-      expect(el.className.split(' '), card.id).toEqual(expect.arrayContaining(['bg-panel', 'border-border']))
-      expect(el.querySelector(`[data-view="${card.id}.change.title"]`), card.id).toBeNull()
-      cleanup()
-    }
+  it('CONTRAST: a card the proposal keeps is drawn as before; one it changes is not the ghost (opaque, its own mark: cardReadable.spec)', () => {
+    const k = root(render(<ViewCard card={kept} />).container)
+    expect(k.dataset['proposedCard']).toBeUndefined()
+    expect(k.className.split(' ')).toEqual(expect.arrayContaining(['bg-panel', 'border-border']))
+    expect(k.querySelector(`[data-view="${kept.id}.change.title"]`)).toBeNull()
+    cleanup()
+    // Plan v3 finish line (DL/PL 7 Nov): a changed card is told apart at rest, by the proposal's border on an opaque card, never the ghost.
+    const c = root(render(<ViewCard card={changed} />).container)
+    expect(c.dataset['proposedCard']).toBeUndefined()
+    expect(c.dataset['changedCard']).toBe('true')
+    expect(c.className.split(' ')).toEqual(expect.arrayContaining(['bg-panel', 'border-info']))
+    expect(c.className).not.toContain('bg-panel/80')
   })
 })
 

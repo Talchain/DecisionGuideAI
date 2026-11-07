@@ -76,15 +76,17 @@ describe('a card says its heading once, with no kind word and no provenance spel
   })
 })
 
-describe('a premise is one line, its glyph first, the whole on hover (core\'s .premise; DL 4 Nov)', () => {
-  it('every premise row of european\'s option cards: one line cut with an ellipsis, glyph and text drawn, core\'s title on hover', () => {
+// Plan v3 finish line (full text on selection or keyboard focus, not hover only; DL/PL 7 Nov) supersedes DL 4 Nov's one cut line: a premise
+// shows only with its card open, beside it, so a premise several options share is never repeated across cards at rest.
+describe('a premise is whole, its glyph first, core\'s title kept', () => {
+  it('every premise row of european\'s option cards: whole (no ellipsis), glyph and text drawn, core\'s title on hover', () => {
     const options = view.model!.cards.filter((c) => c.family === 'option' && c.premises.length > 0)
     expect(options.length).toBeGreaterThan(0)
     for (const c of options) {
       const el = render(<ViewCard card={c} />).container
       c.premises.forEach((p, j) => {
         const row = el.querySelector<HTMLElement>(`[data-premise-row="${c.id}.${j}"]`)!
-        expect(row.className, `${c.id}.${j}`).toContain('truncate')
+        expect(row.className, `${c.id}.${j}`).not.toMatch(/truncate|line-clamp/)
         expect(row.getAttribute('title')).toBe(p.title)
         expect(row.querySelector(`[data-view="${c.id}.premises.${j}.glyph"]`)?.textContent).toBe(p.glyph)
         expect(row.querySelector(`[data-view="${c.id}.premises.${j}.text"]`)?.textContent).toBe(p.text)

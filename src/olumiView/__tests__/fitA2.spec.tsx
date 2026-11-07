@@ -99,7 +99,9 @@ describe('the option face', () => {
     expect(lead.querySelector(`[data-view="${card.id}.rows.0.value"]`)!.className).toContain(typography.viewHeadline)
     const approx = lead.querySelector(`[data-view="${card.id}.rows.0.approx"]`)
     if (approx !== null) expect(approx.className).toContain(typography.viewValue)
-    expect(lead.querySelector(`[data-view="${card.id}.rows.0.aim"]`)!.className).toContain('sr-only')
+    // DL/PL ruling 7 Nov (Paul: "can't tell which aim a chance is for"): with more than one aim, as here, the lead chance names its aim on the
+    // face; a one-aim board keeps it for readers and on hover (cardReadable.spec.tsx).
+    expect(lead.querySelector(`[data-view="${card.id}.rows.0.aim"]`)!.className).not.toContain('sr-only')
     expect(lead.getAttribute('title')).toBe(`${r0.aim} · ${r0.title}`)
     expect(next.querySelector(`[data-view="${card.id}.rows.1.aim"]`)!.className).not.toMatch(/line-clamp|truncate/) // R25 (Paul's finish line: no cut text): whole
     expect(next.querySelector(`[data-row-value="${card.id}.rows.1"]`)!.className).not.toContain(typography.viewHeadline) // the second aim stays small

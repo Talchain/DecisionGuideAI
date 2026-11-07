@@ -30,7 +30,7 @@ import { MaybeConversationProvider } from '../canvas/ReactFlowGraph'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { viewportCentredInFreePane } from '../canvas/utils/fitIntoFreePane'
-import { focusedLinkOf, placeViewCards, useViewFocusLink, useViewHover, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
+import { focusedCardOf, focusedLinkOf, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
 import { boardKeyOf, readableFirstViewport } from './camera'
 import { drawnHeightsKey, headOf, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
@@ -138,7 +138,8 @@ function ViewFlow() {
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
         onNodeMouseEnter={(_, n) => useViewHover.setState({ id: n.id })} onNodeMouseLeave={() => useViewHover.setState({ id: null })}
-        onFocus={(e) => useViewFocusLink.setState({ id: focusedLinkOf(e.target) })} onBlur={() => useViewFocusLink.setState({ id: null })}
+        onFocus={(e) => { useViewFocusLink.setState({ id: focusedLinkOf(e.target) }); useViewFocusCard.setState({ id: focusedCardOf(e.target) }) }}
+        onBlur={() => { useViewFocusLink.setState({ id: null }); useViewFocusCard.setState({ id: null }) }}
         onMoveStart={mine} panOnDrag={PAN_BUTTONS} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}
         nodesConnectable={false} edgesFocusable elevateEdgesOnSelect={false} deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE} selectionKeyCode={null} multiSelectionKeyCode={null}
         proOptions={{ hideAttribution: true }} data-testid="view-canvas"

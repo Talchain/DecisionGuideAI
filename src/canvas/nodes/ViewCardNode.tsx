@@ -20,6 +20,7 @@ import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { useCanvasStore } from '../store'
 import { useViewStore } from '../../olumiView/store'
+import { useViewFocusCard } from '../../olumiView/canvas'
 import { useCardNumber, useDriverOf, usePreMortemOf, useRestsOnItem, useTriedOn } from '../../olumiView/lens'
 import { WHAT_IF_COPY } from '../artefacts/whatIfCopy'
 import { NodeQuickActions } from './shared/NodeQuickActions'
@@ -105,7 +106,7 @@ export function Disclosed({ at, className = '', title, children }: { at: string;
   )
 }
 
-function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: ViewRow; i: number; ifApproved?: IfApproved; lead?: boolean | null }) {
+function Row({ id, row, i, ifApproved = null, lead = null, aimShown = false }: { id: string; row: ViewRow; i: number; ifApproved?: IfApproved; lead?: boolean | null; aimShown?: boolean }) {
   const at = `${id}.rows.${i}`
   const moved = valueMark(row, at, ifApproved)
   // The compact face (C1, 4 Nov: details on hover or selection), every word core's and verbatim, and every line whole (R25, Paul's finish
@@ -125,12 +126,15 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
       // DOM for readers and on hover; every other aim is one small line, the aim cut short before its chance, whole on hover. Words are core's.
       if (lead === true) return (
         <div title={`${row.aim} · ${row.title}`} data-view-row={at}>
+        {/* With more than one aim, the lead chance names its aim on the face too, as every other aim's line does (DL/PL 7 Nov, Paul: "can't
+            tell which aim a chance is for"); its ◎ moves to the aim's line so it never stands twice. With one aim: for readers and on hover. */}
+        {aimShown ? <p className="text-text-light"><span aria-hidden="true" style={{ color: 'var(--goal)' }}>◎</span> <span data-view={`${at}.aim`}>{row.aim}</span></p> : null}
         <div className="flex items-baseline gap-1">
-          <span className="sr-only" data-view={`${at}.aim`}>{row.aim}</span>
+          {aimShown ? null : <span className="sr-only" data-view={`${at}.aim`}>{row.aim}</span>}
           {/* R25 (Paul's finding C1, "about 13% / chance" on two lines; DL 7 Nov): one line. Core's qualifier (`approx`, its own field) and
               the ◎ are reading size; core's value is the 18px headline, set tight so "about 49% chance" fits one line beside its marks
               in the 220px card (measured: 165px plain, 158px tight, 162px free); a long conditional one still wraps inside the card. */}
-          <span aria-hidden="true" style={{ color: 'var(--goal)' }} className={typography.viewValue}>◎</span>
+          {aimShown ? null : <span aria-hidden="true" style={{ color: 'var(--goal)' }} className={typography.viewValue}>◎</span>}
           <span className="min-w-0 text-text-header" data-row-value={at}>{row.approx === '' ? null : <span className={typography.viewValue} data-view={`${at}.approx`}>{row.approx}</span>}<span className={`${typography.viewHeadline} tracking-tight`} data-view={`${at}.value`}>{row.value}</span></span>
           {markSpan}
         </div>
@@ -220,19 +224,26 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
   // proposal ghost (ProposalGhostLayer: translucent, a solid 1px info border, never dashed, which means doubt), with core's own words
   // for it ("Proposed addition") as its caption. Approving stays the Proposal card's in the chat.
   const ghost = card.change?.kind === 'added'
+  // A card the proposal changes (core's change `kind: 'changed'`): told apart at rest from a proposed addition and a kept card (plan v3
+  // finish line: proposed, changed, Olumi's and approved distinguishable without hover) by the proposal's info border on an opaque card,
+  // beside core's ↻; core's words for what changes (its change title, "figure 0 → 4") open with the card's other words.
+  const changed = card.change?.kind === 'changed'
   // A worked-out figure with a line per option (core's `values`, two or more) is drawn a row per option, not as one run-on sentence that
   // grows the card past the screen (R3 pristine: OC1 on the capacity model ran 8 lines).
   const perOption = card.figure !== null && (card.values?.length ?? 0) > 1
   // An aim's or limit's target is on its face (below), so it no longer opens the card's other words.
-  const more = card.status !== null || (card.reason !== null && !says) || card.premises.length > 0
+  const more = card.status !== null || (card.reason !== null && !says) || card.premises.length > 0 || changed
+  // More than one aim (an option's chance rows, one per aim): its lead chance names its aim on the face too (Paul: "can't tell which aim a
+  // chance is for"; DL/PL 7 Nov). With one aim it stays for readers and on hover (fitA2).
+  const aims = card.rows.filter((r) => r.kind === 'chance').length
   // R25: an approved board offers each card's rename (core's contract; the question is renamed elsewhere).
   const renamable = useViewStore((st) => st.at === null && st.view?.model?.edit_base != null)
   return (
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
     <div
       style={{ width: CARD_WIDTH }}
-      className={`group relative text-[length:calc(14px*var(--canvas-label-scale,1))] leading-[1.35] font-sans text-text-body rounded-md border ${ghost ? 'bg-panel/80' : 'bg-panel'} px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : ghost ? 'border-info' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
-      data-view-card={id} data-proposed-card={ghost || undefined} data-pulsed={pulsed || undefined} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
+      className={`group relative text-[length:calc(14px*var(--canvas-label-scale,1))] leading-[1.35] font-sans text-text-body rounded-md border ${ghost ? 'bg-panel/80' : 'bg-panel'} px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : ghost || changed ? 'border-info' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
+      data-view-card={id} data-proposed-card={ghost || undefined} data-changed-card={changed || undefined} data-pulsed={pulsed || undefined} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
       data-slot-outline="next-step" data-driver-of={driverOf === null ? undefined : driverOf.map((o) => o.id).join(' ')}
       // What would change: the ring says this figure is one an option's chance moves most with; its options' driver words on hover. The
       // options themselves carry v10's driver badge (DL 4 Nov: one representation, no chip here).
@@ -258,8 +269,9 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
           for readers and the mark's hover, never a printed line. */}
       {ghost ? <p className="sr-only" data-view={`${id}.change.title`}>{card.change!.title}</p> : null}
       {/* One block of inline words, so a wrapped title returns to the card's left edge under its number, as the original's did (R3 pristine). */}
-      {/* An option core gives a driver carries v10's 20 px driver badge at right-1 top-1, 12 px into this row: the title keeps that room. */}
-      <p data-view-title={id} className={card.family === 'option' && card.driver !== null ? 'pr-4' : undefined}>
+      {/* An option core gives a driver carries v10's 20 px driver badge at right-1 top-1, 12 px into this row: the title keeps that room;
+          so does any other card's title for its ⌄ (plan v3: controls get reserved space). */}
+      <p data-view-title={id} className={(card.family === 'option' && card.driver !== null) || (card.family !== 'option' && more) ? 'pr-4' : undefined}>
         <span className="sr-only" data-view={`${id}.glyph`}>{card.glyph}</span>
         {number === null ? null : <><span className="text-text-light font-normal" data-card-number={number}>{number}</span>{' '}</>}
         {/* Core's detail ("… · quantity · Theirs: …") is its page's hover text, not a line: on the heading, whole (DL 4 Nov, Paul's rule). */}
@@ -309,7 +321,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
         : card.figure !== null && card.change?.kind !== 'added' && kind !== 'outcome' ? <span data-figure-edit-wrap=""><HeldEditOffer id={card.id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null}
       {card.rows.map((row, i) => (
         <span key={i} className="contents">
-          <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === lead} />
+          <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === lead} aimShown={aims > 1} />
           {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
         </span>
       ))}
@@ -338,12 +350,13 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
         <div hidden={!selected} className={`absolute left-full top-0 z-10 ml-2 space-y-1 rounded-lg border border-border bg-panel p-3 shadow-sm ${typography.viewLabel}`}
           style={{ width: CARD_WIDTH }} data-view-more={id}>
           {renamable ? <Rename id={id} heading={card.heading} shown /> : null}
+          {changed ? <p data-view={`${id}.change.title`}>{card.change!.title}</p> : null}
           {card.status === null ? null : <p data-view={`${id}.status`}>{card.status}</p>}
           {card.reason === null || says ? null : <p data-view={`${id}.reason`}>{card.reason}</p>}
           {card.premises.map((p, j) => (
-            // One line each, cut with an ellipsis, the glyph first and the whole on hover, as core's page draws a premise (.premise: nowrap,
-            // ellipsis): a premise shared by several options otherwise repeated in full on each card (DL 4 Nov).
-            <p key={j} title={p.title} className="truncate" data-premise-row={`${id}.${j}`}><span data-view={`${id}.premises.${j}.glyph`}>{p.glyph}</span> <span data-view={`${id}.premises.${j}.text`}>{p.text}</span></p>
+            // Whole, the glyph first (plan v3: full text on selection or keyboard focus, not hover only); these words show only with the
+            // card open, beside it, so a premise shared by several options never lengthens a card at rest (DL 4 Nov).
+            <p key={j} title={p.title} data-premise-row={`${id}.${j}`}><span data-view={`${id}.premises.${j}.glyph`}>{p.glyph}</span> <span data-view={`${id}.premises.${j}.text`}>{p.text}</span></p>
           ))}
         </div>
       ) : null}
@@ -411,10 +424,13 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   // While core's View shows a pending proposal, its Run is the proposal's: each Run-derived line says "If approved" (DL ruling, R4).
   const ifApproved = useMemo(() => ifApprovedMarkOf(view), [view])
   const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] === id)
+  // Keyboard focus on the card (or inside it) opens its other words as selection does (plan v3: full text on selection or keyboard focus).
+  const focused = useViewFocusCard((f) => f.id === id)
+  const open = selected === true || focused
   return (
     <div ref={inView} className={`group/vcard relative${preMortem === 'other' ? ' opacity-40' : ''}`} data-premortem={preMortem ?? undefined}>
       <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
-      <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={selected === true} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} />
+      <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={open} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
       <div className={selected === true || noted ? '' : 'opacity-0 group-hover/vcard:opacity-100 focus-within:opacity-100'} data-olumi-controls="">

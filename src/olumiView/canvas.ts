@@ -23,6 +23,12 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 export const useViewHover = create<{ id: string | null }>(() => ({ id: null }))
 /** The link (its React Flow edge id) with keyboard focus, if any: it is drawn and says its words while it is (ViewLinkEdge). */
 export const useViewFocusLink = create<{ id: string | null }>(() => ({ id: null }))
+/** The card (its node id) with keyboard focus on it or inside it, if any: it opens its other words as a selected card does (plan v3: full text
+    on selection or keyboard focus, not hover only). */
+export const useViewFocusCard = create<{ id: string | null }>(() => ({ id: null }))
+/** The node id of the card a focus event landed on or inside, or null. */
+export const focusedCardOf = (target: EventTarget | null): string | null =>
+  target instanceof Element ? target.closest('.react-flow__node')?.getAttribute('data-id') ?? null : null
 /** The id of a link's words, which describe its focusable edge to a screen reader (PL 7 Nov: the words focus shows are tied to the link). */
 export const linkWordsIdOf = (i: number): string => `view-link-words-${i}`
 /** The edge id of the link a focus event landed on, or null: React Flow's focusable edge wrapper carries it as `data-id`. */

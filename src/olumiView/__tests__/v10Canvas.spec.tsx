@@ -10,7 +10,7 @@ import { act, fireEvent, render } from '@testing-library/react'
 import type { View } from '../client'
 import { currentModel } from '../store'
 import { useCanvasStore } from '../../canvas/store'
-import { drawViewCanvas, useViewFocusLink } from '../canvas'
+import { drawViewCanvas, useViewFocusCard, useViewFocusLink } from '../canvas'
 import { causalPlaces, questionPlace } from '../layout'
 import { ViewCanvas } from '../ViewCanvas'
 
@@ -55,6 +55,12 @@ describe('the mounted core-lane canvas', () => {
     expect(useViewFocusLink.getState().id).toBe('a->b:plain')
     fireEvent.focusOut(pane.querySelector('g.react-flow__edge')!)
     expect(useViewFocusLink.getState().id).toBeNull()
+    // A card: focus on a control inside it names the card (plan v3: its words open on keyboard focus); leaving names none.
+    pane.insertAdjacentHTML('beforeend', '<div class="react-flow__node" data-id="c1"><button>✎</button></div>')
+    fireEvent.focusIn(pane.querySelector('.react-flow__node[data-id="c1"] button')!)
+    expect([useViewFocusCard.getState().id, useViewFocusLink.getState().id]).toEqual(['c1', null])
+    fireEvent.focusOut(pane.querySelector('.react-flow__node[data-id="c1"] button')!)
+    expect(useViewFocusCard.getState().id).toBeNull()
     unmount()
   })
 })
