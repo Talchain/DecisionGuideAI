@@ -21,3 +21,14 @@ export function authorOf(card: ViewCard): CardAuthor | null {
   if ((by !== 'person' && by !== 'brief') || typeof text !== 'string' || text === '' || typeof title !== 'string') return null
   return { by, text, title }
 }
+
+/** Every kind core says (person, brief, olumi, mixed), for the row's detail, which names whose a card is in core's words whatever the
+ *  kind; the row itself draws Olumi's as core's ◆/◐ (`authorOf` above). Any other shape reads as absent. */
+export type CardAuthorAny = { by: 'person' | 'brief' | 'olumi' | 'mixed'; text: string; title: string }
+export function authorAnyOf(card: ViewCard): CardAuthorAny | null {
+  const a = (card as unknown as { author?: unknown }).author
+  if (typeof a !== 'object' || a === null) return null
+  const { by, text, title } = a as Record<string, unknown>
+  if ((by !== 'person' && by !== 'brief' && by !== 'olumi' && by !== 'mixed') || typeof text !== 'string' || text === '' || typeof title !== 'string') return null
+  return { by, text, title }
+}

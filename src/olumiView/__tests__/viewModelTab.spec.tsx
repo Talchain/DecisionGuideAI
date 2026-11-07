@@ -12,12 +12,13 @@ import { drawKindOf, linkEndHeading, modelGroupsOf } from '../layout'
 import { MODEL_OUTLINE_LABELS } from '../ViewModelTab'
 import { ViewModelTab } from '../ViewModelTab'
 import { MODEL_ROW_LABELS } from '../model/ModelCardRow'
+import { resetModelTab, useModelTab } from '../model/state'
 import { registerFocusHelpers } from '../../canvas/utils/focusHelpers'
 import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../../canvas/domain/vocabulary'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/european.view.json'), 'utf8'))
 const model = view.model!
-afterEach(cleanup)
+afterEach(() => { cleanup(); try { localStorage.clear() } catch { /* none */ } resetModelTab() })
 
 describe('the Model tab, from the View', () => {
   it('the legacy groups in order; each card in the group its canvas kind says, assumptions and conditions in none', () => {
@@ -116,9 +117,10 @@ describe('the Model tab reads as the previous PoC\'s outline', () => {
 describe('the crafted Model tab, from the View', () => {
   const open = () => { const c = render(<ViewModelTab model={model} />).container; fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!); return c }
 
-  it('catch: a card\'s premises sit behind its own closed disclosure, each in core\'s words under core\'s key word for its glyph; a card with none has none', () => {
+  it('catch (Expert): a card\'s premises sit behind its own closed disclosure, each in core\'s words under core\'s key word for its glyph; a card with none has none', () => {
     const focus = vi.fn()
     const off = registerFocusHelpers(focus, () => undefined)
+    useModelTab.getState().setExpert(true)
     const c = open()
     const card = model.cards.find((k) => k.id === 'broader_entry')!
     expect(card.premises.length).toBeGreaterThan(1)
@@ -143,6 +145,19 @@ describe('the crafted Model tab, from the View', () => {
     expect(c.querySelector(`[data-model-row="${bare.id}"]`)).not.toBeNull()
     expect(c.querySelector(`[data-model-premises-toggle="${bare.id}"]`)).toBeNull()
     off()
+  })
+
+  it('Plain keeps the premises one press away, each with its glyph and core\'s words, without the Expert headings', () => {
+    expect(useModelTab.getState().expert).toBe(false) // Plain on a first visit
+    const c = open()
+    const card = model.cards.find((k) => k.id === 'broader_entry')!
+    fireEvent.click(c.querySelector(`[data-model-premises-toggle="${card.id}"]`)!)
+    card.premises.forEach((p, i) => {
+      const item = c.querySelector(`[data-view-premise="${card.id}.premises.${i}"]`)!
+      expect(item.querySelector(`[data-view="${card.id}.premises.${i}.text"]`)?.textContent, `premise ${i}`).toBe(p.text)
+      expect(item.textContent, `premise ${i}`).toBe(`${p.glyph}${p.text}`)
+    })
+    expect(c.querySelector(`[data-model-premises="${card.id}"] [data-view-key]`)).toBeNull() // CONTRAST: no Expert headings
   })
 
   it('catch: Olumi\'s mark sits on the figure it marks, once, with core\'s hover; an unmarked figure carries none; the key names only marks on screen', () => {
