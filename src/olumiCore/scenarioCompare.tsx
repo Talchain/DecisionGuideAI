@@ -48,7 +48,7 @@ function Cells({ side }: { side: OptionSide | null }): JSX.Element {
     <div className="grid content-start gap-1 break-words" data-compare-cells="">
       {arr(side?.cells).map((c, i) => (
         <p key={i} className={`${BODY} grid gap-0.5`} title={c.title} data-compare-cell="">
-          <span><MarkSpan m={c.olumi} /><span data-compare-value="">{c.value}</span></span>
+          <span><MarkSpan m={c.olumi} /><span className="font-semibold text-text-header" data-compare-value="">{c.value}</span></span>
           {c.olumi !== null && words(c.lead) ? <span className={META} data-compare-lead="">{c.lead}</span> : null}
           {words(c.condition) ? <span className={META} data-compare-condition="">{c.condition}</span> : null}
         </p>
