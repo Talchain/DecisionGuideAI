@@ -1,0 +1,146 @@
+/**
+ * The crafted analysis hero (`components/results/analysis-hero/AnalysisHeroPanel.tsx`), ported onto olumi.view/3: the same answer-first
+ * order (headline and subline, lens tabs, option rows with their disclosure, then the lower sections and the next step) and the same marks.
+ * Props only: it reads the View slice it is given and nothing else, so the caller mounts it anywhere (the UI session wires it into the tabs).
+ *
+ * Every word is core's, at its View path (`data-view`):
+ * - the headline is the Run's lead (`run.lead`), the panel's one 18px line;
+ * - the subline is the most likely line (`run.most_likely`), core's hover on it;
+ * - when every option waits, core's waits-on headline; a reason every option shares, once (`run.shared_blockers`);
+ * - each aim's rows under that aim's own words (`row.aim`) and core's reading of it (`run.readings`), each option in card order;
+ * - Olumi's timing assumptions, what the chances wait on, and the coach's newest next step.
+ *
+ * The crafted panel's composed sentences ("has the highest expected outcome"), status chip, quick pills, rank badges and trust line are
+ * not ported: core sends none of them. No win share is in the View, so none is drawn; the chance is the headline (DL #87).
+ * An absent field draws nothing, never a placeholder sentence.
+ */
+import { useId, useState, type ReactNode } from 'react'
+import type { ViewCard, ViewModel, ViewRun, ViewTurn } from '../client'
+import { newestNextOf } from '../layout'
+import { figureCard, mostLikelyHover, SharedBlockers, TimingAssumptions } from '../ViewChances'
+import { Words } from '../ViewChat'
+import { mostLikelyBasisOf } from '../standin'
+import { HeroOptionRow, type HeroLensId } from './HeroOptionRow'
+import { LensTabs, lensTabId } from './LensTabs'
+import { aimGroupsOf, lensesOf, outcomeDomainOf, readingsFor, tippingFor, type AimRow } from './pick'
+import { TYPE } from './type'
+
+/** The crafted panel's surface: the panel colour and a full border, never a single side. */
+export const PORT_BOX = 'space-y-3 rounded-lg border border-panel-border bg-panel p-3'
+const NBSP = ' '
+
+type WaitsOn = NonNullable<ViewRun['waits_on']>
+
+/** What the chances wait on, each item core's words with its hover; a figure no one can size yet says so in the headline only. */
+function WaitsOnItems({ w, unknown }: { w: WaitsOn; unknown: boolean }) {
+  return (
+    <>
+      {w.items.map((it, i) => (
+        <span key={it.id} title={it.title}>
+          <span data-view={`run.waits_on.items.${i}.text`}>{it.text}</span>
+          {unknown && it.unknown !== null ? <span data-view={`run.waits_on.items.${i}.unknown`}>{it.unknown}</span> : null}
+          {i < w.items.length - 1 ? ', ' : null}
+        </span>
+      ))}
+    </>
+  )
+}
+
+export interface AnalysisHeroPanelProps {
+  /** The model as shown (the approved one, or a held proposal's): the caller picks which. */
+  model: ViewModel
+  /** The conversation, for the coach's newest next step. */
+  chat?: readonly ViewTurn[] | null
+  /** Mounted after the most likely line (e.g. the ✎ for the figure it rests on). */
+  mostLikelyAction?: ReactNode
+  /** Mounted after the next step's words (e.g. the conversation's move tap). */
+  nextAction?: ReactNode
+  /** Mounted at the end of one row's detail (e.g. its figure's ✎). */
+  rowAction?: (entry: AimRow) => ReactNode
+  /** The lower sections, under the rows (the evidence disclosure, act on it). */
+  children?: ReactNode
+}
+
+export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAction, rowAction, children }: AnalysisHeroPanelProps) {
+  const panelId = useId()
+  const run = model.run ?? null
+  const lenses = lensesOf(run)
+  const [picked, setLens] = useState<HeroLensId | null>(null)
+  const [open, setOpen] = useState<string | null>(null)
+  if (run === null) return null
+
+  const lens: HeroLensId = picked !== null && lenses.some((l) => l.id === picked) ? picked : (lenses[0]?.id ?? 'goal')
+  const groups = aimGroupsOf(model)
+  const allWait = run.all_withheld && run.waits_on !== null
+  const ml = run.most_likely
+  const next = newestNextOf(chat)
+  const figureOf = (card: ViewCard) => (card.driver == null ? null : figureCard(model, card.driver))
+
+  return (
+    <section className={`${TYPE.body} ${PORT_BOX}`} data-testid="port-analysis-hero">
+      <div className="space-y-1.5" data-testid="port-hero-head">
+        {run.lead == null ? null : <h3 className={`${TYPE.headline} text-text-header`} data-view="run.lead">{run.lead}</h3>}
+        {ml == null ? null : (
+          <p className="text-text-body" data-testid="port-hero-most-likely" title={mostLikelyHover(ml)} data-view-hover={mostLikelyBasisOf(ml).rests_on_text === null ? undefined : 'run.most_likely.rests_on_text'}>
+            <span data-view="run.most_likely.text">{ml.text}</span>
+            {ml.if_approved == null ? null : <>{NBSP}<span data-view="run.most_likely.if_approved.glyph" title={ml.if_approved.title} aria-label={ml.if_approved.title}>{ml.if_approved.glyph}</span></>}
+            {mostLikelyAction == null ? null : <> {mostLikelyAction}</>}
+          </p>
+        )}
+        {!allWait ? null : (
+          <div data-testid="port-hero-waits-headline">
+            <p className={`${TYPE.meta} text-text-light`} data-view="run.waits_on.head">{run.waits_on!.head}</p>
+            <p><span data-view="run.waits_on.text">{run.waits_on!.text}</span>{': '}<WaitsOnItems w={run.waits_on!} unknown /></p>
+          </div>
+        )}
+        <SharedBlockers run={run} />
+      </div>
+
+      <div className="space-y-2" data-testid="port-hero-chart">
+        <LensTabs lenses={lenses} active={lens} onSelect={setLens} panelId={panelId} />
+        <div role={lenses.length < 2 ? undefined : 'tabpanel'} id={panelId} aria-labelledby={lenses.length < 2 ? undefined : lensTabId(panelId, lens)} className="space-y-3" data-lens={lens}>
+          {groups.map((g) => {
+            const domain = outcomeDomainOf(g.rows)
+            return (
+              <div key={g.aimId ?? ''} className="space-y-0.5" data-testid="port-aim-group" data-aim={g.aimId ?? ''}>
+                {g.aim === null ? null : <p className={`${TYPE.meta} px-2 text-text-light`} data-testid="port-aim-heading" data-view={g.aim.at}>{g.aim.text}</p>}
+                {readingsFor(run, g.aimId).map(({ reading, i }) => <p key={i} className={`${TYPE.meta} px-2 text-text-light`} data-view={`run.readings.${i}.text`}>{reading.text}</p>)}
+                {g.rows.map((entry) => {
+                  const key = `${entry.card.id}.rows.${entry.i}`
+                  return (
+                    <HeroOptionRow
+                      key={key}
+                      entry={entry}
+                      lens={lens}
+                      isOpen={open === key}
+                      onToggle={() => setOpen((o) => (o === key ? null : key))}
+                      domain={domain}
+                      tipping={tippingFor(run, entry.card.id, g.aimId)}
+                      figure={figureOf(entry.card)}
+                    >
+                      {rowAction?.(entry)}
+                    </HeroOptionRow>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <TimingAssumptions run={run} />
+      {run.waits_on === null || allWait ? null : (
+        <p data-testid="port-hero-waits-on"><span data-view="run.waits_on.label">{run.waits_on.label}</span>{' '}<WaitsOnItems w={run.waits_on} unknown={false} /></p>
+      )}
+      {children}
+      {next === null ? null : (
+        <div className="flex items-start gap-2" data-testid="port-hero-next">
+          <p className="min-w-0 flex-1"><span className="font-medium text-text-header" data-view={`chat.${next.k}.answer.next.label`}>{next.next.label}</span> <Words parts={next.next.text} at={`chat.${next.k}.answer.next.text`} first={next.first} /></p>
+          {nextAction}
+        </div>
+      )}
+    </section>
+  )
+}
+
+export default AnalysisHeroPanel
