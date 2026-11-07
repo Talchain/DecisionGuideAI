@@ -49,6 +49,22 @@ describe('the Model tab, from the View', () => {
     expect(c.querySelector(`[data-model-row="${assumption.id}"]`)).toBeNull()
   })
 
+  it('catch (Model-tab port contract, 7 Nov): each aim and limit carries its target in core\'s words, Olumi\'s mark only where core gives one; a card with no target draws none', () => {
+    const real = (JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real/european-22cards.view3.json'), 'utf8')) as View).model!
+    const c = render(<ViewModelTab model={real} />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    const bounded = real.cards.filter((k) => k.bound !== null)
+    expect(bounded.map((k) => k.family).sort()).toEqual(['goal', 'limit', 'limit'])
+    for (const card of bounded) {
+      const row = c.querySelector(`[data-model-row="${card.id}"]`)!
+      expect(row.querySelector(`[data-view="${card.id}.bound.text"]`)?.textContent, card.id).toBe(card.bound!.text)
+      expect(row.querySelector(`[data-view="${card.id}.bound.olumi.glyph"]`)?.textContent ?? null, card.id).toBe(card.bound!.olumi?.glyph ?? null)
+    }
+    expect(bounded.some((k) => k.bound!.olumi !== null) && bounded.some((k) => k.bound!.olumi === null)).toBe(true) // both kinds exercised
+    const plain = real.cards.find((k) => k.bound === null && c.querySelector(`[data-model-row="${k.id}"]`) !== null)!
+    expect(c.querySelector(`[data-model-row="${plain.id}"] [data-view$=".bound.text"]`)).toBeNull() // CONTRAST
+  })
+
   it('a row\'s press puts its card in front, through the canvas\'s focus, by its id', () => {
     const focus = vi.fn()
     const off = registerFocusHelpers(focus, () => undefined)

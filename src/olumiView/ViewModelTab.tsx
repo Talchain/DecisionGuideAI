@@ -35,6 +35,12 @@ function CardRow({ card, number }: { card: ViewCard; number: string | null }) {
           <Mark at={`${card.id}.olumi`} mark={card.olumi} />
           <Mark at={`${card.id}.change`} mark={card.change} />
         </span>
+        {/* An aim's or limit's target, as its card on the canvas says it (core's `bound`, with Olumi's mark where Olumi gave it): an aim in
+            the outline without its target was half of it (Model-tab port contract, 7 Nov). Nothing when core sends none. */}
+        {card.bound === null ? null : (
+          <span className="block" title={card.bound.title}><span data-view={`${card.id}.bound.text`}>{card.bound.text}</span>
+            {card.bound.olumi === null ? null : <> <Mark at={`${card.id}.bound.olumi`} mark={card.bound.olumi} /></>}</span>
+        )}
         {card.figure === null ? null : <span className="block" title={card.figure.title} data-view={`${card.id}.figure.text`}>{card.figure.text}</span>}
         {card.rows.map((row, i) => <Row key={i} card={card} row={row} i={i} />)}
       </button>
