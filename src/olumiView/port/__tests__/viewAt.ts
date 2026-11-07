@@ -19,11 +19,11 @@ export function viewOf(name: `real/${string}` | `golden/${string}` | `core/${str
   return JSON.parse(readFileSync(file, 'utf8')) as View
 }
 
-/** The value at a `data-view` path: `run.…` under the model's Run, `sharpen.…`, `chat.<k>.…` under the View's chat, else `<card id>.…`. */
+/** The value at a `data-view` path: `run.…` under the model's Run, `sharpen.…`, `links.<i>.…`, `chat.<k>.…` under the View's chat, else `<card id>.…`. */
 export function at(view: View, p: string): unknown {
   const [id, ...rest] = p.split('.')
   const m = view.model!
-  let x: unknown = id === 'run' ? m.run : id === 'sharpen' ? m.sharpen : id === 'chat' ? view.chat : m.cards.find((c) => c.id === id)
+  let x: unknown = id === 'run' ? m.run : id === 'sharpen' ? m.sharpen : id === 'links' ? m.links : id === 'chat' ? view.chat : m.cards.find((c) => c.id === id)
   for (const k of rest) x = x === null || x === undefined ? undefined : (x as Record<string, unknown>)[k]
   return x
 }

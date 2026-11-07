@@ -79,3 +79,31 @@ export function readingsFor(run: ViewRun | null, aim: string | null): { reading:
   ;(run?.readings ?? []).forEach((reading, i) => { if (reading.aim_id === aim && reading.text !== '') out.push({ reading, i }) })
   return out
 }
+
+export type ViewLinkT = ViewModel['links'][number]
+/**
+ * Each compared option with the links core sizes on its own path (`links[].effect`), at their View paths (`links.<i>`), in the View's link
+ * order: links from the option itself, and from each card the option sets directly (its plain links: on an R24 board an option sets its
+ * lever card, and the lever's `through` link carries the size). Options with none are left out.
+ */
+export function optionEffectsOf(model: ViewModel): { card: ViewCard; links: { link: ViewLinkT; i: number }[] }[] {
+  const out: { card: ViewCard; links: { link: ViewLinkT; i: number }[] }[] = []
+  for (const card of optionCards(model)) {
+    const on = new Set<string>([card.id])
+    for (const l of model.links) if (l.from === card.id && l.kind === 'plain') on.add(l.to)
+    const links: { link: ViewLinkT; i: number }[] = []
+    model.links.forEach((link, i) => { if (on.has(link.from) && link.effect != null && link.effect.text !== '') links.push({ link, i }) })
+    if (links.length > 0) out.push({ card, links })
+  }
+  return out
+}
+
+/** A card by its id, when the model draws it. */
+export const cardOf = (model: ViewModel, id: string | null | undefined): ViewCard | null => (id == null ? null : model.cards.find((c) => c.id === id) ?? null)
+
+/** The compared options that carry what moves their chance most (`driver`), in card order. */
+export function driverCardsOf(model: ViewModel): ViewCard[] {
+  const out: ViewCard[] = []
+  for (const card of optionCards(model)) if (card.driver != null && card.driver.text !== '') out.push(card)
+  return out
+}
