@@ -43,7 +43,7 @@ import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
 import { ViewPreMortemKey } from './ViewPreMortemKey'
 import { useOpenInView, useRevealInView } from './revealCamera'
-import { useReveal, withOpenCard } from './reveal'
+import { revealOf, useReveal, withChipsAbove, withOpenCard } from './reveal'
 
 // Each card is drawn with v10's controls (./v10): the card itself, and the Olumi corner that asks about it.
 const nodeTypes = { [VIEW_CARD]: ViewCardV10, [VIEW_QUESTION]: ViewQuestionNode }
@@ -120,7 +120,9 @@ function ViewFlow() {
   const stored = useCanvasStore((s) => s.nodes)
   // V11: the card whose chip is open is marked `v11-open` on its node, so the coaching ring (ring.ts) steps out of it: one focus per screen.
   const openCard = useReveal((s) => s.card)
-  const nodes = useMemo(() => withOpenCard(stored, openCard), [stored, openCard])
+  const view = useViewStore((s) => s.view)
+  const chipCards = useMemo(() => new Set(revealOf(view)?.cardChips.keys() ?? []), [view])
+  const nodes = useMemo(() => withOpenCard(withChipsAbove(stored, chipCards), openCard), [stored, chipCards, openCard])
   const edges = useCanvasStore((s) => s.edges)
   const onNodesChange = useCallback((changes: NodeChange[]) => useCanvasStore.getState().onNodesChange(changes), [])
   const userMoved = useRef(false)

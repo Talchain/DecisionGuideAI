@@ -5,8 +5,9 @@
  * card's marks row. Selecting either opens it in the dock (the Team tab). Every word is core's: the person's name, their figure's label and
  * text, core's heading for the effect, core's words for the mark.
  */
-import { FileText, GitFork } from 'lucide-react'
+import { FileText, GitFork, Users } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
+import { useCanvasStore } from '../canvas/store'
 import { typography } from '../styles/typography'
 import { useViewStore } from './store'
 import { CARD_WIDTH } from './layout'
@@ -16,10 +17,18 @@ import { evidenceOn } from './evidence'
 /** Nothing opens on an earlier version: it is drawn as it was, without the dock. */
 const onEarlier = () => useViewStore.getState().at !== null
 
+/** Opening a chip selects its card, as clicking the card would, so everything that reads the selection names the card that is open. */
+function selectCard(card: string | null): void {
+  if (card === null) return
+  const canvas = useCanvasStore.getState()
+  if (canvas.nodes.some((n) => n.id === card)) canvas.selectNodeWithoutHistory(card)
+}
+
 /** Open one view in the dock (and, from a chip, the card it concerns and which of its chips: its ring is the one selection ring). */
 export function openView(id: number, card: string | null = null, chip: string | null = null): void {
   if (onEarlier()) return
   useReveal.getState().select(id, card, chip)
+  selectCard(card)
   useUIStore.getState().forceActivateOutputTab('team')
 }
 
@@ -27,6 +36,7 @@ export function openView(id: number, card: string | null = null, chip: string | 
 export function openEvidence(id: number, card: string | null = null, chip: string | null = null): void {
   if (onEarlier()) return
   useReveal.getState().selectEvidence(id, card, chip)
+  selectCard(card)
   useUIStore.getState().forceActivateOutputTab('team')
 }
 
@@ -110,10 +120,11 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
   const open = useReveal((s) => s)
   const openChip = openChipOf(revealOf(view), open)
   const rail = (children: JSX.Element[]) => (
-    // Centred under the card, side by side in ONE row inside the gap to the next row (a second row would sit on the cards below); two
-    // chips may reach past the card's edges. The first (the difference that matters most) keeps all its words; a later one gives way and
-    // ends in an ellipsis, its full words in its hover and its name.
-    <div className="nodrag mt-1 flex flex-row flex-nowrap justify-center gap-1.5" style={{ width: CHIPS_WIDTH, marginLeft: (CARD_WIDTH - CHIPS_WIDTH) / 2 }} data-testid={`reveal-chips-${card}`}>{children}</div>
+    // Centred under the card, side by side in ONE row inside the gap to the next row (a second row would sit on the cards below). The
+    // first (the difference that matters most) keeps all its words; a later one is drawn compact, its people and its kind's mark, with its
+    // full words in its hover and its name, so a rail never crowds into its neighbours.
+    // Above the card's own controls that hang below it (Olumi's corner, shown while selected or hovered); only the chips take the pointer.
+    <div className="nodrag pointer-events-none relative z-20 mt-1 flex flex-row flex-nowrap justify-center gap-2" style={{ width: CHIPS_WIDTH, marginLeft: (CARD_WIDTH - CHIPS_WIDTH) / 2 }} data-testid={`reveal-chips-${card}`}>{children}</div>
   )
   if (cardChips.length > 0) {
     return rail(cardChips.map((chip, i) => {
@@ -128,9 +139,12 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
         <button key={chip.key} type="button" aria-pressed={on} aria-label={hover.replace(/\n/g, ' · ')} title={hover} data-reveal-card-chip={card} data-reveal-kind={chip.kind}
           data-reveal-chip={chip.kind === 'evidence' ? undefined : chip.views[0]} data-reveal-evidence-chip={chip.kind === 'evidence' ? chip.evidence[0] : undefined}
           onClick={(e) => { e.stopPropagation(); if (chip.kind === 'evidence') openEvidence(chip.evidence[0]!, card, chip.key); else openView(chip.views[0]!, card, chip.key) }}
-          className={`pointer-events-auto inline-flex h-6 max-w-full cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel pl-0.5 pr-2.5 ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${i === 0 ? 'flex-none' : 'min-w-0'} ${on ? 'shadow-2' : ''}`}>
+          className={`pointer-events-auto inline-flex h-6 max-w-full flex-none cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel pl-0.5 ${i === 0 ? 'pr-2.5' : 'pr-2'} ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'shadow-2' : ''}`}>
           <People people={chip.people} />
-          <span className="truncate" data-reveal-chip-text="">{chip.text}</span>
+          {i === 0
+            ? <span className="truncate" data-reveal-chip-text="">{chip.text}</span>
+            : <>{chip.kind === 'evidence' ? <FileText aria-hidden="true" className="h-3 w-3 text-text-body" /> : chip.kind === 'disagreement' ? <GitFork aria-hidden="true" className="h-3 w-3 text-text-body" /> : <Users aria-hidden="true" className="h-3 w-3 text-text-body" />}
+              <span className="sr-only" data-reveal-chip-text="">{chip.text}</span></>}
         </button>
       )
     }))

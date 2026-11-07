@@ -11,7 +11,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
-import { marksOn, openChipOf, revealOf, useReveal, withOpenCard } from '../reveal'
+import { marksOn, openChipOf, revealOf, useReveal, withChipsAbove, withOpenCard } from '../reveal'
+import { useCanvasStore } from '../../canvas/store'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
 import { EvidenceDock } from '../EvidenceDock'
 import { RevealDock } from '../RevealDock'
@@ -291,13 +292,29 @@ describe('core’s marks with stance, reading, options and evidence (real View, 
     expect(document.querySelector(`[data-reveal-option-line="${differ.options[0]!.option}"]`)!.textContent).toBe('FIXTURE: the second mark’s line')
   })
 
-  it('the chips stay on one row: the first keeps its words, a later one gives way (classes; the browser shot measures it)', () => {
+  it('the chips stay on one row: the first shows core’s words, a later one is compact with its words in its name (the browser shot measures it)', () => {
     render(<CardViewChips card={DIAG} />)
     const rail = screen.getByTestId(`reveal-chips-${DIAG}`), [a, b] = [...rail.querySelectorAll('button')]
     expect(rail.className).toContain('flex-nowrap')
-    expect(a!.className).toContain('flex-none')
-    expect(b!.className).toContain('min-w-0')
+    expect(a!.querySelector('[data-reveal-chip-text]')!.className).not.toContain('sr-only')
+    expect(b!.querySelector('[data-reveal-chip-text]')!.className).toContain('sr-only')
     expect(b!.getAttribute('aria-label')).toContain('Priya and Tom added evidence')
+    expect(b!.getAttribute('title')).toContain('Priya and Tom added evidence')
+  })
+
+  it('opening a chip selects its card on the canvas, as clicking the card would (design session, 7 Nov)', () => {
+    useCanvasStore.setState({ nodes: [{ id: DIAG, position: { x: 0, y: 0 }, data: {}, selected: false }, { id: 'time_to_contract', position: { x: 0, y: 0 }, data: {}, selected: true }] } as never)
+    render(<CardViewChips card={DIAG} />)
+    fireEvent.click(document.querySelector('[data-reveal-kind="disagreement"]')!)
+    expect(useCanvasStore.getState().nodes.filter((n) => n.selected).map((n) => n.id)).toEqual([DIAG])
+  })
+
+  it('a card that carries chips paints above the resting cards, so the row below never covers its rail', () => {
+    const nodes = [{ id: DIAG }, { id: 'time_to_contract' }]
+    const got = withChipsAbove(nodes, new Set([DIAG]))
+    expect(got.map((n) => (n as { zIndex?: number }).zIndex ?? 0)).toEqual([1, 0])
+    expect(got[1]).toBe(nodes[1])
+    expect(withChipsAbove(nodes, new Set())).toBe(nodes)
   })
 
   it('closing the evidence dock after switching inside it gives focus back to the chip that opened it', async () => {

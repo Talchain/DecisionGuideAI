@@ -260,6 +260,15 @@ export function openChipOf(r: Reveal | null, open: { readonly selected: number |
   return list.find((c) => (open.chip === null || c.key === open.chip) && holds(c)) ?? null
 }
 
+/**
+ * The canvas's nodes with each card that carries chips painted above the resting cards (z 1), so its rail, which hangs into the gap below
+ * it, is never covered by the next row's card or its handles. A selected card still rises above (React Flow adds 1000).
+ */
+export function withChipsAbove<N extends { readonly id: string; readonly zIndex?: number }>(nodes: N[], cards: ReadonlySet<string>): N[] {
+  if (cards.size === 0 || !nodes.some((n) => cards.has(n.id))) return nodes
+  return nodes.map((n) => (cards.has(n.id) && (n.zIndex ?? 0) < 1 ? { ...n, zIndex: 1 } : n))
+}
+
 /** The canvas's nodes with the open card's node marked `v11-open` (ring.ts steps out of it: one focus per screen); the same array when none is open. */
 export function withOpenCard<N extends { readonly id: string; readonly className?: string }>(nodes: N[], card: string | null): N[] {
   if (card === null || !nodes.some((n) => n.id === card)) return nodes
