@@ -42,7 +42,7 @@ import { DraftingBoard } from './DraftingBoard'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
 import { ViewPreMortemKey } from './ViewPreMortemKey'
-import { useRevealInView } from './revealCamera'
+import { useOpenInView, useRevealInView } from './revealCamera'
 
 // Each card is drawn with v10's controls (./v10): the card itself, and the Olumi corner that asks about it.
 const nodeTypes = { [VIEW_CARD]: ViewCardV10, [VIEW_QUESTION]: ViewQuestionNode }
@@ -125,6 +125,7 @@ function ViewFlow() {
   const fit = useViewCamera(userMoved)
   // V11: the team's disagreement is brought into view once per reveal, never over the person's own move (./revealCamera.ts).
   useRevealInView(movedAt)
+  useOpenInView(movedAt)
   // A Model tab row puts its card in front (`focusNodeById`): selected, and the camera centred on it at the zoom the person has. Only the
   // node focus is registered: the legacy fit and pan seams stay unregistered on this lane, so the applied-edit pulse never moves the
   // camera off the question and options (fit-real-model, bakery).
