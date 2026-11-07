@@ -35,6 +35,7 @@ import { boardKeyOf, readableFirstViewport } from './camera'
 import { drawnHeightsKey, headOf, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
 import { useV10Lane, ViewCardV10 } from './v10'
+import { useDockFullHeight } from './dockFullHeight'
 import { ViewLensBar } from './ViewLensBar'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
@@ -163,6 +164,7 @@ function ViewFlow() {
 /** The lane's canvas with the providers its dock and note read (the same ones the legacy canvas gives them). */
 export function ViewCanvas(): JSX.Element {
   useV10Lane()
+  useDockFullHeight()
   return (
     <ToastProvider>
       <LayerProvider>
