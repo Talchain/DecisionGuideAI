@@ -3,6 +3,8 @@
  * and has no source here. Paul, 6 and 7 Nov ("we did so much work on the previous version"; reinstate the crafted Reasoning tab): the
  * crafted Reasoning V2 composition (`analysisNew/prototype/ReasoningPanelV3.tsx`, served 24 Oct, vision-audit-20261024
  * *-panel-reasoning.png) on core's View, with its parts ported in `reasoning/parts.tsx`. Top to bottom:
+ *   0. above the tab, its state, said once (`reasoning/StateStrip.tsx`, the redesign's head row): a proposal held, a past version looked
+ *      at, or a what-if shown, each with its way back; nothing at rest;
  *   1. a what-if tried here, its answer first;
  *   2. the model at a glance: the brief, the goal, and one mark per option, factor, risk and outcome in the canvas's shape and colour for
  *      its kind (core's glyph kept for a reader, its heading on hover), with each row's count, as the crafted strip;
@@ -28,9 +30,9 @@ import type { ViewCard, ViewModel, ViewRow } from './client'
 import type { GlanceKind } from './layout'
 import { bandPlace, challengedCards, comparedGroupsOf, familyCards, glanceRows, olumiKey, optionBands, optionCards, outcomePlace, premisesOnce, rowsCarryOutcome, settableFigures, worthLinesOf, type Place } from './layout'
 import { shownModel, useViewStore } from './store'
-import { HeldProposalLine } from './ViewChances'
 import { Compared, WhatIfShown, Worth } from './ViewChances'
 import { Clamped, Door, SectionRow, SignalRow, ZoneTitle } from './reasoning/parts'
+import { StateStrip } from './reasoning/StateStrip'
 import { typography } from '../styles/typography'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 
@@ -75,7 +77,8 @@ function Challenge({ card: c }: { card: ViewCard }) {
   )
 }
 
-export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief?: string | null }) {
+/** `stated`: the tab's state is said above it (`ViewReasoningBlock`'s StateStrip), so the what-if box here draws no label of its own. */
+export function ViewReasoning({ model, brief = null, stated = false }: { model: ViewModel; brief?: string | null; stated?: boolean }) {
   const run = model.run ?? null, settable = settableFigures(model)
   const goals = familyCards(model, ['goal']), challenges = challengedCards(model)
   // Each premise once, wherever core put it (an option's own premises, and the notes on the card they concern), by core's words.
@@ -86,7 +89,7 @@ export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief
   const change = (run?.science == null ? 0 : worthLinesOf(run.science).length) + comparedGroupsOf(run).flatMap((g) => g.lines).length
   return (
     <div className={`${typography.viewPanelBody} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-6 px-4 py-3`} data-testid="view-reasoning">
-      <WhatIfShown model={model} />
+      <WhatIfShown model={model} labelled={!stated} />
       <div data-testid="view-reasoning-glance" className="space-y-1.5">
         {brief === null ? null : (
           <div className="flex items-baseline gap-2"><span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5 text-text-light`}><NodeShapeIndicator nodeKind="decision" size={10} />{REASONING_LABELS.brief}</span><span className="min-w-0" title={brief}><Clamped long={brief.length > BRIEF_CLAMP_CHARS} labels={REASONING_LABELS} testId="view-reasoning-brief"><span data-view="brief">{brief}</span></Clamped></span></div>
@@ -245,9 +248,12 @@ function Bands({ model, option }: { model: ViewModel; option: string }) {
   )
 }
 
-/** The tab's body: the View's model as shown (`shownModel`); a held proposal's under its heading (`HeldProposalLine`), never unlabelled. */
+/**
+ * The tab's body: the View's model as shown (`shownModel`), headed by its state (`StateStrip`): a held proposal under core's heading and
+ * base, a past version or a what-if each said once with its way back, so nothing that is not the latest approved model reads as it.
+ */
 export function ViewReasoningBlock() {
   const model = useViewStore(shownModel), brief = useViewStore((st) => st.view?.brief ?? null)
-  // The held proposal's line sits on the tab's own 16px gutter (it draws none of its own); nothing at all when no proposal is held.
-  return model === null ? null : <><div className="px-4 pt-3 empty:hidden"><HeldProposalLine /></div><ViewReasoning model={model} brief={brief} /></>
+  // The strip sits on the tab's own 16px gutter (it draws none of its own); nothing at all, and no gap, at rest.
+  return model === null ? null : <><div className="px-4 pt-3 empty:hidden"><StateStrip model={model} /></div><ViewReasoning model={model} brief={brief} stated /></>
 }
