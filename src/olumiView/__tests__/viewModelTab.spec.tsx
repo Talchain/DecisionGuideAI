@@ -159,19 +159,47 @@ describe('the crafted Model tab, from the View', () => {
       model.key.filter((k) => k.id === 'olumi').map((k) => `${k.glyph} ${k.text}`)) // ◆ only: no card here is partly Olumi's
   })
 
-  // ⚠ LABELLED FIXTURE, NOT THE WIRE: `cards[].author` is a core field requested of the DL on 7 Nov (~15:2xZ; assigned to the Summary
-  // lane, which serves the same producer). Its shape here is the one asked for; replace this with a wire View once core serves it.
-  it('FIXTURE (pending core `cards[].author`): a person\'s or the brief\'s figure carries its icon with core\'s words; Olumi\'s stays core\'s ◆; none, none', () => {
+  // The wire: core's own re-pinned golden at wip/summary a62f0899 (src/view/__tests__/golden/bakery.view3.json), which serves
+  // `cards[].author`. Every card in the tab is checked by its id: a person's carries the icon named in core's words; Olumi's carries
+  // core's ◆ alone; a card core gives no author carries nothing.
+  it('wire (core a62f0899): each card says whose it is in core\'s words, a person\'s by its icon, Olumi\'s by core\'s ◆; none, none', () => {
+    const bakery = (JSON.parse(readFileSync(path.resolve('src/olumiView/model/fixtures/bakery-author.core-a62f0899.view3.json'), 'utf8')) as View).model!
+    const c = render(<ViewModelTab model={bakery} />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    type A = { by: string; text: string; title: string } | null | undefined
+    const authorOf = (id: string) => (bakery.cards.find((k) => k.id === id) as unknown as { author: A }).author
+    const drawn = [...c.querySelectorAll('[data-model-row]')].map((r) => r.getAttribute('data-model-row')!)
+    expect(drawn.length).toBe(bakery.cards.length)
+    const seen = new Set<string>()
+    for (const id of drawn) {
+      const a = authorOf(id), icon = c.querySelector(`[data-view-author="${id}"]`)
+      seen.add(a == null ? 'none' : a.by)
+      if (a != null && a.by === 'person') {
+        expect([icon?.getAttribute('aria-label'), icon?.getAttribute('title'), icon?.getAttribute('data-author-by')], id).toEqual([a.text, `${a.text}\n${a.title}`, 'person'])
+      } else {
+        expect(icon, id).toBeNull()
+        if (a?.by === 'olumi') expect(c.querySelectorAll(`[data-view="${id}.olumi.glyph"]`).length, id).toBe(1)
+      }
+    }
+    expect([...seen].sort()).toEqual(['olumi', 'person']) // both kinds exercised on the wire
+    // A party core names is drawn as core names it, never as "the team".
+    expect(c.querySelector('[data-view-author="repair_chance"]')?.getAttribute('aria-label')).toBe(authorOf('repair_chance')!.text)
+  })
+
+  // ⚠ LABELLED FIXTURE, NOT THE WIRE: core reserves `by: 'brief'` but does not emit it yet (a figure from the brief and one a member typed
+  // share one stored origin until the write side records the split). Its words here are invented for the test; replace with a wire View
+  // once core emits it. A shape core never sends reads as absent.
+  it('FIXTURE (core reserves `brief`): the brief\'s figure carries its own icon in core\'s words; an unreadable author draws nothing', () => {
     const withAuthor = structuredClone(model)
     const set = (id: string, author: unknown) => { (withAuthor.cards.find((k) => k.id === id) as unknown as { author: unknown }).author = author }
-    set('starting_customers', { by: 'brief', text: 'From your brief', title: '“we have about 400 customers today”' })
-    set('investment_cap', { by: 'person', text: 'Alex’s figure', title: '“£500,000, no more”' })
+    set('starting_customers', { by: 'brief', text: 'From your brief', title: 'Theirs: “we have about 400 customers today”' })
+    set('investment_cap', { by: 'someone', text: 'x', title: 'y' })
     set('customers', { by: 'olumi', text: 'Olumi’s estimate', title: 'Proposed by Olumi' })
     const c = render(<ViewModelTab model={withAuthor} />).container
     fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
     const brief = c.querySelector('[data-view-author="starting_customers"]')!
-    expect([brief.getAttribute('data-author-by'), brief.getAttribute('aria-label'), brief.getAttribute('title')]).toEqual(['brief', 'From your brief', 'From your brief\n“we have about 400 customers today”'])
-    expect(c.querySelector('[data-view-author="investment_cap"]')?.getAttribute('aria-label')).toBe('Alex’s figure')
+    expect([brief.getAttribute('data-author-by'), brief.getAttribute('aria-label'), brief.getAttribute('title')]).toEqual(['brief', 'From your brief', 'From your brief\nTheirs: “we have about 400 customers today”'])
+    expect(c.querySelector('[data-view-author="investment_cap"]')).toBeNull() // a shape core never sends: nothing
     expect(c.querySelector('[data-view-author="customers"]')).toBeNull() // Olumi's: core's ◆ alone, drawn once
     expect(c.querySelectorAll('[data-view="customers.olumi.glyph"]').length).toBe(1)
     expect(c.querySelector('[data-view-author="customer_target"]')).toBeNull() // CONTRAST: no author, no icon

@@ -5,8 +5,8 @@
  * - the two-line row of `canvas/model-tab-v2/ModelRowView.tsx` (MODEL-1): the kind's canvas shape in a fixed gutter, the card's number and
  *   name on line 1, its figure on line 2 in tabular type, so a long name never fights its value for width;
  * - its provenance mark (`ValueProvenanceMark.tsx`): who stated a figure is a mark with its hover, never a sentence, and a figure nobody
- *   marked draws no mark (absence drawn as absence). Core marks Olumi's (◆) and partly Olumi's (◐); a person's or the brief's waits on
- *   core's `author` field (`./author.ts`);
+ *   marked draws no mark (absence drawn as absence). Core marks Olumi's (◆) and partly Olumi's (◐); a person's or the brief's is an
+ *   icon named in core's `author` words (`./author.ts`);
  * - the Insights disclosure of `components/results/FactorInsights.tsx`: closed by default, independent per row, a real button with
  *   aria-expanded, here holding the card's `premises[]` grouped under core's key words.
  *
@@ -36,7 +36,7 @@ export function CoreMark({ at, mark }: { at: string; mark: Mark | null }) {
   return <>{NBSP}<span role="img" aria-label={mark.title} title={mark.title} className="text-text-light" data-view={`${at}.glyph`}>{mark.glyph}</span></>
 }
 
-/** A person's or the brief's figure, once core says so (`cards[].author`, pending): an icon with core's words as its name and hover. */
+/** A person's or the brief's card (core's `cards[].author`): an icon with core's words as its name, and its words then its quote on hover. */
 function AuthorMark({ card }: { card: ViewCard }) {
   const a = authorOf(card)
   if (a === null) return null
