@@ -21,7 +21,7 @@ export function toggleBadge(cardId: string, badge: BadgeT): Promise<boolean> {
 export function Badge({ cardId, badge, at }: { cardId: string; badge: BadgeT; at: string }) {
   return (
     <button
-      type="button" className={`nodrag nopan cursor-pointer text-left underline-offset-2 hover:underline ${badge.proposed ? 'rounded border border-dashed border-info px-1' : ''}`}
+      type="button" className={`nodrag nopan inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-left underline-offset-2 hover:underline ${badge.proposed ? 'rounded border border-dashed border-info px-1' : ''}`}
       title={badge.title} aria-label={badge.label} aria-expanded={badge.open} data-proposed={badge.proposed || undefined}
       onClick={(e) => { e.stopPropagation(); void toggleBadge(cardId, badge) }}
     ><span data-view={`${at}.badge.text`}>{badge.text}</span>{badge.proposed && badge.change !== '' ? <> <span className="text-info" data-view={`${at}.badge.change`}>{badge.change}</span></> : null}</button>

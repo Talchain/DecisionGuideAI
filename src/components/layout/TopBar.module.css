@@ -54,6 +54,7 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  min-height: 24px; /* R25: a 24px target */
 }
 
 .logoLink:focus-visible {

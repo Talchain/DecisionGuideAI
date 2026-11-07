@@ -458,7 +458,7 @@ export function ScenarioSwitcher({
 
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="shrink-0 p-0.5 rounded hover:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors"
+            className="shrink-0 inline-flex min-h-[24px] min-w-[24px] items-center justify-center rounded hover:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors"
             type="button"
             aria-expanded={isOpen}
             aria-haspopup="true"

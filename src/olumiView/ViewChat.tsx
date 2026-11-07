@@ -190,7 +190,8 @@ function ChangeLine({ c, i, ticked, toggle, busy }: { c: Change; i: number; tick
   const line = <><span data-view={`proposal.changes.${i}.text`} title={why ?? undefined} data-view-hover={why === null ? undefined : `proposal.changes.${i}.together.why`}>{c.text}</span>{c.olumi === null ? null : <> <span title={c.olumi.title} aria-label={c.olumi.title} data-view={`proposal.changes.${i}.olumi.glyph`}>{c.olumi.glyph}</span></>}</>
   return (
     <li className="flex items-start gap-2" data-change={keyOf(c)}>
-      {ticked === null ? null : <input type="checkbox" checked={ticked} disabled={busy} onChange={() => toggle(c)} aria-label={`Choose ${c.text}`} data-testid={`view-change-tick-${i}`} className="mt-1" />}
+      {/* R25 (24px targets): the box sits in a 24px label, the label the target. */}
+      {ticked === null ? null : <label className="inline-flex min-h-[24px] min-w-[24px] flex-none cursor-pointer items-center justify-center" data-target-for={`view-change-tick-${i}`}><input type="checkbox" checked={ticked} disabled={busy} onChange={() => toggle(c)} aria-label={`Choose ${c.text}`} data-testid={`view-change-tick-${i}`} /></label>}
       {c.detail === '' ? <span>{line}</span> : (
         <details><summary className="cursor-pointer">{line}</summary><p className="whitespace-pre-line text-text-light" data-view={`proposal.changes.${i}.detail`}>{c.detail}</p></details>
       )}
@@ -243,8 +244,10 @@ function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; bus
                 <li key={gi}>
                   <details>
                     <summary className="cursor-pointer">
-                      <input type="checkbox" checked={all} disabled={busy} onClick={(e) => e.stopPropagation()} onChange={() => toggleGroup(g.lines, !all)}
-                        aria-label={`Choose every change under ${g.heading}`} data-testid={`view-change-group-${gi}`} className="mr-2" />
+                      <label className="mr-1 inline-flex min-h-[24px] min-w-[24px] cursor-pointer items-center justify-center align-middle" onClick={(e) => e.stopPropagation()} data-target-for={`view-change-group-${gi}`}>
+                        <input type="checkbox" checked={all} disabled={busy} onClick={(e) => e.stopPropagation()} onChange={() => toggleGroup(g.lines, !all)}
+                          aria-label={`Choose every change under ${g.heading}`} data-testid={`view-change-group-${gi}`} />
+                      </label>
                       <b data-view={`proposal.groups.${gi}.heading`}>{g.heading}</b>
                     </summary>
                     <ul className="m-0 mt-1 grid list-none gap-1 p-0 pl-3">{g.lines.map(line)}</ul>
