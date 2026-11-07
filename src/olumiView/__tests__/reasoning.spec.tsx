@@ -3,7 +3,7 @@
  * order, each bound to its own View string; nothing while no model is current; a figure tried there drawn there, nothing saved.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -12,7 +12,7 @@ import { useViewStore } from '../store'
 import { optionCards } from '../layout'
 import { REASONING_LABELS, ViewReasoning, ViewReasoningBlock } from '../ViewReasoning'
 import { ViewChances } from '../ViewChances'
-import { clearWhatIf } from '../whatif'
+import { clearWhatIf, useWhatIf, type WhatIfVariant } from '../whatif'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { useMe } from '../../olumiCore/me'
@@ -164,6 +164,87 @@ describe('pending is never shown as current', () => {
     ready(bakery)
     rerender(<ViewReasoningBlock />)
     expect(screen.getByTestId('view-reasoning').querySelector('[data-testid="view-reasoning-glance"]')).not.toBeNull()
+  })
+})
+
+// The redesign's head row (reasoning-redesign-SPEC.md §3 Z1, PR0): one home for the tab's state, above the tab, each state said once in
+// words already said on this lane, with its way back; nothing at rest. Bound by the strip's own state and the store it acts on.
+describe('the tab says its state once, above it', () => {
+  const realLook = useViewStore.getState().look
+  afterEach(() => { useViewStore.setState({ at: null, look: realLook } as never) })
+  const whatIf = read('whatif.view.json')
+  const variant = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/whatif.answer.json'), 'utf8')).variants[0] as WhatIfVariant
+  const show = (base: number, sid = whatIf.id) => useWhatIf.setState({ shown: { sid, base, quantity: variant.edits[0]!.quantity, typed: '5', variant } })
+
+  it('a held proposal: core\'s heading and version, in the strip above the tab, and said nowhere else', () => {
+    const held = read('proposal.view.json')
+    ready(held)
+    const { container } = render(<ViewReasoningBlock />)
+    const strip = screen.getByTestId('view-reasoning-state')
+    expect(strip.dataset['state']).toBe('proposal')
+    expect(strip.querySelector('[data-view-proposal="heading"]')!.textContent).toBe(held.proposal!.heading)
+    expect(strip.querySelector('[data-view-proposal="on"]')!.textContent).toBe(held.proposal!.on)
+    expect(container.querySelectorAll('[data-view-proposal="heading"]')).toHaveLength(1)
+    expect(strip.compareDocumentPosition(screen.getByTestId('view-reasoning')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('a past version: the number the person chose (`at`), not the View\'s own, and Back to the latest asks core for the latest', () => {
+    const bakery = read('bakery.view.json'), look = vi.fn(async () => null)
+    expect(bakery.version!.n).not.toBe(3)
+    ready(bakery, { at: 3, look })
+    render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('view-reasoning-state').dataset['state']).toBe('past')
+    expect(screen.getByTestId('view-reasoning-past').textContent).toBe('Version 3 is on the canvas, as it was.')
+    fireEvent.click(screen.getByTestId('view-reasoning-back'))
+    expect(look.mock.calls).toEqual([[null]])
+  })
+
+  it('a what-if on this version: said once, in the strip, and Clear there drops it; one asked on another version or scenario is not said', () => {
+    ready(whatIf)
+    show(whatIf.model!.edit_base!)
+    const { container, rerender } = render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('view-reasoning-state').dataset['state']).toBe('whatif')
+    expect(screen.getByTestId('view-reasoning-whatif').textContent).toBe('What-if, not saved')
+    expect(container.textContent!.split('What-if, not saved')).toHaveLength(2)
+    expect(screen.queryByTestId('view-whatif-clear')).toBeNull()
+    expect(screen.getByTestId('view-whatif').querySelector('[data-view="whatif.edits.0.words"]')!.textContent).toBe(variant.edits[0]!.words)
+    fireEvent.click(screen.getByTestId('view-reasoning-whatif-clear'))
+    expect(useWhatIf.getState().shown).toBeNull()
+    expect(screen.queryByTestId('view-reasoning-state')).toBeNull()
+    show(whatIf.model!.edit_base! + 1)
+    rerender(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('view-reasoning-state')).toBeNull()
+    expect(screen.queryByTestId('view-whatif')).toBeNull()
+    // The same version number on another scenario (a what-if still held after the person opened another one): not this tab's.
+    show(whatIf.model!.edit_base!, 's_00000000ffff')
+    rerender(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('view-reasoning-state')).toBeNull()
+    expect(screen.queryByTestId('view-whatif')).toBeNull()
+  })
+
+  it('a proposal held back while a what-if is shown: the strip says the proposal, and the what-if box keeps its own label and Clear', () => {
+    // Core holds a proposal back from a viewer who has not given their own view (view.ts `heldProposal`): it serves `proposal`, but the
+    // canvas draws the approved version, whose `edit_base` stays set, so a what-if tried on it stays shown. Never unlabelled under the
+    // proposal's strip, where it would read as the proposal's figures.
+    const held = read('proposal.view.json'), base = 41, v = { ...held, model: { ...held.model!, edit_base: base } }
+    expect(held.proposal).not.toBeNull()
+    ready(v)
+    show(base, v.id)
+    const { container } = render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('view-reasoning-state').dataset['state']).toBe('proposal')
+    expect(screen.queryByTestId('view-reasoning-whatif')).toBeNull()
+    expect(screen.getByTestId('view-whatif-clear')).not.toBeNull()
+    expect(screen.getByTestId('view-whatif').querySelector('[data-view="whatif.edits.0.words"]')!.textContent).toBe(variant.edits[0]!.words)
+    expect(container.textContent!.split('What-if, not saved')).toHaveLength(2)
+    fireEvent.click(screen.getByTestId('view-whatif-clear'))
+    expect(useWhatIf.getState().shown).toBeNull()
+  })
+
+  it('at rest, the latest approved model with nothing tried: no strip, and the tab starts at its own top', () => {
+    ready(read('bakery.view.json'))
+    const { container } = render(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('view-reasoning-state')).toBeNull()
+    expect(container.firstElementChild!.childElementCount).toBe(0)
   })
 })
 
