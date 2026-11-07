@@ -18,7 +18,7 @@ import { ToastProvider } from '../../canvas/ToastContext'
 import { useCanvasStore } from '../../canvas/store'
 import { runCanvasUndo } from '../../canvas/undo/undoCommand'
 import { CORE_LANE_USE_THE_CHAT } from '../../olumiCore/lane'
-import { layViewCanvas, placeViewCards, useViewCanvas, withdrawViewCanvas } from '../canvas'
+import { layViewCanvas, linkWordsIdOf, placeViewCards, useViewCanvas, withdrawViewCanvas } from '../canvas'
 import { useViewStore } from '../store'
 import { useVersionsPanelStore } from '../../canvas/versions/versionsPanelStore'
 
@@ -95,6 +95,13 @@ describe('B5 Auto-arrange on the lane puts every View card back in its causal pl
     expect(await placeViewCards(view.model!)).toBe(true)
     expect(useCanvasStore.getState().nodes[1]!.position).toEqual(home)
     expect(useCanvasStore.getState().pendingLayout).toBe(false)
+  })
+  it('PL 7 Nov: every link\'s focusable edge is described by its own words (aria-describedby names the words\' id), not React Flow\'s delete hint', async () => {
+    useCanvasStore.setState({ nodes: [], edges: [], pendingLayout: false })
+    await layViewCanvas(view.model!)
+    const edges = useCanvasStore.getState().edges as { data?: { i?: number }; domAttributes?: Record<string, string> }[]
+    expect(edges.length).toBeGreaterThan(0)
+    for (const e of edges) expect(e.domAttributes?.['aria-describedby']).toBe(linkWordsIdOf(e.data!.i!))
   })
 })
 

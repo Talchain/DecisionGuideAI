@@ -7,12 +7,12 @@
  */
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, useStore, type EdgeProps, type ReactFlowState } from '@xyflow/react'
-import { linkWordsAt } from './linkWordsPlace'
+import { linkWordsAt, type Placed } from './linkWordsPlace'
 import { railOf, railSlots, railWordsAt } from './linkRail'
 import type { ViewLink } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { linkDrawn } from '../../olumiView/layout'
-import { useViewFocusLink, useViewHover } from '../../olumiView/canvas'
+import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
 import { useDriverLink } from '../../olumiView/lens'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
 
@@ -71,18 +71,24 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const rail = from && to ? railOf(from, to, cards, slot) : null
   const [bezier, midX, midY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
   const path = rail?.path ?? bezier
-  const { x, y } = rail ? railWordsAt(rail, size, cards) : linkWordsAt(path, cards, size, { x: midX, y: midY })
+  const placed: Placed = rail ? railWordsAt(rail, size, cards) : linkWordsAt(path, cards, size, { x: midX, y: midY })
+  const { x, y } = placed
+  // Words with no clear room within reach of their link (PL/DL 7 Nov: never detached) show only while the link is near, with their leader.
+  const words = (link.label !== '' || effect !== null) && (placed.far !== true || near)
   const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
   return (
     <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
       <title>{link.title}</title>
       <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: driver ? 2.5 : 1, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
-      {link.label === '' && effect === null ? null : (
+      {words && placed.leaderTo ? (
+        <path data-view-link-leader={`links.${i}`} d={`M ${x},${y} L ${placed.leaderTo.x},${placed.leaderTo.y}`} fill="none" stroke={stroke} strokeWidth={1} strokeDasharray="2 3" />
+      ) : null}
+      {!words ? null : (
         // The words on the line sit in React Flow's label layer, above a resting card (z 0) and below a selected one (1000), so a card
         // never cuts them (DL 4 Nov, R3: "…week" clipped under a card); the line itself stays under the cards. They sit at the nearest point
         // along the path clear of every card (R5 item 3), so they never cover a card's text either.
         <EdgeLabelRenderer>
-          <div ref={attachWords} className={`nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 text-text-body`} data-view-link-words={`links.${i}`}
+          <div ref={attachWords} id={linkWordsIdOf(i)} className={`nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 text-text-body`} data-view-link-words={`links.${i}`}
             style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, background: 'var(--bg-canvas)', pointerEvents: 'none' }}>
             {link.label === '' ? null : <span data-view={`links.${i}.label`}>{link.label}</span>}
             {/* Its strength in core's words (`effect`, core 685e725), with core's hover; under the sign when the link has one. */}

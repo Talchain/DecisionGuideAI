@@ -23,6 +23,8 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 export const useViewHover = create<{ id: string | null }>(() => ({ id: null }))
 /** The link (its React Flow edge id) with keyboard focus, if any: it is drawn and says its words while it is (ViewLinkEdge). */
 export const useViewFocusLink = create<{ id: string | null }>(() => ({ id: null }))
+/** The id of a link's words, which describe its focusable edge to a screen reader (PL 7 Nov: the words focus shows are tied to the link). */
+export const linkWordsIdOf = (i: number): string => `view-link-words-${i}`
 /** The edge id of the link a focus event landed on, or null: React Flow's focusable edge wrapper carries it as `data-id`. */
 export const focusedLinkOf = (target: EventTarget | null): string | null =>
   target instanceof Element ? target.closest('.react-flow__edge')?.getAttribute('data-id') ?? null : null
@@ -93,7 +95,9 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, At>
     ...model.cards.map((card) => ({ id: card.id, type: VIEW_CARD, data: { card, label: card.heading }, position: placeOf(card.id), ...kept(card.id) })),
   ]
   // Each link keeps its meaning (00057 #3): its kind, sign, doubt, challenge and proposal, drawn by the View link edge.
-  const edges = cardLinks(model).map(({ link, i }) => ({ id: `${link.from}->${link.to}:${link.kind}`, source: link.from, target: link.to, type: VIEW_LINK, data: { link, i }, ariaLabel: link.title }))
+  const edges = cardLinks(model).map(({ link, i }) => ({ id: `${link.from}->${link.to}:${link.kind}`, source: link.from, target: link.to, type: VIEW_LINK, data: { link, i }, ariaLabel: link.title,
+    // Its words describe it (React Flow's own description speaks of deleting a link, which this canvas never does).
+    domAttributes: { 'aria-describedby': linkWordsIdOf(i) } }))
   if (same(store.nodes.map((n) => [n.id, n.type, n.data, n.position]), nodes.map((n) => [n.id, n.type, n.data, n.position])) && same(store.edges.map((e) => [e.id, e.data]), edges.map((e) => [e.id, e.data]))) return false
   store.beginExternalGraphMutation?.('envelope_apply')
   try {

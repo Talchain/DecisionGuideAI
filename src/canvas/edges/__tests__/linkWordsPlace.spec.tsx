@@ -11,7 +11,8 @@ import { act, cleanup, render } from '@testing-library/react'
 import { getBezierPath, Position, ReactFlowProvider, useStoreApi, type Node } from '@xyflow/react'
 import type { ViewLink } from '../../../olumiView/client'
 import { ViewLinkEdge } from '../ViewLinkEdge'
-import { linkWordsAt } from '../linkWordsPlace'
+import { linkWordsAt, NEAR, REACH } from '../linkWordsPlace'
+import { linkWordsIdOf } from '../../../olumiView/canvas'
 import { EdgeLabelLayer } from '../../../olumiView/__tests__/edgeLabelLayer'
 
 afterEach(cleanup)
@@ -73,6 +74,62 @@ describe('a link\'s words sit at the nearest point along its path that is clear 
     const words = c.querySelector<HTMLElement>('[data-view-link-words="links.0"]')!
     const m = /translate\(([-\d.e]+)px, ([-\d.e]+)px\)$/.exec(words.style.transform)!
     expect(inside({ x: Number(m[1]), y: Number(m[2]) }, across), words.style.transform).toBe(false)
+  })
+})
+
+describe('words off their path stay with their link (PL 7 Nov: never detached; DL 7 Nov: within a short reach, or only while near)', () => {
+  // A vertical link (x = 0, y 0 to 400) covered end to end: a card over its upper part, a wider one over the rest and its middle.
+  const vertical = getBezierPath({ sourceX: 0, sourceY: 0, targetX: 0, targetY: 400, sourcePosition: Position.Bottom, targetPosition: Position.Top })
+  const vpath = vertical[0], vmid = { x: vertical[1], y: vertical[2] }, size = { w: 11, h: 18 }
+  const toLink = (p: { x: number; y: number }) => (p.y >= 0 && p.y <= 400 ? Math.abs(p.x) : Math.hypot(p.x, p.y < 0 ? p.y : p.y - 400))
+  it('catch: the words take the clear point nearest the LINK (not its middle), within REACH, with a leader to the link beyond NEAR', () => {
+    // The only room within REACH is beside the link's upper part, more than REACH from its middle (y 200): rings round the middle alone miss it.
+    const upper = { x: -60, y: -50, w: 120, h: 150 }, lower = { x: -200, y: 100, w: 400, h: 350 }
+    const at = linkWordsAt(vpath, [upper, lower], size, vmid)
+    for (const c of [upper, lower]) expect(boxOver(at, size, c), `${JSON.stringify(at)} over ${JSON.stringify(c)}`).toBe(false)
+    expect(toLink(at)).toBeLessThanOrEqual(REACH)
+    expect(toLink(at)).toBeGreaterThan(NEAR)
+    expect(at.leaderTo, 'a leader joins words farther than NEAR to their link').toBeDefined()
+    expect(Math.abs(at.leaderTo!.x)).toBeLessThan(0.01) // on the link
+    expect(at.far).toBeUndefined()
+  })
+  it('must not change: words that find room within NEAR of their link need no leader', () => {
+    const narrow = { x: -15, y: -50, w: 30, h: 500 }
+    const at = linkWordsAt(vpath, [narrow], size, vmid)
+    expect(boxOver(at, size, narrow)).toBe(false)
+    expect(toLink(at)).toBeLessThanOrEqual(NEAR)
+    expect(at.leaderTo).toBeUndefined()
+  })
+  it('no room within REACH: the words are far, off every card, with a leader to the link\'s middle', () => {
+    const everywhere = { x: -1000, y: -1000, w: 3000, h: 3000 }
+    const at = linkWordsAt(vpath, [everywhere], size, vmid)
+    expect(boxOver(at, size, everywhere)).toBe(false)
+    expect(at.far).toBe(true)
+    expect(at.leaderTo).toEqual(vmid)
+  })
+  it('catch at the renderer: far words are not drawn at rest; with the link near they are, joined to it by their leader', () => {
+    const restore = measureWordsAs(size)
+    try {
+      const everywhere = { id: 'cover', x: -1000, y: -1000, w: 3000, h: 3000 }
+      const link = { from: 'a', to: 'b', kind: 'reason', label: '!', title: 't', doubt: false, alert: true, proposed: false, effect: null } as unknown as ViewLink
+      const draw = (selected: boolean) => render(<ReactFlowProvider initialNodes={[node(everywhere)]}><EdgeLabelLayer><svg>
+        <Edge id="e" source="a" target="b" sourceX={0} sourceY={0} targetX={0} targetY={400} sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link, i: 0 }} selected={selected} />
+      </svg></EdgeLabelLayer></ReactFlowProvider>).container
+      const rest = draw(false)
+      expect(rest.querySelector('[data-view-link-words="links.0"]')).toBeNull()
+      expect(rest.querySelector('[data-view-link-leader]')).toBeNull()
+      cleanup()
+      const near = draw(true)
+      const at = drawnAt(near.querySelector<HTMLElement>('[data-view-link-words="links.0"]')!)
+      expect(boxOver(at, size, everywhere)).toBe(false)
+      const d = near.querySelector('[data-view-link-leader="links.0"]')?.getAttribute('d')
+      expect(d).toBe(`M ${at.x},${at.y} L ${vmid.x},${vmid.y}`)
+    } finally { restore() }
+  })
+  it('the words describe their link to a screen reader: they carry the id its edge names (React Flow\'s aria-describedby)', () => {
+    const link = { from: 'a', to: 'b', kind: 'causal', label: '+', title: 't', doubt: false, alert: false, proposed: false, effect: null } as unknown as ViewLink
+    const c = render(<ReactFlowProvider><EdgeLabelLayer><svg><Edge id="e" source="a" target="b" {...ends} data={{ link, i: 3 }} /></svg></EdgeLabelLayer></ReactFlowProvider>).container
+    expect(c.querySelector('[data-view-link-words="links.3"]')?.id).toBe(linkWordsIdOf(3))
   })
 })
 
