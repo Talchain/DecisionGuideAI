@@ -50,11 +50,18 @@ describe('a link into an aim beside the question runs round the board, through n
       for (const c of cards) expect(overlaps(p, size, c), `slot ${slot} ${JSON.stringify(p)} over ${JSON.stringify(c)}`).toBe(false)
     }
   })
+  it('catch: a wide label with a clear gap on its climb sits on its rail in that gap, nearest the middle (not moved off the rail)', () => {
+    // outcomeR's climb on the right rail (x 1151) passes driverB (624-928) and outcomeR (1221-1568); the nearest clear gap to the middle
+    // (800) for a 36-high box is just under driverB.
+    const r = railOf(outcomeR, aimR, cards)!
+    expect(railWordsAt(r, { w: 120, h: 36 }, cards)).toEqual({ x: r.x, y: 952 })
+  })
   it('catch: where cards line the board\'s edge the whole way up, the box moves out past the edge, still across its rail', () => {
     // A column at the right edge with no gap from the aims' row down to the outcome row: no point of the climb is clear.
     const wall = [{ x: 1000, y: 0, w: 127, h: 630 }, { x: 907, y: 630, w: 220, h: 600 }]
-    const board = [aimL, question, aimR, option, outcomeL, riskB, ...wall, { ...outcomeR, y: 1230 }]
-    const size = { w: 120, h: 36 }, r = railOf(board[7]!, aimR, board)!, p = railWordsAt(r, size, board)
+    const low = { ...outcomeR, y: 1230 }, board = [aimL, question, aimR, option, outcomeL, riskB, ...wall, low]
+    const size = { w: 120, h: 36 }, r = railOf(low, aimR, board)!, p = railWordsAt(r, size, board)
+    expect(p.x).not.toBe(r.x)
     for (const c of board) expect(overlaps(p, size, c), `${JSON.stringify(p)} over ${JSON.stringify(c)}`).toBe(false)
     expect(p.x - size.w / 2 < r.x && r.x < p.x + size.w / 2).toBe(true)
   })
