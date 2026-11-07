@@ -58,14 +58,16 @@ function AuthorMark({ card }: { card: ViewCard }) {
 const EditCue = () => <Pencil aria-hidden="true" data-model-edit-cue="" className="ml-1.5 inline h-3.5 w-3.5 flex-none align-middle text-info" />
 
 /** An option's line for one aim, compact: the aim on the left, core's value and its marks on the right (the crafted value column); the
- *  whole sentence on hover. Expert adds core's companion and timing lines; Plain leaves them to the Analysis tab. */
-function OptionLine({ card, row, i, expert }: { card: ViewCard; row: ViewRow; i: number; expert: boolean }) {
+ *  whole sentence on hover. Core's companion line (how much the chance owes to a suggestion of Olumi's) shows in both: Olumi's part must
+ *  stay visible to be challenged. Expert adds the timing line. A long "cannot be worked out" sentence is cut to two lines in Plain until
+ *  its row is opened. */
+function OptionLine({ card, row, i, expert, open }: { card: ViewCard; row: ViewRow; i: number; expert: boolean; open: boolean }) {
   const at = `${card.id}.rows.${i}`
   if (row.kind === 'none') {
     const words = row.text ?? row.title
     return (
       <span className={`${typography.viewPanelMeta} block text-text-light`} title={row.title === words ? undefined : row.title} data-view-row={at}>
-        <span className={expert ? 'block' : 'line-clamp-2'} title={expert ? undefined : words} data-view={row.text == null ? `${at}.title` : `${at}.text`}>{words}</span>
+        <span className={expert || open ? 'block' : 'line-clamp-2'} title={expert || open ? undefined : words} data-view={row.text == null ? `${at}.title` : `${at}.text`}>{words}</span>
       </span>
     )
   }
@@ -81,7 +83,7 @@ function OptionLine({ card, row, i, expert }: { card: ViewCard; row: ViewRow; i:
           {row.kind === 'chance' && row.if_approved != null ? <CoreMark at={`${at}.if_approved`} mark={row.if_approved} /> : null}
         </span>
       </span>
-      {expert && row.kind === 'chance' && row.companion != null ? <span className={`${typography.viewPanelMeta} block text-text-light`} title={row.companion_title ?? row.companion} data-view={`${at}.companion`}>{row.companion}</span> : null}
+      {row.kind === 'chance' && row.companion != null ? <span className={`${typography.viewPanelMeta} block text-text-light`} title={row.companion_title ?? row.companion} data-view={`${at}.companion`}>{row.companion}</span> : null}
       {expert && row.kind === 'chance' && row.timing != null ? <span className={`${typography.viewPanelMeta} block text-text-light`} title={row.timing_title ?? row.timing} data-view={`${at}.timing`}>{row.timing}</span> : null}
     </span>
   )
@@ -94,16 +96,19 @@ function Premises({ card, keyEntries, expert }: { card: ViewCard; keyEntries: Vi
   const id = useId()
   const groups = useMemo(() => premiseGroupsOf(card, keyEntries), [card, keyEntries])
   if (card.premises.length === 0) return null
+  const kindOf = (glyph: string) => keyEntries.find((k) => k.glyph === glyph)?.text ?? null
   const item = (premise: ViewCard['premises'][number], i: number, glyph: boolean) => (
     <li key={i} className="flex gap-1.5 text-text-body" title={premise.title === premise.text ? undefined : premise.title} data-view-premise={`${card.id}.premises.${i}`}>
-      {glyph ? <span aria-hidden="true" className="w-3 flex-none text-center text-text-light">{premise.glyph}</span> : null}
+      {!glyph ? null : kindOf(premise.glyph) === null
+        ? <span aria-hidden="true" className="w-3 flex-none text-center text-text-light">{premise.glyph}</span>
+        : <span role="img" aria-label={kindOf(premise.glyph)!} title={kindOf(premise.glyph)!} className="w-3 flex-none text-center text-text-light">{premise.glyph}</span>}
       <span className="min-w-0" data-view={`${card.id}.premises.${i}.text`}>{premise.text}</span>
     </li>
   )
   return (
     <div className="pb-1 pl-8 pr-2" data-model-premises={card.id}>
-      <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)} data-model-premises-toggle={card.id}
-        className={`${typography.viewPanelMeta} inline-flex items-center gap-1 rounded-sm py-0.5 text-text-light transition-colors hover:text-text-body ${ACTION_FOCUS}`}>
+      <button type="button" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen((o) => !o)} data-model-premises-toggle={card.id}
+        className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-sm text-text-light transition-colors hover:text-text-body ${ACTION_FOCUS}`}>
         <ChevronRight aria-hidden="true" className={`h-3.5 w-3.5 flex-none transition-transform ${open ? 'rotate-90' : ''}`} />
         <span>{MODEL_ROW_LABELS.restsOn}</span>
         <span className="tabular-nums" data-model-premises-count={card.id}>{card.premises.length}</span>
@@ -134,7 +139,7 @@ export function ModelCardRow({ card, number, kind, model }: {
   const expert = useModelTab((s) => s.expert)
   const open = useModelTab((s) => s.open === card.id)
   const editing = useModelTab((s) => (s.editing?.row === card.id ? s.editing : null))
-  const saved = useModelTab((s) => (s.saved?.row === card.id ? s.saved.words : null))
+  const receipt = useModelTab((s) => (s.receipt?.row === card.id ? s.receipt : null))
   const { base } = useModelEdit()
   const canEdit = base !== null
   const figureEdit = canEdit ? card.figure?.edit ?? null : null
@@ -155,7 +160,7 @@ export function ModelCardRow({ card, number, kind, model }: {
             <span className="flex items-baseline gap-1.5">
               {number === null ? null : <span className={`${typography.viewPanelMeta} flex-none tabular-nums text-text-light`} data-model-row-number={card.id}>{number}</span>}
               <span className="min-w-0 break-words text-text-header">
-                <button type="button" aria-expanded={open} aria-controls={`model-detail-${card.id}`} data-model-select={card.id}
+                <button type="button" aria-expanded={open} aria-controls={open ? `model-detail-${card.id}` : undefined} data-model-select={card.id}
                   onClick={(e) => { e.stopPropagation(); select() }}
                   onDoubleClick={canEdit ? (e) => { e.stopPropagation(); useModelTab.getState().edit({ row: card.id, what: 'rename' }) } : undefined}
                   className={`cursor-pointer rounded-sm text-left ${ACTION_FOCUS}`}>
@@ -173,10 +178,9 @@ export function ModelCardRow({ card, number, kind, model }: {
               <span data-view={`${card.id}.bound.text`}>{card.bound.text}</span><CoreMark at={`${card.id}.bound.olumi`} mark={card.bound.olumi} />
             </span>
           ) : (
-            <button type="button" onClick={(e) => { e.stopPropagation(); editFigure(target.id) }} title={card.bound.title}
-              aria-label={`${card.family === 'limit' ? W.changeLimit : W.changeTarget}: ${card.bound.text}`} data-model-value-edit={card.id}
-              className={`${typography.viewPanelTabular} mt-0.5 block cursor-pointer rounded-sm text-left text-text-body hover:text-text-header ${ACTION_FOCUS}`}>
-              <span data-view={`${card.id}.bound.text`}>{card.bound.text}</span><CoreMark at={`${card.id}.bound.olumi`} mark={card.bound.olumi} /><EditCue />
+            <button type="button" onClick={(e) => { e.stopPropagation(); editFigure(target.id) }} title={card.bound.title} data-model-value-edit={card.id}
+              className={`${typography.viewPanelTabular} mt-0.5 block min-h-[24px] cursor-pointer rounded-sm text-left text-text-body hover:text-text-header ${ACTION_FOCUS}`}>
+              <span className="sr-only">{card.family === 'limit' ? W.changeLimit : W.changeTarget}: </span><span data-view={`${card.id}.bound.text`}>{card.bound.text}</span><CoreMark at={`${card.id}.bound.olumi`} mark={card.bound.olumi} /><EditCue />
             </button>
           )}
           {card.figure === null ? null : figureEdit === null ? (
@@ -184,17 +188,19 @@ export function ModelCardRow({ card, number, kind, model }: {
               <span data-view={`${card.id}.figure.text`}>{card.figure.text}</span><CoreMark at={`${card.id}.olumi`} mark={card.olumi} /><AuthorMark card={card} />
             </span>
           ) : (
-            <button type="button" onClick={(e) => { e.stopPropagation(); editFigure(card.id) }} title={card.figure.title}
-              aria-label={`${W.changeFigure}: ${card.heading}`} data-model-value-edit={card.id}
-              className={`${typography.viewPanelTabular} mt-0.5 block cursor-pointer break-words rounded-sm text-left text-text-body hover:text-text-header ${ACTION_FOCUS}`}>
-              <span data-view={`${card.id}.figure.text`}>{card.figure.text}</span><CoreMark at={`${card.id}.olumi`} mark={card.olumi} /><AuthorMark card={card} /><EditCue />
+            <button type="button" onClick={(e) => { e.stopPropagation(); editFigure(card.id) }} title={card.figure.title} data-model-value-edit={card.id}
+              className={`${typography.viewPanelTabular} mt-0.5 block min-h-[24px] cursor-pointer break-words rounded-sm text-left text-text-body hover:text-text-header ${ACTION_FOCUS}`}>
+              <span className="sr-only">{W.changeFigure}: </span><span data-view={`${card.id}.figure.text`}>{card.figure.text}</span><CoreMark at={`${card.id}.olumi`} mark={card.olumi} /><AuthorMark card={card} /><EditCue />
             </button>
           )}
           {reading === null ? null : <span className={`${typography.viewPanelMeta} mt-0.5 block break-words text-text-light`} data-view={`${card.id}.figure.title`}>{reading}</span>}
           {card.rows.length === 0 ? null : (
-            <span className="mt-1 block space-y-0.5">{card.rows.map((row, i) => <OptionLine key={i} card={card} row={row} i={i} expert={expert} />)}</span>
+            <span className="mt-1 block space-y-0.5">{card.rows.map((row, i) => <OptionLine key={i} card={card} row={row} i={i} expert={expert} open={open} />)}</span>
           )}
-          {saved === null ? null : <span role="status" className={`${typography.viewPanelMeta} mt-0.5 block text-text-light`} data-model-saved={card.id}>{saved}</span>}
+          {receipt === null ? null : (
+            <span role={receipt.tone === 'failed' ? 'alert' : 'status'} className={`${typography.viewPanelMeta} mt-0.5 block ${receipt.tone === 'failed' ? 'text-danger' : 'text-text-light'}`}
+              data-model-saved={receipt.tone === 'saved' ? card.id : undefined} data-model-failed={receipt.tone === 'failed' ? card.id : undefined}>{receipt.words}</span>
+          )}
         </span>
       </div>
       {editing?.what === 'figure' && editingFigure !== null ? (

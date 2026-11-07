@@ -9,11 +9,12 @@
  * - a figure core lets the person set carries ✎ and opens its editor where it stands; a row's press opens its detail (rename, an aim's
  *   target, its links, whose it is) and puts its card in front on the canvas; Olumi's held change is said once, with a way to set it aside;
  * - the crafted tab's one detail switch, Plain | Expert (legacy "Plain | Advanced"): Plain shows the model; Expert adds the science core
- *   sends (a figure's reading, an option's companion and timing lines, a link's kind and strength, whose words in full). A content switch
- *   only: no row moves.
+ *   sends (a figure's reading, an option's timing line, a link's strength, whose words in full, what would change an option most). What a
+ *   person needs to challenge the model stays in Plain: the team's assumptions (each row's "Rests on"), Olumi's marks and companion line,
+ *   a link's kind or sign. A content switch only: no row moves.
  * Every write is the canvas editors' own (route, body, key, base rule); core's answer is the only verdict (`model/editors.tsx`).
  */
-import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { typography } from '../styles/typography'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
@@ -95,6 +96,9 @@ function ExpertSwitch() {
 
 export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
   const numbers = useMemo(() => cardNumbersOf(model), [model])
+  // Another scenario starts with nothing open, no editor and no receipt (review a4d73faf): ids are scenario-local.
+  const sid = useViewStore((s) => s.sid)
+  useEffect(() => { useModelTab.getState().follow(sid) }, [sid])
   // Closed on open (the previous PoC's outline: five headings with counts, the question above them); a filter opens what it matches.
   const [opened, setOpened] = useState<ReadonlySet<GroupId>>(new Set())
   const [filter, setFilter] = useState('')

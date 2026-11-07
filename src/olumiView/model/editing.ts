@@ -55,7 +55,7 @@ export const MODEL_EDIT_WORDS = {
   heldBody: 'Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.',
   heldAside: 'Set it aside', heldConfirm: 'Set aside', heldKeep: 'Keep it',
   heldFailed: 'That did not go through. Nothing was set aside.',
-  plain: 'Plain', expert: 'Expert', detail: 'Detail',
+  plain: 'Plain', expert: 'Expert', detail: 'Detail', to: 'to', from: 'from',
   failed: 'That did not go through. Nothing was saved.',
   savedNotShown: 'Saved, but Olumi could not show it just now. Reload the page to see it.',
   triedFailed: 'That did not go through. Nothing was tried.',

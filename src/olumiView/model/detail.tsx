@@ -17,6 +17,7 @@ import { useViewStore } from '../store'
 import { linkEndHeading } from '../layout'
 import { authorAnyOf } from './author'
 import { MODEL_EDIT_WORDS as W, useModelEdit } from './editing'
+import { ASIDE_WORDS } from '../FigureEdit'
 import { RECIPE } from './editors'
 import { useModelTab } from './state'
 import { linksOf, strengthCardOf, targetCardOf } from './targets'
@@ -37,14 +38,17 @@ function Action({ icon, label, onPress, at }: { icon: ReactNode; label: string; 
   )
 }
 
-/** Whose the card is, in core's words (`cards[].author`); before core sent it, Olumi's own mark's words where core gave one. */
-function Whose({ card, expert }: { card: ViewCard; expert: boolean }) {
+/**
+ * Whose the card is, in core's words (`cards[].author`); before core sent it, Olumi's own mark's words where core gave one. Olumi's and
+ * partly Olumi's carry core's own glyph: the card's mark, else core's key entry for that kind; none is drawn where core gives none.
+ */
+function Whose({ card, expert, keyEntries }: { card: ViewCard; expert: boolean; keyEntries: ViewModel['key'] }) {
   const a = authorAnyOf(card)
   if (a === null && card.olumi === null) return null
-  const glyph = card.olumi?.glyph ?? '◆'
+  const glyph = card.olumi?.glyph ?? (a === null ? null : keyEntries.find((k) => k.id === (a.by === 'mixed' ? 'partly_olumi' : 'olumi'))?.glyph ?? null)
   const icon = a?.by === 'person' ? <User aria-hidden="true" className={`${ICON} text-text-light`} />
     : a?.by === 'brief' ? <FileText aria-hidden="true" className={`${ICON} text-text-light`} />
-      : <span aria-hidden="true" className="w-3.5 flex-none text-center text-text-light">{glyph}</span>
+      : glyph === null ? null : <span aria-hidden="true" className="w-3.5 flex-none text-center text-text-light">{glyph}</span>
   return (
     <Section title={W.whose} at="whose">
       <p className="m-0 flex items-baseline gap-1.5 text-text-body">
@@ -56,7 +60,8 @@ function Whose({ card, expert }: { card: ViewCard; expert: boolean }) {
   )
 }
 
-/** The lines that start or end at this card, each pressing to the card at its other end; its removal and strength are the link's own row. */
+/** The lines that start or end at this card, each pressing to the card at its other end, with core's mark for its kind or sign; Expert adds
+ *  its strength. A line's removal and strength editor are on its own row in Relationships. */
 function Links({ model, card, expert }: { model: ViewModel; card: ViewCard; expert: boolean }) {
   const lines = linksOf(model, card.id)
   if (lines.length === 0) return null
@@ -69,10 +74,12 @@ function Links({ model, card, expert }: { model: ViewModel; card: ViewCard; expe
             <li key={i}>
               <button type="button" onClick={(e) => { e.stopPropagation(); focusNodeById(other) }} title={l.title} data-model-detail-link={`links.${i}`}
                 className={`flex w-full items-start gap-1.5 rounded-sm py-1 text-left text-text-body hover:text-text-header ${ACTION_FOCUS}`}>
-                {out ? <ArrowRight aria-hidden="true" className={`${ICON} mt-1 text-text-light`} /> : <ArrowLeft aria-hidden="true" className={`${ICON} mt-1 text-text-light`} />}
+                <span role="img" aria-label={out ? W.to : W.from} className="mt-1 flex-none text-text-light">
+                  {out ? <ArrowRight aria-hidden="true" className={ICON} /> : <ArrowLeft aria-hidden="true" className={ICON} />}
+                </span>
                 <span className="min-w-0 flex-1 break-words">
                   <span>{linkEndHeading(model, other)}</span>
-                  {expert && l.label !== '' ? <span className="text-text-light">{' '}<span data-view={`links.${i}.label`}>{l.label}</span></span> : null}
+                  {l.label !== '' ? <span className="text-text-light">{' '}<span data-view={`links.${i}.label`}>{l.label}</span></span> : null}
                   {expert && l.effect != null ? <span className={`${typography.viewPanelMeta} block tabular-nums text-text-light`} title={l.effect.title} data-view={`links.${i}.effect.text`}>{l.effect.text}</span> : null}
                 </span>
               </button>
@@ -109,7 +116,7 @@ export function CardDetail({ model, card }: { model: ViewModel; card: ViewCard }
         {canEdit ? <Action at="rename" icon={<Type aria-hidden="true" className={ICON} />} label={W.rename} onPress={() => edit({ row: card.id, what: 'rename' })} /> : null}
         <Action at="canvas" icon={<LocateFixed aria-hidden="true" className={ICON} />} label={W.showOnCanvas} onPress={() => focusNodeById(card.id)} />
       </div>
-      <Whose card={card} expert={expert} />
+      <Whose card={card} expert={expert} keyEntries={model.key} />
       <Links model={model} card={card} expert={expert} />
       {expert ? <Science card={card} /> : null}
     </div>
@@ -142,14 +149,18 @@ export function HeldNotice() {
   const { held } = useModelEdit()
   const [asking, setAsking] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [aside, setAside] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   if (held === null) return null
-  const aside = async () => {
-    if (busy) return
+  // Set aside already (core took it) but the View could not be read since: said once, and never sent twice (FigureEdit's notShown rule).
+  const done = aside === held.id
+  const setItAside = async () => {
+    if (busy || done) return
     setBusy(true); setError(null)
     try {
       await writes.discard(held.id)
-      if (!(await useViewStore.getState().refresh())) setError(W.savedNotShown)
+      setAside(held.id)
+      if (!(await useViewStore.getState().refresh())) setError(ASIDE_WORDS.notShown)
       setAsking(false)
     } catch (e) {
       setError(e instanceof TeamApiError ? e.message : W.heldFailed)
@@ -161,9 +172,9 @@ export function HeldNotice() {
       <p className={`${typography.viewPanelMeta} m-0 text-text-light`}><span data-view="proposal.heading">{held.heading}</span> · <span data-view="proposal.on">{held.on}</span></p>
       <p className={`${typography.viewPanelMeta} m-0 text-text-body`}>{W.heldBody}</p>
       {error === null ? null : <p role="alert" className={RECIPE.error} data-testid="view-model-held-error">{error}</p>}
-      {asking ? (
+      {done ? null : asking ? (
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" autoFocus disabled={busy} onClick={() => void aside()} className={RECIPE.secondary} data-testid="view-model-held-confirm">{W.heldConfirm}</button>
+          <button type="button" autoFocus disabled={busy} onClick={() => void setItAside()} className={RECIPE.secondary} data-testid="view-model-held-confirm">{W.heldConfirm}</button>
           <button type="button" disabled={busy} onClick={() => { setAsking(false); setError(null) }} className={RECIPE.quiet}>{W.heldKeep}</button>
         </div>
       ) : (

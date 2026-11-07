@@ -9,7 +9,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { setTeamFetch } from '../../olumiCore/team/api'
@@ -26,8 +26,13 @@ const derived = wire.model!.cards.find((c) => c.figure !== null && c.figure.edit
 let view: View = wire
 let calls: Array<{ method: string; path: string; body: unknown }> = []
 let answer: { status: number; body: unknown } = { status: 201, body: { version: 2, n: 2, receipt: 'r' } }
+/** Holds every POST until released, so a spec can act while core has the write. */
+let gate: Promise<void> | null = null
+let release: () => void = () => undefined
+const hold = () => { gate = new Promise<void>((r) => { release = r }) }
 beforeEach(() => {
   view = wire
+  gate = null
   calls = []
   answer = { status: 201, body: { version: 2, n: 2, receipt: 'r' } }
   setTeamFetch((async (u: unknown, init?: RequestInit) => {
@@ -35,6 +40,7 @@ beforeEach(() => {
     calls.push({ method, path: String(u), body: init?.body ? JSON.parse(String(init.body)) : undefined })
     if (method === 'GET' && String(u) === '/api/me') return new Response(JSON.stringify({ me: { id: wire.you_id, name: wire.you } }), { status: 200 })
     if (method === 'GET') return new Response(JSON.stringify(view), { status: 200 })
+    if (gate !== null) await gate
     return new Response(JSON.stringify(answer.body), { status: answer.status })
   }) as unknown as typeof fetch)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view, status: 'ready', error: null, stale: false, at: null })
@@ -98,7 +104,74 @@ describe('a figure is changed where it stands', () => {
     fireEvent.change(c.querySelector(`[data-model-editor-input="${goal.id}"]`)!, { target: { value: '900' } })
     fireEvent.click(c.querySelector(`[data-model-editor-save="${goal.id}"]`)!)
     await waitFor(() => expect(posts().length).toBe(1))
-    expect((posts()[0]!.body as Record<string, unknown>)['quantity']).toBe(target.id)
+    expect(posts()[0]!.path).toBe(`/api/scenarios/${SID}/edit`)
+    const body = posts()[0]!.body as Record<string, unknown>
+    expect([body['base'], body['quantity'], body['typed']]).toEqual([1, target.id, '900'])
+  })
+
+  it('catch (review a4d73faf): opening another row keeps an open editor and its typing', () => {
+    const c = draw()
+    fireEvent.click(c.querySelector(`[data-model-value-edit="${figure.id}"]`)!)
+    fireEvent.change(c.querySelector(`[data-model-editor-input="${figure.id}"]`)!, { target: { value: '450' } })
+    fireEvent.click(c.querySelector(`[data-model-select="${derived.id}"]`)!)
+    expect(c.querySelector(`[data-model-detail="${derived.id}"]`)).not.toBeNull()
+    expect((c.querySelector(`[data-model-editor-input="${figure.id}"]`) as HTMLInputElement | null)?.value).toBe('450')
+  })
+
+  it('catch (review a4d73faf): while core has one save, no other editor opens over it, and the save closes only its own', async () => {
+    const other = wire.model!.cards.find((k) => k.id === 'customer_target')!
+    hold()
+    const c = draw()
+    fireEvent.click(c.querySelector(`[data-model-value-edit="${figure.id}"]`)!)
+    fireEvent.change(c.querySelector(`[data-model-editor-input="${figure.id}"]`)!, { target: { value: '450' } })
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(c.querySelector(`[data-model-editor-sending="${figure.id}"]`)?.textContent).toBe('Saving…'))
+    fireEvent.click(c.querySelector(`[data-model-value-edit="${other.id}"]`)!)
+    expect(c.querySelector(`[data-model-editor="${other.id}"]`)).toBeNull() // refused while core has the first
+    release()
+    await waitFor(() => expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).toBeNull())
+    expect(c.querySelector(`[data-model-saved="${figure.id}"]`)?.textContent).toBe('Version 2 saved.')
+  })
+
+  it('catch (review a4d73faf): a refusal that lands after its editor left the screen is core\'s words on its row', async () => {
+    answer = { status: 400, body: { error: figure.figure!.edit!.ask } }
+    hold()
+    const c = draw()
+    fireEvent.click(c.querySelector(`[data-model-value-edit="${figure.id}"]`)!)
+    fireEvent.change(c.querySelector(`[data-model-editor-input="${figure.id}"]`)!, { target: { value: 'lots' } })
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    fireEvent.click(c.querySelector('[data-model-group-toggle="factors"]')!) // the group closes: the editor leaves the screen
+    expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).toBeNull()
+    release()
+    await waitFor(() => expect(useModelTab.getState().busy).toBeNull())
+    fireEvent.click(c.querySelector('[data-model-group-toggle="factors"]')!)
+    expect(c.querySelector(`[data-model-failed="${figure.id}"]`)?.textContent).toBe(figure.figure!.edit!.ask)
+  })
+
+  it('Cancel hands focus back to the figure that opened the editor', async () => {
+    const c = draw()
+    fireEvent.click(c.querySelector(`[data-model-value-edit="${figure.id}"]`)!)
+    fireEvent.click(c.querySelector(`[data-model-editor-cancel="${figure.id}"]`)!)
+    await waitFor(() => expect(document.activeElement).toBe(c.querySelector(`[data-model-value-edit="${figure.id}"]`)))
+  })
+
+  it('HIGH: a link\'s strength opens its sizing figure\'s editor (labelled fixture), and core gets that figure\'s id', async () => {
+    // ⚠ LABELLED FIXTURE: core sizes a line with `links[].effect.figure` (core view.ts); this golden has none, so one line is given an
+    // effect sized by an editable figure card of the same View.
+    const k = wire.model!.links.findIndex((l) => l.kind === 'plain')
+    const sized = { ...wire, model: { ...wire.model!, links: wire.model!.links.map((l, i) => (i === k ? { ...l, effect: { text: '1.5', title: 'x', figure: figure.id } } : l)) } }
+    view = sized
+    useViewStore.setState({ view })
+    const c = draw(sized)
+    fireEvent.click(c.querySelector(`[data-model-select="links.${k}"]`)!)
+    fireEvent.click(c.querySelector(`[data-model-detail="links.${k}"] [data-model-action="strength"]`)!)
+    expect(c.querySelector(`[data-view-edit-prompt="${figure.id}"]`)?.textContent).toBe(figure.figure!.edit!.prompt)
+    fireEvent.change(c.querySelector(`[data-model-editor-input="links.${k}"]`)!, { target: { value: '2' } })
+    fireEvent.click(c.querySelector(`[data-model-editor-save="links.${k}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    const body = posts()[0]!.body as Record<string, unknown>
+    expect([posts()[0]!.path, body['base'], body['quantity'], body['typed']]).toEqual([`/api/scenarios/${SID}/edit`, 1, figure.id, '2'])
   })
 })
 
@@ -140,6 +213,7 @@ describe('when the tab may not change the model', () => {
     expect(posts()).toEqual([]) // asked first
     fireEvent.click(c.querySelector('[data-testid="view-model-held-confirm"]')!)
     await waitFor(() => expect(posts().map((p) => p.path)).toEqual(['/api/proposals/9/discard']))
+    expect(posts()[0]!.body).toEqual({})
     await waitFor(() => expect(calls.at(-1)?.path).toContain('/view'))
   })
 
@@ -164,12 +238,41 @@ describe('Plain | Expert', () => {
     const marked = wire.model!.links.findIndex((l) => l.label !== '')
     const c = draw()
     expect(c.querySelector(`[data-view="${reading.id}.figure.title"]`)).toBeNull()
-    expect(c.querySelector(`[data-view="links.${marked}.label"]`)).toBeNull()
+    // A link's kind or sign stays in Plain: what a person needs to challenge the model is never behind the switch.
+    expect(c.querySelector(`[data-view="links.${marked}.label"]`)?.textContent).toBe(wire.model!.links[marked]!.label)
     fireEvent.click(c.querySelector('[data-model-expert-arm="expert"]')!)
     expect(c.querySelector(`[data-view="${reading.id}.figure.title"]`)?.textContent).toBe(reading.figure!.title)
-    expect(c.querySelector(`[data-view="links.${marked}.label"]`)?.textContent).toBe(wire.model!.links[marked]!.label)
     expect(localStorage.getItem('olumi.expertMode')).toBe('true')
     resetModelTab() // a fresh visit reads the stored choice back
     expect(useModelTab.getState().expert).toBe(true)
+  })
+})
+
+describe('whose it is, and another scenario', () => {
+  it('the detail says whose a card is in core\'s words: a person\'s by their icon, Olumi\'s by core\'s own glyph (core a62f0899 wire)', () => {
+    const bakery: View = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/model/fixtures/bakery-author.core-a62f0899.view3.json'), 'utf8')), id: SID }
+    view = bakery
+    useViewStore.setState({ view })
+    useMe.setState({ me: { id: bakery.you_id, name: bakery.you }, status: 'ready' })
+    const c = draw(bakery)
+    type A = { by: string; text: string; title: string }
+    const authorOf = (id: string) => (bakery.model!.cards.find((k) => k.id === id) as unknown as { author: A }).author
+    fireEvent.click(c.querySelector('[data-model-select="base_sales"]')!)
+    expect(c.querySelector('[data-model-detail="base_sales"] [data-view="base_sales.author.text"]')?.textContent).toBe(authorOf('base_sales').text)
+    fireEvent.click(c.querySelector('[data-model-select="sales"]')!)
+    const whose = c.querySelector('[data-model-detail="sales"] [data-model-detail-section="whose"]')!
+    expect(whose.querySelector('[data-view="sales.author.text"]')?.textContent).toBe(authorOf('sales').text)
+    expect(whose.textContent).toContain(bakery.model!.cards.find((k) => k.id === 'sales')!.olumi!.glyph)
+  })
+
+  it('catch (review a4d73faf): another scenario opens with nothing open and no receipt', () => {
+    const c = draw()
+    fireEvent.click(c.querySelector(`[data-model-select="${figure.id}"]`)!)
+    useModelTab.getState().say({ row: figure.id, words: 'Version 2 saved.', tone: 'saved' })
+    expect(useModelTab.getState().open).toBe(figure.id)
+    act(() => { useViewStore.setState({ sid: 's_ffffffffffff' }) })
+    expect(useModelTab.getState().open).toBeNull()
+    expect(useModelTab.getState().receipt).toBeNull()
+    expect(c.querySelector(`[data-model-detail="${figure.id}"]`)).toBeNull()
   })
 })

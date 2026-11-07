@@ -1,7 +1,7 @@
 /**
- * ONE LINK OF THE MODEL TAB (the crafted tab's Relationships row): from its card to its card in their own headings. Plain shows the line;
- * Expert adds core's mark for its kind (◇ ⊢ ↝ +, after the last word, as the canvas draws it) and core's strength line. The row's press
- * opens its detail (its two ends; its strength's editor where core offers one) and puts its first card in front on the canvas.
+ * ONE LINK OF THE MODEL TAB (the crafted tab's Relationships row): from its card to its card in their own headings, with core's mark for
+ * its kind or sign (◇ ⊢ ↝ +, after the last word, as the canvas draws it). Expert adds core's strength line. The row's press opens its
+ * detail (its two ends; its removal and its strength's editor where core offers them) and puts its first card in front on the canvas.
  */
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
@@ -9,6 +9,7 @@ import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { KIND_GLYPH } from '../../canvas/model-tab-v2/rowPresentation'
 import type { ViewLink, ViewModel } from '../client'
 import { FigureEditor } from './editors'
+import { MODEL_EDIT_WORDS as W } from './editing'
 import { LinkDetail } from './detail'
 import { useModelTab } from './state'
 
@@ -17,7 +18,7 @@ export function LinkRow({ model, link, i, from, to }: { model: ViewModel; link: 
   const expert = useModelTab((s) => s.expert)
   const open = useModelTab((s) => s.open === row)
   const editing = useModelTab((s) => (s.editing?.row === row && s.editing.what === 'figure' ? s.editing : null))
-  const saved = useModelTab((s) => (s.saved?.row === row ? s.saved.words : null))
+  const receipt = useModelTab((s) => (s.receipt?.row === row ? s.receipt : null))
   const editingFigure = editing === null ? null : model.cards.find((c) => c.id === editing.quantity)?.figure?.edit ?? null
   const select = () => { useModelTab.getState().toggle(row); focusNodeById(link.from) }
   return (
@@ -26,17 +27,20 @@ export function LinkRow({ model, link, i, from, to }: { model: ViewModel; link: 
         className={`flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 transition-colors duration-fast hover:bg-panel-hover ${open ? 'ring-1 ring-inset ring-border-emphasis' : ''}`}>
         <span aria-hidden="true" className="w-4 flex-none text-center text-text-light">{KIND_GLYPH.relationship}</span>
         <span className="min-w-0 flex-1">
-          <button type="button" aria-expanded={open} aria-controls={`model-detail-${row}`} data-model-select={row}
-            onClick={(e) => { e.stopPropagation(); select() }} className={`block w-full cursor-pointer break-words rounded-sm text-left text-text-header ${ACTION_FOCUS}`}>
+          <button type="button" aria-expanded={open} aria-controls={open ? `model-detail-${row}` : undefined} data-model-select={row}
+            onClick={(e) => { e.stopPropagation(); select() }} className={`block min-h-[24px] w-full cursor-pointer break-words rounded-sm text-left text-text-header ${ACTION_FOCUS}`}>
             <span>{from}</span>
-            <span aria-hidden="true" className="text-text-light"> → </span>
+            <span role="img" aria-label={W.to} className="text-text-light"> → </span>
             <span>{to}</span>
-            {expert && link.label !== '' ? <span className="text-text-light">{' '}<span data-view={`links.${i}.label`}>{link.label}</span></span> : null}
+            {link.label !== '' ? <span className="text-text-light">{' '}<span data-view={`links.${i}.label`}>{link.label}</span></span> : null}
           </button>
           {expert && link.effect != null ? (
             <span className={`${typography.viewPanelMeta} mt-0.5 block tabular-nums text-text-light`} title={link.effect.title} data-view={`links.${i}.effect.text`}>{link.effect.text}</span>
           ) : null}
-          {saved === null ? null : <span role="status" className={`${typography.viewPanelMeta} mt-0.5 block text-text-light`} data-model-saved={row}>{saved}</span>}
+          {receipt === null ? null : (
+            <span role={receipt.tone === 'failed' ? 'alert' : 'status'} className={`${typography.viewPanelMeta} mt-0.5 block ${receipt.tone === 'failed' ? 'text-danger' : 'text-text-light'}`}
+              data-model-saved={receipt.tone === 'saved' ? row : undefined} data-model-failed={receipt.tone === 'failed' ? row : undefined}>{receipt.words}</span>
+          )}
         </span>
       </div>
       {editing !== null && editingFigure !== null ? (
