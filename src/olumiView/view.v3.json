@@ -2608,6 +2608,36 @@
          "type": "null"
         }
        ]
+      },
+      "verdict": {
+       "anyOf": [
+        {
+         "type": "object",
+         "properties": {
+          "supported": {
+           "type": "boolean"
+          },
+          "text": {
+           "type": "string"
+          },
+          "asks": {
+           "type": [
+            "string",
+            "null"
+           ]
+          }
+         },
+         "required": [
+          "supported",
+          "text",
+          "asks"
+         ],
+         "additionalProperties": false
+        },
+        {
+         "type": "null"
+        }
+       ]
       }
      },
      "required": [
@@ -3927,6 +3957,52 @@
         "type": "null"
        }
       ]
+     },
+     "chain": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "level": {
+           "type": "string",
+           "enum": [
+            "observation",
+            "claim",
+            "inference",
+            "estimate"
+           ]
+          },
+          "text": {
+           "type": "string"
+          },
+          "status": {
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "card": {
+           "type": [
+            "string",
+            "null"
+           ]
+          }
+         },
+         "required": [
+          "level",
+          "text",
+          "status",
+          "card"
+         ],
+         "additionalProperties": false
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
      }
     },
     "required": [
@@ -4733,6 +4809,42 @@
     "pre_mortem"
    ],
    "additionalProperties": false
+  },
+  "draft": {
+   "anyOf": [
+    {
+     "type": "object",
+     "properties": {
+      "status": {
+       "type": "string",
+       "enum": [
+        "drafting",
+        "done",
+        "failed",
+        "lost"
+       ]
+      },
+      "reason": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "at": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "status",
+      "reason",
+      "at"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "null"
+    }
+   ]
   },
   "strategy": {
    "type": "object",

@@ -11,7 +11,7 @@ import { BODY, ERR, FIELD, LABEL, META } from '../../olumiCore/team/ui'
 import { runWrite, useWriteLocked, useWriteSending } from '../../olumiCore/team/writes'
 import type { View } from '../client'
 
-type Vocabulary = { kinds: { id: string; text: string }[]; stances: { id: string; text: string }[]; limits: { text: number; source: number; concerns: number; items: number } }
+type Vocabulary = { kinds: { id: string; text: string }[]; stances: { id: string; text: string; word?: string }[]; limits: { text: number; source: number; concerns: number; items: number } }
 const FAMILIES = new Set(['quantity', 'option', 'risk', 'goal'])
 
 export function StrategyCompose({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => unknown }): JSX.Element | null {

@@ -475,6 +475,11 @@ export type View = {
       evidence: number
       asked_by: string
     } | null
+    verdict?: {
+      supported: boolean
+      text: string
+      asks: string | null
+    } | null
   } | null
   collab: {
     alone: boolean
@@ -721,6 +726,12 @@ export type View = {
         title: string
       } | null
     } | null
+    chain?: Array<{
+      level: "observation" | "claim" | "inference" | "estimate"
+      text: string
+      status: string | null
+      card: string | null
+    }> | null
   }>
   chat: Array<{
     id: number
@@ -869,6 +880,11 @@ export type View = {
       }>
     } | null
   }
+  draft?: {
+    status: "drafting" | "done" | "failed" | "lost"
+    reason: string | null
+    at: string
+  } | null
   strategy?: {
     items: Array<{
       id: string
