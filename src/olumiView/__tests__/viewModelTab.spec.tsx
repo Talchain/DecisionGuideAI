@@ -154,26 +154,37 @@ describe('the crafted Model tab, from the View', () => {
     expect(glyphs[0]!.getAttribute('aria-label')).toBe(marked.olumi!.title)
     expect(glyphs[0]!.parentElement!.querySelector(`[data-view="${marked.id}.figure.text"]`)).not.toBeNull() // beside its figure
     const unmarked = model.cards.find((k) => k.figure !== null && k.olumi === null)!
-    expect(c.querySelector(`[data-model-row="${unmarked.id}"] [role="img"]`)).toBeNull() // CONTRAST: absence drawn as absence
+    // CONTRAST: absence drawn as absence. Since core 6192ad6b the figure is the team's and says so with its author icon (below), never Olumi's mark.
+    expect(c.querySelector(`[data-model-row="${unmarked.id}"] [data-view$=".olumi.glyph"]`)).toBeNull()
+    expect([...c.querySelectorAll(`[data-model-row="${unmarked.id}"] [role="img"]`)].map((e) => e.getAttribute('data-view-author'))).toEqual([unmarked.id])
     expect([...c.querySelectorAll('[data-testid="view-model-key"] [data-view-key]')].map((k) => k.textContent)).toEqual(
       model.key.filter((k) => k.id === 'olumi').map((k) => `${k.glyph} ${k.text}`)) // ◆ only: no card here is partly Olumi's
   })
 
-  // ⚠ LABELLED FIXTURE, NOT THE WIRE: `cards[].author` is a core field requested of the DL on 7 Nov (~15:2xZ; assigned to the Summary
-  // lane, which serves the same producer). Its shape here is the one asked for; replace this with a wire View once core serves it.
-  it('FIXTURE (pending core `cards[].author`): a person\'s or the brief\'s figure carries its icon with core\'s words; Olumi\'s stays core\'s ◆; none, none', () => {
-    const withAuthor = structuredClone(model)
-    const set = (id: string, author: unknown) => { (withAuthor.cards.find((k) => k.id === id) as unknown as { author: unknown }).author = author }
-    set('starting_customers', { by: 'brief', text: 'From your brief', title: '“we have about 400 customers today”' })
-    set('investment_cap', { by: 'person', text: 'Alex’s figure', title: '“£500,000, no more”' })
-    set('customers', { by: 'olumi', text: 'Olumi’s estimate', title: 'Proposed by Olumi' })
-    const c = render(<ViewModelTab model={withAuthor} />).container
+  // Since core 6192ad6b the wire serves `cards[].author` (european.view.json: the team's figures `person`, Olumi's `olumi`). No golden
+  // has a `brief` author, so that one case stays a LABELLED FIXTURE (the wire's shape, a value core has not yet served in a golden).
+  it('catch: a person\'s figure carries its icon with core\'s own words; Olumi\'s stays core\'s ◆ alone, drawn once; a card with no author draws none', () => {
+    const c = render(<ViewModelTab model={model} />).container
     fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
-    const brief = c.querySelector('[data-view-author="starting_customers"]')!
-    expect([brief.getAttribute('data-author-by'), brief.getAttribute('aria-label'), brief.getAttribute('title')]).toEqual(['brief', 'From your brief', 'From your brief\n“we have about 400 customers today”'])
-    expect(c.querySelector('[data-view-author="investment_cap"]')?.getAttribute('aria-label')).toBe('Alex’s figure')
-    expect(c.querySelector('[data-view-author="customers"]')).toBeNull() // Olumi's: core's ◆ alone, drawn once
+    const drawn = modelGroupsOf(model).flatMap((g) => g.cards)
+    const people = drawn.filter((k) => k.author?.by === 'person'), olumis = drawn.filter((k) => k.author?.by === 'olumi')
+    expect(people.length).toBeGreaterThan(0)
+    expect(olumis.length).toBeGreaterThan(0) // both kinds exercised
+    for (const k of people) {
+      const icon = c.querySelector(`[data-view-author="${k.id}"]`)!
+      expect([icon.getAttribute('data-author-by'), icon.getAttribute('aria-label'), icon.getAttribute('title')], k.id).toEqual(['person', k.author!.text, `${k.author!.text}\n${k.author!.title}`])
+    }
+    for (const k of olumis) expect(c.querySelector(`[data-view-author="${k.id}"]`), k.id).toBeNull() // Olumi's: core's ◆ alone
     expect(c.querySelectorAll('[data-view="customers.olumi.glyph"]').length).toBe(1)
-    expect(c.querySelector('[data-view-author="customer_target"]')).toBeNull() // CONTRAST: no author, no icon
+    // CONTRAST: a card core gives no author draws no icon; one a brief states draws the brief's.
+    const bare = structuredClone(model)
+    const set = (id: string, author: unknown) => { (bare.cards.find((k) => k.id === id) as unknown as { author: unknown }).author = author }
+    set('starting_customers', null)
+    set('customer_target', { by: 'brief', text: 'From your brief', title: '“we have about 400 customers today”' })
+    const d = render(<ViewModelTab model={bare} />).container
+    fireEvent.click(d.querySelector('[data-testid="view-model-toggle-all"]')!)
+    expect(d.querySelector('[data-view-author="starting_customers"]')).toBeNull()
+    const brief = d.querySelector('[data-view-author="customer_target"]')!
+    expect([brief.getAttribute('data-author-by'), brief.getAttribute('aria-label'), brief.getAttribute('title')]).toEqual(['brief', 'From your brief', 'From your brief\n“we have about 400 customers today”'])
   })
 })

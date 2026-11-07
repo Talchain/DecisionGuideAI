@@ -404,7 +404,8 @@ export function isDriver(c: ViewCard, model: ViewModel): boolean {
   const into = model.links.filter((l) => l.to === c.id && l.kind === 'through')
   if (into.length === 0 || into.some((l) => familyOf(model, l.from) !== 'option')) return false
   const out = model.links.filter((l) => l.from === c.id).map((l) => familyOf(model, l.to))
-  return out.includes('quantity') && !out.some((f) => f === 'goal' || f === 'constraint')
+  // An aim is a goal or a limit (core's `limit` family, drawn as the `constraint` kind: askKindOf): a figure a limit measures feeds an aim directly.
+  return out.includes('quantity') && !out.some((f) => f !== undefined && ((k) => k === 'goal' || k === 'constraint')(askKindOf(f)))
 }
 const isDriverId = (id: string, model: ViewModel): boolean => { const c = model.cards.find((x) => x.id === id); return c !== undefined && isDriver(c, model) }
 const PREFIX: Record<string, string> = { option: 'O', factor: 'F', outcome: 'OC', risk: 'R', constraint: 'C' }

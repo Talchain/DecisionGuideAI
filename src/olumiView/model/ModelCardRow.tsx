@@ -36,7 +36,7 @@ export function CoreMark({ at, mark }: { at: string; mark: Mark | null }) {
   return <>{NBSP}<span role="img" aria-label={mark.title} title={mark.title} className="text-text-light" data-view={`${at}.glyph`}>{mark.glyph}</span></>
 }
 
-/** A person's or the brief's figure, once core says so (`cards[].author`, pending): an icon with core's words as its name and hover. */
+/** A person's or the brief's figure (core's `cards[].author`): an icon with core's words as its name and hover. */
 function AuthorMark({ card }: { card: ViewCard }) {
   const a = authorOf(card)
   if (a === null) return null

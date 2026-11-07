@@ -1,11 +1,9 @@
 /**
- * WHO STATED A CARD'S FIGURE, WHEN CORE SAYS SO. PENDING CORE FIELD (requested of the DL, 7 Nov ~15:2xZ):
- * `cards[].author: { by: 'person' | 'brief' | 'olumi' | 'mixed', text, title } | null`. Today core serves only Olumi's marks (◆, ◐ on
- * `cards[].olumi`): a person's or the brief's figure carries none (core `src/view/view.ts:229`, where `markOf` is '' for 'theirs'), and
- * `model.key` has no entry for them, so until the field lands this reads null and the tab draws Olumi's mark alone, as core does.
+ * WHO STATED A CARD'S FIGURE, WHEN CORE SAYS SO. CORE'S FIELD (served since core 6192ad6b; in the View's generated types):
+ * `cards[].author: { by: 'person' | 'brief' | 'olumi' | 'mixed', text, title } | null`. Olumi's own are marked ◆, ◐ on
+ * `cards[].olumi`): a person's or the brief's figure carries none, and `model.key` has no entry for them, so the tab draws this icon for them.
  *
- * Read defensively: the View's generated type does not hold the field yet, and a shape other than the one asked for reads as absent (an
- * authorship the page cannot read is drawn as nothing, never guessed). The words are core's; the page picks only the icon.
+ * Read defensively: a shape other than core's reads as absent (an authorship the page cannot read is drawn as nothing, never guessed). The words are core's; the page picks only the icon.
  */
 import type { ViewCard } from '../client'
 
