@@ -115,13 +115,31 @@ describe('the outcome lens: core\'s band on the aim\'s shared track, no leader',
     expect(container.querySelector('[data-view$=".likely.glyph"]')).toBeNull()
   })
 
-  it('negative: a chance row with no outcome band draws no bar', () => {
+  it('negative: a chance row with no outcome band draws no bar and no chance under "Likely outcome", even opened (checker, 7 Nov)', () => {
     const v = structuredClone(real)
     const c = v.model!.cards.find((x) => x.id === 'second_oven')!
     ;(c.rows[1] as { outcome: unknown }).outcome = null
-    const { container } = draw(v, 'second_oven', 1, 'outcome')
+    const { container } = draw(v, 'second_oven', 1, 'outcome', true)
     expect(container.querySelector('[data-testid="port-row-bar"]')!.getAttribute('data-visible')).toBe('false')
-    expect(container.querySelector('[data-view="second_oven.rows.1.value"]')!.textContent).toBe('about 72% chance')
+    expect(container.querySelector('[data-testid="port-row-readout"]')!.textContent).toBe('')
+    expect(container.querySelector('[data-view$=".value"], [data-view$=".approx"]')).toBeNull()
+    expect(container.textContent).not.toContain('about 72% chance')
+  })
+
+  it('the outcome lens with a band never draws the chance either, not even in the detail', () => {
+    const { container } = draw(real, 'second_oven', 1, 'outcome', true)
+    expect(container.querySelector('[data-view="second_oven.rows.1.value"]')).toBeNull()
+    expect(container.textContent).not.toContain('about 72% chance')
+  })
+
+  it('negative: a limit row draws no value under "Likely outcome"', () => {
+    const e = viewOf('golden/european')
+    const card = e.model!.cards.find((x) => x.id === 'broader_entry')!
+    const i = card.rows.findIndex((r) => r.kind === 'limit')
+    const { container } = draw(e, 'broader_entry', i, 'outcome')
+    expect(container.querySelector('[data-testid="port-row-readout"]')!.textContent).toBe('')
+    cleanup()
+    expect(draw(e, 'broader_entry', i, 'goal').container.querySelector(`[data-view="broader_entry.rows.${i}.value"]`)).not.toBeNull()
   })
 
   it('toggling: the row button reports its state and calls back', () => {

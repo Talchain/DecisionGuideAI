@@ -139,3 +139,9 @@ export function actRowsOf(model: ViewModel): ActRow[] {
   ;(model.sharpen ?? []).forEach((item, i) => { if (item.lead !== '' || item.emphasis !== '') out.push({ kind: 'sharpen', key: `sharpen:${item.id}`, i, item }) })
   return out
 }
+
+/** The aim core's lenses are about: the aim its most likely line names (`run.most_likely.aim_id`, wip/core-port-fields); null without one. */
+export function lensAimOf(run: ViewRun | null): string | null {
+  const id = (run?.most_likely as { aim_id?: unknown } | null | undefined)?.aim_id
+  return typeof id === 'string' && id !== '' ? id : null
+}

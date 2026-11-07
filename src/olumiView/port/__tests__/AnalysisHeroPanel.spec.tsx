@@ -98,6 +98,31 @@ describe('core\'s lenses (run.lenses, wip/core-port-fields)', () => {
     expect(expectAllBound(v, c, expect)).toBeGreaterThan(5)
   })
 
+  it('scope: core\'s lenses are about the aim its most likely line names; only that aim\'s group gets the strip and the outcome lens (checker, 7 Nov)', () => {
+    // hiring (two aims) with core's lens entries (from the pricing golden) and the aim id core-port-fields adds beside most_likely
+    const v = structuredClone(hiring), run = v.model!.run! as unknown as { lenses: unknown; most_likely: { aim_id: string } }
+    run.lenses = lensesIn(pricing)
+    run.most_likely.aim_id = 'boost_productivity'
+    const c = draw(v)
+    const group = (aim: string) => c.querySelector<HTMLElement>(`[data-testid="port-aim-group"][data-aim="${aim}"]`)!
+    expect(c.querySelectorAll('[role="tablist"]').length).toBe(1)
+    expect(group('boost_productivity').querySelector('[role="tablist"]')).not.toBeNull()
+    expect(group('meet_launch_deadline').querySelector('[role="tablist"]')).toBeNull()
+    fireEvent.click(c.querySelector('[data-testid="port-lens-tab-outcome"]')!)
+    expect([group('boost_productivity').dataset['lens'], group('meet_launch_deadline').dataset['lens']]).toEqual(['outcome', 'goal'])
+    // the other aim still shows each option's chance, in core's words
+    expect(group('meet_launch_deadline').querySelector('[data-view="hire_tech_lead.rows.1.value"]')!.textContent).toBe('about 61% chance')
+    expect(group('boost_productivity').querySelector('[data-view$=".value"]')).toBeNull()
+  })
+
+  it('negative: lens words with no aim id beside most likely draw no strip, and every group stays on the chance', () => {
+    const v = structuredClone(hiring)
+    ;(v.model!.run! as unknown as { lenses: unknown }).lenses = lensesIn(pricing)
+    const c = draw(v)
+    expect(c.querySelector('[role="tablist"]')).toBeNull()
+    expect([...c.querySelectorAll<HTMLElement>('[data-testid="port-aim-group"]')].map((g) => g.dataset['lens'])).toEqual(['goal', 'goal'])
+  })
+
   it('negative: a View without lens words draws no tab strip and the goal lens', () => {
     const c = draw(bakery)
     expect(c.querySelector('[role="tablist"]')).toBeNull()
