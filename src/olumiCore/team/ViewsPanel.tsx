@@ -100,7 +100,8 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
   const dropView = () => { dropText(); setTyped({}); setPick(NO_PICK) }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // A view and a reveal have no operation id in core: one whose answer was lost may have been saved, so it is not sent again (`writes.ts`).
+  // A view carries an op (core API v1.24): a lost answer resends the same op. A skip and a reveal are sent without one: one whose answer was
+  // lost may have been saved, so it is not sent again (`writes.ts`).
   const viewLocked = useWriteLocked(`${sid}:view`)
   // A write still on its way (this panel drawn again meanwhile) keeps its buttons held: it is never sent twice.
   const viewSending = useWriteSending(`${sid}:view`), revealSending = useWriteSending(`${sid}:reveal`)

@@ -4,7 +4,7 @@
  *
  *   · a write core can de-duplicate (it takes an operation id: evidence, an outcome) carries a client-made op id. After a lost answer
  *     the SAME request is sent again with the SAME op, and core's answer is the truth: the receipt of the first save, or the save.
- *   · a write core has no op for (a view, a skip, a reveal, a commitment) is LOCKED after a lost answer: it may have saved, so it is
+ *   · a write sent without an op (a skip, a reveal) is LOCKED after a lost answer: it may have saved, so it is
  *     not sent again from this page; the person reloads to see what Olumi holds.
  *
  * The state lives in this store, not in a component, so changing tabs neither drops a lock nor forgets an op.
@@ -54,7 +54,7 @@ export function runWrite<T>(key: string, kind: { readonly op: boolean; readonly 
   // 1). An invitation (`anyVersion`) is about who is in, not about any version.
   if (!kind.anyVersion && useViewStore.getState().at !== null) return Promise.reject(new TeamApiError(0, TEAM_PAST_HELD))
   // A write still on its way is not sent again: a second press (the form remounted, its own busy flag gone) waits for the first's answer
-  // (review 00002 #2). Core keeps no op for a commitment, a view or a reveal, so a second send would be saved twice.
+  // (review 00002 #2). A write sent without an op (a skip, a reveal) would be saved twice by a second send.
   const going = inFlight.get(key)
   if (going !== undefined) return going as Promise<T>
   const p = settle(key, kind, request, send)
