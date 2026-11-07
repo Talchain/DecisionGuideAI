@@ -282,13 +282,13 @@ function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => vo
         const card = figures.find((c) => c.id === picks[i])!
         return (
           <div key={i} className="grid gap-2 sm:grid-cols-2" data-whatif-row={i}>
-            <label className="grid gap-1">
+            <label className="grid content-start gap-1">
               <span className={META}>Figure</span>
               <select aria-label="Figure to try" data-testid="whatif-save-figure" className={PICK} value={picks[i]} disabled={busy} onChange={(e) => set(i, { quantity: e.target.value })}>
                 {figures.map((c) => <option key={c.id} value={c.id} title={c.figure!.title}>{c.heading}</option>)}
               </select>
             </label>
-            <label className="grid gap-1">
+            <label className="grid content-start gap-1">
               <span className={META} title={card.figure!.edit!.ask}>{card.figure!.edit!.prompt}</span>
               <input data-testid="whatif-save-typed" className={FIELD} value={r.typed} disabled={busy} placeholder={card.figure!.text} onChange={(e) => set(i, { typed: e.target.value })} />
             </label>
