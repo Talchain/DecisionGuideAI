@@ -46,7 +46,7 @@ describe('a view carries the member\'s own figures, as typed', () => {
     fireEvent.change(field('churn_danger_threshold'), { target: { value: '10 to 50%' } })
     fireEvent.click(screen.getByTestId('team-view-give'))
     await waitFor(() => expect(posts.length).toBe(1))
-    expect(posts[0]).toEqual({ text: 'Churn will bite harder abroad.', figures: [{ quantity: 'churn_danger_threshold', typed: '10 to 50%' }], version: view.version!.n })
+    expect(posts[0]).toEqual({ text: 'Churn will bite harder abroad.', figures: [{ quantity: 'churn_danger_threshold', typed: '10 to 50%' }], version: view.version!.n, op: expect.any(String) })
   })
 
   it('INVARIANCE: a view in words only posts exactly its words, as before', async () => {
@@ -55,7 +55,8 @@ describe('a view carries the member\'s own figures, as typed', () => {
     fireEvent.change(field('churn_danger_threshold'), { target: { value: '   ' } })
     fireEvent.click(screen.getByTestId('team-view-give'))
     await waitFor(() => expect(posts.length).toBe(1))
-    expect(posts[0]).toEqual({ text: '  wait a quarter ' })
+    // Words only, as before, with core's operation id for a view (API v1.24, olumi-core API.md:1044-1050).
+    expect(posts[0]).toEqual({ text: '  wait a quarter ', op: expect.any(String) })
   })
 
   it('core\'s refusal (400, 409) is drawn in core\'s words, and the typed figure stays to correct', async () => {
