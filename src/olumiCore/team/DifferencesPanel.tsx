@@ -28,7 +28,7 @@ export function DifferencesPanel({ sid, view, onWrote }: { sid: string; view: Vi
   useEffect(() => { void readDifferences(sid, key) }, [sid, key])
   const lit = useRef(false)
   useEffect(() => () => { if (lit.current) ringCards([]) }, [])
-  const ring = (id: string | null) => { lit.current = id !== null; ringCards(id === null ? [] : [id]) }
+  const ring = (ids: readonly string[]) => { lit.current = ids.length > 0; ringCards(ids) }
 
   if (data === null || data.gated || view.version === null) return null
   return (
@@ -42,7 +42,7 @@ export function DifferencesPanel({ sid, view, onWrote }: { sid: string; view: Vi
   )
 }
 
-function DifferenceCard({ sid, view, data, d, ring, onWrote }: { sid: string; view: View; data: Differences; d: Difference; ring: (id: string | null) => void; onWrote: () => Promise<boolean> }): JSX.Element {
+function DifferenceCard({ sid, view, data, d, ring, onWrote }: { sid: string; view: View; data: Differences; d: Difference; ring: (ids: readonly string[]) => void; onWrote: () => Promise<boolean> }): JSX.Element {
   const h = data.headings
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -60,16 +60,20 @@ function DifferenceCard({ sid, view, data, d, ring, onWrote }: { sid: string; vi
     requestAnimationFrame(() => document.querySelector('[data-testid="team-commitment-form"], [data-testid="team-commitments"]')?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
   }
   const mine = new Set(d.steps.filter((s) => s.by_id === view.you_id).map((s) => s.step))
+  // The cards it is about (a figure: its card; a link: both ends; a factor the model does not have: none).
+  const cards = d.cards ?? [d.record]
   return (
-    <article className={CARD} data-testid={at} data-difference-status={d.status} onMouseEnter={() => ring(d.record)} onMouseLeave={() => ring(null)}>
-      <button type="button" className={`${BODY} flex items-start gap-1.5 text-left text-text-header`} data-testid={`${at}-focus`}
-        title="Show this card on the canvas" onClick={() => focusNodeById(d.record)} onFocus={() => ring(d.record)} onBlur={() => ring(null)}>
-        <Crosshair aria-hidden="true" className="mt-[3px] h-3.5 w-3.5 flex-none text-text-light" />
-        <span><span data-testid={`${at}-label`}>{d.label}</span>{d.goal_label ? <span className="text-text-light"> · {d.goal_label}</span> : null}</span>
-      </button>
+    <article className={CARD} data-testid={at} data-difference-status={d.status} data-difference-kind={d.kind ?? 'figure'} onMouseEnter={() => ring(cards)} onMouseLeave={() => ring([])}>
+      {cards.length > 0 ? (
+        <button type="button" className={`${BODY} flex items-start gap-1.5 text-left text-text-header`} data-testid={`${at}-focus`}
+          title="Show it on the canvas" onClick={() => focusNodeById(cards[0]!)} onFocus={() => ring(cards)} onBlur={() => ring([])}>
+          <Crosshair aria-hidden="true" className="mt-[3px] h-3.5 w-3.5 flex-none text-text-light" />
+          <span><span data-testid={`${at}-label`}>{d.label}</span>{d.goal_label ? <span className="text-text-light"> · {d.goal_label}</span> : null}</span>
+        </button>
+      ) : <p className={`${BODY} break-words text-text-header`}><span data-testid={`${at}-label`}>{d.label}</span></p>}
 
       <div className="grid gap-1" data-testid={`${at}-sides`}>
-        <p className={META}>{h.sides}</p>
+        <p className={META}>{d.sides_heading ?? h.sides}</p>
         <ul className="m-0 grid list-none gap-1 p-0">
           {d.sides.map((s) => (
             <li key={s.holder_id} className={`${BODY} flex items-start gap-1.5 break-words`} data-difference-side={s.holder_id} title={s.title}>
@@ -97,7 +101,7 @@ function DifferenceCard({ sid, view, data, d, ring, onWrote }: { sid: string; vi
               {d.options.map((o) => (
                 <tr key={o.option} data-difference-option={o.option} className="border-t border-panel-border">
                   <th scope="row" className={`${BODY} py-1 pr-2 text-left font-normal text-text-header`}>
-                    <button type="button" className="text-left underline-offset-2 hover:underline" onClick={() => focusNodeById(o.option)} onMouseEnter={() => ring(o.option)} onMouseLeave={() => ring(d.record)}>{o.label}</button>
+                    <button type="button" className="text-left underline-offset-2 hover:underline" onClick={() => focusNodeById(o.option)} onMouseEnter={() => ring([o.option])} onMouseLeave={() => ring(cards)}>{o.label}</button>
                   </th>
                   {d.sides.map((s) => <td key={s.holder_id} className={`${BODY} py-1 pr-2 tabular-nums`} data-difference-chance={s.holder_id}>{o.chances.find((c) => c.holder_id === s.holder_id)?.text ?? ''}</td>)}
                   <td className={`${META} py-1 tabular-nums`} data-difference-model="">{o.model}</td>

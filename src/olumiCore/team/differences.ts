@@ -13,6 +13,8 @@ export interface DifferenceOption { readonly option: string; readonly label: str
 export interface Settle { readonly kind: 'crossing' | 'worth' | 'diagnostic' | 'no_change'; readonly text: string; readonly fact: string | null }
 export interface StepShown { readonly id: number; readonly at: string; readonly by: string; readonly by_id: string; readonly step: 'dissent' | 'research'; readonly version: number; readonly text: string }
 export interface Difference {
+  /** A figure, a link (both its cards in `cards`) or a factor one member thinks is missing (no card). */
+  readonly kind?: 'figure' | 'link' | 'factor'; readonly cards?: readonly string[]; readonly sides_heading?: string
   readonly record: string; readonly label: string; readonly goal: string; readonly goal_label: string
   readonly status: DifferenceStatus; readonly status_text: string
   readonly sides: readonly DifferenceSide[]; readonly options: readonly DifferenceOption[]; readonly settle: readonly Settle[]; readonly steps: readonly StepShown[]
@@ -59,7 +61,8 @@ export function readDifferences(sid: string, key: string): Promise<void> {
 
 /** Keep the difference as a disagreement, or agree to find out (core `POST …/differences/:record/steps`): one shared row, no AI call. */
 export const stepDifference = (sid: string, record: string, step: 'dissent' | 'research') =>
-  call<{ step: number }>('POST', `${path(sid)}/${encodeURIComponent(record)}/steps`, { step })
+  // A link's or factor's record carries ':' (`link:<relation>:<part>`, `factor:<row>`), which core's route takes as it is.
+  call<{ step: number }>('POST', `${path(sid)}/${encodeURIComponent(record).replace(/%3A/gi, ':')}/steps`, { step })
 
 /** For specs. */
 export function resetDifferences(): void { inFlight.clear(); useDifferences.setState({ sid: null, key: null, data: null, error: null }) }

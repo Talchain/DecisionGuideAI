@@ -60,6 +60,15 @@ describe('where your explanations differ', () => {
     expect(draftOf<{ open: boolean; owner: string }>('s_x:commitment')).toMatchObject({ open: true, owner: '1' })
   })
 
+  it('a step on a link difference posts its record with the colons core\'s route takes', async () => {
+    const link = { ...core.differences[0], kind: 'link', record: 'link:total_def:existing_capacity', label: "'existing capacity' → 'total capacity'", cards: ['existing_capacity', 'total_capacity'], steps: [] }
+    const sent = serve((s) => (s.method === 'POST' ? { status: 201, body: { step: 7 } } : { status: 200, body: { ...core, differences: [link] } }))
+    render(<DifferencesPanel sid="s_x" view={view()} onWrote={async () => true} />)
+    fireEvent.click(await screen.findByTestId('team-difference-link:total_def:existing_capacity-capacity_goal-dissent'))
+    await waitFor(() => expect(sent.filter((s) => s.method === 'POST')).toHaveLength(1))
+    expect(sent.find((s) => s.method === 'POST')!.url).toBe('/api/scenarios/s_x/differences/link:total_def:existing_capacity/steps')
+  })
+
   it('draws nothing on a core without the route, or for a gated viewer', async () => {
     const sent = serve(() => ({ status: 404, body: { error: 'not found' } }))
     const { container } = render(<DifferencesPanel sid="s_x" view={view()} onWrote={async () => true} />)
