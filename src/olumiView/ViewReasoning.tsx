@@ -21,7 +21,8 @@ import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow } from './client'
 import type { GlanceKind } from './layout'
 import { bandPlace, challengedCards, familyCards, glanceRows, olumiKey, optionBands, optionCards, outcomePlace, premisesOnce, rowsCarryOutcome, settableFigures, type Place } from './layout'
-import { currentModel, useViewStore } from './store'
+import { shownModel, useViewStore } from './store'
+import { HeldProposalLine } from './ViewChances'
 import { Compared, WhatIfShown, Worth } from './ViewChances'
 import { typography } from '../styles/typography'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
@@ -217,8 +218,8 @@ function Bands({ model, option }: { model: ViewModel; option: string }) {
   )
 }
 
-/** The tab's body: the approved model's View while it is current (`currentModel`), else nothing, so a held proposal never reads as the Run. */
+/** The tab's body: the View's model as shown (`shownModel`); a held proposal's under its heading (`HeldProposalLine`), never unlabelled. */
 export function ViewReasoningBlock() {
-  const model = useViewStore(currentModel), brief = useViewStore((st) => st.view?.brief ?? null)
-  return model === null ? null : <ViewReasoning model={model} brief={brief} />
+  const model = useViewStore(shownModel), brief = useViewStore((st) => st.view?.brief ?? null)
+  return model === null ? null : <><HeldProposalLine /><ViewReasoning model={model} brief={brief} /></>
 }

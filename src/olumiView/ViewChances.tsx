@@ -13,7 +13,7 @@ import type { ViewCard, ViewModel, ViewRow, ViewRun, ViewTurn } from './client'
 import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, notesBesideTiming, optionCards, SHARPEN_SHOWN, sharpenKindOf, sharpenRowsOf, tippingOf, failureOf, restsOf, worthLinesOf, type SharpenRow } from './layout'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { MoveTap, Words } from './ViewChat'
-import { currentModel, useViewStore } from './store'
+import { shownModel, useViewStore } from './store'
 import { clearWhatIf, useWhatIf } from './whatif'
 import { typography } from '../styles/typography'
 import type { OutputTab } from '../stores/uiStore'
@@ -426,8 +426,18 @@ function SharpenCard({ model }: { model: ViewModel }) {
   )
 }
 
-/** The block on the olumi-core lane: the page's View of the approved model, or nothing while none is current (`currentModel`). */
+/** While a proposal is held, the tabs say so first in core's words: its heading and the version it is on (`proposal.heading`, `.on`). */
+export function HeldProposalLine() {
+  const p = useViewStore((s) => s.view?.proposal ?? null)
+  return p === null ? null : (
+    <p className={`${typography.panelMeta} text-text-light`} data-testid="view-tabs-held-proposal">
+      <span data-view-proposal="heading">{p.heading}</span> <span data-view-proposal="on">{p.on}</span>
+    </p>
+  )
+}
+
+/** The block on the olumi-core lane: the View's model as shown (`shownModel`: the approved one, or a held proposal's under its heading). */
 export function ViewChancesBlock() {
-  const model = useViewStore(currentModel), chat = useViewStore((s) => s.view?.chat ?? null)
-  return model === null ? null : <ViewChances model={model} chat={chat} />
+  const model = useViewStore(shownModel), chat = useViewStore((s) => s.view?.chat ?? null)
+  return model === null ? null : <><HeldProposalLine /><ViewChances model={model} chat={chat} /></>
 }

@@ -139,12 +139,17 @@ describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Pau
 })
 
 describe('pending is never shown as current', () => {
-  it('a held proposal, a stale View or a failed read draws nothing; the approved, current model draws the Run', () => {
+  // R25 (DL 7 Nov after Paul's 6 Nov test, superseding "a held proposal draws nothing"): a held proposal's Run is drawn under core's
+  // proposal heading and base, so it never reads as the approved Run; a stale View or a failed read still draws nothing.
+  it('a held proposal draws under core\'s heading and base; a stale View or a failed read draws nothing; the approved model draws the Run', () => {
     const held = read('proposal.view.json')
     expect(held.proposal).not.toBeNull()
     ready(held)
     const { rerender } = render(<ViewReasoningBlock />)
-    expect(screen.queryByTestId('view-reasoning')).toBeNull()
+    expect(screen.getByTestId('view-reasoning')).not.toBeNull()
+    const head = screen.getByTestId('view-tabs-held-proposal')
+    expect(head.querySelector('[data-view-proposal="heading"]')!.textContent).toBe(held.proposal!.heading)
+    expect(head.querySelector('[data-view-proposal="on"]')!.textContent).toBe(held.proposal!.on)
     const bakery = read('bakery.view.json')
     for (const bad of [{ stale: true }, { error: 'Olumi could not be reached.' }]) {
       ready(bakery, bad)

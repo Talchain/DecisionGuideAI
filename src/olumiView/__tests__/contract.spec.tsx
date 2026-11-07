@@ -117,9 +117,19 @@ describe('the block draws only a current View of the approved model (review 0004
     expect(block()).not.toBeNull()
   })
 
-  it('draws nothing from a View that holds a proposal: its lines are the proposal\'s, not the approved model the canvas shows', () => {
+  // R25 (superseded the 00049 blank rule; DL 7 Nov after Paul's 6 Nov test, where the tabs went blank under every held proposal): a held
+  // proposal's lines are drawn, headed by core's proposal heading and base, so they never read as the approved Run.
+  it('draws a held proposal\'s lines under core\'s heading and base, verbatim', () => {
     useViewStore.setState({ view: { ...view, proposal: { id: 9, base: 1, heading: 'Olumi proposes 1 change', on: 'on version 1', removed: null, problem: null, marks: [], changes: [], groups: null, from: null } }, error: null, status: 'ready' })
-    expect(block()).toBeNull()
+    const { container } = render(<ViewChancesBlock />)
+    expect(container.querySelector('[data-testid="view-chances"]')).not.toBeNull()
+    const head = container.querySelector('[data-testid="view-tabs-held-proposal"]')!
+    expect([head.querySelector('[data-view-proposal="heading"]')!.textContent, head.querySelector('[data-view-proposal="on"]')!.textContent]).toEqual(['Olumi proposes 1 change', 'on version 1'])
+  })
+
+  it('must not change: the approved model\'s lines carry no proposal heading', () => {
+    useViewStore.setState({ view, error: null, status: 'ready' })
+    expect(render(<ViewChancesBlock />).container.querySelector('[data-testid="view-tabs-held-proposal"]')).toBeNull()
   })
 
   it('draws nothing when the last read failed: older lines are never shown as current', () => {

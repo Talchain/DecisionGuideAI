@@ -57,6 +57,15 @@ export const isReading = (): boolean => reading > 0
  */
 export const currentModel = (s: { view: View | null; error: string | null; stale: boolean }) => (s.error === null && !s.stale && s.view !== null && s.view.proposal === null ? s.view.model : null)
 
+/**
+ * The model the Analysis and Reasoning tabs draw (R25; Paul's 6 Nov test: both tabs went blank whenever a proposal was held, and every
+ * chat change held one). While a proposal is held this is the proposal's own model and Run (core view.ts `shownModel`, DL 7 Nov), so the
+ * tabs head it with core's proposal heading and base (`HeldProposalLine`); the approved values stay on the ↻ marks. Never while the last
+ * read failed or the canvas changed since it was read (reviews 00049/00051). `currentModel` keeps the approved-only rule for edits and
+ * commitments.
+ */
+export const shownModel = (s: { view: View | null; error: string | null; stale: boolean }) => (s.error === null && !s.stale && s.view !== null ? s.view.model : null)
+
 export const useViewStore = create<ViewState>()((set, get) => ({
   uuid: null, sid: null, view: null, opened: { open: new Map(), all: false }, status: 'none', error: null, stale: false, at: null,
   use: async (uuid) => {

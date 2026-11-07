@@ -211,7 +211,7 @@ import { useIsViewer } from '../../lib/viewerMode'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
 import { CoreCompareTab } from '../../olumiCore/compare'
-import { currentModel, useViewStore } from '../../olumiView/store'
+import { shownModel, useViewStore } from '../../olumiView/store'
 import { useViewFollows } from '../../olumiView/follow'
 import { useViewCanvas } from '../../olumiView/canvas'
 import { useViewPoll } from '../../olumiView/poll'
@@ -809,7 +809,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const savedRunUnconfirmed = selectSavedRunUnconfirmed(declinedSavedRun, currentScenarioIdForRun, runOnRecordLocally)
   // The olumi-core lane's View (olumi.view/2): read for this scenario (src/olumiView/follow.ts); the canvas, the chat and the Team tab
   // are all drawn from it (src/olumiView/canvas.ts), so the canvas never re-triggers the read.
-  const coreView = useViewStore(currentModel)
+  const coreView = useViewStore(shownModel)
   useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null)
   useViewCanvas(isOlumiCoreLane())
   // A member core holds until they have given or skipped their own view (the View's `gated`) lands on it, in the Team tab, and no Olumi
@@ -3785,7 +3785,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 {/* The olumi-core lane draws each option's lines from core's View (src/olumiView/), never from the adapter's CEE shape. */}
                 {isPreRun && nodes.length > 0 && ((isOlumiCoreLane() && coreView !== null) || viewOnlyChances !== null) && (
                   <div className="px-4 py-3" data-testid="outputs-pre-run-view-only">
-                    {/* The View's lines only while they are the approved model's and current (`currentModel`); else the earlier block. */}
+                    {/* The View's lines as shown (`shownModel`): the approved model's, or a held proposal's under its heading (R25). */}
                     {isOlumiCoreLane() && coreView !== null ? <ViewChancesBlock /> : viewOnlyChances === null ? null : <ViewOnlyRunChancesBlock chances={viewOnlyChances} />}
                     {programShowsResult && (programDecisionRecord !== null || !isViewer) ? (
                       <div className="mt-3">
