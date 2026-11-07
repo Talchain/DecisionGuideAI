@@ -8,6 +8,7 @@ import { render, screen, fireEvent, cleanup, act, waitFor } from '@testing-libra
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { setPagePerson, setTeamFetch } from '../../team/api'
 import { nav } from '../api'
+import { useCanvasStore } from '../../../canvas/store'
 import SignInPage from '../SignInPage'
 import SignUpPage from '../SignUpPage'
 import MyScenariosPage from '../MyScenariosPage'
@@ -45,7 +46,7 @@ const at = (path: string, page: JSX.Element, route = path) => render(
 /** CLAUDE.md §3–4: Olumi proposes and the person decides; no page calls Olumi a decision tool or ranks anything for them. */
 const NEVER = /\b(best|winner|recommend\w*|decision tool)\b/i
 
-afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); asked = []; vi.restoreAllMocks() })
+afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); asked = []; vi.restoreAllMocks(); localStorage.clear() })
 
 describe('sign in', () => {
   it('sends exactly the email and password, shows core\'s refusal in its own words, and on success loads home afresh', async () => {
@@ -100,12 +101,18 @@ describe('My scenarios (home)', () => {
     expect(screen.getByTestId('at-scenario')).toBeTruthy()
   })
 
-  it('New scenario goes to the canvas, where a brief starts one', async () => {
+  it('New scenario goes to the canvas on a blank brief: the scenario the canvas showed last is forgotten, not reopened', async () => {
+    // Measured on a local core: without this, the canvas restored the last scenario opened from this browser.
+    const last = '00000000-0000-4000-8000-a00000000002'
+    localStorage.setItem('olumi-canvas-current-scenario-id', last)
+    useCanvasStore.setState({ currentScenarioId: last })
     core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/account/scenarios' ? { body: { scenarios: [] } } : undefined)
     at('/', <MyScenariosPage />)
     expect((await screen.findByTestId('my-scenarios-empty')).textContent).toContain('writing a brief')
     fireEvent.click(screen.getByTestId('my-scenarios-new'))
     expect(screen.getByTestId('at-canvas')).toBeTruthy()
+    expect(localStorage.getItem('olumi-canvas-current-scenario-id')).toBeNull()
+    expect(useCanvasStore.getState().currentScenarioId).toBeNull()
   })
 
   it('signed out, home goes to sign in and asks core for no scenario', async () => {

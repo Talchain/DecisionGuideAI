@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { typography } from '../../styles/typography'
+import { useCanvasStore } from '../../canvas/store'
+import { clearAutosave, clearCurrentScenarioId } from '../../canvas/store/scenarios'
+import { useViewStore } from '../../olumiView/store'
 import { TeamApiError } from '../team/api'
 import { accountsApi, whenOf, type MyScenario } from './api'
 import { BODY, CARD, ERR, LINK, META, SignedInFrame, useWho } from './Frame'
@@ -11,6 +14,19 @@ function Open({ s }: { s: MyScenario }): JSX.Element {
   const cls = `${typography.h5} text-text-header hover:underline underline-offset-2`
   return s.open.startsWith('/#/') ? <Link to={s.open.slice(2)} className={cls} data-testid={`my-scenario-open-${s.id}`}>{s.label}</Link>
     : <a href={s.open} className={cls} data-testid={`my-scenario-open-${s.id}`}>{s.label}</a>
+}
+
+/**
+ * "New scenario": the canvas forgets the scenario it showed last, so `/canvas` opens on a blank brief rather than restoring it (measured on
+ * a local core: without this, New scenario reopened the last scenario). The store's own "Start fresh" (`resetCanvas`) does it for a
+ * canvas with a model in memory; it returns early on an empty one, so the remembered id and autosave are cleared here too.
+ */
+export function startFreshScenario(): void {
+  useCanvasStore.getState().resetCanvas()
+  clearCurrentScenarioId()
+  clearAutosave()
+  useCanvasStore.setState({ currentScenarioId: null, scenarioPersistedToDb: false })
+  void useViewStore.getState().use(null)
 }
 
 /**
@@ -30,7 +46,7 @@ export default function MyScenariosPage(): JSX.Element {
     return () => { live = false }
   }, [who.status])
   return (
-    <SignedInFrame who={who} title="My scenarios" testid="account-home" action={<Button onClick={() => navigate('/canvas')} data-testid="my-scenarios-new">New scenario</Button>}>
+    <SignedInFrame who={who} title="My scenarios" testid="account-home" action={<Button onClick={() => { startFreshScenario(); navigate('/canvas') }} data-testid="my-scenarios-new">New scenario</Button>}>
       {(w) => (
         <>
           {!w.account && (
