@@ -8,3 +8,7 @@
   7 Nov) to a copy of this View in code. Those values are invented placeholders of the requested shape, labelled where they are made.
 - `consulting-whatif-priya.json`: core's REAL answer to `POST …/whatif { base: 18, variants: [{ edits: [{ quantity:
   "diagnostic_time_to_contract", typed: "6 to 12 months" }] }] }` on the same copy (Priya's figure as core words it), 7 Nov.
+- `consulting-disagreement.view3.json`: a REAL View from olumi-core wip/debate eaab1331 (which carries core's V11 fields `kind`, `about`,
+  `effects[].chip`, `collab.next`), read as "Maya" on a fresh copy of the same board, seed 2 (7 Nov): Priya and Tom give different
+  figures for "Time to first signed contract for the paid diagnostic" (6 to 12 vs 1 to 3 months; core: both `disagreement`, Tom's effect
+  `changes` with core's chip sentence, core's round question in `next`); Maya's figure is on another card (`unique`). Seeded demo people.

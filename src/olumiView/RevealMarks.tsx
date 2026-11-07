@@ -17,6 +17,8 @@ export function openView(id: number): void {
 }
 
 const initial = (by: string) => by.slice(0, 1).toUpperCase()
+/** The chips' row: wide enough for two people's chips side by side. */
+const CHIPS_WIDTH = Math.max(CARD_WIDTH, 380)
 
 /** What a mark says on hover and to a reader: the person, their figure in core's words, core's heading for its effect. */
 function markWords(m: Mark, heading: string | null): string {
@@ -58,19 +60,21 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
   const { chips, selected, heading } = useMarks(card)
   if (chips.length === 0) return null
   return (
-    // Centred under the card, on its outgoing links, inside the gap to the next row (out of flow: no card moves).
-    <div className="nodrag mt-1 flex flex-col items-center gap-1" style={{ width: CARD_WIDTH }} data-testid={`reveal-chips-${card}`}>
+    // Centred under the card, on its outgoing links, side by side inside the gap to the next row (out of flow: no card moves). Two people
+    // who differ on one card are two chips in one row, so the row may reach past the card's edges.
+    <div className="nodrag mt-1 flex flex-row flex-wrap justify-center gap-1.5" style={{ width: CHIPS_WIDTH, marginLeft: (CARD_WIDTH - CHIPS_WIDTH) / 2 }} data-testid={`reveal-chips-${card}`}>
       {chips.map((m) => {
         const on = selected === m.view
         return (
-          <button key={`${m.view}:${m.figure?.quantity ?? ''}`} type="button" aria-pressed={on} aria-label={markWords(m, heading(m))} title={markWords(m, heading(m))}
+          <button key={`${m.view}:${m.figure?.quantity ?? ''}`} type="button" aria-pressed={on} aria-label={m.chip ?? markWords(m, heading(m))} title={m.chip ?? markWords(m, heading(m))}
             data-reveal-chip={m.view} data-reveal-status={m.status ?? undefined}
             onClick={(e) => { e.stopPropagation(); openView(m.view) }}
             className={`pointer-events-auto inline-flex h-6 max-w-full cursor-pointer items-center gap-1.5 rounded-full border bg-panel pl-0.5 pr-2.5 ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'border-text-header ring-1 ring-text-header' : 'border-text-header'}`}>
             <span aria-hidden="true" className="inline-grid h-[18px] w-[18px] flex-none place-items-center rounded-full border border-panel-border bg-canvas text-text-body">{initial(m.by)}</span>
             <GitFork aria-hidden="true" className="h-3 w-3 flex-none text-text-body" />
-            {/* Core's label for it when core sends one; until then the person and their figure, in core's words. */}
-            <span className="truncate">{m.chip ?? (m.figure === null ? m.by : `${m.by}: ${m.figure.text}`)}</span>
+            {/* On the board, who and their figure, in core's words; core's sentence for a changed leader (`chip`) is the hover and the label for
+                readers, and leads the dock (it runs to two lines and more, too long for a marker on a link). */}
+            <span className="truncate">{m.figure === null ? m.by : `${m.by}: ${m.figure.text}`}</span>
           </button>
         )
       })}

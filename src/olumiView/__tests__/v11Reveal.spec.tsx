@@ -58,6 +58,46 @@ describe('where each revealed view sits (real View)', () => {
   })
 })
 
+describe('core’s V11 fields as shipped (core wip/debate eaab1331; values below are placeholders of that shape)', () => {
+  it('a view’s `about` puts its initials on each card it names; `next: null` means no line at the foot', () => {
+    const shaped: View = { ...real, collab: { ...real.collab, next: null,
+      shared: real.collab.shared.map((v) => (v.id === MAYA.id ? { ...v, kind: 'unique', about: ['contract_to_cash', DIAG] } : { ...v, kind: 'shared', about: [] })) } } as View
+    const r = revealOf(shaped)!
+    // Priya's figure (now `shared`, not a disagreement) is initials on the option; Maya's words name it too, so hers sit there as well.
+    expect(marksOn(r, DIAG).initials.map((m) => [m.view, m.figure?.quantity ?? null])).toEqual([[PRIYA.id, 'diagnostic_time_to_contract'], [MAYA.id, null]])
+    expect(marksOn(r, 'contract_to_cash').initials.map((m) => m.view)).toEqual([MAYA.id])
+    // No view is a disagreement here, so no chip, whatever the effect statuses say.
+    expect(r.marks.filter((m) => m.isChip)).toEqual([])
+    useReveal.setState({ selected: PRIYA.id })
+    render(<RevealDock view={shaped} />)
+    expect(screen.queryByTestId('reveal-dock-next')).toBeNull()
+  })
+})
+
+describe('core’s own V11 fields (real View, core wip/debate eaab1331, seed 2)', () => {
+  const debate: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-disagreement.view3.json'), 'utf8'))
+  const who = (n: string) => debate.collab.shared.find((v) => v.by === n)!
+  const P = who('Priya'), T = who('Tom'), M = who('Maya')
+  const tomChip = (T.effects.find((e) => 'chip' in e) as { chip: string }).chip
+  it('the two people core calls a disagreement are chips on the card they differ on; the unique view is initials', () => {
+    const r = revealOf(debate)!
+    expect(marksOn(r, DIAG).chips.map((m) => [m.view, m.status, m.chip])).toEqual([[P.id, 'moves', null], [T.id, 'changes', tomChip]])
+    expect(marksOn(r, 'contract_to_cash')).toMatchObject({ chips: [], initials: [{ view: M.id }] })
+  })
+  it('the chip shows who and their figure; core’s sentence is its hover and leads the dock; core’s question is at the foot', () => {
+    useViewStore.setState({ view: debate })
+    render(<CardViewChips card={DIAG} />)
+    const chip = document.querySelector(`[data-reveal-chip="${T.id}"]`) as HTMLElement
+    expect(chip).toHaveTextContent(`Tom: ${T.figures[0]!.text}`)
+    expect(chip.getAttribute('title')).toBe(tomChip)
+    cleanup()
+    useReveal.setState({ selected: T.id })
+    render(<RevealDock view={debate} />)
+    expect(screen.getByTestId('reveal-dock-chip').textContent).toBe(tomChip)
+    expect(screen.getByTestId('reveal-dock-next').textContent).toBe((debate.collab as unknown as { next: { text: string } }).next.text)
+  })
+})
+
 describe('on the canvas and in the dock', () => {
   it('the chip and initials say core’s words; selecting one opens it in the Team tab', () => {
     const force = vi.spyOn(useUIStore.getState(), 'forceActivateOutputTab')

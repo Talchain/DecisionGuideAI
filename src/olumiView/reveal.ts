@@ -5,15 +5,16 @@
  *
  * Where a view sits: on the card whose id is the figure's quantity, else on the card whose `badge.records` holds it (core folds an option's
  * own figures into that option's card, e.g. "Time to first signed contract for the paid diagnostic" into the diagnostic option). A view with
- * no figure sits on the cards core names in `about` (requested field, below); without it, it is listed in the dock only.
+ * no figure sits on the cards core names in `about`; a card its words name beyond its figures gets its initials too. A view with
+ * nothing to sit on is listed in the dock only.
  *
  * Which view is the chip (the consequential disagreement) and which are initials in their card:
  * - With core's `kind` (requested field) the chip is a `disagreement`, every other view is initials.
  * - Until core sends `kind`, by core's own effect status only: the views at the highest status present among `changes` then `moves` are
  *   chips; `same`, a refused figure and a view with no figure are initials. Nothing is ranked or weighed here.
  *
- * Fields core does not send yet (asked of the DL on 7 Nov; core producer view.ts:662 and :463, built by the debate session): read through
- * the readers below, so a View without them draws by the interim rule and a fixture with them draws as core will.
+ * Core's V11 fields (asked of the DL 7 Nov; shipped on core wip/debate eaab1331, src/view/reveal.ts, olumi.view/3 additive and optional):
+ * read through the readers below, so a View from an older core draws by the interim rule.
  */
 import { create } from 'zustand'
 import type { View } from './client'
@@ -41,7 +42,9 @@ export function aboutOf(v: Shared): readonly string[] {
   return Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string') : []
 }
 /** `collab.next`: Olumi's one "what matters next" question for the round, and the cards it is about. */
-export function nextOf(view: View): { readonly text: string; readonly about: readonly string[] } | null {
+/** Undefined when core does not send the field (a core before wip/debate eaab1331); null when core says nothing qualifies this round. */
+export function nextOf(view: View): { readonly text: string; readonly about: readonly string[] } | null | undefined {
+  if (!('next' in view.collab)) return undefined
   const n = (view.collab as { next?: unknown }).next as { text?: unknown; about?: unknown } | null | undefined
   if (n == null || typeof n.text !== 'string' || n.text === '') return null
   return { text: n.text, about: Array.isArray(n.about) ? n.about.filter((x): x is string => typeof x === 'string') : [] }
@@ -112,7 +115,10 @@ export function revealOf(view: View | null): Reveal | null {
       const { status, chip } = statusOf(effects, f.quantity)
       raw.push({ view: v.id, by: v.by, by_id: v.by_id, card, figure: f, status, chip })
     }
-    if (v.figures.length === 0) for (const id of aboutOf(v)) if (cards.has(id)) raw.push({ view: v.id, by: v.by, by_id: v.by_id, card: id, figure: null, status: null, chip: null })
+    // Core's `about` (wip/debate eaab1331): the view's figures' quantities, then each card its words name. A card it names that none of its
+    // figures already marks gets the person's initials too.
+    const marked = new Set(raw.slice(before).map((m) => m.card))
+    for (const id of aboutOf(v)) if (cards.has(id) && !marked.has(id)) { marked.add(id); raw.push({ view: v.id, by: v.by, by_id: v.by_id, card: id, figure: null, status: null, chip: null }) }
     if (raw.length === before) unplaced.push(v)
   }
   const anyKind = [...kinds.values()].some((k) => k !== null)
@@ -133,6 +139,12 @@ export function marksOn(r: Reveal | null, card: string): { readonly chips: reado
   const initials = here.filter((m, i) => !m.isChip && !chipped.has(m.view) && here.findIndex((x) => !x.isChip && x.by_id === m.by_id) === i)
   return { chips, initials }
 }
+
+/**
+ * The cards lit while a person's figure is tried from the dock (the card their view sits on, and each option whose chance moves): the
+ * person's own act, so a neutral ring in the header ink, never Olumi's blue (v10's `v10-lit` ring is Olumi's pointing).
+ */
+export const useTriedCards = create<{ readonly ids: readonly string[] }>()(() => ({ ids: [] }))
 
 /** The view a person opens from the canvas; the dock draws it. Null when none is open. */
 export const useReveal = create<{ readonly selected: number | null; readonly select: (id: number | null) => void }>()((set) => ({

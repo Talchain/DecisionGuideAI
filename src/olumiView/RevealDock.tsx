@@ -9,7 +9,8 @@
  * V11 change 4, "Try <person>'s figure" in place: their figure run by core's what-if on a copy of the version shown (./whatif.ts, olumi-core
  * `POST …/whatif`, no AI call, nothing saved), typed as core words their figure. Each option's saved chance beside its what-if chance, in
  * core's words (./WhatIfCompare.tsx SideBySide); the card their view sits on and the options whose chance line changes are lit
- * on the canvas (v10's ring); "Back to the model" drops the what-if. Saving the what-if or proposing it as a shared change needs core
+ * on the canvas in a neutral ring (the person's act, never Olumi's blue); "Back to the model" drops the what-if. The try sits in the
+ * person's card beside their figure (Paul: the first useful action beside the affected claim); the foot holds only Olumi's question. Saving the what-if or proposing it as a shared change needs core
  * routes this build does not have yet (asked of the DL).
  */
 import { useEffect, useRef, useState } from 'react'
@@ -22,11 +23,10 @@ import { Effects } from '../olumiCore/team/ViewsPanel'
 import { AVATAR, BODY, CARD, H, META } from '../olumiCore/team/ui'
 import type { View, ViewRow } from './client'
 import { effectHeadingsOf, effectsOf } from './standin'
-import { cardOfQuantity, nextOf, revealOf, useReveal, type Shared } from './reveal'
+import { cardOfQuantity, chipOf, nextOf, revealOf, useReveal, useTriedCards, type Shared } from './reveal'
 import { useViewStore } from './store'
 import { clearWhatIf, tryWhatIf, useWhatIf } from './whatif'
 import { SideBySide } from './WhatIfCompare'
-import { ringCards } from './ring'
 
 const initial = (by: string) => by.slice(0, 1).toUpperCase()
 
@@ -47,7 +47,10 @@ function Figures({ v }: { v: Shared }): JSX.Element | null {
 
 /** Olumi's one line at the dock's foot, with Olumi's mark (the only blue). */
 function Next({ view }: { view: View }): JSX.Element | null {
-  const text = nextOf(view)?.text ?? view.model?.run?.most_likely?.text ?? null
+  // Core's one question for the round; null when core says nothing qualifies. Only a core that does not send the field falls back to core's
+  // most-likely line.
+  const next = nextOf(view)
+  const text = next === undefined ? view.model?.run?.most_likely?.text ?? null : next?.text ?? null
   if (text === null || text === '') return null
   return (
     <p className={`${BODY} flex items-start gap-2`} data-testid="reveal-dock-next">
@@ -81,8 +84,8 @@ function Tried({ view, v }: { view: View; v: Shared }): JSX.Element | null {
       return [...chances(o.rows)].some(([aim, value]) => saved.has(aim) && saved.get(aim) !== value)
     }).map((o) => o.option_id)
     const at = cardOfQuantity(view, f.quantity)
-    ringCards([...(at === null ? [] : [at]), ...moved])
-    return () => ringCards([])
+    useTriedCards.setState({ ids: [...(at === null ? [] : [at]), ...moved] })
+    return () => useTriedCards.setState({ ids: [] })
   }, [current, model, f, view])
   // What the try shows is brought into view as it appears (no motion when the person asks for less).
   const box = useRef<HTMLDivElement>(null)
@@ -95,19 +98,22 @@ function Tried({ view, v }: { view: View; v: Shared }): JSX.Element | null {
   return (
     <div ref={box} className={`${CARD} scroll-mt-2 gap-3`} data-testid="reveal-dock-tried">
       {current.variant.edits.map((e, i) => <p key={e.quantity} className={`${BODY} font-medium text-text-header`} data-view={`whatif.edits.${i}.words`}>{e.words}</p>)}
-      <p className={META}>{WHAT_IF_COPY.nothingSaved}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className={META}>{WHAT_IF_COPY.nothingSaved}</p>
+        <Button size="sm" variant="secondary" data-testid="reveal-dock-untry" onClick={clearWhatIf}>Back to the model</Button>
+      </div>
       <div className={BODY}><SideBySide model={model} shown={current} /></div>
     </div>
   )
 }
 
-/** The dock's foot actions: try their figure, or go back to the model as it is. */
-function TryActions({ view, v }: { view: View; v: Shared }): JSX.Element | null {
+/** Their figure's own action, beside it in their card (V11: the first useful action beside the affected claim): try it on a copy. */
+function TryFigure({ view, v }: { view: View; v: Shared }): JSX.Element | null {
   const { sid, base, f, current } = useTried(view, v)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => { setError(null) }, [v.id])
-  if (f === null || sid === null || base === null) return null
+  if (f === null || sid === null || base === null || current !== null) return null
   const run = async () => {
     if (running) return
     setRunning(true); setError(null)
@@ -116,12 +122,8 @@ function TryActions({ view, v }: { view: View; v: Shared }): JSX.Element | null 
     } finally { setRunning(false) }
   }
   return (
-    <div className="grid gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        {current === null
-          ? <Button size="sm" variant="secondary" data-testid="reveal-dock-try" disabled={running} onClick={() => void run()}>{running ? WHAT_IF_COPY.running : `Try ${v.by}’s figure`}</Button>
-          : <Button size="sm" variant="secondary" data-testid="reveal-dock-untry" onClick={clearWhatIf}>Back to the model</Button>}
-      </div>
+    <div className="grid justify-items-start gap-2">
+      <Button size="sm" variant="secondary" data-testid="reveal-dock-try" disabled={running} onClick={() => void run()}>{running ? WHAT_IF_COPY.running : `Try ${v.by}’s figure`}</Button>
       {error === null ? null : <p role="alert" className={`${META} text-danger`} data-testid="reveal-dock-try-error">{error}</p>}
     </div>
   )
@@ -139,8 +141,12 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
   const head = useRef<HTMLHeadingElement>(null)
   // Opening a view from the canvas moves focus here, so a keyboard user lands on what they opened.
   useEffect(() => { if (selected !== null) head.current?.focus() }, [selected])
-  // A figure tried from one view is not left standing behind another, or after the dock closes.
-  useEffect(() => () => { if (useWhatIf.getState().shown !== null) clearWhatIf() }, [selected])
+  // A figure tried from one view is not left standing behind another, or after the dock closes. Only that view's own try is dropped: a
+  // what-if the person made in the What if lens stays.
+  useEffect(() => () => {
+    const shownNow = useWhatIf.getState().shown, was = useViewStore.getState().view?.collab.shared.find((x) => x.id === selected)
+    if (shownNow !== null && was?.figures.some((f) => f.quantity === shownNow.quantity && f.text === shownNow.typed) === true) clearWhatIf()
+  }, [selected])
   const r = revealOf(view)
   const v = r?.views.find((x) => x.id === selected) ?? null
   if (r === null || v === null) return null
@@ -163,6 +169,7 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
         </p>
         <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid="reveal-dock-words">{v.text}</p>
         <Figures v={v} />
+        <TryFigure view={view} v={v} />
       </article>
 
       <Tried view={view} v={v} />
@@ -171,7 +178,11 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
       {tried || effectsOf(v).length === 0 ? null : (
         <div className="grid grid-cols-[16px_minmax(0,1fr)] items-start gap-2" data-testid="reveal-dock-consequence">
           <OlumiAiIcon size={16} aria-hidden="true" className="mt-[3px]" />
+          <div className="grid gap-2">
+          {/* Core's one sentence for a figure that changes which option is most likely (`effects[].chip`), first. */}
+          {effectsOf(v).flatMap((e) => { const c = chipOf(e); return c === null ? [] : [c] }).map((c) => <p key={c} className={`${BODY} text-text-header`} data-testid="reveal-dock-chip">{c}</p>)}
           <Effects at={`reveal-dock-${v.id}`} view={view} by={v.by_id} figures={v.figures} effects={effectsOf(v)} headings={effectHeadingsOf(view.collab)} />
+          </div>
         </div>
       )}
 
@@ -192,12 +203,8 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
         </ul>
       )}
 
-      {/* Olumi's one line for what matters next; while their figure is tried, the copy's own line (above) says it instead. */}
-      {tried ? null : <div className="mt-auto"><Next view={view} /></div>}
-      {/* Only the actions stay in view while the dock scrolls, so the next move is one press away and never covers what it shows. */}
-      <div className={`sticky bottom-0 z-10 bg-panel pb-1 pt-2 ${tried ? 'mt-auto' : ''}`}>
-        <TryActions view={view} v={v} />
-      </div>
+      {/* Olumi's one question for what matters next, at the foot; while their figure is tried, the copy's own line (above) speaks instead. */}
+      {tried ? null : <div className="mt-auto pt-2"><Next view={view} /></div>}
     </section>
   )
 }
