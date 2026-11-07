@@ -33,7 +33,7 @@ function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX.Elemen
  * view's own label for it, else its card's heading; the aim, the options and the conditions by their cards' headings, by id; a null leader
  * names nothing. A figure core did not run is listed under core's heading for that, its reason code not translated.
  */
-function Effects({ at, view, by: by_id, figures, effects, headings }: { at: string; view: View; by: string; figures: Figure[]; effects: readonly ViewEffect[]; headings: EffectHeadings | null }): JSX.Element | null {
+export function Effects({ at, view, by: by_id, figures, effects, headings }: { at: string; view: View; by: string; figures: Figure[]; effects: readonly ViewEffect[]; headings: EffectHeadings | null }): JSX.Element | null {
   if (effects.length === 0 || headings === null) return null
   // A figure the "Where you differ" picture already places shows there its status (the mark and the legend), its most-likely option (its lane)
   // and the model's (once per aim): none of these is said again in its row.

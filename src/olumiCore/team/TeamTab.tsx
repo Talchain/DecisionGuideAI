@@ -12,6 +12,8 @@ import { NudgesPanel } from './NudgesPanel'
 import { ViewsPanel } from './ViewsPanel'
 import { BODY, CARD, ERR, H, META } from './ui'
 import { TEAM_PAST_HELD } from './writes'
+import { RevealDock, revealDockShown } from '../../olumiView/RevealDock'
+import { useReveal } from '../../olumiView/reveal'
 
 /**
  * THE TEAM TAB (olumi-core lane only). The team's views, the reveal, evidence, commitments and their outcomes, every word and state as
@@ -29,6 +31,11 @@ export function TeamTab(): JSX.Element {
   const past = useViewStore((s) => s.at)
   const me = useMe((s) => s.me)
   const shown: View | null = view !== null && isForThisPage(view, me) ? view : null
+  // V11: a view opened from its mark on the canvas fills the tab (one focus); closing it brings the team's panels back.
+  const opened = useReveal((s) => s.selected)
+  if (shown !== null && sid && past === null && revealDockShown(shown, opened)) {
+    return <div data-testid="team-tab" className="grid min-h-full pb-6"><RevealDock view={shown} /></div>
+  }
 
   return (
     <div data-testid="team-tab" className="grid gap-4 pb-6">
