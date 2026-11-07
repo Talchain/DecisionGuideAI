@@ -12,7 +12,7 @@ import { runWrite, useWriteSending } from '../olumiCore/team/writes'
 import { isForThisPage, useMe } from '../olumiCore/me'
 import { writes } from './client'
 import { useViewStore } from './store'
-import { noteSaved } from './notice'
+import { noteEditSaved } from './notice'
 
 export const RENAME_WORDS = { open: 'Rename', save: 'Save name', cancel: 'Cancel', label: 'New name' } as const
 
@@ -36,7 +36,7 @@ export function Rename({ id, heading, shown }: { id: string; heading: string; sh
     setError(null)
     try {
       const saved = await runWrite(key, { op: true }, { base, record: id, label }, (op) => writes.rename(sid, base, id, label, op!))
-      noteSaved(saved)
+      noteEditSaved(saved)
       if (await useViewStore.getState().modelChanged()) setOpen(false)
       else setError('Saved, but Olumi could not show it just now. Reload the page to see it.')
     } catch (e) {

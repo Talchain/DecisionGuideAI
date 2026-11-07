@@ -37,6 +37,7 @@ import { useViewStore } from './store'
 import { useV10Lane, ViewCardV10 } from './v10'
 import { useDockFullHeight } from './dockFullHeight'
 import { ViewLensBar } from './ViewLensBar'
+import { AddFigure } from './AddFigure'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
 import { ViewPreMortemKey } from './ViewPreMortemKey'
@@ -125,12 +126,21 @@ function ViewFlow() {
   // Which card or link holds keyboard focus is the canvas's while it is up: nothing is left open once it goes (checker, slice 1).
   useEffect(() => () => { useViewFocusCard.setState({ id: null }); useViewFocusLink.setState({ id: null }) }, [])
   useEffect(() => registerFocusHelpers((id) => {
-    const n = getInternalNode(id)
-    if (n === undefined) return
-    useCanvasStore.getState().selectNodeWithoutHistory(id)
-    const at = n.internals.positionAbsolute, w = n.measured.width ?? 0, h = n.measured.height ?? 0
-    userMoved.current = true
-    void setCenter(at.x + w / 2, at.y + h / 2, { zoom: getZoom(), duration: 300 })
+    // A card just added is in the canvas's nodes before React Flow has measured it, and its measured height lays the board out again: wait
+    // until it is measured, no layout is running and it has kept its place for a frame (up to ~2 s), then bring it in front.
+    let last = ''
+    const go = (tries: number) => {
+      const n = getInternalNode(id)
+      const here = n === undefined || !n.measured.width ? '' : `${n.internals.positionAbsolute.x},${n.internals.positionAbsolute.y}`
+      const settled = here !== '' && !viewLaying() && here === last
+      last = here
+      if (!settled) { if (tries > 0) requestAnimationFrame(() => go(tries - 1)); return }
+      useCanvasStore.getState().selectNodeWithoutHistory(id)
+      const at = n!.internals.positionAbsolute, w = n!.measured.width ?? 0, h = n!.measured.height ?? 0
+      userMoved.current = true
+      void setCenter(at.x + w / 2, at.y + h / 2, { zoom: getZoom(), duration: 300 })
+    }
+    go(120)
   }, () => undefined), [setCenter, getZoom, getInternalNode])
   const { zoomIn, zoomOut, zoomTo } = useReactFlow()
   const hasModel = useViewStore((s) => (s.view?.model?.cards.length ?? 0) > 0)
@@ -158,6 +168,8 @@ function ViewFlow() {
         onFitView={() => { userMoved.current = false; fit() }}
         onAutoArrange={() => { const model = useViewStore.getState().view?.model; if (model) void placeViewCards(model) }}
       />
+      {/* R25 slice 2: the board's own control to add a figure card in the person's words (core's …/figures), above the zoom controls. */}
+      {hasModel ? <AddFigure /> : null}
       {hasModel ? <ViewLensBar /> : null}
       {hasModel ? <ViewWhatIfKey /> : null}
       {hasModel ? <ViewTradeOffsKey /> : null}

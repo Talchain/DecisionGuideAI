@@ -9,7 +9,7 @@ import golden from '../golden/european.view.json'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { POLL_MS, useViewPoll } from '../poll'
-import { noteSaved, noticeWords, useModelNotice } from '../notice'
+import { noteEditSaved, noteSaved, noticeWords, useModelNotice } from '../notice'
 import { setTeamFetch } from '../../olumiCore/team/api'
 
 const SID = 's_0123456789ab'
@@ -30,6 +30,10 @@ describe('the model moved, in words', () => {
   it('CATCH: the person\'s own approval is a receipt with core\'s version number and their name', () => {
     noteSaved({ version: 7, n: 2, receipt: 'approve:1' })
     expect(noticeWords(useModelNotice.getState().notice!)).toBe('Version 2 saved. Approved by Ada.')
+  })
+  it('CATCH (slice 2): the person\'s own direct edit is a receipt with core\'s version number, never "Approved by" (nothing was approved)', () => {
+    noteEditSaved({ version: 7, n: 2, receipt: 'figures:7', record: 'weekly_churn' })
+    expect(noticeWords(useModelNotice.getState().notice!)).toBe('Version 2 saved.')
   })
   it('CONTRAST: an answer with no version number says nothing', () => {
     noteSaved({}); noteSaved(null); noteSaved({ n: '2' })

@@ -12,20 +12,24 @@ import { create } from 'zustand'
 import { call } from '../olumiCore/team/api'
 import { useViewStore } from './store'
 
-export type ModelNotice = { readonly kind: 'saved' | 'moved'; readonly n: number; readonly by: string; readonly sid: string }
+/** `by` null: the person's own direct edit (a figure, a name, a new figure card), saved as their version with no approval to name. */
+export type ModelNotice = { readonly kind: 'saved' | 'moved'; readonly n: number; readonly by: string | null; readonly sid: string }
 
 export const useModelNotice = create<{ readonly notice: ModelNotice | null }>()(() => ({ notice: null }))
 
 export const noticeWords = (x: ModelNotice): string =>
-  x.kind === 'saved' ? `Version ${x.n} saved. Approved by ${x.by}.` : `Model changed to version ${x.n}. Approved by ${x.by}.`
+  x.kind === 'saved' ? (x.by === null ? `Version ${x.n} saved.` : `Version ${x.n} saved. Approved by ${x.by}.`) : `Model changed to version ${x.n}. Approved by ${x.by ?? 'someone'}.`
 
 /** The person's own approval landed: version `n`, approved by the name this page was opened for. */
-export function noteSaved(answer: unknown): void {
+export function noteSaved(answer: unknown, approved = true): void {
   const { sid, view } = useViewStore.getState()
   const n = (answer as { n?: unknown } | null)?.n
   if (sid === null || view === null || typeof n !== 'number' || !Number.isInteger(n)) return
-  useModelNotice.setState({ notice: { kind: 'saved', n, by: view.you, sid } })
+  useModelNotice.setState({ notice: { kind: 'saved', n, by: approved ? view.you : null, sid } })
 }
+/** The person's own direct edit saved (a figure, a name, a figure card added): its version's receipt, never "Approved by" (nothing was
+ *  approved: core saves the edit as their version at once). */
+export const noteEditSaved = (answer: unknown): void => noteSaved(answer, false)
 
 /**
  * The background re-read found a newer approved version than the one held. Core's stored versions say who approved it; one the person

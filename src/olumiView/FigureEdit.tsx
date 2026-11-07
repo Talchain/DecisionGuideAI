@@ -14,7 +14,7 @@ import { runWrite, useWriteSending } from '../olumiCore/team/writes'
 import { isForThisPage, useMe } from '../olumiCore/me'
 import { writes } from './client'
 import { useViewStore } from './store'
-import { noteSaved } from './notice'
+import { noteEditSaved } from './notice'
 
 /**
  * `id`: the quantity (a card's id, or a waits-on item's); `edit`: core's words for changing it; `label`: the button's words; `place`: where
@@ -112,7 +112,7 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
     try {
       const saved = await runWrite(key, { op: true }, { base, quantity: id, typed }, (op) => writes.edit(sid, base, id, typed, op!))
       // Core's 201 IS saved (R25, DL ruling: no AI call on its path): its version is said at once, as an approval's is.
-      noteSaved(saved)
+      noteEditSaved(saved)
       // Saved: the editor closes once the new View shows it; a View that could not be read says so here, never the old figure as current.
       if (await useViewStore.getState().modelChanged()) { setOpen(false); setTyped('') }
       else setError('Saved, but Olumi could not show it just now. Reload the page to see it.')
