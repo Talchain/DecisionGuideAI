@@ -94,7 +94,9 @@ export function ViewSummaryTrigger({ className = '' }: { className?: string }) {
   const at = useViewStore((s) => s.at)
   const saved = useViewStore((s) => s.view !== null && s.view.version !== null)
   const [open, setOpen] = useState(false)
-  const close = useCallback(() => setOpen(false), [])
+  const trigger = useRef<HTMLButtonElement>(null)
+  // Closing hands focus back to the control that opened the page.
+  const close = useCallback(() => { setOpen(false); trigger.current?.focus() }, [])
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
@@ -104,7 +106,7 @@ export function ViewSummaryTrigger({ className = '' }: { className?: string }) {
   if (sid === null || !saved) return null
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={className} aria-expanded={open} aria-haspopup="dialog" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-trigger">
+      <button ref={trigger} type="button" onClick={() => setOpen(true)} className={className} aria-expanded={open} aria-haspopup="dialog" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-trigger">
         <FileText size={14} aria-hidden="true" />
       </button>
       {open && createPortal(<SummaryPage sid={sid} at={at} onClose={close} />, document.body)}

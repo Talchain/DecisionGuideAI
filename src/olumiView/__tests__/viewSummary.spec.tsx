@@ -98,6 +98,7 @@ describe('the top bar\'s Summary on the lane', () => {
     expect(within(page).getByTestId('summary-print').textContent).toBe(SUMMARY_PRINT_LABEL)
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.queryByTestId('summary-page')).toBeNull()
+    expect(document.activeElement).toBe(screen.getByTestId('summary-trigger')) // focus goes back to the control that opened it
   })
   it('an earlier version on screen: its own Summary, asked for by number', async () => {
     const asked: string[] = []
