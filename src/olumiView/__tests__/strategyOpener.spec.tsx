@@ -52,6 +52,15 @@ describe('the Strategy Overview from the header (served View)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     await waitFor(() => expect(document.activeElement).toBe(opener))
   })
+  it('Esc in the header’s Explore menu closes the menu alone; the Overview stays open (zero-call smoke, 7 Nov)', () => {
+    useOverview.setState({ open: true })
+    render(<><Both /><ViewLensBar nav /></>)
+    fireEvent.click(screen.getByTestId('lens-bar-explore'))
+    const item = screen.getByTestId('lens-bar-explore-menu').querySelector('[role="menuitemradio"]') as HTMLElement
+    item.focus()
+    fireEvent.keyDown(item, { key: 'Escape' })
+    expect(screen.getByTestId('strategy-overview-stage')).toBeInTheDocument()
+  })
   it('the header’s Model · Explore · Team sits above the Overview’s layer, so it stays in reach over the page', () => {
     useOverview.setState({ open: true })
     render(<><Both /><ViewLensBar nav /></>)

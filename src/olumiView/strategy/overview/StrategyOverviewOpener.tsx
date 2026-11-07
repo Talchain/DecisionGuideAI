@@ -41,7 +41,12 @@ export function StrategyOverviewStage({ children }: { children: (view: NonNullab
     if (!shown || typeof document === 'undefined') return
     const a = document.activeElement
     opener.current = a instanceof HTMLElement && a !== document.body ? a : document.querySelector<HTMLElement>('[data-testid="strategy-overview-opener"]')
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); useOverview.getState().hide() } }
+    // An Esc meant for an open menu or dialog (the header's Explore menu) closes that alone.
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (e.target instanceof Element && e.target.closest('[role="menu"], [role="dialog"], [data-testid="lens-bar"]') !== null) return
+      e.preventDefault(); useOverview.getState().hide()
+    }
     document.addEventListener('keydown', key)
     return () => {
       document.removeEventListener('keydown', key)
