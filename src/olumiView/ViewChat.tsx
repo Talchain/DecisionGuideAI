@@ -36,7 +36,7 @@ import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, Figu
 import { noteSaved, noticeWords, useModelNotice } from './notice'
 import { ArrowRight, ArrowUp, FlipVertical2, Globe, History, MessageCircleQuestion, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
 import Tooltip from '../components/Tooltip'
-import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
+import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 
 /*
@@ -60,7 +60,7 @@ export function Words({ parts, at, first = 1 }: { parts: Said; at: string; first
   return (
     <>
       {parts.map((p, i) => ('cite' in p
-        ? <sup key={i} className={typography.panelMeta} data-view-cite={`${at}.${i}.cite`} title={p.cite} aria-label={p.cite}>{n++}</sup>
+        ? <sup key={i} className={typography.viewPanelMeta} data-view-cite={`${at}.${i}.cite`} title={p.cite} aria-label={p.cite}>{n++}</sup>
         : <span key={i} data-view={`${at}.${i}.text`}>{p.text}</span>))}
     </>
   )
@@ -106,14 +106,14 @@ function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: 
   const ring = (on: boolean) => { lit.current = on; ringCards(on ? t.answer?.next.about ?? [] : []) }
   const said = answerFirst
     // One line under the reply, the whole of what was said on hover: a brief quoted in full repeated the person's own words (4 Nov drive).
-    ? <p className={`${typography.chatMeta} text-text-light line-clamp-1`} title={t.said} data-testid="view-chat-in-reply">In reply to: <span data-view={`${at}.said`}>{t.said}</span></p>
-    : <div className={styles.messageBubbleUser} data-testid="view-chat-said-bubble"><p className={typography.chatBody} data-view={`${at}.said`}>{t.said}</p></div>
+    ? <p className={`${typography.viewPanelMeta} text-text-light`} title={t.said} data-testid="view-chat-in-reply">In reply to: <span data-view={`${at}.said`}>{t.said}</span></p>
+    : <div className={styles.messageBubbleUser} data-testid="view-chat-said-bubble"><p className={typography.viewPanelBody} data-view={`${at}.said`}>{t.said}</p></div>
   // Each block's first cite number, in the reply's order: its answer, each Why line, its next step.
   const whyFirst: number[] = []
   let nextFirst = 1
   if (t.answer !== null) { nextFirst += citesIn(t.answer.answer); for (const w of t.answer.why) { whyFirst.push(nextFirst); nextFirst += citesIn(w) } }
   const answer = t.answer === null ? null : (
-    <div className={`${typography.chatBody} ${styles.markdownContent} ${styles.v2AssistantText} space-y-2`} data-testid="view-chat-answer">
+    <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} space-y-2`} data-testid="view-chat-answer">
       <p><Words parts={t.answer.answer} at={`${at}.answer.answer`} /></p>
       {t.answer.why.length === 0 ? null : (
         <details>
@@ -149,7 +149,7 @@ function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: 
 /** The conversation, oldest first, as the View holds it. */
 export function ViewTurns({ chat }: { chat: View['chat'] }) {
   return (
-    <ol className={`${typography.panelBody} space-y-4`} data-testid="view-chat-turns">
+    <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turns">
       {chat.map((t, i) => <Turn key={t.id} t={t} at={`chat.${i}`} />)}
     </ol>
   )
@@ -163,11 +163,11 @@ export function ViewConversation({ chat, moves = false }: { chat: View['chat']; 
   if (chat.length === 0) return null
   const last = chat.length - 1
   return (
-    <div className={`${typography.panelBody} space-y-3`} data-testid="view-chat-turns">
+    <div className={`${typography.viewPanelBody} space-y-3`} data-testid="view-chat-turns">
       <ol className="space-y-4" data-testid="view-chat-latest"><Turn t={chat[last]!} at={`chat.${last}`} answerFirst moves={moves} /></ol>
       {last === 0 ? null : (
         <details data-testid="view-chat-earlier">
-          <summary className={typography.panelMeta}>Earlier in this conversation ({last})</summary>
+          <summary className={typography.viewPanelMeta}>Earlier in this conversation ({last})</summary>
           <ol className="mt-2 space-y-4">{chat.slice(0, last).map((t, i) => <Turn key={t.id} t={t} at={`chat.${i}`} />)}</ol>
         </details>
       )}
@@ -222,7 +222,7 @@ function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; bus
   const chosen = pick.only.length + pick.only_top.length
   const line = (i: number) => { const c = changes[i]!; return <ChangeLine key={keyOf(c)} c={c} i={i} ticked={tickable ? ticked.has(keyOf(c)) : null} toggle={toggle} busy={busy} /> }
   return (
-    <div className={`${typography.panelBody} rounded border border-border p-3 space-y-2`} data-testid="view-chat-proposal">
+    <div className={`${typography.viewPanelBody} rounded border border-border p-3 space-y-2`} data-testid="view-chat-proposal">
       <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span> <span data-view="proposal.on">{p.on}</span>
         {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>
       {from === null ? null : (
@@ -255,12 +255,12 @@ function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; bus
           </ul>
         )}
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={busy} className={CHIP_PRIMARY_CLASS} onClick={() => void act(() => writes.approve(p.id, p.base).then(noteSaved), true)}>Approve</button>
+        <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} onClick={() => void act(() => writes.approve(p.id, p.base).then(noteSaved), true)}>Approve</button>
         {!tickable ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
-            className={`${CHIP_CLASS} min-h-[44px]`} onClick={() => void act(() => writes.approve(p.id, p.base, pick).then(noteSaved), true)}>Approve ticked · {chosen}</button>
+            className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => void act(() => writes.approve(p.id, p.base, pick).then(noteSaved), true)}>Approve ticked · {chosen}</button>
         )}
-        <button type="button" disabled={busy} className={`${CHIP_CLASS} min-h-[44px]`} onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
+        <button type="button" disabled={busy} className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
       </div>
     </div>
   )
@@ -650,7 +650,7 @@ function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
   const step = nextStepOf(view)
   if (step === null) return null
   return (
-    <section className={`${typography.panelBody} rounded-lg border border-info/40 bg-panel p-3 space-y-2 ring-1 ring-info/20`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
+    <section className={`${typography.viewPanelBody} rounded-lg border border-info/40 bg-panel p-3 space-y-2 ring-1 ring-info/20`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
       <p className={typography.panelHeader}>Next step</p>
       <p>{NEXT_STEP_WORDS[step.kind]}</p>
       {step.kind === 'approve' ? <Proposal key={view.proposal!.id} p={view.proposal!} busy={busy} evidence={view.evidence} /> : null}
@@ -661,7 +661,7 @@ function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
         </div>
       ) : null}
       {step.kind === 'invite' ? (
-        <button type="button" data-testid="view-next-invite" className={CHIP_PRIMARY_CLASS} onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>Invite a colleague</button>
+        <button type="button" data-testid="view-next-invite" className={VIEW_CHIP_PRIMARY_CLASS} onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>Invite a colleague</button>
       ) : null}
     </section>
   )
@@ -682,7 +682,7 @@ function SessionGoal({ session, held }: { session: Session; held: boolean }) {
   if (goal !== null && !changing) {
     return (
       <div className="flex" data-testid="view-session-goal">
-        <span className={`inline-flex items-center gap-1 rounded-[14px] border border-field bg-panel pl-2.5 pr-1 ${typography.chatBody}`} data-testid="view-session-goal-chip">
+        <span className={`inline-flex items-center gap-1 rounded-[14px] border border-field bg-panel pl-2.5 pr-1 ${typography.viewPanelBody}`} data-testid="view-session-goal-chip">
           <Target className="h-3.5 w-3.5 text-info" aria-hidden="true" />
           <button type="button" disabled={held} onClick={() => setChanging(true)} title={session.set_by === null ? undefined : `Set by ${session.set_by}`}
             aria-label={`${GOAL_QUESTION} ${goal.text}. Change it`} data-testid="view-session-goal-change"
@@ -704,7 +704,7 @@ function SessionGoal({ session, held }: { session: Session; held: boolean }) {
       <div className="grid grid-cols-2 gap-1.5">
         {session.goals.map((g, i) => (
           <button key={g.id} type="button" disabled={held} onClick={() => choose(g.id)} aria-pressed={g.id === goal?.id}
-            className={CHIP_CLASS} data-goal={g.id} data-testid="view-session-goal-option">
+            className={VIEW_CHIP_CLASS} data-goal={g.id} data-testid="view-session-goal-option">
             <span data-view={`session.goals.${i}.text`}>{g.text}</span>
           </button>
         ))}
@@ -736,7 +736,7 @@ function MethodMenu({ session, held }: { session: Session; held: boolean }) {
       <div className="flex min-w-0 flex-wrap gap-1.5" role="group" aria-label={MENU_NAME}>
         {session.methods.map((m, i) => (
           <button key={m.id} type="button" disabled={held} onClick={() => ask(m.id)} title={m.first ? FIRST_FOR_GOAL : undefined}
-            className={`${CHIP_CLASS}${m.first ? ' font-medium' : ''}`} data-method={m.id} data-first={m.first ? '' : undefined} data-testid="view-session-method">
+            className={`${VIEW_CHIP_CLASS}${m.first ? ' font-medium' : ''}`} data-method={m.id} data-first={m.first ? '' : undefined} data-testid="view-session-method">
             {m.first ? <span className="h-1.5 w-1.5 flex-none rounded-full bg-info" aria-hidden="true" data-testid="view-session-method-first" /> : null}
             <span data-view={`session.methods.${i}.text`}>{m.text}</span>
             {m.first ? <span className="sr-only"> ({FIRST_FOR_GOAL})</span> : null}
@@ -797,7 +797,7 @@ export function ViewChat() {
 function ModelNoticeLine() {
   const notice = useModelNotice((s) => s.notice), sid = useViewStore((s) => s.sid)
   if (notice === null || notice.sid !== sid) return null
-  return <p role="status" className={`${typography.panelMeta} text-text-header`} data-testid="view-model-notice" data-notice={notice.kind}>{noticeWords(notice)}</p>
+  return <p role="status" className={`${typography.viewPanelMeta} text-text-header`} data-testid="view-model-notice" data-notice={notice.kind}>{noticeWords(notice)}</p>
 }
 
 export const DRAFTING_WORDS = 'Olumi is drafting a model from your brief. A first model can take a few minutes.'
@@ -815,7 +815,7 @@ function Working({ brief }: { brief: boolean }) {
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
   const s = Math.floor((now - started) / 1000)
   return (
-    <p role="status" className={typography.panelMeta} data-testid="view-chat-working">
+    <p role="status" className={typography.viewPanelMeta} data-testid="view-chat-working">
       {drafting ? DRAFTING_WORDS : THINKING_WORDS} <span data-testid="view-chat-working-seconds">{s} s</span>
     </p>
   )
@@ -846,7 +846,7 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
   // is the latest; a proposal not yet approved is not one.
   const placeholder = brief ? BRIEF_EXAMPLE : view?.version != null && view.model?.run ? 'Ask about the latest analysis…' : 'Ask about this model…'
   return (
-    <div className={`${typography.chatBody} px-2 pb-2 pt-1 space-y-2`} data-testid="view-composer">
+    <div className={`${typography.viewPanelBody} px-2 pb-2 pt-1 space-y-2`} data-testid="view-composer">
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
       {/* While a write is in flight the composer is held: it says why (lane audit 5.7), in core's page's words. */}
       {busy ? <Working brief={brief} /> : null}
@@ -859,7 +859,7 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
       <label className={brief ? typography.panelHeader : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
       {brief ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
       <div className="relative bg-panel border border-panel-border rounded-lg transition-colors focus-within:border-info">
-        <textarea ref={box} id="view-chat-text" className={`${typography.chatBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light pt-2 pb-1 px-3`}
+        <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light pt-2 pb-1 px-3`}
           rows={brief ? 6 : 2} value={text} placeholder={placeholder} aria-describedby={brief ? 'view-brief-intro' : undefined} disabled={held}
           onChange={(e) => useViewChat.setState({ text: e.target.value })} />
         <div className="flex items-center justify-end gap-1 px-2 pb-1" data-testid="view-composer-actions">

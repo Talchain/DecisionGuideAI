@@ -36,23 +36,23 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
         <div className="flex flex-wrap items-baseline gap-x-2" title={row.title} data-view-row={at}>
           <span data-view={`${at}.aim`}>{row.aim}</span>
           {/* Each mark follows the value's last word after a no-break space, so it wraps with that word, never alone (R5). */}
-          <span className={typography.panelTabular}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span>
+          <span className={typography.viewPanelTabular}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span>
             {row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}
             {row.likely === null ? null : <>{NBSP}<Mark at={`${at}.likely`} mark={row.likely} /></>}
             {/* R5 core's own mark where a pending proposal moves this value ("if approved; now …"), verbatim; none on a core before R5. */}
             {row.if_approved == null ? null : <>{NBSP}<Mark at={`${at}.if_approved`} mark={row.if_approved} /></>}
           </span>
           {/* R18 fix 1: core's short companion ("about 50% without Olumi's suggested risk"), muted, its full sentence on hover; null otherwise. */}
-          {row.companion == null ? null : <span className={`${typography.panelMeta} basis-full`} title={row.companion_title ?? row.companion} data-view={`${at}.companion`}>{row.companion}</span>}
+          {row.companion == null ? null : <span className={`${typography.viewPanelMeta} basis-full`} title={row.companion_title ?? row.companion} data-view={`${at}.companion`}>{row.companion}</span>}
           {/* R19: core's timing line, the same muted second line beside the companion; its whole sentence on hover; null unless material. */}
-          {row.timing == null ? null : <span className={`${typography.panelMeta} basis-full`} title={row.timing_title ?? row.timing} data-view={`${at}.timing`}>{row.timing}</span>}
+          {row.timing == null ? null : <span className={`${typography.viewPanelMeta} basis-full`} title={row.timing_title ?? row.timing} data-view={`${at}.timing`}>{row.timing}</span>}
         </div>
       )
     case 'limit':
       return (
         <div className="flex flex-wrap items-baseline gap-x-2" title={row.title} data-view-row={at}>
           <span data-view={`${at}.aim`}>{row.aim}</span>
-          <span className={typography.panelTabular}><span data-view={`${at}.value`}>{row.value}</span>{row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}</span>
+          <span className={typography.viewPanelTabular}><span data-view={`${at}.value`}>{row.value}</span>{row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}</span>
         </div>
       )
     case 'none':
@@ -76,14 +76,14 @@ export function WhatIfShown({ model }: { model: ViewModel }) {
     <div className="space-y-2 rounded-lg border border-info/30 p-2" data-testid="view-whatif" aria-label="What-if, not saved">
       <div className="flex items-baseline justify-between gap-2">
         <p className={typography.panelHeader}>What-if, not saved</p>
-        <button type="button" data-testid="view-whatif-clear" onClick={clearWhatIf} className={`${typography.panelMeta} cursor-pointer text-info underline underline-offset-2`}>Clear</button>
+        <button type="button" data-testid="view-whatif-clear" onClick={clearWhatIf} className={`${typography.viewPanelMeta} cursor-pointer text-info underline underline-offset-2`}>Clear</button>
       </div>
       {v.edits.map((e, i) => <p key={e.quantity} data-view={`whatif.edits.${i}.words`}>{e.words}</p>)}
       {v.stopped !== null ? <p data-view="whatif.stopped">{v.stopped}</p>
         : v.blocked !== null ? <p title={v.blocked} data-testid="view-whatif-blocked">Olumi could not work this what-if out.</p>
           : (
             <>
-              {v.moved || v.why_not === null ? null : <p className={typography.panelMeta} data-view="whatif.why_not">{v.why_not}</p>}
+              {v.moved || v.why_not === null ? null : <p className={typography.viewPanelMeta} data-view="whatif.why_not">{v.why_not}</p>}
               {v.most_likely === null ? null : <p title={v.most_likely.title} data-view="whatif.most_likely.text">{v.most_likely.text}</p>}
               {v.rows.map((o) => {
                 const card = heading.get(o.option_id)
@@ -168,7 +168,7 @@ function DriverRange({ id, driver, figure = null }: { id: string; driver: Driver
         </div>
       </div>
       {/* The figure the marker is about, by its own card's heading (core's words), beside the marker, never inside its label element. */}
-      {figure === null ? null : <p className={typography.panelMeta} title={driver.title} data-driver-figure={id} data-view={`${figure.id}.heading`}>{figure.heading}</p>}
+      {figure === null ? null : <p className={typography.viewPanelMeta} title={driver.title} data-driver-figure={id} data-view={`${figure.id}.heading`}>{figure.heading}</p>}
     </>
   )
 }
@@ -184,7 +184,7 @@ export function Sensitivity({ model }: { model: ViewModel }) {
   // Never alone (Paul, 6 Nov: "that figure's draws" with no figure named): only when every marked option names its figure under its
   // marker, by that figure's own card heading. A figure that is no card (folded) has no words here, so the line is left out.
   const named = marked.length > 0 && marked.every((c) => figureCard(model, c.driver!) !== null)
-  return named ? <p className={typography.panelMeta} title={s.title} data-view="run.sensitivity.text">{s.text}</p> : null
+  return named ? <p className={typography.viewPanelMeta} title={s.title} data-view="run.sensitivity.text">{s.text}</p> : null
 }
 
 /** The card of the figure an option's chance moves most with (`driver.figure`), when the canvas draws it; null when it is folded. */
@@ -200,7 +200,7 @@ export function OptionLines({ card, after, children, model }: { card: ViewCard; 
       <div className={typography.panelHeader} data-view={`${card.id}.heading`}>{card.heading}</div>
       {card.rows.map((row, i) => <Fragment key={i}><Row card={card} row={row} i={i} />{after?.(row, i)}</Fragment>)}
       {card.driver == null ? null : driverRange(card.driver) !== null ? <DriverRange id={card.id} driver={card.driver} figure={model === undefined ? null : figureCard(model, card.driver)} />
-        : <p className={typography.panelMeta} title={card.driver.title} data-view={`${card.id}.driver.text`}>{card.driver.text}</p>}
+        : <p className={typography.viewPanelMeta} title={card.driver.title} data-view={`${card.id}.driver.text`}>{card.driver.text}</p>}
       {children}
     </div>
   )
@@ -219,7 +219,7 @@ function WorthLine({ l, i, tab }: { l: Science; i: number; tab?: OutputTab }) {
         {l.figure?.mark == null ? null : <> <span title={l.figure.mark.title} aria-label={l.figure.mark.title} data-view={`run.science.${i}.figure.mark.glyph`}>{l.figure.mark.glyph}</span></>}
       </p>
       {/* Core's give words and ✎ on their own line under the worth line, never run on after it as one sentence (6 Nov side-by-side). */}
-      {l.figure?.give == null ? null : <div className={typography.panelMeta} data-worth-give={l.id}><FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} tab={tab} /></div>}
+      {l.figure?.give == null ? null : <div className={typography.viewPanelMeta} data-worth-give={l.id}><FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} tab={tab} /></div>}
     </div>
   )
 }
@@ -236,11 +236,11 @@ export function Worth({ run, tab, shown }: { run: ViewRun | null; tab?: OutputTa
   const split = firstFew(worth, shown ?? worth.length)
   return worth.length === 0 ? null : (
     <div data-testid="view-run-worth" aria-label="Worth checking first" className="space-y-1">
-      <p className={shown === undefined ? typography.panelHeader : `${typography.panelMeta} text-text-light`}>Worth checking first</p>
+      <p className={shown === undefined ? typography.panelHeader : `${typography.viewPanelMeta} text-text-light`}>Worth checking first</p>
       {split.shown.map(({ line: l, i }) => <WorthLine key={l.id} l={l} i={i} tab={tab} />)}
       {split.more.length === 0 ? null : (
         <details data-testid="view-run-worth-more" className="space-y-1">
-          <summary className={`${typography.panelMeta} cursor-pointer text-info`}>{`+${split.more.length} more`}</summary>
+          <summary className={`${typography.viewPanelMeta} cursor-pointer text-info`}>{`+${split.more.length} more`}</summary>
           {split.more.map(({ line: l, i }) => <WorthLine key={l.id} l={l} i={i} tab={tab} />)}
         </details>
       )}
@@ -283,7 +283,7 @@ function SuggestedNext({ chat }: { chat: readonly ViewTurn[] | null }) {
   const n = newestNextOf(chat)
   return n === null ? null : (
     <section className={BOX} data-testid="view-run-next-step" aria-label="Suggested next step">
-      <p className={`${typography.panelMeta} text-text-light`}>Suggested next step</p>
+      <p className={`${typography.viewPanelMeta} text-text-light`}>Suggested next step</p>
       <div className="flex items-start gap-2">
         <p className="min-w-0 flex-1"><span className="font-medium" data-view={`chat.${n.k}.answer.next.label`}>{n.next.label}</span> <Words parts={n.next.text} at={`chat.${n.k}.answer.next.text`} first={n.first} /></p>
         <MoveTap turn={n.turn.id} next={n.next} arrow />
@@ -331,7 +331,7 @@ export function TimingAssumptions({ run }: { run: ViewRun | null }) {
   if (timing.length === 0) return null
   return (
     <div className="space-y-1" data-testid="view-run-timing">
-      {timing.map((t, i) => <p key={t.quantity} className={typography.panelMeta} data-timing={t.quantity} data-view={`run.timing.${i}.text`}>{t.text}</p>)}
+      {timing.map((t, i) => <p key={t.quantity} className={typography.viewPanelMeta} data-timing={t.quantity} data-view={`run.timing.${i}.text`}>{t.text}</p>)}
     </div>
   )
 }
@@ -351,13 +351,13 @@ export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: r
   // (DL #87); then "Behind this result"; then the notes behind a closed disclosure. Each option's driver stays under its own option
   // (contract.spec: "drawn under that option"), with what its two chances are said once above the options.
   return (
-    <div className={`${typography.panelBody} space-y-3`} data-testid="view-chances">
+    <div className={`${typography.viewPanelBody} space-y-3`} data-testid="view-chances">
       <WhatIfShown model={model} />
       <section className={BOX} data-testid="view-run-headline" aria-label="Each option's chance">
         {run?.lead == null ? null : <p className={typography.panelHeader} data-view="run.lead">{run.lead}</p>}
         {!headline ? null : (
           <div data-testid="view-run-waits-headline">
-            <p className={typography.panelMeta} data-view="run.waits_on.head">{run.waits_on!.head}</p>
+            <p className={typography.viewPanelMeta} data-view="run.waits_on.head">{run.waits_on!.head}</p>
             <p><span data-view="run.waits_on.text">{run.waits_on!.text}</span>{': '}<WaitsOnItems w={run.waits_on!} unknown /></p>
           </div>
         )}
@@ -384,8 +384,8 @@ export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: r
       <SharpenCard model={model} />
       {run === null || notesBesideTiming(run).length === 0 ? null : (
         <details className={BOX} data-testid="view-run-notes">
-          <summary className={`${typography.panelMeta} cursor-pointer text-info`}>About these numbers</summary>
-          {notesBesideTiming(run).map((n, i) => <p key={i} className={typography.panelMeta} title={n.title} data-view={`run.notes.${run.notes.indexOf(n)}.text`}>{n.text}</p>)}
+          <summary className={`${typography.viewPanelMeta} cursor-pointer text-info`}>About these numbers</summary>
+          {notesBesideTiming(run).map((n, i) => <p key={i} className={typography.viewPanelMeta} title={n.title} data-view={`run.notes.${run.notes.indexOf(n)}.text`}>{n.text}</p>)}
         </details>
       )}
     </div>
@@ -409,7 +409,7 @@ function SharpenCard({ model }: { model: ViewModel }) {
         <span className="font-semibold" data-view={`sharpen.${i}.emphasis`}>{row.emphasis}</span>
       </p>
       <span role="img" aria-label={row.rationale} title={row.rationale} data-view-hover={`sharpen.${i}.rationale`} data-testid={`view-run-sharpen-why-${row.id}`}
-        className={`${typography.panelMeta} shrink-0 cursor-help`}>ⓘ</span>
+        className={`${typography.viewPanelMeta} shrink-0 cursor-help`}>ⓘ</span>
     </div>
   )
   return (
@@ -418,7 +418,7 @@ function SharpenCard({ model }: { model: ViewModel }) {
       {split.shown.map(line)}
       {split.more.length === 0 ? null : (
         <details data-testid="view-run-sharpen-more" className="space-y-2">
-          <summary className={`${typography.panelMeta} cursor-pointer text-info`}>{`+${split.more.length} more`}</summary>
+          <summary className={`${typography.viewPanelMeta} cursor-pointer text-info`}>{`+${split.more.length} more`}</summary>
           {split.more.map(line)}
         </details>
       )}
@@ -430,7 +430,7 @@ function SharpenCard({ model }: { model: ViewModel }) {
 export function HeldProposalLine() {
   const p = useViewStore((s) => s.view?.proposal ?? null)
   return p === null ? null : (
-    <p className={`${typography.panelMeta} text-text-light`} data-testid="view-tabs-held-proposal">
+    <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-tabs-held-proposal">
       <span data-view-proposal="heading">{p.heading}</span> <span data-view-proposal="on">{p.on}</span>
     </p>
   )

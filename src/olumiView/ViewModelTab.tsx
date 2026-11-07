@@ -66,11 +66,11 @@ function Group({ id, title, count, open, onToggle, mark, children }: { id: Group
   return (
     <section aria-label={title} data-model-group={id} data-open={open}>
       <button type="button" aria-expanded={open} aria-label={`${title}, ${count} ${count === 1 ? 'element' : 'elements'}`} onClick={onToggle}
-        data-model-group-toggle={id} className={`${typography.panelBody} inline-flex w-full items-center gap-1.5 rounded py-1.5 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}>
+        data-model-group-toggle={id} className={`${typography.viewPanelBody} inline-flex w-full items-center gap-1.5 rounded py-1.5 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}>
         <ChevronRight aria-hidden="true" className={`h-3.5 w-3.5 flex-none text-text-light transition-transform ${open ? 'rotate-90' : ''}`} />
         {mark}
         <span>{title}</span>
-        <span className={`${typography.panelMeta} ml-1 text-text-light`} data-model-group-count={id}>{count}</span>
+        <span className={`${typography.viewPanelMeta} ml-1 text-text-light`} data-model-group-count={id}>{count}</span>
       </button>
       {open ? <ul className="mb-1 ml-5 mt-0.5 space-y-0.5">{children}</ul> : null}
     </section>
@@ -88,21 +88,21 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
   const toggle = (id: GroupId) => setOpened((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const anyMatch = shown.some((g) => g.rows.length > 0 || g.question) || links.length > 0
   return (
-    <div className={`${typography.panelBody} space-y-2 pb-4`} data-testid="view-model-tab">
+    <div className={`${typography.viewPanelBody} space-y-2 pb-4`} data-testid="view-model-tab">
       <div className="flex items-center justify-between gap-2">
         <h3 className={`${typography.panelHeader} m-0 text-text-header`}>{MODEL_OUTLINE_LABELS.title}</h3>
         <button type="button" data-testid="view-model-toggle-all" onClick={() => setOpened(allOpen ? new Set() : new Set(ids))}
-          className={`${typography.panelMeta} rounded-sm py-1.5 text-text-light underline-offset-2 hover:text-text-header hover:underline ${ACTION_FOCUS}`}>
+          className={`${typography.viewPanelMeta} rounded-sm py-1.5 text-text-light underline-offset-2 hover:text-text-header hover:underline ${ACTION_FOCUS}`}>
           {allOpen ? MODEL_OUTLINE_LABELS.collapse : MODEL_OUTLINE_LABELS.expand}
         </button>
       </div>
       <input type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={MODEL_OUTLINE_LABELS.filter} aria-label={MODEL_OUTLINE_LABELS.filterName}
-        data-testid="view-model-filter" className={`${typography.panelBody} w-full min-w-0 rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body placeholder:text-text-light ${ACTION_FOCUS}`} />
+        data-testid="view-model-filter" className={`${typography.viewPanelBody} w-full min-w-0 rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body placeholder:text-text-light ${ACTION_FOCUS}`} />
       <p className="m-0 py-1" data-testid="view-model-question">
-        <span className={`${typography.panelMeta} text-text-light`}>{MODEL_OUTLINE_LABELS.question}</span>{' '}
+        <span className={`${typography.viewPanelMeta} text-text-light`}>{MODEL_OUTLINE_LABELS.question}</span>{' '}
         <span className="text-text-header" data-view="model.question.text">{model.question.text}</span>
       </p>
-      {searching && !anyMatch ? <p className={`${typography.panelMeta} m-0 text-text-light`} data-testid="view-model-no-match">{MODEL_OUTLINE_LABELS.none}</p> : null}
+      {searching && !anyMatch ? <p className={`${typography.viewPanelMeta} m-0 text-text-light`} data-testid="view-model-no-match">{MODEL_OUTLINE_LABELS.none}</p> : null}
       <div>
         {shown.map((g) => {
           if (g.cards.length === 0 && g.id !== 'goal') return null

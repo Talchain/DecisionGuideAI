@@ -156,8 +156,8 @@ describe('the right panel shell is flush (contract `.ai-panel`)', () => {
     const active = tabs.filter(t => t.getAttribute('aria-selected') === 'true')
     expect(active).toHaveLength(1)
     const on = classTokens(active[0])
-    // R25 (Paul 7 Nov, three sizes by role): the tab label is metadata, 12px (was 11px).
-    for (const token of ['text-info', 'bg-[var(--panel-tab-active-bg)]', 'rounded-none', 'text-[12px]']) {
+    // The legacy lane's tab label stays 11px (PL 7 Nov: lane-only); the olumi-core lane draws it at 12px (viewPanelMeta, R25 scale A).
+    for (const token of ['text-info', 'bg-[var(--panel-tab-active-bg)]', 'rounded-none', 'text-[11px]']) {
       expect(on.has(token), `active tab carries "${token}"`).toBe(true)
     }
     // The served pill's tokens, and the retired one-sided underline, by name.
@@ -172,7 +172,7 @@ describe('the right panel shell is flush (contract `.ai-panel`)', () => {
     expect(idle.has('text-info')).toBe(false)
     expect(idle.has('text-text-body')).toBe(true)
     expect(idle.has('bg-[var(--panel-tab-active-bg)]')).toBe(false)
-    expect(idle.has('text-[12px]')).toBe(true)
+    expect(idle.has('text-[11px]')).toBe(true)
   })
 
   it('collapses to the flush rail and the restore control brings the panel back', () => {

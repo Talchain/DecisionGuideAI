@@ -61,7 +61,7 @@ export function ComparedLists({ c, id = 'team-compare', who = true, boxed = fals
 }
 
 /** The version pickers' compact field (the dock's measure: never the full-width answer field, which stacked two tall boxes). */
-const PICK = `${typography.panelBody} min-h-[28px] rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+const PICK = `${typography.viewPanelBody} min-h-[28px] rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
 
 /**
  * Pick two of the scenario's `latest` versions and read core's comparison. `auto`: read the previous version against the latest at once

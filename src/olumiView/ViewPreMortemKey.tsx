@@ -19,7 +19,7 @@ import { LENS_KEY_COPY } from '../canvas/artefacts/lensKeyCopy'
 import { revealOlumiSurface } from '../canvas/conversation/revealOlumi'
 import { askMethod, giveReasons, showOlumisNow, useViewChat } from './ViewChat'
 import { useFailureStories, useMineWritten, usePreMortemGate, useViewLens, WRITE_MINE_DRAFT } from './lens'
-import { CHIP_CLASS } from '../v5/blocks/chipClass'
+import { VIEW_CHIP_CLASS } from '../v5/blocks/chipClass'
 import { useViewStore } from './store'
 import type { ViewPreMortem } from './client'
 
@@ -70,26 +70,26 @@ export function ViewPreMortemKey(): JSX.Element | null {
       <div className="min-h-0 flex-1 space-y-3 overflow-auto px-4 pb-4">
         {entry !== null ? <PreMortemEntry gate={entry} /> : !mine ? (
           <>
-            <p className={`${typography.panelBody} text-text-body`} data-testid="view-premortem-first">{typed ? PREMORTEM_COPY.waiting : PREMORTEM_COPY.first}</p>
+            <p className={`${typography.viewPanelBody} text-text-body`} data-testid="view-premortem-first">{typed ? PREMORTEM_COPY.waiting : PREMORTEM_COPY.first}</p>
             <button type="button" onClick={writeMine} data-testid="view-premortem-write-mine"
               // Ink, not blue: the press is the person's own act (blue means Olumi only).
-              className={`${typography.panelBody} inline-flex min-h-[24px] min-w-[24px] items-center rounded-full border border-panel-border px-3 text-text-header hover:bg-panel-hover ${ACTION_FOCUS}`}>
+              className={`${typography.viewPanelBody} inline-flex min-h-[24px] min-w-[24px] items-center rounded-full border border-panel-border px-3 text-text-header hover:bg-panel-hover ${ACTION_FOCUS}`}>
               {PREMORTEM_COPY.label}
             </button>
           </>
         ) : stories.length === 0 ? (
           <>
-            <p className={`${typography.panelBody} text-text-body`} data-testid="view-premortem-empty">{LENS_KEY_COPY.premortemEmpty}</p>
+            <p className={`${typography.viewPanelBody} text-text-body`} data-testid="view-premortem-empty">{LENS_KEY_COPY.premortemEmpty}</p>
             {offered
               ? <button type="button" onClick={() => void askMethod(MOVE)} data-testid="view-premortem-ask"
-                  className={`${typography.panelBody} inline-flex min-h-[24px] min-w-[24px] items-center rounded-full border border-info/40 px-3 text-info hover:bg-panel-hover ${ACTION_FOCUS}`}>{LENS_KEY_COPY.premortemAsk}</button>
-              : <p className={`${typography.panelBody} text-text-light`}>{LENS_KEY_COPY.premortemNeedsRun}</p>}
+                  className={`${typography.viewPanelBody} inline-flex min-h-[24px] min-w-[24px] items-center rounded-full border border-info/40 px-3 text-info hover:bg-panel-hover ${ACTION_FOCUS}`}>{LENS_KEY_COPY.premortemAsk}</button>
+              : <p className={`${typography.viewPanelBody} text-text-light`}>{LENS_KEY_COPY.premortemNeedsRun}</p>}
           </>
         ) : (
           <ol className="space-y-3" data-testid="view-premortem-stories">
             {stories.map((st) => (
               <li key={st.n} data-story={st.n} className="space-y-0.5">
-                <p className={`${typography.panelBody} text-text-body`}>
+                <p className={`${typography.viewPanelBody} text-text-body`}>
                   <span className="text-info" title={st.olumi.title} aria-label={st.olumi.title}>{st.olumi.glyph}{st.n} </span>
                   <span data-testid="view-premortem-story-text">{st.text}</span>
                 </p>
@@ -111,11 +111,11 @@ function PreMortemEntry({ gate }: { gate: ViewPreMortem }): JSX.Element {
   const empty = text.trim() === ''
   return (
     <div className="space-y-2" data-testid="view-premortem-entry">
-      {gate.held ? <p className={`${typography.panelBody} text-text-body`} data-testid="view-premortem-gate" data-view="session.pre_mortem.gate">{gate.gate}</p> : null}
-      <p id="view-pm-question" className={`${typography.panelBody} text-text-body`} data-view="session.pre_mortem.question">{gate.question}</p>
+      {gate.held ? <p className={`${typography.viewPanelBody} text-text-body`} data-testid="view-premortem-gate" data-view="session.pre_mortem.gate">{gate.gate}</p> : null}
+      <p id="view-pm-question" className={`${typography.viewPanelBody} text-text-body`} data-view="session.pre_mortem.question">{gate.question}</p>
       <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (!busy && !empty) void giveReasons() }}>
         <textarea aria-labelledby="view-pm-question" rows={3} value={text} disabled={busy} data-testid="view-premortem-reasons"
-          className={`${typography.chatBody} block w-full resize-none rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:opacity-40`}
+          className={`${typography.viewPanelBody} block w-full resize-none rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:opacity-40`}
           onChange={(e) => usePreMortemGate.setState({ text: e.target.value, said: null })}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !busy && !empty) { e.preventDefault(); void giveReasons() } }} />
         <button type="submit" disabled={busy || empty} aria-label="Send" title="Send" data-testid="view-premortem-send"
@@ -124,7 +124,7 @@ function PreMortemEntry({ gate }: { gate: ViewPreMortem }): JSX.Element {
         </button>
       </form>
       {said === null ? null : <p role="alert" className="text-danger" data-testid="view-premortem-said">{said}</p>}
-      <button type="button" disabled={busy} onClick={() => void showOlumisNow()} className={CHIP_CLASS} data-testid="view-premortem-show" data-view="session.pre_mortem.show">{gate.show}</button>
+      <button type="button" disabled={busy} onClick={() => void showOlumisNow()} className={VIEW_CHIP_CLASS} data-testid="view-premortem-show" data-view="session.pre_mortem.show">{gate.show}</button>
       <p className={`${typography.chatMeta} text-text-light`} data-view="session.pre_mortem.after">{gate.after}</p>
     </div>
   )

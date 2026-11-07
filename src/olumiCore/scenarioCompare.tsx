@@ -135,7 +135,7 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
   )
 }
 
-const PICK = `${typography.panelBody} min-h-[28px] min-w-0 max-w-full rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+const PICK = `${typography.viewPanelBody} min-h-[28px] min-w-0 max-w-full rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
 
 /** The person's other scenarios (`GET /api/me` `scenarios[]`), read once; null while reading, [] when there is none. */
 function useOtherScenarios(sid: string): { id: string; title: string; label: string }[] | null | 'error' {

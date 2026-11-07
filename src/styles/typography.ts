@@ -304,10 +304,15 @@ export const typography = {
   viewValue: 'text-[length:calc(14px*var(--canvas-label-scale,1))] font-medium font-sans leading-[1.3] tabular-nums',
   viewLabel: 'text-[length:calc(12px*var(--canvas-label-scale,1))] font-sans leading-[1.5]',
   viewHeadline: 'text-[length:calc(18px*var(--canvas-label-scale,1))] font-semibold font-sans leading-[1.2] tabular-nums',
-  viewMark: 'text-[length:calc(12px*var(--canvas-small-label-scale,1))] font-normal font-sans not-italic leading-none',
+  // R25 (Paul 7 Nov, scale A by role; PL 7 Nov: lane-only): the olumi-core lane's panel, chat and tabs. The shared panel*/chat* tokens
+  // keep their legacy sizes for the legacy surfaces that read them.
+  viewPanelMeta: 'text-[12px] font-sans leading-snug',            // 12px — metadata
+  viewPanelBody: 'text-sm font-sans leading-relaxed',             // 14px — reading text, the chat included
+  viewPanelTabular: 'text-sm font-sans leading-relaxed tabular-nums', // 14px — numbers in columns
+  viewPanelHeadline: 'text-lg font-semibold font-sans leading-snug', // 18px — the sparing headline
   panelHeader: 'text-sm font-medium font-sans leading-snug',      // 14px/500 — section titles, winner name, key emphasis (Paul, 30 Sep: 600 dominated the panel)
-  panelBody: 'text-sm font-sans leading-relaxed',                 // 14px — body text, descriptions, bullets, card content (R25 scale A: reading)
-  panelMeta: 'text-[12px] font-sans leading-snug',                // 12px — badges, pills, axis labels, tertiary metadata (R25 scale A: metadata)
+  panelBody: 'text-xs font-sans leading-relaxed',                 // 12px — body text, descriptions, bullets, card content
+  panelMeta: 'text-[11px] font-sans leading-snug',                // 11px — badges, pills, axis labels, tertiary metadata
   chatMeta: 'text-xs font-sans leading-snug',                     // 12px — the AI chat panel's LABELS: badges, timestamps, captions, markers
 
   /**
@@ -325,7 +330,7 @@ export const typography = {
    * line up. Use it wherever a number sits in a column; use `panelBody`
    * everywhere else.
    */
-  panelTabular: 'text-sm font-sans leading-relaxed tabular-nums',  // 14px — numbers in columns (R25 scale A: reading)
+  panelTabular: 'text-xs font-sans leading-relaxed tabular-nums',  // 12px — numbers in columns
 
   /**
    * 14px + medium weight — a question one visible notch quieter than
@@ -352,7 +357,7 @@ export const typography = {
   // The chat column (src/canvas/conversation, src/v5/blocks, the composer and
   // the panel hosts) uses chat* tokens; panelBody/panelMeta stay for the other
   // tabs. Census-enforced: tests/ci-guards/conversation-type-census.spec.ts.
-  chatBody: 'text-sm font-sans leading-relaxed',                 // 14px — AI chat panel reading text (R25 scale A: reading)
+  chatBody: 'text-[13px] font-sans leading-relaxed',             // 13px — AI chat panel reading text
   // chatProse is the LEGACY full-page chat's prose (DraftChat, not compact).
   chatProse: 'text-sm font-sans leading-relaxed',                // 14px — legacy chat message prose
 

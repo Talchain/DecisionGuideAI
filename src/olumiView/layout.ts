@@ -116,12 +116,13 @@ export const QUESTION = 'page:question'
  *  original look; core's page drew it as wide as its columns, up to 900px, which ran under the dock at a readable zoom). The causal
  *  layout places it, at the top. */
 export function questionPlace(model: ViewModel): { width: number } {
-  // R25 (Paul 7 Nov: the aims in view at 1232): with an aim on each side the head row is the question between them, so it is narrower,
-  // and the row (2 × 220 + 2 × 16 + 320 = 792) fits the visible canvas at 1232 at the 1.0 floor.
-  return { width: aimsOf(model).length >= 2 ? QUESTION_FLANKED_W : 2 * W + GAP_X }
+  // R25 (Paul 7 Nov: the aims in view at 1232): with an aim beside it the question is narrower, so the head row (two aims: 2 × 220 +
+  // 2 × 16 + 272 = 744; one aim: the options' 756) fits the visible canvas at 1232 at the 1.0 floor (about 770 px between the canvas
+  // controls and the dock; DL 7 Nov, fresh-brief board: one aim beside a full-width question ran under the dock).
+  return { width: aimsOf(model).length >= 1 ? QUESTION_FLANKED_W : 2 * W + GAP_X }
 }
-/** The question's width between two aims (R25). */
-export const QUESTION_FLANKED_W = 320
+/** The question's width with an aim beside it (R25). */
+export const QUESTION_FLANKED_W = 272
 /** The room between the question and an aim beside it (R25). */
 export const HEAD_GAP = 16
 /** The aims and limits, in the View's order: drawn beside the question, the head of the board (R25). */

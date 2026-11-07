@@ -36,6 +36,7 @@ import { typography } from '../../../styles/typography'
 import { VersionsTrigger } from '../../versions/VersionsTrigger'
 import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 import { usePanelWidth } from './usePanelWidth'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import {
   SHELL_TAB_HEIGHT_PX,
   SHELL_TABSTRIP_COMPACT_BELOW_PX,
@@ -386,7 +387,7 @@ export function WorkspaceShellTabStrip({
       style={{ height: SHELL_TABSTRIP_HEIGHT_PX }}
       data-testid="outputs-dock-tabstrip"
     >
-      <span className="sr-only" aria-live="polite">
+      <span className={`sr-only ${typography.viewPanelBody}`} aria-live="polite">
         {surfaces.find(s => s.id === activeTab)?.label ?? ''}
       </span>
       {/* ⚠⚠ THE TABLIST IS A CHILD OF THE `<nav>`, NOT THE `<nav>` ITSELF, AND
@@ -514,7 +515,7 @@ export function WorkspaceShellTabStrip({
               // the slack — not `flex-1`, see above) spreads the tabs across the
               // row with even gaps; the `before:` rule is the small divider
               // (1px × 14px, border token) at each tab's left edge, none on the first.
-              className={`relative flex-auto min-w-0 ${isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${typography.panelMeta} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+              className={`relative flex-auto min-w-0 ${isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${isOlumiCoreLane() ? typography.viewPanelMeta : typography.panelMeta} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                 isActive
                   ? 'text-info bg-[var(--panel-tab-active-bg)]'
                   : 'text-text-body hover:text-info'
@@ -531,7 +532,9 @@ export function WorkspaceShellTabStrip({
                 {surface.id === 'olumi' ? (
                   <OlumiAiIcon size={16} className="shrink-0" data-testid="outputs-dock-tab-olumi-mark" />
                 ) : (
-                  <span className="truncate">{surface.label}</span>
+                  // R25 (DL 7 Nov: "Analy…", "Reasoni…" at 1232): on the olumi-core lane the labels are 12px (scale A), set tight so all
+                  // five fit the 347px dock whole; the legacy lane is unchanged.
+                  <span className={`truncate${isOlumiCoreLane() ? ' tracking-tight' : ''}`}>{surface.label}</span>
                 )}
                 {surface.id === 'results' && showResultsFreshnessIcon && hasCompletedFirstRun && (
                   resultsStale ? (

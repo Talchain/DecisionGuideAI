@@ -6,12 +6,12 @@
 import { typography } from '../../styles/typography'
 
 export const FIELD =
-  `w-full min-h-[40px] rounded-md border border-panel-border bg-panel px-3 py-2 ${typography.panelBody} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:opacity-50`
+  `w-full min-h-[40px] rounded-md border border-panel-border bg-panel px-3 py-2 ${typography.viewPanelBody} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:opacity-50`
 export const CARD = 'grid gap-2.5 rounded-[14px] border border-panel-border bg-panel p-3'
 export const H = `${typography.panelHeader} text-text-header m-0`
-export const BODY = `${typography.panelBody} text-text-body m-0`
-export const META = `${typography.panelMeta} text-text-light m-0`
-export const LABEL = `${typography.panelMeta} text-text-header block`
-export const ERR = `${typography.panelMeta} text-danger m-0`
+export const BODY = `${typography.viewPanelBody} text-text-body m-0`
+export const META = `${typography.viewPanelMeta} text-text-light m-0`
+export const LABEL = `${typography.viewPanelMeta} text-text-header block`
+export const ERR = `${typography.viewPanelMeta} text-danger m-0`
 /** The mark of a person: a small circle with an initial (the v10 board's `tb-ic`). */
-export const AVATAR = `inline-grid h-[22px] w-[22px] flex-none place-items-center rounded-full border border-panel-border bg-canvas ${typography.panelMeta} text-text-body`
+export const AVATAR = `inline-grid h-[22px] w-[22px] flex-none place-items-center rounded-full border border-panel-border bg-canvas ${typography.viewPanelMeta} text-text-body`

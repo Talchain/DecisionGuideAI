@@ -36,10 +36,10 @@ function Cell({ option, aim }: { option: ViewCard; aim: string }): JSX.Element {
   const mark = row === undefined || row.kind === 'none' || row.olumi === null ? null
     : <>{NBSP}<span title={row.olumi.title} aria-label={row.olumi.title} data-view={`${at}.olumi.glyph`}>{row.olumi.glyph}</span></>
   return (
-    <td className={`${typography.panelBody} border border-panel-border px-2 py-1.5 align-top`} title={row?.title} data-view-row={row === undefined ? undefined : at}
+    <td className={`${typography.viewPanelBody} border border-panel-border px-2 py-1.5 align-top`} title={row?.title} data-view-row={row === undefined ? undefined : at}
       data-tradeoff-cell={`${option.id}.${aim}`}>
       {row === undefined ? null : row.kind === 'none' ? <span data-view={`${at}.text`}>{row.text}</span>
-        : <span className={typography.panelTabular}>{row.kind === 'chance' && row.approx !== '' ? <span data-view={`${at}.approx`}>{row.approx}</span> : null}<span data-view={`${at}.value`}>{row.value}</span>{mark}</span>}
+        : <span className={typography.viewPanelTabular}>{row.kind === 'chance' && row.approx !== '' ? <span data-view={`${at}.approx`}>{row.approx}</span> : null}<span data-view={`${at}.value`}>{row.value}</span>{mark}</span>}
     </td>
   )
 }
@@ -52,13 +52,13 @@ export function TradeOffsGrid({ model }: { model: ViewModel }): JSX.Element {
       <thead>
         <tr>
           <td className="border border-panel-border" />
-          {aims.map((a) => <th key={a.id} scope="col" className={`${typography.panelMeta} border border-panel-border px-2 py-1.5 align-bottom text-text-header`} data-tradeoff-aim={a.id}>{a.heading}</th>)}
+          {aims.map((a) => <th key={a.id} scope="col" className={`${typography.viewPanelMeta} border border-panel-border px-2 py-1.5 align-bottom text-text-header`} data-tradeoff-aim={a.id}>{a.heading}</th>)}
         </tr>
       </thead>
       <tbody>
         {options.map((o) => (
           <tr key={o.id}>
-            <th scope="row" className={`${typography.panelBody} border border-panel-border px-2 py-1.5 align-top text-text-header`} data-tradeoff-option={o.id}>{o.heading}</th>
+            <th scope="row" className={`${typography.viewPanelBody} border border-panel-border px-2 py-1.5 align-top text-text-header`} data-tradeoff-option={o.id}>{o.heading}</th>
             {aims.map((a) => <Cell key={a.id} option={o} aim={a.id} />)}
           </tr>
         ))}

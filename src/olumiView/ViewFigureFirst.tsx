@@ -10,7 +10,7 @@
 import { create } from 'zustand'
 import { ArrowUp, X } from 'lucide-react'
 import { typography } from '../styles/typography'
-import { CHIP_CLASS } from '../v5/blocks/chipClass'
+import { VIEW_CHIP_CLASS } from '../v5/blocks/chipClass'
 import type { FigureFirstEntry, FigureFirstShown } from './client'
 import { figureAxisOf, type FigureFirstGiven, type FigureFirstHeadings } from './layout'
 
@@ -35,7 +35,7 @@ export const FIGURE_FIRST_CLOSED = { entry: null, said: null, reading: false, si
 export const useFigureFirst = create<FigureFirstState>()(() => ({ uuid: null, signature: null, entry: null, headings: null, shown: null, said: null, reading: false, typed: '', text: '' }))
 
 const CLOSE = 'inline-flex h-6 w-6 flex-none items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info'
-const FIELD = `${typography.chatBody} block w-full rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:opacity-40`
+const FIELD = `${typography.viewPanelBody} block w-full rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:opacity-40`
 
 /**
  * The blind entry, in core's words: its heading, question, what the figure feeds, the ask (the label of the box the figure is typed in, sent
@@ -46,7 +46,7 @@ export function FigureFirstEntryPanel({ held, onGive, onShow, onClose }: { held:
   const { entry, said, reading, typed, text, headings } = useFigureFirst()
   const busy = held || reading
   return (
-    <section aria-labelledby={entry === null ? undefined : 'view-ff-heading'} className={`${typography.panelBody} rounded-lg border border-info/40 bg-panel p-3 space-y-2`} data-testid="view-figure-first-entry">
+    <section aria-labelledby={entry === null ? undefined : 'view-ff-heading'} className={`${typography.viewPanelBody} rounded-lg border border-info/40 bg-panel p-3 space-y-2`} data-testid="view-figure-first-entry">
       <div className="flex items-start justify-between gap-2">
         {entry === null ? <span /> : <p id="view-ff-heading" className={typography.panelHeader} data-ff="heading">{entry.heading}</p>}
         <button type="button" onClick={onClose} aria-label="Close" title="Close" className={CLOSE} data-testid="view-figure-first-close"><X className="h-3 w-3" aria-hidden="true" /></button>
@@ -75,7 +75,7 @@ export function FigureFirstEntryPanel({ held, onGive, onShow, onClose }: { held:
         <>
           <p className={`${typography.chatMeta} text-text-light`} data-ff="note">{entry.note}</p>
           {/* Shown only with core's headings to draw the answer under (kept from the View when the entry opened). */}
-          {headings === null ? null : <button type="button" disabled={busy} onClick={onShow} className={CHIP_CLASS} data-ff="show" data-testid="view-figure-first-show">{entry.show}</button>}
+          {headings === null ? null : <button type="button" disabled={busy} onClick={onShow} className={VIEW_CHIP_CLASS} data-ff="show" data-testid="view-figure-first-show">{entry.show}</button>}
         </>
       )}
     </section>
@@ -88,7 +88,7 @@ export function FigureFirstShownPanel({ onClose }: { onClose: () => void }) {
   if (shown === null) return null
   const h = shown.headings
   return (
-    <section className={`${typography.panelBody} rounded-lg border border-panel-border bg-panel p-3 space-y-2`} data-testid="view-figure-first-shown">
+    <section className={`${typography.viewPanelBody} rounded-lg border border-panel-border bg-panel p-3 space-y-2`} data-testid="view-figure-first-shown">
       <div className="flex items-start justify-between gap-2">
         <p className={typography.panelHeader} data-ff="shown.label">{shown.label}</p>
         <button type="button" onClick={onClose} aria-label="Close" title="Close" className={CLOSE} data-testid="view-figure-first-shown-close"><X className="h-3 w-3" aria-hidden="true" /></button>
@@ -117,7 +117,7 @@ export function FigureFirstSideBySide({ given, headings }: { given: FigureFirstG
   const point = 'value' in given.theirs
   const bar = (s: { from: number; to: number }) => ({ left: `${s.from}%`, width: `${s.to - s.from}%` })
   return (
-    <details open className={`${typography.panelBody} rounded-lg border border-panel-border bg-panel p-3`} data-testid="view-figure-first-given">
+    <details open className={`${typography.viewPanelBody} rounded-lg border border-panel-border bg-panel p-3`} data-testid="view-figure-first-given">
       <summary className={`${typography.panelHeader} cursor-pointer`}><span data-ff="given.label">{given.label}</span></summary>
       <div className="mt-2 space-y-3">
         <ul className="m-0 list-none space-y-1 p-0">

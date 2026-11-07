@@ -54,20 +54,20 @@ export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief
   const { premises, cards: reasoning } = premisesOnce(model)
   const change = (run?.science?.length ?? 0) > 0 || (run?.compared?.length ?? 0) > 0
   return (
-    <div className={`${typography.panelBody} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-3 px-4 py-3`} data-testid="view-reasoning">
+    <div className={`${typography.viewPanelBody} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-3 px-4 py-3`} data-testid="view-reasoning">
       <WhatIfShown model={model} />
       <div data-testid="view-reasoning-glance" className="space-y-1">
         {brief === null ? null : (
-          <div className="flex gap-2"><span className={`${typography.panelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind="decision" size={10} />{REASONING_LABELS.brief}</span><span className="min-w-0 truncate" title={brief} data-view="brief">{brief}</span></div>
+          <div className="flex gap-2"><span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind="decision" size={10} />{REASONING_LABELS.brief}</span><span className="min-w-0 truncate" title={brief} data-view="brief">{brief}</span></div>
         )}
         {goals.map((g) => (
-          <div key={g.id} className="flex gap-2"><span className={`${typography.panelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind="goal" size={10} />{REASONING_LABELS.goal}</span><span className="min-w-0" title={g.detail} data-view={`${g.id}.heading`}>{g.heading}</span></div>
+          <div key={g.id} className="flex gap-2"><span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind="goal" size={10} />{REASONING_LABELS.goal}</span><span className="min-w-0" title={g.detail} data-view={`${g.id}.heading`}>{g.heading}</span></div>
         ))}
         {/* As the previous strip: the kind's canvas shape before its label, one mark per card in the canvas's own shape and colour (core's
             glyph kept for a reader, its heading on hover), and how many cards the row has, right-aligned. */}
         {glanceRows(model).map(({ kind, cards }) => (
           <div key={kind} className="flex items-center gap-2" data-testid={`view-reasoning-glance-${GLANCE[kind].testId}`}>
-            <span className={`${typography.panelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind={kind} size={10} />{GLANCE[kind].label}</span>
+            <span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind={kind} size={10} />{GLANCE[kind].label}</span>
             <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
               {cards.map((c) => (
                 <span key={c.id} className="inline-flex" title={c.heading} aria-label={c.heading} data-glance-card={c.id} data-glance-kind={kind}>
@@ -75,7 +75,7 @@ export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief
                 </span>
               ))}
             </span>
-            <span className={`${typography.panelMeta} shrink-0 tabular-nums`} data-glance-count={kind}>{cards.length}</span>
+            <span className={`${typography.viewPanelMeta} shrink-0 tabular-nums`} data-glance-count={kind}>{cards.length}</span>
           </div>
         ))}
       </div>
@@ -85,7 +85,7 @@ export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief
             <div key={c.id} title={c.detail} data-reasoning-challenge={c.id}>
               <span aria-hidden="true" data-view={`${c.id}.glyph`}>{c.glyph}</span>{' '}
               <span className="font-medium" data-view={`${c.id}.heading`}>{c.heading}</span>
-              {c.reason === null || c.reason === c.heading ? null : <p className={typography.panelMeta} data-view={`${c.id}.reason`}>{c.reason}</p>}
+              {c.reason === null || c.reason === c.heading ? null : <p className={typography.viewPanelMeta} data-view={`${c.id}.reason`}>{c.reason}</p>}
             </div>
           ))}
         </Section>
@@ -158,7 +158,7 @@ function Outcomes({ model }: { model: ViewModel }) {
             const k = o.rows.findIndex((r) => r.kind === 'chance' && r.aim_id === aim && r.outcome != null)
             return k < 0 ? null : (
               <div key={o.id} data-view-card={o.id}>
-                <div className={typography.panelMeta} data-view={`${o.id}.heading`}>{o.heading}</div>
+                <div className={typography.viewPanelMeta} data-view={`${o.id}.heading`}>{o.heading}</div>
                 <AimOutcome model={model} card={o} row={o.rows[k]!} i={k} />
               </div>
             )
@@ -187,7 +187,7 @@ function AimOutcome({ model, card, row, i }: { model: ViewModel; card: ViewCard;
   if (row.kind !== 'chance' || row.outcome == null) return null
   return (
     <div className="mb-1" title={row.outcome.title} data-outcome={row.aim_id}>
-      <span className={typography.panelTabular} data-view={`${card.id}.rows.${i}.outcome.text`}>{row.outcome.text}</span>
+      <span className={typography.viewPanelTabular} data-view={`${card.id}.rows.${i}.outcome.text`}>{row.outcome.text}</span>
       <Bar at={outcomePlace(model, row.aim_id, row.outcome)} />
     </div>
   )
@@ -206,8 +206,8 @@ function Bands({ model, option }: { model: ViewModel; option: string }) {
         return (
           <div key={card.id} className="mt-1" title={card.figure?.title} data-band={card.id}>
             <div className="flex flex-wrap items-baseline gap-x-2">
-              <span className={typography.panelMeta} data-view={`${card.id}.heading`}>{card.heading}</span>
-              <span className={typography.panelTabular} data-view={`${card.id}.values.${i}.text`}>{band.text}</span>
+              <span className={typography.viewPanelMeta} data-view={`${card.id}.heading`}>{card.heading}</span>
+              <span className={typography.viewPanelTabular} data-view={`${card.id}.values.${i}.text`}>{band.text}</span>
               {band.olumi && olumi !== null ? <span aria-label={olumi.text} data-view={`key.${olumi.i}.glyph`}>{olumi.glyph}</span> : null}
             </div>
             <Bar at={at} />

@@ -36,7 +36,7 @@ function Compare({ model, shown }: { model: ViewModel; shown: NonNullable<Return
   if (v.blocked !== null) return <p title={v.blocked} data-testid="view-whatif-key-blocked">{WHAT_IF_COPY.refused}</p>
   return (
     <div className="space-y-2" data-testid="view-whatif-key-compare">
-      {v.moved || v.why_not === null ? null : <p className={typography.panelMeta} data-view="whatif.why_not">{v.why_not}</p>}
+      {v.moved || v.why_not === null ? null : <p className={typography.viewPanelMeta} data-view="whatif.why_not">{v.why_not}</p>}
       {v.most_likely === null ? null : <p title={v.most_likely.title} data-view="whatif.most_likely.text">{v.most_likely.text}</p>}
       {optionCards(model).map((card) => {
         const rows = tried.get(card.id)
@@ -80,9 +80,9 @@ export function ViewWhatIfKey(): JSX.Element | null {
   }
   const Icon = LENS_ICON.what_if
   const legend = current === null
-    ? <p className={`${typography.panelBody} text-text-body`}>{WHAT_IF_COPY.legendEmpty}</p>
-    : <>{current.variant.edits.map((e, i) => <p key={e.quantity} className={`${typography.panelBody} text-text-body`} data-view={`whatif.edits.${i}.words`}>{e.words}</p>)}
-      <p className={`${typography.panelMeta} text-text-light`}>{WHAT_IF_COPY.nothingSaved}</p></>
+    ? <p className={`${typography.viewPanelBody} text-text-body`}>{WHAT_IF_COPY.legendEmpty}</p>
+    : <>{current.variant.edits.map((e, i) => <p key={e.quantity} className={`${typography.viewPanelBody} text-text-body`} data-view={`whatif.edits.${i}.words`}>{e.words}</p>)}
+      <p className={`${typography.viewPanelMeta} text-text-light`}>{WHAT_IF_COPY.nothingSaved}</p></>
 
   return (
     <section aria-label={LENS_COPY.label.what_if} data-testid="view-whatif-key"
@@ -101,7 +101,7 @@ export function ViewWhatIfKey(): JSX.Element | null {
           <X aria-hidden="true" className="h-4 w-4" />
         </button>
       </header>
-      <div className={`${typography.panelBody} min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-4`}>
+      <div className={`${typography.viewPanelBody} min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-4`}>
         {legend}
         {folded ? null : picked === null ? <p data-testid="view-whatif-key-none">{WHAT_IF_COPY.noFactors}</p> : (
           <form className="grid gap-2" data-testid="view-whatif-key-form" onSubmit={(e) => { e.preventDefault(); void run() }} onKeyDown={(e) => e.stopPropagation()}>
