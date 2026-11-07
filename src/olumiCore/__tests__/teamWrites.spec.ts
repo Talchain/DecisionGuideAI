@@ -119,3 +119,32 @@ describe('every write is the page\'s person\'s, or it is not sent (review 00002 
     expect(posts).toEqual(['/api/scenarios/s_1/views'])
   })
 })
+
+describe('every write says who the page acts as, and core\'s refusal is what the page says (core review N1 item 1)', () => {
+  /** A core whose cookie holder changes after the page's own check: /api/me still names p_1, the POST finds p_2. */
+  const switched = () => {
+    const seen: Array<{ method: string; as: string | null }> = []
+    setTeamFetch((async (_u: unknown, init?: RequestInit) => {
+      const h = new Headers(init?.headers)
+      if (init?.method === 'POST') {
+        seen.push({ method: 'POST', as: h.get('x-olumi-as') })
+        return new Response(JSON.stringify({ error: 'core: this is not your page' }), { status: 409 })
+      }
+      return new Response(JSON.stringify({ me: { id: 'p_1', name: 'Ana' } }), { status: 200 })
+    }) as unknown as typeof fetch)
+    return seen
+  }
+  it('the POST carries the person the page holds, and a cookie switch after the check is refused in core\'s words', async () => {
+    setPagePerson('p_1')
+    const seen = switched()
+    await expect(teamApi.giveView('s_1', 'mine')).rejects.toMatchObject({ status: 409, message: 'core: this is not your page', uncertain: false })
+    expect(seen).toEqual([{ method: 'POST', as: 'p_1' }])
+  })
+  it('a GET carries no such header', async () => {
+    setPagePerson('p_1')
+    let header: string | null = 'unset'
+    setTeamFetch((async (_u: unknown, init?: RequestInit) => { header = new Headers(init?.headers).get('x-olumi-as'); return new Response('{"invites":[]}', { status: 200 }) }) as unknown as typeof fetch)
+    await teamApi.invites('s_1')
+    expect(header).toBeNull()
+  })
+})
