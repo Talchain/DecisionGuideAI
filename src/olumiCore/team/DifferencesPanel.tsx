@@ -4,7 +4,9 @@ import { Button } from '../../components/ui/Button'
 import type { View } from '../../olumiView/client'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { ringCards } from '../../olumiView/ring'
-import { TeamApiError } from './api'
+import { useWhatIf, type WhatIfAnswer } from '../../olumiView/whatif'
+import { useViewLens } from '../../olumiView/lens'
+import { call, TeamApiError } from './api'
 import { putDraft } from './drafts'
 import { readDifferences, stepDifference, useDifferences, type Difference, type Differences } from './differences'
 import { runWrite } from './writes'
@@ -59,6 +61,22 @@ function DifferenceCard({ sid, view, data, d, ring, onWrote }: { sid: string; vi
     putDraft<Record<string, unknown>>(`${sid}:commitment`, (prev) => ({ action: '', expect: '', reconsider: '', keeps: [], option: '', reviewOn: '', ...(prev ?? {}), owner: (prev?.['owner'] as string | undefined) || view.you_id, open: true }))
     requestAnimationFrame(() => document.querySelector('[data-testid="team-commitment-form"], [data-testid="team-commitments"]')?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
   }
+  // Preview one person's figure on the canvas (core's what-if on a copy, POST …/whatif: nothing saved, no AI call), under the What if lens,
+  // by the same store the lens draws; their figure is taken from the View's own copy of their revealed view, never re-typed here.
+  const figureOf = (view_: number) => view.collab.shared.find((x) => x.id === view_)?.figures.find((f) => f.quantity === d.record) ?? null
+  const preview = async (view_: number) => {
+    const f = figureOf(view_), base = view.version?.id
+    if (f === null || base === undefined) return
+    setBusy(true); setError(null)
+    try {
+      const value = 'value' in f ? { kind: 'point', value: f.value } : { kind: 'interval', low: f.low, high: f.high }
+      const a = await call<WhatIfAnswer>('POST', `/api/scenarios/${encodeURIComponent(sid)}/whatif`, { base, variants: [{ edits: [{ quantity: d.record, value }] }] })
+      const variant = a.variants[0]
+      useWhatIf.setState({ shown: variant === undefined ? null : { sid, base, quantity: d.record, typed: f.text, variant } })
+      useViewLens.setState({ lens: 'what_if' })
+      focusNodeById(d.record)
+    } catch (e) { setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.') } finally { setBusy(false) }
+  }
   const mine = new Set(d.steps.filter((s) => s.by_id === view.you_id).map((s) => s.step))
   // The cards it is about (a figure: its card; a link: both ends; a factor the model does not have: none).
   const cards = d.cards ?? [d.record]
@@ -78,7 +96,12 @@ function DifferenceCard({ sid, view, data, d, ring, onWrote }: { sid: string; vi
           {d.sides.map((s) => (
             <li key={s.holder_id} className={`${BODY} flex items-start gap-1.5 break-words`} data-difference-side={s.holder_id} title={s.title}>
               <span aria-hidden="true" className={AVATAR}>{s.holder.slice(0, 1).toUpperCase()}</span>
-              <span><span className="text-text-header">{s.holder}</span>: {s.figure}</span>
+              <span className="grid gap-0.5"><span data-difference-figure=""><span className="text-text-header">{s.holder}</span>: {s.figure}</span>
+                {(d.kind ?? 'figure') === 'figure' && figureOf(s.view) !== null && view.version !== null && (
+                  <button type="button" data-testid={`${at}-preview-${s.holder_id}`} disabled={busy} onClick={() => void preview(s.view)}
+                    title="Shows the chances with this figure on the canvas, under What if. Nothing is saved."
+                    className="w-fit text-left text-text-light underline underline-offset-2 hover:text-text-body disabled:opacity-50">Preview on the canvas</button>
+                )}</span>
             </li>
           ))}
         </ul>
