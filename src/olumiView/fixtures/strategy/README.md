@@ -6,3 +6,6 @@
   stances were written for the demo, their views revealed together, three strategy items and one piece of evidence. Every value under
   `strategy` (items, views, marks, gate, overview) and everything else in the View is core's own output. The core of that branch has no
   debate-lane fields (`collab.shared[].kind`, `collab.marks`, `collab.next`), so the specs that need those read the V11 fixtures.
+
+- The seed's scripted coach reply reads "Seeded for the strategy demo: Olumi does not reply on this link…": a fixture sentence, labelled
+  as such on screen, never Olumi's output (the core has no provider key). Every other word is core's or a seeded person's.
