@@ -3,7 +3,7 @@
  * order, each bound to its own View string; nothing while no model is current; a figure tried there drawn there, nothing saved.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -412,15 +412,13 @@ describe('the tab says its state once, above it', () => {
     expect(strip.compareDocumentPosition(screen.getByTestId('view-reasoning')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('a past version: the number the person chose (`at`), not the View\'s own, and Back to the latest asks core for the latest', () => {
-    const bakery = read('bakery.view.json'), look = vi.fn(async () => null)
-    expect(bakery.version!.n).not.toBe(3)
-    ready(bakery, { at: 3, look })
-    render(<ViewReasoningBlock />)
-    expect(screen.getByTestId('view-reasoning-state').dataset['state']).toBe('past')
-    expect(screen.getByTestId('view-reasoning-past').textContent).toBe('Version 3 is on the canvas, as it was.')
-    fireEvent.click(screen.getByTestId('view-reasoning-back'))
-    expect(look.mock.calls).toEqual([[null]])
+  it('negative: a past version draws no strip and no sentence of the tab\'s own (core sends none for that state; DL 7 Nov)', () => {
+    const bakery = read('bakery.view.json')
+    ready(bakery, { at: 3 })
+    const { container } = render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('view-reasoning')).toBeInTheDocument()
+    expect(screen.queryByTestId('view-reasoning-state')).toBeNull()
+    expect(container.textContent).not.toMatch(/Version 3|as it was|Back to the latest/)
   })
 
   it('a what-if on this version: said once, in the strip, and Clear there drops it; one asked on another version or scenario is not said', () => {
