@@ -4,6 +4,7 @@ import { call, newOp, TeamApiError } from './team/api'
 import { BODY, CARD, ERR, FIELD, H, META } from './team/ui'
 import { typography } from '../styles/typography'
 import { shownModel, useViewStore } from '../olumiView/store'
+import { markOf, ShiftTrack, TrackKey } from './compareTrack'
 
 /**
  * ANY TWO THINGS, SIDE BY SIDE (olumi-core `GET /api/compare?a=&b=`, `olumi.compare/1`; core wip/compare 7 Nov, src/app/compare-pair.ts):
@@ -21,7 +22,10 @@ import { shownModel, useViewStore } from '../olumiView/store'
  * proposals carries core's mark and its `lead` words. A limitation core says once on the aim, a figure or a side is not said again in the notes.
  */
 type Mark = { glyph: string; title: string }
-type Cell = { value: string; title: string; olumi: Mark | null; lead: string | null; condition: string | null }
+/** `chance`: core's own number behind `value` (0 to 1), which places the shift track's mark; absent from an older core, then no mark. */
+type Cell = { value: string; title: string; olumi: Mark | null; lead: string | null; condition: string | null; chance?: number | null
+  /** Core's headline (the value without its companion) and the card's own short companion line (core wip/compare ff3622bb); an older core: the value. */
+  headline?: string; companion?: Line | null }
 type Line = { text: string; title: string }
 type Side = { id: string; title: string; name: string; note: string | null; kind?: string; about?: string | null }
 type AimSide = { label: string; measure: string; target: string | null }
@@ -48,7 +52,8 @@ function Cells({ side }: { side: OptionSide | null }): JSX.Element {
     <div className="grid content-start gap-1 break-words" data-compare-cells="">
       {arr(side?.cells).map((c, i) => (
         <p key={i} className={`${BODY} grid gap-0.5`} title={c.title} data-compare-cell="">
-          <span><MarkSpan m={c.olumi} /><span className="font-semibold text-text-header" data-compare-value="">{c.value}</span></span>
+          <span><MarkSpan m={c.olumi} /><span className="font-semibold text-text-header" data-compare-value="">{words(c.headline) ? c.headline : c.value}</span></span>
+          {words(c.headline) && c.companion && words(c.companion.text) ? <span className={META} title={c.companion.title} data-compare-companion="">{c.companion.text}</span> : null}
           {c.olumi !== null && words(c.lead) ? <span className={META} data-compare-lead="">{c.lead}</span> : null}
           {words(c.condition) ? <span className={META} data-compare-condition="">{c.condition}</span> : null}
         </p>
@@ -73,6 +78,9 @@ function Lead({ c }: { c: Cell | null | undefined }): JSX.Element {
   return <p className={`${BODY} break-words`} title={c?.title} data-compare-most-likely="">{c ? <><MarkSpan m={c.olumi} />{c.value}</> : null}</p>
 }
 
+/** The mark for one side of an option: its first cell's own number (its headline chance), with core's words. */
+const sideMark = (s: OptionSide | null) => { const c = arr(s?.cells)[0]; return c ? markOf(c.chance, words(c.headline) ? c.headline : c.value) : null }
+
 function Aim({ aim }: { aim: AimRow }): JSX.Element {
   const targets = aim.status === 'different_target'
   const paired = aim.status === 'comparable' || targets
@@ -91,6 +99,8 @@ function Aim({ aim }: { aim: AimRow }): JSX.Element {
         <div key={`${o.label}-${i}`} className="grid gap-1" data-compare-option={paired && o.only_in === null ? 'paired' : 'alone'}>
           <p className={`${BODY} text-text-header break-words`}>{o.label}</p>
           {words(o.only_in_text) ? <p className={META} data-compare-only-in="">{o.only_in_text}</p> : null}
+          {/* The earlier DGAI's shift track: hollow for the first side, filled for the second, where core gives each its number. */}
+          {paired && o.only_in === null ? <ShiftTrack first={sideMark(o.a)} second={sideMark(o.b)} /> : null}
           <div className="grid grid-cols-2 gap-3"><Cells side={o.a} /><Cells side={o.b} /></div>
         </div>
       ))}
@@ -146,6 +156,9 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
         ))}
       </div>
       {aims.map((a, i) => <Aim key={`${a.label}-${i}`} aim={a} />)}
+      {/* The key to the marks, once, named by the two sides as core names them. */}
+      {aims.some((a) => (a.status === 'comparable' || a.status === 'different_target') && arr(a.options).some((o) => o.only_in === null && (sideMark(o.a) || sideMark(o.b))))
+        ? <TrackKey first={c.a?.name ?? ''} second={c.b?.name ?? ''} /> : null}
       {options.length === 0 && !showFigures ? null : (
         <section className={CARD} data-testid="scenario-compare-differences" aria-label="Differences">
           <h4 className={H}>Differences</h4>
