@@ -98,6 +98,21 @@ function ExpertSwitch() {
   )
 }
 
+type Outline = ReturnType<typeof modelOutlineOf>
+
+/**
+ * The card groups as the tab draws them: each with its count and whether it is open, by one rule, read both by the rows on screen and by
+ * the key that explains their marks, so the two can never drift apart (UI review of ddaedeed). A group with no card is not drawn (Question
+ * & goal always is). The count is the group's cards (and the question), or while a filter is typed, what the filter leaves.
+ */
+export function groupsDrawn(outline: Outline, isOpen: (id: GroupId, count: number) => boolean) {
+  return outline.groups.flatMap((g) => {
+    if (g.cards.length === 0 && g.id !== 'goal') return []
+    const count = !outline.searching ? g.cards.length + (g.id === 'goal' ? 1 : 0) : g.rows.length + (g.question ? 1 : 0)
+    return [{ g, count, open: isOpen(g.id, count) }]
+  })
+}
+
 /** What a write on a group came to, said under its heading (`groupRow`): core's version, or core's refusal when its form left the screen. */
 function GroupNote({ said }: { said: Receipt | null }) {
   if (said === null) return null
@@ -115,17 +130,17 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
   // Closed on open (the previous PoC's outline: five headings with counts, the question above them); a filter opens what it matches.
   const [opened, setOpened] = useState<ReadonlySet<GroupId>>(new Set())
   const [filter, setFilter] = useState('')
-  const { searching, groups: shown, links, ids } = useMemo(() => modelOutlineOf(model, filter), [model, filter])
+  const outline = useMemo(() => modelOutlineOf(model, filter), [model, filter])
+  const { searching, groups: shown, links, ids } = outline
   const isOpen = (id: GroupId, count: number) => (searching ? count > 0 : opened.has(id))
   const allOpen = ids.every((id) => opened.has(id))
   const toggle = (id: GroupId) => setOpened((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const anyMatch = shown.some((g) => g.rows.length > 0 || g.question) || links.length > 0
-  // The key names only the marks of the rows actually drawn: an open group's rows, as the filter leaves them (authorKeyOf's own rule).
-  const drawn = shown.flatMap((g) => {
-    const count = !searching ? g.cards.length + (g.id === 'goal' ? 1 : 0) : g.rows.length + (g.question ? 1 : 0)
-    return (g.cards.length > 0 || g.id === 'goal') && isOpen(g.id, count) ? g.rows : []
-  })
-  const authorKey = authorKeyOf(model, drawn)
+  // The key names only the marks of the rows actually drawn: an open group's rows, as the filter leaves them (authorKeyOf's own rule),
+  // from the same groups the rows are drawn from.
+  const groups = groupsDrawn(outline, isOpen)
+  const authorKey = authorKeyOf(model, groups.flatMap(({ g, open }) => (open ? g.rows : [])))
+  const linkCount = !searching ? model.links.length : links.length
   // A write a group's own row cannot answer for says what it came to on its group (UI audit of e8ebab94): a link removed (its row is gone);
   // Add a figure or Remove link refused after their form left the screen. Relationships stays drawn while it says so.
   const groupSaid = useModelTab((s) => (s.receipt !== null && s.receipt.row.startsWith('group:') ? s.receipt : null))
@@ -153,11 +168,9 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
       </div>
       {searching && !anyMatch ? <p className={`${typography.viewPanelMeta} m-0 text-text-light`} data-testid="view-model-no-match">{MODEL_OUTLINE_LABELS.none}</p> : null}
       <div>
-        {shown.map((g) => {
-          if (g.cards.length === 0 && g.id !== 'goal') return null
-          const count = !searching ? g.cards.length + (g.id === 'goal' ? 1 : 0) : g.rows.length + (g.question ? 1 : 0)
+        {groups.map(({ g, count, open }) => {
           return (
-            <Group key={g.id} id={g.id} title={g.title} count={count} open={isOpen(g.id, count)} onToggle={() => toggle(g.id)} mark={<KindMark id={g.id} cards={g.cards} model={model} />}
+            <Group key={g.id} id={g.id} title={g.title} count={count} open={open} onToggle={() => toggle(g.id)} mark={<KindMark id={g.id} cards={g.cards} model={model} />}
               note={<GroupNote said={saidOn(g.id)} />}>
               {g.id === 'goal' && g.question ? (
                 <li className="flex items-start gap-2 px-2 py-1.5">
@@ -176,8 +189,8 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
           )
         })}
         {model.links.length === 0 && linksSaid === null ? null : (
-          <Group id="relationships" title={MODEL_GROUP_TITLE.relationships} count={!searching ? model.links.length : links.length}
-            open={isOpen('relationships', !searching ? model.links.length : links.length)} onToggle={() => toggle('relationships')} mark={<KindMark id="relationships" cards={[]} model={model} />}
+          <Group id="relationships" title={MODEL_GROUP_TITLE.relationships} count={linkCount}
+            open={isOpen('relationships', linkCount)} onToggle={() => toggle('relationships')} mark={<KindMark id="relationships" cards={[]} model={model} />}
             note={<GroupNote said={linksSaid} />}>
             {links.map(({ l, i, from, to }) => { const row = linkRowOf(model, i); return <LinkRow key={row} model={model} link={l} i={i} row={row} from={from} to={to} /> })}
             {searching ? null : <li className="px-2 pt-1"><AskOlumi at="links" label={MODEL_EDIT_WORDS.askLink} draft={MODEL_EDIT_WORDS.askLinkDraft} /></li>}
