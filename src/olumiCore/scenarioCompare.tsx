@@ -239,31 +239,59 @@ function Pick({ id, label, groups, value, disabled, onChange }: { id: string; la
 /** At most this many figures in one what-if from this form (core takes up to 20). */
 const WHATIF_FIGURES = 5
 
+type Row = { quantity: string | null; label: string | null; typed: string }
+const EMPTY: Row[] = [{ quantity: null, label: null, typed: '' }]
+
 function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => void }): JSX.Element | null {
-  const view = useViewStore((s) => s.view), at = useViewStore((s) => s.at)
+  const view = useViewStore((s) => s.view), at = useViewStore((s) => s.at), shownSid = useViewStore((s) => s.sid)
   const model = useViewStore(shownModel)
   const figures = arr(model?.cards).filter((c) => c.figure?.edit != null)
-  const base = at === null ? view?.version?.id ?? null : null
+  // The version shown, only while the View shown is this scenario's own (never another scenario's model under this form).
+  const live = at === null && shownSid === sid ? view?.version?.id ?? null : null
   // Each row is one figure of the model and what the person types for it; one row to start, more on "Add another figure".
-  const [rows, setRows] = useState<{ quantity: string | null; typed: string }[]>([{ quantity: null, typed: '' }])
+  const [rows, setRows] = useState<Row[]>(EMPTY)
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // What the draft was started on (Codex review-ui item 4): the scenario, the version and each row's own figure are fixed from the first
+  // keystroke. If any of them is no longer what is shown, the draft is refused in words that name which, and nothing is sent.
+  const [draft, setDraft] = useState<{ sid: string; base: number; n: number | null } | null>(null)
   const op = useRef<{ key: string; op: string } | null>(null)
-  // While a change waits for approval no card offers its figure (core's `figure.edit` is null): said once, so the form is not just missing.
-  if (base !== null && figures.length === 0 && view?.proposal != null) return <p className={META} data-testid="whatif-save-waiting">Approve or set aside the waiting change to save a what-if here.</p>
-  if (base === null || figures.length === 0) return null
-  // A row's figure: its own pick, else the first figure no earlier row has taken.
-  const picks: string[] = []
-  for (const r of rows) {
-    const own = r.quantity !== null && figures.some((c) => c.id === r.quantity) ? r.quantity : null
-    picks.push(own ?? figures.find((c) => !picks.includes(c.id))?.id ?? figures[0]!.id)
+  const again = () => { setRows(EMPTY); setName(''); setDraft(null); setError(null); op.current = null }
+  const stale = draft === null ? null
+    : draft.sid !== sid || shownSid !== sid ? 'This what-if was started on another scenario, so it is not saved here. Start again to try figures on this one.'
+    : live !== draft.base ? `This what-if was started on version ${draft.n}; ${view?.version?.n != null ? `version ${view.version.n} is shown now, so it is not saved. Start again to try it on version ${view.version.n}.` : 'that version is not shown now, so it is not saved. Start again on the version shown.'}`
+    // While a change waits for approval no figure can be set (said below, the draft kept); otherwise a row's own figure must still be offered.
+    : figures.length === 0 && view?.proposal != null ? null
+    : (() => { const gone = rows.find((r) => r.quantity !== null && !figures.some((c) => c.id === r.quantity)); return gone ? `‘${gone.label ?? gone.quantity}’ is no longer a figure you can set here, so this what-if is not saved. Start again to choose another figure.` : null })()
+  if (stale !== null) {
+    return (
+      <div className={CARD} data-testid="whatif-save" aria-label="Save a what-if">
+        <h4 className={H}>Save a what-if</h4>
+        <p role="alert" className={ERR} data-testid="whatif-save-stale">{stale}</p>
+        <div><Button size="sm" variant="secondary" data-testid="whatif-save-again" onClick={again}>Start again</Button></div>
+      </div>
+    )
   }
+  // While a change waits for approval no card offers its figure (core's `figure.edit` is null): said once, so the form is not just missing.
+  if (live !== null && figures.length === 0 && view?.proposal != null) return <p className={META} data-testid="whatif-save-waiting">Approve or set aside the waiting change to save a what-if here.</p>
+  if (live === null || figures.length === 0) return null
+  const base = draft?.base ?? live
+  // A row's figure: its own (fixed once the draft starts), else the first figure no earlier row has taken.
+  const picks: string[] = []
+  for (const r of rows) picks.push(r.quantity ?? figures.find((c) => !picks.includes(c.id))?.id ?? figures[0]!.id)
   const twice = new Set(picks).size !== picks.length
   const ready = name.trim() !== '' && rows.every((r) => r.typed.trim() !== '') && !twice && !busy
-  const set = (i: number, patch: Partial<{ quantity: string | null; typed: string }>) => { setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r))); setError(null) }
+  const labelOf = (q: string) => figures.find((c) => c.id === q)?.heading ?? q
+  /** The first change starts the draft: it takes the scenario and version shown, and every row's figure as shown, explicitly. */
+  const fixed = (rs: Row[]): Row[] => rs.map((r, j) => (r.quantity !== null ? r : { ...r, quantity: picks[j] ?? null, label: picks[j] ? labelOf(picks[j]!) : null }))
+  const begin = () => { if (draft === null) setDraft({ sid, base: live, n: view?.version?.n ?? null }) }
+  const set = (i: number, patch: Partial<Row>) => {
+    begin()
+    setRows((rs) => fixed(rs).map((r, j) => (j === i ? { ...r, ...patch, ...(patch.quantity ? { label: labelOf(patch.quantity) } : {}) } : r))); setError(null)
+  }
   const save = async () => {
-    if (!ready) return
+    if (!ready || stale !== null) return
     const edits = rows.map((r, i) => ({ quantity: picks[i]!, typed: r.typed }))
     // The same request re-sent keeps its operation id, so core saves it once.
     const key = JSON.stringify([base, edits, name])
@@ -271,7 +299,7 @@ function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => vo
     setBusy(true); setError(null)
     try {
       const r = await call<{ whatif: string }>('POST', `/api/scenarios/${encodeURIComponent(sid)}/whatifs`, { base, name, edits, op: op.current.op })
-      setRows([{ quantity: null, typed: '' }]); setName(''); op.current = null
+      again()
       onSaved(r.whatif)
     } catch (e) {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through.')
@@ -280,7 +308,7 @@ function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => vo
   return (
     <form className={`${CARD}`} data-testid="whatif-save" aria-label="Save a what-if" onSubmit={(e) => { e.preventDefault(); void save() }}>
       <h4 className={H}>Save a what-if</h4>
-      <p className={META}>Tried on a copy of version {view?.version?.n}; the model itself does not change.</p>
+      <p className={META}>Tried on a copy of version {draft?.n ?? view?.version?.n}; the model itself does not change.</p>
       {rows.map((r, i) => {
         const card = figures.find((c) => c.id === picks[i])!
         return (
@@ -295,16 +323,16 @@ function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => vo
               <span className={META} title={card.figure!.edit!.ask}>{card.figure!.edit!.prompt}</span>
               <input data-testid="whatif-save-typed" className={FIELD} value={r.typed} disabled={busy} placeholder={card.figure!.text} onChange={(e) => set(i, { typed: e.target.value })} />
             </label>
-            {rows.length > 1 ? <div className="sm:col-span-2"><Button size="sm" variant="ghost" data-testid="whatif-save-remove" disabled={busy} onClick={() => { setRows((rs) => rs.filter((_, j) => j !== i)); setError(null) }}>Remove this figure</Button></div> : null}
+            {rows.length > 1 ? <div className="sm:col-span-2"><Button size="sm" variant="ghost" data-testid="whatif-save-remove" disabled={busy} onClick={() => { begin(); setRows((rs) => fixed(rs).filter((_, j) => j !== i)); setError(null) }}>Remove this figure</Button></div> : null}
           </div>
         )
       })}
       {twice ? <p className={ERR} data-testid="whatif-save-twice">Each figure once in a what-if.</p> : null}
       {rows.length < Math.min(WHATIF_FIGURES, figures.length)
-        ? <div><Button size="sm" variant="ghost" data-testid="whatif-save-more" disabled={busy} onClick={() => { setRows((rs) => [...rs, { quantity: null, typed: '' }]); setError(null) }}>Add another figure</Button></div> : null}
+        ? <div><Button size="sm" variant="ghost" data-testid="whatif-save-more" disabled={busy} onClick={() => { begin(); setRows((rs) => fixed([...rs, { quantity: null, label: null, typed: '' }])); setError(null) }}>Add another figure</Button></div> : null}
       <label className="grid gap-1">
         <span className={META}>Name this what-if</span>
-        <input data-testid="whatif-save-name" className={FIELD} value={name} disabled={busy} maxLength={80} onChange={(e) => { setName(e.target.value); setError(null) }} />
+        <input data-testid="whatif-save-name" className={FIELD} value={name} disabled={busy} maxLength={80} onChange={(e) => { begin(); setRows(fixed); setName(e.target.value); setError(null) }} />
       </label>
       <div><Button size="sm" variant="secondary" type="submit" data-testid="whatif-save-go" disabled={!ready}>Save what-if</Button></div>
       {error && <p role="alert" className={ERR} data-testid="whatif-save-error">{error}</p>}
@@ -318,6 +346,11 @@ function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => vo
  * what-if, else the first other scenario.
  */
 export function CompareWithScenario({ sid }: { sid: string }): JSX.Element {
+  // Keyed by the scenario (Codex review-ui item 2): another scenario starts afresh, with none of this one's picks, result, error or draft.
+  return <CompareSides key={sid} sid={sid} />
+}
+
+function CompareSides({ sid }: { sid: string }): JSX.Element {
   const others = useOtherScenarios(sid)
   const own = useOwnSides(sid)
   const [pickedA, setPickedA] = useState<string | null>(null)
@@ -325,7 +358,9 @@ export function CompareWithScenario({ sid }: { sid: string }): JSX.Element {
   const [shown, setShown] = useState<ScenarioComparison | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const seq = useRef(0)
+  const seq = useRef(0), here = useRef(true)
+  // Once this scenario is left, an answer still on its way is never drawn and nothing more is asked.
+  useEffect(() => { here.current = true; return () => { here.current = false; seq.current += 1 } }, [])
   const list = Array.isArray(others) ? others : []
   const latest = own.versions.length ? Math.max(...own.versions) : null
   const thisOne: Group = { label: 'This scenario', choices: [{ value: sid, label: latest === null ? 'This scenario now' : `This scenario now (version ${latest})`, title: 'This scenario as it is now' },
@@ -341,7 +376,7 @@ export function CompareWithScenario({ sid }: { sid: string }): JSX.Element {
   const b = picked !== null && valuesOf(groupsB).includes(picked) ? picked : firstB
   const any = list.length > 0 || own.whatifs.length > 0 || own.versions.length > 1
   const go = async (x = a, y = b) => {
-    if (x === '' || y === '') return
+    if (x === '' || y === '' || !here.current) return
     const mine = ++seq.current
     setBusy(true); setError(null)
     try {
