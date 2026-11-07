@@ -106,7 +106,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
       {(selected || focused) && link.remove != null ? (
         <EdgeLabelRenderer>
           <div style={{ position: 'absolute', transform: `translate(-50%, 0) translate(${x}px, ${y + (words && !hidden ? size.h / 2 + 4 : 8)}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z + 1 }}>
-            <LinkRemove edge={id} record={link.remove.record} />
+            <LinkRemove edge={id} remove={link.remove} />
           </div>
         </EdgeLabelRenderer>
       ) : null}

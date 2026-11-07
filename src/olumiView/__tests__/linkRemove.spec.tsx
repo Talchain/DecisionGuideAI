@@ -23,7 +23,9 @@ const SID = 's_0123456789ab'
 const approved: View = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', 'european-22cards.view3.json'), 'utf8')), id: SID }
 const base = approved.model!.edit_base!
 const plain = approved.model!.links.findIndex((l) => l.kind !== 'reason')
-const removable = { ...approved.model!.links[plain]!, remove: { record: 'evening_mood' } } as ViewLink
+const removable = { ...approved.model!.links[plain]!, remove: { record: 'evening_mood', part: null } } as ViewLink
+// One added part of a sum (core c63693bc): its line names the sum's record and the part; another part of the same sum is another line.
+const onePart = { ...approved.model!.links[plain]!, remove: { record: 'total_def', part: 'existing_capacity' } } as ViewLink
 const kept = { ...approved.model!.links[plain]!, remove: null } as ViewLink
 const Edge = ViewLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
 const draw = (link: ViewLink, selected: boolean) => render(
@@ -61,8 +63,21 @@ describe('remove a link', () => {
     fireEvent.click(screen.getByTestId('view-link-remove-yes-evening_mood'))
     await waitFor(() => expect(posts()).toHaveLength(1))
     expect(posts()[0]!.path).toBe(`/api/scenarios/${SID}/links/remove`)
-    expect(posts()[0]!.body).toMatchObject({ base, record: 'evening_mood' })
+    expect(posts()[0]!.body).toEqual({ base, record: 'evening_mood', part: null, op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) }) // core's object, verbatim
     await waitFor(() => expect(useModelNotice.getState().notice).toMatchObject({ kind: 'saved', n: 4, by: null }))
+  })
+  it('catch (core c63693bc): a line that is one part of a sum posts that part with its record, verbatim; its control is that line\'s, not the record\'s', async () => {
+    const c = draw(onePart, true)
+    expect(c.querySelector('[data-testid="view-link-remove-evening_mood"]')).toBeNull()
+    fireEvent.click(c.querySelector('[data-testid="view-link-remove-open-total_def.existing_capacity"]')!)
+    fireEvent.click(screen.getByTestId('view-link-remove-yes-total_def.existing_capacity'))
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    expect(posts()[0]!.body).toEqual({ base, record: 'total_def', part: 'existing_capacity', op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) })
+    cleanup()
+    // CONTRAST: the same sum's other part is another line, with its own control
+    const other = draw({ ...onePart, remove: { record: 'total_def', part: 'added_capacity' } } as ViewLink, true)
+    expect(other.querySelector('[data-testid="view-link-remove-total_def.added_capacity"]')).not.toBeNull()
+    expect(other.querySelector('[data-testid="view-link-remove-total_def.existing_capacity"]')).toBeNull()
   })
   it('a refusal is core\'s own words (it names what depends on the link), and nothing reads as saved', async () => {
     answer = { status: 409, body: { error: 'Removing this link leaves "total capacity" with nothing that works it out. Give its figure first, or remove it too.' } }

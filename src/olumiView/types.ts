@@ -215,6 +215,7 @@ export type View = {
       } | null
       remove: {
         record: string
+        part: string | null
       } | null
     }>
     run: {

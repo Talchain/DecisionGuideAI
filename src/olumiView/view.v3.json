@@ -1134,10 +1134,17 @@
             "properties": {
              "record": {
               "type": "string"
+             },
+             "part": {
+              "type": [
+               "string",
+               "null"
+              ]
              }
             },
             "required": [
-             "record"
+             "record",
+             "part"
             ],
             "additionalProperties": false
            },
