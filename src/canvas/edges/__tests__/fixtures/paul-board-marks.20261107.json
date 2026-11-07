@@ -1,0 +1,172 @@
+{
+ "about": "Paul's board (copy of his store, s_a88ba245176e), core 07769721, DGAI 1656867b, 1232x704 at zoom 1, 7 Nov: every card's box and the three reason links whose '!' sat over a card (flow units). Geometry only.",
+ "cards": [
+  {
+   "id": "generate_revenue_quickly",
+   "x": 243,
+   "y": 0,
+   "w": 220,
+   "h": 120
+  },
+  {
+   "id": "enterprise_opportunities",
+   "x": 767,
+   "y": 0,
+   "w": 220,
+   "h": 197
+  },
+  {
+   "id": "add_consulting",
+   "x": 237,
+   "y": 229,
+   "w": 220,
+   "h": 277
+  },
+  {
+   "id": "consultancy_buyers_may_buy_product",
+   "x": 677,
+   "y": 936,
+   "w": 220,
+   "h": 154
+  },
+  {
+   "id": "paid_enterprise_diagnostic",
+   "x": 505,
+   "y": 229,
+   "w": 220,
+   "h": 315
+  },
+  {
+   "id": "time_to_contract",
+   "x": 127,
+   "y": 576,
+   "w": 220,
+   "h": 237
+  },
+  {
+   "id": "contract_to_cash",
+   "x": 379,
+   "y": 576,
+   "w": 220,
+   "h": 237
+  },
+  {
+   "id": "time_to_first_cash",
+   "x": 127,
+   "y": 1122,
+   "w": 220,
+   "h": 277
+  },
+  {
+   "id": "enterprise_engagements",
+   "x": 631,
+   "y": 576,
+   "w": 220,
+   "h": 256
+  },
+  {
+   "id": "incremental_opportunity_share",
+   "x": 883,
+   "y": 576,
+   "w": 220,
+   "h": 328
+  },
+  {
+   "id": "buyer_transfer_test",
+   "x": 425,
+   "y": 936,
+   "w": 220,
+   "h": 136
+  },
+  {
+   "id": "additional_enterprise_opportunities",
+   "x": 883,
+   "y": 1122,
+   "w": 220,
+   "h": 352
+  },
+  {
+   "id": "payment_slippage",
+   "x": 379,
+   "y": 1122,
+   "w": 220,
+   "h": 70
+  },
+  {
+   "id": "consulting_distraction",
+   "x": 631,
+   "y": 1122,
+   "w": 220,
+   "h": 89
+  },
+  {
+   "id": "focus_product_sales",
+   "x": 773,
+   "y": 229,
+   "w": 220,
+   "h": 263
+  }
+ ],
+ "links": [
+  {
+   "edge": "buyer_transfer_test->incremental_opportunity_share:reason",
+   "source": "buyer_transfer_test",
+   "target": "incremental_opportunity_share",
+   "sourceX": 535.0833638509114,
+   "sourceY": 1074.5625,
+   "targetX": 993.25,
+   "targetY": 573.0,
+   "words": {
+    "w": 11,
+    "h": 18
+   },
+   "drawnAt": {
+    "x": 763.5,
+    "y": 824.0
+   },
+   "over": [
+    "enterprise_engagements"
+   ]
+  },
+  {
+   "edge": "buyer_transfer_test->add_consulting:reason",
+   "source": "buyer_transfer_test",
+   "target": "add_consulting",
+   "sourceX": 535.0833638509114,
+   "sourceY": 1074.5625,
+   "targetX": 347.25,
+   "targetY": 226.0,
+   "words": {
+    "w": 11,
+    "h": 18
+   },
+   "drawnAt": {
+    "x": 454.5,
+    "y": 727.0
+   },
+   "over": [
+    "contract_to_cash"
+   ]
+  },
+  {
+   "edge": "buyer_transfer_test->paid_enterprise_diagnostic:reason",
+   "source": "buyer_transfer_test",
+   "target": "paid_enterprise_diagnostic",
+   "sourceX": 535.0833638509114,
+   "sourceY": 1074.5625,
+   "targetX": 615.25,
+   "targetY": 226.0,
+   "words": {
+    "w": 11,
+    "h": 18
+   },
+   "drawnAt": {
+    "x": 568.5,
+    "y": 727.0
+   },
+   "over": [
+    "contract_to_cash"
+   ]
+  }
+ ]
+}

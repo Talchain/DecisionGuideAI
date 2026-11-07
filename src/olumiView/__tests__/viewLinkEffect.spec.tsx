@@ -11,9 +11,10 @@ import { Position, ReactFlowProvider } from '@xyflow/react'
 import type { View } from '../client'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from './edgeLabelLayer'
+import { focusedLinkOf, useViewFocusLink } from '../canvas'
 
 const model = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8')) as View).model!
-afterEach(cleanup)
+afterEach(() => { cleanup(); useViewFocusLink.setState({ id: null }) })
 /** The edge with only the props it reads (React Flow passes the rest). */
 const Edge = ViewLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
 // R25 (2A): strength words show while the link is selected (or focused, or an end card active); these rows read a selected link.
@@ -62,6 +63,22 @@ describe('a link core sizes says its strength on the line', () => {
     expect(edge(i, false).querySelector(`[data-view="links.${i}.effect.text"]`)).toBeNull()
     cleanup()
     expect(edge(i, true).querySelector(`[data-view="links.${i}.effect.text"]`)?.textContent).toBe(model.links[i]!.effect!.text)
+  })
+  it('catch (DL 7 Nov: words on keyboard focus alone): a link with focus, not selected, says its strength; another link\'s focus does not', () => {
+    const i = sized[0]!
+    useViewFocusLink.setState({ id: `l${i}` })
+    expect(edge(i, false).querySelector(`[data-view="links.${i}.effect.text"]`)?.textContent).toBe(model.links[i]!.effect!.text)
+    cleanup()
+    useViewFocusLink.setState({ id: 'some-other-link' })
+    expect(edge(i, false).querySelector(`[data-view="links.${i}.effect.text"]`)).toBeNull()
+  })
+  it('the canvas reads which link has focus from React Flow\'s focusable edge wrapper; focus anywhere else is no link', () => {
+    const host = document.createElement('div')
+    host.innerHTML = '<svg><g class="react-flow__edge" data-id="a->b:plain" tabindex="0"><path></path></g></svg><button>x</button>'
+    expect(focusedLinkOf(host.querySelector('g.react-flow__edge'))).toBe('a->b:plain')
+    expect(focusedLinkOf(host.querySelector('path'))).toBe('a->b:plain')
+    expect(focusedLinkOf(host.querySelector('button'))).toBeNull()
+    expect(focusedLinkOf(null)).toBeNull()
   })
   it('CONTRAST: a link with no effect draws no strength words', () => {
     const plain = model.links.findIndex((l) => l.effect == null && l.kind !== 'reason')

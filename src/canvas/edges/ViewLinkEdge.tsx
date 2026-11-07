@@ -5,18 +5,30 @@
  * words (`effect.text`, its hover core's `effect.title`) when core sizes it; both in React Flow's label layer, above resting cards. A reason link (a premise
  * or an assumption) is drawn only while one of its cards is hovered or selected (`linkDrawn`); the causal links always are.
  */
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, useStore, type EdgeProps } from '@xyflow/react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, useStore, type EdgeProps, type ReactFlowState } from '@xyflow/react'
 import { linkWordsAt } from './linkWordsPlace'
 import { railOf, railSlots, railWordsAt } from './linkRail'
 import type { ViewLink } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { linkDrawn } from '../../olumiView/layout'
-import { useViewHover } from '../../olumiView/canvas'
+import { useViewFocusLink, useViewHover } from '../../olumiView/canvas'
 import { useDriverLink } from '../../olumiView/lens'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
 
 export type ViewLinkData = { link: ViewLink; i: number }
+
+type CardBox = { readonly id: string; readonly x: number; readonly y: number; readonly w: number; readonly h: number }
+/**
+ * The cards as React Flow holds them now (flow units). React Flow refills one `nodeLookup` Map in place (xyflow adoptUserNodes), so a
+ * memo keyed on the Map kept the boxes of the edge's first render, before the cards were laid out and measured, and the words then sat
+ * at the midpoint over a card (Paul's "ent!prise", 7 Nov). This reads the boxes on every store change and re-renders only when one moved
+ * or resized.
+ */
+export const cardBoxesOf = (s: ReactFlowState): CardBox[] =>
+  [...s.nodeLookup.values()].map((n) => ({ id: n.id, x: n.internals.positionAbsolute.x, y: n.internals.positionAbsolute.y, w: n.measured.width ?? 0, h: n.measured.height ?? 0 }))
+const sameBoxes = (a: CardBox[], b: CardBox[]) =>
+  a.length === b.length && a.every((p, k) => { const q = b[k]!; return p.id === q.id && p.x === q.x && p.y === q.y && p.w === q.w && p.h === q.h })
 
 export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd, selected = false }: EdgeProps) {
   const { link, i } = data as ViewLinkData
@@ -30,25 +42,31 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   if (fromSelected) active.add(source)
   if (toSelected) active.add(target)
   // The cards as React Flow holds them (flow units), and the words' own drawn size: the words sit off every card (linkWordsPlace.ts).
-  const nodeLookup = useStore((s) => s.nodeLookup)
-  const cards = useMemo(() => [...nodeLookup.values()].map((n) => ({ x: n.internals.positionAbsolute.x, y: n.internals.positionAbsolute.y, w: n.measured.width ?? 0, h: n.measured.height ?? 0 })), [nodeLookup])
+  const cards = useStore(cardBoxesOf, sameBoxes)
   // R25: a link into a card above its source (an outcome into its aim beside the question) runs round the board (linkRail.ts).
-  const boxOf = (n: string) => { const v = nodeLookup.get(n); return v ? { x: v.internals.positionAbsolute.x, y: v.internals.positionAbsolute.y, w: v.measured.width ?? 0, h: v.measured.height ?? 0 } : null }
-  const from = boxOf(source), to = boxOf(target)
+  const from = cards.find((c) => c.id === source), to = cards.find((c) => c.id === target)
   // Each rail link has its own rail (PL 7 Nov): the slots of every drawn link into the head row, by their sources across the board.
   const edges = useStore((s) => s.edges)
   const slot = useMemo(() => {
-    const ls = edges.flatMap((e) => { const f = boxOf(e.source), t = boxOf(e.target); return f && t ? [{ id: e.id, from: f, to: t }] : [] })
+    const at = (n: string) => cards.find((c) => c.id === n)
+    const ls = edges.flatMap((e) => { const f = at(e.source), t = at(e.target); return f && t ? [{ id: e.id, from: f, to: t }] : [] })
     return railSlots(ls, cards).get(id) ?? 0
-  }, [edges, cards, id]) // eslint-disable-line react-hooks/exhaustive-deps -- boxOf reads nodeLookup, which `cards` follows
-  const wordsRef = useRef<HTMLDivElement>(null)
+  }, [edges, cards, id])
+  const wordsRef = useRef<HTMLDivElement | null>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
   // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal size bails out
   useLayoutEffect(() => { const el = wordsRef.current; if (el && (el.offsetWidth !== size.w || el.offsetHeight !== size.h)) setSize({ w: el.offsetWidth, h: el.offsetHeight }) })
-  if (!driver && !linkDrawn(link, active)) return null
+  // And the moment the words are put in the label layer, which can mount after the edge (the effect above runs only when the edge renders).
+  const attachWords = useCallback((el: HTMLDivElement | null) => {
+    wordsRef.current = el
+    if (el) setSize((s) => (s.w === el.offsetWidth && s.h === el.offsetHeight ? s : { w: el.offsetWidth, h: el.offsetHeight }))
+  }, [])
+  // A link with keyboard focus (links are focusable) is drawn and says its words, as a selected one does (DL 7 Nov: focus alone).
+  const focused = useViewFocusLink((f) => f.id === id)
+  if (!driver && !focused && !linkDrawn(link, active)) return null
   // R25 (plan v3 item 7, Paul's 2A): at rest a link says its sign and any "!"; its strength in core's words shows while the link is selected
-  // or focused (links are focusable; Enter selects), or a card at either end is hovered or selected, and on a driver link.
-  const near = selected || driver || active.has(source) || active.has(target)
+  // or focused, or a card at either end is hovered or selected, and on a driver link.
+  const near = selected || focused || driver || active.has(source) || active.has(target)
   const effect = near ? link.effect ?? null : null
   const rail = from && to ? railOf(from, to, cards, slot) : null
   const [bezier, midX, midY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
@@ -64,7 +82,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
         // never cuts them (DL 4 Nov, R3: "…week" clipped under a card); the line itself stays under the cards. They sit at the nearest point
         // along the path clear of every card (R5 item 3), so they never cover a card's text either.
         <EdgeLabelRenderer>
-          <div ref={wordsRef} className={`nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 text-text-body`} data-view-link-words={`links.${i}`}
+          <div ref={attachWords} className={`nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 text-text-body`} data-view-link-words={`links.${i}`}
             style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, background: 'var(--bg-canvas)', pointerEvents: 'none' }}>
             {link.label === '' ? null : <span data-view={`links.${i}.label`}>{link.label}</span>}
             {/* Its strength in core's words (`effect`, core 685e725), with core's hover; under the sign when the link has one. */}

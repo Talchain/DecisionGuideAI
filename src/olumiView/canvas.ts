@@ -21,6 +21,11 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 /** The View card (or the question) under the pointer, if any: its reason links are drawn while it is (`linkDrawn`). */
 export const useViewHover = create<{ id: string | null }>(() => ({ id: null }))
+/** The link (its React Flow edge id) with keyboard focus, if any: it is drawn and says its words while it is (ViewLinkEdge). */
+export const useViewFocusLink = create<{ id: string | null }>(() => ({ id: null }))
+/** The edge id of the link a focus event landed on, or null: React Flow's focusable edge wrapper carries it as `data-id`. */
+export const focusedLinkOf = (target: EventTarget | null): string | null =>
+  target instanceof Element ? target.closest('.react-flow__edge')?.getAttribute('data-id') ?? null : null
 
 type At = { x: number; y: number }
 /** Where this module last put each View card and the question. One still there is the canvas's to re-place; one elsewhere is where the
