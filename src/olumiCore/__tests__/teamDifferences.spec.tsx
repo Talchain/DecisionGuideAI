@@ -84,6 +84,19 @@ describe('where your explanations differ', () => {
     useWhatIf.setState({ shown: null }); useViewLens.setState({ lens: 'full' })
   })
 
+  it('a chance a holder\'s version withholds is drawn as core says it, with its reason on hover, never another column\'s number', async () => {
+    const reason = "With the model's figures, the outcome under 'Keep current staffing' can't be told apart from the target of 'At least 100 a week'."
+    const d0 = core.differences[0]
+    const held = { ...d0, status: 'withheld', options: d0.options.map((o: { option: string; chances: { holder_id: string }[] }) => (o.option !== 'hold' ? o
+      : { ...o, chances: o.chances.map((c) => (c.holder_id === '1' ? { holder_id: '1', chance: null, text: "can't be told apart from the target", withheld: { value: "can't be told apart from the target", reason } } : c)) })) }
+    serve(() => ({ status: 200, body: { ...core, differences: [held] } }))
+    render(<DifferencesPanel sid="s_x" view={view()} onWrote={async () => true} />)
+    const card = await screen.findByTestId('team-difference-per_specialist-capacity_goal')
+    const cell = card.querySelector('[data-difference-option="hold"] [data-difference-chance="1"]')!
+    expect([cell.textContent, cell.getAttribute('title'), cell.hasAttribute('data-difference-withheld')]).toEqual(["can't be told apart from the target", reason, true])
+    expect(card.querySelector('[data-difference-option="hold"] [data-difference-chance="2"]')!.textContent).toBe('0%')
+  })
+
   it('draws nothing on a core without the route, or for a gated viewer', async () => {
     const sent = serve(() => ({ status: 404, body: { error: 'not found' } }))
     const { container } = render(<DifferencesPanel sid="s_x" view={view()} onWrote={async () => true} />)
