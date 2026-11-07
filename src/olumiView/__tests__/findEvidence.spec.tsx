@@ -30,7 +30,7 @@ const proposal = (k: number, over: Partial<ResearchProposal> = {}): ResearchProp
   // Core's own sentences (wip/research-r2 linesOf), deliberately unlike anything the page could compose from the fields above.
   lines: { passage: `core passage ${k}`, badge: `core badge ${k}`, where: `core where ${k}`, suggests: `core suggests ${k}`, relevance: `core relevance ${k}`, strength: `core strength ${k}`, stance: `core stance ${k}`, cannot_set: null, choice: null }, ...over })
 const item = (over: Partial<ResearchItem> = {}): ResearchItem => ({ id: 41, record: figure.id, about: figure.heading, heading: 'core heading', intro: 'core intro', kind: 'figure', at: '2026-11-07T15:00:00Z', by: 'Paul', by_id: approved.you_id!, version: 1, in_model: true,
-  status: 'found', said: null, look_for: [], proposals: [proposal(1), proposal(2, { settable: false, why_not: 'core why not', implies: { kind: 'none', words: 'core no range' } })].map((p) => p.k === 2 ? { ...p, lines: { ...p.lines, suggests: 'core no range', relevance: null } } : p), ...over })
+  status: 'found', said: null, look_for: [], proposals: [proposal(1), proposal(2, { settable: false, why_not: 'core why not', implies: { kind: 'none', words: 'core no range' } })].map((p) => p.k === 2 ? { ...p, lines: { ...p.lines, suggests: 'core no range', relevance: null, strength: null, stance: null } } : p), ...over })
 
 let calls: Array<{ method: string; path: string; body: unknown }> = []
 let list: ResearchItem[] = []
@@ -84,7 +84,7 @@ describe('Find evidence', () => {
     expect(cards[0]!.querySelector('a')).toHaveAttribute('href', 'https://example.org/s1')
     expect(cards[0]!.querySelector('[data-research-range]')).not.toBeNull()
     expect(cards[1]!.querySelector('[data-research-range]')).toBeNull()
-    expect(cards[1]!.querySelector('[data-research-line="relevance"]')).toBeNull() // core sent no relevance line: nothing is drawn in its place
+    for (const line of ['relevance', 'strength', 'stance']) expect(cards[1]!.querySelector(`[data-research-line="${line}"]`), line).toBeNull() // core sent no such line: nothing is drawn in its place
     expect(cards[1]!.querySelector('[data-research-line="cannot_set"]')).toBeNull() // core said no range in `suggests`; nothing composed here
     expect(panel()!.textContent).not.toMatch(/Suggests|Relevance:|Strength:|Cannot set the range|Olumi’s proposal/)
     expect(posts()).toHaveLength(0)
