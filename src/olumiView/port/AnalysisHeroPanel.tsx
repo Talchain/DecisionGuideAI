@@ -22,7 +22,7 @@ import { Words } from '../ViewChat'
 import { mostLikelyBasisOf } from '../standin'
 import { HeroOptionRow, type HeroLensId } from './HeroOptionRow'
 import { LensTabs, lensTabId } from './LensTabs'
-import { aimGroupsOf, lensesOf, outcomeDomainOf, readingsFor, tippingFor, type AimRow } from './pick'
+import { aimGroupsOf, lensAimOf, lensesOf, outcomeDomainOf, readingsFor, tippingFor, type AimRow } from './pick'
 import { TYPE } from './type'
 
 /** The crafted panel's surface: the panel colour and a full border, never a single side. */
@@ -69,8 +69,12 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
   const [open, setOpen] = useState<string | null>(null)
   if (run === null) return null
 
-  const lens: HeroLensId = picked !== null && lenses.some((l) => l.id === picked) ? picked : (lenses[0]?.id ?? 'goal')
   const groups = aimGroupsOf(model)
+  // Core's lenses are about one aim, the one its lens titles and most likely line name (`run.most_likely.aim_id`): the strip and the
+  // outcome lens apply to that aim's group only; every other group stays on the chance. No such aim drawn here, no strip (checker, 7 Nov).
+  const lensAim = lensAimOf(run)
+  const scoped = lenses.length > 0 && lensAim !== null && groups.some((g) => g.aimId === lensAim)
+  const lens: HeroLensId = !scoped ? 'goal' : picked !== null && lenses.some((l) => l.id === picked) ? picked : lenses[0]!.id
   const allWait = run.all_withheld && run.waits_on !== null
   const ml = run.most_likely
   const next = newestNextOf(chat)
@@ -96,22 +100,24 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
         <SharedBlockers run={run} />
       </div>
 
-      <div className="space-y-2" data-testid="port-hero-chart">
-        <LensTabs lenses={lenses} active={lens} onSelect={setLens} panelId={panelId} />
-        <div role={lenses.length < 2 ? undefined : 'tabpanel'} id={panelId} aria-labelledby={lenses.length < 2 ? undefined : lensTabId(panelId, lens)} className="space-y-3" data-lens={lens}>
+      <div className="space-y-3" data-testid="port-hero-chart">
           {groups.map((g) => {
             const domain = outcomeDomainOf(g.rows)
+            const withTabs = scoped && g.aimId === lensAim && lenses.length > 1
+            const gLens: HeroLensId = scoped && g.aimId === lensAim ? lens : 'goal'
             return (
-              <div key={g.aimId ?? ''} className="space-y-0.5" data-testid="port-aim-group" data-aim={g.aimId ?? ''}>
+              <div key={g.aimId ?? ''} className="space-y-0.5" data-testid="port-aim-group" data-aim={g.aimId ?? ''} data-lens={gLens}>
                 {g.aim === null ? null : <p className={`${TYPE.meta} px-2 text-text-light`} data-testid="port-aim-heading" data-view={g.aim.at}>{g.aim.text}</p>}
                 {readingsFor(run, g.aimId).map(({ reading, i }) => <p key={i} className={`${TYPE.meta} px-2 text-text-light`} data-view={`run.readings.${i}.text`}>{reading.text}</p>)}
+                {withTabs ? <div className="px-2 py-1"><LensTabs lenses={lenses} active={lens} onSelect={setLens} panelId={panelId} /></div> : null}
+                <div role={withTabs ? 'tabpanel' : undefined} id={withTabs ? panelId : undefined} aria-labelledby={withTabs ? lensTabId(panelId, lens) : undefined}>
                 {g.rows.map((entry) => {
                   const key = `${entry.card.id}.rows.${entry.i}`
                   return (
                     <HeroOptionRow
                       key={key}
                       entry={entry}
-                      lens={lens}
+                      lens={gLens}
                       isOpen={open === key}
                       onToggle={() => setOpen((o) => (o === key ? null : key))}
                       domain={domain}
@@ -122,10 +128,10 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
                     </HeroOptionRow>
                   )
                 })}
+                </div>
               </div>
             )
           })}
-        </div>
       </div>
 
       <TimingAssumptions run={run} />

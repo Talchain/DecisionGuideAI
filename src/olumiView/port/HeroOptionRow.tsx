@@ -7,8 +7,8 @@
  * - The rank badge, "Option N" and the sr-only "highest on this view" are gone (no rank, no designation of the UI's own). The first column
  *   holds core's own most-likely mark (`row.likely`, ◉, its sentence as the accessible name) and is empty otherwise.
  * - The goal lens's readout is core's chance (`row.value`), the headline (DL #87). It draws no track: a chance is not a range.
- * - The outcome lens's readout is core's outcome band (`outcome.text`) with the band drawn on a track shared by that aim's options. It has
- *   no leader, so no mark. The band is never drawn beside the chance as if it were confidence in it.
+ * - The outcome lens's readout is core's outcome band (`outcome.text`) with the band drawn on a track shared by that aim's options, and
+ *   nothing where a row has no band. It never draws the chance, has no leader and so no mark; the band is never shown as confidence in it.
  * - The option name is never cut (R25, Paul's 6 Nov test): no clamp, so no clip-recovery line.
  * - Under the row, at rest: what the chance rests on (`row.rests_on_text`, e.g. "Rests on Olumi's proposed target and what-if for …"),
  *   verbatim (DL 7 Nov: where Paul sees Olumi's target, in place of a bare ◆).
@@ -87,12 +87,13 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
   const chance = row.kind === 'chance' ? row : null
   const leader = lens === 'goal' && chance !== null && chance.likely != null
 
-  // The readout, in core's words: the chance on the goal lens, the outcome band on the outcome lens (where a row has none, its chance).
+  // The readout, in core's words: the chance on the goal lens; on the outcome lens the outcome band, and nothing where a row has none
+  // (never the chance or a limit's value under "Likely outcome": checker, 7 Nov). A row that says why it has nothing says so on both.
   const outcomeReadout = lens === 'outcome' && chance?.outcome != null
   const readout = row.kind === 'none'
     ? (row.text == null ? <span data-view={`${at}.title`}>{row.title}</span> : <span data-view={`${at}.text`}>{row.text}</span>)
-    : outcomeReadout
-      ? <span data-view={`${at}.outcome.text`} title={chance!.outcome!.title}>{chance!.outcome!.text}</span>
+    : lens === 'outcome'
+      ? (outcomeReadout ? <span data-view={`${at}.outcome.text`} title={chance!.outcome!.title}>{chance!.outcome!.text}</span> : null)
       : (
         <>
           {row.kind === 'chance' && row.approx !== '' ? <span data-view={`${at}.approx`}>{row.approx}</span> : null}
@@ -111,10 +112,10 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
     if (o.median !== null) dotPos = pos(o.median)
   }
 
-  // The detail: core's lines only, each at its path. The driver is drawn once per option, on its first chance row.
-  const otherReadout = chance === null ? null : lens === 'goal'
-    ? (chance.outcome == null ? null : <p className={`${TYPE.body} text-text-body`} title={chance.outcome.title} data-view={`${at}.outcome.text`}>{chance.outcome.text}</p>)
-    : (outcomeReadout ? <p className={`${TYPE.body} text-text-body`}>{chance.approx === '' ? null : <span data-view={`${at}.approx`}>{chance.approx}</span>}<span data-view={`${at}.value`}>{chance.value}</span></p> : null)
+  // The detail: core's lines only, each at its path. The driver is drawn once per option, on its first chance row. On the goal lens the
+  // outcome band is in the detail; the outcome lens never draws the chance (the goal lens owns it).
+  const otherReadout = chance === null || lens !== 'goal' || chance.outcome == null ? null
+    : <p className={`${TYPE.body} text-text-body`} title={chance.outcome.title} data-view={`${at}.outcome.text`}>{chance.outcome.text}</p>
   const companion = chance?.companion == null ? null : <p className={`${TYPE.meta} text-text-light`} title={chance.companion_title ?? chance.companion} data-view={`${at}.companion`}>{chance.companion}</p>
   const timing = chance?.timing == null ? null : <p className={`${TYPE.meta} text-text-light`} title={chance.timing_title ?? chance.timing} data-view={`${at}.timing`}>{chance.timing}</p>
   const driver = chance !== null && card.driver != null && driverRowOf(card) === i ? <Driver card={card} figure={figure} /> : null
