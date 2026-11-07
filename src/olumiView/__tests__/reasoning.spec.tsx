@@ -3,20 +3,23 @@
  * order, each bound to its own View string; nothing while no model is current; a figure tried there drawn there, nothing saved.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View, ViewCard, ViewModel } from '../client'
 import { useViewStore } from '../store'
 import { optionCards } from '../layout'
 import { REASONING_LABELS, ViewReasoning, ViewReasoningBlock } from '../ViewReasoning'
 import { ViewChances } from '../ViewChances'
-import { clearWhatIf } from '../whatif'
+import { clearWhatIf, useWhatIf, type WhatIfVariant } from '../whatif'
+import { attCards, ringCards } from '../ring'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { useMe } from '../../olumiCore/me'
 import { useUIStore } from '../../stores/uiStore'
+import { useCanvasStore } from '../../canvas/store'
+import { registerFocusHelpers } from '../../canvas/utils/focusHelpers'
 
 const read = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', n), 'utf8'))
 const ready = (view: View, more: object = {}) => {
@@ -168,6 +171,276 @@ describe('pending is never shown as current', () => {
     ready(bakery)
     rerender(<ViewReasoningBlock />)
     expect(screen.getByTestId('view-reasoning').querySelector('[data-testid="view-reasoning-glance"]')).not.toBeNull()
+  })
+})
+
+// The redesign's spine (reasoning-redesign-SPEC.md §3 Z2 and §7, PR1): the glance keeps its rows, and each mark now points into the
+// model. Bound by card id: the canvas node of that id, the focus helper's argument, the canvas store's selection.
+describe('the glance as an instrument: each mark rings, selects and follows its card on the canvas', () => {
+  const view = read('s_ce285b3617bb.view.json'), m = view.model!
+  const none = () => ({ selection: { nodeIds: new Set<string>(), edgeIds: new Set<string>(), anchorPosition: null } }) as never
+  const select = (id: string) => act(() => { useCanvasStore.setState({ selection: { nodeIds: new Set([id]), edgeIds: new Set<string>(), anchorPosition: null } } as never) })
+  let focused: string[] = [], unregister: () => void = () => {}
+  beforeEach(() => {
+    focused = []
+    unregister = registerFocusHelpers((id) => { focused.push(id) }, () => {})
+    for (const c of m.cards) document.body.insertAdjacentHTML('beforeend', `<div class="react-flow__node" data-id="${c.id}"></div>`)
+    useCanvasStore.setState(none())
+    ready(view)
+  })
+  // Unmount first: a node a test drew with React is React's to remove; then the hand-made nodes go.
+  afterEach(() => { cleanup(); unregister(); ringCards([]); attCards([]); document.querySelectorAll('.react-flow__node').forEach((e) => e.remove()); useCanvasStore.setState(none()) })
+  const lit = () => [...document.querySelectorAll<HTMLElement>('.react-flow__node.v10-lit')].map((e) => e.dataset['id']!).sort()
+  const mark = (id: string) => document.querySelector<HTMLButtonElement>(`[data-glance-mark="${id}"]`)!
+  const strip = () => [...document.querySelectorAll<HTMLButtonElement>('[data-glance-mark]')]
+  const card = (id: string) => m.cards.find((c) => c.id === id)!
+  const flags = (c: ViewCard) => c.focus || c.challenged || c.olumi !== null || c.change != null
+
+  it('every mark is a button named by its card\'s heading; pressing one asks the canvas to focus that card, by its id', () => {
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    const ids = [...document.querySelectorAll<HTMLElement>('[data-glance-card]')].map((e) => e.dataset['glanceCard']!)
+    expect(ids.length).toBeGreaterThan(3)
+    for (const id of ids) {
+      expect(mark(id).tagName).toBe('BUTTON')
+      expect(mark(id).getAttribute('aria-label')).toBe(card(id).heading)
+    }
+    fireEvent.click(mark(ids[2]!))
+    expect(focused).toEqual([ids[2]])
+  })
+
+  it('the canvas\'s selection is followed back, whoever made it: that card\'s mark alone is pressed; pressing it again lets the card go', () => {
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    const id = [...document.querySelectorAll<HTMLElement>('[data-glance-card]')][1]!.dataset['glanceCard']!
+    expect(mark(id).getAttribute('aria-pressed')).toBe('false')
+    select(id)
+    expect(strip().filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.dataset['glanceMark'])).toEqual([id])
+    fireEvent.click(mark(id))
+    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([])
+    expect(focused).toEqual([])
+  })
+
+  it('hovering or focusing a mark rings its card beside the chat\'s ring, never over it; leaving clears only its own', () => {
+    const chat = 'opening_cash'
+    ringCards([chat])
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    const other = [...document.querySelectorAll<HTMLElement>('[data-glance-card]')].map((e) => e.dataset['glanceCard']!).find((x) => x !== chat)!
+    fireEvent.mouseEnter(mark(other))
+    expect(lit()).toEqual([chat, other].sort())
+    fireEvent.mouseLeave(mark(other))
+    expect(lit()).toEqual([chat])
+    fireEvent.focus(mark(other))
+    expect(lit()).toEqual([chat, other].sort())
+    fireEvent.blur(mark(other))
+    expect(lit()).toEqual([chat])
+  })
+
+  it('pressing a row\'s label rings every card of that kind, by id; pressing it again clears them; the tab leaving clears its ring', () => {
+    const { unmount } = render(<ViewReasoning model={m} brief={view.brief} />)
+    const row = screen.getByTestId('view-reasoning-glance-options'), family = row.querySelector<HTMLButtonElement>('[data-glance-family="option"]')!
+    const ids = [...row.querySelectorAll<HTMLElement>('[data-glance-card]')].map((e) => e.dataset['glanceCard']!)
+    expect(ids).toEqual(optionCards(m).map((c) => c.id))
+    fireEvent.click(family)
+    expect(family.getAttribute('aria-pressed')).toBe('true')
+    expect(lit()).toEqual([...ids].sort())
+    fireEvent.click(family)
+    expect(lit()).toEqual([])
+    fireEvent.click(family)
+    unmount()
+    expect(lit()).toEqual([])
+  })
+
+  it('one tab stop; the arrows move in the strip\'s order; N and Shift+N step to the cards core flags; Esc lets the selection go', () => {
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    const marks = strip(), order = marks.map((b) => b.dataset['glanceMark']!)
+    expect(marks.filter((b) => b.tabIndex === 0)).toHaveLength(1)
+    act(() => { marks[0]!.focus() })
+    fireEvent.keyDown(marks[0]!, { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(marks[1])
+    expect(marks.filter((b) => b.tabIndex === 0)).toEqual([marks[1]])
+    // From the first mark, N skips every mark core does not flag (at least the next one here) to the first that it does, and Shift+N
+    // goes the other way round, to the last.
+    const flagged = order.filter((id) => flags(card(id)))
+    const next = order.findIndex((id, i) => i > 0 && flags(card(id)))
+    expect(next).toBeGreaterThan(1)
+    act(() => { marks[0]!.focus() })
+    fireEvent.keyDown(marks[0]!, { key: 'n' })
+    expect(document.activeElement).toBe(marks[next])
+    act(() => { marks[0]!.focus() })
+    fireEvent.keyDown(marks[0]!, { key: 'N', shiftKey: true })
+    expect((document.activeElement as HTMLElement).dataset['glanceMark']).toBe(flagged[flagged.length - 1])
+    select(order[3]!)
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([])
+  })
+
+  it('core\'s own pointer keeps Olumi\'s blue ring on its mark; once the person selects that card, its ring is the selection\'s ink', () => {
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    const ids = strip().map((b) => b.dataset['glanceMark']!), pointed = ids.filter((id) => card(id).focus), plain = ids.filter((id) => !card(id).focus)
+    expect(pointed.length).toBeGreaterThan(0)
+    // Class tokens, not substrings: every control also carries `focus-visible:ring-info`, its keyboard focus ring.
+    for (const id of pointed) expect(mark(id).classList.contains('ring-info'), id).toBe(true)
+    for (const id of plain) expect(mark(id).classList.contains('ring-info'), id).toBe(false)
+    select(pointed[0]!)
+    expect(mark(pointed[0]!).classList.contains('ring-text-header')).toBe(true)
+    expect(mark(pointed[0]!).classList.contains('ring-info')).toBe(false)
+  })
+
+  it('a named group holds every mark; Home, End and the arrows wrap in the strip\'s order; Esc, from a mark or a row label, lets go', () => {
+    ringCards(['opening_cash'])
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    const group = screen.getByRole('group', { name: REASONING_LABELS.glance }), marks = strip(), last = marks.length - 1
+    expect(marks.every((b) => group.contains(b))).toBe(true)
+    act(() => { marks[0]!.focus() })
+    fireEvent.keyDown(marks[0]!, { key: 'End' })
+    expect(document.activeElement).toBe(marks[last])
+    fireEvent.keyDown(marks[last]!, { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(marks[0])
+    fireEvent.keyDown(marks[0]!, { key: 'ArrowLeft' })
+    expect(document.activeElement).toBe(marks[last])
+    fireEvent.keyDown(marks[last]!, { key: 'Home' })
+    expect(document.activeElement).toBe(marks[0])
+    // Esc from a row label (keyboard focus on it, so no mark holds a ring of its own) lets go of that kind's ring and the selection; the
+    // chat's ring is not the tab's to clear.
+    const label = screen.getByTestId('view-reasoning-glance-options').querySelector<HTMLButtonElement>('[data-glance-family="option"]')!
+    act(() => { label.focus() })
+    fireEvent.click(label)
+    select(marks[1]!.dataset['glanceMark']!)
+    fireEvent.keyDown(label, { key: 'Escape' })
+    expect(label.getAttribute('aria-pressed')).toBe('false')
+    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([])
+    expect(lit()).toEqual(['opening_cash'])
+  })
+
+  it('a key with Alt, Ctrl or Cmd is left to the browser: nothing moves and nothing is prevented', () => {
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    const marks = strip()
+    act(() => { marks[1]!.focus() })
+    for (const k of [{ key: 'ArrowLeft', altKey: true }, { key: 'ArrowRight', altKey: true }, { key: 'n', ctrlKey: true }, { key: 'n', metaKey: true }, { key: 'End', ctrlKey: true }]) {
+      expect(fireEvent.keyDown(marks[1]!, k), JSON.stringify(k)).toBe(true)
+      expect(document.activeElement, JSON.stringify(k)).toBe(marks[1])
+    }
+  })
+
+  it('the pointer and the keyboard each hold their own ring: moving the pointer off never drops the focused mark\'s card', () => {
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    const [a, b] = strip().map((x) => x.dataset['glanceMark']!)
+    act(() => { mark(a!).focus() })
+    expect(lit()).toEqual([a])
+    fireEvent.mouseEnter(mark(b!))
+    expect(lit()).toEqual([a, b].sort())
+    fireEvent.mouseLeave(mark(b!))
+    expect(lit()).toEqual([a])
+    fireEvent.mouseEnter(mark(a!)); fireEvent.mouseLeave(mark(a!))
+    expect(lit()).toEqual([a])
+    act(() => { mark(a!).blur() })
+    expect(lit()).toEqual([])
+  })
+
+  it('pressing another card\'s mark while one is selected asks the canvas for that card, and lets go of nothing', () => {
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    const [a, b] = strip().slice(2).map((x) => x.dataset['glanceMark']!)
+    select(a!)
+    fireEvent.click(mark(b!))
+    expect(focused).toEqual([b])
+    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([a])
+  })
+
+  it('the ring stays on a card the canvas redraws: React Flow rebuilds a node\'s class when its mark selects it, and the ring is put back', async () => {
+    // The canvas's own node for one card, as React Flow draws it: its class rebuilt from the selection on every change of its own.
+    function Node({ id }: { id: string }) {
+      const on = useCanvasStore((s) => s.selection.nodeIds.has(id))
+      return <div className={`react-flow__node${on ? ' selected' : ''}`} data-id={id} />
+    }
+    const target = [...m.cards].find((c) => c.family === 'option')!.id
+    document.querySelector(`.react-flow__node[data-id="${target}"]`)!.remove()
+    render(<><Node id={target} /><ViewReasoning model={m} brief={view.brief} /></>)
+    act(() => { mark(target).focus() })
+    expect(lit()).toEqual([target])
+    select(target)
+    expect(document.querySelector(`.react-flow__node[data-id="${target}"]`)!.classList.contains('selected')).toBe(true)
+    await act(async () => { await Promise.resolve() })
+    expect(lit()).toEqual([target])
+  })
+})
+
+// The redesign's head row (reasoning-redesign-SPEC.md §3 Z1, PR0): one home for the tab's state, above the tab, each state said once in
+// words already said on this lane, with its way back; nothing at rest. Bound by the strip's own state and the store it acts on.
+describe('the tab says its state once, above it', () => {
+  const realLook = useViewStore.getState().look
+  afterEach(() => { useViewStore.setState({ at: null, look: realLook } as never) })
+  const whatIf = read('whatif.view.json')
+  const variant = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/whatif.answer.json'), 'utf8')).variants[0] as WhatIfVariant
+  const show = (base: number, sid = whatIf.id) => useWhatIf.setState({ shown: { sid, base, quantity: variant.edits[0]!.quantity, typed: '5', variant } })
+
+  it('a held proposal: core\'s heading and version, in the strip above the tab, and said nowhere else', () => {
+    const held = read('proposal.view.json')
+    ready(held)
+    const { container } = render(<ViewReasoningBlock />)
+    const strip = screen.getByTestId('view-reasoning-state')
+    expect(strip.dataset['state']).toBe('proposal')
+    expect(strip.querySelector('[data-view-proposal="heading"]')!.textContent).toBe(held.proposal!.heading)
+    expect(strip.querySelector('[data-view-proposal="on"]')!.textContent).toBe(held.proposal!.on)
+    expect(container.querySelectorAll('[data-view-proposal="heading"]')).toHaveLength(1)
+    expect(strip.compareDocumentPosition(screen.getByTestId('view-reasoning')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('a past version: the number the person chose (`at`), not the View\'s own, and Back to the latest asks core for the latest', () => {
+    const bakery = read('bakery.view.json'), look = vi.fn(async () => null)
+    expect(bakery.version!.n).not.toBe(3)
+    ready(bakery, { at: 3, look })
+    render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('view-reasoning-state').dataset['state']).toBe('past')
+    expect(screen.getByTestId('view-reasoning-past').textContent).toBe('Version 3 is on the canvas, as it was.')
+    fireEvent.click(screen.getByTestId('view-reasoning-back'))
+    expect(look.mock.calls).toEqual([[null]])
+  })
+
+  it('a what-if on this version: said once, in the strip, and Clear there drops it; one asked on another version or scenario is not said', () => {
+    ready(whatIf)
+    show(whatIf.model!.edit_base!)
+    const { container, rerender } = render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('view-reasoning-state').dataset['state']).toBe('whatif')
+    expect(screen.getByTestId('view-reasoning-whatif').textContent).toBe('What-if, not saved')
+    expect(container.textContent!.split('What-if, not saved')).toHaveLength(2)
+    expect(screen.queryByTestId('view-whatif-clear')).toBeNull()
+    expect(screen.getByTestId('view-whatif').querySelector('[data-view="whatif.edits.0.words"]')!.textContent).toBe(variant.edits[0]!.words)
+    fireEvent.click(screen.getByTestId('view-reasoning-whatif-clear'))
+    expect(useWhatIf.getState().shown).toBeNull()
+    expect(screen.queryByTestId('view-reasoning-state')).toBeNull()
+    show(whatIf.model!.edit_base! + 1)
+    rerender(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('view-reasoning-state')).toBeNull()
+    expect(screen.queryByTestId('view-whatif')).toBeNull()
+    // The same version number on another scenario (a what-if still held after the person opened another one): not this tab's.
+    show(whatIf.model!.edit_base!, 's_00000000ffff')
+    rerender(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('view-reasoning-state')).toBeNull()
+    expect(screen.queryByTestId('view-whatif')).toBeNull()
+  })
+
+  it('a proposal held back while a what-if is shown: the strip says the proposal, and the what-if box keeps its own label and Clear', () => {
+    // Core holds a proposal back from a viewer who has not given their own view (view.ts `heldProposal`): it serves `proposal`, but the
+    // canvas draws the approved version, whose `edit_base` stays set, so a what-if tried on it stays shown. Never unlabelled under the
+    // proposal's strip, where it would read as the proposal's figures.
+    const held = read('proposal.view.json'), base = 41, v = { ...held, model: { ...held.model!, edit_base: base } }
+    expect(held.proposal).not.toBeNull()
+    ready(v)
+    show(base, v.id)
+    const { container } = render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('view-reasoning-state').dataset['state']).toBe('proposal')
+    expect(screen.queryByTestId('view-reasoning-whatif')).toBeNull()
+    expect(screen.getByTestId('view-whatif-clear')).not.toBeNull()
+    expect(screen.getByTestId('view-whatif').querySelector('[data-view="whatif.edits.0.words"]')!.textContent).toBe(variant.edits[0]!.words)
+    expect(container.textContent!.split('What-if, not saved')).toHaveLength(2)
+    fireEvent.click(screen.getByTestId('view-whatif-clear'))
+    expect(useWhatIf.getState().shown).toBeNull()
+  })
+
+  it('at rest, the latest approved model with nothing tried: no strip, and the tab starts at its own top', () => {
+    ready(read('bakery.view.json'))
+    const { container } = render(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('view-reasoning-state')).toBeNull()
+    expect(container.firstElementChild!.childElementCount).toBe(0)
   })
 })
 

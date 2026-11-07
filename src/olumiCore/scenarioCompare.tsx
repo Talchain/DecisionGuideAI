@@ -29,7 +29,8 @@ type Cell = { value: string; title: string; olumi: Mark | null; lead: string | n
 type Line = { text: string; title: string }
 type Side = { id: string; title: string; name: string; note: string | null; kind?: string; about?: string | null }
 type AimSide = { label: string; measure: string; target: string | null }
-type OptionSide = { cells: Cell[]; uncertainty?: Line | null; driver?: (Line & { figure: string; label: string }) | null }
+/** `moves_most` (a saved what-if's side, core wip/compare cc13ef0c): which of its changes, on its own, moves this chance most, in core's words. */
+type OptionSide = { cells: Cell[]; uncertainty?: Line | null; driver?: (Line & { figure: string; label: string }) | null; moves_most?: (Line & { figure: string }) | null }
 type OptionRow = { label: string; only_in: 'a' | 'b' | null; only_in_text: string | null; a: OptionSide | null; b: OptionSide | null }
 export type AimStatus = 'comparable' | 'different_target' | 'not_comparable' | 'only_a' | 'only_b'
 type AimRow = { label: string; kind: 'aim' | 'limit'; status: AimStatus | string; limitation: string | null; only_in_text: string | null; a: AimSide | null; b: AimSide | null; options: OptionRow[]
@@ -52,7 +53,8 @@ function Cells({ side }: { side: OptionSide | null }): JSX.Element {
     <div className="grid content-start gap-1 break-words" data-compare-cells="">
       {arr(side?.cells).map((c, i) => (
         <p key={i} className={`${BODY} grid gap-0.5`} title={c.title} data-compare-cell="">
-          <span><MarkSpan m={c.olumi} /><span className="font-semibold text-text-header" data-compare-value="">{words(c.headline) ? c.headline : c.value}</span></span>
+          {/* Core's headline reads as the cell's headline; an older core's whole value keeps today's look (UI audit item 4). */}
+          <span><MarkSpan m={c.olumi} /><span className={words(c.headline) ? 'font-semibold text-text-header' : undefined} data-compare-value="">{words(c.headline) ? c.headline : c.value}</span></span>
           {words(c.headline) && c.companion && words(c.companion.text) ? <span className={META} title={c.companion.title} data-compare-companion="">{c.companion.text}</span> : null}
           {c.olumi !== null && words(c.lead) ? <span className={META} data-compare-lead="">{c.lead}</span> : null}
           {words(c.condition) ? <span className={META} data-compare-condition="">{c.condition}</span> : null}
@@ -61,6 +63,7 @@ function Cells({ side }: { side: OptionSide | null }): JSX.Element {
       {/* Core's own range for what the aim measures under this option (its uncertainty), and the figure its chance moves most with. */}
       {side?.uncertainty && words(side.uncertainty.text) ? <p className={META} title={side.uncertainty.title} data-compare-uncertainty="">{side.uncertainty.text}</p> : null}
       {side?.driver && words(side.driver.text) ? <p className={META} title={side.driver.title} data-compare-driver={side.driver.figure}>{side.driver.text}</p> : null}
+      {side?.moves_most && words(side.moves_most.text) ? <p className={`${BODY} break-words`} title={side.moves_most.title} data-compare-moves={side.moves_most.figure}>{side.moves_most.text}</p> : null}
     </div>
   )
 }
@@ -81,7 +84,7 @@ function Lead({ c }: { c: Cell | null | undefined }): JSX.Element {
 /** The mark for one side of an option: its first cell's own number (its headline chance), with core's words. */
 const sideMark = (s: OptionSide | null) => { const c = arr(s?.cells)[0]; return c ? markOf(c.chance, words(c.headline) ? c.headline : c.value) : null }
 
-function Aim({ aim }: { aim: AimRow }): JSX.Element {
+function Aim({ aim, names }: { aim: AimRow; names: { first: string; second: string } }): JSX.Element {
   const targets = aim.status === 'different_target'
   const paired = aim.status === 'comparable' || targets
   const lead = aim.most_likely
@@ -99,9 +102,9 @@ function Aim({ aim }: { aim: AimRow }): JSX.Element {
         <div key={`${o.label}-${i}`} className="grid gap-1" data-compare-option={paired && o.only_in === null ? 'paired' : 'alone'}>
           <p className={`${BODY} text-text-header break-words`}>{o.label}</p>
           {words(o.only_in_text) ? <p className={META} data-compare-only-in="">{o.only_in_text}</p> : null}
-          {/* The earlier DGAI's shift track: hollow for the first side, filled for the second, where core gives each its number. */}
-          {/* Only for aims whose two chances are of the same target: a track joins two marks as one chance moving. */}
-          {aim.status === 'comparable' && o.only_in === null ? <ShiftTrack first={sideMark(o.a)} second={sideMark(o.b)} /> : null}
+          {/* The earlier DGAI's shift track: hollow for the first side, filled for the second, where core gives each its number. Only where
+              both sides answer the same question ('comparable'): two chances of different targets are never drawn as one chance moving. */}
+          {aim.status === 'comparable' && o.only_in === null ? <ShiftTrack first={sideMark(o.a)} second={sideMark(o.b)} names={names} /> : null}
           <div className="grid grid-cols-2 gap-3"><Cells side={o.a} /><Cells side={o.b} /></div>
         </div>
       ))}
@@ -145,6 +148,7 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
   const said = new Set<string>([c.a?.note, c.b?.note, ...aims.map((a) => a.limitation), ...figures.map((f) => f.limitation)].filter(words))
   const notes = arr(c.limits).filter((l) => !said.has(l))
   const showFigures = figures.some((f) => f.status !== 'same')
+  const names = { first: c.a?.name ?? '', second: c.b?.name ?? '' }
   return (
     <div className="grid gap-2" data-testid="scenario-compare-out">
       <div className="sticky top-0 z-10 grid grid-cols-2 gap-3 bg-panel py-1" data-testid="scenario-compare-heads">
@@ -156,10 +160,10 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
           </div>
         ))}
       </div>
-      {aims.map((a, i) => <Aim key={`${a.label}-${i}`} aim={a} />)}
-      {/* The key to the marks, once, named by the two sides as core names them. */}
+      {aims.map((a, i) => <Aim key={`${a.label}-${i}`} aim={a} names={names} />)}
+      {/* The key to the marks, once, named by the two sides as core names them; only when a track is drawn ('comparable' aims). */}
       {aims.some((a) => a.status === 'comparable' && arr(a.options).some((o) => o.only_in === null && (sideMark(o.a) || sideMark(o.b))))
-        ? <TrackKey first={c.a?.name ?? ''} second={c.b?.name ?? ''} /> : null}
+        ? <TrackKey first={names.first} second={names.second} /> : null}
       {options.length === 0 && !showFigures ? null : (
         <section className={CARD} data-testid="scenario-compare-differences" aria-label="Differences">
           <h4 className={H}>Differences</h4>
@@ -232,13 +236,16 @@ function Pick({ id, label, groups, value, disabled, onChange }: { id: string; la
  * name. Core tries it on a copy of the approved version shown and keeps it with its Run; nothing in the model changes. Core's refusal is
  * drawn in its own words.
  */
+/** At most this many figures in one what-if from this form (core takes up to 20). */
+const WHATIF_FIGURES = 5
+
 function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => void }): JSX.Element | null {
   const view = useViewStore((s) => s.view), at = useViewStore((s) => s.at)
   const model = useViewStore(shownModel)
   const figures = arr(model?.cards).filter((c) => c.figure?.edit != null)
   const base = at === null ? view?.version?.id ?? null : null
-  const [quantity, setQuantity] = useState<string | null>(null)
-  const [typed, setTyped] = useState('')
+  // Each row is one figure of the model and what the person types for it; one row to start, more on "Add another figure".
+  const [rows, setRows] = useState<{ quantity: string | null; typed: string }[]>([{ quantity: null, typed: '' }])
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -246,18 +253,25 @@ function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => vo
   // While a change waits for approval no card offers its figure (core's `figure.edit` is null): said once, so the form is not just missing.
   if (base !== null && figures.length === 0 && view?.proposal != null) return <p className={META} data-testid="whatif-save-waiting">Approve or set aside the waiting change to save a what-if here.</p>
   if (base === null || figures.length === 0) return null
-  const pick = quantity !== null && figures.some((c) => c.id === quantity) ? quantity : figures[0]!.id
-  const card = figures.find((c) => c.id === pick)!
-  const ready = typed.trim() !== '' && name.trim() !== '' && !busy
+  // A row's figure: its own pick, else the first figure no earlier row has taken.
+  const picks: string[] = []
+  for (const r of rows) {
+    const own = r.quantity !== null && figures.some((c) => c.id === r.quantity) ? r.quantity : null
+    picks.push(own ?? figures.find((c) => !picks.includes(c.id))?.id ?? figures[0]!.id)
+  }
+  const twice = new Set(picks).size !== picks.length
+  const ready = name.trim() !== '' && rows.every((r) => r.typed.trim() !== '') && !twice && !busy
+  const set = (i: number, patch: Partial<{ quantity: string | null; typed: string }>) => { setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r))); setError(null) }
   const save = async () => {
     if (!ready) return
+    const edits = rows.map((r, i) => ({ quantity: picks[i]!, typed: r.typed }))
     // The same request re-sent keeps its operation id, so core saves it once.
-    const key = JSON.stringify([base, pick, typed, name])
+    const key = JSON.stringify([base, edits, name])
     if (op.current?.key !== key) op.current = { key, op: newOp() }
     setBusy(true); setError(null)
     try {
-      const r = await call<{ whatif: string }>('POST', `/api/scenarios/${encodeURIComponent(sid)}/whatifs`, { base, name, edits: [{ quantity: pick, typed }], op: op.current.op })
-      setTyped(''); setName(''); op.current = null
+      const r = await call<{ whatif: string }>('POST', `/api/scenarios/${encodeURIComponent(sid)}/whatifs`, { base, name, edits, op: op.current.op })
+      setRows([{ quantity: null, typed: '' }]); setName(''); op.current = null
       onSaved(r.whatif)
     } catch (e) {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through.')
@@ -267,18 +281,27 @@ function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => vo
     <form className={`${CARD}`} data-testid="whatif-save" aria-label="Save a what-if" onSubmit={(e) => { e.preventDefault(); void save() }}>
       <h4 className={H}>Save a what-if</h4>
       <p className={META}>Tried on a copy of version {view?.version?.n}; the model itself does not change.</p>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="grid gap-1">
-          <span className={META}>Figure</span>
-          <select aria-label="Figure to try" data-testid="whatif-save-figure" className={PICK} value={pick} disabled={busy} onChange={(e) => { setQuantity(e.target.value); setError(null) }}>
-            {figures.map((c) => <option key={c.id} value={c.id} title={c.figure!.title}>{c.heading}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1">
-          <span className={META} title={card.figure!.edit!.ask}>{card.figure!.edit!.prompt}</span>
-          <input data-testid="whatif-save-typed" className={FIELD} value={typed} disabled={busy} placeholder={card.figure!.text} onChange={(e) => { setTyped(e.target.value); setError(null) }} />
-        </label>
-      </div>
+      {rows.map((r, i) => {
+        const card = figures.find((c) => c.id === picks[i])!
+        return (
+          <div key={i} className="grid gap-2 sm:grid-cols-2" data-whatif-row={i}>
+            <label className="grid content-start gap-1">
+              <span className={META}>Figure</span>
+              <select aria-label="Figure to try" data-testid="whatif-save-figure" className={PICK} value={picks[i]} disabled={busy} onChange={(e) => set(i, { quantity: e.target.value })}>
+                {figures.map((c) => <option key={c.id} value={c.id} title={c.figure!.title}>{c.heading}</option>)}
+              </select>
+            </label>
+            <label className="grid content-start gap-1">
+              <span className={META} title={card.figure!.edit!.ask}>{card.figure!.edit!.prompt}</span>
+              <input data-testid="whatif-save-typed" className={FIELD} value={r.typed} disabled={busy} placeholder={card.figure!.text} onChange={(e) => set(i, { typed: e.target.value })} />
+            </label>
+            {rows.length > 1 ? <div className="sm:col-span-2"><Button size="sm" variant="ghost" data-testid="whatif-save-remove" disabled={busy} onClick={() => { setRows((rs) => rs.filter((_, j) => j !== i)); setError(null) }}>Remove this figure</Button></div> : null}
+          </div>
+        )
+      })}
+      {twice ? <p className={ERR} data-testid="whatif-save-twice">Each figure once in a what-if.</p> : null}
+      {rows.length < Math.min(WHATIF_FIGURES, figures.length)
+        ? <div><Button size="sm" variant="ghost" data-testid="whatif-save-more" disabled={busy} onClick={() => { setRows((rs) => [...rs, { quantity: null, typed: '' }]); setError(null) }}>Add another figure</Button></div> : null}
       <label className="grid gap-1">
         <span className={META}>Name this what-if</span>
         <input data-testid="whatif-save-name" className={FIELD} value={name} disabled={busy} maxLength={80} onChange={(e) => { setName(e.target.value); setError(null) }} />

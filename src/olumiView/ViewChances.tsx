@@ -64,20 +64,31 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
 }
 
 /**
+ * The what-if shown on this model's version, or null: the one gate for every block that draws it or says it is there (the what-if box
+ * below, and the Reasoning tab's state strip), so the two never disagree about whether a what-if is on screen.
+ */
+export function useWhatIfOn(model: ViewModel | null) {
+  const sid = useViewStore((s) => s.sid), shown = useWhatIf((s) => s.shown)
+  return model === null || shown === null || shown.sid !== sid || shown.base !== model.edit_base ? null : shown
+}
+
+/**
  * The what-if shown (core's `POST …/whatif`): marked not saved, core's words for the figure tried, then what the copy's Run gives, each
  * option's rows drawn by `Row` from core's own row shape, under the option's heading from this View. Only for the version it was asked on.
+ * `labelled={false}` where the tab says the state itself (the Reasoning tab's state strip draws the label and Clear), so it is said once.
  */
-export function WhatIfShown({ model }: { model: ViewModel }) {
-  const sid = useViewStore((s) => s.sid)
-  const shown = useWhatIf((s) => s.shown)
-  if (shown === null || shown.sid !== sid || shown.base !== model.edit_base) return null
+export function WhatIfShown({ model, labelled = true }: { model: ViewModel; labelled?: boolean }) {
+  const shown = useWhatIfOn(model)
+  if (shown === null) return null
   const v = shown.variant, heading = new Map(optionCards(model).map((c) => [c.id, c]))
   return (
     <div className="space-y-2 rounded-lg border border-info/30 p-2" data-testid="view-whatif" aria-label="What-if, not saved">
-      <div className="flex items-baseline justify-between gap-2">
-        <p className={typography.panelHeader}>What-if, not saved</p>
-        <button type="button" data-testid="view-whatif-clear" onClick={clearWhatIf} className={`${typography.viewPanelMeta} cursor-pointer text-info underline underline-offset-2`}>Clear</button>
-      </div>
+      {!labelled ? null : (
+        <div className="flex items-baseline justify-between gap-2">
+          <p className={typography.panelHeader}>What-if, not saved</p>
+          <button type="button" data-testid="view-whatif-clear" onClick={clearWhatIf} className={`${typography.viewPanelMeta} cursor-pointer text-info underline underline-offset-2`}>Clear</button>
+        </div>
+      )}
       {v.edits.map((e, i) => <p key={e.quantity} data-view={`whatif.edits.${i}.words`}>{e.words}</p>)}
       {v.stopped !== null ? <p data-view="whatif.stopped">{v.stopped}</p>
         : v.blocked !== null ? <p title={v.blocked} data-testid="view-whatif-blocked">Olumi could not work this what-if out.</p>

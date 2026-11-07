@@ -49,6 +49,11 @@ export function ChangeItem({ l }: { l: Compared['changes'][number] }): JSX.Eleme
 /** The comparison as core read it, in three short lists. `id` prefixes each list's test id, one per surface; `who: false` leaves out the
  *  first list where the surface names the version's people itself (the version history's record). */
 export function ComparedLists({ c, id = 'team-compare', who = true, boxed = false }: { c: Compared; id?: string; who?: boolean; boxed?: boolean }): JSX.Element {
+  // The two marks are core's `before` and `after`, which core always reads from the lower version to the higher whatever order it was asked
+  // in (core service.ts compare: [lo, hi]; pinned by its service.test 'compare(…, 3, 1) equals compare(…, 1, 3)'). Its `versions` list runs
+  // from the one to the other in that same order, so the key is named from that list's ends, in core's order, never sorted here.
+  const ends = [c.versions[0], c.versions[c.versions.length - 1]]
+  const key = { first: ends[0] ? `Version ${ends[0].n}` : '', second: ends[1] ? `Version ${ends[1].n}` : '' }
   const list = (items: JSX.Element[], empty: string, part: string) => (items.length
     ? <ul className="m-0 grid list-none gap-1.5 p-0" data-testid={`${id}-${part}`}>{items}</ul>
     : <p className={META} data-testid={`${id}-${part}-none`}>{empty}</p>)
@@ -67,11 +72,11 @@ export function ComparedLists({ c, id = 'team-compare', who = true, boxed = fals
         // What the result is about on its own line, then before → after and how it moved: one result, two short lines.
         <li key={i} className={`${BODY} grid`}><span className="text-text-header">{what(r)}:</span>{' '}<span><SideText s={r.before} /> → <SideText s={r.after} /> <span className="text-text-light">({moveWords(r)})</span></span>
           {/* The earlier DGAI's shift track: the earlier version hollow, the later filled, where core gives each its number. */}
-          {r.kind !== 'most_likely' ? <ShiftTrack first={r.before ? markOf(r.before.chance, headOf(r.before)) : null} second={r.after ? markOf(r.after.chance, headOf(r.after)) : null} /> : null}
+          {r.kind !== 'most_likely' ? <ShiftTrack first={r.before ? markOf(r.before.chance, headOf(r.before)) : null} second={r.after ? markOf(r.after.chance, headOf(r.after)) : null} names={key} /> : null}
         </li>
       )), 'No results in either version', 'results'))}
       {c.results.some((r) => r.kind !== 'most_likely' && (markOf(r.before?.chance, '') || markOf(r.after?.chance, '')))
-        ? <TrackKey first={`Version ${Math.min(...c.versions.map((v) => v.n))}`} second={`Version ${Math.max(...c.versions.map((v) => v.n))}`} /> : null}
+        ? <TrackKey first={key.first} second={key.second} /> : null}
     </div>
   )
 }
@@ -98,8 +103,7 @@ export function CoreCompare({ sid, latest, id, auto = false, boxed = false }: { 
     const mine = ++seq.current
     if (a === b) { setBusy(false); setShown(null); setError('Pick two different versions.'); return }
     setBusy(true); setError(null)
-    // Core's before/after follow `from`/`to`, and the key names the lower version hollow: so the lower version is always `from`
-    // (also what the "Earlier"/"Later" labels promise), whichever way round the pickers were set.
+    // Asked earlier first, as the pickers' labels say (UI audit item 1); core answers lower-to-higher either way.
     const [lo, hi] = a < b ? [a, b] : [b, a]
     try {
       const r = await call<Compared>('GET', `/api/scenarios/${encodeURIComponent(sid)}/compare?from=${lo}&to=${hi}`)
