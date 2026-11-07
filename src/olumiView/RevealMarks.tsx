@@ -7,6 +7,7 @@ import { GitFork } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
 import { typography } from '../styles/typography'
 import { useViewStore } from './store'
+import { CARD_WIDTH } from './layout'
 import { marksOn, revealOf, useReveal, type Mark } from './reveal'
 
 /** Open one view in the dock. */
@@ -57,15 +58,16 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
   const { chips, selected, heading } = useMarks(card)
   if (chips.length === 0) return null
   return (
-    <div className="nodrag mt-3 flex flex-col items-start gap-1.5" data-testid={`reveal-chips-${card}`}>
+    // Centred under the card, on its outgoing links, inside the gap to the next row (out of flow: no card moves).
+    <div className="nodrag mt-1 flex flex-col items-center gap-1" style={{ width: CARD_WIDTH }} data-testid={`reveal-chips-${card}`}>
       {chips.map((m) => {
         const on = selected === m.view
         return (
           <button key={`${m.view}:${m.figure?.quantity ?? ''}`} type="button" aria-pressed={on} aria-label={markWords(m, heading(m))} title={markWords(m, heading(m))}
             data-reveal-chip={m.view} data-reveal-status={m.status ?? undefined}
             onClick={(e) => { e.stopPropagation(); openView(m.view) }}
-            className={`pointer-events-auto inline-flex min-h-[28px] max-w-[260px] cursor-pointer items-center gap-1.5 rounded-full border bg-panel py-0.5 pl-1 pr-3 ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'border-text-header ring-1 ring-text-header' : 'border-text-header'}`}>
-            <span aria-hidden="true" className="inline-grid h-5 w-5 flex-none place-items-center rounded-full border border-panel-border bg-canvas text-text-body">{initial(m.by)}</span>
+            className={`pointer-events-auto inline-flex h-6 max-w-full cursor-pointer items-center gap-1.5 rounded-full border bg-panel pl-0.5 pr-2.5 ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'border-text-header ring-1 ring-text-header' : 'border-text-header'}`}>
+            <span aria-hidden="true" className="inline-grid h-[18px] w-[18px] flex-none place-items-center rounded-full border border-panel-border bg-canvas text-text-body">{initial(m.by)}</span>
             <GitFork aria-hidden="true" className="h-3 w-3 flex-none text-text-body" />
             {/* Core's label for it when core sends one; until then the person and their figure, in core's words. */}
             <span className="truncate">{m.chip ?? (m.figure === null ? m.by : `${m.by}: ${m.figure.text}`)}</span>

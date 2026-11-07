@@ -6,3 +6,5 @@
   own view was not given, so the round waits for him. Every effect, heading and value is core's own output.
 - The specs add core's REQUESTED V11 fields (`collab.shared[].kind`, `effects[].chip`, `shared[].about`, `collab.next`; asked of the DL on
   7 Nov) to a copy of this View in code. Those values are invented placeholders of the requested shape, labelled where they are made.
+- `consulting-whatif-priya.json`: core's REAL answer to `POST …/whatif { base: 18, variants: [{ edits: [{ quantity:
+  "diagnostic_time_to_contract", typed: "6 to 12 months" }] }] }` on the same copy (Priya's figure as core words it), 7 Nov.

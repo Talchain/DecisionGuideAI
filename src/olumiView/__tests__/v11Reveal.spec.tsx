@@ -7,13 +7,15 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { marksOn, revealOf, useReveal } from '../reveal'
 import { CardViewChips, CardViewInitials } from '../RevealMarks'
 import { RevealDock } from '../RevealDock'
+import { clearWhatIf, useWhatIf } from '../whatif'
+import { setTeamFetch } from '../../olumiCore/team/api'
 
 /** A real View (core e38d9f4c on a copy of Paul's board, seeded demo people; fixtures/v11/README.md). */
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-reveal.view3.json'), 'utf8'))
@@ -25,7 +27,7 @@ beforeEach(() => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-a88ba245176e', sid: real.id, view: real, status: 'ready', error: null, stale: false, at: null })
   useReveal.setState({ selected: null })
 })
-afterEach(() => { cleanup(); vi.restoreAllMocks() })
+afterEach(() => { cleanup(); vi.restoreAllMocks(); setTeamFetch(null); clearWhatIf() })
 
 describe('where each revealed view sits (real View)', () => {
   it('puts each figure on its card, an option’s own figure on that option, and the moving one as the chip', () => {
@@ -83,5 +85,33 @@ describe('on the canvas and in the dock', () => {
     expect(within(dock).getByTestId('reveal-dock-next').textContent).toBe(real.model!.run!.most_likely!.text)
     fireEvent.click(within(dock).getByTestId(`reveal-dock-other-${TOM.id}`))
     expect(useReveal.getState().selected).toBe(TOM.id)
+  })
+})
+
+describe('try their figure in place (V11 change 4)', () => {
+  /** Core's real what-if answer for Priya's figure on the same copy (fixtures/v11/README.md). */
+  const whatif = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-whatif-priya.json'), 'utf8'))
+  it('runs their figure, as core words it, on a copy; shows each option saved beside what-if; back drops it', async () => {
+    const posts: unknown[] = []
+    setTeamFetch((async (u: unknown, init?: RequestInit) => {
+      if ((init?.method ?? 'GET') === 'GET') return new Response(JSON.stringify({ me: { id: real.you_id, name: real.you } }), { status: 200 })
+      posts.push({ path: String(u), body: JSON.parse(String(init!.body)) })
+      return new Response(JSON.stringify(whatif), { status: 200 })
+    }) as unknown as typeof fetch)
+    useReveal.setState({ selected: PRIYA.id })
+    render(<RevealDock view={real} />)
+    await act(async () => { fireEvent.click(screen.getByTestId('reveal-dock-try')) })
+    expect(posts).toEqual([{ path: `/api/scenarios/${real.id}/whatif`, body: { base: real.model!.edit_base, variants: [{ edits: [{ quantity: 'diagnostic_time_to_contract', typed: PRIYA.figures[0]!.text }] }] } }])
+    const tried = await screen.findByTestId('reveal-dock-tried')
+    expect(tried).toHaveTextContent(whatif.variants[0].edits[0].words)
+    const diag = tried.querySelector('[data-whatif-key-option="paid_enterprise_diagnostic"]') as HTMLElement
+    const savedChance = real.model!.cards.find((c) => c.id === DIAG)!.rows.find((r) => r.kind === 'chance')!
+    const triedChance = whatif.variants[0].rows.find((o: { option_id: string }) => o.option_id === DIAG).rows.find((r: { kind: string }) => r.kind === 'chance')
+    expect(diag).toHaveTextContent((savedChance as { value: string }).value)
+    expect(diag).toHaveTextContent(triedChance.value)
+    expect(screen.queryByTestId('reveal-dock-consequence')).toBeNull()
+    fireEvent.click(screen.getByTestId('reveal-dock-untry'))
+    await waitFor(() => expect(screen.queryByTestId('reveal-dock-tried')).toBeNull())
+    expect(useWhatIf.getState().shown).toBeNull()
   })
 })
