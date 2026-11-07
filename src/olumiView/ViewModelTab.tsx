@@ -70,7 +70,12 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
   const allOpen = ids.every((id) => opened.has(id))
   const toggle = (id: GroupId) => setOpened((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const anyMatch = shown.some((g) => g.rows.length > 0 || g.question) || links.length > 0
-  const authorKey = useMemo(() => authorKeyOf(model, shown.flatMap((g) => g.cards)), [model, shown])
+  // The key names only the marks of the rows actually drawn: an open group's rows, as the filter leaves them (authorKeyOf's own rule).
+  const drawn = shown.flatMap((g) => {
+    const count = !searching ? g.cards.length + (g.id === 'goal' ? 1 : 0) : g.rows.length + (g.question ? 1 : 0)
+    return (g.cards.length > 0 || g.id === 'goal') && isOpen(g.id, count) ? g.rows : []
+  })
+  const authorKey = authorKeyOf(model, drawn)
   return (
     <div className={`${typography.viewPanelBody} space-y-2 pb-4`} data-testid="view-model-tab">
       <div className="flex items-center justify-between gap-2">
@@ -116,7 +121,7 @@ export function ViewModelTab({ model }: { model: ViewModel }): JSX.Element {
                   <span aria-hidden="true" className="w-4 flex-none text-center text-text-light">{KIND_GLYPH.relationship}</span>
                   <span className="min-w-0 flex-1">
                     {/* Core's label is a mark (◇, ⊢, ↝, +): it follows the last word, as on the canvas; the strength is line 2. */}
-                    <span className="block break-words text-text-header">
+                    <span className="block break-words text-text-header" data-model-link-line={`links.${i}`}>
                       <span>{from}</span>
                       <span aria-hidden="true" className="text-text-light"> → </span>
                       <span>{to}</span>
