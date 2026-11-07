@@ -101,8 +101,11 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
         <div title={`${row.aim} · ${row.title}`} data-view-row={at}>
         <div className="flex items-baseline gap-1">
           <span className="sr-only" data-view={`${at}.aim`}>{row.aim}</span>
-          <span aria-hidden="true" style={{ color: 'var(--goal)' }} className={typography.viewHeadline}>◎</span>
-          <span className={`min-w-0 ${typography.viewHeadline} text-text-header`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
+          {/* R25 (Paul's finding C1, "about 13% / chance" on two lines; DL 7 Nov): one line. Core's qualifier (`approx`, its own field) and
+              the ◎ are reading size; core's value is the 18px headline, set tight so "about 49% chance" fits one line beside its marks
+              in the 220px card (measured: 165px plain, 158px tight, 162px free); a long conditional one still wraps inside the card. */}
+          <span aria-hidden="true" style={{ color: 'var(--goal)' }} className={typography.viewValue}>◎</span>
+          <span className="min-w-0 text-text-header" data-row-value={at}>{row.approx === '' ? null : <span className={typography.viewValue} data-view={`${at}.approx`}>{row.approx}</span>}<span className={`${typography.viewHeadline} tracking-tight`} data-view={`${at}.value`}>{row.value}</span></span>
           {markSpan}
         </div>
         <Companion row={row} at={at} />
@@ -222,7 +225,9 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       <span className="absolute -top-[10px] left-1/2 -translate-x-1/2 leading-none" aria-hidden="true">
         <NodeShapeIndicator nodeKind={kind} size={18} stroke="var(--bg-panel)" strokeWidth={0.6} />
       </span>
-      {ghost ? <p className="text-text-light" data-view={`${id}.change.title`}>{card.change!.title}</p> : null}
+      {/* R25 (DL 7 Nov, Paul's rule: visual indicators, not default text): a proposed addition is the dashed border; core's words for it
+          ("Proposed addition") are for readers and the card's hover, never a printed line. */}
+      {ghost ? <p className="sr-only" data-view={`${id}.change.title`}>{card.change!.title}</p> : null}
       {/* One block of inline words, so a wrapped title returns to the card's left edge under its number, as the original's did (R3 pristine). */}
       {/* An option core gives a driver carries v10's 20 px driver badge at right-1 top-1, 12 px into this row: the title keeps that room. */}
       <p data-view-title={id} className={card.family === 'option' && card.driver !== null ? 'pr-4' : undefined}>

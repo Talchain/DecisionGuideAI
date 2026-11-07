@@ -84,7 +84,10 @@ describe('the option face', () => {
     const lead = c.querySelector<HTMLElement>(`[data-view-row="${card.id}.rows.0"]`)!, next = c.querySelector<HTMLElement>(`[data-view-row="${card.id}.rows.1"]`)!
     const r0 = card.rows[0] as { aim: string; title: string; value: string }, r1 = card.rows[1] as { aim: string; title: string; value: string }
     // The 17px variant (coordinator, 6 Nov: measure whether "about 46% chance" fits one line on a 220 px card; at 20px it wrapped): was 20px.
-    expect(lead.querySelector(`[data-row-value="${card.id}.rows.0"]`)!.className).toContain(typography.viewHeadline) // R25 scale A (Paul 7 Nov): the headline role, 18px; was 17px
+    // R25 scale A (Paul 7 Nov): core's value is the headline role, 18px (was 17px); its qualifier is reading size so it fits one line (C1).
+    expect(lead.querySelector(`[data-view="${card.id}.rows.0.value"]`)!.className).toContain(typography.viewHeadline)
+    const approx = lead.querySelector(`[data-view="${card.id}.rows.0.approx"]`)
+    if (approx !== null) expect(approx.className).toContain(typography.viewValue)
     expect(lead.querySelector(`[data-view="${card.id}.rows.0.aim"]`)!.className).toContain('sr-only')
     expect(lead.getAttribute('title')).toBe(`${r0.aim} · ${r0.title}`)
     expect(next.querySelector(`[data-view="${card.id}.rows.1.aim"]`)!.className).not.toMatch(/line-clamp|truncate/) // R25 (Paul's finish line: no cut text): whole
