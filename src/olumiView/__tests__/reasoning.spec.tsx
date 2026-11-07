@@ -12,6 +12,7 @@ import { useViewStore } from '../store'
 import { optionCards } from '../layout'
 import { REASONING_LABELS, ViewReasoning, ViewReasoningBlock } from '../ViewReasoning'
 import { ViewChances } from '../ViewChances'
+import { PortAnalysis } from '../port/PortAnalysisTab'
 import { clearWhatIf, useWhatIf, type WhatIfVariant } from '../whatif'
 import { attCards, ringCards } from '../ring'
 import { setTeamFetch } from '../../olumiCore/team/api'
@@ -729,9 +730,10 @@ describe('the crafted rest state: the challenge open, depth closed behind counte
   })
 })
 
-// The option rack (the redesign's Z3; DL ruling 1, 7 Nov): each option's chance through the one ChanceTrack the Analysis tab draws it
-// with, in core's order, beside the marks of what it rests on; each option a control into the canvas.
-describe('the option rack: each option\'s chance, through the one ChanceTrack, beside what it rests on', () => {
+// The option rack (the redesign's Z3; DL ruling 1, 7 Nov): each option's chance through the one readout the served Analysis tab's option
+// row draws it with (port/HeroOptionRow HeroReadout, as PortAnalysisTab mounts AnalysisHeroPanel), in core's order, beside the marks of
+// what it rests on; each option a control into the canvas.
+describe('the option rack: each option\'s chance, through the served Analysis row\'s one readout, beside what it rests on', () => {
   const real = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', `${n}.view3.json`), 'utf8'))
   const none = () => ({ selection: { nodeIds: new Set<string>(), edgeIds: new Set<string>(), anchorPosition: null } }) as never
   let focused: string[] = [], unregister: () => void = () => {}
@@ -745,47 +747,40 @@ describe('the option rack: each option\'s chance, through the one ChanceTrack, b
   const rack = () => screen.getByTestId('view-reasoning-rack')
   const lit = () => [...document.querySelectorAll<HTMLElement>('.react-flow__node.v10-lit')].map((e) => e.dataset['id']!).sort()
 
-  it('catch: bakery: the options in core\'s order under core\'s lens label at its path; every row drawn as the Analysis tab draws it, the same markup', () => {
-    const view = read('bakery.view.json'), m = view.model!
-    mount(view)
-    expect([...rack().querySelectorAll<HTMLElement>('[data-rack-option]')].map((e) => e.dataset['rackOption'])).toEqual(optionCards(m).map((c) => c.id))
-    const li = m.run!.lenses!.findIndex((l) => l.id === 'goal')
-    expect(rack().querySelector(`[data-view="run.lenses.${li}.label"]`)?.textContent).toBe(m.run!.lenses![li]!.label)
-    const here = [...rack().querySelectorAll('[data-view-row]')].map((e) => e.outerHTML)
-    cleanup()
-    render(<ViewChances model={m} />)
-    const there = [...screen.getByTestId('view-chances').querySelectorAll('[data-view-row]')].map((e) => e.outerHTML)
-    expect(here.length).toBe(optionCards(m).reduce((n, c) => n + c.rows.length, 0))
-    expect(there).toEqual(here)
-  })
+  for (const golden of ['bakery.view.json', 'european.view.json', 'proposal.view.json']) {
+    it(`catch: ${golden}: the options in core's order under core's lens label; each row's readout is the served Analysis row's, the same markup`, () => {
+      const view = read(golden), m = view.model!
+      mount(view)
+      expect([...rack().querySelectorAll<HTMLElement>('[data-rack-option]')].map((e) => e.dataset['rackOption'])).toEqual(optionCards(m).map((c) => c.id))
+      const li = (m.run!.lenses ?? []).findIndex((l) => l.id === 'goal')
+      if (li >= 0) expect(rack().querySelector(`[data-view="run.lenses.${li}.label"]`)?.textContent).toBe(m.run!.lenses![li]!.label)
+      const readout = (root: Element, at: string) => {
+        const row = root.querySelector(`[data-view-row="${at}"]`)
+        return [row?.querySelector('[data-testid="port-row-mark"]')?.outerHTML, row?.querySelector('[data-testid="port-row-readout"]')?.outerHTML, row?.getAttribute('title')]
+      }
+      const ats = optionCards(m).flatMap((c) => c.rows.map((_, i) => `${c.id}.rows.${i}`))
+      const here = ats.map((at) => readout(rack(), at))
+      cleanup()
+      render(<PortAnalysis model={m} />)
+      const hero = screen.getByTestId('port-analysis-hero')
+      expect(ats.map((at) => readout(hero, at))).toEqual(here)
+      for (const [mark, words, title] of here) expect([mark, words, title]).not.toContain(undefined)
+    })
+  }
 
-  it('catch: bakery: each chance\'s fill is core\'s number on 0–100, a refusal row is core\'s words at its path, never 0', () => {
+  it('catch: bakery: each row is core\'s aim at its path over its readout; a refusal is core\'s words for what it waits on, never 0; no track', () => {
     const view = read('bakery.view.json'), m = view.model!
     mount(view)
     for (const c of optionCards(m)) c.rows.forEach((r, i) => {
-      const at = `${c.id}.rows.${i}`, track = rack().querySelector<HTMLElement>(`[data-chance-track="${at}"]`)
-      if (r.kind !== 'chance') {
-        expect(track, at).toBeNull()
-        if (r.kind === 'none') expect(rack().querySelector(`[data-view="${at}.text"]`)?.textContent, at).toBe(r.text)
-        return
+      const at = `${c.id}.rows.${i}`, row = rack().querySelector(`[data-view-row="${at}"]`)!
+      if (r.kind === 'none') {
+        expect([row.querySelector(`[data-view="${at}.aim"]`), row.querySelector(`[data-view="${at}.text"]`)?.textContent], at).toEqual([null, r.text])
+      } else {
+        expect(row.querySelector(`[data-view="${at}.aim"]`)?.textContent, at).toBe(r.aim)
+        expect(row.querySelector(`[data-view="${at}.value"]`)?.textContent, at).toBe(r.value)
       }
-      const fill = track!.querySelector<HTMLElement>('[data-chance-fill]')!
-      expect(parseFloat(fill.style.width), at).toBeCloseTo(r.chance! * 100, 6)
-      expect(fill.style.minWidth, at).toBe(r.chance! > 0 ? '2px' : '')
     })
-  })
-
-  it('negative: a chance core sends without a number draws no track; a tiny one is never drawn as none', () => {
-    const unmoved = read('pricing-unmoved-first.view.json')
-    mount(unmoved)
-    expect(rack().querySelector('[data-view-row]')).not.toBeNull()
-    expect(rack().querySelector('[data-chance-track]')).toBeNull()
-    cleanup()
-    const view = structuredClone(read('bakery.view.json')), o = optionCards(view.model!)[0]!, k = o.rows.findIndex((r) => r.kind === 'chance')
-    ;(o.rows[k] as { chance: number }).chance = 0.001
-    mount(view)
-    const fill = rack().querySelector<HTMLElement>(`[data-chance-track="${o.id}.rows.${k}"] [data-chance-fill]`)!
-    expect([parseFloat(fill.style.width), fill.style.minWidth]).toEqual([0.1, '2px'])
+    expect(rack().querySelector('[data-testid="port-row-track"], [role="progressbar"]')).toBeNull()
   })
 
   it('pressing an option asks the canvas to focus its card; it shows as pressed while selected, and pressing again lets it go; hover rings it', () => {

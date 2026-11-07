@@ -4,8 +4,9 @@
  *   - Options in core's order, never sorted by chance. The header is core's lens label for the chance (`run.lenses`, id `goal`) where core
  *     gives one, its hover core's title.
  *   - Each option: its heading as the one control (press: the canvas selects and centres its card, press again to let it go; hover or
- *     focus: its card is ringed), then each of its rows as the Analysis tab draws them, a chance through the one `ChanceTrack` (core's
- *     words and number, its track), a limit or a refusal (core's words for what it waits on) as `Row` draws it: never 0, never blank.
+ *     focus: its card is ringed), then each of its rows: the aim in core's words, and the readout the Analysis tab's option row draws
+ *     (`HeroReadout`, the one drawing of a chance: core's ◉, value and marks; a limit's value; or core's words for what it waits on, never
+ *     0, never blank), core's definition of the chance on hover. No track: a chance is not a range (the served row's own rule).
  *   - What it rests on (`cards[].rests_on`): one mark per card, in core's order, by whose it is (core's own key glyph for Olumi's, `olumi`,
  *     and partly Olumi's, `partly_olumi`, matched by id; a plain dot for the person's own); hover rings that card and names it. An id that
  *     no card on the canvas draws has no heading to name it by, so it is not drawn. Up to 8, then "+N".
@@ -14,7 +15,7 @@
 import { useEffect, useState } from 'react'
 import type { ViewCard, ViewModel } from '../client'
 import { optionCards } from '../layout'
-import { Row } from '../ViewChances'
+import { HeroReadout } from '../port/HeroOptionRow'
 import { pressCard, ringFrom } from './tabRing'
 import { useCanvasStore } from '../../canvas/store'
 import { LENS_COPY } from '../../canvas/artefacts/lenses'
@@ -65,7 +66,12 @@ export function Rack({ model }: { model: ViewModel }) {
               className={`${typography.panelHeader} -mx-1 block min-h-[24px] w-[calc(100%+0.5rem)] rounded px-1 text-left text-text-header hover:bg-panel-hover ${ACTION_FOCUS} ${selected.has(o.id) ? 'ring-2 ring-text-header' : ''}`}>
               <span data-view={`${o.id}.heading`}>{o.heading}</span>
             </button>
-            {o.rows.map((row, i) => <Row key={i} card={o} row={row} i={i} />)}
+            {o.rows.map((row, i) => (
+              <div key={i} className="space-y-0.5" title={row.title} data-view-row={`${o.id}.rows.${i}`}>
+                {row.kind === 'none' || row.aim === '' ? null : <p className={`${TYPE.meta} m-0 text-text-light`} data-view={`${o.id}.rows.${i}.aim`}>{row.aim}</p>}
+                <p className="m-0 flex w-full items-baseline gap-1.5"><HeroReadout entry={{ card: o, row, i }} lens="goal" /></p>
+              </div>
+            ))}
             {shown.length === 0 ? null : (
               <div className="flex flex-wrap items-center gap-1" role="list" aria-label={LENS_COPY.label.rests_on} data-rack-rests={o.id}>
                 {shown.map(({ card, whose, mark }) => (

@@ -66,6 +66,43 @@ function Driver({ card, figure }: { card: ViewCard; figure: ViewCard | null }) {
   )
 }
 
+/** Core's own most-likely mark on this row (`row.likely`, ◉), on the goal lens only: the one designation, core's. */
+export const isLeader = ({ row }: AimRow, lens: HeroLensId): boolean => lens === 'goal' && row.kind === 'chance' && row.likely != null
+
+/**
+ * The row's readout, in core's words at its paths: core's most-likely mark in its own column, then the chance (approx, value and its
+ * marks) on the goal lens, the outcome band on the outcome lens, or why there is nothing yet. The one drawing of an option's chance on
+ * the lane: the Analysis tab's option row and the Reasoning tab's rack both draw it with this (DL ruling 1, 7 Nov).
+ */
+export function HeroReadout({ entry, lens }: { entry: AimRow; lens: HeroLensId }) {
+  const { card, row, i } = entry
+  const at = `${card.id}.rows.${i}`
+  const chance = row.kind === 'chance' ? row : null
+  const leader = isLeader(entry, lens)
+  // The readout, in core's words: the chance on the goal lens; on the outcome lens the outcome band, and nothing where a row has none
+  // (never the chance or a limit's value under "Likely outcome": checker, 7 Nov). A row that says why it has nothing says so on both.
+  const outcomeReadout = lens === 'outcome' && chance?.outcome != null
+  const readout = row.kind === 'none'
+    ? (row.text == null ? <span data-view={`${at}.title`}>{row.title}</span> : <span data-view={`${at}.text`}>{row.text}</span>)
+    : lens === 'outcome'
+      ? (outcomeReadout ? <span data-view={`${at}.outcome.text`} title={chance!.outcome!.title}>{chance!.outcome!.text}</span> : null)
+      : (
+        <>
+          {row.kind === 'chance' && row.approx !== '' ? <span data-view={`${at}.approx`}>{row.approx}</span> : null}
+          <span data-view={`${at}.value`}>{row.value}</span>
+          {row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}
+          {chance?.if_approved == null ? null : <>{NBSP}<Mark at={`${at}.if_approved`} mark={chance.if_approved} /></>}
+        </>
+      )
+
+  return (
+    <>
+      <span className="flex-none text-primary" data-testid="port-row-mark">{leader ? <Mark at={`${at}.likely`} mark={chance!.likely} /> : null}</span>
+      <span className={`${TYPE.body} min-w-0 flex-1 break-words ${leader ? 'text-text-header' : 'text-text-body'}`} data-testid="port-row-readout">{readout}</span>
+    </>
+  )
+}
+
 export interface HeroOptionRowProps {
   /** The option's row, at its View path. */
   entry: AimRow
@@ -88,23 +125,7 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
   const { card, row, i } = entry
   const at = `${card.id}.rows.${i}`
   const chance = row.kind === 'chance' ? row : null
-  const leader = lens === 'goal' && chance !== null && chance.likely != null
-
-  // The readout, in core's words: the chance on the goal lens; on the outcome lens the outcome band, and nothing where a row has none
-  // (never the chance or a limit's value under "Likely outcome": checker, 7 Nov). A row that says why it has nothing says so on both.
-  const outcomeReadout = lens === 'outcome' && chance?.outcome != null
-  const readout = row.kind === 'none'
-    ? (row.text == null ? <span data-view={`${at}.title`}>{row.title}</span> : <span data-view={`${at}.text`}>{row.text}</span>)
-    : lens === 'outcome'
-      ? (outcomeReadout ? <span data-view={`${at}.outcome.text`} title={chance!.outcome!.title}>{chance!.outcome!.text}</span> : null)
-      : (
-        <>
-          {row.kind === 'chance' && row.approx !== '' ? <span data-view={`${at}.approx`}>{row.approx}</span> : null}
-          <span data-view={`${at}.value`}>{row.value}</span>
-          {row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}
-          {chance?.if_approved == null ? null : <>{NBSP}<Mark at={`${at}.if_approved`} mark={chance.if_approved} /></>}
-        </>
-      )
+  const leader = isLeader(entry, lens)
 
   // The outcome band's place on this aim's track (outcome lens only): positions, never data.
   let barStart: number | null = null, barEnd: number | null = null, dotPos: number | null = null
@@ -135,8 +156,7 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
     <>
       <span id={labelId} className={`${TYPE.body} block w-full break-words font-medium text-text-header`} data-view={`${card.id}.heading`}>{card.heading}</span>
       <span className="flex w-full items-baseline gap-1.5">
-        <span className="flex-none text-primary" data-testid="port-row-mark">{leader ? <Mark at={`${at}.likely`} mark={chance!.likely} /> : null}</span>
-        <span className={`${TYPE.body} min-w-0 flex-1 break-words ${leader ? 'text-text-header' : 'text-text-body'}`} data-testid="port-row-readout">{readout}</span>
+        <HeroReadout entry={entry} lens={lens} />
         <Chevron aria-hidden="true" className={`h-3.5 w-3.5 flex-none self-center text-text-light ${expandable ? '' : 'invisible'}`} />
       </span>
       {lens === 'outcome' && (
