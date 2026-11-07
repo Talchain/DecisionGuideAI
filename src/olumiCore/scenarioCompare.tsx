@@ -100,7 +100,8 @@ function Aim({ aim }: { aim: AimRow }): JSX.Element {
           <p className={`${BODY} text-text-header break-words`}>{o.label}</p>
           {words(o.only_in_text) ? <p className={META} data-compare-only-in="">{o.only_in_text}</p> : null}
           {/* The earlier DGAI's shift track: hollow for the first side, filled for the second, where core gives each its number. */}
-          {paired && o.only_in === null ? <ShiftTrack first={sideMark(o.a)} second={sideMark(o.b)} /> : null}
+          {/* Only for aims whose two chances are of the same target: a track joins two marks as one chance moving. */}
+          {aim.status === 'comparable' && o.only_in === null ? <ShiftTrack first={sideMark(o.a)} second={sideMark(o.b)} /> : null}
           <div className="grid grid-cols-2 gap-3"><Cells side={o.a} /><Cells side={o.b} /></div>
         </div>
       ))}
@@ -157,7 +158,7 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
       </div>
       {aims.map((a, i) => <Aim key={`${a.label}-${i}`} aim={a} />)}
       {/* The key to the marks, once, named by the two sides as core names them. */}
-      {aims.some((a) => (a.status === 'comparable' || a.status === 'different_target') && arr(a.options).some((o) => o.only_in === null && (sideMark(o.a) || sideMark(o.b))))
+      {aims.some((a) => a.status === 'comparable' && arr(a.options).some((o) => o.only_in === null && (sideMark(o.a) || sideMark(o.b))))
         ? <TrackKey first={c.a?.name ?? ''} second={c.b?.name ?? ''} /> : null}
       {options.length === 0 && !showFigures ? null : (
         <section className={CARD} data-testid="scenario-compare-differences" aria-label="Differences">

@@ -4,11 +4,13 @@
  * versions `who`, Cell and ResultSide `chance`).
  */
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render } from '@testing-library/react'
-import { ComparedLists, type Compared } from '../compare'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { ComparedLists, CoreCompare, type Compared } from '../compare'
+import { setTeamFetch } from '../team/api'
+import { markerLeft } from '../../components/results/analysisNew/PanelFigure'
 import { ScenarioComparisonView, type ScenarioComparison } from '../scenarioCompare'
 
-afterEach(() => cleanup())
+afterEach(() => { cleanup(); setTeamFetch(null) })
 
 const CORE: Compared = {
   versions: [{ n: 1, at: 't1', proposedBy: 'Olumi', briefBy: 'Ada', approvedBy: 'Ada', who: 'CORE-WHO-1' }, { n: 2, at: 't2', proposedBy: 'Ada', briefBy: null, approvedBy: 'Ada', who: 'CORE-WHO-2' }],
@@ -91,5 +93,79 @@ describe("each chance as its option card draws it: core's headline, then the car
     const li = container.querySelector('[data-testid="team-compare-results"] li')!
     expect(li.textContent).toContain(`about 13% (${COMP.text})`)
     expect(li.textContent).not.toContain(LONG)
+  })
+})
+
+// Identity-bound helpers: the REAL marks (their drawn position and the words beside them), never the data-first/data-second props ShiftTrack copies.
+// The filled mark first sits on the hollow one and travels on the next frame, so a position is read with waitFor. The expected position is
+// `markerLeft` as the same style engine stores it.
+const hollowAt = (el: Element) => (el.querySelector('[data-mark="earlier"]') as HTMLElement | null)?.style.left
+const filledAt = (el: Element) => (el.querySelector('[data-mark="now"]') as HTMLElement | null)?.style.left
+const at = (chance: number) => { const probe = document.createElement('span'); probe.style.left = markerLeft(chance); return probe.style.left }
+const expectMarks = (el: Element, hollow: number, filled: number) => waitFor(() => expect([hollowAt(el), filledAt(el)]).toEqual([at(hollow), at(filled)]))
+const optionRow = (c: HTMLElement, label: string) => [...c.querySelectorAll<HTMLElement>('[data-compare-option]')].find((r) => r.querySelector('p')?.textContent === label)!
+const aimBox = (c: HTMLElement, label: string) => [...c.querySelectorAll<HTMLElement>('[data-compare-aim]')].find((e) => e.getAttribute('aria-label') === label)!
+
+describe('version compare: the pickers in reverse still attribute every mark to the right version', () => {
+  it("Earlier = 3, Later = 2 asks core for from=2&to=3; the key's hollow names Version 2 and the hollow mark sits at version 2's number", async () => {
+    const V = { 2: { value: 'V2-WORDS about 20%', chance: 0.2 }, 3: { value: 'V3-WORDS about 70%', chance: 0.7 } } as const
+    const paths: string[] = []
+    setTeamFetch((async (u: unknown) => {
+      const p = String(u); paths.push(p)
+      const m = /from=(\d)&to=(\d)/.exec(p)!
+      const side = (n: 2 | 3) => ({ value: V[n].value, title: 't', olumi: null, chance: V[n].chance })
+      // Core's own order: before is the `from` version, after the `to` version.
+      const body: Compared = { versions: [{ n: 2, at: 't2', proposedBy: 'Ada', briefBy: null, approvedBy: 'Ada', who: 'W2' }, { n: 3, at: 't3', proposedBy: 'Ada', briefBy: null, approvedBy: 'Ada', who: 'W3' }],
+        changes: [], results: [{ kind: 'chance', option: 'hire', optionLabel: 'Add one specialist', aim: 'Reach 100', condition: null, move: 'changed', label: 'L', move_text: 'M',
+          before: side(Number(m[1]) as 2 | 3), after: side(Number(m[2]) as 2 | 3) }] }
+      return new Response(JSON.stringify(body), { status: 200 })
+    }) as unknown as typeof fetch)
+    const { container } = render(<CoreCompare sid="s_0123456789ab" latest={3} id="rv" />)
+    fireEvent.change(screen.getByTestId('rv-from'), { target: { value: '3' } })
+    fireEvent.change(screen.getByTestId('rv-to'), { target: { value: '2' } })
+    fireEvent.click(screen.getByTestId('rv-go'))
+    await waitFor(() => expect(container.querySelector('[data-compare-track]')).not.toBeNull())
+    expect(paths).toEqual(['/api/scenarios/s_0123456789ab/compare?from=2&to=3'])
+    expect([...container.querySelectorAll('[data-compare-key]')].map((e) => [e.getAttribute('data-compare-key'), e.textContent])).toEqual([['first', 'Version 2'], ['second', 'Version 3']])
+    const track = container.querySelector('[data-compare-track]')!
+    await expectMarks(track, 0.2, 0.7)
+    const li = container.querySelector('[data-testid="rv-results"] li')!
+    expect(li.textContent).toContain('V2-WORDS about 20% → V3-WORDS about 70%')
+  })
+})
+
+describe('side by side: the connected track is for comparable aims only', () => {
+  const opt = (label: string, a: number, b: number) => ({ label, only_in: null, only_in_text: null,
+    a: { cells: [cell(`${label} A ${Math.round(a * 100)}%`, a)] }, b: { cells: [cell(`${label} B ${Math.round(b * 100)}%`, b)] } })
+  const aim = (label: string, status: string, options: unknown[]) => ({ label, kind: 'aim', status, limitation: null, only_in_text: null,
+    a: { label, measure: 'M', target: 'T-a' }, b: { label, measure: 'M', target: 'T-b' }, options })
+  const MIXED = (): ScenarioComparison => ({ ...PAIR(0.5, 0.9), aims: [
+    aim('Reach 100', 'comparable', [opt('Add one specialist', 0.2, 0.6), opt('Pause hiring', 0.35, 0.8)]),
+    aim('Reach 120', 'different_target', [opt('Add one specialist', 0.3, 0.9)]),
+  ] as never })
+  it('a comparable aim keeps one track per option at that option\'s own numbers; the different_target aim has none', async () => {
+    const { container } = render(<ScenarioComparisonView c={MIXED()} />)
+    const comparable = aimBox(container, 'Reach 100')
+    const add = optionRow(comparable, 'Add one specialist'), pause = optionRow(comparable, 'Pause hiring')
+    await expectMarks(add, 0.2, 0.6)
+    await expectMarks(pause, 0.35, 0.8)
+    expect(add.querySelectorAll('[data-compare-track]').length).toBe(1)
+    expect(pause.querySelectorAll('[data-compare-track]').length).toBe(1)
+    expect([...add.querySelectorAll('[data-compare-value]')].map((e) => e.textContent)).toEqual(['Add one specialist A 20%', 'Add one specialist B 60%'])
+    expect([...pause.querySelectorAll('[data-compare-value]')].map((e) => e.textContent)).toEqual(['Pause hiring A 35%', 'Pause hiring B 80%'])
+    const different = aimBox(container, 'Reach 120')
+    expect(different.getAttribute('data-compare-aim')).toBe('different_target')
+    expect(different.querySelector('[data-compare-track]')).toBeNull()
+    expect(different.querySelector('[data-mark]')).toBeNull()
+    expect([...different.querySelectorAll('[data-compare-value]')].map((e) => e.textContent)).toEqual(['Add one specialist A 30%', 'Add one specialist B 90%'])
+    expect(container.querySelectorAll('[data-compare-track]').length).toBe(2)
+    expect(container.querySelectorAll('[data-compare-track-key]').length).toBe(1)
+  })
+  it('a view whose only aim is different_target has no track and no key', () => {
+    const c = { ...MIXED(), aims: MIXED().aims.slice(1) }
+    const { container } = render(<ScenarioComparisonView c={c} />)
+    expect(container.querySelector('[data-compare-track]')).toBeNull()
+    expect(container.querySelector('[data-compare-track-key]')).toBeNull()
+    expect(container.querySelectorAll('[data-compare-value]').length).toBe(2)
   })
 })

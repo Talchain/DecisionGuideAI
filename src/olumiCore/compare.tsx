@@ -98,8 +98,11 @@ export function CoreCompare({ sid, latest, id, auto = false, boxed = false }: { 
     const mine = ++seq.current
     if (a === b) { setBusy(false); setShown(null); setError('Pick two different versions.'); return }
     setBusy(true); setError(null)
+    // Core's before/after follow `from`/`to`, and the key names the lower version hollow: so the lower version is always `from`
+    // (also what the "Earlier"/"Later" labels promise), whichever way round the pickers were set.
+    const [lo, hi] = a < b ? [a, b] : [b, a]
     try {
-      const r = await call<Compared>('GET', `/api/scenarios/${encodeURIComponent(sid)}/compare?from=${a}&to=${b}`)
+      const r = await call<Compared>('GET', `/api/scenarios/${encodeURIComponent(sid)}/compare?from=${lo}&to=${hi}`)
       if (mine === seq.current) setShown(r)
     } catch (e) {
       if (mine === seq.current) { setShown(null); setError(e instanceof TeamApiError ? e.message : 'That did not go through.') }
