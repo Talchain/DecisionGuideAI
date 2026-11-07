@@ -3045,6 +3045,27 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     window.addEventListener('mouseup', handleUp)
   }
 
+  // R25 (plan v3 item 7, 10A "resizable panel"): the same resize by keyboard. The handle is a focusable vertical separator; the arrows
+  // move it 16px (left widens the panel), Home and End go to the widest and narrowest, within the same bounds as the drag.
+  const DOCK_KEY_STEP = 16
+  const [dockWidthNow, setDockWidthNow] = useState<number | null>(null)
+  const handleResizeKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0
+    const aside = event.currentTarget.parentElement
+    if (!viewportWidth || aside === null) return
+    const { min: minWidth, max: maxWidth } = dockWidthBounds(viewportWidth)
+    const now = Math.round(aside.getBoundingClientRect().width)
+    const next = event.key === 'ArrowLeft' ? now + DOCK_KEY_STEP : event.key === 'ArrowRight' ? now - DOCK_KEY_STEP
+      : event.key === 'Home' ? maxWidth : event.key === 'End' ? minWidth : null
+    if (next === null) return
+    event.preventDefault()
+    const clamped = Math.max(minWidth, Math.min(maxWidth, next))
+    document.documentElement.style.setProperty('--dock-right-expanded', `${clamped}px`)
+    setDockWidthNow(clamped)
+    try { localStorage.setItem('panel.results.width', String(clamped)) } catch {}
+  }
+
   // AI panel v2: freshness indicator on the Results tab label. Driven by the CEE
   // freshness verdict + local dirty overlay (displayedFreshness), NOT the legacy
   // graph-hash stale path deleted on 2026-07-16 (_internal.graphHash is never
@@ -3265,9 +3286,17 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       {!programBoardDock && <HowComputedModal />}
       {effectiveIsOpen && (
         <div
-          aria-hidden="true"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the panel"
+          aria-valuemin={typeof window === 'undefined' ? undefined : dockWidthBounds(window.innerWidth).min}
+          aria-valuemax={typeof window === 'undefined' ? undefined : dockWidthBounds(window.innerWidth).max}
+          aria-valuenow={dockWidthNow ?? undefined}
+          tabIndex={0}
+          data-testid="outputs-dock-resize"
           onMouseDown={handleResizeStart}
-          className="absolute inset-y-0 left-0 w-1 cursor-col-resize bg-transparent hover:bg-panel-border/60"
+          onKeyDown={handleResizeKey}
+          className="absolute inset-y-0 left-0 z-20 w-2 cursor-col-resize bg-transparent hover:bg-panel-border/60 focus-visible:bg-info/40 focus-visible:outline-none"
         />
       )}
       {/* The header region. It carried its own `rounded-t-2xl` (16px), a

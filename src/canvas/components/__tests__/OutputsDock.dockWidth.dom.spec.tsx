@@ -31,9 +31,9 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, fireEvent } from '@testing-library/react'
 import { OutputsDock, OUTPUTS_DOCK_STORAGE_KEY } from '../OutputsDock'
-import { DOCK_MIN_WIDTH, DOCK_RESPONSIVE_MAX_WIDTH } from '../dockWidth'
+import { DOCK_MIN_WIDTH, DOCK_RESPONSIVE_MAX_WIDTH, dockWidthBounds } from '../dockWidth'
 import { useCanvasStore } from '../../store'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { ToastProvider } from '../../ToastContext'
@@ -139,6 +139,18 @@ describe('OutputsDock width — mounted, and independent of analysis state', () 
   afterEach(() => {
     cleanup()
     document.documentElement.style.removeProperty(DOCK_WIDTH_VAR)
+  })
+
+  it('R25 (plan v3 item 7, 10A): the resize handle is a focusable separator the keyboard moves, within the drag\'s bounds', () => {
+    mountAndReadDockWidth({ viewportWidth: 1280, hasCompletedFirstRun: false })
+    const handle = document.querySelector<HTMLElement>('[data-testid="outputs-dock-resize"]')!
+    expect([handle.getAttribute('role'), handle.getAttribute('aria-orientation'), handle.tabIndex]).toEqual(['separator', 'vertical', 0])
+    const { min, max } = dockWidthBounds(1280)
+    fireEvent.keyDown(handle, { key: 'Home' })
+    expect(document.documentElement.style.getPropertyValue(DOCK_WIDTH_VAR)).toBe(`${max}px`)
+    expect(handle.getAttribute('aria-valuenow')).toBe(String(max))
+    fireEvent.keyDown(handle, { key: 'End' })
+    expect(document.documentElement.style.getPropertyValue(DOCK_WIDTH_VAR)).toBe(`${min}px`)
   })
 
   it('opens at the restored 416px default on a 1280px laptop, with no analysis yet', () => {
