@@ -58,7 +58,7 @@ export function ViewReasoning({ model, brief = null }: { model: ViewModel; brief
       <WhatIfShown model={model} />
       <div data-testid="view-reasoning-glance" className="space-y-1">
         {brief === null ? null : (
-          <div className="flex gap-2"><span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind="decision" size={10} />{REASONING_LABELS.brief}</span><span className="min-w-0 truncate" title={brief} data-view="brief">{brief}</span></div>
+          <div className="flex gap-2"><span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind="decision" size={10} />{REASONING_LABELS.brief}</span><span className="min-w-0" title={brief} data-view="brief">{brief}</span></div>
         )}
         {goals.map((g) => (
           <div key={g.id} className="flex gap-2"><span className={`${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5`}><NodeShapeIndicator nodeKind="goal" size={10} />{REASONING_LABELS.goal}</span><span className="min-w-0" title={g.detail} data-view={`${g.id}.heading`}>{g.heading}</span></div>
