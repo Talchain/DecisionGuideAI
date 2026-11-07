@@ -87,7 +87,7 @@ describe('sign up', () => {
 
 describe('My scenarios (home)', () => {
   it('lists exactly the scenarios core lists, in its order, each opening its own scenario; New scenario starts one from a brief', async () => {
-    core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/account/scenarios' ? { body: { scenarios: SCENARIOS } } : undefined)
+    core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/account/scenarios' ? { body: { you_id: '7', scenarios: SCENARIOS } } : undefined)
     at('/', <MyScenariosPage />)
     await screen.findByTestId('my-scenarios')
     expect(screen.getAllByRole('listitem').map((li) => li.getAttribute('data-testid'))).toEqual(['my-scenario-s_a00000000002', 'my-scenario-s_a00000000001'])
@@ -106,7 +106,7 @@ describe('My scenarios (home)', () => {
     const last = '00000000-0000-4000-8000-a00000000002'
     localStorage.setItem('olumi-canvas-current-scenario-id', last)
     useCanvasStore.setState({ currentScenarioId: last })
-    core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/account/scenarios' ? { body: { scenarios: [] } } : undefined)
+    core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/account/scenarios' ? { body: { you_id: '7', scenarios: [] } } : undefined)
     at('/', <MyScenariosPage />)
     expect((await screen.findByTestId('my-scenarios-empty')).textContent).toContain('writing a brief')
     fireEvent.click(screen.getByTestId('my-scenarios-new'))
@@ -127,7 +127,7 @@ describe('the organisation', () => {
   const ORG = { org: { id: 'o_0123456789ab', name: 'Northwind' }, you: { id: '7', role: 'owner' }, members: [{ id: '7', name: 'Ana', role: 'owner', joined: '2026-11-07T10:00:00.000Z', email: 'ana@example.com' }, { id: '9', name: 'Bo', role: 'member', joined: '2026-11-07T11:00:00.000Z', email: 'bo@example.com' }] }
   it('an owner makes a one-use link (shown once), and removes a member only after saying they are signed out at once', async () => {
     let members = ORG.members
-    core((m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/org' ? { body: { ...ORG, members } } : p === '/api/org/invites' && m === 'GET' ? { body: { invites: [] } }
+    core((m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/org' ? { body: { ...ORG, members } } : p === '/api/org/invites' && m === 'GET' ? { body: { you_id: '7', invites: [] } }
       : p === '/api/org/invites' ? { status: 201, body: { id: '41', link: '/#/join/abcdefghijklmnopqrstuvwxyz012345', expires: '2026-11-21T10:00:00.000Z' } }
       : p === '/api/org/members/9/remove' ? (members = members.filter((x) => x.id !== '9'), { body: { removed: '9' } }) : undefined)
     at('/organisation', <OrganisationPage />)
@@ -170,5 +170,49 @@ describe('the account page', () => {
     await act(async () => { fireEvent.click(screen.getByTestId('account-password-go')) })
     expect((await screen.findByTestId('account-password-said')).textContent).toBe('Password changed. Signed out of 2 other browsers.')
     expect(posts().map((x) => [x.path, x.body])).toEqual([['/api/account/name', { name: 'Ana Diaz' }], ['/api/account/password', { current: 'old-password-1', next: 'new-password-2' }]])
+  })
+})
+
+/**
+ * A read answered for someone else is dropped, never shown (Codex integrated review, 7 Nov: "MyScenariosPage.tsx:45 accept[s] reads
+ * without checking page identity after a cookie switch"). Another tab signed this browser in as Bo after this page was opened for Ana:
+ * core then answers Bo's list, naming him (`you_id`, `you.id`), and the page shows nothing of his.
+ */
+describe('a read for someone else after a cookie switch', () => {
+  const SWITCHED = 'This browser is now signed in as someone else, so nothing of theirs is shown here. Reload this page to continue as the person signed in now.'
+  it('My scenarios drops a list that names another person, and says why', async () => {
+    core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } }
+      : p === '/api/account/scenarios' ? { body: { you_id: BO.id, scenarios: [{ ...SCENARIOS[1], id: 's_b00000000001', title: 'Bo private', label: 'Bo private', members: [BO] }] } } : undefined)
+    at('/', <MyScenariosPage />)
+    expect((await screen.findByRole('alert')).textContent).toBe(SWITCHED)
+    expect(screen.queryByText('Bo private')).toBeNull()
+    expect(screen.queryByTestId('my-scenarios')).toBeNull()
+  })
+
+  it('My scenarios drops a list that names no one (it cannot say whose it is)', async () => {
+    core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/account/scenarios' ? { body: { scenarios: SCENARIOS } } : undefined)
+    at('/', <MyScenariosPage />)
+    expect((await screen.findByRole('alert')).textContent).toBe(SWITCHED)
+    expect(screen.queryByTestId('my-scenarios')).toBeNull()
+  })
+
+  it('the organisation page drops an organisation read for someone else, and the invitations read too', async () => {
+    const theirs = { org: { id: 'o_bbbbbbbbbbbb', name: 'Contoso' }, you: { id: BO.id, role: 'owner' }, members: [{ id: BO.id, name: 'Bo', role: 'owner', joined: '2026-11-07T11:00:00.000Z', email: 'bo@contoso.example' }] }
+    core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/org' ? { body: theirs } : p === '/api/org/invites' ? { body: { you_id: BO.id, invites: [] } } : undefined)
+    at('/organisation', <OrganisationPage />)
+    expect((await screen.findByRole('alert')).textContent).toBe(SWITCHED)
+    expect(screen.queryByText('Contoso')).toBeNull()
+    expect(screen.queryByText('bo@contoso.example')).toBeNull()
+    expect(screen.queryByTestId('org-members')).toBeNull()
+  })
+
+  it('CONTROL: the organisation page shows an organisation read that names this page\'s person, and drops invitations that name another', async () => {
+    const ours = { org: { id: 'o_0123456789ab', name: 'Northwind' }, you: { id: ANA.id, role: 'owner' }, members: [{ id: ANA.id, name: 'Ana', role: 'owner', joined: '2026-11-07T10:00:00.000Z', email: 'ana@example.com' }] }
+    const late = { id: '41', by: 'Bo', made: '2026-11-07T10:00:00.000Z', expires: '2026-11-21T10:00:00.000Z', status: 'live', joined: null }
+    core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/org' ? { body: ours } : p === '/api/org/invites' ? { body: { you_id: BO.id, invites: [late] } } : undefined)
+    at('/organisation', <OrganisationPage />)
+    await screen.findByTestId(`org-member-${ANA.id}`)
+    expect((await screen.findByRole('alert')).textContent).toBe(SWITCHED)
+    expect(screen.queryByTestId('org-invite-41')).toBeNull()
   })
 })

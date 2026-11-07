@@ -6,7 +6,7 @@ import { useCanvasStore } from '../../canvas/store'
 import { clearAutosave, clearCurrentScenarioId } from '../../canvas/store/scenarios'
 import { useViewStore } from '../../olumiView/store'
 import { TeamApiError } from '../team/api'
-import { accountsApi, whenOf, type MyScenario } from './api'
+import { accountsApi, mine, whenOf, type MyScenario } from './api'
 import { BODY, CARD, ERR, LINK, META, SignedInFrame, useWho } from './Frame'
 
 /** Its address on this page: DGAI's scenario route (`/#/scenario/<uuid>`) as a route here; any other address as a plain link. */
@@ -39,12 +39,19 @@ export default function MyScenariosPage(): JSX.Element {
   const navigate = useNavigate()
   const [list, setList] = useState<readonly MyScenario[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const page = who.status === 'in' ? who.me.id : null
   useEffect(() => {
-    if (who.status !== 'in') return
+    if (page === null) return
     let live = true
-    accountsApi.scenarios().then((r) => { if (live) setList(Array.isArray(r?.scenarios) ? r.scenarios : []) }, (e) => { if (live) setError(e instanceof TeamApiError ? e.message : 'Olumi could not be read just now. Try again in a moment.') })
+    void (async () => {
+      try {
+        const r = await accountsApi.scenarios()
+        mine(r, r?.you_id, page)
+        if (live) setList(Array.isArray(r?.scenarios) ? r.scenarios : [])
+      } catch (e) { if (live) { setList(null); setError(e instanceof TeamApiError ? e.message : 'Olumi could not be read just now. Try again in a moment.') } }
+    })()
     return () => { live = false }
-  }, [who.status])
+  }, [page])
   return (
     <SignedInFrame who={who} title="My scenarios" testid="account-home" action={<Button onClick={() => { startFreshScenario(); navigate('/canvas') }} data-testid="my-scenarios-new">New scenario</Button>}>
       {(w) => (

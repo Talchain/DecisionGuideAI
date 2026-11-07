@@ -4,7 +4,7 @@
  * core's own words on a refusal). A password sign-in sets the same `olumi` cookie a private link sets, so after one the page loads
  * afresh at home (`nav.landSignedIn`), and everything on it is read as the person now signed in.
  */
-import { call } from '../team/api'
+import { call, TeamApiError } from '../team/api'
 
 export type Role = 'owner' | 'member'
 export interface Person { readonly id: string; readonly name: string }
@@ -26,15 +26,27 @@ export const accountsApi = {
   signUp: (b: { name: string; email: string; password: string; org?: string; attach?: boolean }) => call<SignedIn>('POST', '/api/account/signup', b),
   joinPreview: (token: string) => call<{ org: { name: string }; by: string; expires: string }>('GET', `/api/org/join/${encodeURIComponent(token)}`),
   join: (b: { token: string; name: string; email: string; password: string; attach?: boolean }) => call<SignedIn>('POST', '/api/org/join', b),
-  scenarios: () => call<{ scenarios: MyScenario[] }>('GET', '/api/account/scenarios'),
+  scenarios: () => call<{ you_id?: string; scenarios: MyScenario[] }>('GET', '/api/account/scenarios'),
   org: () => call<Org>('GET', '/api/org'),
-  invites: () => call<{ invites: OrgInvite[] }>('GET', '/api/org/invites'),
+  invites: () => call<{ you_id?: string; invites: OrgInvite[] }>('GET', '/api/org/invites'),
   invite: () => call<{ id: string; link: string; expires: string }>('POST', '/api/org/invites', {}),
   endInvite: (id: string) => call<{ ended: string }>('POST', `/api/org/invites/${encodeURIComponent(id)}/end`, {}),
   remove: (id: string) => call<{ removed: string }>('POST', `/api/org/members/${encodeURIComponent(id)}/remove`, {}),
   setRole: (id: string, role: Role) => call<{ id: string; role: Role }>('POST', `/api/org/members/${encodeURIComponent(id)}/role`, { role }),
   rename: (name: string) => call<{ name: string }>('POST', '/api/account/name', { name }),
   changePassword: (current: string, next: string) => call<{ changed: true; signed_out_elsewhere: number }>('POST', '/api/account/password', { current, next }),
+}
+
+/** Said when a read names someone other than the person this page was opened for (another tab signed this browser in as them). */
+export const SWITCHED = 'This browser is now signed in as someone else, so nothing of theirs is shown here. Reload this page to continue as the person signed in now.'
+/**
+ * A read is shown only when it names the person this page was opened for: core's `you_id` on a list, `you.id` on the organisation. An
+ * answer for anyone else, or one that names no one, is dropped and said, never shown (Codex integrated review, 7 Nov: a read accepted
+ * without checking page identity after a cookie switch; the View's `isForThisPage` is the same rule).
+ */
+export function mine<T>(read: T, named: unknown, page: string): T {
+  if (typeof named !== 'string' || named !== page) throw new TeamApiError(409, SWITCHED)
+  return read
 }
 
 /** After a sign-in, sign-up or join: a full load of home (no fragment, so the browser loads the page again), read as the new person. */
