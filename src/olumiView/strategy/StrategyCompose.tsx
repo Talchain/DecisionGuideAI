@@ -8,15 +8,18 @@ import { useEffect, useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { call, TeamApiError } from '../../olumiCore/team/api'
 import { BODY, ERR, FIELD, LABEL, META } from '../../olumiCore/team/ui'
-import { runWrite, useWriteLocked, useWriteSending } from '../../olumiCore/team/writes'
+import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from '../../olumiCore/team/writes'
 import type { View } from '../client'
 
-type Vocabulary = { kinds: { id: string; text: string }[]; stances: { id: string; text: string; word?: string }[]; limits: { text: number; source: number; concerns: number; items: number } }
+type FormWords = { about: string; stance: string; text: string; source: string; source_example: string; send: string; private: string }
+type Vocabulary = { kinds: { id: string; text: string }[]; stances: { id: string; text: string; word?: string }[]; form: FormWords; limits: { text: number; source: number; concerns: number; items: number } }
 const FAMILIES = new Set(['quantity', 'option', 'risk', 'goal'])
 const isVocabulary = (v: unknown): v is Vocabulary => {
   const x = v as Partial<Vocabulary> | null
   return x !== null && typeof x === 'object' && Array.isArray(x.stances) && x.stances.length > 0 && x.stances.every((s) => typeof s?.id === 'string' && typeof s?.text === 'string')
     && typeof x.limits === 'object' && x.limits !== null && typeof x.limits.text === 'number' && typeof x.limits.source === 'number'
+    // Every word on the form is core's (`form`): a core that sends none draws no form rather than one in words of the page's own.
+    && typeof x.form === 'object' && x.form !== null && (['about', 'stance', 'text', 'source', 'source_example', 'send', 'private'] as const).every((k) => typeof x.form![k] === 'string' && x.form![k] !== '')
 }
 
 export function StrategyCompose({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => unknown }): JSX.Element | null {
@@ -44,32 +47,34 @@ export function StrategyCompose({ sid, view, onWrote }: { sid: string; view: Vie
   const send = async () => {
     setError(null)
     try {
-      await runWrite(key, { op: false }, null, () => call('POST', `/api/scenarios/${encodeURIComponent(sid)}/views`, {
-        text: text.trim(), version: view.version?.n ?? null, items: [{ about, stance, text: text.trim(), source: source.trim() === '' ? null : source.trim() }] }))
+      // Core keeps an operation id for a view (`op`): a retry of the same view sends the same id and gets the first answer, never a second view.
+      const body = { text: text.trim(), version: view.version?.n ?? null, items: [{ about, stance, text: text.trim(), source: source.trim() === '' ? null : source.trim() }] }
+      await runWrite(key, { op: true }, body, (op) => call('POST', `/api/scenarios/${encodeURIComponent(sid)}/views`, { ...body, ...(op === null ? {} : { op }) }))
       setText(''); setSource('')
       await onWrote()
     } catch (e) { setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.') }
   }
   return (
     <div className="grid gap-2" data-testid="strategy-compose">
-      <label className={LABEL}>On
+      <label className={LABEL}>{vocab.form.about}
         <select data-testid="strategy-compose-about" className={`${FIELD} mt-1`} value={about} onChange={(e) => setAbout(e.target.value)}>
           {cards.map((c) => <option key={c.id} value={c.id}>{c.heading}</option>)}
         </select>
       </label>
-      <label className={LABEL}>You
+      <label className={LABEL}>{vocab.form.stance}
         <select data-testid="strategy-compose-stance" className={`${FIELD} mt-1`} value={stance} onChange={(e) => setStance(e.target.value)}>
           {vocab.stances.map((s) => <option key={s.id} value={s.id}>{s.text}</option>)}
         </select>
       </label>
-      <textarea data-testid="strategy-compose-text" className={`${FIELD} min-h-[72px]`} maxLength={vocab.limits.text} value={text} onChange={(e) => setText(e.target.value)} aria-label="What you hold about it, in your words" placeholder="What you hold about it, in your words" />
-      <input type="text" data-testid="strategy-compose-source" className={FIELD} maxLength={vocab.limits.source} value={source} onChange={(e) => setSource(e.target.value)} aria-label="Source, if you have one" placeholder="Source, if you have one (two rollouts, a report…)" autoComplete="off" />
+      <textarea data-testid="strategy-compose-text" className={`${FIELD} min-h-[72px]`} maxLength={vocab.limits.text} value={text} onChange={(e) => setText(e.target.value)} aria-label={vocab.form.text} placeholder={vocab.form.text} />
+      <input type="text" data-testid="strategy-compose-source" className={FIELD} maxLength={vocab.limits.source} value={source} onChange={(e) => setSource(e.target.value)} aria-label={vocab.form.source} placeholder={vocab.form.source_example} autoComplete="off" />
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" data-testid="strategy-compose-send" disabled={!ready} onClick={() => void send()}>Add my view</Button>
-        <span className={META}>Private until the team’s views are revealed.</span>
+        <Button size="sm" data-testid="strategy-compose-send" disabled={!ready} onClick={() => void send()}>{vocab.form.send}</Button>
+        <span className={META}>{vocab.form.private}</span>
       </div>
       {error === null ? null : <p role="alert" className={ERR}>{error}</p>}
-      {locked ? <p className={BODY}>Reload the page to see what Olumi holds.</p> : null}
+      {/* The Team tab's own words for a write whose answer was lost (writes.ts), as the view form above says it. */}
+      {locked ? <p className={BODY}>{MAY_HAVE_SAVED}</p> : null}
     </div>
   )
 }

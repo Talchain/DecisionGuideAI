@@ -15,17 +15,18 @@ import { StrategyCompose } from '../strategy/StrategyCompose'
 import { ViewsPanel } from '../../olumiCore/team/ViewsPanel'
 
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal.view3.json'), 'utf8'))
-const VOCAB = { kinds: [{ id: 'claim', text: 'Claim' }], stances: [{ id: 'know', text: 'What I know', word: 'Observed' }, { id: 'suspect', text: 'What I suspect', word: 'Expects' }, { id: 'unsure', text: 'Unsure', word: 'Unsure' }, { id: 'would_try', text: 'What I would try', word: 'Would try' }, { id: 'others_may_miss', text: 'What others may miss', word: 'Others may miss' }], limits: { text: 400, source: 200, concerns: 8, items: 8 } }
+const FORM = { about: 'On', stance: 'You', text: 'What you hold about it, in your words', source: 'Source, if you have one', source_example: 'Source, if you have one (two rollouts, a report…)', send: 'Add my view', private: 'Private until the team’s views are revealed.' }
+const VOCAB = { kinds: [{ id: 'claim', text: 'Claim' }], form: FORM, stances: [{ id: 'know', text: 'What I know', word: 'Observed' }, { id: 'suspect', text: 'What I suspect', word: 'Expects' }, { id: 'unsure', text: 'Unsure', word: 'Unsure' }, { id: 'would_try', text: 'What I would try', word: 'Would try' }, { id: 'others_may_miss', text: 'What others may miss', word: 'Others may miss' }], limits: { text: 400, source: 200, concerns: 8, items: 8 } }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 
-let posts: { url: string; body: unknown }[]
+let posts: { url: string; body: unknown; as: string | null }[]
 beforeEach(() => {
   posts = []; resetWrites(); setPagePerson(real.you_id)
   setTeamFetch(vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     const u = String(url)
     if (u.endsWith('/strategy/vocabulary')) return json(VOCAB)
     if (u === '/api/me') return json({ me: { id: real.you_id, name: real.you } })
-    if (u.endsWith('/views') && init?.method === 'POST') { posts.push({ url: u, body: JSON.parse(String(init.body)) }); return json({ contribution: 99 }, 201) }
+    if (u.endsWith('/views') && init?.method === 'POST') { posts.push({ url: u, body: JSON.parse(String(init.body)), as: new Headers(init.headers).get('x-olumi-as') }); return json({ contribution: 99 }, 201) }
     return json({ error: `unexpected ${u}` }, 404)
   }) as unknown as typeof fetch)
 })
@@ -47,8 +48,25 @@ describe('composing a qualitative view on a card (real View, core vocabulary)', 
     fireEvent.click(screen.getByTestId('strategy-compose-send'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]!.url).toBe(`/api/scenarios/${real.id}/views`)
-    expect(posts[0]!.body).toEqual({ text: 'Teams adopt once an owner is named.', version: real.version!.n, items: [{ about: 'cross_team_adoption', stance: 'suspect', text: 'Teams adopt once an owner is named.', source: 'two pilots' }] })
+    // A real post with items: core's body, an operation id for a retry, and who the page acts as (core refuses a write without it, N1d).
+    const { op, ...sent } = posts[0]!.body as { op?: unknown }
+    expect(sent).toEqual({ text: 'Teams adopt once an owner is named.', version: real.version!.n, items: [{ about: 'cross_team_adoption', stance: 'suspect', text: 'Teams adopt once an owner is named.', source: 'two pilots' }] })
+    expect(typeof op).toBe('string')
+    expect(posts[0]!.as).toBe(real.you_id)
     await waitFor(() => expect(onWrote).toHaveBeenCalled())
+  })
+  it('draws every word on the form from core’s vocabulary, verbatim; a vocabulary without the form’s words draws nothing', async () => {
+    render(<StrategyCompose sid={real.id} view={real} onWrote={vi.fn()} />)
+    const form = await screen.findByTestId('strategy-compose')
+    for (const w of [FORM.about, FORM.stance, FORM.send, FORM.private]) expect(form).toHaveTextContent(w)
+    expect(screen.getByTestId('strategy-compose-text')).toHaveAttribute('placeholder', FORM.text)
+    expect(screen.getByTestId('strategy-compose-source')).toHaveAttribute('placeholder', FORM.source_example)
+    cleanup()
+    const { form: _f, ...without } = VOCAB
+    setTeamFetch(vi.fn(async () => json(without)) as unknown as typeof fetch)
+    const { container } = render(<StrategyCompose sid={real.id} view={real} onWrote={vi.fn()} />)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(container).toBeEmptyDOMElement()
   })
   it('is mounted in the Team tab’s ViewsPanel, one slot after the view form, with core’s stance words', async () => {
     render(<ViewsPanel sid={real.id} view={real} onWrote={async () => true} />)
