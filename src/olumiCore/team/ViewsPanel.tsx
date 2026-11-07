@@ -9,6 +9,8 @@ import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWrites, useWriteSending } 
 import { differPlaced, WhereYouDiffer } from './WhereYouDiffer'
 import { nonEmpty } from '../../olumiView/tipping'
 import { AVATAR, BODY, CARD, ERR, FIELD, H, META } from './ui'
+import { sendDoubts, ViewDoubts } from './ViewDoubts'
+import { StrategyCompose } from '../../olumiView/strategy/StrategyCompose'
 
 type Figure = View['collab']['shared'][number]['figures'][number]
 
@@ -75,6 +77,9 @@ export function Effects({ at, view, by: by_id, figures, effects, headings }: { a
  * View's `collab`: the heading, the placeholder, your own views still private to you, the team's revealed views, whether the reveal is
  * open (`can_reveal`) and whom it waits for. Words go to core exactly as typed; a given view is never edited.
  */
+/** Core's stance pill on a revealed view (olumi-core V11, `collab.shared[].stance`), drawn as given; none when absent, null or empty. */
+const stanceOf = (v: unknown): string | null => { const s = (v as { stance?: unknown }).stance; return typeof s === 'string' && s !== '' ? s : null }
+
 export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element {
   const c = view.collab
   const [text, setText, dropText] = useDraft(`${sid}:view`, '')
@@ -127,7 +132,9 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
         <ul className="m-0 grid list-none gap-1.5 p-0" data-testid="team-revealed">
           {c.shared.map((v) => (
             <li key={v.id} data-testid={`team-revealed-${v.id}`} className={CARD}>
-              <p className={`${BODY} text-text-header`}>{v.by}</p>
+              <p className={`${BODY} text-text-header`}>{v.by}{stanceOf(v) !== null && (
+                <span className={`${META} ml-2 rounded-full border border-panel-border px-2 py-0.5`} data-testid={`team-revealed-stance-${v.id}`}>{stanceOf(v)}</span>
+              )}</p>
               {v.skip ? <p className={META}>Chose not to answer.</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
               <Figures at={`team-revealed-${v.id}`} figures={v.figures} />
               <Effects at={`team-revealed-${v.id}`} view={view} by={v.by_id} figures={v.figures} effects={effectsOf(v)} headings={effectHeadingsOf(c)} />
@@ -184,9 +191,10 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
             {atCap && nonEmpty(c.view_figures_limit_text) && <p className={META} data-testid="team-view-figures-cap">{c.view_figures_limit_text}</p>}
           </div>
         )}
+        <ViewDoubts sid={sid} view={view} disabled={busy || sending || viewLocked} />
         {nonEmpty(c.private_view_prompt) && <p className={META} data-testid="team-view-private-prompt">{c.private_view_prompt}</p>}
         <div className="flex flex-wrap items-center gap-3">
-          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures} onClick={() => void run(`${sid}:view`, () => teamApi.giveView(sid, text, figures, view.version?.n ?? null), dropView)}>Add my view</Button>
+          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures} onClick={() => void run(`${sid}:view`, () => teamApi.giveView(sid, text, figures, view.version?.n ?? null).then(async (r) => { await sendDoubts(sid, r.contribution); return r }), dropView)}>Add my view</Button>
           <button
             type="button" data-testid="team-view-skip" disabled={busy || sending || viewLocked}
             className={`${META} cursor-pointer underline underline-offset-2 hover:text-text-body disabled:opacity-50`}
@@ -195,6 +203,8 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
         </div>
         {viewLocked ? <p role="alert" data-testid="team-views-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="team-views-error" className={ERR}>{error}</p>}
       </div>
+      {/* Strategy lane (N2, Paul's yes via the DL): a view on one card with a stance and a source, core's POST …/views with items; null until core's vocabulary answers. */}
+      <StrategyCompose sid={sid} view={view} onWrote={onWrote} />
     </section>
   )
 }

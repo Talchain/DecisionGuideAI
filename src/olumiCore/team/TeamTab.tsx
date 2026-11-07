@@ -5,6 +5,7 @@ import type { View } from '../../olumiView/client'
 import { isForThisPage, NOT_FOR_THIS_PAGE, useMe } from '../me'
 import { CommitmentPanel } from './CommitmentPanel'
 import { DissentPanel } from './DissentPanel'
+import { DifferencesPanel } from './DifferencesPanel'
 import { ComparePanel } from './ComparePanel'
 import { EvidencePanel } from './EvidencePanel'
 import { InvitePanel } from './InvitePanel'
@@ -78,6 +79,8 @@ export function TeamTab(): JSX.Element {
           {/* The nudges' reveal is the team's record too: held with the forms (R1 review 1; the writer refuses it as well). */}
           <fieldset disabled={past !== null} className="contents"><NudgesPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <fieldset disabled={past !== null} className="contents"><ViewsPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
+          {/* Where your explanations differ (core GET …/differences): the revealed figures you differ on, side by side, and what to do with each. */}
+          <fieldset disabled={past !== null} className="contents"><DifferencesPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <fieldset disabled={past !== null} className="contents"><DissentPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <InvitePanel sid={sid} />
           <fieldset disabled={past !== null} className="contents"><EvidencePanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
