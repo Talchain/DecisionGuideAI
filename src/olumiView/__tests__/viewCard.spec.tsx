@@ -124,6 +124,18 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
     expect(plain.querySelector(`[data-view="${card.id}.badge.change"]`)).toBeNull()
     expect(plain.querySelector(`[data-view="${card.id}.badge.text"]`)?.closest('button')?.hasAttribute('data-proposed')).toBe(false)
   })
+  it('DL 7 Nov: the card face names what is folded in core\'s `words`, core\'s glyphs kept as its icon; with no `words`, the glyphs alone', () => {
+    const card = golden('european').model!.cards.find((c) => c.badge !== null)!
+    const named = render(<ViewCard card={{ ...card, badge: { ...card.badge!, words: '2 figures, 2 calculations' } as never }} />).container
+    expect(named.querySelector(`[data-view="${card.id}.badge.words"]`)?.textContent).toBe('2 figures, 2 calculations')
+    const glyph = named.querySelector(`[data-view="${card.id}.badge.text"]`)!
+    expect([glyph.textContent, glyph.getAttribute('aria-hidden')]).toEqual([card.badge!.text, 'true'])
+    expect(glyph.closest('button')?.getAttribute('aria-label')).toBe(card.badge!.label)
+    named.remove()
+    const bare = render(<ViewCard card={card} />).container
+    expect(bare.querySelector(`[data-view="${card.id}.badge.words"]`)).toBeNull()
+    expect(bare.querySelector(`[data-view="${card.id}.badge.text"]`)?.textContent).toBe(card.badge!.text)
+  })
 })
 
 describe('the compact face (Paul 4 Nov: the causal graph reads; every word of core\'s still reachable)', () => {
