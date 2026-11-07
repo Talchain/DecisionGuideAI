@@ -69,6 +69,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “our team resolves 80 tickets a week”"
+    },
     "failed": []
    },
    {
@@ -103,6 +108,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “would add about 25 tickets a week, somewhere between 15 and 35”"
+    },
     "failed": []
    },
    {
@@ -133,6 +143,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “add one specialist”"
+    },
     "failed": []
    },
    {
@@ -203,6 +218,11 @@
      }
     ],
     "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: today plus what is added"
+    },
     "failed": []
    },
    {
@@ -233,6 +253,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “at least 100 tickets a week”"
+    },
     "failed": []
    },
    {
@@ -264,6 +289,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “at least 100 tickets a week”"
+    },
     "failed": []
    },
    {
@@ -325,6 +355,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “keep current staffing”"
+    },
     "committed": null,
     "failed": [],
     "failed_reason": null
@@ -411,6 +446,11 @@
     },
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “add one specialist”"
+    },
     "committed": null,
     "failed": [],
     "failed_reason": null
@@ -443,6 +483,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “In 12 weeks”"
+    },
     "failed": []
    },
    {
@@ -477,6 +522,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “could only start after 4 weeks”"
+    },
     "failed": []
    }
   ],
@@ -490,7 +540,8 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "existing_capacity",
@@ -501,7 +552,8 @@
     "alert": false,
     "proposed": false,
     "title": "adds to · Theirs: “total is today plus the specialists”",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "total_capacity",
@@ -512,7 +564,8 @@
     "alert": false,
     "proposed": false,
     "title": "measured by",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "capacity_target",
@@ -523,7 +576,8 @@
     "alert": false,
     "proposed": false,
     "title": "target",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "add_one",
@@ -534,7 +588,8 @@
     "alert": false,
     "proposed": false,
     "title": "option input",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "one_specialist",
@@ -545,7 +600,8 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through specialists, added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”",
-    "effect": null
+    "effect": null,
+    "remove": null
    }
   ],
   "run": {
@@ -566,6 +622,8 @@
      "glyph": "↻",
      "title": "if approved; now If Olumi's estimates hold, 'Add one specialist' is more likely to achieve 'At least 100 a week' in this model (about 50%, against under 1% for 'Keep current staffing'); it rests on Olumi's estimate of 'per specialist' — give yours with ✎."
     },
+    "option": "add_one",
+    "aim_id": "capacity_goal",
     "estimate": null
    },
    "waits_on": null,
@@ -645,7 +703,19 @@
    "failure": [],
    "failure_heading": "What could go wrong",
    "rests": [],
-   "rests_heading": "How much rests on Olumi's guesses"
+   "rests_heading": "How much rests on Olumi's guesses",
+   "lenses": [
+    {
+     "id": "goal",
+     "label": "Chance of meeting the aim",
+     "title": "In this model, on current information, each option’s chance of meeting ‘At least 100 a week’."
+    },
+    {
+     "id": "outcome",
+     "label": "Likely outcome",
+     "title": "In this model, on current information, what each option’s outcome for ‘At least 100 a week’ is likely to be (8 draws in 10)."
+    }
+   ]
   },
   "edit_base": null,
   "key": [

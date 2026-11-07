@@ -19,6 +19,7 @@ import { AVATAR, BODY, H, META } from '../olumiCore/team/ui'
 import type { View } from './client'
 import { effectHeadingsOf, effectsOf } from './standin'
 import { chipOf, nextOf, openChipOf, revealOf, stanceOf, useReveal, type CardChip, type Shared } from './reveal'
+import { StrategyViewLines } from './strategy/StrategyViewLines'
 
 const initial = (by: string) => (Array.from(by)[0] ?? '').toUpperCase()
 
@@ -93,6 +94,7 @@ function Person({ v }: { v: Shared }): JSX.Element {
         </p>
         <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid="reveal-dock-words">{v.text}</p>
         <Figures v={v} />
+        <StrategyViewLines view={view} v={v} />
       </div>
     </article>
   )

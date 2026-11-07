@@ -70,6 +70,11 @@
     },
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “if we launch broken apps people will give us 1 star reviews”"
+    },
     "failed": []
    },
    {
@@ -112,6 +117,11 @@
     },
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “if we launch broken apps people will give us 1 star reviews”"
+    },
     "failed": []
    },
    {
@@ -121,7 +131,7 @@
     "heading": "Explain the release decision without unfair team blame",
     "typed": false,
     "detail": "Explain the release decision without unfair team blame · goal · Theirs: “make it sound super technical and smart so he doesnt just blame my team”",
-    "col": 2,
+    "col": 3,
     "h": 130,
     "olumi": null,
     "change": null,
@@ -129,7 +139,13 @@
     "challenged": false,
     "doubt": true,
     "figure": null,
-    "premises": [],
+    "premises": [
+     {
+      "glyph": "○",
+      "text": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer.",
+      "title": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer. · left out · Proposed by Olumi: Prevents the numerical schedule proxy from being presented as proof that an option is safe or commercially preferable. · No verified release plan, incident characterization or commercial figures were supplied. The calculation only tests time allowance. · Which additional release dependencies or acceptance checks must be included?"
+     }
+    ],
     "rows": [],
     "driver": null,
     "status": null,
@@ -143,20 +159,24 @@
     "badge": {
      "records": [
       "initial_position",
-      "schedule_measure_exclusions",
       "conditional_integrity_reason",
       "conditional_validation_reason",
       "boss_brief_structure"
      ],
-     "text": "❝ ○ +5",
-     "title": "claim: The user currently favors postponement and wants a technical explanation that avoids unfairly blaming the development team.\nleft out: A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nclaim: Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.",
-     "label": "Expand 5 reasoning records",
+     "text": "❝ +4",
+     "title": "claim: The user currently favors postponement and wants a technical explanation that avoids unfairly blaming the development team.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nclaim: Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.",
+     "label": "Expand 4 reasoning records",
      "open": false,
      "proposed": false,
      "change": ""
     },
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “make it sound super technical and smart so he doesnt just blame my team”"
+    },
     "failed": []
    },
    {
@@ -166,7 +186,7 @@
     "heading": "Avoid damaging users' experience and trust",
     "typed": false,
     "detail": "Avoid damaging users' experience and trust · goal · Theirs: “if we launch broken apps people will give us 1 star reviews”",
-    "col": 2,
+    "col": 3,
     "h": 130,
     "olumi": null,
     "change": null,
@@ -200,6 +220,93 @@
     },
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “if we launch broken apps people will give us 1 star reviews”"
+    },
+    "failed": []
+   },
+   {
+    "id": "release_offset",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Time available before release",
+    "typed": false,
+    "detail": "Time available before release · quantity · Proposed by Olumi: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure. · Plausible range: 0.5 to 4 weeks",
+    "col": 1,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0.5 to 4 weeks",
+     "title": "Plausible range: 0.5 to 4 weeks",
+     "edit": {
+      "prompt": "New figure for “Time available before release” (week): one number, or a range like 150 to 400",
+      "ask": "For “Time available before release”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "current_release_window"
+     ],
+     "text": "❝ +1",
+     "title": "claim: The new app update is scheduled to go live in less than a month; the exact release date is not supplied.",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": ""
+    },
+    "values": [
+     {
+      "option": "option_scheduled",
+      "text": "0.5 to 4 weeks",
+      "p10": 0.5,
+      "p50": null,
+      "p90": 4,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "option_delay",
+      "text": "4 to 16 weeks",
+      "p10": 4,
+      "p50": null,
+      "p90": 16,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "option_isolate",
+      "text": "0.5 to 4 weeks",
+      "p10": 0.5,
+      "p50": null,
+      "p90": 4,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure."
+    },
     "failed": []
    },
    {
@@ -209,7 +316,7 @@
     "heading": "Release time minus repair and validation time",
     "typed": false,
     "detail": "Release time minus repair and validation time · quantity · Proposed by Olumi: A signed schedule margin: a negative value represents insufficient time under this simplified schedule. · Worked out from the figures it depends on",
-    "col": 1,
+    "col": 2,
     "h": 116,
     "olumi": {
      "glyph": "◆",
@@ -232,9 +339,7 @@
     "reason": null,
     "badge": {
      "records": [
-      "current_release_window",
       "reported_sync_defect",
-      "release_offset",
       "repair_duration",
       "validation_duration",
       "readiness_duration",
@@ -245,51 +350,20 @@
       "conditional_validation_reason",
       "boss_brief_structure"
      ],
-     "text": "❝ ● = +12",
-     "title": "claim: The new app update is scheduled to go live in less than a month; the exact release date is not supplied.\nclaim: Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied.\nquantity: Time available before release\nquantity: Time to implement the sync fix\nquantity: Validation time after implementing the fix\nquantity: Time to complete repair and validation\nrelation: how Time to complete repair and validation is worked out\nrelation: how Release time minus repair and validation time is worked out\nchallenge: Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nclaim: Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.",
-     "label": "Expand 12 reasoning records",
+     "text": "❝ ● = +10",
+     "title": "claim: Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied.\nquantity: Time to implement the sync fix\nquantity: Validation time after implementing the fix\nquantity: Time to complete repair and validation\nrelation: how Time to complete repair and validation is worked out\nrelation: how Release time minus repair and validation time is worked out\nchallenge: Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nclaim: Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.",
+     "label": "Expand 10 reasoning records",
      "open": false,
      "proposed": false,
      "change": ""
     },
     "values": null,
     "rests_on": [],
-    "failed": []
-   },
-   {
-    "id": "zero_schedule_shortfall",
-    "family": "quantity",
-    "glyph": "●",
-    "heading": "Minimum proposed schedule margin",
-    "typed": false,
-    "detail": "Minimum proposed schedule margin · quantity · Proposed by Olumi: Proposed standard: allow at least enough time for the stated repair and validation work. This is not an agreed release gate or a prediction. · 0 weeks",
-    "col": 1,
-    "h": 88,
-    "olumi": {
-     "glyph": "◆",
-     "title": "Proposed by Olumi: Proposed standard: allow at least enough time for the stated repair and validation work. This is not an agreed release gate or a prediction."
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: A signed schedule margin: a negative value represents insufficient time under this simplified schedule."
     },
-    "change": null,
-    "focus": false,
-    "challenged": false,
-    "doubt": false,
-    "figure": {
-     "text": "0 weeks",
-     "title": "0 weeks",
-     "edit": {
-      "prompt": "New figure for “Minimum proposed schedule margin” (week): one number, or a range like 150 to 400",
-      "ask": "For “Minimum proposed schedule margin”, type one number, or a range like 150 to 400."
-     }
-    },
-    "premises": [],
-    "rows": [],
-    "driver": null,
-    "status": null,
-    "bound": null,
-    "reason": null,
-    "badge": null,
-    "values": null,
-    "rests_on": [],
     "failed": []
    },
    {
@@ -299,7 +373,7 @@
     "heading": "Allow time for repair and validation",
     "typed": false,
     "detail": "Allow time for repair and validation · goal · Proposed by Olumi: A testable schedule criterion for exploring the concern about releasing a known defect; it does not establish product safety.",
-    "col": 2,
+    "col": 3,
     "h": 130,
     "olumi": {
      "glyph": "◆",
@@ -310,7 +384,13 @@
     "challenged": false,
     "doubt": false,
     "figure": null,
-    "premises": [],
+    "premises": [
+     {
+      "glyph": "○",
+      "text": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer.",
+      "title": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer. · left out · Proposed by Olumi: Prevents the numerical schedule proxy from being presented as proof that an option is safe or commercially preferable. · No verified release plan, incident characterization or commercial figures were supplied. The calculation only tests time allowance. · Which additional release dependencies or acceptance checks must be included?"
+     }
+    ],
     "rows": [],
     "driver": null,
     "status": null,
@@ -326,10 +406,10 @@
     "reason": null,
     "badge": {
      "records": [
-      "schedule_measure_exclusions"
+      "zero_schedule_shortfall"
      ],
-     "text": "○ +1",
-     "title": "left out: A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer.",
+     "text": "● +1",
+     "title": "quantity: Minimum proposed schedule margin",
      "label": "Expand 1 reasoning records",
      "open": false,
      "proposed": false,
@@ -337,6 +417,11 @@
     },
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: A testable schedule criterion for exploring the concern about releasing a known defect; it does not establish product safety."
+    },
     "failed": []
    },
    {
@@ -403,6 +488,11 @@
     },
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “we are supposed to go live with the new app update in like less than a month”"
+    },
     "committed": null,
     "failed": [],
     "failed_reason": null
@@ -482,6 +572,11 @@
     },
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “honestly i think we have to push it back”"
+    },
     "committed": null,
     "failed": [],
     "failed_reason": null
@@ -513,6 +608,11 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: These simplifying premises make the schedule subset calculable. Actual staffing, overlapping tests and estimate scope may invalidate them."
+    },
     "failed": []
    },
    {
@@ -588,6 +688,11 @@
     },
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: Tests whether release scope and the defective path can be separated, for example by deferring an affected feature. Feasibility is unverified; this option has no numerical schedule effect in the current model."
+    },
     "committed": null,
     "failed": [],
     "failed_reason": null
@@ -629,10 +734,27 @@
     },
     "values": null,
     "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change."
+    },
     "failed": []
    }
   ],
   "links": [
+   {
+    "from": "release_offset",
+    "to": "readiness_margin",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "adds to · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
+    "effect": null,
+    "remove": null
+   },
    {
     "from": "option_isolate",
     "to": "protect_user_trust",
@@ -641,8 +763,9 @@
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "link in words: conditional, unknown; Excluding the defective path could protect users only if isolation is technically valid; no architecture evidence was supplied. · Proposed by Olumi: Retains the possible mechanism without inventing a risk reduction or claiming feasibility.",
-    "effect": null
+    "title": "link in words: depends on conditions, not known; Excluding the defective path could protect users only if isolation is technically valid; no architecture evidence was supplied. · Proposed by Olumi: Retains the possible mechanism without inventing a risk reduction or claiming feasibility.",
+    "effect": null,
+    "remove": null
    },
    {
     "from": "option_isolate",
@@ -653,7 +776,8 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change. · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "negative_reviews",
@@ -664,7 +788,8 @@
     "alert": false,
     "proposed": false,
     "title": "may change",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "readiness_margin",
@@ -675,18 +800,8 @@
     "alert": false,
     "proposed": false,
     "title": "measured by",
-    "effect": null
-   },
-   {
-    "from": "zero_schedule_shortfall",
-    "to": "allow_readiness_work",
-    "kind": "plain",
-    "label": "",
-    "doubt": false,
-    "alert": false,
-    "proposed": false,
-    "title": "target",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "schedule_assumptions",
@@ -697,7 +812,8 @@
     "alert": false,
     "proposed": false,
     "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "schedule_assumptions",
@@ -708,18 +824,20 @@
     "alert": false,
     "proposed": false,
     "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "option_delay",
-    "to": "readiness_margin",
+    "to": "release_offset",
     "kind": "through",
     "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through Postponed release time from now, Time available before release · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
-    "effect": null
+    "title": "worked out through Postponed release time from now",
+    "effect": null,
+    "remove": null
    },
    {
     "from": "isolation_readiness_link",
@@ -730,7 +848,8 @@
     "alert": false,
     "proposed": false,
     "title": "relation: Explore shipping without the affected sync path → Time to complete repair and validation",
-    "effect": null
+    "effect": null,
+    "remove": null
    },
    {
     "from": "isolation_readiness_link",
@@ -741,7 +860,8 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
-    "effect": null
+    "effect": null,
+    "remove": null
    }
   ],
   "run": {
@@ -867,7 +987,8 @@
    "failure": [],
    "failure_heading": "What could go wrong",
    "rests": [],
-   "rests_heading": "How much rests on Olumi's guesses"
+   "rests_heading": "How much rests on Olumi's guesses",
+   "lenses": []
   },
   "edit_base": 1,
   "key": [
@@ -1000,6 +1121,11 @@
     "id": "changed",
     "glyph": "↻",
     "text": "changed"
+   },
+   {
+    "id": "blue_range",
+    "glyph": "▬",
+    "text": "blue range: rests on a figure Olumi proposed"
    }
   ],
   "removed": [],

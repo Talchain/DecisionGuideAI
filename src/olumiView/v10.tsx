@@ -46,6 +46,7 @@ import { useViewStore } from './store'
 import { keyNamesBlueRange } from './layout'
 import { useCardNumber } from './lens'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from './RevealMarks'
+import { StrategyChips } from './strategy/StrategyChips'
 import { useReveal } from './reveal'
 
 /** v10's rulings for the whole lane while its canvas is up: the attribute v10's stylesheets are scoped to. */
@@ -237,7 +238,8 @@ export function ViewCardV10(props: NodeProps) {
         {/* V11: the team's revealed views on the card they are about (./reveal.ts): initials in the marks row, the disagreement below; the
             team's evidence on the cards it concerns (./evidence.ts), beside the initials. */}
         {places.marks === null ? null : createPortal(<><CardViewInitials card={props.id} /><CardEvidenceMarks card={props.id} /></>, places.marks)}
-        {places.rail === null ? null : createPortal(<CardViewChips card={props.id} />, places.rail)}
+        {/* Strategy lane (7 Nov, by agreement): core's strategy mark beside the reveal's, in the same rail portal; null when the reveal marks the card. */}
+        {places.rail === null ? null : createPortal(<><CardViewChips card={props.id} /><StrategyChips card={props.id} /></>, places.rail)}
       </div>
     </V10Scope>
   )
