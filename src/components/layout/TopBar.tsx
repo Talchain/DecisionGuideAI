@@ -10,6 +10,7 @@ import { VersionsTrigger } from '../../canvas/versions/VersionsTrigger'
 import { DecisionBriefTrigger } from '../../canvas/decisionBrief/DecisionBriefTrigger'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { ViewBriefTrigger } from '../../olumiView/ViewBrief'
+import { TeamPresence } from '../../olumiView/TeamPresence'
 import { ownerPanelHash } from '../../collab/panelRoute'
 import { useCanvasStore } from '../../canvas/store'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
@@ -481,6 +482,8 @@ export const TopBar = ({
           onShowInfluenceExplainer={handleShowInfluenceExplainer}
           menuRef={menuRef}
         />
+
+        {isOlumiCoreLane() && <TeamPresence />}
 
         {/* User avatar + account dropdown — contract `.app-top .avatar`, 26px. */}
         <div className={styles.avatarSlot}>
