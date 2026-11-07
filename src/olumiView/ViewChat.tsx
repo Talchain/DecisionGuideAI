@@ -81,7 +81,7 @@ function Stories({ answer, at }: { answer: NonNullable<ViewTurn['answer']>; at: 
   return (
     <section data-testid="view-chat-stories" aria-label={heading}>
       <p className={typography.panelHeader} data-view={`${at}.answer.stories_heading`}>{heading}</p>
-      <ol className="space-y-1.5">
+      <ol className="space-y-2">
         {stories.map((st, i) => {
           const option = st.option === null ? null : headingOf(st.option)
           const rests = st.rests_on.flatMap((id) => { const h = headingOf(id); return h === null ? [] : [h] })
@@ -163,7 +163,7 @@ export function ViewConversation({ chat, moves = false }: { chat: View['chat']; 
   if (chat.length === 0) return null
   const last = chat.length - 1
   return (
-    <div className={`${typography.viewPanelBody} space-y-3`} data-testid="view-chat-turns">
+    <div className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turns">
       <ol className="space-y-4" data-testid="view-chat-latest"><Turn t={chat[last]!} at={`chat.${last}`} answerFirst moves={moves} /></ol>
       {last === 0 ? null : (
         <details data-testid="view-chat-earlier">
@@ -223,7 +223,7 @@ function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; bus
   const chosen = pick.only.length + pick.only_top.length
   const line = (i: number) => { const c = changes[i]!; return <ChangeLine key={keyOf(c)} c={c} i={i} ticked={tickable ? ticked.has(keyOf(c)) : null} toggle={toggle} busy={busy} /> }
   return (
-    <div className={`${typography.viewPanelBody} rounded border border-border p-3 space-y-2`} data-testid="view-chat-proposal">
+    <div className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
       <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span> <span data-view="proposal.on">{p.on}</span>
         {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>
       {from === null ? null : (
@@ -702,7 +702,7 @@ function SessionGoal({ session, held }: { session: Session; held: boolean }) {
   }
   // The question, then core's goals two by two: the dock is too narrow for four on one line, and a wrapped row reads ragged.
   return (
-    <div role="group" aria-labelledby="view-session-goal-question" className="space-y-1.5" data-testid="view-session-goal">
+    <div role="group" aria-labelledby="view-session-goal-question" className="space-y-2" data-testid="view-session-goal">
       <p id="view-session-goal-question" className={`${typography.chatMeta} text-text-light`}>{GOAL_QUESTION}</p>
       <div className="grid grid-cols-2 gap-1.5">
         {session.goals.map((g, i) => (
@@ -750,6 +750,11 @@ function MethodMenu({ session, held }: { session: Session; held: boolean }) {
   )
 }
 
+/**
+ * R25 spacing roles on this tab (plan v3 item 3; one value per role, alpha surfaces only): sections 16px (space-y-4, the tab's p-4);
+ * a card's padding 12px (p-3); related items 8px (space-y-2); a label to its content 4px (space-y-1). The waiting change sits inside the
+ * Next step card with no second border or padding of its own (the double padding is gone).
+ */
 /** The disclosure holding what the team came for and every method (R25: depth one click away, never above Olumi's reply). */
 export const MORE_WAYS = 'More ways to think about this'
 
@@ -795,7 +800,7 @@ export function ViewChat() {
         {ffMine && ffShown ? <FigureFirstShownPanel onClose={() => useFigureFirst.setState({ shown: null })} /> : null}
         {ff?.given == null ? null : <FigureFirstSideBySide given={ff.given} headings={ff.headings} />}
         {session === null ? null : (
-          <details className="space-y-3" data-testid="view-more-ways">
+          <details className="space-y-4" data-testid="view-more-ways">
             <summary className={`${typography.viewPanelBody} flex min-h-[44px] cursor-pointer items-center text-info`}>{MORE_WAYS}</summary>
             <SessionGoal session={session} held={held} />
             <MethodMenu session={session} held={held} />
