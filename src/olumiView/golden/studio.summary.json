@@ -214,7 +214,7 @@
     {
       "id": "workshop_extra",
       "label": "workshop extra",
-      "text": null,
+      "text": "15 classes/month",
       "whose": "olumi",
       "author": "Olumi’s estimate"
     }
@@ -659,8 +659,14 @@
       "tag": "li",
       "parts": [
         {
-          "text": "workshop extra",
+          "text": "workshop extra: ",
           "strong": true,
+          "href": null,
+          "mark": null
+        },
+        {
+          "text": "15 classes/month",
+          "strong": false,
           "href": null,
           "mark": null
         },
