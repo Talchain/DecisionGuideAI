@@ -10,6 +10,8 @@
  * - The outcome lens's readout is core's outcome band (`outcome.text`) with the band drawn on a track shared by that aim's options. It has
  *   no leader, so no mark. The band is never drawn beside the chance as if it were confidence in it.
  * - The option name is never cut (R25, Paul's 6 Nov test): no clamp, so no clip-recovery line.
+ * - Under the row, at rest: what the chance rests on (`row.rests_on_text`, e.g. "Rests on Olumi's proposed target and what-if for …"),
+ *   verbatim (DL 7 Nov: where Paul sees Olumi's target, in place of a bare ◆).
  * - The detail holds core's lines only: the other lens's readout, the companion, timing, what moves the chance most (`driver`) and what
  *   would have to be true (`run.tipping`) for this option and aim. No sentence is built here.
  */
@@ -162,6 +164,10 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
           {grid}
         </button>
       ) : <div className={HERO_ROW_GRID}>{grid}</div>}
+      {/* What this chance rests on, in core's words, at rest (DL 7 Nov: the place Paul sees Olumi's proposed target, in place of a bare ◆). */}
+      {chance?.rests_on_text == null || chance.rests_on_text === '' ? null : (
+        <p className={`${TYPE.meta} pb-1 pl-10 pr-2 text-text-light`} data-testid="port-row-rests-on" data-view={`${at}.rests_on_text`}>{chance.rests_on_text}</p>
+      )}
       {expandable && isOpen && (
         <div id={regionId} role="region" aria-labelledby={labelId} data-testid="port-option-detail" className="space-y-1 pb-2 pl-10 pr-2 pt-0.5">
           {otherReadout}

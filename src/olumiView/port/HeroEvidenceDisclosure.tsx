@@ -5,6 +5,10 @@
  * - Drivers: what moves each option's chance most (`cards[].driver`), with v10's low→high marker and core's line on what the two chances
  *   are (`run.sensitivity`), once;
  * - What would have to be true (`run.tipping`, under core's `tipping_heading`, and an aim's silent line);
+ * - How much rests on Olumi's guesses (D8 `run.rests`, under core's `rests_heading`; core sends lines only where Olumi's ranges hold the
+ *   largest share; the shares place nothing here and are never drawn as numbers);
+ * - What could go wrong (D5 `run.failure`, under core's `failure_heading`; core fills it only for an option someone committed to, so
+ *   before that there is no chip and no heading);
  * - Compared (`run.compared`, each group under core's `compared_headings`);
  * - Worth checking first (`run.science` worth lines), with a slot for each figure's give control.
  * Core keeps no ranked factor list and no trade-offs beyond `run.compared` (core-port-fields, 7 Nov), so the crafted "Ranked by effect"
@@ -13,12 +17,12 @@
 import { useState, type ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
 import type { ViewModel, ViewRun } from '../client'
-import { comparedGroupsOf, tippingOf, worthLinesOf } from '../layout'
+import { comparedGroupsOf, failureOf, restsOf, tippingOf, worthLinesOf } from '../layout'
 import { driverRange, figureCard, Sensitivity } from '../ViewChances'
 import { driverCardsOf } from './pick'
 import { TYPE } from './type'
 
-type ViewKey = 'drivers' | 'tipping' | 'compared' | 'worth'
+type ViewKey = 'drivers' | 'tipping' | 'rests' | 'failure' | 'compared' | 'worth'
 type Science = NonNullable<ViewRun['science']>[number]
 
 /** The crafted 6px track (prototype .evidence-bar) carrying v10's low→high marker: positions only, never drawn as numbers. */
@@ -48,10 +52,14 @@ export function HeroEvidenceDisclosure({ model, defaultOpen = false, giveAction 
   const drivers = driverCardsOf(model)
   const tipping = tippingOf(run)
   const compared = comparedGroupsOf(run)
+  const rests = restsOf(run)
+  const failure = failureOf(run)
   const worth = run?.science == null ? [] : worthLinesOf(run.science)
   const views = ([
     { key: 'drivers', label: 'Drivers', view: undefined, present: drivers.length > 0 },
     { key: 'tipping', label: tipping?.heading ?? '', view: 'run.tipping_heading', present: tipping !== null },
+    { key: 'rests', label: rests?.heading ?? '', view: 'run.rests_heading', present: rests !== null },
+    { key: 'failure', label: failure?.heading ?? '', view: 'run.failure_heading', present: failure !== null },
     { key: 'compared', label: 'Trade-offs', view: undefined, present: compared.length > 0 },
     { key: 'worth', label: 'Worth checking first', view: undefined, present: worth.length > 0 },
   ] as const).flatMap((v) => (v.present ? [v] : []))
@@ -108,6 +116,13 @@ export function HeroEvidenceDisclosure({ model, defaultOpen = false, giveAction 
               {tipping.silent.map((s) => <p key={s.aim} className="text-text-light" data-view-silent={s.aim}>{s.line}</p>)}
             </div>
           )}
+
+          {([['rests', rests, 'run.rests'], ['failure', failure, 'run.failure']] as const).map(([key, facts, path]) => (active !== key || facts === null ? null : (
+            <div key={key} className="space-y-1.5" data-testid={`port-evidence-${key}`}>
+              {views.length < 2 ? <p className="font-medium text-text-header" data-view={`${path}_heading`}>{facts.heading}</p> : null}
+              {facts.lines.map(({ line: l, i }) => <p key={l.id} title={l.hover} data-view-fact={l.id}><span data-view={`${path}.${i}.line`}>{l.line}</span></p>)}
+            </div>
+          )))}
 
           {active !== 'compared' ? null : (
             <div className="space-y-3" data-testid="port-evidence-compared">

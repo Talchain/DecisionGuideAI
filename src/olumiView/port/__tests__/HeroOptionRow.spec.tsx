@@ -53,6 +53,21 @@ describe('the ported option row, goal lens: the chance is the headline, in core\
     expect(container.querySelector('[data-view="carry_on.rows.1.value"]')!.textContent).toBe('under 1% chance')
   })
 
+  it('what the chance rests on is drawn at rest, in core\'s words at its path (DL 7 Nov: in place of a bare ◆)', () => {
+    const { container, entry } = draw(real, 'second_oven', 1)
+    const r = entry.row as Extract<typeof entry.row, { kind: 'chance' }>
+    expect(r.rests_on_text).toBe("Rests on Olumi's what-if for 'extra sold per oven'.")
+    const el = container.querySelector('[data-testid="port-row-rests-on"]')!
+    expect([el.getAttribute('data-view'), el.textContent]).toEqual(['second_oven.rows.1.rests_on_text', r.rests_on_text])
+    expect(el.closest('[data-testid="port-option-detail"]')).toBeNull() // at rest, not behind the disclosure
+  })
+
+  it('negative: a chance core gives no rests-on line draws none', () => {
+    const { container, entry } = draw(real, 'carry_on', 1)
+    expect((entry.row as { rests_on_text?: string }).rests_on_text ?? null).toBeNull()
+    expect(container.querySelector('[data-testid="port-row-rests-on"]')).toBeNull()
+  })
+
   it('the option name is never cut: no clamp or truncation on it', () => {
     const { container } = draw(real, 'second_oven', 1)
     expect(container.querySelector('[data-view="second_oven.heading"]')!.className).not.toMatch(/line-clamp|truncate/)
