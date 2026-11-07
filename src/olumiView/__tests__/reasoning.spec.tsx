@@ -778,8 +778,12 @@ describe('the option rack: each option\'s chance, through the served Analysis ro
       } else {
         expect(row.querySelector(`[data-view="${at}.aim"]`)?.textContent, at).toBe(r.aim)
         expect(row.querySelector(`[data-view="${at}.value"]`)?.textContent, at).toBe(r.value)
+        // Core's own most-likely mark (◉) where core gives one, and nowhere else.
+        const likely = row.querySelector(`[data-view="${at}.likely.glyph"]`)
+        expect(likely === null ? null : [likely.textContent, likely.getAttribute('title')], at).toEqual(r.kind === 'chance' && r.likely != null ? [r.likely.glyph, r.likely.title] : null)
       }
     })
+    expect(rack().querySelectorAll('[data-view$=".likely.glyph"]').length).toBeGreaterThan(0)
     expect(rack().querySelector('[data-testid="port-row-track"], [role="progressbar"]')).toBeNull()
   })
 
