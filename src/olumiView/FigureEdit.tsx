@@ -134,7 +134,7 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
     return (
       glyph === undefined
         ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow}
-          className={`nodrag ${typography.viewLabel} cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
+          className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
         : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow} aria-label={label} title={edit.ask}
           className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-info`}>
           <span aria-hidden="true" data-testid={`${place}-glyph-${id}`}>{glyph}</span>
