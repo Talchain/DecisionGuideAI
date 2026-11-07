@@ -38,6 +38,8 @@ const twoPeople = (over: Partial<View['collab']> = {}, view: Partial<View> = {})
   ...view,
 })
 
+// `reads` counts the View's own re-reads (what this spec is about), bound to the View's path: the Team panels' own reads (where
+// explanations differ, the strategy vocabulary) are not re-reads of the View.
 let served: View, reads = 0
 beforeEach(() => {
   vi.useFakeTimers()
@@ -46,7 +48,7 @@ beforeEach(() => {
   setTeamFetch((async (u: unknown, init?: RequestInit) => {
     if ((init?.method ?? 'GET') !== 'GET') return new Response('{}', { status: 201 })
     if (String(u).endsWith('/invites')) return new Response(JSON.stringify({ invites: [] }), { status: 200 })
-    reads += 1
+    if (/\/view\?schema=/.test(String(u))) reads += 1
     return new Response(JSON.stringify(served), { status: 200 })
   }) as unknown as typeof fetch)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: served, status: 'ready', error: null, stale: false })
