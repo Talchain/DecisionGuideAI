@@ -126,7 +126,12 @@ function DifferenceCard({ sid, view, data, d, ring, onWrote }: { sid: string; vi
                   <th scope="row" className={`${BODY} py-1 pr-2 text-left font-normal text-text-header`}>
                     <button type="button" className="text-left underline-offset-2 hover:underline" onClick={() => focusNodeById(o.option)} onMouseEnter={() => ring([o.option])} onMouseLeave={() => ring(cards)}>{o.label}</button>
                   </th>
-                  {d.sides.map((s) => <td key={s.holder_id} className={`${BODY} py-1 pr-2 tabular-nums`} data-difference-chance={s.holder_id}>{o.chances.find((c) => c.holder_id === s.holder_id)?.text ?? ''}</td>)}
+                  {d.sides.map((s) => {
+                    // That holder's own result: their chance, or what their version withholds, with core's reason on hover. Never another column's number.
+                    const c = o.chances.find((x) => x.holder_id === s.holder_id)
+                    return <td key={s.holder_id} className={`${BODY} py-1 pr-2 ${c?.withheld ? 'text-text-light' : 'tabular-nums'}`} data-difference-chance={s.holder_id}
+                      data-difference-withheld={c?.withheld ? '' : undefined} title={c?.withheld?.reason}>{c?.text ?? ''}</td>
+                  })}
                   <td className={`${META} py-1 tabular-nums`} data-difference-model="">{o.model}</td>
                 </tr>
               ))}

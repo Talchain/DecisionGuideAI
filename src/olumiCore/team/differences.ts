@@ -7,9 +7,13 @@
 import { create } from 'zustand'
 import { call, TeamApiError } from './api'
 
-export type DifferenceStatus = 'changes' | 'moves' | 'same' | 'pending' | 'not_run'
+/** `withheld` (core 84e2bada): a version's Run withholds a chance the other gives; said with its reason, never read as the same. */
+export type DifferenceStatus = 'changes' | 'moves' | 'same' | 'withheld' | 'pending' | 'not_run'
 export interface DifferenceSide { readonly view: number; readonly holder: string; readonly holder_id: string; readonly figure: string; readonly title: string; readonly leader: string | null; readonly text: string }
-export interface DifferenceOption { readonly option: string; readonly label: string; readonly model: string; readonly chances: ReadonlyArray<{ readonly holder_id: string; readonly chance: number; readonly text: string }> }
+/** One holder's result: their version's chance, or (`chance` null) what their version's Run withholds, in its own words (`withheld.value`, and
+ *  `withheld.reason` in full). Core never fills it from another run, and nothing here does either: `text` is drawn as given. */
+export interface ChanceEntry { readonly holder_id: string; readonly chance: number | null; readonly text: string; readonly withheld?: { readonly value: string; readonly reason: string } | null }
+export interface DifferenceOption { readonly option: string; readonly label: string; readonly model: string; readonly chances: ReadonlyArray<ChanceEntry> }
 export interface Settle { readonly kind: 'crossing' | 'worth' | 'diagnostic' | 'no_change'; readonly text: string; readonly fact: string | null }
 export interface StepShown { readonly id: number; readonly at: string; readonly by: string; readonly by_id: string; readonly step: 'dissent' | 'research'; readonly version: number; readonly text: string }
 export interface Difference {
