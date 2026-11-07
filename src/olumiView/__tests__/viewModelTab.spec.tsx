@@ -228,3 +228,63 @@ describe('the Model tab: an option row core gives no chance keeps its words whol
   })
 })
 
+
+// UI audit of cc75a10a (7 Nov): the key names only the marks drawn; the deliberate Model-tab changes are bound by identity, so reverting
+// either goes red.
+describe('the key, and what the Model tab deliberately does not draw', () => {
+  const keyTexts = (c: HTMLElement) => [...c.querySelectorAll('[data-testid="view-model-key"] [data-view-key]')].map((k) => k.textContent)
+  const olumi = model.key.find((k) => k.id === 'olumi')!
+
+  it('catch: on first open every group is closed and no mark is drawn, so no key; opened, the key names the marks on screen', () => {
+    const c = render(<ViewModelTab model={model} />).container
+    expect(c.querySelectorAll('[data-model-row]').length).toBe(0)
+    expect(c.querySelector('[data-testid="view-model-key"]')).toBeNull()
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    expect(keyTexts(c)).toContain(`${olumi.glyph} ${olumi.text}`)
+  })
+
+  it('catch: a filter that hides every marked card leaves no key; one that shows a marked card brings it back', () => {
+    const plain = model.cards.find((k) => k.id === 'starting_customers')!
+    const marked = model.cards.find((k) => k.id === 'customers')!
+    expect([plain.olumi, marked.olumi?.glyph]).toEqual([null, olumi.glyph])
+    const c = render(<ViewModelTab model={model} />).container
+    fireEvent.change(c.querySelector('[data-testid="view-model-filter"]')!, { target: { value: plain.heading } })
+    expect([...c.querySelectorAll('[data-model-row]')].map((r) => r.getAttribute('data-model-row'))).toEqual([plain.id])
+    expect(c.querySelector('[data-testid="view-model-key"]')).toBeNull()
+    fireEvent.change(c.querySelector('[data-testid="view-model-filter"]')!, { target: { value: marked.heading } })
+    expect(c.querySelector(`[data-model-row="${marked.id}"]`)).not.toBeNull()
+    expect(keyTexts(c)).toContain(`${olumi.glyph} ${olumi.text}`)
+  })
+
+  it('catch: an option row draws no companion or timing line (they stay the Analysis tab\'s), even where core sends them', () => {
+    // ⚠ LABELLED FIXTURE: no golden carries a companion or timing line on a Model-tab option, so one chance row is given both.
+    const withLines = structuredClone(model)
+    const option = withLines.cards.find((k) => k.family === 'option' && k.rows.some((r) => r.kind === 'chance'))!
+    const i = option.rows.findIndex((r) => r.kind === 'chance')
+    Object.assign(option.rows[i]!, { companion: 'about 50% without it', companion_title: 'x', timing: 'by month 6', timing_title: 'y' })
+    const c = render(<ViewModelTab model={withLines} />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    expect(c.querySelector(`[data-view-row="${option.id}.rows.${i}"]`)).not.toBeNull()
+    expect(c.querySelector(`[data-view="${option.id}.rows.${i}.companion"]`)).toBeNull()
+    expect(c.querySelector(`[data-view="${option.id}.rows.${i}.timing"]`)).toBeNull()
+    expect(c.querySelector('[data-view$=".companion"], [data-view$=".timing"]')).toBeNull()
+  })
+
+  it('catch: a link\'s label is a mark after its words, on its first line; its strength is line 2, outside that line', () => {
+    // ⚠ LABELLED FIXTURE: no golden has a labelled link with a strength, so the first labelled link is given one.
+    const sized = structuredClone(model)
+    const k = sized.links.findIndex((l) => l.label !== '')
+    sized.links[k] = { ...sized.links[k]!, effect: { text: '1.5 to 2', title: 'z', figure: 'starting_customers' } }
+    const c = render(<ViewModelTab model={sized} />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    const line = c.querySelector(`[data-model-link-line="links.${k}"]`)!
+    const label = line.querySelector(`[data-view="links.${k}.label"]`)!
+    expect(label.textContent).toBe(sized.links[k]!.label)
+    // After its words: the label's text follows the link's "to" heading, and nothing of the line follows the label.
+    expect(line.textContent!.endsWith(`${linkEndHeading(sized, sized.links[k]!.to)}\u00a0${sized.links[k]!.label}`)).toBe(true)
+    const strength = c.querySelector(`[data-view="links.${k}.effect.text"]`)!
+    expect(line.contains(strength)).toBe(false)
+    expect(strength.className).toContain('block')
+    expect(line.compareDocumentPosition(strength) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})

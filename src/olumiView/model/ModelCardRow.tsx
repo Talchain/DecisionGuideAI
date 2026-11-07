@@ -83,7 +83,7 @@ function Premises({ card, keyEntries }: { card: ViewCard; keyEntries: ViewModel[
   return (
     <div className="pb-1 pl-8 pr-2" data-model-premises={card.id}>
       <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)} data-model-premises-toggle={card.id}
-        className={`${typography.viewPanelMeta} inline-flex items-center gap-1 rounded-sm py-0.5 text-text-light transition-colors hover:text-text-body ${ACTION_FOCUS}`}>
+        className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-sm text-text-light transition-colors hover:text-text-body ${ACTION_FOCUS}`}>
         <ChevronRight aria-hidden="true" className={`h-3.5 w-3.5 flex-none transition-transform ${open ? 'rotate-90' : ''}`} />
         <span>{MODEL_ROW_LABELS.restsOn}</span>
         <span className="tabular-nums" data-model-premises-count={card.id}>{card.premises.length}</span>
