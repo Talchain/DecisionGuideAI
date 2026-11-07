@@ -46,7 +46,7 @@ import { useViewStore } from './store'
 import { keyNamesBlueRange } from './layout'
 import { useCardNumber } from './lens'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from './RevealMarks'
-import { useReveal, useTriedCards } from './reveal'
+import { useReveal } from './reveal'
 
 /** v10's rulings for the whole lane while its canvas is up: the attribute v10's stylesheets are scoped to. */
 export function useV10Lane(): void {
@@ -213,9 +213,7 @@ export function ViewCardV10(props: NodeProps) {
   const box = useRef<HTMLDivElement>(null)
   const [places, setPlaces] = useState<Places>({ olumi: null, driver: null, band: null, values: null, marks: null, rail: null })
   const band = useOptionBands().get(props.id) ?? null
-  // V11: lit while a person's figure is tried from the dock, in the header ink (the person's act, never Olumi's blue).
-  const tried = useTriedCards((s) => s.ids.includes(props.id))
-  // V11: the card whose chip is open carries the one selection ring (approved v2.1), in the same header ink.
+  // V11: the card whose chip is open carries the one selection ring (approved v2.1), in the header ink (the person's act, never Olumi's blue).
   const opened = useReveal((s) => s.card === props.id)
   // The card draws its places; v10 finds them each time the card is drawn from new data (a card that changes family gains or loses its
   // driver place).
@@ -228,8 +226,8 @@ export function ViewCardV10(props: NodeProps) {
   }, [props.data])
   return (
     <V10Scope>
-      <div ref={box} data-testid="view-card-v10" data-tried={tried || undefined} data-reveal-open={opened || undefined}
-        className={tried || opened ? 'rounded-md ring-2 ring-text-header ring-offset-2 ring-offset-canvas' : undefined}>
+      <div ref={box} data-testid="view-card-v10" data-reveal-open={opened || undefined}
+        className={opened ? 'rounded-md ring-2 ring-text-header ring-offset-2 ring-offset-canvas' : undefined}>
         <ViewCardNode {...props} />
         {places.olumi === null ? null : createPortal(<NodeCornerOlumi nodeId={props.id} selected={props.selected === true} />, places.olumi)}
         {places.driver === null ? null : createPortal(<ViewDriverBadge card={(props.data as ViewCardData).card} />, places.driver)}

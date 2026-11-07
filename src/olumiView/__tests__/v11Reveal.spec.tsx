@@ -12,10 +12,8 @@ import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { marksOn, revealOf, useReveal } from '../reveal'
-import { CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
+import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
 import { RevealDock } from '../RevealDock'
-import { clearWhatIf, useWhatIf } from '../whatif'
-import { setTeamFetch } from '../../olumiCore/team/api'
 import { ViewLensBar } from '../ViewLensBar'
 import { useViewLens } from '../lens'
 
@@ -27,9 +25,9 @@ const DIAG = 'paid_enterprise_diagnostic'
 
 beforeEach(() => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-a88ba245176e', sid: real.id, view: real, status: 'ready', error: null, stale: false, at: null })
-  useReveal.setState({ selected: null, card: null, evidence: null })
+  useReveal.setState({ selected: null, card: null, evidence: null, kind: null })
 })
-afterEach(() => { cleanup(); vi.restoreAllMocks(); setTeamFetch(null); clearWhatIf() })
+afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 describe('where each revealed view sits (real View)', () => {
   it('puts each figure on its card, an option’s own figure on that option, and the moving one as the chip', () => {
@@ -105,10 +103,10 @@ describe('core’s per-card marks (real View, core wip/debate-r2 5a61369a)', () 
   const id = (n: string) => marked.collab.shared.find((v) => v.by === n)!.id
   it('one chip per card in core’s own words, of every kind, gathering its people', () => {
     const r = revealOf(marked)!
-    expect(marksOn(r, DIAG).chip).toEqual({ card: DIAG, kind: 'disagreement', text: 'Priya and Tom differ', views: [id('Priya'), id('Tom')], people: [{ view: id('Priya'), by: 'Priya' }, { view: id('Tom'), by: 'Tom' }], reading: null, options: [] })
+    expect(marksOn(r, DIAG).cardChips).toEqual([{ card: DIAG, kind: 'disagreement', text: 'Priya and Tom differ', views: [id('Priya'), id('Tom')], evidence: [], people: [{ id: id('Priya'), by: 'Priya' }, { id: id('Tom'), by: 'Tom' }], reading: null, options: [] }])
     expect(marksOn(r, DIAG).initials).toEqual([])
     // Every kind is a chip (Paul's approved grammar, 7 Nov v2.1): "Only Maya raised it" too, so the kind reads without a click.
-    expect(marksOn(r, 'contract_to_cash')).toMatchObject({ chip: { kind: 'unique', text: 'Only Maya raised it', views: [id('Maya')] }, initials: [] })
+    expect(marksOn(r, 'contract_to_cash')).toMatchObject({ cardChips: [{ kind: 'unique', text: 'Only Maya raised it', views: [id('Maya')] }], initials: [] })
     useViewStore.setState({ view: marked })
     render(<><CardViewChips card={DIAG} /><CardViewChips card="contract_to_cash" /></>)
     const chips = screen.getByTestId(`reveal-chips-${DIAG}`).querySelectorAll('button')
@@ -116,7 +114,7 @@ describe('core’s per-card marks (real View, core wip/debate-r2 5a61369a)', () 
     expect(chips[0]!.querySelector('[data-reveal-chip-text]')!.textContent).toBe('Priya and Tom differ')
     expect(screen.getByTestId('reveal-chips-contract_to_cash').querySelector('[data-reveal-chip-text]')!.textContent).toBe('Only Maya raised it')
     fireEvent.click(chips[0]!)
-    expect(useReveal.getState()).toMatchObject({ selected: id('Priya'), card: DIAG })
+    expect(useReveal.getState()).toMatchObject({ selected: id('Priya'), card: DIAG, kind: 'disagreement' })
   })
   it('opened from the chip, the panel leads with both people, then Olumi’s reading, then core’s question with one primary action', () => {
     useViewStore.setState({ view: marked })
@@ -181,34 +179,97 @@ describe('on the canvas and in the dock', () => {
   })
 })
 
-describe('try their figure in place (V11 change 4)', () => {
-  /** Core's real what-if answer for Priya's figure on the same copy (fixtures/v11/README.md). */
-  const whatif = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-whatif-priya.json'), 'utf8'))
-  it('runs their figure, as core words it, on a copy; shows each option saved beside what-if; back drops it', async () => {
-    const posts: unknown[] = []
-    setTeamFetch((async (u: unknown, init?: RequestInit) => {
-      if ((init?.method ?? 'GET') === 'GET') return new Response(JSON.stringify({ me: { id: real.you_id, name: real.you } }), { status: 200 })
-      posts.push({ path: String(u), body: JSON.parse(String(init!.body)) })
-      return new Response(JSON.stringify(whatif), { status: 200 })
-    }) as unknown as typeof fetch)
-    useReveal.setState({ selected: PRIYA.id })
-    render(<RevealDock view={real} />)
-    await act(async () => { fireEvent.click(screen.getByTestId('reveal-dock-try')) })
-    expect(posts).toEqual([{ path: `/api/scenarios/${real.id}/whatif`, body: { base: real.model!.edit_base, variants: [{ edits: [{ quantity: 'diagnostic_time_to_contract', typed: PRIYA.figures[0]!.text }] }] } }])
-    const tried = await screen.findByTestId('reveal-dock-tried')
-    expect(tried).toHaveTextContent(whatif.variants[0].edits[0].words)
-    const aim = tried.querySelector('[data-side-by-side-aim="generate_revenue_quickly"]') as HTMLElement
-    const diag = aim.querySelector(`[data-side-by-side-option="${DIAG}"]`) as HTMLElement
-    // Only the option whose chance core words differently on the copy is marked as changed.
-    expect([...aim.querySelectorAll('[data-changed]')].map((e) => e.getAttribute('data-side-by-side-option'))).toEqual([DIAG])
-    const savedChance = real.model!.cards.find((c) => c.id === DIAG)!.rows.find((r) => r.kind === 'chance')!
-    const triedChance = whatif.variants[0].rows.find((o: { option_id: string }) => o.option_id === DIAG).rows.find((r: { kind: string }) => r.kind === 'chance')
-    expect(diag.querySelector('[data-side-by-side-saved]')!.textContent).toBe((savedChance as { value: string }).value)
-    expect(diag.querySelector('[data-side-by-side-copy]')!.textContent).toBe(triedChance.value)
-    expect(screen.queryByTestId('reveal-dock-consequence')).toBeNull()
-    fireEvent.click(screen.getByTestId('reveal-dock-untry'))
-    await waitFor(() => expect(screen.queryByTestId('reveal-dock-tried')).toBeNull())
-    expect(useWhatIf.getState().shown).toBeNull()
+describe('core’s marks with stance, reading, options and evidence (real View, core wip/debate-r2 f3aedd9a, seed 3)', () => {
+  const st: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-stance.view3.json'), 'utf8'))
+  const who = (n: string) => st.collab.shared.find((v) => v.by === n)!
+  const P = who('Priya'), T = who('Tom')
+  const marks = (st.collab as unknown as { marks: { kind: string; reading: { text: string; note: string } | null; options: { option: string; text: string }[] }[] }).marks
+  const differ = marks.find((m) => m.kind === 'disagreement')!
+  const ev = st.evidence.map((e) => e.id)
+  beforeEach(() => { useViewStore.setState({ view: st, sid: st.id }) })
+
+  it('a card with two marks has two chips in core’s words, the disagreement first; the evidence chip gathers its bringers', () => {
+    const r = revealOf(st)!
+    expect(marksOn(r, DIAG).cardChips.map((c) => [c.kind, c.text, c.views, c.evidence, c.people.map((p) => p.by)])).toEqual([
+      ['disagreement', 'Priya and Tom differ', [P.id, T.id], [], ['Priya', 'Tom']],
+      ['evidence', 'Priya and Tom added evidence', [], ev, ['Priya', 'Tom']],
+    ])
+    render(<><CardViewChips card={DIAG} /><CardEvidenceMarks card={DIAG} /></>)
+    expect([...screen.getByTestId(`reveal-chips-${DIAG}`).querySelectorAll('[data-reveal-chip-text]')].map((e) => e.textContent)).toEqual(['Priya and Tom differ', 'Priya and Tom added evidence'])
+    // The evidence core gathers in its chip is not drawn a second time as document marks in the card.
+    expect(screen.queryByTestId(`evidence-marks-${DIAG}`)).toBeNull()
+  })
+
+  it('the evidence chip opens its first piece on that card; the disagreement chip opens the people who differ', () => {
+    const force = vi.spyOn(useUIStore.getState(), 'forceActivateOutputTab')
+    render(<CardViewChips card={DIAG} />)
+    fireEvent.click(document.querySelector('[data-reveal-kind="evidence"]')!)
+    expect(useReveal.getState()).toMatchObject({ evidence: ev[0], card: DIAG, kind: 'evidence', selected: null })
+    expect(document.querySelector('[data-reveal-kind="evidence"]')!.getAttribute('aria-pressed')).toBe('true')
+    expect(document.querySelector('[data-reveal-kind="disagreement"]')!.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(document.querySelector('[data-reveal-kind="disagreement"]')!)
+    expect(useReveal.getState()).toMatchObject({ selected: P.id, card: DIAG, kind: 'disagreement', evidence: null })
+    expect(force).toHaveBeenCalledWith('team')
+  })
+
+  it('the panel draws core’s stance words, reading and note, and question; it holds no try of its own', () => {
+    useReveal.setState({ selected: P.id, card: DIAG, kind: 'disagreement' })
+    render(<RevealDock view={st} />)
+    expect(screen.getByTestId(`reveal-dock-stance-${P.id}`).textContent).toBe('Knows from experience')
+    expect(screen.getByTestId(`reveal-dock-stance-${T.id}`).textContent).toBe('Suspects')
+    expect(screen.getByTestId('reveal-dock-reading')).toHaveTextContent(differ.reading!.text)
+    expect(screen.getByTestId('reveal-dock-reading-note').textContent).toBe(differ.reading!.note)
+    expect(screen.getByTestId('reveal-dock-next').textContent).toBe((st.collab as unknown as { next: { text: string } }).next.text)
+    expect(screen.queryByTestId('reveal-dock-try')).toBeNull()
+    expect(screen.getByTestId('reveal-dock').querySelectorAll('button')).toHaveLength(3)
+  })
+
+  it('while the disagreement is open, each option card shows core’s words for it; the evidence chip open shows none', () => {
+    const lines = () => differ.options.map((o) => document.querySelector(`[data-reveal-option-line="${o.option}"]`)?.textContent ?? null)
+    const all = () => <>{differ.options.map((o) => <OptionMarkLine key={o.option} card={o.option} />)}</>
+    const { rerender } = render(all())
+    expect(differ.options.length).toBeGreaterThan(1)
+    act(() => { useReveal.setState({ selected: P.id, card: DIAG, kind: 'disagreement', evidence: null }) })
+    rerender(all())
+    expect(lines()).toEqual(differ.options.map((o) => o.text))
+    act(() => { useReveal.setState({ selected: null, card: DIAG, kind: 'evidence', evidence: ev[0] }) })
+    rerender(all())
+    expect(lines()).toEqual(differ.options.map(() => null))
+  })
+
+  it('closing the panel gives focus back to the chip that opened it', async () => {
+    render(<><CardViewChips card={DIAG} /><RevealDock view={st} /></>)
+    const chip = document.querySelector('[data-reveal-kind="disagreement"]') as HTMLButtonElement
+    chip.focus()
+    fireEvent.click(chip)
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('reveal-dock-heading')))
+    fireEvent.click(screen.getByTestId('reveal-dock-keep-open'))
+    await waitFor(() => expect(document.activeElement).toBe(chip))
+  })
+
+  it('a second view by a person whose first is in a chip is still drawn as their initials (each person once among initials)', () => {
+    const again = { ...P, id: 999, figures: [], about: [DIAG], kind: 'shared' }
+    const r = revealOf({ ...st, collab: { ...st.collab, shared: [...st.collab.shared, again] } } as View)!
+    expect(marksOn(r, DIAG).initials.map((m) => m.view)).toEqual([999])
+  })
+
+  it('a selection is cleared on another version, or when the View no longer holds it; an equal View keeps it', () => {
+    useReveal.setState({ selected: P.id, card: DIAG, kind: 'disagreement' })
+    act(() => { useViewStore.setState({ view: { ...st } }) })
+    expect(useReveal.getState()).toMatchObject({ selected: P.id, card: DIAG })
+    act(() => { useViewStore.setState({ at: 2 }) })
+    expect(useReveal.getState()).toMatchObject({ selected: null, card: null, kind: null })
+    act(() => { useViewStore.setState({ at: null }) })
+    useReveal.setState({ selected: P.id, card: DIAG, kind: 'disagreement' })
+    act(() => { useViewStore.setState({ view: { ...st, collab: { ...st.collab, shared: st.collab.shared.filter((v) => v.id !== P.id) } } }) })
+    expect(useReveal.getState()).toMatchObject({ selected: null, card: null })
+  })
+
+  it('nothing opens on an earlier version', () => {
+    useViewStore.setState({ at: 2 })
+    render(<CardViewChips card={DIAG} />)
+    fireEvent.click(document.querySelector('[data-reveal-kind="disagreement"]')!)
+    expect(useReveal.getState()).toMatchObject({ selected: null, card: null })
   })
 })
 

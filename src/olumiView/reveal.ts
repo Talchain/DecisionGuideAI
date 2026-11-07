@@ -9,8 +9,9 @@
  * nothing to sit on is listed in the dock only.
  *
  * Which view is the chip (the consequential disagreement) and which are initials in their card:
- * - With core's `collab.marks` (wip/debate-r2 5a61369a): ONE chip per card core marks, of any kind, in core's own short words ("Priya and
- *   Tom differ", "Only Maya raised it"), with the people's initials (Paul's approved grammar, 7 Nov v2.1).
+ * - With core's `collab.marks` (wip/debate-r2 f3aedd9a): a chip for each mark core gives a card, of any kind, in core's own short words
+ *   ("Priya and Tom differ", "Only Maya raised it", "Priya and Tom added evidence"), with the people's initials (Paul's approved grammar,
+ *   7 Nov v2.1); a card with two marks has two chips, the disagreement first.
  * - With core's `kind` only (wip/debate eaab1331) the chips are the `disagreement` views, every other view is initials.
  * - Until core sends `kind`, by core's own effect status only: the views at the highest status present among `changes` then `moves` are
  *   chips; `same`, a refused figure and a view with no figure are initials. Nothing is ranked or weighed here.
@@ -19,7 +20,8 @@
  * read through the readers below, so a View from an older core draws by the interim rule.
  */
 import { create } from 'zustand'
-import type { View, ViewModel, ViewRow } from './client'
+import { useViewStore } from './store'
+import type { View } from './client'
 import { effectsOf, type ViewEffect, type ViewEffectRun } from './standin'
 
 export type Shared = View['collab']['shared'][number]
@@ -61,34 +63,41 @@ export function nextOf(view: View): { readonly text: string; readonly about: rea
  * `collab.marks` (core wip/debate-r2 5a61369a): one per record the revealed views concern, with core's short words for the canvas (at most
  * 28 characters: "Priya and Tom differ", "Only Maya raised it"), its kind and the views it gathers. Undefined from an older core.
  */
+/** A mark's kind: a revealed view's kind, or core's "evidence" mark (core f3aedd9a: evidence the team shared, on the card it concerns). */
+export type MarkKind = RevealKind | 'evidence'
 export type CoreMark = {
-  readonly card: string; readonly kind: RevealKind; readonly views: readonly number[]; readonly text: string
+  readonly card: string; readonly kind: MarkKind; readonly views: readonly number[]; readonly evidence: readonly number[]; readonly text: string
   readonly reading: CardChip['reading']; readonly options: CardChip['options']
 }
 export function coreMarksOf(view: View): readonly CoreMark[] | undefined {
   const m = (view.collab as { marks?: unknown }).marks
   if (!Array.isArray(m)) return undefined
+  const ids = (x: unknown) => (Array.isArray(x) ? x.filter((v): v is number => typeof v === 'number') : [])
   return m.flatMap((x): CoreMark[] => {
     const y = (x ?? {}) as Record<string, unknown>
-    const kind = y.kind === 'shared' || y.kind === 'unique' || y.kind === 'disagreement' ? y.kind : null
-    if (typeof y.card !== 'string' || kind === null || typeof y.text !== 'string' || y.text === '' || !Array.isArray(y.views)) return []
+    const kind = y.kind === 'shared' || y.kind === 'unique' || y.kind === 'disagreement' || y.kind === 'evidence' ? y.kind : null
+    if (typeof y.card !== 'string' || kind === null || typeof y.text !== 'string' || y.text === '') return []
     const r = (y.reading ?? null) as { text?: unknown; note?: unknown } | null
     const reading = r !== null && typeof r.text === 'string' && r.text !== '' ? { text: r.text, note: typeof r.note === 'string' ? r.note : '' } : null
     const options = Array.isArray(y.options) ? y.options.flatMap((o) => { const z = (o ?? {}) as Record<string, unknown>; return typeof z.option === 'string' && typeof z.text === 'string' && z.text !== '' ? [{ option: z.option, text: z.text }] : [] }) : []
-    return [{ card: y.card, kind, views: y.views.filter((v): v is number => typeof v === 'number'), text: y.text, reading, options }]
+    return [{ card: y.card, kind, views: ids(y.views), evidence: ids(y.evidence), text: y.text, reading, options }]
   })
 }
 
 /** Core's mark drawn as one chip under a card: its words, its views (in core's order) and their people. */
 export interface CardChip {
   readonly card: string
-  readonly kind: RevealKind
+  readonly kind: MarkKind
   readonly text: string
+  /** The revealed views it gathers (none on an evidence mark). */
   readonly views: readonly number[]
-  readonly people: readonly { readonly view: number; readonly by: string }[]
-  /** Requested of core 7 Nov (`marks[].reading`): Olumi's reading for this card and its correctable note. */
+  /** The evidence it gathers (an evidence mark only). */
+  readonly evidence: readonly number[]
+  /** Whose: each view's or each piece of evidence's person, by that view's or evidence's id, in core's order. */
+  readonly people: readonly { readonly id: number; readonly by: string }[]
+  /** Core's `marks[].reading` (f3aedd9a; disagreement marks only): Olumi's reading for this card and its correctable note. */
   readonly reading: { readonly text: string; readonly note: string } | null
-  /** Requested of core 7 Nov (`marks[].options`): each option card's words while this mark is open ("71% → 34% with Priya's range"). */
+  /** Core's `marks[].options` (f3aedd9a; disagreement marks only): each option card's words while this mark is open. */
   readonly options: readonly { readonly option: string; readonly text: string }[]
 }
 
@@ -110,10 +119,8 @@ export interface Mark {
 export interface Reveal {
   /** Every mark, in core's order of views and figures. */
   readonly marks: readonly Mark[]
-  /** With core's `collab.marks`: one chip per card core marks as a disagreement, by drawn card id. */
-  readonly cardChips: ReadonlyMap<string, CardChip>
-  /** With core's `collab.marks`: core's words for every other card it marks (the initials' hover), by drawn card id. */
-  readonly cardWords: ReadonlyMap<string, string>
+  /** With core's `collab.marks`: every chip core gives a drawn card, a disagreement first, then unique, shared and evidence. */
+  readonly cardChips: ReadonlyMap<string, readonly CardChip[]>
   /** The revealed views (not skipped), in core's order. */
   readonly views: readonly Shared[]
   /** Views with nothing to sit on: listed in the dock only. */
@@ -121,6 +128,8 @@ export interface Reveal {
 }
 
 const RANK: Record<Status, number> = { changes: 3, moves: 2, same: 1 }
+/** The order of chips on one card: the difference that matters first. */
+const KIND_ORDER: Record<MarkKind, number> = { disagreement: 0, unique: 1, shared: 2, evidence: 3 }
 
 /** The status of one figure: its effects across aims, the highest core gives; null when core ran none (refused or absent). */
 function statusOf(effects: readonly ViewEffect[], quantity: string): { status: Status | null; chip: string | null } {
@@ -143,10 +152,20 @@ export function cardOfQuantity(view: View, quantity: string): string | null {
  * The revealed views as marks on the model, or null when there is nothing to draw: a gated viewer (core withholds the views), no model, or
  * no revealed view.
  */
+/** One reading per View: every card's marks and chips read the same Reveal (a View is replaced, never changed in place). */
+const READ = new WeakMap<View, Reveal | null>()
 export function revealOf(view: View | null): Reveal | null {
-  if (view === null || view.gated || view.model === null || view.model === undefined) return null
+  if (view === null) return null
+  if (!READ.has(view)) READ.set(view, readReveal(view))
+  return READ.get(view) ?? null
+}
+
+function readReveal(view: View): Reveal | null {
+  if (view.gated || view.model === null || view.model === undefined) return null
   const views = view.collab.shared.filter((v) => !v.skip)
-  if (views.length === 0) return null
+  const core = coreMarksOf(view)
+  // Evidence is shared, so core may mark it before any view is revealed.
+  if (views.length === 0 && (core === undefined || core.length === 0)) return null
   const cards = new Set(view.model.cards.map((c) => c.id))
   const raw: Omit<Mark, 'isChip'>[] = []
   const unplaced: Shared[] = []
@@ -170,71 +189,38 @@ export function revealOf(view: View | null): Reveal | null {
   const anyKind = [...kinds.values()].some((k) => k !== null)
   const top = raw.reduce((m, x) => (x.status === 'changes' || x.status === 'moves' ? Math.max(m, RANK[x.status]) : m), 0)
   // Core's per-card marks, on the card each record is drawn on (an option's own record on the option).
-  const cardChips = new Map<string, CardChip>(), cardWords = new Map<string, string>()
-  const core = coreMarksOf(view)
+  // Paul's approved grammar (7 Nov v2.1): every kind is a chip on the card's rail ("All three agree", "Priya and Tom differ", "Only Maya
+  // raised it", "Maya added evidence"), so the kind reads without a click. Two marks on one card are two chips, the disagreement first.
+  const cardChips = new Map<string, CardChip[]>()
   for (const cm of core ?? []) {
     const card = cardOfQuantity(view, cm.card)
     if (card === null) continue
-    // Paul's approved grammar (7 Nov v2.1): every kind is a chip on the card's rail ("All three agree", "Priya and Tom differ", "Only Maya
-    // raised it"), so the kind reads without a click.
-    const people = cm.views.flatMap((id) => { const v = views.find((x) => x.id === id); return v === undefined ? [] : [{ view: id, by: v.by }] })
-    if (people.length > 0 && !cardChips.has(card)) cardChips.set(card, { card, kind: cm.kind, text: cm.text, views: people.map((p) => p.view), people, reading: cm.reading, options: cm.options })
-    else if (!cardWords.has(card)) cardWords.set(card, cm.text)
+    const people = cm.kind === 'evidence'
+      ? cm.evidence.flatMap((id) => { const e = view.evidence.find((x) => x.id === id); return e === undefined ? [] : [{ id, by: e.by }] })
+      : cm.views.flatMap((id) => { const v = views.find((x) => x.id === id); return v === undefined ? [] : [{ id, by: v.by }] })
+    if (people.length === 0) continue
+    const chip: CardChip = { card, kind: cm.kind, text: cm.text, views: cm.kind === 'evidence' ? [] : people.map((p) => p.id), evidence: cm.kind === 'evidence' ? people.map((p) => p.id) : [], people, reading: cm.reading, options: cm.options }
+    cardChips.set(card, [...(cardChips.get(card) ?? []), chip])
   }
+  for (const [card, list] of cardChips) cardChips.set(card, [...list].sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind]))
   const marks = raw.map((m): Mark => ({
     ...m,
-    isChip: core !== undefined ? cardChips.get(m.card)?.views.includes(m.view) === true
+    isChip: core !== undefined ? (cardChips.get(m.card) ?? []).some((c) => c.views.includes(m.view))
       : anyKind ? kinds.get(m.view) === 'disagreement' && m.figure !== null : top > 0 && m.status !== null && RANK[m.status] === top,
   }))
-  return { marks, cardChips, cardWords, views, unplaced }
+  return { marks, cardChips, views, unplaced }
 }
 
 /** The marks on one card: its chips (below it) and its initials (in it), each person once in the initials. */
-export function marksOn(r: Reveal | null, card: string): { readonly chips: readonly Mark[]; readonly initials: readonly Mark[]; readonly chip: CardChip | null; readonly words: string | null } {
-  if (r === null) return { chips: [], initials: [], chip: null, words: null }
+export function marksOn(r: Reveal | null, card: string): { readonly chips: readonly Mark[]; readonly initials: readonly Mark[]; readonly cardChips: readonly CardChip[] } {
+  if (r === null) return { chips: [], initials: [], cardChips: [] }
   const here = r.marks.filter((m) => m.card === card)
   const chips = here.filter((m) => m.isChip)
   const chipped = new Set(chips.map((m) => m.view))
-  const initials = here.filter((m, i) => !m.isChip && !chipped.has(m.view) && here.findIndex((x) => !x.isChip && x.by_id === m.by_id) === i)
-  return { chips, initials, chip: r.cardChips.get(card) ?? null, words: r.cardWords.get(card) ?? null }
-}
-
-/**
- * The cards lit while a person's figure is tried from the dock (the card their view sits on, and each option whose chance moves): the
- * person's own act, so a neutral ring in the header ink, never Olumi's blue (v10's `v10-lit` ring is Olumi's pointing).
- */
-export const useTriedCards = create<{ readonly ids: readonly string[]; readonly links: readonly number[] }>()(() => ({ ids: [], links: [] }))
-
-/** An option is moved by a try when, for the same aim, core words its chance differently on the copy than on the saved model. */
-export function movedOptions(model: Pick<ViewModel, 'cards'>, copy: readonly { readonly option_id: string; readonly rows: readonly ViewRow[] }[]): string[] {
-  const chances = (rows: readonly ViewRow[]) => new Map(rows.flatMap((r) => (r.kind === 'chance' ? [[r.aim_id, r.value] as const] : [])))
-  return copy.filter((o) => {
-    const saved = chances(model.cards.find((c) => c.id === o.option_id)?.rows ?? [])
-    return [...chances(o.rows)].some(([aim, value]) => saved.has(aim) && saved.get(aim) !== value)
-  }).map((o) => o.option_id)
-}
-
-/**
- * The links lit while a figure is tried: every link of the model (by index) on a directed path from the card the figure sits on (`start`) to a
- * lit option or to any aim (a `goal` card). A link is on such a path when its source is reachable from the start (or is it) and its target
- * reaches a target (or is one), which is why options linking INTO quantities count. Links with an end that is no card ("page:question") are
- * ignored. Reads core's links only; composes nothing.
- */
-export function triedPathLinks(model: Pick<ViewModel, 'cards' | 'links'>, start: string | null, lit: readonly string[]): number[] {
-  const cards = new Set(model.cards.map((c) => c.id))
-  if (start === null || !cards.has(start)) return []
-  const targets = new Set([...lit, ...model.cards.filter((c) => c.family === 'goal').map((c) => c.id)].filter((id) => cards.has(id) && id !== start))
-  const edges = model.links.flatMap((l, i) => (cards.has(l.from) && cards.has(l.to) ? [{ i, from: l.from, to: l.to }] : []))
-  const reach = (seed: Iterable<string>, next: (e: { from: string; to: string }) => readonly [string, string]) => {
-    const seen = new Set(seed)
-    for (let grew = true; grew;) {
-      grew = false
-      for (const e of edges) { const [a, b] = next(e); if (seen.has(a) && !seen.has(b)) { seen.add(b); grew = true } }
-    }
-    return seen
-  }
-  const fwd = reach([start], (e) => [e.from, e.to]), bwd = reach(targets, (e) => [e.to, e.from])
-  return edges.filter((e) => fwd.has(e.from) && bwd.has(e.to)).map((e) => e.i)
+  // Each person once in the initials, among the marks that are initials at all (a person's chipped view never hides their other one).
+  const eligible = here.filter((m) => !m.isChip && !chipped.has(m.view))
+  const initials = eligible.filter((m, i) => eligible.findIndex((x) => x.by_id === m.by_id) === i)
+  return { chips, initials, cardChips: r.cardChips.get(card) ?? [] }
 }
 
 /**
@@ -244,14 +230,38 @@ export function triedPathLinks(model: Pick<ViewModel, 'cards' | 'links'>, start:
 export const useReveal = create<{
   readonly selected: number | null
   readonly evidence: number | null
-  /** The card whose chip was opened (its ring is the one selection ring on the board); null when a view was opened another way. */
+  /** The card whose chip was opened (its ring is the one selection ring on the board); null when opened another way. */
   readonly card: string | null
-  readonly select: (id: number | null, card?: string | null) => void
-  readonly selectEvidence: (id: number | null) => void
+  /** Which of that card's chips (a card may have two: "Priya and Tom differ", "Priya and Tom added evidence"). */
+  readonly kind: MarkKind | null
+  readonly select: (id: number | null, card?: string | null, kind?: MarkKind | null) => void
+  readonly selectEvidence: (id: number | null, card?: string | null) => void
 }>()((set) => ({
   selected: null,
   evidence: null,
   card: null,
-  select: (id, card = null) => set({ selected: id, card: id === null ? null : card, evidence: null }),
-  selectEvidence: (id) => set({ evidence: id, selected: null, card: null }),
+  kind: null,
+  select: (id, card = null, kind = null) => set({ selected: id, card: id === null ? null : card, kind: id === null || card === null ? null : kind, evidence: null }),
+  selectEvidence: (id, card = null) => set({ evidence: id, card: id === null ? null : card, kind: id === null || card === null ? null : 'evidence', selected: null }),
 }))
+
+/** The chip open on the board now (core's mark), or null: the opened card's chip of the opened kind that holds the open view or evidence. */
+export function openChipOf(r: Reveal | null, open: { readonly selected: number | null; readonly evidence: number | null; readonly card: string | null; readonly kind: MarkKind | null }): CardChip | null {
+  if (r === null || open.card === null) return null
+  return (r.cardChips.get(open.card) ?? []).find((c) => (open.kind === null || c.kind === open.kind)
+    && (open.selected !== null ? c.views.includes(open.selected) : open.evidence !== null && c.evidence.includes(open.evidence))) ?? null
+}
+
+/**
+ * A selection never outlives what it was opened on: a new scenario, another version (an earlier one is drawn as it was, without the dock),
+ * or a View that no longer holds the open view or evidence clears it, so no ring or option line is left on the board with nothing open.
+ */
+useViewStore.subscribe((s, prev) => {
+  const r = useReveal.getState()
+  if (r.selected === null && r.evidence === null && r.card === null) return
+  const clear = () => useReveal.setState({ selected: null, evidence: null, card: null, kind: null })
+  if (s.sid !== prev.sid || s.uuid !== prev.uuid || s.at !== prev.at) return clear()
+  if (s.view === prev.view || s.view === null) return
+  if (r.selected !== null && !s.view.collab.shared.some((v) => v.id === r.selected)) return clear()
+  if (r.evidence !== null && !s.view.evidence.some((e) => e.id === r.evidence)) return clear()
+})

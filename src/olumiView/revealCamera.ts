@@ -42,7 +42,8 @@ export function useRevealInView(movedAt: MutableRefObject<number>): void {
       const below = c.bottom - (p.bottom - MARGIN), above = p.top + MARGIN - c.top
       if (below <= 0 && above <= 0) return
       const vp = getViewport()
-      void setViewport({ ...vp, y: vp.y + (below > 0 ? -below : above) }, { duration: 300 })
+      const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+      void setViewport({ ...vp, y: vp.y + (below > 0 ? -below : above) }, { duration: still ? 0 : 300 })
     }, TICK)
     return () => clearInterval(t)
   }, [key, movedAt, getViewport, setViewport])

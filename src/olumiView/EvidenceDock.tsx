@@ -9,13 +9,14 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { OlumiAiIcon } from '../components/results/analysisNew/OlumiAiIcon'
-import { STANCES } from '../olumiCore/team/EvidencePanel'
+import { STANCES, linkOf } from '../olumiCore/team/EvidencePanel'
 import { AVATAR, BODY, CARD, H, META } from '../olumiCore/team/ui'
 import type { View } from './client'
 import { chainOf, type ChainStep, type Evidence } from './evidence'
-import { cardOfQuantity, useReveal } from './reveal'
+import { cardOfQuantity, openChipOf, revealOf, useReveal } from './reveal'
+import { useReturnFocus } from './RevealDock'
 
-const initial = (by: string) => by.slice(0, 1).toUpperCase()
+const initial = (by: string) => (Array.from(by)[0] ?? '').toUpperCase()
 
 /** The dock's own names for the four steps (Paul's V11: observation → claim → causal inference → model estimate). */
 const STEP: Record<ChainStep['level'], string> = {
@@ -41,12 +42,14 @@ function Step({ label, children, at }: { label: string; children: ReactNode; at:
 
 /** What was seen: the person, their words, and the source (a link only where core gives one). */
 function Seen({ e }: { e: Evidence }): JSX.Element {
+  // Only a plain web address core gives is a link (the Team tab's own rule).
+  const link = e.link === null ? null : linkOf(e.link)
   return (
     <div className={CARD} data-testid="evidence-dock-seen">
       <p className={`${BODY} flex items-center gap-2 font-medium text-text-header`}><span aria-hidden="true" className={AVATAR}>{initial(e.by)}</span>{e.by}</p>
       <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid="evidence-dock-words">{e.text}</p>
-      {e.source === null ? null : e.link !== null
-        ? <a className={`${META} break-all underline underline-offset-2 hover:text-text-body`} href={e.link} target="_blank" rel="noreferrer noopener" data-testid="evidence-dock-source">{e.source}</a>
+      {e.source === null ? null : link !== null
+        ? <a className={`${META} break-all underline underline-offset-2 hover:text-text-body`} href={link} target="_blank" rel="noreferrer noopener" data-testid="evidence-dock-source">{e.source}</a>
         : <p className={`${META} break-words`} data-testid="evidence-dock-source">{e.source}</p>}
     </div>
   )
@@ -114,19 +117,39 @@ function Considered({ view, e }: { view: View; e: Evidence }): JSX.Element | nul
   )
 }
 
+/** The other evidence core gathers in the same chip ("Priya and Tom added evidence"): each opens in its bringer's name. */
+function AlsoHere({ view, e, card, ids }: { view: View; e: Evidence; card: string; ids: readonly number[] }): JSX.Element | null {
+  const select = useReveal((s) => s.selectEvidence)
+  const rest = ids.flatMap((id) => { const x = view.evidence.find((y) => y.id === id); return x === undefined || x.id === e.id ? [] : [x] })
+  if (rest.length === 0) return null
+  return (
+    <div className="flex flex-wrap items-center gap-3" data-testid="evidence-dock-also">
+      {rest.map((x) => (
+        <button key={x.id} type="button" data-evidence-also={x.id} onClick={() => select(x.id, card)}
+          className={`${META} inline-flex min-h-6 cursor-pointer items-center gap-1.5 text-text-body underline underline-offset-2 hover:text-text-header`}>
+          <span aria-hidden="true" className={AVATAR}>{initial(x.by)}</span>{x.by}’s evidence
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function EvidenceDock({ view }: { view: View }): JSX.Element | null {
-  const open = useReveal((s) => s.evidence)
-  const close = useReveal((s) => s.selectEvidence)
+  const at = useReveal((s) => s)
+  const open = at.evidence
   const head = useRef<HTMLHeadingElement>(null)
+  const returning = useReturnFocus(open)
   useEffect(() => { if (open !== null) head.current?.focus() }, [open])
   const e = view.evidence.find((x) => x.id === open) ?? null
   if (e === null) return null
+  const close = () => returning(() => at.selectEvidence(null))
+  const chip = openChipOf(revealOf(view), at)
   const steps = chainOf(e)
   return (
     <section data-testid="evidence-dock" aria-label="Evidence" className="grid min-h-full content-start gap-5">
       <div className="flex items-center justify-between gap-2">
         <h2 ref={head} tabIndex={-1} className={`${H} outline-none`} data-testid="evidence-dock-heading">Evidence</h2>
-        <button type="button" aria-label="Close" data-testid="evidence-dock-close" onClick={() => close(null)}
+        <button type="button" aria-label="Close" data-testid="evidence-dock-close" onClick={close}
           className="inline-grid h-7 w-7 cursor-pointer place-items-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-header">
           <X aria-hidden="true" className="h-4 w-4" />
         </button>
@@ -138,6 +161,7 @@ export function EvidenceDock({ view }: { view: View }): JSX.Element | null {
         </ol>
       )}
       <Considered view={view} e={e} />
+      {chip === null ? null : <AlsoHere view={view} e={e} card={chip.card} ids={chip.evidence} />}
     </section>
   )
 }

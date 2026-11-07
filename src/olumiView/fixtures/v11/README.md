@@ -20,3 +20,9 @@
 - `consulting-proposal.view3.json`: a REAL View from olumi-core e38d9f4c on a fresh copy of Paul's board read as the seeded "Priya",
   before anything was approved: Olumi's held proposal 11 ("Olumi proposes 15 changes"). The specs add core's requested
   `proposal.verdict` to a copy in code, labelled FIXTURE.
+- `consulting-stance.view3.json`: a REAL View from olumi-core wip/debate-r2 f3aedd9a on a fresh copy of the same board, seed 3 (7 Nov),
+  read as "Maya" on a zero-call core (ledger 0 calls). Each seeded person set a stance on their own view while it was still private, then
+  shared it: Priya "Knows from experience", Tom "Suspects", Maya "Others may miss this". Priya and Tom each added one piece of evidence on
+  the diagnostic's time to contract. Core sends `collab.marks` of three of its four kinds (no "shared" mark on this board): "Priya and Tom differ" (disagreement, with
+  core's `reading` and `options`), "Only Maya raised it" (unique), "Priya and Tom added evidence" (evidence, its ids in `evidence`), and
+  `collab.next`. Every word and value is core's output.

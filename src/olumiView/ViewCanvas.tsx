@@ -8,7 +8,7 @@
  * (`readableFirstViewport`) once the causal layout is in, and framed again if the new zoom changed the board, at most three times and never over the person's own
  * pan or zoom. The dock, the note and the zoom controls are the legacy canvas's own components, unchanged.
  */
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   Background, BackgroundVariant, ReactFlow, ReactFlowProvider, getNodesBounds, useReactFlow, useStore, type Node, type NodeChange, type Viewport,
 } from '@xyflow/react'
@@ -43,6 +43,7 @@ import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
 import { ViewPreMortemKey } from './ViewPreMortemKey'
 import { useOpenInView, useRevealInView } from './revealCamera'
+import { useReveal } from './reveal'
 
 // Each card is drawn with v10's controls (./v10): the card itself, and the Olumi corner that asks about it.
 const nodeTypes = { [VIEW_CARD]: ViewCardV10, [VIEW_QUESTION]: ViewQuestionNode }
@@ -116,7 +117,11 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
 }
 
 function ViewFlow() {
-  const nodes = useCanvasStore((s) => s.nodes)
+  const stored = useCanvasStore((s) => s.nodes)
+  // V11: the card whose chip is open is marked `v11-open` on its node, so the coaching ring (ring.ts) steps out of it: one focus per screen.
+  const openCard = useReveal((s) => s.card)
+  const nodes = useMemo(() => (openCard === null ? stored
+    : stored.map((n) => (n.id === openCard ? { ...n, className: [n.className, 'v11-open'].filter(Boolean).join(' ') } : n))), [stored, openCard])
   const edges = useCanvasStore((s) => s.edges)
   const onNodesChange = useCallback((changes: NodeChange[]) => useCanvasStore.getState().onNodesChange(changes), [])
   const userMoved = useRef(false)

@@ -23,7 +23,7 @@ const DIAG = 'paid_enterprise_diagnostic'
 
 beforeEach(() => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-a88ba245176e', sid: real.id, view: real, status: 'ready', error: null, stale: false, at: null })
-  useReveal.setState({ selected: null, evidence: null, card: null })
+  useReveal.setState({ selected: null, evidence: null, card: null, kind: null })
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
@@ -60,6 +60,36 @@ describe('evidence on the model (real View)', () => {
     expect(row.textContent).toBe(`${label}${card.heading}`)
     expect(within(dock).getByTestId('evidence-dock-stance')).toHaveTextContent('Priya: Challenges it')
     expect(within(dock).queryByTestId('evidence-dock-considered')).toBeNull()
+  })
+})
+
+describe('the dock’s source and the rest of an evidence chip (real Views)', () => {
+  it('only a plain web address is a link; any other source is words', () => {
+    const at = (link: string) => ({ ...real, evidence: real.evidence.map((e) => (e.id === PRIYA.id ? { ...e, link, source: link } : e)) }) as View
+    useReveal.setState({ evidence: PRIYA.id })
+    const { unmount } = render(<EvidenceDock view={at('https://example.com/report')} />)
+    expect(screen.getByTestId('evidence-dock-source').tagName).toBe('A')
+    expect(screen.getByTestId('evidence-dock-source').getAttribute('href')).toBe('https://example.com/report')
+    unmount()
+    render(<EvidenceDock view={at('javascript:alert(1)')} />)
+    expect(screen.getByTestId('evidence-dock-source').tagName).toBe('P')
+  })
+  it('opened from core’s evidence chip, the other evidence it gathers opens in its bringer’s name, on the same card (core f3aedd9a, seed 3)', () => {
+    const st: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-stance.view3.json'), 'utf8'))
+    const [first, second] = st.evidence
+    useViewStore.setState({ view: st, sid: st.id })
+    useReveal.setState({ evidence: first!.id, card: DIAG, kind: 'evidence' })
+    render(<EvidenceDock view={st} />)
+    const also = screen.getByTestId('evidence-dock-also').querySelector(`[data-evidence-also="${second!.id}"]`) as HTMLElement
+    expect(also.textContent).toBe(`${second!.by.slice(0, 1)}${second!.by}’s evidence`)
+    fireEvent.click(also)
+    expect(useReveal.getState()).toMatchObject({ evidence: second!.id, card: DIAG, kind: 'evidence' })
+    expect(screen.getByTestId('evidence-dock-words').textContent).toBe(second!.text)
+  })
+  it('CONTRAST: opened from a document mark (no chip), there is no switch', () => {
+    useReveal.setState({ evidence: PRIYA.id })
+    render(<EvidenceDock view={real} />)
+    expect(screen.queryByTestId('evidence-dock-also')).toBeNull()
   })
 })
 
