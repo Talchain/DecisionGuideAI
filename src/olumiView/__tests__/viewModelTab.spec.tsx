@@ -205,3 +205,26 @@ describe('the crafted Model tab, from the View', () => {
     expect(c.querySelector('[data-view-author="customer_target"]')).toBeNull() // CONTRAST: no author, no icon
   })
 })
+
+// R25 (Paul's finish line: no cut text). An option with no chance in this model says why in core's words; the Model tab draws them whole.
+describe('the Model tab: an option row core gives no chance keeps its words whole', () => {
+  it('catch: each none row of core\'s app-launch golden is drawn at its path, whole, with no clamp on it or around it', () => {
+    const v: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/app-launch.view.json'), 'utf8'))
+    const c = render(<ViewModelTab model={v.model!} />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    let n = 0
+    for (const card of v.model!.cards.filter((k) => k.family === 'option')) {
+      card.rows.forEach((r, i) => {
+        if (r.kind !== 'none') return
+        const words = r.text ?? r.title
+        const el = c.querySelector(`[data-view="${card.id}.rows.${i}.${r.text == null ? 'title' : 'text'}"]`)
+        expect(el, `${card.id}.rows.${i}`).not.toBeNull()
+        expect(el!.textContent).toBe(words)
+        for (let a: Element | null = el; a !== null && a !== c; a = a.parentElement) expect(a.className, `${card.id}.rows.${i}`).not.toMatch(/line-clamp|truncate/)
+        n++
+      })
+    }
+    expect(n).toBeGreaterThan(2)
+  })
+})
+
