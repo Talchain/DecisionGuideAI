@@ -30,8 +30,11 @@ function readExpert(): boolean {
 
 /** What an editor changes: a figure (the quantity) shown on a row, or a card's name. */
 export type EditTarget = { readonly row: string; readonly what: 'figure'; readonly quantity: string } | { readonly row: string; readonly what: 'rename' }
-/** An open editor: its target, what it opened on (the scenario, core's version), and the person's typing so far. */
-export type Editing = EditTarget & { readonly sid: string; readonly base: number; readonly typed: string }
+/** An open editor: its target, what it opened on (the scenario, core's version), and the person's typing so far. `landed`: its write was
+ *  saved but the View could not show it (core's version `n`, and the View on screen then), so it sends nothing again; only Cancel is live,
+ *  and a later read that lands settles it. */
+export type Landed = { readonly n: number | null; readonly view: unknown }
+export type Editing = EditTarget & { readonly sid: string; readonly base: number; readonly typed: string; readonly landed?: Landed }
 export type Receipt = { readonly row: string; readonly words: string; readonly tone: 'saved' | 'failed' }
 
 /** A group's own receipt row: what a write on the group came to when no row of it can say so (a removed link's row is gone; Add a figure's
@@ -60,6 +63,8 @@ type ModelTabState = {
   readonly edit: (editing: Editing) => void
   /** The person's typing, kept with their editor. */
   readonly type: (mine: Editing, typed: string) => void
+  /** Its write landed but the View could not show it: the editor sends nothing more. */
+  readonly land: (mine: Editing, landed: Landed) => void
   /** An editor closes itself, and only itself. */
   readonly closeIf: (mine: EditTarget | Editing) => void
   readonly setBusy: (key: string | null) => void
@@ -87,6 +92,7 @@ export const useModelTab = create<ModelTabState>()((set, get) => ({
     set({ editing, receipt: null })
   },
   type: (mine, typed) => { const e = get().editing; if (e !== null && sameEditor(e, mine)) set({ editing: { ...e, typed } }) },
+  land: (mine, landed) => { const e = get().editing; if (e !== null && sameEditor(e, mine)) set({ editing: { ...e, landed } }) },
   closeIf: (mine) => { if (sameEditor(get().editing, mine)) set({ editing: null }) },
   setBusy: (key) => set({ busy: key }),
   say: (receipt) => set({ receipt }),

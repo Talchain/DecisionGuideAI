@@ -7,7 +7,6 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { MessageSquare, Plus } from 'lucide-react'
-import { typography } from '../../styles/typography'
 import { TeamApiError } from '../../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../../olumiCore/team/writes'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
@@ -30,6 +29,14 @@ function useMounted() {
 
 /** What a form opened on: the scenario and core's version at the press that opened it (base-at-open; a later one never takes it). */
 type Opened = { readonly sid: string; readonly base: number }
+/** A write that landed but the View could not show: core's answer, its scenario, and the View on screen then. */
+type Unseen<T> = { readonly sid: string; readonly saved: T; readonly view: unknown }
+
+/** A later read that lands shows what an unseen write left: true once the View on screen is a newer, current one than when it landed. */
+function useShownSince(unseen: Unseen<unknown> | null): boolean {
+  const readNow = useViewStore((s) => (s.error === null && !s.stale ? s.view : null))
+  return unseen !== null && readNow !== null && readNow !== unseen.view
+}
 
 /** Add a figure card, in place at the foot of Factors: name, figure as typed, unit if they give one; core reads the figure and its unit. */
 export function AddFigureRow(): JSX.Element | null {
@@ -39,17 +46,28 @@ export function AddFigureRow(): JSX.Element | null {
   const [typed, setTyped] = useState('')
   const [unit, setUnit] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // Its card was added but the View could not show it: said, and never sent again from this form (Cancel is live); a later read that
+  // lands settles it, as the save would have.
+  const [unseen, setUnseen] = useState<Unseen<{ n: number; record: string }> | null>(null)
+  const landed = unseen !== null
+  const shownSince = useShownSince(unseen)
+  useEffect(() => {
+    if (!shownSince || unseen === null) return
+    setUnseen(null); setError(null); setLabel(''); setTyped(''); setUnit(''); setOpened(null)
+    sayReceipt(unseen.sid, unseen.saved.record, unseen.saved)
+  }, [shownSince, unseen])
   const opener = useRef<HTMLButtonElement>(null)
   const mounted = useMounted()
   const key = editKey.addFigure(opened?.sid ?? sid)
   const sending = useWriteSending(key)
   const pending = useModelTab((s) => s.busy === key) || sending
   const other = useModelTab((s) => s.busy !== null && s.busy !== key)
+  const inert = pending || other || landed
   if (sid === null || (opened === null && live === null)) return null
-  const close = () => { setOpened(null); setError(null); setTimeout(() => opener.current?.focus(), 0) }
+  const close = () => { setOpened(null); setError(null); setUnseen(null); setTimeout(() => opener.current?.focus(), 0) }
   const add = async () => {
     const name = label.trim(), figure = typed.trim(), u = unit.trim()
-    if (name === '' || figure === '' || pending || opened === null || useModelTab.getState().busy !== null) return
+    if (name === '' || figure === '' || inert || opened === null || useModelTab.getState().busy !== null) return
     const { sid: at, base } = opened
     const here = () => useViewStore.getState().sid === at
     const fail = (words: string) => { if (mounted.current) setError(words); else useModelTab.getState().say({ row: FACTORS_ROW, words, tone: 'failed' }) }
@@ -60,7 +78,7 @@ export function AddFigureRow(): JSX.Element | null {
       noteEditSaved(saved)
       const shown = await readAfterSave(at)
       if (shown === 'moved') return
-      if (shown === 'failed') { fail(W.savedNotShown); return }
+      if (shown === 'failed') { if (mounted.current) setUnseen({ sid: at, saved, view: useViewStore.getState().view }); fail(W.savedNotShown); return }
       setLabel(''); setTyped(''); setUnit(''); setOpened(null)
       sayReceipt(at, saved.record, saved)
       focusWhenDrawn(saved.record) // the new card, theirs, in front on the canvas once drawn
@@ -82,17 +100,18 @@ export function AddFigureRow(): JSX.Element | null {
       <form className="space-y-2 rounded-lg border border-panel-border bg-panel p-3" data-model-add-figure="form" aria-busy={pending || undefined}
         onSubmit={(e) => { e.preventDefault(); void add() }} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !pending) close() }}>
         <label className="block space-y-1"><span className={RECIPE.label}>{W.name}</span>
-          <input autoFocus autoComplete="off" value={label} readOnly={pending} data-model-add-figure="name" onChange={(e) => { setLabel(e.target.value); if (error) setError(null) }} className={RECIPE.input} /></label>
+          <input autoFocus autoComplete="off" value={label} readOnly={pending || landed} data-model-add-figure="name" onChange={(e) => { setLabel(e.target.value); if (error) setError(null) }} className={RECIPE.input} /></label>
         <label className="block space-y-1"><span className={RECIPE.label}>{W.figure}</span>
-          <input autoComplete="off" value={typed} readOnly={pending} placeholder={W.figureHint} data-model-add-figure="typed" onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }} className={`${RECIPE.input} tabular-nums`} /></label>
+          <input autoComplete="off" value={typed} readOnly={pending || landed} placeholder={W.figureHint} data-model-add-figure="typed" onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }} className={`${RECIPE.input} tabular-nums`} /></label>
         <label className="block space-y-1"><span className={RECIPE.label}>{W.unit}</span>
-          <input autoComplete="off" value={unit} readOnly={pending} data-model-add-figure="unit" onChange={(e) => { setUnit(e.target.value); if (error) setError(null) }} className={RECIPE.input} /></label>
+          <input autoComplete="off" value={unit} readOnly={pending || landed} data-model-add-figure="unit" onChange={(e) => { setUnit(e.target.value); if (error) setError(null) }} className={RECIPE.input} /></label>
         {error === null ? null : <p role="alert" className={RECIPE.error} data-model-add-figure="error">{error}</p>}
         <div className="flex flex-wrap items-center gap-2">
-          <button type="submit" disabled={label.trim() === '' || typed.trim() === ''} aria-disabled={pending || other || undefined} className={`${RECIPE.primary} ${pending || other ? 'opacity-60' : ''}`} data-model-add-figure="add">{W.add}</button>
-          <button type="button" aria-disabled={pending || undefined} onClick={() => { if (!pending) close() }} className={RECIPE.quiet}>{W.cancel}</button>
+          <button type="submit" disabled={label.trim() === '' || typed.trim() === ''} aria-disabled={inert || undefined} className={RECIPE.primary} data-model-add-figure="add">{W.add}</button>
+          <button type="button" aria-disabled={pending || undefined} onClick={() => { if (!pending) close() }} className={RECIPE.quiet} data-model-add-figure="cancel">{W.cancel}</button>
         </div>
-        {pending ? <p role="status" className={RECIPE.status} data-model-add-figure="sending">{W.saving}</p> : null}
+        {pending ? <p role="status" className={RECIPE.status} data-model-add-figure="sending">{W.saving}</p>
+          : other ? <p role="status" className={RECIPE.status} data-model-add-figure="waiting">{W.savingOther}</p> : null}
       </form>
     </li>
   )
@@ -108,14 +127,26 @@ export function RemoveLink({ link, row }: { link: ViewLink; row: string }): JSX.
   const remove = link.remove
   const [opened, setOpened] = useState<Opened | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // The link was taken off but the View could not show it: said, and never sent again from this ask (Keep is live); a later read that
+  // lands settles it (and if that read takes the line away, its row goes with it).
+  const [unseen, setUnseen] = useState<Unseen<unknown> | null>(null)
+  const landed = unseen !== null
+  const shownSince = useShownSince(unseen)
+  useEffect(() => {
+    if (!shownSince || unseen === null) return
+    setUnseen(null); setError(null); setOpened(null)
+    useModelTab.getState().close(row)
+    sayReceipt(unseen.sid, RELATIONSHIPS_ROW, unseen.saved)
+  }, [shownSince, unseen, row])
   const mounted = useMounted()
   const key = remove == null ? '' : editKey.removeLink(opened?.sid ?? sid, remove)
   const sending = useWriteSending(key)
   const pending = useModelTab((s) => s.busy === key && key !== '') || sending
   const other = useModelTab((s) => s.busy !== null && s.busy !== key)
+  const inert = pending || other || landed
   if (remove == null || sid === null || (opened === null && live === null)) return null
   const take = async () => {
-    if (pending || opened === null || useModelTab.getState().busy !== null) return
+    if (inert || opened === null || useModelTab.getState().busy !== null) return
     const { sid: at, base } = opened
     const here = () => useViewStore.getState().sid === at
     const fail = (words: string) => { if (mounted.current) setError(words); else useModelTab.getState().say({ row: RELATIONSHIPS_ROW, words, tone: 'failed' }) }
@@ -126,7 +157,7 @@ export function RemoveLink({ link, row }: { link: ViewLink; row: string }): JSX.
       noteEditSaved(saved)
       const shown = await readAfterSave(at)
       if (shown === 'moved') return
-      if (shown === 'failed') { fail(W.savedNotShown); return }
+      if (shown === 'failed') { if (mounted.current) setUnseen({ sid: at, saved, view: useViewStore.getState().view }); fail(W.savedNotShown); return }
       useModelTab.getState().setBusy(null)
       useModelTab.getState().close(row)
       sayReceipt(at, RELATIONSHIPS_ROW, saved)
@@ -143,13 +174,14 @@ export function RemoveLink({ link, row }: { link: ViewLink; row: string }): JSX.
       {opened !== null ? (
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label={W.removeAsk}>
           <span className="text-text-body">{W.removeAsk}</span>
-          <button type="button" autoFocus aria-disabled={pending || other || undefined} onClick={() => void take()} className={`${RECIPE.secondary} ${pending || other ? 'opacity-50' : ''}`} data-model-remove-link-yes={row}>{W.remove}</button>
-          <button type="button" aria-disabled={pending || undefined} onClick={() => { if (!pending) { setOpened(null); setError(null) } }} className={RECIPE.quiet}>{W.keep}</button>
+          <button type="button" autoFocus aria-disabled={inert || undefined} onClick={() => void take()} className={RECIPE.secondary} data-model-remove-link-yes={row}>{W.remove}</button>
+          <button type="button" aria-disabled={pending || undefined} onClick={() => { if (!pending) { setOpened(null); setError(null); setUnseen(null) } }} className={RECIPE.quiet} data-model-remove-link-keep={row}>{W.keep}</button>
         </div>
       ) : (
         <button type="button" onClick={() => { if (live !== null) { setOpened({ sid, base: live }); setError(null) } }} className={RECIPE.action} data-model-remove-link-open={row}>{W.removeLink}</button>
       )}
-      {pending ? <p role="status" className={RECIPE.status} data-model-remove-link-sending={row}>{W.saving}</p> : null}
+      {pending ? <p role="status" className={RECIPE.status} data-model-remove-link-sending={row}>{W.saving}</p>
+        : other && opened !== null ? <p role="status" className={RECIPE.status} data-model-remove-link-waiting={row}>{W.savingOther}</p> : null}
       {error === null ? null : <p role="alert" className={RECIPE.error} data-model-remove-link-error={row}>{error}</p>}
     </div>
   )
@@ -161,7 +193,7 @@ export function AskOlumi({ draft, label, at }: { draft: string; label: string; a
   if (!can) return null
   return (
     <button type="button" onClick={(e) => { e.stopPropagation(); requestAsk({ text: draft, label, source: 'model-tab' }) }}
-      className={`${typography.viewPanelMeta} inline-flex min-h-[28px] items-center gap-1.5 rounded-sm px-1 text-text-light hover:text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`} data-model-ask={at}>
+      className={RECIPE.olumi} data-model-ask={at}>
       <MessageSquare aria-hidden="true" className="h-3.5 w-3.5 flex-none" /><span>{label}</span>
     </button>
   )

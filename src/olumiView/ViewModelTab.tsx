@@ -84,7 +84,7 @@ function ExpertSwitch() {
     if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); choose(false) }
   }
   const arm = (on: boolean) => `${typography.viewPanelMeta} inline-flex h-7 items-center rounded-full px-2.5 transition-colors duration-fast ${ACTION_FOCUS} ${on
-    ? 'bg-primary text-text-on-color' : 'text-text-light hover:text-text-body'}`
+    ? 'bg-text-header text-text-on-color' : 'text-text-light hover:text-text-body'}`
   return (
     <div role="radiogroup" aria-label={MODEL_EDIT_WORDS.detail} onKeyDown={onKey} data-testid="view-model-expert"
       className="inline-flex flex-none items-center gap-0.5 rounded-full border border-panel-border bg-panel p-0.5">

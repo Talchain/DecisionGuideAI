@@ -20,7 +20,7 @@ import { MODEL_EDIT_WORDS as W, openEditor, readAfter, useModelEdit } from './ed
 import { ASIDE_WORDS } from '../FigureEdit'
 import { focusIsWith, RECIPE } from './editors'
 import { useModelTab } from './state'
-import { linksOf, strengthCardOf, targetCardOf } from './targets'
+import { linkEndPath, linksOf, strengthCardOf, targetCardOf } from './targets'
 import { AskOlumi, RemoveLink } from './structure'
 
 const SECTION = `${typography.viewPanelMeta} m-0 mb-1 text-text-light`
@@ -30,11 +30,12 @@ function Section({ title, children, at }: { title: string; children: ReactNode; 
   return <section aria-label={title} data-model-detail-section={at}><h4 className={SECTION}>{title}</h4>{children}</section>
 }
 
-/** A detail action, as the crafted tab's group actions were: a quiet text action with its icon, never a boxed chip. */
-function Action({ icon, label, onPress, at }: { icon: ReactNode; label: string; onPress: () => void; at: string }) {
+/** A detail action, as the crafted tab's group actions were: a quiet text action with its icon, never a boxed chip. A label that is a
+ *  model word (a link end's heading) carries its View path. */
+function Action({ icon, label, onPress, at, path }: { icon: ReactNode; label: string; onPress: () => void; at: string; path?: string }) {
   return (
     <button type="button" onClick={(e) => { e.stopPropagation(); onPress() }} className={RECIPE.action} data-model-action={at}>
-      {icon}<span>{label}</span>
+      {icon}<span data-view={path}>{label}</span>
     </button>
   )
 }
@@ -79,7 +80,7 @@ function Links({ model, card, expert }: { model: ViewModel; card: ViewCard; expe
                   {out ? <ArrowRight aria-hidden="true" className={ICON} /> : <ArrowLeft aria-hidden="true" className={ICON} />}
                 </span>
                 <span className="min-w-0 flex-1 break-words">
-                  <span>{linkEndHeading(model, other)}</span>
+                  <span data-view={linkEndPath(model, other)}>{linkEndHeading(model, other)}</span>
                   {l.label !== '' ? <span className="text-text-light">{' '}<span data-view={`links.${i}.label`}>{l.label}</span></span> : null}
                   {expert && l.effect != null ? <span className={`${typography.viewPanelMeta} block tabular-nums text-text-light`} title={l.effect.title} data-view={`links.${i}.effect.text`}>{l.effect.text}</span> : null}
                 </span>
@@ -134,8 +135,8 @@ export function LinkDetail({ model, link, row }: { model: ViewModel; link: ViewL
       onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); useModelTab.getState().close(row) } }}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5" data-model-actions={row}>
         {strength === null ? null : <Action at="strength" icon={<Pencil aria-hidden="true" className={ICON} />} label={W.changeStrength} onPress={() => openEditor({ row, what: 'figure', quantity: strength.id })} />}
-        <Action at="from" icon={<ArrowLeft aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.from)} onPress={() => focusNodeById(link.from)} />
-        <Action at="to" icon={<ArrowRight aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.to)} onPress={() => focusNodeById(link.to)} />
+        <Action at="from" icon={<ArrowLeft aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.from)} path={linkEndPath(model, link.from)} onPress={() => focusNodeById(link.from)} />
+        <Action at="to" icon={<ArrowRight aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.to)} path={linkEndPath(model, link.to)} onPress={() => focusNodeById(link.to)} />
       </div>
       {base === null ? null : <RemoveLink link={link} row={row} />}
     </div>
@@ -189,7 +190,7 @@ export function HeldNotice() {
       {error === null ? null : <p role="alert" className={RECIPE.error} data-testid="view-model-held-error">{error}</p>}
       {asking ? (
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" autoFocus aria-disabled={busy || undefined} onClick={() => void setItAside()} className={`${RECIPE.secondary} ${busy ? 'opacity-50' : ''}`} data-testid="view-model-held-confirm">{W.heldConfirm}</button>
+          <button type="button" autoFocus aria-disabled={busy || undefined} onClick={() => void setItAside()} className={RECIPE.secondary} data-testid="view-model-held-confirm">{W.heldConfirm}</button>
           <button type="button" aria-disabled={busy || undefined} onClick={() => { if (!busy) { setAsking(false); setError(null) } }} className={RECIPE.quiet}>{W.heldKeep}</button>
         </div>
       ) : (
