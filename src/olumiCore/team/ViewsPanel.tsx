@@ -76,6 +76,9 @@ function Effects({ at, view, by: by_id, figures, effects, headings }: { at: stri
  * View's `collab`: the heading, the placeholder, your own views still private to you, the team's revealed views, whether the reveal is
  * open (`can_reveal`) and whom it waits for. Words go to core exactly as typed; a given view is never edited.
  */
+/** Core's stance pill on a revealed view (olumi-core V11, `collab.shared[].stance`), drawn as given; none when absent, null or empty. */
+const stanceOf = (v: unknown): string | null => { const s = (v as { stance?: unknown }).stance; return typeof s === 'string' && s !== '' ? s : null }
+
 export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element {
   const c = view.collab
   const [text, setText, dropText] = useDraft(`${sid}:view`, '')
@@ -128,7 +131,9 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
         <ul className="m-0 grid list-none gap-1.5 p-0" data-testid="team-revealed">
           {c.shared.map((v) => (
             <li key={v.id} data-testid={`team-revealed-${v.id}`} className={CARD}>
-              <p className={`${BODY} text-text-header`}>{v.by}</p>
+              <p className={`${BODY} text-text-header`}>{v.by}{stanceOf(v) !== null && (
+                <span className={`${META} ml-2 rounded-full border border-panel-border px-2 py-0.5`} data-testid={`team-revealed-stance-${v.id}`}>{stanceOf(v)}</span>
+              )}</p>
               {v.skip ? <p className={META}>Chose not to answer.</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
               <Figures at={`team-revealed-${v.id}`} figures={v.figures} />
               <Effects at={`team-revealed-${v.id}`} view={view} by={v.by_id} figures={v.figures} effects={effectsOf(v)} headings={effectHeadingsOf(c)} />

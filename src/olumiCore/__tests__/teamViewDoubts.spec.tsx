@@ -10,6 +10,7 @@ import type { View } from '../../olumiView/client'
 import { setPagePerson, setTeamFetch } from '../team/api'
 import { resetDoubts, sendDoubts, ViewDoubts } from '../team/ViewDoubts'
 import { resetDifferences, useDifferences, type Differences } from '../team/differences'
+import { ViewsPanel } from '../team/ViewsPanel'
 
 const fx: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/r5', 'effects.view3.json'), 'utf8'))
 const remove = { record: 'total_def', part: 'existing_capacity' }
@@ -43,7 +44,7 @@ describe('a private view\'s links and factor', () => {
     fireEvent.click(screen.getByTestId('team-view-doubt-total_def|existing_capacity'))
     fireEvent.change(screen.getByTestId('team-view-missing'), { target: { value: 'staff absence' } })
     await sendDoubts('s_x', 7)
-    expect(sent.find((s) => s.method === 'POST')).toEqual({ method: 'POST', url: '/api/scenarios/s_x/views/7/doubts', body: { links: [remove], missing: 'staff absence' } })
+    expect(sent.find((s) => s.method === 'POST')).toEqual({ method: 'POST', url: '/api/scenarios/s_x/views/7/doubts', body: { links: [remove], missing: 'staff absence', stance: null } })
   })
 
   it('sends nothing when nothing was named; a refusal says the view is saved', async () => {
@@ -56,5 +57,39 @@ describe('a private view\'s links and factor', () => {
     fireEvent.change(screen.getByTestId('team-view-missing'), { target: { value: 'x' } })
     await sendDoubts('s_x', 7)
     expect((await screen.findByTestId('team-view-doubts-error')).textContent).toBe('Your view is saved; the links and factor were not: each link must be one the model shows')
+  })
+
+  const STANCES = [{ id: 'know', text: 'I know this from experience' }, { id: 'suspect', text: 'I suspect this' }]
+  const withStances = (stances?: unknown) => useDifferences.setState({ sid: 's_x', key: 'k', data: { gated: true, ...(stances ? { stances } : {}) } as unknown as Differences, error: null })
+
+  it('draws core\'s stance words verbatim when the read carries stances, and nothing when it carries none', () => {
+    withStances(STANCES)
+    const { unmount } = render(<ViewDoubts sid="s_x" view={view()} disabled={false} />)
+    expect(screen.getByTestId('team-view-stance')).toBeTruthy()
+    expect(screen.getByTestId('team-view-stance-know').closest('label')!.textContent).toBe('I know this from experience')
+    expect(screen.getByTestId('team-view-stance-suspect').closest('label')!.textContent).toBe('I suspect this')
+    unmount(); cleanup(); resetDifferences()
+    supported()
+    const { container } = render(<ViewDoubts sid="s_x" view={view()} disabled={false} />)
+    expect(container.querySelector('[data-testid="team-view-stance"]')).toBeNull()
+  })
+
+  it('sends a stance alone as { links: [], missing: null, stance }', async () => {
+    const sent = serve(201, { doubt: 5 })
+    withStances(STANCES)
+    render(<ViewDoubts sid="s_x" view={view()} disabled={false} />)
+    fireEvent.click(screen.getByTestId('team-view-stance-suspect'))
+    await sendDoubts('s_x', 7)
+    expect(sent.find((s) => s.method === 'POST')).toEqual({ method: 'POST', url: '/api/scenarios/s_x/views/7/doubts', body: { links: [], missing: null, stance: 'suspect' } })
+  })
+
+  it('draws a revealed view\'s stance as core\'s pill, verbatim, and no pill for a null or empty stance', () => {
+    const shared = fx.collab.shared.slice(0, 3)
+    expect(shared.length).toBeGreaterThanOrEqual(2)
+    const stances = ['Knows from experience', null, '']
+    const v = { ...fx, collab: { ...fx.collab, shared: shared.map((x, i) => ({ ...x, stance: stances[i] })) } } as unknown as View
+    render(<ViewsPanel sid="s_x" view={v} onWrote={async () => true} />)
+    expect(screen.getByTestId(`team-revealed-stance-${shared[0]!.id}`).textContent).toBe('Knows from experience')
+    for (const x of shared.slice(1)) expect(screen.queryByTestId(`team-revealed-stance-${x.id}`)).toBeNull()
   })
 })

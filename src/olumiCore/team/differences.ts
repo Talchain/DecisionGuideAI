@@ -24,7 +24,9 @@ export interface Difference {
   readonly sides: readonly DifferenceSide[]; readonly options: readonly DifferenceOption[]; readonly settle: readonly Settle[]; readonly steps: readonly StepShown[]
 }
 export interface DifferenceHeadings { readonly sides: string; readonly options: string; readonly model: string; readonly settle: string; readonly steps: string; readonly dissent: string; readonly research: string; readonly commit: string }
-export interface Differences { readonly scenario: string; readonly version: number | null; readonly gated: boolean; readonly heading: string; readonly empty: string; readonly differences: readonly Difference[]; readonly headings: DifferenceHeadings }
+export interface Differences { readonly scenario: string; readonly version: number | null; readonly gated: boolean; readonly heading: string; readonly empty: string; readonly differences: readonly Difference[]; readonly headings: DifferenceHeadings
+  /** Core's words for how a member holds their view (a picker); absent on an older core. */
+  readonly stances?: ReadonlyArray<{ readonly id: string; readonly text: string }> }
 
 const path = (sid: string) => `/api/scenarios/${encodeURIComponent(sid)}/differences`
 
@@ -36,7 +38,13 @@ export function differencesShape(x: unknown): Differences | null {
   const h = d.headings as unknown as Record<string, unknown>
   if (!['sides', 'options', 'model', 'settle', 'steps', 'dissent', 'research', 'commit'].every((k) => isStr(h[k]))) return null
   const ok = d.differences.every((x) => isStr(x.record) && isStr(x.label) && isStr(x.status_text) && Array.isArray(x.sides) && Array.isArray(x.options) && Array.isArray(x.settle) && Array.isArray(x.steps))
-  return ok ? (d as Differences) : null
+  if (!ok) return null
+  const st = (d as { stances?: unknown }).stances
+  if (st !== undefined && !(Array.isArray(st) && st.every((e) => e !== null && typeof e === 'object' && isStr((e as { id?: unknown }).id) && isStr((e as { text?: unknown }).text)))) {
+    const { stances: _drop, ...rest } = d as Differences
+    return rest as Differences
+  }
+  return d as Differences
 }
 
 interface DifferencesState { readonly sid: string | null; readonly key: string | null; readonly data: Differences | null; readonly error: string | null }
