@@ -15,6 +15,7 @@ import studioSummary from '../golden/studio.summary.json'
 import europeanSummary from '../golden/european.summary.json'
 import type { View } from '../client'
 import { setTeamFetch } from '../../olumiCore/team/api'
+import { NOT_FOR_THIS_PAGE, useMe } from '../../olumiCore/me'
 import { TopBar } from '../../components/layout/TopBar'
 import { ToastProvider } from '../../canvas/ToastContext'
 import { useCanvasStore } from '../../canvas/store'
@@ -23,7 +24,7 @@ import { readSummary, summaryPath, SUMMARY_SHAPE_CHANGED, SUMMARY_VERSION_NOT_SE
 import { SummaryDocument, SUMMARY_DOWNLOAD_LABEL, SUMMARY_PRINT_LABEL } from '../ViewSummary'
 
 const SID = 's_0123456789ab'
-afterEach(() => { cleanup(); vi.unstubAllEnvs(); setTeamFetch(null); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none', stale: false, at: null }) })
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); setTeamFetch(null); useMe.setState({ me: null, status: 'none' }); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none', stale: false, at: null }) })
 
 /** What a block says: its parts' words with each mark's glyph after them, as core's Markdown says it. */
 const said = (b: Summary['blocks'][number]) => b.parts.map((p) => `${p.text}${p.mark ? ` ${p.mark.glyph}` : ''}`).join('')
@@ -80,6 +81,32 @@ const bar = (view: View, at: number | null = null) => {
   useCanvasStore.setState({ currentScenarioId: '00000000-0000-4000-8000-0123456789ab' })
   render(<MemoryRouter><ToastProvider><TopBar scenarioTitle="T" onTitleChange={vi.fn()} onSave={vi.fn()} onShare={vi.fn()} /></ToastProvider></MemoryRouter>)
 }
+
+/** Core as the browser holds it: the Summary, and `/api/me` naming whoever's private link the browser holds now. */
+const coreAs = (holder: string) => (async (path: string) => new Response(JSON.stringify(path === '/api/me' ? { me: { id: holder, name: holder } } : europeanSummary), { status: 200 })) as unknown as typeof fetch
+
+describe('a Summary read is bound to the person the page was opened for (Codex, integrated review 7 Nov)', () => {
+  it('RED before the fix: another private link opened in this browser since: the read is dropped, never drawn, in the person\'s words', async () => {
+    useMe.setState({ me: { id: 'p_paul', name: 'Paul' }, status: 'ready' })
+    setTeamFetch(coreAs('p_sam'))
+    await expect(readSummary(SID)).rejects.toThrow(NOT_FOR_THIS_PAGE)
+    bar(european as unknown as View)
+    fireEvent.click(screen.getByTestId('summary-trigger'))
+    await waitFor(() => expect(screen.getByTestId('summary-error').textContent).toBe(NOT_FOR_THIS_PAGE))
+    expect(screen.queryByTestId('summary-document')).toBeNull()
+    expect(screen.queryByTestId('summary-download')).toBeNull() // no export of a Summary this page may not show
+    expect(screen.queryByTestId('summary-print')).toBeNull()
+  })
+  it('contrast: the same person still holds the browser: the read is drawn', async () => {
+    useMe.setState({ me: { id: 'p_paul', name: 'Paul' }, status: 'ready' })
+    setTeamFetch(coreAs('p_paul'))
+    await expect(readSummary(SID)).resolves.toMatchObject({ schema: 'olumi.summary/1' })
+    bar(european as unknown as View)
+    fireEvent.click(screen.getByTestId('summary-trigger'))
+    await waitFor(() => expect(screen.getByTestId('summary-document')).toBeTruthy())
+    expect(screen.getByTestId('summary-download')).toBeTruthy()
+  })
+})
 
 describe('the top bar\'s Summary on the lane', () => {
   it('opens core\'s Summary of the saved version, drawn verbatim, with Download Markdown and Print or save as PDF on core\'s routes', async () => {
