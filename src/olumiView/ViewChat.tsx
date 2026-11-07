@@ -18,6 +18,7 @@ import { useViewStore } from './store'
 import { usePreMortemGate, useViewLens } from './lens'
 import { figureFirstOf, olumiKey, optionInFocusOf, sessionOf, type Session } from './layout'
 import { derivedUuidOf } from '../olumiCore/team/sid'
+import { isForThisPage, useMe } from '../olumiCore/me'
 import { useCanvasStore } from '../canvas/store'
 import { setCurrentScenarioId } from '../canvas/store/scenarios'
 import { scenarioIdWrite } from '../canvas/stores/unboundModelBinding'
@@ -784,9 +785,13 @@ export function ViewChat() {
     else void openFigureFirst()
   }, [signature]) // eslint-disable-line react-hooks/exhaustive-deps
   // The Next step core's View asks for, if any; while it shows, the newest reply's move tap is tucked behind More ways (below).
+  // Tucked only when the step offers this person its control: a figure on someone else's page shows no editor (FigureEdit), so there the
+  // reply's tap stays where it is (checker, slice 1b).
+  const me = useMe((s) => s.me)
   const step = view === null ? null : nextStepOf(view)
+  const offers = step !== null && (step.kind !== 'figure' || isForThisPage(view!, me))
   const newest = view === null || view.chat.length === 0 ? null : view.chat[view.chat.length - 1]!
-  const tucked = step !== null && newest?.answer?.next.newest ? newest : null
+  const tucked = offers && newest?.answer?.next.newest ? newest : null
   const give = () => void giveFigureFirst().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-given') })
   const show = () => void showOlumiFigure().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-shown') })
   return (
@@ -799,7 +804,7 @@ export function ViewChat() {
         <ModelNoticeLine />
         {/* One next move (DL ruling b, Paul 6 Nov: progressive disclosure): while the Next step card shows, the reply's own move tap waits
             behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
-        {view === null ? null : <ViewConversation chat={view.chat} moves={step === null} />}
+        {view === null ? null : <ViewConversation chat={view.chat} moves={!offers} />}
         {view === null ? null : <NextStepCard view={view} busy={busy} />}
         {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
         <div {...{ [VIEW_NOTE_SLOT]: '' }} />
