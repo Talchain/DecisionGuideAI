@@ -71,3 +71,25 @@ describe('two sides side by side: the shift track for each paired option', () =>
     expect(none.container.querySelector('[data-compare-track-key]')).toBeNull()
   })
 })
+
+describe("each chance as its option card draws it: core's headline, then the card's short companion line", () => {
+  const LONG = "about 13% (about 16% without Olumi's suggested risk assumption 'Late payment')"
+  const COMP = { text: "about 16% without Olumi's suggested risk", title: "about 16% without Olumi's suggested risk assumption 'Late payment'" }
+  it("side by side: the headline in the cell's value, the companion beneath it with its sentence as hover; never the whole long value", () => {
+    const c = PAIR(0.13, 0.47)
+    const opt = (c.aims[0]!.options as unknown as { a: { cells: Record<string, unknown>[] } }[])[0]!
+    opt.a.cells[0] = { ...cell(LONG, 0.13), headline: 'about 13%', companion: COMP }
+    const { container } = render(<ScenarioComparisonView c={c} />)
+    const first = container.querySelector('[data-compare-cells]')!
+    expect(first.querySelector('[data-compare-value]')!.textContent).toBe('about 13%')
+    expect([first.querySelector('[data-compare-companion]')!.textContent, first.querySelector('[data-compare-companion]')!.getAttribute('title')]).toEqual([COMP.text, COMP.title])
+    expect(container.textContent).not.toContain(LONG)
+  })
+  it('version compare: the headline, then the companion in light words; an older core draws its value as before', () => {
+    const withSplit = { ...CORE, results: [{ ...CORE.results[0]!, before: { value: LONG, title: 't', olumi: null, chance: 0.13, headline: 'about 13%', companion: COMP } }] } as Compared
+    const { container } = render(<ComparedLists c={withSplit} boxed />)
+    const li = container.querySelector('[data-testid="team-compare-results"] li')!
+    expect(li.textContent).toContain(`about 13% (${COMP.text})`)
+    expect(li.textContent).not.toContain(LONG)
+  })
+})

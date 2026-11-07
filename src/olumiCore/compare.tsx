@@ -14,7 +14,10 @@ import { markOf, ShiftTrack, TrackKey } from './compareTrack'
  * version history panel and the Team tab.
  */
 /** `chance` (core wip/compare, 7 Nov): core's own number behind the value (0 to 1), which places the shift track's mark. */
-type Side = { value: string; title: string; olumi: { glyph: string; title: string } | null; chance?: number | null }
+type Side = { value: string; title: string; olumi: { glyph: string; title: string } | null; chance?: number | null
+  /** Core's headline and the card's short companion line (core wip/compare ff3622bb); an older core: the value alone. */
+  headline?: string; companion?: { text: string; title: string } | null }
+const headOf = (s: Side) => (typeof s.headline === 'string' && s.headline.trim() !== '' ? s.headline : s.value)
 /** `label` and `move_text` (core wip/compare, 7 Nov): core's own words for what the result is about and how it moved. */
 export type Move = { kind: 'chance' | 'limit' | 'most_likely'; option: string | null; optionLabel: string | null; aim: string; condition: string | null
   before: Side | null; after: Side | null; move: 'up' | 'down' | 'changed' | 'unchanged' | 'new' | 'gone'; label?: string; move_text?: string }
@@ -34,7 +37,8 @@ export const whoOf = (v: Compared['versions'][number]) => v.who ?? `proposed by 
 
 export function SideText({ s }: { s: Side | null }) {
   if (s === null) return <span className="text-text-light">none</span>
-  return <><span title={s.title}>{s.value}</span>{s.olumi ? <> <span title={s.olumi.title} aria-label={s.olumi.title}>{s.olumi.glyph}</span></> : null}</>
+  const own = headOf(s) !== s.value && s.companion ? s.companion : null
+  return <><span title={s.title}>{headOf(s)}</span>{s.olumi ? <> <span title={s.olumi.title} aria-label={s.olumi.title}>{s.olumi.glyph}</span></> : null}{own ? <> <span className="text-text-light" title={own.title} data-compare-companion="">({own.text})</span></> : null}</>
 }
 
 /** One change line as core's change card writes it: its text, how it moved, and Olumi's mark with core's hover. */
@@ -63,7 +67,7 @@ export function ComparedLists({ c, id = 'team-compare', who = true, boxed = fals
         // What the result is about on its own line, then before → after and how it moved: one result, two short lines.
         <li key={i} className={`${BODY} grid`}><span className="text-text-header">{what(r)}:</span>{' '}<span><SideText s={r.before} /> → <SideText s={r.after} /> <span className="text-text-light">({moveWords(r)})</span></span>
           {/* The earlier DGAI's shift track: the earlier version hollow, the later filled, where core gives each its number. */}
-          {r.kind !== 'most_likely' ? <ShiftTrack first={r.before ? markOf(r.before.chance, r.before.value) : null} second={r.after ? markOf(r.after.chance, r.after.value) : null} /> : null}
+          {r.kind !== 'most_likely' ? <ShiftTrack first={r.before ? markOf(r.before.chance, headOf(r.before)) : null} second={r.after ? markOf(r.after.chance, headOf(r.after)) : null} /> : null}
         </li>
       )), 'No results in either version', 'results'))}
       {c.results.some((r) => r.kind !== 'most_likely' && (markOf(r.before?.chance, '') || markOf(r.after?.chance, '')))
