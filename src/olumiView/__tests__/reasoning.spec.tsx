@@ -46,7 +46,7 @@ function at(view: View, path: string): unknown {
   if (path === 'brief') return view.brief
   const m = view.model!, [id, ...rest] = path.split('.')
   // `key.N.glyph`: core's key entry N (the Olumi mark beside an outcome band), a path on the model like `run`.
-  let x: unknown = id === 'run' ? m.run : id === 'key' ? m.key : m.cards.find((c) => c.id === id)
+  let x: unknown = id === 'run' ? m.run : id === 'key' ? m.key : id === 'collab' ? view.collab : m.cards.find((c) => c.id === id)
   for (const k of rest) x = x === null || x === undefined ? undefined : (x as Record<string, unknown>)[k]
   return x
 }
@@ -849,5 +849,86 @@ describe('the option rack: each option\'s chance, through the served Analysis ro
   it('negative: bakery\'s options rest on nothing core names: no marks, and no empty list', () => {
     mount(read('bakery.view.json'))
     expect(rack().querySelector('[data-rack-rests]')).toBeNull()
+  })
+})
+
+// The people strip (the redesign's Z4; DL ruling 2, 7 Nov): read-only, the views core shares with this viewer only, each played in the
+// Team tab's own components with no call; nothing for a viewer core holds back.
+describe('the people strip: the views core shares, read-only, each played in core\'s words', () => {
+  const r5 = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/r5', `${n}.view3.json`), 'utf8'))
+  const strip = () => screen.queryByTestId('view-reasoning-people')
+  const chip = (id: number) => document.querySelector<HTMLButtonElement>(`[data-people-chip="${id}"]`)!
+  afterEach(() => { cleanup(); ringCards([]); attCards([]); document.querySelectorAll('.react-flow__node').forEach((e) => e.remove()) })
+
+  it('catch: r5 effects, on the tab as the dock mounts it: one chip per shared view in core\'s order, its name, a mark per kind of effect in core\'s words', () => {
+    const view = r5('effects'), c = view.collab, h = c.effect_headings!
+    ready(view)
+    render(<ViewReasoningBlock />)
+    expect(strip()?.getAttribute('aria-label')).toBe(c.heading)
+    expect(strip()!.querySelector('[data-view="collab.heading"]')?.textContent).toBe(c.heading)
+    const shared = c.shared.filter((v) => !v.skip)
+    expect([...strip()!.querySelectorAll<HTMLElement>('[data-people-chip]')].map((e) => [Number(e.dataset['peopleChip']), e.querySelector('[data-people-by]')?.textContent])).toEqual(shared.map((v) => [v.id, v.by]))
+    for (const v of shared) {
+      const want = (['changes', 'moves', 'same'] as const).filter((st) => (v.effects ?? []).some((e) => 'status' in e && e.status === st))
+      expect([...chip(v.id).querySelectorAll<HTMLElement>('[data-people-status]')].map((e) => [e.dataset['peopleStatus'], e.getAttribute('aria-label')]), v.by).toEqual(want.map((st) => [st, h[st]]))
+    }
+    // No colour for a person or a stance (keyboard focus keeps the lane's focus ring, a state of the control, not of the person).
+    expect(strip()!.outerHTML).not.toMatch(/(?<![\w:-])(?:bg|text|border|ring)-(?:info|primary|blue)/)
+    expect(strip()!.outerHTML).toMatch(/focus-visible:ring/)
+  })
+
+  it('pressing a chip plays that view: its figures and each effect in core\'s words, nothing sent; one at a time; pressing again closes it', () => {
+    const view = r5('effects'), c = view.collab, h = c.effect_headings!, [paul, sam] = c.shared
+    const calls: unknown[] = []
+    setTeamFetch((async (...a: unknown[]) => { calls.push(a); throw new Error('no call expected') }) as never)
+    ready(view)
+    render(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('view-reasoning-people-open')).toBeNull()
+    fireEvent.click(chip(paul!.id))
+    const open = screen.getByTestId('view-reasoning-people-open')
+    expect(chip(paul!.id).getAttribute('aria-pressed')).toBe('true')
+    expect([...open.querySelectorAll('[data-testid$="-figures"] li')].map((e) => e.textContent)).toEqual(paul!.figures.map((f) => `${f.label}: ${f.text}`))
+    expect([...open.querySelectorAll<HTMLElement>('[data-effect]')].map((e) => e.dataset['effect'])).toEqual(paul!.effects!.map((e) => e.quantity))
+    const changes = paul!.effects!.find((e) => 'status' in e && e.status === 'changes') as { quantity: string; gap_text: string }
+    const row = open.querySelector(`[data-effect="${changes.quantity}"]`)!
+    expect(row.querySelector('[data-effect-status]')?.textContent).toBe(h.changes)
+    expect(row.querySelector('[data-effect-gap]')?.textContent).toBe(changes.gap_text)
+    fireEvent.click(chip(sam!.id))
+    expect(screen.getByTestId('view-reasoning-people-open').dataset['peopleOpen']).toBe(String(sam!.id))
+    expect([...screen.getByTestId('view-reasoning-people-open').querySelectorAll('[data-effect-status]')].map((e) => e.textContent)).toEqual(sam!.effects!.map(() => h.refused))
+    fireEvent.click(chip(sam!.id))
+    expect(screen.queryByTestId('view-reasoning-people-open')).toBeNull()
+    expect(calls).toEqual([])
+  })
+
+  it('hovering a chip rings the cards that view\'s figures sit on', () => {
+    const view = r5('effects'), paul = view.collab.shared[0]!
+    for (const k of view.model!.cards) document.body.insertAdjacentHTML('beforeend', `<div class="react-flow__node" data-id="${k.id}"></div>`)
+    ready(view)
+    render(<ViewReasoningBlock />)
+    fireEvent.mouseEnter(chip(paul.id))
+    const want = paul.effects!.map((e) => e.quantity).filter((q) => view.model!.cards.some((k) => k.id === q)).sort()
+    expect(want.length).toBeGreaterThan(0)
+    expect([...document.querySelectorAll<HTMLElement>('.react-flow__node.v10-lit')].map((e) => e.dataset['id']).sort()).toEqual(want)
+    fireEvent.mouseLeave(chip(paul.id))
+    expect(document.querySelectorAll('.react-flow__node.v10-lit').length).toBe(0)
+  })
+
+  it('negative: a viewer core holds back (gated) sees no strip; nor does a View in which nobody has shared', () => {
+    ready(r5('effects-gated'))
+    const { unmount } = render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('view-reasoning')).toBeInTheDocument()
+    expect(strip()).toBeNull()
+    unmount()
+    ready(r5('proposal'))
+    render(<ViewReasoningBlock />)
+    expect(strip()).toBeNull()
+  })
+
+  it('negative: a gated viewer sees no strip even were core to send shared views (core\'s rule, held here too)', () => {
+    const view = structuredClone(r5('effects')); view.gated = true
+    ready(view)
+    render(<ViewReasoningBlock />)
+    expect(strip()).toBeNull()
   })
 })

@@ -14,7 +14,7 @@ import { sendDoubts, ViewDoubts } from './ViewDoubts'
 type Figure = View['collab']['shared'][number]['figures'][number]
 
 /** The figures a person gave with their view, each in core's words (its `text`, with core's `title` on hover), in core's order. */
-function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX.Element | null {
+export function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX.Element | null {
   if (figures.length === 0) return null
   return (
     <ul className="m-0 grid list-none gap-0.5 p-0" data-testid={`${at}-figures`}>
@@ -34,11 +34,12 @@ function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX.Elemen
  * view's own label for it, else its card's heading; the aim, the options and the conditions by their cards' headings, by id; a null leader
  * names nothing. A figure core did not run is listed under core's heading for that, its reason code not translated.
  */
-function Effects({ at, view, by: by_id, figures, effects, headings }: { at: string; view: View; by: string; figures: Figure[]; effects: readonly ViewEffect[]; headings: EffectHeadings | null }): JSX.Element | null {
+export function Effects({ at, view, by: by_id, figures, effects, headings, alone = false }: { at: string; view: View; by: string; figures: Figure[]; effects: readonly ViewEffect[]; headings: EffectHeadings | null; alone?: boolean }): JSX.Element | null {
   if (effects.length === 0 || headings === null) return null
   // A figure the "Where you differ" picture already places shows there its status (the mark and the legend), its most-likely option (its lane)
-  // and the model's (once per aim): none of these is said again in its row.
-  const placed = differPlaced(view)
+  // and the model's (once per aim): none of these is said again in its row. `alone`: drawn where no such picture is beside it (the
+  // Reasoning tab's people strip), so every row says all of it.
+  const placed = alone ? null : differPlaced(view)
   const inLane = (q: string) => placed?.has(`${by_id}:${q}`) === true
   const card = (id: string | null) => (id === null ? null : view.model?.cards.find((c) => c.id === id)?.heading ?? null)
   const figure = (q: string) => figures.find((f) => f.quantity === q)?.label ?? card(q)
