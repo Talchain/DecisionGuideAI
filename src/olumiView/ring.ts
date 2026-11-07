@@ -30,11 +30,12 @@ let queued = false
 const escId = (s: string): string => (typeof CSS !== 'undefined' && typeof CSS.escape === 'function' ? CSS.escape(s) : s.replace(/["\\]/g, (c) => `\\${c}`))
 const nodeOf = (id: string): Element | null => document.querySelector(`.react-flow__node[data-id="${escId(id)}"]`)
 
-/** What should be lit: the pointed cards whole; otherwise layout.ts's resting ring given the cards the person has selected (React Flow's
- *  `selected` class). Already right (every lit card wanted, every wanted card on the canvas lit) writes nothing, so its own write cannot loop. */
+/** What should be lit: the pointed cards whole; otherwise layout.ts's resting ring given the cards in the person's focus: selected (React
+ *  Flow's `selected` class) or with a V11 view chip open on them (`v11-open`, v11-build's mark; the open chip wins, one focus per screen).
+ *  Already right (every lit card wanted, every wanted card on the canvas lit) writes nothing, so its own write cannot loop. */
 function paint(): void {
   if (typeof document === 'undefined') return
-  const selected = Array.from(document.querySelectorAll('.react-flow__node.selected'), (e) => e.getAttribute('data-id') ?? '')
+  const selected = Array.from(document.querySelectorAll('.react-flow__node.selected, .react-flow__node.v11-open'), (e) => e.getAttribute('data-id') ?? '')
   const want = pointed ?? restingRingOf(resting, selected)
   const lit = Array.from(document.querySelectorAll('.react-flow__node.v10-lit'), (e) => e.getAttribute('data-id') ?? '')
   if (lit.every((id) => want.includes(id)) && want.every((id) => nodeOf(id)?.classList.contains('v10-lit') ?? true)) return
