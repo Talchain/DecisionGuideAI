@@ -9,6 +9,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View } from '../../olumiView/client'
 import { setPagePerson, setTeamFetch } from '../team/api'
 import { resetDoubts, sendDoubts, ViewDoubts } from '../team/ViewDoubts'
+import { resetDifferences, useDifferences, type Differences } from '../team/differences'
 
 const fx: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/r5', 'effects.view3.json'), 'utf8'))
 const remove = { record: 'total_def', part: 'existing_capacity' }
@@ -23,11 +24,19 @@ function serve(status: number, body: unknown): Sent[] {
   }) as unknown as typeof fetch)
   return sent
 }
-afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); resetDoubts() })
+afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); resetDoubts(); resetDifferences() })
+/** Core has the debate routes: its differences read answered for this scenario. */
+const supported = () => useDifferences.setState({ sid: 's_x', key: 'k', data: { gated: true } as unknown as Differences, error: null })
 
 describe('a private view\'s links and factor', () => {
+  it('is not offered on a core without the debate routes (its differences read answered 404, so none is held)', () => {
+    const { container } = render(<ViewDoubts sid="s_x" view={view()} disabled={false} />)
+    expect(container.querySelector('[data-testid="team-view-doubts"]')).toBeNull()
+  })
+
   it('offers only the links core can take out, and sends the picked one verbatim with the factor and the view id', async () => {
     const sent = serve(201, { doubt: 5 })
+    supported()
     render(<ViewDoubts sid="s_x" view={view()} disabled={false} />)
     const boxes = screen.getByTestId('team-view-doubts').querySelectorAll('input[type="checkbox"]')
     expect(boxes).toHaveLength(1)
@@ -42,6 +51,7 @@ describe('a private view\'s links and factor', () => {
     await sendDoubts('s_x', 7)
     expect(none.filter((s) => s.method === 'POST')).toHaveLength(0)
     serve(400, { error: 'each link must be one the model shows' })
+    supported()
     render(<ViewDoubts sid="s_x" view={view()} disabled={false} />)
     fireEvent.change(screen.getByTestId('team-view-missing'), { target: { value: 'x' } })
     await sendDoubts('s_x', 7)

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { View } from '../../olumiView/client'
 import { call, TeamApiError } from './api'
 import { BODY, ERR, FIELD, LABEL, META } from './ui'
+import { useDifferences } from './differences'
 
 /**
  * A private view's links and factor (core `POST …/views/:id/doubts`, olumi-core wip/debate): the links of the model this member doubts (each
@@ -36,12 +37,15 @@ export async function sendDoubts(sid: string, view: number): Promise<void> {
 
 export function ViewDoubts({ sid, view, disabled }: { sid: string; view: View; disabled: boolean }): JSX.Element | null {
   const d = useDoubts((s) => s[sid] ?? EMPTY)
+  // Offered only on a core that has the debate routes: its differences read answered (DifferencesPanel reads it; a core without the route
+  // answers 404 and leaves it null), so a member on an older core is never offered fields it would refuse after their view is saved.
+  const supported = useDifferences((s) => s.sid === sid && s.data !== null)
   const cards = view.model?.cards ?? []
   const heading = (id: string) => cards.find((c) => c.id === id)?.heading ?? id
   // Only the approved version's links (a proposal on screen is not what a view is given against), each once.
   const shownIsProposal = view.proposal !== null && view.model?.edit_base === null
   const links = shownIsProposal ? [] : (view.model?.links ?? []).filter((l, i, all) => l.remove !== null && all.findIndex((x) => x.remove !== null && keyOf(x.remove) === keyOf(l.remove!)) === i)
-  if (view.version === null || shownIsProposal) return null
+  if (!supported || view.version === null || shownIsProposal) return null
   const put = (p: Partial<DoubtsDraft>) => useDoubts.setState((s) => ({ ...s, [sid]: { ...(s[sid] ?? EMPTY), ...p } }))
   return (
     <div className="grid gap-1.5" data-testid="team-view-doubts">
