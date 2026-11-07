@@ -178,6 +178,11 @@ export type View = {
         id: string
         whose: "theirs" | "olumi" | "mixed"
       }>
+      author?: {
+        by: "person" | "brief" | "olumi" | "mixed"
+        text: string
+        title: string
+      } | null
       committed?: {
         by: string
         at: string
@@ -225,6 +230,11 @@ export type View = {
       shared_blockers?: Array<{
         aim_id: string
         options: Array<string>
+        text: string
+      }>
+      coverage?: Array<{
+        aim_id: string
+        option: string
         text: string
       }>
       most_likely: {
@@ -525,10 +535,14 @@ export type View = {
           gap_high: number
           differ: number
         }>
+        chip?: string
       } | {
         quantity: string
         refused: "no_such_figure" | "worked_out" | "structure" | "no_figure" | "no_unit" | "other_unit" | "not_a_figure" | "outside" | "option_left_out" | "cannot_run" | "runs_differently" | "too_large" | "other_draws" | "model_moved_on" | "limit"
       }>
+      kind?: "shared" | "unique" | "disagreement"
+      about?: Array<string>
+      stance?: string | null
     }>
     mine: Array<{
       id: number
@@ -667,6 +681,25 @@ export type View = {
     max_view_figures: number
     view_figures_limit_text: string
     private_view_prompt: string | null
+    next?: {
+      text: string
+      about: Array<string>
+    } | null
+    marks?: Array<{
+      card: string
+      kind: "shared" | "unique" | "disagreement" | "evidence"
+      views: Array<number>
+      evidence: Array<number>
+      text: string
+      reading: {
+        text: string
+        note: string
+      } | null
+      options: Array<{
+        option: string
+        text: string
+      }>
+    }>
   }
   evidence: Array<{
     id: number
@@ -835,5 +868,86 @@ export type View = {
         reasons: Array<string>
       }>
     } | null
+  }
+  strategy?: {
+    items: Array<{
+      id: string
+      kind: "claim" | "assumption" | "question" | "risk" | "choice"
+      kind_text: string
+      text: string
+      at: string
+      by: string
+      by_id: string
+      concerns: Array<{
+        id: string
+        family: string | null
+        label: string | null
+      }>
+      version: number | null
+      crux: boolean
+      status: "live" | "set_aside" | null
+      set_aside: {
+        why: string
+        reopen: string
+      } | null
+      locus: "ours" | "world" | null
+      locus_text: string | null
+      signpost: string | null
+    }>
+    views: Array<{
+      view: number
+      by: string
+      by_id: string
+      mine: boolean
+      about: {
+        id: string
+        family: string | null
+        label: string | null
+      }
+      stance: "observed" | "expects" | "unsure" | "would_try" | "others_miss"
+      stance_text: string
+      source: string | null
+      pill: string
+      text: string
+    }>
+    marks: Array<{
+      card: string
+      kind: "shared" | "unique" | "disagreement"
+      views: Array<number>
+      people: Array<{
+        id: string
+        name: string
+      }>
+      text: string
+    }>
+    gate: {
+      quantified: boolean
+      text: string
+    }
+    overview: {
+      heading: string
+      sections: Array<{
+        id: string
+        heading: string
+        empty: string
+        lines: Array<{
+          id: string
+          text: string
+          by: string | null
+          by_id: string | null
+          kind_text: string | null
+          ref: {
+            id: string
+            family: string | null
+            label: string | null
+          } | null
+        }>
+      }>
+    }
+    headings: {
+      items: string
+      views: string
+      overview: string
+    }
   }
 }

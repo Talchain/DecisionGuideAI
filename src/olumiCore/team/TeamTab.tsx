@@ -15,6 +15,7 @@ import { TEAM_PAST_HELD } from './writes'
 import { RevealDock, revealDockShown } from '../../olumiView/RevealDock'
 import { EvidenceDock, evidenceDockShown } from '../../olumiView/EvidenceDock'
 import { useReveal } from '../../olumiView/reveal'
+import { StrategyOverviewSection } from '../../olumiView/strategy/StrategyOverview'
 
 /**
  * THE TEAM TAB (olumi-core lane only). The team's views, the reveal, evidence, commitments and their outcomes, every word and state as
@@ -76,6 +77,8 @@ export function TeamTab(): JSX.Element {
           )}
           {/* The team's record is the live scenario's: its forms are held while an earlier version is drawn (the writer refuses too). */}
           {/* The nudges' reveal is the team's record too: held with the forms (R1 review 1; the writer refuses it as well). */}
+          {/* Strategy lane (7 Nov, by agreement): the strategy overview, a read-only projection of core's `strategy`; null without the key. */}
+          <StrategyOverviewSection view={shown} />
           <fieldset disabled={past !== null} className="contents"><NudgesPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <fieldset disabled={past !== null} className="contents"><ViewsPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <fieldset disabled={past !== null} className="contents"><DissentPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
