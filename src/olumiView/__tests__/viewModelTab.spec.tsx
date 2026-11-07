@@ -11,6 +11,7 @@ import type { View } from '../client'
 import { drawKindOf, linkEndHeading, modelGroupsOf } from '../layout'
 import { MODEL_OUTLINE_LABELS } from '../ViewModelTab'
 import { ViewModelTab } from '../ViewModelTab'
+import { MODEL_ROW_LABELS } from '../model/ModelCardRow'
 import { registerFocusHelpers } from '../../canvas/utils/focusHelpers'
 import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../../canvas/domain/vocabulary'
 
@@ -107,5 +108,100 @@ describe('the Model tab reads as the previous PoC\'s outline', () => {
     fireEvent.change(c.querySelector('[data-testid="view-model-filter"]')!, { target: { value: 'zzqx no such words' } })
     expect(c.querySelectorAll('[data-model-row]').length).toBe(0)
     expect(c.querySelector('[data-testid="view-model-no-match"]')?.textContent).toBe(MODEL_OUTLINE_LABELS.none)
+  })
+})
+
+// R25 (Paul 7 Nov): the crafted Model tab reinstated. Its row (ModelRowView, MODEL-1), its mark (ValueProvenanceMark) and its Insights
+// disclosure (FactorInsights), every word core's, bound by identity: each premise by its card id and its place in `premises`.
+describe('the crafted Model tab, from the View', () => {
+  const open = () => { const c = render(<ViewModelTab model={model} />).container; fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!); return c }
+
+  it('catch: a card\'s premises sit behind its own closed disclosure, each in core\'s words under core\'s key word for its glyph; a card with none has none', () => {
+    const focus = vi.fn()
+    const off = registerFocusHelpers(focus, () => undefined)
+    const c = open()
+    const card = model.cards.find((k) => k.id === 'broader_entry')!
+    expect(card.premises.length).toBeGreaterThan(1)
+    const toggle = c.querySelector<HTMLButtonElement>(`[data-model-premises-toggle="${card.id}"]`)!
+    expect(toggle.textContent).toBe(`${MODEL_ROW_LABELS.restsOn}${card.premises.length}`)
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(c.querySelector(`[data-view="${card.id}.premises.0.text"]`)).toBeNull() // closed by default
+    expect(c.querySelector(`[data-model-row="${card.id}"]`)!.contains(toggle)).toBe(false) // never inside the row's button
+    fireEvent.click(toggle)
+    expect(focus).not.toHaveBeenCalled() // opening it does not move the canvas
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    card.premises.forEach((p, i) => {
+      expect(c.querySelector(`[data-view="${card.id}.premises.${i}.text"]`)?.textContent, `premise ${i}`).toBe(p.text)
+      const heading = c.querySelector(`[data-view-premise="${card.id}.premises.${i}"]`)!.closest('div')!.querySelector('[data-view-key]')
+      const entry = model.key.find((k) => k.glyph === p.glyph)!
+      expect(heading?.getAttribute('data-view-key'), `premise ${i}`).toBe(entry.id)
+      expect(heading?.textContent, `premise ${i}`).toBe(`${entry.glyph} ${entry.text}`)
+    })
+    // CONTRAST: a card that rests on nothing draws no disclosure.
+    const bare = model.cards.find((k) => k.id === 'starting_customers')!
+    expect(bare.premises).toEqual([])
+    expect(c.querySelector(`[data-model-row="${bare.id}"]`)).not.toBeNull()
+    expect(c.querySelector(`[data-model-premises-toggle="${bare.id}"]`)).toBeNull()
+    off()
+  })
+
+  it('catch: Olumi\'s mark sits on the figure it marks, once, with core\'s hover; an unmarked figure carries none; the key names only marks on screen', () => {
+    const c = open()
+    const marked = model.cards.find((k) => k.figure !== null && k.olumi !== null)!
+    const glyphs = c.querySelectorAll(`[data-view="${marked.id}.olumi.glyph"]`)
+    expect(glyphs.length).toBe(1)
+    expect(glyphs[0]!.textContent).toBe(marked.olumi!.glyph)
+    expect(glyphs[0]!.getAttribute('aria-label')).toBe(marked.olumi!.title)
+    expect(glyphs[0]!.parentElement!.querySelector(`[data-view="${marked.id}.figure.text"]`)).not.toBeNull() // beside its figure
+    const unmarked = model.cards.find((k) => k.figure !== null && k.olumi === null)!
+    expect(c.querySelector(`[data-model-row="${unmarked.id}"] [role="img"]`)).toBeNull() // CONTRAST: absence drawn as absence
+    expect([...c.querySelectorAll('[data-testid="view-model-key"] [data-view-key]')].map((k) => k.textContent)).toEqual(
+      model.key.filter((k) => k.id === 'olumi').map((k) => `${k.glyph} ${k.text}`)) // ◆ only: no card here is partly Olumi's
+  })
+
+  // The wire: core's own re-pinned golden at wip/summary a62f0899 (src/view/__tests__/golden/bakery.view3.json), which serves
+  // `cards[].author`. Every card in the tab is checked by its id: a person's carries the icon named in core's words; Olumi's carries
+  // core's ◆ alone; a card core gives no author carries nothing.
+  it('wire (core a62f0899): each card says whose it is in core\'s words, a person\'s by its icon, Olumi\'s by core\'s ◆; none, none', () => {
+    const bakery = (JSON.parse(readFileSync(path.resolve('src/olumiView/model/fixtures/bakery-author.core-a62f0899.view3.json'), 'utf8')) as View).model!
+    const c = render(<ViewModelTab model={bakery} />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    type A = { by: string; text: string; title: string } | null | undefined
+    const authorOf = (id: string) => (bakery.cards.find((k) => k.id === id) as unknown as { author: A }).author
+    const drawn = [...c.querySelectorAll('[data-model-row]')].map((r) => r.getAttribute('data-model-row')!)
+    expect(drawn.length).toBe(bakery.cards.length)
+    const seen = new Set<string>()
+    for (const id of drawn) {
+      const a = authorOf(id), icon = c.querySelector(`[data-view-author="${id}"]`)
+      seen.add(a == null ? 'none' : a.by)
+      if (a != null && a.by === 'person') {
+        expect([icon?.getAttribute('aria-label'), icon?.getAttribute('title'), icon?.getAttribute('data-author-by')], id).toEqual([a.text, `${a.text}\n${a.title}`, 'person'])
+      } else {
+        expect(icon, id).toBeNull()
+        if (a?.by === 'olumi') expect(c.querySelectorAll(`[data-view="${id}.olumi.glyph"]`).length, id).toBe(1)
+      }
+    }
+    expect([...seen].sort()).toEqual(['olumi', 'person']) // both kinds exercised on the wire
+    // A party core names is drawn as core names it, never as "the team".
+    expect(c.querySelector('[data-view-author="repair_chance"]')?.getAttribute('aria-label')).toBe(authorOf('repair_chance')!.text)
+  })
+
+  // ⚠ LABELLED FIXTURE, NOT THE WIRE: core reserves `by: 'brief'` but does not emit it yet (a figure from the brief and one a member typed
+  // share one stored origin until the write side records the split). Its words here are invented for the test; replace with a wire View
+  // once core emits it. A shape core never sends reads as absent.
+  it('FIXTURE (core reserves `brief`): the brief\'s figure carries its own icon in core\'s words; an unreadable author draws nothing', () => {
+    const withAuthor = structuredClone(model)
+    const set = (id: string, author: unknown) => { (withAuthor.cards.find((k) => k.id === id) as unknown as { author: unknown }).author = author }
+    set('starting_customers', { by: 'brief', text: 'From your brief', title: 'Theirs: “we have about 400 customers today”' })
+    set('investment_cap', { by: 'someone', text: 'x', title: 'y' })
+    set('customers', { by: 'olumi', text: 'Olumi’s estimate', title: 'Proposed by Olumi' })
+    const c = render(<ViewModelTab model={withAuthor} />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    const brief = c.querySelector('[data-view-author="starting_customers"]')!
+    expect([brief.getAttribute('data-author-by'), brief.getAttribute('aria-label'), brief.getAttribute('title')]).toEqual(['brief', 'From your brief', 'From your brief\nTheirs: “we have about 400 customers today”'])
+    expect(c.querySelector('[data-view-author="investment_cap"]')).toBeNull() // a shape core never sends: nothing
+    expect(c.querySelector('[data-view-author="customers"]')).toBeNull() // Olumi's: core's ◆ alone, drawn once
+    expect(c.querySelectorAll('[data-view="customers.olumi.glyph"]').length).toBe(1)
+    expect(c.querySelector('[data-view-author="customer_target"]')).toBeNull() // CONTRAST: no author, no icon
   })
 })
