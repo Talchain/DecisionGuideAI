@@ -21,26 +21,31 @@ afterEach(() => { cleanup(); useViewLens.setState({ lens: 'full' }); useViewStor
 describe('Rests on, from the View', () => {
   it('european: every figure core offers to edit and every assumption and condition, numbered in the View\'s order', () => {
     const { items, olumi } = restsOnOf(model)
-    expect([...items.values()].map((i) => [i.id, i.n])).toEqual(['starting_customers', 'customer_target', 'entry_delay', 'entry_interpretation',
-      'churn_danger_threshold', 'broad_entry_acquisitions', 'pilot_acquisitions', 'expansion_churn', 'shared_churn_stress', 'customers', 'investment_cap',
-      'broad_entry_investment', 'pilot_investment', 'target_interpretation', 'customer_flow_assumptions', 'country_readiness'].map((id, i) => [id, i + 1]))
-    expect([...items.values()].filter((i) => i.olumi).map((i) => i.id)).toEqual(['entry_interpretation', 'broad_entry_acquisitions', 'pilot_acquisitions',
-      'expansion_churn', 'shared_churn_stress', 'customers', 'broad_entry_investment', 'pilot_investment', 'target_interpretation', 'customer_flow_assumptions', 'country_readiness'])
-    expect(olumi).toBe(11) // R3: `customers` is on it because the Run rests on `existing_market_acquisitions`, which its badge folds
+    // core 6192ad6b's european golden: the six figures core offers to edit, `customers` (the Run's basis folds `existing_market_acquisitions` into its
+    // badge), the four assumptions and conditions, and the two options whose badges fold the Run's what-ifs (`broad_entry_acquisitions`,
+    // `pilot_acquisitions`): all in the View's card order, numbered from 1.
+    const ids = ['starting_customers', 'customer_target', 'entry_delay', 'churn_rate', 'churn_danger_threshold', 'customers', 'investment_cap',
+      'target_interpretation', 'customer_flow_assumptions', 'broader_entry', 'country_readiness', 'shared_churn_stress', 'single_country_test']
+    expect([...items.values()].map((i) => [i.id, i.n])).toEqual(ids.map((id, i) => [id, i + 1]))
+    expect([...items.values()].filter((i) => i.olumi).map((i) => i.id)).toEqual(['customers', 'target_interpretation', 'customer_flow_assumptions', 'broader_entry',
+      'country_readiness', 'shared_churn_stress', 'single_country_test'])
+    expect(olumi).toBe(7) // R3: `customers` is on it because the Run rests on `existing_market_acquisitions`, which its badge folds
   })
 
   it('CONTRAST: a figure core works out from others (no edit), an option and the goal rest on nothing', () => {
     const { items } = restsOnOf(model)
-    for (const id of ['broader_entry', 'reach_customer_target']) expect(items.has(id), id).toBe(false)
+    for (const id of ['no_new_european_entry', 'reach_customer_target']) expect(items.has(id), id).toBe(false)
     // `customers` (worked out from others, no edit) is on the list only through the Run's basis: without core's `rests_on` it is not.
     const bare = { ...model, run: model.run == null ? model.run : { ...model.run, most_likely: model.run.most_likely == null ? model.run.most_likely : { ...model.run.most_likely, rests_on: undefined } },
       cards: model.cards.map((c) => ({ ...c, rows: c.rows.map((r) => (r.kind === 'chance' ? { ...r, rests_on: undefined } : r)) })) } as typeof model
     expect([items.has('customers'), restsOnOf(bare).items.has('customers')]).toEqual([true, false])
+    // Likewise an option is on the list only as the card whose badge folds a record the Run rests on (`broad_entry_acquisitions`).
+    expect([items.has('broader_entry'), restsOnOf(bare).items.has('broader_entry')]).toEqual([true, false])
   })
 
   it('on a card: its number, in Olumi\'s blue with core\'s mark as its hover when Olumi\'s; a person\'s in the plain ink', () => {
     const { items } = restsOnOf(model)
-    const mine = model.cards.find((c) => c.id === 'starting_customers')!, olumis = model.cards.find((c) => c.id === 'broad_entry_acquisitions')!
+    const mine = model.cards.find((c) => c.id === 'starting_customers')!, olumis = model.cards.find((c) => c.id === 'customers')!
     const a = render(<ViewCard card={mine} restsOn={items.get(mine.id)!} />).container.querySelector<HTMLElement>('[data-rests-on]')!
     expect([a.textContent, a.dataset['restsOnOlumi'], a.className.includes('text-info')]).toEqual(['1', undefined, false])
     const b = render(<ViewCard card={olumis} restsOn={items.get(olumis.id)!} />).container.querySelector<HTMLElement>('[data-rests-on]')!
@@ -56,10 +61,10 @@ describe('the lane\'s lens bar', () => {
   it('Model, Trade-offs and Rests on, Rests on counting Olumi\'s to check or set; a press switches the lens', () => {
     useViewStore.setState({ view })
     render(<ViewLensBar />)
-    expect(screen.getAllByRole('radio').map((b) => b.textContent)).toEqual(['Model', 'Trade-offs', 'Rests on11', 'If it failed', 'What would change', 'What if'])
+    expect(screen.getAllByRole('radio').map((b) => b.textContent)).toEqual(['Model', 'Trade-offs', 'Rests on7', 'If it failed', 'What would change', 'What if'])
     // Trade-offs on this lane is core's option rows by aim, not the legacy routes along links: its hover is its label, never that hint.
     expect(screen.getByTestId('lens-bar-tradeoffs').getAttribute('title')).toBe('Trade-offs')
-    expect(screen.getByTestId('lens-bar-rests_on').getAttribute('aria-label')).toBe('Rests on, 11 to check or set')
+    expect(screen.getByTestId('lens-bar-rests_on').getAttribute('aria-label')).toBe('Rests on, 7 to check or set')
     expect(screen.getByTestId('lens-bar-full').getAttribute('aria-checked')).toBe('true')
     fireEvent.click(screen.getByTestId('lens-bar-rests_on'))
     expect(useViewLens.getState().lens).toBe('rests_on')

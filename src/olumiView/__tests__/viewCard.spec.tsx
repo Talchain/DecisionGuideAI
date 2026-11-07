@@ -37,7 +37,10 @@ function at(model: ViewModel, p: string): unknown {
 // A chance row's finding (`text`, at most two sentences) and its basis line (`rests_on_text`) (core 550ad5f, the R3 Analysis wall) are
 // the Analysis tab's and the Summary's words (ViewChances, ViewBrief: viewFindings.spec), not the card face's: exempt here, the
 // finding only on a chance row (a 'none' row's `text` is its face line). `rests_on` (row-level: the basis ids) is already exempt.
-const SKIP = new Set(['id', 'family', 'title', 'detail', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver', 'outcome', 'values', 'rests_on', 'rests_on_text'])
+// `author` (core 6192ad6b, `cards[].author: { by, text, title }`): who stated the card's figure. The Model tab draws it (an icon whose name
+// and hover are core's `text` and `title`: model/ModelCardRow.tsx AuthorMark, viewModelTab.spec); the canvas card has no slot for it
+// and keeps Olumi's mark alone, so it is exempt from this surface's "every word drawn" set and from nothing else.
+const SKIP = new Set(['id', 'family', 'title', 'detail', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver', 'outcome', 'values', 'rests_on', 'rests_on_text', 'author'])
 const shown = (x: unknown, p: string): string[] => typeof x === 'string' ? (x !== '' ? [p] : [])
   : Array.isArray(x) ? x.flatMap((y, i) => shown(y, `${p}.${i}`))
   : x !== null && typeof x === 'object' ? Object.entries(x).flatMap(([k, y]) => (SKIP.has(k) || (k === 'change' && typeof y === 'string') || (k === 'text' && (x as { kind?: unknown }).kind === 'chance') ? [] : shown(y, `${p}.${k}`))) : []
@@ -127,8 +130,9 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
 })
 
 describe('the compact face (Paul 4 Nov: the causal graph reads; every word of core\'s still reachable)', () => {
-  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.(text|if_approved\.glyph)|rows\..*|badge.*)$/ // values: the figure's per-option rows (R3 pristine) and core's R5 mark beside each
-  const MORE = /^[^.]+\.(status|reason|bound\..*|premises\..*)$/
+  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.(text|if_approved\.glyph)|rows\..*|badge.*|bound\..*)$/ // values: the figure's per-option rows (R3 pristine) and core's R5 mark beside each
+  // `bound.*` is on the face since DL 6 Nov (an aim's target is never hidden behind a selection); The rest opens on selection.
+  const MORE = /^[^.]+\.(status|reason|premises\..*)$/
   for (const n of GOLDEN) {
     it(`${n}: unselected, a card shows only its glyph, heading, marks, figure and rows (an assumption its reason); the rest opens on selection`, () => {
       for (const card of golden(n).model!.cards) {
@@ -137,7 +141,9 @@ describe('the compact face (Paul 4 Nov: the causal graph reads; every word of co
           const p = el.dataset['view']!, hidden = el.closest('[hidden]') !== null
           // An assumption or condition (no figure, no rows) says what it holds in its reason: on the face, whole on hover.
           const says = card.figure === null && card.rows.length === 0 && p === `${card.id}.reason`
-          if (says) expect([hidden, el.getAttribute('title')], `${p} on the face`).toEqual([false, card.reason])
+          if (says) expect([hidden, el.closest('[title]')?.getAttribute('title')], `${p} on the face`).toEqual([false, card.reason]) // whole on hover, on the reason's line (Disclosed)
+          // A proposed addition's change words are its sr-only caption on the face; a changed card's open with its other words (ViewCardNode).
+          else if (p === `${card.id}.change.title`) expect(hidden, `${p} ${card.change!.kind}`).toBe(card.change!.kind === 'changed')
           else if (MORE.test(p)) expect(hidden, `${p} folded`).toBe(true)
           else expect(ON_FACE.test(p) && !hidden, `${p} on the face`).toBe(true)
         }

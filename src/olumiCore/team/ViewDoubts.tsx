@@ -44,7 +44,7 @@ export function ViewDoubts({ sid, view, disabled }: { sid: string; view: View; d
   const heading = (id: string) => cards.find((c) => c.id === id)?.heading ?? id
   // Only the approved version's links (a proposal on screen is not what a view is given against), each once.
   const shownIsProposal = view.proposal !== null && view.model?.edit_base === null
-  const links = shownIsProposal ? [] : (view.model?.links ?? []).filter((l, i, all) => l.remove !== null && all.findIndex((x) => x.remove !== null && keyOf(x.remove) === keyOf(l.remove!)) === i)
+  const links = shownIsProposal ? [] : (view.model?.links ?? []).filter((l, i, all) => l.remove != null && all.findIndex((x) => x.remove != null && keyOf(x.remove) === keyOf(l.remove!)) === i) // `!= null`: a core before `links[].remove` omits it (r5 fixtures), which offers no link to doubt
   if (!supported || view.version === null || shownIsProposal) return null
   const put = (p: Partial<DoubtsDraft>) => useDoubts.setState((s) => ({ ...s, [sid]: { ...(s[sid] ?? EMPTY), ...p } }))
   return (

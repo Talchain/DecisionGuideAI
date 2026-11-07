@@ -82,9 +82,14 @@ describe('R24 drivers and the head row (R25, Paul 7 Nov: drivers in their own ro
       expect(right - left, `${head.length} head cards`).toBeLessThanOrEqual(760)
     }
   })
-  it('CONTRAST: no board before R24 has a driver (every golden and real fixture), so their kinds and rows are as before', () => {
-    const goldens = ['bakery', 'european', 'pricing', 'studio', 's_ce285b3617bb', 'app-launch', 'proposal', 'whatif'].map((n) => (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8')) as View).model!)
-    for (const m of [...goldens, ...['hiring', 'capacity', 'european-22cards', 'bakery-r5', 'together'].map(real)]) expect(m.cards.filter((c) => familyTierOf(c, m) === 2)).toEqual([])
+  it('CONTRAST: the drivers on every golden and real fixture are exactly these, pinned by card id', () => {
+    const goldens = ['bakery', 'european', 'pricing', 'studio', 's_ce285b3617bb', 'app-launch', 'proposal', 'whatif'].map((n) => [n, (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8')) as View).model!] as const)
+    const boards = [...goldens, ...['hiring', 'capacity', 'european-22cards', 'bakery-r5', 'together'].map((n) => [n, real(n)] as const)]
+    // Drivers by structure (layout.isDriver): core 6192ad6b's app-launch has option_delay set release_offset, which feeds readiness_margin; its
+    // european has two options set the person-stated monthly churn (`churn_rate`, editable), which feeds `customers`. A figure core works out
+    // from others stays an outcome in the viewKinds contrast; these two are set by the options, so they sit in the drivers' own row.
+    const want: Record<string, string[]> = { 'app-launch': ['release_offset'], european: ['churn_rate'] }
+    for (const [n, m] of boards) expect(m.cards.filter((c) => familyTierOf(c, m) === 2).map((c) => c.id), n).toEqual(want[n] ?? [])
   })
 })
 

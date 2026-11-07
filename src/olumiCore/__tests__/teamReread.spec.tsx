@@ -46,7 +46,8 @@ beforeEach(() => {
   setTeamFetch((async (u: unknown, init?: RequestInit) => {
     if ((init?.method ?? 'GET') !== 'GET') return new Response('{}', { status: 201 })
     if (String(u).endsWith('/invites')) return new Response(JSON.stringify({ invites: [] }), { status: 200 })
-    reads += 1
+    // The View's own re-reads only: the Team tab also reads core's differences (`…/differences`, the debate lane) each interval, a separate read.
+    if (String(u).includes('/view')) reads += 1
     return new Response(JSON.stringify(served), { status: 200 })
   }) as unknown as typeof fetch)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: served, status: 'ready', error: null, stale: false })

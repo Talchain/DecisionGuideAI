@@ -95,6 +95,8 @@ describe('each option\'s finding, not the wall', () => {
   })
   it('must not change: a View without the stand-in draws exactly as before (no finding, no footnote)', () => {
     const c = render(<ViewChances model={golden.model!} />).container
-    expect(c.querySelectorAll('[data-view-hover], [data-view$=".rows.1.text"]').length).toBe(0)
+    // The stand-in's hovers only: the sharpen card's own `sharpen.N.rationale` hover (a core field the golden carries) is not the wall.
+    expect(c.querySelectorAll('[data-view-hover]:not([data-view-hover^="sharpen."]), [data-view$=".rows.1.text"]').length).toBe(0)
+    expect(c.querySelectorAll('[data-view-hover^="sharpen."]').length).toBeGreaterThan(0) // CONTRAST: the exempted hover is really drawn
   })
 })
