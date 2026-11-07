@@ -17,11 +17,11 @@ export function ViewQuestion({ question, width }: ViewQuestionData) {
   const q = question
   return (
     <div
-      className={`relative ${typography.nodeLabel} rounded-md border bg-panel px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${q.proposed ? 'border-dashed border-info' : 'border-text-light/60'} ${q.focus ? 'ring-2 ring-info' : ''}`}
+      className={`relative ${typography.viewLabel} rounded-md border bg-panel px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${q.proposed ? 'border-dashed border-info' : 'border-text-light/60'} ${q.focus ? 'ring-2 ring-info' : ''}`}
       style={{ width }} data-view-question="" data-focus={q.focus || undefined} data-proposed={q.proposed || undefined}
     >
       <span className="absolute -top-[10px] left-1/2 -translate-x-1/2 leading-none" aria-hidden="true"><NodeShapeIndicator nodeKind="decision" size={18} /></span>
-      <p className={`${typography.nodeTitle} font-semibold text-text-header`} data-view="question.text">{q.text}</p>
+      <p className={`${typography.viewTitle} font-semibold text-text-header`} data-view="question.text">{q.text}</p>
       {q.decide_by === null ? null : (
         <p title={q.decide_by.title} className={q.decide_by.olumi ? 'text-info' : undefined} data-olumi={q.decide_by.olumi || undefined} data-view="question.decide_by.text">{q.decide_by.text}</p>
       )}

@@ -78,7 +78,7 @@ export const CHIP_CLASS = [
 export const CHIP_PRIMARY_CLASS = [
   'inline-flex items-center gap-1 text-left',
   'bg-primary border border-primary rounded-[14px]',
-  'px-2.5 py-1 min-h-[28px]',
+  'px-2.5 py-1 min-h-[44px]', // R25 (Paul 7 Nov): main controls are 44px targets (DS v5 touch target)
   'hover:bg-primary/90 active:bg-primary/80',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',
   'text-text-on-color cursor-pointer font-sans',

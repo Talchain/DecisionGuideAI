@@ -63,9 +63,9 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
     return (
       glyph === undefined
         ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={() => setOpen(true)}
-          className={`nodrag ${typography.nodeLabel} cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
+          className={`nodrag ${typography.viewLabel} cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
         : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} onClick={() => setOpen(true)} aria-label={label} title={edit.ask}
-          className={`nodrag ${typography.nodeLabel} cursor-pointer text-info`}>
+          className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-info`}>
           <span aria-hidden="true" data-testid={`${place}-glyph-${id}`}>{glyph}</span>
           {words ? <>{' '}<span aria-hidden="true" data-testid={`${place}-words-${id}`} className={`underline underline-offset-2 ${quiet ? QUIET_WORDS : ''}`}>{label}</span></> : null}
         </button>{lead === undefined ? null : '.'}</span>
@@ -75,18 +75,18 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
     <form className="nodrag nopan grid gap-1" data-testid={`${place}-form-${id}`}
       onSubmit={(e) => { e.preventDefault(); void (primary === 'try' ? tryIt() : save()) }}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !sending) { setOpen(false); setError(null) } }}>
-      <label htmlFor={`${place}-${id}`} className={typography.nodeLabel}>{edit.prompt}</label>
+      <label htmlFor={`${place}-${id}`} className={typography.viewLabel}>{edit.prompt}</label>
       <input id={`${place}-${id}`} data-testid={`${place}-typed-${id}`} autoFocus autoComplete="off" spellCheck={false}
         value={typed} disabled={sending} onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}
-        className={`${typography.nodeLabel} w-full rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
-      {error && <p role="alert" data-testid={`${place}-error-${id}`} className={`${typography.nodeLabel} text-danger`}>{error}</p>}
+        className={`${typography.viewLabel} w-full rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
+      {error && <p role="alert" data-testid={`${place}-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
       <div className="flex gap-2">
         <button type={primary === 'set' ? 'submit' : 'button'} data-testid={`${place}-set-${id}`} disabled={sending || typed.trim() === ''} onClick={primary === 'set' ? undefined : () => void save()}
-          className={`${typography.nodeLabel} cursor-pointer rounded px-2 py-0.5 disabled:opacity-50 ${primary === 'set' ? 'bg-primary text-text-on-color' : 'border border-border text-text-body'}`}>Set figure</button>
+          className={`${typography.viewLabel} cursor-pointer rounded px-2 py-0.5 disabled:opacity-50 ${primary === 'set' ? 'bg-primary text-text-on-color' : 'border border-border text-text-body'}`}>Set figure</button>
         <button type={primary === 'try' ? 'submit' : 'button'} data-testid={`${place}-try-${id}`} disabled={sending || trying || typed.trim() === ''} onClick={primary === 'try' ? undefined : () => void tryIt()}
-          className={`${typography.nodeLabel} cursor-pointer rounded px-2 py-0.5 disabled:opacity-50 ${primary === 'try' ? 'order-first bg-primary text-text-on-color' : 'border border-info/30 text-info'}`}>Try without saving</button>
+          className={`${typography.viewLabel} cursor-pointer rounded px-2 py-0.5 disabled:opacity-50 ${primary === 'try' ? 'order-first bg-primary text-text-on-color' : 'border border-info/30 text-info'}`}>Try without saving</button>
         <button type="button" disabled={sending} onClick={() => { setOpen(false); setError(null) }}
-          className={`${typography.nodeLabel} cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
+          className={`${typography.viewLabel} cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>
     </form>
   )

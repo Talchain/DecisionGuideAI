@@ -599,7 +599,7 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // here — the Question/Goal title, one step above the 13px `nodeTitle`. Same rule.
     // 23 Oct 2026: 42 -> 43, `nodeHeadline` (vision spec: "chance headline 20 px semibold") declared here, the option
     // card's chance headline. Same rule: a token's own declaration is the one legitimate raw size/weight.
-    'src/styles/typography.ts': 43,
+    'src/styles/typography.ts': 47, // R25 (Paul 7 Nov, three sizes by role): +4, the olumi-core lane's view* canvas tokens' weights, in the token file
     'src/v5/blocks/V5AnalysisResultBlock.tsx': 3, // #2747 re-scope 2: the win-share pill row went (4 → 3)
     'src/v5/blocks/V5CoachingBlock.tsx': 2,
     'src/v5/blocks/V5ComparisonBlock.tsx': 1, // #2747 re-scope 2: the share column went (2 → 1)
@@ -712,7 +712,7 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // 12 Oct 2026 (#2747 re-scope 2): 92 -> 90, a burn-down — the chat card's win-share pill row and the comparison
     // block's share column were deleted (no win share in C). File count unchanged at 23.
     // 23 Oct 2026: 90 -> 91, paired with the `typography.ts` 42 -> 43 above (`nodeHeadline`). File count unchanged at 23.
-    expect(total).toBe(91)
+    expect(total).toBe(95) // R25: +4 in typography.ts (the view* tokens), see the pin above
   })
 })
 

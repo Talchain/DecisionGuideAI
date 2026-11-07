@@ -188,7 +188,7 @@ function ValueBarRow({ cardId, bar, blue }: { cardId: string; bar: ValueBar; blu
   const n = useCardNumber(bar.option)
   return (
     <div className="flex items-center gap-1.5" title={bar.text} role="img" aria-label={bar.text} data-testid={`view-values-${cardId}-${bar.option}`} data-olumi={blue || undefined}>
-      <span className={`${typography.edgeLabel} w-6 flex-none text-text-light tabular-nums`}>{n ?? ''}</span>
+      <span className={`${typography.viewLabel} w-6 flex-none text-text-light tabular-nums`}>{n ?? ''}</span>
       <div className="relative flex-1" style={{ height: 4, background: 'var(--factor-light)', borderRadius: 2 }}>
         <div className="absolute top-0 h-full" data-values-range style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%`, background: blue ? 'var(--info)' : 'var(--option)', borderRadius: 2 }} />
         {bar.medianPct === null ? null : <div className="absolute" style={{ left: `${bar.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />}

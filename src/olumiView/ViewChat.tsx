@@ -60,7 +60,7 @@ export function Words({ parts, at, first = 1 }: { parts: Said; at: string; first
   return (
     <>
       {parts.map((p, i) => ('cite' in p
-        ? <sup key={i} data-view-cite={`${at}.${i}.cite`} title={p.cite} aria-label={p.cite}>{n++}</sup>
+        ? <sup key={i} className={typography.panelMeta} data-view-cite={`${at}.${i}.cite`} title={p.cite} aria-label={p.cite}>{n++}</sup>
         : <span key={i} data-view={`${at}.${i}.text`}>{p.text}</span>))}
     </>
   )
@@ -258,9 +258,9 @@ function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; bus
         <button type="button" disabled={busy} className={CHIP_PRIMARY_CLASS} onClick={() => void act(() => writes.approve(p.id, p.base).then(noteSaved), true)}>Approve</button>
         {!tickable ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
-            className={CHIP_CLASS} onClick={() => void act(() => writes.approve(p.id, p.base, pick).then(noteSaved), true)}>Approve ticked · {chosen}</button>
+            className={`${CHIP_CLASS} min-h-[44px]`} onClick={() => void act(() => writes.approve(p.id, p.base, pick).then(noteSaved), true)}>Approve ticked · {chosen}</button>
         )}
-        <button type="button" disabled={busy} className={CHIP_CLASS} onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
+        <button type="button" disabled={busy} className={`${CHIP_CLASS} min-h-[44px]`} onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
       </div>
     </div>
   )
@@ -887,7 +887,7 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
             </button>
           )}
           <button type="button" disabled={held || text.trim() === ''} aria-label="Send" data-testid="view-composer-send" onClick={() => void send()}
-            className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-30">
+            className="inline-flex items-center justify-center w-11 h-11 rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-30">
             <ArrowUp className="w-3.5 h-3.5" aria-hidden="true" /><span className="sr-only">Send</span>
           </button>
         </div>

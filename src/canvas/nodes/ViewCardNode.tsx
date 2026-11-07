@@ -74,8 +74,8 @@ const IfApprovedMark = ({ mark }: { mark: ValueMark }) => (
  *  where the chance rests on no suggested risk, or no timing assumption moves it by 10 points). */
 const Companion = ({ row, at }: { row: Extract<ViewRow, { kind: 'chance' }>; at: string }) => (
   <>
-    {row.companion == null ? null : <span className={`${typography.nodeLabel} block truncate text-text-light`} title={row.companion_title ?? row.companion} data-row-companion={at}><span data-view={`${at}.companion`}>{row.companion}</span></span>}
-    {row.timing == null ? null : <span className={`${typography.nodeLabel} block truncate text-text-light`} title={row.timing_title ?? row.timing} data-row-timing={at}><span data-view={`${at}.timing`}>{row.timing}</span></span>}
+    {row.companion == null ? null : <span className={`${typography.viewLabel} block truncate text-text-light`} title={row.companion_title ?? row.companion} data-row-companion={at}><span data-view={`${at}.companion`}>{row.companion}</span></span>}
+    {row.timing == null ? null : <span className={`${typography.viewLabel} block truncate text-text-light`} title={row.timing_title ?? row.timing} data-row-timing={at}><span data-view={`${at}.timing`}>{row.timing}</span></span>}
   </>
 )
 
@@ -102,8 +102,8 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
         <div title={`${row.aim} · ${row.title}`} data-view-row={at}>
         <div className="flex items-baseline gap-1">
           <span className="sr-only" data-view={`${at}.aim`}>{row.aim}</span>
-          <span aria-hidden="true" style={{ color: 'var(--goal)' }} className="text-[18px] leading-none">◎</span>
-          <span className="min-w-0 line-clamp-2 text-[17px] font-semibold leading-tight text-text-header" data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
+          <span aria-hidden="true" style={{ color: 'var(--goal)' }} className={typography.viewHeadline}>◎</span>
+          <span className={`min-w-0 line-clamp-2 ${typography.viewHeadline} text-text-header`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
           {markSpan}
         </div>
         <Companion row={row} at={at} />
@@ -115,7 +115,7 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
           <span aria-hidden="true" style={{ color: 'var(--goal)' }}>◎</span>
           <span className="min-w-0 truncate" data-view={`${at}.aim`}>{row.aim}</span>
           {/* The chance whole when it is short; a long one (core's conditional wording) wraps to two lines at most inside the card. */}
-          <span className={`${typography.nodeValue} flex-none max-w-[65%] line-clamp-2 text-text-body`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
+          <span className={`${typography.viewValue} flex-none max-w-[65%] line-clamp-2 text-text-body`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
           {markSpan}
         </div>
         <Companion row={row} at={at} />
@@ -125,7 +125,7 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
         <div title={row.title} data-view-row={at}>
           <span className="block truncate" data-view={`${at}.aim`}>{row.aim}</span>
           <span className="flex items-baseline gap-1">
-            <span className={`${typography.nodeValue} line-clamp-2 min-w-0`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
+            <span className={`${typography.viewValue} line-clamp-2 min-w-0`} data-row-value={at}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span></span>
             {marks ? (
               <span className="flex-none whitespace-nowrap" data-row-marks={at}>
                 {row.olumi === null ? null : <Mark at={`${at}.olumi`} mark={row.olumi} />}
@@ -142,7 +142,7 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
       return (
         <div className="flex items-baseline gap-1 text-text-light" title={`${row.aim} · ${row.title}`} data-view-row={at}>
           {/* One line: the limit cut short before its value, whole on hover; a long value wraps to two lines at most inside the card. */}
-          <span className="min-w-0 truncate" data-view={`${at}.aim`}>{row.aim}</span> <span className={`${typography.nodeValue} flex-none max-w-[65%] line-clamp-2 text-text-body`} data-row-value={at}><span data-view={`${at}.value`}>{row.value}</span></span>
+          <span className="min-w-0 truncate" data-view={`${at}.aim`}>{row.aim}</span> <span className={`${typography.viewValue} flex-none max-w-[65%] line-clamp-2 text-text-body`} data-row-value={at}><span data-view={`${at}.value`}>{row.value}</span></span>
           {row.olumi === null ? null : <span className="flex-none whitespace-nowrap" data-row-marks={at}><Mark at={`${at}.olumi`} mark={row.olumi} /></span>}
         </div>
       )
@@ -155,7 +155,7 @@ function Row({ id, row, i, ifApproved = null, lead = null }: { id: string; row: 
       return row.timing == null ? text : (
         <>
           {text}
-          <span className={`${typography.nodeLabel} block truncate text-text-light`} title={row.timing_title ?? row.timing} data-row-timing={at}><span data-view={`${at}.timing`}>{row.timing}</span></span>
+          <span className={`${typography.viewLabel} block truncate text-text-light`} title={row.timing_title ?? row.timing} data-row-timing={at}><span data-view={`${at}.timing`}>{row.timing}</span></span>
         </>
       )
     }
@@ -200,7 +200,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
     <div
       style={{ width: CARD_WIDTH }}
-      className={`group relative text-[length:calc(12px*var(--canvas-label-scale,1))] leading-[1.35] font-sans text-text-body rounded-md border ${ghost ? 'bg-panel/80' : 'bg-panel'} px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : ghost ? 'border-info' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
+      className={`group relative text-[length:calc(14px*var(--canvas-label-scale,1))] leading-[1.35] font-sans text-text-body rounded-md border ${ghost ? 'bg-panel/80' : 'bg-panel'} px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : ghost ? 'border-info' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
       data-view-card={id} data-proposed-card={ghost || undefined} data-pulsed={pulsed || undefined} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
       data-slot-outline="next-step" data-driver-of={driverOf === null ? undefined : driverOf.map((o) => o.id).join(' ')}
       // What would change: the ring says this figure is one an option's chance moves most with; its options' driver words on hover. The
@@ -209,13 +209,13 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
     >
       {restsOn === null ? null : (
         // The Rests on lens: this card's number, in Olumi's blue when core marks it Olumi's (one to check or set), its hover core's mark.
-        <span className={`absolute -left-2 -top-2 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border bg-panel px-1 tabular-nums ${typography.nodeLabel} ${restsOn.olumi ? 'border-info text-info' : 'border-border text-text-body'}`}
+        <span className={`absolute -left-2 -top-2 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsOn.olumi ? 'border-info text-info' : 'border-border text-text-body'}`}
           title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n} data-rests-on-olumi={restsOn.olumi || undefined}>{restsOn.n}</span>
       )}
       {tried === null ? null : (
         // What if: the figure tried on a copy, as the person typed it, on its card's corner, out of flow so no card moves (legacy
         // WhatIfMarkLayer's "What if: …"); the lens's key card holds core's words for it and what each option gives.
-        <span className={`absolute -right-2 -top-2 z-10 max-w-[180px] truncate rounded border border-info bg-panel px-2 py-0.5 text-text-header ${typography.nodeLabel}`}
+        <span className={`absolute -right-2 -top-2 z-10 max-w-[180px] truncate rounded border border-info bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
           title={tried} data-whatif-mark={card.id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
       )}
       {/* The original canvas's connector glyph: the card's kind as its shape, on the top edge where its links arrive. */}
@@ -229,7 +229,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
         <span className="sr-only" data-view={`${id}.glyph`}>{card.glyph}</span>
         {number === null ? null : <><span className="text-text-light font-normal" data-card-number={number}>{number}</span>{' '}</>}
         {/* Core's detail ("… · quantity · Theirs: …") is its page's hover text, not a line: on the heading, whole (DL 4 Nov, Paul's rule). */}
-        <span className={`${typography.nodeTitle} font-semibold text-text-header`} title={card.detail === '' ? undefined : card.detail} data-view={`${id}.heading`}>{card.heading}</span>
+        <span className={`${typography.viewTitle} font-semibold text-text-header`} title={card.detail === '' ? undefined : card.detail} data-view={`${id}.heading`}>{card.heading}</span>
         {card.olumi === null ? null : <>{' '}<Mark at={`${id}.olumi`} mark={card.olumi} /></>}
         {card.change === null ? null : <>{' '}<Mark at={`${id}.change`} mark={card.change} /></>}
         <Slot name={VIEW_CARD_SLOTS.titleMark} className="ml-1 empty:hidden" />
@@ -241,25 +241,25 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       {card.bound === null ? null : (
         // An aim's or limit's target, core's own words from its target record ("at least 10%"), on the face under the heading, as the
         // previous PoC's "Target: …" line (DL 6 Nov: a label names the outcome alone, so the number is never hidden behind a selection).
-        <p className={typography.nodeValue} title={card.bound.title}><span data-view={`${id}.bound.text`}>{card.bound.text}</span>
+        <p className={typography.viewValue} title={card.bound.title}><span data-view={`${id}.bound.text`}>{card.bound.text}</span>
           {card.bound.olumi === null ? null : <> <Mark at={`${id}.bound.olumi`} mark={card.bound.olumi} /></>}</p>
       )}
       {reading === null ? null : (
         // R19: how the Run reads this aim over its window, core's sentence once, under the target. Olumi's own reading is Olumi's colour (it is a
         // proposal the person can change); one their words state, or one that contradicts them, is quiet. Whole on hover; two lines at most.
-        <p className={`${typography.nodeLabel} line-clamp-2 ${reading.source === 'proposal' ? 'text-info' : 'text-text-light'}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>
+        <p className={`${typography.viewLabel} line-clamp-2 ${reading.source === 'proposal' ? 'text-info' : 'text-text-light'}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>
       )}
       {card.figure === null ? null : (
         <div className="flex items-baseline gap-1">
           {perOption ? (
             // One row per option, core's own line for it (`values[].text`), after the option's number as the canvas numbers it: the face stays
             // compact, two lines a row at most, the whole row on hover; core's sentence for every option stays the hover of the rows (R3 pristine).
-            <div className={`${typography.nodeValue} min-w-0 flex-1 space-y-0.5 ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
+            <div className={`${typography.viewValue} min-w-0 flex-1 space-y-0.5 ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
               data-olumi={estimate || undefined} data-view-values={id}>
               {card.values!.map((v, i) => <OptionValueRow key={v.option} at={`${id}.values.${i}.text`} option={v.option} text={v.text} mark={valueMark(v, `${id}.values.${i}`, ifApproved)} />)}
             </div>
           ) : (
-            <p className={`${typography.nodeValue} ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
+            <p className={`${typography.viewValue} ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
               data-olumi={estimate || undefined} data-view={`${id}.figure.text`}>{card.figure.text}</p>
           )}
           <Slot name={VIEW_CARD_SLOTS.figureSide} className="empty:hidden" />
@@ -297,7 +297,7 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
       {more ? (
         // The card's other words (its status, reason and premises), every one core's, beside the card while it is selected: the
         // face stays compact so the causal graph reads (Paul 4 Nov), and opening them never changes the card's drawn height.
-        <div hidden={!selected} className={`absolute left-full top-0 z-10 ml-2 space-y-1 rounded-lg border border-border bg-panel p-3 shadow-sm ${typography.nodeLabel}`}
+        <div hidden={!selected} className={`absolute left-full top-0 z-10 ml-2 space-y-1 rounded-lg border border-border bg-panel p-3 shadow-sm ${typography.viewLabel}`}
           style={{ width: CARD_WIDTH }} data-view-more={id}>
           {card.status === null ? null : <p data-view={`${id}.status`}>{card.status}</p>}
           {card.reason === null || says ? null : <p data-view={`${id}.reason`}>{card.reason}</p>}

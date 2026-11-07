@@ -124,7 +124,7 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
         aria-expanded={open}
         aria-haspopup="true"
       >
-        <span className={size === 'compact' ? 'text-[11px] font-medium font-sans leading-none' : typography.button}>{initial}</span>
+        <span className={size === 'compact' ? 'text-xs font-medium font-sans leading-none' : typography.button}>{initial}</span>
       </button>
 
       {open && (
@@ -224,7 +224,7 @@ function AccountAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
         aria-expanded={open}
         aria-haspopup="true"
       >
-        <span className={size === 'compact' ? 'text-[11px] font-medium font-sans leading-none' : typography.button}>{initial}</span>
+        <span className={size === 'compact' ? 'text-xs font-medium font-sans leading-none' : typography.button}>{initial}</span>
       </button>
 
       {open && (

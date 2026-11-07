@@ -95,7 +95,7 @@ describe('TopBar — the top-left pill (Paul, 1 Oct 2026)', () => {
     const cls = pill.className.split(/\s+/)
     expect(cls).not.toContain('border')
     expect(cls).not.toContain('bg-white')
-    expect(cls).toContain('text-[13px]')
+    expect(cls).toContain('text-sm') // R25 (Paul 7 Nov, three sizes by role): reading size 14px (was 13px)
     expect(screen.getByTestId('scenario-name-button')).toHaveTextContent('Pricing Model Transition Strategy')
   })
 })

@@ -297,9 +297,17 @@ export const typography = {
   // consumer of this token, until `AtAGlance` was changed to lead with the
   // producer's own sentence instead. A panel that needs a bigger size than
   // `panelHeader` is a panel promoting a number; say it in words instead.
+  // ⭐ R25 (Paul 7 Nov): THREE SIZES ON THE OLUMI-CORE LANE'S CANVAS, BY ROLE (scale A: 12 metadata / 14 reading / 18 headline). The lane's
+  // View cards and links use these; the legacy canvas keeps its node* tokens, whose px the legacy row budgets derive from (CANVAS_TYPE_PX).
+  // Counter-scaled like every canvas token. Literal px, never interpolated (the header's Tailwind-scanner warning).
+  viewTitle: 'text-[length:calc(14px*var(--canvas-label-scale,1))] tracking-[calc(-0.08px*var(--canvas-label-scale,1))] font-medium font-sans leading-[1.3]',
+  viewValue: 'text-[length:calc(14px*var(--canvas-label-scale,1))] font-medium font-sans leading-[1.3] tabular-nums',
+  viewLabel: 'text-[length:calc(12px*var(--canvas-label-scale,1))] font-sans leading-[1.5]',
+  viewHeadline: 'text-[length:calc(18px*var(--canvas-label-scale,1))] font-semibold font-sans leading-[1.2] tabular-nums',
+  viewMark: 'text-[length:calc(12px*var(--canvas-small-label-scale,1))] font-normal font-sans not-italic leading-none',
   panelHeader: 'text-sm font-medium font-sans leading-snug',      // 14px/500 — section titles, winner name, key emphasis (Paul, 30 Sep: 600 dominated the panel)
-  panelBody: 'text-xs font-sans leading-relaxed',                 // 12px — body text, descriptions, bullets, card content
-  panelMeta: 'text-[11px] font-sans leading-snug',                // 11px — badges, pills, axis labels, tertiary metadata
+  panelBody: 'text-sm font-sans leading-relaxed',                 // 14px — body text, descriptions, bullets, card content (R25 scale A: reading)
+  panelMeta: 'text-[12px] font-sans leading-snug',                // 12px — badges, pills, axis labels, tertiary metadata (R25 scale A: metadata)
   chatMeta: 'text-xs font-sans leading-snug',                     // 12px — the AI chat panel's LABELS: badges, timestamps, captions, markers
 
   /**
@@ -317,7 +325,7 @@ export const typography = {
    * line up. Use it wherever a number sits in a column; use `panelBody`
    * everywhere else.
    */
-  panelTabular: 'text-xs font-sans leading-relaxed tabular-nums',  // 12px — numbers in columns
+  panelTabular: 'text-sm font-sans leading-relaxed tabular-nums',  // 14px — numbers in columns (R25 scale A: reading)
 
   /**
    * 14px + medium weight — a question one visible notch quieter than
@@ -344,7 +352,7 @@ export const typography = {
   // The chat column (src/canvas/conversation, src/v5/blocks, the composer and
   // the panel hosts) uses chat* tokens; panelBody/panelMeta stay for the other
   // tabs. Census-enforced: tests/ci-guards/conversation-type-census.spec.ts.
-  chatBody: 'text-[13px] font-sans leading-relaxed',             // 13px — AI chat panel reading text
+  chatBody: 'text-sm font-sans leading-relaxed',                 // 14px — AI chat panel reading text (R25 scale A: reading)
   // chatProse is the LEGACY full-page chat's prose (DraftChat, not compact).
   chatProse: 'text-sm font-sans leading-relaxed',                // 14px — legacy chat message prose
 

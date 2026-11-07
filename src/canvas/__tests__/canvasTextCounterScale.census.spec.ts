@@ -695,7 +695,8 @@ describe('canvas text — counter-scale census (DS v5 §2.3/§2.4)', () => {
     // the Question and Goal title) — the same machinery, one step up from `nodeTitle`'s 13px.
     // 23 Oct 2026: + `typography.nodeHeadline` (vision spec: the option card's chance headline, 20px semibold) — the same
     // machinery as its siblings.
-    expect([...scaled].sort()).toEqual(['typography.edgeLabel', 'typography.nodeHeadline', 'typography.nodeLabel', 'typography.nodeMark', 'typography.nodeTitle', 'typography.nodeTitleWide', 'typography.nodeValue'])
+    // R25 (Paul 7 Nov, three sizes by role): the olumi-core lane's View cards use their own counter-scaled view* tokens (typography.ts).
+    expect([...scaled].sort()).toEqual(['typography.edgeLabel', 'typography.nodeHeadline', 'typography.nodeLabel', 'typography.nodeMark', 'typography.nodeTitle', 'typography.nodeTitleWide', 'typography.nodeValue', 'typography.viewHeadline', 'typography.viewLabel', 'typography.viewTitle', 'typography.viewValue'])
   })
 
   it('every font size inside the viewport transform is counter-scaled, except the pinned set', () => {

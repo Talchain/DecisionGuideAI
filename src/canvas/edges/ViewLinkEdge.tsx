@@ -48,7 +48,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
         // never cuts them (DL 4 Nov, R3: "…week" clipped under a card); the line itself stays under the cards. They sit at the nearest point
         // along the path clear of every card (R5 item 3), so they never cover a card's text either.
         <EdgeLabelRenderer>
-          <div ref={wordsRef} className={`nodrag nopan ${typography.edgeLabel} flex flex-col items-center rounded px-1 text-text-body`} data-view-link-words={`links.${i}`}
+          <div ref={wordsRef} className={`nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 text-text-body`} data-view-link-words={`links.${i}`}
             style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, background: 'var(--bg-canvas)', pointerEvents: 'none' }}>
             {link.label === '' ? null : <span data-view={`links.${i}.label`}>{link.label}</span>}
             {/* Its strength in core's words (`effect`, core 685e725), with core's hover; under the sign when the link has one. */}

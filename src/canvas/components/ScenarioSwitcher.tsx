@@ -398,7 +398,7 @@ export function ScenarioSwitcher({
           /* contract v3.1 `.app-project{display:flex;align-items:center;gap:8px;
              font-size:13px}` (DESIGN-GAP #5): the model title sits in the bar
              unboxed — no bordered pill, 13px regular ink, a muted ⌄. */
-          className="flex items-center gap-2 text-[13px] leading-[1.45] font-normal font-sans text-text-body rounded-md focus-within:ring-2 focus-within:ring-info focus-within:ring-offset-2 transition-colors"
+          className="flex items-center gap-2 text-sm leading-[1.45] font-normal font-sans text-text-body rounded-md focus-within:ring-2 focus-within:ring-info focus-within:ring-offset-2 transition-colors"
           data-testid="scenario-switcher-pill"
         >
           <Folder className="w-4 h-4 shrink-0 text-text-body" aria-hidden="true" />
