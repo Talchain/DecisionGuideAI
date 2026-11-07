@@ -11,6 +11,7 @@ import { DecisionBriefTrigger } from '../../canvas/decisionBrief/DecisionBriefTr
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { ViewBriefTrigger } from '../../olumiView/ViewBrief'
 import { TeamPresence } from '../../olumiView/TeamPresence'
+import { StrategyOverviewOpener } from '../../olumiView/strategy/overview/StrategyOverviewOpener'
 import { ownerPanelHash } from '../../collab/panelRoute'
 import { useCanvasStore } from '../../canvas/store'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
@@ -289,6 +290,9 @@ export const TopBar = ({
             serverSaveStatus={isPersisted ? saveStatus : undefined}
           />
         )}
+
+        {/* Strategy lane (7 Nov, by agreement with the UI session): the Strategy Overview's opener, beside the name; null without core's key. */}
+        {isOlumiCoreLane() ? <StrategyOverviewOpener /> : null}
 
         {/* Dirty indicator (localStorage mode only) */}
         {!isPersisted && isDirty && saveStatus !== 'saving' && (

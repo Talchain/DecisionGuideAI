@@ -1,7 +1,7 @@
 /**
  * Strategy Overview page (7 Nov 2026): core's `strategy.overview.sections` drawn as the approved board's two columns, read from a REAL View
  * (fixtures/strategy/growth-reveal.view3.json). Bound by identity: section ids and headings, line ids, the fixture's own pills and holders,
- * read from the fixture and never retyped. The page makes no word of its own beyond "Overview" and "Close".
+ * read from the fixture and never retyped. The page makes no word of its own beyond "Close"; its heading is core's.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -70,7 +70,7 @@ describe('Strategy Overview page (real View, core’s sections)', () => {
   it('says no best, winner, recommendation, confidence or percentage, with a contrast that finds a served pill', () => {
     const { container } = render(<StrategyOverviewPage view={view} onClose={() => {}} />)
     const text = container.textContent ?? ''
-    expect(text).toContain('Overview')
+    expect(text).toContain(view.strategy!.overview.heading) // core's heading, not the page's own word
     expect(text).toContain('From the brief')
     expect(text).not.toMatch(/best|winner|recommend|confidence|%/i)
   })

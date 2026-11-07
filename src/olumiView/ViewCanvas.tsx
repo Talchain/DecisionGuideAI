@@ -44,6 +44,8 @@ import { ViewTradeOffsKey } from './ViewTradeOffsKey'
 import { ViewPreMortemKey } from './ViewPreMortemKey'
 import { useOpenInView, useRevealInView } from './revealCamera'
 import { useReveal, withOpenCard } from './reveal'
+import { StrategyOverviewPage } from './strategy/overview/StrategyOverviewPage'
+import { StrategyOverviewStage } from './strategy/overview/StrategyOverviewOpener'
 
 // Each card is drawn with v10's controls (./v10): the card itself, and the Olumi corner that asks about it.
 const nodeTypes = { [VIEW_CARD]: ViewCardV10, [VIEW_QUESTION]: ViewQuestionNode }
@@ -232,6 +234,8 @@ export function ViewCanvas(): JSX.Element {
                 <MaybeConversationProvider>
                   <div className="relative h-full w-full" data-testid="view-canvas-root">
                     <ViewFlow />
+                    {/* Strategy lane (7 Nov, by agreement with the V11 build): the Overview stands over the stage while the header's opener holds it open. */}
+                    <StrategyOverviewStage>{(view, close) => <StrategyOverviewPage view={view} onClose={close} />}</StrategyOverviewStage>
                   </div>
                 </MaybeConversationProvider>
               </CanvasOverlayBandProvider>
