@@ -56,7 +56,7 @@ function Proposal({ sid, item, p, base, onWrote }: { sid: string; item: Research
       <p className={META} data-research-line="where">{l.where}</p>
       <p className={`${BODY} m-0 border-l-2 border-panel-border pl-2`} data-research-line="passage">{l.passage}</p>
       <p className={BODY} data-research-line="suggests">{l.suggests}</p>
-      <p className={META} data-research-line="relevance">{l.relevance}</p>
+      {l.relevance ? <p className={META} data-research-line="relevance">{l.relevance}</p> : null}
       <p className={META} data-research-line="strength">{l.strength}</p>
       <p className={META} data-research-line="stance" data-stance={p.stance}>{l.stance}</p>
       {l.choice ? (
