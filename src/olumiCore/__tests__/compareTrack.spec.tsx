@@ -4,11 +4,12 @@
  * versions `who`, Cell and ResultSide `chance`).
  */
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render } from '@testing-library/react'
-import { ComparedLists, type Compared } from '../compare'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { ComparedLists, CoreCompare, type Compared } from '../compare'
 import { ScenarioComparisonView, type ScenarioComparison } from '../scenarioCompare'
+import { setTeamFetch } from '../team/api'
 
-afterEach(() => cleanup())
+afterEach(() => { cleanup(); setTeamFetch(null) })
 
 const CORE: Compared = {
   versions: [{ n: 1, at: 't1', proposedBy: 'Olumi', briefBy: 'Ada', approvedBy: 'Ada', who: 'CORE-WHO-1' }, { n: 2, at: 't2', proposedBy: 'Ada', briefBy: null, approvedBy: 'Ada', who: 'CORE-WHO-2' }],
@@ -91,5 +92,68 @@ describe("each chance as its option card draws it: core's headline, then the car
     const li = container.querySelector('[data-testid="team-compare-results"] li')!
     expect(li.textContent).toContain(`about 13% (${COMP.text})`)
     expect(li.textContent).not.toContain(LONG)
+  })
+})
+
+
+// ── UI audit of e646e3a8 (UI session, 7 Nov): the rows read the real marks the track draws, never ShiftTrack's own props ──────────────────
+/** Where a drawn mark sits, as a percentage of the track: read from the mark's own style (PanelFigure markerLeft), never from a data attribute. */
+// The mark's own place is `calc(<n>% - 5.5px)` (half its 11px width), inside clamp(0px, …, calc(100% - 11px)); the bound is not the place.
+const placed = (el: Element | null) => { const m = /calc\(([\d.]+)% - 5\.5px\)/.exec(el?.getAttribute('style') ?? ''); return m ? Number(m[1]) : null }
+/** An option's own row inside an aim's own section, by the aim's and the option's exact labels. */
+const rowOf = (c: HTMLElement, aim: string, option: string) => [...[...c.querySelectorAll<HTMLElement>('[data-compare-aim]')].find((e) => e.getAttribute('aria-label') === aim)!
+  .querySelectorAll<HTMLElement>('[data-compare-option]')].find((r) => r.querySelector('p')!.textContent === option)!
+const opt = (label: string, a: number | null, b: number | null) => ({ label, only_in: null, only_in_text: null, a: { cells: [{ ...cell(`A ${label} ${a}`, a), headline: `A ${a}` }] }, b: { cells: [{ ...cell(`B ${label} ${b}`, b), headline: `B ${b}` }] } })
+const aimOf = (label: string, status: string, options: unknown[]) => ({ label, kind: 'aim', status, limitation: null, only_in_text: null, a: { label, measure: 'M', target: 'T1' }, b: { label, measure: 'M', target: 'T2' }, options })
+const WITH = (aims: unknown[]): ScenarioComparison => ({ ...PAIR(0.5, 0.9), aims: aims as never })
+
+describe('UI audit: each track is its own option\'s, with the first side hollow and the second filled, at core\'s numbers', () => {
+  it('two aims, two options each, distinct numbers: every hollow mark sits at its first side\'s number, every filled mark at its second side\'s, each named', async () => {
+    const { container } = render(<ScenarioComparisonView c={WITH([aimOf('Revenue', 'comparable', [opt('Consult', 0.12, 0.47), opt('Diagnostic', 0.49, 0.55)]), aimOf('Pipeline', 'comparable', [opt('Consult', 0.75, 0.3), opt('Diagnostic', 0.05, 0.95)])])} />)
+    const want: [string, string, number, number][] = [['Revenue', 'Consult', 12, 47], ['Revenue', 'Diagnostic', 49, 55], ['Pipeline', 'Consult', 75, 30], ['Pipeline', 'Diagnostic', 5, 95]]
+    for (const [aim, option, a, b] of want) {
+      const row = rowOf(container, aim, option), track = row.querySelector('[data-compare-track]')!
+      expect(placed(track.querySelector('[data-mark="earlier"]')), `${aim}/${option} hollow`).toBe(a)
+      await waitFor(() => expect(placed(track.querySelector('[data-mark="now"]')), `${aim}/${option} filled`).toBe(b))
+      expect(track.getAttribute('aria-label')).toBe(`Rota: A ${a / 100}; Busier week (what-if): B ${b / 100}`)
+    }
+  })
+  it('a different target: no track and no key, since two chances of different targets are not one chance moving', () => {
+    const { container } = render(<ScenarioComparisonView c={WITH([aimOf('Revenue', 'different_target', [opt('Consult', 0.12, 0.47)])])} />)
+    expect(container.querySelector('[data-compare-track]')).toBeNull()
+    expect(container.querySelector('[data-compare-track-key]')).toBeNull()
+  })
+  it('an older core (cells with no chance, headline or companion at all): the whole value in today\'s look, no companion, no track, no key', () => {
+    const old = { value: 'about 13% (about 16% without Olumi\'s suggested risk)', title: 'T', olumi: null, lead: null, condition: null }
+    const c = WITH([aimOf('Revenue', 'comparable', [{ label: 'Consult', only_in: null, only_in_text: null, a: { cells: [old] }, b: { cells: [old] } }])])
+    const { container } = render(<ScenarioComparisonView c={c} />)
+    const v = container.querySelector('[data-compare-value]')!
+    expect([v.textContent, v.getAttribute('class')]).toEqual([old.value, null])
+    expect([container.querySelector('[data-compare-companion]'), container.querySelector('[data-compare-track]'), container.querySelector('[data-compare-track-key]')]).toEqual([null, null, null])
+  })
+  it('a chance of exactly 0 is a mark at 0%; a number that is not one draws none', () => {
+    const { container } = render(<ScenarioComparisonView c={WITH([aimOf('Revenue', 'comparable', [opt('Consult', 0, Number.NaN)])])} />)
+    const track = rowOf(container, 'Revenue', 'Consult').querySelector('[data-compare-track]')!
+    expect([placed(track.querySelector('[data-mark="earlier"]')), track.querySelector('[data-mark="now"]')]).toEqual([0, null])
+  })
+})
+
+describe('UI audit item 1: versions picked later-first are asked earlier-first, and the key follows core\'s own order', () => {
+  it('Earlier = 3, Later = 2: asked as from=2&to=3; the hollow mark is version 2\'s number and the key says so', async () => {
+    const asked: string[] = []
+    // Core's answer for 2 → 3, as core gives it whatever order it is asked in (core service.ts compare: [lo, hi]).
+    const answer: Compared = { versions: [{ n: 2, at: 't2', proposedBy: 'Ada', briefBy: null, approvedBy: 'Ada', who: 'W2' }, { n: 3, at: 't3', proposedBy: 'Ada', briefBy: null, approvedBy: 'Ada', who: 'W3' }],
+      changes: [], results: [{ kind: 'chance', option: 'hire', optionLabel: 'Hire', aim: 'Aim', condition: null, move: 'up', label: 'L', move_text: 'up',
+        before: { value: 'about 20%', title: 't', olumi: null, chance: 0.2, headline: 'about 20%', companion: null }, after: { value: 'about 70%', title: 't', olumi: null, chance: 0.7, headline: 'about 70%', companion: null } }] }
+    setTeamFetch((async (u: unknown) => { asked.push(String(u)); return new Response(JSON.stringify(answer), { status: 200 }) }) as unknown as typeof fetch)
+    render(<CoreCompare sid="s_1" latest={3} id="v" boxed />)
+    fireEvent.change(screen.getByTestId('v-from'), { target: { value: '3' } })
+    fireEvent.change(screen.getByTestId('v-to'), { target: { value: '2' } })
+    fireEvent.click(screen.getByTestId('v-go'))
+    await screen.findByTestId('v-out')
+    expect(asked).toEqual(['/api/scenarios/s_1/compare?from=2&to=3'])
+    const track = document.querySelector('[data-compare-track]')!
+    expect([placed(track.querySelector('[data-mark="earlier"]')), track.getAttribute('aria-label')]).toEqual([20, 'Version 2: about 20%; Version 3: about 70%'])
+    expect([...document.querySelectorAll('[data-compare-key]')].map((e) => e.textContent)).toEqual(['Version 2', 'Version 3'])
   })
 })
