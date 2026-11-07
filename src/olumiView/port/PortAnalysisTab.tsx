@@ -8,8 +8,8 @@
  * it": drivers, what would have to be true, D8, D5, trade-offs, worth checking first) and "What to act on next"; then core's notes behind
  * "About these numbers".
  *
- * Not mounted here, on purpose: `KeyQuestionCard` (its prompt, `sharpen[0]`, is already a row of "What to act on next") and `FactorInsights`
- * (the Reasoning tab already draws every premise once, under "Assumptions and evidence").
+ * The crafted key-question card and factor insights are not ported (removed 7 Nov, UI's checker): core's first prompt is already a row of
+ * "What to act on next", and the Reasoning tab already draws every premise once, under "Assumptions and evidence".
  */
 import type { ViewModel, ViewTurn } from '../client'
 import { FigureEdit } from '../FigureEdit'
