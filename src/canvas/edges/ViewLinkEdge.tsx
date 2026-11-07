@@ -70,7 +70,6 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // Placed again only when the path, the cards or the words' size change (the off-path search is the costly part). A rail's path fixes its rail.
   const placed: Placed = useMemo(() => (rail ? railWordsAt(rail, size, cards) : linkWordsAt(path, cards, size, { x: midX, y: midY })),
     [path, cards, size, midX, midY]) // eslint-disable-line react-hooks/exhaustive-deps -- `rail` follows `path`
-  if (!driver && !focused && !linkDrawn(link, active)) return null
   // R25 (plan v3 item 7, Paul's 2A): at rest a link says its sign and any "!"; its strength in core's words shows while the link is selected
   // or focused, or a card at either end is hovered or selected, and on a driver link.
   const near = selected || focused || driver || active.has(source) || active.has(target)
@@ -80,6 +79,25 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // Words with no room within reach of their link (PL/DL 7 Nov: never detached) are hidden at rest and shown, with their leader, while the
   // link is near. Hidden, not removed, so they are still measured: as the strength words leave, the sign alone may fit by the link again.
   const hidden = placed.far === true && !near
+  // The remove control (R25 slice 2b) goes by the words' own rule: at the point nearest the link where its measured box touches no card
+  // and not the link's words (DL 7 Nov: under the words it covered OC1 "total capacity" at every width). Measured as it attaches and
+  // whenever its size changes (its ask is wider than its button); until measured it is not shown.
+  const offering = (selected || focused) && link.remove != null
+  const [ctl, setCtl] = useState({ w: 0, h: 0 })
+  const ctlSeen = useRef<ResizeObserver | null>(null)
+  const attachCtl = useCallback((el: HTMLDivElement | null) => {
+    ctlSeen.current?.disconnect(); ctlSeen.current = null
+    if (!el) return
+    const read = () => setCtl((s) => (s.w === el.offsetWidth && s.h === el.offsetHeight ? s : { w: el.offsetWidth, h: el.offsetHeight }))
+    read()
+    if (typeof ResizeObserver !== 'undefined') { ctlSeen.current = new ResizeObserver(read); ctlSeen.current.observe(el) }
+  }, [])
+  const ctlAt: Placed | null = useMemo(() => {
+    if (!offering || ctl.w === 0) return null
+    const shownWords = words && !hidden ? [{ id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : []
+    return linkWordsAt(path, [...cards, ...shownWords], ctl, { x: midX, y: midY })
+  }, [offering, ctl, words, hidden, x, y, size, path, cards, midX, midY])
+  if (!driver && !focused && !linkDrawn(link, active)) return null
   const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
   return (
     <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
@@ -101,11 +119,15 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
           </div>
         </EdgeLabelRenderer>
       )}
-      {/* R25 slice 2b: where core names the one record this line stands for (`remove`), the selected or focused link offers to take it off,
-          under its words (or at its middle when it has none), in the label layer above the cards. */}
-      {(selected || focused) && link.remove != null ? (
+      {/* R25 slice 2b: where core names the one record (and part) this line stands for (`remove`), the selected or focused link offers to
+          take it off, in the label layer above the cards, at its own clear point (`ctlAt`), with a leader to the link when it sits off it. */}
+      {offering && ctlAt?.leaderTo ? (
+        <path data-view-link-remove-leader={`links.${i}`} d={`M ${ctlAt.x},${ctlAt.y} L ${ctlAt.leaderTo.x},${ctlAt.leaderTo.y}`} fill="none" stroke={stroke} strokeWidth={1} strokeDasharray="2 3" />
+      ) : null}
+      {offering && link.remove != null ? (
         <EdgeLabelRenderer>
-          <div style={{ position: 'absolute', transform: `translate(-50%, 0) translate(${x}px, ${y + (words && !hidden ? size.h / 2 + 4 : 8)}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z + 1 }}>
+          <div ref={attachCtl} data-link-remove-at={`links.${i}`}
+            style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${ctlAt?.x ?? x}px, ${ctlAt?.y ?? y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z + 1, ...(ctlAt === null ? { visibility: 'hidden' as const } : {}) }}>
             <LinkRemove edge={id} remove={link.remove} />
           </div>
         </EdgeLabelRenderer>

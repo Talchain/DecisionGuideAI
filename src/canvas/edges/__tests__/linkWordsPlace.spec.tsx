@@ -220,3 +220,36 @@ describe('on the canvas, the edge places its words against the cards as React Fl
     } finally { restore() }
   })
 })
+
+describe('the remove control sits by the words\' rule (DL 7 Nov: under the words it covered OC1 "total capacity" at every width)', () => {
+  /** Both labels measured as the browser measured them: the words 11 x 18, the control (its ask) 210 x 28. */
+  function measureLabels(): () => void {
+    const was = { w: Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')!, h: Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')! }
+    const of = (el: HTMLElement) => (el.hasAttribute('data-view-link-words') ? { w: 11, h: 18 } : el.hasAttribute('data-link-remove-at') ? { w: 210, h: 28 } : { w: 0, h: 0 })
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get(this: HTMLElement) { return of(this).w } })
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get(this: HTMLElement) { return of(this).h } })
+    return () => { Object.defineProperty(HTMLElement.prototype, 'offsetWidth', was.w); Object.defineProperty(HTMLElement.prototype, 'offsetHeight', was.h) }
+  }
+  const link = { from: 'a', to: 'b', kind: 'plain', label: '!', title: 't', doubt: false, alert: true, proposed: false, effect: null, remove: { record: 'total_def', part: 'existing_capacity' } } as unknown as ViewLink
+  it('catch: a selected removable link\'s control touches no card and not its words; until measured it is not shown', () => {
+    // A card below the words, where the control used to hang (under the words, at the middle): the words fit by the link, the control did not.
+    const below = { id: 'oc1', x: mx - 150, y: my + 12, w: 300, h: 120 }
+    const restore = measureLabels()
+    try {
+      const c = render(<ReactFlowProvider initialNodes={[node(below)]}><EdgeLabelLayer><svg>
+        <Edge id="e" source="a" target="b" {...ends} data={{ link, i: 0 }} selected />
+      </svg></EdgeLabelLayer></ReactFlowProvider>).container
+      const ctl = c.querySelector<HTMLElement>('[data-link-remove-at="links.0"]')!
+      expect(ctl.style.visibility).toBe('')
+      const at = drawnAt(ctl), words = drawnAt(c.querySelector<HTMLElement>('[data-view-link-words="links.0"]')!)
+      expect(boxOver(at, { w: 210, h: 28 }, below), `${JSON.stringify(at)} over the card`).toBe(false)
+      expect(boxOver(at, { w: 210, h: 28 }, { x: words.x - 5.5, y: words.y - 9, w: 11, h: 18 })).toBe(false)
+    } finally { restore() }
+    cleanup()
+    // CONTRAST: not measured (jsdom's 0 x 0) → held hidden, never drawn over a card at a guessed place
+    const unmeasured = render(<ReactFlowProvider initialNodes={[node(below)]}><EdgeLabelLayer><svg>
+      <Edge id="e" source="a" target="b" {...ends} data={{ link, i: 0 }} selected />
+    </svg></EdgeLabelLayer></ReactFlowProvider>).container
+    expect(unmeasured.querySelector<HTMLElement>('[data-link-remove-at="links.0"]')!.style.visibility).toBe('hidden')
+  })
+})
