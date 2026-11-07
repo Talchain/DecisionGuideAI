@@ -1,6 +1,7 @@
 /**
  * V11: the revealed views drawn on the card they are about (./reveal.ts says where and which). On the card, the people whose view sits there
- * as initials in its marks row; below it, on its outgoing link, the consequential disagreement as a chip. Selecting either opens that view
+ * as initials in its marks row; below it, on its outgoing link, the consequential disagreement as a chip: with core's `collab.marks`, one
+ * chip per card in core's own short words ("Priya and Tom differ") with the people's initials. Selecting either opens that view
  * in the dock (the Team tab). Every word is core's: the person's name, their figure's label and text, core's heading for the effect.
  */
 import { FileText, GitFork } from 'lucide-react'
@@ -11,9 +12,9 @@ import { CARD_WIDTH } from './layout'
 import { marksOn, revealOf, useReveal, type Mark } from './reveal'
 import { evidenceOn } from './evidence'
 
-/** Open one view in the dock. */
-export function openView(id: number): void {
-  useReveal.getState().select(id)
+/** Open one view in the dock (and, from a chip, the card it concerns: its ring is the one selection ring). */
+export function openView(id: number, card: string | null = null): void {
+  useReveal.getState().select(id, card)
   useUIStore.getState().forceActivateOutputTab('team')
 }
 
@@ -66,17 +67,26 @@ function useMarks(card: string) {
   return { ...marksOn(revealOf(view), card), selected, heading }
 }
 
+/** Overlapping initials for the people a chip gathers (a duo reads as one group). */
+function People({ people }: { people: readonly { readonly view: number; readonly by: string }[] }): JSX.Element {
+  return (
+    <span aria-hidden="true" className="inline-flex flex-none">
+      {people.map((p, i) => <span key={p.view} className={`inline-grid h-[18px] w-[18px] place-items-center rounded-full border border-panel-border bg-canvas text-text-body ${i > 0 ? '-ml-1.5' : ''}`}>{initial(p.by)}</span>)}
+    </span>
+  )
+}
+
 /** The people whose view sits on this card, as initials in its marks row. */
 export function CardViewInitials({ card }: { card: string }): JSX.Element | null {
-  const { initials, selected, heading } = useMarks(card)
+  const { initials, selected, heading, words } = useMarks(card)
   if (initials.length === 0) return null
   return (
     <span className="nodrag inline-flex gap-1" data-testid={`reveal-initials-${card}`}>
       {initials.map((m) => {
         const on = selected === m.view
         return (
-          <button key={`${m.view}`} type="button" aria-pressed={on} aria-label={markWords(m, heading(m))} title={markWords(m, heading(m))}
-            data-reveal-initial={m.view} data-reveal-status={m.status ?? undefined}
+          <button key={`${m.view}`} type="button" aria-pressed={on} aria-label={words === null ? markWords(m, heading(m)) : `${words} · ${markWords(m, heading(m))}`}
+            title={words === null ? markWords(m, heading(m)) : `${words}\n${markWords(m, heading(m))}`} data-reveal-initial={m.view} data-reveal-status={m.status ?? undefined}
             onClick={(e) => { e.stopPropagation(); openView(m.view) }}
             className={`pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border bg-canvas ${typography.viewLabel} text-text-body transition-colors duration-fast hover:border-text-header ${on ? 'border-text-header ring-1 ring-text-header' : 'border-panel-border'}`}>
             {initial(m.by)}
@@ -89,7 +99,23 @@ export function CardViewInitials({ card }: { card: string }): JSX.Element | null
 
 /** The consequential disagreement on this card's outgoing link: a chip just below the card, out of flow, so no card moves. */
 export function CardViewChips({ card }: { card: string }): JSX.Element | null {
-  const { chips, selected, heading } = useMarks(card)
+  const { chips, chip, selected, heading } = useMarks(card)
+  if (chip !== null) {
+    // Core's one mark for the card (collab.marks): its own short words and the people it gathers; each person's figure is its hover.
+    const on = selected !== null && chip.views.includes(selected)
+    const hover = [chip.text, ...chips.map((m) => markWords(m, heading(m)))].join('\n')
+    // No ring of its own when open: the card's ring is the one selection ring (approved v2.1).
+    return (
+      <div className="nodrag mt-1 flex justify-center" style={{ width: CHIPS_WIDTH, marginLeft: (CARD_WIDTH - CHIPS_WIDTH) / 2 }} data-testid={`reveal-chips-${card}`}>
+        <button type="button" aria-pressed={on} aria-label={hover.replace(/\n/g, ' · ')} title={hover} data-reveal-chip={chip.views[0]} data-reveal-card-chip={card}
+          data-reveal-kind={chip.kind} onClick={(e) => { e.stopPropagation(); openView(chip.views[0]!, card) }}
+          className={`pointer-events-auto inline-flex h-6 max-w-full cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel pl-0.5 pr-2.5 ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'shadow-2' : ''}`}>
+          <People people={chip.people} />
+          <span className="truncate" data-reveal-chip-text="">{chip.text}</span>
+        </button>
+      </div>
+    )
+  }
   if (chips.length === 0) return null
   return (
     // Centred under the card, on its outgoing links, side by side inside the gap to the next row (out of flow: no card moves). Two people

@@ -16,6 +16,8 @@ import { CardViewChips, CardViewInitials } from '../RevealMarks'
 import { RevealDock } from '../RevealDock'
 import { clearWhatIf, useWhatIf } from '../whatif'
 import { setTeamFetch } from '../../olumiCore/team/api'
+import { ViewLensBar } from '../ViewLensBar'
+import { useViewLens } from '../lens'
 
 /** A real View (core e38d9f4c on a copy of Paul's board, seeded demo people; fixtures/v11/README.md). */
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-reveal.view3.json'), 'utf8'))
@@ -25,7 +27,7 @@ const DIAG = 'paid_enterprise_diagnostic'
 
 beforeEach(() => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-a88ba245176e', sid: real.id, view: real, status: 'ready', error: null, stale: false, at: null })
-  useReveal.setState({ selected: null })
+  useReveal.setState({ selected: null, card: null, evidence: null })
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks(); setTeamFetch(null); clearWhatIf() })
 
@@ -98,6 +100,48 @@ describe('core’s own V11 fields (real View, core wip/debate eaab1331, seed 2)'
   })
 })
 
+describe('core’s per-card marks (real View, core wip/debate-r2 5a61369a)', () => {
+  const marked: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-marks.view3.json'), 'utf8'))
+  const id = (n: string) => marked.collab.shared.find((v) => v.by === n)!.id
+  it('one chip per card in core’s own words, of every kind, gathering its people', () => {
+    const r = revealOf(marked)!
+    expect(marksOn(r, DIAG).chip).toEqual({ card: DIAG, kind: 'disagreement', text: 'Priya and Tom differ', views: [id('Priya'), id('Tom')], people: [{ view: id('Priya'), by: 'Priya' }, { view: id('Tom'), by: 'Tom' }], reading: null, options: [] })
+    expect(marksOn(r, DIAG).initials).toEqual([])
+    // Every kind is a chip (Paul's approved grammar, 7 Nov v2.1): "Only Maya raised it" too, so the kind reads without a click.
+    expect(marksOn(r, 'contract_to_cash')).toMatchObject({ chip: { kind: 'unique', text: 'Only Maya raised it', views: [id('Maya')] }, initials: [] })
+    useViewStore.setState({ view: marked })
+    render(<><CardViewChips card={DIAG} /><CardViewChips card="contract_to_cash" /></>)
+    const chips = screen.getByTestId(`reveal-chips-${DIAG}`).querySelectorAll('button')
+    expect(chips).toHaveLength(1)
+    expect(chips[0]!.querySelector('[data-reveal-chip-text]')!.textContent).toBe('Priya and Tom differ')
+    expect(screen.getByTestId('reveal-chips-contract_to_cash').querySelector('[data-reveal-chip-text]')!.textContent).toBe('Only Maya raised it')
+    fireEvent.click(chips[0]!)
+    expect(useReveal.getState()).toMatchObject({ selected: id('Priya'), card: DIAG })
+  })
+  it('opened from the chip, the panel leads with both people, then Olumi’s reading, then core’s question with one primary action', () => {
+    useViewStore.setState({ view: marked })
+    useReveal.setState({ selected: id('Priya'), card: DIAG, evidence: null })
+    render(<RevealDock view={marked} />)
+    expect(screen.getByTestId('reveal-dock-heading').textContent).toBe(marked.model!.cards.find((c) => c.id === DIAG)!.heading)
+    expect([...screen.getByTestId('reveal-dock').querySelectorAll('[data-testid^="reveal-dock-view-"]')].map((e) => e.getAttribute('data-testid'))).toEqual([`reveal-dock-view-${id('Priya')}`, `reveal-dock-view-${id('Tom')}`])
+    expect(screen.getByTestId('reveal-dock-next').textContent).toBe((marked.collab as unknown as { next: { text: string } }).next.text)
+    expect(screen.getByTestId('reveal-dock-bring-evidence')).toHaveTextContent('Bring evidence')
+    fireEvent.click(screen.getByTestId('reveal-dock-keep-open'))
+    expect(useReveal.getState()).toMatchObject({ selected: null, card: null })
+  })
+  it('with core’s requested stance and reading (REQUESTED-FIELD FIXTURE values), each is drawn as given', () => {
+    const shaped = { ...marked, collab: { ...marked.collab,
+      shared: marked.collab.shared.map((v) => (v.by === 'Priya' ? { ...v, stance: 'FIXTURE: Observed, three prospects' } : v)),
+      marks: (marked.collab as unknown as { marks: object[] }).marks.map((m, i) => (i === 0 ? { ...m, reading: { text: 'FIXTURE: Olumi’s reading', note: 'FIXTURE: unconfirmed; Priya and Tom can correct it' } } : m)) } } as unknown as View
+    useViewStore.setState({ view: shaped })
+    useReveal.setState({ selected: id('Priya'), card: DIAG, evidence: null })
+    render(<RevealDock view={shaped} />)
+    expect(screen.getByTestId(`reveal-dock-stance-${id('Priya')}`).textContent).toBe('FIXTURE: Observed, three prospects')
+    expect(screen.getByTestId('reveal-dock-reading')).toHaveTextContent('FIXTURE: Olumi’s reading')
+    expect(screen.getByTestId('reveal-dock-reading-note').textContent).toBe('FIXTURE: unconfirmed; Priya and Tom can correct it')
+  })
+})
+
 describe('on the canvas and in the dock', () => {
   it('the chip and initials say core’s words; selecting one opens it in the Team tab', () => {
     const force = vi.spyOn(useUIStore.getState(), 'forceActivateOutputTab')
@@ -120,11 +164,9 @@ describe('on the canvas and in the dock', () => {
     const run = PRIYA.effects.find((e) => !('refused' in e) && e.status === 'moves') as Extract<typeof PRIYA.effects[number], { status: string }>
     expect(consequence).toHaveTextContent(real.collab.effect_headings.moves)
     expect(consequence).toHaveTextContent(run.gap_text!)
-    expect(within(dock).getByTestId(`reveal-dock-other-${TOM.id}`)).toHaveTextContent('Tom')
-    expect(within(dock).getByTestId(`reveal-dock-other-${MAYA.id}`)).toHaveTextContent('Maya')
     expect(within(dock).getByTestId('reveal-dock-next').textContent).toBe(real.model!.run!.most_likely!.text)
-    fireEvent.click(within(dock).getByTestId(`reveal-dock-other-${TOM.id}`))
-    expect(useReveal.getState().selected).toBe(TOM.id)
+    fireEvent.click(within(dock).getByTestId('reveal-dock-keep-open'))
+    expect(useReveal.getState().selected).toBeNull()
   })
 })
 
@@ -156,5 +198,26 @@ describe('try their figure in place (V11 change 4)', () => {
     fireEvent.click(screen.getByTestId('reveal-dock-untry'))
     await waitFor(() => expect(screen.queryByTestId('reveal-dock-tried')).toBeNull())
     expect(useWhatIf.getState().shown).toBeNull()
+  })
+})
+
+describe('V11 navigation: Model, Explore, Team (Paul 6 Nov)', () => {
+  it('holds three; Explore lists the other lenses in their own words and names the one on; Team opens the Team tab', () => {
+    const force = vi.spyOn(useUIStore.getState(), 'forceActivateOutputTab')
+    useViewLens.setState({ lens: 'full' })
+    render(<ViewLensBar nav />)
+    const bar = screen.getByTestId('lens-bar')
+    expect([...bar.querySelectorAll(':scope > button, :scope > div > button')].map((b) => b.textContent)).toEqual(['Model', 'Explore', 'Team'])
+    fireEvent.click(screen.getByTestId('lens-bar-explore'))
+    const menu = screen.getByTestId('lens-bar-explore-menu')
+    expect([...menu.querySelectorAll('[role="menuitemradio"]')].map((b) => b.getAttribute('data-testid'))).toEqual(['lens-bar-tradeoffs', 'lens-bar-rests_on', 'lens-bar-premortem', 'lens-bar-what_changes', 'lens-bar-what_if'])
+    fireEvent.click(screen.getByTestId('lens-bar-tradeoffs'))
+    expect(useViewLens.getState().lens).toBe('tradeoffs')
+    expect(screen.queryByTestId('lens-bar-explore-menu')).toBeNull()
+    expect(screen.getByTestId('lens-bar-explore')).toHaveTextContent('Trade-offs')
+    fireEvent.click(screen.getByTestId('lens-bar-full'))
+    expect(useViewLens.getState().lens).toBe('full')
+    fireEvent.click(screen.getByTestId('lens-bar-team'))
+    expect(force).toHaveBeenCalledWith('team')
   })
 })

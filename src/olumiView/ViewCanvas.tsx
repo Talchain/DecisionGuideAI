@@ -202,7 +202,8 @@ function ViewFlow() {
       {hasModel ? null : <DraftingBoard />}
       {/* R25 slice 2: the board's own control to add a figure card in the person's words (core's …/figures), above the zoom controls. */}
       {hasModel ? <AddFigure /> : null}
-      {hasModel ? <ViewLensBar /> : null}
+      {/* V11 navigation (Paul 6 Nov): Model, Explore, Team; drop `nav` for the six lens pills. */}
+      {hasModel ? <ViewLensBar nav /> : null}
       {hasModel ? <ViewWhatIfKey /> : null}
       {hasModel ? <ViewTradeOffsKey /> : null}
       {hasModel ? <ViewPreMortemKey /> : null}

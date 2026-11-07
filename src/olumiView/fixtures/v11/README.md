@@ -15,3 +15,5 @@
 - `consulting-evidence.view3.json`: the same REAL View (core eaab1331, seed 2) after two pieces of evidence were added through core's
   zero-call `POST …/evidence` by the seeded Priya and Tom (words in `~/olumi-work/v11-serve/seed.env`). Not considered by Olumi (that
   is an AI turn, refused on the zero-call core), so `considered` is null and core sends no `chain` yet.
+- `consulting-marks.view3.json`: the same REAL View (seed 2 with evidence) read through olumi-core wip/debate-r2 5a61369a, which adds
+  `collab.marks` (one per record the revealed views concern, core's own short words: "Priya and Tom differ", "Only Maya raised it").

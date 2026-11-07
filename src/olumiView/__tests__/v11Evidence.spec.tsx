@@ -22,7 +22,7 @@ const DIAG = 'paid_enterprise_diagnostic'
 
 beforeEach(() => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-a88ba245176e', sid: real.id, view: real, status: 'ready', error: null, stale: false, at: null })
-  useReveal.setState({ selected: null, evidence: null })
+  useReveal.setState({ selected: null, evidence: null, card: null })
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
