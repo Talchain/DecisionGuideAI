@@ -26,6 +26,7 @@ import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { Badge } from '../../olumiView/Badge'
 import { FigureEdit, HeldEditOffer } from '../../olumiView/FigureEdit'
+import { Rename } from '../../olumiView/Rename'
 import { failedOf, failedReasonOf } from '../../olumiView/k5'
 
 export type ViewCardData = { card: Card }
@@ -224,6 +225,8 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
   const perOption = card.figure !== null && (card.values?.length ?? 0) > 1
   // An aim's or limit's target is on its face (below), so it no longer opens the card's other words.
   const more = card.status !== null || (card.reason !== null && !says) || card.premises.length > 0
+  // R25: an approved board offers each card's rename (core's contract; the question is renamed elsewhere).
+  const renamable = useViewStore((st) => st.at === null && st.view?.model?.edit_base != null)
   return (
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
     <div
@@ -327,11 +330,13 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
         )}
       </span>
       <Slot name={VIEW_CARD_SLOTS.olumiBadge} className="absolute bottom-1 right-1 empty:hidden" />
-      {more ? (
+      {more || renamable ? (
         // The card's other words (its status, reason and premises), every one core's, beside the card while it is selected: the
-        // face stays compact so the causal graph reads (Paul 4 Nov), and opening them never changes the card's drawn height.
+        // face stays compact so the causal graph reads (Paul 4 Nov), and opening them never changes the card's drawn height. R25: the
+        // card's Rename (the first direct edit) sits here too, so it never adds height to a card at rest.
         <div hidden={!selected} className={`absolute left-full top-0 z-10 ml-2 space-y-1 rounded-lg border border-border bg-panel p-3 shadow-sm ${typography.viewLabel}`}
           style={{ width: CARD_WIDTH }} data-view-more={id}>
+          {renamable ? <Rename id={id} heading={card.heading} shown /> : null}
           {card.status === null ? null : <p data-view={`${id}.status`}>{card.status}</p>}
           {card.reason === null || says ? null : <p data-view={`${id}.reason`}>{card.reason}</p>}
           {card.premises.map((p, j) => (

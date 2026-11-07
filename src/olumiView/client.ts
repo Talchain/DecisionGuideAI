@@ -97,4 +97,6 @@ export const writes = {
   discard: (proposal: number) => call<unknown>('POST', `/api/proposals/${proposal}/discard`, {}),
   /** The person's own figure for one quantity, as they typed it (API v1.9 `typed`): core reads it as its page does, or refuses in the card's own ask. */
   edit: (sid: string, base: number, quantity: string, typed: string, op: string) => call<{ version: number; n: number; receipt: string }>('POST', `${scenarioPath(sid)}/edit`, { base, quantity, typed, op }),
+  /** R25: their own name for a card (DL contract 02:14Z): saved at once as a person-authored version, only the name changes. */
+  rename: (sid: string, base: number, record: string, label: string, op: string) => call<{ version: number; n: number; receipt: string }>('POST', `${scenarioPath(sid)}/rename`, { base, record, label, op }),
 }
