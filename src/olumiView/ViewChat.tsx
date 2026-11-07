@@ -639,7 +639,8 @@ export function nextStepOf(view: View): NextStep | null {
 }
 
 export const NEXT_STEP_WORDS = {
-  approve: 'Olumi proposes changes to the model, shown on the canvas. Check them against your situation, then approve them or set them aside. Nothing changes until you approve.',
+  // R25 (Paul's 6 Nov test: no ✎ appeared while a proposal waited): say why, here, where the decision is (core holds edits by contract).
+  approve: 'Olumi proposes changes, shown on the canvas. Check them against your situation, then approve them or set them aside. Nothing changes until you approve, and figure edits wait until then.',
   figure: 'The chances wait on a figure only you can give:',
   invite: 'Bring in a colleague: each of you gives your own view privately, then you reveal them together and see where you differ.',
 } as const

@@ -167,6 +167,11 @@ export interface NodeQuickActionsProps {
    * drawn twice — ED 02:31Z (D4): "not duplicate 'Ask Olumi'".
    */
   coaching?: ResolvedCoaching
+  /**
+   * R25: whether the "More actions" (⋯) button is drawn. It opens the legacy canvas's context menu by a dispatched event, and the
+   * olumi-core lane never mounts that canvas, so there it opened nothing (Paul's 6 Nov test). The lane's View cards pass `false`.
+   */
+  menu?: boolean
 }
 
 export const NodeQuickActions = memo(function NodeQuickActions({
@@ -177,6 +182,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
   restingIcons,
   coaching = null,
   placement = 'inset',
+  menu = true,
 }: NodeQuickActionsProps) {
   const coachingChip = useCoachingIconChip(nodeId, coaching)
   // v10 (#/canvas2): the Olumi door moves to the card's bottom-right corner (`NodeCornerOlumi`), so the rail does not draw it too.
@@ -510,7 +516,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           hover hint that has to stay short is not where it fits, and the next
           reader should not inherit a comment describing copy the file no longer
           contains. */}
-      <Tooltip asChild delay={300} content="More actions">
+      {menu && <Tooltip asChild delay={300} content="More actions">
         <button
           type="button"
           onClick={handleOpenMenu}
@@ -536,7 +542,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
         >
           <MoreHorizontal size={NODE_RAIL_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
         </button>
-      </Tooltip>
+      </Tooltip>}
     </div>
     {/* Paul, 24 Oct: the Olumi mark rests in the card's bottom-right corner, and a click puts a prompt about THIS card
         into the chat. It is the one door that stays visible; Challenge and More still show on selection or focus. */}

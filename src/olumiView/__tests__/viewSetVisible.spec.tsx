@@ -14,7 +14,9 @@ import path from 'node:path'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
-import { ViewCard } from '../../canvas/nodes/ViewCardNode'
+import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
+import { ViewCard, ViewCardNode } from '../../canvas/nodes/ViewCardNode'
+import { NodeQuickActions } from '../../canvas/nodes/shared/NodeQuickActions'
 import { useMe } from '../../olumiCore/me'
 
 const SID = 's_0123456789ab'
@@ -28,14 +30,26 @@ beforeEach(() => {
 afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
 
 describe('an open figure editor stays visible, whether or not its card is hovered or selected', () => {
-  it('the card neither hovered nor selected: ✎ opens the editor, and the wrapper holding Set stays visible while it is open or focused', () => {
+  // R25 (Paul's 6 Nov test: "I can't find manual editing"): the ✎ is the at-rest cue wherever core offers an edit; its words stay quiet
+  // until hover, focus or selection. The wrapper carries no hiding rule, so the open editor and its Set can never be hidden (R4 run 3).
+  it('the card neither hovered nor selected: the ✎ glyph is drawn at rest, opens the editor, and nothing wraps Set in a hiding rule', () => {
     render(<ViewCard card={card} selected={false} />)
+    expect(screen.getByTestId(`view-figure-glyph-${card.id}`).textContent).toBe('✎')
+    const wrap = screen.getByTestId(`view-figure-edit-${card.id}`).closest<HTMLElement>('[data-figure-edit-wrap]')!
+    expect(wrap.className).toBe('')
     fireEvent.click(screen.getByTestId(`view-figure-edit-${card.id}`))
-    const set = screen.getByTestId(`view-figure-set-${card.id}`)
-    const wrap = set.closest<HTMLElement>('[data-at-rest-hidden]')!
-    expect(wrap).not.toBeNull()
-    expect(wrap.classList.contains('invisible'), 'still hidden at rest when closed').toBe(true)
-    expect([wrap.classList.contains('has-[form]:visible'), wrap.classList.contains('focus-within:visible')]).toEqual([true, true])
+    expect(screen.getByTestId(`view-figure-set-${card.id}`).closest('[data-figure-edit-wrap]')).toBe(wrap)
+  })
+
+  it('R25: a View card node draws no "More actions" (⋯) button, whose menu the lane never mounts', () => {
+    render(<ReactFlowProvider><ViewCardNode {...({ id: card.id, data: { card, label: card.heading }, selected: true, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>)
+    expect(screen.getByTestId(`view-figure-glyph-${card.id}`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`node-action-menu-${card.id}`)).toBeNull()
+  })
+
+  it('must not change: the legacy canvas\'s quick actions still draw ⋯ (its context menu is mounted there)', () => {
+    render(<NodeQuickActions nodeId="legacy" nodeType="factor" label="Legacy" alwaysVisible />)
+    expect(screen.getByTestId('node-action-menu-legacy')).toBeInTheDocument()
   })
 
   it('the badge (a focusable button) stays visible while it holds focus', () => {
@@ -46,6 +60,6 @@ describe('an open figure editor stays visible, whether or not its card is hovere
 
   it('CONTRAST: a selected card shows them with no rule at all', () => {
     render(<ViewCard card={card} selected />)
-    expect(screen.getByTestId(`view-figure-edit-${card.id}`).closest<HTMLElement>('[data-at-rest-hidden]')!.className).toBe('')
+    expect(screen.getByTestId(`view-figure-edit-${card.id}`).closest<HTMLElement>('[data-figure-edit-wrap]')!.className).toBe('')
   })
 })

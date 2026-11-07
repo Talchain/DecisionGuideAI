@@ -42,14 +42,16 @@ afterEach(() => { cleanup(); setTeamFetch(null); resetWrites(); useViewStore.set
 const posts = () => calls.filter((c) => c.method === 'POST')
 
 describe('lane C: a card reads heading and figure first', () => {
-  it('core\'s detail is the heading\'s hover, never a line; the figure\'s control keeps its place but shows only on hover, focus or selection', async () => {
-    const { QUIET } = await import('../FigureEdit')
+  // R25 (Paul's 6 Nov test: "I can't find manual editing"): the figure's ✎ is its at-rest cue; only its words wait for hover, focus or selection.
+  it('core\'s detail is the heading\'s hover, never a line; the figure\'s ✎ shows at rest, its words only on hover, focus or selection', async () => {
+    const { QUIET_WORDS } = await import('../FigureEdit')
     const detailed = view.model!.cards.find((c) => c.detail !== '')!
     const quiet = render(<ViewCard card={card} />).container
-    expect(quiet.querySelector(`[data-testid="view-figure-edit-${card.id}"]`)?.className).toContain(QUIET)
+    expect(quiet.querySelector(`[data-testid="view-figure-glyph-${card.id}"]`)?.className ?? '').not.toContain('opacity-0')
+    expect(quiet.querySelector(`[data-testid="view-figure-words-${card.id}"]`)?.className).toContain(QUIET_WORDS)
     quiet.remove()
     const chosen = render(<ViewCard card={card} selected />).container
-    expect(chosen.querySelector(`[data-testid="view-figure-edit-${card.id}"]`)?.className).not.toContain(QUIET)
+    expect(chosen.querySelector(`[data-testid="view-figure-words-${card.id}"]`)?.className).not.toContain('opacity-0')
     chosen.remove()
     // Core's detail is hover text, never a line (DL 4 Nov: it repeated the heading, said the kind word and spelled provenance out).
     const drawn = render(<ViewCard card={detailed} />).container
@@ -116,7 +118,8 @@ describe('an Olumi estimate reads as Olumi\'s at a glance (core L1/L2)', () => {
     sel.remove()
     const b = render(<ViewCard card={theirs} />).container
     expect(b.querySelector(`[data-view="${theirs.id}.figure.text"]`)?.hasAttribute('data-olumi')).toBe(false)
-    expect(b.querySelector(`[data-testid="view-figure-edit-${theirs.id}"]`)?.textContent).toBe('Change figure')
+    expect(b.querySelector(`[data-testid="view-figure-edit-${theirs.id}"]`)?.getAttribute('aria-label')).toBe('Change figure')
+    expect(b.querySelector(`[data-testid="view-figure-glyph-${theirs.id}"]`)?.textContent).toBe('✎')
   })
 })
 

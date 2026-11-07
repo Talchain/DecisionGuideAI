@@ -266,9 +266,10 @@ export function ViewCard({ card, selected = false, restsOn = null, driverOf = nu
         </div>
       )}
       {card.figure === null ? null : <Slot name={VIEW_CARD_SLOTS.valuesBand} className="block empty:hidden" />}
-      {/* At rest the ✎ shows on hover or selection; an OPEN editor (its form) or one holding focus stays shown whatever the pointer does
-          (R4 witness run 3: the card re-laid out taller moved from under the pointer and the re-laid node lost its selection, so Set hid). */}
-      {card.figure?.edit ? <span className={selected ? '' : 'invisible group-hover:visible has-[form]:visible focus-within:visible'} data-at-rest-hidden=""><FigureEdit id={card.id} edit={card.figure.edit} {...(estimate ? { glyph: '✎', label: 'Give yours' } : {})} quiet={!selected} /></span> : null}
+      {/* R25 (Paul's 6 Nov test: "I can't find manual editing"): wherever core offers an edit, the ✎ shows at rest as the cue; its words
+          show on hover, focus or selection (FigureEdit's glyph form, Paul 24 Oct: no static repeating text). Never hidden, so an open
+          editor or its Set button can never be hidden either (R4 witness run 3). */}
+      {card.figure?.edit ? <span data-figure-edit-wrap=""><FigureEdit id={card.id} edit={card.figure.edit} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} quiet={!selected} /></span> : null}
       {card.rows.map((row, i) => (
         <span key={i} className="contents">
           <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === lead} />
@@ -378,7 +379,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
       <div className={selected === true || noted ? '' : 'opacity-0 group-hover/vcard:opacity-100 focus-within:opacity-100'} data-olumi-controls="">
-        <NodeQuickActions nodeId={id} nodeType={askKindOf(card.family)} label={card.heading} placement="below" alwaysVisible={selected === true || noted} />
+        <NodeQuickActions nodeId={id} nodeType={askKindOf(card.family)} label={card.heading} placement="below" alwaysVisible={selected === true || noted} menu={false} />
       </div>
       <Slot name={VIEW_CARD_SLOTS.rail} className="absolute left-0 top-full empty:hidden" />
       <Handle type="source" position={Position.Bottom} isConnectable={false} className="!opacity-0" />
