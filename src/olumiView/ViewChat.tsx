@@ -783,6 +783,10 @@ export function ViewChat() {
     if (ff?.offer == null) closeFigureFirst()
     else void openFigureFirst()
   }, [signature]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The Next step core's View asks for, if any; while it shows, the newest reply's move tap is tucked behind More ways (below).
+  const step = view === null ? null : nextStepOf(view)
+  const newest = view === null || view.chat.length === 0 ? null : view.chat[view.chat.length - 1]!
+  const tucked = step !== null && newest?.answer?.next.newest ? newest : null
   const give = () => void giveFigureFirst().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-given') })
   const show = () => void showOlumiFigure().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-shown') })
   return (
@@ -793,18 +797,20 @@ export function ViewChat() {
         {/* R25 (Paul 7 Nov, plan v3 item 4: reasoning first): Olumi's latest reply above the fold, then the one next move (and any change
             waiting, its group lines and problems in view), then every method behind one disclosure, ranked by nobody here. */}
         <ModelNoticeLine />
-        {view === null ? null : <ViewConversation chat={view.chat} moves />}
+        {/* One next move (DL ruling b, Paul 6 Nov: progressive disclosure): while the Next step card shows, the reply's own move tap waits
+            behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
+        {view === null ? null : <ViewConversation chat={view.chat} moves={step === null} />}
         {view === null ? null : <NextStepCard view={view} busy={busy} />}
         {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
         <div {...{ [VIEW_NOTE_SLOT]: '' }} />
         {ffMine && ffOpen ? <FigureFirstEntryPanel held={held} onGive={give} onShow={show} onClose={closeFigureFirst} /> : null}
         {ffMine && ffShown ? <FigureFirstShownPanel onClose={() => useFigureFirst.setState({ shown: null })} /> : null}
         {ff?.given == null ? null : <FigureFirstSideBySide given={ff.given} headings={ff.headings} />}
-        {session === null ? null : (
+        {session === null && tucked === null ? null : (
           <details className="space-y-4" data-testid="view-more-ways">
             <summary className={`${typography.viewPanelBody} flex min-h-[44px] cursor-pointer items-center text-info`}>{MORE_WAYS}</summary>
-            <SessionGoal session={session} held={held} />
-            <MethodMenu session={session} held={held} />
+            {tucked === null ? null : <div data-testid="view-more-ways-move"><MoveTap turn={tucked.id} next={tucked.answer!.next} /></div>}
+            {session === null ? null : <><SessionGoal session={session} held={held} /><MethodMenu session={session} held={held} /></>}
           </details>
         )}
       </div>

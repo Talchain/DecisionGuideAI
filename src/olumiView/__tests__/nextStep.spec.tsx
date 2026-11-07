@@ -10,7 +10,7 @@ import { cleanup, fireEvent, render } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
-import { NEXT_STEP_WORDS, nextStepOf, ViewChat } from '../ViewChat'
+import { MORE_WAYS, NEXT_STEP_WORDS, nextStepOf, ViewChat } from '../ViewChat'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
 const show = (view: View) => {
@@ -89,5 +89,28 @@ describe('Olumi\'s newest reply first', () => {
     expect(earlier.tagName).toBe('DETAILS')
     expect(earlier.querySelectorAll('[data-view-turn]')).toHaveLength(last)
     expect(earlier.querySelector('[data-view-turn="chat.0"] [data-view="chat.0.said"]')?.textContent).toBe(view.chat[0]!.said)
+  })
+})
+
+describe('one next move (DL ruling b, 7 Nov; Paul 6 Nov: progressive disclosure)', () => {
+  const moves = (el: Element | null) => (el === null ? [] : [...el.querySelectorAll('[data-testid="view-next-move"]')])
+  it('catch: while the Next step shows, the reply\'s move tap waits behind "More ways to think about this": one move control in all', () => {
+    const view = golden('proposal'), next = view.chat[view.chat.length - 1]!.answer!.next
+    expect(nextStepOf(view)).not.toBeNull()
+    const c = show(view)
+    expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(0)
+    const more = c.querySelector<HTMLDetailsElement>('[data-testid="view-more-ways"]')!
+    expect(more.querySelector('summary')!.textContent).toBe(MORE_WAYS)
+    expect(moves(more).map((b) => b.textContent)).toEqual([next.label]) // core's label, verbatim
+    expect(moves(c)).toHaveLength(1)
+    // Core's words for the move stay in the reply.
+    expect(c.querySelector('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')).not.toBeNull()
+  })
+  it('must not change: with no Next step, the move tap stays under the reply and More ways holds no move', () => {
+    const p = golden('proposal'), view: View = { ...p, proposal: null, collab: { ...p.collab, alone: false }, model: { ...p.model!, run: p.model!.run === null ? null : { ...p.model!.run, waits_on: null } } }
+    expect(nextStepOf(view)).toBeNull()
+    const c = show(view)
+    expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(1)
+    expect(moves(c.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
   })
 })

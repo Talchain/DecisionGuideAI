@@ -16,6 +16,7 @@ import { ViewChances } from '../ViewChances'
 import { BEHIND_SHOWN } from '../layout'
 import { useViewStore } from '../store'
 import { useMe } from '../../olumiCore/me'
+import { typography } from '../../styles/typography'
 
 const base = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8')) as View).model!
 afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
@@ -76,7 +77,8 @@ describe('Analysis in the previous PoC\'s sections', () => {
     const c = render(<ViewChances model={base} />).container
     const line = c.querySelector('[data-view="run.science.0.line"]')!, give = c.querySelector(`[data-testid="worth-give-${worth.figure!.id}"]`)!
     const block = give.closest(`[data-worth-give="${worth.id}"]`)!
-    expect([line.parentElement!.contains(give), block !== null, block.className.includes('text-[11px]')]).toEqual([false, true, true])
+    // R25 scale A (Paul 7 Nov): the lane's metadata role, 12px (was the shared 11px panelMeta).
+    expect([line.parentElement!.contains(give), block !== null, block.className.includes(typography.viewPanelMeta)]).toEqual([false, true, true])
     expect(block.previousElementSibling).toBe(line.parentElement)
     expect(block.textContent).toBe(`${worth.figure!.give!.text} ✎.`) // FigureEdit's own sentence close
   })
