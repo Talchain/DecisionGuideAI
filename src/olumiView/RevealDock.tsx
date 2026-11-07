@@ -192,9 +192,11 @@ function bringEvidence(close: () => void): void {
   close()
   if (typeof window === 'undefined') return
   window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
-    const at = document.querySelector<HTMLElement>('[data-testid="team-evidence"]')
-    at?.scrollIntoView({ block: 'start', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true ? 'auto' : 'smooth' })
-    at?.querySelector<HTMLElement>('button, textarea, input')?.focus({ preventScroll: true })
+    // The way to add evidence, never the first button there ("Ask Olumi to consider this" is an Olumi turn): the open form's words field,
+    // else the Team tab's own "Add evidence" opener.
+    const at = document.querySelector<HTMLElement>('[data-testid="team-evidence-body"]') ?? document.querySelector<HTMLElement>('[data-testid="team-evidence-open"]')
+    at?.scrollIntoView({ block: 'center', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true ? 'auto' : 'smooth' })
+    at?.focus({ preventScroll: true })
   }))
 }
 
