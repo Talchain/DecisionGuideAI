@@ -217,7 +217,7 @@ import { useViewCanvas } from '../../olumiView/canvas'
 import { useViewPoll } from '../../olumiView/poll'
 import { useViewNote } from '../../olumiView/note'
 import { useOwnViewFirst } from '../../olumiCore/ownViewFirst'
-import { ViewChancesBlock } from '../../olumiView/ViewChances'
+import { PortAnalysisTab } from '../../olumiView/port/PortAnalysisTab'
 import { ViewModelTabBlock } from '../../olumiView/ViewModelTab'
 import { ViewReasoningBlock } from '../../olumiView/ViewReasoning'
 import { useAnswersAsks, ViewChat, ViewComposer } from '../../olumiView/ViewChat'
@@ -3785,8 +3785,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 {/* The olumi-core lane draws each option's lines from core's View (src/olumiView/), never from the adapter's CEE shape. */}
                 {isPreRun && nodes.length > 0 && ((isOlumiCoreLane() && coreView !== null) || viewOnlyChances !== null) && (
                   <div className="px-4 py-3" data-testid="outputs-pre-run-view-only">
-                    {/* The View's lines as shown (`shownModel`): the approved model's, or a held proposal's under its heading (R25). */}
-                    {isOlumiCoreLane() && coreView !== null ? <ViewChancesBlock /> : viewOnlyChances === null ? null : <ViewOnlyRunChancesBlock chances={viewOnlyChances} />}
+                    {/* The View's lines as shown (`shownModel`): the approved model's, or a held proposal's under its heading (R25), drawn
+                        with the crafted analysis components ported onto olumi.view/3 (src/olumiView/port/, Paul 7 Nov). */}
+                    {isOlumiCoreLane() && coreView !== null ? <PortAnalysisTab /> : viewOnlyChances === null ? null : <ViewOnlyRunChancesBlock chances={viewOnlyChances} />}
                     {programShowsResult && (programDecisionRecord !== null || !isViewer) ? (
                       <div className="mt-3">
                         <RecordYourView canCapture={!isViewer} record={programDecisionRecord} onRecord={openDecisionRecord} testId="analysis-results-record" />
