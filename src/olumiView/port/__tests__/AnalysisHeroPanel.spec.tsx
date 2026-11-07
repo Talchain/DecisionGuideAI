@@ -115,6 +115,24 @@ describe('core\'s lenses (run.lenses, wip/core-port-fields)', () => {
     expect(group('boost_productivity').querySelector('[data-view$=".value"]')).toBeNull()
   })
 
+  it('PL item 5: on a two-aim board each of core\'s lens words appears exactly once, under the dock aim\'s group, and nowhere under the other aim', () => {
+    // core derives run.lenses for the dock's aim only (view.ts lensesOf(cards3, dock3.aim)), and most_likely for that same aim (mostOf);
+    // hiring's dock aim is 'Boost productivity' (its run.aim words), so its most_likely.aim_id is boost_productivity
+    const v = structuredClone(hiring), run = v.model!.run! as unknown as { aim: string; lenses: unknown; most_likely: { aim_id: string } }
+    expect(run.aim).toBe('chance of ‘Boost productivity’')
+    run.lenses = lensesIn(pricing)
+    run.most_likely.aim_id = 'boost_productivity'
+    const c = draw(v)
+    const dock = c.querySelector<HTMLElement>('[data-testid="port-aim-group"][data-aim="boost_productivity"]')!
+    const other = c.querySelector<HTMLElement>('[data-testid="port-aim-group"][data-aim="meet_launch_deadline"]')!
+    for (const l of lensesIn(pricing)) {
+      const hits = [...c.querySelectorAll<HTMLElement>('*')].filter((e) => e.childElementCount === 0 && e.textContent === l.label)
+      expect(hits.length, l.label).toBe(1)
+      expect(dock.contains(hits[0]!), l.label).toBe(true)
+      expect(other.textContent, l.label).not.toContain(l.label)
+    }
+  })
+
   it('negative: lens words with no aim id beside most likely draw no strip, and every group stays on the chance', () => {
     const v = structuredClone(hiring)
     ;(v.model!.run! as unknown as { lenses: unknown }).lenses = lensesIn(pricing)

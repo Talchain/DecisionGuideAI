@@ -68,6 +68,21 @@ describe('the ported option row, goal lens: the chance is the headline, in core\
     expect(container.querySelector('[data-testid="port-row-rests-on"]')).toBeNull()
   })
 
+  it('stacked (UI\'s 1232 look): the name on its own full-width line first, then the mark, readout and chevron; no indent; a 44px target', () => {
+    const { container } = draw(real, 'second_oven', 1, 'goal', true)
+    const button = container.querySelector('button')!
+    expect(button.className).toContain('min-h-[44px]')
+    expect(button.className).toContain('flex-col')
+    const name = container.querySelector('[data-view="second_oven.heading"]')!
+    expect(button.firstElementChild).toBe(name)
+    expect(name.className).toContain('w-full')
+    const line2 = name.nextElementSibling!
+    expect(line2.querySelector('[data-testid="port-row-mark"]')).not.toBeNull()
+    expect(line2.querySelector('[data-view="second_oven.rows.1.value"]')).not.toBeNull()
+    expect(line2.lastElementChild!.tagName.toLowerCase()).toBe('svg')
+    for (const el of container.querySelectorAll<HTMLElement>('[data-testid="port-option-detail"], [data-testid="port-row-rests-on"]')) expect(el.className).not.toMatch(/\bpl-10\b/)
+  })
+
   it('the option name is never cut: no clamp or truncation on it', () => {
     const { container } = draw(real, 'second_oven', 1)
     expect(container.querySelector('[data-view="second_oven.heading"]')!.className).not.toMatch(/line-clamp|truncate/)
