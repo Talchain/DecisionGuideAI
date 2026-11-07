@@ -46,12 +46,20 @@ export function Spine({ model, brief, labels }: { model: ViewModel; brief: strin
   const at = Math.min(active, Math.max(order.length - 1, 0))
 
   // The tab's ring: the kind whose row is pressed, the mark under the pointer, and the mark with keyboard focus. Cleared when the tab goes.
-  const ringed = new Set([...(family === null ? [] : rows.find((r) => r.kind === family)?.cards ?? []).map((c) => c.id), ...[hover, focus].filter((x): x is string => x !== null)])
+  // Hover and focus are held by id, so a card the View no longer draws (a new version, a what-if) is never ringed from a stale id.
+  const present = new Set(order.map((c) => c.id))
+  const ringed = new Set([...(family === null ? [] : rows.find((r) => r.kind === family)?.cards ?? []).map((c) => c.id), ...[hover, focus].filter((x): x is string => x !== null && present.has(x))])
   const key = [...ringed].join('\n')
   useEffect(() => { attCards(key === '' ? [] : key.split('\n')) }, [key])
   useEffect(() => () => attCards([]), [])
 
-  const press = (id: string) => { if (selected.has(id)) useCanvasStore.getState().clearSelection(); else focusNodeById(id) }
+  // Pressing a selected card's mark lets go of that card only: the rest of a multi-selection stays as it is.
+  const press = (id: string) => {
+    const canvas = useCanvasStore.getState()
+    if (!selected.has(id)) focusNodeById(id)
+    else if (selected.size > 1) canvas.selectNodes([...selected].filter((x) => x !== id))
+    else canvas.clearSelection()
+  }
   const go = (i: number) => {
     if (order.length === 0) return
     const k = ((i % order.length) + order.length) % order.length
@@ -74,7 +82,7 @@ export function Spine({ model, brief, labels }: { model: ViewModel; brief: strin
       case 'Home': go(0); break
       case 'End': go(order.length - 1); break
       case 'n': case 'N': step(e.shiftKey ? -1 : 1); break
-      case 'Escape': useCanvasStore.getState().clearSelection(); setFamily(null); setHover(null); break
+      case 'Escape': useCanvasStore.getState().clearSelection(); setFamily(null); setHover(null); setFocus(null); break
       default: return
     }
     e.preventDefault()

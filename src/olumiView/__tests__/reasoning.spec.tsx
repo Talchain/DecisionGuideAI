@@ -361,6 +361,34 @@ describe('the glance as an instrument: each mark rings, selects and follows its 
     await act(async () => { await Promise.resolve() })
     expect(lit()).toEqual([target])
   })
+
+  it('pressing a selected card\'s mark lets go of that card only; the rest of a multi-selection stays', () => {
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    const [a, b] = strip().map((e) => e.dataset['glanceMark']!)
+    act(() => { useCanvasStore.setState({ selection: { nodeIds: new Set([a!, b!]), edgeIds: new Set<string>(), anchorPosition: null } } as never) })
+    fireEvent.click(mark(a!))
+    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([b])
+    fireEvent.click(mark(b!))
+    expect(useCanvasStore.getState().selection.nodeIds.size).toBe(0)
+  })
+
+  it('negative: a card the View no longer draws is not ringed from the mark that was under the pointer', () => {
+    const { rerender } = render(<ViewReasoning model={m} brief={view.brief} />)
+    const gone = strip().map((e) => e.dataset['glanceCard']).find((x): x is string => x !== undefined)!
+    fireEvent.mouseEnter(mark(gone))
+    expect(lit()).toEqual([gone])
+    rerender(<ViewReasoning model={{ ...m, cards: m.cards.filter((c) => c.id !== gone) }} brief={view.brief} />)
+    expect(lit()).not.toContain(gone)
+  })
+
+  it('Esc from a mark also lets go of that mark\'s own ring', () => {
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    const id = strip().map((e) => e.dataset['glanceCard']).find((x): x is string => x !== undefined)!
+    act(() => { mark(id).focus() })
+    expect(lit()).toEqual([id])
+    fireEvent.keyDown(mark(id), { key: 'Escape' })
+    expect(lit()).toEqual([])
+  })
 })
 
 // The redesign's head row (reasoning-redesign-SPEC.md §3 Z1, PR0): one home for the tab's state, above the tab, each state said once in
@@ -497,7 +525,7 @@ describe('each option\'s outcome band', () => {
     return [bar.style.left, bar.style.width, mid.style.left].map((x) => (parseFloat(x).toFixed(2) + '%').replace('.00%', '%'))
   }
   /** The View a core before c838f56 (e16a497) serves: chance rows without `outcome`. */
-  const withoutOutcome = (model: ViewModel) => ({ ...model, cards: model.cards.map((c) => ({ ...c, rows: c.rows.map((r) => { const { outcome: _gone, ...rest } = r as typeof r & { outcome?: unknown }; return rest }) })) }) as unknown as ViewModel
+  const withoutOutcome = (model: ViewModel) => ({ ...model, cards: model.cards.map((c) => ({ ...c, rows: c.rows.map((r) => { const rest: Record<string, unknown> = { ...r }; delete rest['outcome']; return rest }) })) }) as unknown as ViewModel
 
   it('under each chance row, the aim\'s outcome in core\'s own line, its range reading on hover, every option placed on the aim\'s one axis; no card band beside it', () => {
     ready(view)
